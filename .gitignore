@@ -1,4 +1,4 @@
-# --- Node / Next.js ---
+# Node / Next.js
 node_modules
 .next
 dist
@@ -7,7 +7,7 @@ out
 .env.local
 .env.production
 
-# --- Python / FastAPI ---
+# Python / FastAPI
 __pycache__/
 *.pyc
 .venv
@@ -16,14 +16,14 @@ venv/
 *.db
 *.sqlite3
 
-# --- Build / Logs ---
+# Build / Logs
 *.log
 *.pid
 *.seed
 coverage/
 .DS_Store
 
-# --- OS / Misc ---
+# OS / Misc
 .idea/
 .vscode/
 *.swp
