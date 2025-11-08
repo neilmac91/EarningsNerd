@@ -4,6 +4,7 @@ import CompanySearch from '@/components/CompanySearch'
 import EinsteinLogo from '@/components/EinsteinLogo'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import HotFilings from '@/components/HotFilings'
+import TrendingTickers from '@/components/TrendingTickers'
 
 type StockQuote = {
   price?: number | null
@@ -125,6 +126,10 @@ export default async function Home() {
                 </p>
               </div>
             </div>
+          </div>
+
+          <div className="mx-auto max-w-5xl">
+            <TrendingTickers />
           </div>
 
           {/* Stats below search */}

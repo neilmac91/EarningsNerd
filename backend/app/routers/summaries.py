@@ -689,3 +689,16 @@ async def export_summary_csv(
             detail=f"Failed to generate CSV: {str(e)}"
         )
 
+
+def get_generation_progress_snapshot(filing_id: int) -> Optional[Dict[str, Any]]:
+    """Return a copy of the in-memory generation progress for a filing, if available."""
+    progress = _progress_tracker.get(filing_id)
+    if not progress:
+        return None
+
+    snapshot = progress.copy()
+    started_at = snapshot.get("started_at")
+    if started_at:
+        snapshot["elapsedSeconds"] = int(time.time() - started_at)
+    return snapshot
+

@@ -23,7 +23,10 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""  # Webhook signing secret from Stripe dashboard
-    
+
+    # X / Twitter API
+    TWITTER_BEARER_TOKEN: str = ""
+
     # JWT
     SECRET_KEY: str = "change-this-secret-key-in-production"
     ALGORITHM: str = "HS256"

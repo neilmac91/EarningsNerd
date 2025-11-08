@@ -19,6 +19,7 @@ from app.routers import (
     sitemap,
     compare,
     hot_filings,
+    trending,
 )
 from app.config import settings
 
@@ -74,6 +75,7 @@ app.include_router(watchlist.router, prefix="/api/watchlist", tags=["Watchlist"]
 app.include_router(sitemap.router, tags=["SEO"])
 app.include_router(compare.router, prefix="/api/compare", tags=["Compare"])
 app.include_router(hot_filings.router, prefix="/api", tags=["Hot Filings"])
+app.include_router(trending.router, prefix="/api", tags=["Trending"])
 
 
 @app.middleware("http")

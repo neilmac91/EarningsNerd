@@ -44,6 +44,19 @@ export interface Company {
   stock_quote?: StockQuote
 }
 
+export interface TrendingTicker {
+  symbol: string
+  name?: string | null
+  tweet_volume?: number | null
+  sentiment_score?: number | null
+}
+
+export interface TrendingTickerResponse {
+  tickers: TrendingTicker[]
+  source: string
+  timestamp: string
+}
+
 export interface Filing {
   id: number
   filing_type: string
@@ -88,6 +101,11 @@ export const getTrendingCompanies = async (limit: number = 10): Promise<Company[
   const response = await api.get('/api/companies/trending', {
     params: { limit },
   })
+  return response.data
+}
+
+export const getTrendingTickers = async (): Promise<TrendingTickerResponse> => {
+  const response = await api.get('/api/trending_tickers')
   return response.data
 }
 
@@ -419,6 +437,38 @@ export const addToWatchlist = async (ticker: string): Promise<WatchlistItem> => 
 
 export const getWatchlist = async (): Promise<WatchlistItem[]> => {
   const response = await api.get('/api/watchlist')
+  return response.data
+}
+
+export interface WatchlistFilingInsight {
+  id: number
+  filing_type: string
+  filing_date: string | null
+  period_end_date: string | null
+  summary_id: number | null
+  summary_status: string
+  summary_created_at: string | null
+  summary_updated_at: string | null
+  needs_regeneration: boolean
+  progress?: {
+    stage?: string
+    elapsed?: number
+    elapsedSeconds?: number
+  } | null
+}
+
+export interface WatchlistInsight {
+  company: {
+    id: number
+    ticker: string
+    name: string
+  }
+  latest_filing: WatchlistFilingInsight | null
+  total_filings: number
+}
+
+export const getWatchlistInsights = async (): Promise<WatchlistInsight[]> => {
+  const response = await api.get('/api/watchlist/insights')
   return response.data
 }
 
