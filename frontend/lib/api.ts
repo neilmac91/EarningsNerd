@@ -55,6 +55,8 @@ export interface TrendingTickerResponse {
   tickers: TrendingTicker[]
   source: string
   timestamp: string
+  status?: string
+  message?: string
 }
 
 export interface Filing {

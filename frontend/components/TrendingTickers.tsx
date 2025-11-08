@@ -10,6 +10,7 @@ import { formatDistanceToNowStrict } from 'date-fns'
 import { getTrendingTickers, TrendingTicker } from '@/lib/api'
 
 const MENTIONS_REFRESH_INTERVAL = 10 * 60 * 1000 // 10 minutes
+const DEFAULT_EMPTY_MESSAGE = 'Trending data is temporarily unavailable. Please check back soon.'
 
 const formatMentions = (volume?: number | null): string | null => {
   if (volume === null || volume === undefined) {
@@ -97,6 +98,7 @@ export default function TrendingTickers() {
     retry: 1,
   })
 
+  const hasTickers = Boolean(data?.tickers?.length)
   const updatedAgo = useMemo(() => {
     if (!data?.timestamp) {
       return null
@@ -151,9 +153,14 @@ export default function TrendingTickers() {
     )
   }
 
-  if (!data?.tickers?.length) {
-    return null
+  let infoTone = 'border-slate-500/40 bg-slate-500/10 text-slate-200'
+  if (data?.status === 'stale') {
+    infoTone = 'border-amber-400/40 bg-amber-500/10 text-amber-100'
+  } else if (data?.status === 'unavailable') {
+    infoTone = 'border-rose-400/40 bg-rose-500/10 text-rose-200'
   }
+  const showInfoMessage = Boolean(data?.message)
+  const emptyStateMessage = data?.message ?? DEFAULT_EMPTY_MESSAGE
 
   return (
     <section className="mt-12">
@@ -183,11 +190,23 @@ export default function TrendingTickers() {
         </div>
       </header>
 
-      <div className="flex gap-4 overflow-x-auto pb-2">
-        {data.tickers.map((ticker) => (
-          <TrendingTickerCard key={ticker.symbol} ticker={ticker} />
-        ))}
-      </div>
+      {showInfoMessage && (
+        <div className={clsx('mb-4 rounded-xl border px-4 py-3 text-sm', infoTone)}>
+          {data?.message}
+        </div>
+      )}
+
+      {hasTickers ? (
+        <div className="flex gap-4 overflow-x-auto pb-2">
+          {data?.tickers.map((ticker) => (
+            <TrendingTickerCard key={ticker.symbol} ticker={ticker} />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-slate-500/40 bg-slate-500/10 p-4 text-sm text-slate-200">
+          {emptyStateMessage}
+        </div>
+      )}
     </section>
   )
 }
