@@ -67,7 +67,10 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
             # Create a placeholder summary indicating API key is missing
             summary = Summary(
                 filing_id=filing_id,
-                business_overview="Summary generation requires OpenAI API key. Please configure OPENAI_API_KEY in your .env file.",
+                business_overview=(
+                    "Summary generation requires OpenAI API key. "
+                    "Please configure OPENAI_API_KEY in your .env file."
+                ),
                 financial_highlights=None,
                 risk_factors=None,
                 management_discussion=None,
@@ -439,7 +442,12 @@ async def generate_summary_stream(
         can_generate, current_count, limit = check_usage_limit(current_user, db)
         if not can_generate:
             async def error_response():
-                yield f"data: {json.dumps({'type': 'error', 'message': f'You\'ve reached your monthly limit of {limit} summaries. Upgrade to Pro for unlimited summaries.'})}\n\n"
+                message = (
+                    "You've reached your monthly limit of "
+                    f"{limit} summaries. Upgrade to Pro for unlimited summaries."
+                )
+                payload = {"type": "error", "message": message}
+                yield f"data: {json.dumps(payload)}\n\n"
             return StreamingResponse(error_response(), media_type="text/event-stream")
         user_id = current_user.id
     

@@ -1,9 +1,9 @@
-import { ArrowRight, BarChart3, CheckCircle2, Lock, Sparkles, Target, Users, TrendingUp, FileText } from 'lucide-react'
+import { ArrowRight, BarChart3, CheckCircle2, Lock, Sparkles, Target, Users, TrendingUp, Flame } from 'lucide-react'
 import Link from 'next/link'
-import { format } from 'date-fns'
 import CompanySearch from '@/components/CompanySearch'
 import EinsteinLogo from '@/components/EinsteinLogo'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
+import HotFilings from '@/components/HotFilings'
 import TrendingTickers from '@/components/TrendingTickers'
 
 type StockQuote = {
@@ -19,12 +19,6 @@ type Company = {
   name: string
   exchange?: string | null
   stock_quote?: StockQuote | null
-}
-
-type Filing = {
-  id: number
-  filing_type: string
-  filing_date: string | null
 }
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ?? 'http://localhost:8000'
@@ -51,10 +45,7 @@ async function fetchFromApi<T>(path: string, revalidate = 120): Promise<T | null
 }
 
 export default async function Home() {
-  const [trendingCompanies, recentFilings] = await Promise.all([
-    fetchFromApi<Company[]>('/api/companies/trending?limit=6', 180),
-    fetchFromApi<Filing[]>('/api/filings/recent/latest?limit=6', 60),
-  ])
+  const trendingCompanies = await fetchFromApi<Company[]>('/api/companies/trending?limit=6', 180)
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -216,45 +207,13 @@ export default async function Home() {
                 )}
               </div>
 
-              {/* Recent Filings */}
+              {/* Hot Filings */}
               <div>
                 <div className="flex items-center space-x-2 mb-4">
-                  <FileText className="h-5 w-5 text-purple-400" />
-                  <h3 className="text-lg font-semibold text-white">Recent Filings</h3>
+                  <Flame className="h-5 w-5 text-orange-400" />
+                  <h3 className="text-lg font-semibold text-white">🔥 Hot Filings</h3>
                 </div>
-                {recentFilings && recentFilings.length > 0 ? (
-                  <div className="space-y-2">
-                    {recentFilings.map((filing: Filing) => (
-                      <Link
-                        key={filing.id}
-                        href={`/filing/${filing.id}`}
-                        className="block p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors border border-white/10"
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <div className="font-medium text-white">
-                              {filing.filing_type} Filing
-                            </div>
-                            <div className="text-sm text-slate-400">
-                              {filing.filing_date ? format(new Date(filing.filing_date), 'MMM dd, yyyy') : 'Date TBD'}
-                            </div>
-                          </div>
-                          <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                            filing.filing_type === '10-K'
-                              ? 'bg-blue-500/20 text-blue-300'
-                              : filing.filing_type === '10-Q'
-                              ? 'bg-purple-500/20 text-purple-300'
-                              : 'bg-orange-500/20 text-orange-300'
-                          }`}>
-                            {filing.filing_type}
-                          </span>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-slate-400 text-sm">Recent filings will load once the API responds.</p>
-                )}
+                <HotFilings limit={8} />
               </div>
             </div>
           </div>

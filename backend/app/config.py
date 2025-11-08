@@ -31,10 +31,19 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-this-secret-key-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
-    
+
     # App Settings
     ENVIRONMENT: str = "development"
     CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    HOT_FILINGS_REFRESH_TOKEN: str = ""
+    HOT_FILINGS_USER_AGENT: str = (
+        "EarningsNerdBot/1.0 (+https://earningsnerd.com/contact)"
+    )
+    EARNINGS_WHISPERS_API_BASE: str = "https://www.earningswhispers.com/api"
+    FINNHUB_API_BASE: str = "https://finnhub.io/api/v1"
+    FINNHUB_API_KEY: str = ""
+    FINNHUB_TIMEOUT_SECONDS: float = 6.0
+    FINNHUB_MAX_CONCURRENCY: int = 4
     
     class Config:
         env_file = ".env"

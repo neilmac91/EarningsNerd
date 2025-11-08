@@ -35,6 +35,7 @@ Transform dense SEC filings (10-Ks and 10-Qs) into clear, actionable insights us
 - Redis (or use Docker)
 - OpenAI API key
 - (Optional) Stripe API keys for payments
+- (Recommended) Finnhub API key for news sentiment enrichment
 
 ## 🚀 Quick Start
 
