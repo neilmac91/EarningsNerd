@@ -44,6 +44,19 @@ export interface Company {
   stock_quote?: StockQuote
 }
 
+export interface TrendingTicker {
+  symbol: string
+  name?: string | null
+  tweet_volume?: number | null
+  sentiment_score?: number | null
+}
+
+export interface TrendingTickerResponse {
+  tickers: TrendingTicker[]
+  source: string
+  timestamp: string
+}
+
 export interface Filing {
   id: number
   filing_type: string
@@ -88,6 +101,11 @@ export const getTrendingCompanies = async (limit: number = 10): Promise<Company[
   const response = await api.get('/api/companies/trending', {
     params: { limit },
   })
+  return response.data
+}
+
+export const getTrendingTickers = async (): Promise<TrendingTickerResponse> => {
+  const response = await api.get('/api/trending_tickers')
   return response.data
 }
 

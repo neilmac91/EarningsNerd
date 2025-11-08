@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { getFiling, getSummary, generateSummary, generateSummaryStream, Filing, Summary, getSubscriptionStatus, saveSummary, getSavedSummaries, getSummaryProgress, SummaryProgressData } from '@/lib/api'
+import { getFiling, getSummary, generateSummary, generateSummaryStream, Filing, Summary, getSubscriptionStatus, saveSummary, getSavedSummaries, getSummaryProgress, SummaryProgressData, getCompany, getCompanyFilings, Company } from '@/lib/api'
 import { Loader2, AlertCircle, FileText, Download, FileDown, Bookmark, BookmarkCheck } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -26,9 +26,140 @@ const SummarySections = dynamic(() => import('@/components/SummarySections'), {
   loading: () => <SummarySectionsSkeleton />,
 })
 
+function TickerFilingsView({ ticker }: { ticker: string }) {
+  const normalizedTicker = ticker.toUpperCase()
+
+  const { data: company, isLoading: companyLoading, error: companyError } = useQuery<Company>({
+    queryKey: ['ticker-company', normalizedTicker],
+    queryFn: () => getCompany(normalizedTicker),
+    retry: 1,
+  })
+
+  const { data: filings, isLoading: filingsLoading, error: filingsError } = useQuery<Filing[]>({
+    queryKey: ['ticker-filings', normalizedTicker],
+    queryFn: () => getCompanyFilings(normalizedTicker),
+    enabled: !!company,
+    retry: 1,
+  })
+
+  if (companyLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100">
+        <div className="flex h-full min-h-screen items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-sky-400" />
+        </div>
+      </div>
+    )
+  }
+
+  if (!company || companyError) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100">
+        <div className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center px-6 text-center">
+          <h1 className="text-3xl font-semibold text-white">Filings unavailable</h1>
+          <p className="mt-4 text-sm text-slate-300">
+            We couldn&apos;t load filings for <span className="font-semibold text-white">{normalizedTicker}</span> right now. Please try again later.
+          </p>
+          {companyError instanceof Error && (
+            <p className="mt-3 text-xs text-slate-400/80">{companyError.message}</p>
+          )}
+          <Link
+            href="/"
+            className="mt-6 inline-flex items-center rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
+          >
+            Back to home
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-950 text-slate-100">
+      <div className="mx-auto max-w-5xl px-4 py-12">
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-semibold text-white">{company.name}</h1>
+            <p className="text-sm text-slate-300">
+              {company.ticker} • Latest SEC filings
+            </p>
+          </div>
+          <Link
+            href={`/company/${company.ticker}`}
+            className="inline-flex items-center rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm font-medium text-slate-100 transition hover:border-white/40 hover:bg-white/10"
+          >
+            View company dashboard
+          </Link>
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_20px_50px_rgba(15,23,42,0.45)]">
+          <h2 className="text-lg font-semibold text-white">Recent Filings</h2>
+          <p className="mt-1 text-sm text-slate-300">
+            Select a filing below to open it and generate an AI summary instantly.
+          </p>
+
+          <div className="mt-6 space-y-3">
+            {filingsLoading && (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="h-20 animate-pulse rounded-2xl border border-white/10 bg-white/10" />
+                ))}
+              </div>
+            )}
+
+            {filingsError instanceof Error && (
+              <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-200">
+                Unable to load filings right now. {filingsError.message}
+              </div>
+            )}
+
+            {!filingsLoading && !filingsError && filings && filings.length === 0 && (
+              <div className="rounded-xl border border-white/10 bg-white/10 p-6 text-center text-sm text-slate-300">
+                No filings available yet for {company.ticker}. Check back soon.
+              </div>
+            )}
+
+            {filings && filings.length > 0 && (
+              <div className="grid gap-3">
+                {filings.map((filing) => (
+                  <Link
+                    key={filing.id}
+                    href={`/filing/${filing.id}`}
+                    className="group flex flex-col gap-3 rounded-2xl border border-white/10 bg-slate-900/50 p-5 transition hover:border-sky-400/60 hover:bg-slate-900/80"
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div>
+                        <p className="text-base font-semibold text-white">{filing.filing_type}</p>
+                        <p className="text-sm text-slate-300">
+                          {filing.filing_date ? format(new Date(filing.filing_date), 'MMM dd, yyyy') : 'Date TBD'}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-300">
+                        Generate AI summary
+                      </span>
+                    </div>
+                    <div className="text-xs text-slate-400">Accession: {filing.accession_number}</div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function FilingPage() {
   const params = useParams()
-  const filingId = parseInt(params.id as string)
+  const identifier = params.id as string
+  const isTickerView = !/^\d+$/.test(identifier)
+
+  if (isTickerView) {
+    return <TickerFilingsView ticker={identifier.toUpperCase()} />
+  }
+
+  const filingId = parseInt(identifier, 10)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [streamingText, setStreamingText] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
