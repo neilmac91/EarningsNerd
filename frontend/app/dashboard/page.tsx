@@ -7,6 +7,7 @@ import { useEffect } from 'react'
 import { CheckCircle2, AlertCircle, Sparkles, BarChart3, FileText, Settings, Loader2, Star, Trash2, X } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -94,23 +95,26 @@ export default function DashboardPage() {
     : 0
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       {/* Header */}
-      <header className="bg-white border-b border-gray-200">
+      <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <Link href="/" className="text-primary-600 hover:text-primary-700">
+            <Link href="/" className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
               ← Back to Home
             </Link>
-            <Link
-              href="/login"
-              onClick={() => {
-                localStorage.removeItem('token')
-              }}
-              className="text-gray-600 hover:text-gray-900"
-            >
-              Logout
-            </Link>
+            <div className="flex items-center space-x-4">
+              <ThemeToggle />
+              <Link
+                href="/login"
+                onClick={() => {
+                  localStorage.removeItem('token')
+                }}
+                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+              >
+                Logout
+              </Link>
+            </div>
           </div>
         </div>
       </header>
