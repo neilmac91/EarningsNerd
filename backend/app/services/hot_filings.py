@@ -57,8 +57,8 @@ class HotFilingRecord:
 class HotFilingsService:
     """Service for computing and caching hot filings."""
 
-    _cache: Optional[Dict[str, object]]
-    _cache_expiry: Optional[datetime]
+    _cache: Dict[int, Dict[str, object]]
+    _cache_expiry: Dict[int, datetime]
 
     def __init__(
         self,
@@ -66,8 +66,8 @@ class HotFilingsService:
         whispers_client: Optional[EarningsWhispersClient] = None,
         news_client: Optional[FinnhubClient] = None,
     ) -> None:
-        self._cache = None
-        self._cache_expiry = None
+        self._cache = {}
+        self._cache_expiry = {}
         self._ttl = timedelta(minutes=ttl_minutes)
         self._lock = asyncio.Lock()
         self._whispers_client = whispers_client or earnings_whispers_client
@@ -82,13 +82,16 @@ class HotFilingsService:
         now = datetime.utcnow()
 
         async with self._lock:
+            cache_entry = self._cache.get(limit)
+            cache_expiry = self._cache_expiry.get(limit)
+
             if (
                 not force_refresh
-                and self._cache is not None
-                and self._cache_expiry is not None
-                and now < self._cache_expiry
+                and cache_entry is not None
+                and cache_expiry is not None
+                and now < cache_expiry
             ):
-                return self._cache
+                return cache_entry
 
             records = await self._calculate_hot_filings(db, limit)
             payload = {
@@ -96,8 +99,8 @@ class HotFilingsService:
                 "last_updated": now.isoformat(),
             }
 
-            self._cache = payload
-            self._cache_expiry = now + self._ttl
+            self._cache[limit] = payload
+            self._cache_expiry[limit] = now + self._ttl
             return payload
 
     async def _calculate_hot_filings(self, db: Session, limit: int) -> List[HotFilingRecord]:
