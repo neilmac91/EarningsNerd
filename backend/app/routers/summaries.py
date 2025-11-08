@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, status
 from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any, List
+import asyncio
 from app.database import get_db
 from app.models import Filing, Summary, User
 from app.services.sec_edgar import sec_edgar_service
@@ -34,7 +35,7 @@ class SummaryResponse(BaseModel):
     class Config:
         from_attributes = True
 
-async def generate_summary_background(filing_id: int, user_id: Optional[int]):
+async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
     """Background task to generate summary"""
     from app.database import SessionLocal
     
@@ -83,7 +84,6 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
         
         try:
             import time
-            import asyncio
             start_time = time.time()
             
             # Add global timeout for entire summary generation
@@ -331,10 +331,19 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                 raw_summary={"error": str(e), "traceback": error_trace}
             )
             db.add(error_summary)
-            db.commit()
-            db.refresh(error_summary)
-    finally:
-        db.close()
+                db.commit()
+                db.refresh(error_summary)
+        finally:
+            db.close()
+
+def generate_summary_background(filing_id: int, user_id: Optional[int]):
+    """Run the async summary generator in a background-friendly way."""
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        asyncio.run(_generate_summary_background(filing_id, user_id))
+    else:
+        loop.create_task(_generate_summary_background(filing_id, user_id))
 
 @router.get("/filing/{filing_id}/progress")
 async def get_summary_progress(
@@ -428,7 +437,12 @@ async def generate_summary_stream(
     if summary:
         # Return existing summary as JSON
         async def existing_summary():
-            yield f"data: {json.dumps({'type': 'complete', 'summary': summary.business_overview})}\n\n"
+            payload = {
+                'type': 'complete',
+                'summary': summary.business_overview,
+                'summary_id': summary.id,
+            }
+            yield f"data: {json.dumps(payload)}\n\n"
         return StreamingResponse(existing_summary(), media_type="text/event-stream")
     
     # Cache company data before streaming to avoid detached session issues

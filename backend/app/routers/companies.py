@@ -124,17 +124,20 @@ async def get_trending_companies(
     
     # Convert to CompanyResponse
     result = []
-    for row in trending_query:
-        quote = await get_stock_quote(row.ticker)
+    quote_tasks = [get_stock_quote(row.ticker) for row in trending_query]
+    quotes = await asyncio.gather(*quote_tasks, return_exceptions=True) if quote_tasks else []
+
+    for row, quote in zip(trending_query, quotes):
+        resolved_quote = quote if not isinstance(quote, Exception) else None
         result.append(CompanyResponse(
             id=row.id,
             cik=row.cik,
             ticker=row.ticker,
             name=row.name,
             exchange=row.exchange,
-            stock_quote=quote
+            stock_quote=resolved_quote
         ))
-    
+
     return result
 
 async def get_stock_quote(ticker: str) -> Optional[StockQuote]:
