@@ -29,7 +29,7 @@ export default function CompanyPage() {
     queryKey: ['watchlist'],
     queryFn: getWatchlist,
     retry: false,
-    enabled: !!localStorage.getItem('token'), // Only fetch if user is logged in
+    enabled: typeof window !== 'undefined' && !!localStorage.getItem('token'), // Only fetch if user is logged in
   })
 
   const queryClient = useQueryClient()

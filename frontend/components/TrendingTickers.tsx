@@ -70,7 +70,7 @@ function TrendingTickerCard({ ticker }: { ticker: TrendingTicker }) {
 
   return (
     <Link
-      href={`/filing/${ticker.symbol}`}
+      href={`/company/${ticker.symbol}`}
       className="flex min-w-[200px] flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-[0_12px_30px_rgba(15,23,42,0.45)] transition hover:-translate-y-1 hover:bg-white/10 hover:shadow-[0_18px_40px_rgba(56,189,248,0.25)]"
     >
       <div className="flex items-center justify-between">
@@ -175,7 +175,7 @@ export default function TrendingTickers() {
           </div>
         </div>
         <div className="flex items-center gap-3">
-          {data.source && (
+          {data?.source && (
             <span className="text-xs uppercase tracking-wide text-slate-300/70">Source: {data.source}</span>
           )}
           <button

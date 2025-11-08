@@ -170,7 +170,7 @@ export default function FilingPage() {
 
   // Check authentication client-side only
   useEffect(() => {
-    setIsAuthenticated(!!localStorage.getItem('token'))
+    setIsAuthenticated(typeof window !== 'undefined' && !!localStorage.getItem('token'))
   }, [])
 
   const { data: filing, isLoading: filingLoading } = useQuery<Filing>({
@@ -904,7 +904,7 @@ function SummarySectionsSkeleton() {
   )
 }
 
-export function stripInternalNotices(markdown: string): string {
+function stripInternalNotices(markdown: string): string {
   if (!markdown) {
     return ''
   }

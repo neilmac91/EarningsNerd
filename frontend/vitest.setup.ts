@@ -7,12 +7,12 @@ class ResizeObserverMock {
 }
 
 if (!('ResizeObserver' in globalThis)) {
-  // @ts-expect-error - assigning to global scope for test environment
+  // @ts-ignore - assigning to global scope for test environment
   globalThis.ResizeObserver = ResizeObserverMock
 }
 
 if (typeof window !== 'undefined' && !window.matchMedia) {
-  // @ts-expect-error - provide minimal mock for tests
+  // @ts-ignore - provide minimal mock for tests
   window.matchMedia = () => ({
     matches: false,
     media: '',

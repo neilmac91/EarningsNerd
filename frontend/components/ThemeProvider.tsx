@@ -17,6 +17,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     setMounted(true)
+    if (typeof window === 'undefined') return
     // Check localStorage for saved theme preference
     const savedTheme = localStorage.getItem('theme') as Theme | null
     // Check system preference if no saved theme
@@ -38,7 +39,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light'
     setTheme(newTheme)
-    localStorage.setItem('theme', newTheme)
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('theme', newTheme)
+    }
     updateTheme(newTheme)
   }
 

@@ -15,9 +15,11 @@ const STREAM_TIMEOUT_MS = 90000
 
 // Add auth token to requests
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
   }
   return config
 })
@@ -147,7 +149,7 @@ export const generateSummaryStream = async (
   onComplete: (summaryId: number) => void,
   onError: (error: string) => void
 ): Promise<void> => {
-  const token = localStorage.getItem('token')
+  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
   const url = `${apiUrl}/api/summaries/filing/${filingId}/generate-stream`
 
@@ -312,7 +314,7 @@ export const register = async (email: string, password: string, fullName?: strin
     full_name: fullName,
   })
   const token = response.data.access_token
-  if (token) {
+  if (token && typeof window !== 'undefined') {
     localStorage.setItem('token', token)
   }
   return response.data
@@ -324,7 +326,7 @@ export const login = async (email: string, password: string) => {
     password,
   })
   const token = response.data.access_token
-  if (token) {
+  if (token && typeof window !== 'undefined') {
     localStorage.setItem('token', token)
   }
   return response.data
