@@ -59,19 +59,73 @@ export function useResolvedLogoMode(mode: LogoMode): ResolvedLogoMode {
   const [resolved, setResolved] = useState<ResolvedLogoMode>(mode === 'dark' ? 'dark' : 'light')
 
   useEffect(() => {
-    if (mode === 'auto') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
-      const update = (event: MediaQueryListEvent | MediaQueryList) => {
-        setResolved(event.matches ? 'dark' : 'light')
-      }
-
-      update(mediaQuery)
-      mediaQuery.addEventListener('change', update)
-
-      return () => mediaQuery.removeEventListener('change', update)
+    if (mode !== 'auto') {
+      setResolved(mode)
+      return
     }
 
-    setResolved(mode)
+    if (typeof window === 'undefined') {
+      setResolved('light')
+      return
+    }
+
+    const root = document.documentElement
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)')
+
+    const readStoredTheme = (): ResolvedLogoMode | null => {
+      try {
+        const stored = window.localStorage.getItem('theme')
+        if (stored === 'dark' || stored === 'light') {
+          return stored
+        }
+      } catch {
+        // Ignore storage access issues (e.g. Safari private mode)
+      }
+      return null
+    }
+
+    const computeMode = (): ResolvedLogoMode => {
+      const stored = readStoredTheme()
+      if (stored) {
+        return stored
+      }
+      if (root.classList.contains('dark')) {
+        return 'dark'
+      }
+      if (root.classList.contains('light')) {
+        return 'light'
+      }
+      return prefersDark.matches ? 'dark' : 'light'
+    }
+
+    const update = () => setResolved(computeMode())
+
+    update()
+
+    const observer =
+      typeof MutationObserver !== 'undefined'
+        ? new MutationObserver(() => {
+            update()
+          })
+        : null
+
+    observer?.observe(root, { attributes: true, attributeFilter: ['class'] })
+
+    const handlePrefersChange = () => update()
+    prefersDark.addEventListener('change', handlePrefersChange)
+
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === 'theme') {
+        update()
+      }
+    }
+    window.addEventListener('storage', handleStorage)
+
+    return () => {
+      observer?.disconnect()
+      prefersDark.removeEventListener('change', handlePrefersChange)
+      window.removeEventListener('storage', handleStorage)
+    }
   }, [mode])
 
   return resolved

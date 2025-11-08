@@ -1,10 +1,11 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 from app.database import get_db
 from app.models import Company
 from app.services.sec_edgar import sec_edgar_service
 from pydantic import BaseModel
+from datetime import datetime, timedelta
 import httpx
 import asyncio
 
@@ -21,6 +22,46 @@ class StockQuote(BaseModel):
     post_market_price: Optional[float] = None
     post_market_change: Optional[float] = None
     post_market_change_percent: Optional[float] = None
+
+QUOTE_CACHE_TTL = timedelta(seconds=120)
+MAX_QUOTE_CACHE_SIZE = 256
+QUOTE_TIMEOUT_SECONDS = 4.0
+YAHOO_TIMEOUT = httpx.Timeout(3.0, connect=1.0, read=2.5)
+
+_quote_cache: Dict[str, Tuple[StockQuote, datetime]] = {}
+
+
+def _get_cached_quote(ticker: str) -> Optional[StockQuote]:
+    ticker_key = ticker.upper()
+    cached = _quote_cache.get(ticker_key)
+    if not cached:
+        return None
+
+    quote, cached_at = cached
+    if datetime.utcnow() - cached_at > QUOTE_CACHE_TTL:
+        _quote_cache.pop(ticker_key, None)
+        return None
+
+    return quote
+
+
+def _store_cached_quote(ticker: str, quote: StockQuote) -> None:
+    if not quote:
+        return
+
+    ticker_key = ticker.upper()
+    if ticker_key not in _quote_cache and len(_quote_cache) >= MAX_QUOTE_CACHE_SIZE:
+        oldest_key = next(iter(_quote_cache))
+        _quote_cache.pop(oldest_key, None)
+
+    _quote_cache[ticker_key] = (quote, datetime.utcnow())
+
+
+async def _get_stock_quote_with_timeout(ticker: str) -> Optional[StockQuote]:
+    try:
+        return await asyncio.wait_for(get_stock_quote(ticker), timeout=QUOTE_TIMEOUT_SECONDS)
+    except asyncio.TimeoutError:
+        return None
 
 class CompanyResponse(BaseModel):
     id: int
@@ -71,7 +112,7 @@ async def search_companies(
             companies.append(company)
         
         # Fetch stock quotes for all companies in parallel (but don't fail if some fail)
-        quote_tasks = [get_stock_quote(company.ticker) for company in companies]
+        quote_tasks = [_get_stock_quote_with_timeout(company.ticker) for company in companies]
         stock_quotes = await asyncio.gather(*quote_tasks, return_exceptions=True)
         
         # Create response with stock quotes
@@ -142,16 +183,21 @@ async def get_trending_companies(
 
 async def get_stock_quote(ticker: str) -> Optional[StockQuote]:
     """Fetch real-time stock quote from Yahoo Finance"""
+    cached_quote = _get_cached_quote(ticker)
+    if cached_quote:
+        return cached_quote
+
     try:
+        ticker_key = ticker.upper()
         # Yahoo Finance API endpoint (free, no API key required)
-        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker}"
+        url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker_key}"
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
             "Accept": "application/json",
             "Referer": "https://finance.yahoo.com/"
         }
-        async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=headers, timeout=10.0)
+        async with httpx.AsyncClient(timeout=YAHOO_TIMEOUT) as client:
+            response = await client.get(url, headers=headers)
             response.raise_for_status()
             
             # Check if response is valid JSON
@@ -197,7 +243,7 @@ async def get_stock_quote(ticker: str) -> Optional[StockQuote]:
                 post_market_change = post_market_price - previous_close
                 post_market_change_percent = (post_market_change / previous_close) * 100 if previous_close != 0 else 0
             
-            return StockQuote(
+            quote = StockQuote(
                 price=round(regular_market_price, 2),
                 change=round(change, 2),
                 change_percent=round(change_percent, 2),
@@ -209,6 +255,10 @@ async def get_stock_quote(ticker: str) -> Optional[StockQuote]:
                 post_market_change=round(post_market_change, 2) if post_market_change is not None else None,
                 post_market_change_percent=round(post_market_change_percent, 2) if post_market_change_percent is not None else None
             )
+            _store_cached_quote(ticker_key, quote)
+            return quote
+    except httpx.TimeoutException:
+        return None
     except httpx.HTTPError:
         # Network or HTTP errors - silently fail
         return None

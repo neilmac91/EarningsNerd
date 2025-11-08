@@ -40,8 +40,7 @@ async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
     from app.database import SessionLocal
     
     # Create a new database session for the background task
-    db = SessionLocal()
-    try:
+    with SessionLocal() as db:
         print(f"Starting summary generation for filing {filing_id}")
         filing = db.query(Filing).filter(Filing.id == filing_id).first()
         if not filing:
@@ -318,23 +317,26 @@ async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
             error_trace = traceback.format_exc()
             print(f"Error generating summary: {str(e)}")
             print(f"Traceback: {error_trace}")
-            # Update progress: error
-            _progress_tracker[filing_id] = {"stage": "error", "started_at": _progress_tracker.get(filing_id, {}).get("started_at", time.time()), "elapsed": 0, "error": str(e)[:200]}
-            # Create error summary so user knows something went wrong
+            _progress_tracker[filing_id] = {
+                "stage": "error",
+                "started_at": _progress_tracker.get(filing_id, {}).get("started_at", time.time()),
+                "elapsed": 0,
+                "error": str(e)[:200],
+            }
             error_summary = Summary(
                 filing_id=filing_id,
-                business_overview=f"Error generating summary: {str(e)[:200]}. Please try again or contact support if the issue persists.",
+                business_overview=(
+                    f"Error generating summary: {str(e)[:200]}. Please try again or contact support if the issue persists."
+                ),
                 financial_highlights=None,
                 risk_factors=None,
                 management_discussion=None,
                 key_changes=None,
-                raw_summary={"error": str(e), "traceback": error_trace}
+                raw_summary={"error": str(e), "traceback": error_trace},
             )
             db.add(error_summary)
-                db.commit()
-                db.refresh(error_summary)
-        finally:
-            db.close()
+            db.commit()
+            db.refresh(error_summary)
 
 def generate_summary_background(filing_id: int, user_id: Optional[int]):
     """Run the async summary generator in a background-friendly way."""

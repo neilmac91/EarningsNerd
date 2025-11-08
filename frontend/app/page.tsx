@@ -62,7 +62,6 @@ export default async function Home() {
           <Link href="/" className="flex items-center">
             <EarningsNerdLogo
               variant="full"
-              mode="dark"
               iconClassName="h-10 w-10 md:h-12 md:w-12"
               hideTagline
             />
