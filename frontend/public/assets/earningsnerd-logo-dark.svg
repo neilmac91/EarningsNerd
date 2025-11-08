@@ -1,0 +1,56 @@
+<svg viewBox="0 0 260 80" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="haloDark" cx="50%" cy="45%" r="55%">
+      <stop offset="10%" stop-color="rgba(45, 212, 191, 0.28)" stop-opacity="0.75" />
+      <stop offset="70%" stop-color="rgba(37, 99, 235, 0.32)" stop-opacity="0.45" />
+      <stop offset="100%" stop-color="transparent" />
+    </radialGradient>
+    <linearGradient id="ringDark" x1="28%" y1="0%" x2="78%" y2="98%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#1d4ed8" />
+    </linearGradient>
+    <linearGradient id="accentDark" x1="0%" y1="80%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#2dd4bf" />
+      <stop offset="60%" stop-color="#5eead4" />
+      <stop offset="100%" stop-color="#fbbf24" />
+    </linearGradient>
+    <radialGradient id="innerDark" cx="50%" cy="35%" r="65%">
+      <stop offset="0%" stop-color="#11182a" stop-opacity="0.96" />
+      <stop offset="60%" stop-color="#11182a" stop-opacity="0.82" />
+      <stop offset="100%" stop-color="#0b1120" stop-opacity="0.9" />
+    </radialGradient>
+    <linearGradient id="wordGradientDark" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#5eead4" />
+      <stop offset="85%" stop-color="#fbbf24" />
+    </linearGradient>
+  </defs>
+
+  <g transform="translate(0, 8)">
+    <circle cx="32" cy="32" r="30" fill="url(#haloDark)" />
+    <circle cx="32" cy="32" r="26.5" fill="#0b1120" stroke="url(#ringDark)" stroke-width="1.6" />
+    <circle cx="32" cy="32" r="22" fill="url(#innerDark)" stroke="rgba(148, 163, 184, 0.16)" stroke-width="0.6" />
+
+    <path d="M17 25c3-8 10-13 15-13s11.5 5.2 15 13" stroke="#94a3b8" stroke-width="1.4" stroke-linecap="round" fill="none" opacity="0.55" />
+
+    <path d="M18 40 L26.5 28.5 L33.5 34 L46 22" stroke="url(#accentDark)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none" />
+    <circle cx="18" cy="40" r="2.3" fill="#fbbf24" opacity="0.9" />
+    <circle cx="26.5" cy="28.5" r="2.3" fill="#fbbf24" opacity="0.9" />
+    <circle cx="33.5" cy="34" r="2.3" fill="#fbbf24" opacity="0.9" />
+    <circle cx="46" cy="22" r="2.3" fill="#fbbf24" opacity="0.9" />
+
+    <circle cx="24" cy="34" r="6" fill="#11182a" stroke="#2dd4bf" stroke-width="2.2" />
+    <circle cx="40" cy="34" r="6" fill="#11182a" stroke="#2dd4bf" stroke-width="2.2" />
+    <path d="M30 33.7h4" stroke="#5eead4" stroke-width="2" stroke-linecap="round" />
+    <path d="M18.5 34c-1.2 0-2.2 0.8-2.2 2" stroke="#94a3b8" stroke-width="1.6" stroke-linecap="round" fill="none" opacity="0.4" />
+    <path d="M45.5 34c1.2 0 2.2 0.8 2.2 2" stroke="#94a3b8" stroke-width="1.6" stroke-linecap="round" fill="none" opacity="0.4" />
+
+    <path d="M42 17l1.1 2.3 2.3 1.1-2.3 1.1-1.1 2.3-1.1-2.3-2.3-1.1 2.3-1.1z" fill="#fbbf24" opacity="0.85" />
+  </g>
+
+  <g transform="translate(100, 23)">
+    <text x="0" y="12" font-family="'Inter', 'Space Grotesk', 'IBM Plex Sans', sans-serif" font-size="13" font-weight="600" letter-spacing="5" fill="#cbd5f5" text-rendering="geometricPrecision">EARNINGS</text>
+    <text x="0" y="38" font-family="'Inter', 'Space Grotesk', 'IBM Plex Sans', sans-serif" font-size="28" font-weight="700" letter-spacing="4" fill="url(#wordGradientDark)">NERD</text>
+    <text x="0" y="57" font-family="'Inter', 'Space Grotesk', 'IBM Plex Sans', sans-serif" font-size="9" font-weight="600" letter-spacing="4" fill="#94a3b8">AI EARNINGS INTELLIGENCE</text>
+  </g>
+</svg>
+
