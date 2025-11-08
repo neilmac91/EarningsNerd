@@ -7,7 +7,19 @@ import time
 from dotenv import load_dotenv
 
 from app.database import engine, Base
-from app.routers import companies, filings, summaries, auth, users, subscriptions, saved_summaries, watchlist, sitemap, compare
+from app.routers import (
+    companies,
+    filings,
+    summaries,
+    auth,
+    users,
+    subscriptions,
+    saved_summaries,
+    watchlist,
+    sitemap,
+    compare,
+    hot_filings,
+)
 from app.config import settings
 
 load_dotenv()
@@ -61,6 +73,7 @@ app.include_router(saved_summaries.router, prefix="/api/saved-summaries", tags=[
 app.include_router(watchlist.router, prefix="/api/watchlist", tags=["Watchlist"])
 app.include_router(sitemap.router, tags=["SEO"])
 app.include_router(compare.router, prefix="/api/compare", tags=["Compare"])
+app.include_router(hot_filings.router, prefix="/api", tags=["Hot Filings"])
 
 
 @app.middleware("http")
