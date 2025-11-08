@@ -258,17 +258,17 @@ export default function DashboardPage() {
           </Link>
 
           <Link
-            href="/"
+            href="/dashboard/watchlist"
             className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
           >
             <div className="flex items-center space-x-3 mb-3">
               <div className="p-2 bg-green-100 rounded-lg">
                 <BarChart3 className="h-6 w-6 text-green-600" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Search Companies</h3>
+              <h3 className="text-lg font-semibold text-gray-900">Watchlist Insights</h3>
             </div>
             <p className="text-sm text-gray-600">
-              Find and analyze SEC filings
+              Monitor summary readiness across your tracked companies
             </p>
           </Link>
         </div>

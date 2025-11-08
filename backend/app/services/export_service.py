@@ -222,7 +222,7 @@ class ExportService:
         # Headings
         text = re.sub(r'(?m)^###\s*(.+)$', r'<h3>\1</h3>', text)
         text = re.sub(r'(?m)^##\s*(.+)$', r'<h2>\1</h2>', text)
-
+        
         # Bold emphasis
         text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
 
