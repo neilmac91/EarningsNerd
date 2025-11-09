@@ -1,8 +1,11 @@
 from typing import Dict, List, Optional
 import httpx
 import re
+import logging
 from bs4 import BeautifulSoup
 from app.config import settings
+
+logger = logging.getLogger(__name__)
 
 class XBRLService:
     def __init__(self):
@@ -34,7 +37,7 @@ class XBRLService:
                     # Fallback: try to extract from filing HTML
                     return await self._extract_from_filing_html(accession_number, cik)
         except Exception as e:
-            print(f"Error fetching XBRL data: {str(e)}")
+            logger.error(f"Error fetching XBRL data: {str(e)}", exc_info=True)
             return None
 
     def _parse_xbrl_facts(self, facts_data: Dict) -> Dict:
@@ -48,50 +51,78 @@ class XBRLService:
             "earnings_per_share": [],
         }
         
-        facts = facts_data.get("facts", {})
-        
-        # US GAAP facts
-        us_gaap = facts.get("us-gaap", {})
-        
-        # Extract revenue
-        if "Revenues" in us_gaap:
-            revenue_data = us_gaap["Revenues"]["units"].get("USD", [])
-            for item in revenue_data[:5]:  # Last 5 periods
-                result["revenue"].append({
-                    "period": item.get("end"),
-                    "value": item.get("val"),
-                    "form": item.get("form"),
-                })
-        
-        # Extract net income
-        if "NetIncomeLoss" in us_gaap:
-            net_income_data = us_gaap["NetIncomeLoss"]["units"].get("USD", [])
-            for item in net_income_data[:5]:
-                result["net_income"].append({
-                    "period": item.get("end"),
-                    "value": item.get("val"),
-                    "form": item.get("form"),
-                })
-        
-        # Extract total assets
-        if "Assets" in us_gaap:
-            assets_data = us_gaap["Assets"]["units"].get("USD", [])
-            for item in assets_data[:5]:
-                result["total_assets"].append({
-                    "period": item.get("end"),
-                    "value": item.get("val"),
-                    "form": item.get("form"),
-                })
-        
-        # Extract EPS
-        if "EarningsPerShareBasic" in us_gaap:
-            eps_data = us_gaap["EarningsPerShareBasic"]["units"].get("USD/shares", [])
-            for item in eps_data[:5]:
-                result["earnings_per_share"].append({
-                    "period": item.get("end"),
-                    "value": item.get("val"),
-                    "form": item.get("form"),
-                })
+        try:
+            facts = facts_data.get("facts", {})
+            
+            # US GAAP facts
+            us_gaap = facts.get("us-gaap", {})
+            if not isinstance(us_gaap, dict):
+                return result
+            
+            # Extract revenue
+            if "Revenues" in us_gaap:
+                revenues_fact = us_gaap["Revenues"]
+                if isinstance(revenues_fact, dict) and "units" in revenues_fact:
+                    revenue_data = revenues_fact["units"].get("USD", [])
+                    if isinstance(revenue_data, list):
+                        for item in revenue_data[:5]:  # Last 5 periods
+                            if isinstance(item, dict):
+                                result["revenue"].append({
+                                    "period": item.get("end"),
+                                    "value": item.get("val"),
+                                    "form": item.get("form"),
+                                })
+            
+            # Extract net income
+            if "NetIncomeLoss" in us_gaap:
+                net_income_fact = us_gaap["NetIncomeLoss"]
+                if isinstance(net_income_fact, dict) and "units" in net_income_fact:
+                    net_income_data = net_income_fact["units"].get("USD", [])
+                    if isinstance(net_income_data, list):
+                        for item in net_income_data[:5]:
+                            if isinstance(item, dict):
+                                result["net_income"].append({
+                                    "period": item.get("end"),
+                                    "value": item.get("val"),
+                                    "form": item.get("form"),
+                                })
+            
+            # Extract total assets
+            if "Assets" in us_gaap:
+                assets_fact = us_gaap["Assets"]
+                if isinstance(assets_fact, dict) and "units" in assets_fact:
+                    assets_data = assets_fact["units"].get("USD", [])
+                    if isinstance(assets_data, list):
+                        for item in assets_data[:5]:
+                            if isinstance(item, dict):
+                                result["total_assets"].append({
+                                    "period": item.get("end"),
+                                    "value": item.get("val"),
+                                    "form": item.get("form"),
+                                })
+            
+            # Extract EPS - try multiple unit formats
+            if "EarningsPerShareBasic" in us_gaap:
+                eps_fact = us_gaap["EarningsPerShareBasic"]
+                if isinstance(eps_fact, dict) and "units" in eps_fact:
+                    units = eps_fact["units"]
+                    # Try different unit formats
+                    eps_data = None
+                    for unit_key in ["USD/shares", "shares", "pure"]:
+                        if unit_key in units:
+                            eps_data = units[unit_key]
+                            break
+                    
+                    if eps_data and isinstance(eps_data, list):
+                        for item in eps_data[:5]:
+                            if isinstance(item, dict):
+                                result["earnings_per_share"].append({
+                                    "period": item.get("end"),
+                                    "value": item.get("val"),
+                                    "form": item.get("form"),
+                                })
+        except Exception as e:
+            logger.warning(f"Error parsing XBRL facts: {str(e)}", exc_info=True)
         
         return result
 
@@ -128,7 +159,7 @@ class XBRLService:
             
             return None
         except Exception as e:
-            print(f"Error extracting from HTML: {str(e)}")
+            logger.error(f"Error extracting from HTML: {str(e)}", exc_info=True)
             return None
 
     async def _parse_xbrl_xml(self, xbrl_url: str) -> Optional[Dict]:
@@ -191,16 +222,11 @@ class XBRLService:
                     }
 
                     tag_mappings: Dict[str, str] = {}
-                    lookup_tags: set[str] = set()
                     for tag_name, mapped_key in raw_tag_mappings.items():
-                        lookup_tags.add(tag_name)
                         tag_mappings[tag_name.lower()] = mapped_key
                         if ":" in tag_name:
                             local_name = tag_name.split(":", 1)[1]
-                            lookup_tags.add(local_name)
                             tag_mappings[local_name.lower()] = mapped_key
-
-                    lookup_tag_names = list(lookup_tags)
 
                     def _parse_numeric_value(raw: Optional[str]) -> Optional[float]:
                         if raw is None:
@@ -218,7 +244,14 @@ class XBRLService:
                             return None
                         return -value if negative else value
 
-                    for tag in soup.find_all(lookup_tag_names):
+                    # BeautifulSoup find_all() doesn't accept a list directly
+                    # We need to search for each tag name individually or use a lambda
+                    def _is_target_tag(tag):
+                        """Check if tag matches any of our lookup tags"""
+                        tag_name_lower = tag.name.lower() if tag.name else ""
+                        return tag_name_lower in tag_mappings
+                    
+                    for tag in soup.find_all(_is_target_tag):
                         mapped_key = tag_mappings.get(tag.name.lower())
                         if not mapped_key:
                             continue
@@ -240,7 +273,7 @@ class XBRLService:
             
             return None
         except Exception as e:
-            print(f"Error parsing XBRL XML: {str(e)}")
+            logger.error(f"Error parsing XBRL XML: {str(e)}", exc_info=True)
             return None
 
     def extract_standardized_metrics(self, xbrl_data: Dict) -> Dict:

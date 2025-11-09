@@ -1,6 +1,6 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
 import { generateSummaryStream } from '@/lib/api'
-import { stripInternalNotices } from '@/app/filing/[id]/page'
+import { stripInternalNotices } from '@/lib/stripInternalNotices'
 
 declare global {
   // eslint-disable-next-line no-var
