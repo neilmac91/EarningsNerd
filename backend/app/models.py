@@ -137,6 +137,7 @@ class SummaryGenerationProgress(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now(), nullable=False)
     elapsed_seconds = Column(Float, nullable=True)
     error = Column(String, nullable=True)
+    section_coverage = Column(JSON, nullable=True)
 
     filing = relationship("Filing", back_populates="summary_progress")
 
