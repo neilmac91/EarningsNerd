@@ -18,5 +18,5 @@ python-dateutil==2.8.2
 stripe==7.8.0
 weasyprint==60.1
 arelle-release==2.27.0
-sec-edgar-downloader==6.0.2
+sec-edgar-downloader==5.0.3
 
