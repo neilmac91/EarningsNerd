@@ -11,6 +11,16 @@ Transform dense SEC filings (10-Ks and 10-Qs) into clear, actionable insights us
 - **User Authentication**: Secure login and registration
 - **Clean UI**: Modern, responsive interface built with Next.js and Tailwind CSS
 
+## 📑 AI Summary JSON Contract
+
+The analyst prompts that drive EarningsNerd now enforce a strict JSON contract:
+
+- Every string must be substantive—blank strings and placeholder text are rejected.
+- Each array must contain 1–4 evidence-backed bullets. When no validated bullet exists, the array must be `["Not disclosed—<concise reason>"]`.
+- Risk factors, notable items, and other bullets must cite specific excerpts or XBRL anchors in their supporting evidence fields.
+
+Update your integrations or downstream validators to respect these strengthened guarantees.
+
 ## 🛠️ Tech Stack
 
 ### Backend

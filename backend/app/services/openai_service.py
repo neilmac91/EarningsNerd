@@ -879,58 +879,61 @@ EXTRACTED FINANCIAL SIGNALS:
 
         schema_template = """{
   "metadata": {
-    "company_name": "<string>",
-    "filing_type": "<string>",
-    "reporting_period": "<string>",
-    "filing_date": "<string>",
-    "currency": "<string>",
+    "company_name": "<non-empty string>",
+    "filing_type": "<non-empty string>",
+    "reporting_period": "<non-empty string>",
+    "filing_date": "<non-empty string>",
+    "currency": "<non-empty string>",
     "has_prior_period": <bool>
   },
   "sections": {
     "executive_snapshot": {
-      "headline": "<string>",
-      "key_points": ["<string>", "<string>"],
+      "headline": "<non-empty string>",
+      "key_points": [
+        "<non-empty bullet>",
+        "... (use ['Not disclosed—explain why'] if no validated bullets)"
+      ],
       "tone": "<positive|neutral|cautious>"
     },
     "financial_highlights": {
       "table": [
-        {"metric": "<string>", "current_period": "<string>", "prior_period": "<string>", "change": "<string>", "commentary": "<string>"}
+        {"metric": "<non-empty string>", "current_period": "<non-empty string>", "prior_period": "<non-empty string>", "change": "<non-empty string>", "commentary": "<non-empty string>"}
       ],
-      "profitability": ["<string>"],
-      "cash_flow": ["<string>"],
-      "balance_sheet": ["<string>"]
+      "profitability": ["<non-empty bullet>"],
+      "cash_flow": ["<non-empty bullet>"],
+      "balance_sheet": ["<non-empty bullet>"]
     },
     "risk_factors": [
-      {"summary": "<string>", "supporting_evidence": "<string>", "materiality": "<low|medium|high>"}
+      {"summary": "<non-empty string>", "supporting_evidence": "<non-empty excerpt or citation>", "materiality": "<low|medium|high>"}
     ],
     "management_discussion_insights": {
-      "themes": ["<string>"],
-      "quotes": [{"speaker": "<string>", "quote": "<string>", "context": "<string>"}],
-      "capital_allocation": ["<string>"]
+      "themes": ["<non-empty bullet>"],
+      "quotes": [{"speaker": "<non-empty string>", "quote": "<non-empty string>", "context": "<non-empty string>"}],
+      "capital_allocation": ["<non-empty bullet>"]
     },
     "segment_performance": [
-      {"segment": "<string>", "revenue": "<string>", "change": "<string>", "commentary": "<string>"}
+      {"segment": "<non-empty string>", "revenue": "<non-empty string>", "change": "<non-empty string>", "commentary": "<non-empty string>"}
     ],
     "liquidity_capital_structure": {
-      "leverage": "<string>",
-      "liquidity": "<string>",
-      "shareholder_returns": ["<string>"]
+      "leverage": "<non-empty string>",
+      "liquidity": "<non-empty string>",
+      "shareholder_returns": ["<non-empty bullet>"]
     },
     "guidance_outlook": {
-      "guidance": "<string>",
+      "guidance": "<non-empty string>",
       "tone": "<positive|neutral|cautious>",
-      "drivers": ["<string>"],
-      "watch_items": ["<string>"]
+      "drivers": ["<non-empty bullet>"],
+      "watch_items": ["<non-empty bullet>"]
     },
     "notable_footnotes": [
-      {"item": "<string>", "impact": "<string>"}
+      {"item": "<non-empty string>", "impact": "<non-empty string>"}
     ],
     "three_year_trend": {
-      "trend_summary": "<string>",
-      "inflections": ["<string>"],
+      "trend_summary": "<non-empty string>",
+      "inflections": ["<non-empty bullet>"],
       "compare_prior_period": {
         "available": <bool>,
-        "insights": ["<string>"]
+        "insights": ["<non-empty bullet>"]
       }
     }
   }
@@ -954,13 +957,14 @@ CRITICAL FILING EXCERPTS:
 {filing_sample}
 {previous_filings_context}
 
-Return ONLY valid JSON (no markdown fences) that matches this schema (replace placeholders with actual values or meaningful nulls):
+Return ONLY valid JSON (no markdown fences) that matches this schema (replace placeholders with actual values or meaningful nulls). Every string must contain substantive content—never emit blank strings or placeholder tokens. Arrays must never be empty; if no verifiable bullet exists, supply a single-element array with "Not disclosed—<concise reason>":
 {schema_template}
 
 Rules:
 - Keep monetary values human-readable (e.g., "$17.7B", "$425M", "$912M").
 - Express percentage changes with one decimal place where available (e.g., "up 8.3% YoY").
-- For arrays, include up to 4 high-signal items ordered by materiality.
+- For arrays, include 1-4 high-signal, evidence-backed bullets ordered by materiality. If nothing qualifies, return ["Not disclosed—<concise reason>"] instead of leaving the array empty.
+- Empty sections are unacceptable. Do not fabricate data; explain the absence using the Not disclosed pattern when required.
 - Provide supporting evidence excerpts for each risk factor (direct quote or XBRL tag reference)."""
 
         import asyncio
