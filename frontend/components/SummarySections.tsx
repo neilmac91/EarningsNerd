@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, FileText, TrendingUp, AlertTriangle, Building2, BarChart3 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -68,6 +68,19 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
         .join('\n')
     }
     return String(value)
+  }
+
+  const getAccordionContent = (value: any): string | null => {
+    if (value === null || value === undefined) {
+      return null
+    }
+
+    const rendered = renderMarkdownValue(value)
+    if (!rendered) {
+      return null
+    }
+
+    return rendered.trim().length > 0 ? rendered : null
   }
 
   const formatEvidence = (value: any): string => {
@@ -271,6 +284,11 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
     }
   }
 
+  const guidanceContent = getAccordionContent(sections.guidance_outlook)
+  const liquidityContent = getAccordionContent(sections.liquidity_capital_structure)
+  const footnotesContent = getAccordionContent(sections.notable_footnotes)
+  const hasAdditionalContent = Boolean(guidanceContent || liquidityContent || footnotesContent)
+
   return (
     <div className="bg-white rounded-lg shadow-md border border-gray-200">
       {/* Tabs */}
@@ -305,11 +323,11 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
       </div>
 
       {/* Additional Sections (Collapsible) */}
-      {(sections.guidance_outlook || sections.liquidity_capital_structure || sections.notable_footnotes) && (
+      {hasAdditionalContent && (
         <div className="border-t border-gray-200 p-6 space-y-4">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Additional Information</h3>
-          
-          {sections.guidance_outlook && (
+
+          {guidanceContent && (
             <div className="border border-gray-200 rounded-lg">
               <button
                 onClick={() => toggleSection('guidance')}
@@ -326,7 +344,7 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
                 <div className="px-4 pb-4">
                   <div className="prose max-w-none">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {renderMarkdownValue(sections.guidance_outlook)}
+                      {guidanceContent}
                     </ReactMarkdown>
                   </div>
                 </div>
@@ -334,7 +352,7 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
             </div>
           )}
 
-          {sections.liquidity_capital_structure && (
+          {liquidityContent && (
             <div className="border border-gray-200 rounded-lg">
               <button
                 onClick={() => toggleSection('liquidity')}
@@ -351,7 +369,7 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
                 <div className="px-4 pb-4">
                   <div className="prose max-w-none">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {renderMarkdownValue(sections.liquidity_capital_structure)}
+                      {liquidityContent}
                     </ReactMarkdown>
                   </div>
                 </div>
@@ -359,7 +377,7 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
             </div>
           )}
 
-          {sections.notable_footnotes && (
+          {footnotesContent && (
             <div className="border border-gray-200 rounded-lg">
               <button
                 onClick={() => toggleSection('footnotes')}
@@ -376,7 +394,7 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
                 <div className="px-4 pb-4">
                   <div className="prose max-w-none">
                     <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {renderMarkdownValue(sections.notable_footnotes)}
+                      {footnotesContent}
                     </ReactMarkdown>
                   </div>
                 </div>
