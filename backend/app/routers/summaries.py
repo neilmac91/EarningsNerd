@@ -15,7 +15,7 @@ from app.services.sec_edgar import sec_edgar_service
 from app.services.openai_service import openai_service, _normalize_risk_factors
 from app.services.xbrl_service import xbrl_service
 from app.schemas import attach_normalized_facts
-from app.routers.auth import get_current_user_optional
+from app.routers.auth import get_current_user_optional, get_current_user
 from app.routers.subscriptions import check_usage_limit, increment_user_usage, get_current_month
 from app.services.export_service import export_service
 from fastapi.responses import Response, StreamingResponse
@@ -519,7 +519,7 @@ async def get_summary_progress(
 @router.post("/filing/{filing_id}/generate", response_model=SummaryResponse)
 async def generate_summary(
     filing_id: int,
-    current_user: Optional[User] = Depends(get_current_user_optional),  # Optional for backward compatibility
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Generate AI summary for a filing"""
@@ -535,15 +535,13 @@ async def generate_summary(
         return summary
     
     # Check usage limits if user is authenticated
-    user_id = None
-    if current_user:
-        can_generate, current_count, limit = check_usage_limit(current_user, db)
-        if not can_generate:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"You've reached your monthly limit of {limit} summaries. Upgrade to Pro for unlimited summaries."
-            )
-        user_id = current_user.id
+    can_generate, current_count, limit = check_usage_limit(current_user, db)
+    if not can_generate:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"You've reached your monthly limit of {limit} summaries. Upgrade to Pro for unlimited summaries."
+        )
+    user_id = current_user.id
     
     _record_progress(db, filing_id, "queued")
     asyncio.create_task(_generate_summary_background(filing_id, user_id))
@@ -563,7 +561,7 @@ async def generate_summary(
 @router.post("/filing/{filing_id}/generate-stream")
 async def generate_summary_stream(
     filing_id: int,
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Generate AI summary with streaming response"""
@@ -592,19 +590,17 @@ async def generate_summary_stream(
     company_cik = company.cik if company else None
 
     # Check usage limits if user is authenticated
-    user_id = None
-    if current_user:
-        can_generate, current_count, limit = check_usage_limit(current_user, db)
-        if not can_generate:
-            async def error_response():
-                message = (
-                    "You've reached your monthly limit of "
-                    f"{limit} summaries. Upgrade to Pro for unlimited summaries."
-                )
-                payload = {"type": "error", "message": message}
-                yield f"data: {json.dumps(payload)}\n\n"
-            return StreamingResponse(error_response(), media_type="text/event-stream")
-        user_id = current_user.id
+    can_generate, current_count, limit = check_usage_limit(current_user, db)
+    if not can_generate:
+        async def error_response():
+            message = (
+                "You've reached your monthly limit of "
+                f"{limit} summaries. Upgrade to Pro for unlimited summaries."
+            )
+            payload = {"type": "error", "message": message}
+            yield f"data: {json.dumps(payload)}\n\n"
+        return StreamingResponse(error_response(), media_type="text/event-stream")
+    user_id = current_user.id
     
     async def stream_summary():
         pipeline_started_at = time.time()

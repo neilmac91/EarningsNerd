@@ -42,6 +42,21 @@ async def lifespan(app: FastAPI):
     else:
         print("✗ OpenAI/OpenRouter configuration is invalid. AI summaries may not work.")
     
+    # Validate Stripe configuration
+    stripe_valid, stripe_warnings = settings.validate_stripe_config()
+    if stripe_warnings:
+        print("⚠️  Stripe Configuration Warnings:")
+        for warning in stripe_warnings:
+            print(f"   - {warning}")
+    if stripe_valid:
+        print("✓ Stripe configured: API key present")
+        if settings.STRIPE_WEBHOOK_SECRET:
+            print("✓ Stripe webhook secret configured: subscription events will be processed")
+        else:
+            print("⚠️  Stripe webhook secret not configured: subscription events will fail")
+    else:
+        print("✗ Stripe configuration is invalid. Subscription features will be disabled.")
+    
     yield
     # Shutdown
     pass

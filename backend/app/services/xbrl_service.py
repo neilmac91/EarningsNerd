@@ -150,23 +150,81 @@ class XBRLService:
                         "revenue": [],
                         "net_income": [],
                         "total_assets": [],
+                        "total_liabilities": [],
+                        "cash_and_equivalents": [],
                         "earnings_per_share": [],
                     }
                     
-                    # Look for common XBRL tags
-                    # This is a basic implementation - would need proper XBRL taxonomy handling
-                    for tag in soup.find_all(['us-gaap:Revenues', 'us-gaap:NetIncomeLoss']):
-                        context_ref = tag.get('contextRef', '')
-                        value = tag.string
-                        if value:
-                            try:
-                                numeric_value = float(value)
-                                result["revenue"].append({
-                                    "value": numeric_value,
-                                    "context": context_ref,
-                                })
-                            except:
-                                pass
+                    # Build context lookup to map context IDs to reporting periods
+                    context_periods: Dict[str, Optional[str]] = {}
+                    for context in soup.find_all('context'):
+                        context_id = context.get('id')
+                        if not context_id:
+                            continue
+
+                        period_value: Optional[str] = None
+                        period_tag = context.find('period')
+                        if period_tag:
+                            instant = period_tag.find('instant')
+                            if instant and instant.string:
+                                period_value = instant.string.strip()
+                            else:
+                                end_date = period_tag.find('endDate')
+                                if end_date and end_date.string:
+                                    period_value = end_date.string.strip()
+                        if period_value:
+                            context_periods[context_id] = period_value
+
+                    raw_tag_mappings = {
+                        'us-gaap:Revenues': 'revenue',
+                        'us-gaap:SalesRevenueNet': 'revenue',
+                        'us-gaap:NetIncomeLoss': 'net_income',
+                        'us-gaap:ProfitLoss': 'net_income',
+                        'us-gaap:Assets': 'total_assets',
+                        'us-gaap:Liabilities': 'total_liabilities',
+                        'us-gaap:LiabilitiesAndStockholdersEquity': 'total_liabilities',
+                        'us-gaap:CashAndCashEquivalentsAtCarryingValue': 'cash_and_equivalents',
+                        'us-gaap:CashAndCashEquivalentsPeriodIncreaseDecrease': 'cash_and_equivalents',
+                        'us-gaap:EarningsPerShareBasic': 'earnings_per_share',
+                        'us-gaap:EarningsPerShareDiluted': 'earnings_per_share',
+                        'us-gaap:EarningsPerShareBasicAndDiluted': 'earnings_per_share',
+                    }
+                    tag_mappings = {key.lower(): value for key, value in raw_tag_mappings.items()}
+                    lookup_tags = list(raw_tag_mappings.keys())
+
+                    def _parse_numeric_value(raw: Optional[str]) -> Optional[float]:
+                        if raw is None:
+                            return None
+                        text = raw.strip()
+                        if not text:
+                            return None
+                        negative = text.startswith('(') and text.endswith(')')
+                        if negative:
+                            text = text[1:-1]
+                        text = text.replace(',', '')
+                        try:
+                            value = float(text)
+                        except ValueError:
+                            return None
+                        return -value if negative else value
+
+                    for tag in soup.find_all(lookup_tags):
+                        mapped_key = tag_mappings.get(tag.name.lower())
+                        if not mapped_key:
+                            continue
+
+                        numeric_value = _parse_numeric_value(tag.string)
+                        if numeric_value is None:
+                            continue
+
+                        context_ref = tag.get('contextRef', '').strip()
+                        result.setdefault(mapped_key, []).append(
+                            {
+                                "period": context_periods.get(context_ref),
+                                "value": numeric_value,
+                                "form": tag.get('form'),
+                            }
+                        )
                     
                     return result if any(result.values()) else None
             

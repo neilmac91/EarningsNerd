@@ -1,5 +1,8 @@
+'use client'
+
 import { ArrowRight, BarChart3, CheckCircle2, Lock, Sparkles, Target, Users, TrendingUp, Flame } from 'lucide-react'
 import Link from 'next/link'
+import { useEffect, useState } from 'react'
 import CompanySearch from '@/components/CompanySearch'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
@@ -24,10 +27,9 @@ type Company = {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ?? 'http://localhost:8000'
 
-async function fetchFromApi<T>(path: string, revalidate = 120): Promise<T | null> {
+async function fetchFromApi<T>(path: string): Promise<T | null> {
   try {
     const response = await fetch(`${API_BASE_URL}${path}`, {
-      next: { revalidate },
       headers: {
         accept: 'application/json',
       },
@@ -45,8 +47,12 @@ async function fetchFromApi<T>(path: string, revalidate = 120): Promise<T | null
   }
 }
 
-export default async function Home() {
-  const trendingCompanies = await fetchFromApi<Company[]>('/api/companies/trending?limit=6', 180)
+export default function Home() {
+  const [trendingCompanies, setTrendingCompanies] = useState<Company[] | null>(null)
+
+  useEffect(() => {
+    fetchFromApi<Company[]>('/api/companies/trending?limit=6').then(setTrendingCompanies)
+  }, [])
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-gray-900 dark:text-slate-100">

@@ -200,12 +200,18 @@ async def stripe_webhook(
         
         if not settings.STRIPE_SECRET_KEY:
             raise HTTPException(status_code=500, detail="Stripe not configured")
+
+        webhook_secret = settings.STRIPE_WEBHOOK_SECRET
+        if not webhook_secret:
+            raise HTTPException(
+                status_code=500,
+                detail="Stripe webhook secret not configured",
+            )
         
         if not stripe_signature:
             raise HTTPException(status_code=400, detail="Missing stripe-signature header")
         
         try:
-            webhook_secret = settings.STRIPE_WEBHOOK_SECRET or settings.STRIPE_SECRET_KEY
             event = stripe.Webhook.construct_event(
                 payload, stripe_signature, webhook_secret
             )

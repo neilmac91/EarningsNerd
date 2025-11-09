@@ -175,15 +175,30 @@ earningsnerd/
 
 ### Backend (.env)
 
+Copy `backend/.env.example` to `backend/.env` and fill in your values:
+
 ```env
-DATABASE_URL=postgresql://user:password@localhost:5432/earningsnerd
-REDIS_URL=redis://localhost:6379
-SEC_EDGAR_BASE_URL=https://data.sec.gov
+# Required for AI summaries
 OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_BASE_URL=https://openrouter.ai/api/v1
+
+# Required for subscriptions (if using Stripe)
+STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
+STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key_here
+STRIPE_WEBHOOK_SECRET=whsec_your_webhook_signing_secret_here  # CRITICAL: Get from Stripe Dashboard > Webhooks
+
+# Database (SQLite default, PostgreSQL optional)
+DATABASE_URL=sqlite:///./earningsnerd.db
+
+# Other settings
 SECRET_KEY=your_secret_key_here
-ALGORITHM=HS256
 CORS_ORIGINS=http://localhost:3000
 ```
+
+**Important Notes:**
+- `STRIPE_WEBHOOK_SECRET` is **required** if you're using Stripe subscriptions. Without it, webhook signature verification will fail and subscription events won't be processed.
+- Get your webhook secret from: Stripe Dashboard → Developers → Webhooks → [Your webhook endpoint] → Signing secret
+- The application will warn you at startup if required configuration is missing
 
 ### Frontend (.env.local)
 

@@ -81,6 +81,31 @@ class Settings(BaseSettings):
             is_valid = False
         
         return is_valid, warnings
+    
+    def validate_stripe_config(self) -> tuple[bool, list[str]]:
+        """Validate Stripe configuration and return (is_valid, warnings)"""
+        warnings = []
+        is_valid = True
+        
+        # Check if Stripe is configured at all
+        if not self.STRIPE_SECRET_KEY:
+            warnings.append("STRIPE_SECRET_KEY is not set. Stripe features (subscriptions, payments) will be disabled.")
+            is_valid = False
+        elif len(self.STRIPE_SECRET_KEY) < 20:
+            warnings.append(f"STRIPE_SECRET_KEY appears too short (length: {len(self.STRIPE_SECRET_KEY)}). Expected at least 20 characters.")
+            is_valid = False
+        
+        # Check webhook secret (critical for subscription management)
+        if self.STRIPE_SECRET_KEY and not self.STRIPE_WEBHOOK_SECRET:
+            warnings.append(
+                "STRIPE_WEBHOOK_SECRET is not set. Webhook endpoints will fail signature verification. "
+                "Subscription events (checkout completion, cancellations) will not be processed. "
+                "Set STRIPE_WEBHOOK_SECRET from your Stripe Dashboard > Developers > Webhooks > Signing secret."
+            )
+            # Don't mark as invalid since Stripe can work without webhooks (manual subscription management)
+            # but warn strongly
+        
+        return is_valid, warnings
 
 settings = Settings()
 
