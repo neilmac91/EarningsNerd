@@ -36,6 +36,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
         working-directory: frontend
+      - name: Verify vitest config
+        run: |
+          ls -la vitest.config.* || echo "No vitest config files found"
+          test -f vitest.config.mts && echo "✓ vitest.config.mts exists" || echo "✗ vitest.config.mts not found"
+          test ! -f vitest.config.ts && echo "✓ vitest.config.ts correctly removed" || echo "✗ vitest.config.ts still exists"
+        working-directory: frontend
       - name: Run unit tests
         run: npx vitest run --config vitest.config.mts
         working-directory: frontend
