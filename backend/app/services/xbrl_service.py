@@ -189,8 +189,18 @@ class XBRLService:
                         'us-gaap:EarningsPerShareDiluted': 'earnings_per_share',
                         'us-gaap:EarningsPerShareBasicAndDiluted': 'earnings_per_share',
                     }
-                    tag_mappings = {key.lower(): value for key, value in raw_tag_mappings.items()}
-                    lookup_tags = list(raw_tag_mappings.keys())
+
+                    tag_mappings: Dict[str, str] = {}
+                    lookup_tags: set[str] = set()
+                    for tag_name, mapped_key in raw_tag_mappings.items():
+                        lookup_tags.add(tag_name)
+                        tag_mappings[tag_name.lower()] = mapped_key
+                        if ":" in tag_name:
+                            local_name = tag_name.split(":", 1)[1]
+                            lookup_tags.add(local_name)
+                            tag_mappings[local_name.lower()] = mapped_key
+
+                    lookup_tag_names = list(lookup_tags)
 
                     def _parse_numeric_value(raw: Optional[str]) -> Optional[float]:
                         if raw is None:
@@ -208,7 +218,7 @@ class XBRLService:
                             return None
                         return -value if negative else value
 
-                    for tag in soup.find_all(lookup_tags):
+                    for tag in soup.find_all(lookup_tag_names):
                         mapped_key = tag_mappings.get(tag.name.lower())
                         if not mapped_key:
                             continue
