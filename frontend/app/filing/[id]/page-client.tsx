@@ -16,6 +16,7 @@ import FinancialMetricsTable from '@/components/FinancialMetricsTable'
 import SummaryProgress from '@/components/SummaryProgress'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import { AxiosError, isAxiosError } from 'axios'
+import { stripInternalNotices } from '@/lib/stripInternalNotices'
 
 const FinancialCharts = dynamic(() => import('@/components/FinancialCharts'), {
   ssr: false,
@@ -947,38 +948,5 @@ function SummarySectionsSkeleton() {
       </div>
     </div>
   )
-}
-
-function stripInternalNotices(markdown: string): string {
-  if (!markdown) {
-    return ''
-  }
-
-  const disclaimerPatterns = [
-    /^(\*|_)?auto-generated from structured data/i,
-    /^(\*|_)?writer output failed validation/i,
-    /^(\*|_)?summary generated from structured data/i,
-  ]
-
-  const lines = markdown.split('\n')
-  let startIndex = 0
-
-  while (startIndex < lines.length) {
-    const trimmed = lines[startIndex].trim()
-    if (!trimmed) {
-      startIndex += 1
-      continue
-    }
-
-    const matchesDisclaimer = disclaimerPatterns.some((pattern) => pattern.test(trimmed))
-    if (matchesDisclaimer) {
-      startIndex += 1
-      continue
-    }
-
-    break
-  }
-
-  return lines.slice(startIndex).join('\n')
 }
 

@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, act } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import SummarySections from '@/components/SummarySections'
 
 const summaryBase = {
@@ -14,7 +15,7 @@ const summaryBase = {
 }
 
 describe('Risk factors include supporting evidence', () => {
-  it('filters out risks without evidence and renders those with citations', () => {
+  it('filters out risks without evidence and renders those with citations', async () => {
     const summary = {
       ...summaryBase,
       raw_summary: {
@@ -33,6 +34,12 @@ describe('Risk factors include supporting evidence', () => {
     }
 
     render(<SummarySections summary={summary as any} metrics={[]} />)
+
+    const user = userEvent.setup()
+    const risksTab = screen.getByRole('button', { name: /risks/i })
+    await act(async () => {
+      await user.click(risksTab)
+    })
 
     expect(
       screen.getByText('Supply chain disruption remains elevated.')
