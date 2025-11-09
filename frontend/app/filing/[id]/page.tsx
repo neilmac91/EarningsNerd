@@ -14,6 +14,7 @@ import remarkGfm from 'remark-gfm'
 import SubscriptionGate from '@/components/SubscriptionGate'
 import FinancialMetricsTable from '@/components/FinancialMetricsTable'
 import SummaryProgress from '@/components/SummaryProgress'
+import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import { AxiosError, isAxiosError } from 'axios'
 
 const FinancialCharts = dynamic(() => import('@/components/FinancialCharts'), {
@@ -680,6 +681,8 @@ function SummaryDisplay({ summary, filing, isPro, saveMutation, isSaved }: { sum
 
   const fallbackMessage = 'Summary temporarily unavailable — please retry.'
   const writerError = rawSummary?.writer_error
+  const writerFallback = rawSummary?.writer?.fallback_used === true
+  const fallbackReason = rawSummary?.writer?.fallback_reason
   const trimmedMarkdown = cleanedMarkdown.trim()
   const isFallbackMessage = trimmedMarkdown === fallbackMessage
   const hasPolishedMarkdown = trimmedMarkdown.length > 0 && !isFallbackMessage && !writerError
@@ -839,9 +842,21 @@ function SummaryDisplay({ summary, filing, isPro, saveMutation, isSaved }: { sum
         <>
           {hasPolishedMarkdown && (
             <section className="bg-white rounded-lg shadow-md p-6">
-              <div className="flex items-center space-x-2 mb-6">
-                <FileText className="h-6 w-6 text-primary-600" />
-                <h2 className="text-xl font-semibold text-gray-900">Editorial Summary</h2>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center space-x-2">
+                  <FileText className="h-6 w-6 text-primary-600" />
+                  <h2 className="text-xl font-semibold text-gray-900">Editorial Summary</h2>
+                </div>
+                {writerFallback && (
+                  <span className="inline-flex items-center rounded-full border border-amber-400/40 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+                    Auto-generated summary
+                    {fallbackReason && (
+                      <span className="ml-2 text-amber-600" title={fallbackReason}>
+                        ⚠️
+                      </span>
+                    )}
+                  </span>
+                )}
               </div>
               <ReactMarkdown remarkPlugins={[remarkGfm]} className="markdown-body text-gray-800">
                 {cleanedMarkdown}
@@ -856,7 +871,9 @@ function SummaryDisplay({ summary, filing, isPro, saveMutation, isSaved }: { sum
                 metrics={metadata.financial_highlights.table}
                 notes={metadata.financial_highlights.notes}
               />
-              <FinancialCharts metrics={metadata.financial_highlights.table} />
+              <ChartErrorBoundary>
+                <FinancialCharts metrics={metadata.financial_highlights.table} />
+              </ChartErrorBoundary>
             </>
           )}
 

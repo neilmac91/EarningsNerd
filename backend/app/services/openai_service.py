@@ -1524,54 +1524,85 @@ Rules:
 
         response = None
         last_error: Optional[Exception] = None
-        for model_name in self._writer_models:
-            try:
-                response = await asyncio.wait_for(
-                    self.client.chat.completions.create(
-                        model=model_name,
-                        messages=[
-                            {"role": "system", "content": system_message},
-                            {"role": "user", "content": writer_prompt},
-                        ],
-                        temperature=0.4,
-                        max_tokens=900,
-                    ),
-                    timeout=18.0,
-                )
+        validation_error: Optional[Exception] = None
+        max_retries = 2
+        
+        for attempt in range(max_retries):
+            for model_name in self._writer_models:
+                try:
+                    # Enhance prompt on retry with more explicit instructions
+                    enhanced_prompt = writer_prompt
+                    if attempt > 0:
+                        enhanced_prompt += f"\n\nIMPORTANT: Previous attempt failed validation. Ensure you include ALL required sections: Executive Summary, Financials, Risks, Management Commentary, Outlook. Each section must have substantive content (not just 'Not disclosed'). Total word count must be 200-300 words."
+                        if validation_error:
+                            enhanced_prompt += f"\n\nPrevious error: {str(validation_error)[:200]}"
+                    
+                    response = await asyncio.wait_for(
+                        self.client.chat.completions.create(
+                            model=model_name,
+                            messages=[
+                                {"role": "system", "content": system_message},
+                                {"role": "user", "content": enhanced_prompt},
+                            ],
+                            temperature=0.4 if attempt == 0 else 0.3,  # Lower temperature on retry for more consistent output
+                            max_tokens=900,
+                        ),
+                        timeout=18.0,
+                    )
+                    
+                    content = response.choices[0].message.content or ""
+                    markdown = content.strip()
+                    model_used = response.model if hasattr(response, "model") else None
+                    
+                    # Validate the output
+                    try:
+                        self._validate_editorial_markdown(markdown)
+                        word_count = len(markdown.split())
+                        return {
+                            "markdown": markdown,
+                            "word_count": word_count,
+                            "model_used": model_used,
+                        }
+                    except Exception as ve:
+                        validation_error = ve
+                        logger.warning(
+                            f"Writer validation failed (attempt {attempt + 1}/{max_retries}): {str(ve)[:200]}"
+                        )
+                        if attempt < max_retries - 1:
+                            # Try again with next model or retry
+                            continue
+                        # Last attempt failed, will fall back below
+                        break
+                        
+                except Exception as model_error:
+                    error_msg = str(model_error)
+                    last_error = model_error
+                    if any(keyword in error_msg.lower() for keyword in ("rate limit", "429", "model", "unavailable")):
+                        logger.warning(f"Writer model {model_name} failed ({error_msg[:120]}). Trying next model...")
+                        continue
+                    raise
+            
+            # If we got here and have a response but validation failed, break retry loop
+            if response and validation_error:
                 break
-            except Exception as model_error:
-                error_msg = str(model_error)
-                last_error = model_error
-                if any(keyword in error_msg.lower() for keyword in ("rate limit", "429", "model", "unavailable")):
-                    print(f"Writer model {model_name} failed ({error_msg[:120]}). Trying next model...")
-                    continue
-                raise
-
-        if response is None:
-            raise last_error if last_error else RuntimeError("All writer models failed.")
-
-        content = response.choices[0].message.content or ""
-        markdown = content.strip()
-        model_used = response.model if hasattr(response, "model") else None
-
-        try:
-            self._validate_editorial_markdown(markdown)
-            word_count = len(markdown.split())
-            return {
-                "markdown": markdown,
-                "word_count": word_count,
-                "model_used": model_used,
-            }
-        except Exception as validation_error:
-            fallback_markdown = self._build_structured_markdown(structured_summary, str(validation_error))
+        
+        # Fall back to structured markdown if all attempts failed
+        if validation_error or response is None:
+            fallback_reason = str(validation_error) if validation_error else (str(last_error) if last_error else "All writer models failed")
+            logger.warning(f"Writer generation failed after {max_retries} attempts. Using structured fallback. Reason: {fallback_reason[:200]}")
+            fallback_markdown = self._build_structured_markdown(structured_summary, fallback_reason)
             word_count = len(fallback_markdown.split())
+            model_used = response.model if response and hasattr(response, "model") else None
             return {
                 "markdown": fallback_markdown,
                 "word_count": word_count,
                 "model_used": model_used,
                 "fallback_used": True,
-                "fallback_reason": str(validation_error),
+                "fallback_reason": fallback_reason,
             }
+        
+        # Should not reach here, but handle gracefully
+        raise RuntimeError("Unexpected error in writer generation")
 
     async def summarize_filing_stream(
         self,

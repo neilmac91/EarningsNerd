@@ -76,6 +76,8 @@ class TrendingTickerService:
         self._symbol_cache_path = (cache_root / ".cache/sec_ticker_lookup.json").resolve()
         self._http_client: Optional[httpx.AsyncClient] = None
         self._http_client_lock = asyncio.Lock()
+        # Rate limit tracking: source -> (backoff_until, consecutive_429s)
+        self._rate_limit_backoff: Dict[str, tuple[Optional[datetime], int]] = {}
         self._ensure_cache_directory()
         self._load_persistent_cache(initial_load=True)
         self._load_symbol_lookup_from_disk()
@@ -191,6 +193,16 @@ class TrendingTickerService:
         }
 
     async def _fetch_from_x(self, client: httpx.AsyncClient) -> Optional[Dict[str, Any]]:
+        source = "x"
+        
+        # Check if we're in backoff period
+        if self._is_rate_limited(source):
+            backoff_until, _ = self._rate_limit_backoff[source]
+            remaining = (backoff_until - datetime.utcnow()).total_seconds() / 60 if backoff_until else 0
+            self._last_error = f"X API rate-limited. Retry after {remaining:.0f} minutes"
+            self._logger.info("Skipping X fetch due to rate limit backoff (%.0f min remaining)", remaining)
+            return None
+        
         token = settings.TWITTER_BEARER_TOKEN.strip() if settings.TWITTER_BEARER_TOKEN else ""
         if not token:
             self._logger.info("Skipping X trending fetch: TWITTER_BEARER_TOKEN is not configured.")
@@ -211,9 +223,16 @@ class TrendingTickerService:
         try:
             response = await client.get(url, params=params, headers=headers)
             response.raise_for_status()
+            # Success - reset rate limit tracking
+            self._record_success(source)
         except httpx.HTTPStatusError as exc:
-            self._last_error = f"X API returned {exc.response.status_code}"
-            self._logger.warning("Failed to fetch trending data from X: %s", self._last_error)
+            if exc.response.status_code == 429:
+                self._record_rate_limit(source)
+                self._last_error = f"X API returned 429 (rate limited)"
+                self._logger.warning("Rate limited by X API. Backing off.")
+            else:
+                self._last_error = f"X API returned {exc.response.status_code}"
+                self._logger.warning("Failed to fetch trending data from X: %s", self._last_error)
             return None
         except httpx.HTTPError as exc:
             self._last_error = f"X API error: {exc.__class__.__name__}"
@@ -278,14 +297,63 @@ class TrendingTickerService:
 
         return {"tickers": tickers, "source": "X API"}
 
+    def _is_rate_limited(self, source: str) -> bool:
+        """Check if a source is currently rate-limited."""
+        backoff_info = self._rate_limit_backoff.get(source)
+        if not backoff_info:
+            return False
+        backoff_until, _ = backoff_info
+        if backoff_until and datetime.utcnow() < backoff_until:
+            return True
+        return False
+
+    def _record_rate_limit(self, source: str) -> None:
+        """Record a rate limit hit and set exponential backoff."""
+        backoff_info = self._rate_limit_backoff.get(source, (None, 0))
+        _, consecutive_429s = backoff_info
+        
+        # Exponential backoff: 1min, 5min, 15min, 30min, max 1 hour
+        backoff_minutes = min(60, (2 ** consecutive_429s) * 1 if consecutive_429s < 3 else 15 + (consecutive_429s - 3) * 5)
+        backoff_until = datetime.utcnow() + timedelta(minutes=backoff_minutes)
+        
+        self._rate_limit_backoff[source] = (backoff_until, consecutive_429s + 1)
+        self._logger.warning(
+            "Rate limit hit for %s. Backing off for %d minutes (consecutive: %d)",
+            source,
+            backoff_minutes,
+            consecutive_429s + 1,
+        )
+
+    def _record_success(self, source: str) -> None:
+        """Record a successful request, resetting rate limit tracking."""
+        if source in self._rate_limit_backoff:
+            self._rate_limit_backoff[source] = (None, 0)
+
     async def _fetch_from_yahoo(self, client: httpx.AsyncClient) -> Optional[Dict[str, Any]]:
+        source = "yahoo"
+        
+        # Check if we're in backoff period
+        if self._is_rate_limited(source):
+            backoff_until, _ = self._rate_limit_backoff[source]
+            remaining = (backoff_until - datetime.utcnow()).total_seconds() / 60 if backoff_until else 0
+            self._last_error = f"Yahoo trending rate-limited. Retry after {remaining:.0f} minutes"
+            self._logger.info("Skipping Yahoo fetch due to rate limit backoff (%.0f min remaining)", remaining)
+            return None
+        
         url = "https://query1.finance.yahoo.com/v1/finance/trending/US"
         try:
             response = await client.get(url)
             response.raise_for_status()
+            # Success - reset rate limit tracking
+            self._record_success(source)
         except httpx.HTTPStatusError as exc:
-            self._last_error = f"Yahoo trending returned {exc.response.status_code}"
-            self._logger.warning("Failed to fetch trending data from Yahoo Finance: %s", self._last_error)
+            if exc.response.status_code == 429:
+                self._record_rate_limit(source)
+                self._last_error = f"Yahoo trending returned 429 (rate limited)"
+                self._logger.warning("Rate limited by Yahoo Finance. Backing off.")
+            else:
+                self._last_error = f"Yahoo trending returned {exc.response.status_code}"
+                self._logger.warning("Failed to fetch trending data from Yahoo Finance: %s", self._last_error)
             return None
         except httpx.HTTPError as exc:
             self._last_error = f"Yahoo trending error: {exc.__class__.__name__}"
