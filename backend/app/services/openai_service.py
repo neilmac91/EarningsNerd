@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from openai import AsyncOpenAI
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 from app.config import settings
 import json
 import re
@@ -797,6 +797,407 @@ class OpenAIService:
 
         return "\n".join(lines).strip()
 
+    def _section_is_empty(self, value: Any) -> bool:
+        if value is None:
+            return True
+        if isinstance(value, str):
+            return _normalize_simple_string(value) is None
+        if isinstance(value, (int, float)):
+            return False
+        if isinstance(value, list):
+            return all(self._section_is_empty(item) for item in value)
+        if isinstance(value, dict):
+            if not value:
+                return True
+            return all(self._section_is_empty(item) for item in value.values())
+        return False
+
+    def _find_empty_sections(self, sections: Dict[str, Any]) -> List[str]:
+        ordered_keys = [
+            "executive_snapshot",
+            "financial_highlights",
+            "risk_factors",
+            "management_discussion_insights",
+            "segment_performance",
+            "liquidity_capital_structure",
+            "guidance_outlook",
+            "notable_footnotes",
+            "three_year_trend",
+        ]
+        empty: List[str] = []
+        for key in ordered_keys:
+            if self._section_is_empty(sections.get(key)):
+                empty.append(key)
+        return empty
+
+    def _build_section_context(
+        self,
+        section_key: str,
+        extracted_sections: Dict[str, str],
+        filing_sample: str,
+    ) -> str:
+        section_sources = {
+            "executive_snapshot": ["mda", "business", "financials"],
+            "financial_highlights": ["financials", "mda"],
+            "risk_factors": ["risk_factors"],
+            "management_discussion_insights": ["mda"],
+            "segment_performance": ["segments", "mda"],
+            "liquidity_capital_structure": ["liquidity", "financials"],
+            "guidance_outlook": ["guidance", "mda"],
+            "notable_footnotes": ["footnotes"],
+            "three_year_trend": ["mda", "business"],
+        }
+        max_length = 6000
+        parts: List[str] = []
+        for source_key in section_sources.get(section_key, []):
+            snippet = extracted_sections.get(source_key)
+            if snippet:
+                parts.append(snippet)
+        if not parts and filing_sample:
+            parts.append(filing_sample)
+        combined = "\n\n".join(parts).strip()
+        return combined[:max_length]
+
+    def _get_section_schema_snippet(self, section_key: str) -> Optional[str]:
+        schema_snippets = {
+            "executive_snapshot": "{""executive_snapshot"": {""headline"": ""<string>"", ""key_points"": [""<string>""], ""tone"": ""<positive|neutral|cautious>""}}",
+            "financial_highlights": "{""financial_highlights"": {""table"": [{""metric"": ""<string>"", ""current_period"": ""<string>"", ""prior_period"": ""<string>"", ""change"": ""<string>"", ""commentary"": ""<string>""}], ""profitability"": [""<string>""], ""cash_flow"": [""<string>""], ""balance_sheet"": [""<string>""]}}",
+            "risk_factors": "{""risk_factors"": [{""summary"": ""<string>"", ""supporting_evidence"": ""<string>"", ""materiality"": ""<low|medium|high>""}]}",
+            "management_discussion_insights": "{""management_discussion_insights"": {""themes"": [""<string>""], ""quotes"": [{""speaker"": ""<string>"", ""quote"": ""<string>"", ""context"": ""<string>""}], ""capital_allocation"": [""<string>""]}}",
+            "segment_performance": "{""segment_performance"": [{""segment"": ""<string>"", ""revenue"": ""<string>"", ""change"": ""<string>"", ""commentary"": ""<string>""}]}",
+            "liquidity_capital_structure": "{""liquidity_capital_structure"": {""leverage"": ""<string>"", ""liquidity"": ""<string>"", ""shareholder_returns"": [""<string>""]}}",
+            "guidance_outlook": "{""guidance_outlook"": {""guidance"": ""<string>"", ""tone"": ""<positive|neutral|cautious>"", ""drivers"": [""<string>""], ""watch_items"": [""<string>""]}}",
+            "notable_footnotes": "{""notable_footnotes"": [{""item"": ""<string>"", ""impact"": ""<string>""}]}",
+            "three_year_trend": "{""three_year_trend"": {""trend_summary"": ""<string>"", ""inflections"": [""<string>""], ""compare_prior_period"": {""available"": <bool>, ""insights"": [""<string>""]}}}",
+        }
+        return schema_snippets.get(section_key)
+
+    async def _run_secondary_completion(
+        self,
+        filing_type_key: str,
+        prompt: str,
+        *,
+        timeout: float = 12.0,
+        max_tokens: int = 350,
+    ) -> Optional[str]:
+        import asyncio
+
+        models_to_try = [self.get_model_for_filing(filing_type_key)] + self._fallback_models
+        models_to_try = list(dict.fromkeys(models_to_try))
+        last_error: Optional[Exception] = None
+        for model_name in models_to_try:
+            try:
+                response = await asyncio.wait_for(
+                    self.client.chat.completions.create(
+                        model=model_name,
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": (
+                                    "You fill in missing sections of a structured SEC filing summary. "
+                                    "Stay concise, rely only on provided excerpts, and return valid JSON."
+                                ),
+                            },
+                            {"role": "user", "content": prompt},
+                        ],
+                        temperature=0.1,
+                        max_tokens=max_tokens,
+                    ),
+                    timeout=timeout,
+                )
+                return response.choices[0].message.content if response.choices else None
+            except Exception as model_error:
+                error_msg = str(model_error)
+                last_error = model_error
+                if any(keyword in error_msg.lower() for keyword in ("rate limit", "429", "model", "unavailable")):
+                    print(f"Secondary completion model {model_name} failed ({error_msg[:120]}). Trying next model...")
+                    continue
+                break
+        if last_error:
+            raise last_error
+        return None
+
+    async def _recover_missing_sections(
+        self,
+        missing_sections: List[str],
+        filing_type_key: str,
+        extracted_sections: Dict[str, str],
+        filing_sample: str,
+        metadata: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        recovered: Dict[str, Any] = {}
+        if not missing_sections:
+            return recovered
+
+        company_name = metadata.get("company_name", "The company")
+        filing_type_label = metadata.get("filing_type", filing_type_key)
+        reporting_period = metadata.get("reporting_period", "the reported period")
+
+        for section_key in missing_sections:
+            schema_snippet = self._get_section_schema_snippet(section_key)
+            if not schema_snippet:
+                continue
+            context = self._build_section_context(section_key, extracted_sections, filing_sample)
+            if not context:
+                continue
+            prompt = f"""Company: {company_name}
+Filing type: {filing_type_label}
+Reporting period: {reporting_period}
+
+Populate only the `{section_key}` portion of the structured summary schema shown below. Use concrete facts from the excerpt. If figures are missing, supply concise qualitative statements rather than placeholders.
+
+SCHEMA:
+{schema_snippet}
+
+FILING EXCERPT:
+{context}
+
+Return JSON containing only the `{section_key}` key."""
+
+            try:
+                content = await self._run_secondary_completion(filing_type_key, prompt)
+            except Exception as secondary_error:
+                print(f"Secondary fill for {section_key} failed: {secondary_error}")
+                continue
+
+            if not content:
+                continue
+
+            cleaned = self._clean_json_payload(content)
+            if not cleaned:
+                continue
+            try:
+                parsed = json.loads(cleaned)
+            except json.JSONDecodeError:
+                print(f"Secondary fill for {section_key} returned invalid JSON: {cleaned[:200]}")
+                continue
+
+            section_value = parsed.get(section_key)
+            if section_value is not None and not self._section_is_empty(section_value):
+                recovered[section_key] = section_value
+
+        return recovered
+
+    def _apply_structured_fallbacks(
+        self,
+        sections: Dict[str, Any],
+        metadata: Dict[str, Any],
+        xbrl_metrics: Optional[Dict[str, Any]],
+    ) -> None:
+        def format_currency(value: Optional[float]) -> Optional[str]:
+            if value is None:
+                return None
+            try:
+                abs_value = abs(value)
+                if abs_value >= 1_000_000_000:
+                    return f"${value / 1_000_000_000:.1f}B"
+                if abs_value >= 1_000_000:
+                    return f"${value / 1_000_000:.1f}M"
+                if abs_value >= 1_000:
+                    return f"${value / 1_000:.1f}K"
+                return f"${value:,.0f}"
+            except Exception:
+                return None
+
+        def format_percent(value: Optional[float]) -> Optional[str]:
+            if value is None:
+                return None
+            try:
+                return f"{value:.1f}%"
+            except Exception:
+                return None
+
+        def metric_entry(metric_key: str) -> Dict[str, Any]:
+            metric = (xbrl_metrics or {}).get(metric_key) or {}
+            current = metric.get("current") or {}
+            prior = metric.get("prior") or {}
+            formatted_current = format_currency(current.get("value")) if metric_key != "net_margin" else format_percent(current.get("value"))
+            formatted_prior = format_currency(prior.get("value")) if metric_key != "net_margin" else format_percent(prior.get("value"))
+            return {
+                "current": formatted_current,
+                "current_period": current.get("period"),
+                "prior": formatted_prior,
+                "prior_period": prior.get("period"),
+            }
+
+        metadata = metadata or {}
+        company_name = metadata.get("company_name", "The company")
+        reporting_period = metadata.get("reporting_period", "the reported period")
+
+        revenue_info = metric_entry("revenue")
+        income_info = metric_entry("net_income")
+        margin_info = metric_entry("net_margin")
+
+        if self._section_is_empty(sections.get("executive_snapshot")):
+            headline_parts: List[str] = []
+            if revenue_info["current"] and revenue_info["current_period"]:
+                headline_parts.append(
+                    f"Revenue at {revenue_info['current']} for {revenue_info['current_period']}"
+                )
+            if income_info["current"] and income_info["current_period"]:
+                headline_parts.append(
+                    f"Net income reported at {income_info['current']}"
+                )
+            headline = (
+                f"{company_name} filing highlights standardized metrics" if headline_parts else f"{company_name} filing provided limited qualitative detail"
+            )
+            key_points: List[str] = []
+            if headline_parts:
+                key_points.extend(headline_parts)
+            else:
+                key_points.append("Core filing excerpts offered minimal narrative detail; review standardized data for context.")
+            if margin_info["current"]:
+                key_points.append(f"Net margin tracked at {margin_info['current']} based on available XBRL data.")
+            sections["executive_snapshot"] = {
+                "headline": headline,
+                "key_points": key_points,
+                "tone": "neutral",
+            }
+
+        if self._section_is_empty(sections.get("financial_highlights")):
+            table: List[Dict[str, Any]] = []
+            if revenue_info["current"]:
+                table.append(
+                    {
+                        "metric": "Revenue",
+                        "current_period": revenue_info["current"],
+                        "prior_period": revenue_info["prior"] or "Not disclosed",
+                        "change": "Not disclosed",
+                        "commentary": f"Reported for {revenue_info['current_period'] or reporting_period}.",
+                    }
+                )
+            if income_info["current"]:
+                table.append(
+                    {
+                        "metric": "Net Income",
+                        "current_period": income_info["current"],
+                        "prior_period": income_info["prior"] or "Not disclosed",
+                        "change": "Not disclosed",
+                        "commentary": f"Latest standardized value for {income_info['current_period'] or reporting_period}.",
+                    }
+                )
+            if margin_info["current"]:
+                table.append(
+                    {
+                        "metric": "Net Margin",
+                        "current_period": margin_info["current"],
+                        "prior_period": margin_info["prior"] or "Not disclosed",
+                        "change": "Not disclosed",
+                        "commentary": "Derived from aligned revenue and income figures.",
+                    }
+                )
+            if not table:
+                table.append(
+                    {
+                        "metric": "Summary",
+                        "current_period": "Not disclosed",
+                        "prior_period": "Not disclosed",
+                        "change": "Not disclosed",
+                        "commentary": "Filing excerpts omitted detailed financial metrics; rely on management updates for figures.",
+                    }
+                )
+            sections["financial_highlights"] = {
+                "table": table,
+                "profitability": [
+                    margin_info["current"]
+                    and f"Net margin approximately {margin_info['current']} based on standardized data."
+                    or "Profitability commentary unavailable in provided excerpts."
+                ],
+                "cash_flow": [
+                    "Cash flow details were not disclosed in the targeted excerpts; monitor future filings for updates."
+                ],
+                "balance_sheet": [
+                    revenue_info["current"]
+                    and f"Revenue scale of {revenue_info['current']} provides a proxy for balance sheet size."
+                    or "Balance sheet specifics were absent from the extracted text."
+                ],
+            }
+
+        if self._section_is_empty(sections.get("risk_factors")):
+            sections["risk_factors"] = [
+                {
+                    "summary": "No incremental risks identified in extracted text; rely on full filing for detail.",
+                    "supporting_evidence": "Targeted excerpts did not highlight new risk factor language.",
+                    "materiality": "low",
+                }
+            ]
+
+        if self._section_is_empty(sections.get("management_discussion_insights")):
+            sections["management_discussion_insights"] = {
+                "themes": [
+                    "Management commentary was sparse in the sampled sections; watch for updates in subsequent communications."
+                ],
+                "quotes": [],
+                "capital_allocation": [
+                    "No explicit capital allocation remarks were captured in the excerpts."
+                ],
+            }
+
+        if self._section_is_empty(sections.get("segment_performance")):
+            sections["segment_performance"] = [
+                {
+                    "segment": "Company-wide",
+                    "revenue": revenue_info["current"] or "Not disclosed",
+                    "change": "Not disclosed",
+                    "commentary": "Segment detail was not present; investors should review full filing tables.",
+                }
+            ]
+
+        if self._section_is_empty(sections.get("liquidity_capital_structure")):
+            liquidity_line = (
+                f"Liquidity not quantified in excerpts; standardized revenue indicates scale of {revenue_info['current']}."
+                if revenue_info["current"]
+                else "Liquidity metrics were omitted from extracted sections."
+            )
+            sections["liquidity_capital_structure"] = {
+                "leverage": "Debt and leverage commentary not captured in sampled passages.",
+                "liquidity": liquidity_line,
+                "shareholder_returns": [
+                    "No explicit reference to dividends or buybacks within the excerpted text."
+                ],
+            }
+
+        if self._section_is_empty(sections.get("guidance_outlook")):
+            sections["guidance_outlook"] = {
+                "guidance": "Guidance not disclosed in sampled sections.",
+                "tone": "neutral",
+                "drivers": [
+                    revenue_info["current"]
+                    and f"Standardized revenue of {revenue_info['current']} provides baseline demand context."
+                    or "Key demand drivers were not described."
+                ],
+                "watch_items": [
+                    "Monitor forthcoming management commentary for explicit outlook guidance."
+                ],
+            }
+
+        if self._section_is_empty(sections.get("notable_footnotes")):
+            sections["notable_footnotes"] = [
+                {
+                    "item": "No specific footnotes surfaced in the extracted passages.",
+                    "impact": "Review the full filing footnotes for accounting nuances or adjustments.",
+                }
+            ]
+
+        if self._section_is_empty(sections.get("three_year_trend")):
+            trend_summary = revenue_info["current"] and f"Latest standardized revenue of {revenue_info['current']} anchors the recent trajectory." or "Trend commentary unavailable from excerpts."
+            sections["three_year_trend"] = {
+                "trend_summary": trend_summary,
+                "inflections": [
+                    margin_info["current"]
+                    and f"Net margin currently at {margin_info['current']} per standardized data."
+                    or "No clear inflection points identified from provided text."
+                ],
+                "compare_prior_period": {
+                    "available": bool(revenue_info["prior"] or income_info["prior"]),
+                    "insights": [
+                        revenue_info["prior"]
+                        and f"Prior revenue reference point: {revenue_info['prior']}"
+                        or "Prior-period disclosures were not captured.",
+                    ],
+                },
+            }
+
     async def generate_structured_summary(
         self,
         filing_text: str,
@@ -1019,6 +1420,27 @@ Rules:
             print(f"Structured summary JSON error: {json_error}")
             print(f"Raw payload (first 500 chars): {payload[:500]}")
             raise
+
+        sections_info = summary_data.get("sections") or {}
+        missing_sections = self._find_empty_sections(sections_info)
+        if missing_sections:
+            detailed_sections = self.extract_sections(filing_text, filing_type_key)
+            recovered = await self._recover_missing_sections(
+                missing_sections,
+                filing_type_key,
+                detailed_sections,
+                filing_sample,
+                summary_data.get("metadata", {}),
+            )
+            if recovered:
+                sections_info.update(recovered)
+
+        self._apply_structured_fallbacks(
+            sections_info,
+            summary_data.get("metadata", {}),
+            xbrl_metrics,
+        )
+        summary_data["sections"] = sections_info
 
         return summary_data
 
