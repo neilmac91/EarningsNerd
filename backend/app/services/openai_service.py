@@ -797,7 +797,15 @@ class OpenAIService:
 
         return "\n".join(lines).strip()
 
-    async def generate_structured_summary(self, filing_text: str, company_name: str, filing_type: str, previous_filings: Optional[list] = None, xbrl_metrics: Optional[Dict] = None) -> Dict[str, Any]:
+    async def generate_structured_summary(
+        self,
+        filing_text: str,
+        company_name: str,
+        filing_type: str,
+        previous_filings: Optional[list] = None,
+        xbrl_metrics: Optional[Dict] = None,
+        filing_excerpt: Optional[str] = None,
+    ) -> Dict[str, Any]:
         """Phase 1: Extract structured financial schema from the filing."""
         try:
             from bs4 import BeautifulSoup
@@ -809,7 +817,9 @@ class OpenAIService:
         filing_type_key = (filing_type or "10-K").upper()
         config = self._get_type_config(filing_type_key)
 
-        filing_sample = self.extract_critical_sections(filing_text, filing_type_key)
+        filing_sample = filing_excerpt or self.extract_critical_sections(filing_text, filing_type_key)
+        if not filing_sample:
+            filing_sample = filing_text[:15000]
         financial_data = self.extract_financial_data(filing_sample[:15000])
 
         xbrl_section = ""
@@ -1105,7 +1115,15 @@ Rules:
                 "fallback_reason": str(validation_error),
             }
 
-    async def summarize_filing_stream(self, filing_text: str, company_name: str, filing_type: str, previous_filings: Optional[list] = None, xbrl_metrics: Optional[Dict] = None):
+    async def summarize_filing_stream(
+        self,
+        filing_text: str,
+        company_name: str,
+        filing_type: str,
+        previous_filings: Optional[list] = None,
+        xbrl_metrics: Optional[Dict] = None,
+        filing_excerpt: Optional[str] = None,
+    ):
         """Generate AI summary of filing with streaming response"""
         # Parse HTML and extract text
         try:
@@ -1119,7 +1137,9 @@ Rules:
         config = self._get_type_config(filing_type_key)
 
         # OPTIMIZED: Extract ONLY critical sections (Item 1A and Item 7 for 10-K)
-        filing_sample = self.extract_critical_sections(filing_text, filing_type_key)
+        filing_sample = filing_excerpt or self.extract_critical_sections(filing_text, filing_type_key)
+        if not filing_sample:
+            filing_sample = filing_text[:15000]
         
         # Extract financial data from the critical sections for context
         financial_data = self.extract_financial_data(filing_sample[:15000])
@@ -1353,7 +1373,15 @@ Do not include any additional keys or text outside the JSON object."""
             error_msg = str(e)
             yield f"\n\n[Error: {error_msg[:200]}]"
 
-    async def summarize_filing(self, filing_text: str, company_name: str, filing_type: str, previous_filings: Optional[list] = None, xbrl_metrics: Optional[Dict] = None) -> Dict:
+    async def summarize_filing(
+        self,
+        filing_text: str,
+        company_name: str,
+        filing_type: str,
+        previous_filings: Optional[list] = None,
+        xbrl_metrics: Optional[Dict] = None,
+        filing_excerpt: Optional[str] = None,
+    ) -> Dict:
         """Generate newsroom-ready summary using structured extraction + editorial writer phases."""
         import asyncio
 
@@ -1365,6 +1393,7 @@ Do not include any additional keys or text outside the JSON object."""
                 filing_type,
                 previous_filings=previous_filings,
                 xbrl_metrics=xbrl_metrics,
+                filing_excerpt=filing_excerpt,
             )
         except asyncio.TimeoutError:
             timeout_seconds = self._get_type_config(filing_type_key).get("ai_timeout", 30.0)

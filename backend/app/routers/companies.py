@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 import httpx
 import asyncio
+import atexit
 
 router = APIRouter()
 
@@ -27,8 +28,15 @@ QUOTE_CACHE_TTL = timedelta(seconds=120)
 MAX_QUOTE_CACHE_SIZE = 256
 QUOTE_TIMEOUT_SECONDS = 4.0
 YAHOO_TIMEOUT = httpx.Timeout(3.0, connect=1.0, read=2.5)
+YAHOO_HEADERS = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+    "Accept": "application/json",
+    "Referer": "https://finance.yahoo.com/",
+}
 
 _quote_cache: Dict[str, Tuple[StockQuote, datetime]] = {}
+_yahoo_client: Optional[httpx.AsyncClient] = None
+_yahoo_client_lock = asyncio.Lock()
 
 
 def _get_cached_quote(ticker: str) -> Optional[StockQuote]:
@@ -55,6 +63,44 @@ def _store_cached_quote(ticker: str, quote: StockQuote) -> None:
         _quote_cache.pop(oldest_key, None)
 
     _quote_cache[ticker_key] = (quote, datetime.utcnow())
+
+
+async def _get_yahoo_client() -> httpx.AsyncClient:
+    global _yahoo_client
+    if _yahoo_client and not _yahoo_client.is_closed:
+        return _yahoo_client
+
+    async with _yahoo_client_lock:
+        if _yahoo_client is None or _yahoo_client.is_closed:
+            _yahoo_client = httpx.AsyncClient(
+                timeout=YAHOO_TIMEOUT,
+                headers=YAHOO_HEADERS,
+                limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+            )
+    return _yahoo_client
+
+
+def _close_yahoo_client_sync() -> None:
+    global _yahoo_client
+    client = _yahoo_client
+    if not client or client.is_closed:
+        return
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = None
+
+    async def _async_close():
+        await client.aclose()
+
+    if loop and loop.is_running():
+        loop.create_task(_async_close())
+    else:
+        asyncio.run(_async_close())
+    _yahoo_client = None
+
+
+atexit.register(_close_yahoo_client_sync)
 
 
 async def _get_stock_quote_with_timeout(ticker: str) -> Optional[StockQuote]:
@@ -88,29 +134,59 @@ async def search_companies(
             return []
         
         # Store or update companies in database
-        companies = []
+        companies: List[Company] = []
+        ciks = [result["cik"] for result in sec_results if result.get("cik")]
+        existing_companies: Dict[str, Company] = {}
+        if ciks:
+            existing = db.query(Company).filter(Company.cik.in_(ciks)).all()
+            existing_companies = {company.cik: company for company in existing}
+
+        new_companies: List[Company] = []
+        updated_companies: List[Company] = []
+
         for sec_data in sec_results:
-            company = db.query(Company).filter(Company.cik == sec_data["cik"]).first()
-            
+            cik = sec_data.get("cik")
+            if not cik:
+                continue
+
+            company = existing_companies.get(cik)
             if not company:
                 company = Company(
-                    cik=sec_data["cik"],
-                    ticker=sec_data["ticker"],
-                    name=sec_data["name"],
-                    exchange=sec_data.get("exchange")
+                    cik=cik,
+                    ticker=sec_data.get("ticker"),
+                    name=sec_data.get("name"),
+                    exchange=sec_data.get("exchange"),
                 )
                 db.add(company)
-                db.commit()
-                db.refresh(company)
+                new_companies.append(company)
             else:
-                # Update if needed
-                company.ticker = sec_data["ticker"]
-                company.name = sec_data["name"]
-                company.exchange = sec_data.get("exchange")
-                db.commit()
-            
-            companies.append(company)
-        
+                updated = False
+                ticker = sec_data.get("ticker")
+                name = sec_data.get("name")
+                exchange = sec_data.get("exchange")
+
+                if ticker and company.ticker != ticker:
+                    company.ticker = ticker
+                    updated = True
+                if name and company.name != name:
+                    company.name = name
+                    updated = True
+                if company.exchange != exchange:
+                    company.exchange = exchange
+                    updated = True
+
+                if updated:
+                    updated_companies.append(company)
+
+            if company:
+                companies.append(company)
+
+        if new_companies or updated_companies:
+            db.flush()
+            db.commit()
+            for company in new_companies:
+                db.refresh(company)
+
         # Fetch stock quotes for all companies in parallel (but don't fail if some fail)
         quote_tasks = [_get_stock_quote_with_timeout(company.ticker) for company in companies]
         stock_quotes = await asyncio.gather(*quote_tasks, return_exceptions=True)
@@ -191,14 +267,9 @@ async def get_stock_quote(ticker: str) -> Optional[StockQuote]:
         ticker_key = ticker.upper()
         # Yahoo Finance API endpoint (free, no API key required)
         url = f"https://query1.finance.yahoo.com/v8/finance/chart/{ticker_key}"
-        headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-            "Accept": "application/json",
-            "Referer": "https://finance.yahoo.com/"
-        }
-        async with httpx.AsyncClient(timeout=YAHOO_TIMEOUT) as client:
-            response = await client.get(url, headers=headers)
-            response.raise_for_status()
+        client = await _get_yahoo_client()
+        response = await client.get(url)
+        response.raise_for_status()
             
             # Check if response is valid JSON
             if response.headers.get("content-type", "").startswith("application/json"):

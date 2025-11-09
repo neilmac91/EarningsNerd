@@ -24,7 +24,7 @@ class User(Base):
 
 class Company(Base):
     __tablename__ = "companies"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     cik = Column(String, unique=True, index=True, nullable=False)
     ticker = Column(String, index=True, nullable=False)
@@ -50,7 +50,7 @@ class Watchlist(Base):
 
 class Filing(Base):
     __tablename__ = "filings"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)
     accession_number = Column(String, unique=True, index=True, nullable=False)
@@ -64,6 +64,18 @@ class Filing(Base):
     
     company = relationship("Company", back_populates="filings")
     summaries = relationship("Summary", back_populates="filing")
+    content_cache = relationship(
+        "FilingContentCache",
+        back_populates="filing",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    summary_progress = relationship(
+        "SummaryGenerationProgress",
+        back_populates="filing",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
 
 class Summary(Base):
     __tablename__ = "summaries"
@@ -105,7 +117,7 @@ class SavedSummary(Base):
 
 class UserUsage(Base):
     __tablename__ = "user_usage"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     month = Column(String, nullable=False, index=True)  # Format: "YYYY-MM"
@@ -114,4 +126,29 @@ class UserUsage(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     user = relationship("User", back_populates="usage")
+
+
+class SummaryGenerationProgress(Base):
+    __tablename__ = "summary_generation_progress"
+
+    filing_id = Column(Integer, ForeignKey("filings.id"), primary_key=True)
+    stage = Column(String, nullable=False)
+    started_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), server_default=func.now(), nullable=False)
+    elapsed_seconds = Column(Float, nullable=True)
+    error = Column(String, nullable=True)
+
+    filing = relationship("Filing", back_populates="summary_progress")
+
+
+class FilingContentCache(Base):
+    __tablename__ = "filing_content_cache"
+
+    filing_id = Column(Integer, ForeignKey("filings.id"), primary_key=True)
+    critical_excerpt = Column(Text, nullable=True)
+    sections_payload = Column(JSON, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    filing = relationship("Filing", back_populates="content_cache")
 

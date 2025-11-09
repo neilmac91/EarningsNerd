@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import atexit
 from collections import defaultdict
 from datetime import datetime, timedelta
 import json
@@ -19,6 +21,7 @@ class TrendingTickerService:
     _cache_ttl = timedelta(minutes=10)
     _persistent_cache_ttl = timedelta(hours=24)
     _persistent_cache_filename = ".cache/trending_tickers.json"
+    _symbol_lookup_ttl = timedelta(hours=12)
     _positive_keywords = {
         "beat",
         "bull",
@@ -70,8 +73,13 @@ class TrendingTickerService:
         self._last_error: Optional[str] = None
         cache_root = Path("/tmp") if settings.ENVIRONMENT == "production" else Path(".")
         self._cache_file_path = (cache_root / self._persistent_cache_filename).resolve()
+        self._symbol_cache_path = (cache_root / ".cache/sec_ticker_lookup.json").resolve()
+        self._http_client: Optional[httpx.AsyncClient] = None
+        self._http_client_lock = asyncio.Lock()
         self._ensure_cache_directory()
         self._load_persistent_cache(initial_load=True)
+        self._load_symbol_lookup_from_disk()
+        atexit.register(self._close_http_client_sync)
 
     async def get_trending_tickers(self, force_refresh: bool = False) -> Dict[str, Any]:
         """Return trending tickers, using caching and fallbacks when necessary."""
@@ -90,13 +98,29 @@ class TrendingTickerService:
         result: Optional[Dict[str, Any]] = None
         self._last_error = None
 
-        x_data = await self._fetch_from_x()
+        client = await self._get_http_client()
+        fetch_tasks = {
+            "x": asyncio.create_task(self._fetch_from_x(client)),
+            "yahoo": asyncio.create_task(self._fetch_from_yahoo(client)),
+        }
+
+        fetch_results: Dict[str, Optional[Dict[str, Any]]] = {}
+        for source, task in fetch_tasks.items():
+            try:
+                fetch_results[source] = await task
+            except Exception as exc:
+                message = f"{source} trending fetch error: {exc.__class__.__name__}"
+                self._last_error = message
+                self._logger.warning("Failed to fetch trending data from %s: %s", source, exc, exc_info=True)
+                fetch_results[source] = None
+
+        x_data = fetch_results.get("x")
+        yahoo_data = fetch_results.get("yahoo")
+
         if x_data and x_data.get("tickers"):
             result = x_data
-        else:
-            fallback_data = await self._fetch_from_yahoo()
-            if fallback_data and fallback_data.get("tickers"):
-                result = fallback_data
+        elif yahoo_data and yahoo_data.get("tickers"):
+            result = yahoo_data
 
         if result and result.get("tickers"):
             enriched_tickers = await self._enrich_company_metadata(result["tickers"])
@@ -166,7 +190,7 @@ class TrendingTickerService:
             "message": fallback_message,
         }
 
-    async def _fetch_from_x(self) -> Optional[Dict[str, Any]]:
+    async def _fetch_from_x(self, client: httpx.AsyncClient) -> Optional[Dict[str, Any]]:
         token = settings.TWITTER_BEARER_TOKEN.strip() if settings.TWITTER_BEARER_TOKEN else ""
         if not token:
             self._logger.info("Skipping X trending fetch: TWITTER_BEARER_TOKEN is not configured.")
@@ -185,9 +209,8 @@ class TrendingTickerService:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(url, params=params, headers=headers)
-                response.raise_for_status()
+            response = await client.get(url, params=params, headers=headers)
+            response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             self._last_error = f"X API returned {exc.response.status_code}"
             self._logger.warning("Failed to fetch trending data from X: %s", self._last_error)
@@ -205,47 +228,61 @@ class TrendingTickerService:
 
         mentions: Dict[str, int] = defaultdict(int)
         sentiment_totals: Dict[str, float] = defaultdict(float)
+        engagement_totals: Dict[str, int] = defaultdict(int)
 
         for tweet in tweets:
             entities = tweet.get("entities") or {}
             cashtags = entities.get("cashtags") or []
             text = tweet.get("text", "")
             sentiment_score = self._score_sentiment(text)
+            metrics = tweet.get("public_metrics") or {}
+            engagement = (
+                metrics.get("retweet_count", 0) * 2
+                + metrics.get("reply_count", 0)
+                + metrics.get("quote_count", 0)
+                + metrics.get("like_count", 0)
+                + 1
+            )
 
             for cashtag in cashtags:
                 symbol = cashtag.get("tag", "").upper()
                 if not symbol:
                     continue
                 mentions[symbol] += 1
-                sentiment_totals[symbol] += sentiment_score
+                engagement_totals[symbol] += engagement
+                sentiment_totals[symbol] += sentiment_score * engagement
 
         if not mentions:
             return None
 
-        sorted_symbols = sorted(mentions.items(), key=lambda item: item[1], reverse=True)
+        sorted_symbols = sorted(
+            engagement_totals.items(),
+            key=lambda item: item[1],
+            reverse=True,
+        )
 
         tickers: List[Dict[str, Any]] = []
         for symbol, count in sorted_symbols[:15]:
             avg_sentiment = 0.0
-            if mentions[symbol]:
-                avg_sentiment = sentiment_totals[symbol] / mentions[symbol]
+            if engagement_totals[symbol]:
+                avg_sentiment = sentiment_totals[symbol] / engagement_totals[symbol]
             tickers.append(
                 {
                     "symbol": symbol,
                     "name": None,
-                    "tweet_volume": count,
+                    "tweet_volume": mentions.get(symbol, 0),
+                    "engagement": count,
                     "sentiment_score": round(avg_sentiment, 3),
                 }
             )
 
         return {"tickers": tickers, "source": "X API"}
 
-    async def _fetch_from_yahoo(self) -> Optional[Dict[str, Any]]:
+    async def _fetch_from_yahoo(self, client: httpx.AsyncClient) -> Optional[Dict[str, Any]]:
         url = "https://query1.finance.yahoo.com/v1/finance/trending/US"
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(url)
-                response.raise_for_status()
+            response = await client.get(url)
+            response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             self._last_error = f"Yahoo trending returned {exc.response.status_code}"
             self._logger.warning("Failed to fetch trending data from Yahoo Finance: %s", self._last_error)
@@ -305,7 +342,7 @@ class TrendingTickerService:
     async def _ensure_symbol_lookup(self) -> None:
         if self._symbol_lookup and self._symbol_lookup_loaded_at:
             age = datetime.utcnow() - self._symbol_lookup_loaded_at
-            if age < timedelta(hours=12):
+            if age < self._symbol_lookup_ttl:
                 return
 
         try:
@@ -325,6 +362,7 @@ class TrendingTickerService:
         if lookup:
             self._symbol_lookup = lookup
             self._symbol_lookup_loaded_at = datetime.utcnow()
+            self._persist_symbol_lookup()
 
     def _score_sentiment(self, text: str) -> float:
         if not text:
@@ -343,6 +381,7 @@ class TrendingTickerService:
     def _ensure_cache_directory(self) -> None:
         try:
             self._cache_file_path.parent.mkdir(parents=True, exist_ok=True)
+            self._symbol_cache_path.parent.mkdir(parents=True, exist_ok=True)
         except Exception as exc:
             self._logger.debug("Unable to ensure cache directory exists: %s", exc, exc_info=True)
 
@@ -397,6 +436,68 @@ class TrendingTickerService:
             return datetime.fromisoformat(normalized)
         except ValueError:
             return None
+
+    async def _get_http_client(self) -> httpx.AsyncClient:
+        if self._http_client and not self._http_client.is_closed:
+            return self._http_client
+
+        async with self._http_client_lock:
+            if self._http_client is None or self._http_client.is_closed:
+                self._http_client = httpx.AsyncClient(
+                    timeout=httpx.Timeout(8.0, connect=2.0, read=6.0),
+                    limits=httpx.Limits(max_keepalive_connections=10, max_connections=20),
+                )
+        return self._http_client
+
+    def _close_http_client_sync(self) -> None:
+        client = self._http_client
+        if not client or client.is_closed:
+            return
+
+        async def _close() -> None:
+            await client.aclose()
+
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            loop.create_task(_close())
+        else:
+            asyncio.run(_close())
+        self._http_client = None
+
+    def _persist_symbol_lookup(self) -> None:
+        if not self._symbol_lookup:
+            return
+        payload = {
+            "loaded_at": datetime.utcnow().isoformat() + "Z",
+            "symbols": self._symbol_lookup,
+        }
+        try:
+            with self._symbol_cache_path.open("w", encoding="utf-8") as cache_file:
+                json.dump(payload, cache_file)
+        except Exception as exc:
+            self._logger.debug("Unable to persist symbol lookup: %s", exc, exc_info=True)
+
+    def _load_symbol_lookup_from_disk(self) -> None:
+        try:
+            if not self._symbol_cache_path.is_file():
+                return
+            with self._symbol_cache_path.open("r", encoding="utf-8") as cache_file:
+                data = json.load(cache_file)
+            symbols = data.get("symbols") or {}
+            loaded_at_raw = data.get("loaded_at")
+            loaded_at = self._parse_timestamp(loaded_at_raw) if loaded_at_raw else None
+            if not isinstance(symbols, dict) or not loaded_at:
+                return
+            if datetime.utcnow() - loaded_at > self._symbol_lookup_ttl:
+                return
+            self._symbol_lookup = {str(k).upper(): str(v) for k, v in symbols.items()}
+            self._symbol_lookup_loaded_at = loaded_at
+        except Exception as exc:
+            self._logger.debug("Unable to load symbol lookup cache: %s", exc, exc_info=True)
 
 
 trending_service = TrendingTickerService()

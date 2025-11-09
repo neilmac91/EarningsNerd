@@ -1,9 +1,16 @@
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks, status
+from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
 from typing import Optional, Dict, Any, List
 import asyncio
-from app.database import get_db
-from app.models import Filing, Summary, User
+from datetime import datetime, timezone
+from app.database import get_db, SessionLocal
+from app.models import (
+    Filing,
+    Summary,
+    User,
+    SummaryGenerationProgress,
+    FilingContentCache,
+)
 from app.services.sec_edgar import sec_edgar_service
 from app.services.openai_service import openai_service, _normalize_risk_factors
 from app.services.xbrl_service import xbrl_service
@@ -18,10 +25,6 @@ import time
 
 router = APIRouter()
 
-# In-memory progress tracker for summary generation
-# Format: {filing_id: {"stage": str, "started_at": float, "elapsed": float}}
-_progress_tracker: Dict[int, Dict[str, Any]] = {}
-
 class SummaryResponse(BaseModel):
     id: int
     filing_id: int
@@ -34,6 +37,85 @@ class SummaryResponse(BaseModel):
     
     class Config:
         from_attributes = True
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _record_progress(
+    db: Session,
+    filing_id: int,
+    stage: str,
+    *,
+    error: Optional[str] = None,
+) -> SummaryGenerationProgress:
+    now = _utcnow()
+    progress = (
+        db.query(SummaryGenerationProgress)
+        .filter(SummaryGenerationProgress.filing_id == filing_id)
+        .first()
+    )
+
+    if not progress:
+        progress = SummaryGenerationProgress(
+            filing_id=filing_id,
+            stage=stage,
+            started_at=now,
+            updated_at=now,
+            elapsed_seconds=0.0,
+            error=error,
+        )
+        db.add(progress)
+    else:
+        progress.stage = stage
+        if progress.started_at is None:
+            progress.started_at = now
+        progress.updated_at = now
+        progress.elapsed_seconds = float((now - progress.started_at).total_seconds())
+        progress.error = error
+
+    db.flush()
+    db.commit()
+    db.refresh(progress)
+    return progress
+
+
+def _progress_as_dict(progress: SummaryGenerationProgress) -> Dict[str, Any]:
+    elapsed = progress.elapsed_seconds
+    if elapsed is None and progress.started_at:
+        elapsed = float((_utcnow() - progress.started_at).total_seconds())
+    return {
+        "stage": progress.stage,
+        "elapsedSeconds": int(elapsed or 0),
+        "error": progress.error,
+        "updated_at": progress.updated_at.isoformat() if progress.updated_at else None,
+    }
+
+
+def _get_or_cache_excerpt(
+    db: Session,
+    filing: Filing,
+    filing_text: Optional[str],
+) -> Optional[str]:
+    if not filing_text:
+        return None
+
+    cache = filing.content_cache
+    if cache and cache.critical_excerpt:
+        return cache.critical_excerpt
+
+    filing_type_key = (filing.filing_type or "10-K").upper()
+    excerpt = openai_service.extract_critical_sections(filing_text, filing_type_key)
+    if excerpt:
+        if cache is None:
+            cache = FilingContentCache(filing_id=filing.id, critical_excerpt=excerpt)
+            db.add(cache)
+        else:
+            cache.critical_excerpt = excerpt
+        db.flush()
+        db.commit()
+    return excerpt
 
 async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
     """Background task to generate summary"""
@@ -84,87 +166,94 @@ async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
         try:
             import time
             start_time = time.time()
-            
-            # Add global timeout for entire summary generation
-            # OPTIMIZED: Timeouts set to meet performance requirements
+
             filing_type = (filing.filing_type or "").upper()
             global_timeout = 60.0 if filing_type == "10-K" else (45.0 if filing_type == "10-Q" else 20.0)
-            
-            async def generate_summary_core():
-                """Core summary generation logic"""
-                # Update progress: fetching
-                _progress_tracker[filing_id] = {"stage": "fetching", "started_at": time.time(), "elapsed": 0}
+
+            async def generate_summary_core() -> None:
+                _record_progress(db, filing_id, "fetching")
                 print(f"[{filing_id}] Step 1: Fetching filing document...")
-                filing_type = (filing.filing_type or "").upper()
 
                 processing_profile = {
                     "include_previous": False,
                     "document_timeout": 15.0,
                     "xbrl_timeout": 6.0,
-                    "fetch_xbrl": filing_type in {"10-K", "10-Q"}
+                    "fetch_xbrl": filing_type in {"10-K", "10-Q"},
                 }
 
                 if filing_type == "10-K":
-                    processing_profile.update({
-                        "include_previous": True,
-                        "document_timeout": 15.0,
-                        "xbrl_timeout": 6.0
-                    })
+                    processing_profile.update(
+                        {
+                            "include_previous": True,
+                            "document_timeout": 15.0,
+                            "xbrl_timeout": 6.0,
+                        }
+                    )
                 elif filing_type == "10-Q":
-                    processing_profile.update({
-                        "include_previous": False,  # Skip previous filings for speed
-                        "document_timeout": 10.0,
-                        "xbrl_timeout": 3.0
-                    })
+                    processing_profile.update(
+                        {
+                            "include_previous": False,
+                            "document_timeout": 10.0,
+                            "xbrl_timeout": 3.0,
+                        }
+                    )
                 elif filing_type == "8-K":
-                    processing_profile.update({
-                        "include_previous": False,
-                        "fetch_xbrl": False,  # Skip XBRL for 8-K
-                        "document_timeout": 6.0
-                    })
-                
-                # For 10-K filings, get list of previous filings first (before fetching text)
-                # OPTIMIZED: Only fetch 1 previous filing instead of 2 to reduce processing time
+                    processing_profile.update(
+                        {
+                            "include_previous": False,
+                            "fetch_xbrl": False,
+                            "document_timeout": 6.0,
+                        }
+                    )
+
                 previous_filings = []
                 if processing_profile["include_previous"]:
-                    previous_filings = db.query(Filing).filter(
-                        Filing.company_id == filing.company_id,
-                        Filing.filing_type == "10-K",
-                        Filing.id != filing_id,
-                        Filing.filing_date < filing.filing_date
-                    ).order_by(Filing.filing_date.desc()).limit(1).all()  # Reduced from 2 to 1
+                    previous_filings = (
+                        db.query(Filing)
+                        .filter(
+                            Filing.company_id == filing.company_id,
+                            Filing.filing_type == "10-K",
+                            Filing.id != filing_id,
+                            Filing.filing_date < filing.filing_date,
+                        )
+                        .order_by(Filing.filing_date.desc())
+                        .limit(1)
+                        .all()
+                    )
                     print(f"Found {len(previous_filings)} previous 10-K filings for trend analysis")
-                
-                # Fetch current filing and previous filings IN PARALLEL for faster processing
-                async def fetch_filing_text(url):
+
+                async def fetch_filing_text(url: str) -> Optional[str]:
                     try:
                         return await sec_edgar_service.get_filing_document(
-                            url,
-                            timeout=processing_profile["document_timeout"]
+                            url, timeout=processing_profile["document_timeout"]
                         )
-                    except Exception as e:
-                        print(f"Error fetching filing from {url}: {str(e)}")
+                    except Exception as exc:
+                        print(f"Error fetching filing from {url}: {str(exc)}")
                         return None
-                
-                # Create tasks for parallel fetching
+
                 tasks = [asyncio.create_task(fetch_filing_text(filing.document_url))]
-                prev_filing_urls = []
+                prev_filing_refs: List[Filing] = []
                 for prev_filing in previous_filings:
                     tasks.append(asyncio.create_task(fetch_filing_text(prev_filing.document_url)))
-                    prev_filing_urls.append(prev_filing)
+                    prev_filing_refs.append(prev_filing)
 
                 xbrl_task = None
                 xbrl_start = None
                 if processing_profile["fetch_xbrl"]:
                     print(f"[{filing_id}] Step 2: Fetching XBRL data...")
-                    async def fetch_xbrl_data():
+
+                    async def fetch_xbrl_data() -> Optional[Dict[str, Any]]:
                         try:
                             return await asyncio.wait_for(
-                                xbrl_service.get_xbrl_data(filing.accession_number, filing.company.cik),
-                                timeout=processing_profile["xbrl_timeout"]
+                                xbrl_service.get_xbrl_data(
+                                    filing.accession_number, filing.company.cik
+                                ),
+                                timeout=processing_profile["xbrl_timeout"],
                             )
                         except asyncio.TimeoutError:
-                            print(f"[{filing_id}] ⚠ XBRL data fetch timed out after {processing_profile['xbrl_timeout']:.0f}s, continuing without it")
+                            print(
+                                f"[{filing_id}] ⚠ XBRL data fetch timed out after {processing_profile['xbrl_timeout']:.0f}s, continuing without it"
+                            )
                             return None
                         except Exception as exc:
                             print(f"[{filing_id}] ⚠ Could not extract XBRL data: {str(exc)}")
@@ -173,21 +262,19 @@ async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
                     xbrl_start = time.time()
                     xbrl_task = asyncio.create_task(fetch_xbrl_data())
 
-                # Fetch all filings in parallel
                 results = await asyncio.gather(*tasks, return_exceptions=True)
-
-                # Current filing text
                 filing_text = results[0] if results and not isinstance(results[0], Exception) else None
                 if not filing_text:
-                    raise Exception("Failed to fetch current filing document")
-                
+                    raise RuntimeError("Failed to fetch current filing document")
+
                 fetch_time = time.time() - start_time
-                print(f"[{filing_id}] ✓ Fetched filing document: {len(filing_text):,} characters in {fetch_time:.1f}s")
-                
-                # Update progress: parsing
-                _progress_tracker[filing_id] = {"stage": "parsing", "started_at": _progress_tracker.get(filing_id, {}).get("started_at", start_time), "elapsed": time.time() - start_time}
-                
-                # Fetch XBRL data if available (already running in parallel)
+                print(
+                    f"[{filing_id}] ✓ Fetched filing document: {len(filing_text):,} characters in {fetch_time:.1f}s"
+                )
+
+                excerpt = _get_or_cache_excerpt(db, filing, filing_text)
+                _record_progress(db, filing_id, "parsing")
+
                 xbrl_data = None
                 if xbrl_task:
                     xbrl_data = await xbrl_task
@@ -197,48 +284,57 @@ async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
                         if xbrl_start:
                             xbrl_time = time.time() - xbrl_start
                             print(f"[{filing_id}] ✓ Extracted XBRL data in {xbrl_time:.1f}s")
-                
-                # Previous filings text
-                previous_filings_text = []
-                for i, result in enumerate(results[1:], 0):
-                    if result and not isinstance(result, Exception) and i < len(prev_filing_urls):
-                        prev_filing = prev_filing_urls[i]
-                        previous_filings_text.append({
-                            "filing_date": prev_filing.filing_date.isoformat() if prev_filing.filing_date else None,
-                            "text": result
-                        })
-                        print(f"Fetched previous 10-K from {prev_filing.filing_date}: {len(result):,} characters")
-                
-                # Enhance summary with XBRL data if available
+
+                previous_filings_text: List[Dict[str, Any]] = []
+                for index, result in enumerate(results[1:], 0):
+                    if (
+                        result
+                        and not isinstance(result, Exception)
+                        and index < len(prev_filing_refs)
+                    ):
+                        prev_filing = prev_filing_refs[index]
+                        previous_filings_text.append(
+                            {
+                                "filing_date": prev_filing.filing_date.isoformat()
+                                if prev_filing.filing_date
+                                else None,
+                                "text": result,
+                            }
+                        )
+                        print(
+                            f"Fetched previous 10-K from {prev_filing.filing_date}: {len(result):,} characters"
+                        )
+
                 xbrl_metrics = None
                 if xbrl_data:
                     xbrl_metrics = xbrl_service.extract_standardized_metrics(xbrl_data)
-                
-                # Update progress: analyzing
-                _progress_tracker[filing_id] = {"stage": "analyzing", "started_at": _progress_tracker.get(filing_id, {}).get("started_at", start_time), "elapsed": time.time() - start_time}
-                
-                # Generate summary with previous filings for trend analysis
+
+                _record_progress(db, filing_id, "analyzing")
+
                 print(f"[{filing_id}] Step 3: Generating AI summary...")
                 ai_start = time.time()
                 summary_data = await openai_service.summarize_filing(
                     filing_text,
                     filing.company.name,
                     filing.filing_type,
-                    previous_filings=previous_filings_text if processing_profile["include_previous"] and previous_filings_text else None,
-                    xbrl_metrics=xbrl_metrics
+                    previous_filings=
+                    previous_filings_text if previous_filings_text else None,
+                    xbrl_metrics=xbrl_metrics,
+                    filing_excerpt=excerpt,
                 )
                 ai_time = time.time() - ai_start
                 print(f"[{filing_id}] ✓ AI summary generated in {ai_time:.1f}s")
-                
-                # Update progress: summarizing
-                _progress_tracker[filing_id] = {"stage": "summarizing", "started_at": _progress_tracker.get(filing_id, {}).get("started_at", start_time), "elapsed": time.time() - start_time}
-                
+
+                _record_progress(db, filing_id, "summarizing")
+
                 sections_info = (
                     (summary_data.get("raw_summary") or {}).get("sections", {})
                 ) or {}
 
                 financial_section = sections_info.get("financial_highlights")
-                normalized_financial_section = attach_normalized_facts(financial_section, xbrl_metrics)
+                normalized_financial_section = attach_normalized_facts(
+                    financial_section, xbrl_metrics
+                )
                 if (
                     isinstance(summary_data, dict)
                     and isinstance(sections_info, dict)
@@ -254,75 +350,101 @@ async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
                     risk_factors=summary_data.get("risk_factors"),
                     management_discussion=summary_data.get("management_discussion"),
                     key_changes=summary_data.get("key_changes"),
-                    raw_summary=summary_data.get("raw_summary")
+                    raw_summary=summary_data.get("raw_summary"),
                 )
                 db.add(summary)
+
+                cache = filing.content_cache
+                if sections_info:
+                    if cache is None:
+                        cache = FilingContentCache(
+                            filing_id=filing_id,
+                            critical_excerpt=excerpt,
+                            sections_payload=sections_info,
+                        )
+                        db.add(cache)
+                    else:
+                        if excerpt and not cache.critical_excerpt:
+                            cache.critical_excerpt = excerpt
+                        cache.sections_payload = sections_info
+                elif excerpt and cache is None:
+                    cache = FilingContentCache(
+                        filing_id=filing_id, critical_excerpt=excerpt
+                    )
+                    db.add(cache)
+
                 db.commit()
-                
+
                 total_time = time.time() - start_time
-                print(f"[{filing_id}] ✓ Summary generation completed in {total_time:.1f}s total")
-                
-                # Update progress: completed
-                _progress_tracker[filing_id] = {"stage": "completed", "started_at": _progress_tracker.get(filing_id, {}).get("started_at", start_time), "elapsed": total_time}
-                
-                # Increment usage count for the user
+                print(
+                    f"[{filing_id}] ✓ Summary generation completed in {total_time:.1f}s total"
+                )
+
+                _record_progress(db, filing_id, "completed")
+
                 if user_id:
                     from app.models import User
+
                     user = db.query(User).filter(User.id == user_id).first()
                     if user:
                         month = get_current_month()
                         increment_user_usage(user.id, month, db)
-            
-            # Wrap the core logic with a global timeout
+
             try:
                 await asyncio.wait_for(generate_summary_core(), timeout=global_timeout)
             except asyncio.TimeoutError:
-                print(f"[{filing_id}] ✗ Summary generation exceeded global timeout of {global_timeout}s")
-                # Update progress: error
-                _progress_tracker[filing_id] = {"stage": "error", "started_at": _progress_tracker.get(filing_id, {}).get("started_at", start_time), "elapsed": global_timeout, "error": "timeout"}
+                print(
+                    f"[{filing_id}] ✗ Summary generation exceeded global timeout of {global_timeout}s"
+                )
+                _record_progress(db, filing_id, "error", error="timeout")
                 error_summary = Summary(
                     filing_id=filing_id,
-                    business_overview=f"Summary generation timed out after {global_timeout:.0f} seconds. The process took too long to complete. Please try again or refer to the original filing document.",
+                    business_overview=(
+                        f"Summary generation timed out after {global_timeout:.0f} seconds. The process took too long to complete. Please try again or refer to the original filing document."
+                    ),
                     financial_highlights=None,
                     risk_factors=None,
                     management_discussion=None,
                     key_changes=None,
-                    raw_summary={"error": "Global timeout", "timeout_seconds": global_timeout}
+                    raw_summary={
+                        "error": "Global timeout",
+                        "timeout_seconds": global_timeout,
+                    },
                 )
                 db.add(error_summary)
                 db.commit()
-                db.refresh(error_summary)
             except Exception as inner_error:
-                # Catch any errors from the timeout wrapper itself
                 import traceback
+
                 error_trace = traceback.format_exc()
                 print(f"Error in timeout wrapper: {str(inner_error)}")
                 print(f"Traceback: {error_trace}")
-                # Update progress: error
-                _progress_tracker[filing_id] = {"stage": "error", "started_at": _progress_tracker.get(filing_id, {}).get("started_at", start_time), "elapsed": time.time() - start_time, "error": str(inner_error)[:200]}
+                _record_progress(
+                    db,
+                    filing_id,
+                    "error",
+                    error=str(inner_error)[:200],
+                )
                 error_summary = Summary(
                     filing_id=filing_id,
-                    business_overview=f"Error generating summary: {str(inner_error)[:200]}. Please try again or contact support if the issue persists.",
+                    business_overview=(
+                        f"Error generating summary: {str(inner_error)[:200]}. Please try again or contact support if the issue persists."
+                    ),
                     financial_highlights=None,
                     risk_factors=None,
                     management_discussion=None,
                     key_changes=None,
-                    raw_summary={"error": str(inner_error), "traceback": error_trace}
+                    raw_summary={"error": str(inner_error), "traceback": error_trace},
                 )
                 db.add(error_summary)
                 db.commit()
-                db.refresh(error_summary)
         except Exception as e:
             import traceback
+
             error_trace = traceback.format_exc()
             print(f"Error generating summary: {str(e)}")
             print(f"Traceback: {error_trace}")
-            _progress_tracker[filing_id] = {
-                "stage": "error",
-                "started_at": _progress_tracker.get(filing_id, {}).get("started_at", time.time()),
-                "elapsed": 0,
-                "error": str(e)[:200],
-            }
+            _record_progress(db, filing_id, "error", error=str(e)[:200])
             error_summary = Summary(
                 filing_id=filing_id,
                 business_overview=(
@@ -336,16 +458,6 @@ async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
             )
             db.add(error_summary)
             db.commit()
-            db.refresh(error_summary)
-
-def generate_summary_background(filing_id: int, user_id: Optional[int]):
-    """Run the async summary generator in a background-friendly way."""
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        asyncio.run(_generate_summary_background(filing_id, user_id))
-    else:
-        loop.create_task(_generate_summary_background(filing_id, user_id))
 
 @router.get("/filing/{filing_id}/progress")
 async def get_summary_progress(
@@ -362,25 +474,19 @@ async def get_summary_progress(
             "elapsedSeconds": 0
         }
     
-    # Check progress tracker
-    if filing_id in _progress_tracker:
-        progress = _progress_tracker[filing_id]
-        elapsed = time.time() - progress.get("started_at", time.time())
-        return {
-            "stage": progress.get("stage", "unknown"),
-            "elapsedSeconds": int(elapsed)
-        }
-    
-    # No progress tracked yet
-    return {
-        "stage": "pending",
-        "elapsedSeconds": 0
-    }
+    progress = (
+        db.query(SummaryGenerationProgress)
+        .filter(SummaryGenerationProgress.filing_id == filing_id)
+        .first()
+    )
+    if progress:
+        return _progress_as_dict(progress)
+
+    return {"stage": "pending", "elapsedSeconds": 0}
 
 @router.post("/filing/{filing_id}/generate", response_model=SummaryResponse)
 async def generate_summary(
     filing_id: int,
-    background_tasks: BackgroundTasks,
     current_user: Optional[User] = Depends(get_current_user_optional),  # Optional for backward compatibility
     db: Session = Depends(get_db)
 ):
@@ -407,8 +513,8 @@ async def generate_summary(
             )
         user_id = current_user.id
     
-    # Generate summary in background
-    background_tasks.add_task(generate_summary_background, filing_id, user_id)
+    _record_progress(db, filing_id, "queued")
+    asyncio.create_task(_generate_summary_background(filing_id, user_id))
     
     # Return placeholder response with accurate timing
     return {
@@ -481,21 +587,20 @@ async def generate_summary_stream(
             stage_started_at = now
 
         try:
-            # Update progress: fetching
-            _progress_tracker[filing_id] = {"stage": "fetching", "started_at": time.time(), "elapsed": 0}
+            _record_progress(db, filing_id, "fetching")
             yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'Fetching filing document...'})}\n\n"
-            
+
             # Fetch filing document
             filing_text = await sec_edgar_service.get_filing_document(
                 filing.document_url,
                 timeout=25.0
             )
             mark_stage("fetch_document")
-            
-            # Update progress: parsing
-            _progress_tracker[filing_id] = {"stage": "parsing", "started_at": _progress_tracker.get(filing_id, {}).get("started_at", time.time()), "elapsed": time.time() - _progress_tracker.get(filing_id, {}).get("started_at", time.time())}
+
+            excerpt = _get_or_cache_excerpt(db, filing, filing_text)
+            _record_progress(db, filing_id, "parsing")
             yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Parsing document structure...'})}\n\n"
-            
+
             # Fetch XBRL data if available
             xbrl_data = None
             xbrl_metrics = None
@@ -504,24 +609,18 @@ async def generate_summary_stream(
                     xbrl_data = await xbrl_service.get_xbrl_data(filing.accession_number, company_cik)
                     if xbrl_data:
                         xbrl_metrics = xbrl_service.extract_standardized_metrics(xbrl_data)
+                        filing.xbrl_data = xbrl_data
+                        db.commit()
                 except:
                     pass
             mark_stage("context_enrichment")
-            
-            # Update progress: analyzing
-            _progress_tracker[filing_id] = {"stage": "analyzing", "started_at": _progress_tracker.get(filing_id, {}).get("started_at", time.time()), "elapsed": time.time() - _progress_tracker.get(filing_id, {}).get("started_at", time.time())}
+
+            _record_progress(db, filing_id, "analyzing")
             yield f"data: {json.dumps({'type': 'progress', 'stage': 'analyzing', 'message': 'Analyzing content with AI...'})}\n\n"
-            
+
             yield f"data: {json.dumps({'type': 'progress', 'stage': 'structured', 'message': 'Extracting key figures...'})}\n\n"
 
-            # Update progress before initiating the longest-running step (LLM writer)
-            start_ts = _progress_tracker.get(filing_id, {}).get("started_at", time.time())
-            summarizing_payload = {
-                "stage": "summarizing",
-                "started_at": start_ts,
-                "elapsed": time.time() - start_ts,
-            }
-            _progress_tracker[filing_id] = summarizing_payload
+            _record_progress(db, filing_id, "summarizing")
             yield f"data: {json.dumps({'type': 'progress', 'stage': 'summarizing', 'message': 'Composing investor-ready summary...'})}\n\n"
 
             summary_payload = await openai_service.summarize_filing(
@@ -529,7 +628,8 @@ async def generate_summary_stream(
                 company_name,
                 filing.filing_type,
                 previous_filings=None,
-                xbrl_metrics=xbrl_metrics
+                xbrl_metrics=xbrl_metrics,
+                filing_excerpt=excerpt,
             )
             mark_stage("generate_summary")
 
@@ -560,6 +660,23 @@ async def generate_summary_stream(
                 raw_summary=raw_summary
             )
             db.add(summary)
+            cache = filing.content_cache
+            if sections_info:
+                if cache is None:
+                    cache = FilingContentCache(
+                        filing_id=filing_id,
+                        critical_excerpt=excerpt,
+                        sections_payload=sections_info,
+                    )
+                    db.add(cache)
+                else:
+                    if excerpt and not cache.critical_excerpt:
+                        cache.critical_excerpt = excerpt
+                    cache.sections_payload = sections_info
+            elif excerpt and cache is None:
+                cache = FilingContentCache(filing_id=filing_id, critical_excerpt=excerpt)
+                db.add(cache)
+
             db.commit()
             mark_stage("persist_summary")
 
@@ -571,8 +688,7 @@ async def generate_summary_stream(
                     increment_user_usage(user.id, month, db)
             mark_stage("usage_tracking")
 
-            # Update progress: completed
-            _progress_tracker[filing_id] = {"stage": "completed", "started_at": _progress_tracker.get(filing_id, {}).get("started_at", time.time()), "elapsed": time.time() - _progress_tracker.get(filing_id, {}).get("started_at", time.time())}
+            _record_progress(db, filing_id, "completed")
 
             # Emit final markdown once
             yield f"data: {json.dumps({'type': 'chunk', 'content': markdown})}\n\n"
@@ -582,6 +698,7 @@ async def generate_summary_stream(
             error_trace = traceback.format_exc()
             print(f"Error in streaming summary: {str(e)}")
             print(f"Traceback: {error_trace}")
+            _record_progress(db, filing_id, "error", error=str(e)[:200])
             yield f"data: {json.dumps({'type': 'error', 'message': f'Error generating summary: {str(e)[:200]}'})}\n\n"
         finally:
             total_elapsed = time.time() - pipeline_started_at
@@ -707,14 +824,14 @@ async def export_summary_csv(
 
 
 def get_generation_progress_snapshot(filing_id: int) -> Optional[Dict[str, Any]]:
-    """Return a copy of the in-memory generation progress for a filing, if available."""
-    progress = _progress_tracker.get(filing_id)
-    if not progress:
-        return None
-
-    snapshot = progress.copy()
-    started_at = snapshot.get("started_at")
-    if started_at:
-        snapshot["elapsedSeconds"] = int(time.time() - started_at)
-    return snapshot
+    """Return the persisted generation progress for a filing, if available."""
+    with SessionLocal() as session:
+        progress = (
+            session.query(SummaryGenerationProgress)
+            .filter(SummaryGenerationProgress.filing_id == filing_id)
+            .first()
+        )
+        if not progress:
+            return None
+        return _progress_as_dict(progress)
 
