@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import Optional, Dict, Any, List
 import asyncio
 from datetime import datetime, timezone
@@ -107,7 +107,16 @@ def _get_or_cache_excerpt(
     if not filing_text:
         return None
 
-    cache = filing.content_cache
+    # Ensure filing is attached to session and content_cache is loaded
+    # Try to refresh, but if filing is not in session, query it fresh
+    try:
+        db.refresh(filing, ['content_cache'])
+        cache = filing.content_cache
+    except Exception:
+        # If refresh fails, query the filing fresh with content_cache loaded
+        filing = db.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing.id).first()
+        cache = filing.content_cache if filing else None
+    
     if cache and cache.critical_excerpt:
         return cache.critical_excerpt
 
@@ -130,7 +139,8 @@ async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
     # Create a new database session for the background task
     with SessionLocal() as db:
         print(f"Starting summary generation for filing {filing_id}")
-        filing = db.query(Filing).filter(Filing.id == filing_id).first()
+        # Eagerly load content_cache relationship to avoid detached session issues
+        filing = db.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
         if not filing:
             print(f"Filing {filing_id} not found")
             return
@@ -557,7 +567,8 @@ async def generate_summary_stream(
     db: Session = Depends(get_db)
 ):
     """Generate AI summary with streaming response"""
-    filing = db.query(Filing).filter(Filing.id == filing_id).first()
+    # Eagerly load content_cache relationship to avoid detached session issues
+    filing = db.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
     
     if not filing:
         raise HTTPException(status_code=404, detail="Filing not found")
@@ -609,6 +620,9 @@ async def generate_summary_stream(
             stage_started_at = now
 
         try:
+            # Ensure filing is refreshed and attached to session before accessing relationships
+            db.refresh(filing, ['content_cache'])
+            
             _record_progress(db, filing_id, "fetching")
             yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'Fetching filing document...'})}\n\n"
 
@@ -700,6 +714,8 @@ async def generate_summary_stream(
                 raw_summary=raw_summary
             )
             db.add(summary)
+            # Refresh filing to ensure it's attached to session before accessing content_cache
+            db.refresh(filing, ['content_cache'])
             cache = filing.content_cache
             if sections_info:
                 if cache is None:

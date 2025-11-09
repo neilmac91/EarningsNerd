@@ -904,7 +904,7 @@ function SummarySectionsSkeleton() {
   )
 }
 
-function stripInternalNotices(markdown: string): string {
+export function stripInternalNotices(markdown: string): string {
   if (!markdown) {
     return ''
   }
