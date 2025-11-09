@@ -49,6 +49,7 @@ def _record_progress(
     stage: str,
     *,
     error: Optional[str] = None,
+    section_coverage: Optional[Dict[str, Any]] = None,
 ) -> SummaryGenerationProgress:
     now = _utcnow()
     progress = (
@@ -67,6 +68,8 @@ def _record_progress(
             error=error,
         )
         db.add(progress)
+        if section_coverage is not None:
+            progress.section_coverage = section_coverage
     else:
         progress.stage = stage
         if progress.started_at is None:
@@ -74,6 +77,8 @@ def _record_progress(
         progress.updated_at = now
         progress.elapsed_seconds = float((now - progress.started_at).total_seconds())
         progress.error = error
+        if section_coverage is not None:
+            progress.section_coverage = section_coverage
 
     db.flush()
     db.commit()
@@ -90,6 +95,7 @@ def _progress_as_dict(progress: SummaryGenerationProgress) -> Dict[str, Any]:
         "elapsedSeconds": int(elapsed or 0),
         "error": progress.error,
         "updated_at": progress.updated_at.isoformat() if progress.updated_at else None,
+        "sectionCoverage": progress.section_coverage,
     }
 
 
@@ -325,7 +331,23 @@ async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
                 ai_time = time.time() - ai_start
                 print(f"[{filing_id}] ✓ AI summary generated in {ai_time:.1f}s")
 
-                _record_progress(db, filing_id, "summarizing")
+                section_coverage = (
+                    (summary_data.get("raw_summary") or {}).get("section_coverage")
+                    if isinstance(summary_data, dict)
+                    else None
+                )
+                _record_progress(
+                    db,
+                    filing_id,
+                    "summarizing",
+                    section_coverage=section_coverage,
+                )
+                if section_coverage:
+                    print(
+                        f"[{filing_id}] coverage snapshot: "
+                        f"{section_coverage.get('covered_count', 0)}/"
+                        f"{section_coverage.get('total_count', 0)} sections populated"
+                    )
 
                 sections_info = (
                     (summary_data.get("raw_summary") or {}).get("sections", {})
@@ -636,6 +658,24 @@ async def generate_summary_stream(
             markdown = summary_payload.get("business_overview") or ""
             raw_summary = summary_payload.get("raw_summary") or {}
             sections_info = (raw_summary.get("sections") or {}) or {}
+
+            section_coverage = (
+                raw_summary.get("section_coverage")
+                if isinstance(raw_summary, dict)
+                else None
+            )
+            if section_coverage:
+                _record_progress(
+                    db,
+                    filing_id,
+                    "summarizing",
+                    section_coverage=section_coverage,
+                )
+                print(
+                    f"[stream:{filing_id}] coverage snapshot: "
+                    f"{section_coverage.get('covered_count', 0)}/"
+                    f"{section_coverage.get('total_count', 0)} sections populated"
+                )
 
             financial_section = sections_info.get("financial_highlights")
             normalized_financial_section = attach_normalized_facts(financial_section, xbrl_metrics)

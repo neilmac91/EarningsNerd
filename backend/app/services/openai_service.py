@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 from openai import AsyncOpenAI
 from typing import Any, Dict, List, Optional
 from app.config import settings
 import json
 import re
 from bs4 import BeautifulSoup
+
+logger = logging.getLogger(__name__)
 
 _PLACEHOLDER_STRINGS = {
     "",
@@ -25,6 +28,18 @@ _BOILERPLATE_RISK_PHRASES = {
     "cash flow and debt levels are concerning",
 }
 
+_TRACKED_STRUCTURED_SECTIONS = (
+    "executive_snapshot",
+    "financial_highlights",
+    "risk_factors",
+    "management_discussion_insights",
+    "segment_performance",
+    "liquidity_capital_structure",
+    "guidance_outlook",
+    "notable_footnotes",
+    "three_year_trend",
+)
+
 
 def _normalize_simple_string(value: Any) -> Optional[str]:
     if value is None:
@@ -39,6 +54,23 @@ def _normalize_simple_string(value: Any) -> Optional[str]:
     if lowered in _PLACEHOLDER_STRINGS:
         return None
     return text
+
+
+def _section_has_content(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        stripped = value.strip()
+        if not stripped:
+            return False
+        if stripped.lower() in _PLACEHOLDER_STRINGS:
+            return False
+        return True
+    if isinstance(value, dict):
+        return any(_section_has_content(item) for item in value.values())
+    if isinstance(value, (list, tuple, set)):
+        return any(_section_has_content(item) for item in value)
+    return True
 
 
 def _normalize_evidence(value: Any) -> Optional[str]:
@@ -1853,6 +1885,33 @@ Do not include any additional keys or text outside the JSON object."""
         risk_section = _normalize_risk_factors(raw_risk_section)
         sections_info["risk_factors"] = risk_section
 
+        coverage_keys = set(_TRACKED_STRUCTURED_SECTIONS)
+        coverage_keys.update(sections_info.keys())
+        coverage_map = {
+            section: _section_has_content(sections_info.get(section))
+            for section in sorted(coverage_keys)
+        }
+        total_sections = len(coverage_map)
+        covered_sections = sum(1 for covered in coverage_map.values() if covered)
+        missing_sections = [key for key, covered in coverage_map.items() if not covered]
+        coverage_snapshot = {
+            "per_section": coverage_map,
+            "covered": [key for key, covered in coverage_map.items() if covered],
+            "missing": missing_sections,
+            "covered_count": covered_sections,
+            "total_count": total_sections,
+            "coverage_ratio": (covered_sections / total_sections) if total_sections else None,
+        }
+
+        logger.info(
+            "Structured coverage for %s %s: %s/%s sections populated. Missing: %s",
+            company_name,
+            filing_type_key,
+            covered_sections,
+            total_sections,
+            ", ".join(missing_sections) if missing_sections else "None",
+        )
+
         def _stringify(value: Any) -> Optional[str]:
             if value is None:
                 return None
@@ -1897,6 +1956,7 @@ Do not include any additional keys or text outside the JSON object."""
         raw_summary_payload = {
             "structured": structured_summary,
             "sections": sections_info,
+            "section_coverage": coverage_snapshot,
         }
         if writer_result:
             raw_summary_payload["writer"] = writer_result

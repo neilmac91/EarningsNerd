@@ -270,64 +270,64 @@ async def get_stock_quote(ticker: str) -> Optional[StockQuote]:
         client = await _get_yahoo_client()
         response = await client.get(url)
         response.raise_for_status()
-            
-            # Check if response is valid JSON
-            if response.headers.get("content-type", "").startswith("application/json"):
+
+        # Check if response is valid JSON
+        if response.headers.get("content-type", "").startswith("application/json"):
+            data = response.json()
+        else:
+            # Try to parse anyway
+            try:
                 data = response.json()
-            else:
-                # Try to parse anyway
-                try:
-                    data = response.json()
-                except:
-                    return None
-            
-            result = data.get("chart", {}).get("result", [])
-            if not result:
+            except ValueError:
                 return None
-            
-            quote_data = result[0]
-            meta = quote_data.get("meta", {})
-            
-            regular_market_price = meta.get("regularMarketPrice")
-            previous_close = meta.get("previousClose")
-            
-            if regular_market_price is None or previous_close is None:
-                return None
-            
-            change = regular_market_price - previous_close
-            change_percent = (change / previous_close) * 100 if previous_close != 0 else 0
-            currency = meta.get("currency", "USD")
-            
-            # Pre-market data
-            pre_market_price = meta.get("preMarketPrice")
-            pre_market_change = None
-            pre_market_change_percent = None
-            if pre_market_price is not None:
-                pre_market_change = pre_market_price - previous_close
-                pre_market_change_percent = (pre_market_change / previous_close) * 100 if previous_close != 0 else 0
-            
-            # Post-market (after-hours) data
-            post_market_price = meta.get("postMarketPrice")
-            post_market_change = None
-            post_market_change_percent = None
-            if post_market_price is not None:
-                post_market_change = post_market_price - previous_close
-                post_market_change_percent = (post_market_change / previous_close) * 100 if previous_close != 0 else 0
-            
-            quote = StockQuote(
-                price=round(regular_market_price, 2),
-                change=round(change, 2),
-                change_percent=round(change_percent, 2),
-                currency=currency,
-                pre_market_price=round(pre_market_price, 2) if pre_market_price is not None else None,
-                pre_market_change=round(pre_market_change, 2) if pre_market_change is not None else None,
-                pre_market_change_percent=round(pre_market_change_percent, 2) if pre_market_change_percent is not None else None,
-                post_market_price=round(post_market_price, 2) if post_market_price is not None else None,
-                post_market_change=round(post_market_change, 2) if post_market_change is not None else None,
-                post_market_change_percent=round(post_market_change_percent, 2) if post_market_change_percent is not None else None
-            )
-            _store_cached_quote(ticker_key, quote)
-            return quote
+
+        result = data.get("chart", {}).get("result", [])
+        if not result:
+            return None
+
+        quote_data = result[0]
+        meta = quote_data.get("meta", {})
+
+        regular_market_price = meta.get("regularMarketPrice")
+        previous_close = meta.get("previousClose")
+
+        if regular_market_price is None or previous_close is None:
+            return None
+
+        change = regular_market_price - previous_close
+        change_percent = (change / previous_close) * 100 if previous_close != 0 else 0
+        currency = meta.get("currency", "USD")
+
+        # Pre-market data
+        pre_market_price = meta.get("preMarketPrice")
+        pre_market_change = None
+        pre_market_change_percent = None
+        if pre_market_price is not None:
+            pre_market_change = pre_market_price - previous_close
+            pre_market_change_percent = (pre_market_change / previous_close) * 100 if previous_close != 0 else 0
+
+        # Post-market (after-hours) data
+        post_market_price = meta.get("postMarketPrice")
+        post_market_change = None
+        post_market_change_percent = None
+        if post_market_price is not None:
+            post_market_change = post_market_price - previous_close
+            post_market_change_percent = (post_market_change / previous_close) * 100 if previous_close != 0 else 0
+
+        quote = StockQuote(
+            price=round(regular_market_price, 2),
+            change=round(change, 2),
+            change_percent=round(change_percent, 2),
+            currency=currency,
+            pre_market_price=round(pre_market_price, 2) if pre_market_price is not None else None,
+            pre_market_change=round(pre_market_change, 2) if pre_market_change is not None else None,
+            pre_market_change_percent=round(pre_market_change_percent, 2) if pre_market_change_percent is not None else None,
+            post_market_price=round(post_market_price, 2) if post_market_price is not None else None,
+            post_market_change=round(post_market_change, 2) if post_market_change is not None else None,
+            post_market_change_percent=round(post_market_change_percent, 2) if post_market_change_percent is not None else None
+        )
+        _store_cached_quote(ticker_key, quote)
+        return quote
     except httpx.TimeoutException:
         return None
     except httpx.HTTPError:
