@@ -1,0 +1,24 @@
+{
+  "builds": [
+    {
+      "src": "frontend/package.json",
+      "use": "@vercel/next"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "frontend/$1"
+    }
+  ],
+  "installCommand": "cd frontend && npm install",
+  "buildCommand": "cd frontend && npm run build",
+  "devCommand": "cd frontend && npm run dev",
+  "env": {
+    "NEXT_PUBLIC_API_URL": "https://api.earningsnerd.io"
+  },
+  "regions": [
+    "iad1"
+  ]
+}
+

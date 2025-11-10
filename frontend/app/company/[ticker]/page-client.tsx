@@ -47,6 +47,10 @@ export default function CompanyPageClient() {
     },
   })
 
+  // All hooks must be called before any conditional returns
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
+  const [filterType, setFilterType] = useState<string | null>(null)
+
   const isInWatchlist = watchlist?.some((w: any) => w.company.ticker === ticker)
 
   if (companyLoading) {
@@ -69,9 +73,6 @@ export default function CompanyPageClient() {
       </div>
     )
   }
-
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set())
-  const [filterType, setFilterType] = useState<string | null>(null)
 
   const toggleSection = (section: string) => {
     const newExpanded = new Set(expandedSections)
