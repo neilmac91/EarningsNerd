@@ -50,9 +50,11 @@
      - Set **Root Directory**: `backend`
      - Set **Build Command**: `pip install --upgrade pip setuptools wheel && pip install -r requirements.txt`
      - Set **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-     - **CRITICAL**: Set **Python Version** to `3.11.9` in the Environment tab
+     - **CRITICAL**: Make sure the start command is exactly `uvicorn main:app --host 0.0.0.0 --port $PORT` (NOT `app.main:app`)
+     - **CRITICAL**: Set **Python Version** to `3.11.9` in the Environment tab (if available)
      - Or ensure `runtime.txt` exists at repository root with `python-3.11.9`
      - Note: If Render keeps using Python 3.13, the updated pydantic (>=2.9.0) will work with Python 3.13
+     - **IMPORTANT**: If you see "Could not import module 'app.main'", the start command is wrong. It should be `main:app`, not `app.main:app`
 
 3. **Set Environment Variables**:
    - `DATABASE_URL` - PostgreSQL connection string (from Render PostgreSQL service)
@@ -127,9 +129,13 @@ After deployment, verify:
 - **Cause**: Start command not using $PORT variable
 - **Solution**: Ensure start command uses `--port $PORT` (Render sets this automatically)
 
-### Module Not Found Errors
-- **Cause**: Dependencies not installed or wrong root directory
-- **Solution**: Verify root directory is set to `backend` and build command runs from correct location
+### Module Not Found Errors / "Could not import module 'app.main'"
+- **Cause**: Wrong start command or root directory not set correctly
+- **Solution**: 
+  1. Verify **Root Directory** is set to `backend` in Render dashboard
+  2. Verify **Start Command** is exactly: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+  3. Do NOT use `app.main:app` - the correct format is `main:app` when rootDir is `backend`
+  4. The `main.py` file is in the `backend/` directory, and with `rootDir: backend`, uvicorn should run from that directory
 
 ### CORS Errors
 - **Cause**: CORS_ORIGINS not set correctly
