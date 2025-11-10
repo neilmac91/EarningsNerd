@@ -7,7 +7,6 @@ import CompanySearch from '@/components/CompanySearch'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import HotFilings from '@/components/HotFilings'
-import TrendingTickers from '@/components/TrendingTickers'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
 type StockQuote = {
@@ -142,10 +141,6 @@ export default function Home() {
                 </p>
               </div>
             </div>
-          </div>
-
-          <div className="mx-auto max-w-5xl">
-            <TrendingTickers />
           </div>
 
           {/* Stats below search */}
