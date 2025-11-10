@@ -1,7 +1,7 @@
 import axios from 'axios'
 import type { FinancialHighlights, RiskFactor } from '../types/summary'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.earningsnerd.io'
 
 const api = axios.create({
   baseURL: API_URL,
@@ -150,7 +150,7 @@ export const generateSummaryStream = async (
   onError: (error: string) => void
 ): Promise<void> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.earningsnerd.io'
   const url = `${apiUrl}/api/summaries/filing/${filingId}/generate-stream`
 
   const controller = new AbortController()

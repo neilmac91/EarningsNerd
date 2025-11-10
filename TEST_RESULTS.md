@@ -5,7 +5,7 @@ November 9, 2025
 
 ## Test Environment
 - Frontend: Next.js 14.2.33 (http://localhost:3000)
-- Backend: FastAPI (http://localhost:8000)
+- Backend: FastAPI (https://api.earningsnerd.io)
 - Browser: Chrome (via Playwright)
 
 ## Test Results

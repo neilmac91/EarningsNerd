@@ -39,8 +39,8 @@ cp .env.example .env
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Backend will be available at: `http://localhost:8000`
-API docs at: `http://localhost:8000/docs`
+Backend will be available at: `https://api.earningsnerd.io`
+API docs at: `https://api.earningsnerd.io/docs`
 
 ## Step 3: Frontend Setup
 

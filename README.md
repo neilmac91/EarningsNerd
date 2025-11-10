@@ -105,8 +105,8 @@ cd backend
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The API will be available at `http://localhost:8000`
-API documentation: `http://localhost:8000/docs`
+The API will be available at `https://api.earningsnerd.io`
+API documentation: `https://api.earningsnerd.io/docs`
 
 ### 5. Frontend Setup
 
@@ -119,7 +119,7 @@ npm install
 # Create .env.local file
 cp .env.local.example .env.local
 
-# Edit .env.local if needed (default: NEXT_PUBLIC_API_URL=http://localhost:8000)
+# Edit .env.local if needed (default: NEXT_PUBLIC_API_URL=https://api.earningsnerd.io)
 
 # Run development server
 npm run dev
@@ -203,7 +203,7 @@ CORS_ORIGINS=http://localhost:3000
 ### Frontend (.env.local)
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
+NEXT_PUBLIC_API_URL=https://api.earningsnerd.io
 ```
 
 ## 🧪 Testing

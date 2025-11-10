@@ -56,7 +56,7 @@ export default function CompanySearch() {
           <div className="text-sm text-red-600">
             {error instanceof Error 
               ? error.message.includes('Network Error') || error.message.includes('ECONNREFUSED')
-                ? 'Unable to connect to the server. Please ensure the backend API is running on http://localhost:8000'
+                ? 'Unable to connect to the server. Please ensure the backend API is running on https://api.earningsnerd.io'
                 : error.message
               : 'An unexpected error occurred. Please try again.'}
           </div>

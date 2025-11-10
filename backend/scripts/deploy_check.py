@@ -252,7 +252,7 @@ def main():
         print("\n✅ All checks passed! Ready for deployment.")
         print("\nNext steps:")
         print("1. Start backend: uvicorn main:app --host 0.0.0.0 --port 8000")
-        print("2. Verify health endpoint: curl http://localhost:8000/health")
+        print("2. Verify health endpoint: curl https://api.earningsnerd.io/health")
         print("3. Check startup logs for configuration warnings")
         return 0
     else:

@@ -25,7 +25,7 @@ type Company = {
   stock_quote?: StockQuote | null
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ?? 'http://localhost:8000'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ?? 'https://api.earningsnerd.io'
 
 async function fetchFromApi<T>(path: string): Promise<T | null> {
   try {
