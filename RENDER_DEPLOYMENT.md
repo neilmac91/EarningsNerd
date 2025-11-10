@@ -36,13 +36,23 @@
    ```
 
 2. **In Render Dashboard**:
-   - Go to your service settings
-   - If using render.yaml, Render will automatically detect it
-   - If not, manually configure:
-     - **Root Directory**: `backend`
-     - **Build Command**: `pip install --upgrade pip setuptools wheel && pip install -r requirements.txt`
-     - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-     - **Python Version**: `3.11.9` (or use runtime.txt)
+   - **IMPORTANT**: Render services created via dashboard may not automatically use `render.yaml`
+   - You have two options:
+     
+     **Option A1: Create service from render.yaml (Best)**
+     - In Render Dashboard, go to "New" → "Blueprint"
+     - Connect your GitHub repository
+     - Render will automatically detect and use `render.yaml`
+     - This ensures Python 3.11.9 is used (from runtime.txt)
+     
+     **Option A2: Manually configure existing service**
+     - Go to your service settings
+     - Set **Root Directory**: `backend`
+     - Set **Build Command**: `pip install --upgrade pip setuptools wheel && pip install -r requirements.txt`
+     - Set **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+     - **CRITICAL**: Set **Python Version** to `3.11.9` in the Environment tab
+     - Or ensure `runtime.txt` exists at repository root with `python-3.11.9`
+     - Note: If Render keeps using Python 3.13, the updated pydantic (>=2.9.0) will work with Python 3.13
 
 3. **Set Environment Variables**:
    - `DATABASE_URL` - PostgreSQL connection string (from Render PostgreSQL service)
@@ -103,7 +113,11 @@ After deployment, verify:
 
 ### Build Fails with pydantic-core Error
 - **Cause**: Python version mismatch or missing wheels
-- **Solution**: Ensure `runtime.txt` exists at root with `python-3.11.9`
+- **Solution**: 
+  1. Ensure `runtime.txt` exists at repository root (not in backend/) with `python-3.11.9`
+  2. In Render Dashboard, manually set Python Version to `3.11.9` in service settings
+  3. If Render still uses Python 3.13, the updated requirements.txt (pydantic>=2.9.0) includes versions with Python 3.13 wheels
+  4. Clear build cache and redeploy
 
 ### Database Connection Error
 - **Cause**: DATABASE_URL not set or incorrect
