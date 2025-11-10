@@ -1,6 +1,6 @@
 'use client'
 
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getFiling, getSummary, generateSummary, generateSummaryStream, Filing, Summary, getSubscriptionStatus, saveSummary, getSavedSummaries, getSummaryProgress, SummaryProgressData, getCompany, getCompanyFilings, Company } from '@/lib/api'
 import { Loader2, AlertCircle, FileText, Download, FileDown, Bookmark, BookmarkCheck } from 'lucide-react'
@@ -155,6 +155,7 @@ function TickerFilingsView({ ticker }: { ticker: string }) {
 
 export default function FilingPageClient() {
   const params = useParams()
+  const router = useRouter()
   const identifier = params.id as string
   const isTickerView = !/^\d+$/.test(identifier)
 
@@ -193,6 +194,33 @@ export default function FilingPageClient() {
     queryKey: ['filing', filingId],
     queryFn: () => getFiling(filingId),
   })
+
+  // Smart back navigation handler
+  const handleBack = () => {
+    if (typeof window === 'undefined') return
+    
+    // Check if user navigated from within the app (has referrer from same origin)
+    const referrer = document.referrer
+    const currentOrigin = window.location.origin
+    
+    // If referrer exists and is from same origin, use browser back navigation
+    // This preserves the user's navigation flow (e.g., from company page)
+    if (referrer && referrer.startsWith(currentOrigin)) {
+      // Use browser back to return to previous page in history
+      router.back()
+      return
+    }
+    
+    // Fallback: navigate to company page if filing has company data
+    // This handles cases where user came directly via URL or external link
+    if (filing?.company?.ticker) {
+      router.push(`/company/${filing.company.ticker}`)
+      return
+    }
+    
+    // Last resort: go to homepage
+    router.push('/')
+  }
 
   const { data: summary, isLoading: summaryLoading, refetch, error: summaryError } = useQuery<Summary | null>({
     queryKey: ['summary', filingId],
@@ -377,10 +405,13 @@ export default function FilingPageClient() {
       <header className="bg-gradient-to-r from-white via-gray-50 to-white dark:from-gray-800 dark:via-gray-900 dark:to-gray-800 shadow-lg border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between mb-4">
-            <Link href="/" className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 inline-flex items-center space-x-1 transition-colors group">
+            <button 
+              onClick={handleBack}
+              className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 inline-flex items-center space-x-1 transition-colors group"
+            >
               <span className="group-hover:-translate-x-1 transition-transform">←</span>
               <span>Back</span>
-            </Link>
+            </button>
             <ThemeToggle />
           </div>
           
