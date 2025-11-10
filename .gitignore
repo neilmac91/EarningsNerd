@@ -27,3 +27,6 @@ coverage/
 .idea/
 .vscode/
 *.swp
+
+# Local directories that conflict with Python packages
+pydantic/
