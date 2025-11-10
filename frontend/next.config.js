@@ -3,7 +3,8 @@ const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['recharts'],
   env: {
-    NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'https://api.earningsnerd.io',
+    NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 
+      (process.env.NODE_ENV === 'production' ? 'https://api.earningsnerd.io' : 'http://localhost:8000'),
   },
   webpack: (config, { isServer }) => {
     // Fix for Recharts/lodash compatibility issue

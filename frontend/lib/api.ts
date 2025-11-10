@@ -1,7 +1,20 @@
 import axios from 'axios'
 import type { FinancialHighlights, RiskFactor } from '../types/summary'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.earningsnerd.io'
+// Determine API URL: prefer env var, fallback based on environment
+export const getApiUrl = () => {
+  // Always use environment variable if set (for production deployments)
+  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
+    return process.env.NEXT_PUBLIC_API_BASE_URL
+  }
+  // Fallback: use localhost for local development, production API for production
+  if (typeof window !== 'undefined' && window.location.hostname === 'localhost') {
+    return 'http://localhost:8000'
+  }
+  return 'https://api.earningsnerd.io'
+}
+
+const API_URL = getApiUrl()
 
 const api = axios.create({
   baseURL: API_URL,
@@ -150,7 +163,7 @@ export const generateSummaryStream = async (
   onError: (error: string) => void
 ): Promise<void> => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.earningsnerd.io'
+  const apiUrl = getApiUrl()
   const url = `${apiUrl}/api/summaries/filing/${filingId}/generate-stream`
 
   const controller = new AbortController()

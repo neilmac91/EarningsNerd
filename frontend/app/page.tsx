@@ -25,7 +25,18 @@ type Company = {
   stock_quote?: StockQuote | null
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ?? 'https://api.earningsnerd.io'
+// Import getApiUrl from api.ts for consistency
+// For server components, we need to handle this differently
+const getServerApiUrl = () => {
+  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
+    return process.env.NEXT_PUBLIC_API_BASE_URL.replace(/\/$/, '')
+  }
+  return process.env.NODE_ENV === 'production' 
+    ? 'https://api.earningsnerd.io' 
+    : 'http://localhost:8000'
+}
+
+const API_BASE_URL = getServerApiUrl()
 
 async function fetchFromApi<T>(path: string): Promise<T | null> {
   try {

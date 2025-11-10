@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
-from typing import List
+from pydantic import field_validator
+from typing import List, Union
 import os
 
 class Settings(BaseSettings):
@@ -40,6 +41,15 @@ class Settings(BaseSettings):
         "https://earningsnerd.io",
         "https://www.earningsnerd.io",
     ]
+    
+    @field_validator('CORS_ORIGINS', mode='before')
+    @classmethod
+    def parse_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
+        """Parse CORS_ORIGINS from comma-separated string or list"""
+        if isinstance(v, str):
+            # Split by comma and strip whitespace
+            return [origin.strip() for origin in v.split(',') if origin.strip()]
+        return v
     HOT_FILINGS_REFRESH_TOKEN: str = ""
     HOT_FILINGS_USER_AGENT: str = (
         "EarningsNerdBot/1.0 (+https://earningsnerd.com/contact)"

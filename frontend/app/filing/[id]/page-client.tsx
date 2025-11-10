@@ -723,7 +723,8 @@ function SummaryDisplay({ summary, filing, isPro, saveMutation, isSaved }: { sum
     : null
 
   const handleExportPDF = () => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.earningsnerd.io'
+    const { getApiUrl } = require('@/lib/api')
+    const apiUrl = getApiUrl()
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
     const url = `${apiUrl}/api/summaries/filing/${filing.id}/export/pdf`
     
@@ -762,7 +763,8 @@ function SummaryDisplay({ summary, filing, isPro, saveMutation, isSaved }: { sum
   }
 
   const handleExportCSV = () => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.earningsnerd.io'
+    const { getApiUrl } = require('@/lib/api')
+    const apiUrl = getApiUrl()
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
     const url = `${apiUrl}/api/summaries/filing/${filing.id}/export/csv`
     

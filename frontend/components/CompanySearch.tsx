@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Search, Loader2 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { searchCompanies, Company } from '@/lib/api'
+import { searchCompanies, Company, getApiUrl } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 
@@ -56,7 +56,7 @@ export default function CompanySearch() {
           <div className="text-sm text-red-600">
             {error instanceof Error 
               ? error.message.includes('Network Error') || error.message.includes('ECONNREFUSED')
-                ? 'Unable to connect to the server. Please ensure the backend API is running on https://api.earningsnerd.io'
+                ? `Unable to connect to the server. Please ensure the backend API is running on ${getApiUrl()}`
                 : error.message
               : 'An unexpected error occurred. Please try again.'}
           </div>

@@ -6,7 +6,9 @@ import { Flame, ArrowUpRight, AlertTriangle } from 'lucide-react'
 import clsx from 'clsx'
 import Link from 'next/link'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') ?? 'https://api.earningsnerd.io'
+import { getApiUrl } from '@/lib/api'
+
+const API_BASE_URL = getApiUrl().replace(/\/$/, '')
 
 export type HotFiling = {
   filing_id: number | null
