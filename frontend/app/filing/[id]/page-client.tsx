@@ -17,6 +17,7 @@ import SummaryProgress from '@/components/SummaryProgress'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import { AxiosError, isAxiosError } from 'axios'
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
+import { ThemeToggle } from '@/components/ThemeToggle'
 
 const FinancialCharts = dynamic(() => import('@/components/FinancialCharts'), {
   ssr: false,
@@ -162,7 +163,6 @@ export default function FilingPageClient() {
   }
 
   const filingId = parseInt(identifier, 10)
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null) // null = not checked yet
   const [streamingText, setStreamingText] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingStage, setStreamingStage] = useState<string>('')
@@ -170,35 +170,20 @@ export default function FilingPageClient() {
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false)
 
-  // Check authentication client-side only (runs first, synchronously on mount)
+  // Check authentication for subscription features (optional)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
   useEffect(() => {
     const checkAuth = () => {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      const authenticated = !!token
-      setIsAuthenticated(authenticated)
-      
-      // If not authenticated, set error state immediately
-      if (!authenticated) {
-        setGenerationError('Log in to generate AI summaries.')
-        setStreamingStage('error')
-        setStreamingMessage('Authentication required.')
-        setIsStreaming(false)
-        setHasStartedGeneration(false)
-      }
-      // Note: We don't clear error state here if authenticated, as it might be a real generation error
-      // The error will be cleared when generation starts successfully
+      setIsAuthenticated(!!token)
     }
-    
     checkAuth()
-    
-    // Listen for storage changes (e.g., login/logout in another tab)
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === 'token') {
         checkAuth()
       }
     }
     window.addEventListener('storage', handleStorageChange)
-    
     return () => {
       window.removeEventListener('storage', handleStorageChange)
     }
@@ -220,14 +205,14 @@ export default function FilingPageClient() {
     queryKey: ['subscription'],
     queryFn: getSubscriptionStatus,
     retry: false,
-    enabled: isAuthenticated,
+    enabled: !!isAuthenticated,
   })
 
   const { data: savedSummaries } = useQuery({
     queryKey: ['saved-summaries'],
     queryFn: getSavedSummaries,
     retry: false,
-    enabled: isAuthenticated, // Only fetch if user is logged in
+    enabled: !!isAuthenticated, // Only fetch if user is logged in
   })
 
   const queryClient = useQueryClient()
@@ -275,17 +260,6 @@ export default function FilingPageClient() {
   const activeErrorMessage = generationError || summaryErrorMessage
 
   const handleGenerateSummary = async () => {
-    // Double-check authentication before proceeding
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-    if (!token || !isAuthenticated) {
-      setGenerationError('Log in to generate AI summaries.')
-      setStreamingStage('error')
-      setStreamingMessage('Authentication required.')
-      setIsStreaming(false)
-      setHasStartedGeneration(false)
-      return
-    }
-
     setHasStartedGeneration(true)
     setGenerationError(null)
     setIsStreaming(true)
@@ -354,17 +328,10 @@ export default function FilingPageClient() {
   })
 
   // Auto-generate summary when page loads if no summary exists
-  // Only run after authentication status is confirmed (not null)
   useEffect(() => {
-    // Wait for authentication check to complete
-    if (isAuthenticated === null) {
-      return
-    }
-    
-    // Only auto-generate if authenticated and all conditions are met
+    // Auto-generate if all conditions are met
     if (
       filing &&
-      isAuthenticated === true &&
       !summaryLoading &&
       !isStreaming &&
       !hasSummaryContent &&
@@ -374,7 +341,7 @@ export default function FilingPageClient() {
       handleGenerateSummary()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filing, summary, summaryLoading, isStreaming, hasStartedGeneration, hasSummaryContent, isAuthenticated, generationError])
+  }, [filing, summary, summaryLoading, isStreaming, hasStartedGeneration, hasSummaryContent, generationError])
 
   useEffect(() => {
     if (hasSummaryContent) {
@@ -384,18 +351,18 @@ export default function FilingPageClient() {
 
   if (filingLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+        <Loader2 className="h-8 w-8 animate-spin text-primary-600 dark:text-primary-400" />
       </div>
     )
   }
 
   if (!filing) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Filing not found</h1>
-          <Link href="/" className="text-primary-600 hover:underline">
+          <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Filing not found</h1>
+          <Link href="/" className="text-primary-600 hover:underline dark:text-primary-400 dark:hover:text-primary-300">
             Go back home
           </Link>
         </div>
@@ -405,14 +372,17 @@ export default function FilingPageClient() {
 
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-gradient-to-r from-white via-gray-50 to-white shadow-lg border-b border-gray-200">
+      <header className="bg-gradient-to-r from-white via-gray-50 to-white dark:from-gray-800 dark:via-gray-900 dark:to-gray-800 shadow-lg border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <Link href="/" className="text-primary-600 hover:text-primary-700 mb-4 inline-flex items-center space-x-1 transition-colors group">
-            <span className="group-hover:-translate-x-1 transition-transform">←</span>
-            <span>Back</span>
-          </Link>
+          <div className="flex items-center justify-between mb-4">
+            <Link href="/" className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 inline-flex items-center space-x-1 transition-colors group">
+              <span className="group-hover:-translate-x-1 transition-transform">←</span>
+              <span>Back</span>
+            </Link>
+            <ThemeToggle />
+          </div>
           
           <div className="flex items-start justify-between">
             <div className="flex-1">
@@ -420,7 +390,7 @@ export default function FilingPageClient() {
                 <>
                   <div className="flex items-center space-x-3 mb-2">
                     <div className="flex items-center space-x-2">
-                      <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
+                      <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
                         {filing.company.name}
                       </h1>
                       <span className="px-3 py-1 bg-gradient-to-r from-primary-600 to-blue-600 text-white text-sm font-bold rounded-lg shadow-sm">
@@ -428,8 +398,8 @@ export default function FilingPageClient() {
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-4 text-sm text-gray-600">
-                    <span className="px-3 py-1 bg-gray-100 rounded-md font-semibold text-gray-700">
+                  <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                    <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-md font-semibold text-gray-700 dark:text-gray-300">
                       {filing.filing_type}
                     </span>
                     <span className="flex items-center space-x-1">
@@ -437,7 +407,7 @@ export default function FilingPageClient() {
                       <span className="font-medium">{format(new Date(filing.filing_date), 'MMMM dd, yyyy')}</span>
                     </span>
                     {filing.company.exchange && (
-                      <span className="text-gray-500">
+                      <span className="text-gray-500 dark:text-gray-400">
                         {filing.company.exchange}
                       </span>
                     )}
@@ -445,10 +415,10 @@ export default function FilingPageClient() {
                 </>
               ) : (
                 <>
-                  <h1 className="text-3xl font-bold text-gray-900 tracking-tight mb-2">
+                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-2">
                     {filing.filing_type} Summary
                   </h1>
-                  <p className="text-gray-600">
+                  <p className="text-gray-600 dark:text-gray-400">
                     Filed: {format(new Date(filing.filing_date), 'MMMM dd, yyyy')}
                   </p>
                 </>
@@ -456,9 +426,9 @@ export default function FilingPageClient() {
             </div>
             
             {/* Tech badge */}
-            <div className="hidden md:flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-primary-50 to-blue-50 rounded-lg border border-primary-200">
-              <div className="w-2 h-2 bg-primary-600 rounded-full animate-pulse"></div>
-              <span className="text-xs font-semibold text-primary-700">AI Analysis</span>
+            <div className="hidden md:flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-primary-50 to-blue-50 dark:from-primary-900/20 dark:to-blue-900/20 rounded-lg border border-primary-200 dark:border-primary-800">
+              <div className="w-2 h-2 bg-primary-600 dark:bg-primary-400 rounded-full animate-pulse"></div>
+              <span className="text-xs font-semibold text-primary-700 dark:text-primary-300">AI Analysis</span>
             </div>
           </div>
         </div>
@@ -542,10 +512,6 @@ function StreamingSummaryDisplay({
       case 'initializing':
         return { percentage: 5, label: 'Initializing AI analysis...', icon: '⚡' }
       case 'error':
-        // Don't show high percentage for authentication errors - show 0% instead
-        if (error?.toLowerCase().includes('log in') || error?.toLowerCase().includes('authentication')) {
-          return { percentage: 0, label: 'Authentication required', icon: '🔒' }
-        }
         return { percentage: 0, label: 'Generation failed', icon: '⛔️' }
       default:
         return { percentage: 10, label: 'Preparing...', icon: '⚡' }
@@ -561,163 +527,176 @@ function StreamingSummaryDisplay({
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Progress Header */}
-      <div className="bg-gradient-to-br from-white via-primary-50/30 to-blue-50/30 rounded-xl shadow-xl border border-gray-200/50 p-8 relative overflow-hidden">
-        {/* Animated background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-r from-primary-100/20 via-transparent to-blue-100/20 animate-pulse"></div>
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-4 flex-1">
-              <div className="relative w-20 h-20">
-                {/* Outer ring with pulse */}
-                <div className="absolute inset-0 rounded-full border-4 border-gray-200"></div>
-                <div 
-                  className="absolute inset-0 rounded-full border-4 border-primary-600 border-t-transparent animate-spin"
-                  style={{ 
-                    animation: isGenerating ? 'spin 1s linear infinite' : 'none'
-                  }}
-                ></div>
-                {/* Pulsing ring */}
-                <div className="absolute inset-0 rounded-full border-4 border-primary-400/50 animate-ping"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-xl font-bold text-primary-600 drop-shadow-sm">{progress.percentage}%</span>
-                </div>
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center space-x-3 mb-2">
-                  <span className={`text-3xl ${isError ? '' : 'animate-bounce'}`}>{progress.icon}</span>
-                  <h3 className={`text-xl font-bold ${isError ? 'text-red-700' : 'text-gray-900'}`}>
-                    {activeMessage}
-                  </h3>
-                </div>
-                <p className="text-sm text-gray-600 font-medium">{filing.filing_type} Filing Analysis</p>
-                {/* Dynamic status text */}
-                <p
-                  className={`text-xs mt-1 ${
-                    isError ? 'text-red-600' : 'text-gray-500 animate-pulse'
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-4 flex-1">
+            <div className="relative w-16 h-16 flex-shrink-0">
+              {/* Clean circular progress */}
+              <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="28"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  className="text-gray-200 dark:text-gray-700"
+                />
+                <circle
+                  cx="32"
+                  cy="32"
+                  r="28"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                  strokeDasharray={`${2 * Math.PI * 28}`}
+                  strokeDashoffset={`${2 * Math.PI * 28 * (1 - progress.percentage / 100)}`}
+                  strokeLinecap="round"
+                  className={`transition-all duration-500 ${
+                    isError ? 'text-red-500' : 'text-primary-600 dark:text-primary-400'
                   }`}
-                >
-                  {isError && 'Generation failed. Please retry when ready.'}
-                  {!isError && stage === 'initializing' && 'Preparing AI engine...'}
-                  {!isError && stage === 'fetching' && 'Downloading SEC filing from EDGAR...'}
-                  {!isError && stage === 'parsing' && 'Extracting critical sections (Item 1A & Item 7)...'}
-                  {!isError && stage === 'analyzing' && 'Processing with AI model...'}
-                  {!isError && stage === 'summarizing' && 'Generating investment insights...'}
-                  {!isError && !stage && 'Initializing...'}
-                </p>
+                  style={{ 
+                    animation: isGenerating && !isError ? 'spin 2s linear infinite' : 'none'
+                  }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className={`text-lg font-semibold ${
+                  isError ? 'text-red-600 dark:text-red-400' : 'text-primary-600 dark:text-primary-400'
+                }`}>
+                  {progress.percentage}%
+                </span>
               </div>
             </div>
-          </div>
-          
-          {/* Enhanced Progress Bar */}
-          <div className="w-full bg-gray-200/50 rounded-full h-4 overflow-hidden shadow-inner backdrop-blur-sm">
-            {isError && progress.percentage === 0 ? (
-              // Show red error bar for authentication/initial errors
-              <div 
-                className="bg-gradient-to-r from-red-500 to-red-600 h-4 rounded-full transition-all duration-700 ease-out relative overflow-hidden"
-                style={{ width: '100%' }}
-              >
-                <div className="absolute inset-0 bg-red-400/30 blur-sm"></div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center space-x-3 mb-2">
+                <span className="text-2xl flex-shrink-0">{progress.icon}</span>
+                <h3 className={`text-xl font-semibold truncate ${
+                  isError 
+                    ? 'text-red-700 dark:text-red-400' 
+                    : 'text-gray-900 dark:text-white'
+                }`}>
+                  {activeMessage}
+                </h3>
               </div>
-            ) : (
-              // Show progress bar for active generation
-              <div 
-                className={`h-4 rounded-full transition-all duration-700 ease-out relative overflow-hidden ${
-                  isError ? 'bg-gradient-to-r from-red-500 to-red-600' : 'bg-gradient-to-r from-primary-500 via-primary-600 to-blue-600'
-                }`}
-                style={{ width: `${Math.max(progress.percentage, isError ? 0 : 5)}%` }}
-              >
-                {!isError && (
-                  <>
-                    {/* Shimmer effect */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer"></div>
-                    {/* Glow effect */}
-                    <div className="absolute inset-0 bg-primary-400/30 blur-sm"></div>
-                  </>
-                )}
-              </div>
-            )}
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-1">
+                {filing.filing_type} Filing Analysis
+              </p>
+              {/* Dynamic status text */}
+              <p className={`text-xs ${
+                isError 
+                  ? 'text-red-600 dark:text-red-400' 
+                  : 'text-gray-500 dark:text-gray-500'
+              }`}>
+                {isError && 'Generation failed. Please retry when ready.'}
+                {!isError && stage === 'initializing' && 'Preparing AI engine...'}
+                {!isError && stage === 'fetching' && 'Downloading SEC filing from EDGAR...'}
+                {!isError && stage === 'parsing' && 'Extracting critical sections (Item 1A & Item 7)...'}
+                {!isError && stage === 'analyzing' && 'Processing with AI model...'}
+                {!isError && stage === 'summarizing' && 'Generating investment insights...'}
+                {!isError && !stage && 'Initializing...'}
+              </p>
+            </div>
           </div>
-          
-          {/* Enhanced Stage indicator with animations */}
-          <div className="mt-6 flex items-center justify-between text-xs">
-            {[
-              { key: 'fetching', label: 'Fetching', active: stage === 'fetching' || stage === 'parsing' || stage === 'analyzing' || stage === 'summarizing' },
-              { key: 'parsing', label: 'Parsing', active: stage === 'parsing' || stage === 'analyzing' || stage === 'summarizing' },
-              { key: 'analyzing', label: 'Analyzing', active: stage === 'analyzing' || stage === 'summarizing' },
-              { key: 'generating', label: 'Generating', active: stage === 'summarizing' }
-            ].map((step, index, array) => (
-              <div key={step.key} className="flex items-center flex-1">
-                <div className="flex items-center space-x-2 flex-1">
-                  <div className="relative">
-                    <div className={`w-3 h-3 rounded-full transition-all duration-500 ${step.active ? 'bg-primary-600 scale-125' : 'bg-gray-300'}`}>
-                      {step.active && (
-                        <div className="absolute inset-0 rounded-full bg-primary-400 animate-ping"></div>
-                      )}
-                    </div>
-                  </div>
-                  <span className={`font-medium transition-colors duration-300 ${step.active ? 'text-primary-700 font-semibold' : 'text-gray-400'}`}>
-                    {step.label}
-                  </span>
-                </div>
-                {index < array.length - 1 && (
-                  <div className={`flex-1 h-0.5 mx-2 transition-all duration-500 ${step.active ? 'bg-primary-300' : 'bg-gray-200'}`}>
-                    <div className={`h-full bg-primary-600 transition-all duration-500 ${step.active ? 'w-full' : 'w-0'}`}></div>
-                  </div>
-                )}
+        </div>
+        
+        {/* Clean Progress Bar */}
+        <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
+          {isError && progress.percentage === 0 ? (
+            <div 
+              className="bg-red-500 dark:bg-red-600 h-2 rounded-full transition-all duration-500 ease-out"
+              style={{ width: '100%' }}
+            />
+          ) : (
+            <div 
+              className={`h-2 rounded-full transition-all duration-500 ease-out ${
+                isError 
+                  ? 'bg-red-500 dark:bg-red-600' 
+                  : 'bg-primary-600 dark:bg-primary-500'
+              }`}
+              style={{ width: `${Math.max(progress.percentage, isError ? 0 : 5)}%` }}
+            />
+          )}
+        </div>
+        
+        {/* Clean Stage indicator */}
+        <div className="mt-6 flex items-center justify-between text-xs">
+          {[
+            { key: 'fetching', label: 'Fetching', active: stage === 'fetching' || stage === 'parsing' || stage === 'analyzing' || stage === 'summarizing' },
+            { key: 'parsing', label: 'Parsing', active: stage === 'parsing' || stage === 'analyzing' || stage === 'summarizing' },
+            { key: 'analyzing', label: 'Analyzing', active: stage === 'analyzing' || stage === 'summarizing' },
+            { key: 'generating', label: 'Generating', active: stage === 'summarizing' }
+          ].map((step, index, array) => (
+            <div key={step.key} className="flex items-center flex-1 min-w-0">
+              <div className="flex items-center space-x-2 flex-1 min-w-0">
+                <div className={`w-2 h-2 rounded-full flex-shrink-0 transition-all duration-300 ${
+                  step.active 
+                    ? 'bg-primary-600 dark:bg-primary-400' 
+                    : 'bg-gray-300 dark:bg-gray-600'
+                }`} />
+                <span className={`text-xs font-medium truncate transition-colors duration-300 ${
+                  step.active 
+                    ? 'text-primary-700 dark:text-primary-300 font-semibold' 
+                    : 'text-gray-400 dark:text-gray-500'
+                }`}>
+                  {step.label}
+                </span>
               </div>
-            ))}
-          </div>
+              {index < array.length - 1 && (
+                <div className={`flex-1 h-px mx-2 transition-all duration-300 ${
+                  step.active 
+                    ? 'bg-primary-300 dark:bg-primary-600' 
+                    : 'bg-gray-200 dark:bg-gray-700'
+                }`} />
+              )}
+            </div>
+          ))}
         </div>
       </div>
 
       {/* Streaming Content */}
       {isError && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6 shadow-md">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 shadow-sm">
           <div className="flex items-start space-x-3">
-            <AlertCircle className="h-6 w-6 text-red-600 mt-1" />
+            <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400 mt-1 flex-shrink-0" />
             <div className="flex-1">
-              <h2 className="text-lg font-semibold text-red-700 mb-2">Generation interrupted</h2>
-              <p className="text-sm text-red-600">
+              <h2 className="text-lg font-semibold text-red-700 dark:text-red-400 mb-2">
+                Generation interrupted
+              </h2>
+              <p className="text-sm text-red-600 dark:text-red-300 mb-4">
                 {error || message || 'Generation timed out. Please retry to continue.'}
               </p>
-              {error?.toLowerCase().includes('log in') && (
-                <Link
-                  href="/login"
-                  className="mt-3 inline-flex items-center text-sm font-semibold text-primary-700 hover:text-primary-600"
-                >
-                  Go to login →
-                </Link>
-              )}
-              {onRetry && (
-                <button
-                  onClick={onRetry}
-                  className="mt-4 inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg text-sm font-medium hover:bg-primary-700 transition-colors"
-                >
-                  Retry generation
-                </button>
-              )}
+              <div className="flex items-center gap-3 flex-wrap">
+                {onRetry && (
+                  <button
+                    onClick={onRetry}
+                    className="inline-flex items-center px-4 py-2 bg-primary-600 dark:bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-700 dark:hover:bg-primary-600 transition-colors"
+                  >
+                    Retry generation
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         </div>
       )}
 
       {displayText && (
-        <div className="bg-white rounded-xl shadow-xl border border-gray-200 p-8 animate-fadeIn">
-          <div className="flex items-center space-x-3 mb-6">
-            <div className="relative">
-              <div className="w-3 h-3 bg-primary-600 rounded-full animate-pulse"></div>
-              <div className="absolute inset-0 w-3 h-3 bg-primary-600 rounded-full animate-ping opacity-75"></div>
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900">AI-Generated Summary</h2>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">
+          <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
+            <div className="w-2 h-2 bg-primary-600 dark:bg-primary-400 rounded-full"></div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">AI-Generated Summary</h2>
             {isGenerating && (
-              <span className="px-2 py-1 text-xs font-semibold text-primary-700 bg-primary-100 rounded-full animate-pulse">Live</span>
+              <span className="px-2.5 py-1 text-xs font-semibold text-primary-700 dark:text-primary-300 bg-primary-100 dark:bg-primary-900/50 rounded-full">
+                Live
+              </span>
             )}
           </div>
-          <div className="prose prose-lg max-w-none">
-            <div className="text-gray-800 whitespace-pre-wrap leading-relaxed font-sans">
+          <div className="prose prose-lg dark:prose-invert max-w-none">
+            <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed font-sans">
               {displayText}
               {isGenerating && (
-                <span className="inline-block w-2 h-5 bg-primary-600 ml-1 animate-pulse align-middle"></span>
+                <span className="inline-block w-0.5 h-5 bg-primary-600 dark:bg-primary-400 ml-1 align-middle"></span>
               )}
             </div>
           </div>
@@ -725,29 +704,28 @@ function StreamingSummaryDisplay({
       )}
 
       {!displayText && !isError && (
-        <div className="bg-gradient-to-br from-primary-50 via-blue-50 to-indigo-50 rounded-xl p-8 border border-primary-200 shadow-lg relative overflow-hidden">
-          {/* Animated background */}
-          <div className="absolute inset-0 bg-gradient-to-r from-primary-100/50 via-transparent to-blue-100/50 animate-pulse"></div>
-          <div className="relative z-10">
-            <div className="flex items-center space-x-4">
-              <div className="relative">
-                <Loader2 className="h-10 w-10 text-primary-600 animate-spin" />
-                <div className="absolute inset-0 h-10 w-10 border-4 border-primary-200 rounded-full animate-ping"></div>
-              </div>
-              <div className="flex-1">
-                <p className="text-primary-900 font-semibold text-lg mb-1 animate-pulse">{activeMessage}</p>
-                <p className="text-primary-700 text-sm">Analyzing critical sections (Item 1A & Item 7) for investment insights...</p>
-              </div>
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-8 border border-gray-200 dark:border-gray-700 shadow-lg">
+          <div className="flex items-start space-x-4">
+            <div className="flex-shrink-0">
+              <Loader2 className="h-8 w-8 text-primary-600 dark:text-primary-400 animate-spin" />
             </div>
-            
-            {/* Skeleton loader for content preview */}
-            <div className="mt-6 space-y-3 animate-pulse">
-              <div className="h-4 bg-primary-200/50 rounded w-3/4"></div>
-              <div className="h-4 bg-primary-200/50 rounded w-full"></div>
-              <div className="h-4 bg-primary-200/50 rounded w-5/6"></div>
-              <div className="h-4 bg-primary-200/50 rounded w-4/5 mt-4"></div>
-              <div className="h-4 bg-primary-200/50 rounded w-full"></div>
+            <div className="flex-1">
+              <p className="text-gray-900 dark:text-white font-semibold text-lg mb-1">
+                {activeMessage}
+              </p>
+              <p className="text-gray-600 dark:text-gray-400 text-sm">
+                Analyzing critical sections (Item 1A & Item 7) for investment insights...
+              </p>
             </div>
+          </div>
+          
+          {/* Clean skeleton loader */}
+          <div className="mt-6 space-y-3">
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-4/5 mt-4"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
           </div>
         </div>
       )}

@@ -162,7 +162,16 @@ export const generateSummaryStream = async (
   onComplete: (summaryId: number) => void,
   onError: (error: string) => void
 ): Promise<void> => {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+  let token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+  // Validate token format - JWT tokens have 3 parts separated by dots
+  // If token exists but is invalid format, remove it
+  if (token && (!token.includes('.') || token.split('.').length !== 3)) {
+    console.warn('Invalid token format detected, removing from localStorage')
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token')
+    }
+    token = null
+  }
   const apiUrl = getApiUrl()
   const url = `${apiUrl}/api/summaries/filing/${filingId}/generate-stream`
 
@@ -198,27 +207,33 @@ export const generateSummaryStream = async (
     }
   }
 
-  // Check authentication before making the request
-  if (!token) {
-    clearTimeoutSafely()
-    throw new Error('Authentication required. Please log in to generate AI summaries.')
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  }
+  
+  // Only add Authorization header if token exists
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
   }
 
   const response = await fetch(url, {
     method: 'POST',
-    headers: {
-      'Authorization': token ? `Bearer ${token}` : '',
-      'Content-Type': 'application/json',
-    },
+    headers,
     signal: controller.signal,
   })
 
   if (!response.ok) {
     clearTimeoutSafely()
     
-    // Handle authentication errors specifically
+    // Handle authentication errors - clear invalid token and show error
+    // Authentication is optional, so 401 shouldn't normally occur
     if (response.status === 401) {
-      let errorMessage = 'Authentication required. Please log in to generate AI summaries.'
+      // Clear invalid token from localStorage if present
+      if (typeof window !== 'undefined' && token) {
+        console.warn('Invalid token detected, clearing from localStorage')
+        localStorage.removeItem('token')
+      }
+      let errorMessage = 'Authentication error occurred.'
       try {
         const errorData = await response.json()
         if (errorData.detail) {

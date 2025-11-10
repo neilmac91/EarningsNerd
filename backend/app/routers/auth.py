@@ -91,15 +91,23 @@ async def get_current_user_optional(
     
     try:
         token = credentials.credentials
+        if not token or not isinstance(token, str) or len(token.strip()) == 0:
+            return None
+        
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         email: str = payload.get("sub")
         if email is None:
             return None
-    except (JWTError, HTTPException, Exception):
+    except (JWTError, HTTPException, Exception) as e:
+        # Silently ignore authentication errors for optional auth
+        # Log for debugging but don't raise
         return None
     
-    user = db.query(User).filter(User.email == email).first()
-    return user
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        return user
+    except Exception:
+        return None
 
 @router.post("/register", response_model=Token)
 async def register(user_data: UserCreate, db: Session = Depends(get_db)):
