@@ -11,11 +11,26 @@ import { fmtCurrency, fmtPercent } from '@/lib/format'
 
 export default function CompanyPageClient() {
   const params = useParams()
-  const ticker = params.ticker as string
+  const ticker = params?.ticker as string | undefined
 
-  const { data: company, isLoading: companyLoading } = useQuery<Company>({
+  // Handle case where ticker might not be available
+  if (!ticker) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Invalid ticker</h1>
+          <Link href="/" className="text-primary-600 hover:underline">
+            Go back home
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  const { data: company, isLoading: companyLoading, error: companyError } = useQuery<Company>({
     queryKey: ['company', ticker],
     queryFn: () => getCompany(ticker),
+    retry: 1,
   })
 
   const { data: filings, isLoading: filingsLoading } = useQuery<Filing[]>({
@@ -61,11 +76,14 @@ export default function CompanyPageClient() {
     )
   }
 
-  if (!company) {
+  if (!company && !companyLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Company not found</h1>
+          <p className="text-gray-600 mb-4">
+            {companyError ? `Error: ${companyError instanceof Error ? companyError.message : 'Failed to load company'}` : `Could not find company with ticker "${ticker}"`}
+          </p>
           <Link href="/" className="text-primary-600 hover:underline">
             Go back home
           </Link>
