@@ -76,7 +76,7 @@ export default function CompanyPageClient() {
     )
   }
 
-  if (!company && !companyLoading) {
+  if (!company) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
@@ -91,6 +91,10 @@ export default function CompanyPageClient() {
       </div>
     )
   }
+
+  // TypeScript type guard: company is definitely defined at this point (checked above)
+  // Use non-null assertion since we've already verified company exists
+  const companyData = company!
 
   const toggleSection = (section: string) => {
     const newExpanded = new Set(expandedSections)
@@ -118,7 +122,7 @@ export default function CompanyPageClient() {
               </Link>
               <div className="border-l border-gray-200 pl-4 flex-1">
                 <div className="flex items-center space-x-3">
-                  <h1 className="text-2xl font-bold text-gray-900">{company.name}</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">{companyData.name}</h1>
                   {typeof window !== 'undefined' && localStorage.getItem('token') && (
                     <button
                       onClick={() => watchlistMutation.mutate(ticker)}
@@ -139,20 +143,20 @@ export default function CompanyPageClient() {
                   )}
                 </div>
                 <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500">
-                  <span className="font-medium">{company.ticker}</span>
-                  {company.exchange && <span>{company.exchange}</span>}
-                  {company.stock_quote?.price !== undefined && company.stock_quote?.price !== null && (
+                  <span className="font-medium">{companyData.ticker}</span>
+                  {companyData.exchange && <span>{companyData.exchange}</span>}
+                  {companyData.stock_quote?.price !== undefined && companyData.stock_quote?.price !== null && (
                     <div className="flex items-center space-x-2">
                       <span className="font-semibold text-gray-900">
-                        {fmtCurrency(company.stock_quote.price, { digits: 2, compact: false })}
+                        {fmtCurrency(companyData.stock_quote.price, { digits: 2, compact: false })}
                       </span>
-                      {company.stock_quote.change_percent !== undefined && company.stock_quote.change_percent !== null && (
+                      {companyData.stock_quote.change_percent !== undefined && companyData.stock_quote.change_percent !== null && (
                         <span
                           className={`font-medium ${
-                            company.stock_quote.change_percent >= 0 ? 'text-green-600' : 'text-red-600'
+                            companyData.stock_quote.change_percent >= 0 ? 'text-green-600' : 'text-red-600'
                           }`}
                         >
-                          {fmtPercent(company.stock_quote.change_percent, { digits: 2, signed: true })}
+                          {fmtPercent(companyData.stock_quote.change_percent, { digits: 2, signed: true })}
                         </span>
                       )}
                     </div>
