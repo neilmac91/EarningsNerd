@@ -222,10 +222,11 @@ export default function CompanyPageClient() {
                           href={filing.sec_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
-                          title="View on SEC EDGAR"
+                          className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-md hover:bg-gray-50 hover:border-gray-400 transition-colors"
+                          title="Open original filing on SEC EDGAR"
                         >
                           <ExternalLink className="h-4 w-4" />
+                          <span>View on SEC EDGAR</span>
                         </a>
                       )}
                       <Link
