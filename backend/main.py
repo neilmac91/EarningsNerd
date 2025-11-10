@@ -5,33 +5,7 @@ from contextlib import asynccontextmanager
 import os
 import time
 from dotenv import load_dotenv
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 
-app = FastAPI()
-
-# 👇 Add this block
-origins = [
-    "https://www.earningsnerd.io",
-    "https://earningsnerd.io",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],      # or ["GET", "POST", "OPTIONS"] if you prefer
-
-
-    allow_headers=["*"],
-
-
-
-
-)
 from app.database import engine, Base
 from app.routers import (
     companies,
@@ -48,23 +22,6 @@ from app.routers import (
     trending,
 )
 from app.config import settings
-
-# ✅ Register all routers
-app.include_router(auth.router)
-app.include_router(companies.router)
-app.include_router(compare.router)
-app.include_router(filings.router)
-app.include_router(hot_filings.router)
-app.include_router(saved_summaries.router)
-app.include_router(sitemap.router)
-app.include_router(subscriptions.router)
-app.include_router(summaries.router)
-app.include_router(trending.router)
-app.include_router(users.router)
-app.include_router(watchlist.router)
-
-
-
 
 load_dotenv()
 

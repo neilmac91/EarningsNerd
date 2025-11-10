@@ -34,7 +34,12 @@ class Settings(BaseSettings):
 
     # App Settings
     ENVIRONMENT: str = "development"
-    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    CORS_ORIGINS: List[str] = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://earningsnerd.io",
+        "https://www.earningsnerd.io",
+    ]
     HOT_FILINGS_REFRESH_TOKEN: str = ""
     HOT_FILINGS_USER_AGENT: str = (
         "EarningsNerdBot/1.0 (+https://earningsnerd.com/contact)"
