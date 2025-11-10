@@ -1,19 +1,7 @@
-import sys
-from pathlib import Path
-
-# Add backend directory to Python path to ensure correct imports
-# Must be first to avoid conflicts with root-level app.py and pydantic directories
-backend_path = Path(__file__).parent.parent / "backend"
-backend_path_str = str(backend_path.resolve())
-if backend_path_str not in sys.path:
-    # Remove root directory from path if present to avoid conflicts
-    root_path = str(Path(__file__).parent.parent.resolve())
-    if root_path in sys.path:
-        sys.path.remove(root_path)
-    sys.path.insert(0, backend_path_str)
-
 import pytest
 
+# conftest.py handles path setup - root directory is in path for "from backend..." imports
+# and backend directory is in path for "from app..." imports
 from app.services.xbrl_service import XBRLService
 
 
