@@ -162,7 +162,7 @@ export default function FilingPageClient() {
   }
 
   const filingId = parseInt(identifier, 10)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null) // null = not checked yet
   const [streamingText, setStreamingText] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingStage, setStreamingStage] = useState<string>('')
@@ -170,21 +170,39 @@ export default function FilingPageClient() {
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false)
 
-  // Check authentication client-side only
+  // Check authentication client-side only (runs first, synchronously on mount)
   useEffect(() => {
-    setIsAuthenticated(typeof window !== 'undefined' && !!localStorage.getItem('token'))
-  }, [])
-
-  useEffect(() => {
-    if (!isAuthenticated) {
-      setGenerationError('Log in to generate AI summaries.')
-      setStreamingStage('error')
-      setStreamingMessage('Authentication required.')
-      setIsStreaming(false)
-    } else if (!isStreaming) {
-      setGenerationError(null)
+    const checkAuth = () => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+      const authenticated = !!token
+      setIsAuthenticated(authenticated)
+      
+      // If not authenticated, set error state immediately
+      if (!authenticated) {
+        setGenerationError('Log in to generate AI summaries.')
+        setStreamingStage('error')
+        setStreamingMessage('Authentication required.')
+        setIsStreaming(false)
+        setHasStartedGeneration(false)
+      }
+      // Note: We don't clear error state here if authenticated, as it might be a real generation error
+      // The error will be cleared when generation starts successfully
     }
-  }, [isAuthenticated, isStreaming])
+    
+    checkAuth()
+    
+    // Listen for storage changes (e.g., login/logout in another tab)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'token') {
+        checkAuth()
+      }
+    }
+    window.addEventListener('storage', handleStorageChange)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+    }
+  }, [])
 
   const { data: filing, isLoading: filingLoading } = useQuery<Filing>({
     queryKey: ['filing', filingId],
@@ -257,11 +275,14 @@ export default function FilingPageClient() {
   const activeErrorMessage = generationError || summaryErrorMessage
 
   const handleGenerateSummary = async () => {
-    if (!isAuthenticated) {
+    // Double-check authentication before proceeding
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+    if (!token || !isAuthenticated) {
       setGenerationError('Log in to generate AI summaries.')
       setStreamingStage('error')
       setStreamingMessage('Authentication required.')
       setIsStreaming(false)
+      setHasStartedGeneration(false)
       return
     }
 
@@ -296,6 +317,8 @@ export default function FilingPageClient() {
           setStreamingStage('error')
           setStreamingMessage(errorMessage)
           setIsStreaming(false)
+          // Reset progress state on error
+          setStreamingText('')
         }
       )
     } catch (error: any) {
@@ -303,6 +326,8 @@ export default function FilingPageClient() {
       setGenerationError(message)
       setStreamingStage('error')
       setStreamingMessage(message)
+      setIsStreaming(false)
+      setStreamingText('')
     } finally {
       setIsStreaming(false)
     }
@@ -329,19 +354,27 @@ export default function FilingPageClient() {
   })
 
   // Auto-generate summary when page loads if no summary exists
+  // Only run after authentication status is confirmed (not null)
   useEffect(() => {
+    // Wait for authentication check to complete
+    if (isAuthenticated === null) {
+      return
+    }
+    
+    // Only auto-generate if authenticated and all conditions are met
     if (
       filing &&
-      isAuthenticated &&
+      isAuthenticated === true &&
       !summaryLoading &&
       !isStreaming &&
       !hasSummaryContent &&
-      !hasStartedGeneration
+      !hasStartedGeneration &&
+      !generationError
     ) {
       handleGenerateSummary()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filing, summary, summaryLoading, isStreaming, hasStartedGeneration, hasSummaryContent, isAuthenticated])
+  }, [filing, summary, summaryLoading, isStreaming, hasStartedGeneration, hasSummaryContent, isAuthenticated, generationError])
 
   useEffect(() => {
     if (hasSummaryContent) {
@@ -509,7 +542,11 @@ function StreamingSummaryDisplay({
       case 'initializing':
         return { percentage: 5, label: 'Initializing AI analysis...', icon: '⚡' }
       case 'error':
-        return { percentage: 95, label: 'Generation failed', icon: '⛔️' }
+        // Don't show high percentage for authentication errors - show 0% instead
+        if (error?.toLowerCase().includes('log in') || error?.toLowerCase().includes('authentication')) {
+          return { percentage: 0, label: 'Authentication required', icon: '🔒' }
+        }
+        return { percentage: 0, label: 'Generation failed', icon: '⛔️' }
       default:
         return { percentage: 10, label: 'Preparing...', icon: '⚡' }
     }
@@ -573,15 +610,32 @@ function StreamingSummaryDisplay({
           
           {/* Enhanced Progress Bar */}
           <div className="w-full bg-gray-200/50 rounded-full h-4 overflow-hidden shadow-inner backdrop-blur-sm">
-            <div 
-              className="bg-gradient-to-r from-primary-500 via-primary-600 to-blue-600 h-4 rounded-full transition-all duration-700 ease-out relative overflow-hidden"
-              style={{ width: `${Math.max(progress.percentage, 5)}%` }}
-            >
-              {/* Shimmer effect */}
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer"></div>
-              {/* Glow effect */}
-              <div className="absolute inset-0 bg-primary-400/30 blur-sm"></div>
-            </div>
+            {isError && progress.percentage === 0 ? (
+              // Show red error bar for authentication/initial errors
+              <div 
+                className="bg-gradient-to-r from-red-500 to-red-600 h-4 rounded-full transition-all duration-700 ease-out relative overflow-hidden"
+                style={{ width: '100%' }}
+              >
+                <div className="absolute inset-0 bg-red-400/30 blur-sm"></div>
+              </div>
+            ) : (
+              // Show progress bar for active generation
+              <div 
+                className={`h-4 rounded-full transition-all duration-700 ease-out relative overflow-hidden ${
+                  isError ? 'bg-gradient-to-r from-red-500 to-red-600' : 'bg-gradient-to-r from-primary-500 via-primary-600 to-blue-600'
+                }`}
+                style={{ width: `${Math.max(progress.percentage, isError ? 0 : 5)}%` }}
+              >
+                {!isError && (
+                  <>
+                    {/* Shimmer effect */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-shimmer"></div>
+                    {/* Glow effect */}
+                    <div className="absolute inset-0 bg-primary-400/30 blur-sm"></div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
           
           {/* Enhanced Stage indicator with animations */}

@@ -198,6 +198,12 @@ export const generateSummaryStream = async (
     }
   }
 
+  // Check authentication before making the request
+  if (!token) {
+    clearTimeoutSafely()
+    throw new Error('Authentication required. Please log in to generate AI summaries.')
+  }
+
   const response = await fetch(url, {
     method: 'POST',
     headers: {
@@ -209,7 +215,43 @@ export const generateSummaryStream = async (
 
   if (!response.ok) {
     clearTimeoutSafely()
-    throw new Error(`HTTP error! status: ${response.status}`)
+    
+    // Handle authentication errors specifically
+    if (response.status === 401) {
+      let errorMessage = 'Authentication required. Please log in to generate AI summaries.'
+      try {
+        const errorData = await response.json()
+        if (errorData.detail) {
+          errorMessage = errorData.detail
+        } else if (errorData.message) {
+          errorMessage = errorData.message
+        }
+      } catch {
+        // If response is not JSON, use default message
+      }
+      throw new Error(errorMessage)
+    }
+    
+    // Handle other HTTP errors
+    let errorMessage = `Request failed with status ${response.status}`
+    try {
+      const errorData = await response.json()
+      if (errorData.detail) {
+        errorMessage = errorData.detail
+      } else if (errorData.message) {
+        errorMessage = errorData.message
+      }
+    } catch {
+      // If response is not JSON, use status-based message
+      if (response.status === 403) {
+        errorMessage = 'You do not have permission to perform this action.'
+      } else if (response.status === 429) {
+        errorMessage = 'Rate limit exceeded. Please try again later.'
+      } else if (response.status >= 500) {
+        errorMessage = 'Server error. Please try again later.'
+      }
+    }
+    throw new Error(errorMessage)
   }
 
   console.info(
