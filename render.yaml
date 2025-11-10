@@ -1,0 +1,41 @@
+services:
+  - type: web
+    name: earningsnerd-backend
+    env: python
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: DATABASE_URL
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_BASE_URL
+        value: https://openrouter.ai/api/v1
+      - key: SECRET_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_PUBLISHABLE_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: FINNHUB_API_KEY
+        sync: false
+      - key: EARNINGS_WHISPERS_API_BASE
+        value: https://www.earningswhispers.com/api
+      - key: FINNHUB_API_BASE
+        value: https://finnhub.io/api/v1
+      - key: SEC_EDGAR_BASE_URL
+        value: https://data.sec.gov
+      - key: ENVIRONMENT
+        value: production
+      - key: CORS_ORIGINS
+        value: https://earningsnerd.io,https://www.earningsnerd.io
+
