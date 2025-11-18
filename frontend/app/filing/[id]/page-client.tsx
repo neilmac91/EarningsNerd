@@ -1,5 +1,6 @@
 'use client'
 
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getFiling, getSummary, generateSummary, generateSummaryStream, Filing, Summary, getSubscriptionStatus, saveSummary, getSavedSummaries, getSummaryProgress, SummaryProgressData, getCompany, getCompanyFilings, Company } from '@/lib/api'
@@ -156,6 +157,7 @@ function TickerFilingsView({ ticker }: { ticker: string }) {
 export default function FilingPageClient() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const identifier = params.id as string
   const isTickerView = !/^\d+$/.test(identifier)
 
@@ -286,6 +288,7 @@ export default function FilingPageClient() {
   const isSaved = summary && savedSummaries?.some((s: any) => s.summary_id === summary.id)
   const summaryErrorMessage = getFriendlyErrorMessage(summaryError)
   const activeErrorMessage = generationError || summaryErrorMessage
+  const debugSummary = searchParams?.get('debug') === '1'
 
   const handleGenerateSummary = async () => {
     setHasStartedGeneration(true)
@@ -477,7 +480,14 @@ export default function FilingPageClient() {
             onRetry={handleGenerateSummary}
           />
         ) : summary && hasSummaryContent && filing ? (
-          <SummaryDisplay summary={summary} filing={filing} isPro={subscription?.is_pro || false} saveMutation={saveMutation} isSaved={!!isSaved} />
+          <SummaryDisplay
+            summary={summary}
+            filing={filing}
+            isPro={subscription?.is_pro || false}
+            saveMutation={saveMutation}
+            isSaved={!!isSaved}
+            debug={debugSummary}
+          />
         ) : (
           <StreamingSummaryDisplay 
             streamingText=""
@@ -764,12 +774,24 @@ function StreamingSummaryDisplay({
   )
 }
 
-function SummaryDisplay({ summary, filing, isPro, saveMutation, isSaved }: { summary: Summary; filing: Filing; isPro: boolean; saveMutation: any; isSaved: boolean }) {
+function SummaryDisplay({
+  summary,
+  filing,
+  isPro,
+  saveMutation,
+  isSaved,
+  debug,
+}: {
+  summary: Summary
+  filing: Filing
+  isPro: boolean
+  saveMutation: any
+  isSaved: boolean
+  debug?: boolean
+}) {
   const markdownContent = summary.business_overview || ''
   const cleanedMarkdown = useMemo(() => stripInternalNotices(markdownContent), [markdownContent])
-  const rawSummary = summary.raw_summary && typeof summary.raw_summary === 'object'
-    ? summary.raw_summary
-    : null
+  const rawSummary = summary.raw_summary && typeof summary.raw_summary === 'object' ? summary.raw_summary : null
 
   const fallbackMessage = 'Summary temporarily unavailable — please retry.'
   const writerError = rawSummary?.writer_error
@@ -781,9 +803,16 @@ function SummaryDisplay({ summary, filing, isPro, saveMutation, isSaved }: { sum
 
   const isError = Boolean(writerError) || isFallbackMessage || (!hasPolishedMarkdown && trimmedMarkdown.length === 0)
 
-  const metadata = rawSummary
-    ? (rawSummary.sections ?? null)
-    : null
+  const metadata = rawSummary ? (rawSummary.sections ?? null) : null
+
+  const coverageSnapshot = rawSummary?.section_coverage as
+    | { covered_count?: number; total_count?: number; coverage_ratio?: number }
+    | undefined
+  const hasCoverageSnapshot =
+    !!coverageSnapshot &&
+    typeof coverageSnapshot.covered_count === 'number' &&
+    typeof coverageSnapshot.total_count === 'number' &&
+    coverageSnapshot.total_count > 0
 
   const handleExportPDF = () => {
     const { getApiUrl } = require('@/lib/api')
@@ -941,16 +970,23 @@ function SummaryDisplay({ summary, filing, isPro, saveMutation, isSaved }: { sum
                   <FileText className="h-6 w-6 text-primary-600" />
                   <h2 className="text-xl font-semibold text-gray-900">Editorial Summary</h2>
                 </div>
-                {writerFallback && (
-                  <span className="inline-flex items-center rounded-full border border-amber-400/40 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-                    Auto-generated summary
-                    {fallbackReason && (
-                      <span className="ml-2 text-amber-600" title={fallbackReason}>
-                        ⚠️
-                      </span>
-                    )}
-                  </span>
-                )}
+                <div className="flex items-center space-x-3">
+                  {hasCoverageSnapshot && (
+                    <span className="inline-flex items-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-800">
+                      {coverageSnapshot.covered_count}/{coverageSnapshot.total_count} sections populated
+                    </span>
+                  )}
+                  {writerFallback && (
+                    <span className="inline-flex items-center rounded-full border border-amber-400/40 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+                      Auto-generated summary
+                      {fallbackReason && (
+                        <span className="ml-2 text-amber-600" title={fallbackReason}>
+                          ⚠️
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </div>
               </div>
               <ReactMarkdown remarkPlugins={[remarkGfm]} className="markdown-body text-gray-800">
                 {cleanedMarkdown}
@@ -987,6 +1023,15 @@ function SummaryDisplay({ summary, filing, isPro, saveMutation, isSaved }: { sum
               <li key={index}>{item}</li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {debug && rawSummary && (
+        <section className="bg-gray-900 rounded-lg border border-gray-800 p-4 text-xs text-gray-100">
+          <h3 className="text-sm font-semibold mb-2">Debug: raw summary payload</h3>
+          <pre className="whitespace-pre-wrap break-all">
+            {JSON.stringify(rawSummary, null, 2)}
+          </pre>
         </section>
       )}
     </div>

@@ -75,7 +75,12 @@ def _record_progress(
         if progress.started_at is None:
             progress.started_at = now
         progress.updated_at = now
-        progress.elapsed_seconds = float((now - progress.started_at).total_seconds())
+        # Handle timezone-aware vs timezone-naive datetime comparison
+        started_at = progress.started_at
+        if started_at.tzinfo is None:
+            # Convert timezone-naive to UTC if needed
+            started_at = started_at.replace(tzinfo=timezone.utc)
+        progress.elapsed_seconds = float((now - started_at).total_seconds())
         progress.error = error
         if section_coverage is not None:
             progress.section_coverage = section_coverage
@@ -89,7 +94,11 @@ def _record_progress(
 def _progress_as_dict(progress: SummaryGenerationProgress) -> Dict[str, Any]:
     elapsed = progress.elapsed_seconds
     if elapsed is None and progress.started_at:
-        elapsed = float((_utcnow() - progress.started_at).total_seconds())
+        # Handle timezone-aware vs timezone-naive datetime comparison
+        started_at = progress.started_at
+        if started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=timezone.utc)
+        elapsed = float((_utcnow() - started_at).total_seconds())
     return {
         "stage": progress.stage,
         "elapsedSeconds": int(elapsed or 0),
@@ -107,24 +116,29 @@ def _get_or_cache_excerpt(
     if not filing_text:
         return None
 
-    # Ensure filing is attached to session and content_cache is loaded
-    # Try to refresh, but if filing is not in session, query it fresh
-    try:
-        db.refresh(filing, ['content_cache'])
-        cache = filing.content_cache
-    except Exception:
-        # If refresh fails, query the filing fresh with content_cache loaded
-        filing = db.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing.id).first()
-        cache = filing.content_cache if filing else None
+    # Get filing_id safely - it should be accessible even if filing is detached
+    filing_id = filing.id if hasattr(filing, 'id') and filing.id else None
+    if not filing_id:
+        # If we can't get the ID, we can't proceed
+        return None
+
+    # Always query filing fresh with content_cache loaded to avoid detached session issues
+    filing_reattached = db.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
+    if not filing_reattached:
+        # Filing not found - return None
+        return None
+
+    cache = filing_reattached.content_cache
+    filing_type = filing_reattached.filing_type
     
     if cache and cache.critical_excerpt:
         return cache.critical_excerpt
 
-    filing_type_key = (filing.filing_type or "10-K").upper()
+    filing_type_key = (filing_type or "10-K").upper()
     excerpt = openai_service.extract_critical_sections(filing_text, filing_type_key)
     if excerpt:
         if cache is None:
-            cache = FilingContentCache(filing_id=filing.id, critical_excerpt=excerpt)
+            cache = FilingContentCache(filing_id=filing_id, critical_excerpt=excerpt)
             db.add(cache)
         else:
             cache.critical_excerpt = excerpt
@@ -139,11 +153,21 @@ async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
     # Create a new database session for the background task
     with SessionLocal() as db:
         print(f"Starting summary generation for filing {filing_id}")
-        # Eagerly load content_cache relationship to avoid detached session issues
-        filing = db.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
+        # Eagerly load content_cache and company relationship to avoid detached session issues
+        filing = db.query(Filing).options(
+            joinedload(Filing.content_cache),
+            joinedload(Filing.company)
+        ).filter(Filing.id == filing_id).first()
         if not filing:
             print(f"Filing {filing_id} not found")
             return
+        
+        # Cache company data early to avoid detached session issues
+        company_name = filing.company.name if filing.company else "Company"
+        filing_type = (filing.filing_type or "").upper()
+        filing_document_url = filing.document_url
+        filing_accession_number = filing.accession_number
+        company_cik = filing.company.cik if filing.company else None
         
         # Check if summary already exists
         existing = db.query(Summary).filter(Summary.filing_id == filing_id).first()
@@ -179,16 +203,16 @@ async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
             db.commit()
             return
         
-        try:
-            import time
-            start_time = time.time()
+        import time
+        start_time = time.time()
 
-            filing_type = (filing.filing_type or "").upper()
-            global_timeout = 60.0 if filing_type == "10-K" else (45.0 if filing_type == "10-Q" else 20.0)
+        # Increased timeouts to accommodate API retries (3 attempts with exponential backoff)
+        global_timeout = 120.0 if filing_type == "10-K" else (100.0 if filing_type == "10-Q" else 60.0)
 
-            async def generate_summary_core() -> None:
+        async def generate_summary_core() -> None:
+                # Step 1: File Validation
                 _record_progress(db, filing_id, "fetching")
-                print(f"[{filing_id}] Step 1: Fetching filing document...")
+                print(f"[{filing_id}] Step 1: File Validation - Confirming document is accessible and parsable...")
 
                 processing_profile = {
                     "include_previous": False,
@@ -247,7 +271,7 @@ async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
                         print(f"Error fetching filing from {url}: {str(exc)}")
                         return None
 
-                tasks = [asyncio.create_task(fetch_filing_text(filing.document_url))]
+                tasks = [asyncio.create_task(fetch_filing_text(filing_document_url))]
                 prev_filing_refs: List[Filing] = []
                 for prev_filing in previous_filings:
                     tasks.append(asyncio.create_task(fetch_filing_text(prev_filing.document_url)))
@@ -256,13 +280,13 @@ async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
                 xbrl_task = None
                 xbrl_start = None
                 if processing_profile["fetch_xbrl"]:
-                    print(f"[{filing_id}] Step 2: Fetching XBRL data...")
+                    print(f"[{filing_id}] Fetching XBRL data in parallel...")
 
                     async def fetch_xbrl_data() -> Optional[Dict[str, Any]]:
                         try:
                             return await asyncio.wait_for(
                                 xbrl_service.get_xbrl_data(
-                                    filing.accession_number, filing.company.cik
+                                    filing_accession_number, company_cik
                                 ),
                                 timeout=processing_profile["xbrl_timeout"],
                             )
@@ -281,22 +305,29 @@ async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 filing_text = results[0] if results and not isinstance(results[0], Exception) else None
                 if not filing_text:
-                    raise RuntimeError("Failed to fetch current filing document")
+                    raise RuntimeError("Unable to retrieve this filing at the moment — please try again shortly.")
 
                 fetch_time = time.time() - start_time
                 print(
-                    f"[{filing_id}] ✓ Fetched filing document: {len(filing_text):,} characters in {fetch_time:.1f}s"
+                    f"[{filing_id}] ✓ File validated and fetched: {len(filing_text):,} characters in {fetch_time:.1f}s"
                 )
 
-                excerpt = _get_or_cache_excerpt(db, filing, filing_text)
+                # Step 2: Section Parsing
                 _record_progress(db, filing_id, "parsing")
+                print(f"[{filing_id}] Step 2: Section Parsing - Extracting major sections (Item 1A: Risk Factors, Item 7: MD&A)...")
+                
+                excerpt = _get_or_cache_excerpt(db, filing, filing_text)
+                print(f"[{filing_id}] ✓ Parsing complete...")
 
                 xbrl_data = None
                 if xbrl_task:
                     xbrl_data = await xbrl_task
                     if xbrl_data:
-                        filing.xbrl_data = xbrl_data
-                        db.commit()
+                        # Re-query filing to ensure it's attached to the session before updating
+                        filing_for_xbrl = db.query(Filing).filter(Filing.id == filing_id).first()
+                        if filing_for_xbrl:
+                            filing_for_xbrl.xbrl_data = xbrl_data
+                            db.commit()
                         if xbrl_start:
                             xbrl_time = time.time() - xbrl_start
                             print(f"[{filing_id}] ✓ Extracted XBRL data in {xbrl_time:.1f}s")
@@ -325,14 +356,18 @@ async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
                 if xbrl_data:
                     xbrl_metrics = xbrl_service.extract_standardized_metrics(xbrl_data)
 
+                # Step 3: Content Analysis
                 _record_progress(db, filing_id, "analyzing")
+                print(f"[{filing_id}] Step 3: Content Analysis - Analyzing risk factors...")
 
-                print(f"[{filing_id}] Step 3: Generating AI summary...")
+                # Step 4: Summary Generation
+                print(f"[{filing_id}] Step 4: Generating financial overview...")
                 ai_start = time.time()
+                print(f"[{filing_id}] Step 5: Generating investor-focused summary...")
                 summary_data = await openai_service.summarize_filing(
                     filing_text,
-                    filing.company.name,
-                    filing.filing_type,
+                    company_name,
+                    filing_type,
                     previous_filings=
                     previous_filings_text if previous_filings_text else None,
                     xbrl_metrics=xbrl_metrics,
@@ -340,6 +375,19 @@ async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
                 )
                 ai_time = time.time() - ai_start
                 print(f"[{filing_id}] ✓ AI summary generated in {ai_time:.1f}s")
+                
+                # Check summary status - handle error, partial, and complete
+                summary_status = summary_data.get("status", "complete")
+                
+                # If status is error, raise exception to trigger error handling
+                if summary_status == "error":
+                    error_message = summary_data.get("message", "Error generating summary")
+                    raise RuntimeError(error_message)
+                
+                # Log partial status if applicable
+                if summary_status == "partial":
+                    partial_message = summary_data.get("message", "Some sections may not have loaded fully.")
+                    print(f"[{filing_id}] ⚠ Partial summary generated: {partial_message}")
 
                 section_coverage = (
                     (summary_data.get("raw_summary") or {}).get("section_coverage")
@@ -422,71 +470,75 @@ async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
                         month = get_current_month()
                         increment_user_usage(user.id, month, db)
 
-            try:
-                await asyncio.wait_for(generate_summary_core(), timeout=global_timeout)
-            except asyncio.TimeoutError:
-                print(
-                    f"[{filing_id}] ✗ Summary generation exceeded global timeout of {global_timeout}s"
-                )
-                _record_progress(db, filing_id, "error", error="timeout")
-                error_summary = Summary(
-                    filing_id=filing_id,
-                    business_overview=(
-                        f"Summary generation timed out after {global_timeout:.0f} seconds. The process took too long to complete. Please try again or refer to the original filing document."
-                    ),
-                    financial_highlights=None,
-                    risk_factors=None,
-                    management_discussion=None,
-                    key_changes=None,
-                    raw_summary={
-                        "error": "Global timeout",
-                        "timeout_seconds": global_timeout,
-                    },
-                )
-                db.add(error_summary)
-                db.commit()
-            except Exception as inner_error:
-                import traceback
-
-                error_trace = traceback.format_exc()
-                print(f"Error in timeout wrapper: {str(inner_error)}")
-                print(f"Traceback: {error_trace}")
-                _record_progress(
-                    db,
-                    filing_id,
-                    "error",
-                    error=str(inner_error)[:200],
-                )
-                error_summary = Summary(
-                    filing_id=filing_id,
-                    business_overview=(
-                        f"Error generating summary: {str(inner_error)[:200]}. Please try again or contact support if the issue persists."
-                    ),
-                    financial_highlights=None,
-                    risk_factors=None,
-                    management_discussion=None,
-                    key_changes=None,
-                    raw_summary={"error": str(inner_error), "traceback": error_trace},
-                )
-                db.add(error_summary)
-                db.commit()
-        except Exception as e:
-            import traceback
-
-            error_trace = traceback.format_exc()
-            print(f"Error generating summary: {str(e)}")
-            print(f"Traceback: {error_trace}")
-            _record_progress(db, filing_id, "error", error=str(e)[:200])
+        try:
+            await asyncio.wait_for(generate_summary_core(), timeout=global_timeout)
+        except asyncio.TimeoutError:
+            print(
+                f"[{filing_id}] ✗ Summary generation exceeded global timeout of {global_timeout}s"
+            )
+            _record_progress(db, filing_id, "error", error="timeout")
+            error_message = "Unable to complete summary due to parsing timeout. Suggest retrying later."
             error_summary = Summary(
                 filing_id=filing_id,
-                business_overview=(
-                    f"Error generating summary: {str(e)[:200]}. Please try again or contact support if the issue persists."
-                ),
+                business_overview=error_message,
                 financial_highlights=None,
                 risk_factors=None,
                 management_discussion=None,
                 key_changes=None,
-                raw_summary={"error": str(e), "traceback": error_trace},
+                raw_summary={
+                    "status": "error",
+                    "message": error_message,
+                    "summary_title": f"{company_name} {filing_type} Filing Summary",
+                    "sections": [],
+                    "insights": {
+                        "sentiment": "Neutral",
+                        "growth_drivers": [],
+                        "risk_signals": []
+                    },
+                    "error": "Global timeout",
+                    "timeout_seconds": global_timeout,
+                },
+            )
+            db.add(error_summary)
+            db.commit()
+        except Exception as inner_error:
+            import traceback
+
+            error_trace = traceback.format_exc()
+            error_msg = str(inner_error)
+            print(f"Error in timeout wrapper: {error_msg}")
+            print(f"Traceback: {error_trace}")
+            _record_progress(
+                db,
+                filing_id,
+                "error",
+                error=error_msg[:200],
+            )
+            # Check if error message is already user-friendly
+            if "Unable to retrieve" in error_msg or "Unable to complete" in error_msg:
+                error_message = error_msg[:200]
+            else:
+                error_message = "Unable to retrieve this filing at the moment — please try again shortly."
+            error_summary = Summary(
+                filing_id=filing_id,
+                business_overview=error_message,
+                financial_highlights=None,
+                risk_factors=None,
+                management_discussion=None,
+                key_changes=None,
+                raw_summary={
+                    "status": "error",
+                    "message": error_message,
+                    "summary_title": f"{company_name} {filing_type} Filing Summary",
+                    "sections": [],
+                    "insights": {
+                        "sentiment": "Neutral",
+                        "growth_drivers": [],
+                        "risk_signals": []
+                    },
+                    "error": error_msg,
+                    "traceback": error_trace,
+                },
             )
             db.add(error_summary)
             db.commit()
@@ -567,8 +619,11 @@ async def generate_summary_stream(
     db: Session = Depends(get_db)
 ):
     """Generate AI summary with streaming response"""
-    # Eagerly load content_cache relationship to avoid detached session issues
-    filing = db.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
+    # Eagerly load content_cache and company relationship to avoid detached session issues
+    filing = db.query(Filing).options(
+        joinedload(Filing.content_cache),
+        joinedload(Filing.company)
+    ).filter(Filing.id == filing_id).first()
     
     if not filing:
         raise HTTPException(status_code=404, detail="Filing not found")
@@ -587,9 +642,13 @@ async def generate_summary_stream(
         return StreamingResponse(existing_summary(), media_type="text/event-stream")
     
     # Cache company data before streaming to avoid detached session issues
-    company = filing.company
-    company_name = company.name if company else "Unknown company"
-    company_cik = company.cik if company else None
+    company_name = filing.company.name if filing.company else "Unknown company"
+    company_cik = filing.company.cik if filing.company else None
+    
+    # Cache all filing attributes we need to avoid detached session issues
+    filing_document_url = filing.document_url
+    filing_type = filing.filing_type
+    filing_accession_number = filing.accession_number
 
     # Check usage limits only if user is authenticated
     user_id = None
@@ -607,162 +666,286 @@ async def generate_summary_stream(
         user_id = current_user.id
     
     async def stream_summary():
-        pipeline_started_at = time.time()
-        stage_started_at = pipeline_started_at
-        stage_timings: List[tuple[str, float]] = []
+        # Create a new session for the async generator to avoid detached session issues
+        from app.database import SessionLocal
+        with SessionLocal() as session:
+            pipeline_started_at = time.time()
+            stage_started_at = pipeline_started_at
+            stage_timings: List[tuple[str, float]] = []
 
-        def mark_stage(stage_name: str):
-            nonlocal stage_started_at
-            now = time.time()
-            duration = now - stage_started_at
-            stage_timings.append((stage_name, duration))
-            print(f"[stream:{filing_id}] stage '{stage_name}' completed in {duration:.2f}s")
-            stage_started_at = now
+            def mark_stage(stage_name: str):
+                nonlocal stage_started_at
+                now = time.time()
+                duration = now - stage_started_at
+                stage_timings.append((stage_name, duration))
+                stage_started_at = now
 
-        try:
-            # Ensure filing is refreshed and attached to session before accessing relationships
-            db.refresh(filing, ['content_cache'])
-            
-            _record_progress(db, filing_id, "fetching")
-            yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'Fetching filing document...'})}\n\n"
+            executor = None
+            try:
+                yield f"data: {json.dumps({'type': 'progress', 'stage': 'initializing', 'message': 'Initializing...'})}\n\n"
 
-            # Fetch filing document
-            filing_text = await sec_edgar_service.get_filing_document(
-                filing.document_url,
-                timeout=25.0
-            )
-            mark_stage("fetch_document")
+                # Note: We use cached values (company_name, filing_type, etc.) from the outer scope
+                # to avoid detached session issues. Only re-query when we need to access relationships
+                # or update the filing object.
+                filing_in_session = session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
+                if not filing_in_session:
+                    yield f"data: {json.dumps({'type': 'error', 'message': 'Filing not found'})}\n\n"
+                    return
 
-            excerpt = _get_or_cache_excerpt(db, filing, filing_text)
-            _record_progress(db, filing_id, "parsing")
-            yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Parsing document structure...'})}\n\n"
+                # Step 1: File Validation
+                _record_progress(session, filing_id, "fetching")
+                yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'Step 1: File Validation - Confirming document is accessible and parsable...'})}\n\n"
 
-            # Fetch XBRL data if available
-            xbrl_data = None
-            xbrl_metrics = None
-            if filing.filing_type and filing.filing_type.upper() in {"10-K", "10-Q"} and company_cik:
+                # Fetch filing document using cached URL
                 try:
-                    xbrl_data = await xbrl_service.get_xbrl_data(filing.accession_number, company_cik)
-                    if xbrl_data:
-                        xbrl_metrics = xbrl_service.extract_standardized_metrics(xbrl_data)
-                        filing.xbrl_data = xbrl_data
-                        db.commit()
+                    filing_text = await sec_edgar_service.get_filing_document(
+                        filing_document_url,
+                        timeout=25.0
+                    )
+                    if not filing_text:
+                        raise ValueError("Filing document is empty or inaccessible")
+                except Exception as fetch_error:
+                    error_msg = "Unable to retrieve this filing at the moment — please try again shortly."
+                    yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
+                    return
+                
+                mark_stage("fetch_document")
+                yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'File validated and fetched successfully'})}\n\n"
+
+                yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Starting parsing...'})}\n\n"
+
+                # Step 2: Section Parsing
+                _record_progress(session, filing_id, "parsing")
+                yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Step 2: Section Parsing - Extracting major sections (Item 1A: Risk Factors, Item 7: MD&A)...'})}\n\n"
+                
+                # Parallelize excerpt extraction and XBRL fetching
+                import concurrent.futures
+                
+                # Extract excerpt in thread pool (CPU-bound regex operations)
+                loop = asyncio.get_event_loop()
+                executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+                
+                def extract_excerpt_sync():
+                    # Create a new session for the thread
+                    from app.database import SessionLocal
+                    with SessionLocal() as thread_session:
+                        thread_filing = thread_session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
+                        return _get_or_cache_excerpt(thread_session, thread_filing, filing_text)
+                
+                excerpt_task = loop.run_in_executor(executor, extract_excerpt_sync)
+                
+                # Ensure executor is cleaned up
+                def cleanup_executor():
+                    executor.shutdown(wait=False)
+                
+                # Start XBRL fetching in parallel
+                xbrl_task = None
+                if filing_type and filing_type.upper() in {"10-K", "10-Q"} and company_cik:
+                    async def fetch_xbrl():
+                        try:
+                            data = await xbrl_service.get_xbrl_data(filing_accession_number, company_cik)
+                            if data:
+                                metrics = xbrl_service.extract_standardized_metrics(data)
+                                # Update filing in main session - re-query to ensure it's attached
+                                filing_for_update = session.query(Filing).filter(Filing.id == filing_id).first()
+                                if filing_for_update:
+                                    filing_for_update.xbrl_data = data
+                                    session.commit()
+                                return metrics
+                        except Exception as xbrl_error:
+                            print(f"[stream:{filing_id}] Error updating XBRL data: {str(xbrl_error)}")
+                            pass
+                        return None
+                    xbrl_task = asyncio.create_task(fetch_xbrl())
+                
+                # Wait for parsing to complete
+                yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Parsing complete...'})}\n\n"
+
+                # Step 3: Content Analysis
+                _record_progress(session, filing_id, "analyzing")
+                yield f"data: {json.dumps({'type': 'progress', 'stage': 'analyzing', 'message': 'Step 3: Content Analysis - Analyzing risk factors...'})}\n\n"
+
+                # Step 4: Summary Generation
+                yield f"data: {json.dumps({'type': 'progress', 'stage': 'analyzing', 'message': 'Step 4: Generating financial overview...'})}\n\n"
+
+                _record_progress(session, filing_id, "summarizing")
+                yield f"data: {json.dumps({'type': 'progress', 'stage': 'summarizing', 'message': 'Step 5: Generating investor-focused summary...'})}\n\n"
+                
+                # Wait for excerpt and XBRL with a short timeout (don't block AI for too long)
+                excerpt = None
+                xbrl_metrics = None
+                try:
+                    # Give excerpt/XBRL 2 seconds max, then proceed with AI
+                    tasks_to_wait = [excerpt_task]
+                    if xbrl_task:
+                        tasks_to_wait.append(xbrl_task)
+                    
+                    results = await asyncio.wait_for(
+                        asyncio.gather(*tasks_to_wait, return_exceptions=True),
+                        timeout=2.0
+                    )
+                    excerpt = results[0] if not isinstance(results[0], Exception) else None
+                    if len(results) > 1:
+                        xbrl_result = results[1]
+                        xbrl_metrics = xbrl_result if not isinstance(xbrl_result, Exception) and xbrl_result is not None else None
+                except asyncio.TimeoutError:
+                    # Proceed without excerpt/XBRL if they take too long
+                    excerpt = None
+                    xbrl_metrics = None
+                except Exception as e:
+                    # If anything fails, proceed without excerpt/XBRL
+                    print(f"[stream:{filing_id}] Error waiting for excerpt/XBRL: {str(e)}")
+                    excerpt = None
+                    xbrl_metrics = None
+                
+                mark_stage("context_enrichment")
+
+                # Now run AI summarization (with excerpt/XBRL if available)
+                summary_payload = await openai_service.summarize_filing(
+                    filing_text,
+                    company_name,
+                    filing_type,
+                    previous_filings=None,
+                    xbrl_metrics=xbrl_metrics,
+                    filing_excerpt=excerpt,
+                )
+                mark_stage("generate_summary")
+
+                # Check if summary has error status - handle early
+                summary_status = summary_payload.get("status", "complete")
+                if summary_status == "error":
+                    error_message = summary_payload.get("message", "Error generating summary")
+                    yield f"data: {json.dumps({'type': 'error', 'message': error_message})}\n\n"
+                    return
+
+                markdown = summary_payload.get("business_overview") or ""
+                raw_summary = summary_payload.get("raw_summary") or {}
+                sections_info = (raw_summary.get("sections") or {}) or {}
+
+                section_coverage = (
+                    raw_summary.get("section_coverage")
+                    if isinstance(raw_summary, dict)
+                    else None
+                )
+                if section_coverage:
+                    _record_progress(
+                        session,
+                        filing_id,
+                        "summarizing",
+                        section_coverage=section_coverage,
+                    )
+                    print(
+                        f"[stream:{filing_id}] coverage snapshot: "
+                        f"{section_coverage.get('covered_count', 0)}/"
+                        f"{section_coverage.get('total_count', 0)} sections populated"
+                    )
+
+                financial_section = sections_info.get("financial_highlights")
+                normalized_financial_section = attach_normalized_facts(financial_section, xbrl_metrics)
+                if normalized_financial_section is not None:
+                    sections_info["financial_highlights"] = normalized_financial_section
+
+                risk_section = summary_payload.get("risk_factors") or []
+                sections_info["risk_factors"] = risk_section
+                management_section = summary_payload.get("management_discussion")
+                guidance_section = summary_payload.get("key_changes")
+
+                raw_summary["sections"] = sections_info
+
+                # Re-query filing to ensure it's attached to session before accessing content_cache
+                filing_for_cache = session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
+
+                # Save to database
+                summary = Summary(
+                    filing_id=filing_id,
+                    business_overview=markdown,
+                    financial_highlights=normalized_financial_section,
+                    risk_factors=risk_section,
+                    management_discussion=management_section,
+                    key_changes=guidance_section,
+                    raw_summary=raw_summary
+                )
+                session.add(summary)
+
+                # Now filing is attached to session, we can safely access content_cache
+                if filing_for_cache:
+                    cache = filing_for_cache.content_cache
+                    if sections_info:
+                        if cache is None:
+                            cache = FilingContentCache(
+                                filing_id=filing_id,
+                                critical_excerpt=excerpt,
+                                sections_payload=sections_info,
+                            )
+                            session.add(cache)
+                        else:
+                            if excerpt and not cache.critical_excerpt:
+                                cache.critical_excerpt = excerpt
+                            cache.sections_payload = sections_info
+                    elif excerpt and cache is None:
+                        cache = FilingContentCache(filing_id=filing_id, critical_excerpt=excerpt)
+                        session.add(cache)
+
+                session.commit()
+                mark_stage("persist_summary")
+
+                if user_id:
+                    from app.models import User
+                    user = session.query(User).filter(User.id == user_id).first()
+                    if user:
+                        month = get_current_month()
+                        increment_user_usage(user.id, month, session)
+                mark_stage("usage_tracking")
+
+                _record_progress(session, filing_id, "completed")
+
+                # Check summary status and emit appropriate response
+                summary_status = summary_payload.get("status", "complete")
+                summary_message = summary_payload.get("message")
+                
+                # Emit final markdown once
+                yield f"data: {json.dumps({'type': 'chunk', 'content': markdown})}\n\n"
+                
+                # Emit status and completion
+                if summary_status == "partial":
+                    yield f"data: {json.dumps({'type': 'partial', 'message': summary_message or 'Some sections may not have loaded fully.', 'summary_id': summary.id})}\n\n"
+                elif summary_status == "error":
+                    yield f"data: {json.dumps({'type': 'error', 'message': summary_message or 'Error generating summary', 'summary_id': summary.id})}\n\n"
+                else:
+                    yield f"data: {json.dumps({'type': 'complete', 'summary_id': summary.id})}\n\n"
+            except Exception as e:
+                import traceback
+                import sys
+                error_trace = traceback.format_exc()
+                error_msg = str(e)
+                print(f"Error in streaming summary: {error_msg}", flush=True)
+                print(f"Traceback: {error_trace}", flush=True)
+                sys.stderr.write(f"[STREAM ERROR] {error_msg}\n{error_trace}\n")
+                sys.stderr.flush()
+                try:
+                    _record_progress(session, filing_id, "error", error=error_msg[:200])
                 except:
                     pass
-            mark_stage("context_enrichment")
-
-            _record_progress(db, filing_id, "analyzing")
-            yield f"data: {json.dumps({'type': 'progress', 'stage': 'analyzing', 'message': 'Analyzing content with AI...'})}\n\n"
-
-            yield f"data: {json.dumps({'type': 'progress', 'stage': 'structured', 'message': 'Extracting key figures...'})}\n\n"
-
-            _record_progress(db, filing_id, "summarizing")
-            yield f"data: {json.dumps({'type': 'progress', 'stage': 'summarizing', 'message': 'Composing investor-ready summary...'})}\n\n"
-
-            summary_payload = await openai_service.summarize_filing(
-                filing_text,
-                company_name,
-                filing.filing_type,
-                previous_filings=None,
-                xbrl_metrics=xbrl_metrics,
-                filing_excerpt=excerpt,
-            )
-            mark_stage("generate_summary")
-
-            markdown = summary_payload.get("business_overview") or ""
-            raw_summary = summary_payload.get("raw_summary") or {}
-            sections_info = (raw_summary.get("sections") or {}) or {}
-
-            section_coverage = (
-                raw_summary.get("section_coverage")
-                if isinstance(raw_summary, dict)
-                else None
-            )
-            if section_coverage:
-                _record_progress(
-                    db,
-                    filing_id,
-                    "summarizing",
-                    section_coverage=section_coverage,
-                )
-                print(
-                    f"[stream:{filing_id}] coverage snapshot: "
-                    f"{section_coverage.get('covered_count', 0)}/"
-                    f"{section_coverage.get('total_count', 0)} sections populated"
-                )
-
-            financial_section = sections_info.get("financial_highlights")
-            normalized_financial_section = attach_normalized_facts(financial_section, xbrl_metrics)
-            if normalized_financial_section is not None:
-                sections_info["financial_highlights"] = normalized_financial_section
-
-            risk_section = summary_payload.get("risk_factors") or []
-            sections_info["risk_factors"] = risk_section
-            management_section = summary_payload.get("management_discussion")
-            guidance_section = summary_payload.get("key_changes")
-
-            raw_summary["sections"] = sections_info
-
-            # Save to database
-            summary = Summary(
-                filing_id=filing_id,
-                business_overview=markdown,
-                financial_highlights=normalized_financial_section,
-                risk_factors=risk_section,
-                management_discussion=management_section,
-                key_changes=guidance_section,
-                raw_summary=raw_summary
-            )
-            db.add(summary)
-            # Refresh filing to ensure it's attached to session before accessing content_cache
-            db.refresh(filing, ['content_cache'])
-            cache = filing.content_cache
-            if sections_info:
-                if cache is None:
-                    cache = FilingContentCache(
-                        filing_id=filing_id,
-                        critical_excerpt=excerpt,
-                        sections_payload=sections_info,
-                    )
-                    db.add(cache)
+                
+                # Return user-friendly error message
+                if "Unable to retrieve" in error_msg or "Unable to complete" in error_msg:
+                    error_message = error_msg[:200]
                 else:
-                    if excerpt and not cache.critical_excerpt:
-                        cache.critical_excerpt = excerpt
-                    cache.sections_payload = sections_info
-            elif excerpt and cache is None:
-                cache = FilingContentCache(filing_id=filing_id, critical_excerpt=excerpt)
-                db.add(cache)
-
-            db.commit()
-            mark_stage("persist_summary")
-
-            if user_id:
-                from app.models import User
-                user = db.query(User).filter(User.id == user_id).first()
-                if user:
-                    month = get_current_month()
-                    increment_user_usage(user.id, month, db)
-            mark_stage("usage_tracking")
-
-            _record_progress(db, filing_id, "completed")
-
-            # Emit final markdown once
-            yield f"data: {json.dumps({'type': 'chunk', 'content': markdown})}\n\n"
-            yield f"data: {json.dumps({'type': 'complete', 'summary_id': summary.id})}\n\n"
-        except Exception as e:
-            import traceback
-            error_trace = traceback.format_exc()
-            print(f"Error in streaming summary: {str(e)}")
-            print(f"Traceback: {error_trace}")
-            _record_progress(db, filing_id, "error", error=str(e)[:200])
-            yield f"data: {json.dumps({'type': 'error', 'message': f'Error generating summary: {str(e)[:200]}'})}\n\n"
-        finally:
-            total_elapsed = time.time() - pipeline_started_at
-            breakdown = ", ".join(f"{stage}:{duration:.2f}s" for stage, duration in stage_timings)
-            if breakdown:
-                print(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s ({breakdown})")
-            else:
-                print(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s (no stage breakdown)")
+                    error_message = "Unable to retrieve this filing at the moment — please try again shortly."
+                
+                yield f"data: {json.dumps({'type': 'error', 'message': error_message})}\n\n"
+            finally:
+                # Clean up executor
+                try:
+                    executor.shutdown(wait=False)
+                except:
+                    pass
+                total_elapsed = time.time() - pipeline_started_at
+                breakdown = ", ".join(f"{stage}:{duration:.2f}s" for stage, duration in stage_timings)
+                if breakdown:
+                    print(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s ({breakdown})")
+                else:
+                    print(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s (no stage breakdown)")
     
     return StreamingResponse(stream_summary(), media_type="text/event-stream")
 

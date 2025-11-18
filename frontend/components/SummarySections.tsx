@@ -16,20 +16,9 @@ interface SummarySectionsProps {
 
 export default function SummarySections({ summary, metrics }: SummarySectionsProps) {
   const [activeTab, setActiveTab] = useState<string>('overview')
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['overview']))
 
   const raw_summary = summary.raw_summary || {}
   const sections = raw_summary.sections || {}
-
-  const toggleSection = (section: string) => {
-    const newExpanded = new Set(expandedSections)
-    if (newExpanded.has(section)) {
-      newExpanded.delete(section)
-    } else {
-      newExpanded.add(section)
-    }
-    setExpandedSections(newExpanded)
-  }
 
   const evidenceKeys = ['excerpt', 'text', 'quote', 'source', 'reference', 'tag', 'xbrl_tag', 'xbrlTag', 'citation']
 
@@ -157,13 +146,26 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
   }, [sections.risk_factors])
 
   const hasTrendContent = Boolean(sections.three_year_trend || sections.segment_performance)
+  const guidanceContent = getAccordionContent(sections.guidance_outlook)
+  const liquidityContent = getAccordionContent(sections.liquidity_capital_structure)
+  const footnotesContent = getAccordionContent(sections.notable_footnotes)
+  const hasGuidanceContent = Boolean(guidanceContent)
+  const hasLiquidityContent = Boolean(liquidityContent || footnotesContent)
 
-  const tabs = [
+  const tabs: Array<{ id: string; label: string; icon: typeof FileText }> = [
     { id: 'overview', label: 'Executive Summary', icon: FileText },
     { id: 'financials', label: 'Financials', icon: BarChart3 },
     { id: 'risks', label: 'Risks', icon: AlertTriangle },
-    { id: 'management', label: 'Management', icon: Building2 },
-  ] as Array<{ id: string; label: string; icon: typeof FileText }>
+    { id: 'management', label: 'Management / MD&A', icon: Building2 },
+  ]
+
+  if (hasGuidanceContent) {
+    tabs.push({ id: 'guidance', label: 'Guidance & Drivers', icon: TrendingUp })
+  }
+
+  if (hasLiquidityContent) {
+    tabs.push({ id: 'liquidity', label: 'Liquidity & Covenants', icon: Building2 })
+  }
 
   if (hasTrendContent) {
     tabs.push({ id: 'trends', label: 'Trends', icon: TrendingUp })
@@ -253,6 +255,42 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
           </div>
         )
 
+      case 'guidance':
+        if (!hasGuidanceContent || !guidanceContent) {
+          return null
+        }
+        return (
+          <div className="prose max-w-none">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {guidanceContent}
+            </ReactMarkdown>
+          </div>
+        )
+
+      case 'liquidity':
+        if (!hasLiquidityContent) {
+          return null
+        }
+        return (
+          <div className="space-y-6">
+            {liquidityContent && (
+              <div className="prose max-w-none">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {liquidityContent}
+                </ReactMarkdown>
+              </div>
+            )}
+            {footnotesContent && (
+              <div className="prose max-w-none">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Notable Footnotes</h3>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {footnotesContent}
+                </ReactMarkdown>
+              </div>
+            )}
+          </div>
+        )
+
       case 'trends':
         if (!hasTrendContent) {
           return null
@@ -283,11 +321,6 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
         return null
     }
   }
-
-  const guidanceContent = getAccordionContent(sections.guidance_outlook)
-  const liquidityContent = getAccordionContent(sections.liquidity_capital_structure)
-  const footnotesContent = getAccordionContent(sections.notable_footnotes)
-  const hasAdditionalContent = Boolean(guidanceContent || liquidityContent || footnotesContent)
 
   return (
     <div className="bg-white rounded-lg shadow-md border border-gray-200">
@@ -321,88 +354,6 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
       <div className="p-6">
         {renderTabContent()}
       </div>
-
-      {/* Additional Sections (Collapsible) */}
-      {hasAdditionalContent && (
-        <div className="border-t border-gray-200 p-6 space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Additional Information</h3>
-
-          {guidanceContent && (
-            <div className="border border-gray-200 rounded-lg">
-              <button
-                onClick={() => toggleSection('guidance')}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-              >
-                <span className="font-medium text-gray-900">Forward Outlook & Guidance</span>
-                {expandedSections.has('guidance') ? (
-                  <ChevronUp className="h-5 w-5 text-gray-500" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 text-gray-500" />
-                )}
-              </button>
-              {expandedSections.has('guidance') && (
-                <div className="px-4 pb-4">
-                  <div className="prose max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {guidanceContent}
-                    </ReactMarkdown>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {liquidityContent && (
-            <div className="border border-gray-200 rounded-lg">
-              <button
-                onClick={() => toggleSection('liquidity')}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-              >
-                <span className="font-medium text-gray-900">Liquidity & Capital Structure</span>
-                {expandedSections.has('liquidity') ? (
-                  <ChevronUp className="h-5 w-5 text-gray-500" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 text-gray-500" />
-                )}
-              </button>
-              {expandedSections.has('liquidity') && (
-                <div className="px-4 pb-4">
-                  <div className="prose max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {liquidityContent}
-                    </ReactMarkdown>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {footnotesContent && (
-            <div className="border border-gray-200 rounded-lg">
-              <button
-                onClick={() => toggleSection('footnotes')}
-                className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-gray-50 transition-colors"
-              >
-                <span className="font-medium text-gray-900">Notable Footnotes</span>
-                {expandedSections.has('footnotes') ? (
-                  <ChevronUp className="h-5 w-5 text-gray-500" />
-                ) : (
-                  <ChevronDown className="h-5 w-5 text-gray-500" />
-                )}
-              </button>
-              {expandedSections.has('footnotes') && (
-                <div className="px-4 pb-4">
-                  <div className="prose max-w-none">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {footnotesContent}
-                    </ReactMarkdown>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
     </div>
   )
 }
