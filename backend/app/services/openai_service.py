@@ -214,7 +214,7 @@ class OpenAIService:
         base_config: Dict[str, Any] = {
             "sample_length": 25000,
             "previous_section_limit": 15000,
-            "ai_timeout": 40.0,  # Optimized for 10-K
+            "ai_timeout": 90.0,  # Increased for reliable API completion with retries
             "max_tokens": 1500,  # Optimized for quality
             "max_sections": 6,
             "section_priority": [
@@ -241,13 +241,13 @@ class OpenAIService:
 
         overrides = {
             "10-K": {
-                "ai_timeout": 40.0,  # Leaves 20s buffer for processing
+                "ai_timeout": 90.0,  # Increased for reliable API completion with retries
                 "max_tokens": 1500
             },
             "10-Q": {
                 "sample_length": 22000,
                 "previous_section_limit": 15000,
-                "ai_timeout": 35.0,  # Allow longer extraction for dense 10-Qs
+                "ai_timeout": 75.0,  # Increased for reliable API completion with retries
                 "max_tokens": 1400,  # Slightly higher to cover expanded context
                 "max_sections": 4,
                 "section_limits": {
@@ -264,7 +264,7 @@ class OpenAIService:
             "8-K": {
                 "sample_length": 8000,
                 "previous_section_limit": 6000,
-                "ai_timeout": 8.0,  # Leaves 7s buffer for processing
+                "ai_timeout": 45.0,  # Increased for reliable API completion with retries
                 "max_tokens": 1000,  # Reduced for faster responses
                 "max_sections": 2,
                 "section_limits": {
@@ -407,7 +407,18 @@ class OpenAIService:
             return filing_text_clean[:15000]
     
     def extract_sections(self, filing_text: str, filing_type: str = "10-K") -> Dict[str, str]:
-        """Extract key sections from filing text with improved patterns"""
+        """
+        Extract key sections from filing text with improved patterns.
+        
+        This method gracefully handles missing or corrupted sections by:
+        - Returning empty strings for sections that cannot be found
+        - Continuing processing even if some sections are missing
+        - Using multiple pattern variations to improve extraction success
+        - Applying length limits to prevent processing issues
+        
+        If any section is missing or corrupted, it will be skipped gracefully
+        and processing will continue with available sections.
+        """
         sections = {
             "business": "",
             "risk_factors": "",
@@ -626,26 +637,58 @@ class OpenAIService:
             cleaned = cleaned[:-3]
         return cleaned.strip()
 
-    def _validate_editorial_markdown(self, markdown: str) -> None:
-        """Validate editorial output for newsroom standards."""
+    def _validate_editorial_markdown(self, markdown: str, filing_type: Optional[str] = None) -> None:
+        """
+        Validate editorial output for newsroom standards.
+
+        For 10-Q filings, we expect a concise 1‑page, bullet-led structure with
+        specific section headings. For other filing types we retain the longer,
+        narrative format.
+        """
         if not markdown or len(markdown.strip()) == 0:
             raise ValueError("Writer returned empty markdown output.")
 
         # Reject outputs containing raw JSON artefacts
         import re
+
         json_pattern = re.compile(r"\{[^{}]*\"[^{}]*:[^{}]*\}")
         if json_pattern.search(markdown):
             raise ValueError("Writer output contains raw JSON artefacts.")
         if "```json" in markdown.lower():
             raise ValueError("Writer output includes JSON code fences.")
 
+        filing_type_key = (filing_type or "").upper()
+
+        # 10-Q: tighter, 1‑page bulletin-style summary
+        if filing_type_key == "10-Q":
+            min_words, max_words = 120, 260
+            required_sections = {
+                "Quarter at a Glance",
+                "Key Numbers",
+                "Guidance & Outlook",
+                "Key Risks",
+                "Liquidity & Balance Sheet",
+            }
+        else:
+            min_words, max_words = 200, 300
+            required_sections = {
+                "Executive Summary",
+                "Financials",
+                "Risks",
+                "Management Commentary",
+                "Outlook",
+            }
+
         total_word_count = len(markdown.split())
-        if total_word_count < 200 or total_word_count > 300:
-            raise ValueError(f"Editorial summary length must be 200-300 words (current: {total_word_count}).")
+        if total_word_count < min_words or total_word_count > max_words:
+            raise ValueError(
+                f"Editorial summary length must be {min_words}-{max_words} words "
+                f"(current: {total_word_count})."
+            )
 
         # Ensure sections exist and each stays within word budget
-        sections = {}
-        current_heading = None
+        sections: Dict[str, List[str]] = {}
+        current_heading: Optional[str] = None
         for line in markdown.splitlines():
             if line.startswith("## "):
                 current_heading = line[3:].strip()
@@ -653,17 +696,11 @@ class OpenAIService:
             elif current_heading is not None:
                 sections[current_heading].append(line)
 
-        required_sections = {
-            "Executive Summary",
-            "Financials",
-            "Risks",
-            "Management Commentary",
-            "Outlook",
-        }
-
         missing_sections = required_sections - set(sections.keys())
         if missing_sections:
-            raise ValueError(f"Writer output missing required sections: {', '.join(sorted(missing_sections))}.")
+            raise ValueError(
+                f"Writer output missing required sections: {', '.join(sorted(missing_sections))}."
+            )
 
         for heading, lines in sections.items():
             word_count = len(" ".join(lines).split())
@@ -673,12 +710,119 @@ class OpenAIService:
         # Flag unformatted large numeric tokens (>=5 digits without separators or suffix)
         large_number_pattern = re.compile(r"\b\d{5,}\b")
         problematic_numbers = [
-            token for token in large_number_pattern.findall(markdown)
+            token
+            for token in large_number_pattern.findall(markdown)
             if not token.startswith(("20", "19"))  # allow years like 2023
         ]
         if problematic_numbers:
             raise ValueError(
-                f"Writer output includes potentially unformatted figures: {', '.join(problematic_numbers[:5])}."
+                "Writer output includes potentially unformatted figures: "
+                f"{', '.join(problematic_numbers[:5])}."
+            )
+
+    def _collect_structured_number_strings(self, structured_summary: Dict[str, Any]) -> List[str]:
+        """
+        Collect human-readable numeric strings from the structured payload.
+
+        This is used as an allow-list when validating that the editorial writer
+        is not introducing new, un-backed numeric claims.
+        """
+        texts: List[str] = []
+
+        metadata = structured_summary.get("metadata") or {}
+        for value in metadata.values():
+            if isinstance(value, str):
+                texts.append(value)
+
+        sections = structured_summary.get("sections") or {}
+        financial_section = sections.get("financial_highlights") or {}
+        table = financial_section.get("table") or []
+        if isinstance(table, list):
+            for row in table:
+                if not isinstance(row, dict):
+                    continue
+                for key in ("metric", "current_period", "prior_period", "change", "commentary"):
+                    value = row.get(key)
+                    if isinstance(value, str):
+                        texts.append(value)
+
+        # Also gather any string fields from guidance/liquidity sections where
+        # numeric values may legitimately appear.
+        guidance = sections.get("guidance_outlook") or {}
+        if isinstance(guidance, dict):
+            for value in guidance.values():
+                if isinstance(value, str):
+                    texts.append(value)
+                elif isinstance(value, list):
+                    texts.extend(str(v) for v in value if isinstance(v, (str, int, float)))
+
+        liquidity = sections.get("liquidity_capital_structure") or {}
+        if isinstance(liquidity, dict):
+            for value in liquidity.values():
+                if isinstance(value, str):
+                    texts.append(value)
+                elif isinstance(value, list):
+                    texts.extend(str(v) for v in value if isinstance(v, (str, int, float)))
+
+        return texts
+
+    def _validate_editorial_numbers(self, markdown: str, structured_summary: Dict[str, Any]) -> None:
+        """
+        Best-effort check that numeric tokens in the editorial summary are backed
+        by the structured data (or clearly represent benign items like years).
+
+        This does *not* guarantee perfection, but it significantly reduces the
+        risk of hallucinated figures by forcing the writer to stay within the
+        numeric universe extracted in phase 1.
+        """
+        import re
+
+        source_strings = self._collect_structured_number_strings(structured_summary)
+        if not source_strings:
+            # Nothing to validate against; skip numeric checks.
+            return
+
+        digit_only_source = [re.sub(r"[^\d]", "", s) for s in source_strings if isinstance(s, str)]
+
+        token_pattern = re.compile(r"\$?\d[\d,]*(?:\.\d+)?%?")
+        suspicious: List[str] = []
+
+        for token in token_pattern.findall(markdown or ""):
+            cleaned = token.strip()
+            if not cleaned:
+                continue
+
+            digits = re.sub(r"[^\d]", "", cleaned)
+            if not digits:
+                continue
+
+            # Allow common benign cases:
+            # - four-digit years (e.g., 2024)
+            # - very small integers (1–2 digits) which are often bullet counts
+            if len(digits) == 4 and digits.startswith(("19", "20")):
+                continue
+            if len(digits) <= 2:
+                continue
+
+            # Accept if this numeric token (or its digit-only form) appears in any
+            # of the structured strings.
+            backed = False
+            for src, src_digits in zip(source_strings, digit_only_source):
+                if cleaned in src:
+                    backed = True
+                    break
+                if digits and digits == src_digits:
+                    backed = True
+                    break
+
+            if not backed:
+                suspicious.append(cleaned)
+
+        if suspicious:
+            unique = sorted({s for s in suspicious})
+            raise ValueError(
+                "Editorial markdown references numeric values not present in structured data: "
+                f"{', '.join(unique[:5])}."
             )
 
     def _build_structured_markdown(
@@ -1151,6 +1295,7 @@ Return JSON containing only the `{section_key}` key."""
                     "summary": "No incremental risks identified in extracted text; rely on full filing for detail.",
                     "supporting_evidence": "Targeted excerpts did not highlight new risk factor language.",
                     "materiality": "low",
+                    "source_section_ref": "Item 1A. Risk Factors (not surfaced in sampled excerpts)",
                 }
             ]
 
@@ -1163,6 +1308,7 @@ Return JSON containing only the `{section_key}` key."""
                 "capital_allocation": [
                     "No explicit capital allocation remarks were captured in the excerpts."
                 ],
+                "source_section_ref": "Item 2. MD&A (not surfaced in sampled excerpts)",
             }
 
         if self._section_is_empty(sections.get("segment_performance")):
@@ -1172,6 +1318,7 @@ Return JSON containing only the `{section_key}` key."""
                     "revenue": revenue_info["current"] or "Not disclosed",
                     "change": "Not disclosed",
                     "commentary": "Segment detail was not present; investors should review full filing tables.",
+                    "source_section_ref": "Segment disclosures (not surfaced in sampled excerpts)",
                 }
             ]
 
@@ -1187,6 +1334,7 @@ Return JSON containing only the `{section_key}` key."""
                 "shareholder_returns": [
                     "No explicit reference to dividends or buybacks within the excerpted text."
                 ],
+                "source_section_ref": "Liquidity and capital resources (not surfaced in sampled excerpts)",
             }
 
         if self._section_is_empty(sections.get("guidance_outlook")):
@@ -1201,6 +1349,7 @@ Return JSON containing only the `{section_key}` key."""
                 "watch_items": [
                     "Monitor forthcoming management commentary for explicit outlook guidance."
                 ],
+                "source_section_ref": "Outlook / guidance (not surfaced in sampled excerpts)",
             }
 
         if self._section_is_empty(sections.get("notable_footnotes")):
@@ -1208,11 +1357,16 @@ Return JSON containing only the `{section_key}` key."""
                 {
                     "item": "No specific footnotes surfaced in the extracted passages.",
                     "impact": "Review the full filing footnotes for accounting nuances or adjustments.",
+                    "source_section_ref": "Footnotes (not surfaced in sampled excerpts)",
                 }
             ]
 
         if self._section_is_empty(sections.get("three_year_trend")):
-            trend_summary = revenue_info["current"] and f"Latest standardized revenue of {revenue_info['current']} anchors the recent trajectory." or "Trend commentary unavailable from excerpts."
+            trend_summary = (
+                revenue_info["current"]
+                and f"Latest standardized revenue of {revenue_info['current']} anchors the recent trajectory."
+                or "Trend commentary unavailable from excerpts."
+            )
             sections["three_year_trend"] = {
                 "trend_summary": trend_summary,
                 "inflections": [
@@ -1228,6 +1382,7 @@ Return JSON containing only the `{section_key}` key."""
                         or "Prior-period disclosures were not captured.",
                     ],
                 },
+                "source_section_ref": "Trend discussion (not surfaced in sampled excerpts)",
             }
 
     async def generate_structured_summary(
@@ -1302,7 +1457,8 @@ EXTRACTED FINANCIAL SIGNALS:
             ],
             "10-Q": [
                 "- Highlight sequential and year-on-year momentum for this quarter.",
-                "- Connect quarterly execution to full-year guidance and structural themes."
+                "- Connect quarterly execution to full-year guidance and structural themes.",
+                "- Call out liquidity, leverage, and any covenant or contingency disclosures that are material to near-term risk."
             ],
             "10-K": [
                 "- Evaluate year-long shifts in growth, profitability, cash generation, and capital allocation."
@@ -1326,40 +1482,77 @@ EXTRACTED FINANCIAL SIGNALS:
         "<non-empty bullet>",
         "... (use ['Not disclosed—explain why'] if no validated bullets)"
       ],
-      "tone": "<positive|neutral|cautious>"
+      "tone": "<positive|neutral|cautious>",
+      "source_section_ref": "<e.g., 'Cover page' or 'Item 2. MD&A'>"
     },
     "financial_highlights": {
       "table": [
-        {"metric": "<non-empty string>", "current_period": "<non-empty string>", "prior_period": "<non-empty string>", "change": "<non-empty string>", "commentary": "<non-empty string>"}
+        {
+          "metric": "<non-empty string>",
+          "current_period": "<non-empty string>",
+          "prior_period": "<non-empty string>",
+          "change": "<non-empty string>",
+          "commentary": "<non-empty string>"
+        }
       ],
       "profitability": ["<non-empty bullet>"],
       "cash_flow": ["<non-empty bullet>"],
-      "balance_sheet": ["<non-empty bullet>"]
+      "balance_sheet": ["<non-empty bullet>"],
+      "source_section_ref": "<e.g., 'Item 1. Financial Statements'>"
     },
     "risk_factors": [
-      {"summary": "<non-empty string>", "supporting_evidence": "<non-empty excerpt or citation>", "materiality": "<low|medium|high>"}
+      {
+        "summary": "<non-empty string>",
+        "supporting_evidence": "<non-empty excerpt or citation>",
+        "materiality": "<low|medium|high>",
+        "source_section_ref": "<e.g., 'Item 1A. Risk Factors'>"
+      }
     ],
     "management_discussion_insights": {
       "themes": ["<non-empty bullet>"],
-      "quotes": [{"speaker": "<non-empty string>", "quote": "<non-empty string>", "context": "<non-empty string>"}],
-      "capital_allocation": ["<non-empty bullet>"]
+      "quotes": [
+        {
+          "speaker": "<non-empty string>",
+          "quote": "<non-empty string>",
+          "context": "<non-empty string>"
+        }
+      ],
+      "capital_allocation": ["<non-empty bullet>"],
+      "source_section_ref": "<e.g., 'Item 2. MD&A'>"
     },
     "segment_performance": [
-      {"segment": "<non-empty string>", "revenue": "<non-empty string>", "change": "<non-empty string>", "commentary": "<non-empty string>"}
+      {
+        "segment": "<non-empty string>",
+        "revenue": "<non-empty string>",
+        "change": "<non-empty string>",
+        "commentary": "<non-empty string>",
+        "source_section_ref": "<e.g., 'Note 13 – Segment Information'>"
+      }
     ],
     "liquidity_capital_structure": {
       "leverage": "<non-empty string>",
       "liquidity": "<non-empty string>",
-      "shareholder_returns": ["<non-empty bullet>"]
+      "shareholder_returns": ["<non-empty bullet>"],
+      "source_section_ref": "<e.g., 'Liquidity and Capital Resources'>"
+    },
+    "covenants_contingencies": {
+      "debt_covenants": ["<non-empty bullet>"],
+      "contingent_liabilities": ["<non-empty bullet>"],
+      "source_section_ref": "<e.g., 'Commitments and Contingencies'>"
     },
     "guidance_outlook": {
       "guidance": "<non-empty string>",
       "tone": "<positive|neutral|cautious>",
       "drivers": ["<non-empty bullet>"],
-      "watch_items": ["<non-empty bullet>"]
+      "watch_items": ["<non-empty bullet>"],
+      "source_section_ref": "<e.g., 'Outlook' or 'Guidance'>"
     },
     "notable_footnotes": [
-      {"item": "<non-empty string>", "impact": "<non-empty string>"}
+      {
+        "item": "<non-empty string>",
+        "impact": "<non-empty string>",
+        "source_section_ref": "<relevant note reference where possible>"
+      }
     ],
     "three_year_trend": {
       "trend_summary": "<non-empty string>",
@@ -1367,7 +1560,8 @@ EXTRACTED FINANCIAL SIGNALS:
       "compare_prior_period": {
         "available": <bool>,
         "insights": ["<non-empty bullet>"]
-      }
+      },
+      "source_section_ref": "<e.g., 'Selected Financial Data' or MD&A trend discussion>"
     }
   }
 }"""
@@ -1398,7 +1592,7 @@ Rules:
 - Express percentage changes with one decimal place where available (e.g., "up 8.3% YoY").
 - For arrays, include 1-4 high-signal, evidence-backed bullets ordered by materiality. If nothing qualifies, return ["Not disclosed—<concise reason>"] instead of leaving the array empty.
 - Empty sections are unacceptable. Do not fabricate data; explain the absence using the Not disclosed pattern when required.
-- Provide supporting evidence excerpts for each risk factor (direct quote or XBRL tag reference)."""
+- Provide supporting evidence excerpts for each risk factor (direct quote or XBRL tag reference), and when possible populate `source_section_ref` with the most relevant 10-Q section (for example: "Item 1A. Risk Factors", "Item 2. MD&A")."""
 
         import asyncio
         models_to_try = [self.get_model_for_filing(filing_type_key)] + self._fallback_models
@@ -1406,36 +1600,59 @@ Rules:
 
         response = None
         last_error: Optional[Exception] = None
+        max_retries = 3
+        base_timeout = config.get("ai_timeout", 90.0)
+        
         for model_name in models_to_try:
-            try:
-                response = await asyncio.wait_for(
-                    self.client.chat.completions.create(
-                        model=model_name,
-                        messages=[
-                            {
-                                "role": "system",
-                                "content": (
-                                    "You are a structured data extraction engine for financial journalism. "
-                                    "You never write narrative prose. You output clean JSON that adheres strictly "
-                                    "to the requested schema, filling in 'Not disclosed' when data is missing. "
-                                    "Never invent prior-period figures."
-                                ),
-                            },
-                            {"role": "user", "content": prompt},
-                        ],
-                        temperature=0.2,
-                        max_tokens=config.get("max_tokens", 1500),
-                    ),
-                    timeout=config.get("ai_timeout", 25.0),
-                )
+            # Try each model with exponential backoff retries
+            for attempt in range(max_retries):
+                try:
+                    # Exponential timeout increase: 90s, 135s, 202s
+                    timeout = base_timeout * (1.5 ** attempt)
+                    response = await asyncio.wait_for(
+                        self.client.chat.completions.create(
+                            model=model_name,
+                            messages=[
+                                {
+                                    "role": "system",
+                                    "content": (
+                                        "You are a structured data extraction engine for financial journalism. "
+                                        "You never write narrative prose. You output clean JSON that adheres strictly "
+                                        "to the requested schema, filling in 'Not disclosed' when data is missing. "
+                                        "Never invent prior-period figures."
+                                    ),
+                                },
+                                {"role": "user", "content": prompt},
+                            ],
+                            temperature=0.2,
+                            max_tokens=config.get("max_tokens", 1500),
+                        ),
+                        timeout=timeout,
+                    )
+                    # Success - break out of retry loop
+                    break
+                except asyncio.TimeoutError as timeout_error:
+                    last_error = timeout_error
+                    if attempt < max_retries - 1:
+                        # Not the last attempt, wait and retry
+                        backoff_delay = 2 ** attempt  # 1s, 2s, 4s
+                        print(f"Attempt {attempt + 1} timed out after {timeout:.1f}s for {model_name}, retrying in {backoff_delay}s...")
+                        await asyncio.sleep(backoff_delay)
+                    else:
+                        # Last attempt failed, try next model
+                        print(f"All {max_retries} attempts timed out for {model_name}, trying next model...")
+                        break
+                except Exception as model_error:
+                    error_msg = str(model_error)
+                    last_error = model_error
+                    if any(keyword in error_msg.lower() for keyword in ("rate limit", "429", "model", "unavailable")):
+                        print(f"Structured extraction model {model_name} failed ({error_msg[:120]}). Trying next model...")
+                        break
+                    raise
+            
+            # If we got a response, break out of model loop
+            if response is not None:
                 break
-            except Exception as model_error:
-                error_msg = str(model_error)
-                last_error = model_error
-                if any(keyword in error_msg.lower() for keyword in ("rate limit", "429", "model", "unavailable")):
-                    print(f"Structured extraction model {model_name} failed ({error_msg[:120]}). Trying next model...")
-                    continue
-                raise
 
         if response is None:
             raise last_error if last_error else RuntimeError("All extraction models failed.")
@@ -1486,11 +1703,53 @@ Rules:
         metadata = structured_summary.get("metadata", {})
         company_name = metadata.get("company_name", "The company")
         filing_type = metadata.get("filing_type", "filing")
+        filing_type_key = (str(filing_type) or "").upper()
         reporting_period = metadata.get("reporting_period", "the reported period")
 
         structured_payload = json.dumps(structured_summary, indent=2, ensure_ascii=False)
 
-        writer_prompt = f"""You are a senior financial journalist writing for an audience of professional investors.
+        if filing_type_key == "10-Q":
+            # 10-Q: concise 1-page, bullet-led investor summary
+            writer_prompt = f"""You are a senior financial journalist writing for a mixed audience of serious retail investors and professional investors.
+
+Write a concise, 1-page summary of this Form 10-Q based on the structured financial data provided below.
+
+Structured data (JSON):
+{structured_payload}
+
+Style:
+- Bullet-first and highly scannable; avoid long paragraphs.
+- Focus on what changed this quarter and why it matters to investors.
+- Tie every number you cite directly to the structured data; never introduce new figures.
+- Use very short sentences and limit jargon.
+- Length: 120–260 words total across all sections.
+
+Output Markdown using ONLY the following second-level headings (in this order), each followed by 3–6 high-signal bullets:
+## Quarter at a Glance
+## Key Numbers
+## Guidance & Outlook
+## Key Risks
+## Liquidity & Balance Sheet
+## Operational Highlights
+
+Guidance for sections:
+- Quarter at a Glance: 3–4 bullets summarizing the overall narrative for the quarter.
+- Key Numbers: revenue, EPS, margins, cash flow and any key segment/KPI metrics, always with direction vs prior period when available.
+- Guidance & Outlook: changes to guidance, tone, and the main drivers; if no guidance, say it was not disclosed.
+- Key Risks: 3–7 bullets summarizing the most material risks or watchpoints, referencing the risk_factors data.
+- Liquidity & Balance Sheet: cash, debt, leverage, liquidity and covenants/contingencies where disclosed.
+- Operational Highlights: segment performance, product/geography highlights, or execution themes; omit bullets if there is no real data.
+
+Rules:
+- Use ONLY information available in the structured JSON; do not invent metrics, dates, guidance, or qualitative claims.
+- Every numeric value you mention must come from the structured data.
+- If data is missing, say it was not disclosed instead of guessing.
+- Use currency suffixes (e.g., "$17.7B", "$482M") and percentage formatting (e.g., "29%") when citing numbers.
+- Keep tone neutral-to-confident and investor-focused.
+- Return Markdown only — no JSON, code fences, or additional commentary."""
+        else:
+            # Default writer for other filing types
+            writer_prompt = f"""You are a senior financial journalist writing for an audience of professional investors.
 
 Write a summary of an SEC filing based on the structured financial data provided below.
 
@@ -1513,8 +1772,7 @@ Rules:
 - Do not invent figures beyond the structured data. If data is missing, state that it was not disclosed.
 - Use currency suffixes (e.g., "$17.7B", "$482M") and percentage formatting (e.g., "29%") when citing numbers.
 - Keep tone neutral-to-confident, informative, and newsroom-ready.
-- Return Markdown only — no JSON, code fences, or additional commentary.
-"""
+- Return Markdown only — no JSON, code fences, or additional commentary."""
 
         system_message = (
             "You are an award-winning financial journalist for a Tier 1 financial publication. "
@@ -1533,7 +1791,19 @@ Rules:
                     # Enhance prompt on retry with more explicit instructions
                     enhanced_prompt = writer_prompt
                     if attempt > 0:
-                        enhanced_prompt += f"\n\nIMPORTANT: Previous attempt failed validation. Ensure you include ALL required sections: Executive Summary, Financials, Risks, Management Commentary, Outlook. Each section must have substantive content (not just 'Not disclosed'). Total word count must be 200-300 words."
+                        if filing_type_key == "10-Q":
+                            enhanced_prompt += (
+                                "\n\nIMPORTANT: Previous attempt failed validation. Ensure you include ALL required "
+                                "sections with the correct headings and keep total length within 120–260 words. "
+                                "Each bullet must be grounded in the structured data; do not introduce new figures."
+                            )
+                        else:
+                            enhanced_prompt += (
+                                "\n\nIMPORTANT: Previous attempt failed validation. Ensure you include ALL required "
+                                "sections: Executive Summary, Financials, Risks, Management Commentary, Outlook. "
+                                "Each section must have substantive content (not just 'Not disclosed'). Total word "
+                                "count must be 200-300 words."
+                            )
                         if validation_error:
                             enhanced_prompt += f"\n\nPrevious error: {str(validation_error)[:200]}"
                     
@@ -1556,7 +1826,9 @@ Rules:
                     
                     # Validate the output
                     try:
-                        self._validate_editorial_markdown(markdown)
+                        # First validate structure/length/sections, then validate numeric consistency
+                        self._validate_editorial_markdown(markdown, filing_type=filing_type)
+                        self._validate_editorial_numbers(markdown, structured_summary)
                         word_count = len(markdown.split())
                         return {
                             "markdown": markdown,
@@ -1888,7 +2160,17 @@ Do not include any additional keys or text outside the JSON object."""
             timeout_seconds = self._get_type_config(filing_type_key).get("ai_timeout", 30.0)
             print(f"Structured extraction timed out after {timeout_seconds}s for {filing_type_key}")
             return {
-                "business_overview": "Summary temporarily unavailable — please retry.",
+                "status": "error",
+                "message": f"Unable to complete summary due to parsing timeout. Suggest retrying later.",
+                "summary_title": f"{company_name} {filing_type_key} Filing Summary",
+                "sections": [],
+                "insights": {
+                    "sentiment": "Neutral",
+                    "growth_drivers": [],
+                    "risk_signals": []
+                },
+                # Legacy fields
+                "business_overview": "Unable to complete summary due to parsing timeout. Suggest retrying later.",
                 "financial_highlights": {},
                 "risk_factors": [],
                 "management_discussion": "",
@@ -1899,7 +2181,17 @@ Do not include any additional keys or text outside the JSON object."""
             error_msg = str(extraction_error)
             print(f"Structured extraction error: {error_msg}")
             return {
-                "business_overview": "Summary temporarily unavailable — please retry.",
+                "status": "error",
+                "message": "Unable to retrieve this filing at the moment — please try again shortly.",
+                "summary_title": f"{company_name} {filing_type_key} Filing Summary",
+                "sections": [],
+                "insights": {
+                    "sentiment": "Neutral",
+                    "growth_drivers": [],
+                    "risk_signals": []
+                },
+                # Legacy fields
+                "business_overview": "Unable to retrieve this filing at the moment — please try again shortly.",
                 "financial_highlights": {},
                 "risk_factors": [],
                 "management_discussion": "",
@@ -1982,7 +2274,8 @@ Do not include any additional keys or text outside the JSON object."""
         except Exception as writer_exc:
             writer_error = str(writer_exc)
             print(f"Writer stage failed: {writer_error}")
-            final_markdown = "Summary temporarily unavailable — please retry."
+            # Generate fallback markdown from structured data
+            final_markdown = self._build_structured_markdown(structured_summary, f"Writer failed: {writer_error[:100]}")
 
         raw_summary_payload = {
             "structured": structured_summary,
@@ -1996,7 +2289,180 @@ Do not include any additional keys or text outside the JSON object."""
         if writer_error:
             raw_summary_payload["writer_error"] = writer_error[:500]
 
-        return {
+        # Build new format response
+        metadata = structured_summary.get("metadata", {})
+        company_name = metadata.get("company_name", company_name)
+        filing_type_label = metadata.get("filing_type", filing_type_key)
+        reporting_period = metadata.get("reporting_period", "")
+        filing_date = metadata.get("filing_date", "")
+        
+        # Generate summary title
+        period_suffix = f" ({reporting_period})" if reporting_period else ""
+        if filing_date:
+            try:
+                from datetime import datetime
+                date_obj = datetime.fromisoformat(filing_date.replace("Z", "+00:00"))
+                year = date_obj.year
+                if filing_type_key == "10-K":
+                    period_suffix = f" (FY{year})"
+                elif filing_type_key == "10-Q":
+                    quarter = (date_obj.month - 1) // 3 + 1
+                    period_suffix = f" (Q{quarter} {year})"
+            except:
+                pass
+        summary_title = f"{company_name} {filing_type_label} Filing Summary{period_suffix}"
+        
+        # Build sections array
+        sections = []
+        
+        # Key Risks section
+        if risk_section:
+            risk_content_parts = []
+            for risk in risk_section[:10]:  # Limit to top 10 risks
+                if isinstance(risk, dict):
+                    summary = risk.get("summary", "")
+                    evidence = risk.get("supporting_evidence", "")
+                    if summary:
+                        bullet = f"• {summary}"
+                        if evidence:
+                            bullet += f" (Evidence: {evidence[:200]})"
+                        risk_content_parts.append(bullet)
+            if risk_content_parts:
+                sections.append({
+                    "title": "Key Risks",
+                    "content": "\n".join(risk_content_parts)
+                })
+        
+        # Financial Overview section
+        if financial_section:
+            financial_content_parts = []
+            table = financial_section.get("table", [])
+            if table:
+                for row in table[:10]:  # Limit to top 10 metrics
+                    if isinstance(row, dict):
+                        metric = row.get("metric", "")
+                        current = row.get("current_period", "")
+                        prior = row.get("prior_period", "")
+                        change = row.get("change", "")
+                        commentary = row.get("commentary", "")
+                        if metric:
+                            line = f"• {metric}: {current}"
+                            if prior and prior != "Not disclosed":
+                                line += f" (vs. {prior})"
+                            if change and change != "Not disclosed":
+                                line += f" — {change}"
+                            if commentary:
+                                line += f" — {commentary[:150]}"
+                            financial_content_parts.append(line)
+            if financial_content_parts:
+                sections.append({
+                    "title": "Financial Overview",
+                    "content": "\n".join(financial_content_parts)
+                })
+        
+        # Management Commentary section
+        if management_section:
+            sections.append({
+                "title": "Management Commentary",
+                "content": management_section[:2000]  # Limit length
+            })
+        
+        # Strategic Developments section (from guidance and management discussion)
+        strategic_parts = []
+        if guidance_section:
+            strategic_parts.append(guidance_section[:1000])
+        guidance_structured = sections_info.get("guidance_outlook", {})
+        if isinstance(guidance_structured, dict):
+            guidance_text = guidance_structured.get("guidance", "")
+            drivers = guidance_structured.get("drivers", [])
+            if guidance_text and guidance_text != "Not disclosed":
+                strategic_parts.append(f"Forward Guidance: {guidance_text}")
+            if drivers:
+                strategic_parts.append("Key Drivers: " + "; ".join(str(d) for d in drivers[:5]))
+        if strategic_parts:
+            sections.append({
+                "title": "Strategic Developments",
+                "content": "\n".join(strategic_parts)
+            })
+        
+        # Build insights object
+        insights = {
+            "sentiment": "Neutral",
+            "growth_drivers": [],
+            "risk_signals": []
+        }
+        
+        # Extract sentiment from executive snapshot
+        exec_snapshot = sections_info.get("executive_snapshot", {})
+        if isinstance(exec_snapshot, dict):
+            tone = exec_snapshot.get("tone", "neutral")
+            if tone:
+                # Format sentiment based on tone (e.g., "positive" -> "Positive", "neutral" -> "Neutral", "cautious" -> "Cautious")
+                # Support compound sentiments like "neutral to positive"
+                if isinstance(tone, str):
+                    if " to " in tone.lower():
+                        # Already a compound sentiment
+                        insights["sentiment"] = tone.title()
+                    else:
+                        insights["sentiment"] = tone.capitalize()
+                else:
+                    insights["sentiment"] = "Neutral"
+        
+        # Enhance sentiment with guidance tone if available
+        if guidance_structured and isinstance(guidance_structured, dict):
+            guidance_tone = guidance_structured.get("tone", "")
+            if guidance_tone and guidance_tone != insights["sentiment"].lower():
+                # Combine sentiment if different (e.g., "Neutral to Positive")
+                current_sentiment = insights["sentiment"].lower()
+                if current_sentiment != guidance_tone:
+                    insights["sentiment"] = f"{insights['sentiment']} to {guidance_tone.capitalize()}"
+        
+        # Extract growth drivers from guidance and management discussion
+        if guidance_structured and isinstance(guidance_structured, dict):
+            drivers = guidance_structured.get("drivers", [])
+            if drivers:
+                insights["growth_drivers"] = [str(d) for d in drivers[:5]]
+        
+        # Extract risk signals from risk factors
+        if risk_section:
+            insights["risk_signals"] = [
+                risk.get("summary", "")[:100] 
+                for risk in risk_section[:5] 
+                if isinstance(risk, dict) and risk.get("summary")
+            ]
+        
+        # Determine status and message
+        # Step 6: Graceful Failure Handling
+        status = "complete"
+        message = None
+        coverage_ratio = coverage_snapshot.get("coverage_ratio", 1.0)
+        missing_sections_list = coverage_snapshot.get("missing", [])
+        
+        # If coverage is low or writer had issues, mark as partial
+        if coverage_ratio < 0.5 or writer_error or writer_fallback_reason:
+            status = "partial"
+            message = "Some sections may not have loaded fully."
+            if missing_sections_list:
+                message += f" Missing sections: {', '.join(missing_sections_list[:3])}"
+        
+        # If we have no sections at all, it's an error
+        if not sections:
+            status = "error"
+            message = "Unable to retrieve this filing at the moment — please try again shortly."
+        
+        # If processing stopped mid-way but we have some sections, mark as partial
+        if len(sections) > 0 and coverage_ratio < 0.7:
+            status = "partial"
+            if not message:
+                message = "Some sections may not have loaded fully."
+        
+        # Build response
+        response = {
+            "summary_title": summary_title,
+            "sections": sections,
+            "insights": insights,
+            "status": status,
+            # Keep legacy fields for backward compatibility
             "business_overview": final_markdown,
             "financial_highlights": financial_section,
             "risk_factors": risk_section,
@@ -2004,6 +2470,12 @@ Do not include any additional keys or text outside the JSON object."""
             "key_changes": guidance_section,
             "raw_summary": raw_summary_payload,
         }
+        
+        # Add message if status is error or partial
+        if message:
+            response["message"] = message
+        
+        return response
 
 openai_service = OpenAIService()
 

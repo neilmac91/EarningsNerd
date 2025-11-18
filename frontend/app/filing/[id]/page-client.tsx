@@ -1,6 +1,6 @@
 'use client'
 
-import { useParams } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getFiling, getSummary, generateSummary, generateSummaryStream, Filing, Summary, getSubscriptionStatus, saveSummary, getSavedSummaries, getSummaryProgress, SummaryProgressData, getCompany, getCompanyFilings, Company } from '@/lib/api'
 import { Loader2, AlertCircle, FileText, Download, FileDown, Bookmark, BookmarkCheck } from 'lucide-react'
@@ -155,6 +155,8 @@ function TickerFilingsView({ ticker }: { ticker: string }) {
 
 export default function FilingPageClient() {
   const params = useParams()
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const identifier = params.id as string
   const isTickerView = !/^\d+$/.test(identifier)
 
@@ -193,6 +195,33 @@ export default function FilingPageClient() {
     queryKey: ['filing', filingId],
     queryFn: () => getFiling(filingId),
   })
+
+  // Smart back navigation handler
+  const handleBack = () => {
+    if (typeof window === 'undefined') return
+    
+    // Check if user navigated from within the app (has referrer from same origin)
+    const referrer = document.referrer
+    const currentOrigin = window.location.origin
+    
+    // If referrer exists and is from same origin, use browser back navigation
+    // This preserves the user's navigation flow (e.g., from company page)
+    if (referrer && referrer.startsWith(currentOrigin)) {
+      // Use browser back to return to previous page in history
+      router.back()
+      return
+    }
+    
+    // Fallback: navigate to company page if filing has company data
+    // This handles cases where user came directly via URL or external link
+    if (filing?.company?.ticker) {
+      router.push(`/company/${filing.company.ticker}`)
+      return
+    }
+    
+    // Last resort: go to homepage
+    router.push('/')
+  }
 
   const { data: summary, isLoading: summaryLoading, refetch, error: summaryError } = useQuery<Summary | null>({
     queryKey: ['summary', filingId],
@@ -258,6 +287,7 @@ export default function FilingPageClient() {
   const isSaved = summary && savedSummaries?.some((s: any) => s.summary_id === summary.id)
   const summaryErrorMessage = getFriendlyErrorMessage(summaryError)
   const activeErrorMessage = generationError || summaryErrorMessage
+  const debugSummary = searchParams?.get('debug') === '1'
 
   const handleGenerateSummary = async () => {
     setHasStartedGeneration(true)
@@ -377,10 +407,13 @@ export default function FilingPageClient() {
       <header className="bg-gradient-to-r from-white via-gray-50 to-white dark:from-gray-800 dark:via-gray-900 dark:to-gray-800 shadow-lg border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between mb-4">
-            <Link href="/" className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 inline-flex items-center space-x-1 transition-colors group">
+            <button 
+              onClick={handleBack}
+              className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 inline-flex items-center space-x-1 transition-colors group"
+            >
               <span className="group-hover:-translate-x-1 transition-transform">←</span>
               <span>Back</span>
-            </Link>
+            </button>
             <ThemeToggle />
           </div>
           
@@ -446,7 +479,14 @@ export default function FilingPageClient() {
             onRetry={handleGenerateSummary}
           />
         ) : summary && hasSummaryContent && filing ? (
-          <SummaryDisplay summary={summary} filing={filing} isPro={subscription?.is_pro || false} saveMutation={saveMutation} isSaved={!!isSaved} />
+          <SummaryDisplay
+            summary={summary}
+            filing={filing}
+            isPro={subscription?.is_pro || false}
+            saveMutation={saveMutation}
+            isSaved={!!isSaved}
+            debug={debugSummary}
+          />
         ) : (
           <StreamingSummaryDisplay 
             streamingText=""
@@ -733,12 +773,24 @@ function StreamingSummaryDisplay({
   )
 }
 
-function SummaryDisplay({ summary, filing, isPro, saveMutation, isSaved }: { summary: Summary; filing: Filing; isPro: boolean; saveMutation: any; isSaved: boolean }) {
+function SummaryDisplay({
+  summary,
+  filing,
+  isPro,
+  saveMutation,
+  isSaved,
+  debug,
+}: {
+  summary: Summary
+  filing: Filing
+  isPro: boolean
+  saveMutation: any
+  isSaved: boolean
+  debug?: boolean
+}) {
   const markdownContent = summary.business_overview || ''
   const cleanedMarkdown = useMemo(() => stripInternalNotices(markdownContent), [markdownContent])
-  const rawSummary = summary.raw_summary && typeof summary.raw_summary === 'object'
-    ? summary.raw_summary
-    : null
+  const rawSummary = summary.raw_summary && typeof summary.raw_summary === 'object' ? summary.raw_summary : null
 
   const fallbackMessage = 'Summary temporarily unavailable — please retry.'
   const writerError = rawSummary?.writer_error
@@ -750,9 +802,16 @@ function SummaryDisplay({ summary, filing, isPro, saveMutation, isSaved }: { sum
 
   const isError = Boolean(writerError) || isFallbackMessage || (!hasPolishedMarkdown && trimmedMarkdown.length === 0)
 
-  const metadata = rawSummary
-    ? (rawSummary.sections ?? null)
-    : null
+  const metadata = rawSummary ? (rawSummary.sections ?? null) : null
+
+  const coverageSnapshot = rawSummary?.section_coverage as
+    | { covered_count?: number; total_count?: number; coverage_ratio?: number }
+    | undefined
+  const hasCoverageSnapshot =
+    !!coverageSnapshot &&
+    typeof coverageSnapshot.covered_count === 'number' &&
+    typeof coverageSnapshot.total_count === 'number' &&
+    coverageSnapshot.total_count > 0
 
   const handleExportPDF = () => {
     const { getApiUrl } = require('@/lib/api')
@@ -910,16 +969,23 @@ function SummaryDisplay({ summary, filing, isPro, saveMutation, isSaved }: { sum
                   <FileText className="h-6 w-6 text-primary-600" />
                   <h2 className="text-xl font-semibold text-gray-900">Editorial Summary</h2>
                 </div>
-                {writerFallback && (
-                  <span className="inline-flex items-center rounded-full border border-amber-400/40 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-                    Auto-generated summary
-                    {fallbackReason && (
-                      <span className="ml-2 text-amber-600" title={fallbackReason}>
-                        ⚠️
-                      </span>
-                    )}
-                  </span>
-                )}
+                <div className="flex items-center space-x-3">
+                  {hasCoverageSnapshot && (
+                    <span className="inline-flex items-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-800">
+                      {coverageSnapshot.covered_count}/{coverageSnapshot.total_count} sections populated
+                    </span>
+                  )}
+                  {writerFallback && (
+                    <span className="inline-flex items-center rounded-full border border-amber-400/40 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
+                      Auto-generated summary
+                      {fallbackReason && (
+                        <span className="ml-2 text-amber-600" title={fallbackReason}>
+                          ⚠️
+                        </span>
+                      )}
+                    </span>
+                  )}
+                </div>
               </div>
               <ReactMarkdown remarkPlugins={[remarkGfm]} className="markdown-body text-gray-800">
                 {cleanedMarkdown}
@@ -956,6 +1022,15 @@ function SummaryDisplay({ summary, filing, isPro, saveMutation, isSaved }: { sum
               <li key={index}>{item}</li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {debug && rawSummary && (
+        <section className="bg-gray-900 rounded-lg border border-gray-800 p-4 text-xs text-gray-100">
+          <h3 className="text-sm font-semibold mb-2">Debug: raw summary payload</h3>
+          <pre className="whitespace-pre-wrap break-all">
+            {JSON.stringify(rawSummary, null, 2)}
+          </pre>
         </section>
       )}
     </div>
