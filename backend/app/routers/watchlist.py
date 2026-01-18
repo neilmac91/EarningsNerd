@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Depends, status
-from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import desc, func
 from typing import List, Optional, Dict, Any
 from pydantic import BaseModel
 from app.database import get_db
@@ -64,13 +64,17 @@ async def get_watchlist(
     db: Session = Depends(get_db)
 ):
     """Get user's watchlist"""
-    watchlist_items = db.query(Watchlist).filter(
-        Watchlist.user_id == current_user.id
-    ).order_by(desc(Watchlist.created_at)).all()
+    watchlist_items = (
+        db.query(Watchlist)
+        .options(joinedload(Watchlist.company))
+        .filter(Watchlist.user_id == current_user.id)
+        .order_by(desc(Watchlist.created_at))
+        .all()
+    )
     
     result = []
     for item in watchlist_items:
-        company = db.query(Company).filter(Company.id == item.company_id).first()
+        company = item.company
         if company:
             result.append({
                 "id": item.id,
@@ -143,35 +147,70 @@ async def get_watchlist_insights(
     """Return enriched status information for the user's watchlist."""
     watchlist_items = (
         db.query(Watchlist)
+        .options(joinedload(Watchlist.company))
         .filter(Watchlist.user_id == current_user.id)
         .order_by(desc(Watchlist.created_at))
         .all()
     )
 
     insights: List[WatchlistInsightResponse] = []
+    company_ids = [item.company_id for item in watchlist_items if item.company_id]
+    if not company_ids:
+        return insights
+
+    latest_dates_subq = (
+        db.query(
+            Filing.company_id,
+            func.max(Filing.filing_date).label("latest_date"),
+        )
+        .filter(Filing.company_id.in_(company_ids))
+        .group_by(Filing.company_id)
+        .subquery()
+    )
+
+    latest_filings = (
+        db.query(Filing)
+        .join(
+            latest_dates_subq,
+            (Filing.company_id == latest_dates_subq.c.company_id)
+            & (Filing.filing_date == latest_dates_subq.c.latest_date),
+        )
+        .all()
+    )
+    latest_filing_by_company = {filing.company_id: filing for filing in latest_filings}
+
+    filing_counts = dict(
+        db.query(Filing.company_id, func.count(Filing.id))
+        .filter(Filing.company_id.in_(company_ids))
+        .group_by(Filing.company_id)
+        .all()
+    )
+
+    latest_filing_ids = [filing.id for filing in latest_filings]
+    summary_by_filing: Dict[int, Summary] = {}
+    if latest_filing_ids:
+        summaries = (
+            db.query(Summary)
+            .filter(Summary.filing_id.in_(latest_filing_ids))
+            .order_by(desc(Summary.updated_at), desc(Summary.created_at))
+            .all()
+        )
+        for summary in summaries:
+            if summary.filing_id not in summary_by_filing:
+                summary_by_filing[summary.filing_id] = summary
 
     for item in watchlist_items:
-        company = db.query(Company).filter(Company.id == item.company_id).first()
+        company = item.company
         if not company:
             continue
 
-        filing_query = (
-            db.query(Filing)
-            .filter(Filing.company_id == company.id)
-            .order_by(desc(Filing.filing_date))
-        )
-        latest_filing: Optional[Filing] = filing_query.first()
-        total_filings = filing_query.count()
+        latest_filing: Optional[Filing] = latest_filing_by_company.get(company.id)
+        total_filings = int(filing_counts.get(company.id, 0))
 
         filing_snapshot: Optional[WatchlistFilingSnapshot] = None
 
         if latest_filing:
-            summary: Optional[Summary] = (
-                db.query(Summary)
-                .filter(Summary.filing_id == latest_filing.id)
-                .order_by(desc(Summary.updated_at), desc(Summary.created_at))
-                .first()
-            )
+            summary: Optional[Summary] = summary_by_filing.get(latest_filing.id)
 
             progress_snapshot = get_generation_progress_snapshot(latest_filing.id)
 

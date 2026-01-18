@@ -77,9 +77,12 @@ export default function RegisterPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              minLength={6}
+              minLength={12}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500"
             />
+            <p className="mt-2 text-xs text-gray-500">
+              Use at least 12 characters with upper/lowercase letters and a number.
+            </p>
           </div>
 
           <button

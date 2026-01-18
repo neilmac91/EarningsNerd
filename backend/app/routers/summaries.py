@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Request
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional, Dict, Any, List
 import asyncio
@@ -15,15 +15,17 @@ from app.services.sec_edgar import sec_edgar_service
 from app.services.openai_service import openai_service, _normalize_risk_factors
 from app.services.xbrl_service import xbrl_service
 from app.schemas import attach_normalized_facts
-from app.routers.auth import get_current_user_optional, get_current_user
+from app.routers.auth import get_current_user
 from app.routers.subscriptions import check_usage_limit, increment_user_usage, get_current_month
 from app.services.export_service import export_service
+from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from fastapi.responses import Response, StreamingResponse
 import json
 from pydantic import BaseModel
 import time
 
 router = APIRouter()
+SUMMARY_LIMITER = RateLimiter(limit=5, window_seconds=60)
 
 class SummaryResponse(BaseModel):
     id: int
@@ -571,10 +573,17 @@ async def get_summary_progress(
 @router.post("/filing/{filing_id}/generate", response_model=SummaryResponse)
 async def generate_summary(
     filing_id: int,
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    request: Request,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Generate AI summary for a filing"""
+    enforce_rate_limit(
+        request,
+        SUMMARY_LIMITER,
+        f"summary:{current_user.id}",
+        error_detail="Too many summary requests. Please try again shortly.",
+    )
     filing = db.query(Filing).filter(Filing.id == filing_id).first()
     
     if not filing:
@@ -608,16 +617,14 @@ async def generate_summary(
                 "raw_summary": None
             }
 
-        # Check usage limits only if user is authenticated
-        user_id = None
-        if current_user:
-            can_generate, current_count, limit = check_usage_limit(current_user, db)
-            if not can_generate:
-                raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=f"You've reached your monthly limit of {limit} summaries. Upgrade to Pro for unlimited summaries."
-                )
-            user_id = current_user.id
+    # Check usage limits for authenticated user
+    user_id = current_user.id
+    can_generate, current_count, limit = check_usage_limit(current_user, db)
+    if not can_generate:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"You've reached your monthly limit of {limit} summaries. Upgrade to Pro for unlimited summaries."
+        )
         
         # If no progress or errored progress, (re)start the generation
         _record_progress(db, filing_id, "queued")
@@ -648,10 +655,17 @@ async def generate_summary(
 @router.post("/filing/{filing_id}/generate-stream")
 async def generate_summary_stream(
     filing_id: int,
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    request: Request,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Generate AI summary with streaming response"""
+    enforce_rate_limit(
+        request,
+        SUMMARY_LIMITER,
+        f"summary:{current_user.id}",
+        error_detail="Too many summary requests. Please try again shortly.",
+    )
     # Eagerly load content_cache and company relationship to avoid detached session issues
     filing = db.query(Filing).options(
         joinedload(Filing.content_cache),
@@ -683,20 +697,17 @@ async def generate_summary_stream(
     filing_type = filing.filing_type
     filing_accession_number = filing.accession_number
 
-    # Check usage limits only if user is authenticated
-    user_id = None
-    if current_user:
-        can_generate, current_count, limit = check_usage_limit(current_user, db)
-        if not can_generate:
-            async def error_response():
-                message = (
-                    "You've reached your monthly limit of "
-                    f"{limit} summaries. Upgrade to Pro for unlimited summaries."
-                )
-                payload = {"type": "error", "message": message}
-                yield f"data: {json.dumps(payload)}\n\n"
-            return StreamingResponse(error_response(), media_type="text/event-stream")
-        user_id = current_user.id
+    user_id = current_user.id
+    can_generate, current_count, limit = check_usage_limit(current_user, db)
+    if not can_generate:
+        async def error_response():
+            message = (
+                "You've reached your monthly limit of "
+                f"{limit} summaries. Upgrade to Pro for unlimited summaries."
+            )
+            payload = {"type": "error", "message": message}
+            yield f"data: {json.dumps(payload)}\n\n"
+        return StreamingResponse(error_response(), media_type="text/event-stream")
     
     async def stream_summary():
         # Create a new session for the async generator to avoid detached session issues

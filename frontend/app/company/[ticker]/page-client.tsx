@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getCompany, getCompanyFilings, Company, Filing, addToWatchlist, removeFromWatchlist, getWatchlist } from '@/lib/api'
+import { getCompany, getCompanyFilings, Company, Filing, addToWatchlist, removeFromWatchlist, getWatchlist, getCurrentUserSafe } from '@/lib/api'
 import { FileText, Calendar, ExternalLink, Loader2, ChevronDown, ChevronUp, Filter, Star, X } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
@@ -40,11 +40,17 @@ export default function CompanyPageClient() {
     enabled: !!company,
   })
 
+  const { data: currentUser } = useQuery({
+    queryKey: ['current-user'],
+    queryFn: getCurrentUserSafe,
+    retry: false,
+  })
+
   const { data: watchlist } = useQuery({
     queryKey: ['watchlist'],
     queryFn: getWatchlist,
     retry: false,
-    enabled: typeof window !== 'undefined' && !!localStorage.getItem('token'), // Only fetch if user is logged in
+    enabled: !!currentUser,
   })
 
   const queryClient = useQueryClient()
@@ -180,7 +186,7 @@ export default function CompanyPageClient() {
               <div className="border-l border-gray-200 dark:border-gray-700 pl-4 flex-1">
                 <div className="flex items-center space-x-3">
                   <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{companyData.name}</h1>
-                  {typeof window !== 'undefined' && localStorage.getItem('token') && (
+                  {currentUser && (
                     <button
                       onClick={() => watchlistMutation.mutate(ticker)}
                       disabled={watchlistMutation.isPending}

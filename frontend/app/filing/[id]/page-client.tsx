@@ -2,7 +2,7 @@
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { getFiling, getSummary, generateSummary, generateSummaryStream, Filing, Summary, getSubscriptionStatus, saveSummary, getSavedSummaries, getSummaryProgress, SummaryProgressData, getCompany, getCompanyFilings, Company } from '@/lib/api'
+import { getFiling, getSummary, generateSummary, generateSummaryStream, Filing, Summary, getSubscriptionStatus, saveSummary, getSavedSummaries, getSummaryProgress, SummaryProgressData, getCompany, getCompanyFilings, Company, getCurrentUserSafe } from '@/lib/api'
 import { Loader2, AlertCircle, FileText, Download, FileDown, Bookmark, BookmarkCheck } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -172,24 +172,12 @@ export default function FilingPageClient() {
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false)
 
-  // Check authentication for subscription features (optional)
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false)
-  useEffect(() => {
-    const checkAuth = () => {
-      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      setIsAuthenticated(!!token)
-    }
-    checkAuth()
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'token') {
-        checkAuth()
-      }
-    }
-    window.addEventListener('storage', handleStorageChange)
-    return () => {
-      window.removeEventListener('storage', handleStorageChange)
-    }
-  }, [])
+  const { data: currentUser } = useQuery({
+    queryKey: ['current-user'],
+    queryFn: getCurrentUserSafe,
+    retry: false,
+  })
+  const isAuthenticated = Boolean(currentUser)
 
   const { data: filing, isLoading: filingLoading } = useQuery<Filing>({
     queryKey: ['filing', filingId],
@@ -290,6 +278,11 @@ export default function FilingPageClient() {
   const debugSummary = searchParams?.get('debug') === '1'
 
   const handleGenerateSummary = async () => {
+    if (!isAuthenticated) {
+      setGenerationError('Please sign in to generate summaries.')
+      router.push('/login')
+      return
+    }
     setHasStartedGeneration(true)
     setGenerationError(null)
     setIsStreaming(true)
@@ -362,6 +355,7 @@ export default function FilingPageClient() {
     // Auto-generate if all conditions are met
     if (
       filing &&
+      isAuthenticated &&
       !summaryLoading &&
       !isStreaming &&
       !hasSummaryContent &&
@@ -371,7 +365,7 @@ export default function FilingPageClient() {
       handleGenerateSummary()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filing, summary, summaryLoading, isStreaming, hasStartedGeneration, hasSummaryContent, generationError])
+  }, [filing, summary, summaryLoading, isStreaming, hasStartedGeneration, hasSummaryContent, generationError, isAuthenticated])
 
   useEffect(() => {
     if (hasSummaryContent) {
@@ -816,13 +810,10 @@ function SummaryDisplay({
   const handleExportPDF = () => {
     const { getApiUrl } = require('@/lib/api')
     const apiUrl = getApiUrl()
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
     const url = `${apiUrl}/api/summaries/filing/${filing.id}/export/pdf`
     
     fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+      credentials: 'include',
     })
       .then(response => {
         if (!response.ok) {
@@ -856,13 +847,10 @@ function SummaryDisplay({
   const handleExportCSV = () => {
     const { getApiUrl } = require('@/lib/api')
     const apiUrl = getApiUrl()
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
     const url = `${apiUrl}/api/summaries/filing/${filing.id}/export/csv`
     
     fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+      credentials: 'include',
     })
       .then(response => {
         if (!response.ok) {
@@ -897,7 +885,7 @@ function SummaryDisplay({
     <div className="space-y-6">
       {/* Action Buttons */}
       <div className="flex items-center justify-between mb-4">
-        {typeof window !== 'undefined' && localStorage.getItem('token') && (
+        {isAuthenticated && (
           <div>
             {summary && summary.id && (
               <button

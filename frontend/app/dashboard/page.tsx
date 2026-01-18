@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getCurrentUser, getUsage, getSubscriptionStatus, createPortalSession, getSavedSummaries, getWatchlist, deleteSavedSummary, removeFromWatchlist, SavedSummary, WatchlistItem } from '@/lib/api'
+import { getCurrentUser, getUsage, getSubscriptionStatus, createPortalSession, getSavedSummaries, getWatchlist, deleteSavedSummary, removeFromWatchlist, SavedSummary, WatchlistItem, logout } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { CheckCircle2, AlertCircle, Sparkles, BarChart3, FileText, Settings, Loader2, Star, Trash2, X } from 'lucide-react'
@@ -71,6 +71,14 @@ export default function DashboardPage() {
     },
   })
 
+  const logoutMutation = useMutation({
+    mutationFn: logout,
+    onSuccess: () => {
+      router.push('/login')
+      router.refresh()
+    },
+  })
+
   useEffect(() => {
     // Redirect to login if not authenticated
     if (!userLoading && !user) {
@@ -105,15 +113,12 @@ export default function DashboardPage() {
             </Link>
             <div className="flex items-center space-x-4">
               <ThemeToggle />
-              <Link
-                href="/login"
-                onClick={() => {
-                  localStorage.removeItem('token')
-                }}
+              <button
+                onClick={() => logoutMutation.mutate()}
                 className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
               >
                 Logout
-              </Link>
+              </button>
             </div>
           </div>
         </div>

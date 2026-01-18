@@ -1,8 +1,8 @@
 'use client'
 
-import { ReactNode, useEffect, useState } from 'react'
+import { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getSubscriptionStatus } from '@/lib/api'
+import { getCurrentUserSafe, getSubscriptionStatus } from '@/lib/api'
 import Link from 'next/link'
 import { Lock, Sparkles } from 'lucide-react'
 
@@ -17,22 +17,20 @@ export default function SubscriptionGate({
   fallback,
   requirePro = false 
 }: SubscriptionGateProps) {
-  const [token, setToken] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const storedToken = window.localStorage.getItem('token')
-    setToken(storedToken)
-  }, [])
-
-  const { data: subscription, isLoading } = useQuery({
-    queryKey: ['subscription', token],
-    queryFn: getSubscriptionStatus,
+  const { data: user, isLoading: userLoading } = useQuery({
+    queryKey: ['current-user'],
+    queryFn: getCurrentUserSafe,
     retry: false,
-    enabled: Boolean(token),
   })
 
-  if (token && isLoading) {
+  const { data: subscription, isLoading } = useQuery({
+    queryKey: ['subscription', user?.id],
+    queryFn: getSubscriptionStatus,
+    retry: false,
+    enabled: Boolean(user),
+  })
+
+  if (user && (isLoading || userLoading)) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
@@ -40,7 +38,7 @@ export default function SubscriptionGate({
     )
   }
 
-  if (!token) {
+  if (!user) {
     return <>{fallback ?? children}</>
   }
 

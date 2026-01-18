@@ -69,11 +69,26 @@ async def get_saved_summaries(
     db: Session = Depends(get_db)
 ):
     """Get all saved summaries for current user"""
-    saved_summaries = db.query(SavedSummary).filter(
-        SavedSummary.user_id == current_user.id
-    ).order_by(desc(SavedSummary.created_at)).all()
+    rows = (
+        db.query(SavedSummary, Summary, Filing, Company)
+        .join(Summary, SavedSummary.summary_id == Summary.id)
+        .join(Filing, Summary.filing_id == Filing.id)
+        .join(Company, Filing.company_id == Company.id)
+        .filter(SavedSummary.user_id == current_user.id)
+        .order_by(desc(SavedSummary.created_at))
+        .all()
+    )
     
-    return [_format_saved_summary_response(ss, db) for ss in saved_summaries]
+    return [
+        _format_saved_summary_response(
+            saved_summary,
+            db,
+            summary=summary,
+            filing=filing,
+            company=company,
+        )
+        for saved_summary, summary, filing, company in rows
+    ]
 
 @router.delete("/{saved_summary_id}")
 async def delete_saved_summary(
@@ -118,17 +133,24 @@ async def update_saved_summary(
     
     return _format_saved_summary_response(saved_summary, db)
 
-def _format_saved_summary_response(saved_summary: SavedSummary, db: Session) -> dict:
+def _format_saved_summary_response(
+    saved_summary: SavedSummary,
+    db: Session,
+    *,
+    summary: Optional[Summary] = None,
+    filing: Optional[Filing] = None,
+    company: Optional[Company] = None,
+) -> dict:
     """Format saved summary response with related data"""
-    summary = db.query(Summary).filter(Summary.id == saved_summary.summary_id).first()
+    summary = summary or db.query(Summary).filter(Summary.id == saved_summary.summary_id).first()
     if not summary:
         raise HTTPException(status_code=404, detail="Summary not found")
     
-    filing = db.query(Filing).filter(Filing.id == summary.filing_id).first()
+    filing = filing or db.query(Filing).filter(Filing.id == summary.filing_id).first()
     if not filing:
         raise HTTPException(status_code=404, detail="Filing not found")
     
-    company = db.query(Company).filter(Company.id == filing.company_id).first()
+    company = company or db.query(Company).filter(Company.id == filing.company_id).first()
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
     

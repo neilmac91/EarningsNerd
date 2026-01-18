@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -14,24 +14,23 @@ import {
   RefreshCcw,
   Sparkles,
 } from 'lucide-react'
-import { getWatchlistInsights, WatchlistInsight } from '@/lib/api'
+import { getCurrentUserSafe, getWatchlistInsights, WatchlistInsight } from '@/lib/api'
 
 function useAuthGate() {
   const router = useRouter()
-  const [isReady, setIsReady] = useState(false)
-  const [hasToken, setHasToken] = useState(false)
+  const { data: user, isLoading } = useQuery({
+    queryKey: ['current-user'],
+    queryFn: getCurrentUserSafe,
+    retry: false,
+  })
 
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-    if (!token) {
+    if (!isLoading && !user) {
       router.push('/login')
-    } else {
-      setHasToken(true)
     }
-    setIsReady(true)
-  }, [router])
+  }, [router, isLoading, user])
 
-  return { isReady, hasToken }
+  return { isReady: !isLoading, hasUser: Boolean(user) }
 }
 
 function getStatusBadge(status: string, needsRegeneration: boolean) {
@@ -72,13 +71,13 @@ function formatDate(dateLike?: string | null) {
 
 export default function WatchlistDashboardPage() {
   const router = useRouter()
-  const { isReady, hasToken } = useAuthGate()
+  const { isReady, hasUser } = useAuthGate()
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['watchlist-insights'],
     queryFn: getWatchlistInsights,
     retry: false,
-    enabled: hasToken,
+    enabled: hasUser,
   })
 
   const insights = useMemo(() => data ?? [], [data])
@@ -91,7 +90,7 @@ export default function WatchlistDashboardPage() {
     )
   }
 
-  if (!hasToken) {
+  if (!hasUser) {
     return null
   }
 
