@@ -8,7 +8,7 @@ import { FileText, Calendar, ExternalLink, Loader2, ChevronDown, ChevronUp, Filt
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import Navbar from '@/components/Navbar'
 
 export default function CompanyPageClient() {
   const params = useParams()
@@ -169,67 +169,59 @@ export default function CompanyPageClient() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+      <Navbar />
+
       {/* Header */}
       <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-800 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <Link href="/" className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 font-medium transition-colors">
-                ← Back
-              </Link>
-              <div className="border-l border-gray-200 dark:border-gray-700 pl-4 flex-1">
-                <div className="flex items-center space-x-3">
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{companyData.name}</h1>
-                  {typeof window !== 'undefined' && localStorage.getItem('token') && (
-                    <button
-                      onClick={() => watchlistMutation.mutate(ticker)}
-                      disabled={watchlistMutation.isPending}
-                      className={`p-2 rounded-lg transition-colors ${
-                        isInWatchlist
-                          ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50'
-                          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
-                      }`}
-                      title={isInWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
-                    >
-                      {isInWatchlist ? (
-                        <Star className="h-5 w-5 fill-current" />
-                      ) : (
-                        <Star className="h-5 w-5" />
-                      )}
-                    </button>
+            <div className="flex items-center space-x-3">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{companyData.name}</h1>
+              {typeof window !== 'undefined' && localStorage.getItem('token') && (
+                <button
+                  onClick={() => watchlistMutation.mutate(ticker)}
+                  disabled={watchlistMutation.isPending}
+                  className={`p-2 rounded-lg transition-colors ${
+                    isInWatchlist
+                      ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50'
+                      : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                  }`}
+                  title={isInWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
+                >
+                  {isInWatchlist ? (
+                    <Star className="h-5 w-5 fill-current" />
+                  ) : (
+                    <Star className="h-5 w-5" />
                   )}
-                </div>
-                <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium">{companyData.ticker}</span>
-                  {companyData.exchange && <span>{companyData.exchange}</span>}
-                  {companyData.stock_quote?.price !== undefined && companyData.stock_quote?.price !== null && (
-                    <div className="flex items-center space-x-2">
-                      <span className="font-semibold text-gray-900 dark:text-white">
-                        {fmtCurrency(companyData.stock_quote.price, { digits: 2, compact: false })}
-                      </span>
-                      {companyData.stock_quote.change_percent !== undefined && companyData.stock_quote.change_percent !== null && (
-                        <span
-                          className={`font-medium ${
-                            companyData.stock_quote.change_percent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                          }`}
-                        >
-                          {fmtPercent(companyData.stock_quote.change_percent, { digits: 2, signed: true })}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
+                </button>
+              )}
             </div>
-            <div className="flex items-center space-x-2">
-              <ThemeToggle />
+            <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+              <span className="font-medium">{companyData.ticker}</span>
+              {companyData.exchange && <span>{companyData.exchange}</span>}
+              {companyData.stock_quote?.price !== undefined && companyData.stock_quote?.price !== null && (
+                <div className="flex items-center space-x-2">
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    {fmtCurrency(companyData.stock_quote.price, { digits: 2, compact: false })}
+                  </span>
+                  {companyData.stock_quote.change_percent !== undefined && companyData.stock_quote.change_percent !== null && (
+                    <span
+                      className={`font-medium ${
+                        companyData.stock_quote.change_percent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+                      }`}
+                    >
+                      {fmtPercent(companyData.stock_quote.change_percent, { digits: 2, signed: true })}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeIn">
         {/* Filings Section */}
         <section className="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-6">
           <div className="flex items-center justify-between mb-6">

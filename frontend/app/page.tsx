@@ -59,17 +59,54 @@ async function fetchFromApi<T>(path: string): Promise<T | null> {
 
 export default function Home() {
   const [trendingCompanies, setTrendingCompanies] = useState<Company[] | null>(null)
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [newsletterEmail, setNewsletterEmail] = useState('')
+  const [showOnboarding, setShowOnboarding] = useState(false)
 
   useEffect(() => {
     fetchFromApi<Company[]>('/api/companies/trending?limit=6').then(setTrendingCompanies)
   }, [])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const hasToken = !!window.localStorage.getItem('token')
+    const onboardingFlag = window.localStorage.getItem('onboarding')
+    if (hasToken && onboardingFlag === '1') {
+      setShowOnboarding(true)
+    }
+  }, [])
+
+  const handleNewsletterSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!newsletterEmail.trim()) return
+    const subject = encodeURIComponent('EarningsNerd newsletter')
+    const body = encodeURIComponent(`Please add me to the EarningsNerd newsletter: ${newsletterEmail.trim()}`)
+    window.location.href = `mailto:hello@earningsnerd.com?subject=${subject}&body=${body}`
+    setNewsletterEmail('')
+  }
+
+  const handleCloseOnboarding = () => {
+    setShowOnboarding(false)
+    if (typeof window !== 'undefined') {
+      window.localStorage.removeItem('onboarding')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 text-gray-900 dark:text-slate-100">
       <div className="absolute inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-primary-500/10 dark:bg-primary-500/10 blur-3xl" />
-        <div className="absolute top-1/3 right-0 h-[420px] w-[420px] rounded-full bg-purple-500/10 dark:bg-purple-500/10 blur-3xl" />
-        <div className="absolute bottom-0 left-1/2 h-[360px] w-[360px] -translate-x-1/2 rounded-full bg-blue-500/10 dark:bg-blue-500/10 blur-3xl" />
+        <div
+          className="absolute -top-40 -left-40 h-[520px] w-[520px] rounded-full bg-primary-500/20 dark:bg-primary-500/20 blur-3xl animate-float"
+          style={{ animationDelay: '0s' }}
+        />
+        <div
+          className="absolute top-1/3 right-0 h-[420px] w-[420px] rounded-full bg-purple-500/20 dark:bg-purple-500/20 blur-3xl animate-float"
+          style={{ animationDelay: '1s' }}
+        />
+        <div
+          className="absolute bottom-0 left-1/2 h-[360px] w-[360px] -translate-x-1/2 rounded-full bg-blue-500/20 dark:bg-blue-500/20 blur-3xl animate-float"
+          style={{ animationDelay: '2s' }}
+        />
       </div>
 
       {/* Header */}
@@ -113,9 +150,148 @@ export default function Home() {
               <span className="relative z-10">Start free trial</span>
               <div className="absolute inset-0 rounded-full bg-gradient-to-r from-sky-400 via-indigo-400 to-purple-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </Link>
+            <button
+              type="button"
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="md:hidden inline-flex items-center justify-center rounded-full border border-gray-200/60 dark:border-white/10 bg-white/70 dark:bg-slate-950/70 p-2 text-gray-700 dark:text-slate-200 shadow-sm"
+              aria-label="Open navigation menu"
+              aria-expanded={isMobileMenuOpen}
+              aria-controls="mobile-nav"
+            >
+              <span className="sr-only">Open menu</span>
+              <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <line x1="3" y1="6" x2="21" y2="6" />
+                <line x1="3" y1="12" x2="21" y2="12" />
+                <line x1="3" y1="18" x2="21" y2="18" />
+              </svg>
+            </button>
           </div>
         </div>
       </header>
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true">
+          <div
+            className="absolute inset-0 bg-slate-950/40 backdrop-blur-sm"
+            onClick={() => setIsMobileMenuOpen(false)}
+          />
+          <div
+            id="mobile-nav"
+            className="absolute right-4 top-4 w-[calc(100%-2rem)] max-w-sm rounded-3xl border border-gray-200/60 dark:border-white/10 bg-white dark:bg-slate-950 p-6 shadow-2xl"
+          >
+            <div className="flex items-center justify-between">
+              <EarningsNerdLogo variant="full" iconClassName="h-9 w-9" hideTagline />
+              <button
+                type="button"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="inline-flex items-center justify-center rounded-full border border-gray-200/60 dark:border-white/10 p-2 text-gray-600 dark:text-slate-300"
+                aria-label="Close navigation menu"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                  <line x1="6" y1="18" x2="18" y2="6" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mt-6 space-y-4 text-sm font-medium text-gray-700 dark:text-slate-200">
+              <Link href="#product" onClick={() => setIsMobileMenuOpen(false)} className="block">
+                Product
+              </Link>
+              <Link href="#workflow" onClick={() => setIsMobileMenuOpen(false)} className="block">
+                Workflow
+              </Link>
+              <Link href="#insights" onClick={() => setIsMobileMenuOpen(false)} className="block">
+                Insights
+              </Link>
+              <Link href="#pricing" onClick={() => setIsMobileMenuOpen(false)} className="block">
+                Pricing
+              </Link>
+            </div>
+
+            <div className="mt-6 space-y-3">
+              <Link
+                href="/login"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block rounded-full border border-gray-200/60 dark:border-white/10 px-4 py-2 text-center text-sm font-semibold text-gray-700 dark:text-slate-200"
+              >
+                Log in
+              </Link>
+              <Link
+                href="/register"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="block rounded-full bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-500 px-4 py-2 text-center text-sm font-semibold text-white"
+              >
+                Start free trial
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showOnboarding && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/50 px-6 py-10 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-3xl border border-white/10 bg-white p-8 shadow-2xl dark:bg-slate-950">
+            <div className="flex items-start justify-between gap-6">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-[0.2em] text-gray-500 dark:text-slate-400">
+                  Welcome to EarningsNerd
+                </div>
+                <h2 className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">
+                  Your first insight is moments away
+                </h2>
+                <p className="mt-2 text-sm text-gray-600 dark:text-slate-300">
+                  Follow this quick path to generate your first AI summary.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseOnboarding}
+                className="rounded-full border border-gray-200/60 dark:border-white/10 p-2 text-gray-600 dark:text-slate-300"
+                aria-label="Close onboarding"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              {[
+                {
+                  title: '1. Search a company',
+                  detail: 'Use the search bar to pull any ticker or company name.',
+                },
+                {
+                  title: '2. Open a filing',
+                  detail: 'Pick a 10-K, 10-Q, or 8-K to analyze.',
+                },
+                {
+                  title: '3. Generate a summary',
+                  detail: 'We create an executive-ready brief in minutes.',
+                },
+              ].map((step) => (
+                <div key={step.title} className="rounded-2xl border border-gray-200/60 dark:border-white/10 bg-gray-50 dark:bg-slate-900/60 p-4 text-sm">
+                  <div className="font-semibold text-gray-900 dark:text-white">{step.title}</div>
+                  <p className="mt-2 text-gray-600 dark:text-slate-300">{step.detail}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleCloseOnboarding}
+                className="rounded-full bg-gray-900 px-5 py-2 text-sm font-semibold text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+              >
+                Start searching
+              </button>
+              <Link
+                href="/pricing"
+                onClick={handleCloseOnboarding}
+                className="text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-slate-300 dark:hover:text-white"
+              >
+                Review plans
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       <main>
         {/* Hero with Search Front and Center */}
@@ -171,6 +347,9 @@ export default function Home() {
                 <p className="text-base text-gray-700 dark:text-slate-300 leading-relaxed font-light">
                   Average time saved reviewing quarterly filings across our customer base.
                 </p>
+                <p className="mt-2 text-xs uppercase tracking-wider text-gray-500 dark:text-slate-400">
+                  Based on 2024 customer survey
+                </p>
               </div>
             </div>
             <div className="group relative overflow-hidden rounded-3xl border border-gray-200/60 dark:border-white/10 bg-gradient-to-br from-white to-purple-50/30 dark:from-white/5 dark:to-white/5 p-8 shadow-xl shadow-purple-500/10 transition-all duration-300 hover:shadow-2xl hover:shadow-purple-500/20 hover:scale-105">
@@ -181,6 +360,9 @@ export default function Home() {
                 </div>
                 <p className="text-base text-gray-700 dark:text-slate-300 leading-relaxed font-light">
                   Summaries generated for public companies, powered by audited SEC source data.
+                </p>
+                <p className="mt-2 text-xs uppercase tracking-wider text-gray-500 dark:text-slate-400">
+                  Since launch in 2023
                 </p>
               </div>
             </div>
@@ -466,9 +648,49 @@ export default function Home() {
             <p className="max-w-2xl text-lg text-gray-600 dark:text-slate-300 leading-relaxed font-light">
               Start free, then scale with real-time alerts, CRM integrations, and custom governance. Our customer team builds the perfect bundle for your workflow.
             </p>
+            <div className="mt-8 grid w-full gap-6 md:grid-cols-2">
+              <div className="rounded-3xl border border-gray-200/60 dark:border-white/10 bg-white/80 dark:bg-white/5 p-6 text-left shadow-lg shadow-gray-900/5">
+                <div className="text-sm font-semibold uppercase tracking-wider text-gray-500 dark:text-slate-400">Free</div>
+                <div className="mt-2 text-4xl font-bold text-gray-900 dark:text-white">$0</div>
+                <div className="text-sm text-gray-500 dark:text-slate-400">per month</div>
+                <ul className="mt-5 space-y-3 text-sm text-gray-600 dark:text-slate-300">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-sky-500" />
+                    5 summaries per month
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-sky-500" />
+                    Company search + filing access
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-sky-500" />
+                    Basic AI summary
+                  </li>
+                </ul>
+              </div>
+              <div className="rounded-3xl border border-indigo-500/40 bg-gradient-to-br from-slate-900 to-slate-950 p-6 text-left shadow-xl shadow-indigo-500/20">
+                <div className="text-sm font-semibold uppercase tracking-wider text-indigo-200">Pro</div>
+                <div className="mt-2 text-4xl font-bold text-white">$19</div>
+                <div className="text-sm text-indigo-200">per month</div>
+                <ul className="mt-5 space-y-3 text-sm text-indigo-100">
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-indigo-300" />
+                    Unlimited summaries + exports
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-indigo-300" />
+                    Multi-year comparisons
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 text-indigo-300" />
+                    Priority support
+                  </li>
+                </ul>
+              </div>
+            </div>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-5">
               <Link
-                href="/register"
+                href="/pricing"
                 className="group relative inline-flex items-center rounded-full bg-gradient-to-r from-sky-500 via-indigo-500 to-purple-500 px-8 py-4 text-base font-semibold text-white shadow-2xl shadow-indigo-500/40 transition-all duration-300 hover:shadow-3xl hover:shadow-indigo-500/50 hover:scale-105"
               >
                 <span className="relative z-10">Compare plans</span>
@@ -486,12 +708,77 @@ export default function Home() {
       </main>
 
       <footer className="border-t border-gray-200/50 dark:border-white/10 bg-gradient-to-b from-gray-50 to-white dark:from-slate-950/60 dark:to-slate-950">
-        <div className="mx-auto flex max-w-7xl flex-col gap-8 px-6 py-12 text-sm text-gray-600 dark:text-slate-400 md:flex-row md:items-center md:justify-between">
-          <div className="font-medium">&copy; {new Date().getFullYear()} EarningsNerd. All rights reserved.</div>
-          <div className="flex flex-wrap items-center gap-8">
-            <Link href="/privacy" className="transition-all duration-200 hover:text-gray-900 dark:hover:text-white font-medium">Privacy</Link>
-            <Link href="/security" className="transition-all duration-200 hover:text-gray-900 dark:hover:text-white font-medium">Security</Link>
-            <Link href="mailto:hello@earningsnerd.com" className="transition-all duration-200 hover:text-gray-900 dark:hover:text-white font-medium">Contact</Link>
+        <div className="mx-auto max-w-7xl px-6 py-14">
+          <div className="grid gap-10 lg:grid-cols-[1.2fr_2fr]">
+            <div>
+              <EarningsNerdLogo variant="full" iconClassName="h-10 w-10" hideTagline />
+              <p className="mt-4 text-sm text-gray-600 dark:text-slate-400 leading-relaxed">
+                AI earnings intelligence for funds, IR teams, and strategy leaders who want instant clarity on SEC filings.
+              </p>
+            </div>
+            <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-3 text-sm text-gray-600 dark:text-slate-400">
+                <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-slate-500">Product</div>
+                <Link href="/pricing" className="block hover:text-gray-900 dark:hover:text-white">Pricing</Link>
+                <Link href="/compare" className="block hover:text-gray-900 dark:hover:text-white">Compare filings</Link>
+                <Link href="/dashboard" className="block hover:text-gray-900 dark:hover:text-white">Dashboard</Link>
+                <Link href="/security" className="block hover:text-gray-900 dark:hover:text-white">Security</Link>
+              </div>
+              <div className="space-y-3 text-sm text-gray-600 dark:text-slate-400">
+                <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-slate-500">Company</div>
+                <Link href="/#insights" className="block hover:text-gray-900 dark:hover:text-white">Customer stories</Link>
+                <Link href="mailto:hello@earningsnerd.com" className="block hover:text-gray-900 dark:hover:text-white">Contact</Link>
+                <Link href="mailto:hello@earningsnerd.com?subject=Partnerships" className="block hover:text-gray-900 dark:hover:text-white">Partnerships</Link>
+                <Link href="mailto:hello@earningsnerd.com?subject=Careers" className="block hover:text-gray-900 dark:hover:text-white">Careers</Link>
+              </div>
+              <div className="space-y-3 text-sm text-gray-600 dark:text-slate-400">
+                <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-slate-500">Resources</div>
+                <Link href="/#product" className="block hover:text-gray-900 dark:hover:text-white">Product tour</Link>
+                <Link href="/#workflow" className="block hover:text-gray-900 dark:hover:text-white">Workflow</Link>
+                <Link href="/#pricing" className="block hover:text-gray-900 dark:hover:text-white">Plan guide</Link>
+                <Link href="mailto:hello@earningsnerd.com?subject=Support" className="block hover:text-gray-900 dark:hover:text-white">Support</Link>
+              </div>
+              <div className="space-y-3 text-sm text-gray-600 dark:text-slate-400">
+                <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-slate-500">Legal</div>
+                <Link href="/privacy" className="block hover:text-gray-900 dark:hover:text-white">Privacy</Link>
+                <Link href="/security" className="block hover:text-gray-900 dark:hover:text-white">Security</Link>
+                <Link href="mailto:hello@earningsnerd.com?subject=Compliance" className="block hover:text-gray-900 dark:hover:text-white">Compliance</Link>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-12 flex flex-col items-start gap-6 rounded-3xl border border-gray-200/60 dark:border-white/10 bg-white/80 dark:bg-white/5 p-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-sm font-semibold text-gray-900 dark:text-white">Get weekly earnings intelligence</div>
+              <p className="mt-1 text-sm text-gray-600 dark:text-slate-400">
+                Join the digest for new filings, risk shifts, and catalyst alerts.
+              </p>
+            </div>
+            <form onSubmit={handleNewsletterSubmit} className="flex w-full max-w-md flex-col gap-3 sm:flex-row">
+              <input
+                type="email"
+                value={newsletterEmail}
+                onChange={(event) => setNewsletterEmail(event.target.value)}
+                placeholder="you@fund.com"
+                className="w-full flex-1 rounded-full border border-gray-200/60 dark:border-white/10 bg-white dark:bg-slate-950 px-4 py-3 text-sm text-gray-900 dark:text-white placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                required
+              />
+              <button
+                type="submit"
+                className="rounded-full bg-gray-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
+              >
+                Join digest
+              </button>
+            </form>
+          </div>
+
+          <div className="mt-10 flex flex-col gap-4 text-xs text-gray-500 dark:text-slate-500 sm:flex-row sm:items-center sm:justify-between">
+            <div>&copy; {new Date().getFullYear()} EarningsNerd. All rights reserved.</div>
+            <div className="flex flex-wrap items-center gap-6">
+              <span>Built on SEC EDGAR data</span>
+              <span>Secure payments via Stripe</span>
+              <span>Customer-first support</span>
+            </div>
           </div>
         </div>
       </footer>

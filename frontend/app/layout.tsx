@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { DM_Sans, Fraunces } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
 
-const inter = Inter({ subsets: ['latin'] })
+const dmSans = DM_Sans({ subsets: ['latin'], variable: '--font-sans' })
+const fraunces = Fraunces({ subsets: ['latin'], variable: '--font-display' })
 
 export const metadata: Metadata = {
   title: 'EarningsNerd - AI-Powered SEC Filing Analysis',
@@ -48,7 +49,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={inter.className}>
+      <body className={`${dmSans.variable} ${fraunces.variable}`}>
         <Providers>{children}</Providers>
       </body>
     </html>

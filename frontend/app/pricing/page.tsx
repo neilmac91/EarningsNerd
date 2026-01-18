@@ -3,11 +3,11 @@
 import { useState, Suspense } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { createCheckoutSession, getSubscriptionStatus, getUsage } from '@/lib/api'
-import { Check, Sparkles, Loader2, ArrowRight } from 'lucide-react'
+import { Check, Sparkles, Loader2, ArrowRight, ShieldCheck, Lock, CreditCard } from 'lucide-react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import Navbar from '@/components/Navbar'
 
 function PricingContent() {
   const router = useRouter()
@@ -99,19 +99,9 @@ function PricingContent() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      {/* Header */}
-      <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
-              ← Back to Home
-            </Link>
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
+      <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 animate-fadeIn">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-gray-900 mb-4">Pricing</h1>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
@@ -168,36 +158,36 @@ function PricingContent() {
           {plans.map((plan) => (
             <div
               key={plan.name}
-              className={`relative rounded-2xl border-2 p-8 ${
+              className={`relative rounded-3xl border p-8 backdrop-blur-xl transition-all ${
                 plan.popular
-                  ? 'border-primary-500 bg-white shadow-lg'
-                  : 'border-gray-200 bg-white'
+                  ? 'border-primary-500/60 bg-gradient-to-br from-white via-white to-primary-50 shadow-2xl shadow-primary-500/20 dark:border-primary-400/60 dark:from-slate-900/80 dark:via-slate-900/60 dark:to-slate-950 dark:shadow-primary-500/20'
+                  : 'border-gray-200/70 bg-white/80 shadow-xl shadow-gray-900/5 dark:border-white/10 dark:bg-slate-900/70 dark:shadow-black/30'
               }`}
             >
               {plan.popular && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                  <span className="bg-primary-600 text-white px-4 py-1 rounded-full text-sm font-medium">
+                  <span className="bg-primary-600 text-white px-4 py-1 rounded-full text-sm font-medium shadow-lg shadow-primary-500/30">
                     Most Popular
                   </span>
                 </div>
               )}
 
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">{plan.name}</h3>
                 <div className="flex items-baseline justify-center">
-                  <span className="text-5xl font-bold text-gray-900">{plan.price}</span>
+                  <span className="text-5xl font-bold text-gray-900 dark:text-white">{plan.price}</span>
                   {plan.period !== 'forever' && (
-                    <span className="text-gray-600 ml-2">/{plan.period}</span>
+                    <span className="text-gray-600 dark:text-slate-300 ml-2">/{plan.period}</span>
                   )}
                 </div>
-                <p className="text-gray-600 mt-2">{plan.description}</p>
+                <p className="text-gray-600 dark:text-slate-300 mt-2">{plan.description}</p>
               </div>
 
               <ul className="space-y-4 mb-8">
                 {plan.features.map((feature, index) => (
                   <li key={index} className="flex items-start">
                     <Check className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">{feature}</span>
+                    <span className="text-gray-700 dark:text-slate-200">{feature}</span>
                   </li>
                 ))}
               </ul>
@@ -205,9 +195,9 @@ function PricingContent() {
               <button
                 onClick={() => plan.priceId && handleUpgrade(plan.priceId)}
                 disabled={plan.disabled || !plan.priceId || isLoadingCheckout === plan.priceId}
-                className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
+                className={`w-full py-3 px-4 rounded-full font-semibold transition-colors ${
                   plan.disabled
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-slate-800/60 dark:text-slate-500'
                     : plan.popular
                     ? 'bg-primary-600 text-white hover:bg-primary-700'
                     : 'bg-gray-900 text-white hover:bg-gray-800'
@@ -224,6 +214,26 @@ function PricingContent() {
               </button>
             </div>
           ))}
+        </div>
+
+        {/* Trust Signals */}
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3 text-xs text-gray-600 dark:text-slate-300">
+          <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2">
+            <ShieldCheck className="h-4 w-4 text-green-600" />
+            Secured by Stripe
+          </span>
+          <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2">
+            <Lock className="h-4 w-4 text-blue-600" />
+            SSL encrypted checkout
+          </span>
+          <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2">
+            <CreditCard className="h-4 w-4 text-purple-600" />
+            Visa, Mastercard, AmEx
+          </span>
+          <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 dark:border-white/10 bg-white dark:bg-slate-900 px-4 py-2">
+            <Sparkles className="h-4 w-4 text-amber-500" />
+            30-day money-back guarantee
+          </span>
         </div>
 
         {/* FAQ */}

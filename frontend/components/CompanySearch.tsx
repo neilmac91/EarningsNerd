@@ -42,7 +42,7 @@ export default function CompanySearch() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search for a company (e.g., AAPL, Apple, Microsoft)..."
-          className="w-full pl-12 pr-4 py-4 text-lg text-gray-900 placeholder:text-gray-500 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 bg-white"
+          className="w-full pl-12 pr-4 py-4 text-lg text-gray-900 placeholder:text-gray-500 border-2 border-gray-300 rounded-xl focus:outline-none focus:border-primary-500 bg-white"
         />
         {isLoading && (
           <Loader2 className="absolute right-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5 animate-spin" />

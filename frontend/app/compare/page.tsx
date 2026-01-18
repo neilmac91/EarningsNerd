@@ -8,7 +8,7 @@ import { Loader2, X, TrendingUp, TrendingDown, AlertCircle, BarChart3 } from 'lu
 import Link from 'next/link'
 import { format } from 'date-fns'
 import SubscriptionGate from '@/components/SubscriptionGate'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import Navbar from '@/components/Navbar'
 
 export default function ComparePage() {
   const router = useRouter()
@@ -54,18 +54,9 @@ export default function ComparePage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
-              ← Back to Home
-            </Link>
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
+      <Navbar />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 animate-fadeIn">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Compare Filings</h1>
           <p className="text-gray-600">Select 2-5 filings to compare side-by-side</p>

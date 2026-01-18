@@ -1,7 +1,6 @@
 'use client'
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getFiling, getSummary, generateSummary, generateSummaryStream, Filing, Summary, getSubscriptionStatus, saveSummary, getSavedSummaries, getSummaryProgress, SummaryProgressData, getCompany, getCompanyFilings, Company } from '@/lib/api'
 import { Loader2, AlertCircle, FileText, Download, FileDown, Bookmark, BookmarkCheck } from 'lucide-react'
@@ -18,7 +17,7 @@ import SummaryProgress from '@/components/SummaryProgress'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import { AxiosError, isAxiosError } from 'axios'
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
-import { ThemeToggle } from '@/components/ThemeToggle'
+import Navbar from '@/components/Navbar'
 
 const FinancialCharts = dynamic(() => import('@/components/FinancialCharts'), {
   ssr: false,
@@ -404,20 +403,20 @@ export default function FilingPageClient() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <Navbar />
       {/* Header */}
       <header className="bg-gradient-to-r from-white via-gray-50 to-white dark:from-gray-800 dark:via-gray-900 dark:to-gray-800 shadow-lg border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex items-center justify-between mb-4">
-            <button 
+            <button
               onClick={handleBack}
               className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 inline-flex items-center space-x-1 transition-colors group"
             >
               <span className="group-hover:-translate-x-1 transition-transform">←</span>
               <span>Back</span>
             </button>
-            <ThemeToggle />
           </div>
-          
+
           <div className="flex items-start justify-between">
             <div className="flex-1">
               {filing.company ? (
@@ -458,7 +457,7 @@ export default function FilingPageClient() {
                 </>
               )}
             </div>
-            
+
             {/* Tech badge */}
             <div className="hidden md:flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-primary-50 to-blue-50 dark:from-primary-900/20 dark:to-blue-900/20 rounded-lg border border-primary-200 dark:border-primary-800">
               <div className="w-2 h-2 bg-primary-600 dark:bg-primary-400 rounded-full animate-pulse"></div>
@@ -469,7 +468,7 @@ export default function FilingPageClient() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fadeIn">
         {isStreaming || (hasStartedGeneration && !hasSummaryContent) ? (
           <StreamingSummaryDisplay 
             streamingText={streamingText}
