@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     PASSWORD_MIN_LENGTH: int = 12
+    JWT_ISSUER: str = "earningsnerd"
+    JWT_AUDIENCE: str = "earningsnerd-users"
+    JWT_LEEWAY_SECONDS: int = 10
 
     @field_validator('SECRET_KEY', mode='before')
     @classmethod
