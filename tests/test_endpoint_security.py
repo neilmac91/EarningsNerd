@@ -1,4 +1,4 @@
-import importlib
+import sys
 import os
 from datetime import datetime, timezone
 
@@ -12,17 +12,18 @@ def _load_app(tmp_path):
     os.environ["DATABASE_URL"] = f"sqlite:///{tmp_path}/test_api.db"
     os.environ["OPENAI_API_KEY"] = ""
 
+    for module_name in list(sys.modules):
+        if module_name == "main" or module_name.startswith("app."):
+            sys.modules.pop(module_name)
+
     import app.config
     import app.database
+    import app.models
     import app.routers.auth
     import app.routers.summaries
     import main
 
-    importlib.reload(app.config)
-    importlib.reload(app.database)
-    importlib.reload(app.routers.auth)
-    importlib.reload(app.routers.summaries)
-    importlib.reload(main)
+    app.database.Base.metadata.create_all(bind=app.database.engine)
 
     return main.app
 
@@ -77,6 +78,33 @@ def test_auth_cookie_allows_me(tmp_path):
     assert me_response.status_code == 200
     payload = me_response.json()
     assert payload["email"] == "user@example.com"
+
+
+def test_security_headers_present_on_api_responses(tmp_path):
+    app = _load_app(tmp_path)
+    client = TestClient(app)
+
+    _register_user(client)
+    response = client.get("/api/auth/me")
+    assert response.status_code == 200
+    assert response.headers.get("X-Content-Type-Options") == "nosniff"
+    assert response.headers.get("X-Frame-Options") == "DENY"
+    assert response.headers.get("Referrer-Policy") == "strict-origin-when-cross-origin"
+    assert response.headers.get("Permissions-Policy") == "geolocation=(), microphone=(), camera=()"
+    assert response.headers.get("Content-Security-Policy") == "default-src 'none'"
+    assert "Strict-Transport-Security" not in response.headers
+
+
+def test_email_normalization_accepts_case_insensitive_login(tmp_path):
+    app = _load_app(tmp_path)
+    client = TestClient(app)
+
+    _register_user(client, email="CaseSensitive@Example.com")
+    login = client.post(
+        "/api/auth/login",
+        json={"email": "casesensitive@example.com", "password": "StrongPass123"},
+    )
+    assert login.status_code == 200
 
 
 def test_summary_requires_auth_and_rate_limits(tmp_path, monkeypatch):

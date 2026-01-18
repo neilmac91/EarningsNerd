@@ -15,7 +15,7 @@ from app.services.sec_edgar import sec_edgar_service
 from app.services.openai_service import openai_service, _normalize_risk_factors
 from app.services.xbrl_service import xbrl_service
 from app.schemas import attach_normalized_facts
-from app.routers.auth import get_current_user
+from app.routers.auth import get_current_user, get_current_user_optional
 from app.routers.subscriptions import check_usage_limit, increment_user_usage, get_current_month
 from app.services.export_service import export_service
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
@@ -595,16 +595,17 @@ async def generate_summary(
     if summary:
         return summary
     
-    # Begin transaction
-    db.begin()
     try:
         # Lock the row for the given filing_id to prevent race conditions
-        progress = db.query(SummaryGenerationProgress).filter(
-            SummaryGenerationProgress.filing_id == filing_id
-        ).with_for_update().first()
+        progress = (
+            db.query(SummaryGenerationProgress)
+            .filter(SummaryGenerationProgress.filing_id == filing_id)
+            .with_for_update()
+            .first()
+        )
 
         # If progress exists and is not in an error state, another task is already running or completed
-        if progress and progress.stage not in ['error']:
+        if progress and progress.stage not in ["error"]:
             # Return a response indicating that generation is already in progress
             return {
                 "id": 0,
@@ -614,24 +615,26 @@ async def generate_summary(
                 "risk_factors": None,
                 "management_discussion": None,
                 "key_changes": None,
-                "raw_summary": None
+                "raw_summary": None,
             }
 
-    # Check usage limits for authenticated user
-    user_id = current_user.id
-    can_generate, current_count, limit = check_usage_limit(current_user, db)
-    if not can_generate:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=f"You've reached your monthly limit of {limit} summaries. Upgrade to Pro for unlimited summaries."
-        )
-        
+        # Check usage limits for authenticated user
+        user_id = current_user.id
+        can_generate, current_count, limit = check_usage_limit(current_user, db)
+        if not can_generate:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    f"You've reached your monthly limit of {limit} summaries. "
+                    "Upgrade to Pro for unlimited summaries."
+                ),
+            )
+
         # If no progress or errored progress, (re)start the generation
         _record_progress(db, filing_id, "queued")
         db.commit()
 
         asyncio.create_task(_generate_summary_background(filing_id, user_id))
-    
     except Exception as e:
         db.rollback()
         raise e
