@@ -1,7 +1,6 @@
 'use client'
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
-import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getFiling, getSummary, generateSummary, generateSummaryStream, Filing, Summary, getSubscriptionStatus, saveSummary, getSavedSummaries, getSummaryProgress, SummaryProgressData, getCompany, getCompanyFilings, Company } from '@/lib/api'
 import { Loader2, AlertCircle, FileText, Download, FileDown, Bookmark, BookmarkCheck } from 'lucide-react'
