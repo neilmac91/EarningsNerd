@@ -203,90 +203,77 @@ These are the absolute must-have features to solve the core problem and deliver 
 
 ---
 
-#### Feature 3: AI Summarization Engine
-**Description:** Generate concise, structured summaries of business overview, financials, risks, and management discussion.
+#### Feature 3: AI Summarization Engine (RAG-Powered)
+**Description:** Generate concise, structured summaries using Retrieval Augmented Generation to minimize costs and maximize accuracy.
 
 **Functionality:**
-- Parse filing text into structured sections
+- Parse filing text into structured sections (Business, Risks, Financials, MD&A)
+- **Vector Search:** Query specific topics (e.g., "AI strategy", "Litigation") within the filing
 - Generate summaries for:
   - **Business Overview**: Company description, products/services, market position
   - **Financial Highlights**: Revenue, earnings, key metrics
   - **Risk Factors**: Top 10-15 risks with context
   - **Management Discussion (MD&A)**: Strategic commentary and outlook
 - Display summary in readable, scannable format
-- Include confidence scores or source citations
-- Token-efficient processing (focus on key sections)
+- Include source citations (linking back to exact text in filing)
 
 **Technical Requirements:**
-- OpenAI GPT-4/Claude API for summarization
-- Text extraction from XBRL/HTML filings
-- Section identification using regex/NLP
-- Prompt engineering for financial context
-- Response caching to reduce API costs
+- **Supabase pgvector** for storing text chunks and embeddings
+- **LangChain / LlamaIndex** for orchestration
+- **OpenAI / Llama 3** for synthesis
+- **Pre-computation:** Run automatically for S&P 500 companies upon filing release
 
-**User Value:** Transform 200+ page documents into 5-minute reads with actionable insights.
+**User Value:** Transform 200+ page documents into 5-minute reads with actionable insights, backed by source data.
 
 ---
 
-#### Feature 4: Historical Filings Access
+#### Feature 4: Watchlist & Real-time Alerts (Push)
+**Description:** Users follow companies and receive immediate notifications when new summaries are available.
+
+**Functionality:**
+- "Follow" button on company pages
+- Email and In-App notifications when:
+  - A monitored company files a 10-K/10-Q
+  - A summary is ready to view
+  - (Pro) A specific risk keyword is detected (e.g., "antitrust")
+- Daily/Weekly digest email options
+
+**Technical Requirements:**
+- **Supabase Realtime** / Webhooks
+- **Transactional Email Provider** (Resend or SendGrid)
+- **Background Worker** to trigger alerts upon filing processing
+
+**User Value:** "Set and forget" intelligence. Investors stay informed without constantly checking the site.
+
+---
+
+#### Feature 5: Historical Filings Access
 **Description:** Allow users to view and summarize previous years' or quarters' reports.
 
 **Functionality:**
 - Dropdown/selector for filing period (e.g., "Q3 2024", "2023 Annual")
 - Display filing date and period covered
-- Generate summaries for historical filings on-demand
+- Generate summaries for historical filings on-demand (Pro feature)
 - Show filing status (available, processing, error)
 - Link to original SEC filing document
 
 **Technical Requirements:**
 - Historical filing metadata from SEC API
 - Lazy loading of summaries (generate when requested)
-- Storage of historical summaries in database
 - Pagination for companies with long filing histories
 
-**User Value:** Track company evolution over time without manual document retrieval.
-
----
-
-#### Feature 5: Pro Plan Multi-Year Analysis
-**Description:** Compare multiple filings side-by-side, highlighting changes and trends in metrics or risk factors.
-
-**Functionality:**
-- Select 2-5 filing periods for comparison
-- Side-by-side view of summaries
-- Highlight changes in:
-  - Financial metrics (revenue growth, margin changes)
-  - Risk factors (new risks, removed risks, severity changes)
-  - Strategic language (MD&A tone shifts)
-- AI-generated trend commentary
-- Export comparison as PDF or CSV
-
-**Technical Requirements:**
-- Diff algorithm for text comparison
-- Financial metric extraction and normalization
-- Trend detection using NLP
-- PDF generation library (e.g., Puppeteer, ReportLab)
-
-**User Value:** Identify patterns and changes that would take hours to spot manually.
+**User Value:** Track company evolution over time.
 
 ---
 
 ### B. Future Roadmap (Post-MVP)
 
-#### Version 2.0 - Enhanced Analytics & Visualization
-
-**Interactive Financial Charts & Data Visualization**
-- Revenue, EPS, cash flow trends over time
-- Interactive charts (Chart.js, D3.js, or Recharts)
-- Custom date range selection
-- Export charts as images
-- Multi-metric overlays (e.g., revenue + margin)
+#### Version 2.0 - Enhanced Intelligence
 
 **Natural-Language Query**
 - "Summarize Apple's last three years of R&D expenses"
 - "What are Tesla's top 5 risk factors in 2024?"
 - "Compare Microsoft and Amazon's revenue growth rates"
-- Voice input support (optional)
 - Query history and saved queries
 
 **Support for Additional Filings**
@@ -375,55 +362,51 @@ These are the absolute must-have features to solve the core problem and deliver 
 
 ### Backend
 
-**Framework: FastAPI (Python)**
-- **Why:** 
-  - High performance (comparable to Node.js)
-  - Excellent async support (critical for SEC API calls)
-  - Automatic API documentation (OpenAPI/Swagger)
-  - Type hints and validation (Pydantic)
-  - Strong ecosystem for data processing and AI
-
-**Alternatives Considered:**
-- Node.js/Express: Chosen FastAPI for Python's AI/ML ecosystem
-- Django: Too heavy for API-first architecture
+**Architecture: Next.js API + Python Worker (Decoupled)**
+- **Next.js API (Serverless)**: Handles user-facing interactions (Search, Auth, DB reads).
+- **Python Worker (Background Service)**: Handles heavy lifting (SEC parsing, AI summarization).
+  - **Why:** Separation of concerns. User UI stays snappy (Next.js), while long-running jobs happen asynchronously.
+  - **Framework:** FastAPI (for the worker interface) or simple Python scripts triggered by queue.
+  - **Queue:** Redis/BullMQ or Supabase Database Webhooks.
 
 **Key Libraries:**
-- `httpx` or `aiohttp` for async HTTP requests (SEC API)
+- `httpx` for async HTTP requests (SEC API)
 - `pydantic` for data validation
-- `python-multipart` for file handling
-- `celery` for background tasks (V2 - async summary generation)
+- `langchain` / `llama-index` for RAG pipeline
+- `beautifulsoup4` for HTML parsing
 
 ---
 
-### Database
+### Database & Storage
 
-**Primary Database: PostgreSQL**
-- **Why:**
-  - Reliable, mature, excellent for structured data
-  - Strong JSON support (for storing filing metadata)
-  - Full-text search capabilities (for company search)
-  - ACID compliance for financial data integrity
+**Primary Platform: Supabase (Managed PostgreSQL)**
+- **Why:** All-in-one backend (DB, Auth, Realtime, Vector). Drastically reduces devops overhead.
+- **Features Used:**
+  - **PostgreSQL**: Core relational data (Users, Companies, Filings).
+  - **pgvector**: Vector embeddings for RAG (searchable filing chunks).
+  - **Supabase Auth**: User management handled automatically.
+  - **Edge Functions**: Lightweight API logic.
 
 **Schema Design:**
-- `users` - User accounts, subscription info
-- `companies` - Company metadata (ticker, CIK, name)
-- `filings` - Filing metadata (date, type, SEC URL)
-- `summaries` - AI-generated summaries (cached)
-- `user_searches` - Search history and favorites
-- `subscriptions` - Stripe subscription data
+- `profiles` (extends Auth) - Subscription status, preferences.
+- `companies` - Ticker, CIK, Metadata.
+- `filings` - URLs, Filing Date, Status.
+- `filing_chunks` - Text chunks + Vector Embeddings (for RAG).
+- `summaries` - Cached AI outputs.
+- `watchlists` - User-monitored tickers.
 
-**Cache Layer: Redis**
-- **Why:**
-  - Fast caching for frequently accessed summaries
-  - Session storage
-  - Rate limiting (prevent API abuse)
-  - Background job queue (optional, if not using Celery)
+**Cache Layer: Redis (Upstash)**
+- **Usage:** Rate limiting, ephemeral job queues.
 
-**Use Cases:**
-- Cache AI summaries (24-hour TTL)
-- Cache company search results (1-hour TTL)
-- Rate limiting per user/IP
-- Session management
+---
+
+### Authentication
+
+**Solution: Supabase Auth**
+- **Why:** Zero-maintenance, supports Email/Password, Magic Links, and OAuth (Google/GitHub).
+- **Integration:** Native support in Next.js via `@supabase/auth-helpers-nextjs`.
+- **Security:** Row Level Security (RLS) policies ensure users only access their own data (e.g., watchlists).
+
 
 ---
 
@@ -439,18 +422,15 @@ These are the absolute must-have features to solve the core problem and deliver 
 - **Authentication:** None required (public data)
 - **Cost:** Free
 
-#### OpenAI GPT-4/Claude API
+#### OpenAI GPT-4 / Llama 3 (via Groq/Together)
 - **Purpose:** Summarization and trend analysis
-- **Model:** GPT-4 Turbo (cost-effective, high quality) or Claude 3.5 Sonnet
-- **Use Cases:**
-  - Filing summarization (structured prompts)
-  - Trend detection and commentary
-  - Natural language queries (V2)
-- **Cost:** ~$0.01-0.03 per filing summary (depends on length)
-- **Optimization:** 
-  - Cache summaries in database
-  - Use streaming for long responses
-  - Extract key sections before summarization (reduce tokens)
+- **Model Strategy:**
+  - **Llama 3 (70b):** Fast, cheap extraction of structured data.
+  - **GPT-4 Turbo:** High-quality "Executive Summary" synthesis.
+- **RAG Implementation:**
+  - Filings are chunked and stored in `pgvector`.
+  - AI queries only relevant chunks (e.g., "Risk Factors") instead of full doc.
+- **Cost:** Optimized via RAG to be < $0.01 per summary.
 
 #### Stripe API
 - **Purpose:** Payments and subscription management
@@ -459,16 +439,6 @@ These are the absolute must-have features to solve the core problem and deliver 
   - Pro plan management
   - Usage-based billing (optional - for API-heavy users)
 - **Integration:** Stripe Checkout + Webhooks for subscription updates
-- **Cost:** 2.9% + $0.30 per transaction
-
-#### Authentication: Supabase Auth or NextAuth.js
-- **Supabase Auth:**
-  - **Pros:** Managed service, social logins, built-in email verification
-  - **Cons:** Additional service dependency
-- **NextAuth.js:**
-  - **Pros:** Self-hosted, flexible, OAuth providers
-  - **Cons:** More setup required
-- **Recommendation:** NextAuth.js for MVP (self-contained), Supabase Auth for faster development
 
 ---
 
@@ -859,24 +829,30 @@ These are the absolute must-have features to solve the core problem and deliver 
 ## 10. 💰 Monetization Model
 
 ### Revenue Streams
-1. **Subscription Revenue** (Primary)
-   - Free tier (limited features)
-   - Pro plan ($19/month or $190/year)
-   - Enterprise (custom pricing)
+1.  **Subscription Revenue (SaaS)**
+    *   **Free Tier (Delayed):**
+        *   Access to pre-generated summaries of S&P 500 companies (24-hour delay).
+        *   1 Watchlist item.
+    *   **Pro Plan ($19/mo):**
+        *   **Real-time:** Instant access to summaries upon filing.
+        *   **On-Demand:** Generate summaries for *any* ticker (not just S&P 500).
+        *   **Alerts:** Unlimited watchlist + email notifications.
+    *   **Enterprise:** Team seats and custom integrations.
 
-2. **API Access** (Future)
-   - Developer API for bulk access
-   - White-label solutions
+2.  **Data API (B2B)**
+    *   **Target:** Fintech apps, trading algorithms, news aggregators.
+    *   **Product:** JSON feed of structured earnings summaries and sentiment scores.
+    *   **Pricing:** Usage-based (per call) or fixed monthly licensing ($499/mo+).
+    *   **Value:** High margin, leveraging the same backend worker pipeline.
 
-3. **Affiliate Marketing** (Future)
-   - Brokerage partnerships
-   - Financial tool recommendations
+3.  **Affiliate Marketing (Secondary)**
+    *   Brokerage partnerships
+    *   Financial tool recommendations
 
 ### Unit Economics
-- **Cost per Summary**: ~$0.02-0.03 (OpenAI API + infrastructure)
-- **Free Tier Limit**: 5 summaries/month = ~$0.10-0.15 cost
-- **Pro Plan**: Unlimited = variable cost, but average user generates 20-30/month
-- **Target Margin**: 70-80% gross margin
+*   **Cost per Summary (RAG):** < $0.01 (Vector search + targeted generation)
+*   **Storage:** Negligible (Text + Vectors in Postgres)
+*   **Target Margin:** > 90% (due to RAG optimization and B2B API sales)
 
 ---
 

@@ -8,6 +8,11 @@ class Settings(BaseSettings):
     # Using SQLite for development if PostgreSQL is not available
     DATABASE_URL: str = "sqlite:///./earningsnerd.db"
     
+    # Supabase (New - for RAG and Auth)
+    SUPABASE_URL: str = ""
+    SUPABASE_ANON_KEY: str = ""
+    SUPABASE_SERVICE_KEY: str = ""  # For backend operations (bypasses RLS)
+    
     # Redis
     REDIS_URL: str = "redis://localhost:6379"
     
@@ -121,6 +126,22 @@ class Settings(BaseSettings):
             # but warn strongly
         
         return is_valid, warnings
+    
+    def validate_supabase_config(self) -> tuple[bool, list[str]]:
+        """Validate Supabase configuration and return (is_valid, warnings)"""
+        warnings = []
+        is_valid = True
+        
+        if not self.SUPABASE_URL:
+            warnings.append("SUPABASE_URL is not set. RAG features will be disabled.")
+            is_valid = False
+        
+        if not self.SUPABASE_SERVICE_KEY:
+            warnings.append("SUPABASE_SERVICE_KEY is not set. Backend cannot write to Supabase.")
+            is_valid = False
+        
+        return is_valid, warnings
 
 settings = Settings()
+
 

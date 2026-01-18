@@ -79,16 +79,16 @@ app.add_middleware(
 )
 
 # Include routers
-app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+# app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(companies.router, prefix="/api/companies", tags=["Companies"])
 app.include_router(filings.router, prefix="/api/filings", tags=["Filings"])
 app.include_router(summaries.router, prefix="/api/summaries", tags=["Summaries"])
-app.include_router(users.router, prefix="/api/users", tags=["Users"])
-app.include_router(subscriptions.router, prefix="/api/subscriptions", tags=["Subscriptions"])
-app.include_router(saved_summaries.router, prefix="/api/saved-summaries", tags=["Saved Summaries"])
-app.include_router(watchlist.router, prefix="/api/watchlist", tags=["Watchlist"])
+# app.include_router(users.router, prefix="/api/users", tags=["Users"])
+# app.include_router(subscriptions.router, prefix="/api/subscriptions", tags=["Subscriptions"])
+# app.include_router(saved_summaries.router, prefix="/api/saved-summaries", tags=["Saved Summaries"])
+# app.include_router(watchlist.router, prefix="/api/watchlist", tags=["Watchlist"])
 app.include_router(sitemap.router, tags=["SEO"])
-app.include_router(compare.router, prefix="/api/compare", tags=["Compare"])
+# app.include_router(compare.router, prefix="/api/compare", tags=["Compare"])
 app.include_router(hot_filings.router, prefix="/api", tags=["Hot Filings"])
 app.include_router(trending.router, prefix="/api", tags=["Trending"])
 
