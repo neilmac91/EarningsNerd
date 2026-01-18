@@ -586,19 +586,52 @@ async def generate_summary(
     if summary:
         return summary
     
-    # Check usage limits only if user is authenticated
-    user_id = None
-    if current_user:
-        can_generate, current_count, limit = check_usage_limit(current_user, db)
-        if not can_generate:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=f"You've reached your monthly limit of {limit} summaries. Upgrade to Pro for unlimited summaries."
-            )
-        user_id = current_user.id
+    # Begin transaction
+    db.begin()
+    try:
+        # Lock the row for the given filing_id to prevent race conditions
+        progress = db.query(SummaryGenerationProgress).filter(
+            SummaryGenerationProgress.filing_id == filing_id
+        ).with_for_update().first()
+
+        # If progress exists and is not in an error state, another task is already running or completed
+        if progress and progress.stage not in ['error']:
+            # Return a response indicating that generation is already in progress
+            return {
+                "id": 0,
+                "filing_id": filing_id,
+                "business_overview": "Summary generation is already in progress.",
+                "financial_highlights": None,
+                "risk_factors": None,
+                "management_discussion": None,
+                "key_changes": None,
+                "raw_summary": None
+            }
+
+        # Check usage limits only if user is authenticated
+        user_id = None
+        if current_user:
+            can_generate, current_count, limit = check_usage_limit(current_user, db)
+            if not can_generate:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=f"You've reached your monthly limit of {limit} summaries. Upgrade to Pro for unlimited summaries."
+                )
+            user_id = current_user.id
+        
+        # If no progress or errored progress, (re)start the generation
+        _record_progress(db, filing_id, "queued")
+        db.commit()
+
+        asyncio.create_task(_generate_summary_background(filing_id, user_id))
     
-    _record_progress(db, filing_id, "queued")
-    asyncio.create_task(_generate_summary_background(filing_id, user_id))
+    except Exception as e:
+        db.rollback()
+        raise e
+    finally:
+        # The rollback is handled by the exception block, and commit by the happy path.
+        # The session is closed by the dependency injection system.
+        pass
     
     # Return placeholder response with accurate timing
     return {

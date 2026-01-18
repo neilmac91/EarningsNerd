@@ -19,9 +19,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
           pip install -r requirements.txt
-          pip install pytest
+          pip install pytest pytest-asyncio
       - name: Run pytest
         run: pytest
+        env:
+          SECRET_KEY: test-secret-key-for-ci
 
   frontend-tests:
     runs-on: ubuntu-latest

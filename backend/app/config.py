@@ -29,9 +29,22 @@ class Settings(BaseSettings):
     TWITTER_BEARER_TOKEN: str = ""
 
     # JWT
-    SECRET_KEY: str = "change-this-secret-key-in-production"
+    SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+
+    @field_validator('SECRET_KEY', mode='before')
+    @classmethod
+    def check_secret_key(cls, v, values):
+        """Ensure SECRET_KEY is not the default in production"""
+        if values.data.get("ENVIRONMENT") == "production" and v == "change-this-secret-key-in-production":
+            raise ValueError(
+                "CRITICAL: Default 'SECRET_KEY' is in use in a production environment. "
+                "Set a strong, random secret in your environment variables."
+            )
+        if not v:
+            raise ValueError("SECRET_KEY must be set.")
+        return v
 
     # App Settings
     ENVIRONMENT: str = "development"
