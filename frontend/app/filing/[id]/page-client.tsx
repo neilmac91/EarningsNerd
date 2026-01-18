@@ -480,6 +480,7 @@ export default function FilingPageClient() {
             saveMutation={saveMutation}
             isSaved={!!isSaved}
             debug={debugSummary}
+            isAuthenticated={isAuthenticated}
           />
         ) : (
           <StreamingSummaryDisplay 
@@ -774,6 +775,7 @@ function SummaryDisplay({
   saveMutation,
   isSaved,
   debug,
+  isAuthenticated,
 }: {
   summary: Summary
   filing: Filing
@@ -781,6 +783,7 @@ function SummaryDisplay({
   saveMutation: any
   isSaved: boolean
   debug?: boolean
+  isAuthenticated: boolean
 }) {
   const markdownContent = summary.business_overview || ''
   const cleanedMarkdown = useMemo(() => stripInternalNotices(markdownContent), [markdownContent])
