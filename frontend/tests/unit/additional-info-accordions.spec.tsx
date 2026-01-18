@@ -21,9 +21,8 @@ describe('SummarySections additional accordions', () => {
 
     render(<SummarySections summary={summary as any} metrics={[]} />)
 
-    expect(screen.queryByText('Additional Information')).not.toBeInTheDocument()
-    expect(screen.queryByText('Forward Outlook & Guidance')).not.toBeInTheDocument()
-    expect(screen.queryByText('Liquidity & Capital Structure')).not.toBeInTheDocument()
-    expect(screen.queryByText('Notable Footnotes')).not.toBeInTheDocument()
+    // Tabs should not appear when content is empty
+    expect(screen.queryByText('Guidance & Drivers')).not.toBeInTheDocument()
+    expect(screen.queryByText('Liquidity & Covenants')).not.toBeInTheDocument()
   })
 })

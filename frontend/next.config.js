@@ -7,6 +7,9 @@ const nextConfig = {
       (process.env.NODE_ENV === 'production' ? 'https://api.earningsnerd.io' : 'http://localhost:8000'),
   },
   webpack: (config, { isServer }) => {
+    // TODO: Revisit this webpack configuration when Next.js or recharts has better support for lodash.
+    // This is a workaround for a known issue with recharts and lodash compatibility.
+    // See: https://github.com/recharts/recharts/issues/2372
     // Fix for Recharts/lodash compatibility issue
     if (!isServer) {
       config.resolve.fallback = {
@@ -38,4 +41,3 @@ const nextConfig = {
 }
 
 module.exports = nextConfig
-

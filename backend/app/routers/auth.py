@@ -6,12 +6,15 @@ from typing import Optional
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 import bcrypt
+import logging
 from app.database import get_db
 from app.models import User
 from app.config import settings
 
 router = APIRouter()
 security = HTTPBearer(auto_error=False)
+logger = logging.getLogger(__name__)
+
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -99,14 +102,16 @@ async def get_current_user_optional(
         if email is None:
             return None
     except (JWTError, HTTPException, Exception) as e:
+        # Log the exception for debugging purposes
+        logger.warning(f"Optional auth failed: {e.__class__.__name__} - {e}")
         # Silently ignore authentication errors for optional auth
-        # Log for debugging but don't raise
         return None
     
     try:
         user = db.query(User).filter(User.email == email).first()
         return user
-    except Exception:
+    except Exception as e:
+        logger.error(f"Database error during optional auth: {e.__class__.__name__} - {e}")
         return None
 
 @router.post("/register", response_model=Token)
@@ -158,4 +163,3 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
         "full_name": current_user.full_name,
         "is_pro": current_user.is_pro
     }
-
