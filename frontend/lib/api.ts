@@ -38,6 +38,7 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
   timeout: 30000, // 30 second timeout
+  withCredentials: true,
 })
 
 // Set baseURL dynamically on each request (for client-side)
@@ -51,17 +52,6 @@ api.interceptors.request.use((config) => {
 
 // Increased to 150 seconds (2.5 minutes) to accommodate backend retries with exponential backoff
 const STREAM_TIMEOUT_MS = 150000
-
-// Add auth token to requests
-api.interceptors.request.use((config) => {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-  }
-  return config
-})
 
 export interface StockQuote {
   price?: number
@@ -188,16 +178,6 @@ export const generateSummaryStream = async (
   onComplete: (summaryId: number) => void,
   onError: (error: string) => void
 ): Promise<void> => {
-  let token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-  // Validate token format - JWT tokens have 3 parts separated by dots
-  // If token exists but is invalid format, remove it
-  if (token && (!token.includes('.') || token.split('.').length !== 3)) {
-    console.warn('Invalid token format detected, removing from localStorage')
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('token')
-    }
-    token = null
-  }
   const apiUrl = getApiUrl()
   const url = `${apiUrl}/api/summaries/filing/${filingId}/generate-stream`
 
@@ -233,32 +213,20 @@ export const generateSummaryStream = async (
     }
   }
 
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-  }
-  
-  // Only add Authorization header if token exists
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
-  }
-
   const response = await fetch(url, {
     method: 'POST',
-    headers,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    credentials: 'include',
     signal: controller.signal,
   })
 
   if (!response.ok) {
     clearTimeoutSafely()
     
-    // Handle authentication errors - clear invalid token and show error
-    // Authentication is optional, so 401 shouldn't normally occur
+    // Handle authentication errors
     if (response.status === 401) {
-      // Clear invalid token from localStorage if present
-      if (typeof window !== 'undefined' && token) {
-        console.warn('Invalid token detected, clearing from localStorage')
-        localStorage.removeItem('token')
-      }
       let errorMessage = 'Authentication error occurred.'
       try {
         const errorData = await response.json()
@@ -409,10 +377,6 @@ export const register = async (email: string, password: string, fullName?: strin
     password,
     full_name: fullName,
   })
-  const token = response.data.access_token
-  if (token && typeof window !== 'undefined') {
-    localStorage.setItem('token', token)
-  }
   return response.data
 }
 
@@ -421,15 +385,27 @@ export const login = async (email: string, password: string) => {
     email,
     password,
   })
-  const token = response.data.access_token
-  if (token && typeof window !== 'undefined') {
-    localStorage.setItem('token', token)
-  }
   return response.data
 }
 
 export const getCurrentUser = async () => {
   const response = await api.get('/api/auth/me')
+  return response.data
+}
+
+export const getCurrentUserSafe = async () => {
+  try {
+    return await getCurrentUser()
+  } catch (error: any) {
+    if (error.response?.status === 401) {
+      return null
+    }
+    throw error
+  }
+}
+
+export const logout = async () => {
+  const response = await api.post('/api/auth/logout')
   return response.data
 }
 

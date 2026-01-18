@@ -17,8 +17,6 @@ stripe.api_key = settings.STRIPE_SECRET_KEY
 
 # Constants
 FREE_TIER_SUMMARY_LIMIT = 5
-PRO_MONTHLY_PRICE_ID = "price_pro_monthly"  # Set these in Stripe dashboard
-PRO_YEARLY_PRICE_ID = "price_pro_yearly"    # Set these in Stripe dashboard
 
 class UsageResponse(BaseModel):
     summaries_used: int
@@ -125,6 +123,12 @@ async def create_checkout_session(
         raise HTTPException(
             status_code=500,
             detail="Stripe is not configured. Please set STRIPE_SECRET_KEY."
+        )
+    allowed_prices = {settings.STRIPE_PRICE_MONTHLY_ID, settings.STRIPE_PRICE_YEARLY_ID}
+    if price_id not in allowed_prices:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid price_id. Please select a supported subscription plan.",
         )
     
     try:

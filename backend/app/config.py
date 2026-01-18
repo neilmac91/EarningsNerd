@@ -24,6 +24,8 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""  # Webhook signing secret from Stripe dashboard
+    STRIPE_PRICE_MONTHLY_ID: str = "price_pro_monthly"
+    STRIPE_PRICE_YEARLY_ID: str = "price_pro_yearly"
 
     # X / Twitter API
     TWITTER_BEARER_TOKEN: str = ""
@@ -32,6 +34,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+    PASSWORD_MIN_LENGTH: int = 12
 
     @field_validator('SECRET_KEY', mode='before')
     @classmethod
@@ -48,6 +51,10 @@ class Settings(BaseSettings):
 
     # App Settings
     ENVIRONMENT: str = "development"
+    COOKIE_NAME: str = "earningsnerd_access_token"
+    COOKIE_SECURE: bool = False
+    COOKIE_SAMESITE: str = "lax"
+    COOKIE_DOMAIN: str | None = None
     CORS_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://127.0.0.1:3000",
@@ -87,6 +94,8 @@ class Settings(BaseSettings):
         env_key = os.getenv('OPENAI_API_KEY')
         if env_key and env_key.strip() and len(env_key) > 10:
             self.OPENAI_API_KEY = env_key.strip()
+        if "COOKIE_SECURE" not in os.environ:
+            self.COOKIE_SECURE = self.ENVIRONMENT == "production"
     
     def validate_openai_config(self) -> tuple[bool, list[str]]:
         """Validate OpenAI/OpenRouter configuration and return (is_valid, warnings)"""
