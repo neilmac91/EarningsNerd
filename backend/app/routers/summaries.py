@@ -831,6 +831,7 @@ async def generate_summary_stream(
                         asyncio.gather(*tasks_to_wait, return_exceptions=True),
                         timeout=2.0
                     )
+                    
                     excerpt = results[0] if not isinstance(results[0], Exception) else None
                     if len(results) > 1:
                         xbrl_result = results[1]

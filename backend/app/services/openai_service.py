@@ -1056,6 +1056,8 @@ class OpenAIService:
         max_tokens: int = 350,
     ) -> Optional[str]:
         import asyncio
+        import time
+        import json
 
         models_to_try = [self.get_model_for_filing(filing_type_key)] + self._fallback_models
         models_to_try = list(dict.fromkeys(models_to_try))
@@ -2155,6 +2157,7 @@ Do not include any additional keys or text outside the JSON object."""
                 xbrl_metrics=xbrl_metrics,
                 filing_excerpt=filing_excerpt,
             )
+            
         except asyncio.TimeoutError:
             timeout_seconds = self._get_type_config(filing_type_key).get("ai_timeout", 30.0)
             print(f"Structured extraction timed out after {timeout_seconds}s for {filing_type_key}")
