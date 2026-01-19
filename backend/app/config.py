@@ -58,21 +58,14 @@ class Settings(BaseSettings):
     COOKIE_SECURE: bool = False
     COOKIE_SAMESITE: str = "lax"
     COOKIE_DOMAIN: str | None = None
-    CORS_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "https://earningsnerd.io",
-        "https://www.earningsnerd.io",
-    ]
+    # Store as string to avoid pydantic-settings JSON parsing issues
+    # Use cors_origins property to get the parsed list
+    CORS_ORIGINS_STR: str = "http://localhost:3000,http://127.0.0.1:3000,https://earningsnerd.io,https://www.earningsnerd.io"
     
-    @field_validator('CORS_ORIGINS', mode='before')
-    @classmethod
-    def parse_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
-        """Parse CORS_ORIGINS from comma-separated string or list"""
-        if isinstance(v, str):
-            # Split by comma and strip whitespace
-            return [origin.strip() for origin in v.split(',') if origin.strip()]
-        return v
+    @property
+    def CORS_ORIGINS(self) -> List[str]:
+        """Parse CORS_ORIGINS from comma-separated string"""
+        return [origin.strip() for origin in self.CORS_ORIGINS_STR.split(',') if origin.strip()]
     HOT_FILINGS_REFRESH_TOKEN: str = ""
     HOT_FILINGS_USER_AGENT: str = (
         "EarningsNerdBot/1.0 (+https://earningsnerd.com/contact)"
