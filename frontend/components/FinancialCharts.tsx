@@ -12,8 +12,6 @@ interface FinancialChartsProps {
   }>
 }
 
-const COLORS = ['#3b82f6', '#8b5cf6', '#10b981', '#f59e0b', '#ef4444']
-
 export default function FinancialCharts({ metrics }: FinancialChartsProps) {
   if (!metrics || metrics.length === 0) {
     return null

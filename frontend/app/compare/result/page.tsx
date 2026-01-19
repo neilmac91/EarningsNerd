@@ -5,7 +5,6 @@ import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { ComparisonData } from '@/lib/api'
 import { TrendingUp, TrendingDown, AlertCircle, BarChart3 } from 'lucide-react'
-import Link from 'next/link'
 import { format } from 'date-fns'
 import type { RiskFactor } from '../../../types/summary'
 import { evaluateComparisonQuality } from '@/lib/QualityGate'
@@ -20,6 +19,7 @@ const ComparisonMetricChart = dynamic(
 export default function CompareResultPage() {
   const router = useRouter()
   const [comparisonData, setComparisonData] = useState<ComparisonData | null>(null)
+  const [qualityError, setQualityError] = useState<string | null>(null)
 
   useEffect(() => {
     const data = sessionStorage.getItem('comparisonData')
@@ -29,8 +29,6 @@ export default function CompareResultPage() {
       router.push('/compare')
     }
   }, [router])
-
-  const [qualityError, setQualityError] = useState<string | null>(null)
 
   const qualityGate = useMemo(() => {
     if (!comparisonData) {
@@ -47,52 +45,10 @@ export default function CompareResultPage() {
     }
   }, [qualityGate])
 
-  if (!comparisonData) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600">Loading comparison...</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (qualityError) {
-    return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
-        <div className="max-w-lg bg-white border border-red-200 shadow-lg rounded-xl p-8 space-y-4">
-          <div className="flex items-center space-x-3">
-            <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
-              <AlertCircle className="h-6 w-6 text-red-600" />
-            </div>
-            <h1 className="text-xl font-semibold text-red-700">Quality Gate Failed</h1>
-          </div>
-          <p className="text-sm text-red-600 leading-relaxed">
-            {qualityError}
-          </p>
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={() => router.push('/compare')}
-              className="inline-flex items-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors"
-            >
-              Start a new comparison
-            </button>
-            <button
-              onClick={() => {
-                sessionStorage.removeItem('comparisonData')
-                router.push('/compare')
-              }}
-              className="text-sm text-gray-500 hover:text-gray-700"
-            >
-              Clear cached data
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const { filings, comparison } = comparisonData
+  // All hooks must be called before conditional returns
+  // Memoize filings and comparison to avoid useMemo dependency issues
+  const filings = useMemo(() => comparisonData?.filings ?? [], [comparisonData?.filings])
+  const comparison = useMemo(() => comparisonData?.comparison ?? { financial_metrics: [], risk_factors: [], summary_count: 0 }, [comparisonData?.comparison])
 
   const filingLabels = useMemo(() => {
     return filings.reduce<Record<number, string>>((acc, filing) => {
@@ -116,6 +72,15 @@ export default function CompareResultPage() {
     baseIndex: number
   }
 
+  interface MetricData {
+    metric?: string
+    name?: string
+    current_period?: string | number | null
+    currentPeriod?: string | number | null
+    value?: string | number | null
+    amount?: string | number | null
+  }
+
   const metricInsights: MetricInsight[] = useMemo(() => {
     if (!comparison.financial_metrics.length) {
       return []
@@ -125,7 +90,7 @@ export default function CompareResultPage() {
 
     comparison.financial_metrics.forEach((fm) => {
       const seriesMetrics = fm.metrics || []
-      seriesMetrics.forEach((metric: any, index: number) => {
+      seriesMetrics.forEach((metric: MetricData, index: number) => {
         const metricName = metric.metric || metric.name || `Metric ${index + 1}`
         if (!metricsMap.has(metricName)) {
           metricsMap.set(metricName, {
@@ -202,7 +167,53 @@ export default function CompareResultPage() {
     return insightsArray
   }, [comparison.financial_metrics, filingLabels])
 
-  const deltaHighlights = useMemo(() => {
+  // Early returns after all hooks
+  if (!comparisonData) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">Loading comparison...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (qualityError) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+        <div className="max-w-lg bg-white border border-red-200 shadow-lg rounded-xl p-8 space-y-4">
+          <div className="flex items-center space-x-3">
+            <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
+              <AlertCircle className="h-6 w-6 text-red-600" />
+            </div>
+            <h1 className="text-xl font-semibold text-red-700">Quality Gate Failed</h1>
+          </div>
+          <p className="text-sm text-red-600 leading-relaxed">
+            {qualityError}
+          </p>
+          <div className="flex items-center space-x-3">
+            <button
+              onClick={() => router.push('/compare')}
+              className="inline-flex items-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors"
+            >
+              Start a new comparison
+            </button>
+            <button
+              onClick={() => {
+                sessionStorage.removeItem('comparisonData')
+                router.push('/compare')
+              }}
+              className="text-sm text-gray-500 hover:text-gray-700"
+            >
+              Clear cached data
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const deltaHighlights = (() => {
     const deltas: Array<{
       metric: string
       label: string
@@ -225,14 +236,12 @@ export default function CompareResultPage() {
     return deltas
       .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
       .slice(0, 6)
-  }, [metricInsights])
+  })()
 
-  const metricsWithTrend = useMemo(() => {
-    return metricInsights.filter(
-      (insight) =>
-        insight.series.filter((point) => point.numeric !== null).length >= 2
-    ).slice(0, 4)
-  }, [metricInsights])
+  const metricsWithTrend = metricInsights.filter(
+    (insight) =>
+      insight.series.filter((point) => point.numeric !== null).length >= 2
+  ).slice(0, 4)
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -400,7 +409,7 @@ export default function CompareResultPage() {
                 const risks = comparison.risk_factors.find(rf => rf.filing_id === filing.id)?.risks || []
                 const evidenceKeys = ['excerpt', 'text', 'quote', 'source', 'reference', 'tag', 'xbrl_tag', 'xbrlTag', 'citation']
 
-                const formatEvidence = (value: any): string => {
+                const formatEvidence = (value: unknown): string => {
                   if (!value) return ''
                   if (Array.isArray(value)) {
                     const parts = value.map((item) => formatEvidence(item)).filter(Boolean)
@@ -430,14 +439,15 @@ export default function CompareResultPage() {
                   return String(value).trim()
                 }
 
-                    const normalizeRisk = (risk: any): RiskFactor | null => {
+                    const normalizeRisk = (risk: unknown): RiskFactor | null => {
                   if (!risk || typeof risk !== 'object') {
                     return null
                   }
-                  const title = typeof risk.title === 'string' ? risk.title.trim() : null
-                  const description = typeof risk.description === 'string' ? risk.description.trim() : null
+                  const riskObj = risk as Record<string, unknown>
+                  const title = typeof riskObj.title === 'string' ? riskObj.title.trim() : null
+                  const description = typeof riskObj.description === 'string' ? riskObj.description.trim() : null
                   const summaryCandidate =
-                    (typeof risk.summary === 'string' && risk.summary.trim()) ||
+                    (typeof riskObj.summary === 'string' && riskObj.summary.trim()) ||
                     (description && description) ||
                     (title && title) ||
                     ''
@@ -447,7 +457,7 @@ export default function CompareResultPage() {
                   }
 
                   const supportingEvidence = formatEvidence(
-                    (risk.supporting_evidence ?? risk.supportingEvidence ?? risk.evidence ?? risk.source) as unknown
+                    riskObj.supporting_evidence ?? riskObj.supportingEvidence ?? riskObj.evidence ?? riskObj.source
                   )
 
                   if (!supportingEvidence) {

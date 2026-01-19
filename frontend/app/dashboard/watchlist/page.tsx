@@ -71,7 +71,6 @@ function formatDate(dateLike?: string | null) {
 }
 
 export default function WatchlistDashboardPage() {
-  const router = useRouter()
   const { isReady, hasUser } = useAuthGate()
 
   const { data, isLoading, isError } = useQuery({

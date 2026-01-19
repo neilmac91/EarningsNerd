@@ -53,12 +53,12 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
 
     // If we have backend stage, use it to drive the UI
     if (backendStage && backendStage !== 'pending' && backendStage !== 'completed' && backendStage !== 'error') {
-      const stageIndex = stages.findIndex(s => s.id === backendStage)
-      if (stageIndex >= 0) {
-        setCurrentStage(stageIndex)
+      const backendStageIndex = stages.findIndex(s => s.id === backendStage)
+      if (backendStageIndex >= 0) {
+        setCurrentStage(backendStageIndex)
         // Calculate progress based on stage and elapsed time
         // Each stage gets roughly equal weight (25% each)
-        const baseProgress = (stageIndex / stages.length) * 100
+        const baseProgress = (backendStageIndex / stages.length) * 100
         // Add some progress within the current stage (up to 20% of stage progress)
         const stageProgress = Math.min(20, (elapsedSeconds || 0) / 5) // Rough estimate: 5s per stage
         setProgress(Math.min(95, baseProgress + stageProgress))
@@ -67,7 +67,6 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
     }
 
     // Fallback to time-based progress if no backend stage
-    let stageIndex = 0
     const startTime = Date.now()
     const totalDuration = stages.reduce((sum, s) => sum + s.duration, 0)
 
@@ -192,7 +191,7 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
             Generating your summary...
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            This typically takes 30-60 seconds for large filings. Please don't close this page.
+            This typically takes 30-60 seconds for large filings. Please don&apos;t close this page.
           </p>
           <div className="mt-3 flex items-center justify-center space-x-2 text-xs text-gray-400">
             <div className="w-2 h-2 bg-primary-400 rounded-full animate-pulse" />

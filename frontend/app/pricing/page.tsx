@@ -3,8 +3,7 @@
 import { useState, Suspense } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { createCheckoutSession, getSubscriptionStatus, getUsage } from '@/lib/api'
-import { Check, Sparkles, Loader2, ArrowRight } from 'lucide-react'
-import Link from 'next/link'
+import { Check, Loader2 } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect } from 'react'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -47,8 +46,9 @@ function PricingContent() {
         window.location.href = data.url
       }
     },
-    onError: (error: any) => {
-      alert(error.response?.data?.detail || 'Failed to create checkout session')
+    onError: (error: unknown) => {
+      const axiosErr = error as { response?: { data?: { detail?: string } } }
+      alert(axiosErr.response?.data?.detail || 'Failed to create checkout session')
       setIsLoadingCheckout(null)
     },
   })
@@ -57,7 +57,7 @@ function PricingContent() {
     setIsLoadingCheckout(priceId)
     try {
       await checkoutMutation.mutateAsync(priceId)
-    } catch (error) {
+    } catch {
       // Error handled in mutation
     }
   }
@@ -277,7 +277,7 @@ function PricingContent() {
                 What happens if I exceed my free limit?
               </h3>
               <p className="text-gray-600">
-                You'll need to upgrade to Pro to generate more summaries. Your existing summaries remain accessible.
+                You&apos;ll need to upgrade to Pro to generate more summaries. Your existing summaries remain accessible.
               </p>
             </div>
             <div>
@@ -285,7 +285,7 @@ function PricingContent() {
                 Do you offer refunds?
               </h3>
               <p className="text-gray-600">
-                We offer a 30-day money-back guarantee for Pro subscriptions. Contact us if you're not satisfied.
+                We offer a 30-day money-back guarantee for Pro subscriptions. Contact us if you&apos;re not satisfied.
               </p>
             </div>
           </div>

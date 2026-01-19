@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getCompany, getCompanyFilings, Company, Filing, addToWatchlist, removeFromWatchlist, getWatchlist, getCurrentUserSafe } from '@/lib/api'
-import { FileText, Calendar, ExternalLink, Loader2, ChevronDown, ChevronUp, Filter, Star, X } from 'lucide-react'
+import { getCompany, getCompanyFilings, Company, Filing, addToWatchlist, removeFromWatchlist, getWatchlist, getCurrentUserSafe, WatchlistItem } from '@/lib/api'
+import { FileText, ExternalLink, Loader2, ChevronDown, Filter, Star } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
@@ -12,32 +12,25 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 
 export default function CompanyPageClient() {
   const params = useParams()
-  const ticker = params?.ticker as string | undefined
+  const ticker = (params?.ticker as string | undefined) ?? ''
+  const normalizedTicker = ticker.toUpperCase()
 
-  // Handle case where ticker might not be available
-  if (!ticker) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Invalid ticker</h1>
-          <Link href="/" className="text-primary-600 hover:underline">
-            Go back home
-          </Link>
-        </div>
-      </div>
-    )
-  }
+  // All hooks must be called before any conditional returns
+  const currentYear = new Date().getFullYear().toString()
+  const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set([currentYear]))
+  const [filterType, setFilterType] = useState<string | null>(null)
 
   const { data: company, isLoading: companyLoading, error: companyError } = useQuery<Company>({
-    queryKey: ['company', ticker],
-    queryFn: () => getCompany(ticker),
+    queryKey: ['company', normalizedTicker],
+    queryFn: () => getCompany(normalizedTicker),
     retry: 1,
+    enabled: !!normalizedTicker,
   })
 
   const { data: filings, isLoading: filingsLoading, isError: filingsError, error: filingsErrorData, refetch: refetchFilings, isFetching: filingsRefetching } = useQuery<Filing[]>({
-    queryKey: ['filings', ticker],
-    queryFn: () => getCompanyFilings(ticker),
-    enabled: !!company,
+    queryKey: ['filings', normalizedTicker],
+    queryFn: () => getCompanyFilings(normalizedTicker),
+    enabled: !!company && !!normalizedTicker,
     retry: 1,
   })
 
@@ -57,12 +50,12 @@ export default function CompanyPageClient() {
   const queryClient = useQueryClient()
 
   const watchlistMutation = useMutation({
-    mutationFn: async (ticker: string) => {
-      const isInWatchlist = watchlist?.some((w: any) => w.company.ticker === ticker)
-      if (isInWatchlist) {
-        await removeFromWatchlist(ticker)
+    mutationFn: async (tickerToToggle: string) => {
+      const inWatchlist = watchlist?.some((w: WatchlistItem) => w.company.ticker === tickerToToggle)
+      if (inWatchlist) {
+        await removeFromWatchlist(tickerToToggle)
       } else {
-        await addToWatchlist(ticker)
+        await addToWatchlist(tickerToToggle)
       }
     },
     onSuccess: () => {
@@ -70,12 +63,21 @@ export default function CompanyPageClient() {
     },
   })
 
-  // All hooks must be called before any conditional returns
-  const currentYear = new Date().getFullYear().toString()
-  const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set([currentYear]))
-  const [filterType, setFilterType] = useState<string | null>(null)
+  const isInWatchlist = watchlist?.some((w: WatchlistItem) => w.company.ticker === normalizedTicker)
 
-  const isInWatchlist = watchlist?.some((w: any) => w.company.ticker === ticker)
+  // Handle case where ticker might not be available
+  if (!ticker) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold mb-4">Invalid ticker</h1>
+          <Link href="/" className="text-primary-600 hover:underline">
+            Go back home
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   if (companyLoading) {
     return (
@@ -91,7 +93,7 @@ export default function CompanyPageClient() {
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Company not found</h1>
           <p className="text-gray-600 mb-4">
-            {companyError ? `Error: ${companyError instanceof Error ? companyError.message : 'Failed to load company'}` : `Could not find company with ticker "${ticker}"`}
+            {companyError ? `Error: ${companyError instanceof Error ? companyError.message : 'Failed to load company'}` : `Could not find company with ticker "${normalizedTicker}"`}
           </p>
           <Link href="/" className="text-primary-600 hover:underline">
             Go back home
@@ -189,7 +191,7 @@ export default function CompanyPageClient() {
                   <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{companyData.name}</h1>
                   {currentUser && (
                     <button
-                      onClick={() => watchlistMutation.mutate(ticker)}
+                      onClick={() => watchlistMutation.mutate(normalizedTicker)}
                       disabled={watchlistMutation.isPending}
                       aria-label={isInWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
                       aria-pressed={Boolean(isInWatchlist)}

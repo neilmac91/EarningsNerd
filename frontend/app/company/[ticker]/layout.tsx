@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic'
 export async function generateMetadata({ params }: { params: { ticker: string } }) {
   try {
     return await genMeta({ params })
-  } catch (error) {
+  } catch {
     // Fallback metadata if generation fails
     return {
       title: 'Company SEC Filings | EarningsNerd',

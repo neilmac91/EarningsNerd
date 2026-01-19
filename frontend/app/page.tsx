@@ -327,7 +327,7 @@ export default function Home() {
             <div className="space-y-6">
               <div className="group rounded-3xl border border-gray-200/60 dark:border-white/10 bg-gradient-to-br from-gray-50 to-white dark:from-slate-900/70 dark:to-slate-900/50 p-8 shadow-lg shadow-gray-900/5 dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-sky-500/10 hover:-translate-y-1">
                 <p className="text-lg text-gray-900 dark:text-slate-100 leading-relaxed font-light italic">
-                  "Our analysts extract what matters from filings in minutes, not hours. EarningsNerd captures management nuance and surfaces the signals we use to rebalance portfolios."
+                  &quot;Our analysts extract what matters from filings in minutes, not hours. EarningsNerd captures management nuance and surfaces the signals we use to rebalance portfolios.&quot;
                 </p>
                 <div className="mt-6 flex items-center space-x-3">
                   <div className="h-px flex-1 bg-gradient-to-r from-gray-300 to-transparent dark:from-white/10"></div>
@@ -336,7 +336,7 @@ export default function Home() {
               </div>
               <div className="group rounded-3xl border border-gray-200/60 dark:border-white/10 bg-gradient-to-br from-white to-gray-50 dark:from-slate-900/50 dark:to-slate-900/70 p-8 shadow-lg shadow-gray-900/5 dark:shadow-black/20 transition-all duration-300 hover:shadow-xl hover:shadow-purple-500/10 hover:-translate-y-1">
                 <p className="text-lg text-gray-900 dark:text-slate-100 leading-relaxed font-light italic">
-                  "The structured summary means we never miss guidance shifts or hidden risk language. It has become the daily briefing our partners expect."
+                  &quot;The structured summary means we never miss guidance shifts or hidden risk language. It has become the daily briefing our partners expect.&quot;
                 </p>
                 <div className="mt-6 flex items-center space-x-3">
                   <div className="h-px flex-1 bg-gradient-to-r from-gray-300 to-transparent dark:from-white/10"></div>

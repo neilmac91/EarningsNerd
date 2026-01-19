@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { getCompanyFilings, Filing, compareFilings } from '@/lib/api'
-import { Loader2, X, TrendingUp, TrendingDown, AlertCircle, BarChart3 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import SubscriptionGate from '@/components/SubscriptionGate'

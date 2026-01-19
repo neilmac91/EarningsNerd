@@ -23,8 +23,9 @@ export default function RegisterPage() {
     try {
       await register(email, password, fullName)
       router.push('/')
-    } catch (err: any) {
-      setError(err.response?.data?.detail || 'Registration failed')
+    } catch (err: unknown) {
+      const axiosErr = err as { response?: { data?: { detail?: string } } }
+      setError(axiosErr.response?.data?.detail || 'Registration failed')
     } finally {
       setLoading(false)
     }

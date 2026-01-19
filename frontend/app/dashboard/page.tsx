@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getCurrentUser, getUsage, getSubscriptionStatus, createPortalSession, getSavedSummaries, getWatchlist, deleteSavedSummary, removeFromWatchlist, SavedSummary, WatchlistItem, logout } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-import { CheckCircle2, AlertCircle, Sparkles, BarChart3, FileText, Settings, Loader2, Star, Trash2, X } from 'lucide-react'
+import { CheckCircle2, AlertCircle, Sparkles, BarChart3, FileText, Loader2, Star, Trash2, X } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -189,7 +189,7 @@ export default function DashboardPage() {
             ) : subscription?.is_pro ? (
               <div className="space-y-3">
                 <p className="text-sm text-gray-600">
-                  You're on the Pro plan with unlimited access.
+                  You&apos;re on the Pro plan with unlimited access.
                 </p>
                 <button
                   onClick={() => portalMutation.mutate()}
