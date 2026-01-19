@@ -20,7 +20,7 @@ export default function Header() {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center">
           <Link href="/" className="flex items-center gap-2 py-4">
-            <EarningsNerdLogo variant="icon" className="h-8 w-8 text-mint-500" />
+            <EarningsNerdLogo variant="icon-only" iconClassName="h-8 w-8" />
             <span className="hidden text-xl font-bold text-text-primary-light dark:text-text-primary-dark sm:inline-block">
               EarningsNerd
             </span>
