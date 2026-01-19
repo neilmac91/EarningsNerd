@@ -10,7 +10,7 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-def test_startup_validation():
+def check_startup_validation():
     """Test startup validation logic"""
     print("Testing startup validation...")
     print("=" * 60)
@@ -78,8 +78,10 @@ def test_startup_validation():
     return True
 
 
+def test_startup_validation():
+    assert check_startup_validation() is True
+
+
 if __name__ == "__main__":
-    success = test_startup_validation()
+    success = check_startup_validation()
     sys.exit(0 if success else 1)
-
-
