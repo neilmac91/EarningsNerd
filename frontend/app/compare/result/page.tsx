@@ -10,6 +10,7 @@ import { format } from 'date-fns'
 import type { RiskFactor } from '../../../types/summary'
 import { evaluateComparisonQuality } from '@/lib/QualityGate'
 import { fmtPercent, fmtScale, fmtCurrency, parseNumeric } from '@/lib/format'
+import SecondaryHeader from '@/components/SecondaryHeader'
 
 const ComparisonMetricChart = dynamic(
   () => import('@/components/ComparisonMetricChart'),
@@ -235,29 +236,22 @@ export default function CompareResultPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/compare" className="text-primary-600 hover:text-primary-700">
-              ← Back to Compare
-            </Link>
-            <button
-              onClick={() => router.push('/compare')}
-              className="text-gray-600 hover:text-gray-900"
-            >
-              New Comparison
-            </button>
-          </div>
-        </div>
-      </header>
+      <SecondaryHeader
+        title="Filing Comparison"
+        subtitle={`Comparing ${filings.length} ${filings.length === 1 ? 'filing' : 'filings'}`}
+        backHref="/compare"
+        backLabel="Back to compare"
+        actions={
+          <button
+            onClick={() => router.push('/compare')}
+            className="text-sm font-medium text-slate-600 hover:text-slate-900"
+          >
+            New comparison
+          </button>
+        }
+      />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Filing Comparison</h1>
-          <p className="text-gray-600">
-            Comparing {filings.length} {filings.length === 1 ? 'filing' : 'filings'}
-          </p>
-        </div>
 
         {/* Filings Header */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
