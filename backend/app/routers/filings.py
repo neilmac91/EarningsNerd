@@ -4,7 +4,7 @@ from typing import List, Optional
 from datetime import datetime
 from app.database import get_db
 from app.models import Company, Filing
-from app.services.sec_edgar import sec_edgar_service
+from app.services.sec_edgar import sec_edgar_service, SECEdgarServiceError
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -79,8 +79,10 @@ async def get_company_filings(
                 raise HTTPException(status_code=404, detail="Company not found")
         except HTTPException:
             raise
+        except SECEdgarServiceError as e:
+            raise HTTPException(status_code=503, detail="SEC EDGAR is temporarily unavailable. Please retry shortly.") from e
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error fetching company: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error fetching company: {str(e)}") from e
     
     # Parse filing types
     types_list = ["10-K", "10-Q", "8-K"]
@@ -123,8 +125,10 @@ async def get_company_filings(
             filings.append(FilingResponse.from_orm(filing))
         
         return filings
+    except SECEdgarServiceError as e:
+        raise HTTPException(status_code=503, detail="SEC EDGAR is temporarily unavailable. Please retry shortly.") from e
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching filings: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching filings: {str(e)}") from e
 
 @router.get("/{filing_id}", response_model=FilingResponse)
 async def get_filing(filing_id: int, db: Session = Depends(get_db)):

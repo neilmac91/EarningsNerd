@@ -389,6 +389,7 @@ export default function DashboardPage() {
                       onClick={() => deleteSummaryMutation.mutate(item.id)}
                       className="text-red-600 hover:text-red-700 p-2"
                       title="Delete"
+                      aria-label={`Delete summary for ${item.company.name}`}
                     >
                       <Trash2 className="h-5 w-5" />
                     </button>
@@ -445,6 +446,7 @@ export default function DashboardPage() {
                       onClick={() => removeWatchlistMutation.mutate(item.company.ticker)}
                       className="text-red-600 hover:text-red-700 p-2"
                       title="Remove from watchlist"
+                      aria-label={`Remove ${item.company.name} from watchlist`}
                     >
                       <X className="h-5 w-5" />
                     </button>
