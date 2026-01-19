@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import SecondaryHeader from '@/components/SecondaryHeader'
+import StateCard from '@/components/StateCard'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -89,37 +90,39 @@ export default function DashboardPage() {
 
   if (userLoading || usageLoading || subscriptionLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+      <div className="min-h-screen flex items-center justify-center bg-panel-light dark:bg-background-dark">
+        <Loader2 className="h-8 w-8 animate-spin text-mint-600" />
       </div>
     )
   }
 
   if (userError) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4">
-        <div className="max-w-md w-full rounded-2xl border border-red-200/60 bg-white p-6 text-center shadow-sm dark:border-red-500/40 dark:bg-slate-900">
-          <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400 mx-auto mb-3" />
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Unable to load your dashboard</h1>
-          <p className="mt-2 text-sm text-gray-600 dark:text-slate-300">
-            {userErrorData instanceof Error ? userErrorData.message : 'Please try again in a moment.'}
-          </p>
-          <div className="mt-4 flex items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => refetchUser()}
-              disabled={userFetching}
-              className="inline-flex items-center rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-slate-200 dark:hover:bg-slate-800 disabled:opacity-60"
-            >
-              {userFetching ? 'Retrying…' : 'Retry'}
-            </button>
-            <Link
-              href="/login"
-              className="inline-flex items-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-700"
-            >
-              Go to login
-            </Link>
-          </div>
+      <div className="min-h-screen flex items-center justify-center bg-panel-light dark:bg-background-dark px-4">
+        <div className="max-w-md w-full">
+          <StateCard
+            variant="error"
+            title="Unable to load your dashboard"
+            message={userErrorData instanceof Error ? userErrorData.message : 'Please try again in a moment.'}
+            action={
+              <div className="flex gap-3 mt-2">
+                <button
+                  type="button"
+                  onClick={() => refetchUser()}
+                  disabled={userFetching}
+                  className="inline-flex items-center rounded-lg border border-border-light px-4 py-2 text-sm font-medium text-text-secondary-light transition hover:bg-panel-light dark:border-border-dark dark:text-text-secondary-dark dark:hover:bg-panel-dark disabled:opacity-60"
+                >
+                  {userFetching ? 'Retrying…' : 'Retry'}
+                </button>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center rounded-lg bg-mint-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-mint-700"
+                >
+                  Go to login
+                </Link>
+              </div>
+            }
+          />
         </div>
       </div>
     )
@@ -134,7 +137,7 @@ export default function DashboardPage() {
     : 0
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-panel-light dark:bg-background-dark">
       <SecondaryHeader
         title="Dashboard"
         subtitle={`Welcome back, ${user.full_name || user.email}`}
@@ -145,7 +148,7 @@ export default function DashboardPage() {
             <ThemeToggle />
             <button
               onClick={() => logoutMutation.mutate()}
-              className="text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+              className="text-sm font-medium text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
             >
               Logout
             </button>
@@ -157,44 +160,45 @@ export default function DashboardPage() {
 
         {/* Subscription Status */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-background-light rounded-lg shadow-sm border border-border-light p-6 dark:bg-panel-dark dark:border-border-dark">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">Subscription</h2>
+              <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Subscription</h2>
               {subscription?.is_pro ? (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-primary-100 text-primary-800">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-mint-100 text-mint-800 dark:bg-mint-900/30 dark:text-mint-400">
                   <Sparkles className="h-4 w-4 mr-1" />
                   Pro
                 </span>
               ) : (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-panel-light text-text-secondary-light dark:bg-panel-dark dark:text-text-secondary-dark border border-border-light dark:border-border-dark">
                   Free
                 </span>
               )}
             </div>
             {subscriptionError ? (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                <p className="font-medium">Unable to load subscription status.</p>
-                <p className="text-xs text-red-600 mt-1">
-                  {subscriptionErrorData instanceof Error ? subscriptionErrorData.message : 'Please retry.'}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => refetchSubscription()}
-                  disabled={subscriptionFetching}
-                  className="mt-2 inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60"
-                >
-                  {subscriptionFetching ? 'Retrying…' : 'Retry'}
-                </button>
-              </div>
+              <StateCard
+                variant="error"
+                title="Unable to load subscription"
+                message={subscriptionErrorData instanceof Error ? subscriptionErrorData.message : 'Please retry.'}
+                action={
+                  <button
+                    type="button"
+                    onClick={() => refetchSubscription()}
+                    disabled={subscriptionFetching}
+                    className="mt-2 inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/30"
+                  >
+                    {subscriptionFetching ? 'Retrying…' : 'Retry'}
+                  </button>
+                }
+              />
             ) : subscription?.is_pro ? (
               <div className="space-y-3">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   You&apos;re on the Pro plan with unlimited access.
                 </p>
                 <button
                   onClick={() => portalMutation.mutate()}
                   disabled={portalMutation.isPending}
-                  className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                  className="w-full px-4 py-2 bg-panel-light text-text-primary-light border border-border-light rounded-lg hover:bg-gray-100 transition-colors font-medium dark:bg-background-dark dark:text-text-primary-dark dark:border-border-dark dark:hover:bg-gray-800"
                 >
                   {portalMutation.isPending ? (
                     <span className="flex items-center justify-center">
@@ -208,12 +212,12 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="space-y-3">
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Upgrade to Pro for unlimited summaries and advanced features.
                 </p>
                 <Link
                   href="/pricing"
-                  className="block w-full text-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium"
+                  className="block w-full text-center px-4 py-2 bg-mint-500 text-white rounded-lg hover:bg-mint-600 transition-colors font-medium"
                 >
                   Upgrade to Pro
                 </Link>
@@ -222,61 +226,62 @@ export default function DashboardPage() {
           </div>
 
           {/* Usage Stats */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Usage This Month</h2>
+          <div className="bg-background-light rounded-lg shadow-sm border border-border-light p-6 dark:bg-panel-dark dark:border-border-dark">
+            <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">Usage This Month</h2>
             {usageError ? (
-              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-                <p className="font-medium">Unable to load usage data.</p>
-                <p className="text-xs text-red-600 mt-1">
-                  {usageErrorData instanceof Error ? usageErrorData.message : 'Please retry.'}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => refetchUsage()}
-                  disabled={usageFetching}
-                  className="mt-2 inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60"
-                >
-                  {usageFetching ? 'Retrying…' : 'Retry'}
-                </button>
-              </div>
+              <StateCard
+                variant="error"
+                title="Unable to load usage data"
+                message={usageErrorData instanceof Error ? usageErrorData.message : 'Please retry.'}
+                action={
+                  <button
+                    type="button"
+                    onClick={() => refetchUsage()}
+                    disabled={usageFetching}
+                    className="mt-2 inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/30"
+                  >
+                    {usageFetching ? 'Retrying…' : 'Retry'}
+                  </button>
+                }
+              />
             ) : usage?.is_pro ? (
               <div className="flex items-center space-x-2">
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-                <span className="text-gray-700">Unlimited summaries</span>
+                <CheckCircle2 className="h-5 w-5 text-mint-500" />
+                <span className="text-text-secondary-light dark:text-text-secondary-dark">Unlimited summaries</span>
               </div>
             ) : (
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">
+                  <span className="text-text-secondary-light dark:text-text-secondary-dark">
                     {usage?.summaries_used || 0} / {usage?.summaries_limit || 5} summaries
                   </span>
-                  <span className="text-gray-600">
+                  <span className="text-text-secondary-light dark:text-text-secondary-dark">
                     {usage?.summaries_limit
                       ? Math.max(0, usage.summaries_limit - (usage.summaries_used || 0))
                       : 0}{' '}
                     remaining
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-3">
+                <div className="w-full bg-panel-light rounded-full h-3 border border-border-light dark:bg-background-dark dark:border-border-dark">
                   <div
-                    className={`h-3 rounded-full transition-all ${
+                    className={`h-full rounded-full transition-all ${
                       usagePercentage >= 100
                         ? 'bg-red-500'
                         : usagePercentage >= 80
                         ? 'bg-yellow-500'
-                        : 'bg-green-500'
+                        : 'bg-mint-500'
                     }`}
                     style={{ width: `${Math.min(100, usagePercentage)}%` }}
                   />
                 </div>
                 {usagePercentage >= 80 && !subscription?.is_pro && (
-                  <div className="flex items-start space-x-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                    <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="flex items-start space-x-2 p-3 bg-amber-50 border border-amber-200 rounded-lg dark:bg-amber-900/20 dark:border-amber-800">
+                    <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-amber-900">
+                      <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
                         {usagePercentage >= 100 ? 'Limit Reached' : 'Almost at Limit'}
                       </p>
-                      <p className="text-sm text-amber-800 mt-1">
+                      <p className="text-sm text-amber-800 mt-1 dark:text-amber-300">
                         {usagePercentage >= 100
                           ? 'Upgrade to Pro for unlimited summaries'
                           : 'Upgrade to Pro to continue generating summaries'}
@@ -293,45 +298,45 @@ export default function DashboardPage() {
         <div className="grid md:grid-cols-3 gap-6">
           <Link
             href="/"
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+            className="bg-background-light rounded-lg shadow-sm border border-border-light p-6 hover:shadow-md transition-shadow dark:bg-panel-dark dark:border-border-dark"
           >
             <div className="flex items-center space-x-3 mb-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <FileText className="h-6 w-6 text-blue-600" />
+              <div className="p-2 bg-blue-100 rounded-lg dark:bg-blue-900/30">
+                <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Search Companies</h3>
+              <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Search Companies</h3>
             </div>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
               Find and analyze SEC filings for any public company
             </p>
           </Link>
 
           <Link
             href="/pricing"
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+            className="bg-background-light rounded-lg shadow-sm border border-border-light p-6 hover:shadow-md transition-shadow dark:bg-panel-dark dark:border-border-dark"
           >
             <div className="flex items-center space-x-3 mb-3">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <Sparkles className="h-6 w-6 text-purple-600" />
+              <div className="p-2 bg-purple-100 rounded-lg dark:bg-purple-900/30">
+                <Sparkles className="h-6 w-6 text-purple-600 dark:text-purple-400" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">View Plans</h3>
+              <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">View Plans</h3>
             </div>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
               Compare features and upgrade your plan
             </p>
           </Link>
 
           <Link
             href="/dashboard/watchlist"
-            className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow"
+            className="bg-background-light rounded-lg shadow-sm border border-border-light p-6 hover:shadow-md transition-shadow dark:bg-panel-dark dark:border-border-dark"
           >
             <div className="flex items-center space-x-3 mb-3">
-              <div className="p-2 bg-green-100 rounded-lg">
-                <BarChart3 className="h-6 w-6 text-green-600" />
+              <div className="p-2 bg-mint-100 rounded-lg dark:bg-mint-900/30">
+                <BarChart3 className="h-6 w-6 text-mint-600 dark:text-mint-400" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900">Watchlist Insights</h3>
+              <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Watchlist Insights</h3>
             </div>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
               Monitor summary readiness across your tracked companies
             </p>
           </Link>
@@ -339,50 +344,51 @@ export default function DashboardPage() {
 
         {/* Saved Summaries */}
         <div className="mt-8">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">Saved Summaries</h2>
+          <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">Saved Summaries</h2>
           {savedLoading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+              <Loader2 className="h-8 w-8 animate-spin text-mint-600" />
             </div>
           ) : savedError ? (
-            <div className="bg-white rounded-lg shadow-sm border border-red-200 p-6 text-center text-sm text-red-700">
-              <p className="font-medium">Unable to load saved summaries.</p>
-              <p className="text-xs text-red-600 mt-1">
-                {savedErrorData instanceof Error ? savedErrorData.message : 'Please retry.'}
-              </p>
-              <button
-                type="button"
-                onClick={() => refetchSavedSummaries()}
-                disabled={savedFetching}
-                className="mt-3 inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60"
-              >
-                {savedFetching ? 'Retrying…' : 'Retry'}
-              </button>
-            </div>
+            <StateCard
+              variant="error"
+              title="Unable to load saved summaries"
+              message={savedErrorData instanceof Error ? savedErrorData.message : 'Please retry.'}
+              action={
+                <button
+                  type="button"
+                  onClick={() => refetchSavedSummaries()}
+                  disabled={savedFetching}
+                  className="mt-2 inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/30"
+                >
+                  {savedFetching ? 'Retrying…' : 'Retry'}
+                </button>
+              }
+            />
           ) : savedSummaries && savedSummaries.length > 0 ? (
             <div className="grid md:grid-cols-2 gap-4">
               {savedSummaries.map((item: SavedSummary) => (
-                <div key={item.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <div key={item.id} className="bg-background-light rounded-lg shadow-sm border border-border-light p-4 dark:bg-panel-dark dark:border-border-dark">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <Link
                         href={`/filing/${item.summary.filing_id}`}
-                        className="text-lg font-semibold text-gray-900 hover:text-primary-600 transition-colors"
+                        className="text-lg font-semibold text-text-primary-light hover:text-mint-600 transition-colors dark:text-text-primary-dark dark:hover:text-mint-400"
                       >
                         {item.company.name} - {item.filing.filing_type}
                       </Link>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <p className="text-sm text-text-secondary-light mt-1 dark:text-text-secondary-dark">
                         {item.filing.filing_date && format(new Date(item.filing.filing_date), 'MMM dd, yyyy')}
                       </p>
                       {item.notes && (
-                        <p className="text-sm text-gray-700 mt-2 bg-gray-50 p-2 rounded">
+                        <p className="text-sm text-text-secondary-light mt-2 bg-panel-light p-2 rounded dark:bg-background-dark dark:text-text-secondary-dark border border-border-light dark:border-border-dark">
                           {item.notes}
                         </p>
                       )}
                     </div>
                     <button
                       onClick={() => deleteSummaryMutation.mutate(item.id)}
-                      className="text-red-600 hover:text-red-700 p-2"
+                      className="text-red-600 hover:text-red-700 p-2 dark:text-red-400 dark:hover:text-red-300"
                       title="Delete"
                       aria-label={`Delete summary for ${item.company.name}`}
                     >
@@ -393,53 +399,54 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-              <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">No saved summaries yet</p>
-              <p className="text-sm text-gray-500 mt-2">Save summaries from filing pages to access them here</p>
-            </div>
+            <StateCard
+              variant="info"
+              title="No saved summaries yet"
+              message="Save summaries from filing pages to access them here."
+            />
           )}
         </div>
 
         {/* Watchlist */}
         <div className="mt-8">
-          <h2 className="text-2xl font-semibold text-gray-900 mb-4">Watchlist</h2>
+          <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">Watchlist</h2>
           {watchlistLoading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+              <Loader2 className="h-8 w-8 animate-spin text-mint-600" />
             </div>
           ) : watchlistError ? (
-            <div className="bg-white rounded-lg shadow-sm border border-red-200 p-6 text-center text-sm text-red-700">
-              <p className="font-medium">Unable to load watchlist.</p>
-              <p className="text-xs text-red-600 mt-1">
-                {watchlistErrorData instanceof Error ? watchlistErrorData.message : 'Please retry.'}
-              </p>
-              <button
-                type="button"
-                onClick={() => refetchWatchlist()}
-                disabled={watchlistFetching}
-                className="mt-3 inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60"
-              >
-                {watchlistFetching ? 'Retrying…' : 'Retry'}
-              </button>
-            </div>
+            <StateCard
+              variant="error"
+              title="Unable to load watchlist"
+              message={watchlistErrorData instanceof Error ? watchlistErrorData.message : 'Please retry.'}
+              action={
+                <button
+                  type="button"
+                  onClick={() => refetchWatchlist()}
+                  disabled={watchlistFetching}
+                  className="mt-2 inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/30"
+                >
+                  {watchlistFetching ? 'Retrying…' : 'Retry'}
+                </button>
+              }
+            />
           ) : watchlist && watchlist.length > 0 ? (
             <div className="grid md:grid-cols-3 gap-4">
               {watchlist.map((item: WatchlistItem) => (
-                <div key={item.id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <div key={item.id} className="bg-background-light rounded-lg shadow-sm border border-border-light p-4 dark:bg-panel-dark dark:border-border-dark">
                   <div className="flex items-center justify-between">
                     <Link
                       href={`/company/${item.company.ticker}`}
                       className="flex-1"
                     >
-                      <div className="font-semibold text-gray-900 hover:text-primary-600 transition-colors">
+                      <div className="font-semibold text-text-primary-light hover:text-mint-600 transition-colors dark:text-text-primary-dark dark:hover:text-mint-400">
                         {item.company.name}
                       </div>
-                      <div className="text-sm text-gray-600">{item.company.ticker}</div>
+                      <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{item.company.ticker}</div>
                     </Link>
                     <button
                       onClick={() => removeWatchlistMutation.mutate(item.company.ticker)}
-                      className="text-red-600 hover:text-red-700 p-2"
+                      className="text-red-600 hover:text-red-700 p-2 dark:text-red-400 dark:hover:text-red-300"
                       title="Remove from watchlist"
                       aria-label={`Remove ${item.company.name} from watchlist`}
                     >
@@ -450,15 +457,14 @@ export default function DashboardPage() {
               ))}
             </div>
           ) : (
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-              <Star className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600">Your watchlist is empty</p>
-              <p className="text-sm text-gray-500 mt-2">Add companies to your watchlist from company pages</p>
-            </div>
+            <StateCard
+              variant="info"
+              title="Your watchlist is empty"
+              message="Add companies to your watchlist from company pages."
+            />
           )}
         </div>
       </main>
     </div>
   )
 }
-

@@ -21,7 +21,7 @@ export default function Header() {
         <div className="flex items-center">
           <Link href="/" className="flex items-center gap-2 py-4">
             <EarningsNerdLogo variant="icon-only" iconClassName="h-8 w-8" />
-            <span className="hidden text-xl font-bold text-text-primary-light dark:text-text-primary-dark sm:inline-block">
+            <span className="sr-only text-xl font-bold text-text-primary-light dark:text-text-primary-dark sm:not-sr-only sm:inline-block">
               EarningsNerd
             </span>
           </Link>
