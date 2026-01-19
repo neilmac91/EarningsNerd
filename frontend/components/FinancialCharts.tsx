@@ -34,7 +34,7 @@ export default function FinancialCharts({ metrics }: FinancialChartsProps) {
   const statCardsData = keyMetrics.map(m => {
     const current = parseNumeric(m.current_period) || 0
     const prior = parseNumeric(m.prior_period) || 0
-    const change = prior !== 0 ? ((current - prior) / Math.abs(prior)) * 100 : 0
+    const change = prior !== 0 ? ((current - prior) / Math.abs(prior)) * 100 : undefined
     
     // Determine unit
     const name = m.metric.toLowerCase()
