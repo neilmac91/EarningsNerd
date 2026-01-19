@@ -34,6 +34,6 @@ services:
         value: https://data.sec.gov
       - key: ENVIRONMENT
         value: production
-      - key: CORS_ORIGINS
+      - key: CORS_ORIGINS_STR
         value: https://earningsnerd.io,https://www.earningsnerd.io
 
