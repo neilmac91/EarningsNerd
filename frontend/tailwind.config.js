@@ -1,5 +1,18 @@
 const { fontFamily } = require('tailwindcss/defaultTheme')
 
+const mintColors = {
+  50: '#ECFDF5',
+  100: '#D1FAE5',
+  200: '#A7F3D0',
+  300: '#6EE7B7',
+  400: '#34D399',
+  500: '#10B981', // Main accent
+  600: '#059669',
+  700: '#047857',
+  800: '#065F46',
+  900: '#064E3B',
+}
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -21,18 +34,9 @@ module.exports = {
           dark: '#1F2937', // gray-800
         },
         // Accent Color
-        mint: {
-          50: '#ECFDF5',
-          100: '#D1FAE5',
-          200: '#A7F3D0',
-          300: '#6EE7B7',
-          400: '#34D399',
-          500: '#10B981', // Main accent
-          600: '#059669',
-          700: '#047857',
-          800: '#065F46',
-          900: '#064E3B',
-        },
+        mint: mintColors,
+        // Alias primary to mint for backward compatibility
+        primary: mintColors,
         // Text Palette
         text: {
           primary: {
@@ -71,4 +75,3 @@ module.exports = {
   },
   plugins: [require('@tailwindcss/forms')],
 }
-

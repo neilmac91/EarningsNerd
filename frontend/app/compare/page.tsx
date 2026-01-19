@@ -65,7 +65,7 @@ export default function ComparePage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-panel-light dark:bg-background-dark">
       <SecondaryHeader
         title="Compare Filings"
         subtitle="Select 2-5 filings to compare side-by-side"
@@ -77,9 +77,9 @@ export default function ComparePage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 
         <SubscriptionGate requirePro={true}>
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="bg-background-light rounded-lg shadow-sm border border-border-light p-6 mb-6 dark:bg-panel-dark dark:border-border-dark">
             <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
                 Search Company
               </label>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -89,12 +89,12 @@ export default function ComparePage() {
                   onChange={(e) => setSelectedTicker(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                   placeholder="Enter ticker (e.g., AAPL)"
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  className="flex-1 px-4 py-2 border border-border-light rounded-lg bg-background-light text-text-primary-light placeholder:text-text-tertiary-light focus:outline-none focus:ring-2 focus:ring-mint-500/50 focus:border-mint-500 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
                 />
                 <button
                   onClick={handleSearch}
                   disabled={isSearching}
-                  className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-60"
+                  className="px-6 py-2 bg-mint-500 text-white rounded-lg hover:bg-mint-600 transition-colors disabled:opacity-60 font-semibold"
                 >
                   {isSearching ? (
                     <span className="flex items-center justify-center">
@@ -107,8 +107,12 @@ export default function ComparePage() {
                 </button>
               </div>
               {searchError && (
-                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                  {searchError}
+                <div className="mt-3">
+                  <StateCard
+                    variant="error"
+                    title="Search Failed"
+                    message={searchError}
+                  />
                 </div>
               )}
             </div>
@@ -129,33 +133,33 @@ export default function ComparePage() {
 
             {companyFilings.length > 0 && (
               <div className="mt-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">
                   Select Filings ({selectedFilings.length}/5 selected)
                 </h3>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
+                <div className="space-y-2 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
                   {companyFilings.map((filing) => (
                     <div
                       key={filing.id}
                       onClick={() => toggleFiling(filing.id!)}
                       className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
                         selectedFilings.includes(filing.id!)
-                          ? 'border-primary-500 bg-primary-50'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'border-mint-500 bg-mint-50 dark:bg-mint-900/20'
+                          : 'border-border-light hover:border-mint-200 dark:border-border-dark dark:hover:border-mint-800 bg-background-light dark:bg-background-dark'
                       }`}
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <div className="font-medium text-gray-900">
+                          <div className="font-medium text-text-primary-light dark:text-text-primary-dark">
                             {filing.filing_type} - {filing.filing_date && format(new Date(filing.filing_date), 'MMM dd, yyyy')}
                           </div>
                           {filing.report_date && (
-                            <div className="text-sm text-gray-600">
+                            <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                               Period: {format(new Date(filing.report_date), 'MMM dd, yyyy')}
                             </div>
                           )}
                         </div>
                         {selectedFilings.includes(filing.id!) && (
-                          <div className="w-6 h-6 bg-primary-600 rounded-full flex items-center justify-center">
+                          <div className="w-6 h-6 bg-mint-500 rounded-full flex items-center justify-center">
                             <span className="text-white text-sm font-bold">✓</span>
                           </div>
                         )}
@@ -168,7 +172,7 @@ export default function ComparePage() {
                   <button
                     onClick={handleCompare}
                     disabled={compareMutation.isPending}
-                    className="mt-6 w-full px-6 py-3 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-semibold disabled:opacity-50"
+                    className="mt-6 w-full px-6 py-3 bg-mint-500 text-white rounded-lg hover:bg-mint-600 transition-colors font-semibold disabled:opacity-50"
                   >
                     {compareMutation.isPending ? (
                       <span className="flex items-center justify-center">
@@ -191,7 +195,7 @@ export default function ComparePage() {
                   action={
                     <Link
                       href="/company/AAPL"
-                      className="inline-flex items-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 transition"
+                      className="inline-flex items-center rounded-lg bg-mint-500 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-600 transition"
                     >
                       Explore companies
                     </Link>
@@ -205,4 +209,3 @@ export default function ComparePage() {
     </div>
   )
 }
-
