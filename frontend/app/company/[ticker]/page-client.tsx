@@ -34,10 +34,11 @@ export default function CompanyPageClient() {
     retry: 1,
   })
 
-  const { data: filings, isLoading: filingsLoading } = useQuery<Filing[]>({
+  const { data: filings, isLoading: filingsLoading, isError: filingsError, error: filingsErrorData, refetch: refetchFilings, isFetching: filingsRefetching } = useQuery<Filing[]>({
     queryKey: ['filings', ticker],
     queryFn: () => getCompanyFilings(ticker),
     enabled: !!company,
+    retry: 1,
   })
 
   const { data: currentUser } = useQuery({
@@ -178,12 +179,12 @@ export default function CompanyPageClient() {
       {/* Header */}
       <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-800 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:space-x-4">
               <Link href="/" className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 font-medium transition-colors">
                 ← Back
               </Link>
-              <div className="border-l border-gray-200 dark:border-gray-700 pl-4 flex-1">
+              <div className="border-l-0 sm:border-l border-gray-200 dark:border-gray-700 sm:pl-4 flex-1">
                 <div className="flex items-center space-x-3">
                   <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{companyData.name}</h1>
                   {currentUser && (
@@ -238,15 +239,15 @@ export default function CompanyPageClient() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Filings Section */}
         <section className="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-6">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">SEC Filings</h2>
             {filings && filings.length > 0 && (
-              <div className="flex items-center space-x-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Filter className="h-4 w-4 text-gray-400 dark:text-gray-500" />
-                <div className="flex items-center space-x-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => setFilterType(null)}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-md transition-colors ${
                       filterType === null
                         ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900'
                         : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
@@ -256,7 +257,7 @@ export default function CompanyPageClient() {
                   </button>
                   <button
                     onClick={() => setFilterType('10-K')}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-md transition-colors ${
                       filterType === '10-K'
                         ? 'bg-blue-600 dark:bg-blue-500 text-white'
                         : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50'
@@ -266,7 +267,7 @@ export default function CompanyPageClient() {
                   </button>
                   <button
                     onClick={() => setFilterType('10-Q')}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-md transition-colors ${
                       filterType === '10-Q'
                         ? 'bg-teal-600 dark:bg-teal-500 text-white'
                         : 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300 hover:bg-teal-200 dark:hover:bg-teal-900/50'
@@ -276,7 +277,7 @@ export default function CompanyPageClient() {
                   </button>
                   <button
                     onClick={() => setFilterType('8-K')}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+                    className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-md transition-colors ${
                       filterType === '8-K'
                         ? 'bg-purple-600 dark:bg-purple-500 text-white'
                         : 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50'
@@ -292,6 +293,21 @@ export default function CompanyPageClient() {
           {filingsLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+            </div>
+          ) : filingsError ? (
+            <div className="rounded-lg border border-red-200/60 bg-red-50/80 p-6 text-center text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+              <p className="font-semibold">Unable to load filings right now.</p>
+              <p className="mt-1 text-xs text-red-600/80 dark:text-red-200/80">
+                {filingsErrorData instanceof Error ? filingsErrorData.message : 'Please try again shortly.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => refetchFilings()}
+                disabled={filingsRefetching}
+                className="mt-3 inline-flex items-center rounded-md border border-red-200 bg-white/80 px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-white dark:border-red-400/40 dark:bg-white/10 dark:text-red-100 dark:hover:bg-white/20 disabled:opacity-60"
+              >
+                {filingsRefetching ? 'Retrying…' : 'Retry'}
+              </button>
             </div>
           ) : sortedYears.length > 0 ? (
             <div className="space-y-4">
@@ -328,7 +344,7 @@ export default function CompanyPageClient() {
                               key={filing.id}
                               className={`border-l-4 ${styles.borderColor} border-r border-t border-b border-gray-200 dark:border-gray-700 rounded-lg p-4 ${styles.bgColor} ${styles.hoverBg} transition-colors`}
                             >
-                              <div className="flex items-start justify-between">
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                 <div className="flex-1">
                                   <div className="flex items-center space-x-3">
                                     <FileText className={`h-5 w-5 ${styles.iconColor}`} />
@@ -344,7 +360,7 @@ export default function CompanyPageClient() {
                                     </div>
                                   </div>
                                 </div>
-                                <div className="flex items-center space-x-2 ml-4">
+                                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 sm:ml-4">
                                   {filing.sec_url && (
                                     <a
                                       href={filing.sec_url}
