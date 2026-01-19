@@ -7,9 +7,11 @@ Transform dense SEC filings (10-Ks and 10-Qs) into clear, actionable insights us
 - **Company Search**: Search by name or ticker symbol
 - **SEC Filing Retrieval**: Automatic access to 10-K and 10-Q filings from SEC EDGAR
 - **AI Summarization**: GPT-4 powered summaries of business overview, financials, risks, and MD&A
-- **Historical Access**: View and compare filings across multiple years/quarters
-- **User Authentication**: Secure login and registration
-- **Clean UI**: Modern, responsive interface built with Next.js and Tailwind CSS
+- **Side-by-Side Comparison**: Compare multiple filings (2-5) to analyze trends and changes (Pro feature)
+- **Financial Visualization**: Interactive charts for revenue, earnings, and key metrics
+- **Trending & Hot Filings**: Discover popular companies and recently released filings
+- **User Dashboard**: Watchlist, saved summaries, and personalized insights
+- **Clean UI**: Modern "Mint" theme interface built with Next.js, Tailwind CSS, and shadcn/ui
 
 ## 📑 AI Summary JSON Contract
 
@@ -34,6 +36,8 @@ Update your integrations or downstream validators to respect these strengthened 
 - **Next.js 14** - React framework
 - **TypeScript** - Type safety
 - **Tailwind CSS** - Styling
+- **Recharts** - Financial charting
+- **Lucide React** - Iconography
 - **React Query** - Data fetching and caching
 - **Axios** - HTTP client
 
@@ -133,8 +137,8 @@ The frontend will be available at `http://localhost:3000`
 earningsnerd/
 ├── backend/
 │   ├── app/
-│   │   ├── routers/          # API routes
-│   │   ├── services/         # Business logic (SEC, OpenAI)
+│   │   ├── routers/          # API routes (auth, companies, filings, summaries, compare, trending)
+│   │   ├── services/         # Business logic (SEC, OpenAI, Trending)
 │   │   ├── models.py         # Database models
 │   │   ├── database.py       # DB connection
 │   │   └── config.py         # Configuration
@@ -144,7 +148,10 @@ earningsnerd/
 │   ├── app/                  # Next.js app directory
 │   │   ├── page.tsx          # Homepage
 │   │   ├── company/          # Company pages
-│   │   └── filing/           # Filing pages
+│   │   ├── filing/           # Filing pages
+│   │   ├── compare/          # Comparison tool
+│   │   ├── dashboard/        # User dashboard
+│   │   └── pricing/          # Pricing page
 │   ├── components/           # React components
 │   ├── lib/                  # Utilities and API client
 │   └── package.json          # Node dependencies
@@ -159,17 +166,25 @@ earningsnerd/
 - `POST /api/auth/login` - Login user
 - `GET /api/auth/me` - Get current user
 
-### Companies
+### Companies & Trending
 - `GET /api/companies/search?q={query}` - Search companies
 - `GET /api/companies/{ticker}` - Get company by ticker
+- `GET /api/trending_tickers` - Get trending companies
+- `GET /api/hot-filings` - Get recently viewed/processed filings
 
-### Filings
+### Filings & Summaries
 - `GET /api/filings/company/{ticker}` - Get company filings
 - `GET /api/filings/{id}` - Get specific filing
-
-### Summaries
 - `POST /api/summaries/filing/{id}/generate` - Generate AI summary
 - `GET /api/summaries/filing/{id}` - Get summary
+
+### Comparison (Pro)
+- `POST /api/compare` - Compare multiple filings (metrics, risks)
+
+### User Data
+- `GET /api/watchlist` - Get user's watchlist
+- `POST /api/watchlist` - Add to watchlist
+- `GET /api/saved-summaries` - Get saved summaries
 
 ## 🔐 Environment Variables
 
@@ -233,23 +248,25 @@ npm run lint
 5. **Click "View Summary"** on a filing
 6. **Generate AI summary** (if not already generated)
 7. **Review summary** with business overview, financials, risks, and MD&A
+8. **Use "Compare"** to select multiple filings and view side-by-side analysis (Pro)
 
 ## 🚧 Current Status
 
-### ✅ Completed (MVP)
+### ✅ Completed (MVP + Enhancements)
 - Company search functionality
 - SEC EDGAR API integration
 - Filing retrieval
 - AI summarization engine
-- User authentication
-- Summary display UI
-- Responsive design
+- User authentication & Dashboard
+- Summary display UI with Financial Charts
+- Responsive design with Mint Theme
+- Multi-year comparison (Pro feature)
+- Watchlist & Saved Summaries
+- Trending & Hot Filings
 
 ### 🚧 TODO (Future)
-- Multi-year comparison (Pro feature)
 - Export functionality (PDF/CSV)
-- Historical filings access
-- Payment integration (Stripe)
+- Historical filings access (expanded archive)
 - Email alerts
 - Mobile app
 
@@ -280,4 +297,3 @@ For issues or questions:
 ---
 
 **Built with ❤️ by the EarningsNerd team**
-

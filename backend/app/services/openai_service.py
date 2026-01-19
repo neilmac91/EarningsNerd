@@ -1056,6 +1056,8 @@ class OpenAIService:
         max_tokens: int = 350,
     ) -> Optional[str]:
         import asyncio
+        import time
+        import json
 
         models_to_try = [self.get_model_for_filing(filing_type_key)] + self._fallback_models
         models_to_try = list(dict.fromkeys(models_to_try))
@@ -1393,7 +1395,10 @@ Return JSON containing only the `{section_key}` key."""
         xbrl_metrics: Optional[Dict] = None,
         filing_excerpt: Optional[str] = None,
     ) -> Dict[str, Any]:
-        """Phase 1: Extract structured financial schema from the filing."""
+        import asyncio
+        import time
+        import json
+
         try:
             from bs4 import BeautifulSoup
             soup = BeautifulSoup(filing_text, 'html.parser')
@@ -2155,6 +2160,7 @@ Do not include any additional keys or text outside the JSON object."""
                 xbrl_metrics=xbrl_metrics,
                 filing_excerpt=filing_excerpt,
             )
+            
         except asyncio.TimeoutError:
             timeout_seconds = self._get_type_config(filing_type_key).get("ai_timeout", 30.0)
             print(f"Structured extraction timed out after {timeout_seconds}s for {filing_type_key}")

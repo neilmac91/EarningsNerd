@@ -33,6 +33,7 @@ async def lifespan(app: FastAPI):
     
     # Validate OpenAI/OpenRouter configuration
     is_valid, warnings = settings.validate_openai_config()
+    
     if warnings:
         print("⚠️  OpenAI/OpenRouter Configuration Warnings:")
         for warning in warnings:
