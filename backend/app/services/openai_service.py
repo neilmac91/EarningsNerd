@@ -169,7 +169,7 @@ def _normalize_risk_factors(raw_risks: Any) -> list[dict[str, str]]:
 
 class OpenAIService:
     def __init__(self):
-        # Use OpenRouter base URL if configured
+        # Use Google AI Studio base URL if configured
         base_url = settings.OPENAI_BASE_URL if hasattr(settings, 'OPENAI_BASE_URL') else None
         self.client = AsyncOpenAI(
             api_key=settings.OPENAI_API_KEY,
