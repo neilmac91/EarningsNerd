@@ -175,36 +175,35 @@ class OpenAIService:
             api_key=settings.OPENAI_API_KEY,
             base_url=base_url
         )
-        # OpenRouter compatible model names
+        # Google AI Studio model names
         # Optimized for speed and cost-effectiveness
-        self.model = "google/gemini-flash-1.5"  # Fast, cost-effective default
-        # Fallback models in case primary is rate-limited (prioritize free/low-cost)
+        self.model = "gemini-2.0-flash"  # Fast, reliable default
+        # Fallback models in case primary is rate-limited
         self._fallback_models = [
-            "google/gemini-flash-1.5",
-            "meta-llama/llama-3.2-3b-instruct:free",
-            "meta-llama/llama-3.1-8b-instruct"
+            "gemini-2.0-flash",
+            "gemini-2.5-flash",
+            "gemini-2.5-pro"
         ]
         # Dedicated writer preferences for editorial stage
         self._writer_models = [
-            "openai/gpt-4.1-mini",
-            "meta-llama/llama-3.1-70b-instruct",
-            "meta-llama/llama-3.1-8b-instruct",
-            "google/gemini-flash-1.5",
+            "gemini-2.5-pro",  # Highest quality for writing
+            "gemini-2.5-flash",
+            "gemini-2.0-flash",
         ]
         # Set optimized models for each filing type (ensure consistent quality)
         self._model_overrides = {
-            "10-K": "meta-llama/llama-3.1-8b-instruct",  # Better quality for longer docs
-            "10-Q": "meta-llama/llama-3.1-8b-instruct",  # Align quality with 10-K summaries
-            "8-K": "meta-llama/llama-3.1-8b-instruct"  # Align quality with 10-K summaries
+            "10-K": "gemini-2.5-pro",  # Better quality for longer docs
+            "10-Q": "gemini-2.5-flash",  # Balance of speed and quality
+            "8-K": "gemini-2.0-flash"  # Fast for shorter docs
         }
 
     def get_model_for_filing(self, filing_type: Optional[str]) -> str:
         """Return the model to use for a given filing type.
 
-        Optimized for speed and cost:
-        - 8-K: meta-llama/llama-3.1-8b-instruct (consistent with 10-K)
-        - 10-Q: meta-llama/llama-3.1-8b-instruct (consistent with 10-K)
-        - 10-K: meta-llama/llama-3.1-8b-instruct (better quality for longer docs)
+        Optimized for speed and quality using Google AI Studio:
+        - 8-K: gemini-2.0-flash (fast for shorter docs)
+        - 10-Q: gemini-2.5-flash (balance of speed and quality)
+        - 10-K: gemini-2.5-pro (better quality for longer docs)
         """
         if not filing_type:
             return self.model

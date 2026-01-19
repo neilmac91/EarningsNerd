@@ -101,16 +101,17 @@ class Settings(BaseSettings):
             self.COOKIE_SECURE = self.ENVIRONMENT == "production"
     
     def validate_openai_config(self) -> tuple[bool, list[str]]:
-        """Validate OpenAI/OpenRouter configuration and return (is_valid, warnings)"""
+        """Validate OpenAI/Google AI Studio/OpenRouter configuration and return (is_valid, warnings)"""
         warnings = []
         is_valid = True
         
-        # Check base URL
+        # Check base URL - accept OpenRouter or Google AI Studio
+        valid_providers = ["openrouter.ai", "generativelanguage.googleapis.com"]
         if not self.OPENAI_BASE_URL:
             warnings.append("OPENAI_BASE_URL is not set")
             is_valid = False
-        elif "openrouter.ai" not in self.OPENAI_BASE_URL.lower():
-            warnings.append(f"OPENAI_BASE_URL ({self.OPENAI_BASE_URL}) does not appear to be OpenRouter. Expected 'openrouter.ai' in URL.")
+        elif not any(provider in self.OPENAI_BASE_URL.lower() for provider in valid_providers):
+            warnings.append(f"OPENAI_BASE_URL ({self.OPENAI_BASE_URL}) does not appear to be a supported provider. Expected OpenRouter or Google AI Studio.")
         
         # Check API key
         if not self.OPENAI_API_KEY:
