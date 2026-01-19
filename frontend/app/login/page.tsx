@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { login } from '@/lib/api'
 import Link from 'next/link'
+import { AlertCircle, Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -31,19 +32,27 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-8">
-        <h1 className="text-3xl font-bold text-center mb-8">Login to EarningsNerd</h1>
-        
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-10 dark:bg-slate-950">
+      <div className="w-full max-w-md rounded-2xl border border-gray-200/70 bg-white p-8 shadow-lg dark:border-white/10 dark:bg-slate-900">
+        <h1 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-3">Login to EarningsNerd</h1>
+        <p className="text-sm text-center text-gray-600 dark:text-slate-300 mb-8">
+          Welcome back — sign in to continue.
+        </p>
+
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-            {error}
+          <div
+            className="mb-5 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200"
+            role="alert"
+            aria-live="polite"
+          >
+            <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+            <span>{error}</span>
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1">
               Email
             </label>
             <input
@@ -52,12 +61,12 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-primary-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
             />
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-slate-200 mb-1">
               Password
             </label>
             <input
@@ -66,22 +75,29 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-primary-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-primary-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
             />
           </div>
 
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary-600 text-white py-2 rounded-lg hover:bg-primary-700 font-semibold disabled:opacity-50"
+            className="w-full bg-primary-600 text-white py-2.5 rounded-lg hover:bg-primary-700 font-semibold disabled:opacity-50"
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Logging in...
+              </span>
+            ) : (
+              'Login'
+            )}
           </button>
         </form>
 
-        <p className="mt-4 text-center text-gray-600">
+        <p className="mt-6 text-center text-gray-600 dark:text-slate-300">
           Don't have an account?{' '}
-          <Link href="/register" className="text-primary-600 hover:underline">
+          <Link href="/register" className="text-primary-600 hover:underline dark:text-primary-400">
             Sign up
           </Link>
         </p>

@@ -1,8 +1,19 @@
 import httpx
 import json
+import logging
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta
 from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+
+class SECEdgarServiceError(RuntimeError):
+    """Raised when SEC EDGAR is unavailable or responds unexpectedly."""
+
+    def __init__(self, message: str, *, cause: Optional[Exception] = None) -> None:
+        super().__init__(message)
+        self.cause = cause
 
 class SECEdgarService:
     BASE_URL = settings.SEC_EDGAR_BASE_URL
@@ -38,16 +49,18 @@ class SECEdgarService:
                 self._tickers_cache_time = datetime.now()
                 
                 return tickers_data
-        except httpx.TimeoutException:
+        except httpx.TimeoutException as exc:
             # If timeout, try to use stale cache if available
             if self._tickers_cache is not None:
+                logger.warning("SEC ticker list timeout, serving stale cache.")
                 return self._tickers_cache
-            raise
-        except Exception as e:
+            raise SECEdgarServiceError("SEC ticker list request timed out.", cause=exc)
+        except Exception as exc:
             # If error, try to use stale cache if available
             if self._tickers_cache is not None:
+                logger.warning("SEC ticker list failed, serving stale cache: %s", exc)
                 return self._tickers_cache
-            raise
+            raise SECEdgarServiceError("Unable to fetch SEC ticker list.", cause=exc)
     
     async def search_company(self, query: str) -> List[Dict]:
         """Search for companies by name or ticker"""
@@ -55,7 +68,7 @@ class SECEdgarService:
             tickers_data = await self.get_company_tickers()
         except Exception as e:
             # If we can't fetch tickers, return empty list
-            print(f"Error fetching company tickers: {str(e)}")
+            logger.warning("Error fetching company tickers: %s", e)
             return []
         
         query_lower = query.lower().strip()
@@ -121,14 +134,21 @@ class SECEdgarService:
     async def get_company_submissions(self, cik: str) -> Dict:
         """Get company filing submissions from SEC"""
         url = f"{self.BASE_URL}/submissions/CIK{cik.zfill(10)}.json"
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                url,
-                headers={"User-Agent": self.USER_AGENT},
-                timeout=30.0
-            )
-            response.raise_for_status()
-            return response.json()
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    url,
+                    headers={"User-Agent": self.USER_AGENT},
+                    timeout=30.0
+                )
+                response.raise_for_status()
+                return response.json()
+        except httpx.TimeoutException as exc:
+            raise SECEdgarServiceError("SEC submissions request timed out.", cause=exc)
+        except httpx.HTTPError as exc:
+            raise SECEdgarServiceError("SEC submissions request failed.", cause=exc)
+        except Exception as exc:
+            raise SECEdgarServiceError("Unable to fetch SEC submissions.", cause=exc)
     
     async def get_filings(self, cik: str, filing_types: List[str] = ["10-K", "10-Q", "8-K"], limit: Optional[int] = None) -> List[Dict]:
         """Get all filings for a company (optionally limited to most recent)"""
@@ -194,14 +214,21 @@ class SECEdgarService:
     async def get_filing_document(self, document_url: str, timeout: Optional[float] = None) -> str:
         """Fetch the actual filing document"""
         request_timeout = timeout if timeout is not None else 30.0
-        async with httpx.AsyncClient() as client:
-            response = await client.get(
-                document_url,
-                headers={"User-Agent": self.USER_AGENT},
-                timeout=request_timeout
-            )
-            response.raise_for_status()
-            return response.text
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    document_url,
+                    headers={"User-Agent": self.USER_AGENT},
+                    timeout=request_timeout
+                )
+                response.raise_for_status()
+                return response.text
+        except httpx.TimeoutException as exc:
+            raise SECEdgarServiceError("SEC filing request timed out.", cause=exc)
+        except httpx.HTTPError as exc:
+            raise SECEdgarServiceError("SEC filing request failed.", cause=exc)
+        except Exception as exc:
+            raise SECEdgarServiceError("Unable to fetch SEC filing.", cause=exc)
 
 sec_edgar_service = SECEdgarService()
 

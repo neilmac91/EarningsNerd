@@ -191,6 +191,8 @@ export default function CompanyPageClient() {
                     <button
                       onClick={() => watchlistMutation.mutate(ticker)}
                       disabled={watchlistMutation.isPending}
+                      aria-label={isInWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
+                      aria-pressed={Boolean(isInWatchlist)}
                       className={`p-2 rounded-lg transition-colors ${
                         isInWatchlist
                           ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50'

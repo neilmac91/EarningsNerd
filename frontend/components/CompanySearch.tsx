@@ -38,10 +38,13 @@ export default function CompanySearch() {
       <div className="relative">
         <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
         <input
+          id="company-search"
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search for a company (e.g., AAPL, Apple, Microsoft)..."
+          aria-label="Search for a company"
+          aria-describedby={isError ? "company-search-error" : undefined}
           className="w-full pl-12 pr-4 py-4 text-lg text-gray-900 placeholder:text-gray-500 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-primary-500 bg-white"
         />
         {isLoading && (
@@ -51,7 +54,12 @@ export default function CompanySearch() {
 
       {/* Error Message */}
       {isError && debouncedQuery.length > 0 && (
-        <div className="absolute z-10 w-full mt-2 bg-red-50 border border-red-200 rounded-lg shadow-lg p-4">
+        <div
+          id="company-search-error"
+          role="alert"
+          aria-live="polite"
+          className="absolute z-10 w-full mt-2 bg-red-50 border border-red-200 rounded-lg shadow-lg p-4"
+        >
           <div className="text-red-800 font-semibold mb-1">Error searching companies</div>
           <div className="text-sm text-red-600">
             {error instanceof Error 

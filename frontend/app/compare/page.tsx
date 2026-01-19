@@ -118,6 +118,17 @@ export default function ComparePage() {
               )}
             </div>
 
+            {compareMutation.isError && (
+              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <p className="font-medium">Comparison failed.</p>
+                <p className="text-xs text-red-600 mt-1">
+                  {compareMutation.error instanceof Error
+                    ? compareMutation.error.message
+                    : 'Please try again in a moment.'}
+                </p>
+              </div>
+            )}
+
             {companyFilings.length > 0 && (
               <div className="mt-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -171,6 +182,13 @@ export default function ComparePage() {
                     )}
                   </button>
                 )}
+              </div>
+            )}
+
+            {!companyFilings.length && !searchError && !isSearching && (
+              <div className="mt-6 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-6 py-8 text-center text-sm text-gray-600">
+                <BarChart3 className="mx-auto mb-3 h-7 w-7 text-gray-400" />
+                Search for a ticker to start building a comparison set.
               </div>
             )}
           </div>

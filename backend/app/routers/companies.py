@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from typing import Dict, List, Optional, Tuple
 from app.database import get_db
 from app.models import Company
-from app.services.sec_edgar import sec_edgar_service
+from app.services.sec_edgar import sec_edgar_service, SECEdgarServiceError
 from pydantic import BaseModel
 from datetime import datetime, timedelta
 import httpx
@@ -360,8 +360,10 @@ async def get_company(ticker: str, db: Session = Depends(get_db)):
                 db.refresh(company)
             else:
                 raise HTTPException(status_code=404, detail="Company not found")
+        except SECEdgarServiceError as e:
+            raise HTTPException(status_code=503, detail="SEC EDGAR is temporarily unavailable. Please retry shortly.") from e
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Error fetching company: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Error fetching company: {str(e)}") from e
     
     # Fetch stock quote
     stock_quote = await get_stock_quote(company.ticker)
