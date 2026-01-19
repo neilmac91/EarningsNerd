@@ -31,17 +31,17 @@ async def lifespan(app: FastAPI):
     # Startup
     Base.metadata.create_all(bind=engine)
     
-    # Validate OpenAI/OpenRouter configuration
+    # Validate Google AI Studio configuration
     is_valid, warnings = settings.validate_openai_config()
     
     if warnings:
-        print("⚠️  OpenAI/OpenRouter Configuration Warnings:")
+        print("⚠️  Google AI Studio Configuration Warnings:")
         for warning in warnings:
             print(f"   - {warning}")
     if is_valid:
-        print(f"✓ OpenAI/OpenRouter configured: base_url={settings.OPENAI_BASE_URL}, model=meta-llama/llama-3.1-8b-instruct")
+        print(f"✓ Google AI Studio configured: base_url={settings.OPENAI_BASE_URL}, model=gemini-2.0-flash")
     else:
-        print("✗ OpenAI/OpenRouter configuration is invalid. AI summaries may not work.")
+        print("✗ Google AI Studio configuration is invalid. AI summaries may not work.")
     
     # Validate Stripe configuration
     stripe_valid, stripe_warnings = settings.validate_stripe_config()

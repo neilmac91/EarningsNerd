@@ -13,7 +13,7 @@ services:
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_BASE_URL
-        value: https://openrouter.ai/api/v1
+        value: https://generativelanguage.googleapis.com/v1beta/openai/
       - key: SECRET_KEY
         sync: false
       - key: STRIPE_SECRET_KEY

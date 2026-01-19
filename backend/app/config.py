@@ -18,7 +18,7 @@ class Settings(BaseSettings):
     # Check environment variable first, then .env file
     # Pydantic Settings automatically prioritizes env vars, but we'll make it explicit
     OPENAI_API_KEY: str = ""
-    OPENAI_BASE_URL: str = "https://openrouter.ai/api/v1"  # OpenRouter base URL
+    OPENAI_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta/openai/"  # Google AI Studio base URL
     
     # Stripe
     STRIPE_SECRET_KEY: str = ""
