@@ -2,8 +2,12 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
+import Header from '@/components/Header' // Will be created in the next step
 
-const inter = Inter({ subsets: ['latin'] })
+const inter = Inter({
+  subsets: ['latin'],
+  variable: '--font-inter',
+})
 
 export const metadata: Metadata = {
   title: 'EarningsNerd - AI-Powered SEC Filing Analysis',
@@ -27,31 +31,14 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <head>
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              '@context': 'https://schema.org',
-              '@type': 'SoftwareApplication',
-              name: 'EarningsNerd',
-              applicationCategory: 'FinanceApplication',
-              description: 'AI-powered SEC filing analysis and summarization platform',
-              url: 'https://earningsnerd.com',
-              offers: {
-                '@type': 'Offer',
-                price: '0',
-                priceCurrency: 'USD',
-              },
-            }),
-          }}
-        />
-      </head>
-      <body className={inter.className}>
-        <Providers>{children}</Providers>
+    <html lang="en" className={`${inter.variable} font-sans`} suppressHydrationWarning>
+      <head />
+      <body>
+        <Providers>
+          <Header />
+          {children}
+        </Providers>
       </body>
     </html>
   )
 }
-

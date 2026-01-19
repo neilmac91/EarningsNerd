@@ -1,3 +1,5 @@
+const { fontFamily } = require('tailwindcss/defaultTheme')
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -9,21 +11,64 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        primary: {
-          50: '#f0f9ff',
-          100: '#e0f2fe',
-          200: '#bae6fd',
-          300: '#7dd3fc',
-          400: '#38bdf8',
-          500: '#0ea5e9',
-          600: '#0284c7',
-          700: '#0369a1',
-          800: '#075985',
-          900: '#0c4a6e',
+        // Core Palette
+        background: {
+          light: '#FFFFFF', // White
+          dark: '#111827', // gray-900
         },
+        panel: {
+          light: '#F9FAFB', // gray-50
+          dark: '#1F2937', // gray-800
+        },
+        // Accent Color
+        mint: {
+          50: '#ECFDF5',
+          100: '#D1FAE5',
+          200: '#A7F3D0',
+          300: '#6EE7B7',
+          400: '#34D399',
+          500: '#10B981', // Main accent
+          600: '#059669',
+          700: '#047857',
+          800: '#065F46',
+          900: '#064E3B',
+        },
+        // Text Palette
+        text: {
+          primary: {
+            light: '#111827', // gray-900
+            dark: '#FFFFFF',
+          },
+          secondary: {
+            light: '#374151', // gray-700
+            dark: '#9CA3AF', // gray-400
+          },
+          tertiary: {
+            light: '#6B7280', // gray-500
+            dark: '#4B5563', // gray-600
+          },
+        },
+        // Universal Border
+        border: {
+          light: '#E5E7EB', // gray-200
+          dark: '#374151', // gray-700
+        }
+      },
+      fontFamily: {
+        sans: ['var(--font-inter)', ...fontFamily.sans],
+      },
+      keyframes: {
+        shimmer: {
+          '100%': {
+            transform: 'translateX(100%)',
+          },
+        },
+      },
+      animation: {
+        shimmer: 'shimmer 2s infinite',
       },
     },
   },
-  plugins: [],
+  plugins: [require('@tailwindcss/forms')],
 }
 
