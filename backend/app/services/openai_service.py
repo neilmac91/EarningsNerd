@@ -1395,10 +1395,7 @@ Return JSON containing only the `{section_key}` key."""
         xbrl_metrics: Optional[Dict] = None,
         filing_excerpt: Optional[str] = None,
     ) -> Dict[str, Any]:
-        import asyncio
-        import time
-        import json
-
+        """Phase 1: Extract structured financial schema from the filing."""
         try:
             from bs4 import BeautifulSoup
             soup = BeautifulSoup(filing_text, 'html.parser')
