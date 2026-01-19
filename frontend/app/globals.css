@@ -8,7 +8,7 @@
   }
   
   body {
-    @apply bg-slate-50 text-slate-900;
+    @apply bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark;
   }
 }
 
