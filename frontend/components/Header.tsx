@@ -19,9 +19,9 @@ export default function Header() {
     <header className="sticky top-0 z-50 border-b border-border-light bg-background-light/80 backdrop-blur-lg dark:border-border-dark dark:bg-background-dark/80">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
         <div className="flex items-center">
-          <Link href="/" className="flex items-center gap-2 py-4" aria-label="EarningsNerd">
+          <Link href="/" className="flex items-center gap-2 py-4">
             <EarningsNerdLogo variant="icon-only" iconClassName="h-8 w-8" />
-            <span className="hidden text-xl font-bold text-text-primary-light dark:text-text-primary-dark sm:inline-block">
+            <span className="sr-only text-xl font-bold text-text-primary-light dark:text-text-primary-dark sm:not-sr-only sm:inline-block">
               EarningsNerd
             </span>
           </Link>
