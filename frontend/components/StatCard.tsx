@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowDownRight, ArrowUpRight, Minus, TrendingUp } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react'
 import { ResponsiveContainer, AreaChart, Area } from 'recharts'
 import { useCountUp } from '../hooks/useCountUp'
 import { ShimmeringLoader } from './ShimmeringLoader'
