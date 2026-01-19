@@ -97,6 +97,6 @@
 }
 
 .markdown-body blockquote {
-  @apply border-l-4 border-primary-200 pl-4 italic text-gray-600;
+  @apply border-l-4 border-mint-200 pl-4 italic text-gray-600;
 }
 
