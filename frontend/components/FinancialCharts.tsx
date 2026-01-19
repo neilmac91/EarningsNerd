@@ -1,7 +1,8 @@
 'use client'
 
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import { fmtCurrency, fmtPercent, parseNumeric } from '@/lib/format'
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { fmtCurrency, parseNumeric } from '@/lib/format'
+import { StatCard } from './StatCard'
 
 interface FinancialChartsProps {
   metrics?: Array<{
@@ -17,29 +18,46 @@ export default function FinancialCharts({ metrics }: FinancialChartsProps) {
     return null
   }
 
-  const hasComparatives = metrics.some((metric) => parseNumeric(metric.prior_period) !== null)
+  // 1. Process Metrics for StatCards
+  // We look for specific keys to promote to the top
+  const keyMetrics = metrics.filter(m => {
+    const name = m.metric.toLowerCase()
+    return (
+      name.includes('revenue') || 
+      name.includes('income') || 
+      name.includes('earnings') || 
+      name.includes('eps') ||
+      name.includes('cash flow')
+    )
+  }).slice(0, 4) // Limit to top 4 cards
 
-  // Extract revenue, EPS, and cash flow data for line charts
-  const timeSeriesData = metrics
-    .filter(m => {
-      const metric = m.metric.toLowerCase()
-      return metric.includes('revenue') || metric.includes('eps') || metric.includes('cash flow')
-    })
-    .map(m => {
-      const current = parseNumeric(m.current_period)
-      const prior = parseNumeric(m.prior_period)
-      return {
-        metric: m.metric,
-        current: current,
-        prior: prior,
-        change: current && prior ? ((current - prior) / Math.abs(prior)) * 100 : null,
-      }
-    })
-    .filter(m => m.current !== null)
+  const statCardsData = keyMetrics.map(m => {
+    const current = parseNumeric(m.current_period) || 0
+    const prior = parseNumeric(m.prior_period) || 0
+    const change = prior !== 0 ? ((current - prior) / Math.abs(prior)) * 100 : 0
+    
+    // Determine unit
+    const name = m.metric.toLowerCase()
+    let unit: 'currency' | 'percent' | 'number' = 'number'
+    if (name.includes('margin') || name.includes('rate') || name.includes('return')) {
+      unit = 'percent'
+    } else if (name.includes('revenue') || name.includes('income') || name.includes('cash') || name.includes('eps')) {
+      unit = 'currency'
+    }
 
-  // Bar chart data for key metrics
+    return {
+      label: m.metric,
+      value: current,
+      unit,
+      change,
+      trendData: [prior, current]
+    }
+  })
+
+  // 2. Bar Chart Data (Comparison)
+  // Used for the secondary view
   const barChartData = metrics
-    .slice(0, 6) // Top 6 metrics
+    .slice(0, 6)
     .map(m => {
       const current = parseNumeric(m.current_period)
       const prior = parseNumeric(m.prior_period)
@@ -50,99 +68,94 @@ export default function FinancialCharts({ metrics }: FinancialChartsProps) {
       }
     })
 
+  const hasComparatives = metrics.some((metric) => parseNumeric(metric.prior_period) !== null)
   const showPriorSeries = hasComparatives && barChartData.some(item => typeof item.prior === 'number')
 
-  if (timeSeriesData.length === 0 && barChartData.length === 0) {
-    return null
-  }
-
   return (
-    <div className="space-y-6">
-      {/* Key Metrics Comparison Bar Chart */}
-      {barChartData.length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Key Financial Metrics Comparison</h3>
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={barChartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis 
-                dataKey="name" 
-                angle={-45}
-                textAnchor="end"
-                height={100}
-                tick={{ fontSize: 12 }}
-              />
-              <YAxis tick={{ fontSize: 12 }} />
-              <Tooltip
-                formatter={(value: number) => {
-                  if (typeof value === 'number') {
-                    return fmtCurrency(value, { digits: 2 })
-                  }
-                  return value
-                }}
-              />
-              <Legend />
-              <Bar dataKey="current" fill="#3b82f6" name="Current Period" />
-              {showPriorSeries && (
-                <Bar dataKey="prior" fill="#94a3b8" name="Prior Period" data-testid="prior-series" />
-              )}
-            </BarChart>
-          </ResponsiveContainer>
+    <div className="space-y-8">
+      {/* 1. The "At-a-Glance" Grid */}
+      {statCardsData.length > 0 && (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {statCardsData.map((stat, i) => (
+            <StatCard 
+              key={i}
+              label={stat.label}
+              value={stat.value}
+              unit={stat.unit}
+              change={stat.change}
+              trendData={stat.trendData}
+            />
+          ))}
         </div>
       )}
 
-      {/* Revenue/EPS/Cash Flow Trends */}
-      {timeSeriesData.length > 0 && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Financial Trends</h3>
-          <div className="grid md:grid-cols-2 gap-6">
-            {timeSeriesData.map((item, index) => (
-              <div key={index} className="border border-gray-200 rounded-lg p-4">
-                <h4 className="text-sm font-medium text-gray-700 mb-3">{item.metric}</h4>
-                <ResponsiveContainer width="100%" height={200}>
-                  <LineChart
-                    data={[
-                      ...(showPriorSeries && item.prior !== null
-                        ? [{ period: 'Prior', value: item.prior }]
-                        : []),
-                      ...(item.current !== null ? [{ period: 'Current', value: item.current }] : []),
-                    ]}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="period" />
-                    <YAxis />
-                    <Tooltip
-                      formatter={(value: number) => {
-                        if (typeof value === 'number') {
-                          return fmtCurrency(value, { digits: 2 })
-                        }
-                        return value
-                      }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="value" 
-                      stroke="#3b82f6" 
-                      strokeWidth={2}
-                      dot={{ fill: '#3b82f6', r: 4 }}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-                {item.change !== null && (
-                  <div
-                    className={`mt-2 text-sm font-medium ${
-                      item.change > 0 ? 'text-green-600' : item.change < 0 ? 'text-red-600' : 'text-gray-600'
-                    }`}
-                  >
-                    {fmtPercent(item.change, { digits: 1, signed: true })} change
-                  </div>
+      {/* 2. Detailed Comparison Chart */}
+      {barChartData.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="mb-6 flex items-center justify-between">
+            <h3 className="text-lg font-semibold tracking-tight text-slate-900">
+              Metric Comparison
+            </h3>
+            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+              Current vs Prior
+            </span>
+          </div>
+          
+          <div className="h-[300px] w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={barChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis 
+                  dataKey="name" 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  dy={10}
+                />
+                <YAxis 
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  tickFormatter={(value) => {
+                    if (value >= 1_000_000_000) return `$${(value / 1e9).toFixed(1)}B`
+                    if (value >= 1_000_000) return `$${(value / 1e6).toFixed(0)}M`
+                    return `${value}`
+                  }}
+                />
+                <Tooltip
+                  cursor={{ fill: '#f8fafc' }}
+                  contentStyle={{ 
+                    borderRadius: '8px', 
+                    border: '1px solid #e2e8f0',
+                    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                  }}
+                  formatter={(value: number) => [
+                    fmtCurrency(value, { digits: 2, compact: true }), 
+                    ''
+                  ]}
+                />
+                <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
+                <Bar 
+                  dataKey="current" 
+                  name="Current Period" 
+                  fill="#10b981" // emerald-500
+                  radius={[4, 4, 0, 0]} 
+                  barSize={32}
+                />
+                {showPriorSeries && (
+                  <Bar 
+                    dataKey="prior" 
+                    name="Prior Period" 
+                    fill="#94a3b8" // slate-400
+                    radius={[4, 4, 0, 0]} 
+                    barSize={32}
+                  />
                 )}
-              </div>
-            ))}
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       )}
     </div>
   )
 }
-
