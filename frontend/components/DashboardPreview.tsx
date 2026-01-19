@@ -10,10 +10,10 @@ const FAKE_DATA = {
     ticker: 'AAPL',
   },
   metrics: [
-    { label: 'Total Revenue', value: 383_290_000_000, unit: 'currency', change: -2.8 },
-    { label: 'Net Income', value: 96_995_000_000, unit: 'currency', change: -0.9 },
-    { label: 'Gross Margin', value: 44.13, unit: 'percent', change: 1.2 },
-    { label: 'EPS (Diluted)', value: 6.13, unit: 'none', change: 0.82 },
+    { label: 'Total Revenue', value: 383_290_000_000, unit: 'currency' as const, change: -2.8 },
+    { label: 'Net Income', value: 96_995_000_000, unit: 'currency' as const, change: -0.9 },
+    { label: 'Gross Margin', value: 44.13, unit: 'percent' as const, change: 1.2 },
+    { label: 'EPS (Diluted)', value: 6.13, unit: 'none' as const, change: 0.82 },
   ],
 }
 
