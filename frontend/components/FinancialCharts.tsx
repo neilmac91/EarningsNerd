@@ -76,7 +76,7 @@ export default function FinancialCharts({ metrics }: FinancialChartsProps) {
       {/* 1. The "At-a-Glance" Grid */}
       {statCardsData.length > 0 && (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {statCardsData.map((stat, i) => (
+          {statCardsData.map((stat) => (
             <StatCard 
               key={stat.label}
               label={stat.label}

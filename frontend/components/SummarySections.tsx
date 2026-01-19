@@ -402,7 +402,7 @@ function EmptyState({ label }: { label: string }) {
       </div>
       <h3 className="text-lg font-medium text-slate-900">No {label} Found</h3>
       <p className="text-slate-500 max-w-sm mt-2">
-        The AI couldn't extract this specific section from the filing. This usually means the company didn't report it in standard format.
+        The AI couldn&apos;t extract this specific section from the filing. This usually means the company didn&apos;t report it in standard format.
       </p>
     </div>
   )

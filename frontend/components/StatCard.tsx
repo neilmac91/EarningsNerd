@@ -38,7 +38,6 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
 
   const isPositive = change && change > 0
   const isNegative = change && change < 0
-  const isNeutral = !change || change === 0
   
   // Bloomberg-Lite Colors
   const deltaColors = {
