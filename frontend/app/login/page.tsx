@@ -23,9 +23,10 @@ export default function LoginPage() {
       await login(email, password)
       router.push('/')
       router.refresh()
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Login error:', err)
-      const errorMessage = err.response?.data?.detail || err.message || 'Login failed. Please check your credentials.'
+      const axiosErr = err as { response?: { data?: { detail?: string } }; message?: string }
+      const errorMessage = axiosErr.response?.data?.detail || axiosErr.message || 'Login failed. Please check your credentials.'
       setError(errorMessage)
     } finally {
       setLoading(false)
@@ -103,7 +104,7 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-gray-600 dark:text-slate-300">
-          Don't have an account?{' '}
+          Don&apos;t have an account?{' '}
           <Link href="/register" className="text-primary-600 hover:underline dark:text-primary-400">
             Sign up
           </Link>

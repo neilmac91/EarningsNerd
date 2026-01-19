@@ -106,7 +106,7 @@ export default function TrendingTickers() {
 
     try {
       return formatDistanceToNowStrict(new Date(data.timestamp), { addSuffix: true })
-    } catch (e) {
+    } catch {
       return null
     }
   }, [data?.timestamp])

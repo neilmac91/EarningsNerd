@@ -2,7 +2,7 @@
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { getFiling, getSummary, generateSummary, generateSummaryStream, Filing, Summary, getSubscriptionStatus, saveSummary, getSavedSummaries, getSummaryProgress, SummaryProgressData, getCompany, getCompanyFilings, Company, getCurrentUserSafe } from '@/lib/api'
+import { getFiling, getSummary, generateSummaryStream, Filing, Summary, getSubscriptionStatus, saveSummary, getSavedSummaries, getSummaryProgress, SummaryProgressData, getCompany, getCompanyFilings, Company, getCurrentUserSafe, getApiUrl, SavedSummary } from '@/lib/api'
 import { Loader2, AlertCircle, FileText, Download, FileDown, Bookmark, BookmarkCheck } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -13,9 +13,8 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import SubscriptionGate from '@/components/SubscriptionGate'
 import FinancialMetricsTable from '@/components/FinancialMetricsTable'
-import SummaryProgress from '@/components/SummaryProgress'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
-import { AxiosError, isAxiosError } from 'axios'
+import { isAxiosError } from 'axios'
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
 import { ThemeToggle } from '@/components/ThemeToggle'
 
@@ -153,18 +152,10 @@ function TickerFilingsView({ ticker }: { ticker: string }) {
   )
 }
 
-export default function FilingPageClient() {
-  const params = useParams()
+function FilingDetailView({ filingId }: { filingId: number }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const identifier = params.id as string
-  const isTickerView = !/^\d+$/.test(identifier)
-
-  if (isTickerView) {
-    return <TickerFilingsView ticker={identifier.toUpperCase()} />
-  }
-
-  const filingId = parseInt(identifier, 10)
+  
   const [streamingText, setStreamingText] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingStage, setStreamingStage] = useState<string>('')
@@ -215,7 +206,7 @@ export default function FilingPageClient() {
     queryKey: ['summary', filingId],
     queryFn: () => getSummary(filingId),
     retry: false,
-    enabled: !!filing, // Only fetch when filing is loaded
+    enabled: !!filing,
   })
 
   const { data: subscription } = useQuery({
@@ -225,14 +216,32 @@ export default function FilingPageClient() {
     enabled: !!isAuthenticated,
   })
 
-  const { data: savedSummaries } = useQuery({
+  const { data: savedSummaries } = useQuery<SavedSummary[]>({
     queryKey: ['saved-summaries'],
     queryFn: getSavedSummaries,
     retry: false,
-    enabled: !!isAuthenticated, // Only fetch if user is logged in
+    enabled: !!isAuthenticated,
   })
 
   const queryClient = useQueryClient()
+
+  const summaryHasPlaceholder = !!(summary?.business_overview && summary.business_overview.includes('Generating summary'))
+  const hasSummaryContent = !!(summary?.business_overview && !summaryHasPlaceholder)
+  const isGenerating = isStreaming || summaryHasPlaceholder
+
+  // Progress data is used for polling side-effect, not displayed directly
+  useQuery<SummaryProgressData>({
+    queryKey: ['summary-progress', filingId],
+    queryFn: () => getSummaryProgress(filingId),
+    enabled: !!filing && !!isGenerating,
+    refetchInterval: (query) => {
+      const data = query.state.data
+      if (data?.stage === 'completed' || data?.stage === 'error') {
+        return false
+      }
+      return 1000
+    },
+  })
 
   const getFriendlyErrorMessage = (error: unknown): string | null => {
     if (!error) return null
@@ -272,7 +281,7 @@ export default function FilingPageClient() {
     },
   })
 
-  const isSaved = summary && savedSummaries?.some((s: any) => s.summary_id === summary.id)
+  const isSaved = summary && savedSummaries?.some((s: SavedSummary) => s.summary_id === summary.id)
   const summaryErrorMessage = getFriendlyErrorMessage(summaryError)
   const activeErrorMessage = generationError || summaryErrorMessage
   const debugSummary = searchParams?.get('debug') === '1'
@@ -302,7 +311,7 @@ export default function FilingPageClient() {
           setStreamingStage(stage)
           setStreamingMessage(message)
         },
-        (summaryId: number) => {
+        () => {
           setGenerationError(null)
           // Refetch the summary to get the full structured data
           refetch()
@@ -318,8 +327,9 @@ export default function FilingPageClient() {
           setStreamingText('')
         }
       )
-    } catch (error: any) {
-      const message = error?.message || 'Failed to generate summary'
+    } catch (error: unknown) {
+      const errObj = error as { message?: string }
+      const message = errObj?.message || 'Failed to generate summary'
       setGenerationError(message)
       setStreamingStage('error')
       setStreamingMessage(message)
@@ -329,26 +339,6 @@ export default function FilingPageClient() {
       setIsStreaming(false)
     }
   }
-
-  const summaryHasPlaceholder = !!(summary?.business_overview && summary.business_overview.includes('Generating summary'))
-  const hasSummaryContent = !!(summary?.business_overview && !summaryHasPlaceholder)
-
-  // Poll progress when generating (for non-streaming fallback)
-  const isGenerating = isStreaming || summaryHasPlaceholder
-  const { data: progress } = useQuery<SummaryProgressData>({
-    queryKey: ['summary-progress', filingId],
-    queryFn: () => getSummaryProgress(filingId),
-    enabled: !!filing && !!isGenerating,
-    refetchInterval: (query) => {
-      const data = query.state.data
-      // Stop polling if completed or error
-      if (data?.stage === 'completed' || data?.stage === 'error') {
-        return false
-      }
-      // Poll every 1 second while generating
-      return 1000
-    },
-  })
 
   // Auto-generate summary when page loads if no summary exists
   useEffect(() => {
@@ -768,6 +758,11 @@ function StreamingSummaryDisplay({
   )
 }
 
+interface SaveMutation {
+  mutate: (summaryId: number) => void
+  isPending: boolean
+}
+
 function SummaryDisplay({
   summary,
   filing,
@@ -780,7 +775,7 @@ function SummaryDisplay({
   summary: Summary
   filing: Filing
   isPro: boolean
-  saveMutation: any
+  saveMutation: SaveMutation
   isSaved: boolean
   debug?: boolean
   isAuthenticated: boolean
@@ -799,7 +794,21 @@ function SummaryDisplay({
 
   const isError = Boolean(writerError) || isFallbackMessage || (!hasPolishedMarkdown && trimmedMarkdown.length === 0)
 
-  const metadata = rawSummary ? (rawSummary.sections ?? null) : null
+  interface MetadataSections {
+    financial_highlights?: {
+      table?: Array<{
+        metric: string
+        current_period: string
+        prior_period: string
+        commentary?: string
+      }>
+      notes?: string
+    }
+    action_items?: string[]
+    [key: string]: unknown
+  }
+  
+  const metadata: MetadataSections | null = rawSummary ? (rawSummary.sections as MetadataSections ?? null) : null
 
   const coverageSnapshot = rawSummary?.section_coverage as
     | { covered_count?: number; total_count?: number; coverage_ratio?: number }
@@ -811,7 +820,6 @@ function SummaryDisplay({
     coverageSnapshot.total_count > 0
 
   const handleExportPDF = () => {
-    const { getApiUrl } = require('@/lib/api')
     const apiUrl = getApiUrl()
     const url = `${apiUrl}/api/summaries/filing/${filing.id}/export/pdf`
     
@@ -848,7 +856,6 @@ function SummaryDisplay({
   }
 
   const handleExportCSV = () => {
-    const { getApiUrl } = require('@/lib/api')
     const apiUrl = getApiUrl()
     const url = `${apiUrl}/api/summaries/filing/${filing.id}/export/csv`
     
@@ -1048,5 +1055,18 @@ function SummarySectionsSkeleton() {
       </div>
     </div>
   )
+}
+
+export default function FilingPageClient() {
+  const params = useParams()
+  const identifier = params.id as string
+  const isTickerView = !/^\d+$/.test(identifier)
+
+  if (isTickerView) {
+    return <TickerFilingsView ticker={identifier.toUpperCase()} />
+  }
+
+  const filingId = parseInt(identifier, 10)
+  return <FilingDetailView filingId={filingId} />
 }
 

@@ -114,7 +114,20 @@ export interface Summary {
   risk_factors?: RiskFactor[] | null
   management_discussion?: string
   key_changes?: string
-  raw_summary?: any
+  raw_summary?: {
+    sections?: Record<string, unknown>
+    section_coverage?: {
+      covered_count?: number
+      total_count?: number
+      coverage_ratio?: number
+    }
+    writer_error?: string
+    writer?: {
+      fallback_used?: boolean
+      fallback_reason?: string
+    }
+    [key: string]: unknown
+  } | null
 }
 
 // Company APIs
@@ -320,13 +333,14 @@ export const generateSummaryStream = async (
         }
       }
     }
-  } catch (error: any) {
-    if (error?.name === 'AbortError') {
+  } catch (error: unknown) {
+    const errObj = error as { name?: string; message?: string }
+    if (errObj?.name === 'AbortError') {
       const timeoutMessage = `Request timed out after ${STREAM_TIMEOUT_MS / 1000} seconds without activity.`
       onError(timeoutMessage)
       throw new Error(timeoutMessage)
     }
-    onError(error?.message || 'Failed to generate summary stream.')
+    onError(errObj?.message || 'Failed to generate summary stream.')
     throw error
   } finally {
     clearTimeoutSafely()
@@ -351,9 +365,10 @@ export const getSummary = async (filingId: number): Promise<Summary | null> => {
       return null
     }
     return response.data
-  } catch (error: any) {
+  } catch (error: unknown) {
     // If 404 or other error, return null instead of throwing
-    if (error.response?.status === 404) {
+    const axiosErr = error as { response?: { status?: number } }
+    if (axiosErr.response?.status === 404) {
       return null
     }
     throw error
@@ -396,8 +411,9 @@ export const getCurrentUser = async () => {
 export const getCurrentUserSafe = async () => {
   try {
     return await getCurrentUser()
-  } catch (error: any) {
-    if (error.response?.status === 401) {
+  } catch (error: unknown) {
+    const axiosErr = error as { response?: { status?: number } }
+    if (axiosErr.response?.status === 401) {
       return null
     }
     throw error
@@ -567,11 +583,11 @@ export interface ComparisonData {
   comparison: {
     financial_metrics: Array<{
       filing_id: number
-      metrics: any[]
+      metrics: Array<Record<string, unknown>>
     }>
     risk_factors: Array<{
       filing_id: number
-      risks: any[]
+      risks: Array<Record<string, unknown>>
     }>
     summary_count: number
   }

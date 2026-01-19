@@ -1,28 +1,65 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
-import { ChevronDown, ChevronUp, FileText, TrendingUp, AlertTriangle, Building2, BarChart3 } from 'lucide-react'
+import { FileText, TrendingUp, AlertTriangle, Building2, BarChart3 } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { RiskFactor } from '../types/summary'
 
+interface MetricItem {
+  metric: string
+  current_period: string
+  prior_period: string
+  commentary?: string
+}
+
+interface RawSummaryData {
+  sections?: Record<string, unknown>
+  section_coverage?: {
+    covered_count?: number
+    total_count?: number
+    coverage_ratio?: number
+  }
+  writer_error?: string
+  writer?: {
+    fallback_used?: boolean
+    fallback_reason?: string
+  }
+}
+
+interface SectionsData {
+  executive_snapshot?: unknown
+  financial_highlights?: {
+    table?: MetricItem[]
+    notes?: string
+  }
+  risk_factors?: unknown[]
+  management_discussion_insights?: unknown
+  guidance_outlook?: unknown
+  liquidity_capital_structure?: unknown
+  notable_footnotes?: unknown
+  three_year_trend?: unknown
+  segment_performance?: unknown
+  [key: string]: unknown
+}
+
 interface SummarySectionsProps {
   summary: {
     business_overview?: string
-    raw_summary?: any
+    raw_summary?: RawSummaryData | null
   }
-  metrics?: any[]
+  metrics?: MetricItem[]
 }
 
 export default function SummarySections({ summary, metrics }: SummarySectionsProps) {
   const [activeTab, setActiveTab] = useState<string>('overview')
 
   const raw_summary = summary.raw_summary || {}
-  const sections = raw_summary.sections || {}
+  const sections: SectionsData = (raw_summary.sections as SectionsData) || {}
 
   const evidenceKeys = ['excerpt', 'text', 'quote', 'source', 'reference', 'tag', 'xbrl_tag', 'xbrlTag', 'citation']
 
-  const renderMarkdownValue = (value: any): string => {
+  const renderMarkdownValue = (value: unknown): string => {
     if (value === null || value === undefined) {
       return ''
     }
@@ -59,7 +96,7 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
     return String(value)
   }
 
-  const getAccordionContent = (value: any): string | null => {
+  const getAccordionContent = (value: unknown): string | null => {
     if (value === null || value === undefined) {
       return null
     }
@@ -72,7 +109,7 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
     return rendered.trim().length > 0 ? rendered : null
   }
 
-  const formatEvidence = (value: any): string => {
+  const formatEvidence = (value: unknown): string => {
     if (!value) return ''
     if (Array.isArray(value)) {
       const parts = value.map((item) => formatEvidence(item)).filter(Boolean)
@@ -102,15 +139,16 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
     return String(value).trim()
   }
 
-  const normalizeRisk = (risk: any): RiskFactor | null => {
+  const normalizeRisk = (risk: unknown): RiskFactor | null => {
     if (!risk || typeof risk !== 'object') {
       return null
     }
 
-    const title = typeof risk.title === 'string' ? risk.title.trim() : null
-    const description = typeof risk.description === 'string' ? risk.description.trim() : null
+    const riskObj = risk as Record<string, unknown>
+    const title = typeof riskObj.title === 'string' ? riskObj.title.trim() : null
+    const description = typeof riskObj.description === 'string' ? riskObj.description.trim() : null
     const summaryCandidate =
-      (typeof risk.summary === 'string' && risk.summary.trim()) ||
+      (typeof riskObj.summary === 'string' && riskObj.summary.trim()) ||
       (description && description) ||
       (title && title) ||
       ''
@@ -120,7 +158,7 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
     }
 
     const supportingEvidence = formatEvidence(
-      (risk.supporting_evidence ?? risk.supportingEvidence ?? risk.evidence ?? risk.source) as unknown
+      riskObj.supporting_evidence ?? riskObj.supportingEvidence ?? riskObj.evidence ?? riskObj.source
     )
 
     if (!supportingEvidence) {
@@ -141,8 +179,10 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
       return [] as RiskFactor[]
     }
     return rawRisks
-      .map((risk) => normalizeRisk(risk))
+      .map((risk: unknown) => normalizeRisk(risk))
       .filter((risk): risk is RiskFactor => Boolean(risk && risk.supporting_evidence))
+    // normalizeRisk is a stable function defined in the component body
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sections.risk_factors])
 
   const hasTrendContent = Boolean(sections.three_year_trend || sections.segment_performance)
@@ -206,7 +246,7 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
               <div className="text-sm text-gray-600">
                 <p>Financial metrics are displayed in the table above. Key highlights include:</p>
                 <ul className="list-disc list-inside mt-2 space-y-1">
-                  {metrics.slice(0, 5).map((m: any, i: number) => (
+                  {metrics.slice(0, 5).map((m: MetricItem, i: number) => (
                     <li key={i}>{m.metric}: {m.current_period} vs {m.prior_period}</li>
                   ))}
                 </ul>
@@ -297,14 +337,14 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
         }
         return (
           <div className="space-y-4">
-            {sections.three_year_trend && (
+            {Boolean(sections.three_year_trend) && (
               <div className="prose max-w-none">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {renderMarkdownValue(sections.three_year_trend)}
                 </ReactMarkdown>
               </div>
             )}
-            {sections.segment_performance && (
+            {Boolean(sections.segment_performance) && (
               <div className="mt-6">
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">Segment Performance</h3>
                 <div className="prose max-w-none">

@@ -74,7 +74,7 @@ export default function CompanySearch() {
       {/* No Results Message */}
       {!isLoading && !isError && companies && companies.length === 0 && debouncedQuery.length > 0 && (
         <div className="absolute z-10 w-full mt-2 bg-gray-50 border border-gray-200 rounded-lg shadow-lg p-4">
-          <div className="text-gray-600 text-center">No companies found matching "{debouncedQuery}"</div>
+          <div className="text-gray-600 text-center">No companies found matching &quot;{debouncedQuery}&quot;</div>
         </div>
       )}
 

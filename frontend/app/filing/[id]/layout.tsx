@@ -1,6 +1,7 @@
 import { Metadata } from 'next'
 
-export async function generateMetadata({ params }: { params: { id: string } }): Promise<Metadata> {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export async function generateMetadata(_props: { params: { id: string } }): Promise<Metadata> {
   // In a real app, you'd fetch filing data here
   return {
     title: 'SEC Filing Summary | EarningsNerd',

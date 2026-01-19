@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: { params: { ticker: string } 
         description: `AI-powered summaries of ${ticker} SEC filings and financial reports.`,
       },
     }
-  } catch (error) {
+  } catch {
     // Fallback metadata if params are not available
     return {
       title: 'Company SEC Filings & 10-K Summary | EarningsNerd',
