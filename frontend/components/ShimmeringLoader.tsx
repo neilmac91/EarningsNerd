@@ -1,14 +1,14 @@
 import { clsx } from 'clsx'
 
+interface ShimmeringLoaderProps extends React.HTMLAttributes<HTMLElement> {
+  as?: React.ElementType
+}
+
 export function ShimmeringLoader({
   as: Component = 'div',
   className,
   ...props
-}: {
-  as?: React.ElementType
-  className?: string
-  [key: string]: any
-}) {
+}: ShimmeringLoaderProps) {
   return (
     <Component
       className={clsx(
