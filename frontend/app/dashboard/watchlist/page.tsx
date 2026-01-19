@@ -98,7 +98,7 @@ export default function WatchlistDashboardPage() {
     <div className="min-h-screen bg-slate-50">
       <header className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <button
               onClick={() => router.push('/dashboard')}
               className="inline-flex items-center text-slate-600 hover:text-slate-900 font-medium transition-colors"

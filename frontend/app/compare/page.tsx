@@ -15,6 +15,8 @@ export default function ComparePage() {
   const [selectedTicker, setSelectedTicker] = useState<string>('')
   const [selectedFilings, setSelectedFilings] = useState<number[]>([])
   const [companyFilings, setCompanyFilings] = useState<Filing[]>([])
+  const [searchError, setSearchError] = useState<string | null>(null)
+  const [isSearching, setIsSearching] = useState(false)
 
   const compareMutation = useMutation({
     mutationFn: compareFilings,
@@ -27,11 +29,19 @@ export default function ComparePage() {
 
   const handleSearch = async () => {
     if (!selectedTicker) return
+    setSearchError(null)
+    setIsSearching(true)
     try {
       const filings = await getCompanyFilings(selectedTicker.toUpperCase())
       setCompanyFilings(filings)
+      if (!filings.length) {
+        setSearchError('No filings found for that ticker yet.')
+      }
     } catch (error) {
-      console.error('Error fetching filings:', error)
+      const message = error instanceof Error ? error.message : 'Unable to fetch filings right now.'
+      setSearchError(message)
+    } finally {
+      setIsSearching(false)
     }
   }
 
@@ -77,7 +87,7 @@ export default function ComparePage() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Search Company
               </label>
-              <div className="flex space-x-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <input
                   type="text"
                   value={selectedTicker}
@@ -88,11 +98,24 @@ export default function ComparePage() {
                 />
                 <button
                   onClick={handleSearch}
-                  className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                  disabled={isSearching}
+                  className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-60"
                 >
-                  Search
+                  {isSearching ? (
+                    <span className="flex items-center justify-center">
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      Searching...
+                    </span>
+                  ) : (
+                    'Search'
+                  )}
                 </button>
               </div>
+              {searchError && (
+                <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {searchError}
+                </div>
+              )}
             </div>
 
             {companyFilings.length > 0 && (

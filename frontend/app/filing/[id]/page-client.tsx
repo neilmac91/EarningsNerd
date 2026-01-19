@@ -400,7 +400,7 @@ export default function FilingPageClient() {
       {/* Header */}
       <header className="bg-gradient-to-r from-white via-gray-50 to-white dark:from-gray-800 dark:via-gray-900 dark:to-gray-800 shadow-lg border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
             <button 
               onClick={handleBack}
               className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 inline-flex items-center space-x-1 transition-colors group"
@@ -411,12 +411,12 @@ export default function FilingPageClient() {
             <ThemeToggle />
           </div>
           
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex-1">
               {filing.company ? (
                 <>
-                  <div className="flex items-center space-x-3 mb-2">
-                    <div className="flex items-center space-x-2">
+                  <div className="flex flex-wrap items-center gap-3 mb-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
                         {filing.company.name}
                       </h1>
@@ -425,7 +425,7 @@ export default function FilingPageClient() {
                       </span>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400">
+                  <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
                     <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-md font-semibold text-gray-700 dark:text-gray-300">
                       {filing.filing_type}
                     </span>
@@ -887,7 +887,7 @@ function SummaryDisplay({
   return (
     <div className="space-y-6">
       {/* Action Buttons */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
         {isAuthenticated && (
           <div>
             {summary && summary.id && (
@@ -916,7 +916,7 @@ function SummaryDisplay({
           </div>
         )}
         <SubscriptionGate requirePro={false}>
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center gap-3">
             {isPro ? (
               <>
                 <button

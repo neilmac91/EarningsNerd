@@ -8,15 +8,35 @@ import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { TrendingUp } from 'lucide-react'
 
 export default function TrendingCompanies() {
-  const { data: trendingCompanies, isLoading } = useQuery({
+  const { data: trendingCompanies, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['trendingCompanies'],
     queryFn: () => getTrendingCompanies(6),
+    retry: 1,
   })
 
   if (isLoading) {
     return (
       <div className="rounded-2xl bg-white/50 dark:bg-white/5 p-8 text-center border border-gray-200/60 dark:border-white/10">
         <p className="text-gray-500 dark:text-slate-400 text-sm">Loading trending companies...</p>
+      </div>
+    )
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-2xl border border-red-200/60 bg-red-50/60 p-6 text-center text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+        <p className="font-semibold">Unable to load trending companies.</p>
+        <p className="mt-1 text-xs text-red-600/80 dark:text-red-200/80">
+          {error instanceof Error ? error.message : 'Please try again in a moment.'}
+        </p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="mt-3 inline-flex items-center rounded-md border border-red-200 bg-white/60 px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-white dark:border-red-400/40 dark:bg-white/10 dark:text-red-100 dark:hover:bg-white/20 disabled:opacity-60"
+        >
+          {isFetching ? 'Retrying…' : 'Retry'}
+        </button>
       </div>
     )
   }

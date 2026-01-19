@@ -12,34 +12,34 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 export default function DashboardPage() {
   const router = useRouter()
 
-  const { data: user, isLoading: userLoading } = useQuery({
+  const { data: user, isLoading: userLoading, isError: userError, error: userErrorData, refetch: refetchUser, isFetching: userFetching } = useQuery({
     queryKey: ['user'],
     queryFn: getCurrentUser,
     retry: false,
   })
 
-  const { data: usage, isLoading: usageLoading } = useQuery({
+  const { data: usage, isLoading: usageLoading, isError: usageError, error: usageErrorData, refetch: refetchUsage, isFetching: usageFetching } = useQuery({
     queryKey: ['usage'],
     queryFn: getUsage,
     retry: false,
     enabled: !!user,
   })
 
-  const { data: subscription, isLoading: subscriptionLoading } = useQuery({
+  const { data: subscription, isLoading: subscriptionLoading, isError: subscriptionError, error: subscriptionErrorData, refetch: refetchSubscription, isFetching: subscriptionFetching } = useQuery({
     queryKey: ['subscription'],
     queryFn: getSubscriptionStatus,
     retry: false,
     enabled: !!user,
   })
 
-  const { data: savedSummaries, isLoading: savedLoading } = useQuery({
+  const { data: savedSummaries, isLoading: savedLoading, isError: savedError, error: savedErrorData, refetch: refetchSavedSummaries, isFetching: savedFetching } = useQuery({
     queryKey: ['saved-summaries'],
     queryFn: getSavedSummaries,
     retry: false,
     enabled: !!user,
   })
 
-  const { data: watchlist, isLoading: watchlistLoading } = useQuery({
+  const { data: watchlist, isLoading: watchlistLoading, isError: watchlistError, error: watchlistErrorData, refetch: refetchWatchlist, isFetching: watchlistFetching } = useQuery({
     queryKey: ['watchlist'],
     queryFn: getWatchlist,
     retry: false,
@@ -81,15 +81,45 @@ export default function DashboardPage() {
 
   useEffect(() => {
     // Redirect to login if not authenticated
-    if (!userLoading && !user) {
+    if (!userLoading && !user && !userError) {
       router.push('/login')
     }
-  }, [user, userLoading, router])
+  }, [user, userLoading, userError, router])
 
   if (userLoading || usageLoading || subscriptionLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+      </div>
+    )
+  }
+
+  if (userError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 px-4">
+        <div className="max-w-md w-full rounded-2xl border border-red-200/60 bg-white p-6 text-center shadow-sm dark:border-red-500/40 dark:bg-slate-900">
+          <AlertCircle className="h-8 w-8 text-red-600 dark:text-red-400 mx-auto mb-3" />
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Unable to load your dashboard</h1>
+          <p className="mt-2 text-sm text-gray-600 dark:text-slate-300">
+            {userErrorData instanceof Error ? userErrorData.message : 'Please try again in a moment.'}
+          </p>
+          <div className="mt-4 flex items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => refetchUser()}
+              disabled={userFetching}
+              className="inline-flex items-center rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-slate-200 dark:hover:bg-slate-800 disabled:opacity-60"
+            >
+              {userFetching ? 'Retrying…' : 'Retry'}
+            </button>
+            <Link
+              href="/login"
+              className="inline-flex items-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-primary-700"
+            >
+              Go to login
+            </Link>
+          </div>
+        </div>
       </div>
     )
   }
@@ -107,7 +137,7 @@ export default function DashboardPage() {
       {/* Header */}
       <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <Link href="/" className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
               ← Back to Home
             </Link>
@@ -146,7 +176,22 @@ export default function DashboardPage() {
                 </span>
               )}
             </div>
-            {subscription?.is_pro ? (
+            {subscriptionError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                <p className="font-medium">Unable to load subscription status.</p>
+                <p className="text-xs text-red-600 mt-1">
+                  {subscriptionErrorData instanceof Error ? subscriptionErrorData.message : 'Please retry.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => refetchSubscription()}
+                  disabled={subscriptionFetching}
+                  className="mt-2 inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60"
+                >
+                  {subscriptionFetching ? 'Retrying…' : 'Retry'}
+                </button>
+              </div>
+            ) : subscription?.is_pro ? (
               <div className="space-y-3">
                 <p className="text-sm text-gray-600">
                   You're on the Pro plan with unlimited access.
@@ -184,7 +229,22 @@ export default function DashboardPage() {
           {/* Usage Stats */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Usage This Month</h2>
-            {usage?.is_pro ? (
+            {usageError ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                <p className="font-medium">Unable to load usage data.</p>
+                <p className="text-xs text-red-600 mt-1">
+                  {usageErrorData instanceof Error ? usageErrorData.message : 'Please retry.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => refetchUsage()}
+                  disabled={usageFetching}
+                  className="mt-2 inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60"
+                >
+                  {usageFetching ? 'Retrying…' : 'Retry'}
+                </button>
+              </div>
+            ) : usage?.is_pro ? (
               <div className="flex items-center space-x-2">
                 <CheckCircle2 className="h-5 w-5 text-green-500" />
                 <span className="text-gray-700">Unlimited summaries</span>
@@ -289,6 +349,21 @@ export default function DashboardPage() {
             <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
             </div>
+          ) : savedError ? (
+            <div className="bg-white rounded-lg shadow-sm border border-red-200 p-6 text-center text-sm text-red-700">
+              <p className="font-medium">Unable to load saved summaries.</p>
+              <p className="text-xs text-red-600 mt-1">
+                {savedErrorData instanceof Error ? savedErrorData.message : 'Please retry.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => refetchSavedSummaries()}
+                disabled={savedFetching}
+                className="mt-3 inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60"
+              >
+                {savedFetching ? 'Retrying…' : 'Retry'}
+              </button>
+            </div>
           ) : savedSummaries && savedSummaries.length > 0 ? (
             <div className="grid md:grid-cols-2 gap-4">
               {savedSummaries.map((item: SavedSummary) => (
@@ -336,6 +411,21 @@ export default function DashboardPage() {
           {watchlistLoading ? (
             <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+            </div>
+          ) : watchlistError ? (
+            <div className="bg-white rounded-lg shadow-sm border border-red-200 p-6 text-center text-sm text-red-700">
+              <p className="font-medium">Unable to load watchlist.</p>
+              <p className="text-xs text-red-600 mt-1">
+                {watchlistErrorData instanceof Error ? watchlistErrorData.message : 'Please retry.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => refetchWatchlist()}
+                disabled={watchlistFetching}
+                className="mt-3 inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60"
+              >
+                {watchlistFetching ? 'Retrying…' : 'Retry'}
+              </button>
             </div>
           ) : watchlist && watchlist.length > 0 ? (
             <div className="grid md:grid-cols-3 gap-4">

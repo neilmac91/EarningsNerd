@@ -15,13 +15,13 @@ function PricingContent() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [isLoadingCheckout, setIsLoadingCheckout] = useState<string | null>(null)
 
-  const { data: subscription } = useQuery({
+  const { data: subscription, isError: subscriptionError, error: subscriptionErrorData, refetch: refetchSubscription, isFetching: subscriptionFetching } = useQuery({
     queryKey: ['subscription'],
     queryFn: getSubscriptionStatus,
     retry: false,
   })
 
-  const { data: usage } = useQuery({
+  const { data: usage, isError: usageError, error: usageErrorData, refetch: refetchUsage, isFetching: usageFetching } = useQuery({
     queryKey: ['usage'],
     queryFn: getUsage,
     retry: false,
@@ -118,6 +118,37 @@ function PricingContent() {
             Choose the plan that works for you. Upgrade or downgrade at any time.
           </p>
 
+          {(subscriptionError || usageError) && (
+            <div className="mt-6 mx-auto max-w-2xl rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-left text-sm text-red-700">
+              <p className="font-medium">We couldn&apos;t load all pricing details.</p>
+              <p className="text-xs text-red-600 mt-1">
+                {subscriptionErrorData instanceof Error
+                  ? subscriptionErrorData.message
+                  : usageErrorData instanceof Error
+                  ? usageErrorData.message
+                  : 'Please retry.'}
+              </p>
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => refetchSubscription()}
+                  disabled={subscriptionFetching}
+                  className="inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60"
+                >
+                  {subscriptionFetching ? 'Retrying…' : 'Retry subscription'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => refetchUsage()}
+                  disabled={usageFetching}
+                  className="inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60"
+                >
+                  {usageFetching ? 'Retrying…' : 'Retry usage'}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Billing Toggle */}
           {!subscription?.is_pro && (
             <div className="mt-8 flex items-center justify-center space-x-4">
@@ -142,7 +173,7 @@ function PricingContent() {
         </div>
 
         {/* Usage Stats */}
-        {usage && (
+        {usage && !usageError && (
           <div className="mb-8 bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-2xl mx-auto">
             <div className="flex items-center justify-between">
               <div>
