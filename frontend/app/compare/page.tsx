@@ -9,6 +9,8 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import SubscriptionGate from '@/components/SubscriptionGate'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import SecondaryHeader from '@/components/SecondaryHeader'
+import StateCard from '@/components/StateCard'
 
 export default function ComparePage() {
   const router = useRouter()
@@ -64,22 +66,15 @@ export default function ComparePage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
-            <Link href="/" className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
-              ← Back to Home
-            </Link>
-            <ThemeToggle />
-          </div>
-        </div>
-      </header>
+      <SecondaryHeader
+        title="Compare Filings"
+        subtitle="Select 2-5 filings to compare side-by-side"
+        backHref="/"
+        backLabel="Back to home"
+        actions={<ThemeToggle />}
+      />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Compare Filings</h1>
-          <p className="text-gray-600">Select 2-5 filings to compare side-by-side</p>
-        </div>
 
         <SubscriptionGate requirePro={true}>
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
@@ -119,13 +114,16 @@ export default function ComparePage() {
             </div>
 
             {compareMutation.isError && (
-              <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                <p className="font-medium">Comparison failed.</p>
-                <p className="text-xs text-red-600 mt-1">
-                  {compareMutation.error instanceof Error
-                    ? compareMutation.error.message
-                    : 'Please try again in a moment.'}
-                </p>
+              <div className="mb-6">
+                <StateCard
+                  variant="error"
+                  title="Comparison failed"
+                  message={
+                    compareMutation.error instanceof Error
+                      ? compareMutation.error.message
+                      : 'Please try again in a moment.'
+                  }
+                />
               </div>
             )}
 
@@ -186,9 +184,19 @@ export default function ComparePage() {
             )}
 
             {!companyFilings.length && !searchError && !isSearching && (
-              <div className="mt-6 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-6 py-8 text-center text-sm text-gray-600">
-                <BarChart3 className="mx-auto mb-3 h-7 w-7 text-gray-400" />
-                Search for a ticker to start building a comparison set.
+              <div className="mt-6">
+                <StateCard
+                  title="Start a comparison"
+                  message="Search for a ticker to begin building a comparison set."
+                  action={
+                    <Link
+                      href="/company/AAPL"
+                      className="inline-flex items-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 transition"
+                    >
+                      Explore companies
+                    </Link>
+                  }
+                />
               </div>
             )}
           </div>

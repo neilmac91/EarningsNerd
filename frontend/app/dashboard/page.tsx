@@ -8,6 +8,7 @@ import { CheckCircle2, AlertCircle, Sparkles, BarChart3, FileText, Settings, Loa
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import SecondaryHeader from '@/components/SecondaryHeader'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -134,31 +135,25 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      {/* Header */}
-      <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <Link href="/" className="text-primary-600 dark:text-primary-400 hover:text-primary-700 dark:hover:text-primary-300">
-              ← Back to Home
-            </Link>
-            <div className="flex items-center space-x-4">
-              <ThemeToggle />
-              <button
-                onClick={() => logoutMutation.mutate()}
-                className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
-              >
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <SecondaryHeader
+        title="Dashboard"
+        subtitle={`Welcome back, ${user.full_name || user.email}`}
+        backHref="/"
+        backLabel="Back to home"
+        actions={
+          <>
+            <ThemeToggle />
+            <button
+              onClick={() => logoutMutation.mutate()}
+              className="text-sm font-medium text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white"
+            >
+              Logout
+            </button>
+          </>
+        }
+      />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Dashboard</h1>
-          <p className="text-gray-600">Welcome back, {user.full_name || user.email}</p>
-        </div>
 
         {/* Subscription Status */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">

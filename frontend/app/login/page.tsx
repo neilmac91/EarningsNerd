@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { login } from '@/lib/api'
 import Link from 'next/link'
 import { AlertCircle, Loader2 } from 'lucide-react'
+import EarningsNerdLogoIcon from '@/components/EarningsNerdLogoIcon'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -34,7 +35,13 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-10 dark:bg-slate-950">
       <div className="w-full max-w-md rounded-2xl border border-gray-200/70 bg-white p-8 shadow-lg dark:border-white/10 dark:bg-slate-900">
-        <h1 className="text-3xl font-bold text-center text-gray-900 dark:text-white mb-3">Login to EarningsNerd</h1>
+        <div className="flex flex-col items-center gap-3">
+          <Link href="/" className="flex items-center gap-2 text-slate-700 dark:text-slate-200">
+            <EarningsNerdLogoIcon className="h-9 w-9" />
+            <span className="text-sm font-semibold">EarningsNerd</span>
+          </Link>
+        </div>
+        <h1 className="mt-4 text-3xl font-bold text-center text-gray-900 dark:text-white mb-3">Login</h1>
         <p className="text-sm text-center text-gray-600 dark:text-slate-300 mb-8">
           Welcome back — sign in to continue.
         </p>

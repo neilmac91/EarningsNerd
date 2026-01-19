@@ -7,7 +7,6 @@ import Link from 'next/link'
 import { format, formatDistanceToNowStrict } from 'date-fns'
 import {
   AlertCircle,
-  ArrowLeft,
   CalendarDays,
   Clock,
   Loader2,
@@ -15,6 +14,8 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { getCurrentUserSafe, getWatchlistInsights, WatchlistInsight } from '@/lib/api'
+import SecondaryHeader from '@/components/SecondaryHeader'
+import StateCard from '@/components/StateCard'
 
 function useAuthGate() {
   const router = useRouter()
@@ -96,61 +97,44 @@ export default function WatchlistDashboardPage() {
 
   return (
     <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <button
-              onClick={() => router.push('/dashboard')}
-              className="inline-flex items-center text-slate-600 hover:text-slate-900 font-medium transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to dashboard
-            </button>
-            <Link
-              href="/compare"
-              className="inline-flex items-center px-4 py-2 rounded-lg bg-primary-600 text-white text-sm font-semibold hover:bg-primary-700 transition-colors"
-            >
-              <Sparkles className="h-4 w-4 mr-2" />
-              Compare filings
-            </Link>
-          </div>
-          <div className="mt-6">
-            <h1 className="text-3xl font-bold text-slate-900">Watchlist insights</h1>
-            <p className="text-slate-500 max-w-2xl mt-2">
-              Monitor the freshest filings for your tracked companies and spot summaries that need a
-              refresh before morning briefing.
-            </p>
-          </div>
-        </div>
-      </header>
+      <SecondaryHeader
+        title="Watchlist insights"
+        subtitle="Monitor filings and summary freshness for tracked companies."
+        backHref="/dashboard"
+        backLabel="Back to dashboard"
+        actions={
+          <Link
+            href="/compare"
+            className="inline-flex items-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 transition-colors"
+          >
+            <Sparkles className="h-4 w-4 mr-2" />
+            Compare filings
+          </Link>
+        }
+      />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
         {isError && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-start space-x-3">
-            <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
-            <div>
-              <p className="text-red-700 font-medium">Unable to load watchlist insights.</p>
-              <p className="text-sm text-red-600">
-                Please retry in a moment, or confirm you are signed in with an active session.
-              </p>
-            </div>
-          </div>
+          <StateCard
+            variant="error"
+            title="Unable to load watchlist insights"
+            message="Please retry in a moment, or confirm you are signed in with an active session."
+          />
         )}
 
         {insights.length === 0 ? (
-          <div className="bg-white border border-dashed border-gray-300 rounded-xl p-10 text-center">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">No watchlist companies yet</h2>
-            <p className="text-gray-600 mb-4">
-              Track a company from any company page to see its filing freshness and summary status
-              here.
-            </p>
-            <Link
-              href="/company/AAPL"
-              className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium"
-            >
-              Explore companies
-            </Link>
-          </div>
+          <StateCard
+            title="No watchlist companies yet"
+            message="Track a company from any company page to see its filing freshness and summary status here."
+            action={
+              <Link
+                href="/company/AAPL"
+                className="inline-flex items-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 transition-colors"
+              >
+                Explore companies
+              </Link>
+            }
+          />
         ) : (
           <div className="grid gap-6">
             {insights.map((insight: WatchlistInsight) => {
