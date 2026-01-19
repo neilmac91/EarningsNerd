@@ -23,9 +23,14 @@ describe('SummarySections renderMarkdownValue gating', () => {
 
     render(<SummarySections summary={summary as any} metrics={[]} />)
 
-    // Tabs should not appear when content is empty
-    expect(screen.queryByText('Guidance & Drivers')).not.toBeInTheDocument()
-    expect(screen.queryByText('Liquidity & Covenants')).not.toBeInTheDocument()
+    // Tabs should be present but disabled (indicated by title) when content is empty
+    const guidanceTab = screen.getByText('Guidance').closest('button')
+    expect(guidanceTab).toBeInTheDocument()
+    expect(guidanceTab).toHaveAttribute('title', 'No data available in this filing')
+
+    const liquidityTab = screen.getByText('Liquidity').closest('button')
+    expect(liquidityTab).toBeInTheDocument()
+    expect(liquidityTab).toHaveAttribute('title', 'No data available in this filing')
   })
 
   it('shows additional accordions when renderMarkdownValue returns real content', () => {
@@ -51,7 +56,7 @@ describe('SummarySections renderMarkdownValue gating', () => {
     render(<SummarySections summary={summary as any} metrics={[]} />)
 
     // Tabs should appear when content is present
-    expect(screen.getByText('Guidance & Drivers')).toBeInTheDocument()
-    expect(screen.getByText('Liquidity & Covenants')).toBeInTheDocument()
+    expect(screen.getByText('Guidance')).toBeInTheDocument()
+    expect(screen.getByText('Liquidity')).toBeInTheDocument()
   })
 })

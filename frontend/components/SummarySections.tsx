@@ -1,10 +1,11 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
-import { FileText, TrendingUp, AlertTriangle, Building2, BarChart3 } from 'lucide-react'
+import { FileText, TrendingUp, AlertTriangle, Building2, BarChart3, HelpCircle } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { RiskFactor } from '../types/summary'
+import { SummaryBlock } from './SummaryBlock'
 
 interface MetricItem {
   metric: string
@@ -181,73 +182,70 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
     return rawRisks
       .map((risk: unknown) => normalizeRisk(risk))
       .filter((risk): risk is RiskFactor => Boolean(risk && risk.supporting_evidence))
-    // normalizeRisk is a stable function defined in the component body
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sections.risk_factors])
 
-  const hasTrendContent = Boolean(sections.three_year_trend || sections.segment_performance)
+  // Content Checkers
+  const overviewContent = sections.executive_snapshot 
+    ? renderMarkdownValue(sections.executive_snapshot) 
+    : (summary.business_overview || '')
+  
+  const hasOverview = Boolean(overviewContent)
+  const hasFinancials = Boolean(sections.financial_highlights?.notes || (metrics && metrics.length > 0))
+  const hasRisks = normalizedRisks.length > 0
+  const hasManagement = Boolean(sections.management_discussion_insights)
+  
   const guidanceContent = getAccordionContent(sections.guidance_outlook)
+  const hasGuidance = Boolean(guidanceContent)
+
   const liquidityContent = getAccordionContent(sections.liquidity_capital_structure)
   const footnotesContent = getAccordionContent(sections.notable_footnotes)
-  const hasGuidanceContent = Boolean(guidanceContent)
-  const hasLiquidityContent = Boolean(liquidityContent || footnotesContent)
+  const hasLiquidity = Boolean(liquidityContent || footnotesContent)
+  
+  const hasTrends = Boolean(sections.three_year_trend || sections.segment_performance)
 
-  const tabs: Array<{ id: string; label: string; icon: typeof FileText }> = [
-    { id: 'overview', label: 'Executive Summary', icon: FileText },
-    { id: 'financials', label: 'Financials', icon: BarChart3 },
-    { id: 'risks', label: 'Risks', icon: AlertTriangle },
-    { id: 'management', label: 'Management / MD&A', icon: Building2 },
+  // Ghost Tabs Configuration
+  const tabs = [
+    { id: 'overview', label: 'Executive Summary', icon: FileText, hasContent: hasOverview },
+    { id: 'financials', label: 'Financials', icon: BarChart3, hasContent: hasFinancials },
+    { id: 'risks', label: 'Risks', icon: AlertTriangle, hasContent: hasRisks },
+    { id: 'management', label: 'MD&A', icon: Building2, hasContent: hasManagement },
+    { id: 'guidance', label: 'Guidance', icon: TrendingUp, hasContent: hasGuidance },
+    { id: 'liquidity', label: 'Liquidity', icon: Building2, hasContent: hasLiquidity },
+    { id: 'trends', label: 'Trends', icon: TrendingUp, hasContent: hasTrends },
   ]
-
-  if (hasGuidanceContent) {
-    tabs.push({ id: 'guidance', label: 'Guidance & Drivers', icon: TrendingUp })
-  }
-
-  if (hasLiquidityContent) {
-    tabs.push({ id: 'liquidity', label: 'Liquidity & Covenants', icon: Building2 })
-  }
-
-  if (hasTrendContent) {
-    tabs.push({ id: 'trends', label: 'Trends', icon: TrendingUp })
-  }
 
   const renderTabContent = () => {
     switch (activeTab) {
       case 'overview':
-        if (!sections.executive_snapshot && !summary.business_overview) {
-          return null
-        }
-        const overviewMarkdown = sections.executive_snapshot
-          ? renderMarkdownValue(sections.executive_snapshot)
-          : (summary.business_overview || '')
+        if (!hasOverview) return <EmptyState label="Executive Summary" />
         return (
-          <div className="prose max-w-none">
+          <div className="prose max-w-none prose-slate">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {overviewMarkdown}
+              {overviewContent}
             </ReactMarkdown>
           </div>
         )
 
       case 'financials':
-        if (
-          !sections.financial_highlights?.notes &&
-          (!metrics || metrics.length === 0)
-        ) {
-          return null
-        }
+        if (!hasFinancials) return <EmptyState label="Financial Highlights" />
         return (
           <div className="space-y-4">
             {sections.financial_highlights?.notes && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm text-blue-800">{sections.financial_highlights.notes}</p>
-              </div>
+              <SummaryBlock type="neutral" title="Analyst Notes">
+                 {sections.financial_highlights.notes}
+              </SummaryBlock>
             )}
             {metrics && metrics.length > 0 && (
-              <div className="text-sm text-gray-600">
-                <p>Financial metrics are displayed in the table above. Key highlights include:</p>
+              <div className="text-sm text-slate-600">
+                <p>Key highlights from the reporting period:</p>
                 <ul className="list-disc list-inside mt-2 space-y-1">
                   {metrics.slice(0, 5).map((m: MetricItem, i: number) => (
-                    <li key={i}>{m.metric}: {m.current_period} vs {m.prior_period}</li>
+                    <li key={i}>
+                      <span className="font-medium">{m.metric}:</span> {m.current_period} 
+                      <span className="text-slate-400 mx-1">vs</span> 
+                      {m.prior_period}
+                    </li>
                   ))}
                 </ul>
               </div>
@@ -256,39 +254,31 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
         )
 
       case 'risks':
-        if (normalizedRisks.length === 0) {
-          return null
-        }
+        if (!hasRisks) return <EmptyState label="Risk Factors" />
         return (
-          <div className="space-y-3">
+          <div className="space-y-4">
             {normalizedRisks.map((risk, index) => (
-              <div key={`${risk.summary}-${index}`} className="border border-red-100 bg-red-50 rounded-lg p-4 space-y-2">
-                {(risk.title || risk.description) && (
-                  <>
-                    {risk.title && <h4 className="font-semibold text-red-900">{risk.title}</h4>}
-                    {risk.description && (
-                      <p className="text-sm text-red-800">{risk.description}</p>
-                    )}
-                  </>
-                )}
-                {!risk.title && !risk.description && (
-                  <p className="text-sm text-red-900">{risk.summary}</p>
-                )}
-                <div className="text-xs text-red-700 bg-red-100/60 border border-red-200 rounded-md px-3 py-2">
-                  <span className="font-semibold">Supporting evidence:</span>{' '}
-                  <span>{risk.supporting_evidence}</span>
+              <SummaryBlock 
+                key={`${risk.summary}-${index}`} 
+                type="bearish" 
+                title={risk.title || 'Risk Factor'}
+              >
+                <div className="space-y-2">
+                  <p>{risk.description || risk.summary}</p>
+                  <div className="mt-2 text-xs bg-rose-50 text-rose-800 p-2 rounded border border-rose-100">
+                    <span className="font-semibold uppercase tracking-wider text-[10px] mr-2">Evidence</span>
+                    {risk.supporting_evidence}
+                  </div>
                 </div>
-              </div>
+              </SummaryBlock>
             ))}
           </div>
         )
 
       case 'management':
-        if (!sections.management_discussion_insights) {
-          return null
-        }
+        if (!hasManagement) return <EmptyState label="Management Discussion" />
         return (
-          <div className="prose max-w-none">
+          <div className="prose max-w-none prose-slate">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {renderMarkdownValue(sections.management_discussion_insights)}
             </ReactMarkdown>
@@ -296,58 +286,60 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
         )
 
       case 'guidance':
-        if (!hasGuidanceContent || !guidanceContent) {
-          return null
-        }
+        if (!hasGuidance) return <EmptyState label="Guidance & Outlook" />
         return (
-          <div className="prose max-w-none">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {guidanceContent}
-            </ReactMarkdown>
-          </div>
+          <SummaryBlock type="neutral" title="Forward-Looking Statements">
+            <div className="prose max-w-none prose-sm">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {guidanceContent}
+              </ReactMarkdown>
+            </div>
+          </SummaryBlock>
         )
 
       case 'liquidity':
-        if (!hasLiquidityContent) {
-          return null
-        }
+        if (!hasLiquidity) return <EmptyState label="Liquidity & Capital" />
         return (
           <div className="space-y-6">
             {liquidityContent && (
-              <div className="prose max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {liquidityContent}
-                </ReactMarkdown>
-              </div>
+               <SummaryBlock type="neutral" title="Liquidity Position">
+                <div className="prose max-w-none prose-sm">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {liquidityContent}
+                  </ReactMarkdown>
+                </div>
+              </SummaryBlock>
             )}
             {footnotesContent && (
-              <div className="prose max-w-none">
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Notable Footnotes</h3>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {footnotesContent}
-                </ReactMarkdown>
+               <div className="mt-4 border-t border-slate-200 pt-4">
+                <h3 className="text-sm font-semibold text-slate-900 mb-2 uppercase tracking-wide">Notable Footnotes</h3>
+                <div className="prose max-w-none prose-sm text-slate-600">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {footnotesContent}
+                  </ReactMarkdown>
+                </div>
               </div>
             )}
           </div>
         )
 
       case 'trends':
-        if (!hasTrendContent) {
-          return null
-        }
+        if (!hasTrends) return <EmptyState label="Trends & Segments" />
         return (
-          <div className="space-y-4">
+          <div className="space-y-6">
             {Boolean(sections.three_year_trend) && (
-              <div className="prose max-w-none">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {renderMarkdownValue(sections.three_year_trend)}
-                </ReactMarkdown>
-              </div>
+              <SummaryBlock type="bullish" title="Three-Year Trend Analysis">
+                 <div className="prose max-w-none prose-sm">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {renderMarkdownValue(sections.three_year_trend)}
+                  </ReactMarkdown>
+                </div>
+              </SummaryBlock>
             )}
             {Boolean(sections.segment_performance) && (
               <div className="mt-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Segment Performance</h3>
-                <div className="prose max-w-none">
+                <h3 className="text-lg font-semibold text-slate-900 mb-3">Segment Performance</h3>
+                <div className="prose max-w-none prose-slate">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>
                     {renderMarkdownValue(sections.segment_performance)}
                   </ReactMarkdown>
@@ -363,26 +355,30 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-md border border-gray-200">
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="flex space-x-1 px-6" aria-label="Tabs">
+    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+      {/* Scrollable Tabs Container */}
+      <div className="border-b border-slate-200 overflow-x-auto">
+        <nav className="flex min-w-max px-2" aria-label="Tabs">
           {tabs.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
+            const isDisabled = !tab.hasContent
+
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
+                title={isDisabled ? "No data available in this filing" : ""}
                 className={`
-                  flex items-center space-x-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors
+                  group flex items-center space-x-2 px-4 py-4 text-sm font-medium border-b-2 transition-all duration-200 outline-none
                   ${isActive
-                    ? 'border-primary-500 text-primary-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    ? 'border-emerald-500 text-emerald-700 bg-emerald-50/50'
+                    : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                   }
+                  ${isDisabled ? 'text-slate-400 opacity-60 hover:text-slate-500 hover:bg-slate-50 cursor-not-allowed' : ''}
                 `}
               >
-                <Icon className="h-4 w-4" />
+                <Icon className={`h-4 w-4 ${isActive ? 'text-emerald-600' : 'text-slate-400'}`} />
                 <span>{tab.label}</span>
               </button>
             )
@@ -391,10 +387,23 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
       </div>
 
       {/* Tab Content */}
-      <div className="p-6">
+      <div className="p-6 min-h-[300px]">
         {renderTabContent()}
       </div>
     </div>
   )
 }
 
+function EmptyState({ label }: { label: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <div className="bg-slate-100 p-4 rounded-full mb-4">
+        <HelpCircle className="h-8 w-8 text-slate-400" />
+      </div>
+      <h3 className="text-lg font-medium text-slate-900">No {label} Found</h3>
+      <p className="text-slate-500 max-w-sm mt-2">
+        The AI couldn&apos;t extract this specific section from the filing. This usually means the company didn&apos;t report it in standard format.
+      </p>
+    </div>
+  )
+}
