@@ -180,7 +180,7 @@ export default function CompareResultPage() {
 
   if (qualityError) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+      <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
         <div className="max-w-lg bg-white border border-red-200 shadow-lg rounded-xl p-8 space-y-4">
           <div className="flex items-center space-x-3">
             <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
@@ -244,7 +244,7 @@ export default function CompareResultPage() {
   ).slice(0, 4)
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-background-light dark:bg-background-dark">
       <SecondaryHeader
         title="Filing Comparison"
         subtitle={`Comparing ${filings.length} ${filings.length === 1 ? 'filing' : 'filings'}`}

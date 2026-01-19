@@ -100,7 +100,7 @@ function PricingContent() {
   ]
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-background-light dark:bg-background-dark">
       <SecondaryHeader
         title="Pricing"
         subtitle="Choose the plan that fits your workflow"
@@ -298,7 +298,7 @@ function PricingContent() {
 export default function PricingPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
       </div>
     }>
