@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { register } from '@/lib/api'
+import { getCurrentUser, register } from '@/lib/api'
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import StateCard from '@/components/StateCard'
+import analytics from '@/lib/analytics'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -20,9 +21,18 @@ export default function RegisterPage() {
     e.preventDefault()
     setError('')
     setLoading(true)
+    analytics.signupStarted('register_page')
 
     try {
       await register(email, password, fullName)
+      try {
+        const user = await getCurrentUser()
+        if (user?.id && user?.email) {
+          analytics.signupCompleted(String(user.id), user.email)
+        }
+      } catch {
+        // Ignore analytics errors to avoid blocking signup
+      }
       router.push('/')
     } catch (err: unknown) {
       const axiosErr = err as { response?: { data?: { detail?: string } } }

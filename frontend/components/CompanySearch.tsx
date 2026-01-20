@@ -1,16 +1,18 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Search, Loader2 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { searchCompanies, Company, getApiUrl } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
+import analytics from '@/lib/analytics'
 
 export default function CompanySearch() {
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const router = useRouter()
+  const lastTrackedQuery = useRef<string>('')
 
   // Debounce search
   useEffect(() => {
@@ -32,6 +34,19 @@ export default function CompanySearch() {
   const handleCompanyClick = (company: Company) => {
     router.push(`/company/${company.ticker}`)
   }
+
+  useEffect(() => {
+    if (
+      debouncedQuery.length > 0 &&
+      !isLoading &&
+      !isError &&
+      companies &&
+      debouncedQuery !== lastTrackedQuery.current
+    ) {
+      analytics.companySearched(debouncedQuery, companies.length)
+      lastTrackedQuery.current = debouncedQuery
+    }
+  }, [debouncedQuery, isLoading, isError, companies])
 
   return (
     <div className="relative">

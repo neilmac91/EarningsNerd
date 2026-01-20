@@ -10,6 +10,7 @@ import { format } from 'date-fns'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import StateCard from '@/components/StateCard'
+import analytics from '@/lib/analytics'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -59,8 +60,9 @@ export default function DashboardPage() {
 
   const removeWatchlistMutation = useMutation({
     mutationFn: removeFromWatchlist,
-    onSuccess: () => {
+    onSuccess: (_data, ticker) => {
       queryClient.invalidateQueries({ queryKey: ['watchlist'] })
+      analytics.watchlistRemoved(ticker)
     },
   })
 
@@ -76,6 +78,7 @@ export default function DashboardPage() {
   const logoutMutation = useMutation({
     mutationFn: logout,
     onSuccess: () => {
+      analytics.logout()
       router.push('/login')
       router.refresh()
     },
@@ -87,6 +90,15 @@ export default function DashboardPage() {
       router.push('/login')
     }
   }, [user, userLoading, userError, router])
+
+  useEffect(() => {
+    if (user?.id && user?.email) {
+      analytics.identify(String(user.id), {
+        email: user.email,
+        plan: user.is_pro ? 'pro' : 'free',
+      })
+    }
+  }, [user])
 
   if (userLoading || usageLoading || subscriptionLoading) {
     return (

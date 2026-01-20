@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     STRIPE_PRICE_MONTHLY_ID: str = "price_pro_monthly"
     STRIPE_PRICE_YEARLY_ID: str = "price_pro_yearly"
 
+    # PostHog (server-side tracking)
+    POSTHOG_API_KEY: str = ""
+    POSTHOG_HOST: str = "https://us.i.posthog.com"
+
     # X / Twitter API
     TWITTER_BEARER_TOKEN: str = ""
 

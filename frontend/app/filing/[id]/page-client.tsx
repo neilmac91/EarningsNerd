@@ -8,7 +8,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { format } from 'date-fns'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import SubscriptionGate from '@/components/SubscriptionGate'
@@ -17,6 +17,7 @@ import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import { isAxiosError } from 'axios'
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import analytics from '@/lib/analytics'
 
 const FinancialCharts = dynamic(() => import('@/components/FinancialCharts'), {
   ssr: false,
@@ -162,6 +163,8 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   const [streamingMessage, setStreamingMessage] = useState<string>('')
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false)
+  const hasTrackedFilingView = useRef(false)
+  const hasTrackedSummaryGenerated = useRef(false)
 
   const { data: currentUser } = useQuery({
     queryKey: ['current-user'],
@@ -278,6 +281,9 @@ function FilingDetailView({ filingId }: { filingId: number }) {
     mutationFn: (summaryId: number) => saveSummary(summaryId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['saved-summaries'] })
+      if (summary?.filing_id) {
+        analytics.summarySaved(summary.filing_id, filing?.company?.ticker ?? null)
+      }
     },
   })
 
@@ -362,6 +368,28 @@ function FilingDetailView({ filingId }: { filingId: number }) {
       setGenerationError(null)
     }
   }, [hasSummaryContent])
+
+  useEffect(() => {
+    if (!hasTrackedFilingView.current && filing) {
+      analytics.filingViewed(
+        filing.id,
+        filing.company?.ticker ?? null,
+        filing.filing_type
+      )
+      hasTrackedFilingView.current = true
+    }
+  }, [filing])
+
+  useEffect(() => {
+    if (!hasTrackedSummaryGenerated.current && hasSummaryContent && filing) {
+      analytics.summaryGenerated(
+        filing.company?.ticker ?? null,
+        filing.filing_type,
+        filing.id
+      )
+      hasTrackedSummaryGenerated.current = true
+    }
+  }, [hasSummaryContent, filing])
 
   if (filingLoading) {
     return (
