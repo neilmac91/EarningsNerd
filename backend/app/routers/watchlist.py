@@ -364,6 +364,7 @@ async def join_waitlist(
             detail="Invalid submission.",
         )
 
+    existing = db.query(WaitlistSignup).filter(WaitlistSignup.email == payload.email).first()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

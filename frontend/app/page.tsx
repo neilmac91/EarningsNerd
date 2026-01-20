@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Suspense } from 'react'
 import DashboardPreview from '@/components/DashboardPreview'
 import SentryTestButton from '@/components/SentryTestButton'
 import WaitlistForm from '@/components/WaitlistForm'
@@ -25,7 +26,9 @@ export default function Home() {
           </div>
 
           <div className="mx-auto mt-8 max-w-xl sm:mt-10">
-            <WaitlistForm source="homepage" />
+            <Suspense fallback={<div className="rounded-2xl border border-border-light bg-white/90 p-6 shadow-lg dark:border-border-dark dark:bg-slate-900/70">Loading…</div>}>
+              <WaitlistForm source="homepage" />
+            </Suspense>
           </div>
         </section>
 
