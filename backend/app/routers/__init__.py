@@ -1,6 +1,7 @@
 from . import auth
 from . import companies
 from . import compare
+from . import email
 from . import filings
 from . import hot_filings
 from . import saved_summaries
@@ -14,6 +15,7 @@ __all__ = [
     'auth',
     'companies',
     'compare',
+    'email',
     'filings',
     'hot_filings',
     'saved_summaries',

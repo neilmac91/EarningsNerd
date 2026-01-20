@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     POSTHOG_API_KEY: str = ""
     POSTHOG_HOST: str = "https://us.i.posthog.com"
 
+    # Resend
+    RESEND_API_KEY: str = ""
+    RESEND_BASE_URL: str = "https://api.resend.com"
+    RESEND_FROM_EMAIL: str = "EarningsNerd <onboarding@resend.dev>"
+
     # X / Twitter API
     TWITTER_BEARER_TOKEN: str = ""
 

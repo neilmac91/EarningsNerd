@@ -20,6 +20,7 @@ from app.routers import (
     compare,
     hot_filings,
     trending,
+    email,
 )
 from app.config import settings
 
@@ -106,6 +107,7 @@ app.include_router(sitemap.router, tags=["SEO"])
 app.include_router(compare.router, prefix="/api/compare", tags=["Compare"])
 app.include_router(hot_filings.router, prefix="/api", tags=["Hot Filings"])
 app.include_router(trending.router, prefix="/api", tags=["Trending"])
+app.include_router(email.router, prefix="/api/email", tags=["Email"])
 
 
 @app.middleware("http")

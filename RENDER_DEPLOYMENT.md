@@ -64,6 +64,8 @@
    - `STRIPE_SECRET_KEY` - Stripe secret key (if using subscriptions)
    - `STRIPE_PUBLISHABLE_KEY` - Stripe publishable key
    - `STRIPE_WEBHOOK_SECRET` - Stripe webhook secret
+  - `RESEND_API_KEY` - Resend API key (if sending email)
+  - `RESEND_FROM_EMAIL` - Verified sender (e.g. `EarningsNerd <hello@yourdomain.com>`)
    - `REDIS_URL` - Redis connection string (if using Redis)
    - `FINNHUB_API_KEY` - Finnhub API key (if using)
    - `ENVIRONMENT` - `production`
