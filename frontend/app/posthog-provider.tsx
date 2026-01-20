@@ -41,7 +41,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       posthog.init(key, {
         api_host: host,
         capture_pageview: false, // We handle it manually
-        capture_page_leave: true // Optional, but good to have
+        capture_pageleave: true // Optional, but good to have
       })
     }
   }, [])
