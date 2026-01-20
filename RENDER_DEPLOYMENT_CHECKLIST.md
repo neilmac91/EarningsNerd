@@ -50,6 +50,8 @@ Verify these are set in Render Dashboard → Environment:
 - [ ] `SECRET_KEY` - Random secret key for JWT
 - [ ] `ENVIRONMENT` - `production`
 - [ ] `CORS_ORIGINS` - Your frontend domain(s)
+- [ ] `RESEND_API_KEY` - Resend API key (if sending email)
+- [ ] `RESEND_FROM_EMAIL` - Verified sender (e.g. `EarningsNerd <hello@yourdomain.com>`)
 
 ### 6. Check Startup Messages
 In logs, you should see:
