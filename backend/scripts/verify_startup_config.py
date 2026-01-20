@@ -65,11 +65,14 @@ def test_stripe_validation():
 
 
 def test_openai_validation():
-    """Test OpenAI configuration validation"""
-    print("\nTesting OpenAI configuration validation...\n")
+    """Test OpenAI-compatible configuration validation"""
+    print("\nTesting OpenAI-compatible configuration validation...\n")
     
     # Test 1: No API key
-    settings1 = Settings(OPENAI_API_KEY="", OPENAI_BASE_URL="https://openrouter.ai/api/v1")
+    settings1 = Settings(
+        OPENAI_API_KEY="",
+        OPENAI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai/"
+    )
     valid1, warnings1 = settings1.validate_openai_config()
     print(f"Test 1 - No OpenAI key:")
     print(f"  Valid: {valid1}")
@@ -80,11 +83,11 @@ def test_openai_validation():
     
     # Test 2: Valid configuration
     settings2 = Settings(
-        OPENAI_API_KEY="sk-123456789012345678901234567890",
-        OPENAI_BASE_URL="https://openrouter.ai/api/v1"
+        OPENAI_API_KEY="AIzaSyExampleKeyForGoogleAIStudio0000000000",
+        OPENAI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai/"
     )
     valid2, warnings2 = settings2.validate_openai_config()
-    print(f"Test 2 - Valid OpenAI config:")
+    print(f"Test 2 - Valid OpenAI-compatible config:")
     print(f"  Valid: {valid2}")
     print(f"  Warnings: {warnings2}")
     assert valid2

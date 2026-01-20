@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     # SEC EDGAR API
     SEC_EDGAR_BASE_URL: str = "https://data.sec.gov"
     
-    # OpenAI API / OpenRouter
+    # OpenAI-compatible API (Google AI Studio recommended)
     # Check environment variable first, then .env file
     # Pydantic Settings automatically prioritizes env vars, but we'll make it explicit
     OPENAI_API_KEY: str = ""
@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     # PostHog (server-side tracking)
     POSTHOG_API_KEY: str = ""
     POSTHOG_HOST: str = "https://us.i.posthog.com"
+
+    # Resend
+    RESEND_API_KEY: str = ""
+    RESEND_BASE_URL: str = "https://api.resend.com"
+    RESEND_FROM_EMAIL: str = "EarningsNerd <onboarding@resend.dev>"
 
     # X / Twitter API
     TWITTER_BEARER_TOKEN: str = ""
@@ -98,17 +103,20 @@ class Settings(BaseSettings):
             self.COOKIE_SECURE = self.ENVIRONMENT == "production"
     
     def validate_openai_config(self) -> tuple[bool, list[str]]:
-        """Validate OpenAI/Google AI Studio/OpenRouter configuration and return (is_valid, warnings)"""
+        """Validate OpenAI-compatible configuration and return (is_valid, warnings)"""
         warnings = []
         is_valid = True
         
-        # Check base URL - accept OpenRouter or Google AI Studio
+        # Check base URL - accept Google AI Studio or OpenRouter
         valid_providers = ["openrouter.ai", "generativelanguage.googleapis.com"]
         if not self.OPENAI_BASE_URL:
             warnings.append("OPENAI_BASE_URL is not set")
             is_valid = False
         elif not any(provider in self.OPENAI_BASE_URL.lower() for provider in valid_providers):
-            warnings.append(f"OPENAI_BASE_URL ({self.OPENAI_BASE_URL}) does not appear to be a supported provider. Expected OpenRouter or Google AI Studio.")
+            warnings.append(
+                f"OPENAI_BASE_URL ({self.OPENAI_BASE_URL}) does not appear to be a supported provider. "
+                "Expected Google AI Studio or OpenRouter."
+            )
         
         # Check API key
         if not self.OPENAI_API_KEY:

@@ -58,12 +58,14 @@
 
 3. **Set Environment Variables**:
    - `DATABASE_URL` - PostgreSQL connection string (from Render PostgreSQL service)
-   - `OPENAI_API_KEY` - Your OpenRouter API key
-   - `OPENAI_BASE_URL` - `https://openrouter.ai/api/v1`
+   - `OPENAI_API_KEY` - Your Google AI Studio API key
+   - `OPENAI_BASE_URL` - `https://generativelanguage.googleapis.com/v1beta/openai/`
    - `SECRET_KEY` - Random secret key for JWT tokens
    - `STRIPE_SECRET_KEY` - Stripe secret key (if using subscriptions)
    - `STRIPE_PUBLISHABLE_KEY` - Stripe publishable key
    - `STRIPE_WEBHOOK_SECRET` - Stripe webhook secret
+  - `RESEND_API_KEY` - Resend API key (if sending email)
+  - `RESEND_FROM_EMAIL` - Verified sender (e.g. `EarningsNerd <hello@yourdomain.com>`)
    - `REDIS_URL` - Redis connection string (if using Redis)
    - `FINNHUB_API_KEY` - Finnhub API key (if using)
    - `ENVIRONMENT` - `production`
@@ -107,7 +109,7 @@ After deployment, verify:
 3. **Check Logs**:
    - In Render Dashboard, check service logs
    - Look for startup messages:
-     - `✓ OpenAI/OpenRouter configured`
+    - `✓ OpenAI-compatible provider configured`
      - `✓ Stripe configured` (if configured)
      - `INFO:     Uvicorn running on http://0.0.0.0:XXXX`
 

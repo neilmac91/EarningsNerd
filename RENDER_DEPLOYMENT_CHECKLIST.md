@@ -45,15 +45,15 @@ Visit in browser: `https://your-service.onrender.com/docs`
 ### 5. Check Environment Variables
 Verify these are set in Render Dashboard → Environment:
 - [ ] `DATABASE_URL` - PostgreSQL connection string
-- [ ] `OPENAI_API_KEY` - Your OpenRouter API key
-- [ ] `OPENAI_BASE_URL` - `https://openrouter.ai/api/v1`
+- [ ] `OPENAI_API_KEY` - Your Google AI Studio API key
+- [ ] `OPENAI_BASE_URL` - `https://generativelanguage.googleapis.com/v1beta/openai/`
 - [ ] `SECRET_KEY` - Random secret key for JWT
 - [ ] `ENVIRONMENT` - `production`
 - [ ] `CORS_ORIGINS` - Your frontend domain(s)
 
 ### 6. Check Startup Messages
 In logs, you should see:
-- `✓ OpenAI/OpenRouter configured` (if OPENAI_API_KEY is set)
+- `✓ OpenAI-compatible provider configured` (if OPENAI_API_KEY is set)
 - `✓ Stripe configured` (if STRIPE_SECRET_KEY is set)
 - Database connection successful (if DATABASE_URL is set)
 
@@ -77,10 +77,10 @@ In logs, you should see:
 - Include your frontend domain: `https://yourdomain.com,https://www.yourdomain.com`
 - Restart service after changing environment variables
 
-### Issue: OpenAI API errors
+### Issue: OpenAI-compatible API errors
 **Solution**:
 - Verify `OPENAI_API_KEY` is set
-- Verify `OPENAI_BASE_URL` is `https://openrouter.ai/api/v1`
+- Verify `OPENAI_BASE_URL` is `https://generativelanguage.googleapis.com/v1beta/openai/`
 - Check that API key has credits/quota
 
 ## 📊 Next Steps

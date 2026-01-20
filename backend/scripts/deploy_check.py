@@ -29,8 +29,11 @@ def check_environment_variables():
         "OPENAI_BASE_URL": {
             "required": True,
             "set": bool(settings.OPENAI_BASE_URL),
-            "valid": "openrouter.ai" in settings.OPENAI_BASE_URL.lower() if settings.OPENAI_BASE_URL else False,
-            "message": "Should point to OpenRouter API"
+            "valid": any(
+                provider in settings.OPENAI_BASE_URL.lower()
+                for provider in ("generativelanguage.googleapis.com", "openrouter.ai")
+            ) if settings.OPENAI_BASE_URL else False,
+            "message": "Should point to Google AI Studio (recommended) or OpenRouter"
         },
         "STRIPE_SECRET_KEY": {
             "required": False,  # Optional if not using Stripe
@@ -103,7 +106,7 @@ def check_configuration_validation():
     
     # OpenAI validation
     openai_valid, openai_warnings = settings.validate_openai_config()
-    print(f"\nOpenAI/OpenRouter Configuration:")
+    print(f"\nOpenAI-compatible Configuration (Google AI Studio recommended):")
     print(f"  Status: {'✓ Valid' if openai_valid else '✗ Invalid'}")
     if openai_warnings:
         for warning in openai_warnings:
