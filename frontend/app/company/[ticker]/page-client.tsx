@@ -75,6 +75,13 @@ export default function CompanyPageClient() {
 
   const isInWatchlist = watchlist?.some((w: WatchlistItem) => w.company.ticker === normalizedTicker)
 
+  useEffect(() => {
+    if (!hasTrackedCompanyView.current && company) {
+      analytics.companyViewed(company.ticker, company.name)
+      hasTrackedCompanyView.current = true
+    }
+  }, [company])
+
   // Handle case where ticker might not be available
   if (!ticker) {
     return (
@@ -116,13 +123,6 @@ export default function CompanyPageClient() {
   // TypeScript type guard: company is definitely defined at this point (checked above)
   // Use non-null assertion since we've already verified company exists
   const companyData = company!
-
-  useEffect(() => {
-    if (!hasTrackedCompanyView.current) {
-      analytics.companyViewed(companyData.ticker, companyData.name)
-      hasTrackedCompanyView.current = true
-    }
-  }, [companyData])
 
   const toggleYear = (year: string) => {
     const newExpanded = new Set(expandedYears)

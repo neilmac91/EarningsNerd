@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const { withSentryConfig } = require('@sentry/nextjs')
+
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['recharts'],
@@ -40,4 +42,9 @@ const nextConfig = {
   },
 }
 
-module.exports = nextConfig
+const sentryOptions = {
+  // Avoid Sentry CLI noise during local builds.
+  silent: true,
+}
+
+module.exports = withSentryConfig(nextConfig, sentryOptions)
