@@ -43,6 +43,10 @@ STRIPE_SECRET_KEY=sk_live_your_live_key_here
 STRIPE_PUBLISHABLE_KEY=pk_live_your_live_key_here
 STRIPE_WEBHOOK_SECRET=whsec_your_webhook_secret_here  # CRITICAL!
 
+# Required for email (Resend)
+RESEND_API_KEY=re_your_resend_api_key_here
+RESEND_FROM_EMAIL=EarningsNerd <hello@yourdomain.com>
+
 # Database (PostgreSQL recommended for production)
 DATABASE_URL=postgresql://user:password@host:5432/earningsnerd
 
