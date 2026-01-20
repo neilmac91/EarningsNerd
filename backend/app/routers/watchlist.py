@@ -364,18 +364,18 @@ async def join_waitlist(
             detail="Invalid submission.",
         )
 
-    existing = db.query(WaitlistSignup).filter(WaitlistSignup.email == payload.email).first()
     if existing:
-        referral_link = build_referral_link(existing.referral_code)
-        position = calculate_waitlist_position(existing.position, existing.priority_score)
-        return {
-            "success": False,
-            "error": "already_registered",
-            "message": "This email is already on the waitlist!",
-            "position": position,
-            "referral_code": existing.referral_code,
-            "referral_link": referral_link,
-        }
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={
+                "success": False,
+                "error": "already_registered",
+                "message": "This email is already on the waitlist!",
+                "position": calculate_waitlist_position(existing.position, existing.priority_score),
+                "referral_code": existing.referral_code,
+                "referral_link": build_referral_link(existing.referral_code),
+            },
+        )
 
     referrer: Optional[WaitlistSignup] = None
     if payload.referral_code:
