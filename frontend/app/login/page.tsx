@@ -2,11 +2,12 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { login } from '@/lib/api'
+import { getCurrentUser, login } from '@/lib/api'
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import StateCard from '@/components/StateCard'
+import analytics from '@/lib/analytics'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -22,6 +23,14 @@ export default function LoginPage() {
 
     try {
       await login(email, password)
+      try {
+        const user = await getCurrentUser()
+        if (user?.id && user?.email) {
+          analytics.loginCompleted(String(user.id), user.email)
+        }
+      } catch {
+        // Ignore analytics errors to avoid blocking login
+      }
       router.push('/')
       router.refresh()
     } catch (err: unknown) {

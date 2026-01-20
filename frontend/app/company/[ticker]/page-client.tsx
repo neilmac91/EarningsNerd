@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getCompany, getCompanyFilings, Company, Filing, addToWatchlist, removeFromWatchlist, getWatchlist, getCurrentUserSafe, WatchlistItem } from '@/lib/api'
@@ -9,6 +9,7 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { ThemeToggle } from '@/components/ThemeToggle'
+import analytics from '@/lib/analytics'
 
 export default function CompanyPageClient() {
   const params = useParams()
@@ -19,6 +20,7 @@ export default function CompanyPageClient() {
   const currentYear = new Date().getFullYear().toString()
   const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set([currentYear]))
   const [filterType, setFilterType] = useState<string | null>(null)
+  const hasTrackedCompanyView = useRef(false)
 
   const { data: company, isLoading: companyLoading, error: companyError } = useQuery<Company>({
     queryKey: ['company', normalizedTicker],
@@ -54,16 +56,31 @@ export default function CompanyPageClient() {
       const inWatchlist = watchlist?.some((w: WatchlistItem) => w.company.ticker === tickerToToggle)
       if (inWatchlist) {
         await removeFromWatchlist(tickerToToggle)
+        return { action: 'removed' as const, ticker: tickerToToggle }
       } else {
         await addToWatchlist(tickerToToggle)
+        return { action: 'added' as const, ticker: tickerToToggle }
       }
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['watchlist'] })
+      if (result?.action === 'added') {
+        analytics.watchlistAdded(result.ticker)
+      }
+      if (result?.action === 'removed') {
+        analytics.watchlistRemoved(result.ticker)
+      }
     },
   })
 
   const isInWatchlist = watchlist?.some((w: WatchlistItem) => w.company.ticker === normalizedTicker)
+
+  useEffect(() => {
+    if (!hasTrackedCompanyView.current && company) {
+      analytics.companyViewed(company.ticker, company.name)
+      hasTrackedCompanyView.current = true
+    }
+  }, [company])
 
   // Handle case where ticker might not be available
   if (!ticker) {

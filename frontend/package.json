@@ -13,6 +13,7 @@
     "deploy": "vercel --prod"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.35.0",
     "@tanstack/react-query": "^5.17.0",
     "autoprefixer": "^10.4.17",
     "axios": "^1.6.5",

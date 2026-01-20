@@ -9,6 +9,7 @@ from app.database import get_db
 from app.models import User, UserUsage
 from app.routers.auth import get_current_user
 from app.config import settings
+from app.services.posthog_client import capture_event
 
 router = APIRouter()
 
@@ -145,6 +146,7 @@ async def create_checkout_session(
         
         # Create checkout session
         frontend_url = settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else 'http://localhost:3000'
+        billing_cycle = "monthly" if price_id == settings.STRIPE_PRICE_MONTHLY_ID else "yearly"
         checkout_session = stripe.checkout.Session.create(
             customer=customer.id,
             payment_method_types=["card"],
@@ -155,7 +157,12 @@ async def create_checkout_session(
             mode="subscription",
             success_url=f"{frontend_url}/dashboard?success=true",
             cancel_url=f"{frontend_url}/pricing?canceled=true",
-            metadata={"user_id": str(current_user.id)}
+            metadata={
+                "user_id": str(current_user.id),
+                "plan": "pro",
+                "price_id": price_id,
+                "billing_cycle": billing_cycle,
+            },
         )
         
         return {"url": checkout_session.url}
@@ -233,6 +240,21 @@ async def stripe_webhook(
                 user.stripe_subscription_id = session.get("subscription")
                 user.is_pro = True
                 db.commit()
+                try:
+                    metadata = session.get("metadata", {}) or {}
+                    capture_event(
+                        str(user.id),
+                        "subscription_activated",
+                        {
+                            "plan": metadata.get("plan", "pro"),
+                            "price_id": metadata.get("price_id"),
+                            "billing_cycle": metadata.get("billing_cycle"),
+                            "stripe_subscription_id": session.get("subscription"),
+                            "email": user.email,
+                        },
+                    )
+                except Exception:
+                    pass
     
         elif event["type"] == "customer.subscription.updated":
             subscription = event["data"]["object"]

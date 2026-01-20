@@ -41,7 +41,20 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       posthog.init(key, {
         api_host: host,
         capture_pageview: false, // We handle it manually
-        capture_pageleave: true // Optional, but good to have
+        capture_pageleave: true, // Optional, but good to have
+        autocapture: true,
+        session_recording: {
+          maskAllInputs: false,
+          maskInputOptions: { password: true },
+          maskTextSelector: '[data-ph-mask]',
+          recordCrossOriginIframes: false,
+        },
+        bootstrap: { featureFlags: {} },
+        loaded: (posthogClient) => {
+          if (process.env.NODE_ENV === 'development') {
+            posthogClient.debug()
+          }
+        },
       })
     }
   }, [])

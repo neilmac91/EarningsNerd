@@ -1,20 +1,25 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, Suspense, useRef, useEffect } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { createCheckoutSession, getSubscriptionStatus, getUsage } from '@/lib/api'
 import { Check, Loader2 } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect } from 'react'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import StateCard from '@/components/StateCard'
+import analytics from '@/lib/analytics'
+import { useFeatureFlagVariantKey } from 'posthog-js/react'
+import posthog from 'posthog-js'
 
 function PricingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
   const [isLoadingCheckout, setIsLoadingCheckout] = useState<string | null>(null)
+  const pricingVariant = useFeatureFlagVariantKey('pricing-experiment')
+  const hasTrackedPricingView = useRef(false)
+  const hasTrackedVariantExposure = useRef(false)
 
   const { data: subscription, isError: subscriptionError, error: subscriptionErrorData, refetch: refetchSubscription, isFetching: subscriptionFetching } = useQuery({
     queryKey: ['subscription'],
@@ -39,6 +44,22 @@ function PricingContent() {
     }
   }, [searchParams, router])
 
+  useEffect(() => {
+    if (!hasTrackedPricingView.current) {
+      analytics.pricingViewed(billingCycle)
+      hasTrackedPricingView.current = true
+    }
+  }, [billingCycle])
+
+  useEffect(() => {
+    if (pricingVariant && !hasTrackedVariantExposure.current) {
+      posthog.capture('pricing_experiment_exposed', {
+        variant: pricingVariant,
+      })
+      hasTrackedVariantExposure.current = true
+    }
+  }, [pricingVariant])
+
   const checkoutMutation = useMutation({
     mutationFn: createCheckoutSession,
     onSuccess: (data) => {
@@ -56,11 +77,17 @@ function PricingContent() {
   const handleUpgrade = async (priceId: string) => {
     setIsLoadingCheckout(priceId)
     try {
+      const priceValue = billingCycle === 'monthly' ? priceConfig.monthly : priceConfig.yearly
+      analytics.checkoutStarted('pro', priceValue, billingCycle)
       await checkoutMutation.mutateAsync(priceId)
     } catch {
       // Error handled in mutation
     }
   }
+
+  const priceConfig = pricingVariant === 'variant-a'
+    ? { monthly: 29, yearly: 249, monthlyDisplay: '$29', yearlyDisplay: '$249' }
+    : { monthly: 19, yearly: 190, monthlyDisplay: '$19', yearlyDisplay: '$190' }
 
   const plans = [
     {
@@ -81,7 +108,7 @@ function PricingContent() {
     },
     {
       name: 'Pro',
-      price: billingCycle === 'monthly' ? '$19' : '$190',
+      price: billingCycle === 'monthly' ? priceConfig.monthlyDisplay : priceConfig.yearlyDisplay,
       period: billingCycle === 'monthly' ? 'per month' : 'per year',
       description: 'For professionals who need unlimited access',
       features: [
@@ -159,7 +186,11 @@ function PricingContent() {
                 Monthly
               </span>
               <button
-                onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'yearly' : 'monthly')}
+                onClick={() => {
+                  const nextCycle = billingCycle === 'monthly' ? 'yearly' : 'monthly'
+                  analytics.billingCycleToggled(billingCycle, nextCycle)
+                  setBillingCycle(nextCycle)
+                }}
                 className="relative inline-flex h-6 w-11 items-center rounded-full bg-primary-600 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
               >
                 <span
