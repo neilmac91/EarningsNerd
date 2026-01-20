@@ -34,9 +34,9 @@ python3 scripts/deploy_check.py
 Create `backend/.env` with the following (or set in your deployment platform):
 
 ```bash
-# Required for AI summaries
-OPENAI_API_KEY=sk-or-v1-your-actual-key-here
-OPENAI_BASE_URL=https://openrouter.ai/api/v1
+# Required for AI summaries (Google AI Studio recommended)
+OPENAI_API_KEY=your_google_ai_studio_api_key_here
+OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
 
 # Required for Stripe subscriptions (if using)
 STRIPE_SECRET_KEY=sk_live_your_live_key_here
@@ -183,7 +183,7 @@ docker-compose up -d
 2. **Check Startup Logs**:
    Look for these messages:
    ```
-   ✓ OpenAI/OpenRouter configured: base_url=https://openrouter.ai/api/v1
+   ✓ OpenAI-compatible provider configured: base_url=https://generativelanguage.googleapis.com/v1beta/openai/
    ✓ Stripe configured: API key present
    ✓ Stripe webhook secret configured: subscription events will be processed
    ```
@@ -264,7 +264,7 @@ Watch for these startup messages:
 
 **✅ Good (Production Ready):**
 ```
-✓ OpenAI/OpenRouter configured: base_url=https://openrouter.ai/api/v1
+✓ OpenAI-compatible provider configured: base_url=https://generativelanguage.googleapis.com/v1beta/openai/
 ✓ Stripe configured: API key present
 ✓ Stripe webhook secret configured: subscription events will be processed
 ```
@@ -277,7 +277,7 @@ Watch for these startup messages:
 
 **❌ Errors (Must Fix):**
 ```
-✗ OpenAI/OpenRouter configuration is invalid. AI summaries may not work.
+✗ OpenAI-compatible configuration is invalid. AI summaries may not work.
 ✗ Stripe configuration is invalid. Subscription features will be disabled.
 ```
 

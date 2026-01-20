@@ -17,17 +17,17 @@ def check_startup_validation():
     
     from app.config import settings
     
-    # Test OpenAI validation
-    print("\n1. OpenAI/OpenRouter Configuration:")
+    # Test OpenAI-compatible validation
+    print("\n1. OpenAI-compatible Configuration (Google AI Studio recommended):")
     is_valid, warnings = settings.validate_openai_config()
     if warnings:
         print("   ⚠️  Warnings:")
         for warning in warnings:
             print(f"      - {warning}")
     if is_valid:
-        print(f"   ✓ OpenAI/OpenRouter configured: base_url={settings.OPENAI_BASE_URL}")
+        print(f"   ✓ OpenAI-compatible provider configured: base_url={settings.OPENAI_BASE_URL}")
     else:
-        print("   ✗ OpenAI/OpenRouter configuration is invalid. AI summaries may not work.")
+        print("   ✗ OpenAI-compatible configuration is invalid. AI summaries may not work.")
     
     # Test Stripe validation
     print("\n2. Stripe Configuration:")

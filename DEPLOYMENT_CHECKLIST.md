@@ -28,9 +28,9 @@ This checklist covers critical configuration and verification steps after the co
 
 #### Backend (.env)
 ```bash
-# Required for AI summaries
-OPENAI_API_KEY=your_key_here
-OPENAI_BASE_URL=https://openrouter.ai/api/v1
+# Required for AI summaries (Google AI Studio recommended)
+OPENAI_API_KEY=your_google_ai_studio_api_key_here
+OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
 
 # Required for Stripe subscriptions
 STRIPE_SECRET_KEY=sk_live_...
@@ -80,7 +80,7 @@ SECRET_KEY=generate-a-random-secret-key-here
 - [ ] Set environment variables in production
 - [ ] Start application and check startup logs:
   ```
-  ✓ OpenAI/OpenRouter configured
+  ✓ OpenAI-compatible provider configured
   ✓ Stripe configured: API key present
   ✓ Stripe webhook secret configured: subscription events will be processed
   ```
@@ -111,7 +111,7 @@ Watch for these startup messages:
 
 **Good:**
 ```
-✓ OpenAI/OpenRouter configured: base_url=https://openrouter.ai/api/v1
+✓ OpenAI-compatible provider configured: base_url=https://generativelanguage.googleapis.com/v1beta/openai/
 ✓ Stripe configured: API key present
 ✓ Stripe webhook secret configured: subscription events will be processed
 ```
@@ -123,7 +123,7 @@ Watch for these startup messages:
 
 **Errors (must fix):**
 ```
-✗ OpenAI/OpenRouter configuration is invalid. AI summaries may not work.
+✗ OpenAI-compatible configuration is invalid. AI summaries may not work.
 ✗ Stripe configuration is invalid. Subscription features will be disabled.
 ```
 

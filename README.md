@@ -193,9 +193,9 @@ earningsnerd/
 Copy `backend/.env.example` to `backend/.env` and fill in your values:
 
 ```env
-# Required for AI summaries
-OPENAI_API_KEY=your_openai_api_key_here
-OPENAI_BASE_URL=https://openrouter.ai/api/v1
+# Required for AI summaries (Google AI Studio recommended)
+OPENAI_API_KEY=your_google_ai_studio_api_key_here
+OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
 
 # Required for subscriptions (if using Stripe)
 STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
@@ -214,6 +214,7 @@ CORS_ORIGINS=http://localhost:3000
 - `STRIPE_WEBHOOK_SECRET` is **required** if you're using Stripe subscriptions. Without it, webhook signature verification will fail and subscription events won't be processed.
 - Get your webhook secret from: Stripe Dashboard → Developers → Webhooks → [Your webhook endpoint] → Signing secret
 - The application will warn you at startup if required configuration is missing
+ - If you prefer OpenRouter, set `OPENAI_BASE_URL` to `https://openrouter.ai/api/v1`
 
 ### Frontend (.env.local)
 
