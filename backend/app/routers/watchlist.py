@@ -1,14 +1,34 @@
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException, Depends, status, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, func
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional, Dict, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, field_validator
+from jose import JWTError, jwt
 from app.database import get_db
-from app.models import Watchlist, Company, User, Filing, Summary
+from app.models import Watchlist, Company, User, Filing, Summary, WaitlistSignup
 from app.routers.auth import get_current_user
 from app.routers.summaries import get_generation_progress_snapshot
+from app.config import settings
+from app.services.rate_limiter import RateLimiter, enforce_rate_limit
+from app.services.waitlist_service import (
+    REFERRAL_BONUS,
+    build_referral_link,
+    build_verification_link,
+    calculate_waitlist_position,
+    create_verification_token,
+    generate_unique_referral_code,
+)
+from app.services.email_service import (
+    send_referral_success_email,
+    send_waitlist_welcome_email,
+)
 
 router = APIRouter()
+waitlist_router = APIRouter()
+
+WAITLIST_JOIN_LIMITER = RateLimiter(limit=5, window_seconds=60 * 60)
 
 class WatchlistResponse(BaseModel):
     id: int
@@ -277,4 +297,255 @@ async def get_watchlist_insights(
         )
 
     return insights
+
+
+class WaitlistJoinRequest(BaseModel):
+    email: EmailStr
+    name: Optional[str] = None
+    referral_code: Optional[str] = None
+    source: Optional[str] = None
+    honeypot: Optional[str] = None
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: str) -> str:
+        return value.strip().lower()
+
+    @field_validator("name")
+    @classmethod
+    def normalize_name(cls, value: Optional[str]) -> Optional[str]:
+        if not value:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
+
+    @field_validator("referral_code")
+    @classmethod
+    def normalize_referral_code(cls, value: Optional[str]) -> Optional[str]:
+        if not value:
+            return None
+        cleaned = value.strip().lower()
+        return cleaned or None
+
+    @field_validator("honeypot")
+    @classmethod
+    def normalize_honeypot(cls, value: Optional[str]) -> Optional[str]:
+        if not value:
+            return None
+        cleaned = value.strip()
+        return cleaned or None
+
+
+class WaitlistStatusResponse(BaseModel):
+    position: int
+    referral_code: str
+    referral_link: str
+    referrals_count: int
+    positions_gained: int
+    email_verified: bool
+
+
+@waitlist_router.post("/join")
+async def join_waitlist(
+    payload: WaitlistJoinRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    enforce_rate_limit(
+        request,
+        WAITLIST_JOIN_LIMITER,
+        "waitlist_join",
+        error_detail="Too many waitlist requests. Please try again later.",
+    )
+
+    if payload.honeypot:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid submission.",
+        )
+
+    existing = db.query(WaitlistSignup).filter(WaitlistSignup.email == payload.email).first()
+    if existing:
+        referral_link = build_referral_link(existing.referral_code)
+        position = calculate_waitlist_position(existing.position, existing.priority_score)
+        return {
+            "success": False,
+            "error": "already_registered",
+            "message": "This email is already on the waitlist!",
+            "position": position,
+            "referral_code": existing.referral_code,
+            "referral_link": referral_link,
+        }
+
+    referrer: Optional[WaitlistSignup] = None
+    if payload.referral_code:
+        referrer = (
+            db.query(WaitlistSignup)
+            .filter(WaitlistSignup.referral_code == payload.referral_code)
+            .first()
+        )
+        if not referrer:
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "success": False,
+                    "error": "invalid_referral",
+                    "message": "Referral code not recognized.",
+                },
+            )
+        referrer.priority_score += 1
+
+    total_signups = db.query(func.count(WaitlistSignup.id)).scalar() or 0
+    base_position = total_signups + 1
+    referral_code = generate_unique_referral_code(db)
+
+    signup = WaitlistSignup(
+        email=payload.email,
+        name=payload.name,
+        referral_code=referral_code,
+        referred_by=payload.referral_code,
+        source=payload.source,
+        position=base_position,
+        priority_score=0,
+    )
+    db.add(signup)
+
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        existing = db.query(WaitlistSignup).filter(WaitlistSignup.email == payload.email).first()
+        if existing:
+            referral_link = build_referral_link(existing.referral_code)
+            position = calculate_waitlist_position(existing.position, existing.priority_score)
+            return {
+                "success": False,
+                "error": "already_registered",
+                "message": "This email is already on the waitlist!",
+                "position": position,
+                "referral_code": existing.referral_code,
+                "referral_link": referral_link,
+            }
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Unable to create waitlist signup.",
+        )
+
+    db.refresh(signup)
+    if referrer:
+        db.refresh(referrer)
+
+    position = calculate_waitlist_position(signup.position, signup.priority_score)
+    referral_link = build_referral_link(signup.referral_code)
+    verification_token = create_verification_token(signup.email, signup.referral_code)
+    verification_link = build_verification_link(verification_token)
+
+    try:
+        await send_waitlist_welcome_email(
+            to_email=signup.email,
+            name=signup.name,
+            position=position,
+            referral_link=referral_link,
+            verification_link=verification_link,
+        )
+        signup.welcome_email_sent = True
+        db.commit()
+    except Exception:
+        db.rollback()
+
+    if referrer:
+        referrer_position = calculate_waitlist_position(referrer.position, referrer.priority_score)
+        referrer_link = build_referral_link(referrer.referral_code)
+        try:
+            await send_referral_success_email(
+                to_email=referrer.email,
+                name=referrer.name,
+                new_position=referrer_position,
+                referral_link=referrer_link,
+            )
+        except Exception:
+            pass
+
+    return {
+        "success": True,
+        "message": "You're on the list!",
+        "position": position,
+        "referral_code": signup.referral_code,
+        "referral_link": referral_link,
+        "total_signups": total_signups,
+    }
+
+
+@waitlist_router.get("/status/{email}", response_model=WaitlistStatusResponse)
+async def get_waitlist_status(email: EmailStr, db: Session = Depends(get_db)):
+    normalized_email = email.strip().lower()
+    signup = db.query(WaitlistSignup).filter(WaitlistSignup.email == normalized_email).first()
+    if not signup:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Email not found on the waitlist.",
+        )
+
+    referrals_count = (
+        db.query(func.count(WaitlistSignup.id))
+        .filter(WaitlistSignup.referred_by == signup.referral_code)
+        .scalar()
+        or 0
+    )
+    position = calculate_waitlist_position(signup.position, signup.priority_score)
+    return WaitlistStatusResponse(
+        position=position,
+        referral_code=signup.referral_code,
+        referral_link=build_referral_link(signup.referral_code),
+        referrals_count=int(referrals_count),
+        positions_gained=signup.priority_score * REFERRAL_BONUS,
+        email_verified=signup.email_verified,
+    )
+
+
+@waitlist_router.get("/stats")
+async def get_waitlist_stats(db: Session = Depends(get_db)):
+    total_signups = db.query(func.count(WaitlistSignup.id)).scalar() or 0
+    return {"total_signups": int(total_signups)}
+
+
+@waitlist_router.post("/verify/{token}")
+async def verify_waitlist_email(token: str, db: Session = Depends(get_db)):
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+            options={"require": ["exp", "sub", "type"]},
+        )
+    except JWTError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired token.",
+        ) from exc
+
+    if payload.get("type") != "waitlist_verify":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid verification token.",
+        )
+
+    email = payload.get("sub")
+    if not email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid verification token.",
+        )
+
+    signup = db.query(WaitlistSignup).filter(WaitlistSignup.email == email).first()
+    if not signup:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Waitlist entry not found.",
+        )
+
+    signup.email_verified = True
+    db.commit()
+
+    return {"success": True, "message": "Email verified."}
 
