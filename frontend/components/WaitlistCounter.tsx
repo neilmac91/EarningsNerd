@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { getApiUrl } from '@/lib/api'
 
 const formatCount = (value: number) => value.toLocaleString()
@@ -8,6 +8,7 @@ const formatCount = (value: number) => value.toLocaleString()
 export default function WaitlistCounter() {
   const [target, setTarget] = useState<number | null>(null)
   const [display, setDisplay] = useState(0)
+  const displayRef = useRef(0)
 
   useEffect(() => {
     let active = true
@@ -31,21 +32,29 @@ export default function WaitlistCounter() {
   }, [])
 
   useEffect(() => {
+    displayRef.current = display
+  }, [display])
+
+  useEffect(() => {
     if (target === null) return
     const start = performance.now()
     const duration = 900
-    const startValue = display
+    const startValue = displayRef.current
+    let rafId = 0
 
     const animate = (now: number) => {
       const progress = Math.min(1, (now - start) / duration)
       const nextValue = Math.round(startValue + (target - startValue) * progress)
       setDisplay(nextValue)
       if (progress < 1) {
-        requestAnimationFrame(animate)
+        rafId = requestAnimationFrame(animate)
       }
     }
 
-    requestAnimationFrame(animate)
+    rafId = requestAnimationFrame(animate)
+    return () => {
+      if (rafId) cancelAnimationFrame(rafId)
+    }
   }, [target])
 
   const label = useMemo(() => {

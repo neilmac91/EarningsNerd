@@ -112,7 +112,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
         referral_code: data.referral_code,
         referral_link: data.referral_link,
       })
-    } catch (err) {
+    } catch {
       setError('Network error. Please try again in a moment.')
     } finally {
       setIsSubmitting(false)
