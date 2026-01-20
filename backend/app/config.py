@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str = ""
     RESEND_BASE_URL: str = "https://api.resend.com"
     RESEND_FROM_EMAIL: str = "EarningsNerd <onboarding@resend.dev>"
+    FRONTEND_URL: str = "https://earningsnerd.io"
 
     # X / Twitter API
     TWITTER_BEARER_TOKEN: str = ""

@@ -1,7 +1,10 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, Float, JSON
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+
 from app.database import Base
+from app.models.waitlist import WaitlistSignup
+
 
 class User(Base):
     __tablename__ = "users"
@@ -22,6 +25,7 @@ class User(Base):
     usage = relationship("UserUsage", back_populates="user")
     watchlist = relationship("Watchlist", back_populates="user")
 
+
 class Company(Base):
     __tablename__ = "companies"
 
@@ -37,6 +41,7 @@ class Company(Base):
     
     filings = relationship("Filing", back_populates="company")
 
+
 class Watchlist(Base):
     __tablename__ = "watchlist"
     
@@ -47,6 +52,7 @@ class Watchlist(Base):
     
     user = relationship("User", back_populates="watchlist")
     company = relationship("Company")
+
 
 class Filing(Base):
     __tablename__ = "filings"
@@ -77,6 +83,7 @@ class Filing(Base):
         cascade="all, delete-orphan",
     )
 
+
 class Summary(Base):
     __tablename__ = "summaries"
     
@@ -93,6 +100,7 @@ class Summary(Base):
     
     filing = relationship("Filing", back_populates="summaries")
 
+
 class UserSearch(Base):
     __tablename__ = "user_searches"
     
@@ -104,6 +112,7 @@ class UserSearch(Base):
     
     user = relationship("User", back_populates="searches")
 
+
 class SavedSummary(Base):
     __tablename__ = "saved_summaries"
     
@@ -114,6 +123,7 @@ class SavedSummary(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     user = relationship("User", back_populates="saved_summaries")
+
 
 class UserUsage(Base):
     __tablename__ = "user_usage"
@@ -153,3 +163,18 @@ class FilingContentCache(Base):
 
     filing = relationship("Filing", back_populates="content_cache")
 
+
+__all__ = [
+    "Base",
+    "Company",
+    "Filing",
+    "FilingContentCache",
+    "SavedSummary",
+    "Summary",
+    "SummaryGenerationProgress",
+    "User",
+    "UserSearch",
+    "UserUsage",
+    "Watchlist",
+    "WaitlistSignup",
+]
