@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import CompanySearch from '@/components/CompanySearch'
 import DashboardPreview from '@/components/DashboardPreview'
+import SentryTestButton from '@/components/SentryTestButton'
 
 export default function Home() {
   return (
@@ -39,6 +40,7 @@ export default function Home() {
             <Link href="/privacy" className="font-medium transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark">Privacy</Link>
             <Link href="/security" className="font-medium transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark">Security</Link>
             <Link href="mailto:hello@earningsnerd.com" className="font-medium transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark">Contact</Link>
+            <SentryTestButton />
           </div>
         </div>
       </footer>

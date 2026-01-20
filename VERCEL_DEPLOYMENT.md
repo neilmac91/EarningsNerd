@@ -51,12 +51,28 @@ After the first deployment, set the environment variable in Vercel dashboard:
 2. Select your project (`earningsnerd`)
 3. Go to **Settings** → **Environment Variables**
 4. Add:
-   - **Name**: `NEXT_PUBLIC_API_URL`
+   - **Name**: `NEXT_PUBLIC_API_BASE_URL`
    - **Value**: `https://api.earningsnerd.io`
+   - **Environment**: Production, Preview, Development (select all)
+   - **Name**: `NEXT_PUBLIC_SENTRY_DSN`
+   - **Value**: `https://ece733dc1e5aa4e794d80f2bcc498e24@o4510744719851520.ingest.de.sentry.io/4510744722276432`
+   - **Environment**: Production, Preview, Development (select all)
+   - **Name**: `SENTRY_DSN`
+   - **Value**: `https://ece733dc1e5aa4e794d80f2bcc498e24@o4510744719851520.ingest.de.sentry.io/4510744722276432`
    - **Environment**: Production, Preview, Development (select all)
 5. Click **Save**
 
-### Step 4: Connect Custom Domain
+### Step 4: Configure Sentry Log Drain
+
+Add the Vercel Log Drain endpoint so deployment logs land in Sentry:
+
+1. Go to **Vercel Dashboard** → your project → **Settings** → **Log Drains**
+2. Click **Add Log Drain**
+3. Paste the endpoint:
+   `https://o4510744719851520.ingest.de.sentry.io/api/4510744722276432/integration/vercel/logs`
+4. Save and wait for the connection to validate
+
+### Step 5: Connect Custom Domain
 
 1. In Vercel dashboard, go to your project → **Settings** → **Domains**
 2. Click **Add Domain**
@@ -65,7 +81,7 @@ After the first deployment, set the environment variable in Vercel dashboard:
 
 Vercel will provide DNS records to add to Cloudflare.
 
-### Step 5: Update Cloudflare DNS
+### Step 6: Update Cloudflare DNS
 
 Vercel will show you DNS records like:
 
@@ -85,13 +101,13 @@ Value: cname.vercel-dns.com
 
 **Note**: If Cloudflare doesn't support CNAME at root, Vercel will provide A records instead.
 
-### Step 6: Enable HTTPS
+### Step 7: Enable HTTPS
 
 Vercel automatically provisions SSL certificates. Once DNS propagates:
 - SSL will be automatically configured
 - Your site will be available at `https://earningsnerd.io`
 
-### Step 7: Redeploy (if needed)
+### Step 8: Redeploy (if needed)
 
 If you added environment variables after deployment, trigger a new deployment:
 
@@ -118,7 +134,8 @@ After deployment completes:
 - Update CORS settings in your backend to allow requests from `https://earningsnerd.io`
 
 ### Environment Variables
-- `NEXT_PUBLIC_API_URL` is set in `vercel.json` and should also be set in Vercel dashboard
+- `NEXT_PUBLIC_API_BASE_URL` is set in `vercel.json` and should also be set in Vercel dashboard
+- `NEXT_PUBLIC_SENTRY_DSN` and `SENTRY_DSN` should also be set in Vercel dashboard
 - Any changes to environment variables require a redeploy
 
 ### Automatic Deployments
