@@ -277,9 +277,9 @@ export default function SecurityPage() {
           <ul className="list-none space-y-2 text-text-secondary-light dark:text-text-secondary-dark">
             <li>
               General inquiries:{' '}
-              <a href="mailto:hello@earningsnerd.com" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
-                hello@earningsnerd.com
-              </a>
+              <Link href="/contact" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
+                Contact form
+              </Link>
             </li>
             <li>
               Security issues:{' '}

@@ -600,5 +600,27 @@ export const compareFilings = async (filingIds: number[]): Promise<ComparisonDat
   return response.data
 }
 
+export interface ContactSubmission {
+  name: string
+  email: string
+  subject: string | null
+  message: string
+}
+
+export interface ContactSubmissionResponse {
+  id: number
+  name: string
+  email: string
+  subject: string | null
+  message: string
+  status: string
+  created_at: string
+}
+
+export const submitContactForm = async (data: ContactSubmission): Promise<ContactSubmissionResponse> => {
+  const response = await api.post('/api/contact/', data)
+  return response.data
+}
+
 export default api
 
