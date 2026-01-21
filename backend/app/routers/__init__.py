@@ -11,6 +11,7 @@ from . import summaries
 from . import subscriptions
 from . import users
 from . import watchlist
+from . import webhooks
 
 __all__ = [
     'auth',
@@ -26,4 +27,5 @@ __all__ = [
     'subscriptions',
     'users',
     'watchlist',
+    'webhooks',
 ]
