@@ -91,7 +91,7 @@ export default function SecurityPage() {
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
             We use Stripe, a PCI-DSS compliant payment processor, to handle all payment transactions. We do not store
-            complete credit card numbers on our servers. All payment information is processed securely through Stripe's
+            complete credit card numbers on our servers. All payment information is processed securely through Stripe&apos;s
             infrastructure, which maintains the highest level of payment security certification.
           </p>
         </section>
