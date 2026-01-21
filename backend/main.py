@@ -22,6 +22,7 @@ from app.routers import (
     trending,
     email,
     contact,
+    webhooks,
 )
 from app.config import settings
 
@@ -111,6 +112,7 @@ app.include_router(hot_filings.router, prefix="/api", tags=["Hot Filings"])
 app.include_router(trending.router, prefix="/api", tags=["Trending"])
 app.include_router(email.router, prefix="/api/email", tags=["Email"])
 app.include_router(contact.router, prefix="/api/contact", tags=["Contact"])
+app.include_router(webhooks.router, tags=["Webhooks"])
 
 
 @app.middleware("http")
