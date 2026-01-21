@@ -1,3 +1,4 @@
+import html
 import logging
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -116,8 +117,14 @@ async def send_contact_notifications(
     submission_id: int,
 ):
     """Send email notifications for contact form submission"""
+    # Escape all user-provided data to prevent HTML injection
+    safe_name = html.escape(submission.name)
+    safe_email = html.escape(submission.email)
+    safe_subject = html.escape(submission.subject) if submission.subject else None
+    safe_message = html.escape(submission.message)
+
     # Email to admin
-    admin_subject = f"New Contact Form Submission from {submission.name}"
+    admin_subject = f"New Contact Form Submission from {safe_name}"
     admin_html = f"""
     <html>
       <head>
@@ -129,7 +136,7 @@ async def send_contact_notifications(
           .field {{ margin-bottom: 15px; }}
           .label {{ font-weight: bold; color: #555; }}
           .value {{ margin-top: 5px; }}
-          .message-box {{ background-color: white; padding: 15px; border-left: 4px solid #10B981; margin-top: 10px; }}
+          .message-box {{ background-color: white; padding: 15px; border-left: 4px solid #10B981; margin-top: 10px; white-space: pre-wrap; }}
         </style>
       </head>
       <body>
@@ -144,16 +151,16 @@ async def send_contact_notifications(
             </div>
             <div class="field">
               <div class="label">Name:</div>
-              <div class="value">{submission.name}</div>
+              <div class="value">{safe_name}</div>
             </div>
             <div class="field">
               <div class="label">Email:</div>
-              <div class="value"><a href="mailto:{submission.email}">{submission.email}</a></div>
+              <div class="value"><a href="mailto:{safe_email}">{safe_email}</a></div>
             </div>
-            {f'<div class="field"><div class="label">Subject:</div><div class="value">{submission.subject}</div></div>' if submission.subject else ''}
+            {f'<div class="field"><div class="label">Subject:</div><div class="value">{safe_subject}</div></div>' if safe_subject else ''}
             <div class="field">
               <div class="label">Message:</div>
-              <div class="message-box">{submission.message}</div>
+              <div class="message-box">{safe_message}</div>
             </div>
             <div class="field">
               <div class="label">Submitted:</div>
@@ -175,7 +182,7 @@ async def send_contact_notifications(
           .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
           .header {{ background-color: #10B981; color: white; padding: 20px; text-align: center; }}
           .content {{ background-color: #f9f9f9; padding: 20px; border: 1px solid #ddd; }}
-          .message-box {{ background-color: white; padding: 15px; border-left: 4px solid #10B981; margin: 15px 0; }}
+          .message-box {{ background-color: white; padding: 15px; border-left: 4px solid #10B981; margin: 15px 0; white-space: pre-wrap; }}
           .footer {{ text-align: center; margin-top: 20px; font-size: 0.9em; color: #666; }}
         </style>
       </head>
@@ -185,10 +192,10 @@ async def send_contact_notifications(
             <h2>Thank You for Contacting EarningsNerd</h2>
           </div>
           <div class="content">
-            <p>Hi {submission.name},</p>
+            <p>Hi {safe_name},</p>
             <p>We&apos;ve received your message and will get back to you as soon as possible, typically within 1-2 business days.</p>
             <p><strong>Your message:</strong></p>
-            <div class="message-box">{submission.message}</div>
+            <div class="message-box">{safe_message}</div>
             <p>If you need immediate assistance or have additional information to add, feel free to reply to this email.</p>
             <p>Best regards,<br>The EarningsNerd Team</p>
           </div>

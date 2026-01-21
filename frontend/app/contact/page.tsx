@@ -28,23 +28,17 @@ export default function ContactPage() {
         {/* Contact Information */}
         <div className="mt-12 rounded-lg border border-border-light bg-background-light p-6 dark:border-border-dark dark:bg-slate-900/50">
           <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
-            Other Ways to Reach Us
+            What to Expect
           </h2>
           <div className="mt-4 space-y-3 text-text-secondary-light dark:text-text-secondary-dark">
-            <div>
-              <span className="font-medium">Email:</span>{' '}
-              <a
-                href="mailto:hello@earningsnerd.com"
-                className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300"
-              >
-                hello@earningsnerd.com
-              </a>
-            </div>
             <div>
               <span className="font-medium">Response Time:</span> We typically respond within 1-2 business days
             </div>
             <div>
               <span className="font-medium">Support Hours:</span> Monday - Friday, 9:00 AM - 5:00 PM EST
+            </div>
+            <div>
+              <span className="font-medium">Confirmation:</span> You&apos;ll receive an automated confirmation email immediately after submission
             </div>
           </div>
         </div>

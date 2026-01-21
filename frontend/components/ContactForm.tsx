@@ -52,11 +52,12 @@ export default function ContactForm() {
       setEmail('')
       setSubject('')
       setMessage('')
-    } catch (err: any) {
-      if (err.message.includes('429')) {
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to send message. Please try again.'
+      if (errorMessage.includes('429')) {
         setError('Too many requests. Please try again in an hour.')
       } else {
-        setError(err.message || 'Failed to send message. Please try again.')
+        setError(errorMessage)
       }
     } finally {
       setIsSubmitting(false)
