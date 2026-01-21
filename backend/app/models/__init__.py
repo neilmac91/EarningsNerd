@@ -4,6 +4,7 @@ from sqlalchemy.sql import func
 
 from app.database import Base
 from app.models.waitlist import WaitlistSignup
+from app.models.contact import ContactSubmission
 
 
 class User(Base):
@@ -167,6 +168,7 @@ class FilingContentCache(Base):
 __all__ = [
     "Base",
     "Company",
+    "ContactSubmission",
     "Filing",
     "FilingContentCache",
     "SavedSummary",

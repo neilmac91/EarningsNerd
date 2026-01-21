@@ -174,9 +174,9 @@ export default function PrivacyPage() {
             <li>
               <strong>Delete:</strong> You can request deletion of your account and personal information by contacting
               us at{' '}
-              <a href="mailto:hello@earningsnerd.com" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
-                hello@earningsnerd.com
-              </a>
+              <Link href="/contact" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
+                our contact form
+              </Link>
               .
             </li>
             <li>

@@ -21,7 +21,7 @@ export default function Footer() {
             Security
           </Link>
           <Link
-            href="mailto:hello@earningsnerd.com"
+            href="/contact"
             className="font-medium transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark"
           >
             Contact
