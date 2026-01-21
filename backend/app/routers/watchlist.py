@@ -25,10 +25,13 @@ from app.services.email_service import (
     send_waitlist_welcome_email,
 )
 
+import logging
+
 router = APIRouter()
 waitlist_router = APIRouter()
 
 WAITLIST_JOIN_LIMITER = RateLimiter(limit=5, window_seconds=60 * 60)
+logger = logging.getLogger(__name__)
 
 class WatchlistResponse(BaseModel):
     id: int
@@ -438,6 +441,7 @@ async def join_waitlist(
     verification_token = create_verification_token(signup.email, signup.referral_code)
     verification_link = build_verification_link(verification_token)
 
+    email_sent = False
     try:
         await send_waitlist_welcome_email(
             to_email=signup.email,
@@ -448,8 +452,10 @@ async def join_waitlist(
         )
         signup.welcome_email_sent = True
         db.commit()
+        email_sent = True
     except Exception:
         db.rollback()
+        logger.exception("Waitlist welcome email failed for %s", signup.email)
 
     if referrer:
         referrer_position = calculate_waitlist_position(referrer.position, referrer.priority_score)
@@ -462,7 +468,7 @@ async def join_waitlist(
                 referral_link=referrer_link,
             )
         except Exception:
-            pass
+            logger.exception("Referral email failed for %s", referrer.email)
 
     return {
         "success": True,
@@ -470,6 +476,7 @@ async def join_waitlist(
         "position": position,
         "referral_code": signup.referral_code,
         "referral_link": referral_link,
+        "email_sent": email_sent,
         "total_signups": total_signups,
     }
 
