@@ -12,24 +12,44 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-def verify_webhook_signature(payload: bytes, signature: str, secret: str) -> bool:
+def verify_webhook_signature(payload: bytes, signature_header: str, secret: str, svix_id: str, svix_timestamp: str) -> bool:
     """
-    Verify Resend webhook signature.
+    Verify Resend webhook signature, which uses the Svix standard.
 
-    Resend uses HMAC SHA256 to sign webhook payloads.
+    The signed content is the `svix-id`, `svix-timestamp`, and request body,
+    concatenated with a `.` as a separator.
     """
     if not secret:
-        logger.warning("RESEND_WEBHOOK_SECRET not configured - skipping signature verification")
-        return True  # In development, allow webhooks without verification
+        # In non-production environments, we can allow verification to be skipped if the secret is not set.
+        if settings.ENVIRONMENT != "production":
+            logger.warning("RESEND_WEBHOOK_SECRET not configured - skipping signature verification in non-production environment.")
+            return True
+        else:
+            logger.error("RESEND_WEBHOOK_SECRET is not set in production. Webhook verification failed.")
+            return False
 
+    # Construct the signed payload according to Svix standard: svix-id.svix-timestamp.body
+    signed_payload = f"{svix_id}.{svix_timestamp}.".encode() + payload
     expected_signature = hmac.new(
         secret.encode(),
-        payload,
+        signed_payload,
         hashlib.sha256
     ).hexdigest()
 
-    # Compare signatures in constant time to prevent timing attacks
-    return hmac.compare_digest(signature, expected_signature)
+    # The svix-signature header can contain multiple signatures, space-separated.
+    # e.g., "v1,sig1 v1,sig2"
+    for versioned_signature in signature_header.split(" "):
+        try:
+            version, signature = versioned_signature.split(",", 1)
+            if version != "v1":
+                continue
+            # Compare signatures in constant time to prevent timing attacks
+            if hmac.compare_digest(signature, expected_signature):
+                return True
+        except ValueError:
+            continue  # Ignore malformed signature parts
+
+    return False
 
 
 @router.post("/webhooks/resend")
@@ -47,28 +67,33 @@ async def handle_resend_webhook(request: Request):
     - email.clicked: Recipient clicked a link in the email
 
     Webhook signature verification:
-    Resend signs webhooks with HMAC SHA256 using your webhook secret.
+    Resend uses the Svix webhook standard with HMAC SHA256.
     """
     # Get the raw body for signature verification
     body = await request.body()
 
-    # Get the signature from headers
-    signature = request.headers.get("svix-signature") or request.headers.get("x-resend-signature")
+    # Get the required Svix headers
+    signature_header = request.headers.get("svix-signature")
+    svix_id = request.headers.get("svix-id")
+    svix_timestamp = request.headers.get("svix-timestamp")
 
-    if not signature:
-        logger.warning("Received Resend webhook without signature header")
+    if not signature_header:
+        logger.warning("Received Resend webhook without svix-signature header")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Missing webhook signature"
         )
 
-    # Extract the actual signature (Svix format: v1,signature)
-    if "," in signature:
-        signature = signature.split(",")[1] if "," in signature else signature
+    if not svix_id or not svix_timestamp:
+        logger.warning("Received Resend webhook without required Svix headers")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Missing required Svix headers (svix-id, svix-timestamp)"
+        )
 
-    # Verify signature (if webhook secret is configured)
+    # Verify signature
     webhook_secret = getattr(settings, "RESEND_WEBHOOK_SECRET", "")
-    if webhook_secret and not verify_webhook_signature(body, signature, webhook_secret):
+    if not verify_webhook_signature(body, signature_header, webhook_secret, svix_id, svix_timestamp):
         logger.error("Invalid Resend webhook signature")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

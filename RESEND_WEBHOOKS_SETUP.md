@@ -234,11 +234,52 @@ Triggered when a recipient marks your email as spam.
 - Review email content
 - Verify sender domain reputation
 
+## How Signature Verification Works
+
+Resend uses the **Svix webhook standard** for signature verification. Understanding this helps with debugging and security.
+
+### Svix Headers
+
+Every webhook request includes three critical headers:
+
+1. **`svix-id`**: Unique identifier for the webhook message
+2. **`svix-timestamp`**: Unix timestamp of when the webhook was sent
+3. **`svix-signature`**: HMAC signature(s) for verification
+
+### Signature Construction
+
+The signature is computed using HMAC-SHA256 over a concatenated string:
+
+```
+signed_content = svix-id + "." + svix-timestamp + "." + request_body
+```
+
+Example:
+```
+svix-id: msg_abc123
+svix-timestamp: 1674321000
+request body: {"type":"email.sent","data":{...}}
+
+Signed content: "msg_abc123.1674321000.{"type":"email.sent","data":{...}}"
+```
+
+### Multiple Signatures
+
+The `svix-signature` header can contain multiple signatures (for key rotation):
+
+```
+svix-signature: v1,g0hM9SsE+OTPJTGt/tmIKtSyZlE3uFJELVlNIOLJ1OE= v1,bm9ldHUjKzFob2VudXRob2VodWUzMjRvdWVvdW9ldQo=
+```
+
+Format: `version,signature version,signature` (space-separated)
+
+The verification function checks all signatures and succeeds if **any** match.
+
 ## Security Best Practices
 
 ### 1. Always Verify Signatures
 
-The webhook endpoint automatically verifies signatures using `RESEND_WEBHOOK_SECRET`. Never disable this in production.
+The webhook endpoint automatically verifies signatures using `RESEND_WEBHOOK_SECRET` and the Svix standard. Never disable this in production.
 
 ### 2. Use HTTPS in Production
 
