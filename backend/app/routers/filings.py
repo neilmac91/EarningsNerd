@@ -85,7 +85,7 @@ async def get_company_filings(
             raise HTTPException(status_code=500, detail=f"Error fetching company: {str(e)}") from e
     
     # Parse filing types
-    types_list = ["10-K", "10-Q", "8-K"]
+    types_list = ["10-K", "10-Q"]
     if filing_types:
         types_list = [t.strip() for t in filing_types.split(",")]
     

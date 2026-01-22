@@ -228,8 +228,6 @@ class HotFilingsService:
             filing_type_bonus = 0.5
             if filing.filing_type.upper() in {"10-K", "10-Q"}:
                 filing_type_bonus = 1.5
-            elif filing.filing_type.upper() == "8-K":
-                filing_type_bonus = 1.0
 
             buzz_score = (
                 recency_score

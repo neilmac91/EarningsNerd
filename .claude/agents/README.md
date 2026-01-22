@@ -169,7 +169,7 @@ Multiple agents can work together on complex features:
 ## EarningsNerd-Specific Context
 
 All agents are calibrated for EarningsNerd's domain:
-- **SEC Filing Analysis** - 10-K, 10-Q, 8-K filings
+- **SEC Filing Analysis** - 10-K, 10-Q filings
 - **AI Summarization** - OpenAI-powered summaries
 - **Financial Data** - Earnings, metrics, comparisons
 - **Subscription Model** - Free and premium tiers

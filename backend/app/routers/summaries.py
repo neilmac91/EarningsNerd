@@ -239,14 +239,6 @@ async def _generate_summary_background(filing_id: int, user_id: Optional[int]):
                             "xbrl_timeout": 3.0,
                         }
                     )
-                elif filing_type == "8-K":
-                    processing_profile.update(
-                        {
-                            "include_previous": False,
-                            "fetch_xbrl": False,
-                            "document_timeout": 6.0,
-                        }
-                    )
 
                 previous_filings = []
                 if processing_profile["include_previous"]:

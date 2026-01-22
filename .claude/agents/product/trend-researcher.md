@@ -57,7 +57,7 @@ When researching a trend:
 ### Signal Detection
 1. **Quantitative Signals:**
    - Spike in searches for specific tickers/filings
-   - Unusual filing patterns (8-K clusters)
+   - Unusual filing patterns (10-K/10-Q clusters)
    - User engagement anomalies
    - API usage pattern changes
 

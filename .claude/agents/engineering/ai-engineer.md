@@ -13,7 +13,7 @@
 ## 3. Knowledge Base & Context
 * **Primary Domain:** OpenAI API (GPT-4, GPT-4-Turbo), LangChain, prompt engineering, embeddings, vector databases, RAG architectures
 * **EarningsNerd Specific:**
-  - SEC filing summarization (10-K, 10-Q, 8-K)
+  - SEC filing summarization (10-K, 10-Q)
   - Earnings call transcript analysis
   - Financial sentiment analysis
   - XBRL data extraction and interpretation

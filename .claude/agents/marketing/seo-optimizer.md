@@ -187,7 +187,6 @@ Earnings Calendar:
    - "how to read 10-K"
    - "10-K vs 10-Q"
    - "SEC filing types explained"
-   - "8-K filing meaning"
 
 2. Earnings Analysis
    - "[ticker] earnings"

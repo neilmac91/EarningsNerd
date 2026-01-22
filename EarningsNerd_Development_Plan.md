@@ -290,7 +290,6 @@ These are the absolute must-have features to solve the core problem and deliver 
 - Query history and saved queries
 
 **Support for Additional Filings**
-- 8-K (current reports - significant events)
 - S-1 (IPO registration statements)
 - Proxy statements (DEF 14A - executive compensation)
 - Form 4 (insider trading)

@@ -48,7 +48,7 @@ class FilingSummary(BaseModel):
     cik: str
     symbol: str
     company_name: str
-    filing_type: Literal["10-Q", "10-K", "8-K"]
+    filing_type: Literal["10-Q", "10-K"]
     filing_date: str
     period_end: Optional[str] = None
     financials: Financials

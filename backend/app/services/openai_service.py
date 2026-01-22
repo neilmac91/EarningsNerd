@@ -4,6 +4,7 @@ import logging
 from openai import AsyncOpenAI
 from typing import Any, Dict, List, Optional
 from app.config import settings
+from app.services.prompt_loader import get_prompt
 import json
 import re
 from bs4 import BeautifulSoup
@@ -194,14 +195,12 @@ class OpenAIService:
         self._model_overrides = {
             "10-K": "gemini-2.5-pro",  # Better quality for longer docs
             "10-Q": "gemini-2.5-flash",  # Balance of speed and quality
-            "8-K": "gemini-2.0-flash"  # Fast for shorter docs
         }
 
     def get_model_for_filing(self, filing_type: Optional[str]) -> str:
         """Return the model to use for a given filing type.
 
         Optimized for speed and quality using Google AI Studio:
-        - 8-K: gemini-2.0-flash (fast for shorter docs)
         - 10-Q: gemini-2.5-flash (balance of speed and quality)
         - 10-K: gemini-2.5-pro (better quality for longer docs)
         """
@@ -259,23 +258,6 @@ class OpenAIService:
                     "guidance": 6000,
                     "footnotes": 6000
                 }
-            },
-            "8-K": {
-                "sample_length": 8000,
-                "previous_section_limit": 6000,
-                "ai_timeout": 45.0,  # Increased for reliable API completion with retries
-                "max_tokens": 1000,  # Reduced for faster responses
-                "max_sections": 2,
-                "section_limits": {
-                    "business": 5000,
-                    "risk_factors": 4000,
-                    "financials": 4000,
-                    "mda": 4000,
-                    "liquidity": 3000,
-                    "segments": 3000,
-                    "guidance": 3000,
-                    "footnotes": 3000
-                }
             }
         }
 
@@ -312,7 +294,6 @@ class OpenAIService:
         
         For 10-K: Item 1A (Risk Factors) and Item 7 (MD&A)
         For 10-Q: Item 1A (Risk Factors) and Item 2 (MD&A)
-        For 8-K: Extract the main content sections
         
         Returns: Concatenated text from critical sections only
         """
@@ -383,20 +364,6 @@ class OpenAIService:
                     # Limit to 12000 chars for 10-Q (optimized for speed)
                     critical_sections.append(f"ITEM 2 - MANAGEMENT'S DISCUSSION AND ANALYSIS:\n{mda_text[:12000]}")
                     break
-        
-        elif filing_type_key == "8-K":
-            # For 8-K, extract the main content sections (usually shorter)
-            # Try to find the main body content
-            content_patterns = [
-                r"ITEM\s+[0-9]\.\s+[^\n]*\n(.*?)(?=ITEM\s+[0-9]|SIGNATURE|$)",
-            ]
-            for pattern in content_patterns:
-                matches = re.finditer(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
-                for match in list(matches)[:3]:  # Get first 3 items
-                    content = match.group(0).strip()
-                    if len(content) > 500:  # Only include substantial content
-                        # Limit to 10000 chars for 8-K (already optimized)
-                        critical_sections.append(content[:10000])
         
         # Combine all critical sections
         if critical_sections:
@@ -1408,6 +1375,7 @@ Return JSON containing only the `{section_key}` key."""
 
         filing_type_key = (filing_type or "10-K").upper()
         config = self._get_type_config(filing_type_key)
+        prompt_template = get_prompt(filing_type_key)
 
         filing_sample = filing_excerpt or self.extract_critical_sections(filing_text, filing_type_key)
         if not filing_sample:
@@ -1455,10 +1423,6 @@ EXTRACTED FINANCIAL SIGNALS:
                 previous_filings_context += f"\n### Prior 10-K {i} ({prev_filing_date}):\n{prev_sample}\n"
 
         focus_guidance = {
-            "8-K": [
-                "- Capture discrete events and quantify immediate financial or strategic impact.",
-                "- Identify any material non-recurring adjustments or regulatory issues."
-            ],
             "10-Q": [
                 "- Highlight sequential and year-on-year momentum for this quarter.",
                 "- Connect quarterly execution to full-year guidance and structural themes.",
@@ -1570,7 +1534,16 @@ EXTRACTED FINANCIAL SIGNALS:
   }
 }"""
 
-        prompt = f"""You are a forensic financial analyst preparing structured briefing materials for newsroom editors.
+        output_reference = ""
+        if prompt_template.user:
+            output_reference = (
+                "\n\nOUTPUT REFERENCE (use for content coverage; respond in JSON schema below):\n"
+                f"{prompt_template.user}\n"
+            )
+
+        prompt = f"""{prompt_template.system}
+
+You are a forensic financial analyst preparing structured briefing materials for newsroom editors.
 
 Company: {company_name}
 Filing type: {filing_type}
@@ -1587,6 +1560,7 @@ Guidance for emphasis:
 CRITICAL FILING EXCERPTS:
 {filing_sample}
 {previous_filings_context}
+{output_reference}
 
 Return ONLY valid JSON (no markdown fences) that matches this schema (replace placeholders with actual values or meaningful nulls). Every string must contain substantive content—never emit blank strings or placeholder tokens. Arrays must never be empty; if no verifiable bullet exists, supply a single-element array with "Not disclosed—<concise reason>":
 {schema_template}
@@ -1900,6 +1874,7 @@ Rules:
 
         filing_type_key = (filing_type or "10-K").upper()
         config = self._get_type_config(filing_type_key)
+        prompt_template = get_prompt(filing_type_key)
 
         # OPTIMIZED: Extract ONLY critical sections (Item 1A and Item 7 for 10-K)
         filing_sample = filing_excerpt or self.extract_critical_sections(filing_text, filing_type_key)
@@ -1958,10 +1933,6 @@ EXTRACTED FINANCIAL DATA FROM FILING:
                 previous_filings_context += f"\n### Previous 10-K {i} ({prev_filing_date}):\n{prev_sample}\n"
 
         focus_guidance = {
-            "8-K": [
-                "- Prioritize the discrete events and triggers disclosed in this 8-K.",
-                "- Quantify immediate financial or strategic impact and required investor actions."
-            ],
             "10-Q": [
                 "- Emphasize sequential and year-over-year trends for this quarter.",
                 "- Connect quarterly execution to full-year guidance and strategic priorities."
@@ -1990,14 +1961,22 @@ EXTRACTED FINANCIAL DATA FROM FILING:
 - If limited data is available, explain why and outline what to monitor next.
 """
         
-        prompt = f"""You are a top-tier financial advisor and public market investor with over 30 years of experience analyzing companies at the highest level. You've advised institutional investors, managed billions in assets, and have a track record of identifying winners and avoiding losers. Your analysis is trusted by the most sophisticated investors in the market.
+        output_reference = ""
+        if prompt_template.user:
+            output_reference = (
+                "\n\nOUTPUT REFERENCE (use to shape the markdown in the JSON response):\n"
+                f"{prompt_template.user}\n"
+            )
+
+        prompt = f"""{prompt_template.system}
+
+You are a top-tier financial advisor and public market investor with over 30 years of experience analyzing companies at the highest level. You've advised institutional investors, managed billions in assets, and have a track record of identifying winners and avoiding losers. Your analysis is trusted by the most sophisticated investors in the market.
 
 Your task: Analyze {company_name}'s {filing_type} filing and provide key takeaways from a professional investor's perspective. Think like a portfolio manager making a multimillion-dollar investment decision.
 
 IMPORTANT: The text below contains ONLY the most critical sections extracted from the filing:
 - For 10-K: Item 1A (Risk Factors) and Item 7 (Management's Discussion and Analysis)
 - For 10-Q: Item 1A (Risk Factors) and Item 2 (Management's Discussion and Analysis)
-- For 8-K: Key disclosure items
 
 This focused extraction allows for faster, more targeted analysis while maintaining the essential information needed for investment decisions.
 
@@ -2006,6 +1985,7 @@ This focused extraction allows for faster, more targeted analysis while maintain
 CRITICAL SECTIONS FROM FILING:
 {filing_sample}
 {previous_filings_context}
+{output_reference}
 
 ANALYSIS FRAMEWORK:
 {analysis_focus_block}
@@ -2103,6 +2083,14 @@ Do not include any additional keys or text outside the JSON object."""
 
         try:
             import asyncio
+            system_prompt = "\n\n".join(
+                part
+                for part in [
+                    prompt_template.system,
+                    "Always return valid JSON with the exact structure requested. Use specific financial data provided and support all analysis with actual numbers. Be direct, decisive, and investment-focused.",
+                ]
+                if part
+            )
             # Try models in order, starting with primary model, then fallbacks
             models_to_try = [self.get_model_for_filing(filing_type_key)] + self._fallback_models
             models_to_try = list(dict.fromkeys(models_to_try))
@@ -2112,7 +2100,7 @@ Do not include any additional keys or text outside the JSON object."""
                     stream = await self.client.chat.completions.create(
                         model=model_name,
                         messages=[
-                            {"role": "system", "content": "You are a top-tier financial advisor and public market investor with over 30 years of experience. You analyze companies from a professional investor's perspective, focusing on what matters for investment decisions. You write with the authority and insight of someone who has advised institutional investors and managed billions in assets. Always return valid JSON with the exact structure requested. Use specific financial data provided and support all analysis with actual numbers. Be direct, decisive, and investment-focused."},
+                            {"role": "system", "content": system_prompt},
                             {"role": "user", "content": prompt}
                         ],
                         temperature=0.3,
