@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
-import { ComparisonData } from '@/lib/api'
+import { ComparisonData } from '@/features/filings/api/filings-api'
 import { TrendingUp, TrendingDown, AlertCircle, BarChart3 } from 'lucide-react'
 import { format } from 'date-fns'
 import type { RiskFactor } from '../../../types/summary'

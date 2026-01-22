@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { getCompanyFilings, Filing, compareFilings } from '@/lib/api'
+import { getCompanyFilings, Filing, compareFilings } from '@/features/filings/api/filings-api'
 import { Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'

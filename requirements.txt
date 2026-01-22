@@ -1,8 +1,0 @@
-Flask==3.0.0
-pandas==2.1.4
-pytest-asyncio==1.2.0
-
-
-
-
-

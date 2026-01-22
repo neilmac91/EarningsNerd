@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from 'vitest'
-import { generateSummaryStream } from '@/lib/api'
+import { generateSummaryStream } from '@/features/summaries/api/summaries-api'
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
 
 declare global {

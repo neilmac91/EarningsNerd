@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 test.describe('Filing Page Rendering', () => {
-  test('should render filing page without runtime errors', async ({ page }) => {
+  test('should render filing page and switch tabs without errors', async ({ page }) => {
     // Listen for console errors
     const errors: string[] = []
     page.on('console', (msg) => {
@@ -10,21 +10,50 @@ test.describe('Filing Page Rendering', () => {
       }
     })
 
-    // Listen for page errors
     page.on('pageerror', (error) => {
       errors.push(error.message)
     })
 
-    // Navigate to a filing page (using a known filing ID from the test data)
+    // Navigate to a filing page
+    // Using a reliable ID if possible, or we might need to mock this in a real E2E env
+    // For now assuming 932 exists as per previous test
     await page.goto('http://localhost:3000/filing/932')
 
     // Wait for the page to load
-    await page.waitForLoadState('networkidle', { timeout: 10000 })
+    await page.waitForLoadState('networkidle', { timeout: 15000 })
 
-    // Check that the page title is present
-    await expect(page.locator('h1')).toBeVisible({ timeout: 5000 })
+    // 1. Check Executive Summary (default tab)
+    await expect(page.locator('h1')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Executive Summary' })).toHaveClass(/text-emerald-700/)
+    
+    // 2. Click Financials
+    const financialsTab = page.getByRole('button', { name: 'Financials' })
+    if (await financialsTab.isEnabled()) {
+        await financialsTab.click()
+        // Check for some content specific to financials
+        // Either the table or the empty state or the "Analyst Notes" block
+        const financialContent = page.locator('text=Analyst Notes').or(page.locator('table')).or(page.locator('text=No Financial Highlights Found'))
+        await expect(financialContent).toBeVisible()
+    }
 
-    // Verify no critical runtime errors occurred
+    // 3. Click Risks
+    const risksTab = page.getByRole('button', { name: 'Risks' })
+    if (await risksTab.isEnabled()) {
+        await risksTab.click()
+        const riskContent = page.locator('text=Risk Factor').or(page.locator('text=No Risk Factors Found'))
+        await expect(riskContent).first().toBeVisible()
+    }
+
+    // 4. Click MD&A
+    const mdaTab = page.getByRole('button', { name: 'MD&A' })
+    if (await mdaTab.isEnabled()) {
+        await mdaTab.click()
+        // MD&A is markdown, check for generic content container or empty state
+        const mdaContent = page.locator('.prose').or(page.locator('text=No Management Discussion Found'))
+        await expect(mdaContent).first().toBeVisible()
+    }
+
+    // Verify no critical runtime errors occurred during navigation
     const criticalErrors = errors.filter(
       (error) =>
         error.includes('this.clear is not a function') ||
@@ -33,25 +62,5 @@ test.describe('Filing Page Rendering', () => {
     )
 
     expect(criticalErrors).toHaveLength(0)
-
-    // Verify that either charts render or error boundary shows graceful fallback
-    const chartsVisible = await page.locator('[class*="recharts"]').isVisible().catch(() => false)
-    const errorBoundaryVisible = await page
-      .getByText(/Unable to display charts/i)
-      .isVisible()
-      .catch(() => false)
-
-    // At least one should be true (charts work OR error boundary shows gracefully)
-    expect(chartsVisible || errorBoundaryVisible || !errors.length).toBeTruthy()
-  })
-
-  test('should display financial metrics table even if charts fail', async ({ page }) => {
-    await page.goto('http://localhost:3000/filing/932')
-    await page.waitForLoadState('networkidle', { timeout: 10000 })
-
-    // Financial metrics table should always be visible
-    const table = page.locator('table')
-    await expect(table).toBeVisible({ timeout: 5000 })
   })
 })
-

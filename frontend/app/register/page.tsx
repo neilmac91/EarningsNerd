@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getCurrentUser, register } from '@/lib/api'
+import { getCurrentUser, register } from '@/features/auth/api/auth-api'
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import SecondaryHeader from '@/components/SecondaryHeader'

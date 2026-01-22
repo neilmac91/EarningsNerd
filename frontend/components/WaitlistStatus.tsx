@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import { getApiUrl } from '@/lib/api'
+import { getApiUrl } from '@/lib/api/client'
 
 type StatusData = {
   position: number

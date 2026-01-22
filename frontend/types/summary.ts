@@ -22,10 +22,16 @@ export interface RiskFactor {
   description?: string | null
 }
 
+export interface MetricItem {
+  metric: string
+  current_period: string
+  prior_period: string
+  commentary?: string
+}
+
 export interface FinancialHighlights {
   title?: string | null
   notes?: string | null
   table?: Array<Record<string, string | number | null>>
   normalized?: SummarySchema | null
 }
-

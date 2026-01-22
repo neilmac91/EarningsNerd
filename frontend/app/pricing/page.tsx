@@ -2,7 +2,7 @@
 
 import { useState, Suspense, useRef, useEffect } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { createCheckoutSession, getSubscriptionStatus, getUsage } from '@/lib/api'
+import { createCheckoutSession, getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
 import { Check, Loader2 } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ThemeToggle } from '@/components/ThemeToggle'
