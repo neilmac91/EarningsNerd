@@ -6,7 +6,7 @@ import { Flame, ArrowUpRight, AlertTriangle } from 'lucide-react'
 import clsx from 'clsx'
 import Link from 'next/link'
 
-import { getApiUrl } from '@/lib/api'
+import { getApiUrl } from '@/lib/api/client'
 
 const API_BASE_URL = getApiUrl().replace(/\/$/, '')
 

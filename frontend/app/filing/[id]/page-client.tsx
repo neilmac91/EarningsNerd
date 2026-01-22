@@ -2,7 +2,12 @@
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
-import { getFiling, getSummary, generateSummaryStream, Filing, Summary, getSubscriptionStatus, saveSummary, getSavedSummaries, getSummaryProgress, SummaryProgressData, getCompany, getCompanyFilings, Company, getCurrentUserSafe, getApiUrl, SavedSummary } from '@/lib/api'
+import { getFiling, getCompanyFilings, Filing } from '@/features/filings/api/filings-api'
+import { getSummary, generateSummaryStream, Summary, saveSummary, getSavedSummaries, getSummaryProgress, SummaryProgressData, SavedSummary } from '@/features/summaries/api/summaries-api'
+import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
+import { getCompany, Company } from '@/features/companies/api/companies-api'
+import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
+import { getApiUrl } from '@/lib/api/client'
 import { Loader2, AlertCircle, FileText, Download, FileDown, Bookmark, BookmarkCheck } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'

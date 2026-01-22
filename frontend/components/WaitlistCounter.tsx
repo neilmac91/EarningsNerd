@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { getApiUrl } from '@/lib/api'
+import { getApiUrl } from '@/lib/api/client'
 
 const formatCount = (value: number) => value.toLocaleString()
 

@@ -2,7 +2,8 @@
 
 import { ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getCurrentUserSafe, getSubscriptionStatus } from '@/lib/api'
+import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
+import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
 import Link from 'next/link'
 import { Lock, Sparkles } from 'lucide-react'
 

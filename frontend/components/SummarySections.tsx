@@ -1,18 +1,16 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
-import { FileText, TrendingUp, AlertTriangle, Building2, BarChart3, HelpCircle } from 'lucide-react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import type { RiskFactor } from '../types/summary'
-import { SummaryBlock } from './SummaryBlock'
-
-interface MetricItem {
-  metric: string
-  current_period: string
-  prior_period: string
-  commentary?: string
-}
+import { FileText, TrendingUp, AlertTriangle, Building2, BarChart3 } from 'lucide-react'
+import type { RiskFactor, MetricItem } from '../types/summary'
+import { renderMarkdownValue, getAccordionContent, normalizeRisk } from '../lib/formatters'
+import { SummaryExecutiveSnapshot } from '@/features/filings/components/SummaryExecutiveSnapshot'
+import { SummaryFinancials } from '@/features/filings/components/SummaryFinancials'
+import { SummaryRisks } from '@/features/filings/components/SummaryRisks'
+import { SummaryMDA } from '@/features/filings/components/SummaryMDA'
+import { SummaryGuidance } from '@/features/filings/components/SummaryGuidance'
+import { SummaryLiquidity } from '@/features/filings/components/SummaryLiquidity'
+import { SummaryTrends } from '@/features/filings/components/SummaryTrends'
 
 interface RawSummaryData {
   sections?: Record<string, unknown>
@@ -58,122 +56,6 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
   const raw_summary = summary.raw_summary || {}
   const sections: SectionsData = (raw_summary.sections as SectionsData) || {}
 
-  const evidenceKeys = ['excerpt', 'text', 'quote', 'source', 'reference', 'tag', 'xbrl_tag', 'xbrlTag', 'citation']
-
-  const renderMarkdownValue = (value: unknown): string => {
-    if (value === null || value === undefined) {
-      return ''
-    }
-    if (typeof value === 'string') {
-      return value
-    }
-    if (Array.isArray(value)) {
-      const items = value
-        .map((item) => {
-          const rendered = renderMarkdownValue(item)
-          return rendered ? `- ${rendered}` : ''
-        })
-        .filter(Boolean)
-      return items.join('\n')
-    }
-    if (typeof value === 'object') {
-      return Object.entries(value)
-        .map(([key, val]) => {
-          const formattedKey = key
-            .replace(/_/g, ' ')
-            .replace(/\b\w/g, (char) => char.toUpperCase())
-          const rendered = renderMarkdownValue(val)
-          if (!rendered) {
-            return ''
-          }
-          if (typeof val === 'object' && val !== null) {
-            return `${formattedKey}:\n${rendered}`
-          }
-          return `${formattedKey}: ${rendered}`
-        })
-        .filter(Boolean)
-        .join('\n')
-    }
-    return String(value)
-  }
-
-  const getAccordionContent = (value: unknown): string | null => {
-    if (value === null || value === undefined) {
-      return null
-    }
-
-    const rendered = renderMarkdownValue(value)
-    if (!rendered) {
-      return null
-    }
-
-    return rendered.trim().length > 0 ? rendered : null
-  }
-
-  const formatEvidence = (value: unknown): string => {
-    if (!value) return ''
-    if (Array.isArray(value)) {
-      const parts = value.map((item) => formatEvidence(item)).filter(Boolean)
-      return parts.join('; ')
-    }
-    if (typeof value === 'object') {
-      const parts: string[] = []
-      evidenceKeys.forEach((key) => {
-        if (value && typeof value === 'object' && key in value) {
-          const part = formatEvidence((value as Record<string, unknown>)[key])
-          if (part) {
-            parts.push(part)
-          }
-        }
-      })
-      if (parts.length === 0 && 'value' in (value as Record<string, unknown>)) {
-        const fallback = formatEvidence((value as Record<string, unknown>).value)
-        if (fallback) {
-          parts.push(fallback)
-        }
-      }
-      return parts.join(' | ')
-    }
-    if (typeof value === 'string') {
-      return value.trim()
-    }
-    return String(value).trim()
-  }
-
-  const normalizeRisk = (risk: unknown): RiskFactor | null => {
-    if (!risk || typeof risk !== 'object') {
-      return null
-    }
-
-    const riskObj = risk as Record<string, unknown>
-    const title = typeof riskObj.title === 'string' ? riskObj.title.trim() : null
-    const description = typeof riskObj.description === 'string' ? riskObj.description.trim() : null
-    const summaryCandidate =
-      (typeof riskObj.summary === 'string' && riskObj.summary.trim()) ||
-      (description && description) ||
-      (title && title) ||
-      ''
-
-    if (!summaryCandidate) {
-      return null
-    }
-
-    const supportingEvidence = formatEvidence(
-      riskObj.supporting_evidence ?? riskObj.supportingEvidence ?? riskObj.evidence ?? riskObj.source
-    )
-
-    if (!supportingEvidence) {
-      return null
-    }
-
-    return {
-      summary: summaryCandidate,
-      supporting_evidence: supportingEvidence,
-      title: title || null,
-      description: description || null,
-    }
-  }
-
   const normalizedRisks = useMemo(() => {
     const rawRisks = sections.risk_factors
     if (!Array.isArray(rawRisks)) {
@@ -218,136 +100,25 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
   const renderTabContent = () => {
     switch (activeTab) {
       case 'overview':
-        if (!hasOverview) return <EmptyState label="Executive Summary" />
-        return (
-          <div className="prose max-w-none prose-slate">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {overviewContent}
-            </ReactMarkdown>
-          </div>
-        )
+        return <SummaryExecutiveSnapshot content={overviewContent} />
 
       case 'financials':
-        if (!hasFinancials) return <EmptyState label="Financial Highlights" />
-        return (
-          <div className="space-y-4">
-            {sections.financial_highlights?.notes && (
-              <SummaryBlock type="neutral" title="Analyst Notes">
-                 {sections.financial_highlights.notes}
-              </SummaryBlock>
-            )}
-            {metrics && metrics.length > 0 && (
-              <div className="text-sm text-slate-600">
-                <p>Key highlights from the reporting period:</p>
-                <ul className="list-disc list-inside mt-2 space-y-1">
-                  {metrics.slice(0, 5).map((m: MetricItem, i: number) => (
-                    <li key={i}>
-                      <span className="font-medium">{m.metric}:</span> {m.current_period} 
-                      <span className="text-slate-400 mx-1">vs</span> 
-                      {m.prior_period}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        )
+        return <SummaryFinancials notes={sections.financial_highlights?.notes} metrics={metrics} />
 
       case 'risks':
-        if (!hasRisks) return <EmptyState label="Risk Factors" />
-        return (
-          <div className="space-y-4">
-            {normalizedRisks.map((risk, index) => (
-              <SummaryBlock 
-                key={`${risk.summary}-${index}`} 
-                type="bearish" 
-                title={risk.title || 'Risk Factor'}
-              >
-                <div className="space-y-2">
-                  <p>{risk.description || risk.summary}</p>
-                  <div className="mt-2 text-xs bg-rose-50 text-rose-800 p-2 rounded border border-rose-100">
-                    <span className="font-semibold uppercase tracking-wider text-[10px] mr-2">Evidence</span>
-                    {risk.supporting_evidence}
-                  </div>
-                </div>
-              </SummaryBlock>
-            ))}
-          </div>
-        )
+        return <SummaryRisks risks={normalizedRisks} />
 
       case 'management':
-        if (!hasManagement) return <EmptyState label="Management Discussion" />
-        return (
-          <div className="prose max-w-none prose-slate">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {renderMarkdownValue(sections.management_discussion_insights)}
-            </ReactMarkdown>
-          </div>
-        )
+        return <SummaryMDA content={sections.management_discussion_insights} />
 
       case 'guidance':
-        if (!hasGuidance) return <EmptyState label="Guidance & Outlook" />
-        return (
-          <SummaryBlock type="neutral" title="Forward-Looking Statements">
-            <div className="prose max-w-none prose-sm">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                {guidanceContent}
-              </ReactMarkdown>
-            </div>
-          </SummaryBlock>
-        )
+        return <SummaryGuidance content={guidanceContent} />
 
       case 'liquidity':
-        if (!hasLiquidity) return <EmptyState label="Liquidity & Capital" />
-        return (
-          <div className="space-y-6">
-            {liquidityContent && (
-               <SummaryBlock type="neutral" title="Liquidity Position">
-                <div className="prose max-w-none prose-sm">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {liquidityContent}
-                  </ReactMarkdown>
-                </div>
-              </SummaryBlock>
-            )}
-            {footnotesContent && (
-               <div className="mt-4 border-t border-slate-200 pt-4">
-                <h3 className="text-sm font-semibold text-slate-900 mb-2 uppercase tracking-wide">Notable Footnotes</h3>
-                <div className="prose max-w-none prose-sm text-slate-600">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {footnotesContent}
-                  </ReactMarkdown>
-                </div>
-              </div>
-            )}
-          </div>
-        )
+        return <SummaryLiquidity liquidityContent={liquidityContent} footnotesContent={footnotesContent} />
 
       case 'trends':
-        if (!hasTrends) return <EmptyState label="Trends & Segments" />
-        return (
-          <div className="space-y-6">
-            {Boolean(sections.three_year_trend) && (
-              <SummaryBlock type="bullish" title="Three-Year Trend Analysis">
-                 <div className="prose max-w-none prose-sm">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {renderMarkdownValue(sections.three_year_trend)}
-                  </ReactMarkdown>
-                </div>
-              </SummaryBlock>
-            )}
-            {Boolean(sections.segment_performance) && (
-              <div className="mt-6">
-                <h3 className="text-lg font-semibold text-slate-900 mb-3">Segment Performance</h3>
-                <div className="prose max-w-none prose-slate">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {renderMarkdownValue(sections.segment_performance)}
-                  </ReactMarkdown>
-                </div>
-              </div>
-            )}
-          </div>
-        )
+        return <SummaryTrends threeYearTrend={sections.three_year_trend} segmentPerformance={sections.segment_performance} />
 
       default:
         return null
@@ -390,20 +161,6 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
       <div className="p-6 min-h-[300px]">
         {renderTabContent()}
       </div>
-    </div>
-  )
-}
-
-function EmptyState({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="bg-slate-100 p-4 rounded-full mb-4">
-        <HelpCircle className="h-8 w-8 text-slate-400" />
-      </div>
-      <h3 className="text-lg font-medium text-slate-900">No {label} Found</h3>
-      <p className="text-slate-500 max-w-sm mt-2">
-        The AI couldn&apos;t extract this specific section from the filing. This usually means the company didn&apos;t report it in standard format.
-      </p>
     </div>
   )
 }

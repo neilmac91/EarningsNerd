@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
-import { submitContactForm } from '@/lib/api'
+import { submitContactForm } from '@/features/contact/api/contact-api'
 
 export default function ContactForm() {
   const [name, setName] = useState('')

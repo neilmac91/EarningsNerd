@@ -2,8 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { getTrendingCompanies } from '@/lib/api'
-import type { Company } from '@/lib/api'
+import { getTrendingCompanies, Company } from '@/features/companies/api/companies-api'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { TrendingUp } from 'lucide-react'
 

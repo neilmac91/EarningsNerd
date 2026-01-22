@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getCurrentUser, exportUserData, deleteUserAccount } from '@/lib/api'
+import { getCurrentUser, exportUserData, deleteUserAccount } from '@/features/auth/api/auth-api'
 import { useRouter } from 'next/navigation'
 import { Download, Trash2, AlertCircle, CheckCircle2, Loader2, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'

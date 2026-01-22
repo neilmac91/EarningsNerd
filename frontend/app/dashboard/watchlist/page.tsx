@@ -13,7 +13,8 @@ import {
   RefreshCcw,
   Sparkles,
 } from 'lucide-react'
-import { getCurrentUserSafe, getWatchlistInsights, WatchlistInsight } from '@/lib/api'
+import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
+import { getWatchlistInsights, WatchlistInsight } from '@/features/watchlist/api/watchlist-api'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import StateCard from '@/components/StateCard'
 

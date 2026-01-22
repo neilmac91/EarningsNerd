@@ -1,7 +1,10 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getCurrentUser, getUsage, getSubscriptionStatus, createPortalSession, getSavedSummaries, getWatchlist, deleteSavedSummary, removeFromWatchlist, SavedSummary, WatchlistItem, logout } from '@/lib/api'
+import { getCurrentUser, logout } from '@/features/auth/api/auth-api'
+import { getUsage, getSubscriptionStatus, createPortalSession } from '@/features/subscriptions/api/subscriptions-api'
+import { getSavedSummaries, deleteSavedSummary, SavedSummary } from '@/features/summaries/api/summaries-api'
+import { getWatchlist, removeFromWatchlist, WatchlistItem } from '@/features/watchlist/api/watchlist-api'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import { CheckCircle2, AlertCircle, Sparkles, BarChart3, FileText, Loader2, Trash2, X } from 'lucide-react'

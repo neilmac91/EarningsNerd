@@ -1,6 +1,6 @@
 'use client'
 
-import type { ComparisonData } from './api'
+import type { ComparisonData } from '@/features/filings/api/filings-api'
 import { parseNumeric } from './format'
 
 const FORBIDDEN_DISPLAY_VALUES = new Set(['n/a', 'na', 'nan', 'undefined'])

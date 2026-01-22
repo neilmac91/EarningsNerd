@@ -7,7 +7,7 @@ import { Flame, RefreshCw, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-re
 import clsx from 'clsx'
 import { formatDistanceToNowStrict } from 'date-fns'
 
-import { getTrendingTickers, TrendingTicker } from '@/lib/api'
+import { getTrendingTickers, TrendingTicker } from '@/features/companies/api/companies-api'
 
 const MENTIONS_REFRESH_INTERVAL = 10 * 60 * 1000 // 10 minutes
 const DEFAULT_EMPTY_MESSAGE = 'Trending data is temporarily unavailable. Please check back soon.'
