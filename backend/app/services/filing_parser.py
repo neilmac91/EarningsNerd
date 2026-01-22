@@ -17,8 +17,8 @@ from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
-# Section patterns for fallback parsing
-SECTION_PATTERNS = {
+# Section patterns for fallback parsing (10-Q)
+SECTION_PATTERNS_10Q = {
     "financial_statements": [
         r"item\s*1\.?\s*financial\s*statements",
         r"condensed\s*consolidated\s*financial\s*statements",
@@ -50,6 +50,90 @@ SECTION_PATTERNS = {
         r"exhibit\s*index",
     ],
 }
+
+# Section patterns for 10-K filings
+SECTION_PATTERNS_10K = {
+    # Part I
+    "business": [
+        r"item\s*1\.?\s*business\b",
+        r"part\s*i.*item\s*1\.?\s*business",
+    ],
+    "risk_factors": [
+        r"item\s*1a\.?\s*risk\s*factors",
+        r"risk\s*factors",
+    ],
+    "unresolved_comments": [
+        r"item\s*1b\.?\s*unresolved\s*staff\s*comments",
+    ],
+    "properties": [
+        r"item\s*2\.?\s*properties",
+    ],
+    "legal_proceedings": [
+        r"item\s*3\.?\s*legal\s*proceedings",
+    ],
+    "mine_safety": [
+        r"item\s*4\.?\s*mine\s*safety",
+    ],
+    # Part II
+    "market_equity": [
+        r"item\s*5\.?\s*market\s*for.*common\s*equity",
+        r"item\s*5\.?\s*market\s*for.*registrant",
+    ],
+    "selected_financial": [
+        r"item\s*6\.?\s*selected\s*financial\s*data",
+        r"\[reserved\]",  # Item 6 often marked reserved for smaller companies
+    ],
+    "mdna": [
+        r"item\s*7\.?\s*management['']?s?\s*discussion",
+        r"md&a",
+        r"management['']?s?\s*discussion\s*and\s*analysis",
+    ],
+    "market_risk": [
+        r"item\s*7a\.?\s*quantitative\s*and\s*qualitative",
+        r"market\s*risk\s*disclosure",
+    ],
+    "financial_statements": [
+        r"item\s*8\.?\s*financial\s*statements",
+        r"consolidated\s*financial\s*statements",
+        r"financial\s*statements\s*and\s*supplementary\s*data",
+    ],
+    "accountant_changes": [
+        r"item\s*9\.?\s*changes\s*in\s*and\s*disagreements",
+    ],
+    "controls": [
+        r"item\s*9a\.?\s*controls\s*and\s*procedures",
+        r"disclosure\s*controls",
+    ],
+    "other_info": [
+        r"item\s*9b\.?\s*other\s*information",
+    ],
+    # Part III
+    "directors": [
+        r"item\s*10\.?\s*directors",
+        r"executive\s*officers.*corporate\s*governance",
+    ],
+    "compensation": [
+        r"item\s*11\.?\s*executive\s*compensation",
+    ],
+    "security_ownership": [
+        r"item\s*12\.?\s*security\s*ownership",
+    ],
+    "relationships": [
+        r"item\s*13\.?\s*certain\s*relationships",
+    ],
+    "accountant_fees": [
+        r"item\s*14\.?\s*principal\s*account",
+    ],
+    # Part IV
+    "exhibits": [
+        r"item\s*15\.?\s*exhibits",
+        r"exhibit\s*index",
+        r"financial\s*statement\s*schedules",
+    ],
+}
+
+# Combined patterns for backward compatibility
+SECTION_PATTERNS = SECTION_PATTERNS_10Q
 
 
 @dataclass
@@ -120,7 +204,7 @@ class FilingParser:
 
     def _parse_with_sec_parser(self, html: str, filing_type: str) -> ParsedFiling:
         """Parse using sec-parser library"""
-        from sec_parser import Edgar10QParser
+        from sec_parser import Edgar10QParser, Edgar10KParser
         from sec_parser.semantic_elements import (
             TextElement,
             TitleElement,
@@ -129,7 +213,10 @@ class FilingParser:
         )
 
         # Use the appropriate parser based on filing type
-        parser = Edgar10QParser()
+        if filing_type.startswith("10-K"):
+            parser = Edgar10KParser()
+        else:
+            parser = Edgar10QParser()
         elements = parser.parse(html)
 
         sections = {}
@@ -152,7 +239,7 @@ class FilingParser:
 
                 # Identify new section
                 title_text = element.text if hasattr(element, 'text') else str(element)
-                current_section_type = self._identify_section_type(title_text)
+                current_section_type = self._identify_section_type(title_text, filing_type)
                 current_section_title = title_text
                 current_section_content = []
                 current_tables = []
@@ -204,7 +291,7 @@ class FilingParser:
 
         for i, line in enumerate(lines):
             # Check if this line starts a new section
-            section_type = self._identify_section_type(line)
+            section_type = self._identify_section_type(line, filing_type)
             if section_type:
                 # Save previous section
                 if current_section and current_content:
@@ -240,11 +327,19 @@ class FilingParser:
             parsing_method="fallback",
         )
 
-    def _identify_section_type(self, text: str) -> Optional[str]:
+    def _identify_section_type(
+        self, text: str, filing_type: str = "10-Q"
+    ) -> Optional[str]:
         """Identify section type from title text"""
         text_lower = text.lower().strip()
 
-        for section_type, patterns in SECTION_PATTERNS.items():
+        # Select patterns based on filing type
+        if filing_type.startswith("10-K"):
+            patterns_dict = SECTION_PATTERNS_10K
+        else:
+            patterns_dict = SECTION_PATTERNS_10Q
+
+        for section_type, patterns in patterns_dict.items():
             for pattern in patterns:
                 if re.search(pattern, text_lower):
                     return section_type
