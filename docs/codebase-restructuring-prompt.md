@@ -288,14 +288,58 @@ backend/
 
 ### Phase 3: Validation
 
-After all changes:
+**After EACH change (mandatory):**
+- [ ] Run affected unit tests
+- [ ] Run integration tests for changed modules
+- [ ] TypeScript type checking passes
+- [ ] ESLint passes
+- [ ] Build succeeds
+- [ ] Manual testing of affected features
+
+**After all changes (comprehensive validation):**
+
+#### Functional Validation
 - [ ] Full test suite passes (unit + integration + E2E)
-- [ ] No TypeScript errors
-- [ ] No ESLint errors
+- [ ] No TypeScript errors (`npm run type-check`)
+- [ ] No ESLint errors (`npm run lint`)
 - [ ] Build succeeds for both frontend and backend
-- [ ] Manual smoke testing of critical flows
-- [ ] Performance benchmarking (no regression)
-- [ ] Documentation updated
+- [ ] All critical user flows work end-to-end:
+  - [ ] User registration and login
+  - [ ] Company search and filing view
+  - [ ] Summary generation (full flow)
+  - [ ] Watchlist CRUD operations
+  - [ ] Subscription management
+  - [ ] Data export (GDPR)
+
+#### Performance Validation
+- [ ] **Build Performance**: Build time ≤ baseline + 5%
+- [ ] **Frontend Performance**:
+  - [ ] Bundle size ≤ baseline + 10%
+  - [ ] Lighthouse performance score ≥ baseline - 5 points
+  - [ ] First Contentful Paint ≤ baseline + 10%
+  - [ ] Largest Contentful Paint ≤ baseline + 10%
+  - [ ] Time to Interactive ≤ baseline + 10%
+- [ ] **Backend Performance** (for critical endpoints):
+  - [ ] Average response time ≤ baseline + 5%
+  - [ ] P95 response time ≤ baseline + 10%
+  - [ ] P99 response time ≤ baseline + 15%
+  - [ ] Throughput (requests/sec) ≥ baseline - 5%
+- [ ] **Test Performance**: Test suite execution time ≤ baseline + 10%
+- [ ] **Memory Usage**: No memory leaks detected in long-running processes
+
+#### Code Quality Validation
+- [ ] No code duplication (check with `jscpd` or similar)
+- [ ] No circular dependencies (check with `madge` for frontend)
+- [ ] All imports resolve correctly
+- [ ] No dead code (unused exports)
+- [ ] Consistent code style throughout
+
+#### Documentation Validation
+- [ ] All new modules have docstrings/JSDoc
+- [ ] README updated if structure changed
+- [ ] Architecture decision records (ADRs) created
+- [ ] Migration guide completed
+- [ ] API documentation updated (if applicable)
 
 ## Constraints & Guidelines
 
@@ -319,15 +363,263 @@ After all changes:
 ❌ Ignore edge cases
 ❌ Create abstractions prematurely
 
+## Performance & Functionality Risk Controls
+
+**⚠️ CRITICAL: File size reduction is a MEANS, not an END ⚠️**
+
+The goal is NOT to blindly hit line count targets. The real objectives are:
+- Improved maintainability through clear separation of concerns
+- Better testability through modular design
+- Reduced cognitive load through focused, single-purpose modules
+
+### When NOT to Split Files
+
+**DO NOT split files if:**
+1. **Performance-Critical Code**: Hot paths that benefit from being in one place
+   - Example: Core rendering logic, tight loops, performance-sensitive calculations
+   - Validation: Profile before and after to ensure no regression
+
+2. **Tightly Coupled Logic**: Code where separation would hurt readability
+   - Example: State machine implementations, complex algorithms
+   - Rule: If you need to constantly jump between files to understand flow, don't split
+
+3. **Already Cohesive**: Code that has a single, clear purpose even if long
+   - Example: A configuration file with 500 well-organized constants
+   - Rule: High cohesion > arbitrary line limits
+
+4. **Would Create Excessive Indirection**: Too many layers make code harder to follow
+   - Anti-pattern: `UserService` → `UserHelper` → `UserUtils` → `UserFormatter`
+   - Rule: Maximum 3-4 layers of abstraction
+
+### Mandatory Validation for Each File Split
+
+For EVERY file you split, you MUST validate:
+
+#### 1. Functionality Validation
+```markdown
+### Pre-Refactor Checklist
+- [ ] Write tests for current behavior (if none exist)
+- [ ] Document current functionality
+- [ ] Identify all dependencies and dependents
+- [ ] Run full test suite and document results
+
+### Post-Refactor Checklist
+- [ ] All existing tests pass unchanged
+- [ ] New tests for split modules pass
+- [ ] Integration tests pass
+- [ ] E2E tests pass
+- [ ] Manual testing of affected features
+```
+
+#### 2. Performance Validation
+
+**Before splitting any file:**
+```bash
+# Measure current performance
+npm run build              # Note build time
+npm run test               # Note test time
+# For backend
+pytest --durations=10      # Note slowest tests
+```
+
+**After splitting:**
+```bash
+# Re-measure and compare
+npm run build              # Must not increase >5%
+npm run test               # Must not increase >10%
+pytest --durations=10      # Must not regress
+```
+
+**For frontend components:**
+```javascript
+// Use React DevTools Profiler
+// Measure render time before/after refactoring
+// Ensure no performance regression in:
+// - Initial render time
+// - Re-render performance
+// - Bundle size impact
+```
+
+**For backend services:**
+```python
+# Profile API endpoints
+# Measure before/after:
+# - Response time (p50, p95, p99)
+# - Memory usage
+# - Database query count
+# - External API calls
+```
+
+#### 3. Bundle Size Validation (Frontend)
+
+```bash
+# Before refactoring
+npm run build
+# Note: First Load JS, Total Size
+
+# After refactoring
+npm run build
+# Compare - should not increase significantly
+
+# Analyze bundle
+npx next-bundle-analyzer   # Check for duplication
+```
+
+**Red flags:**
+- Bundle size increases >10%
+- Code duplication detected
+- Shared dependencies loaded multiple times
+
+#### 4. Type Safety Validation
+
+```bash
+# Must pass after every change
+npm run type-check         # TypeScript
+tsc --noEmit
+mypy backend/              # Python (if using mypy)
+```
+
+### Risk-Based Refactoring Strategy
+
+Classify each file by risk level before splitting:
+
+#### 🟢 Low Risk (Safe to refactor)
+- Utility functions (pure functions, no side effects)
+- Type definitions
+- Constants and configuration
+- Simple presentational components
+- Isolated service functions
+
+**Approach:** Refactor confidently with basic test coverage
+
+#### 🟡 Medium Risk (Refactor with caution)
+- Complex components with state
+- Services with multiple dependencies
+- API routes with business logic
+- Database models with relationships
+
+**Approach:**
+- Comprehensive test coverage BEFORE refactoring
+- Incremental changes with validation at each step
+- Feature flag the changes if possible
+
+#### 🔴 High Risk (Refactor carefully or defer)
+- Authentication/authorization logic
+- Payment processing
+- Data validation and sanitization
+- Performance-critical paths
+- Code with known bugs or technical debt
+
+**Approach:**
+- Extensive test coverage (>95%)
+- Pair programming or code review BEFORE changes
+- Canary deployment or feature flags
+- Performance benchmarking
+- Consider deferring if value is low
+
+### Size Guideline Nuances
+
+**Instead of hard limits, use these principles:**
+
+1. **Cohesion over size**: Keep related code together even if it's long
+2. **Complexity over lines**: A 500-line file with simple, repetitive code is fine
+3. **Readability over metrics**: Can a developer understand the file in 5 minutes?
+
+**Refined guidelines:**
+
+```python
+# Backend Python files
+- Simple models/schemas: Any size (could be 1000+ lines of field definitions)
+- Services: <400 lines OR <20 public methods (whichever comes first)
+- Routers: <300 lines OR <10 endpoints (whichever comes first)
+- Utilities: <200 lines per file
+
+# Frontend TypeScript files
+- Page components: <500 lines (pages are naturally complex)
+- Feature components: <300 lines
+- Shared components: <150 lines
+- Hooks: <100 lines per hook
+- API clients: <200 lines per domain (NOT per file - one file per domain is fine)
+```
+
+### Performance Benchmarking Requirements
+
+Before approving the restructuring plan, establish baselines:
+
+#### Frontend Baselines
+```bash
+# Build performance
+npm run build
+# Record: Build time, First Load JS, Total Size
+
+# Runtime performance (use Lighthouse)
+npm run build && npm start
+# Record: Performance score, FCP, LCP, TTI, CLS
+
+# Test performance
+npm run test -- --coverage
+# Record: Test execution time, coverage %
+```
+
+#### Backend Baselines
+```bash
+# API performance (use wrk, hey, or ab)
+wrk -t4 -c100 -d30s http://localhost:8000/api/health
+# Record: Requests/sec, Latency (avg, p95, p99)
+
+# Critical endpoints
+wrk -t4 -c50 -d30s http://localhost:8000/api/summaries/filing/123
+# Record for each critical endpoint
+
+# Test performance
+pytest --durations=20
+# Record: Slowest test times
+```
+
+### Rollback Criteria
+
+**Automatically rollback if:**
+- [ ] Any test fails after refactoring
+- [ ] TypeScript/ESLint errors introduced
+- [ ] Build time increases >10%
+- [ ] Bundle size increases >15%
+- [ ] API response time degrades >20% (p95)
+- [ ] Memory usage increases >25%
+- [ ] Any production functionality breaks
+
+### Incremental Refactoring Protocol
+
+**Never refactor everything at once. Use this protocol:**
+
+1. **Phase 1**: Split ONE large file
+   - Run full validation
+   - Get it merged
+   - Monitor production for 1-2 days
+
+2. **Phase 2**: If Phase 1 successful, split next file
+   - Repeat validation
+   - Continue monitoring
+
+3. **Phase 3**: After 3-5 successful splits, accelerate
+   - But maintain validation discipline
+
+**If ANY split causes issues:**
+- Pause the refactoring
+- Investigate root cause
+- Fix or rollback
+- Reassess approach before continuing
+
 ## Success Metrics
 
 After restructuring, the codebase should achieve:
 
 **Measurable Improvements:**
-- [ ] Average file size reduced to <300 lines
+- [ ] Average file size reduced to <300 lines (excluding justified exceptions)
 - [ ] Test coverage >80%
 - [ ] Zero circular dependencies
-- [ ] Build time not increased by >10%
+- [ ] Build time not increased by >5%
+- [ ] API performance not degraded by >5% (p95 latency)
+- [ ] Bundle size not increased by >10%
 - [ ] Zero TODO comments (all tracked as issues)
 - [ ] Consistent naming conventions (100%)
 - [ ] All dependencies properly documented
@@ -350,24 +642,259 @@ Before executing changes, your plan must answer:
 5. **What are the long-term maintenance implications?**
 6. **How does this support the product roadmap?**
 7. **What trade-offs are we making and why?**
+8. **What are the performance implications and how will we measure them?**
+9. **Which files should NOT be split and why?**
+10. **What is our rollback plan if issues arise?**
+
+## Validation Tools & Commands
+
+Use these specific tools to validate your refactoring:
+
+### Frontend Validation Tools
+
+#### Performance Measurement
+```bash
+# Build performance
+time npm run build
+
+# Bundle analysis
+npm install -g @next/bundle-analyzer
+ANALYZE=true npm run build
+
+# Runtime performance (Lighthouse)
+npm install -g lighthouse
+lighthouse http://localhost:3000 --view
+
+# Check for duplicate code
+npx jscpd frontend/
+
+# Check for circular dependencies
+npx madge --circular --extensions ts,tsx frontend/
+```
+
+#### Type & Code Quality
+```bash
+# Type checking
+npm run type-check
+# or
+npx tsc --noEmit
+
+# Linting
+npm run lint
+
+# Find dead code
+npx unimported
+
+# Test coverage
+npm run test -- --coverage
+```
+
+### Backend Validation Tools
+
+#### Performance Measurement
+```bash
+# API load testing (install wrk: apt-get install wrk)
+wrk -t4 -c100 -d30s http://localhost:8000/api/health
+
+# Alternative: using hey (install: go install github.com/rakyll/hey@latest)
+hey -z 30s -c 50 http://localhost:8000/api/health
+
+# Profile Python code
+python -m cProfile -o profile.stats backend/main.py
+python -c "import pstats; p = pstats.Stats('profile.stats'); p.sort_stats('cumulative').print_stats(20)"
+
+# Memory profiling
+pip install memory-profiler
+python -m memory_profiler backend/main.py
+```
+
+#### Type & Code Quality
+```bash
+# Type checking (if using mypy)
+pip install mypy
+mypy backend/ --ignore-missing-imports
+
+# Linting
+pip install flake8 black
+flake8 backend/
+black --check backend/
+
+# Test coverage
+pytest --cov=app --cov-report=html --cov-report=term
+
+# Find dead code
+pip install vulture
+vulture backend/
+```
+
+### Comparative Performance Testing Script
+
+Create this script to automate before/after comparison:
+
+```bash
+#!/bin/bash
+# performance-comparison.sh
+
+echo "=== Performance Baseline Capture ==="
+echo "Timestamp: $(date)" > performance-baseline.txt
+
+echo -e "\n[Frontend Build]" >> performance-baseline.txt
+(time npm run build) 2>&1 | grep real >> performance-baseline.txt
+
+echo -e "\n[Frontend Tests]" >> performance-baseline.txt
+(time npm run test) 2>&1 | grep real >> performance-baseline.txt
+
+echo -e "\n[Backend Tests]" >> performance-baseline.txt
+(cd backend && time pytest) 2>&1 | grep real >> performance-baseline.txt
+
+echo -e "\n[API Performance - Health Check]" >> performance-baseline.txt
+wrk -t2 -c10 -d10s http://localhost:8000/api/health | grep "Requests/sec" >> performance-baseline.txt
+
+echo "Baseline captured in performance-baseline.txt"
+```
+
+### Recommended Validation Workflow
+
+1. **Before starting refactoring:**
+   ```bash
+   # Capture baselines
+   ./performance-comparison.sh
+   npm run build > build-before.log
+   npm run test -- --coverage > test-before.log
+   ```
+
+2. **After each significant change:**
+   ```bash
+   # Quick validation
+   npm run type-check && npm run lint && npm run test
+   ```
+
+3. **After completing refactoring:**
+   ```bash
+   # Full comparison
+   ./performance-comparison.sh
+   npm run build > build-after.log
+   npm run test -- --coverage > test-after.log
+
+   # Compare
+   diff build-before.log build-after.log
+   diff test-before.log test-after.log
+   ```
+
+## What to Do When Performance or Functionality Regresses
+
+If validation reveals issues, follow this protocol:
+
+### Minor Regression (5-10% performance degradation or small bugs)
+
+1. **Analyze root cause**
+   - Profile the specific slow code path
+   - Identify what changed to cause the regression
+   - Determine if it's acceptable technical debt
+
+2. **Decision matrix**
+   - **If maintainability gain > performance loss**: Document trade-off, add to technical debt backlog
+   - **If performance loss unacceptable**: Optimize the new structure OR revert the change
+   - **If bug found**: Fix immediately before proceeding
+
+3. **Optimization strategies**
+   - Add memoization (React.memo, useMemo, useCallback)
+   - Implement lazy loading / code splitting
+   - Optimize imports (tree shaking)
+   - Cache expensive computations
+   - Use performance profiling to find bottlenecks
+
+### Major Regression (>10% performance degradation or critical bugs)
+
+1. **STOP immediately**
+2. **Revert the problematic change**
+3. **Root cause analysis**
+   - What was refactored?
+   - What assumption was wrong?
+   - Why didn't tests catch it?
+
+4. **Reassess approach**
+   - Was the split necessary?
+   - Is there a better way to split?
+   - Should this file remain as-is?
+
+5. **Document decision**
+   - Create ADR explaining why certain files weren't split
+   - Add comments in code explaining why large files are acceptable
+
+### Critical Failure (Production broken or data corruption risk)
+
+1. **IMMEDIATE ROLLBACK**
+2. **Post-mortem**
+   - What broke and why?
+   - What validation step failed?
+   - How do we prevent this in the future?
+
+3. **Strengthen validation**
+   - Add missing tests
+   - Add performance regression tests
+   - Improve staging environment validation
+
+### Example: When to Accept a Trade-off
+
+```markdown
+## ADR: Keep openai_service.py as single 2,471-line file
+
+**Context**: OpenAI service handles prompt loading, AI summarization, validation, and normalization.
+
+**Decision**: Keep as single file despite size.
+
+**Rationale**:
+- Splitting would add 15% latency due to increased import overhead in hot path
+- Code is highly cohesive - all functions relate to AI summarization
+- Splitting would create artificial boundaries (e.g., where does validation end and normalization begin?)
+- File is well-organized with clear sections
+
+**Consequences**:
+- Accept: Larger file size (2,471 lines)
+- Gain: Better performance, easier to understand flow, no artificial boundaries
+- Mitigate: Use clear section comments, comprehensive unit tests
+
+**Alternatives Considered**:
+1. Split by functionality - rejected due to performance impact
+2. Extract only prompts - rejected because prompts are tightly coupled to validation
+3. Split by filing type - rejected because logic is shared across types
+
+**Review Date**: Revisit if file grows beyond 3,000 lines
+```
 
 ## Deliverables
 
 1. **Restructuring Plan Document** (before any code changes)
-2. **Updated codebase** with all changes implemented
-3. **Migration guide** for developers
-4. **Updated documentation** (README, architecture docs)
-5. **Test suite** with improved coverage
-6. **ADRs** for significant architectural decisions
+2. **Performance Baseline Report** (before changes)
+3. **Updated codebase** with all changes implemented
+4. **Performance Comparison Report** (after changes)
+5. **Migration guide** for developers
+6. **Updated documentation** (README, architecture docs)
+7. **Test suite** with improved coverage
+8. **ADRs** for significant architectural decisions
+9. **List of files NOT refactored** with justifications
 
 ## Remember
 
 🎯 **Plan first, execute later**
 🧪 **Test everything**
-📚 **Document decisions**
+📊 **Measure before and after**
 🔄 **Iterate incrementally**
 ✅ **Keep it working**
+⚖️ **Balance metrics with maintainability**
+🚫 **Don't refactor for refactoring's sake**
 
-Your goal is not just to reorganize files, but to create a maintainable, scalable foundation that will support this application's growth for years to come. Take your time, think critically, and make decisions that your future self (and other developers) will thank you for.
+### Core Principles
+
+1. **Functionality First**: Never sacrifice working code for cleaner structure
+2. **Performance Matters**: Measure everything, accept no significant regression
+3. **Pragmatism over Purity**: 80/20 rule - focus on changes with highest impact
+4. **Reversibility**: Every change should be easily reversible
+5. **Evidence-Based**: Make decisions based on data, not assumptions
+
+Your goal is not just to reorganize files or hit arbitrary metrics, but to create a maintainable, scalable foundation that will support this application's growth for years to come. Take your time, think critically, and make decisions that your future self (and other developers) will thank you for.
+
+**If in doubt, err on the side of caution. A working codebase with technical debt is better than a broken codebase with perfect structure.**
 
 Begin with the planning phase and present your comprehensive plan before making any changes.
