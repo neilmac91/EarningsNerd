@@ -263,26 +263,5 @@ class TestSECClient:
             assert result[0]["filing_type"] == "10-K"
 
 
-class TestRouterFiscalPeriod:
-    """Tests for router fiscal period determination"""
-
-    def test_determine_fiscal_period_10k(self):
-        """Router should return FY for 10-K"""
-        from app.routers.filings import _determine_fiscal_period
-
-        filing = {"report_date": "2023-12-31", "filing_type": "10-K"}
-        assert _determine_fiscal_period(filing) == "FY 2023"
-
-    def test_determine_fiscal_period_10q_q1(self):
-        """Router should return Q1 for Jan-Mar"""
-        from app.routers.filings import _determine_fiscal_period
-
-        filing = {"report_date": "2023-03-31", "filing_type": "10-Q"}
-        assert _determine_fiscal_period(filing) == "Q1 2023"
-
-    def test_determine_fiscal_period_10q_q4(self):
-        """Router should return Q4 for Oct-Dec"""
-        from app.routers.filings import _determine_fiscal_period
-
-        filing = {"report_date": "2023-12-31", "filing_type": "10-Q"}
-        assert _determine_fiscal_period(filing) == "Q4 2023"
+# Note: _determine_fiscal_period tests are now in TestSECClient
+# since the function was consolidated into sec_client.py

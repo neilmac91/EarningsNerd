@@ -132,9 +132,6 @@ SECTION_PATTERNS_10K = {
     ],
 }
 
-# Combined patterns for backward compatibility
-SECTION_PATTERNS = SECTION_PATTERNS_10Q
-
 
 @dataclass
 class ParsedSection:

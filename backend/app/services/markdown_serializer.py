@@ -63,9 +63,6 @@ class MarkdownSerializer:
         ("exhibits", "Item 15. Exhibits and Financial Statement Schedules"),
     ]
 
-    # For backward compatibility
-    SECTION_ORDER = SECTION_ORDER_10Q
-
     def __init__(self, max_section_length: int = 50000):
         """
         Initialize serializer.
@@ -246,12 +243,9 @@ class MarkdownSerializer:
         part_title: str,
         parsed: ParsedFiling,
         section_keys: List[str],
-        section_order: List[tuple] = None,
+        section_order: List[tuple],
     ) -> Optional[str]:
         """Render a filing part (Part I, II, III, or IV)"""
-        if section_order is None:
-            section_order = self.SECTION_ORDER
-
         sections_content = []
 
         for section_key, display_title in section_order:

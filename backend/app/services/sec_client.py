@@ -126,6 +126,66 @@ class SECClient:
 
         raise CompanyNotFoundError(ticker)
 
+    async def _get_latest_filing(
+        self, ticker: str, filing_type: str
+    ) -> Dict[str, Any]:
+        """
+        Get the latest filing of a specific type for a company.
+
+        Args:
+            ticker: Stock ticker
+            filing_type: Filing type (e.g., "10-Q", "10-K")
+
+        Returns:
+            Dict with filing metadata (filing_date, accession_number, etc.)
+
+        Raises:
+            CompanyNotFoundError: If ticker not found
+            FilingNotFoundError: If no filings of this type exist
+        """
+        cik = await self.get_cik(ticker)
+        filing_types = [filing_type, f"{filing_type}/A"]
+
+        filings = await self._rate_limiter.execute_with_backoff(
+            lambda: self._edgar.get_filings(cik, filing_types, limit=1)
+        )
+
+        if not filings:
+            raise FilingNotFoundError(ticker, filing_type)
+
+        return filings[0]
+
+    async def _get_filings(
+        self,
+        ticker: str,
+        filing_type: str,
+        limit: int = 10,
+        include_amended: bool = True,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get list of filings of a specific type for a company.
+
+        Args:
+            ticker: Stock ticker
+            filing_type: Filing type (e.g., "10-Q", "10-K")
+            limit: Maximum number of filings to return
+            include_amended: Whether to include amended filings
+
+        Returns:
+            List of filing metadata dicts
+        """
+        cik = await self.get_cik(ticker)
+
+        filing_types = [filing_type]
+        if include_amended:
+            filing_types.append(f"{filing_type}/A")
+
+        filings = await self._rate_limiter.execute_with_backoff(
+            lambda: self._edgar.get_filings(cik, filing_types, limit=limit)
+        )
+
+        return filings
+
     async def get_latest_10q(self, ticker: str) -> Dict[str, Any]:
         """
         Get the latest 10-Q filing metadata for a company.
@@ -140,16 +200,7 @@ class SECClient:
             CompanyNotFoundError: If ticker not found
             FilingNotFoundError: If no 10-Q filings exist
         """
-        cik = await self.get_cik(ticker)
-
-        filings = await self._rate_limiter.execute_with_backoff(
-            lambda: self._edgar.get_filings(cik, ["10-Q", "10-Q/A"], limit=1)
-        )
-
-        if not filings:
-            raise FilingNotFoundError(ticker, "10-Q")
-
-        return filings[0]
+        return await self._get_latest_filing(ticker, "10-Q")
 
     async def get_10q_filings(
         self,
@@ -168,17 +219,7 @@ class SECClient:
         Returns:
             List of filing metadata dicts
         """
-        cik = await self.get_cik(ticker)
-
-        filing_types = ["10-Q"]
-        if include_amended:
-            filing_types.append("10-Q/A")
-
-        filings = await self._rate_limiter.execute_with_backoff(
-            lambda: self._edgar.get_filings(cik, filing_types, limit=limit)
-        )
-
-        return filings
+        return await self._get_filings(ticker, "10-Q", limit, include_amended)
 
     async def get_latest_10k(self, ticker: str) -> Dict[str, Any]:
         """
@@ -194,16 +235,7 @@ class SECClient:
             CompanyNotFoundError: If ticker not found
             FilingNotFoundError: If no 10-K filings exist
         """
-        cik = await self.get_cik(ticker)
-
-        filings = await self._rate_limiter.execute_with_backoff(
-            lambda: self._edgar.get_filings(cik, ["10-K", "10-K/A"], limit=1)
-        )
-
-        if not filings:
-            raise FilingNotFoundError(ticker, "10-K")
-
-        return filings[0]
+        return await self._get_latest_filing(ticker, "10-K")
 
     async def get_10k_filings(
         self,
@@ -222,17 +254,7 @@ class SECClient:
         Returns:
             List of filing metadata dicts
         """
-        cik = await self.get_cik(ticker)
-
-        filing_types = ["10-K"]
-        if include_amended:
-            filing_types.append("10-K/A")
-
-        filings = await self._rate_limiter.execute_with_backoff(
-            lambda: self._edgar.get_filings(cik, filing_types, limit=limit)
-        )
-
-        return filings
+        return await self._get_filings(ticker, "10-K", limit, include_amended)
 
     async def fetch_filing_html(self, document_url: str) -> str:
         """
