@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     
     # SEC EDGAR API
     SEC_EDGAR_BASE_URL: str = "https://data.sec.gov"
+    SEC_USER_AGENT: str = "EarningsNerd/1.0 (contact@earningsnerd.io)"
+    SEC_RATE_LIMIT_PER_SECOND: int = 10
+    SEC_MAX_RETRIES: int = 5
+    SEC_BASE_BACKOFF_SECONDS: float = 1.0
     
     # OpenAI-compatible API (Google AI Studio recommended)
     # Check environment variable first, then .env file
