@@ -57,8 +57,9 @@ Before making ANY code changes, you MUST:
      - Action Required: Split by domain (companies, filings, auth, etc.)
 
 3. **Missing/Incorrect Dependencies**
-   - `/requirements.txt` lists Flask (unused) instead of FastAPI
-   - Action Required: Generate complete, accurate dependency list
+   - Root `/requirements.txt` lists Flask (unused) instead of FastAPI
+   - Backend `/backend/requirements.txt` exists and is correct
+   - Action Required: Clean up or remove root requirements.txt to avoid confusion, ensure backend/requirements.txt is complete
 
 ### 🟡 High Priority
 
@@ -149,12 +150,17 @@ frontend/
 │   ├── companies/
 │   │   ├── components/          # Feature-specific components
 │   │   ├── hooks/               # Feature-specific hooks
-│   │   ├── api/                 # Feature-specific API calls
+│   │   ├── api/                 # Domain-specific endpoint definitions
+│   │   │   └── companies-api.ts # e.g., getCompany(), searchCompanies()
 │   │   └── types/               # Feature-specific types
 │   ├── filings/
+│   │   └── api/
+│   │       └── filings-api.ts   # e.g., getFiling(), getCompanyFilings()
 │   ├── summaries/
 │   ├── watchlist/
 │   ├── auth/
+│   │   └── api/
+│   │       └── auth-api.ts      # e.g., login(), register(), logout()
 │   └── dashboard/
 ├── components/                   # Shared/reusable components
 │   ├── ui/                      # Base UI components
@@ -162,7 +168,10 @@ frontend/
 │   ├── charts/                  # Chart components
 │   └── forms/                   # Form components
 ├── lib/                         # Utilities and helpers
-│   ├── api/                     # API client split by domain
+│   ├── api/                     # Shared API infrastructure only
+│   │   ├── client.ts            # Axios instance, base configuration
+│   │   ├── interceptors.ts      # Request/response interceptors
+│   │   └── types.ts             # Shared API types (error handling, etc.)
 │   ├── utils/                   # Pure utility functions
 │   ├── hooks/                   # Shared custom hooks
 │   └── constants/               # Centralized constants
@@ -171,33 +180,45 @@ frontend/
 └── __tests__/                   # Test files mirroring structure
 ```
 
+**Important:** Domain-specific API calls (e.g., `getCompany()`, `getFiling()`) belong in `features/.../api/`. The `lib/api/` directory should contain ONLY shared infrastructure: the Axios client instance, interceptors, and shared types. This prevents confusion and maintains clear separation of concerns.
+
 ### Backend Structure Suggestion
 
 ```
 backend/
 ├── app/
-│   ├── api/                     # API layer
-│   │   ├── routers/            # Endpoint definitions (thin)
-│   │   ├── dependencies.py     # Dependency injection
+│   ├── api/                     # API layer (presentation)
+│   │   ├── routers/            # Endpoint definitions (thin controllers)
+│   │   ├── dependencies.py     # Dependency injection setup
 │   │   └── middleware.py       # Middleware
-│   ├── core/                    # Core business logic
+│   ├── core/                    # Core business logic (domain layer)
 │   │   ├── services/           # Business logic services
-│   │   ├── domain/             # Domain models
+│   │   ├── domain/             # Domain models (entities)
+│   │   ├── ports/              # Interface definitions (Clean Architecture)
+│   │   │   ├── repositories.py # Repository interfaces (abstract base classes)
+│   │   │   ├── ai_service.py   # AI service interface
+│   │   │   ├── sec_service.py  # SEC service interface
+│   │   │   └── payment_service.py # Payment service interface
 │   │   └── exceptions.py       # Custom exceptions
-│   ├── infrastructure/          # External integrations
-│   │   ├── database/           # Database layer
-│   │   ├── ai/                 # OpenAI service
-│   │   ├── sec/                # SEC API client
-│   │   ├── payments/           # Stripe
-│   │   └── email/              # Resend
-│   ├── schemas/                 # Pydantic schemas
+│   ├── infrastructure/          # External integrations (adapters)
+│   │   ├── persistence/        # Database implementations
+│   │   │   ├── database.py     # SQLAlchemy setup
+│   │   │   └── repositories/   # Repository implementations
+│   │   │       ├── companies_repository.py
+│   │   │       ├── filings_repository.py
+│   │   │       └── users_repository.py
+│   │   ├── ai/                 # AI service implementation
+│   │   │   └── openai_adapter.py # Implements core/ports/ai_service.py
+│   │   ├── sec/                # SEC API client implementation
+│   │   │   └── sec_edgar_adapter.py
+│   │   ├── payments/           # Payment service implementation
+│   │   │   └── stripe_adapter.py
+│   │   └── email/              # Email service implementation
+│   │       └── resend_adapter.py
+│   ├── schemas/                 # Pydantic schemas (DTOs)
 │   │   ├── requests/           # Request DTOs
 │   │   ├── responses/          # Response DTOs
 │   │   └── internal/           # Internal DTOs
-│   ├── repositories/            # Data access layer
-│   │   ├── companies.py
-│   │   ├── filings.py
-│   │   └── users.py
 │   ├── config/                  # Configuration
 │   │   ├── settings.py
 │   │   └── constants.py
@@ -207,6 +228,37 @@ backend/
 │   ├── integration/
 │   └── fixtures/
 └── scripts/                     # Utility scripts
+```
+
+**Architecture Pattern: Clean Architecture (Ports & Adapters)**
+
+This structure follows the **Dependency Inversion Principle**:
+- **Core/Ports**: Define interfaces (contracts) for external services - these are abstract base classes
+- **Infrastructure**: Implement those interfaces (adapters) - these are concrete implementations
+- **Benefits**:
+  - Core business logic doesn't depend on external implementations
+  - Easy to swap implementations (e.g., switch from OpenAI to another LLM provider)
+  - Highly testable - mock interfaces in unit tests
+  - Clear separation of concerns
+
+**Example:**
+```python
+# core/ports/repositories.py (interface)
+class ICompanyRepository(ABC):
+    @abstractmethod
+    async def get_by_ticker(self, ticker: str) -> Optional[Company]:
+        pass
+
+# infrastructure/persistence/repositories/companies_repository.py (implementation)
+class CompanyRepository(ICompanyRepository):
+    async def get_by_ticker(self, ticker: str) -> Optional[Company]:
+        # SQLAlchemy implementation
+        pass
+
+# core/services/company_service.py (business logic)
+class CompanyService:
+    def __init__(self, repo: ICompanyRepository):  # Depends on interface
+        self.repo = repo
 ```
 
 ## Your Task
