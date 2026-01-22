@@ -425,6 +425,31 @@ export const logout = async () => {
   return response.data
 }
 
+// User data management APIs (GDPR compliance)
+export const exportUserData = async () => {
+  const response = await api.get('/api/users/export', {
+    responseType: 'blob', // Important for file downloads
+  })
+
+  // Create download link
+  const blob = new Blob([response.data], { type: 'application/json' })
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `earningsnerd_data_export_${new Date().toISOString().split('T')[0]}.json`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  window.URL.revokeObjectURL(url)
+
+  return { success: true }
+}
+
+export const deleteUserAccount = async () => {
+  const response = await api.delete('/api/users/me')
+  return response.data
+}
+
 // Subscription APIs
 export interface Usage {
   summaries_used: number

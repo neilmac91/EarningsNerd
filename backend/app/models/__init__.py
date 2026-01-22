@@ -21,10 +21,10 @@ class User(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    searches = relationship("UserSearch", back_populates="user")
-    saved_summaries = relationship("SavedSummary", back_populates="user")
-    usage = relationship("UserUsage", back_populates="user")
-    watchlist = relationship("Watchlist", back_populates="user")
+    searches = relationship("UserSearch", back_populates="user", cascade="all, delete-orphan")
+    saved_summaries = relationship("SavedSummary", back_populates="user", cascade="all, delete-orphan")
+    usage = relationship("UserUsage", back_populates="user", cascade="all, delete-orphan")
+    watchlist = relationship("Watchlist", back_populates="user", cascade="all, delete-orphan")
 
 
 class Company(Base):

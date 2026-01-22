@@ -104,8 +104,24 @@ export default function PrivacyPage() {
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
             We use cookies and similar tracking technologies to collect and store information. Cookies are small data
-            files stored on your device that help us improve our services and your experience. You can configure your
-            browser to refuse cookies, but this may limit your ability to use certain features of our services.
+            files stored on your device that help us improve our services and your experience.
+          </p>
+          <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
+            <strong>Cookie Categories:</strong>
+          </p>
+          <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
+            <li>
+              <strong>Essential Cookies:</strong> Required for the website to function (authentication, security, session management). These cannot be disabled.
+            </li>
+            <li>
+              <strong>Analytics Cookies:</strong> Help us understand how visitors use our site (PostHog). You can opt-in or opt-out via our cookie consent banner.
+            </li>
+            <li>
+              <strong>Session Recording:</strong> Records your interactions to help identify bugs (PostHog). This is opt-in only and masks sensitive information like passwords.
+            </li>
+          </ul>
+          <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
+            You can manage your cookie preferences at any time through our cookie consent banner (shown on first visit) or through your browser settings. Note that disabling cookies may limit certain features. We respect the "Do Not Track" browser setting and will not track users who have enabled it.
           </p>
         </section>
 
@@ -150,12 +166,65 @@ export default function PrivacyPage() {
 
         <section className="mt-8">
           <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-            Data Retention
+            Legal Basis for Processing (GDPR)
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            We retain your information for as long as necessary to provide our services, comply with legal obligations,
-            resolve disputes, and enforce our agreements. When we no longer need your information, we will securely
-            delete or anonymize it.
+            If you are located in the European Economic Area (EEA), UK, or Switzerland, we process your personal data under the following legal bases:
+          </p>
+          <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
+            <li>
+              <strong>Contract:</strong> Processing is necessary to perform our contract with you (account creation, service delivery, payment processing).
+            </li>
+            <li>
+              <strong>Consent:</strong> You have given explicit consent for analytics tracking, marketing communications, and session recording (opt-in).
+            </li>
+            <li>
+              <strong>Legitimate Interest:</strong> Processing is necessary for fraud prevention, security, and improving our services.
+            </li>
+            <li>
+              <strong>Legal Obligation:</strong> Processing is required to comply with legal obligations (tax records, payment history).
+            </li>
+          </ul>
+        </section>
+
+        <section className="mt-8">
+          <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+            Data Retention Periods
+          </h2>
+          <p className="text-text-secondary-light dark:text-text-secondary-dark">
+            We retain different types of information for specific periods:
+          </p>
+          <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
+            <li>
+              <strong>Active Accounts:</strong> Your account data (email, name, password) is retained until you delete your account or after 2 years of inactivity.
+            </li>
+            <li>
+              <strong>Search History:</strong> Retained for 1 year from the search date, then automatically deleted.
+            </li>
+            <li>
+              <strong>Saved Summaries & Watchlist:</strong> Retained until you manually delete them or delete your account.
+            </li>
+            <li>
+              <strong>Contact Form Submissions:</strong> Retained for 1 year from submission date.
+            </li>
+            <li>
+              <strong>Waitlist Signups (unconverted):</strong> Retained for 1 year from signup date.
+            </li>
+            <li>
+              <strong>Payment & Billing Data:</strong> Retained for 7 years from transaction date (required by tax law).
+            </li>
+            <li>
+              <strong>Analytics Data (PostHog):</strong> Retained for 90 days, then automatically deleted.
+            </li>
+            <li>
+              <strong>Error Logs (Sentry):</strong> Retained for 90 days, then automatically deleted.
+            </li>
+            <li>
+              <strong>Inactive Accounts:</strong> If you don't log in for 24 months, we'll send warning emails at 18, 22, and 23 months. Your account will be automatically deleted at 24 months unless you log in.
+            </li>
+          </ul>
+          <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
+            When data is deleted, it is permanently removed from our active systems. Data may persist in encrypted backups for up to 12 months for disaster recovery purposes but is inaccessible for operational use.
           </p>
         </section>
 
@@ -164,30 +233,57 @@ export default function PrivacyPage() {
             Your Rights and Choices
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            You have certain rights regarding your personal information:
+            You have the following rights regarding your personal information:
           </p>
           <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
             <li>
-              <strong>Access and Update:</strong> You can access and update your account information at any time
-              through your account settings.
-            </li>
-            <li>
-              <strong>Delete:</strong> You can request deletion of your account and personal information by contacting
-              us at{' '}
-              <Link href="/contact" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
-                our contact form
+              <strong>Right to Access:</strong> You can access and view your account information at any time through your{' '}
+              <Link href="/dashboard" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
+                account dashboard
               </Link>
               .
             </li>
             <li>
-              <strong>Opt-Out:</strong> You can opt out of receiving promotional emails by following the unsubscribe
-              instructions in those emails.
+              <strong>Right to Rectification:</strong> You can update your account information (email, name, password) through your account settings.
             </li>
             <li>
-              <strong>Data Portability:</strong> You can request a copy of your personal information in a structured,
-              commonly used format.
+              <strong>Right to Erasure (GDPR Article 17):</strong> You can delete your account and all associated data instantly through your{' '}
+              <Link href="/dashboard/settings" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
+                account settings page
+              </Link>
+              . This will permanently delete your profile, search history, saved summaries, watchlist, and usage data. Payment records will be retained for 7 years for tax compliance.
+            </li>
+            <li>
+              <strong>Right to Data Portability (GDPR Article 20):</strong> You can download a complete copy of your data in JSON format from your{' '}
+              <Link href="/dashboard/settings" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
+                account settings page
+              </Link>
+              . This includes your profile, search history, saved summaries, watchlist, and usage statistics.
+            </li>
+            <li>
+              <strong>Right to Object:</strong> You can object to processing of your data for direct marketing purposes by unsubscribing from emails or by contacting us.
+            </li>
+            <li>
+              <strong>Right to Restrict Processing:</strong> You can request that we limit how we use your data by contacting us at{' '}
+              <a href="mailto:privacy@earningsnerd.com" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
+                privacy@earningsnerd.com
+              </a>
+              .
+            </li>
+            <li>
+              <strong>Right to Withdraw Consent:</strong> You can withdraw consent for analytics and session recording at any time through our cookie consent banner or settings.
+            </li>
+            <li>
+              <strong>Opt-Out of Marketing:</strong> You can opt out of receiving promotional emails by following the unsubscribe link in those emails.
             </li>
           </ul>
+          <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
+            <strong>For EEA, UK, and Swiss Residents:</strong> If you believe we have not adequately addressed your privacy concerns, you have the right to lodge a complaint with your local data protection supervisory authority. A list of EU supervisory authorities can be found at{' '}
+            <a href="https://edpb.europa.eu/about-edpb/board/members_en" target="_blank" rel="noopener noreferrer" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
+              EDPB Members
+            </a>
+            .
+          </p>
         </section>
 
         <section className="mt-8">
@@ -206,9 +302,25 @@ export default function PrivacyPage() {
             Children&apos;s Privacy
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            Our services are not directed to individuals under the age of 18. We do not knowingly collect personal
-            information from children under 18. If you become aware that a child has provided us with personal
-            information, please contact us, and we will take steps to delete such information.
+            Our services are not directed to individuals under the age of 13 (or 16 in the EEA). We do not knowingly collect personal
+            information from children under these ages. If you become aware that a child has provided us with personal
+            information without parental consent, please contact us at{' '}
+            <a href="mailto:privacy@earningsnerd.com" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
+              privacy@earningsnerd.com
+            </a>
+            , and we will take immediate steps to delete such information.
+          </p>
+        </section>
+
+        <section className="mt-8">
+          <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+            International Data Transfers
+          </h2>
+          <p className="text-text-secondary-light dark:text-text-secondary-dark">
+            Your information may be transferred to and processed in countries other than your own, including the United States. These countries may have data protection laws that differ from your country's laws. When we transfer data from the EEA, UK, or Switzerland to other countries, we use Standard Contractual Clauses (SCCs) approved by the European Commission or other appropriate safeguards to protect your data.
+          </p>
+          <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
+            Our third-party service providers (Stripe, Resend, PostHog, Sentry) are located in the United States and have Data Processing Agreements in place that include appropriate safeguards for international data transfers.
           </p>
         </section>
 
@@ -228,13 +340,31 @@ export default function PrivacyPage() {
             Contact Us
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            If you have any questions about this Privacy Policy or our privacy practices, please contact us at:
+            If you have any questions about this Privacy Policy, our privacy practices, or wish to exercise your data protection rights, please contact us at:
           </p>
-          <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            Email:{' '}
-            <a href="mailto:hello@earningsnerd.com" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
-              hello@earningsnerd.com
-            </a>
+          <ul className="list-none space-y-2 text-text-secondary-light dark:text-text-secondary-dark mt-4">
+            <li>
+              <strong>Privacy Inquiries:</strong>{' '}
+              <a href="mailto:privacy@earningsnerd.com" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
+                privacy@earningsnerd.com
+              </a>
+            </li>
+            <li>
+              <strong>General Support:</strong>{' '}
+              <a href="mailto:hello@earningsnerd.com" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
+                hello@earningsnerd.com
+              </a>
+            </li>
+            <li>
+              <strong>Data Deletion or Export:</strong> Use your{' '}
+              <Link href="/dashboard/settings" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
+                account settings
+              </Link>
+              {' '}for instant self-service
+            </li>
+          </ul>
+          <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
+            We will respond to your privacy requests within 30 days (or as required by applicable law).
           </p>
         </section>
 
