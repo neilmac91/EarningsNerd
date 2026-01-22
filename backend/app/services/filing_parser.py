@@ -120,7 +120,7 @@ class FilingParser:
 
     def _parse_with_sec_parser(self, html: str, filing_type: str) -> ParsedFiling:
         """Parse using sec-parser library"""
-        from sec_parser import SemanticTree
+        from sec_parser import Edgar10QParser
         from sec_parser.semantic_elements import (
             TextElement,
             TitleElement,
@@ -128,7 +128,9 @@ class FilingParser:
             TopSectionTitle,
         )
 
-        tree = SemanticTree.from_html(html)
+        # Use the appropriate parser based on filing type
+        parser = Edgar10QParser()
+        elements = parser.parse(html)
 
         sections = {}
         current_section_type = None
@@ -136,7 +138,7 @@ class FilingParser:
         current_section_title = ""
         current_tables = []
 
-        for element in tree:
+        for element in elements:
             # Check for section titles
             if isinstance(element, (TitleElement, TopSectionTitle)):
                 # Save previous section if exists

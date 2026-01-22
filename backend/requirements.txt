@@ -12,7 +12,7 @@ alembic>=1.13.2
 redis==5.0.1
 openai==1.10.0
 beautifulsoup4==4.12.3
-lxml==5.1.0
+lxml>=5.2.2,<6.0.0
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-dateutil==2.8.2
@@ -20,6 +20,6 @@ stripe==7.8.0
 weasyprint==60.1
 arelle-release==2.27.0
 sec-edgar-downloader==5.0.3
-sec-parser>=0.60.0
+sec-parser>=0.58.0
 posthog==7.6.0
 
