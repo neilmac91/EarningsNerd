@@ -13,15 +13,29 @@ export const metadata: Metadata = {
   title: 'EarningsNerd - AI-Powered SEC Filing Analysis',
   description: 'Transform dense SEC filings into clear, actionable insights using AI. Search any public company, access its 10-K and 10-Q summaries, and instantly understand performance, risks, and trends.',
   keywords: ['SEC filings', '10-K', '10-Q', 'financial analysis', 'earnings', 'stock analysis', 'AI summaries', 'SEC EDGAR'],
+  metadataBase: new URL('https://www.earningsnerd.io'),
   openGraph: {
     title: 'EarningsNerd - AI-Powered SEC Filing Analysis',
     description: 'Transform dense SEC filings into clear, actionable insights using AI.',
     type: 'website',
+    images: [
+      {
+        url: '/og-image.svg',
+        width: 1200,
+        height: 630,
+        alt: 'EarningsNerd - SEC filing summaries in minutes',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'EarningsNerd - AI-Powered SEC Filing Analysis',
     description: 'Transform dense SEC filings into clear, actionable insights using AI.',
+    images: ['/og-image.svg'],
+  },
+  icons: {
+    icon: '/assets/earningsnerd-icon-dark.svg',
+    apple: '/assets/earningsnerd-icon-light.svg',
   },
 }
 
