@@ -1,5 +1,7 @@
 import html
 import logging
+import hashlib
+import os
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
@@ -12,6 +14,32 @@ from app.config import settings
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+# Get salt for IP hashing (should be set in environment for security)
+IP_HASH_SALT = os.getenv("IP_HASH_SALT", "default-salt-change-in-production")
+if IP_HASH_SALT == "default-salt-change-in-production":
+    logger.warning(
+        "Using default IP_HASH_SALT - set IP_HASH_SALT environment variable for production"
+    )
+
+
+def hash_ip_address(ip_address: str) -> str:
+    """
+    Hash an IP address using SHA256 with salt for privacy.
+
+    This allows rate limiting while not storing actual IP addresses.
+    The hash is one-way and cannot be reversed to get the original IP.
+
+    Args:
+        ip_address: The IP address to hash
+
+    Returns:
+        A hex string of the hashed IP address
+    """
+    # Combine IP with salt and hash using SHA256
+    salted_ip = f"{ip_address}{IP_HASH_SALT}".encode('utf-8')
+    hash_object = hashlib.sha256(salted_ip)
+    return hash_object.hexdigest()
 
 # Simple in-memory rate limiting (per IP)
 # In production, consider using Redis for distributed rate limiting
@@ -68,25 +96,26 @@ async def submit_contact_form(
     - Stores the message in the database
     - Sends email notifications to admin and user
     """
-    # Get client IP for rate limiting and logging
+    # Get client IP for rate limiting (but hash it for privacy)
     client_ip = get_client_ip(request)
+    hashed_ip = hash_ip_address(client_ip)
 
-    # Check rate limit
-    if check_rate_limit(client_ip):
-        logger.warning(f"Rate limit exceeded for IP: {client_ip}")
+    # Check rate limit using hashed IP
+    if check_rate_limit(hashed_ip):
+        logger.warning(f"Rate limit exceeded for IP hash: {hashed_ip[:16]}...")
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Too many requests. Please try again in {RATE_LIMIT_WINDOW_HOURS} hour(s).",
         )
 
-    # Create database entry
+    # Create database entry (store hashed IP for privacy)
     db_submission = ContactSubmission(
         name=submission.name,
         email=submission.email,
         subject=submission.subject,
         message=submission.message,
         status="new",
-        ip_address=client_ip,
+        ip_address=hashed_ip,  # Store hashed IP instead of plaintext
     )
 
     try:
