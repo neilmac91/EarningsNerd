@@ -117,6 +117,14 @@ export const analytics = {
       ...context,
     })
   },
+
+  dataExported: (userId: string) => {
+    safeCapture('data_exported', { user_id: userId })
+  },
+
+  accountDeleted: (userId: string) => {
+    safeCapture('account_deleted', { user_id: userId })
+  },
 }
 
 export default analytics

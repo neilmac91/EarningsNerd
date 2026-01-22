@@ -23,7 +23,9 @@ export default function SettingsPage() {
   const exportMutation = useMutation({
     mutationFn: exportUserData,
     onSuccess: () => {
-      analytics.track('data_exported', { user_id: user?.id })
+      if (user?.id) {
+        analytics.dataExported(String(user.id))
+      }
     },
     onError: (error) => {
       console.error('Export failed:', error)
@@ -33,7 +35,9 @@ export default function SettingsPage() {
   const deleteMutation = useMutation({
     mutationFn: deleteUserAccount,
     onSuccess: () => {
-      analytics.track('account_deleted', { user_id: user?.id })
+      if (user?.id) {
+        analytics.accountDeleted(String(user.id))
+      }
       // Logout and redirect to home
       queryClient.clear()
       router.push('/')
