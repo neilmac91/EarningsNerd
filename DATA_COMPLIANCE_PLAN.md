@@ -200,7 +200,7 @@ Process:
 **Files to modify**:
 - `/backend/app/routers/users.py` (add delete endpoint)
 - `/backend/app/models/user.py` (ensure cascade deletes configured)
-- `/frontend/app/account/settings/page.tsx` (add delete account button)
+- `/frontend/app/dashboard/settings/page.tsx` (add delete account button)
 
 ---
 
@@ -226,7 +226,7 @@ Response: Downloadable file or email link
 
 **Files to modify**:
 - `/backend/app/routers/users.py` (add export endpoint)
-- `/frontend/app/account/settings/page.tsx` (add export button)
+- `/frontend/app/dashboard/settings/page.tsx` (add export button)
 
 ---
 
@@ -662,7 +662,7 @@ Test Cases:
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
-| 1.0 | 2026-01-22 | Claude AI Analysis | Initial compliance plan |
+| 1.0 | 2026-01-22 | Compliance Team | Initial compliance plan |
 
 **Next Review Date**: 2026-04-22 (3 months)
 

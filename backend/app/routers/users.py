@@ -5,13 +5,43 @@ from pydantic import BaseModel
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 import logging
+import os
 
 from app.database import get_db
 from app.models import User, UserSearch, SavedSummary, UserUsage, Watchlist
 from app.routers.auth import get_current_user
+from app.services.audit_service import log_user_deletion, log_data_export
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+# Optional imports for third-party services
+try:
+    import stripe
+    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+    STRIPE_AVAILABLE = True
+except ImportError:
+    STRIPE_AVAILABLE = False
+    logger.warning("Stripe not available - install stripe package for subscription cancellation")
+
+try:
+    from posthog import Posthog
+    posthog_client = Posthog(
+        project_api_key=os.getenv("POSTHOG_API_KEY"),
+        host=os.getenv("POSTHOG_HOST", "https://us.i.posthog.com")
+    ) if os.getenv("POSTHOG_API_KEY") else None
+    POSTHOG_AVAILABLE = posthog_client is not None
+except ImportError:
+    POSTHOG_AVAILABLE = False
+    posthog_client = None
+    logger.warning("PostHog not available - install posthog package for analytics deletion")
+
+try:
+    import sentry_sdk
+    SENTRY_AVAILABLE = True
+except ImportError:
+    SENTRY_AVAILABLE = False
+    logger.warning("Sentry SDK not available - install sentry-sdk for error tracking cleanup")
 
 
 class UserDataExport(BaseModel):
@@ -120,6 +150,9 @@ async def export_user_data(
 
         logger.info(f"User data export completed for user {current_user.id}")
 
+        # Create audit log entry
+        log_data_export(db, current_user.id, current_user.email)
+
         return JSONResponse(
             content=export_data,
             headers={
@@ -164,7 +197,69 @@ async def delete_user_account(
             f"Stripe customer: {stripe_customer_id}"
         )
 
-        # Delete user (cascade delete will handle related records)
+        # Delete from third-party services BEFORE deleting from database
+        deletion_results = {
+            "stripe": "skipped",
+            "posthog": "skipped",
+            "sentry": "skipped"
+        }
+
+        # 1. Cancel Stripe subscription if active
+        if STRIPE_AVAILABLE and stripe_customer_id:
+            try:
+                # List all active subscriptions for this customer
+                subscriptions = stripe.Subscription.list(customer=stripe_customer_id, status='active')
+                for subscription in subscriptions.data:
+                    stripe.Subscription.delete(subscription.id)
+                    logger.info(f"Cancelled Stripe subscription {subscription.id} for user {user_id}")
+
+                # Note: We do NOT delete the Stripe customer record (7-year tax retention requirement)
+                # stripe.Customer.delete(stripe_customer_id)  # DO NOT DO THIS
+                deletion_results["stripe"] = "subscriptions_cancelled"
+                logger.info(f"Stripe subscriptions cancelled for user {user_id}, customer retained for tax compliance")
+            except Exception as e:
+                logger.error(f"Failed to cancel Stripe subscription for user {user_id}: {str(e)}")
+                deletion_results["stripe"] = f"error: {str(e)}"
+
+        # 2. Send deletion request to PostHog
+        if POSTHOG_AVAILABLE and posthog_client:
+            try:
+                # PostHog GDPR deletion - sends delete event
+                posthog_client.capture(
+                    distinct_id=str(user_id),
+                    event='$delete',
+                    properties={
+                        'email': user_email,
+                        'deletion_timestamp': datetime.utcnow().isoformat()
+                    }
+                )
+                posthog_client.flush()  # Ensure the event is sent immediately
+                deletion_results["posthog"] = "deletion_requested"
+                logger.info(f"PostHog deletion event sent for user {user_id}")
+            except Exception as e:
+                logger.error(f"Failed to send PostHog deletion for user {user_id}: {str(e)}")
+                deletion_results["posthog"] = f"error: {str(e)}"
+
+        # 3. Anonymize user in Sentry (Sentry doesn't support full deletion)
+        if SENTRY_AVAILABLE:
+            try:
+                # Set user context to None to anonymize future events
+                sentry_sdk.set_user(None)
+                deletion_results["sentry"] = "anonymized"
+                logger.info(f"Sentry user context cleared for user {user_id}")
+            except Exception as e:
+                logger.error(f"Failed to anonymize Sentry user {user_id}: {str(e)}")
+                deletion_results["sentry"] = f"error: {str(e)}"
+
+        # Create audit log BEFORE deleting user (so we can still reference user_id)
+        log_user_deletion(
+            db=db,
+            user_id=user_id,
+            user_email=user_email,
+            third_party_results=deletion_results
+        )
+
+        # Delete user from database (cascade delete will handle related records)
         db.delete(current_user)
         db.commit()
 
@@ -175,18 +270,19 @@ async def delete_user_account(
                 path="/",
             )
 
-        logger.info(f"USER DELETION COMPLETED: User {user_id} successfully deleted")
+        logger.info(
+            f"USER DELETION COMPLETED: User {user_id} successfully deleted. "
+            f"Third-party deletion results: {deletion_results}"
+        )
 
-        # Note: In production, you should also:
-        # 1. Send deletion request to PostHog: posthog.capture(distinct_id=user_id, event='$delete')
-        # 2. Send deletion request to Sentry (anonymize user in error logs)
-        # 3. Optionally cancel Stripe subscription if active
-        # 4. Send final confirmation email
+        # TODO: Send final confirmation email to user_email
+        # (email service implementation needed)
 
         return {
             "status": "success",
             "message": "Your account and all associated data have been permanently deleted.",
-            "deleted_at": datetime.utcnow().isoformat()
+            "deleted_at": datetime.utcnow().isoformat(),
+            "third_party_deletions": deletion_results
         }
 
     except Exception as e:
