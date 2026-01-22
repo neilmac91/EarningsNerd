@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from typing import Optional
 from app.models import User, UserUsage
@@ -8,7 +8,7 @@ FREE_TIER_SUMMARY_LIMIT = 5
 
 def get_current_month() -> str:
     """Get current month in YYYY-MM format"""
-    return datetime.now().strftime("%Y-%m")
+    return datetime.now(timezone.utc).strftime("%Y-%m")
 
 def get_user_usage_count(user_id: int, month: str, db: Session) -> int:
     """Get user's summary count for the current month"""
@@ -28,7 +28,7 @@ def increment_user_usage(user_id: int, month: str, db: Session):
     
     if usage:
         usage.summary_count += 1
-        usage.updated_at = datetime.now()
+        usage.updated_at = datetime.now(timezone.utc)
     else:
         usage = UserUsage(
             user_id=user_id,

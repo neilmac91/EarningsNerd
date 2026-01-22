@@ -15,7 +15,7 @@ from app.database import SessionLocal
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
-def _record_progress(
+def record_progress(
     db: Session,
     filing_id: int,
     stage: str,
@@ -78,7 +78,7 @@ def progress_as_dict(progress: SummaryGenerationProgress) -> Dict[str, Any]:
         "sectionCoverage": progress.section_coverage,
     }
 
-def _get_or_cache_excerpt(
+def get_or_cache_excerpt(
     db: Session,
     filing: Filing,
     filing_text: Optional[str],
@@ -177,7 +177,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
 
         async def generate_summary_core() -> None:
                 # Step 1: File Validation
-                _record_progress(db, filing_id, "fetching")
+                record_progress(db, filing_id, "fetching")
                 print(f"[{filing_id}] Step 1: File Validation - Confirming document is accessible and parsable...")
 
                 processing_profile = {
@@ -271,10 +271,10 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                 )
 
                 # Step 2: Section Parsing
-                _record_progress(db, filing_id, "parsing")
+                record_progress(db, filing_id, "parsing")
                 print(f"[{filing_id}] Step 2: Section Parsing - Extracting major sections (Item 1A: Risk Factors, Item 7: MD&A)...")
                 
-                excerpt = _get_or_cache_excerpt(db, filing, filing_text)
+                excerpt = get_or_cache_excerpt(db, filing, filing_text)
                 print(f"[{filing_id}] ✓ Parsing complete...")
 
                 xbrl_data = None
@@ -315,7 +315,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                     xbrl_metrics = xbrl_service.extract_standardized_metrics(xbrl_data)
 
                 # Step 3: Content Analysis
-                _record_progress(db, filing_id, "analyzing")
+                record_progress(db, filing_id, "analyzing")
                 print(f"[{filing_id}] Step 3: Content Analysis - Analyzing risk factors...")
 
                 # Step 4: Summary Generation
@@ -352,7 +352,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                     if isinstance(summary_data, dict)
                     else None
                 )
-                _record_progress(
+                record_progress(
                     db,
                     filing_id,
                     "summarizing",
@@ -418,7 +418,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                     f"[{filing_id}] ✓ Summary generation completed in {total_time:.1f}s total"
                 )
 
-                _record_progress(db, filing_id, "completed")
+                record_progress(db, filing_id, "completed")
 
                 if user_id:
                     user = db.query(User).filter(User.id == user_id).first()
@@ -432,7 +432,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
             print(
                 f"[{filing_id}] ✗ Summary generation exceeded global timeout of {global_timeout}s"
             )
-            _record_progress(db, filing_id, "error", error="timeout")
+            record_progress(db, filing_id, "error", error="timeout")
             error_message = "Unable to complete summary due to parsing timeout. Suggest retrying later."
             error_summary = Summary(
                 filing_id=filing_id,
@@ -464,7 +464,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
             error_msg = str(inner_error)
             print(f"Error in timeout wrapper: {error_msg}")
             print(f"Traceback: {error_trace}")
-            _record_progress(
+            record_progress(
                 db,
                 filing_id,
                 "error",
@@ -510,22 +510,3 @@ def get_generation_progress_snapshot(filing_id: int) -> Optional[Dict[str, Any]]
         if not progress:
             return None
         return progress_as_dict(progress)
-
-def record_progress(
-    db: Session,
-    filing_id: int,
-    stage: str,
-    *,
-    error: Optional[str] = None,
-    section_coverage: Optional[Dict[str, Any]] = None,
-) -> SummaryGenerationProgress:
-    """Public wrapper for _record_progress"""
-    return _record_progress(db, filing_id, stage, error=error, section_coverage=section_coverage)
-
-def get_or_cache_excerpt(
-    db: Session,
-    filing: Filing,
-    filing_text: Optional[str],
-) -> Optional[str]:
-    """Public wrapper for _get_or_cache_excerpt"""
-    return _get_or_cache_excerpt(db, filing, filing_text)
