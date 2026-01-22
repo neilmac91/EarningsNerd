@@ -63,20 +63,20 @@ export default function WaitlistPage() {
                       <div className="text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-tertiary-dark">
                         Key drivers
                       </div>
-                      <ul className="mt-2 space-y-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                        <li>• Subscription retention 94%</li>
-                        <li>• International growth +18%</li>
-                        <li>• R&amp;D spend up 6%</li>
+                      <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                        <li>Subscription retention 94%</li>
+                        <li>International growth +18%</li>
+                        <li>R&amp;D spend up 6%</li>
                       </ul>
                     </div>
                     <div className="rounded-2xl border border-border-light bg-background-light px-4 py-3 dark:border-border-dark dark:bg-background-dark">
                       <div className="text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-tertiary-dark">
                         Risk flags
                       </div>
-                      <ul className="mt-2 space-y-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                        <li>• Customer concentration</li>
-                        <li>• FX headwinds</li>
-                        <li>• Regulatory scrutiny</li>
+                      <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                        <li>Customer concentration</li>
+                        <li>FX headwinds</li>
+                        <li>Regulatory scrutiny</li>
                       </ul>
                     </div>
                   </div>
