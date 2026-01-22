@@ -159,6 +159,10 @@ class FilingContentCache(Base):
     filing_id = Column(Integer, ForeignKey("filings.id"), primary_key=True)
     critical_excerpt = Column(Text, nullable=True)
     sections_payload = Column(JSON, nullable=True)
+    # Markdown content for AI consumption
+    markdown_content = Column(Text, nullable=True)
+    markdown_generated_at = Column(DateTime(timezone=True), nullable=True)
+    markdown_sections = Column(JSON, nullable=True)  # List of sections extracted
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

@@ -17,7 +17,7 @@ class SECEdgarServiceError(RuntimeError):
 
 class SECEdgarService:
     BASE_URL = settings.SEC_EDGAR_BASE_URL
-    USER_AGENT = "EarningsNerd earningsnerd@example.com"  # SEC requires User-Agent
+    USER_AGENT = settings.SEC_USER_AGENT  # SEC requires proper User-Agent format
     
     # Cache for company tickers (avoid fetching on every search)
     _tickers_cache: Optional[Dict[str, Dict]] = None

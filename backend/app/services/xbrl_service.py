@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class XBRLService:
     def __init__(self):
         self.base_url = settings.SEC_EDGAR_BASE_URL
-        self.user_agent = "EarningsNerd (contact@earningsnerd.com)"
+        self.user_agent = settings.SEC_USER_AGENT
 
     async def get_xbrl_data(self, accession_number: str, cik: str) -> Optional[Dict]:
         """Extract XBRL data from SEC filing"""
