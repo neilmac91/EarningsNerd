@@ -139,7 +139,13 @@ class TestMarkdownSerializer:
         """serialize() should call _serialize_10k for 10-K filings"""
         from app.services.filing_parser import ParsedFiling
 
-        parsed = ParsedFiling(sections={}, metadata={}, parsing_method="test")
+        parsed = ParsedFiling(
+            filing_type="10-K",
+            sections={},
+            raw_text="",
+            metadata={},
+            parsing_method="test",
+        )
         metadata = {"filing_type": "10-K"}
 
         with patch.object(
@@ -153,7 +159,13 @@ class TestMarkdownSerializer:
         """serialize() should call _serialize_10q for 10-Q filings"""
         from app.services.filing_parser import ParsedFiling
 
-        parsed = ParsedFiling(sections={}, metadata={}, parsing_method="test")
+        parsed = ParsedFiling(
+            filing_type="10-Q",
+            sections={},
+            raw_text="",
+            metadata={},
+            parsing_method="test",
+        )
         metadata = {"filing_type": "10-Q"}
 
         with patch.object(
