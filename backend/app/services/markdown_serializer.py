@@ -24,8 +24,8 @@ class MarkdownSerializer:
     - Source citations
     """
 
-    # Section display order and titles
-    SECTION_ORDER = [
+    # Section display order and titles for 10-Q
+    SECTION_ORDER_10Q = [
         ("financial_statements", "Item 1. Financial Statements"),
         ("mdna", "Item 2. Management's Discussion and Analysis"),
         ("market_risk", "Item 3. Quantitative and Qualitative Disclosures About Market Risk"),
@@ -33,6 +33,34 @@ class MarkdownSerializer:
         ("legal_proceedings", "Item 1. Legal Proceedings"),
         ("risk_factors", "Item 1A. Risk Factors"),
         ("exhibits", "Item 6. Exhibits"),
+    ]
+
+    # Section display order and titles for 10-K
+    SECTION_ORDER_10K = [
+        # Part I
+        ("business", "Item 1. Business"),
+        ("risk_factors", "Item 1A. Risk Factors"),
+        ("unresolved_comments", "Item 1B. Unresolved Staff Comments"),
+        ("properties", "Item 2. Properties"),
+        ("legal_proceedings", "Item 3. Legal Proceedings"),
+        ("mine_safety", "Item 4. Mine Safety Disclosures"),
+        # Part II
+        ("market_equity", "Item 5. Market for Registrant's Common Equity"),
+        ("selected_financial", "Item 6. Selected Financial Data"),
+        ("mdna", "Item 7. Management's Discussion and Analysis"),
+        ("market_risk", "Item 7A. Quantitative and Qualitative Disclosures About Market Risk"),
+        ("financial_statements", "Item 8. Financial Statements and Supplementary Data"),
+        ("accountant_changes", "Item 9. Changes in and Disagreements with Accountants"),
+        ("controls", "Item 9A. Controls and Procedures"),
+        ("other_info", "Item 9B. Other Information"),
+        # Part III
+        ("directors", "Item 10. Directors, Executive Officers and Corporate Governance"),
+        ("compensation", "Item 11. Executive Compensation"),
+        ("security_ownership", "Item 12. Security Ownership of Certain Beneficial Owners"),
+        ("relationships", "Item 13. Certain Relationships and Related Transactions"),
+        ("accountant_fees", "Item 14. Principal Accountant Fees and Services"),
+        # Part IV
+        ("exhibits", "Item 15. Exhibits and Financial Statement Schedules"),
     ]
 
     def __init__(self, max_section_length: int = 50000):
@@ -59,6 +87,19 @@ class MarkdownSerializer:
         Returns:
             Clean Markdown string
         """
+        filing_type = metadata.get("filing_type", "10-Q")
+
+        if filing_type.startswith("10-K"):
+            return self._serialize_10k(parsed, metadata)
+        else:
+            return self._serialize_10q(parsed, metadata)
+
+    def _serialize_10q(
+        self,
+        parsed: ParsedFiling,
+        metadata: Dict[str, Any],
+    ) -> str:
+        """Serialize a 10-Q filing to Markdown."""
         parts = []
 
         # Header
@@ -73,6 +114,7 @@ class MarkdownSerializer:
             "Part I - Financial Information",
             parsed,
             part1_sections,
+            self.SECTION_ORDER_10Q,
         )
         if part1_content:
             parts.append(part1_content)
@@ -83,9 +125,82 @@ class MarkdownSerializer:
             "Part II - Other Information",
             parsed,
             part2_sections,
+            self.SECTION_ORDER_10Q,
         )
         if part2_content:
             parts.append(part2_content)
+
+        # Footer with source
+        parts.append(self._render_footer(metadata))
+
+        return "\n\n".join(filter(None, parts))
+
+    def _serialize_10k(
+        self,
+        parsed: ParsedFiling,
+        metadata: Dict[str, Any],
+    ) -> str:
+        """Serialize a 10-K filing to Markdown."""
+        parts = []
+
+        # Header
+        parts.append(self._render_header(metadata))
+
+        # Filing info section
+        parts.append(self._render_filing_info(metadata))
+
+        # Part I - Business & Risk Information
+        part1_sections = [
+            "business", "risk_factors", "unresolved_comments",
+            "properties", "legal_proceedings", "mine_safety"
+        ]
+        part1_content = self._render_part(
+            "Part I",
+            parsed,
+            part1_sections,
+            self.SECTION_ORDER_10K,
+        )
+        if part1_content:
+            parts.append(part1_content)
+
+        # Part II - Financial Information
+        part2_sections = [
+            "market_equity", "selected_financial", "mdna", "market_risk",
+            "financial_statements", "accountant_changes", "controls", "other_info"
+        ]
+        part2_content = self._render_part(
+            "Part II",
+            parsed,
+            part2_sections,
+            self.SECTION_ORDER_10K,
+        )
+        if part2_content:
+            parts.append(part2_content)
+
+        # Part III - Governance Information
+        part3_sections = [
+            "directors", "compensation", "security_ownership",
+            "relationships", "accountant_fees"
+        ]
+        part3_content = self._render_part(
+            "Part III",
+            parsed,
+            part3_sections,
+            self.SECTION_ORDER_10K,
+        )
+        if part3_content:
+            parts.append(part3_content)
+
+        # Part IV - Exhibits
+        part4_sections = ["exhibits"]
+        part4_content = self._render_part(
+            "Part IV",
+            parsed,
+            part4_sections,
+            self.SECTION_ORDER_10K,
+        )
+        if part4_content:
+            parts.append(part4_content)
 
         # Footer with source
         parts.append(self._render_footer(metadata))
@@ -128,11 +243,12 @@ class MarkdownSerializer:
         part_title: str,
         parsed: ParsedFiling,
         section_keys: List[str],
+        section_order: List[tuple],
     ) -> Optional[str]:
-        """Render a filing part (Part I or Part II)"""
+        """Render a filing part (Part I, II, III, or IV)"""
         sections_content = []
 
-        for section_key, display_title in self.SECTION_ORDER:
+        for section_key, display_title in section_order:
             if section_key not in section_keys:
                 continue
 
@@ -307,6 +423,13 @@ class MarkdownSerializer:
         if sections_to_include is None:
             sections_to_include = ["mdna", "risk_factors"]
 
+        filing_type = metadata.get("filing_type", "10-Q")
+        section_order = (
+            self.SECTION_ORDER_10K
+            if filing_type.startswith("10-K")
+            else self.SECTION_ORDER_10Q
+        )
+
         parts = [self._render_header(metadata)]
 
         for section_key in sections_to_include:
@@ -314,7 +437,7 @@ class MarkdownSerializer:
             if section:
                 # Find display title
                 display_title = section.title
-                for key, title in self.SECTION_ORDER:
+                for key, title in section_order:
                     if key == section_key:
                         display_title = title
                         break

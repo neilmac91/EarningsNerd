@@ -7,7 +7,7 @@ High-level client for SEC filing operations that combines:
 - FilingParser for semantic parsing
 - MarkdownSerializer for clean output
 
-This is the primary interface for the 10-Q markdown endpoint.
+This is the primary interface for the 10-Q and 10-K markdown endpoints.
 """
 
 import logging
@@ -126,6 +126,66 @@ class SECClient:
 
         raise CompanyNotFoundError(ticker)
 
+    async def _get_latest_filing(
+        self, ticker: str, filing_type: str
+    ) -> Dict[str, Any]:
+        """
+        Get the latest filing of a specific type for a company.
+
+        Args:
+            ticker: Stock ticker
+            filing_type: Filing type (e.g., "10-Q", "10-K")
+
+        Returns:
+            Dict with filing metadata (filing_date, accession_number, etc.)
+
+        Raises:
+            CompanyNotFoundError: If ticker not found
+            FilingNotFoundError: If no filings of this type exist
+        """
+        cik = await self.get_cik(ticker)
+        filing_types = [filing_type, f"{filing_type}/A"]
+
+        filings = await self._rate_limiter.execute_with_backoff(
+            lambda: self._edgar.get_filings(cik, filing_types, limit=1)
+        )
+
+        if not filings:
+            raise FilingNotFoundError(ticker, filing_type)
+
+        return filings[0]
+
+    async def _get_filings(
+        self,
+        ticker: str,
+        filing_type: str,
+        limit: int = 10,
+        include_amended: bool = True,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get list of filings of a specific type for a company.
+
+        Args:
+            ticker: Stock ticker
+            filing_type: Filing type (e.g., "10-Q", "10-K")
+            limit: Maximum number of filings to return
+            include_amended: Whether to include amended filings
+
+        Returns:
+            List of filing metadata dicts
+        """
+        cik = await self.get_cik(ticker)
+
+        filing_types = [filing_type]
+        if include_amended:
+            filing_types.append(f"{filing_type}/A")
+
+        filings = await self._rate_limiter.execute_with_backoff(
+            lambda: self._edgar.get_filings(cik, filing_types, limit=limit)
+        )
+
+        return filings
+
     async def get_latest_10q(self, ticker: str) -> Dict[str, Any]:
         """
         Get the latest 10-Q filing metadata for a company.
@@ -140,16 +200,7 @@ class SECClient:
             CompanyNotFoundError: If ticker not found
             FilingNotFoundError: If no 10-Q filings exist
         """
-        cik = await self.get_cik(ticker)
-
-        filings = await self._rate_limiter.execute_with_backoff(
-            lambda: self._edgar.get_filings(cik, ["10-Q", "10-Q/A"], limit=1)
-        )
-
-        if not filings:
-            raise FilingNotFoundError(ticker, "10-Q")
-
-        return filings[0]
+        return await self._get_latest_filing(ticker, "10-Q")
 
     async def get_10q_filings(
         self,
@@ -168,17 +219,42 @@ class SECClient:
         Returns:
             List of filing metadata dicts
         """
-        cik = await self.get_cik(ticker)
+        return await self._get_filings(ticker, "10-Q", limit, include_amended)
 
-        filing_types = ["10-Q"]
-        if include_amended:
-            filing_types.append("10-Q/A")
+    async def get_latest_10k(self, ticker: str) -> Dict[str, Any]:
+        """
+        Get the latest 10-K filing metadata for a company.
 
-        filings = await self._rate_limiter.execute_with_backoff(
-            lambda: self._edgar.get_filings(cik, filing_types, limit=limit)
-        )
+        Args:
+            ticker: Stock ticker
 
-        return filings
+        Returns:
+            Dict with filing metadata (filing_date, accession_number, etc.)
+
+        Raises:
+            CompanyNotFoundError: If ticker not found
+            FilingNotFoundError: If no 10-K filings exist
+        """
+        return await self._get_latest_filing(ticker, "10-K")
+
+    async def get_10k_filings(
+        self,
+        ticker: str,
+        limit: int = 10,
+        include_amended: bool = True,
+    ) -> List[Dict[str, Any]]:
+        """
+        Get list of 10-K filings for a company.
+
+        Args:
+            ticker: Stock ticker
+            limit: Maximum number of filings to return
+            include_amended: Whether to include 10-K/A (amended) filings
+
+        Returns:
+            List of filing metadata dicts
+        """
+        return await self._get_filings(ticker, "10-K", limit, include_amended)
 
     async def fetch_filing_html(self, document_url: str) -> str:
         """
@@ -198,6 +274,7 @@ class SECClient:
         self,
         ticker: str,
         filing: Optional[Dict[str, Any]] = None,
+        filing_type: str = "10-Q",
     ) -> FilingMarkdownResult:
         """
         Fetch and parse a filing to clean markdown.
@@ -205,7 +282,8 @@ class SECClient:
         Args:
             ticker: Stock ticker (used for company info)
             filing: Optional filing metadata dict. If not provided,
-                   fetches the latest 10-Q.
+                   fetches the latest filing of the specified type.
+            filing_type: Type of filing to fetch if not provided ("10-Q" or "10-K")
 
         Returns:
             FilingMarkdownResult with markdown content and metadata
@@ -219,7 +297,10 @@ class SECClient:
 
         # Get filing if not provided
         if filing is None:
-            filing = await self.get_latest_10q(ticker)
+            if filing_type == "10-K":
+                filing = await self.get_latest_10k(ticker)
+            else:
+                filing = await self.get_latest_10q(ticker)
 
         # Fetch HTML content
         document_url = filing.get("document_url")
@@ -281,6 +362,7 @@ class SECClient:
     def _determine_fiscal_period(self, filing: Dict[str, Any]) -> str:
         """Determine fiscal period from filing metadata"""
         report_date = filing.get("report_date", "")
+        filing_type = filing.get("filing_type", "")
         if not report_date:
             return ""
 
@@ -293,7 +375,11 @@ class SECClient:
             year = parts[0]
             month = int(parts[1])
 
-            # Determine quarter based on month
+            # For 10-K filings, return fiscal year
+            if filing_type.startswith("10-K"):
+                return f"FY {year}"
+
+            # Determine quarter based on month for 10-Q
             if month <= 3:
                 quarter = "Q1"
             elif month <= 6:
