@@ -63,7 +63,7 @@ async def test_generate_summary_background_success():
          patch("app.services.summary_generation_service.sec_edgar_service") as mock_sec, \
          patch("app.services.summary_generation_service.openai_service") as mock_openai, \
          patch("app.services.summary_generation_service.xbrl_service") as mock_xbrl, \
-         patch("app.config.settings") as mock_settings:
+         patch("app.services.summary_generation_service.settings") as mock_settings:
         
         # Configure Mocks
         mock_settings.OPENAI_API_KEY = "sk-test"
