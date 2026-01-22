@@ -167,7 +167,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
 
             <p className="text-slate-600 dark:text-slate-400 mb-6">
               We use cookies to enhance your experience, analyze site traffic, and provide
-              personalized content. Choose which cookies you're comfortable with.
+              personalized content. Choose which cookies you&apos;re comfortable with.
             </p>
 
             <div className="space-y-4">

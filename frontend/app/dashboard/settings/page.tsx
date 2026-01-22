@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getCurrentUser, exportUserData, deleteUserAccount, logout } from '@/lib/api'
+import { getCurrentUser, exportUserData, deleteUserAccount } from '@/lib/api'
 import { useRouter } from 'next/navigation'
 import { Download, Trash2, AlertCircle, CheckCircle2, Loader2, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
@@ -206,7 +206,7 @@ export default function SettingsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
-                  Type "delete my account" to confirm:
+                  Type &quot;delete my account&quot; to confirm:
                 </label>
                 <input
                   type="text"

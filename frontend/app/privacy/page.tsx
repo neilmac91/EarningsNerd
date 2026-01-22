@@ -121,7 +121,7 @@ export default function PrivacyPage() {
             </li>
           </ul>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
-            You can manage your cookie preferences at any time through our cookie consent banner (shown on first visit) or through your browser settings. Note that disabling cookies may limit certain features. We respect the "Do Not Track" browser setting and will not track users who have enabled it.
+            You can manage your cookie preferences at any time through our cookie consent banner (shown on first visit) or through your browser settings. Note that disabling cookies may limit certain features. We respect the &quot;Do Not Track&quot; browser setting and will not track users who have enabled it.
           </p>
         </section>
 
@@ -220,7 +220,7 @@ export default function PrivacyPage() {
               <strong>Error Logs (Sentry):</strong> Retained for 90 days, then automatically deleted.
             </li>
             <li>
-              <strong>Inactive Accounts:</strong> If you don't log in for 24 months, we'll send warning emails at 18, 22, and 23 months. Your account will be automatically deleted at 24 months unless you log in.
+              <strong>Inactive Accounts:</strong> If you don&apos;t log in for 24 months, we&apos;ll send warning emails at 18, 22, and 23 months. Your account will be automatically deleted at 24 months unless you log in.
             </li>
           </ul>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
@@ -317,7 +317,7 @@ export default function PrivacyPage() {
             International Data Transfers
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            Your information may be transferred to and processed in countries other than your own, including the United States. These countries may have data protection laws that differ from your country's laws. When we transfer data from the EEA, UK, or Switzerland to other countries, we use Standard Contractual Clauses (SCCs) approved by the European Commission or other appropriate safeguards to protect your data.
+            Your information may be transferred to and processed in countries other than your own, including the United States. These countries may have data protection laws that differ from your country&apos;s laws. When we transfer data from the EEA, UK, or Switzerland to other countries, we use Standard Contractual Clauses (SCCs) approved by the European Commission or other appropriate safeguards to protect your data.
           </p>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
             Our third-party service providers (Stripe, Resend, PostHog, Sentry) are located in the United States and have Data Processing Agreements in place that include appropriate safeguards for international data transfers.
