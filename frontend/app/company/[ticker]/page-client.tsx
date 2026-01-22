@@ -19,7 +19,7 @@ export default function CompanyPageClient() {
   // All hooks must be called before any conditional returns
   const currentYear = new Date().getFullYear().toString()
   const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set([currentYear]))
-  const [filterType, setFilterType] = useState<string | null>(null)
+  const [filterType, setFilterType] = useState<'10-K' | '10-Q' | null>(null)
   const hasTrackedCompanyView = useRef(false)
 
   const { data: company, isLoading: companyLoading, error: companyError } = useQuery<Company>({
@@ -172,15 +172,6 @@ export default function CompanyPageClient() {
           badgeBg: 'bg-teal-100 dark:bg-teal-900/40',
           badgeText: 'text-teal-800 dark:text-teal-300',
         }
-      case '8-K':
-        return {
-          borderColor: 'border-l-purple-600 dark:border-l-purple-500',
-          bgColor: 'bg-purple-50/50 dark:bg-purple-900/20',
-          hoverBg: 'hover:bg-purple-50 dark:hover:bg-purple-900/30',
-          iconColor: 'text-purple-600 dark:text-purple-400',
-          badgeBg: 'bg-purple-100 dark:bg-purple-900/40',
-          badgeText: 'text-purple-800 dark:text-purple-300',
-        }
       default:
         return {
           borderColor: 'border-l-gray-400 dark:border-l-gray-500',
@@ -295,16 +286,6 @@ export default function CompanyPageClient() {
                     }`}
                   >
                     10-Q
-                  </button>
-                  <button
-                    onClick={() => setFilterType('8-K')}
-                    className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-md transition-colors ${
-                      filterType === '8-K'
-                        ? 'bg-purple-600 dark:bg-purple-500 text-white'
-                        : 'bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-300 hover:bg-purple-200 dark:hover:bg-purple-900/50'
-                    }`}
-                  >
-                    8-K
                   </button>
                 </div>
               </div>

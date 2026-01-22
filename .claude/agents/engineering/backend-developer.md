@@ -69,7 +69,7 @@ from pydantic import BaseModel, Field, validator
 
 class FilingRequest(BaseModel):
     ticker: str = Field(..., min_length=1, max_length=5, pattern=r'^[A-Z]+$')
-    filing_type: str = Field(..., pattern=r'^(10-K|10-Q|8-K)$')
+    filing_type: str = Field(..., pattern=r'^(10-K|10-Q)$')
     
     @validator('ticker')
     def uppercase_ticker(cls, v):

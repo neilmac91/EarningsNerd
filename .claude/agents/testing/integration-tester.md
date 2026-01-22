@@ -161,7 +161,7 @@ def test_filing_list_contract():
         "data": Like([{
             "id": Like(1),
             "ticker": Like("AAPL"),
-            "filing_type": Term(r"10-[KQ]|8-K", "10-K")
+            "filing_type": Term(r"10-[KQ]", "10-K")
         }])
     }
     

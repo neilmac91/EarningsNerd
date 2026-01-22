@@ -150,7 +150,7 @@ class SECEdgarService:
         except Exception as exc:
             raise SECEdgarServiceError("Unable to fetch SEC submissions.", cause=exc)
     
-    async def get_filings(self, cik: str, filing_types: List[str] = ["10-K", "10-Q", "8-K"], limit: Optional[int] = None) -> List[Dict]:
+    async def get_filings(self, cik: str, filing_types: List[str] = ["10-K", "10-Q"], limit: Optional[int] = None) -> List[Dict]:
         """Get all filings for a company (optionally limited to most recent)"""
         submissions = await self.get_company_submissions(cik)
         

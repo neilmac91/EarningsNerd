@@ -179,7 +179,7 @@ When creating content:
 ### Evergreen Content Pillars
 ```
 1. SEC Filing Education
-   - What is a 10-K/10-Q/8-K?
+   - What is a 10-K/10-Q?
    - How to read each section
    - Red flags to watch for
    - Common mistakes investors make
