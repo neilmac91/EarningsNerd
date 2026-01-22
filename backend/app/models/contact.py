@@ -13,6 +13,6 @@ class ContactSubmission(Base):
     subject = Column(String(200), nullable=True)
     message = Column(Text, nullable=False)
     status = Column(String(20), default="new", nullable=False, index=True)
-    ip_address = Column(String(45), nullable=True)
+    ip_address = Column(String(64), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
