@@ -1,21 +1,38 @@
 import sys
-import os
 import logging
+from pathlib import Path
 from sqlalchemy import text
-
-# Add backend directory to path so we can import app
-sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'backend'))
-
-try:
-    from app.database import engine
-except ImportError:
-    # Try alternative path if running from root
-    sys.path.append(os.path.join(os.getcwd(), 'backend'))
-    from app.database import engine
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
+
+# Add backend directory to path so we can import app
+# Resolves to: <project_root>/backend
+try:
+    current_file = Path(__file__).resolve()
+    # If run as script, current_file is the script path
+    # Go up one level to 'scripts' (or whatever dir), then up to root, then 'backend'
+    # Actually, if script is in <root>/scripts/fix_contact_column.py
+    # parent = <root>/scripts
+    # parent.parent = <root>
+    # <root>/backend is what we want
+    backend_dir = current_file.parent.parent / 'backend'
+    
+    if not backend_dir.exists():
+        # Fallback for if directory structure is different or running from elsewhere
+        # e.g. if running from root with python scripts/fix_contact_column.py, __file__ is relative
+        # but resolve() handles that.
+        # Let's try current working directory as fallback for safety
+        backend_dir = Path.cwd() / 'backend'
+
+    sys.path.append(str(backend_dir))
+    logger.info(f"Added {backend_dir} to sys.path")
+
+    from app.database import engine
+except ImportError as e:
+    logger.error(f"Could not import app.database. Ensure you are running from the project root or the backend directory is accessible. Error: {e}")
+    sys.exit(1)
 
 def fix_contact_column():
     """

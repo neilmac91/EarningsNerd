@@ -20,8 +20,6 @@ def test_contact_submission_long_ip(db_session: Session):
     This confirms the database column is wide enough.
     """
     # Create a 64-character string
-    long_ip = "2001:0db8:85a3:0000:0000:8a2e:0370:7334" + "x" * 25 # 39 + 25 = 64 chars total
-    # Adjust to exactly 64 chars just to be precise with the requirement
     long_ip = "x" * 64
     
     contact = ContactSubmission(
@@ -41,10 +39,35 @@ def test_contact_submission_long_ip(db_session: Session):
         assert contact.ip_address == long_ip
         assert len(contact.ip_address) == 64
         
-        # Clean up
-        db_session.delete(contact)
-        db_session.commit()
-        
     except Exception as e:
+        # Rollback in case the error was a DB error during add/commit
+        # If it was an AssertionError, this rollback might be redundant but harmless
         db_session.rollback()
-        pytest.fail(f"Failed to insert contact with 64-char IP: {str(e)}")
+        # Fail the test explicitly with a message if it wasn't an assertion error
+        if not isinstance(e, AssertionError):
+            pytest.fail(f"Failed to insert contact with 64-char IP: {str(e)}")
+        else:
+            raise e
+    finally:
+        # Clean up regardless of success or failure
+        # We check if contact was persisted (has an ID) and exists in the session
+        if contact.id:
+            try:
+                # Merge checks if object is in session, if not adds it. 
+                # Since we are in the same session, we can just delete.
+                # But if rollback happened, contact might be transient or detached if session was closed (it's not).
+                # If rollback happened, contact.id might still be set on the python object but not in DB?
+                # Actually if db_session.commit() succeeded, contact is in DB.
+                # If exception was AssertionError, commit succeeded.
+                # If exception was during commit, rollback happened, so not in DB.
+                
+                # Check if it exists in DB to be safe, or just try delete
+                # But if we just rolled back, delete might fail or warn.
+                
+                # Re-query or merge to ensure attached?
+                # Simplest is:
+                db_session.delete(contact)
+                db_session.commit()
+            except Exception:
+                # If delete fails (e.g. because it was already rolled back), just ignore in finally
+                db_session.rollback()
