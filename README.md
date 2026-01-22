@@ -5,12 +5,17 @@ Transform dense SEC filings (10-Ks and 10-Qs) into clear, actionable insights us
 ## 🚀 Features
 
 - **Company Search**: Search by name or ticker symbol
-- **SEC Filing Retrieval**: Automatic access to 10-K and 10-Q filings from SEC EDGAR
+- **SEC Filing Retrieval**: Automatic access to 10-K and 10-Q filings from SEC EDGAR with robust XBRL parsing
 - **AI Summarization**: GPT-4 powered summaries of business overview, financials, risks, and MD&A
+- **Strict JSON Contracts**: Structured data output for reliable downstream integration
 - **Side-by-Side Comparison**: Compare multiple filings (2-5) to analyze trends and changes (Pro feature)
 - **Financial Visualization**: Interactive charts for revenue, earnings, and key metrics
 - **Trending & Hot Filings**: Discover popular companies and recently released filings
 - **User Dashboard**: Watchlist, saved summaries, and personalized insights
+- **Subscriptions**: Tiered access (Free/Pro) managed via Stripe
+- **Analytics**: User behavior tracking with PostHog
+- **Email Notifications**: Transactional emails and alerts via Resend
+- **Export Options**: Download summaries and reports
 - **Clean UI**: Modern "Mint" theme interface built with Next.js, Tailwind CSS, and shadcn/ui
 
 ## 📑 AI Summary JSON Contract
@@ -29,8 +34,12 @@ Update your integrations or downstream validators to respect these strengthened 
 - **FastAPI** - Python web framework
 - **PostgreSQL** - Primary database
 - **Redis** - Caching layer
-- **OpenAI API** - AI summarization
-- **SEC EDGAR API** - Filing data source
+- **OpenAI API** - AI summarization (GPT-4)
+- **SEC EDGAR Tools** - `sec-edgar-downloader`, `sec-parser`, `arelle`
+- **Stripe** - Payments and subscriptions
+- **Resend** - Email delivery
+- **PostHog** - Product analytics
+- **WeasyPrint** - PDF generation
 
 ### Frontend
 - **Next.js 14** - React framework
@@ -40,6 +49,7 @@ Update your integrations or downstream validators to respect these strengthened 
 - **Lucide React** - Iconography
 - **React Query** - Data fetching and caching
 - **Axios** - HTTP client
+- **PostHog JS** - Analytics integration
 
 ## 📋 Prerequisites
 
@@ -48,8 +58,9 @@ Update your integrations or downstream validators to respect these strengthened 
 - PostgreSQL 15+ (or use Docker)
 - Redis (or use Docker)
 - OpenAI API key
-- (Optional) Stripe API keys for payments
-- (Recommended) Finnhub API key for news sentiment enrichment
+- Stripe API keys (for subscriptions)
+- Resend API key (for emails)
+- (Optional) Finnhub API key for news sentiment enrichment
 
 ## 🚀 Quick Start
 
@@ -71,13 +82,10 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Create .env file from .env.example
+# Create .env file
 cp .env.example .env
 
-# Edit .env with your configuration:
-# - DATABASE_URL (default: postgresql://user:password@localhost:5432/earningsnerd)
-# - OPENAI_API_KEY (required)
-# - SECRET_KEY (change in production)
+# Edit .env with your configuration (see Environment Variables section)
 ```
 
 ### 3. Database Setup
@@ -92,12 +100,7 @@ docker-compose up -d postgres redis
 #### Option B: Local PostgreSQL
 
 ```bash
-# Create database
 createdb earningsnerd
-
-# Or using psql
-psql -U postgres
-CREATE DATABASE earningsnerd;
 ```
 
 ### 4. Run Backend
@@ -105,12 +108,15 @@ CREATE DATABASE earningsnerd;
 ```bash
 cd backend
 
+# Verify configuration before start
+python3 scripts/deploy_check.py
+
 # Start FastAPI server
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The API will be available at `https://api.earningsnerd.io`
-API documentation: `https://api.earningsnerd.io/docs`
+The API will be available at `https://api.earningsnerd.io` (or localhost:8000)
+API documentation: `/docs`
 
 ### 5. Frontend Setup
 
@@ -122,8 +128,6 @@ npm install
 
 # Create .env.local file
 cp .env.local.example .env.local
-
-# Edit .env.local if needed (default: NEXT_PUBLIC_API_URL=https://api.earningsnerd.io)
 
 # Run development server
 npm run dev
@@ -137,144 +141,124 @@ The frontend will be available at `http://localhost:3000`
 earningsnerd/
 ├── backend/
 │   ├── app/
-│   │   ├── routers/          # API routes (auth, companies, filings, summaries, compare, trending)
-│   │   ├── services/         # Business logic (SEC, OpenAI, Trending)
+│   │   ├── routers/          # API routes (auth, companies, filings, subscriptions, contact, etc.)
+│   │   ├── services/         # Business logic (SEC, OpenAI, Stripe, Resend, XBRL)
 │   │   ├── models.py         # Database models
 │   │   ├── database.py       # DB connection
 │   │   └── config.py         # Configuration
+│   ├── pipeline/             # Data processing pipeline (extract, validate, write)
+│   ├── prompts/              # System prompts for AI agents
+│   ├── scripts/              # Deployment and verification scripts
 │   ├── main.py               # FastAPI app entry
 │   └── requirements.txt      # Python dependencies
 ├── frontend/
 │   ├── app/                  # Next.js app directory
-│   │   ├── page.tsx          # Homepage
 │   │   ├── company/          # Company pages
 │   │   ├── filing/           # Filing pages
 │   │   ├── compare/          # Comparison tool
 │   │   ├── dashboard/        # User dashboard
-│   │   └── pricing/          # Pricing page
+│   │   └── pricing/          # Pricing & Subscriptions
 │   ├── components/           # React components
+│   ├── features/             # Feature-specific components
 │   ├── lib/                  # Utilities and API client
 │   └── package.json          # Node dependencies
 ├── docker-compose.yml        # Docker services
 └── README.md                 # This file
 ```
 
-## 🔑 API Endpoints
+## 🔑 Key API Endpoints
 
-### Authentication
+### Authentication & Users
 - `POST /api/auth/register` - Register new user
 - `POST /api/auth/login` - Login user
 - `GET /api/auth/me` - Get current user
 
-### Companies & Trending
-- `GET /api/companies/search?q={query}` - Search companies
-- `GET /api/companies/{ticker}` - Get company by ticker
-- `GET /api/trending_tickers` - Get trending companies
-- `GET /api/hot-filings` - Get recently viewed/processed filings
-
-### Filings & Summaries
+### Companies & Filings
+- `GET /api/companies/search` - Search companies
 - `GET /api/filings/company/{ticker}` - Get company filings
-- `GET /api/filings/{id}` - Get specific filing
+- `GET /api/trending_tickers` - Get trending companies
+- `GET /api/hot-filings` - Get recently viewed filings
+
+### AI Analysis
 - `POST /api/summaries/filing/{id}/generate` - Generate AI summary
 - `GET /api/summaries/filing/{id}` - Get summary
+- `POST /api/compare` - Compare multiple filings (Pro)
 
-### Comparison (Pro)
-- `POST /api/compare` - Compare multiple filings (metrics, risks)
-
-### User Data
-- `GET /api/watchlist` - Get user's watchlist
-- `POST /api/watchlist` - Add to watchlist
-- `GET /api/saved-summaries` - Get saved summaries
+### Subscriptions & Operations
+- `POST /api/subscriptions/create-checkout-session` - Start subscription
+- `POST /api/contact` - Submit contact form
+- `POST /api/webhooks/stripe` - Stripe webhook handler
 
 ## 🔐 Environment Variables
 
 ### Backend (.env)
 
-Copy `backend/.env.example` to `backend/.env` and fill in your values:
-
 ```env
-# Required for AI summaries (Google AI Studio recommended)
-OPENAI_API_KEY=your_google_ai_studio_api_key_here
-OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+# AI & LLM
+OPENAI_API_KEY=sk-...
+OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/ # or https://openrouter.ai/api/v1
 
-# Required for subscriptions (if using Stripe)
-STRIPE_SECRET_KEY=sk_test_your_stripe_secret_key_here
-STRIPE_PUBLISHABLE_KEY=pk_test_your_stripe_publishable_key_here
-STRIPE_WEBHOOK_SECRET=whsec_your_webhook_signing_secret_here  # CRITICAL: Get from Stripe Dashboard > Webhooks
+# Database & Cache
+DATABASE_URL=postgresql://user:pass@localhost:5432/earningsnerd
+REDIS_URL=redis://localhost:6379
 
-# Required for email (Resend)
-RESEND_API_KEY=re_your_resend_api_key_here
-RESEND_FROM_EMAIL=EarningsNerd <hello@yourdomain.com>
-
-# Database (SQLite default, PostgreSQL optional)
-DATABASE_URL=sqlite:///./earningsnerd.db
-
-# Other settings
+# Security
 SECRET_KEY=your_secret_key_here
 CORS_ORIGINS=http://localhost:3000
-```
 
-**Important Notes:**
-- `STRIPE_WEBHOOK_SECRET` is **required** if you're using Stripe subscriptions. Without it, webhook signature verification will fail and subscription events won't be processed.
-- Get your webhook secret from: Stripe Dashboard → Developers → Webhooks → [Your webhook endpoint] → Signing secret
-- `RESEND_FROM_EMAIL` must be a verified sender/domain in Resend
-- The application will warn you at startup if required configuration is missing
- - If you prefer OpenRouter, set `OPENAI_BASE_URL` to `https://openrouter.ai/api/v1`
+# Payments (Stripe) - Required for Pro features
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Email (Resend) - Required for notifications
+RESEND_API_KEY=re_...
+RESEND_FROM_EMAIL=EarningsNerd <hello@yourdomain.com>
+
+# Analytics
+POSTHOG_API_KEY=ph_...
+POSTHOG_HOST=https://app.posthog.com
+```
 
 ### Frontend (.env.local)
 
 ```env
 NEXT_PUBLIC_API_URL=https://api.earningsnerd.io
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+NEXT_PUBLIC_POSTHOG_KEY=ph_...
+NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
 ```
 
-## 🧪 Testing
+## 🚢 Deployment
 
-### Backend
+Detailed deployment guides are available:
+- [Production Deployment Guide](./PRODUCTION_DEPLOYMENT.md)
+- [Deployment Checklist](./DEPLOYMENT_CHECKLIST.md)
+- [Deployment Summary](./DEPLOYMENT_SUMMARY.md)
 
+Run the deployment check script before shipping:
 ```bash
-cd backend
-# Run tests (when implemented)
-pytest
+python3 backend/scripts/deploy_check.py
 ```
-
-### Frontend
-
-```bash
-cd frontend
-# Run linter
-npm run lint
-```
-
-## 📝 Usage Example
-
-1. **Start the application** (backend and frontend)
-2. **Search for a company** (e.g., "AAPL" or "Apple")
-3. **Select a company** from search results
-4. **View available filings** (10-K, 10-Q)
-5. **Click "View Summary"** on a filing
-6. **Generate AI summary** (if not already generated)
-7. **Review summary** with business overview, financials, risks, and MD&A
-8. **Use "Compare"** to select multiple filings and view side-by-side analysis (Pro)
 
 ## 🚧 Current Status
 
-### ✅ Completed (MVP + Enhancements)
-- Company search functionality
-- SEC EDGAR API integration
-- Filing retrieval
-- AI summarization engine
-- User authentication & Dashboard
-- Summary display UI with Financial Charts
-- Responsive design with Mint Theme
-- Multi-year comparison (Pro feature)
-- Watchlist & Saved Summaries
-- Trending & Hot Filings
+### ✅ Completed
+- [x] Company search & SEC EDGAR integration
+- [x] AI summarization with strict JSON schemas
+- [x] User authentication & Dashboard
+- [x] Financial visualization & "Mint" theme UI
+- [x] Multi-filing comparison (Pro)
+- [x] Stripe subscription integration
+- [x] Email notifications (Resend)
+- [x] Contact form & Sitemap generation
+- [x] Analytics (PostHog)
+- [x] Production-ready deployment scripts
 
-### 🚧 TODO (Future)
-- Export functionality (PDF/CSV)
-- Historical filings access (expanded archive)
-- Email alerts
-- Mobile app
+### 🚧 Roadmap
+- [ ] Mobile app (React Native)
+- [ ] Historical filings archive expansion
+- [ ] Advanced portfolio alerts
 
 ## 🤝 Contributing
 
@@ -290,15 +274,9 @@ This project is licensed under the MIT License.
 ## 🆘 Support
 
 For issues or questions:
-- Check the [Development Plan](./EarningsNerd_Development_Plan.md)
-- Review API documentation at `/docs` endpoint
+- Review [Deployment Docs](./PRODUCTION_DEPLOYMENT.md)
+- Check API docs at `/docs`
 - Open an issue on GitHub
-
-## 🙏 Acknowledgments
-
-- SEC EDGAR for public filing data
-- OpenAI for AI summarization capabilities
-- FastAPI and Next.js communities
 
 ---
 
