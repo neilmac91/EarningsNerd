@@ -1,8 +1,16 @@
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import CompanySearch from '@/components/CompanySearch'
 import DashboardPreview from '@/components/DashboardPreview'
 
 export default function Home() {
+  // Waitlist is enabled by default unless explicitly disabled
+  const isWaitlistEnabled = process.env.WAITLIST_MODE !== 'false'
+
+  if (isWaitlistEnabled) {
+    redirect('/waitlist')
+  }
+
   return (
     <>
       <main className="space-y-16 py-12 md:py-20 lg:py-24">
