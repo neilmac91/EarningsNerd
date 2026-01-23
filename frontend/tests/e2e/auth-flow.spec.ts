@@ -46,16 +46,11 @@ test.describe('Authentication Flow', () => {
     await page.locator('button[type="submit"]').click()
 
     // Wait for error message (should not redirect)
-    await page.waitForTimeout(2000)
-
     // Should show error message
-    const errorVisible = await page.locator('text=/invalid|incorrect|failed|error/i').count() > 0
+    await expect(page.locator('text=/invalid|incorrect|failed|error/i').first()).toBeVisible()
 
     // Should still be on login page (not redirected)
     expect(page.url()).toContain('/login')
-
-    // Either error message is shown or we're still on login page
-    expect(errorVisible || page.url().includes('/login')).toBeTruthy()
   })
 
   test('should have back to home link on login page', async ({ page }) => {

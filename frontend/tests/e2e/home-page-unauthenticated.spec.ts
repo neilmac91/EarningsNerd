@@ -67,14 +67,18 @@ test.describe('Home Page - Unauthenticated Users', () => {
     // Type in search
     await searchInput.fill('AAPL')
 
-    // Wait a bit for any autocomplete/suggestions
-    await page.waitForTimeout(1000)
+    // Wait for suggestions to appear or network requests to complete
+    await page.waitForLoadState('networkidle')
 
     // Verify no errors occurred during interaction
     const errors: string[] = []
     page.on('pageerror', error => errors.push(error.message))
 
-    await page.waitForTimeout(500)
+    // Short wait to catch any post-interaction errors
+    // Using a very short wait here just to ensure event loop clears
+    // Prefer explicit waits where possible, but here we're checking for absence of errors
+    await page.waitForLoadState('domcontentloaded')
+
     expect(errors).toHaveLength(0)
   })
 })

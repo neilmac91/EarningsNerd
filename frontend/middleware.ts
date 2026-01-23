@@ -24,15 +24,8 @@ export function middleware(request: NextRequest) {
   // Note: This is a basic check. The backend will do the actual token validation.
   const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname.startsWith(route))
   if (isProtectedRoute) {
-    // Check for session cookie (adjust cookie name if needed)
-    // The actual cookie name might be different - checking common patterns
-    const hasSessionCookie = request.cookies.has('session') ||
-                             request.cookies.has('auth_token') ||
-                             request.cookies.has('token') ||
-                             // FastAPI typically uses 'session' or custom name
-                             Array.from(request.cookies.getAll()).some(cookie =>
-                               cookie.name.includes('session') || cookie.name.includes('auth')
-                             )
+    // Check for session cookie
+    const hasSessionCookie = request.cookies.has('earningsnerd_access_token')
 
     if (!hasSessionCookie) {
       const loginUrl = request.nextUrl.clone()
