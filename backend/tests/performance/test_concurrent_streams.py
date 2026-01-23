@@ -75,7 +75,8 @@ async def test_heartbeat_events_emitted_at_interval():
              patch("app.routers.summaries.record_progress"), \
              patch("app.routers.summaries.get_or_cache_excerpt", return_value="excerpt"), \
              patch("app.config.settings.STREAM_HEARTBEAT_INTERVAL", 2), \
-             patch("app.database.SessionLocal", mock_session_cls):
+             patch("app.database.SessionLocal", mock_session_cls), \
+             patch("app.routers.summaries.enforce_rate_limit"):
             
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
                 async with client.stream(
@@ -152,7 +153,8 @@ async def test_concurrent_stream_connections():
              patch("app.routers.summaries.check_usage_limit", return_value=(True, 0, 10)), \
              patch("app.routers.summaries.record_progress"), \
              patch("app.routers.summaries.get_or_cache_excerpt", return_value="excerpt"), \
-             patch("app.database.SessionLocal", mock_session_cls):
+             patch("app.database.SessionLocal", mock_session_cls), \
+             patch("app.routers.summaries.enforce_rate_limit"):
 
             async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
                 
