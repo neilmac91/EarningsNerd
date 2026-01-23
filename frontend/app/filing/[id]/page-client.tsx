@@ -24,6 +24,62 @@ import { stripInternalNotices } from '@/lib/stripInternalNotices'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import analytics from '@/lib/analytics'
 
+// --- Constants ---
+
+const WHIMSY_MESSAGES = [
+  "Turning caffeine into investments insights...",
+  "Teaching the AI to read between the lines...",
+  "Scanning 400 pages of footnotes so you don't have to...",
+  "Cross-referencing historical data with crystal ball predictions...",
+  "Translating 'Corporate Speak' into plain English...",
+  "Wait for it... the good stuff is coming...",
+  "Analyzing the fine print size 8 font...",
+  "Reviewing the obscure 'Other' section...",
+  "Decrypting the CEO's optimism...",
+  "Looking for hidden gems in the appendix..."
+]
+
+const LOADING_STEPS = [
+  { id: '1', label: 'Retrieving 10-Q filing from EDGAR', threshold: 10, nextTarget: 25 },
+  { id: '2', label: 'Extracting Item 1A (Risk Factors) & MD&A', threshold: 25, nextTarget: 45 },
+  { id: '3', label: 'Vectorizing content for semantic analysis', threshold: 45, nextTarget: 75 },
+  { id: '4', label: 'Synthesizing investment insights', threshold: 75, nextTarget: 95 }
+]
+
+const STAGE_PROGRESS_MAP: Record<string, number> = {
+  'queued': 5,
+  'fetching': 10,
+  'parsing': 25,
+  'analyzing': 45,
+  'summarizing': 75,
+  'completed': 100,
+  'error': 0,
+  'initializing': 0
+}
+
+// --- Helper Functions ---
+
+const getFriendlyErrorMessage = (error: unknown): string | null => {
+  if (!error) return null
+
+  if (isAxiosError(error)) {
+    const payload = error.response?.data as { detail?: string; message?: string } | string | undefined
+    if (typeof payload === 'string') return payload
+    if (payload?.detail) return payload.detail
+    if (payload?.message) return payload.message
+    if (error.code === 'ECONNABORTED' || error.message?.toLowerCase().includes('timeout')) {
+      return 'Generation timed out, please retry.'
+    }
+    return error.message
+  }
+
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+
+  return 'Unexpected error occurred while loading the summary.'
+}
+
+// --- Components ---
 const FinancialCharts = dynamic(() => import('@/components/FinancialCharts'), {
   ssr: false,
   loading: () => <ChartsSkeleton />,
@@ -251,36 +307,6 @@ function FilingDetailView({ filingId }: { filingId: number }) {
     },
   })
 
-  const getFriendlyErrorMessage = (error: unknown): string | null => {
-    if (!error) return null
-
-    if (isAxiosError(error)) {
-      const payload = error.response?.data as { detail?: string; message?: string } | string | undefined
-      if (typeof payload === 'string') {
-        return payload
-      }
-      if (payload?.detail) {
-        return payload.detail
-      }
-      if (payload?.message) {
-        return payload.message
-      }
-      if (error.code === 'ECONNABORTED' || error.message?.toLowerCase().includes('timeout')) {
-        return 'Generation timed out, please retry.'
-      }
-      return error.message
-    }
-
-    if (error instanceof Error) {
-      return error.message
-    }
-
-    if (typeof error === 'string') {
-      return error
-    }
-
-    return 'Unexpected error occurred while loading the summary.'
-  }
 
   const saveMutation = useMutation({
     mutationFn: (summaryId: number) => saveSummary(summaryId),
@@ -540,19 +566,7 @@ function StreamingSummaryDisplay({
   const [showWhimsy, setShowWhimsy] = useState(false)
   const [optimisticProgress, setOptimisticProgress] = useState(0)
 
-  // Calculate strict stage-based progress first
-  const getStageBaseProgress = () => {
-    switch (stage) {
-      case 'queued': return 5
-      case 'fetching': return 10
-      case 'parsing': return 25
-      case 'analyzing': return 45
-      case 'summarizing': return 75
-      case 'completed': return 100
-      case 'error': return 0
-      default: return 0 // initializing
-    }
-  }
+  const isError = stage === 'error' || !!error
 
   useEffect(() => {
     setIsClient(true)
@@ -560,35 +574,21 @@ function StreamingSummaryDisplay({
 
   // Whimsy rotation effect
   useEffect(() => {
-    if (stage === 'completed' || stage === 'error' || error) {
+    if (stage === 'completed' || isError) {
       setShowWhimsy(false)
       return
     }
 
-    const whimsyMessages = [
-      "Turning caffeine into investments insights...",
-      "Teaching the AI to read between the lines...",
-      "Scanning 400 pages of footnotes so you don't have to...",
-      "Cross-referencing historical data with crystal ball predictions...",
-      "Translating 'Corporate Speak' into plain English...",
-      "Wait for it... the good stuff is coming...",
-      "Analyzing the fine print size 8 font...",
-      "Reviewing the obscure 'Other' section...",
-      "Decrypting the CEO's optimism...",
-      "Looking for hidden gems in the appendix..."
-    ]
-
     setShowWhimsy(true)
-
     // Initial random message
-    setWhimsyMessage(whimsyMessages[Math.floor(Math.random() * whimsyMessages.length)])
+    setWhimsyMessage(WHIMSY_MESSAGES[Math.floor(Math.random() * WHIMSY_MESSAGES.length)])
 
     const intervalId = setInterval(() => {
-      setWhimsyMessage(whimsyMessages[Math.floor(Math.random() * whimsyMessages.length)])
+      setWhimsyMessage(WHIMSY_MESSAGES[Math.floor(Math.random() * WHIMSY_MESSAGES.length)])
     }, 4000)
 
     return () => clearInterval(intervalId)
-  }, [stage, error])
+  }, [stage, isError])
 
   // Optimistic progress effect
   useEffect(() => {
@@ -596,38 +596,31 @@ function StreamingSummaryDisplay({
       setOptimisticProgress(100)
       return
     }
-    if (stage === 'error' || !!error) {
-      // Don't reset to 0 immediately on error to prevent jarring jumps, unless it was just starting
-      return
-    }
+    if (isError) return
 
-    const baseProgress = getStageBaseProgress()
-
-    // Set initial progress if we're behind
+    const baseProgress = STAGE_PROGRESS_MAP[stage] || 0
     setOptimisticProgress(prev => Math.max(prev, baseProgress))
 
-    // Progress increments every 100ms
     const interval = setInterval(() => {
       setOptimisticProgress(current => {
-        // Target is next major milestone or 95%
-        const target = stage === 'summarizing' ? 95 :
-          stage === 'analyzing' ? 75 :
-            stage === 'parsing' ? 45 :
-              stage === 'fetching' ? 25 : 95
+        // Find next target based on stage or current progress
+        let target = 95
+        if (stage === 'initializing' || stage === 'queued') target = 10
+        else if (stage === 'fetching') target = 25
+        else if (stage === 'parsing') target = 45
+        else if (stage === 'analyzing') target = 75
+        else if (stage === 'summarizing') target = 95
 
-        // If we are already ahead of target (rare), stay there 
         if (current >= target) return current
 
-        // Slow down as we get closer to the target (Zeno's paradox-ish)
         const remaining = target - current
         const increment = Math.max(0.05, remaining * 0.02)
-
         return Math.min(target, current + increment)
       })
     }, 100)
 
     return () => clearInterval(interval)
-  }, [stage, error])
+  }, [stage, isError])
 
   // Clean up progress when complete
   useEffect(() => {
@@ -653,7 +646,6 @@ function StreamingSummaryDisplay({
   }
 
   const displayText = streamingText || ''
-  const isError = stage === 'error' || !!error
   const isGenerating = !isError && (stage === 'summarizing' || displayText.length > 0 || optimisticProgress < 100)
 
   // Use whimsy message if available and generation is active but not showing text yet
@@ -752,35 +744,34 @@ function StreamingSummaryDisplay({
               <div className="absolute left-3 top-2 bottom-2 w-0.5 bg-gray-100 dark:bg-gray-700 lg:block hidden" />
 
               {/* Dynamically generate log steps based on progress */}
-              {[
-                { id: '1', label: 'Retrieving 10-Q filing from EDGAR', status: optimisticProgress > 10 ? 'complete' : optimisticProgress > 0 ? 'active' : 'pending' },
-                { id: '2', label: 'Extracting Item 1A (Risk Factors) & MD&A', status: optimisticProgress > 25 ? 'complete' : optimisticProgress > 10 ? 'active' : 'pending' },
-                { id: '3', label: 'Vectorizing content for semantic analysis', status: optimisticProgress > 45 ? 'complete' : optimisticProgress > 25 ? 'active' : 'pending' },
-                { id: '4', label: 'Synthesizing investment insights', status: optimisticProgress > 70 ? 'complete' : optimisticProgress > 45 ? 'active' : 'pending' }
-              ].map((step) => (
-                <div key={step.id} className={`flex items-center gap-3 transition-opacity duration-300 ${step.status === 'pending' ? 'opacity-40' : 'opacity-100'
-                  }`}>
-                  <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center border transition-all duration-300 ${step.status === 'complete'
-                    ? 'bg-emerald-500 border-emerald-500 text-white'
-                    : step.status === 'active'
-                      ? 'bg-white dark:bg-gray-800 border-primary-500 text-primary-600'
-                      : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                    }`}>
-                    {step.status === 'complete' && (
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    )}
-                    {step.status === 'active' && (
-                      <div className="w-2 h-2 rounded-full bg-primary-600 dark:bg-primary-400 animate-pulse" />
-                    )}
+              {LOADING_STEPS.map((step) => {
+                const status = optimisticProgress > step.threshold
+                  ? 'complete'
+                  : optimisticProgress > (step.threshold - 10) ? 'active' : 'pending'
+
+                return (
+                  <div key={step.id} className={`flex items-center gap-3 transition-opacity duration-300 ${status === 'pending' ? 'opacity-40' : 'opacity-100'}`}>
+                    <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center border transition-all duration-300 ${status === 'complete'
+                      ? 'bg-emerald-500 border-emerald-500 text-white'
+                      : status === 'active'
+                        ? 'bg-white dark:bg-gray-800 border-primary-500 text-primary-600'
+                        : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                      }`}>
+                      {status === 'complete' && (
+                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
+                      {status === 'active' && (
+                        <div className="w-2 h-2 rounded-full bg-primary-600 dark:bg-primary-400 animate-pulse" />
+                      )}
+                    </div>
+                    <span className={`text-sm ${status === 'active' ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>
+                      {step.label}
+                    </span>
                   </div>
-                  <span className={`text-sm ${step.status === 'active' ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'
-                    }`}>
-                    {step.label}
-                  </span>
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         </div>
