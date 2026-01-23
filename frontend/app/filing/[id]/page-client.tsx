@@ -538,6 +538,21 @@ function StreamingSummaryDisplay({
   const [isClient, setIsClient] = useState(false)
   const [whimsyMessage, setWhimsyMessage] = useState('')
   const [showWhimsy, setShowWhimsy] = useState(false)
+  const [optimisticProgress, setOptimisticProgress] = useState(0)
+
+  // Calculate strict stage-based progress first
+  const getStageBaseProgress = () => {
+    switch (stage) {
+      case 'queued': return 5
+      case 'fetching': return 10
+      case 'parsing': return 25
+      case 'analyzing': return 45
+      case 'summarizing': return 75
+      case 'completed': return 100
+      case 'error': return 0
+      default: return 0 // initializing
+    }
+  }
 
   useEffect(() => {
     setIsClient(true)
@@ -551,15 +566,15 @@ function StreamingSummaryDisplay({
     }
 
     const whimsyMessages = [
-      "Reading page 42 of 150... (It's mostly legal jargon)",
-      "Analyzing 'Risk Factors' so you don't have to...",
-      "Cross-referencing historical performance...",
-      "Teaching the AI what 'EBITDA' means again...",
-      "Sipping digital coffee...",
-      "Parsing footnotes size 8 font...",
+      "Turning caffeine into investments insights...",
+      "Teaching the AI to read between the lines...",
+      "Scanning 400 pages of footnotes so you don't have to...",
+      "Cross-referencing historical data with crystal ball predictions...",
+      "Translating 'Corporate Speak' into plain English...",
+      "Wait for it... the good stuff is coming...",
+      "Analyzing the fine print size 8 font...",
       "Reviewing the obscure 'Other' section...",
-      "Connecting to the neural mainframe...",
-      "Decrypting corporate speak...",
+      "Decrypting the CEO's optimism...",
       "Looking for hidden gems in the appendix..."
     ]
 
@@ -574,6 +589,52 @@ function StreamingSummaryDisplay({
 
     return () => clearInterval(intervalId)
   }, [stage, error])
+
+  // Optimistic progress effect
+  useEffect(() => {
+    if (stage === 'completed') {
+      setOptimisticProgress(100)
+      return
+    }
+    if (stage === 'error' || !!error) {
+      // Don't reset to 0 immediately on error to prevent jarring jumps, unless it was just starting
+      return
+    }
+
+    const baseProgress = getStageBaseProgress()
+
+    // Set initial progress if we're behind
+    setOptimisticProgress(prev => Math.max(prev, baseProgress))
+
+    // Progress increments every 100ms
+    const interval = setInterval(() => {
+      setOptimisticProgress(current => {
+        // Target is next major milestone or 95%
+        const target = stage === 'summarizing' ? 95 :
+          stage === 'analyzing' ? 75 :
+            stage === 'parsing' ? 45 :
+              stage === 'fetching' ? 25 : 95
+
+        // If we are already ahead of target (rare), stay there 
+        if (current >= target) return current
+
+        // Slow down as we get closer to the target (Zeno's paradox-ish)
+        const remaining = target - current
+        const increment = Math.max(0.05, remaining * 0.02)
+
+        return Math.min(target, current + increment)
+      })
+    }, 100)
+
+    return () => clearInterval(interval)
+  }, [stage, error])
+
+  // Clean up progress when complete
+  useEffect(() => {
+    if (stage === 'completed') {
+      setOptimisticProgress(100)
+    }
+  }, [stage])
 
   if (!isClient) {
     return (
@@ -591,160 +652,137 @@ function StreamingSummaryDisplay({
     )
   }
 
-  const getStageProgress = () => {
-    switch (stage) {
-      case 'queued':
-        return { percentage: 10, label: 'Queueing analysis job...', icon: '⏳' }
-      case 'fetching':
-        return { percentage: 25, label: 'Downloading 10-K from SEC EDGAR...', icon: '📥' }
-      case 'parsing':
-        return { percentage: 45, label: 'Extracting Risk Factors & MD&A sections...', icon: '🔍' }
-      case 'analyzing':
-        return { percentage: 70, label: 'AI Model is reading content...', icon: '🧠' }
-      case 'summarizing':
-        return { percentage: 90, label: 'Synthesizing investment highlights...', icon: '✨' }
-      case 'initializing':
-        return { percentage: 5, label: 'Establishing secure connection...', icon: '⚡' }
-      case 'error':
-        return { percentage: 0, label: 'Generation failed', icon: '⛔️' }
-      default:
-        // Optimistic fallback for unknown states
-        return { percentage: 15, label: 'Processing...', icon: '⚡' }
-    }
-  }
-
-  const progress = getStageProgress()
   const displayText = streamingText || ''
   const isError = stage === 'error' || !!error
-  const isGenerating = !isError && (stage === 'summarizing' || displayText.length > 0)
+  const isGenerating = !isError && (stage === 'summarizing' || displayText.length > 0 || optimisticProgress < 100)
 
   // Use whimsy message if available and generation is active but not showing text yet
   // or if we are in a long running state.
   // Actually, let's show whimsy message as a sub-text or rotating label
-  const activeMessage = error || message || progress.label
+  const activeMessage = error || message || stage
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Progress Header */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-4 flex-1">
-            <div className="relative w-16 h-16 flex-shrink-0">
-              {/* Clean circular progress */}
-              <svg className="w-16 h-16 transform -rotate-90" viewBox="0 0 64 64">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 relative overflow-hidden">
+        {/* Shimmer overlay for active generation */}
+        {isGenerating && (
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
+        )}
+
+        <div className="flex flex-col md:flex-row gap-8 relative z-10">
+          {/* Left: Heartbeat Indicator */}
+          <div className="flex flex-col items-center justify-center space-y-4 md:w-1/3 border-b md:border-b-0 md:border-r border-gray-100 dark:border-gray-700 pb-6 md:pb-0 md:pr-6">
+            <div className="relative w-32 h-32 flex-shrink-0">
+              {/* Outer Ring */}
+              <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 128 128">
                 <circle
-                  cx="32"
-                  cy="32"
-                  r="28"
+                  cx="64"
+                  cy="64"
+                  r="60"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="4"
-                  className="text-gray-200 dark:text-gray-700"
+                  strokeWidth="6"
+                  className="text-gray-100 dark:text-gray-800"
                 />
                 <circle
-                  cx="32"
-                  cy="32"
-                  r="28"
+                  cx="64"
+                  cy="64"
+                  r="60"
                   fill="none"
                   stroke="currentColor"
-                  strokeWidth="4"
-                  strokeDasharray={`${2 * Math.PI * 28}`}
-                  strokeDashoffset={`${2 * Math.PI * 28 * (1 - progress.percentage / 100)}`}
+                  strokeWidth="6"
+                  strokeDasharray={`${2 * Math.PI * 60}`}
+                  strokeDashoffset={`${2 * Math.PI * 60 * (1 - optimisticProgress / 100)}`}
                   strokeLinecap="round"
-                  className={`transition-all duration-500 ${isError ? 'text-red-500' : 'text-primary-600 dark:text-primary-400'
-                    }`}
-                  style={{
-                    animation: isGenerating && !isError ? 'spin 2s linear infinite' : 'none'
-                  }}
+                  className={`transition-all duration-700 ease-out ${isError ? 'text-rose-500' : 'text-primary-600 dark:text-primary-400'}`}
                 />
               </svg>
+
+              {/* Center Heartbeat Orb */}
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className={`text-lg font-semibold ${isError ? 'text-red-600 dark:text-red-400' : 'text-primary-600 dark:text-primary-400'
+                <div className={`relative w-16 h-16 rounded-full flex items-center justify-center transition-colors duration-500 ${isError
+                  ? 'bg-rose-100 dark:bg-rose-900/30'
+                  : 'bg-primary-50 dark:bg-primary-900/20'
                   }`}>
-                  {progress.percentage}%
-                </span>
+                  <div className={`w-8 h-8 rounded-full ${isError
+                    ? 'bg-rose-500'
+                    : 'bg-primary-600 dark:bg-primary-400'
+                    } ${isGenerating && !isError ? 'animate-pulse' : ''} shadow-lg shadow-primary-500/20`} />
+
+                  {/* Ripple effect */}
+                  {isGenerating && !isError && (
+                    <div className="absolute inset-0 rounded-full border border-primary-500/30 animate-ping" />
+                  )}
+                </div>
               </div>
             </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-3 mb-2">
-                <span className="text-2xl flex-shrink-0">{progress.icon}</span>
-                <h3 className={`text-xl font-semibold truncate ${isError
-                  ? 'text-red-700 dark:text-red-400'
-                  : 'text-gray-900 dark:text-white'
-                  }`}>
-                  {activeMessage}
-                </h3>
-              </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-1 flex items-center gap-2">
-                <span>{filing.filing_type} Filing Analysis</span>
-                {showWhimsy && !error && !displayText && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 animate-pulse">
-                    Thinking...
-                  </span>
-                )}
-              </p>
-              {/* Whimsy / Status text */}
-              <p className={`text-xs h-5 transition-opacity duration-300 ${isError
-                ? 'text-red-600 dark:text-red-400'
-                : 'text-gray-500 dark:text-gray-500 italic'
-                }`}>
-                {isError ? (
-                  'Generation failed. Please retry when ready.'
-                ) : (
-                  showWhimsy && !displayText ? whimsyMessage : ''
-                )}
+
+            <div className="text-center">
+              <h3 className={`text-lg font-semibold ${isError ? 'text-rose-600' : 'text-gray-900 dark:text-white'}`}>
+                {Math.round(optimisticProgress)}% Complete
+              </h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {filing.filing_type} • {isError ? 'Failed' : isGenerating ? 'Processing...' : 'Ready'}
               </p>
             </div>
           </div>
-        </div>
 
-        {/* Clean Progress Bar */}
-        <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
-          {isError && progress.percentage === 0 ? (
-            <div
-              className="bg-red-500 dark:bg-red-600 h-2 rounded-full transition-all duration-500 ease-out"
-              style={{ width: '100%' }}
-            />
-          ) : (
-            <div
-              className={`h-2 rounded-full transition-all duration-500 ease-out ${isError
-                ? 'bg-red-500 dark:bg-red-600'
-                : 'bg-primary-600 dark:bg-primary-500'
-                }`}
-              style={{ width: `${Math.max(progress.percentage, isError ? 0 : 5)}%` }}
-            />
-          )}
-        </div>
-
-        {/* Clean Stage indicator */}
-        <div className="mt-6 flex items-center justify-between text-xs">
-          {[
-            { key: 'fetching', label: 'Fetching', active: stage === 'fetching' || stage === 'parsing' || stage === 'analyzing' || stage === 'summarizing' },
-            { key: 'parsing', label: 'Parsing', active: stage === 'parsing' || stage === 'analyzing' || stage === 'summarizing' },
-            { key: 'analyzing', label: 'Analyzing', active: stage === 'analyzing' || stage === 'summarizing' },
-            { key: 'generating', label: 'Generating', active: stage === 'summarizing' }
-          ].map((step, index, array) => (
-            <div key={step.key} className="flex items-center flex-1 min-w-0">
-              <div className="flex items-center space-x-2 flex-1 min-w-0">
-                <div className={`w-2 h-2 rounded-full flex-shrink-0 transition-all duration-300 ${step.active
-                  ? 'bg-primary-600 dark:bg-primary-400'
-                  : 'bg-gray-300 dark:bg-gray-600'
-                  }`} />
-                <span className={`text-xs font-medium truncate transition-colors duration-300 ${step.active
-                  ? 'text-primary-700 dark:text-primary-300 font-semibold'
-                  : 'text-gray-400 dark:text-gray-500'
-                  }`}>
-                  {step.label}
-                </span>
+          {/* Right: Live Log & Whimsy */}
+          <div className="flex-1 flex flex-col justify-center min-w-0">
+            {/* Whimsy Message Area */}
+            <div className="mb-6 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800/50 dark:to-gray-800 rounded-lg p-4 border border-gray-100 dark:border-gray-700/50">
+              <div className="flex items-start gap-3">
+                <div className="mt-1">
+                  <span className="text-xl">✨</span>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200 animate-[fadeIn_0.5s_ease-out]">
+                    {isError ? "We hit a snag, but don't worry." : (showWhimsy ? whimsyMessage : "Initializing...")}
+                  </p>
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                    AI Analyst System
+                  </p>
+                </div>
               </div>
-              {index < array.length - 1 && (
-                <div className={`flex-1 h-px mx-2 transition-all duration-300 ${step.active
-                  ? 'bg-primary-300 dark:bg-primary-600'
-                  : 'bg-gray-200 dark:bg-gray-700'
-                  }`} />
-              )}
             </div>
-          ))}
+
+            {/* Vertical Live Log */}
+            <div className="flex flex-col space-y-4 relative">
+              <div className="absolute left-3 top-2 bottom-2 w-0.5 bg-gray-100 dark:bg-gray-700 lg:block hidden" />
+
+              {/* Dynamically generate log steps based on progress */}
+              {[
+                { id: '1', label: 'Retrieving 10-Q filing from EDGAR', status: optimisticProgress > 10 ? 'complete' : optimisticProgress > 0 ? 'active' : 'pending' },
+                { id: '2', label: 'Extracting Item 1A (Risk Factors) & MD&A', status: optimisticProgress > 25 ? 'complete' : optimisticProgress > 10 ? 'active' : 'pending' },
+                { id: '3', label: 'Vectorizing content for semantic analysis', status: optimisticProgress > 45 ? 'complete' : optimisticProgress > 25 ? 'active' : 'pending' },
+                { id: '4', label: 'Synthesizing investment insights', status: optimisticProgress > 70 ? 'complete' : optimisticProgress > 45 ? 'active' : 'pending' }
+              ].map((step) => (
+                <div key={step.id} className={`flex items-center gap-3 transition-opacity duration-300 ${step.status === 'pending' ? 'opacity-40' : 'opacity-100'
+                  }`}>
+                  <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center border transition-all duration-300 ${step.status === 'complete'
+                    ? 'bg-emerald-500 border-emerald-500 text-white'
+                    : step.status === 'active'
+                      ? 'bg-white dark:bg-gray-800 border-primary-500 text-primary-600'
+                      : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                    }`}>
+                    {step.status === 'complete' && (
+                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                    {step.status === 'active' && (
+                      <div className="w-2 h-2 rounded-full bg-primary-600 dark:bg-primary-400 animate-pulse" />
+                    )}
+                  </div>
+                  <span className={`text-sm ${step.status === 'active' ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'
+                    }`}>
+                    {step.label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
 
