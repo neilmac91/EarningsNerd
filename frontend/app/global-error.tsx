@@ -2,7 +2,10 @@
 
 import * as Sentry from '@sentry/nextjs'
 
+import { Inter } from 'next/font/google'
 import { useEffect } from 'react'
+
+const inter = Inter({ subsets: ['latin'] })
 
 export default function GlobalError({
     error,
@@ -16,7 +19,7 @@ export default function GlobalError({
     }, [error])
 
     return (
-        <html>
+        <html lang="en" className={inter.className}>
             <body>
                 <div className="flex min-h-screen flex-col items-center justify-center bg-white p-4 text-center dark:bg-slate-900">
                     <div className="mx-auto max-w-md space-y-4">
