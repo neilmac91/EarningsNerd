@@ -78,7 +78,7 @@ test.describe('Home Page - Unauthenticated Users', () => {
     // Using a very short wait here just to ensure event loop clears
     // Prefer explicit waits where possible, but here we're checking for absence of errors
     await page.waitForLoadState('domcontentloaded')
-    
+
     expect(errors).toHaveLength(0)
   })
 })
