@@ -1,8 +1,9 @@
 import api, { getApiUrl } from '@/lib/api/client'
 import type { FinancialHighlights, RiskFactor } from '@/types/summary'
 
-// Increased to 150 seconds (2.5 minutes) to accommodate backend retries with exponential backoff
-const STREAM_TIMEOUT_MS = 150000
+// Increased to 600 seconds (10 minutes) to accommodate long-running AI analysis operations
+// The heartbeat mechanism keeps the connection alive, but we need sufficient timeout for complex filings
+const STREAM_TIMEOUT_MS = 600000
 
 export interface Summary {
   id: number

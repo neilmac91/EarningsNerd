@@ -351,14 +351,37 @@ async def generate_summary_stream(
                 mark_stage("context_enrichment")
 
                 # Now run AI summarization (with excerpt/XBRL if available)
-                summary_payload = await openai_service.summarize_filing(
+                # Wrap in task to enable heartbeat loop while waiting
+                summary_task = asyncio.create_task(openai_service.summarize_filing(
                     filing_text,
                     company_name,
                     filing_type,
                     previous_filings=None,
                     xbrl_metrics=xbrl_metrics,
                     filing_excerpt=excerpt,
-                )
+                ))
+
+                # Heartbeat loop - keep connection alive while waiting for AI
+                # This prevents HTTP connection timeout during long-running AI operations
+                from app.config import settings
+                
+                while not summary_task.done():
+                    # Wait for task completion or heartbeat interval
+                    done, pending = await asyncio.wait(
+                        [summary_task], 
+                        timeout=settings.STREAM_HEARTBEAT_INTERVAL,
+                        return_when=asyncio.FIRST_COMPLETED
+                    )
+                    
+                    if summary_task in done:
+                        # Task completed, exit loop
+                        break
+                    
+                    # Task still running, send heartbeat
+                    yield f"data: {json.dumps({'type': 'progress', 'stage': 'analyzing', 'message': 'Processing financial data with AI...'})}\n\n"
+                
+                # Get result (or raise exception if task failed)
+                summary_payload = await summary_task
                 mark_stage("generate_summary")
 
                 # Check if summary has error status - handle early
