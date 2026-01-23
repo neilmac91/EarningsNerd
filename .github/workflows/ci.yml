@@ -67,11 +67,13 @@ jobs:
         working-directory: frontend
         env:
           NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+          WAITLIST_MODE: 'false'
       - name: Start frontend server
         run: npm run start &
         working-directory: frontend
         env:
           NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+          WAITLIST_MODE: 'false'
       - name: Wait for frontend server
         run: npx wait-on http://localhost:3000 --timeout 60000
         working-directory: frontend

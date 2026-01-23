@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const ALLOWED_PATHS = new Set([
   '/waitlist',
+  '/login',
+  '/register',
   '/privacy',
   '/security',
   '/contact',
