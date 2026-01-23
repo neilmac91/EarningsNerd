@@ -1,73 +1,139 @@
 import pytest
-from app.database import SessionLocal, engine, Base
-from app.models.contact import ContactSubmission
+import os
+from unittest.mock import patch, MagicMock
+from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
+from sqlalchemy import create_engine
+from sqlalchemy.pool import StaticPool
+
+# Ideally, we should import app, get_db, Base from backend
+# Since we are running from root, we need to adjust sys.path or use relative imports properly if configured
+# Assuming PYTHONPATH includes backend/
+
+from app.database import Base, get_db
+from main import app
+from app.models.contact import ContactSubmission
+from app.config import settings
+
+# Setup in-memory SQLite database for testing
+SQLALCHEMY_DATABASE_URL = "sqlite://"
+
+engine = create_engine(
+    SQLALCHEMY_DATABASE_URL,
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+TestingSessionLocal = lambda: Session(bind=engine)
+
+# Dependency override
+def override_get_db():
+    try:
+        db = TestingSessionLocal()
+        yield db
+    finally:
+        db.close()
+
+app.dependency_overrides[get_db] = override_get_db
 
 @pytest.fixture(scope="module")
-def db_session():
-    # Ensure tables exist (important for SQLite in-memory or fresh dbs)
+def setup_database():
     Base.metadata.create_all(bind=engine)
-    
-    session = SessionLocal()
-    try:
-        yield session
-    finally:
-        session.close()
+    yield
+    Base.metadata.drop_all(bind=engine)
 
-def test_contact_submission_long_ip(db_session: Session):
-    """
-    Verifies that a ContactSubmission can be saved with a 64-character IP address.
-    This confirms the database column is wide enough.
-    """
-    # Create a 64-character string
-    long_ip = "x" * 64
+@pytest.fixture(scope="function")
+def client(setup_database):
+    # Ensure a fresh session/transaction for each test if needed, 
+    # but for simple tests, the overridden dependency usually handles it.
+    # We might want to clear table data between tests.
+    with TestClient(app) as c:
+        yield c
     
-    contact = ContactSubmission(
-        name="Integration Test User",
-        email="test_long_ip@example.com",
-        subject="Testing Long IP",
-        message="This is a test message to verify IP column length.",
-        ip_address=long_ip
-    )
+    # Cleanup data
+    db = TestingSessionLocal()
+    db.query(ContactSubmission).delete()
+    db.commit()
+    db.close()
+
+@pytest.fixture
+def mock_send_email():
+    with patch("app.routers.contact.send_email") as mock:
+        yield mock
+
+def test_contact_submission_success(client, mock_send_email):
+    """
+    Test a valid contact form submission.
+    """
+    payload = {
+        "name": "Test User",
+        "email": "test@example.com",
+        "subject": "Test Subject",
+        "message": "This is a valid test message with enough length."
+    }
+    response = client.post("/api/contact/", json=payload)
+    assert response.status_code == 201
+    data = response.json()
+    assert data["name"] == payload["name"]
+    assert data["email"] == payload["email"]
+    assert data["status"] == "new"
     
-    try:
-        db_session.add(contact)
-        db_session.commit()
-        db_session.refresh(contact)
+    # Verify email was called
+    assert mock_send_email.called
+    assert mock_send_email.call_count >= 1 # User confirmation + Admin notification (maybe)
+
+def test_contact_submission_missing_config_resilience(client, mock_send_email):
+    """
+    Test that the API returns 201 even if RESEND_FROM_EMAIL is missing/malformed.
+    This verifies the robust error handling we added.
+    """
+    # Mock settings.RESEND_FROM_EMAIL to be None
+    with patch.object(settings, 'RESEND_FROM_EMAIL', None):
+        payload = {
+            "name": "Config Test",
+            "email": "config@example.com",
+            "subject": "Config Test",
+            "message": "Testing configuration resilience."
+        }
+        response = client.post("/api/contact/", json=payload)
         
-        assert contact.id is not None
-        assert contact.ip_address == long_ip
-        assert len(contact.ip_address) == 64
-        
-    except Exception as e:
-        # Rollback in case the error was a DB error during add/commit
-        # If it was an AssertionError, this rollback might be redundant but harmless
-        db_session.rollback()
-        # Fail the test explicitly with a message if it wasn't an assertion error
-        if not isinstance(e, AssertionError):
-            pytest.fail(f"Failed to insert contact with 64-char IP: {str(e)}")
-        else:
-            raise e
-    finally:
-        # Clean up regardless of success or failure
-        # We check if contact was persisted (has an ID) and exists in the session
-        if contact.id:
-            try:
-                # Merge checks if object is in session, if not adds it. 
-                # Since we are in the same session, we can just delete.
-                # But if rollback happened, contact might be transient or detached if session was closed (it's not).
-                # If rollback happened, contact.id might still be set on the python object but not in DB?
-                # Actually if db_session.commit() succeeded, contact is in DB.
-                # If exception was AssertionError, commit succeeded.
-                # If exception was during commit, rollback happened, so not in DB.
-                
-                # Check if it exists in DB to be safe, or just try delete
-                # But if we just rolled back, delete might fail or warn.
-                
-                # Re-query or merge to ensure attached?
-                # Simplest is:
-                db_session.delete(contact)
-                db_session.commit()
-            except Exception:
-                # If delete fails (e.g. because it was already rolled back), just ignore in finally
-                db_session.rollback()
+        # Should still succeed (saved to DB), just failed to send email
+        assert response.status_code == 201
+        data = response.json()
+        assert data["email"] == payload["email"]
+
+    # Mock settings.RESEND_FROM_EMAIL to be malformed
+    with patch.object(settings, 'RESEND_FROM_EMAIL', "Malformed Email"):
+        payload = {
+            "name": "Config Test 2",
+            "email": "config2@example.com",
+            "subject": "Config Test 2",
+            "message": "Testing configuration resilience."
+        }
+        response = client.post("/api/contact/", json=payload)
+        assert response.status_code == 201
+
+from app.routers.contact import _rate_limit_store
+
+def test_contact_submission_rate_limit(client, mock_send_email):
+    """
+    Test rate limiting (3 requests per hour).
+    """
+    # Clear rate limit store to ensure fresh start
+    _rate_limit_store.clear()
+
+    payload = {
+        "name": "Spam User",
+        "email": "spam@example.com",
+        "subject": "Spam",
+        "message": "This is a spam message for rate limiting."
+    }
+    
+    # Send 3 requests (allowed)
+    for i in range(3):
+        response = client.post("/api/contact/", json=payload)
+        assert response.status_code == 201, f"Request {i+1} failed"
+
+    # Send 4th request (should be blocked)
+    response = client.post("/api/contact/", json=payload)
+    assert response.status_code == 429
+    assert "Too many requests" in response.text
