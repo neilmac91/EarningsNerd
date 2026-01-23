@@ -34,8 +34,8 @@ test.describe('Home Page - Unauthenticated Users', () => {
   test('should display footer with links', async ({ page }) => {
     await page.goto('/')
 
-    // Check for footer links
-    const footer = page.locator('footer')
+    // Check for footer links (use .first() since there may be multiple footers)
+    const footer = page.locator('footer').first()
     await expect(footer).toBeVisible()
 
     // Check for privacy, security, and contact links
