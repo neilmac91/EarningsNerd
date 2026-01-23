@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any, List
 import asyncio
 import time
 import json
+import concurrent.futures
 from pydantic import BaseModel
 from fastapi.responses import Response, StreamingResponse
 
@@ -217,7 +218,19 @@ async def generate_summary_stream(
     async def stream_summary():
         # Create a new session for the async generator to avoid detached session issues
         from app.database import SessionLocal
-        with SessionLocal() as session:
+        
+        # Use a dedicated executor for DB operations to avoid blocking the event loop
+        loop = asyncio.get_event_loop()
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=3)
+
+        async def run_sync_db(func, *args, **kwargs):
+            """Helper to run DB operations in thread pool"""
+            return await loop.run_in_executor(executor, lambda: func(*args, **kwargs))
+
+        # We need to manage the session manualy since we can't use 'with' easily across async boundaries with threads
+        session = SessionLocal()
+        
+        try:
             pipeline_started_at = time.time()
             stage_started_at = pipeline_started_at
             stage_timings: List[tuple[str, float]] = []
@@ -229,20 +242,25 @@ async def generate_summary_stream(
                 stage_timings.append((stage_name, duration))
                 stage_started_at = now
 
-            executor = None
             try:
                 yield f"data: {json.dumps({'type': 'progress', 'stage': 'initializing', 'message': 'Initializing...'})}\n\n"
 
                 # Note: We use cached values (company_name, filing_type, etc.) from the outer scope
-                # to avoid detached session issues. Only re-query when we need to access relationships
-                # or update the filing object.
-                filing_in_session = session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
+                
+                # DB OP: Query filing
+                def get_filing_sync():
+                    return session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
+                
+                filing_in_session = await run_sync_db(get_filing_sync)
+                
                 if not filing_in_session:
                     yield f"data: {json.dumps({'type': 'error', 'message': 'Filing not found'})}\n\n"
                     return
 
                 # Step 1: File Validation
-                record_progress(session, filing_id, "fetching")
+                # DB OP: Record progress
+                await run_sync_db(record_progress, session, filing_id, "fetching")
+                
                 yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'Step 1: File Validation - Confirming document is accessible and parsable...'})}\n\n"
 
                 # Fetch filing document using cached URL
@@ -264,28 +282,24 @@ async def generate_summary_stream(
                 yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Starting parsing...'})}\n\n"
 
                 # Step 2: Section Parsing
-                record_progress(session, filing_id, "parsing")
+                # DB OP: Record progress
+                await run_sync_db(record_progress, session, filing_id, "parsing")
+                
                 yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Step 2: Section Parsing - Extracting major sections (Item 1A: Risk Factors, Item 7: MD&A)...'})}\n\n"
                 
-                # Parallelize excerpt extraction and XBRL fetching
-                import concurrent.futures
-                
-                # Extract excerpt in thread pool (CPU-bound regex operations)
-                loop = asyncio.get_event_loop()
-                executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
-                
+                # Extract excerpt - already offloaded to executor in original code, but we can use our executor
                 def extract_excerpt_sync():
-                    # Create a new session for the thread
+                     # Use the main session here since we are in a thread anyway, but create a new one to be safe/clean
+                     # or reuse the one we have if it's thread-safe enough (Session is not thread safe).
+                     # Safest is to use a fresh session for this read-only op or reuse the managed session if we lock it.
+                     # Given the original code created a new session, let's stick to that pattern for the heavy extraction.
                     from app.database import SessionLocal
                     with SessionLocal() as thread_session:
                         thread_filing = thread_session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
                         return get_or_cache_excerpt(thread_session, thread_filing, filing_text)
                 
-                excerpt_task = loop.run_in_executor(executor, extract_excerpt_sync)
-                
-                # Ensure executor is cleaned up
-                def cleanup_executor():
-                    executor.shutdown(wait=False)
+                # We can reuse our `run_sync_db` which uses `executor`
+                excerpt_task = asyncio.create_task(run_sync_db(extract_excerpt_sync))
                 
                 # Start XBRL fetching in parallel
                 xbrl_task = None
@@ -295,11 +309,15 @@ async def generate_summary_stream(
                             data = await xbrl_service.get_xbrl_data(filing_accession_number, company_cik)
                             if data:
                                 metrics = xbrl_service.extract_standardized_metrics(data)
-                                # Update filing in main session - re-query to ensure it's attached
-                                filing_for_update = session.query(Filing).filter(Filing.id == filing_id).first()
-                                if filing_for_update:
-                                    filing_for_update.xbrl_data = data
-                                    session.commit()
+                                
+                                # DB OP: Update filing xbrl_data
+                                def update_xbrl_sync():
+                                    filing_for_update = session.query(Filing).filter(Filing.id == filing_id).first()
+                                    if filing_for_update:
+                                        filing_for_update.xbrl_data = data
+                                        session.commit()
+                                
+                                await run_sync_db(update_xbrl_sync)
                                 return metrics
                         except Exception as xbrl_error:
                             print(f"[stream:{filing_id}] Error updating XBRL data: {str(xbrl_error)}")
@@ -311,13 +329,17 @@ async def generate_summary_stream(
                 yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Parsing complete...'})}\n\n"
 
                 # Step 3: Content Analysis
-                record_progress(session, filing_id, "analyzing")
+                # DB OP: Record progress
+                await run_sync_db(record_progress, session, filing_id, "analyzing")
+                
                 yield f"data: {json.dumps({'type': 'progress', 'stage': 'analyzing', 'message': 'Step 3: Content Analysis - Analyzing risk factors...'})}\n\n"
 
                 # Step 4: Summary Generation
                 yield f"data: {json.dumps({'type': 'progress', 'stage': 'analyzing', 'message': 'Step 4: Generating financial overview...'})}\n\n"
 
-                record_progress(session, filing_id, "summarizing")
+                # DB OP: Record progress
+                await run_sync_db(record_progress, session, filing_id, "summarizing")
+                
                 yield f"data: {json.dumps({'type': 'progress', 'stage': 'summarizing', 'message': 'Step 5: Generating investor-focused summary...'})}\n\n"
                 
                 # Wait for excerpt and XBRL with a short timeout (don't block AI for too long)
@@ -401,7 +423,9 @@ async def generate_summary_stream(
                     else None
                 )
                 if section_coverage:
-                    record_progress(
+                    # DB OP: Record progress
+                    await run_sync_db(
+                        record_progress,
                         session,
                         filing_id,
                         "summarizing",
@@ -425,52 +449,64 @@ async def generate_summary_stream(
 
                 raw_summary["sections"] = sections_info
 
-                # Re-query filing to ensure it's attached to session before accessing content_cache
-                filing_for_cache = session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
+                # DB OP: Persist summary
+                def save_summary_sync():
+                    # Re-query filing to ensure it's attached to session before accessing content_cache
+                    filing_for_cache = session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
 
-                # Save to database
-                summary = Summary(
-                    filing_id=filing_id,
-                    business_overview=markdown,
-                    financial_highlights=normalized_financial_section,
-                    risk_factors=risk_section,
-                    management_discussion=management_section,
-                    key_changes=guidance_section,
-                    raw_summary=raw_summary
-                )
-                session.add(summary)
+                    # Save to database
+                    summary = Summary(
+                        filing_id=filing_id,
+                        business_overview=markdown,
+                        financial_highlights=normalized_financial_section,
+                        risk_factors=risk_section,
+                        management_discussion=management_section,
+                        key_changes=guidance_section,
+                        raw_summary=raw_summary
+                    )
+                    session.add(summary)
 
-                # Now filing is attached to session, we can safely access content_cache
-                if filing_for_cache:
-                    cache = filing_for_cache.content_cache
-                    if sections_info:
-                        if cache is None:
-                            cache = FilingContentCache(
-                                filing_id=filing_id,
-                                critical_excerpt=excerpt,
-                                sections_payload=sections_info,
-                            )
+                    # Now filing is attached to session, we can safely access content_cache
+                    if filing_for_cache:
+                        cache = filing_for_cache.content_cache
+                        if sections_info:
+                            if cache is None:
+                                cache = FilingContentCache(
+                                    filing_id=filing_id,
+                                    critical_excerpt=excerpt,
+                                    sections_payload=sections_info,
+                                )
+                                session.add(cache)
+                            else:
+                                if excerpt and not cache.critical_excerpt:
+                                    cache.critical_excerpt = excerpt
+                                cache.sections_payload = sections_info
+                        elif excerpt and cache is None:
+                            cache = FilingContentCache(filing_id=filing_id, critical_excerpt=excerpt)
                             session.add(cache)
-                        else:
-                            if excerpt and not cache.critical_excerpt:
-                                cache.critical_excerpt = excerpt
-                            cache.sections_payload = sections_info
-                    elif excerpt and cache is None:
-                        cache = FilingContentCache(filing_id=filing_id, critical_excerpt=excerpt)
-                        session.add(cache)
 
-                session.commit()
+                    session.commit()
+                    # Return summary_id so we have it for the response if needed (though we rely on summary object usually)
+                    return summary.id
+
+                saved_summary_id = await run_sync_db(save_summary_sync)
+                
                 mark_stage("persist_summary")
 
                 if user_id:
-                    from app.models import User
-                    user = session.query(User).filter(User.id == user_id).first()
-                    if user:
-                        month = get_current_month()
-                        increment_user_usage(user.id, month, session)
+                    def track_usage_sync():
+                        from app.models import User
+                        user = session.query(User).filter(User.id == user_id).first()
+                        if user:
+                            month = get_current_month()
+                            increment_user_usage(user.id, month, session)
+                    
+                    await run_sync_db(track_usage_sync)
+                    
                 mark_stage("usage_tracking")
 
-                record_progress(session, filing_id, "completed")
+                # DB OP: Record complete
+                await run_sync_db(record_progress, session, filing_id, "completed")
 
                 # Check summary status and emit appropriate response
                 summary_status = summary_payload.get("status", "complete")
@@ -481,11 +517,11 @@ async def generate_summary_stream(
                 
                 # Emit status and completion
                 if summary_status == "partial":
-                    yield f"data: {json.dumps({'type': 'partial', 'message': summary_message or 'Some sections may not have loaded fully.', 'summary_id': summary.id})}\n\n"
+                    yield f"data: {json.dumps({'type': 'partial', 'message': summary_message or 'Some sections may not have loaded fully.', 'summary_id': saved_summary_id})}\n\n"
                 elif summary_status == "error":
-                    yield f"data: {json.dumps({'type': 'error', 'message': summary_message or 'Error generating summary', 'summary_id': summary.id})}\n\n"
+                    yield f"data: {json.dumps({'type': 'error', 'message': summary_message or 'Error generating summary', 'summary_id': saved_summary_id})}\n\n"
                 else:
-                    yield f"data: {json.dumps({'type': 'complete', 'summary_id': summary.id})}\n\n"
+                    yield f"data: {json.dumps({'type': 'complete', 'summary_id': saved_summary_id})}\n\n"
             except Exception as e:
                 import traceback
                 import sys
@@ -496,7 +532,7 @@ async def generate_summary_stream(
                 sys.stderr.write(f"[STREAM ERROR] {error_msg}\n{error_trace}\n")
                 sys.stderr.flush()
                 try:
-                    record_progress(session, filing_id, "error", error=error_msg[:200])
+                    await run_sync_db(record_progress, session, filing_id, "error", error=error_msg[:200])
                 except:
                     pass
                 
@@ -508,11 +544,16 @@ async def generate_summary_stream(
                 
                 yield f"data: {json.dumps({'type': 'error', 'message': error_message})}\n\n"
             finally:
-                # Clean up executor
+                # Clean up executor and session
                 try:
                     executor.shutdown(wait=False)
                 except:
                     pass
+                try:
+                    session.close()
+                except:
+                    pass
+                
                 total_elapsed = time.time() - pipeline_started_at
                 breakdown = ", ".join(f"{stage}:{duration:.2f}s" for stage, duration in stage_timings)
                 if breakdown:

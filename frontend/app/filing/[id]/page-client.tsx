@@ -161,7 +161,7 @@ function TickerFilingsView({ ticker }: { ticker: string }) {
 function FilingDetailView({ filingId }: { filingId: number }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  
+
   const [streamingText, setStreamingText] = useState('')
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingStage, setStreamingStage] = useState<string>('')
@@ -186,11 +186,11 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   // Smart back navigation handler
   const handleBack = () => {
     if (typeof window === 'undefined') return
-    
+
     // Check if user navigated from within the app (has referrer from same origin)
     const referrer = document.referrer
     const currentOrigin = window.location.origin
-    
+
     // If referrer exists and is from same origin, use browser back navigation
     // This preserves the user's navigation flow (e.g., from company page)
     if (referrer && referrer.startsWith(currentOrigin)) {
@@ -198,14 +198,14 @@ function FilingDetailView({ filingId }: { filingId: number }) {
       router.back()
       return
     }
-    
+
     // Fallback: navigate to company page if filing has company data
     // This handles cases where user came directly via URL or external link
     if (filing?.company?.ticker) {
       router.push(`/company/${filing.company.ticker}`)
       return
     }
-    
+
     // Last resort: go to homepage
     router.push('/')
   }
@@ -424,7 +424,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
       <header className="bg-gradient-to-r from-white via-gray-50 to-white dark:from-gray-800 dark:via-gray-900 dark:to-gray-800 shadow-lg border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-            <button 
+            <button
               onClick={handleBack}
               className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 inline-flex items-center space-x-1 transition-colors group"
             >
@@ -433,7 +433,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
             </button>
             <ThemeToggle />
           </div>
-          
+
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="flex-1">
               {filing.company ? (
@@ -474,7 +474,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
                 </>
               )}
             </div>
-            
+
             {/* Tech badge */}
             <div className="hidden md:flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-primary-50 to-blue-50 dark:from-primary-900/20 dark:to-blue-900/20 rounded-lg border border-primary-200 dark:border-primary-800">
               <div className="w-2 h-2 bg-primary-600 dark:bg-primary-400 rounded-full animate-pulse"></div>
@@ -487,7 +487,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {isStreaming || (hasStartedGeneration && !hasSummaryContent) ? (
-          <StreamingSummaryDisplay 
+          <StreamingSummaryDisplay
             streamingText={streamingText}
             stage={streamingStage}
             message={streamingMessage}
@@ -506,7 +506,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
             isAuthenticated={isAuthenticated}
           />
         ) : (
-          <StreamingSummaryDisplay 
+          <StreamingSummaryDisplay
             streamingText=""
             stage={activeErrorMessage ? 'error' : 'initializing'}
             message={activeErrorMessage || 'Initializing AI analysis...'}
@@ -536,10 +536,44 @@ function StreamingSummaryDisplay({
   onRetry?: () => void
 }) {
   const [isClient, setIsClient] = useState(false)
+  const [whimsyMessage, setWhimsyMessage] = useState('')
+  const [showWhimsy, setShowWhimsy] = useState(false)
 
   useEffect(() => {
     setIsClient(true)
   }, [])
+
+  // Whimsy rotation effect
+  useEffect(() => {
+    if (stage === 'completed' || stage === 'error' || error) {
+      setShowWhimsy(false)
+      return
+    }
+
+    const whimsyMessages = [
+      "Reading page 42 of 150... (It's mostly legal jargon)",
+      "Analyzing 'Risk Factors' so you don't have to...",
+      "Cross-referencing historical performance...",
+      "Teaching the AI what 'EBITDA' means again...",
+      "Sipping digital coffee...",
+      "Parsing footnotes size 8 font...",
+      "Reviewing the obscure 'Other' section...",
+      "Connecting to the neural mainframe...",
+      "Decrypting corporate speak...",
+      "Looking for hidden gems in the appendix..."
+    ]
+
+    setShowWhimsy(true)
+
+    // Initial random message
+    setWhimsyMessage(whimsyMessages[Math.floor(Math.random() * whimsyMessages.length)])
+
+    const intervalId = setInterval(() => {
+      setWhimsyMessage(whimsyMessages[Math.floor(Math.random() * whimsyMessages.length)])
+    }, 4000)
+
+    return () => clearInterval(intervalId)
+  }, [stage, error])
 
   if (!isClient) {
     return (
@@ -559,20 +593,23 @@ function StreamingSummaryDisplay({
 
   const getStageProgress = () => {
     switch (stage) {
+      case 'queued':
+        return { percentage: 10, label: 'Queueing analysis job...', icon: '⏳' }
       case 'fetching':
-        return { percentage: 20, label: 'Fetching filing document...', icon: '📥' }
+        return { percentage: 25, label: 'Downloading 10-K from SEC EDGAR...', icon: '📥' }
       case 'parsing':
-        return { percentage: 40, label: 'Parsing document structure...', icon: '🔍' }
+        return { percentage: 45, label: 'Extracting Risk Factors & MD&A sections...', icon: '🔍' }
       case 'analyzing':
-        return { percentage: 60, label: 'Analyzing content...', icon: '🧠' }
+        return { percentage: 70, label: 'AI Model is reading content...', icon: '🧠' }
       case 'summarizing':
-        return { percentage: 80, label: 'Generating insights...', icon: '✨' }
+        return { percentage: 90, label: 'Synthesizing investment highlights...', icon: '✨' }
       case 'initializing':
-        return { percentage: 5, label: 'Initializing AI analysis...', icon: '⚡' }
+        return { percentage: 5, label: 'Establishing secure connection...', icon: '⚡' }
       case 'error':
         return { percentage: 0, label: 'Generation failed', icon: '⛔️' }
       default:
-        return { percentage: 10, label: 'Preparing...', icon: '⚡' }
+        // Optimistic fallback for unknown states
+        return { percentage: 15, label: 'Processing...', icon: '⚡' }
     }
   }
 
@@ -580,6 +617,10 @@ function StreamingSummaryDisplay({
   const displayText = streamingText || ''
   const isError = stage === 'error' || !!error
   const isGenerating = !isError && (stage === 'summarizing' || displayText.length > 0)
+
+  // Use whimsy message if available and generation is active but not showing text yet
+  // or if we are in a long running state.
+  // Actually, let's show whimsy message as a sub-text or rotating label
   const activeMessage = error || message || progress.label
 
   return (
@@ -610,18 +651,16 @@ function StreamingSummaryDisplay({
                   strokeDasharray={`${2 * Math.PI * 28}`}
                   strokeDashoffset={`${2 * Math.PI * 28 * (1 - progress.percentage / 100)}`}
                   strokeLinecap="round"
-                  className={`transition-all duration-500 ${
-                    isError ? 'text-red-500' : 'text-primary-600 dark:text-primary-400'
-                  }`}
-                  style={{ 
+                  className={`transition-all duration-500 ${isError ? 'text-red-500' : 'text-primary-600 dark:text-primary-400'
+                    }`}
+                  style={{
                     animation: isGenerating && !isError ? 'spin 2s linear infinite' : 'none'
                   }}
                 />
               </svg>
               <div className="absolute inset-0 flex items-center justify-center">
-                <span className={`text-lg font-semibold ${
-                  isError ? 'text-red-600 dark:text-red-400' : 'text-primary-600 dark:text-primary-400'
-                }`}>
+                <span className={`text-lg font-semibold ${isError ? 'text-red-600 dark:text-red-400' : 'text-primary-600 dark:text-primary-400'
+                  }`}>
                   {progress.percentage}%
                 </span>
               </div>
@@ -629,54 +668,54 @@ function StreamingSummaryDisplay({
             <div className="flex-1 min-w-0">
               <div className="flex items-center space-x-3 mb-2">
                 <span className="text-2xl flex-shrink-0">{progress.icon}</span>
-                <h3 className={`text-xl font-semibold truncate ${
-                  isError 
-                    ? 'text-red-700 dark:text-red-400' 
-                    : 'text-gray-900 dark:text-white'
-                }`}>
+                <h3 className={`text-xl font-semibold truncate ${isError
+                  ? 'text-red-700 dark:text-red-400'
+                  : 'text-gray-900 dark:text-white'
+                  }`}>
                   {activeMessage}
                 </h3>
               </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-1">
-                {filing.filing_type} Filing Analysis
+              <p className="text-sm text-gray-600 dark:text-gray-400 font-medium mb-1 flex items-center gap-2">
+                <span>{filing.filing_type} Filing Analysis</span>
+                {showWhimsy && !error && !displayText && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 animate-pulse">
+                    Thinking...
+                  </span>
+                )}
               </p>
-              {/* Dynamic status text */}
-              <p className={`text-xs ${
-                isError 
-                  ? 'text-red-600 dark:text-red-400' 
-                  : 'text-gray-500 dark:text-gray-500'
-              }`}>
-                {isError && 'Generation failed. Please retry when ready.'}
-                {!isError && stage === 'initializing' && 'Preparing AI engine...'}
-                {!isError && stage === 'fetching' && 'Downloading SEC filing from EDGAR...'}
-                {!isError && stage === 'parsing' && 'Extracting critical sections (Item 1A & Item 7)...'}
-                {!isError && stage === 'analyzing' && 'Processing with AI model...'}
-                {!isError && stage === 'summarizing' && 'Generating investment insights...'}
-                {!isError && !stage && 'Initializing...'}
+              {/* Whimsy / Status text */}
+              <p className={`text-xs h-5 transition-opacity duration-300 ${isError
+                ? 'text-red-600 dark:text-red-400'
+                : 'text-gray-500 dark:text-gray-500 italic'
+                }`}>
+                {isError ? (
+                  'Generation failed. Please retry when ready.'
+                ) : (
+                  showWhimsy && !displayText ? whimsyMessage : ''
+                )}
               </p>
             </div>
           </div>
         </div>
-        
+
         {/* Clean Progress Bar */}
         <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2 overflow-hidden">
           {isError && progress.percentage === 0 ? (
-            <div 
+            <div
               className="bg-red-500 dark:bg-red-600 h-2 rounded-full transition-all duration-500 ease-out"
               style={{ width: '100%' }}
             />
           ) : (
-            <div 
-              className={`h-2 rounded-full transition-all duration-500 ease-out ${
-                isError 
-                  ? 'bg-red-500 dark:bg-red-600' 
-                  : 'bg-primary-600 dark:bg-primary-500'
-              }`}
+            <div
+              className={`h-2 rounded-full transition-all duration-500 ease-out ${isError
+                ? 'bg-red-500 dark:bg-red-600'
+                : 'bg-primary-600 dark:bg-primary-500'
+                }`}
               style={{ width: `${Math.max(progress.percentage, isError ? 0 : 5)}%` }}
             />
           )}
         </div>
-        
+
         {/* Clean Stage indicator */}
         <div className="mt-6 flex items-center justify-between text-xs">
           {[
@@ -687,25 +726,22 @@ function StreamingSummaryDisplay({
           ].map((step, index, array) => (
             <div key={step.key} className="flex items-center flex-1 min-w-0">
               <div className="flex items-center space-x-2 flex-1 min-w-0">
-                <div className={`w-2 h-2 rounded-full flex-shrink-0 transition-all duration-300 ${
-                  step.active 
-                    ? 'bg-primary-600 dark:bg-primary-400' 
-                    : 'bg-gray-300 dark:bg-gray-600'
-                }`} />
-                <span className={`text-xs font-medium truncate transition-colors duration-300 ${
-                  step.active 
-                    ? 'text-primary-700 dark:text-primary-300 font-semibold' 
-                    : 'text-gray-400 dark:text-gray-500'
-                }`}>
+                <div className={`w-2 h-2 rounded-full flex-shrink-0 transition-all duration-300 ${step.active
+                  ? 'bg-primary-600 dark:bg-primary-400'
+                  : 'bg-gray-300 dark:bg-gray-600'
+                  }`} />
+                <span className={`text-xs font-medium truncate transition-colors duration-300 ${step.active
+                  ? 'text-primary-700 dark:text-primary-300 font-semibold'
+                  : 'text-gray-400 dark:text-gray-500'
+                  }`}>
                   {step.label}
                 </span>
               </div>
               {index < array.length - 1 && (
-                <div className={`flex-1 h-px mx-2 transition-all duration-300 ${
-                  step.active 
-                    ? 'bg-primary-300 dark:bg-primary-600' 
-                    : 'bg-gray-200 dark:bg-gray-700'
-                }`} />
+                <div className={`flex-1 h-px mx-2 transition-all duration-300 ${step.active
+                  ? 'bg-primary-300 dark:bg-primary-600'
+                  : 'bg-gray-200 dark:bg-gray-700'
+                  }`} />
               )}
             </div>
           ))}
@@ -752,9 +788,29 @@ function StreamingSummaryDisplay({
           </div>
           <div className="prose prose-lg dark:prose-invert max-w-none">
             <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed font-sans">
-              {displayText}
+              <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  h1: ({ node, ...props }) => <h1 className="text-2xl font-bold mt-6 mb-4" {...props} />,
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  h2: ({ node, ...props }) => <h2 className="text-xl font-bold mt-5 mb-3" {...props} />,
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  h3: ({ node, ...props }) => <h3 className="text-lg font-bold mt-4 mb-2" {...props} />,
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  p: ({ node, ...props }) => <p className="mb-4" {...props} />,
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-4" {...props} />,
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-4" {...props} />,
+                  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                  li: ({ node, ...props }) => <li className="mb-1" {...props} />,
+                }}
+              >
+                {displayText}
+              </ReactMarkdown>
               {isGenerating && (
-                <span className="inline-block w-0.5 h-5 bg-primary-600 dark:bg-primary-400 ml-1 align-middle"></span>
+                <span className="inline-block w-0.5 h-5 bg-primary-600 dark:bg-primary-400 ml-1 align-middle animate-pulse"></span>
               )}
             </div>
           </div>
@@ -776,14 +832,14 @@ function StreamingSummaryDisplay({
               </p>
             </div>
           </div>
-          
+
           {/* Clean skeleton loader */}
           <div className="mt-6 space-y-3">
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6"></div>
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-4/5 mt-4"></div>
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full animate-pulse delay-75"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6 animate-pulse delay-150"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-4/5 mt-4 animate-pulse delay-200"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full animate-pulse delay-300"></div>
           </div>
         </div>
       )}
@@ -840,7 +896,7 @@ function SummaryDisplay({
     action_items?: string[]
     [key: string]: unknown
   }
-  
+
   const metadata: MetadataSections | null = rawSummary ? (rawSummary.sections as MetadataSections ?? null) : null
 
   const coverageSnapshot = rawSummary?.section_coverage as
@@ -855,7 +911,7 @@ function SummaryDisplay({
   const handleExportPDF = () => {
     const apiUrl = getApiUrl()
     const url = `${apiUrl}/api/summaries/filing/${filing.id}/export/pdf`
-    
+
     fetch(url, {
       credentials: 'include',
     })
@@ -891,7 +947,7 @@ function SummaryDisplay({
   const handleExportCSV = () => {
     const apiUrl = getApiUrl()
     const url = `${apiUrl}/api/summaries/filing/${filing.id}/export/csv`
-    
+
     fetch(url, {
       credentials: 'include',
     })
@@ -934,11 +990,10 @@ function SummaryDisplay({
               <button
                 onClick={() => saveMutation.mutate(summary.id)}
                 disabled={saveMutation.isPending || isSaved}
-                className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isSaved
-                    ? 'bg-green-100 text-green-700 cursor-not-allowed'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isSaved
+                  ? 'bg-green-100 text-green-700 cursor-not-allowed'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
               >
                 {isSaved ? (
                   <>
