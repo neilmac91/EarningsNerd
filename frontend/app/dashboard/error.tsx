@@ -6,7 +6,6 @@ import * as Sentry from '@sentry/nextjs'
 
 export default function DashboardError({
   error,
-  reset,
 }: {
   error: Error & { digest?: string }
   reset: () => void

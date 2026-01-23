@@ -40,7 +40,7 @@ export default function Error({
             Something went wrong
           </h1>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            We encountered an unexpected error. This has been logged and we'll look into it.
+            We encountered an unexpected error. This has been logged and we&apos;ll look into it.
           </p>
           {error.digest && (
             <p className="mt-2 text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
