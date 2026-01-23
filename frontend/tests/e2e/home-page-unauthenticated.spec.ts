@@ -41,7 +41,8 @@ test.describe('Home Page - Unauthenticated Users', () => {
     // Check for privacy, security, and contact links
     await expect(footer.locator('a[href*="privacy"]')).toBeVisible()
     await expect(footer.locator('a[href*="security"]')).toBeVisible()
-    await expect(footer.locator('a[href*="contact"]')).toBeVisible()
+    // Contact link uses mailto: instead of /contact
+    await expect(footer.locator('a[href*="mailto"]')).toBeVisible()
   })
 
   test('should not display "Application error" message', async ({ page }) => {
