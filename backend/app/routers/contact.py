@@ -241,15 +241,28 @@ async def send_contact_notifications(
     # Note: In a production environment with high volume, consider using a job queue
     try:
         # Send to admin (using environment variable or fallback)
-        admin_email = settings.RESEND_FROM_EMAIL.split("<")[-1].rstrip(">")  # Extract email from "Name <email>"
-        await send_email(
-            to=[admin_email],
-            subject=admin_subject,
-            html=admin_html,
-        )
-        logger.info(f"Admin notification email sent for submission #{submission_id}")
-    except ResendError as e:
-        logger.error(f"Failed to send admin notification email: {str(e)}")
+        from_email = settings.RESEND_FROM_EMAIL
+        if not from_email:
+            logger.warning("RESEND_FROM_EMAIL is not set, skipping admin notification")
+        else:
+            try:
+                # safe extraction of email
+                if "<" in from_email and ">" in from_email:
+                    admin_email = from_email.split("<")[-1].rstrip(">")
+                else:
+                    admin_email = from_email
+                
+                await send_email(
+                    to=[admin_email],
+                    subject=admin_subject,
+                    html=admin_html,
+                )
+                logger.info(f"Admin notification email sent for submission #{submission_id}")
+            except Exception as e:
+                 logger.error(f"Failed to process admin email address or send: {str(e)}")
+
+    except Exception as e:
+        logger.error(f"Failed to send admin notification email (outer): {str(e)}")
         # Don't raise - try to send user email anyway
 
     try:
