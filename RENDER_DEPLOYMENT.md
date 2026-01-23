@@ -49,8 +49,8 @@
      - Go to your service settings
      - Set **Root Directory**: `backend`
      - Set **Build Command**: `pip install --upgrade pip setuptools wheel && pip install -r requirements.txt`
-     - Set **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
-     - **CRITICAL**: Make sure the start command is exactly `uvicorn main:app --host 0.0.0.0 --port $PORT` (NOT `app.main:app`)
+     - Set **Start Command**: `python ../scripts/fix_contact_column.py && uvicorn main:app --host 0.0.0.0 --port $PORT`
+     - **CRITICAL**: Make sure the start command includes the migration script and is exactly as above (NOT `app.main:app`)
      - **CRITICAL**: Set **Python Version** to `3.11.9` in the Environment tab (if available)
      - Or ensure `runtime.txt` exists at repository root with `python-3.11.9`
      - Note: If Render keeps using Python 3.13, the updated pydantic (>=2.9.0) will work with Python 3.13
@@ -83,7 +83,7 @@
      - **Branch**: `main`
      - **Root Directory**: `backend`
      - **Build Command**: `pip install --upgrade pip setuptools wheel && pip install -r requirements.txt`
-     - **Start Command**: `uvicorn main:app --host 0.0.0.0 --port $PORT`
+     - **Start Command**: `python ../scripts/fix_contact_column.py && uvicorn main:app --host 0.0.0.0 --port $PORT`
      - **Plan**: `Free` (or paid plan)
 
 2. **Add Environment Variables** (same as Option A)
