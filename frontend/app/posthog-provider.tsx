@@ -35,8 +35,6 @@ function PostHogPageViewWrapper() {
 
 export function PostHogProvider({ children }: { children: React.ReactNode }) {
   const [initialized, setInitialized] = useState(false)
-  const [hasKey, setHasKey] = useState(false)
-
   useEffect(() => {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY
     const host = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com'
@@ -45,8 +43,6 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       console.warn('PostHog: NEXT_PUBLIC_POSTHOG_KEY not set, analytics disabled')
       return
     }
-
-    setHasKey(true)
 
     // Check cookie consent before initializing PostHog
     const initializePostHog = (preferences?: CookiePreferences | null) => {
@@ -140,11 +136,6 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener('cookieConsentChanged', handleConsentChange)
     }
   }, [initialized])
-
-  // If PostHog key is not configured, just render children without analytics
-  if (!hasKey) {
-    return <>{children}</>
-  }
 
   return (
     <PHProvider client={posthog}>
