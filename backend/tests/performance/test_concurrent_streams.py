@@ -1,138 +1,181 @@
 """
 Performance tests for concurrent long-running SSE connections.
-
-Verifies that:
-1. Server can handle multiple concurrent long-running stream connections
-2. Connection pool doesn't exhaust under load
-3. Timeout is respected and handled gracefully
-4. Resource usage remains within acceptable limits
 """
 
 import pytest
 import asyncio
-import time
+import json
+import httpx
 from unittest.mock import AsyncMock, MagicMock, patch
-from concurrent.futures import ThreadPoolExecutor
+import os
+# Set safe dummy secret key for testing
+os.environ["SECRET_KEY"] = "test-secret-key-must-be-long-enough-123"
+
+from main import app
+from app.routers.auth import get_current_user
+from app.database import get_db
+
+@pytest.mark.asyncio
+async def test_heartbeat_events_emitted_at_interval():
+    """
+    Verify that heartbeat events are emitted approximately every 5 seconds (or configured interval).
+    """
+    filing_id = 123
+    user_id = 999
+    
+    # Mock dependencies
+    mock_filing = MagicMock()
+    mock_filing.document_url = "http://test.com/filing.htm"
+    mock_filing.filing_type = "10-K"
+    mock_filing.accession_number = "000-000-000"
+    mock_filing.company = MagicMock()
+    mock_filing.company.name = "Test Corp"
+    mock_filing.company.cik = "1234567890"
+    mock_filing.content_cache = None
+    
+    mock_user = MagicMock()
+    mock_user.id = user_id
+    mock_user.is_pro = True
+    
+    # Mock slow AI operation
+    async def slow_summarize(*args, **kwargs):
+        # The configured interval in logic below is 2s
+        await asyncio.sleep(7)
+        return {
+            "status": "complete",
+            "business_overview": "Summary",
+            "raw_summary": {}
+        }
+
+    # Setup overrides
+    async def override_get_current_user():
+        return mock_user
+
+    mock_db = MagicMock()
+    # Handle query chains
+    # db.query(Filing).options(...).filter(...).first()
+    mock_db.query.return_value.options.return_value.filter.return_value.first.return_value = mock_filing
+    # db.query(Summary).filter(...).first() -> None
+    mock_db.query.return_value.filter.return_value.first.return_value = None
+
+    def override_get_db():
+        return mock_db
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_db] = override_get_db
+    
+    # Mock SessionLocal for the background stream task
+    mock_session_cls = MagicMock()
+    mock_session_cls.return_value.__enter__.return_value = mock_db
+
+    try:
+        with patch("app.routers.summaries.sec_edgar_service.get_filing_document", new_callable=AsyncMock, return_value="Filing text"), \
+             patch("app.routers.summaries.openai_service.summarize_filing", side_effect=slow_summarize), \
+             patch("app.routers.summaries.check_usage_limit", return_value=(True, 0, 10)), \
+             patch("app.routers.summaries.record_progress"), \
+             patch("app.routers.summaries.get_or_cache_excerpt", return_value="excerpt"), \
+             patch("app.config.settings.STREAM_HEARTBEAT_INTERVAL", 2), \
+             patch("app.database.SessionLocal", mock_session_cls):
+            
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+                async with client.stream(
+                    "POST", 
+                    f"/api/summaries/filing/{filing_id}/generate-stream",
+                    headers={"Authorization": "Bearer test-token"}
+                ) as response:
+                    assert response.status_code == 200
+                    
+                    events = []
+                    async for line in response.aiter_lines():
+                        if line.startswith("data: "):
+                            data = json.loads(line[6:])
+                            events.append(data)
+                    
+                    # Filter for heartbeat events
+                    heartbeats = [e for e in events if e.get("type") == "progress" and "Processing financial data" in e.get("message", "")]
+                    
+                    # Should have at least 2-3 heartbeats
+                    assert len(heartbeats) >= 2
+    finally:
+        app.dependency_overrides.clear()
 
 
 @pytest.mark.asyncio
 async def test_concurrent_stream_connections():
     """
     Test that server can handle multiple concurrent long-running connections.
-    This simulates multiple users simultaneously requesting summaries.
     """
-    # This is a documentation/guidance test
-    # Actual load testing should be done with tools like:
-    # - k6 (https://k6.io)
-    # - Locust (https://locust.io)
-    # - Artillery (https://www.artillery.io)
+    n_concurrent = 5
+    filing_id = 123
+    user_id = 999
     
-    # Expected behavior:
-    # - 10 concurrent connections, each taking 60 seconds
-    # - All connections should remain open
-    # - Heartbeat events should continue for all connections
-    # - No connection pool exhaustion
-    # - Memory/CPU usage should remain stable
+    mock_filing = MagicMock()
+    mock_filing.document_url = "http://test.com/filing.htm"
+    mock_filing.company.name = "Test Corp"
+    mock_filing.filing_type = "10-K"
     
-    # Example k6 script structure:
-    """
-    import http from 'k6/http';
-    import { check } from 'k6';
-    
-    export const options = {
-      scenarios: {
-        concurrent_streams: {
-          executor: 'constant-vus',
-          vus: 10,  // 10 concurrent users
-          duration: '2m',  // Run for 2 minutes
-        },
-      },
-    };
-    
-    export default function () {
-      const response = http.post(
-        'https://api.earningsnerd.io/api/summaries/filing/123/generate-stream',
-        null,
-        {
-          headers: {
-            'Authorization': 'Bearer test-token',
-          },
-          timeout: '10m',  // 10 minute timeout
+    mock_user = MagicMock()
+    mock_user.id = user_id
+    mock_user.is_pro = True
+
+    async def medium_summarize(*args, **kwargs):
+        await asyncio.sleep(2)
+        return {
+            "status": "complete",
+            "business_overview": "Summary",
+            "raw_summary": {}
         }
-      );
-      
-      check(response, {
-        'status is 200': (r) => r.status === 200,
-        'content-type is event-stream': (r) => 
-          r.headers['Content-Type']?.includes('text/event-stream'),
-      });
-      
-      // Read stream for at least 60 seconds
-      // Verify heartbeat events arrive every ~5 seconds
-    };
-    """
+
+    mock_db = MagicMock()
+    # We need to be careful with mock_db reuse across threads/tasks if they were real threads
+    # But here everything is async so it's fine.
+    # Also need to handle finding filing inside the stream (using SessionLocal)
+    mock_db.query.return_value.options.return_value.filter.return_value.first.return_value = mock_filing
+    mock_db.query.return_value.filter.return_value.first.return_value = None
+
+    async def override_get_current_user():
+        return mock_user
     
-    assert True  # Placeholder - actual load testing requires external tools
+    def override_get_db():
+        return mock_db
+        
+    # Mock SessionLocal for the background stream task
+    mock_session_cls = MagicMock()
+    mock_session_cls.return_value.__enter__.return_value = mock_db
 
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_db] = override_get_db
 
-@pytest.mark.asyncio
-async def test_timeout_handling():
-    """
-    Verify that 10-minute timeout is respected and handled gracefully.
-    """
-    # Test scenario:
-    # 1. Start a stream request
-    # 2. Simulate AI operation taking > 10 minutes
-    # 3. Verify timeout occurs at ~10 minutes
-    # 4. Verify error message is user-friendly
-    # 5. Verify connection is closed cleanly
-    
-    # Expected: Timeout error message sent to client, connection closed
-    assert True  # Placeholder - requires async HTTP client with timeout support
+    try:
+        with patch("app.routers.summaries.sec_edgar_service.get_filing_document", new_callable=AsyncMock, return_value="Filing text"), \
+             patch("app.routers.summaries.openai_service.summarize_filing", side_effect=medium_summarize), \
+             patch("app.routers.summaries.check_usage_limit", return_value=(True, 0, 10)), \
+             patch("app.routers.summaries.record_progress"), \
+             patch("app.routers.summaries.get_or_cache_excerpt", return_value="excerpt"), \
+             patch("app.database.SessionLocal", mock_session_cls):
 
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+                
+                async def make_request():
+                    async with client.stream(
+                        "POST", 
+                        f"/api/summaries/filing/{filing_id}/generate-stream",
+                        headers={"Authorization": "Bearer test-token"}
+                    ) as response:
+                        assert response.status_code == 200
+                        lines = []
+                        async for line in response.aiter_lines():
+                            lines.append(line)
+                        return lines
 
-@pytest.mark.asyncio
-async def test_resource_usage_under_load():
-    """
-    Monitor resource usage (memory, CPU, connections) under concurrent load.
-    """
-    # Metrics to track:
-    # - Active database connections
-    # - Memory usage per connection
-    # - CPU usage during heartbeat loops
-    # - Network buffer usage
-    
-    # Expected: No resource leaks, stable memory usage
-    assert True  # Placeholder - requires monitoring tools
-
-
-# Performance Testing Guidelines
-"""
-To perform actual performance testing:
-
-1. Use k6 for load testing:
-   ```bash
-   k6 run test_concurrent_streams.js
-   ```
-
-2. Monitor server metrics:
-   - Database connection pool size
-   - Active SSE connections
-   - Memory usage
-   - CPU usage
-   - Response times
-
-3. Test scenarios:
-   - 5 concurrent connections (normal load)
-   - 20 concurrent connections (peak load)
-   - 50 concurrent connections (stress test)
-   - Each connection running for 5-10 minutes
-
-4. Success criteria:
-   - All connections remain open
-   - Heartbeat events continue for all
-   - No connection pool exhaustion
-   - Memory usage stable (no leaks)
-   - CPU usage reasonable (<80% per core)
-   - Graceful timeout handling at 10 minutes
-"""
+                tasks = [make_request() for _ in range(n_concurrent)]
+                results = await asyncio.gather(*tasks)
+                
+                assert len(results) == n_concurrent
+                for lines in results:
+                    content = "".join(lines)
+                    if "complete" not in content:
+                        print(f"FAILED CONTENT: {content}")
+                    assert "complete" in content
+    finally:
+        app.dependency_overrides.clear()

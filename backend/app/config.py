@@ -91,6 +91,10 @@ class Settings(BaseSettings):
     FINNHUB_TIMEOUT_SECONDS: float = 6.0
     FINNHUB_MAX_CONCURRENCY: int = 4
     
+    # Stream Settings
+    STREAM_HEARTBEAT_INTERVAL: int = 5
+    STREAM_TIMEOUT: int = 600
+    
     class Config:
         env_file = ".env"
         # Pydantic Settings automatically checks environment variables first
