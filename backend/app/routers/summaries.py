@@ -4,6 +4,7 @@ from typing import Optional, Dict, Any, List
 import asyncio
 import time
 import json
+import concurrent.futures
 from pydantic import BaseModel
 from fastapi.responses import Response, StreamingResponse
 
@@ -217,214 +218,240 @@ async def generate_summary_stream(
     async def stream_summary():
         # Create a new session for the async generator to avoid detached session issues
         from app.database import SessionLocal
-        with SessionLocal() as session:
-            pipeline_started_at = time.time()
-            stage_started_at = pipeline_started_at
-            stage_timings: List[tuple[str, float]] = []
+        
+        # Use a dedicated executor for DB operations to avoid blocking the event loop
+        loop = asyncio.get_event_loop()
+        executor = concurrent.futures.ThreadPoolExecutor(max_workers=3)
 
-            def mark_stage(stage_name: str):
-                nonlocal stage_started_at
-                now = time.time()
-                duration = now - stage_started_at
-                stage_timings.append((stage_name, duration))
-                stage_started_at = now
+        async def run_sync_db(func, *args, **kwargs):
+            """Helper to run DB operations in thread pool"""
+            return await loop.run_in_executor(executor, lambda: func(*args, **kwargs))
 
-            executor = None
+        # We need to manage the session manualy since we can't use 'with' easily across async boundaries with threads
+        session = SessionLocal()
+        
+        pipeline_started_at = time.time()
+        stage_started_at = pipeline_started_at
+        stage_timings: List[tuple[str, float]] = []
+
+        def mark_stage(stage_name: str):
+            nonlocal stage_started_at
+            now = time.time()
+            duration = now - stage_started_at
+            stage_timings.append((stage_name, duration))
+            stage_started_at = now
+
+        try:
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 'initializing', 'message': 'Initializing...'})}\n\n"
+
+            # Note: We use cached values (company_name, filing_type, etc.) from the outer scope
+            # to avoid detached session issues. Only re-query when we need to access relationships
+            # or update the filing object.
+            
+            # DB OP: Query filing
+            def get_filing_sync():
+                return session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
+            
+            filing_in_session = await run_sync_db(get_filing_sync)
+            
+            if not filing_in_session:
+                yield f"data: {json.dumps({'type': 'error', 'message': 'Filing not found'})}\n\n"
+                return
+
+            # Step 1: File Validation
+            # DB OP: Record progress
+            await run_sync_db(record_progress, session, filing_id, "fetching")
+            
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'Step 1: File Validation - Confirming document is accessible and parsable...'})}\n\n"
+
+            # Fetch filing document using cached URL
             try:
-                yield f"data: {json.dumps({'type': 'progress', 'stage': 'initializing', 'message': 'Initializing...'})}\n\n"
+                filing_text = await sec_edgar_service.get_filing_document(
+                    filing_document_url,
+                    timeout=25.0
+                )
+                if not filing_text:
+                    raise ValueError("Filing document is empty or inaccessible")
+            except Exception as fetch_error:
+                error_msg = "Unable to retrieve this filing at the moment — please try again shortly."
+                yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
+                return
+            
+            mark_stage("fetch_document")
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'File validated and fetched successfully'})}\n\n"
 
-                # Note: We use cached values (company_name, filing_type, etc.) from the outer scope
-                # to avoid detached session issues. Only re-query when we need to access relationships
-                # or update the filing object.
-                filing_in_session = session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
-                if not filing_in_session:
-                    yield f"data: {json.dumps({'type': 'error', 'message': 'Filing not found'})}\n\n"
-                    return
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Starting parsing...'})}\n\n"
 
-                # Step 1: File Validation
-                record_progress(session, filing_id, "fetching")
-                yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'Step 1: File Validation - Confirming document is accessible and parsable...'})}\n\n"
-
-                # Fetch filing document using cached URL
-                try:
-                    filing_text = await sec_edgar_service.get_filing_document(
-                        filing_document_url,
-                        timeout=25.0
-                    )
-                    if not filing_text:
-                        raise ValueError("Filing document is empty or inaccessible")
-                except Exception as fetch_error:
-                    error_msg = "Unable to retrieve this filing at the moment — please try again shortly."
-                    yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
-                    return
-                
-                mark_stage("fetch_document")
-                yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'File validated and fetched successfully'})}\n\n"
-
-                yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Starting parsing...'})}\n\n"
-
-                # Step 2: Section Parsing
-                record_progress(session, filing_id, "parsing")
-                yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Step 2: Section Parsing - Extracting major sections (Item 1A: Risk Factors, Item 7: MD&A)...'})}\n\n"
-                
-                # Parallelize excerpt extraction and XBRL fetching
-                import concurrent.futures
-                
-                # Extract excerpt in thread pool (CPU-bound regex operations)
-                loop = asyncio.get_event_loop()
-                executor = concurrent.futures.ThreadPoolExecutor(max_workers=2)
-                
-                def extract_excerpt_sync():
-                    # Create a new session for the thread
-                    from app.database import SessionLocal
-                    with SessionLocal() as thread_session:
-                        thread_filing = thread_session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
-                        return get_or_cache_excerpt(thread_session, thread_filing, filing_text)
-                
-                excerpt_task = loop.run_in_executor(executor, extract_excerpt_sync)
-                
-                # Ensure executor is cleaned up
-                def cleanup_executor():
-                    executor.shutdown(wait=False)
-                
-                # Start XBRL fetching in parallel
-                xbrl_task = None
-                if filing_type and filing_type.upper() in {"10-K", "10-Q"} and company_cik:
-                    async def fetch_xbrl():
-                        try:
-                            data = await xbrl_service.get_xbrl_data(filing_accession_number, company_cik)
-                            if data:
-                                metrics = xbrl_service.extract_standardized_metrics(data)
-                                # Update filing in main session - re-query to ensure it's attached
+            # Step 2: Section Parsing
+            # DB OP: Record progress
+            await run_sync_db(record_progress, session, filing_id, "parsing")
+            
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Step 2: Section Parsing - Extracting major sections (Item 1A: Risk Factors, Item 7: MD&A)...'})}\n\n"
+            
+            # Extract excerpt - already offloaded to executor in original code, but we can use our executor
+            def extract_excerpt_sync():
+                    # Use the main session here since we are in a thread anyway, but create a new one to be safe/clean
+                    # or reuse the one we have if it's thread-safe enough (Session is not thread safe).
+                    # Safest is to use a fresh session for this read-only op or reuse the managed session if we lock it.
+                    # Given the original code created a new session, let's stick to that pattern for the heavy extraction.
+                from app.database import SessionLocal
+                with SessionLocal() as thread_session:
+                    thread_filing = thread_session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
+                    return get_or_cache_excerpt(thread_session, thread_filing, filing_text)
+            
+            # We can reuse our `run_sync_db` which uses `executor`
+            excerpt_task = asyncio.create_task(run_sync_db(extract_excerpt_sync))
+            
+            # Start XBRL fetching in parallel
+            xbrl_task = None
+            if filing_type and filing_type.upper() in {"10-K", "10-Q"} and company_cik:
+                async def fetch_xbrl():
+                    try:
+                        data = await xbrl_service.get_xbrl_data(filing_accession_number, company_cik)
+                        if data:
+                            metrics = xbrl_service.extract_standardized_metrics(data)
+                            
+                            # DB OP: Update filing xbrl_data
+                            def update_xbrl_sync():
                                 filing_for_update = session.query(Filing).filter(Filing.id == filing_id).first()
                                 if filing_for_update:
                                     filing_for_update.xbrl_data = data
                                     session.commit()
-                                return metrics
-                        except Exception as xbrl_error:
-                            print(f"[stream:{filing_id}] Error updating XBRL data: {str(xbrl_error)}")
-                            pass
-                        return None
-                    xbrl_task = asyncio.create_task(fetch_xbrl())
+                            
+                            await run_sync_db(update_xbrl_sync)
+                            return metrics
+                    except Exception as xbrl_error:
+                        print(f"[stream:{filing_id}] Error updating XBRL data: {str(xbrl_error)}")
+                        pass
+                    return None
+                xbrl_task = asyncio.create_task(fetch_xbrl())
+            
+            # Wait for parsing to complete
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Parsing complete...'})}\n\n"
+
+            # Step 3: Content Analysis
+            # DB OP: Record progress
+            await run_sync_db(record_progress, session, filing_id, "analyzing")
+            
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 'analyzing', 'message': 'Step 3: Content Analysis - Analyzing risk factors...'})}\n\n"
+
+            # Step 4: Summary Generation
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 'analyzing', 'message': 'Step 4: Generating financial overview...'})}\n\n"
+
+            # DB OP: Record progress
+            await run_sync_db(record_progress, session, filing_id, "summarizing")
+            
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 'summarizing', 'message': 'Step 5: Generating investor-focused summary...'})}\n\n"
+            
+            # Wait for excerpt and XBRL with a short timeout (don't block AI for too long)
+            excerpt = None
+            xbrl_metrics = None
+            try:
+                # Give excerpt/XBRL 2 seconds max, then proceed with AI
+                tasks_to_wait = [excerpt_task]
+                if xbrl_task:
+                    tasks_to_wait.append(xbrl_task)
                 
-                # Wait for parsing to complete
-                yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Parsing complete...'})}\n\n"
-
-                # Step 3: Content Analysis
-                record_progress(session, filing_id, "analyzing")
-                yield f"data: {json.dumps({'type': 'progress', 'stage': 'analyzing', 'message': 'Step 3: Content Analysis - Analyzing risk factors...'})}\n\n"
-
-                # Step 4: Summary Generation
-                yield f"data: {json.dumps({'type': 'progress', 'stage': 'analyzing', 'message': 'Step 4: Generating financial overview...'})}\n\n"
-
-                record_progress(session, filing_id, "summarizing")
-                yield f"data: {json.dumps({'type': 'progress', 'stage': 'summarizing', 'message': 'Step 5: Generating investor-focused summary...'})}\n\n"
+                results = await asyncio.wait_for(
+                    asyncio.gather(*tasks_to_wait, return_exceptions=True),
+                    timeout=2.0
+                )
                 
-                # Wait for excerpt and XBRL with a short timeout (don't block AI for too long)
+                excerpt = results[0] if not isinstance(results[0], Exception) else None
+                if len(results) > 1:
+                    xbrl_result = results[1]
+                    xbrl_metrics = xbrl_result if not isinstance(xbrl_result, Exception) and xbrl_result is not None else None
+            except asyncio.TimeoutError:
+                # Proceed without excerpt/XBRL if they take too long
                 excerpt = None
                 xbrl_metrics = None
-                try:
-                    # Give excerpt/XBRL 2 seconds max, then proceed with AI
-                    tasks_to_wait = [excerpt_task]
-                    if xbrl_task:
-                        tasks_to_wait.append(xbrl_task)
-                    
-                    results = await asyncio.wait_for(
-                        asyncio.gather(*tasks_to_wait, return_exceptions=True),
-                        timeout=2.0
-                    )
-                    
-                    excerpt = results[0] if not isinstance(results[0], Exception) else None
-                    if len(results) > 1:
-                        xbrl_result = results[1]
-                        xbrl_metrics = xbrl_result if not isinstance(xbrl_result, Exception) and xbrl_result is not None else None
-                except asyncio.TimeoutError:
-                    # Proceed without excerpt/XBRL if they take too long
-                    excerpt = None
-                    xbrl_metrics = None
-                except Exception as e:
-                    # If anything fails, proceed without excerpt/XBRL
-                    print(f"[stream:{filing_id}] Error waiting for excerpt/XBRL: {str(e)}")
-                    excerpt = None
-                    xbrl_metrics = None
-                
-                mark_stage("context_enrichment")
+            except Exception as e:
+                # If anything fails, proceed without excerpt/XBRL
+                print(f"[stream:{filing_id}] Error waiting for excerpt/XBRL: {str(e)}")
+                excerpt = None
+                xbrl_metrics = None
+            
+            mark_stage("context_enrichment")
 
-                # Now run AI summarization (with excerpt/XBRL if available)
-                # Wrap in task to enable heartbeat loop while waiting
-                summary_task = asyncio.create_task(openai_service.summarize_filing(
-                    filing_text,
-                    company_name,
-                    filing_type,
-                    previous_filings=None,
-                    xbrl_metrics=xbrl_metrics,
-                    filing_excerpt=excerpt,
-                ))
+            # Now run AI summarization (with excerpt/XBRL if available)
+            # Wrap in task to enable heartbeat loop while waiting
+            summary_task = asyncio.create_task(openai_service.summarize_filing(
+                filing_text,
+                company_name,
+                filing_type,
+                previous_filings=None,
+                xbrl_metrics=xbrl_metrics,
+                filing_excerpt=excerpt,
+            ))
 
-                # Heartbeat loop - keep connection alive while waiting for AI
-                # This prevents HTTP connection timeout during long-running AI operations
-                from app.config import settings
-                
-                while not summary_task.done():
-                    # Wait for task completion or heartbeat interval
-                    done, pending = await asyncio.wait(
-                        [summary_task], 
-                        timeout=settings.STREAM_HEARTBEAT_INTERVAL,
-                        return_when=asyncio.FIRST_COMPLETED
-                    )
-                    
-                    if summary_task in done:
-                        # Task completed, exit loop
-                        break
-                    
-                    # Task still running, send heartbeat
-                    yield f"data: {json.dumps({'type': 'progress', 'stage': 'analyzing', 'message': 'Processing financial data with AI...'})}\n\n"
-                
-                # Get result (or raise exception if task failed)
-                summary_payload = await summary_task
-                mark_stage("generate_summary")
-
-                # Check if summary has error status - handle early
-                summary_status = summary_payload.get("status", "complete")
-                if summary_status == "error":
-                    error_message = summary_payload.get("message", "Error generating summary")
-                    yield f"data: {json.dumps({'type': 'error', 'message': error_message})}\n\n"
-                    return
-
-                markdown = summary_payload.get("business_overview") or ""
-                raw_summary = summary_payload.get("raw_summary") or {}
-                sections_info = (raw_summary.get("sections") or {}) or {}
-
-                section_coverage = (
-                    raw_summary.get("section_coverage")
-                    if isinstance(raw_summary, dict)
-                    else None
+            # Heartbeat loop - keep connection alive while waiting for AI
+            # This prevents HTTP connection timeout during long-running AI operations
+            from app.config import settings
+            
+            while not summary_task.done():
+                # Wait for task completion or heartbeat interval
+                done, pending = await asyncio.wait(
+                    [summary_task], 
+                    timeout=settings.STREAM_HEARTBEAT_INTERVAL,
+                    return_when=asyncio.FIRST_COMPLETED
                 )
-                if section_coverage:
-                    record_progress(
-                        session,
-                        filing_id,
-                        "summarizing",
-                        section_coverage=section_coverage,
-                    )
-                    print(
-                        f"[stream:{filing_id}] coverage snapshot: "
-                        f"{section_coverage.get('covered_count', 0)}/"
-                        f"{section_coverage.get('total_count', 0)} sections populated"
-                    )
+                
+                if summary_task in done:
+                    # Task completed, exit loop
+                    break
+                
+                # Task still running, send heartbeat
+                yield f"data: {json.dumps({'type': 'progress', 'stage': 'analyzing', 'message': 'Processing financial data with AI...'})}\n\n"
+            
+            # Get result (or raise exception if task failed)
+            summary_payload = await summary_task
+            mark_stage("generate_summary")
 
-                financial_section = sections_info.get("financial_highlights")
-                normalized_financial_section = attach_normalized_facts(financial_section, xbrl_metrics)
-                if normalized_financial_section is not None:
-                    sections_info["financial_highlights"] = normalized_financial_section
+            # Check if summary has error status - handle early
+            summary_status = summary_payload.get("status", "complete")
+            if summary_status == "error":
+                error_message = summary_payload.get("message", "Error generating summary")
+                yield f"data: {json.dumps({'type': 'error', 'message': error_message})}\n\n"
+                return
 
-                risk_section = summary_payload.get("risk_factors") or []
-                sections_info["risk_factors"] = risk_section
-                management_section = summary_payload.get("management_discussion")
-                guidance_section = summary_payload.get("key_changes")
+            markdown = summary_payload.get("business_overview") or ""
+            raw_summary = summary_payload.get("raw_summary") or {}
+            sections_info = (raw_summary.get("sections") or {}) or {}
 
-                raw_summary["sections"] = sections_info
+            section_coverage = (
+                raw_summary.get("section_coverage")
+                if isinstance(raw_summary, dict)
+                else None
+            )
+            if section_coverage:
+                # DB OP: Record progress
+                await run_sync_db(
+                    record_progress,
+                    session,
+                    filing_id,
+                    "summarizing",
+                    section_coverage=section_coverage,
+                )
+                print(
+                    f"[stream:{filing_id}] coverage snapshot: "
+                    f"{section_coverage.get('covered_count', 0)}/"
+                    f"{section_coverage.get('total_count', 0)} sections populated"
+                )
 
+            financial_section = sections_info.get("financial_highlights")
+            normalized_financial_section = attach_normalized_facts(financial_section, xbrl_metrics)
+            if normalized_financial_section is not None:
+                sections_info["financial_highlights"] = normalized_financial_section
+
+            risk_section = summary_payload.get("risk_factors") or []
+            sections_info["risk_factors"] = risk_section
+            management_section = summary_payload.get("management_discussion")
+            guidance_section = summary_payload.get("key_changes")
+
+            raw_summary["sections"] = sections_info
+
+            # DB OP: Persist summary
+            def save_summary_sync():
                 # Re-query filing to ensure it's attached to session before accessing content_cache
                 filing_for_cache = session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
 
@@ -460,66 +487,81 @@ async def generate_summary_stream(
                         session.add(cache)
 
                 session.commit()
-                mark_stage("persist_summary")
+                # Return summary_id so we have it for the response if needed (though we rely on summary object usually)
+                return summary.id
 
-                if user_id:
+            saved_summary_id = await run_sync_db(save_summary_sync)
+            
+            mark_stage("persist_summary")
+
+            if user_id:
+                def track_usage_sync():
                     from app.models import User
                     user = session.query(User).filter(User.id == user_id).first()
                     if user:
                         month = get_current_month()
                         increment_user_usage(user.id, month, session)
-                mark_stage("usage_tracking")
+                
+                await run_sync_db(track_usage_sync)
+                
+            mark_stage("usage_tracking")
 
-                record_progress(session, filing_id, "completed")
+            # DB OP: Record complete
+            await run_sync_db(record_progress, session, filing_id, "completed")
 
-                # Check summary status and emit appropriate response
-                summary_status = summary_payload.get("status", "complete")
-                summary_message = summary_payload.get("message")
-                
-                # Emit final markdown once
-                yield f"data: {json.dumps({'type': 'chunk', 'content': markdown})}\n\n"
-                
-                # Emit status and completion
-                if summary_status == "partial":
-                    yield f"data: {json.dumps({'type': 'partial', 'message': summary_message or 'Some sections may not have loaded fully.', 'summary_id': summary.id})}\n\n"
-                elif summary_status == "error":
-                    yield f"data: {json.dumps({'type': 'error', 'message': summary_message or 'Error generating summary', 'summary_id': summary.id})}\n\n"
-                else:
-                    yield f"data: {json.dumps({'type': 'complete', 'summary_id': summary.id})}\n\n"
-            except Exception as e:
-                import traceback
-                import sys
-                error_trace = traceback.format_exc()
-                error_msg = str(e)
-                print(f"Error in streaming summary: {error_msg}", flush=True)
-                print(f"Traceback: {error_trace}", flush=True)
-                sys.stderr.write(f"[STREAM ERROR] {error_msg}\n{error_trace}\n")
-                sys.stderr.flush()
-                try:
-                    record_progress(session, filing_id, "error", error=error_msg[:200])
-                except:
-                    pass
-                
-                # Return user-friendly error message
-                if "Unable to retrieve" in error_msg or "Unable to complete" in error_msg:
-                    error_message = error_msg[:200]
-                else:
-                    error_message = "Unable to retrieve this filing at the moment — please try again shortly."
-                
-                yield f"data: {json.dumps({'type': 'error', 'message': error_message})}\n\n"
-            finally:
-                # Clean up executor
-                try:
-                    executor.shutdown(wait=False)
-                except:
-                    pass
-                total_elapsed = time.time() - pipeline_started_at
-                breakdown = ", ".join(f"{stage}:{duration:.2f}s" for stage, duration in stage_timings)
-                if breakdown:
-                    print(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s ({breakdown})")
-                else:
-                    print(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s (no stage breakdown)")
-    
+            # Check summary status and emit appropriate response
+            summary_status = summary_payload.get("status", "complete")
+            summary_message = summary_payload.get("message")
+            
+            # Emit final markdown once
+            yield f"data: {json.dumps({'type': 'chunk', 'content': markdown})}\n\n"
+            
+            # Emit status and completion
+            if summary_status == "partial":
+                yield f"data: {json.dumps({'type': 'partial', 'message': summary_message or 'Some sections may not have loaded fully.', 'summary_id': saved_summary_id})}\n\n"
+            elif summary_status == "error":
+                yield f"data: {json.dumps({'type': 'error', 'message': summary_message or 'Error generating summary', 'summary_id': saved_summary_id})}\n\n"
+            else:
+                yield f"data: {json.dumps({'type': 'complete', 'summary_id': saved_summary_id})}\n\n"
+        except Exception as e:
+            import traceback
+            import sys
+            error_trace = traceback.format_exc()
+            error_msg = str(e)
+            print(f"Error in streaming summary: {error_msg}", flush=True)
+            print(f"Traceback: {error_trace}", flush=True)
+            sys.stderr.write(f"[STREAM ERROR] {error_msg}\n{error_trace}\n")
+            sys.stderr.flush()
+            try:
+                await run_sync_db(record_progress, session, filing_id, "error", error=error_msg[:200])
+            except:
+                pass
+            
+            # Return user-friendly error message
+            if "Unable to retrieve" in error_msg or "Unable to complete" in error_msg:
+                error_message = error_msg[:200]
+            else:
+                error_message = "Unable to retrieve this filing at the moment — please try again shortly."
+            
+            yield f"data: {json.dumps({'type': 'error', 'message': error_message})}\n\n"
+        finally:
+            # Clean up executor and session
+            try:
+                executor.shutdown(wait=False)
+            except:
+                pass
+            try:
+                session.close()
+            except:
+                pass
+            
+            total_elapsed = time.time() - pipeline_started_at
+            breakdown = ", ".join(f"{stage}:{duration:.2f}s" for stage, duration in stage_timings)
+            if breakdown:
+                print(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s ({breakdown})")
+            else:
+                print(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s (no stage breakdown)")
+
     return StreamingResponse(stream_summary(), media_type="text/event-stream")
 
 @router.get("/filing/{filing_id}", response_model=SummaryResponse)
