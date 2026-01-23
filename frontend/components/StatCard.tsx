@@ -1,8 +1,13 @@
 'use client'
 
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react'
-import { ResponsiveContainer, AreaChart, Area } from 'recharts'
+import dynamic from 'next/dynamic'
 import { useCountUp } from '../hooks/useCountUp'
+
+const StatCardSparkline = dynamic(
+  () => import('./charts/StatCardSparkline'),
+  { ssr: false }
+)
 import { ShimmeringLoader } from './ShimmeringLoader'
 
 interface StatCardProps {
@@ -38,7 +43,7 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
 
   const isPositive = change && change > 0
   const isNegative = change && change < 0
-  
+
   // Bloomberg-Lite Colors
   const deltaColors = {
     positive: 'text-emerald-600 bg-emerald-50 border-emerald-100',
@@ -46,10 +51,10 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
     neutral: 'text-slate-500 bg-slate-50 border-slate-100'
   }
 
-  const currentDeltaColor = isPositive 
-    ? deltaColors.positive 
-    : isNegative 
-      ? deltaColors.negative 
+  const currentDeltaColor = isPositive
+    ? deltaColors.positive
+    : isNegative
+      ? deltaColors.negative
       : deltaColors.neutral
 
   const ChangeIcon = isPositive ? ArrowUpRight : isNegative ? ArrowDownRight : Minus
@@ -65,26 +70,16 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
         <div className="space-y-1">
           <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{label}</p>
           <div className="flex items-baseline gap-2">
-             <h3 className="text-2xl font-semibold tracking-tight text-slate-900 font-mono tabular-nums">
+            <h3 className="text-2xl font-semibold tracking-tight text-slate-900 font-mono tabular-nums">
               {formatValue(displayValue, unit)}
             </h3>
           </div>
         </div>
-        
+
         {/* Sparkline */}
         {sparklineData.length > 1 && (
           <div className="h-10 w-24 opacity-50">
-             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={sparklineData}>
-                <Area 
-                  type="monotone" 
-                  dataKey="val" 
-                  stroke={isNegative ? '#e11d48' : '#059669'} 
-                  fill={isNegative ? '#ffe4e6' : '#d1fae5'} 
-                  strokeWidth={2}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            <StatCardSparkline data={sparklineData} isNegative={!!isNegative} />
           </div>
         )}
       </div>
