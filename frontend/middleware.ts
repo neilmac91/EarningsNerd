@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const ALLOWED_PATHS = new Set([
   '/waitlist',
+  '/login',
+  '/register',
   '/privacy',
   '/security',
   '/contact',
@@ -12,13 +14,33 @@ const ALLOWED_PATHS = new Set([
 
 const ALLOWED_PREFIXES = ['/_next', '/api', '/public', '/assets']
 
+// Protected routes that require authentication
+const PROTECTED_ROUTES = ['/dashboard', '/profile', '/settings']
+
 export function middleware(request: NextRequest) {
+  const { pathname } = request.nextUrl
+
+  // Check authentication for protected routes
+  // Note: This is a basic check. The backend will do the actual token validation.
+  const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname.startsWith(route))
+  if (isProtectedRoute) {
+    // Check for session cookie
+    const hasSessionCookie = request.cookies.has('earningsnerd_access_token')
+
+    if (!hasSessionCookie) {
+      const loginUrl = request.nextUrl.clone()
+      loginUrl.pathname = '/login'
+      // Add redirect parameter to return to original page after login
+      loginUrl.searchParams.set('redirect', pathname)
+      return NextResponse.redirect(loginUrl)
+    }
+  }
+
+  // Waitlist mode check
   const waitlistMode = process.env.WAITLIST_MODE !== 'false'
   if (!waitlistMode) {
     return NextResponse.next()
   }
-
-  const { pathname } = request.nextUrl
 
   if (ALLOWED_PATHS.has(pathname)) {
     return NextResponse.next()
