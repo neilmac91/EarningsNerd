@@ -76,7 +76,7 @@ async def test_stream_heartbeat_during_long_ai_operation():
     mock_session_cls.return_value.__enter__.return_value = mock_db
     
     try:
-        with patch("app.routers.summaries.sec_edgar_service.get_filing_document", new_callable=AsyncMock) as mock_sec, \
+        with patch("app.routers.summaries.sec_edgar_service.get_filing_document", new_callable=AsyncMock, return_value="Filing text content") as mock_sec, \
              patch("app.routers.summaries.openai_service.summarize_filing", side_effect=slow_summarize_filing), \
              patch("app.routers.summaries.check_usage_limit", return_value=(True, 0, 10)), \
              patch("app.routers.summaries.record_progress"), \

@@ -265,6 +265,7 @@ async def generate_summary_stream(
             yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'Step 1: File Validation - Confirming document is accessible and parsable...', 'elapsed_seconds': int(time.time() - pipeline_started_at)})}\n\n"
 
             # Fetch filing document with heartbeat to prevent UI stall at 10%
+            from app.config import settings
             FETCH_MESSAGES = [
                 "Connecting to SEC EDGAR...",
                 "Downloading filing document...",
