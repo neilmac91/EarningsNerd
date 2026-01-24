@@ -57,7 +57,7 @@ describe('generateSummaryStream', () => {
     vi.runAllTimers()
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(progressSpy).toHaveBeenCalledWith('fetching', 'Fetching filing document...')
+    expect(progressSpy).toHaveBeenCalledWith('fetching', 'Fetching filing document...', expect.anything())
     expect(chunkSpy).toHaveBeenCalledWith('Executive summary text')
     expect(completeSpy).toHaveBeenCalledWith(42)
     expect(errorSpy).not.toHaveBeenCalled()
