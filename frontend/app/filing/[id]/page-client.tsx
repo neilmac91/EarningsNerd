@@ -598,7 +598,18 @@ function StreamingSummaryDisplay({
     return () => clearInterval(intervalId)
   }, [stage, isError])
 
-  // Optimistic progress effect - now uses real elapsed time from backend
+  // Stalled state detection
+  const [isStalled, setIsStalled] = useState(false)
+
+  useEffect(() => {
+    if (elapsedSeconds > 15 && stage !== 'completed' && stage !== 'summarizing' && !isError) {
+      setIsStalled(true)
+    } else {
+      setIsStalled(false)
+    }
+  }, [elapsedSeconds, stage, isError])
+
+  // Optimistic progress effect - uses real elapsed time from backend but asymptotic approach
   useEffect(() => {
     if (stage === 'completed') {
       setOptimisticProgress(100)
@@ -616,25 +627,28 @@ function StreamingSummaryDisplay({
       'fetching': 25,
       'parsing': 45,
       'analyzing': 75,
-      'summarizing': 95,
+      'summarizing': 98, // Allow getting very close to 100%
     }
     const nextTarget = NEXT_TARGET_MAP[stage] || 95
 
     // Use elapsed time from backend for smoother progress within stage
     // Each stage gets a time bonus based on how long it's been running
     const stageRange = nextTarget - baseProgress
-    const timeBonus = Math.min(stageRange * 0.6, elapsedSeconds * 0.8)
-    const newProgress = Math.min(nextTarget - 1, baseProgress + timeBonus)
+    const timeBonus = Math.min(stageRange * 0.6, elapsedSeconds * 1.5) // Faster initial ramp
 
-    setOptimisticProgress(prev => Math.max(prev, newProgress))
+    // Set target to approach
+    const targetProgress = Math.min(nextTarget, baseProgress + timeBonus)
 
-    // Fallback: slow client-side increment if backend stops sending updates
+    setOptimisticProgress(prev => Math.max(prev, targetProgress))
+
+    // Fallback: Asymptotic approach to nextTarget if backend assumes silence
+    // Instead of hard stop at nextTarget - 1, we asymptotically approach nextTarget
     const interval = setInterval(() => {
       setOptimisticProgress(current => {
-        if (current >= nextTarget - 1) return current
-        const remaining = nextTarget - current
-        const increment = Math.max(0.02, remaining * 0.01)
-        return Math.min(nextTarget - 1, current + increment)
+        // Asymptotic formula: move 5% of the remaining distance every tick
+        const dist = nextTarget - current
+        if (dist < 0.1) return current // Stop if very close
+        return current + (dist * 0.05)
       })
     }, 200)
 
@@ -749,10 +763,15 @@ function StreamingSummaryDisplay({
                 </div>
                 <div className="space-y-1">
                   <p className="text-sm font-medium text-gray-700 dark:text-gray-200 animate-[fadeIn_0.5s_ease-out]">
-                    {isError ? "We hit a snag, but don't worry." : (showWhimsy ? whimsyMessage : "Initializing...")}
+                    {isError
+                      ? "We hit a snag, but don't worry."
+                      : isStalled
+                        ? "Taking longer than usual, but we're still working on it..."
+                        : (showWhimsy ? whimsyMessage : "Initializing...")
+                    }
                   </p>
                   <p className="text-xs text-gray-400 dark:text-gray-500">
-                    AI Analyst System
+                    {isStalled ? "Complex filing detected" : "AI Analyst System"}
                   </p>
                 </div>
               </div>
