@@ -209,17 +209,7 @@ async def generate_summary_stream(
     async def stream_summary():
         # Create a new session for the async generator to avoid detached session issues
         from app.database import SessionLocal
-        
-        # Use a dedicated executor for DB operations to avoid blocking the event loop
-        loop = asyncio.get_event_loop()
-        executor = concurrent.futures.ThreadPoolExecutor(max_workers=3)
-
-        async def run_sync_db(func, *args, **kwargs):
-            """Helper to run DB operations in thread pool"""
-            return await loop.run_in_executor(executor, lambda: func(*args, **kwargs))
-
-        # We need to manage the session manualy since we can't use 'with' easily across async boundaries with threads
-        session = SessionLocal()
+        from fastapi.concurrency import run_in_threadpool
         
         pipeline_started_at = time.time()
         stage_started_at = pipeline_started_at
@@ -231,6 +221,15 @@ async def generate_summary_stream(
             duration = now - stage_started_at
             stage_timings.append((stage_name, duration))
             stage_started_at = now
+
+        # We need to manage the session manually since we can't use 'with' easily across async boundaries with threads
+        # but since we are refactoring to use run_in_threadpool with scoped logic, we can improve this.
+        # However, for now, let's keep the manual session management to minimize diff churn, but optimize the execution.
+        session = SessionLocal()
+
+        async def run_sync_db(func, *args, **kwargs):
+            """Helper to run DB operations in default thread pool"""
+            return await run_in_threadpool(func, *args, **kwargs)
 
         try:
             logger.info(f"Stream generator started for filing {filing_id}")
@@ -284,7 +283,6 @@ async def generate_summary_stream(
                 logger.info(f"Usage limit check passed for user {user_id}. Current count: {current_count}/{limit}")
             else:
                 logger.info(f"Guest user accessing filing {filing_id}. Rate limit already enforced.")
-            
             # Note: We use cached values from outer scope, but filling_in_session is already populated.
             
             # Step 1: File Validation
@@ -349,18 +347,13 @@ async def generate_summary_stream(
             
             yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Step 2: Section Parsing - Extracting major sections (Item 1A: Risk Factors, Item 7: MD&A)...'})}\n\n"
             
-            # Extract excerpt - already offloaded to executor in original code, but we can use our executor
+            # Extract excerpt
             def extract_excerpt_sync():
-                    # Use the main session here since we are in a thread anyway, but create a new one to be safe/clean
-                    # or reuse the one we have if it's thread-safe enough (Session is not thread safe).
-                    # Safest is to use a fresh session for this read-only op or reuse the managed session if we lock it.
-                    # Given the original code created a new session, let's stick to that pattern for the heavy extraction.
                 from app.database import SessionLocal
                 with SessionLocal() as thread_session:
                     thread_filing = thread_session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
                     return get_or_cache_excerpt(thread_session, thread_filing, filing_text)
             
-            # We can reuse our `run_sync_db` which uses `executor`
             excerpt_task = asyncio.create_task(run_sync_db(extract_excerpt_sync))
             
             # Start XBRL fetching in parallel
@@ -426,11 +419,9 @@ async def generate_summary_stream(
                     xbrl_result = results[1]
                     xbrl_metrics = xbrl_result if not isinstance(xbrl_result, Exception) and xbrl_result is not None else None
             except asyncio.TimeoutError:
-                # Proceed without excerpt/XBRL if they take too long
                 excerpt = None
                 xbrl_metrics = None
             except Exception as e:
-                # If anything fails, proceed without excerpt/XBRL
                 print(f"[stream:{filing_id}] Error waiting for excerpt/XBRL: {str(e)}")
                 excerpt = None
                 xbrl_metrics = None
@@ -448,11 +439,8 @@ async def generate_summary_stream(
                 filing_excerpt=excerpt,
             ))
 
-            # Heartbeat loop - keep connection alive while waiting for AI
-            # This prevents HTTP connection timeout during long-running AI operations
             from app.config import settings
             
-            # Rotating heartbeat messages for better UX during long AI operations
             SUMMARIZE_MESSAGES = [
                 "Analyzing financial highlights...",
                 "Cross-referencing with XBRL data...",
@@ -465,7 +453,6 @@ async def generate_summary_stream(
             
             
             while not summary_task.done():
-                # Wait for task completion or heartbeat interval
                 done, pending = await asyncio.wait(
                     [summary_task], 
                     timeout=settings.STREAM_HEARTBEAT_INTERVAL,
@@ -473,20 +460,16 @@ async def generate_summary_stream(
                 )
                 
                 if summary_task in done:
-                    # Task completed, exit loop
                     break
                 
-                # Task still running, send heartbeat with rotating message and timing info
                 heartbeat_message = SUMMARIZE_MESSAGES[summarize_heartbeat_index % len(SUMMARIZE_MESSAGES)]
                 elapsed_secs = int(time.time() - pipeline_started_at)
                 yield f"data: {json.dumps({'type': 'progress', 'stage': 'summarizing', 'message': heartbeat_message, 'heartbeat_count': summarize_heartbeat_index, 'elapsed_seconds': elapsed_secs})}\n\n"
                 summarize_heartbeat_index += 1
             
-            # Get result (or raise exception if task failed)
             summary_payload = await summary_task
             mark_stage("generate_summary")
 
-            # Check if summary has error status - handle early
             summary_status = summary_payload.get("status", "complete")
             if summary_status == "error":
                 error_message = summary_payload.get("message", "Error generating summary")
@@ -503,18 +486,12 @@ async def generate_summary_stream(
                 else None
             )
             if section_coverage:
-                # DB OP: Record progress
                 await run_sync_db(
                     record_progress,
                     session,
                     filing_id,
                     "summarizing",
                     section_coverage=section_coverage,
-                )
-                print(
-                    f"[stream:{filing_id}] coverage snapshot: "
-                    f"{section_coverage.get('covered_count', 0)}/"
-                    f"{section_coverage.get('total_count', 0)} sections populated"
                 )
 
             financial_section = sections_info.get("financial_highlights")
@@ -531,10 +508,8 @@ async def generate_summary_stream(
 
             # DB OP: Persist summary
             def save_summary_sync():
-                # Re-query filing to ensure it's attached to session before accessing content_cache
                 filing_for_cache = session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
 
-                # Save to database
                 summary = Summary(
                     filing_id=filing_id,
                     business_overview=markdown,
@@ -546,7 +521,6 @@ async def generate_summary_stream(
                 )
                 session.add(summary)
 
-                # Now filing is attached to session, we can safely access content_cache
                 if filing_for_cache:
                     cache = filing_for_cache.content_cache
                     if sections_info:
@@ -566,7 +540,6 @@ async def generate_summary_stream(
                         session.add(cache)
 
                 session.commit()
-                # Return summary_id so we have it for the response if needed (though we rely on summary object usually)
                 return summary.id
 
             saved_summary_id = await run_sync_db(save_summary_sync)
@@ -588,14 +561,11 @@ async def generate_summary_stream(
             # DB OP: Record complete
             await run_sync_db(record_progress, session, filing_id, "completed")
 
-            # Check summary status and emit appropriate response
             summary_status = summary_payload.get("status", "complete")
             summary_message = summary_payload.get("message")
             
-            # Emit final markdown once
             yield f"data: {json.dumps({'type': 'chunk', 'content': markdown})}\n\n"
             
-            # Emit status and completion
             if summary_status == "partial":
                 yield f"data: {json.dumps({'type': 'partial', 'message': summary_message or 'Some sections may not have loaded fully.', 'summary_id': saved_summary_id})}\n\n"
             elif summary_status == "error":
@@ -604,7 +574,6 @@ async def generate_summary_stream(
                 yield f"data: {json.dumps({'type': 'complete', 'summary_id': saved_summary_id})}\n\n"
         except Exception as e:
             import traceback
-            import sys
             error_trace = traceback.format_exc()
             error_msg = str(e)
             logger.error(f"Error in streaming summary: {error_msg}")
@@ -614,7 +583,6 @@ async def generate_summary_stream(
             except:
                 pass
             
-            # Return user-friendly error message
             if "Unable to retrieve" in error_msg or "Unable to complete" in error_msg:
                 error_message = error_msg[:200]
             else:
@@ -622,11 +590,6 @@ async def generate_summary_stream(
             
             yield f"data: {json.dumps({'type': 'error', 'message': error_message})}\n\n"
         finally:
-            # Clean up executor and session
-            try:
-                executor.shutdown(wait=False)
-            except:
-                pass
             try:
                 session.close()
             except:
@@ -637,7 +600,7 @@ async def generate_summary_stream(
             if breakdown:
                 logger.info(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s ({breakdown})")
             else:
-                print(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s (no stage breakdown)")
+                print(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s")
 
     return StreamingResponse(stream_summary(), media_type="text/event-stream")
 
