@@ -1,9 +1,9 @@
 import api, { getApiUrl } from '@/lib/api/client'
 import type { FinancialHighlights, RiskFactor } from '@/types/summary'
 
-// Increased to 600 seconds (10 minutes) to accommodate long-running AI analysis operations
-// The heartbeat mechanism keeps the connection alive, but we need sufficient timeout for complex filings
-const STREAM_TIMEOUT_MS = 600000
+// Reduced to 120 seconds (2 minutes) to match backend pipeline timeout guarantee
+// The heartbeat mechanism keeps the connection alive, but we now have a hard limit
+const STREAM_TIMEOUT_MS = 120000
 
 export interface Summary {
   id: number
@@ -110,7 +110,7 @@ export const generateSummaryStream = async (
     }
   }
 
-  const response = await fetch(url, {
+  let response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -119,10 +119,23 @@ export const generateSummaryStream = async (
     signal: controller.signal,
   })
 
+  // Retry as guest on 401
+  if (response.status === 401) {
+    console.warn(`[summary] ${filingId} 401 Unauthorized. Retrying as guest...`)
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'omit',
+      signal: controller.signal,
+    })
+  }
+
   if (!response.ok) {
     clearTimeoutSafely()
 
-    // Handle authentication errors
+    // Handle authentication errors (if second attempt also failed or was not 401)
     if (response.status === 401) {
       let errorMessage = 'Authentication error occurred.'
       try {

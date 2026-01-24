@@ -1580,15 +1580,15 @@ Rules:
 
         response = None
         last_error: Optional[Exception] = None
-        max_retries = 3
-        base_timeout = config.get("ai_timeout", 90.0)
+        max_retries = 1  # Reduced from 3 to limit worst-case latency
+        base_timeout = config.get("ai_timeout", 45.0)  # Reduced from 90s
         
         for model_name in models_to_try:
-            # Try each model with exponential backoff retries
+            # Try each model with limited retries (no exponential backoff)
             for attempt in range(max_retries):
                 try:
-                    # Exponential timeout increase: 90s, 135s, 202s
-                    timeout = base_timeout * (1.5 ** attempt)
+                    # Fixed timeout (no exponential scaling) for predictable latency
+                    timeout = base_timeout
                     response = await asyncio.wait_for(
                         self.client.chat.completions.create(
                             model=model_name,
@@ -1613,20 +1613,14 @@ Rules:
                     break
                 except asyncio.TimeoutError as timeout_error:
                     last_error = timeout_error
-                    if attempt < max_retries - 1:
-                        # Not the last attempt, wait and retry
-                        backoff_delay = 2 ** attempt  # 1s, 2s, 4s
-                        print(f"Attempt {attempt + 1} timed out after {timeout:.1f}s for {model_name}, retrying in {backoff_delay}s...")
-                        await asyncio.sleep(backoff_delay)
-                    else:
-                        # Last attempt failed, try next model
-                        print(f"All {max_retries} attempts timed out for {model_name}, trying next model...")
-                        break
+                    logger.warning(f"AI request timed out after {timeout:.1f}s for {model_name}")
+                    # No retry delay - move to next model immediately
+                    break
                 except Exception as model_error:
                     error_msg = str(model_error)
                     last_error = model_error
                     if any(keyword in error_msg.lower() for keyword in ("rate limit", "429", "model", "unavailable")):
-                        print(f"Structured extraction model {model_name} failed ({error_msg[:120]}). Trying next model...")
+                        logger.warning(f"Structured extraction model {model_name} failed ({error_msg[:120]}). Trying next model...")
                         break
                     raise
             
