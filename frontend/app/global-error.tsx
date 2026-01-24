@@ -43,12 +43,12 @@ export default function GlobalError({
                                 Reload Page
                             </button>
                         </div>
-                        {/* DEBUG: Enabled in production to troubleshoot crash */}
-                        <div className="mt-8 overflow-auto rounded-lg bg-red-50 p-4 text-left text-sm text-red-900 dark:bg-red-900/20 dark:text-red-200">
-                            <p className="font-mono">{error.message}</p>
-                            {error.digest && <p className="mt-2 font-mono text-xs">Digest: {error.digest}</p>}
-                            <p className="mt-2 text-xs opacity-50">Global Error Boundary</p>
-                        </div>
+                        {process.env.NODE_ENV === 'development' && (
+                            <div className="mt-8 overflow-auto rounded-lg bg-red-50 p-4 text-left text-sm text-red-900 dark:bg-red-900/20 dark:text-red-200">
+                                <p className="font-mono">{error.message}</p>
+                                {error.digest && <p className="mt-2 font-mono text-xs">Digest: {error.digest}</p>}
+                            </div>
+                        )}
                     </div>
                 </div>
             </body>
