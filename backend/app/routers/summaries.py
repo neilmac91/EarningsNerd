@@ -195,28 +195,23 @@ async def generate_summary_stream(
             }
             yield f"data: {json.dumps(payload)}\n\n"
         return StreamingResponse(existing_summary(), media_type="text/event-stream")
-    
-    # Cache company data before streaming to avoid detached session issues
-    company_name = filing.company.name if filing.company else "Unknown company"
-    company_cik = filing.company.cik if filing.company else None
-    
-    # Cache all filing attributes we need to avoid detached session issues
-    filing_document_url = filing.document_url
-    filing_type = filing.filing_type
-    filing_accession_number = filing.accession_number
+    try:
+        enforce_rate_limit(
+            request,
+            SUMMARY_LIMITER,
+            rate_limit_key,
+            error_detail="Too many summary requests. Please try again shortly.",
+        )
+    except Exception as e:
+        logger.warning(f"Rate limit error for {rate_limit_key}: {e}")
+        raise e
 
-    user_id = current_user.id
-    can_generate, current_count, limit = check_usage_limit(current_user, db)
-    if not can_generate:
-        async def error_response():
-            message = (
-                "You've reached your monthly limit of "
-                f"{limit} summaries. Upgrade to Pro for unlimited summaries."
-            )
-            payload = {"type": "error", "message": message}
-            yield f"data: {json.dumps(payload)}\n\n"
-        return StreamingResponse(error_response(), media_type="text/event-stream")
-    
+    # Removed blocking synchronous DB query here. Filing existence is checked inside stream_summary.
+    # Removed caching of company data and filing attributes here. These will be fetched inside stream_summary.
+
+    user_id = current_user.id if current_user else None
+    logger.info(f"Starting summary stream for filing {filing_id}, user {user_id}")
+
     async def stream_summary():
         # Create a new session for the async generator to avoid detached session issues
         from app.database import SessionLocal
@@ -244,26 +239,63 @@ async def generate_summary_stream(
             stage_started_at = now
 
         try:
+            logger.info(f"Stream generator started for filing {filing_id}")
             yield f"data: {json.dumps({'type': 'progress', 'stage': 'initializing', 'message': 'Initializing...'})}\n\n"
 
-            # Note: We use cached values (company_name, filing_type, etc.) from the outer scope
-            # to avoid detached session issues. Only re-query when we need to access relationships
-            # or update the filing object.
+            # DB OP: Query filing and check for existing summary
+            def get_filing_and_summary_sync():
+                filing_in_session = session.query(Filing).options(
+                    joinedload(Filing.content_cache),
+                    joinedload(Filing.company)
+                ).filter(Filing.id == filing_id).first()
+                summary_in_session = session.query(Summary).filter(Summary.filing_id == filing_id).first()
+                return filing_in_session, summary_in_session
             
-            # DB OP: Query filing
-            def get_filing_sync():
-                return session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
-            
-            filing_in_session = await run_sync_db(get_filing_sync)
+            filing_in_session, summary_in_session = await run_sync_db(get_filing_and_summary_sync)
             
             if not filing_in_session:
+                logger.warning(f"Filing {filing_id} not found during stream generation.")
                 yield f"data: {json.dumps({'type': 'error', 'message': 'Filing not found'})}\n\n"
                 return
 
+            if summary_in_session:
+                logger.info(f"Existing summary found for filing {filing_id}. Returning it.")
+                payload = {
+                    'type': 'complete',
+                    'summary': summary_in_session.business_overview,
+                    'summary_id': summary_in_session.id,
+                }
+                yield f"data: {json.dumps(payload)}\n\n"
+                return
+
+            # Cache company data and filing attributes from the fetched filing
+            company_name = filing_in_session.company.name if filing_in_session.company else "Unknown company"
+            company_cik = filing_in_session.company.cik if filing_in_session.company else None
+            filing_document_url = filing_in_session.document_url
+            filing_type = filing_in_session.filing_type
+            filing_accession_number = filing_in_session.accession_number
+
+            # Check usage limits for authenticated user (moved here)
+            can_generate, current_count, limit = await run_sync_db(check_usage_limit, current_user, session)
+            if not can_generate:
+                logger.warning(f"User {user_id} exceeded monthly summary limit ({limit}) for filing {filing_id}.")
+                message = (
+                    "You've reached your monthly limit of "
+                    f"{limit} summaries. Upgrade to Pro for unlimited summaries."
+                )
+                payload = {"type": "error", "message": message}
+                yield f"data: {json.dumps(payload)}\n\n"
+                return
+            
+            logger.info(f"Usage limit check passed for user {user_id}. Current count: {current_count}/{limit}")
+
+            # Note: We use cached values from outer scope, but filling_in_session is already populated.
+            
             # Step 1: File Validation
             # DB OP: Record progress
             await run_sync_db(record_progress, session, filing_id, "fetching")
             
+            logger.info(f"Yielding fetching stage for filing {filing_id}")
             yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'Step 1: File Validation - Confirming document is accessible and parsable...', 'elapsed_seconds': int(time.time() - pipeline_started_at)})}\n\n"
 
             # Fetch filing document with heartbeat to prevent UI stall at 10%
@@ -276,6 +308,7 @@ async def generate_summary_stream(
             ]
             
             try:
+                logger.info(f"Starting SEC fetch for URL: {filing_document_url}")
                 # Wrap the SEC fetch in a task with heartbeat loop
                 fetch_task = asyncio.create_task(
                     sec_edgar_service.get_filing_document(filing_document_url, timeout=25.0)
@@ -293,15 +326,18 @@ async def generate_summary_stream(
                     # Send heartbeat during fetch
                     fetch_message = FETCH_MESSAGES[fetch_heartbeat_index % len(FETCH_MESSAGES)]
                     elapsed_secs = int(time.time() - pipeline_started_at)
+                    logger.info(f"SEC fetch heartbeat {fetch_heartbeat_index + 1}: {fetch_message}")
                     yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': fetch_message, 'elapsed_seconds': elapsed_secs})}\n\n"
                     fetch_heartbeat_index += 1
                 
                 # Get the result (or raise exception if task failed)
                 filing_text = await fetch_task
+                logger.info(f"SEC fetch completed. Text length: {len(filing_text) if filing_text else 0}")
                 
                 if not filing_text:
                     raise ValueError("Filing document is empty or inaccessible")
             except Exception as fetch_error:
+                logger.error(f"Error fetching SEC document: {fetch_error}", exc_info=True)
                 error_msg = "Unable to retrieve this filing at the moment — please try again shortly."
                 yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
                 return
