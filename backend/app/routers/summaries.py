@@ -385,7 +385,7 @@ async def generate_summary_stream(
                             await run_sync_db(update_xbrl_sync)
                             return metrics
                     except Exception as xbrl_error:
-                        print(f"[stream:{filing_id}] Error updating XBRL data: {str(xbrl_error)}")
+                        logger.warning(f"[stream:{filing_id}] Error updating XBRL data: {str(xbrl_error)}")
                         pass
                     return None
                 xbrl_task = asyncio.create_task(fetch_xbrl())
@@ -429,7 +429,7 @@ async def generate_summary_stream(
                 excerpt = None
                 xbrl_metrics = None
             except Exception as e:
-                print(f"[stream:{filing_id}] Error waiting for excerpt/XBRL: {str(e)}")
+                logger.warning(f"[stream:{filing_id}] Error waiting for excerpt/XBRL: {str(e)}")
                 excerpt = None
                 xbrl_metrics = None
             
@@ -588,11 +588,8 @@ async def generate_summary_stream(
                 pass
             yield f"data: {json.dumps({'type': 'error', 'message': 'Summary generation timed out. Please try again.'})}\n\n"
         except Exception as e:
-            import traceback
-            error_trace = traceback.format_exc()
+            logger.error(f"Error in streaming summary: {str(e)}", exc_info=True)
             error_msg = str(e)
-            logger.error(f"Error in streaming summary: {error_msg}")
-            logger.error(f"Traceback: {error_trace}")
             try:
                 await run_sync_db(record_progress, session, filing_id, "error", error=error_msg[:200])
             except:
@@ -615,7 +612,7 @@ async def generate_summary_stream(
             if breakdown:
                 logger.info(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s ({breakdown})")
             else:
-                print(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s")
+                logger.info(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s")
 
     return StreamingResponse(stream_summary(), media_type="text/event-stream")
 
