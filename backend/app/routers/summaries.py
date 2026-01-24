@@ -283,6 +283,7 @@ async def generate_summary_stream(
                 logger.info(f"Usage limit check passed for user {user_id}. Current count: {current_count}/{limit}")
             else:
                 logger.info(f"Guest user accessing filing {filing_id}. Rate limit already enforced.")
+            # Note: We use cached values from outer scope, but filling_in_session is already populated.
             
             # Step 1: File Validation
             # DB OP: Record progress
@@ -366,6 +367,7 @@ async def generate_summary_stream(
                             
                             # DB OP: Update filing xbrl_data
                             def update_xbrl_sync():
+                                # Use a new session for this thread operation to ensure thread safety
                                 from app.database import SessionLocal
                                 with SessionLocal() as xbrl_session:
                                     filing_for_update = xbrl_session.query(Filing).filter(Filing.id == filing_id).first()
@@ -572,9 +574,10 @@ async def generate_summary_stream(
                 yield f"data: {json.dumps({'type': 'complete', 'summary_id': saved_summary_id})}\n\n"
         except Exception as e:
             import traceback
+            error_trace = traceback.format_exc()
             error_msg = str(e)
             logger.error(f"Error in streaming summary: {error_msg}")
-            
+            logger.error(f"Traceback: {error_trace}")
             try:
                 await run_sync_db(record_progress, session, filing_id, "error", error=error_msg[:200])
             except:
