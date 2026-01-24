@@ -3,7 +3,9 @@
   "devCommand": "npm run dev",
   "installCommand": "npm install",
   "framework": "nextjs",
-  "regions": ["iad1"],
+  "regions": [
+    "iad1"
+  ],
   "env": {
     "NEXT_PUBLIC_API_BASE_URL": "https://api.earningsnerd.io",
     "NEXT_PUBLIC_SENTRY_DSN": "https://ece733dc1e5aa4e794d80f2bcc498e24@o4510744719851520.ingest.de.sentry.io/4510744722276432",
@@ -11,4 +13,3 @@
     "WAITLIST_MODE": "false"
   }
 }
-
