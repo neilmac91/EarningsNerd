@@ -13,7 +13,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
 import { format } from 'date-fns'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import SubscriptionGate from '@/components/SubscriptionGate'
@@ -324,12 +324,14 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   const activeErrorMessage = generationError || summaryErrorMessage
   const debugSummary = searchParams?.get('debug') === '1'
 
-  const handleGenerateSummary = async () => {
-    if (!isAuthenticated) {
-      setGenerationError('Please sign in to generate summaries.')
-      router.push('/login')
-      return
-    }
+  const handleGenerateSummary = useCallback(async () => {
+    // POC mode: allow all users to generate summaries (auth check disabled)
+    // TODO: Re-enable auth check when user registration is implemented
+    // if (!isAuthenticated) {
+    //   setGenerationError('Please sign in to generate summaries.')
+    //   router.push('/login')
+    //   return
+    // }
     setHasStartedGeneration(true)
     setGenerationError(null)
     setIsStreaming(true)
@@ -379,14 +381,14 @@ function FilingDetailView({ filingId }: { filingId: number }) {
     } finally {
       setIsStreaming(false)
     }
-  }
+  }, [filingId, refetch, queryClient])
 
   // Auto-generate summary when page loads if no summary exists
   useEffect(() => {
     // Auto-generate if all conditions are met
+    // POC mode: removed isAuthenticated check to allow all users
     if (
       filing &&
-      isAuthenticated &&
       !summaryLoading &&
       !isStreaming &&
       !hasSummaryContent &&
@@ -395,8 +397,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
     ) {
       handleGenerateSummary()
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filing, summary, summaryLoading, isStreaming, hasStartedGeneration, hasSummaryContent, generationError, isAuthenticated])
+  }, [filing, summaryLoading, isStreaming, hasSummaryContent, hasStartedGeneration, generationError, handleGenerateSummary])
 
   useEffect(() => {
     if (hasSummaryContent) {

@@ -37,6 +37,9 @@ router = APIRouter()
 logger = logging.getLogger(__name__)
 SUMMARY_LIMITER = RateLimiter(limit=5, window_seconds=60)
 
+# Hard pipeline timeout to guarantee user receives response within this time
+PIPELINE_TIMEOUT_SECONDS = 90
+
 class SummaryResponse(BaseModel):
     id: int
     filing_id: int
@@ -584,16 +587,16 @@ async def generate_summary_stream(
             logger.warning(f"Pipeline timeout after {PIPELINE_TIMEOUT_SECONDS}s for filing {filing_id}")
             try:
                 await run_sync_db(record_progress, session, filing_id, "error", error="Pipeline timeout")
-            except:
-                pass
+            except Exception as e:
+                logger.error(f"Failed to record pipeline timeout error for filing {filing_id}: {e}", exc_info=True)
             yield f"data: {json.dumps({'type': 'error', 'message': 'Summary generation timed out. Please try again.'})}\n\n"
         except Exception as e:
             logger.error(f"Error in streaming summary: {str(e)}", exc_info=True)
             error_msg = str(e)
             try:
                 await run_sync_db(record_progress, session, filing_id, "error", error=error_msg[:200])
-            except:
-                pass
+            except Exception as e:
+                logger.error(f"Failed to record streaming error for filing {filing_id}: {e}", exc_info=True)
             
             if "Unable to retrieve" in error_msg or "Unable to complete" in error_msg:
                 error_message = error_msg[:200]
@@ -604,8 +607,8 @@ async def generate_summary_stream(
         finally:
             try:
                 session.close()
-            except:
-                pass
+            except Exception as e:
+                logger.error(f"Failed to close session for filing {filing_id}: {e}", exc_info=True)
             
             total_elapsed = time.time() - pipeline_started_at
             breakdown = ", ".join(f"{stage}:{duration:.2f}s" for stage, duration in stage_timings)
