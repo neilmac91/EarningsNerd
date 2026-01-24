@@ -162,14 +162,16 @@ async def generate_summary(
 async def generate_summary_stream(
     filing_id: int,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """Generate AI summary with streaming response"""
+    """Generate AI summary with streaming response (guests allowed)"""
+    # Use user ID for authenticated users, IP for guests
+    rate_limit_key = f"summary:{current_user.id}" if current_user else f"summary:guest:{request.client.host}"
     enforce_rate_limit(
         request,
         SUMMARY_LIMITER,
-        f"summary:{current_user.id}",
+        rate_limit_key,
         error_detail="Too many summary requests. Please try again shortly.",
     )
     # Eagerly load content_cache and company relationship to avoid detached session issues
