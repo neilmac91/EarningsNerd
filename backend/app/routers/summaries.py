@@ -217,6 +217,9 @@ async def generate_summary_stream(
         from app.database import SessionLocal
         from fastapi.concurrency import run_in_threadpool
         
+        # Hard pipeline timeout to guarantee user receives response within this time
+        PIPELINE_TIMEOUT_SECONDS = 90
+        
         pipeline_started_at = time.time()
         stage_started_at = pipeline_started_at
         stage_timings: List[tuple[str, float]] = []
