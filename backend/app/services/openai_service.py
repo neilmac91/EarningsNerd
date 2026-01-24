@@ -177,13 +177,13 @@ class OpenAIService:
             base_url=base_url
         )
         # Google AI Studio model names
-        # Optimized for speed and cost-effectiveness
-        self.model = "gemini-2.0-flash"  # Fast, reliable default
+        # Updated to use Gemini Pro for higher quality outputs
+        self.model = "gemini-2.5-pro"  # High quality default (Gemini Pro)
         # Fallback models in case primary is rate-limited
         self._fallback_models = [
-            "gemini-2.0-flash",
+            "gemini-2.5-pro",
             "gemini-2.5-flash",
-            "gemini-2.5-pro"
+            "gemini-2.0-flash"
         ]
         # Dedicated writer preferences for editorial stage
         self._writer_models = [
@@ -191,18 +191,18 @@ class OpenAIService:
             "gemini-2.5-flash",
             "gemini-2.0-flash",
         ]
-        # Set optimized models for each filing type (ensure consistent quality)
+        # Set optimized models for each filing type - now both use Gemini Pro
         self._model_overrides = {
-            "10-K": "gemini-2.5-pro",  # Better quality for longer docs
-            "10-Q": "gemini-2.5-flash",  # Balance of speed and quality
+            "10-K": "gemini-2.5-pro",  # High quality for 10-K
+            "10-Q": "gemini-2.5-pro",  # High quality for 10-Q (upgraded from flash)
         }
 
     def get_model_for_filing(self, filing_type: Optional[str]) -> str:
         """Return the model to use for a given filing type.
 
-        Optimized for speed and quality using Google AI Studio:
-        - 10-Q: gemini-2.5-flash (balance of speed and quality)
-        - 10-K: gemini-2.5-pro (better quality for longer docs)
+        Using Gemini Pro for highest quality outputs:
+        - 10-Q: gemini-2.5-pro (high quality)
+        - 10-K: gemini-2.5-pro (high quality)
         """
         if not filing_type:
             return self.model
