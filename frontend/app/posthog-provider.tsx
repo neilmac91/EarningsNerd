@@ -147,6 +147,12 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
     }
   }, [initialized])
 
+  // Fix for React Error #310: Don't render PHProvider until initialized
+  // This prevents passing an uninitialized client which might trigger synchronous updates
+  if (!initialized) {
+    return <>{children}</>
+  }
+
   return (
     <PHProvider client={posthog}>
       <PostHogPageViewWrapper />

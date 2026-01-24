@@ -64,20 +64,21 @@ export default function Error({
           </Link>
         </div>
 
-        {/* DEBUG: Enabled in production to troubleshoot crash */}
-        <div className="mt-8 rounded-lg border border-border-light bg-gray-50 p-4 text-left dark:border-border-dark dark:bg-gray-900">
-          <h2 className="mb-2 font-mono text-sm font-semibold text-red-600 dark:text-red-400">
-            Error Details (Debug Mode):
-          </h2>
-          <pre className="overflow-x-auto text-xs text-text-secondary-light dark:text-text-secondary-dark">
-            {error.message}
-          </pre>
-          {error.stack && (
-            <pre className="mt-2 overflow-x-auto text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
-              {error.stack}
+        {process.env.NODE_ENV === 'development' && (
+          <div className="mt-8 rounded-lg border border-border-light bg-gray-50 p-4 text-left dark:border-border-dark dark:bg-gray-900">
+            <h2 className="mb-2 font-mono text-sm font-semibold text-red-600 dark:text-red-400">
+              Development Error Details:
+            </h2>
+            <pre className="overflow-x-auto text-xs text-text-secondary-light dark:text-text-secondary-dark">
+              {error.message}
             </pre>
-          )}
-        </div>
+            {error.stack && (
+              <pre className="mt-2 overflow-x-auto text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
+                {error.stack}
+              </pre>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
