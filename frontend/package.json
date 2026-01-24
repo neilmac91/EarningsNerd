@@ -11,8 +11,8 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:e2e": "playwright test",
-    "clean": "rm -rf .next",
-    "clean:all": "rm -rf .next node_modules/.cache",
+    "clean": "rimraf .next",
+    "clean:all": "rimraf .next node_modules/.cache",
     "dev:clean": "npm run clean && npm run dev",
     "deploy": "vercel --prod"
   },
@@ -49,6 +49,7 @@
     "eslint": "^8.56.0",
     "eslint-config-next": "14.2.33",
     "jsdom": "^24.1.0",
+    "rimraf": "^5.0.10",
     "typescript": "^5.3.3",
     "vercel": "^48.9.0",
     "vitest": "^4.0.8"

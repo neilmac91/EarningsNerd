@@ -21,7 +21,10 @@ Next.js webpack build cache corruption. This typically occurs when:
 **Solution:**
 ```bash
 # Stop the dev server (Ctrl+C or kill the process)
+# Unix/macOS:
 pkill -f "next dev"
+# Windows:
+# taskkill /F /IM node.exe
 
 # Clear the build cache
 cd frontend
@@ -49,7 +52,8 @@ npm run dev
 # Clear all caches and reinstall dependencies
 cd frontend
 npm run clean:all
-rm -rf node_modules
+# Remove node_modules (cross-platform with rimraf if installed globally, or use npx)
+npx rimraf node_modules
 npm install
 ```
 
@@ -63,10 +67,18 @@ npm install
 **Solution:**
 ```bash
 # Find and kill the process using port 3000
+
+# Unix/macOS:
 lsof -ti:3000 | xargs kill -9
+
+# Windows (Command Prompt):
+# netstat -ano | findstr :3000
+# taskkill /PID <PID> /F
 
 # Or use a different port
 PORT=3001 npm run dev
+# Windows (PowerShell):
+# $env:PORT=3001; npm run dev
 ```
 
 ---
@@ -96,7 +108,10 @@ python -c "from app.database import engine, Base; Base.metadata.create_all(bind=
 **Solution:**
 ```bash
 # Check if the backend is running
+# Unix/macOS:
 lsof -i :8000
+# Windows:
+# netstat -ano | findstr :8000
 
 # If not running, start it
 cd backend
@@ -113,19 +128,23 @@ If you're experiencing persistent issues, try a complete clean restart:
 
 ```bash
 # Stop all services
+# Unix/macOS:
 pkill -f "next dev"
 pkill -f "uvicorn"
+# Windows:
+# taskkill /F /IM node.exe
+# taskkill /F /IM python.exe
 
 # Frontend cleanup
 cd frontend
 npm run clean:all
-rm -rf node_modules
+npx rimraf node_modules
 npm install
 
 # Backend cleanup (if needed)
 cd ../backend
-rm -rf __pycache__
-rm -rf .pytest_cache
+npx rimraf __pycache__
+npx rimraf .pytest_cache
 
 # Restart services
 # Terminal 1: Backend
@@ -141,14 +160,24 @@ npm run dev
 
 ```bash
 # Check what's running on common ports
+# Unix/macOS:
 lsof -i :3000  # Frontend
 lsof -i :8000  # Backend
+# Windows:
+# netstat -ano | findstr :3000
+# netstat -ano | findstr :8000
 
 # Check running Node processes
+# Unix/macOS:
 ps aux | grep node
+# Windows:
+# tasklist /FI "IMAGENAME eq node.exe"
 
 # Check running Python processes
+# Unix/macOS:
 ps aux | grep python
+# Windows:
+# tasklist /FI "IMAGENAME eq python.exe"
 ```
 
 ---
