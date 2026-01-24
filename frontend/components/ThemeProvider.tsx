@@ -13,10 +13,8 @@ export const ThemeContext = createContext<ThemeContextType | undefined>(undefine
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('light')
-  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
     if (typeof window === 'undefined') return
     // Check localStorage for saved theme preference
     const savedTheme = localStorage.getItem('theme') as Theme | null
@@ -45,11 +43,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     updateTheme(newTheme)
   }
 
-  // Prevent hydration mismatch by not rendering until mounted
-  if (!mounted) {
-    return <>{children}</>
-  }
-
+  // No conditional return needed - suppressHydrationWarning on <html> in layout.tsx handles SSR
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
       {children}
