@@ -92,8 +92,8 @@ async def test_heartbeat_events_emitted_at_interval():
                             data = json.loads(line[6:])
                             events.append(data)
                     
-                    # Filter for heartbeat events
-                    heartbeats = [e for e in events if e.get("type") == "progress" and "Processing financial data" in e.get("message", "")]
+                    # Filter for heartbeat events - now uses rotating messages with stage 'summarizing'
+                    heartbeats = [e for e in events if e.get("type") == "progress" and e.get("stage") == "summarizing"]
                     
                     # Should have at least 2-3 heartbeats
                     assert len(heartbeats) >= 2

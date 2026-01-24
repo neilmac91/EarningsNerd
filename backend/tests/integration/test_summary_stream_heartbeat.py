@@ -98,7 +98,9 @@ async def test_stream_heartbeat_during_long_ai_operation():
             # Count heartbeats in response text
             # Note: TestClient collects all streaming response into response.text
             content = response.text
-            heartbeat_count = content.count("Processing financial data with AI...")
+            # Check for new rotating heartbeat messages (stage: summarizing with various messages)
+            # The new implementation uses rotating messages like "Analyzing financial highlights..."
+            heartbeat_count = content.count('"stage": "summarizing"')
             # Should have at least 2 heartbeats (0.5s sleep / 0.1s interval = ~5)
             assert heartbeat_count >= 2
     finally:
