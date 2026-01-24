@@ -92,7 +92,7 @@ class Settings(BaseSettings):
     FINNHUB_MAX_CONCURRENCY: int = 4
     
     # Stream Settings
-    STREAM_HEARTBEAT_INTERVAL: int = 5
+    STREAM_HEARTBEAT_INTERVAL: int = 3  # Send updates every 3 seconds (reduced from 5s for better UX)
     STREAM_TIMEOUT: int = 600
     
     class Config:

@@ -63,10 +63,15 @@ export const generateSummary = async (filingId: number): Promise<Summary> => {
   return response.data
 }
 
+export interface ProgressData {
+  elapsed_seconds?: number
+  heartbeat_count?: number
+}
+
 export const generateSummaryStream = async (
   filingId: number,
   onChunk: (chunk: string) => void,
-  onProgress: (stage: string, message: string) => void,
+  onProgress: (stage: string, message: string, data?: ProgressData) => void,
   onComplete: (summaryId: number) => void,
   onError: (error: string) => void
 ): Promise<void> => {
@@ -116,7 +121,7 @@ export const generateSummaryStream = async (
 
   if (!response.ok) {
     clearTimeoutSafely()
-    
+
     // Handle authentication errors
     if (response.status === 401) {
       let errorMessage = 'Authentication error occurred.'
@@ -132,7 +137,7 @@ export const generateSummaryStream = async (
       }
       throw new Error(errorMessage)
     }
-    
+
     // Handle other HTTP errors
     let errorMessage = `Request failed with status ${response.status}`
     try {
@@ -193,8 +198,12 @@ export const generateSummaryStream = async (
             } else if (data.type === 'progress') {
               const stageName = typeof data.stage === 'string' ? data.stage : 'unknown'
               const message = typeof data.message === 'string' ? data.message : ''
+              const progressData: ProgressData = {
+                elapsed_seconds: typeof data.elapsed_seconds === 'number' ? data.elapsed_seconds : undefined,
+                heartbeat_count: typeof data.heartbeat_count === 'number' ? data.heartbeat_count : undefined,
+              }
               recordStageTiming(stageName, message)
-              onProgress(stageName, message)
+              onProgress(stageName, message, progressData)
             } else if (data.type === 'complete') {
               recordStageTiming('complete', 'summary ready')
               onComplete(data.summary_id)
@@ -229,8 +238,7 @@ export const generateSummaryStream = async (
       .map(({ stage, at, delta }) => `${stage}:${Math.round(at)}ms (Δ${Math.round(delta)}ms)`)
       .join(', ')
     console.info(
-      `[summary] ${filingId} stream closed after ${totalElapsed.toFixed(1)} ms${
-        breakdown ? ` | stages ${breakdown}` : ''
+      `[summary] ${filingId} stream closed after ${totalElapsed.toFixed(1)} ms${breakdown ? ` | stages ${breakdown}` : ''
       }`
     )
   }

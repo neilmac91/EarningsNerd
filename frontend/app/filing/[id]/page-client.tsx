@@ -222,6 +222,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   const [isStreaming, setIsStreaming] = useState(false)
   const [streamingStage, setStreamingStage] = useState<string>('')
   const [streamingMessage, setStreamingMessage] = useState<string>('')
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false)
   const hasTrackedFilingView = useRef(false)
@@ -343,10 +344,13 @@ function FilingDetailView({ filingId }: { filingId: number }) {
           setGenerationError(null)
           setStreamingText(prev => prev + chunk)
         },
-        (stage: string, message: string) => {
+        (stage: string, message: string, data?: { elapsed_seconds?: number; heartbeat_count?: number }) => {
           setGenerationError(null)
           setStreamingStage(stage)
           setStreamingMessage(message)
+          if (data?.elapsed_seconds !== undefined) {
+            setElapsedSeconds(data.elapsed_seconds)
+          }
         },
         () => {
           setGenerationError(null)
@@ -520,6 +524,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
             filing={filing}
             error={generationError}
             onRetry={handleGenerateSummary}
+            elapsedSeconds={elapsedSeconds}
           />
         ) : summary && hasSummaryContent && filing ? (
           <SummaryDisplay
@@ -539,6 +544,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
             filing={filing}
             error={activeErrorMessage}
             onRetry={handleGenerateSummary}
+            elapsedSeconds={0}
           />
         )}
       </main>
@@ -553,6 +559,7 @@ function StreamingSummaryDisplay({
   filing,
   error,
   onRetry,
+  elapsedSeconds = 0,
 }: {
   streamingText: string
   stage: string
@@ -560,6 +567,7 @@ function StreamingSummaryDisplay({
   filing: Filing
   error?: string | null
   onRetry?: () => void
+  elapsedSeconds?: number
 }) {
   const [isClient, setIsClient] = useState(false)
   const [whimsyMessage, setWhimsyMessage] = useState('')
@@ -590,7 +598,7 @@ function StreamingSummaryDisplay({
     return () => clearInterval(intervalId)
   }, [stage, isError])
 
-  // Optimistic progress effect
+  // Optimistic progress effect - now uses real elapsed time from backend
   useEffect(() => {
     if (stage === 'completed') {
       setOptimisticProgress(100)
@@ -598,29 +606,37 @@ function StreamingSummaryDisplay({
     }
     if (isError) return
 
+    // Get base progress for current stage
     const baseProgress = STAGE_PROGRESS_MAP[stage] || 0
-    setOptimisticProgress(prev => Math.max(prev, baseProgress))
 
+    // Calculate next stage target
+    let nextTarget = 95
+    if (stage === 'initializing' || stage === 'queued') nextTarget = 10
+    else if (stage === 'fetching') nextTarget = 25
+    else if (stage === 'parsing') nextTarget = 45
+    else if (stage === 'analyzing') nextTarget = 75
+    else if (stage === 'summarizing') nextTarget = 95
+
+    // Use elapsed time from backend for smoother progress within stage
+    // Each stage gets a time bonus based on how long it's been running
+    const stageRange = nextTarget - baseProgress
+    const timeBonus = Math.min(stageRange * 0.6, elapsedSeconds * 0.8)
+    const newProgress = Math.min(nextTarget - 1, baseProgress + timeBonus)
+
+    setOptimisticProgress(prev => Math.max(prev, newProgress))
+
+    // Fallback: slow client-side increment if backend stops sending updates
     const interval = setInterval(() => {
       setOptimisticProgress(current => {
-        // Find next target based on stage or current progress
-        let target = 95
-        if (stage === 'initializing' || stage === 'queued') target = 10
-        else if (stage === 'fetching') target = 25
-        else if (stage === 'parsing') target = 45
-        else if (stage === 'analyzing') target = 75
-        else if (stage === 'summarizing') target = 95
-
-        if (current >= target) return current
-
-        const remaining = target - current
-        const increment = Math.max(0.05, remaining * 0.02)
-        return Math.min(target, current + increment)
+        if (current >= nextTarget - 1) return current
+        const remaining = nextTarget - current
+        const increment = Math.max(0.02, remaining * 0.01)
+        return Math.min(nextTarget - 1, current + increment)
       })
-    }, 100)
+    }, 200)
 
     return () => clearInterval(interval)
-  }, [stage, isError])
+  }, [stage, isError, elapsedSeconds])
 
   // Clean up progress when complete
   useEffect(() => {

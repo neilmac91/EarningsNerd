@@ -262,14 +262,40 @@ async def generate_summary_stream(
             # DB OP: Record progress
             await run_sync_db(record_progress, session, filing_id, "fetching")
             
-            yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'Step 1: File Validation - Confirming document is accessible and parsable...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'Step 1: File Validation - Confirming document is accessible and parsable...', 'elapsed_seconds': int(time.time() - pipeline_started_at)})}\n\n"
 
-            # Fetch filing document using cached URL
+            # Fetch filing document with heartbeat to prevent UI stall at 10%
+            FETCH_MESSAGES = [
+                "Connecting to SEC EDGAR...",
+                "Downloading filing document...",
+                "Retrieving full document text...",
+                "Processing SEC response...",
+            ]
+            
             try:
-                filing_text = await sec_edgar_service.get_filing_document(
-                    filing_document_url,
-                    timeout=25.0
+                # Wrap the SEC fetch in a task with heartbeat loop
+                fetch_task = asyncio.create_task(
+                    sec_edgar_service.get_filing_document(filing_document_url, timeout=25.0)
                 )
+                
+                fetch_heartbeat_index = 0
+                while not fetch_task.done():
+                    done, _ = await asyncio.wait(
+                        [fetch_task],
+                        timeout=settings.STREAM_HEARTBEAT_INTERVAL,
+                        return_when=asyncio.FIRST_COMPLETED
+                    )
+                    if fetch_task in done:
+                        break
+                    # Send heartbeat during fetch
+                    fetch_message = FETCH_MESSAGES[fetch_heartbeat_index % len(FETCH_MESSAGES)]
+                    elapsed_secs = int(time.time() - pipeline_started_at)
+                    yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': fetch_message, 'elapsed_seconds': elapsed_secs})}\n\n"
+                    fetch_heartbeat_index += 1
+                
+                # Get the result (or raise exception if task failed)
+                filing_text = await fetch_task
+                
                 if not filing_text:
                     raise ValueError("Filing document is empty or inaccessible")
             except Exception as fetch_error:
@@ -386,7 +412,18 @@ async def generate_summary_stream(
 
             # Heartbeat loop - keep connection alive while waiting for AI
             # This prevents HTTP connection timeout during long-running AI operations
-            from app.config import settings
+            # Note: settings already imported at top of stream_summary function
+            
+            # Rotating heartbeat messages for better UX during long AI operations
+            SUMMARIZE_MESSAGES = [
+                "Analyzing financial highlights...",
+                "Cross-referencing with XBRL data...",
+                "Extracting key metrics from MD&A...",
+                "Identifying significant risk factors...",
+                "Synthesizing investment insights...",
+                "Reviewing guidance and outlook...",
+            ]
+            summarize_heartbeat_index = 0
             
             while not summary_task.done():
                 # Wait for task completion or heartbeat interval
@@ -400,8 +437,11 @@ async def generate_summary_stream(
                     # Task completed, exit loop
                     break
                 
-                # Task still running, send heartbeat
-                yield f"data: {json.dumps({'type': 'progress', 'stage': 'analyzing', 'message': 'Processing financial data with AI...'})}\n\n"
+                # Task still running, send heartbeat with rotating message and timing info
+                heartbeat_message = SUMMARIZE_MESSAGES[summarize_heartbeat_index % len(SUMMARIZE_MESSAGES)]
+                elapsed_secs = int(time.time() - pipeline_started_at)
+                yield f"data: {json.dumps({'type': 'progress', 'stage': 'summarizing', 'message': heartbeat_message, 'heartbeat_count': summarize_heartbeat_index, 'elapsed_seconds': elapsed_secs})}\n\n"
+                summarize_heartbeat_index += 1
             
             # Get result (or raise exception if task failed)
             summary_payload = await summary_task
