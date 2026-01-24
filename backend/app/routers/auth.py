@@ -196,6 +196,7 @@ async def get_current_user_optional(
     try:
         user = db.query(User).filter(User.email == email).first()
         if user and not user.is_active:
+            logger.warning(f"Optional auth: User {email} is inactive")
             return None
         return user
     except Exception as e:

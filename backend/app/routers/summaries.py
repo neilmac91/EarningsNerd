@@ -170,6 +170,9 @@ async def generate_summary_stream(
     """Generate AI summary with streaming response (guests allowed)"""
     # Use user ID for authenticated users, IP for guests
     client_host = request.client.host if request.client else "unknown"
+    user_id_log = current_user.id if current_user else "Guest"
+    logger.info(f"Incoming stream request for filing {filing_id} from {user_id_log} (IP: {client_host})")
+    
     rate_limit_key = f"summary:{current_user.id}" if current_user else f"summary:guest:{client_host}"
 
     enforce_rate_limit(
@@ -211,6 +214,9 @@ async def generate_summary_stream(
         from app.database import SessionLocal
         from fastapi.concurrency import run_in_threadpool
         
+        # Hard pipeline timeout to guarantee user receives response within this time
+        PIPELINE_TIMEOUT_SECONDS = 90
+        
         pipeline_started_at = time.time()
         stage_started_at = pipeline_started_at
         stage_timings: List[tuple[str, float]] = []
@@ -232,34 +238,35 @@ async def generate_summary_stream(
             return await run_in_threadpool(func, *args, **kwargs)
 
         try:
-            logger.info(f"Stream generator started for filing {filing_id}")
-            yield f"data: {json.dumps({'type': 'progress', 'stage': 'initializing', 'message': 'Initializing...'})}\n\n"
+            async with asyncio.timeout(PIPELINE_TIMEOUT_SECONDS):
+                logger.info(f"Stream generator started for filing {filing_id} (timeout: {PIPELINE_TIMEOUT_SECONDS}s)")
+                yield f"data: {json.dumps({'type': 'progress', 'stage': 'initializing', 'message': 'Initializing...'})}\n\n"
 
-            # DB OP: Query filing and check for existing summary
-            def get_filing_and_summary_sync():
-                filing_in_session = session.query(Filing).options(
-                    joinedload(Filing.content_cache),
-                    joinedload(Filing.company)
-                ).filter(Filing.id == filing_id).first()
-                summary_in_session = session.query(Summary).filter(Summary.filing_id == filing_id).first()
-                return filing_in_session, summary_in_session
-            
-            filing_in_session, summary_in_session = await run_sync_db(get_filing_and_summary_sync)
-            
-            if not filing_in_session:
-                logger.warning(f"Filing {filing_id} not found during stream generation.")
-                yield f"data: {json.dumps({'type': 'error', 'message': 'Filing not found'})}\n\n"
-                return
+                # DB OP: Query filing and check for existing summary
+                def get_filing_and_summary_sync():
+                    filing_in_session = session.query(Filing).options(
+                        joinedload(Filing.content_cache),
+                        joinedload(Filing.company)
+                    ).filter(Filing.id == filing_id).first()
+                    summary_in_session = session.query(Summary).filter(Summary.filing_id == filing_id).first()
+                    return filing_in_session, summary_in_session
+                
+                filing_in_session, summary_in_session = await run_sync_db(get_filing_and_summary_sync)
+                
+                if not filing_in_session:
+                    logger.warning(f"Filing {filing_id} not found during stream generation.")
+                    yield f"data: {json.dumps({'type': 'error', 'message': 'Filing not found'})}\n\n"
+                    return
 
-            if summary_in_session:
-                logger.info(f"Existing summary found for filing {filing_id}. Returning it.")
-                payload = {
-                    'type': 'complete',
-                    'summary': summary_in_session.business_overview,
-                    'summary_id': summary_in_session.id,
-                }
-                yield f"data: {json.dumps(payload)}\n\n"
-                return
+                if summary_in_session:
+                    logger.info(f"Existing summary found for filing {filing_id}. Returning it.")
+                    payload = {
+                        'type': 'complete',
+                        'summary': summary_in_session.business_overview,
+                        'summary_id': summary_in_session.id,
+                    }
+                    yield f"data: {json.dumps(payload)}\n\n"
+                    return
 
             # Cache company data and filing attributes from the fetched filing
             company_name = filing_in_session.company.name if filing_in_session.company else "Unknown company"
@@ -305,7 +312,7 @@ async def generate_summary_stream(
                 logger.info(f"Starting SEC fetch for URL: {filing_document_url}")
                 # Wrap the SEC fetch in a task with heartbeat loop
                 fetch_task = asyncio.create_task(
-                    sec_edgar_service.get_filing_document(filing_document_url, timeout=25.0)
+                    sec_edgar_service.get_filing_document(filing_document_url, timeout=15.0)
                 )
                 
                 fetch_heartbeat_index = 0
@@ -378,7 +385,7 @@ async def generate_summary_stream(
                             await run_sync_db(update_xbrl_sync)
                             return metrics
                     except Exception as xbrl_error:
-                        print(f"[stream:{filing_id}] Error updating XBRL data: {str(xbrl_error)}")
+                        logger.warning(f"[stream:{filing_id}] Error updating XBRL data: {str(xbrl_error)}")
                         pass
                     return None
                 xbrl_task = asyncio.create_task(fetch_xbrl())
@@ -422,7 +429,7 @@ async def generate_summary_stream(
                 excerpt = None
                 xbrl_metrics = None
             except Exception as e:
-                print(f"[stream:{filing_id}] Error waiting for excerpt/XBRL: {str(e)}")
+                logger.warning(f"[stream:{filing_id}] Error waiting for excerpt/XBRL: {str(e)}")
                 excerpt = None
                 xbrl_metrics = None
             
@@ -572,12 +579,17 @@ async def generate_summary_stream(
                 yield f"data: {json.dumps({'type': 'error', 'message': summary_message or 'Error generating summary', 'summary_id': saved_summary_id})}\n\n"
             else:
                 yield f"data: {json.dumps({'type': 'complete', 'summary_id': saved_summary_id})}\n\n"
+        except TimeoutError:
+            # Pipeline hard timeout reached
+            logger.warning(f"Pipeline timeout after {PIPELINE_TIMEOUT_SECONDS}s for filing {filing_id}")
+            try:
+                await run_sync_db(record_progress, session, filing_id, "error", error="Pipeline timeout")
+            except:
+                pass
+            yield f"data: {json.dumps({'type': 'error', 'message': 'Summary generation timed out. Please try again.'})}\n\n"
         except Exception as e:
-            import traceback
-            error_trace = traceback.format_exc()
+            logger.error(f"Error in streaming summary: {str(e)}", exc_info=True)
             error_msg = str(e)
-            logger.error(f"Error in streaming summary: {error_msg}")
-            logger.error(f"Traceback: {error_trace}")
             try:
                 await run_sync_db(record_progress, session, filing_id, "error", error=error_msg[:200])
             except:
@@ -600,7 +612,7 @@ async def generate_summary_stream(
             if breakdown:
                 logger.info(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s ({breakdown})")
             else:
-                print(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s")
+                logger.info(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s")
 
     return StreamingResponse(stream_summary(), media_type="text/event-stream")
 
