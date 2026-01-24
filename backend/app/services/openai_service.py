@@ -177,32 +177,32 @@ class OpenAIService:
             base_url=base_url
         )
         # Google AI Studio model names
-        # Updated to use Gemini Pro for higher quality outputs
-        self.model = "gemini-2.5-pro"  # High quality default (Gemini Pro)
+        # Updated to use Gemini Pro 3.0 for highest quality outputs
+        self.model = "gemini-3-pro-preview"  # Gemini Pro 3.0 (high-precision multimodal reasoning)
         # Fallback models in case primary is rate-limited
         self._fallback_models = [
+            "gemini-3-pro-preview",
             "gemini-2.5-pro",
-            "gemini-2.5-flash",
-            "gemini-2.0-flash"
+            "gemini-2.5-flash"
         ]
         # Dedicated writer preferences for editorial stage
         self._writer_models = [
-            "gemini-2.5-pro",  # Highest quality for writing
+            "gemini-3-pro-preview",  # Highest quality for writing
+            "gemini-2.5-pro",
             "gemini-2.5-flash",
-            "gemini-2.0-flash",
         ]
-        # Set optimized models for each filing type - now both use Gemini Pro
+        # Set optimized models for each filing type - all use Gemini Pro 3.0
         self._model_overrides = {
-            "10-K": "gemini-2.5-pro",  # High quality for 10-K
-            "10-Q": "gemini-2.5-pro",  # High quality for 10-Q (upgraded from flash)
+            "10-K": "gemini-3-pro-preview",  # Gemini Pro 3.0 for 10-K
+            "10-Q": "gemini-3-pro-preview",  # Gemini Pro 3.0 for 10-Q
         }
 
     def get_model_for_filing(self, filing_type: Optional[str]) -> str:
         """Return the model to use for a given filing type.
 
-        Using Gemini Pro for highest quality outputs:
-        - 10-Q: gemini-2.5-pro (high quality)
-        - 10-K: gemini-2.5-pro (high quality)
+        Using Gemini Pro 3.0 for highest quality outputs:
+        - 10-Q: gemini-3-pro-preview (Gemini Pro 3.0)
+        - 10-K: gemini-3-pro-preview (Gemini Pro 3.0)
         """
         if not filing_type:
             return self.model
