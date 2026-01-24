@@ -412,7 +412,7 @@ async def generate_summary_stream(
 
             # Heartbeat loop - keep connection alive while waiting for AI
             # This prevents HTTP connection timeout during long-running AI operations
-            # Note: settings already imported at top of stream_summary function
+            from app.config import settings
             
             # Rotating heartbeat messages for better UX during long AI operations
             SUMMARIZE_MESSAGES = [

@@ -609,13 +609,16 @@ function StreamingSummaryDisplay({
     // Get base progress for current stage
     const baseProgress = STAGE_PROGRESS_MAP[stage] || 0
 
-    // Calculate next stage target
-    let nextTarget = 95
-    if (stage === 'initializing' || stage === 'queued') nextTarget = 10
-    else if (stage === 'fetching') nextTarget = 25
-    else if (stage === 'parsing') nextTarget = 45
-    else if (stage === 'analyzing') nextTarget = 75
-    else if (stage === 'summarizing') nextTarget = 95
+    // Calculate next stage target using map for cleaner code
+    const NEXT_TARGET_MAP: Record<string, number> = {
+      'initializing': 10,
+      'queued': 10,
+      'fetching': 25,
+      'parsing': 45,
+      'analyzing': 75,
+      'summarizing': 95,
+    }
+    const nextTarget = NEXT_TARGET_MAP[stage] || 95
 
     // Use elapsed time from backend for smoother progress within stage
     // Each stage gets a time bonus based on how long it's been running
