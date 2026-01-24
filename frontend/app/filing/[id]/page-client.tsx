@@ -325,11 +325,13 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   const debugSummary = searchParams?.get('debug') === '1'
 
   const handleGenerateSummary = async () => {
-    if (!isAuthenticated) {
-      setGenerationError('Please sign in to generate summaries.')
-      router.push('/login')
-      return
-    }
+    // POC mode: allow all users to generate summaries (auth check disabled)
+    // TODO: Re-enable auth check when user registration is implemented
+    // if (!isAuthenticated) {
+    //   setGenerationError('Please sign in to generate summaries.')
+    //   router.push('/login')
+    //   return
+    // }
     setHasStartedGeneration(true)
     setGenerationError(null)
     setIsStreaming(true)
@@ -384,9 +386,9 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   // Auto-generate summary when page loads if no summary exists
   useEffect(() => {
     // Auto-generate if all conditions are met
+    // POC mode: removed isAuthenticated check to allow all users
     if (
       filing &&
-      isAuthenticated &&
       !summaryLoading &&
       !isStreaming &&
       !hasSummaryContent &&
@@ -396,7 +398,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
       handleGenerateSummary()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filing, summary, summaryLoading, isStreaming, hasStartedGeneration, hasSummaryContent, generationError, isAuthenticated])
+  }, [filing, summary, summaryLoading, isStreaming, hasStartedGeneration, hasSummaryContent, generationError])
 
   useEffect(() => {
     if (hasSummaryContent) {
