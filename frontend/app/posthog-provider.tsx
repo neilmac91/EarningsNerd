@@ -106,10 +106,12 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
               if (consent?.analytics) {
                 posthogClient.opt_in_capturing()
               }
+
+              // Set initialized state to trigger re-render with PHProvider
+              // This must be in the loaded callback since posthog.__loaded doesn't trigger React updates
+              setInitialized(true)
             },
           })
-
-          setInitialized(true)
         } else if (posthog?.__loaded) {
           // Update existing PostHog instance based on consent
           if (consent?.analytics) {
