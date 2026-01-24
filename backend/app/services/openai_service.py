@@ -176,25 +176,30 @@ class OpenAIService:
             api_key=settings.OPENAI_API_KEY,
             base_url=base_url
         )
+        # Model name constants for maintainability
+        self._MODEL_GEMINI_3_PRO = "gemini-3-pro-preview"
+        self._MODEL_GEMINI_2_5_PRO = "gemini-2.5-pro"
+        self._MODEL_GEMINI_2_5_FLASH = "gemini-2.5-flash"
+
         # Google AI Studio model names
         # Updated to use Gemini Pro 3.0 for highest quality outputs
-        self.model = "gemini-3-pro-preview"  # Gemini Pro 3.0 (high-precision multimodal reasoning)
+        self.model = self._MODEL_GEMINI_3_PRO  # Gemini Pro 3.0 (high-precision multimodal reasoning)
         # Fallback models in case primary is rate-limited
         self._fallback_models = [
-            "gemini-3-pro-preview",
-            "gemini-2.5-pro",
-            "gemini-2.5-flash"
+            self._MODEL_GEMINI_3_PRO,
+            self._MODEL_GEMINI_2_5_PRO,
+            self._MODEL_GEMINI_2_5_FLASH
         ]
         # Dedicated writer preferences for editorial stage
         self._writer_models = [
-            "gemini-3-pro-preview",  # Highest quality for writing
-            "gemini-2.5-pro",
-            "gemini-2.5-flash",
+            self._MODEL_GEMINI_3_PRO,  # Highest quality for writing
+            self._MODEL_GEMINI_2_5_PRO,
+            self._MODEL_GEMINI_2_5_FLASH,
         ]
         # Set optimized models for each filing type - all use Gemini Pro 3.0
         self._model_overrides = {
-            "10-K": "gemini-3-pro-preview",  # Gemini Pro 3.0 for 10-K
-            "10-Q": "gemini-3-pro-preview",  # Gemini Pro 3.0 for 10-Q
+            "10-K": self._MODEL_GEMINI_3_PRO,  # Gemini Pro 3.0 for 10-K
+            "10-Q": self._MODEL_GEMINI_3_PRO,  # Gemini Pro 3.0 for 10-Q
         }
 
     def get_model_for_filing(self, filing_type: Optional[str]) -> str:
