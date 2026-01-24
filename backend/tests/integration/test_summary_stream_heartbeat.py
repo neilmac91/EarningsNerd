@@ -73,7 +73,8 @@ async def test_stream_heartbeat_during_long_ai_operation():
     
     # Mock SessionLocal for the background stream task
     mock_session_cls = MagicMock()
-    mock_session_cls.return_value.__enter__.return_value = mock_db
+    mock_session_cls.return_value = mock_db  # Fix: session = SessionLocal() returns mock_db
+    mock_session_cls.return_value.__enter__.return_value = mock_db # Handle context manager usage too
     
     try:
         with patch("app.routers.summaries.sec_edgar_service.get_filing_document", new_callable=AsyncMock, return_value="Filing text content") as mock_sec, \
@@ -147,6 +148,7 @@ async def test_stream_handles_ai_error_gracefully():
         
     # Mock SessionLocal for the background stream task
     mock_session_cls = MagicMock()
+    mock_session_cls.return_value = mock_db  # Fix: session = SessionLocal() returns mock_db
     mock_session_cls.return_value.__enter__.return_value = mock_db
 
     app.dependency_overrides[get_current_user] = override_get_current_user

@@ -6,6 +6,7 @@ import time
 import json
 import concurrent.futures
 from pydantic import BaseModel
+import logging
 from fastapi.responses import Response, StreamingResponse
 
 from app.database import get_db, SessionLocal
@@ -33,6 +34,7 @@ from app.services.summary_generation_service import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 SUMMARY_LIMITER = RateLimiter(limit=5, window_seconds=60)
 
 class SummaryResponse(BaseModel):
@@ -167,7 +169,9 @@ async def generate_summary_stream(
 ):
     """Generate AI summary with streaming response (guests allowed)"""
     # Use user ID for authenticated users, IP for guests
-    rate_limit_key = f"summary:{current_user.id}" if current_user else f"summary:guest:{request.client.host}"
+    client_host = request.client.host if request.client else "unknown"
+    rate_limit_key = f"summary:{current_user.id}" if current_user else f"summary:guest:{client_host}"
+
     enforce_rate_limit(
         request,
         SUMMARY_LIMITER,
@@ -195,16 +199,6 @@ async def generate_summary_stream(
             }
             yield f"data: {json.dumps(payload)}\n\n"
         return StreamingResponse(existing_summary(), media_type="text/event-stream")
-    try:
-        enforce_rate_limit(
-            request,
-            SUMMARY_LIMITER,
-            rate_limit_key,
-            error_detail="Too many summary requests. Please try again shortly.",
-        )
-    except Exception as e:
-        logger.warning(f"Rate limit error for {rate_limit_key}: {e}")
-        raise e
 
     # Removed blocking synchronous DB query here. Filing existence is checked inside stream_summary.
     # Removed caching of company data and filing attributes here. These will be fetched inside stream_summary.
@@ -275,20 +269,22 @@ async def generate_summary_stream(
             filing_type = filing_in_session.filing_type
             filing_accession_number = filing_in_session.accession_number
 
-            # Check usage limits for authenticated user (moved here)
-            can_generate, current_count, limit = await run_sync_db(check_usage_limit, current_user, session)
-            if not can_generate:
-                logger.warning(f"User {user_id} exceeded monthly summary limit ({limit}) for filing {filing_id}.")
-                message = (
-                    "You've reached your monthly limit of "
-                    f"{limit} summaries. Upgrade to Pro for unlimited summaries."
-                )
-                payload = {"type": "error", "message": message}
-                yield f"data: {json.dumps(payload)}\n\n"
-                return
+            # Check usage limits for authenticated user
+            if current_user:
+                can_generate, current_count, limit = await run_sync_db(check_usage_limit, current_user, session)
+                if not can_generate:
+                    logger.warning(f"User {user_id} exceeded monthly summary limit ({limit}) for filing {filing_id}.")
+                    message = (
+                        "You've reached your monthly limit of "
+                        f"{limit} summaries. Upgrade to Pro for unlimited summaries."
+                    )
+                    payload = {"type": "error", "message": message}
+                    yield f"data: {json.dumps(payload)}\n\n"
+                    return
+                logger.info(f"Usage limit check passed for user {user_id}. Current count: {current_count}/{limit}")
+            else:
+                logger.info(f"Guest user accessing filing {filing_id}. Rate limit already enforced.")
             
-            logger.info(f"Usage limit check passed for user {user_id}. Current count: {current_count}/{limit}")
-
             # Note: We use cached values from outer scope, but filling_in_session is already populated.
             
             # Step 1: File Validation
@@ -378,10 +374,13 @@ async def generate_summary_stream(
                             
                             # DB OP: Update filing xbrl_data
                             def update_xbrl_sync():
-                                filing_for_update = session.query(Filing).filter(Filing.id == filing_id).first()
-                                if filing_for_update:
-                                    filing_for_update.xbrl_data = data
-                                    session.commit()
+                                # Use a new session for this thread operation to ensure thread safety
+                                from app.database import SessionLocal
+                                with SessionLocal() as xbrl_session:
+                                    filing_for_update = xbrl_session.query(Filing).filter(Filing.id == filing_id).first()
+                                    if filing_for_update:
+                                        filing_for_update.xbrl_data = data
+                                        xbrl_session.commit()
                             
                             await run_sync_db(update_xbrl_sync)
                             return metrics
@@ -463,6 +462,7 @@ async def generate_summary_stream(
                 "Reviewing guidance and outlook...",
             ]
             summarize_heartbeat_index = 0
+            
             
             while not summary_task.done():
                 # Wait for task completion or heartbeat interval
@@ -607,10 +607,8 @@ async def generate_summary_stream(
             import sys
             error_trace = traceback.format_exc()
             error_msg = str(e)
-            print(f"Error in streaming summary: {error_msg}", flush=True)
-            print(f"Traceback: {error_trace}", flush=True)
-            sys.stderr.write(f"[STREAM ERROR] {error_msg}\n{error_trace}\n")
-            sys.stderr.flush()
+            logger.error(f"Error in streaming summary: {error_msg}")
+            logger.error(f"Traceback: {error_trace}")
             try:
                 await run_sync_db(record_progress, session, filing_id, "error", error=error_msg[:200])
             except:
@@ -637,7 +635,7 @@ async def generate_summary_stream(
             total_elapsed = time.time() - pipeline_started_at
             breakdown = ", ".join(f"{stage}:{duration:.2f}s" for stage, duration in stage_timings)
             if breakdown:
-                print(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s ({breakdown})")
+                logger.info(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s ({breakdown})")
             else:
                 print(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s (no stage breakdown)")
 
