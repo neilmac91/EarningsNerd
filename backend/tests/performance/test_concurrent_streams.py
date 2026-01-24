@@ -66,6 +66,7 @@ async def test_heartbeat_events_emitted_at_interval():
     
     # Mock SessionLocal for the background stream task
     mock_session_cls = MagicMock()
+    mock_session_cls.return_value = mock_db
     mock_session_cls.return_value.__enter__.return_value = mock_db
 
     try:
@@ -142,6 +143,7 @@ async def test_concurrent_stream_connections():
         
     # Mock SessionLocal for the background stream task
     mock_session_cls = MagicMock()
+    mock_session_cls.return_value = mock_db
     mock_session_cls.return_value.__enter__.return_value = mock_db
 
     app.dependency_overrides[get_current_user] = override_get_current_user

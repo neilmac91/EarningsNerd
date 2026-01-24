@@ -6,6 +6,7 @@ import time
 import json
 import concurrent.futures
 from pydantic import BaseModel
+import logging
 from fastapi.responses import Response, StreamingResponse
 
 from app.database import get_db, SessionLocal
@@ -33,6 +34,7 @@ from app.services.summary_generation_service import (
 )
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 SUMMARY_LIMITER = RateLimiter(limit=5, window_seconds=60)
 
 class SummaryResponse(BaseModel):
@@ -167,7 +169,8 @@ async def generate_summary_stream(
 ):
     """Generate AI summary with streaming response (guests allowed)"""
     # Use user ID for authenticated users, IP for guests
-    rate_limit_key = f"summary:{current_user.id}" if current_user else f"summary:guest:{request.client.host}"
+    client_host = request.client.host if request.client else "unknown"
+    rate_limit_key = f"summary:{current_user.id}" if current_user else f"summary:guest:{client_host}"
     enforce_rate_limit(
         request,
         SUMMARY_LIMITER,
@@ -463,6 +466,7 @@ async def generate_summary_stream(
                 "Reviewing guidance and outlook...",
             ]
             summarize_heartbeat_index = 0
+            
             
             while not summary_task.done():
                 # Wait for task completion or heartbeat interval
