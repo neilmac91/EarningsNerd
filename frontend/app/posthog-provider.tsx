@@ -50,8 +50,16 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    // Wrap all PostHog initialization in try-catch to prevent crashes
-    try {
+    useEffect(() => {
+      const key = process.env.NEXT_PUBLIC_POSTHOG_KEY
+      const host = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com'
+
+      // Early return if PostHog key is not configured
+      if (!key) {
+        console.warn('PostHog: NEXT_PUBLIC_POSTHOG_KEY not set, analytics disabled')
+        return
+      }
+
       // Check cookie consent before initializing PostHog
       const initializePostHog = (preferences?: CookiePreferences | null) => {
         try {
@@ -147,9 +155,7 @@ export function PostHogProvider({ children }: { children: React.ReactNode }) {
       return () => {
         window.removeEventListener('cookieConsentChanged', handleConsentChange)
       }
-    } catch (error) {
-      console.error('PostHog: Fatal error during provider initialization', error)
-    }
+    }, [initialized])
   }, [initialized])
 
   return (
