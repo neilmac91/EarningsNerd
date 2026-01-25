@@ -115,6 +115,7 @@ async def test_concurrent_stream_connections():
     mock_filing.document_url = "http://test.com/filing.htm"
     mock_filing.company.name = "Test Corp"
     mock_filing.filing_type = "10-K"
+    mock_filing.content_cache = None
     
     mock_user = MagicMock()
     mock_user.id = user_id
