@@ -177,7 +177,7 @@ async def generate_summary_stream(
     # Use user ID for authenticated users, IP for guests
     client_host = request.client.host if request.client else "unknown"
     user_id_log = current_user.id if current_user else "Guest"
-    logger.info(f"Incoming stream request for filing {filing_id} from {user_id_log} (IP: {client_host})")
+    logger.info(f"[stream:{filing_id}] Incoming stream request from {user_id_log} (IP: {client_host})")
     
     rate_limit_key = f"summary:{current_user.id}" if current_user else f"summary:guest:{client_host}"
 
@@ -213,7 +213,7 @@ async def generate_summary_stream(
     # Removed caching of company data and filing attributes here. These will be fetched inside stream_summary.
 
     user_id = current_user.id if current_user else None
-    logger.info(f"Starting summary stream for filing {filing_id}, user {user_id}")
+    logger.info(f"[stream:{filing_id}] Starting summary stream for user {user_id}")
 
     async def stream_summary():
         # Create a new session for the async generator to avoid detached session issues
@@ -245,7 +245,7 @@ async def generate_summary_stream(
 
         try:
             async with asyncio.timeout(PIPELINE_TIMEOUT_SECONDS):
-                logger.info(f"Stream generator started for filing {filing_id} (timeout: {PIPELINE_TIMEOUT_SECONDS}s)")
+                logger.info(f"[stream:{filing_id}] Stream generator started (timeout: {PIPELINE_TIMEOUT_SECONDS}s)")
                 yield f"data: {json.dumps({'type': 'progress', 'stage': 'initializing', 'message': 'Initializing...', 'percent': 0})}\n\n"
 
                 # DB OP: Query filing and check for existing summary
@@ -260,12 +260,12 @@ async def generate_summary_stream(
                 filing_in_session, summary_in_session = await run_sync_db(get_filing_and_summary_sync)
                 
                 if not filing_in_session:
-                    logger.warning(f"Filing {filing_id} not found during stream generation.")
+                    logger.warning(f"[stream:{filing_id}] Filing not found during stream generation.")
                     yield f"data: {json.dumps({'type': 'error', 'message': 'Filing not found'})}\n\n"
                     return
 
                 if summary_in_session:
-                    logger.info(f"Existing summary found for filing {filing_id}. Returning it.")
+                    logger.info(f"[stream:{filing_id}] Existing summary found. Returning it.")
                     payload = {
                         'type': 'complete',
                         'summary': summary_in_session.business_overview,
@@ -297,13 +297,13 @@ async def generate_summary_stream(
                 if age < timedelta(hours=24):
                     cache_is_valid = True
                     excerpt_from_cache = cached_content.critical_excerpt
-                    logger.info(f"Using cached content for filing {filing_id} (age: {age})")
+                    logger.info(f"[stream:{filing_id}] Using cached content (age: {age})")
 
             # Check usage limits for authenticated user
             if current_user:
                 can_generate, current_count, limit = await run_sync_db(check_usage_limit, current_user, session)
                 if not can_generate:
-                    logger.warning(f"User {user_id} exceeded monthly summary limit ({limit}) for filing {filing_id}.")
+                    logger.warning(f"[stream:{filing_id}] User {user_id} exceeded monthly summary limit ({limit}).")
                     message = (
                         "You've reached your monthly limit of "
                         f"{limit} summaries. Upgrade to Pro for unlimited summaries."
@@ -311,22 +311,22 @@ async def generate_summary_stream(
                     payload = {"type": "error", "message": message}
                     yield f"data: {json.dumps(payload)}\n\n"
                     return
-                logger.info(f"Usage limit check passed for user {user_id}. Current count: {current_count}/{limit}")
+                logger.info(f"[stream:{filing_id}] Usage limit check passed for user {user_id}. Current count: {current_count}/{limit}")
             else:
-                logger.info(f"Guest user accessing filing {filing_id}. Rate limit already enforced.")
+                logger.info(f"[stream:{filing_id}] Guest user access. Rate limit already enforced.")
             # Note: We use cached values from outer scope, but filling_in_session is already populated.
             
             # Step 1: File Validation
             # DB OP: Record progress
             await run_sync_db(record_progress, session, filing_id, "fetching")
             
-            logger.info(f"Yielding fetching stage for filing {filing_id}")
+            logger.info(f"[stream:{filing_id}] Yielding fetching stage")
             yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'Step 1: File Validation - Confirming document is accessible and parsable...', 'percent': 5, 'elapsed_seconds': int(time.time() - pipeline_started_at)})}\n\n"
 
             # Background refresh task definition
             async def background_fetch_and_update():
                 try:
-                    logger.info(f"Background refresh: fetching doc for {filing_id}")
+                    logger.info(f"[stream:{filing_id}] Background refresh: fetching doc")
                     text = await sec_edgar_service.get_filing_document(filing_document_url, timeout=30.0)
                     if not text:
                         return
@@ -341,16 +341,16 @@ async def generate_summary_stream(
                                 bg_session.commit()
                     
                     await run_sync_db(update_cache_sync)
-                    logger.info(f"Background refresh completed for {filing_id}")
+                    logger.info(f"[stream:{filing_id}] Background refresh completed")
                 except Exception as e:
-                    logger.warning(f"Background refresh failed for {filing_id}: {e}")
+                    logger.warning(f"[stream:{filing_id}] Background refresh failed: {e}", exc_info=True)
 
             filing_text = ""
             
             if cache_is_valid:
                 # Skip SEC fetch, use cache
                 filing_text = "" # Empty text signals usage of excerpt to downstream services if robustness is handled
-                logger.info(f"Skipping main thread SEC fetch for filing {filing_id}, using cache.")
+                logger.info(f"[stream:{filing_id}] Skipping main thread SEC fetch, using cache.")
                 
                 # Spawn background refresh
                 asyncio.create_task(background_fetch_and_update())
@@ -368,7 +368,7 @@ async def generate_summary_stream(
                 ]
                 
                 try:
-                    logger.info(f"Starting SEC fetch for URL: {filing_document_url}")
+                    logger.info(f"[stream:{filing_id}] Starting SEC fetch for URL: {filing_document_url}")
                     # Wrap the SEC fetch in a task with heartbeat loop
                     fetch_task = asyncio.create_task(
                         sec_edgar_service.get_filing_document(filing_document_url, timeout=15.0)
@@ -386,7 +386,7 @@ async def generate_summary_stream(
                         # Send heartbeat during fetch
                         fetch_message = FETCH_MESSAGES[fetch_heartbeat_index % len(FETCH_MESSAGES)]
                         elapsed_secs = int(time.time() - pipeline_started_at)
-                        logger.info(f"SEC fetch heartbeat {fetch_heartbeat_index + 1}: {fetch_message}")
+                        logger.info(f"[stream:{filing_id}] SEC fetch heartbeat {fetch_heartbeat_index + 1}: {fetch_message}")
                         # Estimate progress during fetch: start at 5%, cap at 15%
                         current_percent = min(5 + (fetch_heartbeat_index * 1), 15)
                         yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': fetch_message, 'percent': current_percent, 'elapsed_seconds': elapsed_secs})}\n\n"
@@ -394,7 +394,7 @@ async def generate_summary_stream(
                     
                     # Get the result (or raise exception if task failed)
                     filing_text = await fetch_task
-                    logger.info(f"SEC fetch completed. Text length: {len(filing_text) if filing_text else 0}")
+                    logger.info(f"[stream:{filing_id}] SEC fetch completed. Text length: {len(filing_text) if filing_text else 0}")
                     
                     if not filing_text:
                         raise ValueError("Filing document is empty or inaccessible")
@@ -403,7 +403,7 @@ async def generate_summary_stream(
                     yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'File validated and fetched successfully', 'percent': 15})}\n\n"
 
                 except Exception as fetch_error:
-                    logger.error(f"Error fetching SEC document: {fetch_error}", exc_info=True)
+                    logger.error(f"[stream:{filing_id}] Error fetching SEC document: {fetch_error}", exc_info=True)
                     error_msg = "Unable to retrieve this filing at the moment — please try again shortly."
                     yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
                     return
@@ -545,7 +545,7 @@ async def generate_summary_stream(
                 time_in_stage = current_time - stage_started_at
                 
                 if time_in_stage > 60.0:
-                    logger.warning(f"AI summarization timed out for filing {filing_id} after {time_in_stage:.1f}s. Switching to fallback.")
+                    logger.warning(f"[stream:{filing_id}] AI summarization timed out after {time_in_stage:.1f}s. Switching to fallback.")
                     summary_task.cancel()
                     # Use fallback
                     summary_payload = generate_xbrl_summary(xbrl_metrics, company_name)
@@ -673,19 +673,19 @@ async def generate_summary_stream(
                 yield f"data: {json.dumps({'type': 'complete', 'summary_id': saved_summary_id, 'percent': 100})}\n\n"
         except TimeoutError:
             # Pipeline hard timeout reached
-            logger.warning(f"Pipeline timeout after {PIPELINE_TIMEOUT_SECONDS}s for filing {filing_id}")
+            logger.warning(f"[stream:{filing_id}] Pipeline timeout after {PIPELINE_TIMEOUT_SECONDS}s")
             try:
                 await run_sync_db(record_progress, session, filing_id, "error", error="Pipeline timeout")
             except Exception as e:
-                logger.error(f"Failed to record pipeline timeout error for filing {filing_id}: {e}", exc_info=True)
+                logger.error(f"[stream:{filing_id}] Failed to record pipeline timeout error: {e}", exc_info=True)
             yield f"data: {json.dumps({'type': 'error', 'message': 'Summary generation timed out. Please try again.'})}\n\n"
         except Exception as e:
-            logger.error(f"Error in streaming summary: {str(e)}", exc_info=True)
+            logger.error(f"[stream:{filing_id}] Error in streaming summary: {str(e)}", exc_info=True)
             error_msg = str(e)
             try:
                 await run_sync_db(record_progress, session, filing_id, "error", error=error_msg[:200])
             except Exception as e:
-                logger.error(f"Failed to record streaming error for filing {filing_id}: {e}", exc_info=True)
+                logger.error(f"[stream:{filing_id}] Failed to record streaming error: {e}", exc_info=True)
             
             if "Unable to retrieve" in error_msg or "Unable to complete" in error_msg:
                 error_message = error_msg[:200]
@@ -697,7 +697,7 @@ async def generate_summary_stream(
             try:
                 session.close()
             except Exception as e:
-                logger.error(f"Failed to close session for filing {filing_id}: {e}", exc_info=True)
+                logger.error(f"[stream:{filing_id}] Failed to close session: {e}", exc_info=True)
             
             total_elapsed = time.time() - pipeline_started_at
             breakdown = ", ".join(f"{stage}:{duration:.2f}s" for stage, duration in stage_timings)
