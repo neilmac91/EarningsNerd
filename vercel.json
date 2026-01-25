@@ -3,9 +3,10 @@
   "devCommand": "cd frontend && npm run dev",
   "installCommand": "cd frontend && npm install",
   "framework": "nextjs",
-  "regions": ["iad1"],
+  "regions": [
+    "sfo1"
+  ],
   "env": {
     "NEXT_PUBLIC_API_BASE_URL": "https://api.earningsnerd.io"
   }
 }
-
