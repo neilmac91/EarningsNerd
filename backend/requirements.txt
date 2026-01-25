@@ -22,6 +22,7 @@ arelle-release==2.27.0
 sec-edgar-downloader==5.0.3
 sec-parser>=0.58.0
 posthog==7.6.0
+json-repair>=0.30.0
 
 # Testing
 pytest>=7.4.0

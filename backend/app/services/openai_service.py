@@ -9,6 +9,14 @@ import json
 import re
 from bs4 import BeautifulSoup
 
+# Import json_repair for robust LLM JSON handling
+try:
+    from json_repair import repair_json as json_repair_lib
+    HAS_JSON_REPAIR = True
+except ImportError:
+    HAS_JSON_REPAIR = False
+    json_repair_lib = None
+
 logger = logging.getLogger(__name__)
 
 _PLACEHOLDER_STRINGS = {
@@ -146,9 +154,10 @@ def _normalize_risk_factors(raw_risks: Any) -> list[dict[str, str]]:
         if normalized_key in _BOILERPLATE_RISK_PHRASES and not evidence:
             continue
 
+        # If no evidence provided, use a default message instead of discarding the risk
+        # This preserves legitimate risks that the AI extracted but didn't provide evidence for
         if not evidence:
-            # Require supporting evidence for each bullet
-            continue
+            evidence = "See SEC filing for full details."
 
         dedupe_key = (normalized_key, evidence.lower())
         if dedupe_key in seen:
@@ -615,11 +624,42 @@ class OpenAIService:
     def _repair_json(self, json_str: Optional[str]) -> str:
         """Attempt to repair common JSON syntax errors from LLMs.
 
+        Uses a two-tier approach:
+        1. Primary: json-repair library (handles ALL malformed JSON including
+           unterminated strings, missing brackets, unescaped chars, etc.)
+        2. Fallback: Regex-based repairs (if library unavailable)
+
         Args:
             json_str: The JSON string to repair, or None.
 
         Returns:
             Repaired JSON string, or empty string if input is None/empty.
+        """
+        if not json_str:
+            return ""
+
+        # TIER 1: Use json-repair library (handles ALL edge cases)
+        if HAS_JSON_REPAIR and json_repair_lib is not None:
+            try:
+                # Pre-process: Convert Python booleans BEFORE json-repair
+                # (json-repair would otherwise quote these as strings)
+                preprocessed = re.sub(r'\bTrue\b', 'true', json_str)
+                preprocessed = re.sub(r'\bFalse\b', 'false', preprocessed)
+                preprocessed = re.sub(r'\bNone\b', 'null', preprocessed)
+
+                # json_repair returns a valid JSON string
+                repaired = json_repair_lib(preprocessed)
+                if repaired:
+                    logger.debug("JSON repair succeeded using json-repair library")
+                    return repaired
+            except Exception as e:
+                logger.warning(f"json-repair library failed: {e}, falling back to regex")
+
+        # TIER 2: Fallback to regex-based repairs
+        return self._repair_json_regex(json_str)
+
+    def _repair_json_regex(self, json_str: str) -> str:
+        """Regex-based JSON repair for common LLM syntax errors.
 
         Handles:
         - Unquoted property names (JavaScript-style): {company_name: "val"}
@@ -629,18 +669,9 @@ class OpenAIService:
         - Trailing commas: {"a": 1,}
         - Python booleans: True/False/None -> true/false/null
         """
-        if not json_str:
-            return ""
-
         repaired = json_str
 
         # 1. Fix unquoted property names (JavaScript-style object literals)
-        # Pattern: matches unquoted identifiers after { or , followed by :
-        # Handles: {company_name: "value"} or {key1: 1, key2: 2}
-        # Regex breakdown:
-        #   ([{,]\s*)                   - After { or , with optional whitespace (group 1)
-        #   ([a-zA-Z_][a-zA-Z0-9_-]*)   - Valid identifier with hyphens allowed (group 2)
-        #   (\s*:)                      - Optional whitespace then colon (group 3)
         repaired = re.sub(
             r'([{,]\s*)([a-zA-Z_][a-zA-Z0-9_-]*)(\s*:)',
             r'\1"\2"\3',
@@ -648,20 +679,14 @@ class OpenAIService:
         )
 
         # 2. Fix single quotes used for keys
-        # Replace 'key': with "key":
         repaired = re.sub(r"\'([^\']+)\'\s*:", r'"\1":', repaired)
 
         # 3. Fix single quotes used for string values (after colon)
-        # Replace : 'value' with : "value" (handles values after colon)
         repaired = re.sub(r":\s*\'([^\']*)\'(\s*[,}\]])", r': "\1"\2', repaired)
 
-        # 4. Fix single quotes in arrays: ['val1', 'val2']
-        # Replace single-quoted strings in array contexts
-        # First element: ['value' -> ["value"
+        # 4. Fix single quotes in arrays
         repaired = re.sub(r"\[\s*\'([^\']*)\'", r'["\1"', repaired)
-        # Subsequent elements: , 'value' -> , "value" (handles all remaining array elements)
-        # Run multiple times to catch all elements since regex doesn't overlap
-        for _ in range(10):  # Max 10 iterations to prevent infinite loops
+        for _ in range(10):
             new_repaired = re.sub(r",\s*\'([^\']*)\'", r', "\1"', repaired)
             if new_repaired == repaired:
                 break
@@ -671,7 +696,6 @@ class OpenAIService:
         repaired = re.sub(r",\s*([\]}])", r"\1", repaired)
 
         # 6. Fix Python-style booleans and None
-        # Use word boundaries to avoid replacing inside strings
         repaired = re.sub(r'\bTrue\b', 'true', repaired)
         repaired = re.sub(r'\bFalse\b', 'false', repaired)
         repaired = re.sub(r'\bNone\b', 'null', repaired)
@@ -1780,21 +1804,25 @@ Rules:
         if not payload:
             raise ValueError("Extraction model returned empty payload.")
 
+        # Always run repair first - json-repair library handles ALL edge cases
+        # including unterminated strings, missing brackets, unescaped chars
         try:
+            # First try direct parsing (fast path for valid JSON)
             summary_data = json.loads(payload)
-        except json.JSONDecodeError:
-            # Attempt repair
+        except json.JSONDecodeError as initial_error:
+            # Apply robust repair using json-repair library
+            logger.warning(f"JSON decode failed, attempting repair: {initial_error}")
             try:
-                logger.warning(f"JSON decode failed, attempting repair for payload: {payload[:100]}...")
                 repaired_payload = self._repair_json(payload)
                 summary_data = json.loads(repaired_payload)
-                logger.info("JSON repair successful.")
-            except json.JSONDecodeError as final_error:
-                print(f"Structured summary JSON error after repair: {final_error}")
-                print(f"Raw payload (first 500 chars): {payload[:500]}")
-                # We still raise, but now the error message visible to user will be the raw error
-                # thanks to our previous fix.
-                raise final_error
+                logger.info("JSON repair successful using json-repair library")
+            except json.JSONDecodeError as repair_error:
+                # Log details for debugging
+                logger.error(f"JSON repair failed: {repair_error}")
+                logger.error(f"Original error: {initial_error}")
+                logger.error(f"Raw payload (first 500 chars): {payload[:500]}")
+                # Re-raise with original error for clearer debugging
+                raise initial_error
 
         sections_info = summary_data.get("sections") or {}
         missing_sections = self._find_empty_sections(sections_info)

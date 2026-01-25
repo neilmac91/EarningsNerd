@@ -341,3 +341,66 @@ class TestRepairJson:
         assert parsed["deleted"] is False
         assert parsed["notes"] is None
         assert len(parsed["items"]) == 2
+
+    # === Production Error Cases (Critical - from live failures) ===
+
+    def test_unterminated_string_error(self, service):
+        """Test fix for: Unterminated string starting at: line 5 column 25.
+
+        This was causing production failures for Apple 10-Q filings.
+        The json-repair library should handle this.
+        """
+        malformed = """{
+  "metadata": {
+    "company_name: "Apple Inc.",
+    "filing_type": "10-Q"
+  }
+}"""
+        # This has an unterminated string (missing closing quote after company_name)
+        repaired = service._repair_json(malformed)
+        parsed = json.loads(repaired)
+        # Should recover and parse successfully
+        assert "metadata" in parsed
+
+    def test_missing_closing_brace(self, service):
+        """Test fix for missing closing brace - common LLM truncation issue."""
+        malformed = """{
+  "company_name": "Microsoft",
+  "revenue": 50000000000
+"""
+        repaired = service._repair_json(malformed)
+        parsed = json.loads(repaired)
+        assert parsed["company_name"] == "Microsoft"
+
+    def test_missing_closing_bracket_in_array(self, service):
+        """Test fix for missing closing bracket in array."""
+        malformed = '{"items": [1, 2, 3}'
+        repaired = service._repair_json(malformed)
+        parsed = json.loads(repaired)
+        assert "items" in parsed
+
+    def test_unescaped_newline_in_string(self, service):
+        """Test fix for unescaped newline characters in strings."""
+        # LLMs sometimes output actual newlines inside strings
+        malformed = '{"description": "Line 1\nLine 2"}'
+        repaired = service._repair_json(malformed)
+        parsed = json.loads(repaired)
+        assert "description" in parsed
+
+    def test_deeply_nested_malformed_json(self, service):
+        """Test fix for complex nested malformed JSON."""
+        malformed = """{
+  metadata: {
+    company_name: "Biogen",
+    sections: {
+      risks: [
+        {name: 'Risk 1', severity: 'High',},
+        {name: 'Risk 2', severity: 'Medium',}
+      ],
+    },
+  },
+}"""
+        repaired = service._repair_json(malformed)
+        parsed = json.loads(repaired)
+        assert parsed["metadata"]["company_name"] == "Biogen"
+        assert len(parsed["metadata"]["sections"]["risks"]) == 2
