@@ -21,7 +21,8 @@ interface StatCardProps {
 
 const formatValue = (value: number | null | undefined, unit: StatCardProps['unit']): string => {
   // Handle null/undefined/NaN - show "N/A" instead of $0.00M
-  if (value === null || value === undefined || !Number.isFinite(value)) {
+  // Using != null to check both null and undefined (loose equality)
+  if (value == null || !Number.isFinite(value)) {
     return 'N/A'
   }
 
@@ -42,17 +43,18 @@ const formatValue = (value: number | null | undefined, unit: StatCardProps['unit
 }
 
 export function StatCard({ label, value, unit = 'number', change, trendData, isLoading }: StatCardProps) {
-  // Handle null/undefined values - useCountUp expects a number
-  const safeValue = value ?? 0
-  const hasValidValue = value !== null && value !== undefined && Number.isFinite(value)
-  const displayValue = useCountUp(hasValidValue ? safeValue : 0, 1000)
+  // Check for valid numeric values (!= null catches both null and undefined)
+  const hasValidValue = value != null && Number.isFinite(value)
+  const hasValidChange = change != null && Number.isFinite(change)
+
+  // useCountUp expects a number - use 0 for animation when no valid value
+  const displayValue = useCountUp(hasValidValue ? value : 0, 1000)
 
   if (isLoading) {
     return <StatCard.Skeleton />
   }
 
   // Only show positive/negative indicators if we have valid data
-  const hasValidChange = change !== null && change !== undefined && Number.isFinite(change)
   const isPositive = hasValidChange && change > 0
   const isNegative = hasValidChange && change < 0
 

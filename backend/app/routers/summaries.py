@@ -43,6 +43,9 @@ SUMMARY_LIMITER = RateLimiter(limit=5, window_seconds=60)
 # Hard pipeline timeout to guarantee user receives response within this time
 PIPELINE_TIMEOUT_SECONDS = 90
 
+# Timeout for XBRL/excerpt enrichment - SEC API for large companies can take 5-10s
+CONTEXT_ENRICHMENT_TIMEOUT_SECONDS = 8.0
+
 class SummaryResponse(BaseModel):
     id: int
     filing_id: int
@@ -480,14 +483,14 @@ async def generate_summary_stream(
             excerpt = None
             xbrl_metrics = None
             try:
-                # Give excerpt/XBRL 8 seconds - this is critical for financial data accuracy
+                # Give excerpt/XBRL time to complete - critical for financial data accuracy
                 tasks_to_wait = [excerpt_task]
                 if xbrl_task:
                     tasks_to_wait.append(xbrl_task)
 
                 results = await asyncio.wait_for(
                     asyncio.gather(*tasks_to_wait, return_exceptions=True),
-                    timeout=8.0
+                    timeout=CONTEXT_ENRICHMENT_TIMEOUT_SECONDS
                 )
                 
                 excerpt = results[0] if not isinstance(results[0], Exception) else None
