@@ -18,6 +18,7 @@
   - Firebase for authentication and Firestore
   - PostgreSQL database on Render
   - Domain and SSL management
+  - **Standard Region**: US West (Oregon/California) for ALL services to minimize latency
 * **Key Files to Watch:**
   ```
   .github/workflows/**/*.yml
@@ -93,9 +94,11 @@ jobs:
       - name: Install dependencies
         run: |
           pip install -r backend/requirements.txt
-          pip install ruff mypy
+          pip install ruff bandit mypy
       - name: Lint
         run: ruff check backend/
+      - name: Security Scan
+        run: bandit -r backend/app -ll
       - name: Type check
         run: mypy backend/app --ignore-missing-imports
 
