@@ -73,7 +73,6 @@ async def test_summarize_retries_on_empty_payload():
     # Verify the result contains our success marker
     # The service may add default sections, so we just check the core content survives
     assert result.get("markdown") == "Valid summary"
-    assert result.get("markdown") == "Valid summary"
     # We ignore specific sections structure as it gets enriched with defaults
     # assert result["sections"]["financial_highlights"] == {"table": []}
     
