@@ -1,4 +1,9 @@
 from typing import Optional, Dict, Any, List
+import re
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def format_currency(value: Optional[float]) -> str:
     if value is None:
@@ -13,22 +18,135 @@ def format_currency(value: Optional[float]) -> str:
     except:
         return "Not disclosed"
 
+
+def _extract_section_text(text: str, section_patterns: List[str], max_chars: int = 2000) -> Optional[str]:
+    """Extract a section from filing text using regex patterns."""
+    if not text:
+        return None
+
+    for pattern in section_patterns:
+        try:
+            match = re.search(pattern, text, re.IGNORECASE | re.DOTALL)
+            if match:
+                content = match.group(1) if match.groups() else match.group(0)
+                # Clean and truncate
+                content = re.sub(r'\s+', ' ', content).strip()
+                if len(content) > max_chars:
+                    content = content[:max_chars] + "..."
+                return content
+        except Exception:
+            continue
+    return None
+
+
+def _extract_risk_factors(filing_text: str, filing_type: str = "10-Q") -> List[Dict[str, Any]]:
+    """Extract risk factors from filing text."""
+    if not filing_text:
+        return []
+
+    # Patterns to find Risk Factors section
+    patterns = [
+        r"Item\s*1A[\.\s\-:]*Risk\s*Factors(.*?)(?=Item\s*\d|PART\s*II|$)",
+        r"RISK\s*FACTORS(.*?)(?=Item\s*\d|PART\s*II|$)",
+        r"Factors\s*That\s*May\s*Affect(.*?)(?=Item\s*\d|$)",
+    ]
+
+    section_text = _extract_section_text(filing_text, patterns, max_chars=5000)
+
+    if not section_text or len(section_text) < 100:
+        return []
+
+    # Try to extract individual risk items
+    risks = []
+
+    # Look for bullet points or numbered risks
+    risk_patterns = [
+        r"[•\-\*]\s*([A-Z][^•\-\*\n]{50,300})",  # Bullet points
+        r"(?:^|\n)\s*(\d+[\.\)]\s*[A-Z][^\n]{50,300})",  # Numbered items
+    ]
+
+    for pattern in risk_patterns:
+        matches = re.findall(pattern, section_text)
+        for match in matches[:5]:  # Limit to 5 risks
+            clean_text = re.sub(r'\s+', ' ', match).strip()
+            if len(clean_text) > 50:
+                risks.append({
+                    "summary": clean_text[:200] + ("..." if len(clean_text) > 200 else ""),
+                    "supporting_evidence": "Extracted from SEC filing Item 1A",
+                    "materiality": "medium"
+                })
+
+    # If no structured risks found, extract first few sentences as summary
+    if not risks and len(section_text) > 100:
+        sentences = re.split(r'[.!?]+', section_text)
+        summary_sentences = [s.strip() for s in sentences[:3] if len(s.strip()) > 30]
+        if summary_sentences:
+            risks.append({
+                "summary": ". ".join(summary_sentences)[:300],
+                "supporting_evidence": "Extracted from SEC filing Risk Factors section",
+                "materiality": "medium"
+            })
+
+    return risks
+
+
+def _extract_mda(filing_text: str, filing_type: str = "10-Q") -> str:
+    """Extract Management Discussion & Analysis from filing text."""
+    if not filing_text:
+        return ""
+
+    # Different patterns for 10-K vs 10-Q
+    if filing_type == "10-K":
+        patterns = [
+            r"Item\s*7[\.\s\-:]*Management['']?s?\s*Discussion(.*?)(?=Item\s*7A|Item\s*8|$)",
+            r"MANAGEMENT['']?S?\s*DISCUSSION\s*AND\s*ANALYSIS(.*?)(?=Item\s*\d|$)",
+        ]
+    else:  # 10-Q
+        patterns = [
+            r"Item\s*2[\.\s\-:]*Management['']?s?\s*Discussion(.*?)(?=Item\s*3|Item\s*4|$)",
+            r"MANAGEMENT['']?S?\s*DISCUSSION\s*AND\s*ANALYSIS(.*?)(?=Item\s*\d|$)",
+        ]
+
+    section_text = _extract_section_text(filing_text, patterns, max_chars=3000)
+
+    if section_text and len(section_text) > 100:
+        # Clean up and format
+        return f"**From the SEC Filing MD&A:**\n\n{section_text}"
+
+    return ""
+
+
 def generate_xbrl_summary(
     xbrl_data: Optional[Dict[str, Any]],
     company_name: str,
-    filing_date: str = "Unknown Date"
+    filing_date: str = "Unknown Date",
+    filing_text: Optional[str] = None,
+    filing_type: Optional[str] = None,
+    filing_excerpt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Generate a fallback summary using only XBRL data and metadata.
-    This is used when the full AI analysis times out.
+    Generate a fallback summary when AI analysis times out.
+
+    This function extracts REAL content from the filing text when available,
+    rather than just showing placeholder text. This ensures users always
+    receive valuable information even when the full AI analysis fails.
+
+    Args:
+        xbrl_data: Standardized XBRL metrics (may be None)
+        company_name: Company name for display
+        filing_date: Filing date string
+        filing_text: Full filing text for content extraction
+        filing_type: Type of filing (10-K, 10-Q, etc.)
+        filing_excerpt: Pre-extracted critical sections (Risk Factors + MD&A)
 
     IMPORTANT: This function must NEVER return empty sections.
-    Users must always see meaningful content, even if metrics are unavailable.
+    Users must always see meaningful content, even if all extractions fail.
     """
+    filing_type = (filing_type or "10-Q").upper()
 
     # Defaults
     business_overview = f"## Quick Summary for {company_name}\n\n"
-    business_overview += "The full AI analysis is taking longer than expected. Here is a preliminary overview based on standardized financial data reported to the SEC.\n\n"
+    business_overview += "The full AI analysis is taking longer than expected. Here is a preliminary overview based on available filing data.\n\n"
 
     # Extract metrics if available
     metrics_summary = []
@@ -55,7 +173,7 @@ def generate_xbrl_summary(
     if metrics_summary:
         business_overview += "### Financial Snapshot (XBRL)\n" + "\n".join(metrics_summary) + "\n\n"
     else:
-        business_overview += "Financial metrics are being processed. The full AI analysis will provide detailed insights.\n\n"
+        business_overview += "Financial metrics are being processed.\n\n"
 
     business_overview += "> **Note:** This is a partial summary. You can retry generating the full analysis below."
 
@@ -85,7 +203,6 @@ def generate_xbrl_summary(
             "balance_sheet": ["Balance sheet metrics available in full analysis."]
         }
     else:
-        # Provide placeholder structure when no XBRL data
         financial_highlights = {
             "table": [
                 {
@@ -93,48 +210,74 @@ def generate_xbrl_summary(
                     "current_period": "Loading...",
                     "prior_period": "Loading...",
                     "change": "Pending",
-                    "commentary": "Financial metrics being processed. Retry for full analysis."
+                    "commentary": "Retry for full financial analysis."
                 },
                 {
                     "metric": "Net Income",
                     "current_period": "Loading...",
                     "prior_period": "Loading...",
                     "change": "Pending",
-                    "commentary": "Financial metrics being processed. Retry for full analysis."
+                    "commentary": "Retry for full financial analysis."
                 }
             ],
-            "profitability": ["Processing... Retry for complete profitability analysis."],
-            "cash_flow": ["Processing... Retry for complete cash flow analysis."],
-            "balance_sheet": ["Processing... Retry for complete balance sheet analysis."]
+            "profitability": ["Retry for complete profitability analysis."],
+            "cash_flow": ["Retry for complete cash flow analysis."],
+            "balance_sheet": ["Retry for complete balance sheet analysis."]
         }
 
-    # NEVER return empty risk_factors - always provide meaningful placeholder
-    risk_factors = [
-        {
-            "summary": "Risk factors are being analyzed from the SEC filing.",
-            "supporting_evidence": "Full risk analysis will be available when you retry the generation.",
-            "materiality": "pending"
-        }
-    ]
+    # EXTRACT REAL RISK FACTORS from filing text
+    # Priority: filing_excerpt > filing_text > placeholder
+    risk_factors = []
 
-    # NEVER return empty management_discussion
-    management_discussion = (
-        f"**{company_name}** management discussion analysis is being processed. "
-        "The full AI analysis will provide detailed insights into management's perspective "
-        "on business operations, financial condition, and future outlook. "
-        "Please retry generation for complete MD&A coverage."
-    )
+    text_source = filing_excerpt or filing_text
+    if text_source:
+        try:
+            extracted_risks = _extract_risk_factors(text_source, filing_type)
+            if extracted_risks:
+                risk_factors = extracted_risks
+                logger.info(f"Extracted {len(risk_factors)} risk factors from filing text")
+        except Exception as e:
+            logger.warning(f"Failed to extract risk factors: {e}")
 
-    # NEVER return empty key_changes
+    # Fallback if extraction failed
+    if not risk_factors:
+        risk_factors = [
+            {
+                "summary": f"Risk factors for {company_name} are available in the full SEC filing.",
+                "supporting_evidence": "Retry generation for AI-powered risk analysis.",
+                "materiality": "pending"
+            }
+        ]
+
+    # EXTRACT REAL MD&A from filing text
+    management_discussion = ""
+
+    if text_source:
+        try:
+            extracted_mda = _extract_mda(text_source, filing_type)
+            if extracted_mda and len(extracted_mda) > 100:
+                management_discussion = extracted_mda
+                logger.info("Extracted MD&A from filing text")
+        except Exception as e:
+            logger.warning(f"Failed to extract MD&A: {e}")
+
+    # Fallback if extraction failed
+    if not management_discussion:
+        management_discussion = (
+            f"**{company_name}** management discussion is available in the full SEC filing. "
+            "Retry generation for AI-powered MD&A analysis covering business operations, "
+            "financial condition, and management's perspective on future outlook."
+        )
+
+    # Key changes - always placeholder since this requires AI analysis
     key_changes = (
-        "Key changes and notable developments are being extracted from the filing. "
-        "The full analysis will highlight significant operational, financial, or strategic "
-        "changes compared to prior periods. Please retry for detailed change analysis."
+        "Key changes and notable developments require AI analysis to identify. "
+        "Retry generation for detailed change analysis comparing to prior periods."
     )
 
     return {
         "status": "partial",
-        "message": "Full analysis timed out. Showing available financial data.",
+        "message": "Full analysis timed out. Showing extracted filing data.",
         "business_overview": business_overview,
         "financial_highlights": financial_highlights,
         "risk_factors": risk_factors,
@@ -143,12 +286,12 @@ def generate_xbrl_summary(
         "raw_summary": {
             "sections": {
                 "executive_snapshot": {
-                    "headline": f"{company_name} quarterly filing analysis in progress",
+                    "headline": f"{company_name} {filing_type} filing - partial analysis",
                     "key_points": [
-                        "Full AI analysis is being processed",
-                        "Financial metrics are being extracted",
-                        "Risk factors are being identified",
-                        "Retry generation for complete insights"
+                        "Financial metrics extracted from XBRL data" if has_xbrl_data else "XBRL metrics pending",
+                        f"{len(risk_factors)} risk factors identified" if risk_factors else "Risk factors pending",
+                        "MD&A excerpt available" if management_discussion and "From the SEC Filing" in management_discussion else "MD&A pending full analysis",
+                        "Retry for complete AI-powered insights"
                     ],
                     "tone": "neutral"
                 }
