@@ -7,6 +7,30 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Comprehensive list of revenue field names used by major companies
+# Defined at module level for performance (avoid recreating on each call)
+REVENUE_FIELD_NAMES = [
+    # Standard revenue fields
+    "Revenues",
+    "RevenueFromContractWithCustomerExcludingAssessedTax",
+    "SalesRevenueNet",
+    "RevenueFromContractWithCustomer",
+    # Net revenue variations
+    "NetRevenues",
+    "TotalRevenue",
+    "TotalRevenues",
+    "TotalNetRevenues",
+    # Product/Service breakdowns (sometimes used as primary)
+    "SalesRevenueGoodsNet",
+    "SalesRevenueServicesNet",
+    "RevenueFromSalesOfGoods",
+    "RevenueFromServices",
+    # Other variations used by specific industries
+    "OperatingRevenue",
+    "RegulatedAndUnregulatedOperatingRevenue",
+]
+
+
 class XBRLService:
     def __init__(self):
         self.base_url = settings.SEC_EDGAR_BASE_URL
@@ -119,27 +143,7 @@ class XBRLService:
                 return result
 
             # Extract revenue - try multiple possible field names
-            # Comprehensive list of revenue field names used by major companies
-            REVENUE_FIELD_NAMES = [
-                # Standard revenue fields
-                "Revenues",
-                "RevenueFromContractWithCustomerExcludingAssessedTax",
-                "SalesRevenueNet",
-                "RevenueFromContractWithCustomer",
-                # Net revenue variations
-                "NetRevenues",
-                "TotalRevenue",
-                "TotalRevenues",
-                "TotalNetRevenues",
-                # Product/Service breakdowns (sometimes used as primary)
-                "SalesRevenueGoodsNet",
-                "SalesRevenueServicesNet",
-                "RevenueFromSalesOfGoods",
-                "RevenueFromServices",
-                # Other variations used by specific industries
-                "OperatingRevenue",
-                "RegulatedAndUnregulatedOperatingRevenue",
-            ]
+            # Uses module-level REVENUE_FIELD_NAMES constant for performance
             revenue_data = []
             for revenue_key in REVENUE_FIELD_NAMES:
                 if revenue_key in us_gaap:

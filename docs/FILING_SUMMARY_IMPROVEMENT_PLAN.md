@@ -154,7 +154,11 @@ if xbrl_data:
 **Fixed Code:**
 ```python
 def has_valid_xbrl_data(xbrl_data: Optional[Dict]) -> bool:
-    """Check if XBRL data contains actual metric values."""
+    """Check if XBRL data contains actual metric values.
+
+    Note: Uses explicit `is not None` checks to allow zero as a valid value
+    (e.g., zero net income is a legitimate financial figure).
+    """
     if not xbrl_data:
         return False
     if not isinstance(xbrl_data, dict):
@@ -162,11 +166,13 @@ def has_valid_xbrl_data(xbrl_data: Optional[Dict]) -> bool:
     # Check if any metric has actual data
     for key in ['revenue', 'net_income', 'earnings_per_share']:
         metric = xbrl_data.get(key, {})
-        if isinstance(metric, dict) and metric.get('current', {}).get('value'):
+        # Use 'is not None' to allow zero values (valid financial data)
+        if isinstance(metric, dict) and metric.get('current', {}).get('value') is not None:
             return True
-        # Also check if it's a list with items
+        # Also check if it's a list with items (raw XBRL format)
         if isinstance(metric, list) and len(metric) > 0:
-            return True
+            if any(item.get('value') is not None for item in metric if isinstance(item, dict)):
+                return True
     return False
 
 # Usage:
@@ -232,7 +238,8 @@ for revenue_key in REVENUE_FIELD_NAMES:
 if normalized_accession:
     # Log sample of accession numbers found in data
     sample_accns = [item.get("accn", "MISSING") for item in sorted_items[:5]]
-    logger.info(
+    # Use debug level for verbose operational details
+    logger.debug(
         f"XBRL filter: target={normalized_accession}, "
         f"sample_accns={sample_accns}, total_items={len(sorted_items)}"
     )
@@ -243,11 +250,13 @@ if normalized_accession:
     ]
 
     if matching:
-        logger.info(f"XBRL filter: found {len(matching)} matches for {normalized_accession}")
+        logger.debug(f"XBRL filter: found {len(matching)} matches for {normalized_accession}")
     else:
+        # Use warning for potential issues that need attention
         logger.warning(
-            f"XBRL filter: NO matches for {normalized_accession}. "
-            f"Falling back to most recent {max_items} items."
+            f"XBRL filter: NO matches for accession {normalized_accession}. "
+            f"Falling back to most recent {max_items} items. "
+            f"Sample accns in data: {sample_accns}"
         )
 ```
 

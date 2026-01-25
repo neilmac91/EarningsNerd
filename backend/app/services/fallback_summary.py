@@ -10,6 +10,9 @@ def has_valid_xbrl_data(xbrl_data: Optional[Dict[str, Any]]) -> bool:
 
     An empty dict `{}` is falsy in Python, so `if xbrl_data:` fails.
     This function checks for actual data in the expected metric keys.
+
+    Note: Uses explicit `is not None` checks to allow zero as a valid value
+    (e.g., zero net income is a legitimate financial figure).
     """
     if not xbrl_data:
         return False
@@ -18,11 +21,12 @@ def has_valid_xbrl_data(xbrl_data: Optional[Dict[str, Any]]) -> bool:
     # Check if any metric has actual data
     for key in ['revenue', 'net_income', 'earnings_per_share']:
         metric = xbrl_data.get(key, {})
-        if isinstance(metric, dict) and metric.get('current', {}).get('value'):
+        # Use 'is not None' to allow zero values (valid financial data)
+        if isinstance(metric, dict) and metric.get('current', {}).get('value') is not None:
             return True
         # Also check if it's a list with items (raw XBRL format)
         if isinstance(metric, list) and len(metric) > 0:
-            if any(item.get('value') for item in metric if isinstance(item, dict)):
+            if any(item.get('value') is not None for item in metric if isinstance(item, dict)):
                 return True
     return False
 
@@ -178,7 +182,8 @@ def generate_xbrl_summary(
     # An empty dict {} is falsy, so `if xbrl_data:` would skip valid responses
     has_xbrl_data = has_valid_xbrl_data(xbrl_data)
 
-    if has_xbrl_data and xbrl_data:
+    if has_xbrl_data:
+        # Note: xbrl_data is guaranteed truthy by has_valid_xbrl_data()
         revenue = xbrl_data.get('revenue', {}).get('current', {})
         net_income = xbrl_data.get('net_income', {}).get('current', {})
         eps = xbrl_data.get('earnings_per_share', {}).get('current', {})
@@ -204,7 +209,7 @@ def generate_xbrl_summary(
     business_overview += "> **Note:** This is a partial summary. You can retry generating the full analysis below."
 
     # ALWAYS provide financial_highlights with meaningful structure
-    if has_xbrl_data and xbrl_data:
+    if has_xbrl_data:
         revenue = xbrl_data.get('revenue', {}).get('current', {})
         net_income = xbrl_data.get('net_income', {}).get('current', {})
         financial_highlights = {
