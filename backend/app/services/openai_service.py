@@ -250,54 +250,67 @@ class OpenAIService:
         return self.get_model_for_filing(filing_type)
 
     def _get_type_config(self, filing_type: str) -> Dict[str, Any]:
+        # INCREASED LIMITS: Previous limits were too aggressive and caused "Not Disclosed"
+        # responses because financial data was being truncated before reaching the AI
         base_config: Dict[str, Any] = {
-            "sample_length": 25000,
-            "previous_section_limit": 15000,
-            "ai_timeout": 90.0,  # Increased for reliable API completion with retries
-            "max_tokens": 1500,  # Optimized for quality
-            "max_sections": 6,
+            "sample_length": 80000,  # Increased from 25000 to capture more content
+            "previous_section_limit": 30000,  # Increased from 15000
+            "ai_timeout": 120.0,  # Increased for larger content processing
+            "max_tokens": 2000,  # Increased for more comprehensive summaries
+            "max_sections": 8,  # Increased from 6 to include all key sections
             "section_priority": [
-                "business",
-                "mda",
-                "financials",
+                "financials",  # PRIORITY: Financial statements first
+                "mda",         # MD&A has key context
                 "risk_factors",
+                "business",
                 "liquidity",
                 "segments",
                 "guidance",
                 "footnotes"
             ],
             "section_limits": {
-                "business": 15000,
-                "risk_factors": 15000,
-                "financials": 12000,
-                "mda": 15000,
-                "liquidity": 12000,
-                "segments": 10000,
-                "guidance": 8000,
-                "footnotes": 8000
+                "financials": 40000,  # Increased from 12000 - CRITICAL for metrics
+                "mda": 35000,         # Increased from 15000
+                "risk_factors": 25000,  # Increased from 15000
+                "business": 20000,    # Increased from 15000
+                "liquidity": 20000,   # Increased from 12000
+                "segments": 15000,    # Increased from 10000
+                "guidance": 12000,    # Increased from 8000
+                "footnotes": 15000    # Increased from 8000
             }
         }
 
         overrides = {
             "10-K": {
-                "ai_timeout": 90.0,  # Increased for reliable API completion with retries
-                "max_tokens": 1500
+                "ai_timeout": 150.0,  # More time for larger 10-K filings
+                "max_tokens": 2500,
+                "sample_length": 100000,  # 10-K filings are larger
+                "section_limits": {
+                    "financials": 50000,  # 10-K has more detailed financials
+                    "mda": 40000,
+                    "risk_factors": 30000,
+                    "business": 25000,
+                    "liquidity": 25000,
+                    "segments": 20000,
+                    "guidance": 15000,
+                    "footnotes": 20000
+                }
             },
             "10-Q": {
-                "sample_length": 22000,
-                "previous_section_limit": 15000,
-                "ai_timeout": 75.0,  # Increased for reliable API completion with retries
-                "max_tokens": 1400,  # Slightly higher to cover expanded context
-                "max_sections": 4,
+                "sample_length": 70000,  # Increased from 22000
+                "previous_section_limit": 25000,  # Increased from 15000
+                "ai_timeout": 100.0,  # Increased from 75
+                "max_tokens": 1800,
+                "max_sections": 6,
                 "section_limits": {
-                    "business": 10000,
-                    "risk_factors": 10000,
-                    "financials": 10000,
-                    "mda": 10000,
-                    "liquidity": 8000,
-                    "segments": 8000,
-                    "guidance": 6000,
-                    "footnotes": 6000
+                    "financials": 35000,  # Increased from 10000 - CRITICAL
+                    "mda": 30000,         # Increased from 10000
+                    "risk_factors": 20000,  # Increased from 10000
+                    "business": 15000,    # Increased from 10000
+                    "liquidity": 15000,   # Increased from 8000
+                    "segments": 12000,    # Increased from 8000
+                    "guidance": 10000,    # Increased from 6000
+                    "footnotes": 10000    # Increased from 6000
                 }
             }
         }
@@ -331,91 +344,176 @@ class OpenAIService:
         return ""
     
     def extract_critical_sections(self, filing_text: str, filing_type: str = "10-K", cleaned_text: Optional[str] = None) -> str:
-        """Extract ONLY the most critical sections for fast summarization.
-        
-        For 10-K: Item 1A (Risk Factors) and Item 7 (MD&A)
-        For 10-Q: Item 1A (Risk Factors) and Item 2 (MD&A)
-        
-        Returns: Concatenated text from critical sections only
+        """Extract ALL critical sections for comprehensive summarization.
+
+        For 10-K: Item 8 (Financial Statements), Item 7 (MD&A), Item 1A (Risk Factors)
+        For 10-Q: Item 1 (Financial Statements), Item 2 (MD&A), Item 1A (Risk Factors)
+
+        CRITICAL: Financial Statements MUST be included to extract revenue, net income,
+        EPS, cash flow, and other key financial metrics.
+
+        Returns: Concatenated text from critical sections
         """
         filing_type_key = (filing_type or "10-K").upper()
-        
+
         # Remove HTML/XML tags for cleaner extraction
         # OPTIMIZATION: Use provided cleaned_text if available to avoid re-parsing
         if cleaned_text:
             filing_text_clean = cleaned_text
         else:
             try:
-                from bs4 import BeautifulSoup
                 soup = BeautifulSoup(filing_text, 'html.parser')
+                # Preserve table structure by using separator that maintains spacing
                 filing_text_clean = soup.get_text(separator='\n', strip=False)
             except:
                 filing_text_clean = filing_text
-        
+
         critical_sections = []
-        
+
         if filing_type_key == "10-K":
-            # Extract Item 1A - Risk Factors
+            # PRIORITY 1: Extract Item 8 - Financial Statements (MOST CRITICAL for metrics)
+            financial_patterns = [
+                r"ITEM\s*8\.?\s*[-–—]?\s*FINANCIAL\s+STATEMENTS[^\n]*\n(.*?)(?=ITEM\s*9|PART\s*III|SIGNATURES|$)",
+                r"ITEM\s*8\.?\s*FINANCIAL\s+STATEMENTS\s+AND\s+SUPPLEMENTARY\s+DATA[^\n]*\n(.*?)(?=ITEM\s*9|PART\s*III|$)",
+                r"CONSOLIDATED\s+STATEMENTS\s+OF\s+(?:OPERATIONS|INCOME|EARNINGS)[^\n]*\n(.*?)(?=ITEM\s*9|PART\s*III|SIGNATURES|$)",
+                r"(?:CONSOLIDATED\s+)?FINANCIAL\s+STATEMENTS[^\n]*\n(.*?)(?=NOTES\s+TO\s+CONSOLIDATED|ITEM\s*9|$)",
+            ]
+            for pattern in financial_patterns:
+                match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
+                if match:
+                    financial_text = match.group(1).strip()
+                    # Increased limit to 40000 chars to capture full financial statements
+                    critical_sections.append(f"ITEM 8 - FINANCIAL STATEMENTS AND SUPPLEMENTARY DATA:\n{financial_text[:40000]}")
+                    break
+
+            # PRIORITY 2: Extract Item 7 - MD&A (narrative context for financials)
+            mda_patterns = [
+                r"ITEM\s*7\.?\s*[-–—]?\s*MANAGEMENT['']?S?\s+DISCUSSION[^\n]*\n(.*?)(?=ITEM\s*7A|ITEM\s*8|QUANTITATIVE|$)",
+                r"ITEM\s*7\.?\s*MANAGEMENT['']?S?\s+DISCUSSION\s+AND\s+ANALYSIS[^\n]*\n(.*?)(?=ITEM\s*7A|ITEM\s*8|$)",
+                r"MANAGEMENT['']?S?\s+DISCUSSION\s+AND\s+ANALYSIS\s+OF\s+FINANCIAL[^\n]*\n(.*?)(?=ITEM\s*7A|ITEM\s*8|QUANTITATIVE|$)",
+                r"MD&A[^\n]*\n(.*?)(?=ITEM\s*8|QUANTITATIVE|$)",
+            ]
+            for pattern in mda_patterns:
+                match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
+                if match:
+                    mda_text = match.group(1).strip()
+                    # Increased limit to 35000 chars to capture full MD&A
+                    critical_sections.append(f"ITEM 7 - MANAGEMENT'S DISCUSSION AND ANALYSIS:\n{mda_text[:35000]}")
+                    break
+
+            # PRIORITY 3: Extract Item 1A - Risk Factors
             risk_patterns = [
-                r"ITEM\s+1A\.\s*RISK\s+FACTORS[^\n]*\n(.*?)(?=ITEM\s+2|ITEM\s+7|PART\s+II|$)",
-                r"PART\s+I[^\n]*\n.*?ITEM\s+1A\.\s*RISK\s+FACTORS[^\n]*\n(.*?)(?=ITEM\s+2|ITEM\s+7|PART\s+II|$)",
-                r"Risk\s+Factors[^\n]*\n(.*?)(?=ITEM\s+2|ITEM\s+7|PART\s+II|$)"
+                r"ITEM\s*1A\.?\s*[-–—]?\s*RISK\s+FACTORS[^\n]*\n(.*?)(?=ITEM\s*1B|ITEM\s*2|UNRESOLVED|PROPERTIES|$)",
+                r"ITEM\s*1A\.?\s*RISK\s+FACTORS[^\n]*\n(.*?)(?=ITEM\s*2|PART\s*II|$)",
+                r"RISK\s+FACTORS[^\n]*\n(.*?)(?=ITEM\s*2|ITEM\s*1B|PROPERTIES|$)",
             ]
             for pattern in risk_patterns:
                 match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
                 if match:
                     risk_text = match.group(1).strip()
-                    # Limit to 15000 chars for 10-K (optimized for speed)
+                    # Increased limit to 25000 chars for comprehensive risk coverage
+                    critical_sections.append(f"ITEM 1A - RISK FACTORS:\n{risk_text[:25000]}")
+                    break
+
+        elif filing_type_key == "10-Q":
+            # PRIORITY 1: Extract Item 1 - Financial Statements (MOST CRITICAL for metrics)
+            # This is where revenue, net income, EPS, and cash flow data lives!
+            # FIXED: Use more specific lookaheads to avoid matching "MANAGEMENT" in content
+            financial_patterns = [
+                # Match Item 1 header, capture everything until Item 2 header
+                r"ITEM\s*1\.?\s*[-–—]?\s*(?:CONDENSED\s+)?(?:CONSOLIDATED\s+)?FINANCIAL\s+STATEMENTS[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.?\s*[-–—]?\s*MANAGEMENT|\nITEM\s*2\.)",
+                r"PART\s*I\s*[-–—]?\s*FINANCIAL\s+INFORMATION[^\n]*\n[\s\S]*?ITEM\s*1\.?[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.?\s*[-–—]?\s*MANAGEMENT|\nITEM\s*2\.)",
+                r"CONDENSED\s+CONSOLIDATED\s+STATEMENTS\s+OF\s+(?:OPERATIONS|INCOME)[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.?\s*[-–—]?\s*MANAGEMENT|\nITEM\s*2\.)",
+                r"(?:CONDENSED\s+)?CONSOLIDATED\s+BALANCE\s+SHEETS?[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.?\s*[-–—]?\s*MANAGEMENT|\nITEM\s*2\.)",
+                r"FINANCIAL\s+STATEMENTS[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.?\s*[-–—]?\s*MANAGEMENT|\nITEM\s*2\.)",
+            ]
+            for pattern in financial_patterns:
+                match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
+                if match:
+                    financial_text = match.group(1).strip()
+                    # 35000 chars to capture full condensed financial statements + notes
+                    critical_sections.append(f"ITEM 1 - FINANCIAL STATEMENTS:\n{financial_text[:35000]}")
+                    break
+
+            # If no financial statements found via patterns, try to find the actual tables
+            if not any("FINANCIAL STATEMENTS" in s for s in critical_sections):
+                # Fallback: Look for key financial table headers
+                table_patterns = [
+                    r"((?:CONDENSED\s+)?CONSOLIDATED\s+STATEMENTS?\s+OF\s+OPERATIONS.*?)(?=CONDENSED\s+CONSOLIDATED\s+BALANCE|ITEM\s*2|$)",
+                    r"((?:THREE|SIX|NINE)\s+MONTHS\s+ENDED.*?(?:Net\s+(?:income|loss)|Total\s+(?:revenue|net\s+sales)).*?)(?=ITEM\s*2|$)",
+                    r"(Revenue[s]?\s*[\$\d,\.]+.*?(?:Net\s+income|Earnings\s+per\s+share).*?)(?=ITEM\s*2|$)",
+                ]
+                for pattern in table_patterns:
+                    match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
+                    if match:
+                        financial_text = match.group(1).strip()
+                        critical_sections.append(f"FINANCIAL DATA:\n{financial_text[:35000]}")
+                        break
+
+            # PRIORITY 2: Extract Item 2 - MD&A (narrative context for financials)
+            # FIXED: Use [\s\S]*? for multiline matching and more specific lookaheads
+            mda_patterns = [
+                r"ITEM\s*2\.?\s*[-–—]?\s*MANAGEMENT['']?S?\s+DISCUSSION[^\n]*\n([\s\S]*?)(?=\nITEM\s*3\.?\s*[-–—]?|\nITEM\s*4\.?\s*[-–—]?|\nQUANTITATIVE|\nCONTROLS|$)",
+                r"ITEM\s*2\.?\s*MANAGEMENT['']?S?\s+DISCUSSION\s+AND\s+ANALYSIS[^\n]*\n([\s\S]*?)(?=\nITEM\s*3\.|\nITEM\s*4\.|$)",
+                r"MANAGEMENT['']?S?\s+DISCUSSION\s+AND\s+ANALYSIS\s+OF\s+FINANCIAL[^\n]*\n([\s\S]*?)(?=\nITEM\s*3\.|\nQUANTITATIVE|\nCONTROLS|$)",
+            ]
+            for pattern in mda_patterns:
+                match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.MULTILINE)
+                if match:
+                    mda_text = match.group(1).strip()
+                    # Increased to 30000 chars for comprehensive MD&A coverage
+                    critical_sections.append(f"ITEM 2 - MANAGEMENT'S DISCUSSION AND ANALYSIS:\n{mda_text[:30000]}")
+                    break
+
+            # PRIORITY 3: Extract Item 1A - Risk Factors (if present - not always in 10-Q)
+            # FIXED: Use [\s\S]*? for multiline matching
+            risk_patterns = [
+                r"ITEM\s*1A\.?\s*[-–—]?\s*RISK\s+FACTORS[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.|\nITEM\s*3\.|\nPART\s*II|$)",
+                r"RISK\s+FACTORS[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.|\nLEGAL|\nPART\s*II|$)",
+            ]
+            for pattern in risk_patterns:
+                match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.MULTILINE)
+                if match:
+                    risk_text = match.group(1).strip()
+                    # 15000 chars for 10-Q risk factors (usually shorter than 10-K)
                     critical_sections.append(f"ITEM 1A - RISK FACTORS:\n{risk_text[:15000]}")
                     break
-            
-            # Extract Item 7 - MD&A
-            mda_patterns = [
-                r"PART\s+II[^\n]*\n.*?ITEM\s+7\.\s*MANAGEMENT['\']?S\s+DISCUSSION[^\n]*\n(.*?)(?=ITEM\s+7A|ITEM\s+8|ITEM\s+9|$)",
-                r"ITEM\s+7\.\s*MANAGEMENT['\']?S\s+DISCUSSION[^\n]*\n(.*?)(?=ITEM\s+7A|ITEM\s+8|ITEM\s+9|$)",
-                r"Management['\']?s\s+Discussion\s+and\s+Analysis[^\n]*\n(.*?)(?=ITEM\s+8|Financial|$)"
-            ]
-            for pattern in mda_patterns:
-                match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
-                if match:
-                    mda_text = match.group(1).strip()
-                    # Limit to 20000 chars for 10-K (optimized for speed)
-                    critical_sections.append(f"ITEM 7 - MANAGEMENT'S DISCUSSION AND ANALYSIS:\n{mda_text[:20000]}")
-                    break
-        
-        elif filing_type_key == "10-Q":
-            # Extract Item 1A - Risk Factors
-            risk_patterns = [
-                r"ITEM\s+1A\.\s*RISK\s+FACTORS[^\n]*\n(.*?)(?=ITEM\s+2|ITEM\s+7|PART\s+II|$)",
-                r"Risk\s+Factors[^\n]*\n(.*?)(?=ITEM\s+2|ITEM\s+7|PART\s+II|$)"
-            ]
-            for pattern in risk_patterns:
-                match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
-                if match:
-                    risk_text = match.group(1).strip()
-                    # Limit to 8000 chars for 10-Q (optimized for speed)
-                    critical_sections.append(f"ITEM 1A - RISK FACTORS:\n{risk_text[:8000]}")
-                    break
-            
-            # Extract Item 2 - MD&A (for 10-Q)
-            mda_patterns = [
-                r"ITEM\s+2\.\s*MANAGEMENT['\']?S\s+DISCUSSION[^\n]*\n(.*?)(?=ITEM\s+3|ITEM\s+4|ITEM\s+5|$)",
-                r"Management['\']?s\s+Discussion\s+and\s+Analysis[^\n]*\n(.*?)(?=ITEM\s+3|Financial|$)"
-            ]
-            for pattern in mda_patterns:
-                match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
-                if match:
-                    mda_text = match.group(1).strip()
-                    # Limit to 12000 chars for 10-Q (optimized for speed)
-                    critical_sections.append(f"ITEM 2 - MANAGEMENT'S DISCUSSION AND ANALYSIS:\n{mda_text[:12000]}")
-                    break
-        
+
         # Combine all critical sections
         if critical_sections:
-            return "\n\n".join(critical_sections)
+            combined = "\n\n" + "="*50 + "\n\n".join(critical_sections)
+            logger.info(f"Extracted {len(critical_sections)} critical sections, total {len(combined):,} chars")
+            return combined
         else:
-            # Fallback: return first 15000 chars if no sections found
-            return filing_text_clean[:15000]
+            # Enhanced fallback: Search for ANY financial data in the document
+            logger.warning(f"No sections found via patterns, using enhanced fallback extraction")
+
+            # Try to find financial tables anywhere in the document
+            financial_keywords = [
+                "total revenue", "net revenue", "net sales", "total net sales",
+                "net income", "net earnings", "earnings per share", "diluted eps",
+                "operating income", "gross profit", "cash flow", "total assets"
+            ]
+
+            # Find the section with the most financial keywords
+            best_start = 0
+            best_score = 0
+            chunk_size = 50000
+
+            for i in range(0, min(len(filing_text_clean), 200000), 10000):
+                chunk = filing_text_clean[i:i+chunk_size].lower()
+                score = sum(1 for kw in financial_keywords if kw in chunk)
+                if score > best_score:
+                    best_score = score
+                    best_start = i
+
+            if best_score > 2:
+                logger.info(f"Fallback found {best_score} financial keywords at offset {best_start}")
+                return filing_text_clean[best_start:best_start+chunk_size]
+
+            # Last resort: return first 50000 chars
+            logger.warning("Using last-resort fallback: first 50000 chars of document")
+            return filing_text_clean[:50000]
     
     def extract_sections(self, filing_text: str, filing_type: str = "10-K") -> Dict[str, str]:
         """

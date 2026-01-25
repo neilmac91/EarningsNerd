@@ -63,12 +63,13 @@ class MarkdownSerializer:
         ("exhibits", "Item 15. Exhibits and Financial Statement Schedules"),
     ]
 
-    def __init__(self, max_section_length: int = 50000):
+    def __init__(self, max_section_length: int = 80000):
         """
         Initialize serializer.
 
         Args:
             max_section_length: Maximum characters per section (truncate beyond)
+            Increased from 50000 to 80000 to capture more financial data.
         """
         self.max_section_length = max_section_length
 
@@ -282,8 +283,8 @@ class MarkdownSerializer:
                 cleaned_content += "\n\n*[Section truncated for length]*"
             parts.append(cleaned_content)
 
-        # Render tables
-        for i, table in enumerate(section.tables[:3]):  # Max 3 tables per section
+        # Render tables - increased limit to capture more financial data
+        for i, table in enumerate(section.tables[:10]):  # Increased from 3 to 10 tables per section
             table_md = self._render_table(table)
             if table_md:
                 parts.append(table_md)
