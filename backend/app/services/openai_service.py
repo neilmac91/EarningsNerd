@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from openai import AsyncOpenAI
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from app.config import settings
 from app.services.prompt_loader import get_prompt
 import json
@@ -210,6 +211,16 @@ class OpenAIService:
             "10-K": self._MODEL_GEMINI_3_PRO,  # Gemini Pro 3.0 for 10-K
             "10-Q": self._MODEL_GEMINI_3_PRO,  # Gemini Pro 3.0 for 10-Q
         }
+        # Task-specific model selection for cost optimization
+        # Uses cheaper/faster models for simpler tasks
+        self._task_models = {
+            "structured_extraction": self._MODEL_GEMINI_3_PRO,   # Needs high accuracy
+            "section_recovery": self._MODEL_GEMINI_2_5_FLASH,    # Simpler task, lower cost
+            "editorial_writer": self._MODEL_GEMINI_2_5_PRO,      # Creative but constrained
+        }
+        # Concurrency control for parallel section recovery
+        # Limits concurrent API calls to prevent rate limiting
+        self._recovery_semaphore = asyncio.Semaphore(3)
 
     def get_model_for_filing(self, filing_type: Optional[str]) -> str:
         """Return the model to use for a given filing type.
@@ -221,7 +232,21 @@ class OpenAIService:
         if not filing_type:
             return self.model
         return self._model_overrides.get(filing_type.upper(), self.model)
-    
+
+    def get_model_for_task(self, task_type: str, filing_type: Optional[str] = None) -> str:
+        """Return the appropriate model for a specific task type.
+
+        Task types:
+        - structured_extraction: Primary JSON extraction (needs highest accuracy)
+        - section_recovery: Fill missing sections (simpler, use Flash for cost savings)
+        - editorial_writer: Convert to markdown (creative, use Pro)
+
+        Falls back to filing-type model if task not recognized.
+        """
+        if task_type in self._task_models:
+            return self._task_models[task_type]
+        return self.get_model_for_filing(filing_type)
+
     def _get_type_config(self, filing_type: str) -> Dict[str, Any]:
         base_config: Dict[str, Any] = {
             "sample_length": 25000,
@@ -1125,7 +1150,8 @@ class OpenAIService:
         import time
         import json
 
-        models_to_try = [self.get_model_for_filing(filing_type_key)] + self._fallback_models
+        # Use Flash model for section recovery (simpler task, lower cost)
+        models_to_try = [self.get_model_for_task("section_recovery", filing_type_key)] + self._fallback_models
         models_to_try = list(dict.fromkeys(models_to_try))
         last_error: Optional[Exception] = None
         for model_name in models_to_try:
@@ -1160,30 +1186,31 @@ class OpenAIService:
             raise last_error
         return None
 
-    async def _recover_missing_sections(
+    async def _recover_single_section(
         self,
-        missing_sections: List[str],
+        section_key: str,
         filing_type_key: str,
         extracted_sections: Dict[str, str],
         filing_sample: str,
         metadata: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        recovered: Dict[str, Any] = {}
-        if not missing_sections:
-            return recovered
+    ) -> Tuple[str, Optional[Any]]:
+        """Recover a single missing section. Returns (section_key, recovered_value or None).
+
+        Uses semaphore to limit concurrent API calls and prevent rate limiting.
+        """
+        schema_snippet = self._get_section_schema_snippet(section_key)
+        if not schema_snippet:
+            return section_key, None
+
+        context = self._build_section_context(section_key, extracted_sections, filing_sample)
+        if not context:
+            return section_key, None
 
         company_name = metadata.get("company_name", "The company")
         filing_type_label = metadata.get("filing_type", filing_type_key)
         reporting_period = metadata.get("reporting_period", "the reported period")
 
-        for section_key in missing_sections:
-            schema_snippet = self._get_section_schema_snippet(section_key)
-            if not schema_snippet:
-                continue
-            context = self._build_section_context(section_key, extracted_sections, filing_sample)
-            if not context:
-                continue
-            prompt = f"""Company: {company_name}
+        prompt = f"""Company: {company_name}
 Filing type: {filing_type_label}
 Reporting period: {reporting_period}
 
@@ -1197,33 +1224,87 @@ FILING EXCERPT:
 
 Return JSON containing only the `{section_key}` key."""
 
-            try:
+        try:
+            # Use semaphore to limit concurrent API calls
+            async with self._recovery_semaphore:
                 content = await self._run_secondary_completion(filing_type_key, prompt)
-            except Exception as secondary_error:
-                print(f"Secondary fill for {section_key} failed: {secondary_error}")
-                continue
+        except Exception as secondary_error:
+            logger.warning(f"Secondary fill for {section_key} failed: {secondary_error}")
+            return section_key, None
 
-            if not content:
-                continue
+        if not content:
+            return section_key, None
 
-            cleaned = self._clean_json_payload(content)
-            if not cleaned:
-                continue
+        cleaned = self._clean_json_payload(content)
+        if not cleaned:
+            return section_key, None
+
+        try:
+            parsed = json.loads(cleaned)
+        except json.JSONDecodeError:
+            # Attempt repair before giving up
             try:
-                parsed = json.loads(cleaned)
+                repaired = self._repair_json(cleaned)
+                parsed = json.loads(repaired)
+                logger.info(f"JSON repair successful for secondary fill: {section_key}")
             except json.JSONDecodeError:
-                # Attempt repair before giving up
-                try:
-                    repaired = self._repair_json(cleaned)
-                    parsed = json.loads(repaired)
-                    logger.info(f"JSON repair successful for secondary fill: {section_key}")
-                except json.JSONDecodeError:
-                    logger.warning(f"Secondary fill for {section_key} returned unfixable JSON: {cleaned[:200]}")
-                    continue
+                logger.warning(f"Secondary fill for {section_key} returned unfixable JSON: {cleaned[:200]}")
+                return section_key, None
 
-            section_value = parsed.get(section_key)
-            if section_value is not None and not self._section_is_empty(section_value):
-                recovered[section_key] = section_value
+        section_value = parsed.get(section_key)
+        if section_value is not None and not self._section_is_empty(section_value):
+            return section_key, section_value
+
+        return section_key, None
+
+    async def _recover_missing_sections(
+        self,
+        missing_sections: List[str],
+        filing_type_key: str,
+        extracted_sections: Dict[str, str],
+        filing_sample: str,
+        metadata: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        """Recover missing sections in parallel for improved latency.
+
+        Uses asyncio.gather to run all section recovery tasks concurrently,
+        with a semaphore limiting the number of simultaneous API calls.
+        This reduces recovery time from 12s * N to approximately 12s total.
+        """
+        recovered: Dict[str, Any] = {}
+        if not missing_sections:
+            return recovered
+
+        # Create tasks for all missing sections
+        tasks = [
+            self._recover_single_section(
+                section_key,
+                filing_type_key,
+                extracted_sections,
+                filing_sample,
+                metadata,
+            )
+            for section_key in missing_sections
+        ]
+
+        # Execute all recovery tasks in parallel (with semaphore limiting concurrency)
+        logger.info(f"Starting parallel recovery for {len(tasks)} sections")
+        start_time = asyncio.get_event_loop().time()
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        elapsed = asyncio.get_event_loop().time() - start_time
+        logger.info(f"Parallel recovery completed in {elapsed:.2f}s for {len(tasks)} sections")
+
+        # Process results
+        for result in results:
+            if isinstance(result, Exception):
+                logger.warning(f"Section recovery task failed: {result}")
+                continue
+            if isinstance(result, tuple) and len(result) == 2:
+                section_key, section_value = result
+                if section_value is not None:
+                    recovered[section_key] = section_value
 
         return recovered
 
@@ -1938,9 +2019,13 @@ Rules:
         last_error: Optional[Exception] = None
         validation_error: Optional[Exception] = None
         max_retries = 2
-        
+
+        # Use Pro model for editorial writing (creative but constrained)
+        writer_model = self.get_model_for_task("editorial_writer", filing_type_key)
+        writer_models = [writer_model] + [m for m in self._writer_models if m != writer_model]
+
         for attempt in range(max_retries):
-            for model_name in self._writer_models:
+            for model_name in writer_models:
                 try:
                     # Enhance prompt on retry with more explicit instructions
                     enhanced_prompt = writer_prompt
@@ -2170,7 +2255,6 @@ ANALYSIS FRAMEWORK:
 3. Identify the KEY investment thesis drivers - what makes this company investable or problematic?
 4. Be direct and decisive - no hedging or generic statements
 5. Highlight what institutional investors would focus on: execution quality, market position, financial health, strategic clarity
-6. Only include bullets you can prove. Every risk or notable item must cite specific supporting evidence (exact filing excerpt or XBRL tag) in the `supporting_evidence` field.
 6. Only include bullets you can prove. Every risk or notable item must cite specific supporting evidence (exact filing excerpt or XBRL tag) in the `supporting_evidence` field.
 
 Create a professional investment analysis UNDER 800 words with the following sections:
