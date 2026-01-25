@@ -90,7 +90,14 @@ class Settings(BaseSettings):
     FINNHUB_API_KEY: str = ""
     FINNHUB_TIMEOUT_SECONDS: float = 6.0
     FINNHUB_MAX_CONCURRENCY: int = 4
-    
+
+    # Cache Settings
+    XBRL_CACHE_TTL_HOURS: int = 24  # XBRL data changes only quarterly
+    STRUCTURED_EXTRACTION_CACHE_TTL_SECONDS: int = 3600  # 1 hour for retry window
+
+    # AI Recovery Settings
+    RECOVERY_MAX_CONCURRENCY: int = 3  # Max concurrent API calls for section recovery
+
     # Stream Settings
     STREAM_HEARTBEAT_INTERVAL: int = 3  # Send updates every 3 seconds (reduced from 5s for better UX)
     STREAM_TIMEOUT: int = 600

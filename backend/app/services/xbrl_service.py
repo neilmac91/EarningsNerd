@@ -1,11 +1,61 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple
+from datetime import datetime, timedelta
 import httpx
+import random
 import re
 import logging
 from bs4 import BeautifulSoup
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Module-level cache for XBRL data
+# Key: "{cik}:{accession_number}"
+# Value: (cached_datetime, data_dict)
+_xbrl_cache: Dict[str, Tuple[datetime, Optional[Dict]]] = {}
+
+
+def _get_cache_ttl() -> timedelta:
+    """Get cache TTL from settings, with fallback."""
+    ttl_hours = getattr(settings, 'XBRL_CACHE_TTL_HOURS', 24)
+    return timedelta(hours=ttl_hours)
+
+
+def clear_xbrl_cache() -> int:
+    """Clear the XBRL cache. Returns number of entries cleared."""
+    global _xbrl_cache
+    count = len(_xbrl_cache)
+    _xbrl_cache.clear()
+    logger.info(f"Cleared {count} XBRL cache entries")
+    return count
+
+
+def get_xbrl_cache_stats() -> Dict[str, int]:
+    """Get cache statistics for monitoring."""
+    now = datetime.now()
+    ttl = _get_cache_ttl()
+    valid_count = sum(1 for cached_time, _ in _xbrl_cache.values()
+                      if now - cached_time < ttl)
+    return {
+        "total_entries": len(_xbrl_cache),
+        "valid_entries": valid_count,
+        "expired_entries": len(_xbrl_cache) - valid_count,
+    }
+
+
+def _cleanup_expired_cache() -> None:
+    """Remove expired entries from cache."""
+    global _xbrl_cache
+    now = datetime.now()
+    ttl = _get_cache_ttl()
+    expired_keys = [
+        key for key, (cached_time, _) in _xbrl_cache.items()
+        if now - cached_time >= ttl
+    ]
+    for key in expired_keys:
+        del _xbrl_cache[key]
+    if expired_keys:
+        logger.info(f"Cleaned up {len(expired_keys)} expired XBRL cache entries")
 
 # Comprehensive list of revenue field names used by major companies
 # Defined at module level for performance (avoid recreating on each call)
@@ -44,33 +94,64 @@ class XBRLService:
         self.user_agent = settings.SEC_USER_AGENT
 
     async def get_xbrl_data(self, accession_number: str, cik: str) -> Optional[Dict]:
-        """Extract XBRL data from SEC filing"""
+        """Extract XBRL data from SEC filing with caching.
+
+        XBRL data changes only quarterly, so we cache results for 24 hours
+        to reduce redundant SEC API calls on retries and repeated requests.
+        """
+        global _xbrl_cache
+
+        # Build cache key
+        cache_key = f"{cik}:{accession_number}"
+        ttl = _get_cache_ttl()
+
+        # Check cache first
+        if cache_key in _xbrl_cache:
+            cached_time, cached_data = _xbrl_cache[cache_key]
+            if datetime.now() - cached_time < ttl:
+                logger.debug(f"XBRL cache hit for {cache_key}")
+                return cached_data
+            else:
+                logger.debug(f"XBRL cache expired for {cache_key}")
+                del _xbrl_cache[cache_key]
+
+        # Cache miss - fetch from SEC
+        result: Optional[Dict] = None
         try:
             # SEC EDGAR XBRL data endpoint
             # Format: https://data.sec.gov/api/xbrl/companyfacts/CIK{number}.json
-            # Or: https://www.sec.gov/cgi-bin/viewer?action=view&cik={cik}&accession_number={accession}
-            
-            # Try to get XBRL facts from companyfacts endpoint
             cik_padded = str(cik).zfill(10)
             facts_url = f"{self.base_url}/api/xbrl/companyfacts/CIK{cik_padded}.json"
-            
+
             async with httpx.AsyncClient() as client:
                 response = await client.get(
                     facts_url,
                     headers={"User-Agent": self.user_agent},
                     timeout=30.0
                 )
-                
+
                 if response.status_code == 200:
                     data = response.json()
-                    # Pass accession_number to filter for the specific filing
-                    return self._parse_xbrl_facts(data, target_accession=accession_number)
+                    result = self._parse_xbrl_facts(data, target_accession=accession_number)
                 else:
                     # Fallback: try to extract from filing HTML
-                    return await self._extract_from_filing_html(accession_number, cik)
+                    result = await self._extract_from_filing_html(accession_number, cik)
+
         except Exception as e:
             logger.error(f"Error fetching XBRL data: {str(e)}", exc_info=True)
-            return None
+            result = None
+
+        finally:
+            # Always cache the result (success, failure, or None) to avoid repeated lookups
+            _xbrl_cache[cache_key] = (datetime.now(), result)
+            logger.debug(f"XBRL cached for {cache_key} (result: {'found' if result else 'none'})")
+
+            # Probabilistic cache cleanup to avoid race conditions in async environments
+            # ~1% chance of cleanup when cache has >100 entries
+            if len(_xbrl_cache) > 100 and random.random() < 0.01:
+                _cleanup_expired_cache()
+
+        return result
 
     def _parse_xbrl_facts(self, facts_data: Dict, target_accession: Optional[str] = None) -> Dict:
         """Parse XBRL facts from SEC API response.
