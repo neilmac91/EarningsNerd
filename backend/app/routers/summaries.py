@@ -598,10 +598,8 @@ async def generate_summary_stream(
             except Exception as e:
                 logger.error(f"Failed to record streaming error for filing {filing_id}: {e}", exc_info=True)
             
-            if "Unable to retrieve" in error_msg or "Unable to complete" in error_msg:
-                error_message = error_msg[:200]
-            else:
-                error_message = f"DEBUG_ERROR: {str(e)}[:200]"
+            # Always expose the raw error for debugging purposes in this branch
+            error_message = f"DEBUG_ERROR: {str(e)}[:200]"
             
             yield f"data: {json.dumps({'type': 'error', 'message': error_message})}\n\n"
         finally:
