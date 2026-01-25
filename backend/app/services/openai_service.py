@@ -220,7 +220,9 @@ class OpenAIService:
         }
         # Concurrency control for parallel section recovery
         # Limits concurrent API calls to prevent rate limiting
-        self._recovery_semaphore = asyncio.Semaphore(3)
+        # Configurable via RECOVERY_MAX_CONCURRENCY setting (default: 3)
+        max_concurrency = getattr(settings, 'RECOVERY_MAX_CONCURRENCY', 3)
+        self._recovery_semaphore = asyncio.Semaphore(max_concurrency)
 
     def get_model_for_filing(self, filing_type: Optional[str]) -> str:
         """Return the model to use for a given filing type.
@@ -1289,11 +1291,11 @@ Return JSON containing only the `{section_key}` key."""
 
         # Execute all recovery tasks in parallel (with semaphore limiting concurrency)
         logger.info(f"Starting parallel recovery for {len(tasks)} sections")
-        start_time = asyncio.get_event_loop().time()
+        start_time = asyncio.get_running_loop().time()
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        elapsed = asyncio.get_event_loop().time() - start_time
+        elapsed = asyncio.get_running_loop().time() - start_time
         logger.info(f"Parallel recovery completed in {elapsed:.2f}s for {len(tasks)} sections")
 
         # Process results

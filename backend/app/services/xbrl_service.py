@@ -1,6 +1,7 @@
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime, timedelta
 import httpx
+import random
 import re
 import logging
 from bs4 import BeautifulSoup
@@ -115,6 +116,7 @@ class XBRLService:
                 del _xbrl_cache[cache_key]
 
         # Cache miss - fetch from SEC
+        result: Optional[Dict] = None
         try:
             # SEC EDGAR XBRL data endpoint
             # Format: https://data.sec.gov/api/xbrl/companyfacts/CIK{number}.json
@@ -135,19 +137,21 @@ class XBRLService:
                     # Fallback: try to extract from filing HTML
                     result = await self._extract_from_filing_html(accession_number, cik)
 
-            # Cache the result (even if None, to avoid repeated failed lookups)
-            _xbrl_cache[cache_key] = (datetime.now(), result)
-            logger.debug(f"XBRL cached for {cache_key}")
-
-            # Periodic cache cleanup (every 100 entries)
-            if len(_xbrl_cache) > 100 and len(_xbrl_cache) % 100 == 0:
-                _cleanup_expired_cache()
-
-            return result
-
         except Exception as e:
             logger.error(f"Error fetching XBRL data: {str(e)}", exc_info=True)
-            return None
+            result = None
+
+        finally:
+            # Always cache the result (success, failure, or None) to avoid repeated lookups
+            _xbrl_cache[cache_key] = (datetime.now(), result)
+            logger.debug(f"XBRL cached for {cache_key} (result: {'found' if result else 'none'})")
+
+            # Probabilistic cache cleanup to avoid race conditions in async environments
+            # ~1% chance of cleanup when cache has >100 entries
+            if len(_xbrl_cache) > 100 and random.random() < 0.01:
+                _cleanup_expired_cache()
+
+        return result
 
     def _parse_xbrl_facts(self, facts_data: Dict, target_accession: Optional[str] = None) -> Dict:
         """Parse XBRL facts from SEC API response.
