@@ -50,6 +50,56 @@ interface SummarySectionsProps {
   metrics?: MetricItem[]
 }
 
+// Placeholder patterns that indicate missing or unavailable data
+const PLACEHOLDER_PATTERNS = [
+  'not available',
+  'unavailable',
+  'n/a',
+  'retry',
+  'requires full',
+  'data pending',
+  'being processed',
+  'taking longer',
+  'preliminary',
+  'placeholder',
+  'available in the full',
+]
+
+// Check if a string contains placeholder content
+function isPlaceholderText(text: string | undefined | null): boolean {
+  if (!text || typeof text !== 'string') return true
+  const lowerText = text.toLowerCase().trim()
+  if (lowerText.length === 0) return true
+  return PLACEHOLDER_PATTERNS.some(pattern => lowerText.includes(pattern))
+}
+
+// Check if a metric has real data (not placeholder)
+function hasRealMetricData(metric: MetricItem): boolean {
+  const currentValid = metric.current_period && !isPlaceholderText(metric.current_period)
+  const priorValid = metric.prior_period && !isPlaceholderText(metric.prior_period)
+  return Boolean(currentValid || priorValid)
+}
+
+// Check if content has real substantive data
+function hasRealContent(content: unknown): boolean {
+  if (!content) return false
+
+  if (typeof content === 'string') {
+    return !isPlaceholderText(content) && content.trim().length > 20
+  }
+
+  if (Array.isArray(content)) {
+    return content.some(item => hasRealContent(item))
+  }
+
+  if (typeof content === 'object') {
+    const values = Object.values(content as Record<string, unknown>)
+    return values.some(val => hasRealContent(val))
+  }
+
+  return Boolean(content)
+}
+
 export default function SummarySections({ summary, metrics }: SummarySectionsProps) {
   const [activeTab, setActiveTab] = useState<string>('overview')
 
@@ -63,33 +113,55 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
     }
     return rawRisks
       .map((risk: unknown) => normalizeRisk(risk))
-      .filter((risk): risk is RiskFactor => Boolean(risk && risk.supporting_evidence))
+      .filter((risk): risk is RiskFactor => {
+        if (!risk || !risk.supporting_evidence) return false
+        // Filter out placeholder risks
+        if (isPlaceholderText(risk.supporting_evidence)) return false
+        if (risk.description && isPlaceholderText(risk.description)) return false
+        return true
+      })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sections.risk_factors])
 
-  // Content Checkers
-  const overviewContent = sections.executive_snapshot 
-    ? renderMarkdownValue(sections.executive_snapshot) 
+  // Content Checkers - Enhanced to detect placeholder content
+  const overviewContent = sections.executive_snapshot
+    ? renderMarkdownValue(sections.executive_snapshot)
     : (summary.business_overview || '')
-  
-  const hasOverview = Boolean(overviewContent)
-  const hasFinancials = Boolean(sections.financial_highlights?.notes || (metrics && metrics.length > 0))
-  const hasRisks = normalizedRisks.length > 0
-  const hasManagement = Boolean(sections.management_discussion_insights)
-  
-  const guidanceContent = getAccordionContent(sections.guidance_outlook)
-  const hasGuidance = Boolean(guidanceContent)
 
+  // Overview is valid if it has content and isn't just placeholder text
+  const hasOverview = Boolean(overviewContent) && !isPlaceholderText(overviewContent)
+
+  // Financials: check for real metric data, not just array presence
+  const validMetrics = metrics?.filter(hasRealMetricData) ?? []
+  const hasFinancials = Boolean(
+    (sections.financial_highlights?.notes && !isPlaceholderText(sections.financial_highlights.notes)) ||
+    validMetrics.length > 0
+  )
+
+  // Risks: already filtered for placeholder content above
+  const hasRisks = normalizedRisks.length > 0
+
+  // MD&A: check for real content
+  const hasManagement = hasRealContent(sections.management_discussion_insights)
+
+  // Guidance: check accordion content isn't placeholder
+  const guidanceContent = getAccordionContent(sections.guidance_outlook)
+  const hasGuidance = Boolean(guidanceContent) && !isPlaceholderText(guidanceContent)
+
+  // Liquidity: check both liquidity and footnotes content
   const liquidityContent = getAccordionContent(sections.liquidity_capital_structure)
   const footnotesContent = getAccordionContent(sections.notable_footnotes)
-  const hasLiquidity = Boolean(liquidityContent || footnotesContent)
-  
-  const hasTrends = Boolean(sections.three_year_trend || sections.segment_performance)
+  const hasLiquidity = (Boolean(liquidityContent) && !isPlaceholderText(liquidityContent)) ||
+                       (Boolean(footnotesContent) && !isPlaceholderText(footnotesContent))
+
+  // Trends: check for real content, not just object presence
+  const hasTrends = hasRealContent(sections.three_year_trend) || hasRealContent(sections.segment_performance)
 
   // Tab Configuration - Per execution plan: hide sections where data cannot be found
   // Only show tabs that have content (dynamic section hiding)
+  // Note: Executive Summary is ALWAYS shown to display unavailable sections disclosure
   const allTabs = [
-    { id: 'overview', label: 'Executive Summary', icon: FileText, hasContent: hasOverview },
+    { id: 'overview', label: 'Executive Summary', icon: FileText, hasContent: true },  // Always show
     { id: 'financials', label: 'Financials', icon: BarChart3, hasContent: hasFinancials },
     { id: 'risks', label: 'Risks', icon: AlertTriangle, hasContent: hasRisks },
     { id: 'management', label: 'MD&A', icon: Building2, hasContent: hasManagement },
@@ -119,7 +191,15 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
       case 'overview':
         return (
           <div>
-            <SummaryExecutiveSnapshot content={overviewContent} />
+            {hasOverview ? (
+              <SummaryExecutiveSnapshot content={overviewContent} />
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-slate-500">
+                  Executive summary is being processed. Please retry for full analysis.
+                </p>
+              </div>
+            )}
             {/* Per execution plan: Executive Summary must note unavailable sections */}
             {unavailableSections.length > 0 && (
               <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">

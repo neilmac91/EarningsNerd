@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import SummarySections from '@/components/SummarySections'
 
 describe('SummarySections renderMarkdownValue gating', () => {
-  it('hides additional accordions when renderMarkdownValue yields blank strings and shows unavailable sections disclosure', () => {
+  it('hides tabs when renderMarkdownValue yields blank/placeholder strings', () => {
     const summary = {
       business_overview: '',
       raw_summary: {
@@ -23,31 +23,30 @@ describe('SummarySections renderMarkdownValue gating', () => {
 
     render(<SummarySections summary={summary as any} metrics={[]} />)
 
-    // Per execution plan: tabs should be HIDDEN (not disabled) when content is empty
-    const guidanceTab = screen.queryByRole('button', { name: /guidance/i })
-    expect(guidanceTab).not.toBeInTheDocument()
+    // Executive Summary always visible (shows unavailable sections)
+    expect(screen.getByRole('button', { name: /executive summary/i })).toBeInTheDocument()
 
-    const liquidityTab = screen.queryByRole('button', { name: /liquidity/i })
-    expect(liquidityTab).not.toBeInTheDocument()
+    // Tabs with empty/null content should be hidden
+    expect(screen.queryByRole('button', { name: /^guidance$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^liquidity$/i })).not.toBeInTheDocument()
 
-    // Per execution plan: Executive Summary must note unavailable sections
+    // Unavailable sections disclosure should be shown
     expect(screen.getByText('Not included in this filing:')).toBeInTheDocument()
-    expect(screen.getByText(/Guidance data was not available/i)).toBeInTheDocument()
-    expect(screen.getByText(/Liquidity data was not available/i)).toBeInTheDocument()
   })
 
-  it('shows additional accordions when renderMarkdownValue returns real content', () => {
+  it('shows tabs when renderMarkdownValue returns real content', () => {
     const summary = {
-      business_overview: '',
+      business_overview: 'Comprehensive overview of company performance and strategic initiatives.',
       raw_summary: {
         sections: {
+          executive_snapshot: 'Comprehensive overview of company performance and strategic initiatives.',
           guidance_outlook: {
-            guidance: 'Management reiterated full-year outlook.',
+            guidance: 'Management reiterated full-year outlook with revenue expected to grow 12-15%.',
             drivers: ['Demand recovery in core markets'],
           },
           liquidity_capital_structure: {
-            liquidity: 'Cash on hand of $1.2B provides flexibility.',
-            shareholder_returns: ['Ongoing buyback authorization'],
+            liquidity: 'Cash on hand of $1.2B provides flexibility for M&A and shareholder returns.',
+            shareholder_returns: ['Ongoing buyback authorization of $500M'],
           },
           notable_footnotes: [
             { item: 'Note 7: Revenue recognition change', impact: 'Adjusts timing of subscription revenue.' },
@@ -59,7 +58,37 @@ describe('SummarySections renderMarkdownValue gating', () => {
     render(<SummarySections summary={summary as any} metrics={[]} />)
 
     // Tabs should appear when content is present
-    expect(screen.getByText('Guidance')).toBeInTheDocument()
-    expect(screen.getByText('Liquidity')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^guidance$/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /^liquidity$/i })).toBeInTheDocument()
+  })
+
+  it('filters out placeholder content patterns from tab visibility', () => {
+    const summary = {
+      business_overview: 'Valid real content for the executive summary section.',
+      raw_summary: {
+        sections: {
+          executive_snapshot: 'Valid real content for the executive summary section.',
+          guidance_outlook: {
+            outlook: 'Guidance requires full AI processing. Please retry for detailed analysis.',
+          },
+          liquidity_capital_structure: {
+            summary: 'Not available in this partial summary. Retry for complete analysis.',
+          },
+          management_discussion_insights: {
+            themes: ['Analysis is being processed. Preliminary data only.'],
+          },
+        },
+      },
+    }
+
+    render(<SummarySections summary={summary as any} metrics={[]} />)
+
+    // Executive Summary should be visible
+    expect(screen.getByRole('button', { name: /executive summary/i })).toBeInTheDocument()
+
+    // Tabs with placeholder patterns should be hidden
+    expect(screen.queryByRole('button', { name: /^guidance$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^liquidity$/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /md&a/i })).not.toBeInTheDocument()
   })
 })
