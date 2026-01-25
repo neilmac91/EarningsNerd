@@ -21,7 +21,6 @@ import FinancialMetricsTable from '@/components/FinancialMetricsTable'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import { isAxiosError } from 'axios'
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
-import { ThemeToggle } from '@/components/ThemeToggle'
 import analytics from '@/lib/analytics'
 
 // --- Constants ---
@@ -468,7 +467,6 @@ function FilingDetailView({ filingId }: { filingId: number }) {
               <span className="group-hover:-translate-x-1 transition-transform">←</span>
               <span>Back</span>
             </button>
-            <ThemeToggle />
           </div>
 
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

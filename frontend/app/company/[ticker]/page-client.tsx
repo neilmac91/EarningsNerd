@@ -11,7 +11,6 @@ import { FileText, ExternalLink, Loader2, ChevronDown, Filter, Star } from 'luci
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
-import { ThemeToggle } from '@/components/ThemeToggle'
 import analytics from '@/lib/analytics'
 
 export default function CompanyPageClient() {
@@ -242,9 +241,6 @@ export default function CompanyPageClient() {
                   )}
                 </div>
               </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <ThemeToggle />
             </div>
           </div>
         </div>
