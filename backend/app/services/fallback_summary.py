@@ -15,7 +15,8 @@ def format_currency(value: Optional[float]) -> str:
         if abs_val >= 1_000_000:
             return f"${value / 1_000_000:.1f}M"
         return f"${value:,.0f}"
-    except:
+    except Exception as e:
+        logger.warning(f"Error formatting currency value {value}: {e}")
         return "Not disclosed"
 
 
@@ -34,7 +35,8 @@ def _extract_section_text(text: str, section_patterns: List[str], max_chars: int
                 if len(content) > max_chars:
                     content = content[:max_chars] + "..."
                 return content
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Error processing regex pattern in _extract_section_text: {e}")
             continue
     return None
 
