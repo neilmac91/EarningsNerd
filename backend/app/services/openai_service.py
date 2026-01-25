@@ -612,6 +612,20 @@ class OpenAIService:
             cleaned = cleaned[:-3]
         return cleaned.strip()
 
+    def _repair_json(self, json_str: str) -> str:
+        """Attempt to repair common JSON syntax errors from LLMs."""
+        if not json_str:
+            return ""
+        
+        # 1. Fix single quotes used for keys
+        # Replace 'key': with "key":
+        repaired = re.sub(r"\'([^\']+)\'\s*:", r'"\1":', json_str)
+        
+        # 2. Fix trailing commas before closing braces/brackets
+        repaired = re.sub(r",\s*([\]}])", r"\1", repaired)
+        
+        return repaired
+
     def _validate_editorial_markdown(self, markdown: str, filing_type: Optional[str] = None) -> None:
         """
         Validate editorial output for newsroom standards.
@@ -1653,8 +1667,10 @@ Rules:
                                     "role": "system",
                                     "content": (
                                         "You are a structured data extraction engine for financial journalism. "
-                                        "You never write narrative prose. You output clean JSON that adheres strictly "
-                                        "to the requested schema, filling in 'Not disclosed' when data is missing. "
+                                        "You never write narrative prose. You output STRICT RFC8259 COMPLIANT JSON. "
+                                        "ALL keys and strings must use DOUBLE QUOTES. No trailing commas. "
+                                        "Adhere strictly to the requested schema. "
+                                        "Fill in 'Not disclosed' when data is missing. "
                                         "Never invent prior-period figures."
                                     ),
                                 },
@@ -1695,10 +1711,19 @@ Rules:
 
         try:
             summary_data = json.loads(payload)
-        except json.JSONDecodeError as json_error:
-            print(f"Structured summary JSON error: {json_error}")
-            print(f"Raw payload (first 500 chars): {payload[:500]}")
-            raise
+        except json.JSONDecodeError:
+            # Attempt repair
+            try:
+                logger.warning(f"JSON decode failed, attempting repair for payload: {payload[:100]}...")
+                repaired_payload = self._repair_json(payload)
+                summary_data = json.loads(repaired_payload)
+                logger.info("JSON repair successful.")
+            except json.JSONDecodeError as final_error:
+                print(f"Structured summary JSON error after repair: {final_error}")
+                print(f"Raw payload (first 500 chars): {payload[:500]}")
+                # We still raise, but now the error message visible to user will be the raw error
+                # thanks to our previous fix.
+                raise final_error
 
         sections_info = summary_data.get("sections") or {}
         missing_sections = self._find_empty_sections(sections_info)
