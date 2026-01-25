@@ -54,16 +54,80 @@ After a thorough code review of the existing implementation against the improvem
 - `NetIncomeLoss`, `ProfitLoss`, `NetIncomeLossAvailableToCommonStockholdersBasic`
 - `OperatingIncomeLoss`, `IncomeLossFromContinuingOperations`
 
-### Gap 2: No Cache Invalidation Strategy
+### Gap 2: No Cache Invalidation Strategy + Partial Result Handling
 
-**Problem:** Existing summaries with poor quality data will persist indefinitely.
+**Problem:** Existing summaries with poor quality data will persist indefinitely. Partial results are being cached and served to other users.
 
-**Impact:** Users who previously generated bad summaries will continue seeing them.
+**Impact:** Users who previously generated bad summaries will continue seeing them. Users receiving partial results have degraded experience.
 
 **Recommendation:**
 1. Add `summary_version` field to Summary model
 2. Implement cache bust endpoint for admin use
 3. Consider auto-regeneration for summaries below quality threshold
+4. **NEW: Implement Full/Partial Result Designation System**
+
+#### Full vs Partial Result Specification
+
+| Designation | Criteria | Caching Behavior | User Experience |
+|-------------|----------|------------------|-----------------|
+| **Full Result** | ≥3/7 sections populated, no errors, AI completed | ✅ Cached and served to other users | Standard display |
+| **Partial Result** | <3/7 sections OR timeout OR error during generation | ❌ NEVER cached, deleted immediately | "Retry Full Analysis" button shown |
+
+#### Critical Requirements
+
+1. **Goal: 0% Partial Results** - Partial results should be SUPER RARE. The system should be engineered to complete successfully in the vast majority of cases.
+
+2. **Partial Results Are NOT Cached:**
+   - Partial results must NEVER be stored in the Summary table
+   - Partial results must NEVER be served to other users
+   - When a partial result occurs, it is returned to the requesting user ONLY, then discarded
+
+3. **User Experience for Partial Results:**
+   ```
+   ┌─────────────────────────────────────────────────────┐
+   │  ⚠️ Partial Analysis Complete                       │
+   │                                                     │
+   │  We were only able to analyze some sections of      │
+   │  this filing. This may be due to filing complexity  │
+   │  or temporary service limitations.                  │
+   │                                                     │
+   │  [Show Partial Results]  [Retry Full Analysis]     │
+   │                                                     │
+   └─────────────────────────────────────────────────────┘
+   ```
+
+4. **Backend Implementation:**
+   ```python
+   class SummaryResult:
+       result_type: Literal["full", "partial"]
+       coverage_count: int  # e.g., 5
+       coverage_total: int  # e.g., 7
+       sections: Dict[str, Any]
+       partial_reason: Optional[str]  # "timeout", "api_error", "insufficient_data"
+
+   async def generate_summary(filing_id: int) -> SummaryResult:
+       result = await ai_service.generate(filing_id)
+
+       coverage = count_populated_sections(result)
+
+       if coverage >= 3 and not result.had_errors:
+           # FULL RESULT - Cache it
+           save_to_database(result)
+           return SummaryResult(result_type="full", ...)
+       else:
+           # PARTIAL RESULT - Do NOT cache
+           logger.warning(f"Partial result for filing {filing_id}: {coverage}/7 sections")
+           return SummaryResult(
+               result_type="partial",
+               partial_reason=determine_reason(result),
+               ...
+           )
+   ```
+
+5. **Monitoring & Alerting:**
+   - Track partial result rate in PostHog/analytics
+   - Alert if partial result rate exceeds 5% over 24h period
+   - Dashboard shows real-time full vs partial ratio
 
 ### Gap 3: No Chaos/Failure Mode Testing
 
@@ -238,6 +302,22 @@ FORBIDDEN_WORDS = [
 ]
 ```
 
+**CRITICAL EXCEPTION - Filing Quotes:**
+Forbidden words ARE permitted when directly quoted from the company's SEC filing, subject to these rules:
+
+1. **Attribution Required:** Must use explicit attribution (e.g., "Management described revenue growth as 'strong'" NOT just "strong revenue growth")
+2. **Same Context:** The word must be used in the same context as the original filing
+3. **Direct Quotes Preferred:** Paraphrasing with synonyms is acceptable, but direct quotes are preferred
+4. **Future Enhancement:** Programmatic validation against original filing text is a future improvement (not implemented in v1)
+
+**Example - Correct Usage:**
+```
+✅ "Management characterized Q4 performance as 'strong' in their earnings call remarks"
+✅ "The company stated that demand remained 'robust' according to their 10-K filing"
+❌ "The company showed strong performance" (no attribution)
+❌ "Revenue was impressive this quarter" (editorializing)
+```
+
 **Prompt Template Update:**
 ```python
 RISK_EXTRACTION_PROMPT = """
@@ -284,6 +364,8 @@ pytest backend/tests/test_summary_quality.py::test_no_subjective_language -v
 | 3.1 | `test_xbrl_extraction.py` | Create major companies test suite | AAPL, MSFT, GOOGL, AMZN, NVDA pass |
 | 3.2 | `test_summary_quality.py` | Create subjective language detector | Detects all forbidden words |
 | 3.3 | `test_summary_quality.py` | Create coverage quality gate | Fails if coverage < 3/7 |
+| 3.6 | Frontend components | Hide empty subsections dynamically | Empty sections not rendered |
+| 3.7 | `openai_service.py` | Executive Summary includes all section summaries | Exec summary references hidden sections |
 | 3.4 | `test_integration_sec.py` | Create VCR-recorded SEC tests | Tests run without network |
 | 3.5 | `test_failure_modes.py` | Create chaos tests | Graceful handling of failures |
 
@@ -362,6 +444,145 @@ def test_coverage_quality_gate(sample_summary):
     covered = coverage.get("covered_count", 0)
     total = coverage.get("total_count", 7)
     assert covered >= 3, f"Coverage too low: {covered}/{total}"
+```
+
+---
+
+### Phase 3.1: Coverage Quality Gate & Dynamic Section Hiding (P0 - Critical)
+
+**Goal:** Hide empty sections gracefully and ensure Executive Summary provides complete context.
+
+**Agent:** Frontend Developer + Backend Developer
+
+#### Coverage Quality Gate Specification
+
+| Rule | Specification |
+|------|---------------|
+| Minimum Coverage | 3/7 sections must have substantive data |
+| Below Minimum | Summary marked as "partial result" (see Cache Invalidation) |
+| Hideable Sections | All sections EXCEPT Executive Summary |
+| Hidden Section Handling | Executive Summary explicitly notes unavailable sections |
+
+#### Hideable Sections (7 Total)
+1. Business Overview
+2. Financial Highlights
+3. Risk Factors
+4. Management Discussion (MD&A)
+5. Key Changes (Year-over-Year)
+6. Forward Guidance
+7. Additional Disclosures
+
+**Note:** Executive Summary is NEVER hidden - it is always rendered.
+
+#### Executive Summary Must Include
+
+When a section has no data, the Executive Summary MUST explicitly note it:
+
+```json
+{
+  "executive_summary": {
+    "overview": "Apple Inc. reported Q4 2025 results...",
+    "key_points": ["Revenue increased 12%...", "..."],
+    "sections_available": ["business_overview", "financial_highlights", "risk_factors", "mda"],
+    "sections_unavailable": [
+      {
+        "section": "forward_guidance",
+        "note": "No forward guidance was disclosed in this filing"
+      },
+      {
+        "section": "key_changes",
+        "note": "Year-over-year comparisons were not available for this filing period"
+      }
+    ]
+  }
+}
+```
+
+#### Frontend Implementation
+
+```typescript
+// Dynamic section rendering - hide empty sections
+const renderSection = (sectionKey: string, data: SectionData | null) => {
+  // Don't render if no data (except Executive Summary which is always shown)
+  if (!data && sectionKey !== 'executive_summary') {
+    return null;
+  }
+
+  return <SectionComponent key={sectionKey} data={data} />;
+};
+
+// Executive Summary must show unavailable sections notice
+const ExecutiveSummary = ({ summary }: Props) => {
+  const { sections_unavailable } = summary.executive_summary;
+
+  return (
+    <div>
+      {/* Main summary content */}
+      <SummaryContent data={summary.executive_summary} />
+
+      {/* Note about unavailable sections */}
+      {sections_unavailable?.length > 0 && (
+        <div className="text-muted-foreground text-sm mt-4">
+          <p className="font-medium">Not included in this filing:</p>
+          <ul>
+            {sections_unavailable.map(({ section, note }) => (
+              <li key={section}>{note}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+};
+```
+
+#### Backend Prompt Update
+
+Add to AI system prompt:
+```
+EXECUTIVE SUMMARY REQUIREMENTS:
+1. The Executive Summary MUST provide a complete overview of the filing
+2. For EVERY section that cannot be populated, include in sections_unavailable:
+   - "No forward guidance was disclosed in this filing"
+   - "Year-over-year comparisons were not available for this filing period"
+   - "Risk factors were not itemized in this filing"
+   - etc.
+3. The Executive Summary should summarize ALL available sections, not just highlights
+```
+
+#### Test Cases
+
+```python
+def test_hidden_sections_noted_in_executive_summary(sample_summary):
+    """Executive Summary must note all unavailable sections."""
+    exec_summary = sample_summary.get("executive_summary", {})
+    sections_unavailable = exec_summary.get("sections_unavailable", [])
+
+    # Count actual empty sections
+    hideable_sections = [
+        "business_overview", "financial_highlights", "risk_factors",
+        "management_discussion", "key_changes", "forward_guidance", "additional_disclosures"
+    ]
+
+    empty_sections = [
+        s for s in hideable_sections
+        if not sample_summary.get(s)
+    ]
+
+    # Every empty section must be noted in Executive Summary
+    noted_sections = [item["section"] for item in sections_unavailable]
+    for section in empty_sections:
+        assert section in noted_sections, f"Empty section '{section}' not noted in Executive Summary"
+
+def test_minimum_coverage_for_full_result(sample_summary):
+    """Summary needs 3/7 sections for 'full result' designation."""
+    coverage = calculate_coverage(sample_summary)
+    is_full_result = sample_summary.get("result_type") == "full"
+
+    if coverage < 3:
+        assert not is_full_result, "Summary with <3 sections should be 'partial'"
+    else:
+        assert is_full_result, "Summary with >=3 sections should be 'full'"
 ```
 
 **Verification Gate:**
@@ -465,6 +686,17 @@ bandit -r backend/app -x tests
 | 1 | Net Income field names expansion | 1h | P0 |
 | 1 | Period-over-period change computation | 2h | P1 |
 | 1 | Data quality logging | 1h | P1 |
+| 3.1 | Implement full/partial result designation | 3h | P0 |
+| 3.1 | Partial result deletion (no caching) | 2h | P0 |
+| 3.1 | Executive Summary unavailable sections | 2h | P1 |
+
+### Frontend Developer Agent
+| Phase | Task | Effort | Priority |
+|-------|------|--------|----------|
+| 3.1 | Dynamic section hiding for empty sections | 3h | P0 |
+| 3.1 | Executive Summary unavailable sections display | 2h | P1 |
+| 3.1 | Partial result UI with "Retry Full Analysis" button | 3h | P0 |
+| 3.1 | Coverage indicator component | 1h | P2 |
 
 ### AI Engineer Agent
 | Phase | Task | Effort | Priority |
@@ -519,9 +751,13 @@ bandit -r backend/app -x tests
 | Net Income availability | ~60% | 95% | Monitor "Not available" rate |
 | EPS availability | ~50% | 95% | Monitor "Not available" rate |
 | AI completion rate (no timeout) | ~70% | 95% | Log analysis |
-| Subjective language instances | Unknown | 0 | Automated scan |
+| Subjective language instances | Unknown | 0* | Automated scan |
 | User retry rate | ~30% | <10% | Analytics |
 | p95 summary generation time | ~45s | <30s | APM metrics |
+| **Partial result rate** | Unknown | **<1%** | Analytics |
+| **Full result cache hit rate** | Unknown | >80% | Database metrics |
+
+*Exception: Forbidden words allowed when directly quoted from filing with proper attribution
 
 ---
 
@@ -580,13 +816,21 @@ curl -X POST https://api.earningsnerd.io/admin/cache/clear
 - `backend/tests/test_summary_quality.py` - Quality gate tests
 - `backend/tests/test_failure_modes.py` - Chaos tests
 - `backend/tests/test_integration_sec.py` - VCR integration tests
+- `backend/tests/test_partial_results.py` - Partial result handling tests
 - `backend/tests/load_test.js` - k6 load test script
+- `frontend/components/PartialResultBanner.tsx` - Partial result UI component
+- `frontend/components/UnavailableSections.tsx` - Executive Summary unavailable sections display
 
 ### Modified Files
 - `backend/app/services/xbrl_service.py` - EPS/Net Income field names, period change
-- `backend/app/services/openai_service.py` - Objective prompts
-- `backend/prompts/10k-analyst-agent.md` - Updated with forbidden words
-- `backend/prompts/10q-analyst-agent.md` - Updated with forbidden words
+- `backend/app/services/openai_service.py` - Objective prompts, Executive Summary requirements
+- `backend/app/services/summary_generation_service.py` - Full/partial result designation, no-cache for partial
+- `backend/app/routers/summaries.py` - Return result_type in response
+- `backend/app/models/__init__.py` - Add result_type field to Summary model (or handle separately)
+- `backend/prompts/10k-analyst-agent.md` - Updated with forbidden words + attribution rules + Executive Summary requirements
+- `backend/prompts/10q-analyst-agent.md` - Updated with forbidden words + attribution rules + Executive Summary requirements
+- `frontend/features/summaries/SummaryDisplay.tsx` - Dynamic section hiding
+- `frontend/features/summaries/ExecutiveSummary.tsx` - Show unavailable sections note
 
 ---
 
@@ -596,3 +840,4 @@ curl -X POST https://api.earningsnerd.io/admin/cache/clear
 |---------|------|--------|---------|
 | 1.0 | 2026-01-25 | Engineering Lead | Initial plan |
 | 2.0 | 2026-01-25 | Staff Engineer | Added gap analysis, execution plan, testing strategy |
+| 2.1 | 2026-01-25 | Staff Engineer | Added: (1) Filing quote exception for forbidden words with attribution requirement, (2) Dynamic section hiding with 3/7 minimum coverage, (3) Executive Summary must note unavailable sections, (4) Full/partial result designation system with 0% partial target, (5) Partial results never cached, (6) "Retry Full Analysis" UI for partial results |
