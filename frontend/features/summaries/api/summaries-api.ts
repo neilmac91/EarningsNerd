@@ -66,6 +66,7 @@ export const generateSummary = async (filingId: number): Promise<Summary> => {
 export interface ProgressData {
   elapsed_seconds?: number
   heartbeat_count?: number
+  percent?: number
 }
 
 export const generateSummaryStream = async (
@@ -214,11 +215,12 @@ export const generateSummaryStream = async (
               const progressData: ProgressData = {
                 elapsed_seconds: typeof data.elapsed_seconds === 'number' ? data.elapsed_seconds : undefined,
                 heartbeat_count: typeof data.heartbeat_count === 'number' ? data.heartbeat_count : undefined,
+                percent: typeof data.percent === 'number' ? data.percent : undefined,
               }
               recordStageTiming(stageName, message)
               onProgress(stageName, message, progressData)
-            } else if (data.type === 'complete') {
-              recordStageTiming('complete', 'summary ready')
+            } else if (data.type === 'complete' || data.type === 'partial') {
+              recordStageTiming(data.type, data.message || 'summary ready')
               onComplete(data.summary_id)
             } else if (data.type === 'error') {
               console.warn(`[summary] ${filingId} stream error: ${data.message}`)

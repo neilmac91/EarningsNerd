@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session, joinedload
 from typing import Optional, Dict, Any, List
 import asyncio
 import time
+import datetime
+from datetime import timedelta
 import json
 import concurrent.futures
 from pydantic import BaseModel
@@ -32,6 +34,7 @@ from app.services.summary_generation_service import (
     progress_as_dict,
     get_or_cache_excerpt
 )
+from app.services.fallback_summary import generate_xbrl_summary
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -243,7 +246,7 @@ async def generate_summary_stream(
         try:
             async with asyncio.timeout(PIPELINE_TIMEOUT_SECONDS):
                 logger.info(f"Stream generator started for filing {filing_id} (timeout: {PIPELINE_TIMEOUT_SECONDS}s)")
-                yield f"data: {json.dumps({'type': 'progress', 'stage': 'initializing', 'message': 'Initializing...'})}\n\n"
+                yield f"data: {json.dumps({'type': 'progress', 'stage': 'initializing', 'message': 'Initializing...', 'percent': 0})}\n\n"
 
                 # DB OP: Query filing and check for existing summary
                 def get_filing_and_summary_sync():
@@ -277,6 +280,19 @@ async def generate_summary_stream(
             filing_document_url = filing_in_session.document_url
             filing_type = filing_in_session.filing_type
             filing_accession_number = filing_in_session.accession_number
+            
+            # Check for cached content
+            cached_content = filing_in_session.content_cache
+            cache_is_valid = False
+            excerpt_from_cache = None
+            
+            if cached_content and cached_content.critical_excerpt:
+                # Check age (valid if < 24 hours)
+                age = datetime.datetime.now(datetime.timezone.utc) - cached_content.updated_at
+                if age < timedelta(hours=24):
+                    cache_is_valid = True
+                    excerpt_from_cache = cached_content.critical_excerpt
+                    logger.info(f"Using cached content for filing {filing_id} (age: {age})")
 
             # Check usage limits for authenticated user
             if current_user:
@@ -300,62 +316,100 @@ async def generate_summary_stream(
             await run_sync_db(record_progress, session, filing_id, "fetching")
             
             logger.info(f"Yielding fetching stage for filing {filing_id}")
-            yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'Step 1: File Validation - Confirming document is accessible and parsable...', 'elapsed_seconds': int(time.time() - pipeline_started_at)})}\n\n"
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'Step 1: File Validation - Confirming document is accessible and parsable...', 'percent': 5, 'elapsed_seconds': int(time.time() - pipeline_started_at)})}\n\n"
 
-            # Fetch filing document with heartbeat to prevent UI stall at 10%
-            from app.config import settings
-            FETCH_MESSAGES = [
-                "Connecting to SEC EDGAR...",
-                "Downloading filing document...",
-                "Retrieving full document text...",
-                "Processing SEC response...",
-            ]
+            # Background refresh task definition
+            async def background_fetch_and_update():
+                try:
+                    logger.info(f"Background refresh: fetching doc for {filing_id}")
+                    text = await sec_edgar_service.get_filing_document(filing_document_url, timeout=30.0)
+                    if not text:
+                        return
+                    
+                    def update_cache_sync():
+                        from app.database import SessionLocal
+                        with SessionLocal() as bg_session:
+                            bg_filing = bg_session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
+                            if bg_filing:
+                                # Update cache using service logic to re-extract
+                                get_or_cache_excerpt(bg_session, bg_filing, text)
+                                bg_session.commit()
+                    
+                    await run_sync_db(update_cache_sync)
+                    logger.info(f"Background refresh completed for {filing_id}")
+                except Exception as e:
+                    logger.warning(f"Background refresh failed for {filing_id}: {e}")
+
+            filing_text = ""
             
-            try:
-                logger.info(f"Starting SEC fetch for URL: {filing_document_url}")
-                # Wrap the SEC fetch in a task with heartbeat loop
-                fetch_task = asyncio.create_task(
-                    sec_edgar_service.get_filing_document(filing_document_url, timeout=15.0)
-                )
+            if cache_is_valid:
+                # Skip SEC fetch, use cache
+                filing_text = "" # Empty text signals usage of excerpt to downstream services if robustness is handled
+                logger.info(f"Skipping main thread SEC fetch for filing {filing_id}, using cache.")
                 
-                fetch_heartbeat_index = 0
-                while not fetch_task.done():
-                    done, _ = await asyncio.wait(
-                        [fetch_task],
-                        timeout=settings.STREAM_HEARTBEAT_INTERVAL,
-                        return_when=asyncio.FIRST_COMPLETED
+                # Spawn background refresh
+                asyncio.create_task(background_fetch_and_update())
+                
+                # Yield immediate progress
+                yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'Cached content found. Loading immediately...', 'percent': 15})}\n\n"
+            else:
+                # Fetch filing document with heartbeat to prevent UI stall at 10%
+                from app.config import settings
+                FETCH_MESSAGES = [
+                    "Connecting to SEC EDGAR...",
+                    "Downloading filing document...",
+                    "Retrieving full document text...",
+                    "Processing SEC response...",
+                ]
+                
+                try:
+                    logger.info(f"Starting SEC fetch for URL: {filing_document_url}")
+                    # Wrap the SEC fetch in a task with heartbeat loop
+                    fetch_task = asyncio.create_task(
+                        sec_edgar_service.get_filing_document(filing_document_url, timeout=15.0)
                     )
-                    if fetch_task in done:
-                        break
-                    # Send heartbeat during fetch
-                    fetch_message = FETCH_MESSAGES[fetch_heartbeat_index % len(FETCH_MESSAGES)]
-                    elapsed_secs = int(time.time() - pipeline_started_at)
-                    logger.info(f"SEC fetch heartbeat {fetch_heartbeat_index + 1}: {fetch_message}")
-                    yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': fetch_message, 'elapsed_seconds': elapsed_secs})}\n\n"
-                    fetch_heartbeat_index += 1
-                
-                # Get the result (or raise exception if task failed)
-                filing_text = await fetch_task
-                logger.info(f"SEC fetch completed. Text length: {len(filing_text) if filing_text else 0}")
-                
-                if not filing_text:
-                    raise ValueError("Filing document is empty or inaccessible")
-            except Exception as fetch_error:
-                logger.error(f"Error fetching SEC document: {fetch_error}", exc_info=True)
-                error_msg = "Unable to retrieve this filing at the moment — please try again shortly."
-                yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
-                return
-            
-            mark_stage("fetch_document")
-            yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'File validated and fetched successfully'})}\n\n"
+                    
+                    fetch_heartbeat_index = 0
+                    while not fetch_task.done():
+                        done, _ = await asyncio.wait(
+                            [fetch_task],
+                            timeout=settings.STREAM_HEARTBEAT_INTERVAL,
+                            return_when=asyncio.FIRST_COMPLETED
+                        )
+                        if fetch_task in done:
+                            break
+                        # Send heartbeat during fetch
+                        fetch_message = FETCH_MESSAGES[fetch_heartbeat_index % len(FETCH_MESSAGES)]
+                        elapsed_secs = int(time.time() - pipeline_started_at)
+                        logger.info(f"SEC fetch heartbeat {fetch_heartbeat_index + 1}: {fetch_message}")
+                        # Estimate progress during fetch: start at 5%, cap at 15%
+                        current_percent = min(5 + (fetch_heartbeat_index * 1), 15)
+                        yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': fetch_message, 'percent': current_percent, 'elapsed_seconds': elapsed_secs})}\n\n"
+                        fetch_heartbeat_index += 1
+                    
+                    # Get the result (or raise exception if task failed)
+                    filing_text = await fetch_task
+                    logger.info(f"SEC fetch completed. Text length: {len(filing_text) if filing_text else 0}")
+                    
+                    if not filing_text:
+                        raise ValueError("Filing document is empty or inaccessible")
+                    
+                    mark_stage("fetch_document")
+                    yield f"data: {json.dumps({'type': 'progress', 'stage': 'fetching', 'message': 'File validated and fetched successfully', 'percent': 15})}\n\n"
 
-            yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Starting parsing...'})}\n\n"
+                except Exception as fetch_error:
+                    logger.error(f"Error fetching SEC document: {fetch_error}", exc_info=True)
+                    error_msg = "Unable to retrieve this filing at the moment — please try again shortly."
+                    yield f"data: {json.dumps({'type': 'error', 'message': error_msg})}\n\n"
+                    return
+            
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Starting parsing...', 'percent': 15})}\n\n"
 
             # Step 2: Section Parsing
             # DB OP: Record progress
             await run_sync_db(record_progress, session, filing_id, "parsing")
             
-            yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Step 2: Section Parsing - Extracting major sections (Item 1A: Risk Factors, Item 7: MD&A)...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Step 2: Section Parsing - Extracting major sections (Item 1A: Risk Factors, Item 7: MD&A)...', 'percent': 20})}\n\n"
             
             # Extract excerpt
             def extract_excerpt_sync():
@@ -364,7 +418,13 @@ async def generate_summary_stream(
                     thread_filing = thread_session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
                     return get_or_cache_excerpt(thread_session, thread_filing, filing_text)
             
-            excerpt_task = asyncio.create_task(run_sync_db(extract_excerpt_sync))
+            if cache_is_valid:
+                # Use the cached excerpt directly
+                async def return_cached_excerpt():
+                    return excerpt_from_cache
+                excerpt_task = asyncio.create_task(return_cached_excerpt())
+            else:
+                excerpt_task = asyncio.create_task(run_sync_db(extract_excerpt_sync))
             
             # Start XBRL fetching in parallel
             xbrl_task = None
@@ -394,21 +454,21 @@ async def generate_summary_stream(
                 xbrl_task = asyncio.create_task(fetch_xbrl())
             
             # Wait for parsing to complete
-            yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Parsing complete...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Parsing complete...', 'percent': 25})}\n\n"
 
             # Step 3: Content Analysis
             # DB OP: Record progress
             await run_sync_db(record_progress, session, filing_id, "analyzing")
             
-            yield f"data: {json.dumps({'type': 'progress', 'stage': 'analyzing', 'message': 'Step 3: Content Analysis - Analyzing risk factors...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 'analyzing', 'message': 'Step 3: Content Analysis - Analyzing risk factors...', 'percent': 35})}\n\n"
 
             # Step 4: Summary Generation
-            yield f"data: {json.dumps({'type': 'progress', 'stage': 'analyzing', 'message': 'Step 4: Generating financial overview...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 'analyzing', 'message': 'Step 4: Generating financial overview...', 'percent': 45})}\n\n"
 
             # DB OP: Record progress
             await run_sync_db(record_progress, session, filing_id, "summarizing")
             
-            yield f"data: {json.dumps({'type': 'progress', 'stage': 'summarizing', 'message': 'Step 5: Generating investor-focused summary...'})}\n\n"
+            yield f"data: {json.dumps({'type': 'progress', 'stage': 'summarizing', 'message': 'Step 5: Generating investor-focused summary...', 'percent': 50})}\n\n"
             
             # Wait for excerpt and XBRL with a short timeout (don't block AI for too long)
             excerpt = None
@@ -460,6 +520,7 @@ async def generate_summary_stream(
                 "Reviewing guidance and outlook...",
             ]
             summarize_heartbeat_index = 0
+            summary_payload = None
             
             
             while not summary_task.done():
@@ -472,12 +533,34 @@ async def generate_summary_stream(
                 if summary_task in done:
                     break
                 
+                # Check for AI Timeout (60s)
+                current_time = time.time()
+                ai_duration = current_time - (pipeline_started_at + 30) # rough estimate, or track start of AI stage
+                # Better: track stage_started_at for AI
+                time_in_stage = current_time - stage_started_at
+                
+                if time_in_stage > 60.0:
+                    logger.warning(f"AI summarization timed out for filing {filing_id} after {time_in_stage:.1f}s. Switching to fallback.")
+                    summary_task.cancel()
+                    # Use fallback
+                    summary_payload = generate_xbrl_summary(xbrl_metrics, company_name)
+                    # Break loop manually since task is cancelled/ignored
+                    break
+
                 heartbeat_message = SUMMARIZE_MESSAGES[summarize_heartbeat_index % len(SUMMARIZE_MESSAGES)]
                 elapsed_secs = int(time.time() - pipeline_started_at)
-                yield f"data: {json.dumps({'type': 'progress', 'stage': 'summarizing', 'message': heartbeat_message, 'heartbeat_count': summarize_heartbeat_index, 'elapsed_seconds': elapsed_secs})}\n\n"
+                # Estimate progress during summarization: start at 50%, increase by 2% per heartbeat, cap at 90%
+                current_percent = min(50 + (summarize_heartbeat_index * 2), 90)
+                yield f"data: {json.dumps({'type': 'progress', 'stage': 'summarizing', 'message': heartbeat_message, 'heartbeat_count': summarize_heartbeat_index, 'percent': current_percent, 'elapsed_seconds': elapsed_secs})}\n\n"
                 summarize_heartbeat_index += 1
             
-            summary_payload = await summary_task
+            if not summary_payload:
+                try:
+                    summary_payload = await summary_task
+                except asyncio.CancelledError:
+                    # Looked like we already handled fallback, but ensure payload is set
+                    if not summary_payload:
+                         summary_payload = generate_xbrl_summary(xbrl_metrics, company_name)
             mark_stage("generate_summary")
 
             summary_status = summary_payload.get("status", "complete")
@@ -515,6 +598,7 @@ async def generate_summary_stream(
             guidance_section = summary_payload.get("key_changes")
 
             raw_summary["sections"] = sections_info
+            raw_summary["status"] = summary_status
 
             # DB OP: Persist summary
             def save_summary_sync():
@@ -581,7 +665,7 @@ async def generate_summary_stream(
             elif summary_status == "error":
                 yield f"data: {json.dumps({'type': 'error', 'message': summary_message or 'Error generating summary', 'summary_id': saved_summary_id})}\n\n"
             else:
-                yield f"data: {json.dumps({'type': 'complete', 'summary_id': saved_summary_id})}\n\n"
+                yield f"data: {json.dumps({'type': 'complete', 'summary_id': saved_summary_id, 'percent': 100})}\n\n"
         except TimeoutError:
             # Pipeline hard timeout reached
             logger.warning(f"Pipeline timeout after {PIPELINE_TIMEOUT_SECONDS}s for filing {filing_id}")

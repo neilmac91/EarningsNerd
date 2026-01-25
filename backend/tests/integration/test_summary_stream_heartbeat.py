@@ -99,11 +99,31 @@ async def test_stream_heartbeat_during_long_ai_operation():
             # Count heartbeats in response text
             # Note: TestClient collects all streaming response into response.text
             content = response.text
+            
+            # Parse SSE lines to verify content
+            lines = content.strip().split('\n\n')
+            progress_events = []
+            
+            for line in lines:
+                if line.startswith("data: "):
+                    try:
+                        data = json.loads(line[6:])
+                        if data.get("type") == "progress":
+                            progress_events.append(data)
+                    except json.JSONDecodeError:
+                        continue
+            
             # Check for new rotating heartbeat messages (stage: summarizing with various messages)
-            # The new implementation uses rotating messages like "Analyzing financial highlights..."
-            heartbeat_count = content.count('"stage": "summarizing"')
-            # Should have at least 2 heartbeats (0.5s sleep / 0.1s interval = ~5)
-            assert heartbeat_count >= 2
+            summarizing_events = [e for e in progress_events if e.get("stage") == "summarizing"]
+            
+            # Should have at least 2 heartbeats
+            assert len(summarizing_events) >= 2
+            
+            # Verify percentage increases or stays same, and is within range
+            percents = [e.get("percent") for e in summarizing_events if e.get("percent") is not None]
+            assert len(percents) == len(summarizing_events)
+            assert all(50 <= p <= 100 for p in percents)
+            assert all(percents[i] <= percents[i+1] for i in range(len(percents)-1))
     finally:
         app.dependency_overrides.clear()
 
