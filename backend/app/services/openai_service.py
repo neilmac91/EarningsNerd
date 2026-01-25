@@ -294,7 +294,7 @@ class OpenAIService:
             return combined[:limit]
         return ""
     
-    def extract_critical_sections(self, filing_text: str, filing_type: str = "10-K") -> str:
+    def extract_critical_sections(self, filing_text: str, filing_type: str = "10-K", cleaned_text: Optional[str] = None) -> str:
         """Extract ONLY the most critical sections for fast summarization.
         
         For 10-K: Item 1A (Risk Factors) and Item 7 (MD&A)
@@ -305,12 +305,16 @@ class OpenAIService:
         filing_type_key = (filing_type or "10-K").upper()
         
         # Remove HTML/XML tags for cleaner extraction
-        try:
-            from bs4 import BeautifulSoup
-            soup = BeautifulSoup(filing_text, 'html.parser')
-            filing_text_clean = soup.get_text(separator='\n', strip=False)
-        except:
-            filing_text_clean = filing_text
+        # OPTIMIZATION: Use provided cleaned_text if available to avoid re-parsing
+        if cleaned_text:
+            filing_text_clean = cleaned_text
+        else:
+            try:
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(filing_text, 'html.parser')
+                filing_text_clean = soup.get_text(separator='\n', strip=False)
+            except:
+                filing_text_clean = filing_text
         
         critical_sections = []
         
@@ -1358,6 +1362,52 @@ Return JSON containing only the `{section_key}` key."""
                 "source_section_ref": "Trend discussion (not surfaced in sampled excerpts)",
             }
 
+    def _parse_and_clean_text(
+        self,
+        filing_text: str,
+        filing_type_key: str,
+        filing_excerpt: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Helper method to run heavy parsing in a separate thread.
+        This isolates CPU-intensive BeautifulSoup and regex operations from the main event loop.
+        """
+        try:
+            from bs4 import BeautifulSoup
+            soup = BeautifulSoup(filing_text, 'html.parser')
+            # Extract text
+            filing_text_clean = soup.get_text(separator='\n', strip=False)
+            
+            # Explicitly clear the soup tree to free memory immediately
+            # This is critical for 10-K filings which can parse into very large trees
+            soup.decompose()  # Destroys the tree
+            del soup
+        except Exception:
+            # Fallback if parsing fails
+            filing_text_clean = filing_text
+
+        # Use the provided excerpt or extract critical sections (regex intensive)
+        # PASS cleaned_text to avoid double parsing!
+        filing_sample = filing_excerpt or self.extract_critical_sections(
+            filing_text, 
+            filing_type_key, 
+            cleaned_text=filing_text_clean
+        )
+        
+        if not filing_sample:
+            # Fallback to first 15k chars if extraction fails
+            filing_sample = filing_text[:15000]
+            
+        # Extract financial data (regex/search intensive)
+        financial_data = self.extract_financial_data(filing_sample[:25000])  # slightly larger window
+        
+        return {
+            "filing_sample": filing_sample,
+            "financial_data": financial_data,
+            # We don't return filing_text_clean as it's not used in the downstream flow 
+            # (or if it is, we should return it too, but looking at previous code it wasn't used)
+        }
+
     async def generate_structured_summary(
         self,
         filing_text: str,
@@ -1368,21 +1418,27 @@ Return JSON containing only the `{section_key}` key."""
         filing_excerpt: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Phase 1: Extract structured financial schema from the filing."""
-        try:
-            from bs4 import BeautifulSoup
-            soup = BeautifulSoup(filing_text, 'html.parser')
-            filing_text_clean = soup.get_text(separator='\n', strip=False)
-        except Exception:
-            filing_text_clean = filing_text
+        from fastapi.concurrency import run_in_threadpool
 
         filing_type_key = (filing_type or "10-K").upper()
+        
+        # Offload heavy parsing/regex to thread pool to prevent blocking the event loop
+        # This addresses the stall issue during summary generation
+        parsing_result = await run_in_threadpool(
+            self._parse_and_clean_text,
+            filing_text,
+            filing_type_key,
+            filing_excerpt
+        )
+        
+        filing_sample = parsing_result["filing_sample"]
+        financial_data = parsing_result["financial_data"]
+        
+        # Explicit clean up
+        del parsing_result
+
         config = self._get_type_config(filing_type_key)
         prompt_template = get_prompt(filing_type_key)
-
-        filing_sample = filing_excerpt or self.extract_critical_sections(filing_text, filing_type_key)
-        if not filing_sample:
-            filing_sample = filing_text[:15000]
-        financial_data = self.extract_financial_data(filing_sample[:15000])
 
         xbrl_section = ""
         if xbrl_metrics:
@@ -1860,25 +1916,25 @@ Rules:
         filing_excerpt: Optional[str] = None,
     ):
         """Generate AI summary of filing with streaming response"""
-        # Parse HTML and extract text
-        try:
-            from bs4 import BeautifulSoup
-            soup = BeautifulSoup(filing_text, 'html.parser')
-            filing_text_clean = soup.get_text(separator='\n', strip=False)
-        except:
-            filing_text_clean = filing_text
-
+        from fastapi.concurrency import run_in_threadpool
+        
         filing_type_key = (filing_type or "10-K").upper()
         config = self._get_type_config(filing_type_key)
         prompt_template = get_prompt(filing_type_key)
 
-        # OPTIMIZED: Extract ONLY critical sections (Item 1A and Item 7 for 10-K)
-        filing_sample = filing_excerpt or self.extract_critical_sections(filing_text, filing_type_key)
-        if not filing_sample:
-            filing_sample = filing_text[:15000]
+        # Offload heavy parsing/regex to thread pool
+        parsing_result = await run_in_threadpool(
+            self._parse_and_clean_text,
+            filing_text,
+            filing_type_key,
+            filing_excerpt
+        )
         
-        # Extract financial data from the critical sections for context
-        financial_data = self.extract_financial_data(filing_sample[:15000])
+        filing_sample = parsing_result["filing_sample"]
+        financial_data = parsing_result["financial_data"]
+        
+        # Explicit clean up
+        del parsing_result
 
         # Build enhanced prompt with specific financial data
         xbrl_section = ""
