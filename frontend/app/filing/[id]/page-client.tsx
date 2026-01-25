@@ -391,6 +391,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
     const shouldAutoGenerate = !requireAuth || isAuthenticated
 
     // Auto-generate if all conditions are met
+    // POC mode: removed isAuthenticated check to allow all users
     if (
       filing &&
       !summaryLoading &&
