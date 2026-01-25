@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react'
 import SummarySections from '@/components/SummarySections'
 
 describe('SummarySections renderMarkdownValue gating', () => {
-  it('hides additional accordions when renderMarkdownValue yields blank strings', () => {
+  it('hides additional accordions when renderMarkdownValue yields blank strings and shows unavailable sections disclosure', () => {
     const summary = {
       business_overview: '',
       raw_summary: {
@@ -23,14 +23,17 @@ describe('SummarySections renderMarkdownValue gating', () => {
 
     render(<SummarySections summary={summary as any} metrics={[]} />)
 
-    // Tabs should be present but disabled (indicated by title) when content is empty
-    const guidanceTab = screen.getByText('Guidance').closest('button')
-    expect(guidanceTab).toBeInTheDocument()
-    expect(guidanceTab).toHaveAttribute('title', 'No data available in this filing')
+    // Per execution plan: tabs should be HIDDEN (not disabled) when content is empty
+    const guidanceTab = screen.queryByRole('button', { name: /guidance/i })
+    expect(guidanceTab).not.toBeInTheDocument()
 
-    const liquidityTab = screen.getByText('Liquidity').closest('button')
-    expect(liquidityTab).toBeInTheDocument()
-    expect(liquidityTab).toHaveAttribute('title', 'No data available in this filing')
+    const liquidityTab = screen.queryByRole('button', { name: /liquidity/i })
+    expect(liquidityTab).not.toBeInTheDocument()
+
+    // Per execution plan: Executive Summary must note unavailable sections
+    expect(screen.getByText('Not included in this filing:')).toBeInTheDocument()
+    expect(screen.getByText(/Guidance data was not available/i)).toBeInTheDocument()
+    expect(screen.getByText(/Liquidity data was not available/i)).toBeInTheDocument()
   })
 
   it('shows additional accordions when renderMarkdownValue returns real content', () => {

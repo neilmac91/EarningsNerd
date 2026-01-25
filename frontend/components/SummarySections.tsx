@@ -86,8 +86,9 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
   
   const hasTrends = Boolean(sections.three_year_trend || sections.segment_performance)
 
-  // Ghost Tabs Configuration
-  const tabs = [
+  // Tab Configuration - Per execution plan: hide sections where data cannot be found
+  // Only show tabs that have content (dynamic section hiding)
+  const allTabs = [
     { id: 'overview', label: 'Executive Summary', icon: FileText, hasContent: hasOverview },
     { id: 'financials', label: 'Financials', icon: BarChart3, hasContent: hasFinancials },
     { id: 'risks', label: 'Risks', icon: AlertTriangle, hasContent: hasRisks },
@@ -97,10 +98,46 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
     { id: 'trends', label: 'Trends', icon: TrendingUp, hasContent: hasTrends },
   ]
 
+  // Filter to only show tabs with content (hide empty sections per execution plan)
+  const tabs = allTabs.filter(tab => tab.hasContent)
+
+  // Track unavailable sections for Executive Summary disclosure
+  const unavailableSections = allTabs
+    .filter(tab => !tab.hasContent && tab.id !== 'overview')
+    .map(tab => tab.label)
+
+  // Ensure active tab is valid (if current tab became hidden, switch to first available)
+  React.useEffect(() => {
+    const currentTabExists = tabs.some(tab => tab.id === activeTab)
+    if (!currentTabExists && tabs.length > 0) {
+      setActiveTab(tabs[0].id)
+    }
+  }, [tabs, activeTab])
+
   const renderTabContent = () => {
     switch (activeTab) {
       case 'overview':
-        return <SummaryExecutiveSnapshot content={overviewContent} />
+        return (
+          <div>
+            <SummaryExecutiveSnapshot content={overviewContent} />
+            {/* Per execution plan: Executive Summary must note unavailable sections */}
+            {unavailableSections.length > 0 && (
+              <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
+                <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">
+                  Not included in this filing:
+                </p>
+                <ul className="text-sm text-slate-500 dark:text-slate-500 space-y-1">
+                  {unavailableSections.map((section) => (
+                    <li key={section} className="flex items-center space-x-2">
+                      <span className="w-1.5 h-1.5 bg-slate-400 rounded-full"></span>
+                      <span>{section} data was not available</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )
 
       case 'financials':
         return <SummaryFinancials notes={sections.financial_highlights?.notes} metrics={metrics} />
@@ -133,20 +170,17 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
           {tabs.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
-            const isDisabled = !tab.hasContent
 
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                title={isDisabled ? "No data available in this filing" : ""}
                 className={`
                   group flex items-center space-x-2 px-4 py-4 text-sm font-medium border-b-2 transition-all duration-200 outline-none
                   ${isActive
                     ? 'border-emerald-500 text-emerald-700 bg-emerald-50/50'
                     : 'border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50'
                   }
-                  ${isDisabled ? 'text-slate-400 opacity-60 hover:text-slate-500 hover:bg-slate-50 cursor-not-allowed' : ''}
                 `}
               >
                 <Icon className={`h-4 w-4 ${isActive ? 'text-emerald-600' : 'text-slate-400'}`} />
