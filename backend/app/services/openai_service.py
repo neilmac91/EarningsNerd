@@ -613,17 +613,51 @@ class OpenAIService:
         return cleaned.strip()
 
     def _repair_json(self, json_str: str) -> str:
-        """Attempt to repair common JSON syntax errors from LLMs."""
+        """Attempt to repair common JSON syntax errors from LLMs.
+
+        Handles:
+        - Unquoted property names (JavaScript-style): {company_name: "val"}
+        - Single quotes for keys: {'key': "val"}
+        - Single quotes for string values: {"key": 'val'}
+        - Trailing commas: {"a": 1,}
+        - Python booleans: True/False/None -> true/false/null
+        """
         if not json_str:
             return ""
-        
-        # 1. Fix single quotes used for keys
+
+        repaired = json_str
+
+        # 1. Fix unquoted property names (JavaScript-style object literals)
+        # Pattern: matches unquoted identifiers after { or , followed by :
+        # Handles: {company_name: "value"} or {key1: 1, key2: 2}
+        # Regex breakdown:
+        #   ([{,]\s*)                   - After { or , with optional whitespace (group 1)
+        #   ([a-zA-Z_][a-zA-Z0-9_-]*)   - Valid identifier with hyphens allowed (group 2)
+        #   (\s*:)                      - Optional whitespace then colon (group 3)
+        repaired = re.sub(
+            r'([{,]\s*)([a-zA-Z_][a-zA-Z0-9_-]*)(\s*:)',
+            r'\1"\2"\3',
+            repaired
+        )
+
+        # 2. Fix single quotes used for keys
         # Replace 'key': with "key":
-        repaired = re.sub(r"\'([^\']+)\'\s*:", r'"\1":', json_str)
-        
-        # 2. Fix trailing commas before closing braces/brackets
+        repaired = re.sub(r"\'([^\']+)\'\s*:", r'"\1":', repaired)
+
+        # 3. Fix single quotes used for string values (simple cases)
+        # Replace : 'value' with : "value" (handles values after colon)
+        # Be careful: only replace single-quoted strings, not apostrophes in text
+        repaired = re.sub(r":\s*\'([^\']*)\'(\s*[,}\]])", r': "\1"\2', repaired)
+
+        # 4. Fix trailing commas before closing braces/brackets
         repaired = re.sub(r",\s*([\]}])", r"\1", repaired)
-        
+
+        # 5. Fix Python-style booleans and None
+        # Use word boundaries to avoid replacing inside strings
+        repaired = re.sub(r'\bTrue\b', 'true', repaired)
+        repaired = re.sub(r'\bFalse\b', 'false', repaired)
+        repaired = re.sub(r'\bNone\b', 'null', repaired)
+
         return repaired
 
     def _validate_editorial_markdown(self, markdown: str, filing_type: Optional[str] = None) -> None:
@@ -1136,8 +1170,14 @@ Return JSON containing only the `{section_key}` key."""
             try:
                 parsed = json.loads(cleaned)
             except json.JSONDecodeError:
-                print(f"Secondary fill for {section_key} returned invalid JSON: {cleaned[:200]}")
-                continue
+                # Attempt repair before giving up
+                try:
+                    repaired = self._repair_json(cleaned)
+                    parsed = json.loads(repaired)
+                    logger.info(f"JSON repair successful for secondary fill: {section_key}")
+                except json.JSONDecodeError:
+                    logger.warning(f"Secondary fill for {section_key} returned unfixable JSON: {cleaned[:200]}")
+                    continue
 
             section_value = parsed.get(section_key)
             if section_value is not None and not self._section_is_empty(section_value):
