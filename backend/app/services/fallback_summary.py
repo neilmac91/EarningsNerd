@@ -5,6 +5,28 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def has_valid_xbrl_data(xbrl_data: Optional[Dict[str, Any]]) -> bool:
+    """Check if XBRL data contains actual metric values.
+
+    An empty dict `{}` is falsy in Python, so `if xbrl_data:` fails.
+    This function checks for actual data in the expected metric keys.
+    """
+    if not xbrl_data:
+        return False
+    if not isinstance(xbrl_data, dict):
+        return False
+    # Check if any metric has actual data
+    for key in ['revenue', 'net_income', 'earnings_per_share']:
+        metric = xbrl_data.get(key, {})
+        if isinstance(metric, dict) and metric.get('current', {}).get('value'):
+            return True
+        # Also check if it's a list with items (raw XBRL format)
+        if isinstance(metric, list) and len(metric) > 0:
+            if any(item.get('value') for item in metric if isinstance(item, dict)):
+                return True
+    return False
+
+
 def format_currency(value: Optional[float]) -> str:
     if value is None:
         return "Not disclosed"
@@ -152,9 +174,11 @@ def generate_xbrl_summary(
 
     # Extract metrics if available
     metrics_summary = []
-    has_xbrl_data = False
+    # Use has_valid_xbrl_data() to properly check for data
+    # An empty dict {} is falsy, so `if xbrl_data:` would skip valid responses
+    has_xbrl_data = has_valid_xbrl_data(xbrl_data)
 
-    if xbrl_data:
+    if has_xbrl_data and xbrl_data:
         revenue = xbrl_data.get('revenue', {}).get('current', {})
         net_income = xbrl_data.get('net_income', {}).get('current', {})
         eps = xbrl_data.get('earnings_per_share', {}).get('current', {})
