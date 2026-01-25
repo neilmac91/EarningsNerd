@@ -7,6 +7,30 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
+# Comprehensive list of revenue field names used by major companies
+# Defined at module level for performance (avoid recreating on each call)
+REVENUE_FIELD_NAMES = [
+    # Standard revenue fields
+    "Revenues",
+    "RevenueFromContractWithCustomerExcludingAssessedTax",
+    "SalesRevenueNet",
+    "RevenueFromContractWithCustomer",
+    # Net revenue variations
+    "NetRevenues",
+    "TotalRevenue",
+    "TotalRevenues",
+    "TotalNetRevenues",
+    # Product/Service breakdowns (sometimes used as primary)
+    "SalesRevenueGoodsNet",
+    "SalesRevenueServicesNet",
+    "RevenueFromSalesOfGoods",
+    "RevenueFromServices",
+    # Other variations used by specific industries
+    "OperatingRevenue",
+    "RegulatedAndUnregulatedOperatingRevenue",
+]
+
+
 class XBRLService:
     def __init__(self):
         self.base_url = settings.SEC_EDGAR_BASE_URL
@@ -85,13 +109,27 @@ class XBRLService:
 
             # If we have a target accession, try to filter to matching entries
             if normalized_accession:
+                # Diagnostic logging: show sample accession numbers from data
+                sample_accns = [item.get("accn", "MISSING") for item in sorted_items[:5]]
+                logger.debug(
+                    f"XBRL filter: target={normalized_accession}, "
+                    f"sample_accns={sample_accns}, total_items={len(sorted_items)}"
+                )
+
                 matching = [
                     item for item in sorted_items
                     if item.get("accn", "").replace("-", "") == normalized_accession
                 ]
                 # If we found matches for this specific filing, use them
                 if matching:
+                    logger.debug(f"XBRL filter: found {len(matching)} matches for {normalized_accession}")
                     return matching[:max_items]
+                else:
+                    logger.warning(
+                        f"XBRL filter: NO matches for accession {normalized_accession}. "
+                        f"Falling back to most recent {max_items} items. "
+                        f"Sample accns in data: {sample_accns}"
+                    )
 
             # Fall back to most recent entries (now correctly sorted)
             return sorted_items[:max_items]
@@ -105,8 +143,9 @@ class XBRLService:
                 return result
 
             # Extract revenue - try multiple possible field names
+            # Uses module-level REVENUE_FIELD_NAMES constant for performance
             revenue_data = []
-            for revenue_key in ["Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet"]:
+            for revenue_key in REVENUE_FIELD_NAMES:
                 if revenue_key in us_gaap:
                     revenues_fact = us_gaap[revenue_key]
                     if isinstance(revenues_fact, dict) and "units" in revenues_fact:
