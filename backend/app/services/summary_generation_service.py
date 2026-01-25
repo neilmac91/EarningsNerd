@@ -474,7 +474,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
             if "Unable to retrieve" in error_msg or "Unable to complete" in error_msg:
                 error_message = error_msg[:200]
             else:
-                error_message = f"DEBUG_ERROR: {error_msg}[:200]"
+                error_message = "Unable to retrieve this filing at the moment — please try again shortly."
             error_summary = Summary(
                 filing_id=filing_id,
                 business_overview=error_message,
