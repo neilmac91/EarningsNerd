@@ -93,10 +93,14 @@ def _close_yahoo_client_sync() -> None:
     async def _async_close():
         await client.aclose()
 
-    if loop and loop.is_running():
-        loop.create_task(_async_close())
-    else:
-        asyncio.run(_async_close())
+    try:
+        if loop and loop.is_running():
+            loop.create_task(_async_close())
+        else:
+            asyncio.run(_async_close())
+    except (RuntimeError, Exception):
+        # Ignore errors during shutdown/cleanup
+        pass
     _yahoo_client = None
 
 

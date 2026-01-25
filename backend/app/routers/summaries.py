@@ -601,7 +601,7 @@ async def generate_summary_stream(
             if "Unable to retrieve" in error_msg or "Unable to complete" in error_msg:
                 error_message = error_msg[:200]
             else:
-                error_message = "Unable to retrieve this filing at the moment — please try again shortly."
+                error_message = f"DEBUG_ERROR: {str(e)}[:200]"
             
             yield f"data: {json.dumps({'type': 'error', 'message': error_message})}\n\n"
         finally:
