@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 import json
 import logging
@@ -222,8 +223,6 @@ class SECEdgarService:
         Implements exponential backoff retry (1s, 2s, 4s) for transient failures.
         This is critical for reliability since SEC EDGAR can have intermittent issues.
         """
-        import asyncio
-
         request_timeout = timeout if timeout is not None else 30.0
         last_exception: Optional[Exception] = None
 
