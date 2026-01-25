@@ -203,26 +203,28 @@ def generate_xbrl_summary(
             "balance_sheet": ["Balance sheet metrics available in full analysis."]
         }
     else:
+        # Show clear "Not available" messaging instead of misleading "Loading..."
+        # The user should understand this data isn't coming - they need to retry
         financial_highlights = {
             "table": [
                 {
                     "metric": "Revenue",
-                    "current_period": "Loading...",
-                    "prior_period": "Loading...",
-                    "change": "Pending",
-                    "commentary": "Retry for full financial analysis."
+                    "current_period": "Not available",
+                    "prior_period": "Not available",
+                    "change": "—",
+                    "commentary": "XBRL data unavailable. Retry for full financial analysis."
                 },
                 {
                     "metric": "Net Income",
-                    "current_period": "Loading...",
-                    "prior_period": "Loading...",
-                    "change": "Pending",
-                    "commentary": "Retry for full financial analysis."
+                    "current_period": "Not available",
+                    "prior_period": "Not available",
+                    "change": "—",
+                    "commentary": "XBRL data unavailable. Retry for full financial analysis."
                 }
             ],
-            "profitability": ["Retry for complete profitability analysis."],
-            "cash_flow": ["Retry for complete cash flow analysis."],
-            "balance_sheet": ["Retry for complete balance sheet analysis."]
+            "profitability": ["Financial metrics not available in this partial summary. Retry for complete analysis."],
+            "cash_flow": ["Financial metrics not available in this partial summary. Retry for complete analysis."],
+            "balance_sheet": ["Financial metrics not available in this partial summary. Retry for complete analysis."]
         }
 
     # EXTRACT REAL RISK FACTORS from filing text

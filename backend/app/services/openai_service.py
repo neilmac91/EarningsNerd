@@ -154,9 +154,10 @@ def _normalize_risk_factors(raw_risks: Any) -> list[dict[str, str]]:
         if normalized_key in _BOILERPLATE_RISK_PHRASES and not evidence:
             continue
 
+        # If no evidence provided, use a default message instead of discarding the risk
+        # This preserves legitimate risks that the AI extracted but didn't provide evidence for
         if not evidence:
-            # Require supporting evidence for each bullet
-            continue
+            evidence = "See SEC filing for full details."
 
         dedupe_key = (normalized_key, evidence.lower())
         if dedupe_key in seen:

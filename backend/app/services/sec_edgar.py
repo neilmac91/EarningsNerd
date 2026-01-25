@@ -211,24 +211,83 @@ class SECEdgarService:
         
         return filings
     
-    async def get_filing_document(self, document_url: str, timeout: Optional[float] = None) -> str:
-        """Fetch the actual filing document"""
+    async def get_filing_document(
+        self,
+        document_url: str,
+        timeout: Optional[float] = None,
+        max_retries: int = 3
+    ) -> str:
+        """Fetch the actual filing document with retry logic.
+
+        Implements exponential backoff retry (1s, 2s, 4s) for transient failures.
+        This is critical for reliability since SEC EDGAR can have intermittent issues.
+        """
+        import asyncio
+
         request_timeout = timeout if timeout is not None else 30.0
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    document_url,
-                    headers={"User-Agent": self.USER_AGENT},
-                    timeout=request_timeout
+        last_exception: Optional[Exception] = None
+
+        for attempt in range(max_retries):
+            try:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(
+                        document_url,
+                        headers={"User-Agent": self.USER_AGENT},
+                        timeout=request_timeout
+                    )
+                    response.raise_for_status()
+                    return response.text
+
+            except httpx.TimeoutException as exc:
+                last_exception = exc
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt  # 1s, 2s, 4s
+                    logger.warning(
+                        f"SEC filing request timed out (attempt {attempt + 1}/{max_retries}), "
+                        f"retrying in {wait_time}s: {document_url}"
+                    )
+                    await asyncio.sleep(wait_time)
+                    continue
+                raise SECEdgarServiceError("SEC filing request timed out after retries.", cause=exc)
+
+            except httpx.HTTPStatusError as exc:
+                # Retry on 5xx server errors, not on 4xx client errors
+                if exc.response.status_code >= 500:
+                    last_exception = exc
+                    if attempt < max_retries - 1:
+                        wait_time = 2 ** attempt
+                        logger.warning(
+                            f"SEC server error {exc.response.status_code} (attempt {attempt + 1}/{max_retries}), "
+                            f"retrying in {wait_time}s: {document_url}"
+                        )
+                        await asyncio.sleep(wait_time)
+                        continue
+                raise SECEdgarServiceError(
+                    f"SEC filing request failed with status {exc.response.status_code}.",
+                    cause=exc
                 )
-                response.raise_for_status()
-                return response.text
-        except httpx.TimeoutException as exc:
-            raise SECEdgarServiceError("SEC filing request timed out.", cause=exc)
-        except httpx.HTTPError as exc:
-            raise SECEdgarServiceError("SEC filing request failed.", cause=exc)
-        except Exception as exc:
-            raise SECEdgarServiceError("Unable to fetch SEC filing.", cause=exc)
+
+            except httpx.HTTPError as exc:
+                last_exception = exc
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    logger.warning(
+                        f"SEC filing request failed (attempt {attempt + 1}/{max_retries}), "
+                        f"retrying in {wait_time}s: {document_url}"
+                    )
+                    await asyncio.sleep(wait_time)
+                    continue
+                raise SECEdgarServiceError("SEC filing request failed after retries.", cause=exc)
+
+            except Exception as exc:
+                # Don't retry on unexpected exceptions
+                raise SECEdgarServiceError("Unable to fetch SEC filing.", cause=exc)
+
+        # Should not reach here, but handle edge case
+        raise SECEdgarServiceError(
+            "SEC filing request failed after all retries.",
+            cause=last_exception
+        )
 
 sec_edgar_service = SECEdgarService()
 
