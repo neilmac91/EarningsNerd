@@ -1,7 +1,7 @@
 import asyncio
 import time
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple, Literal
 from sqlalchemy.orm import Session, joinedload
 from app.models import Filing, Summary, SummaryGenerationProgress, User, FilingContentCache
 from app.services.sec_edgar import sec_edgar_service
@@ -14,6 +14,105 @@ from app.database import SessionLocal
 import logging
 
 logger = logging.getLogger(__name__)
+
+# Minimum number of sections required for a "full" result
+# Per execution plan: 3/7 sections minimum for full result designation
+MINIMUM_SECTIONS_FOR_FULL_RESULT = 3
+
+# All hideable sections (Executive Summary is never hidden)
+HIDEABLE_SECTIONS = [
+    "business_overview",
+    "financial_highlights",
+    "risk_factors",
+    "management_discussion",
+    "key_changes",
+    "forward_guidance",
+    "additional_disclosures",
+]
+
+
+def calculate_section_coverage(summary_data: Dict[str, Any]) -> Tuple[int, int, List[str], List[str]]:
+    """Calculate section coverage for a summary.
+
+    Returns:
+        Tuple of (covered_count, total_count, covered_sections, missing_sections)
+    """
+    total_sections = len(HIDEABLE_SECTIONS)
+    covered_sections = []
+    missing_sections = []
+
+    for section in HIDEABLE_SECTIONS:
+        # Check if section has substantive data
+        section_data = summary_data.get(section)
+
+        # Consider a section "covered" if it has non-empty, non-null data
+        is_covered = False
+        if section_data is not None:
+            if isinstance(section_data, str) and section_data.strip():
+                is_covered = True
+            elif isinstance(section_data, (list, dict)) and section_data:
+                is_covered = True
+
+        if is_covered:
+            covered_sections.append(section)
+        else:
+            missing_sections.append(section)
+
+    return len(covered_sections), total_sections, covered_sections, missing_sections
+
+
+def determine_result_type(
+    summary_data: Dict[str, Any],
+    had_errors: bool = False,
+    had_timeout: bool = False,
+) -> Tuple[Literal["full", "partial"], Optional[str]]:
+    """Determine if a summary result is 'full' or 'partial'.
+
+    Per execution plan requirements:
+    - Full Result: ≥3/7 sections populated, no errors, AI completed
+    - Partial Result: <3/7 sections OR timeout OR error during generation
+
+    Goal: 0% partial results - partial should be SUPER RARE.
+
+    Returns:
+        Tuple of (result_type, partial_reason)
+        partial_reason is None for full results
+    """
+    covered_count, total_count, _, _ = calculate_section_coverage(summary_data)
+
+    # Check for errors first
+    if had_errors:
+        return "partial", "api_error"
+
+    if had_timeout:
+        return "partial", "timeout"
+
+    # Check coverage threshold
+    if covered_count < MINIMUM_SECTIONS_FOR_FULL_RESULT:
+        return "partial", f"insufficient_coverage ({covered_count}/{total_count} sections)"
+
+    return "full", None
+
+
+def generate_unavailable_sections_notes(missing_sections: List[str]) -> List[Dict[str, str]]:
+    """Generate user-friendly notes for unavailable sections.
+
+    Per execution plan: Executive Summary must explicitly note unavailable sections.
+    """
+    notes_mapping = {
+        "business_overview": "Business overview information was not available in this filing",
+        "financial_highlights": "Financial highlights could not be extracted from this filing",
+        "risk_factors": "Risk factors were not itemized in this filing",
+        "management_discussion": "Management Discussion & Analysis (MD&A) was not available",
+        "key_changes": "Year-over-year comparisons were not available for this filing period",
+        "forward_guidance": "No forward guidance was disclosed in this filing",
+        "additional_disclosures": "No additional disclosures were identified in this filing",
+    }
+
+    return [
+        {"section": section, "note": notes_mapping.get(section, f"{section} was not available")}
+        for section in missing_sections
+    ]
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -384,6 +483,76 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                     sections_info["financial_highlights"] = normalized_financial_section
                     summary_data["sections"] = sections_info
 
+                # Determine if this is a full or partial result
+                # Per execution plan: Only FULL results are cached. Partial results are NEVER cached.
+                result_type, partial_reason = determine_result_type(
+                    summary_data,
+                    had_errors=(summary_status == "error"),
+                    had_timeout=False,
+                )
+
+                # Calculate section coverage for logging and metadata
+                covered_count, total_count, covered_sections, missing_sections = calculate_section_coverage(summary_data)
+
+                logger.info(
+                    f"[{filing_id}] Result type: {result_type}, "
+                    f"coverage: {covered_count}/{total_count}, "
+                    f"reason: {partial_reason or 'N/A'}"
+                )
+
+                # Add unavailable sections notes to executive summary
+                sections_unavailable = generate_unavailable_sections_notes(missing_sections)
+
+                # Enrich raw_summary with result metadata
+                enriched_raw_summary = summary_data.get("raw_summary") or {}
+                enriched_raw_summary["result_type"] = result_type
+                enriched_raw_summary["partial_reason"] = partial_reason
+                enriched_raw_summary["sections_available"] = covered_sections
+                enriched_raw_summary["sections_unavailable"] = sections_unavailable
+
+                if result_type == "partial":
+                    # PARTIAL RESULT: Do NOT cache to database
+                    # Per execution plan: Partial results must NEVER be stored in the Summary table
+                    # They are returned to the requesting user ONLY, then discarded
+                    logger.warning(
+                        f"[{filing_id}] ⚠ PARTIAL RESULT - NOT CACHING. "
+                        f"Coverage: {covered_count}/{total_count}, Reason: {partial_reason}"
+                    )
+
+                    # Record partial status in progress for the frontend to detect
+                    record_progress(
+                        db,
+                        filing_id,
+                        "partial",
+                        error=f"Partial result: {partial_reason}. Coverage: {covered_count}/{total_count}",
+                        section_coverage={
+                            "result_type": "partial",
+                            "partial_reason": partial_reason,
+                            "covered_count": covered_count,
+                            "total_count": total_count,
+                            "covered_sections": covered_sections,
+                            "sections_unavailable": sections_unavailable,
+                            # Include the actual summary data so frontend can display it
+                            "partial_data": {
+                                "business_overview": summary_data.get("business_overview"),
+                                "financial_highlights": normalized_financial_section,
+                                "risk_factors": summary_data.get("risk_factors"),
+                                "management_discussion": summary_data.get("management_discussion"),
+                                "key_changes": summary_data.get("key_changes"),
+                            },
+                        },
+                    )
+
+                    # Do NOT save to Summary table - partial results are discarded
+                    # Do NOT increment user usage for partial results
+                    return
+
+                # FULL RESULT: Cache to database as normal
+                logger.info(
+                    f"[{filing_id}] ✓ FULL RESULT - Caching to database. "
+                    f"Coverage: {covered_count}/{total_count}"
+                )
+
                 summary = Summary(
                     filing_id=filing_id,
                     business_overview=summary_data.get("business_overview"),
@@ -391,7 +560,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                     risk_factors=summary_data.get("risk_factors"),
                     management_discussion=summary_data.get("management_discussion"),
                     key_changes=summary_data.get("key_changes"),
-                    raw_summary=summary_data.get("raw_summary"),
+                    raw_summary=enriched_raw_summary,
                 )
                 db.add(summary)
 
@@ -435,67 +604,61 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
             logger.error(
                 f"[{filing_id}] ✗ Summary generation exceeded global timeout of {global_timeout}s"
             )
-            record_progress(db, filing_id, "error", error="timeout")
-            error_message = "Unable to complete summary due to parsing timeout. Suggest retrying later."
-            error_summary = Summary(
-                filing_id=filing_id,
-                business_overview=error_message,
-                financial_highlights=None,
-                risk_factors=None,
-                management_discussion=None,
-                key_changes=None,
-                raw_summary={
-                    "status": "error",
-                    "message": error_message,
-                    "summary_title": f"{company_name} {filing_type} Filing Summary",
-                    "sections": [],
-                    "insights": {
-                        "sentiment": "Neutral",
-                        "growth_drivers": [],
-                        "risk_signals": []
-                    },
-                    "error": "Global timeout",
-                    "timeout_seconds": global_timeout,
-                },
-            )
-            db.add(error_summary)
-            db.commit()
-        except Exception as inner_error:
-            logger.error(f"Error in timeout wrapper: {str(inner_error)}", exc_info=True)
+            # TIMEOUT = PARTIAL RESULT - Do NOT cache to database
+            # Per execution plan: Timeouts result in partial designation, never cached
             record_progress(
                 db,
                 filing_id,
-                "error",
-                error=error_msg[:200],
-            )
-            # Check if error message is already user-friendly
-            if "Unable to retrieve" in error_msg or "Unable to complete" in error_msg:
-                error_message = error_msg[:200]
-            else:
-                error_message = "Unable to retrieve this filing at the moment — please try again shortly."
-            error_summary = Summary(
-                filing_id=filing_id,
-                business_overview=error_message,
-                financial_highlights=None,
-                risk_factors=None,
-                management_discussion=None,
-                key_changes=None,
-                raw_summary={
-                    "status": "error",
-                    "message": error_message,
-                    "summary_title": f"{company_name} {filing_type} Filing Summary",
-                    "sections": [],
-                    "insights": {
-                        "sentiment": "Neutral",
-                        "growth_drivers": [],
-                        "risk_signals": []
-                    },
-                    "error": error_msg,
-                    "traceback": error_trace,
+                "partial",
+                error="timeout",
+                section_coverage={
+                    "result_type": "partial",
+                    "partial_reason": "timeout",
+                    "covered_count": 0,
+                    "total_count": len(HIDEABLE_SECTIONS),
+                    "covered_sections": [],
+                    "sections_unavailable": generate_unavailable_sections_notes(HIDEABLE_SECTIONS),
+                    "retry_available": True,
+                    "message": "Analysis timed out. Please retry for full analysis.",
                 },
             )
-            db.add(error_summary)
-            db.commit()
+            logger.warning(
+                f"[{filing_id}] ⚠ PARTIAL RESULT (timeout) - NOT CACHING. "
+                f"User should retry with 'Retry Full Analysis' button."
+            )
+            # Do NOT save to Summary table - timeout results are discarded
+            # Do NOT commit any summary to database
+        except Exception as inner_error:
+            import traceback
+            error_msg = str(inner_error)
+            error_trace = traceback.format_exc()
+            logger.error(f"Error in timeout wrapper: {error_msg}", exc_info=True)
+
+            # ERROR = PARTIAL RESULT - Do NOT cache to database
+            # Per execution plan: Errors result in partial designation, never cached
+            record_progress(
+                db,
+                filing_id,
+                "partial",
+                error=f"error: {error_msg[:200]}",
+                section_coverage={
+                    "result_type": "partial",
+                    "partial_reason": "api_error",
+                    "covered_count": 0,
+                    "total_count": len(HIDEABLE_SECTIONS),
+                    "covered_sections": [],
+                    "sections_unavailable": generate_unavailable_sections_notes(HIDEABLE_SECTIONS),
+                    "retry_available": True,
+                    "message": "Unable to complete analysis. Please retry for full analysis.",
+                    "error_detail": error_msg[:200],
+                },
+            )
+            logger.warning(
+                f"[{filing_id}] ⚠ PARTIAL RESULT (error) - NOT CACHING. "
+                f"Error: {error_msg[:100]}. User should retry with 'Retry Full Analysis' button."
+            )
+            # Do NOT save to Summary table - error results are discarded
+            # Do NOT commit any summary to database
 
 def get_generation_progress_snapshot(filing_id: int) -> Optional[Dict[str, Any]]:
     """Return the persisted generation progress for a filing, if available."""

@@ -87,6 +87,111 @@ REVENUE_FIELD_NAMES = [
     "RevenuesNetOfInterestExpense",
 ]
 
+# Comprehensive list of EPS field names used by major companies
+# Different companies use different GAAP tags for earnings per share
+EPS_FIELD_NAMES = [
+    # Basic EPS (most common)
+    "EarningsPerShareBasic",
+    "BasicEarningsLossPerShare",
+    "NetIncomeLossPerBasicShare",
+    "EarningsPerShareBasicIncludingDiscontinuedOperations",
+    # Diluted EPS
+    "EarningsPerShareDiluted",
+    "DilutedEarningsLossPerShare",
+    "NetIncomeLossPerDilutedShare",
+    "EarningsPerShareDilutedIncludingDiscontinuedOperations",
+    # Combined (when basic and diluted are the same)
+    "EarningsPerShareBasicAndDiluted",
+    "BasicAndDilutedEarningsLossPerShare",
+    # Continuing operations specific
+    "IncomeLossFromContinuingOperationsPerBasicShare",
+    "IncomeLossFromContinuingOperationsPerDilutedShare",
+    # Attributable to common stockholders
+    "EarningsPerShareBasicAttributableToCommonStockholders",
+    "EarningsPerShareDilutedAttributableToCommonStockholders",
+]
+
+# Comprehensive list of Net Income field names used by major companies
+# Different companies use different GAAP tags for net income/profit
+NET_INCOME_FIELD_NAMES = [
+    # Primary net income fields (most common)
+    "NetIncomeLoss",
+    "ProfitLoss",
+    "NetIncomeLossAvailableToCommonStockholdersBasic",
+    "NetIncomeLossAvailableToCommonStockholdersDiluted",
+    # Attributable variations
+    "NetIncomeLossAttributableToParent",
+    "NetIncomeLossAttributableToReportingEntity",
+    # Continuing operations (for companies with discontinued ops)
+    "IncomeLossFromContinuingOperations",
+    "IncomeLossFromContinuingOperationsIncludingPortionAttributableToNoncontrollingInterest",
+    "IncomeLossFromContinuingOperationsAfterTax",
+    # Comprehensive income (used by some companies as primary)
+    "ComprehensiveIncomeNetOfTax",
+    "ComprehensiveIncomeNetOfTaxIncludingPortionAttributableToNoncontrollingInterest",
+    "ComprehensiveIncomeNetOfTaxAttributableToParent",
+    # Operating income (fallback for some industries)
+    "OperatingIncomeLoss",
+    "IncomeLossFromOperations",
+    # Before taxes (useful for analysis)
+    "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+]
+
+
+def compute_period_change(
+    current_value: Optional[float],
+    prior_value: Optional[float]
+) -> Dict[str, Optional[float]]:
+    """Compute OBJECTIVE period-over-period change between two values.
+
+    This function provides purely mathematical change calculations with
+    no interpretation or subjective language. The output is factual data only.
+
+    Args:
+        current_value: The current period's value
+        prior_value: The prior period's value for comparison
+
+    Returns:
+        Dictionary containing:
+        - absolute: The raw numerical difference (current - prior)
+        - percentage: The percentage change ((current - prior) / |prior|) * 100
+        - direction: "increase", "decrease", or "unchanged" (factual only)
+
+        Returns None values if calculation not possible (missing data or division by zero)
+    """
+    result: Dict[str, Optional[float]] = {
+        "absolute": None,
+        "percentage": None,
+        "direction": None,
+    }
+
+    # Cannot compute change without both values
+    if current_value is None or prior_value is None:
+        return result
+
+    # Handle division by zero for percentage calculation
+    if prior_value == 0:
+        result["absolute"] = round(current_value, 2)
+        result["direction"] = "increase" if current_value > 0 else ("decrease" if current_value < 0 else "unchanged")
+        return result
+
+    # Compute changes
+    absolute_change = current_value - prior_value
+    percentage_change = (absolute_change / abs(prior_value)) * 100
+
+    result["absolute"] = round(absolute_change, 2)
+    result["percentage"] = round(percentage_change, 2)
+
+    # Factual direction indicator (no subjective language)
+    if absolute_change > 0:
+        result["direction"] = "increase"
+    elif absolute_change < 0:
+        result["direction"] = "decrease"
+    else:
+        result["direction"] = "unchanged"
+
+    return result
+
 
 class XBRLService:
     def __init__(self):
@@ -249,18 +354,30 @@ class XBRLService:
                     "accn": item.get("accn"),
                 })
 
-            # Extract net income
-            if "NetIncomeLoss" in us_gaap:
-                net_income_fact = us_gaap["NetIncomeLoss"]
-                if isinstance(net_income_fact, dict) and "units" in net_income_fact:
-                    net_income_data = net_income_fact["units"].get("USD", [])
-                    for item in _filter_and_sort_data(net_income_data):
-                        result["net_income"].append({
-                            "period": item.get("end"),
-                            "value": item.get("val"),
-                            "form": item.get("form"),
-                            "accn": item.get("accn"),
-                        })
+            # Extract net income - try multiple possible field names
+            # Uses module-level NET_INCOME_FIELD_NAMES constant for comprehensive coverage
+            net_income_data = []
+            matched_net_income_field = None
+            for net_income_key in NET_INCOME_FIELD_NAMES:
+                if net_income_key in us_gaap:
+                    net_income_fact = us_gaap[net_income_key]
+                    if isinstance(net_income_fact, dict) and "units" in net_income_fact:
+                        net_income_data = net_income_fact["units"].get("USD", [])
+                        if net_income_data:
+                            matched_net_income_field = net_income_key
+                            logger.debug(f"XBRL: Found net income using field '{net_income_key}'")
+                            break
+
+            if not net_income_data:
+                logger.debug(f"XBRL: No net income data found. Tried {len(NET_INCOME_FIELD_NAMES)} field names.")
+
+            for item in _filter_and_sort_data(net_income_data):
+                result["net_income"].append({
+                    "period": item.get("end"),
+                    "value": item.get("val"),
+                    "form": item.get("form"),
+                    "accn": item.get("accn"),
+                })
 
             # Extract total assets
             if "Assets" in us_gaap:
@@ -275,26 +392,36 @@ class XBRLService:
                             "accn": item.get("accn"),
                         })
 
-            # Extract EPS - try multiple unit formats
-            if "EarningsPerShareBasic" in us_gaap:
-                eps_fact = us_gaap["EarningsPerShareBasic"]
-                if isinstance(eps_fact, dict) and "units" in eps_fact:
-                    units = eps_fact["units"]
-                    # Try different unit formats
-                    eps_data = None
-                    for unit_key in ["USD/shares", "shares", "pure"]:
-                        if unit_key in units:
-                            eps_data = units[unit_key]
-                            break
-
+            # Extract EPS - try multiple field names and unit formats
+            # Uses module-level EPS_FIELD_NAMES constant for comprehensive coverage
+            eps_data = []
+            matched_eps_field = None
+            for eps_key in EPS_FIELD_NAMES:
+                if eps_key in us_gaap:
+                    eps_fact = us_gaap[eps_key]
+                    if isinstance(eps_fact, dict) and "units" in eps_fact:
+                        units = eps_fact["units"]
+                        # Try different unit formats (USD/shares is most common for EPS)
+                        for unit_key in ["USD/shares", "USD", "shares", "pure"]:
+                            if unit_key in units:
+                                eps_data = units[unit_key]
+                                if eps_data:
+                                    matched_eps_field = eps_key
+                                    logger.debug(f"XBRL: Found EPS using field '{eps_key}' with unit '{unit_key}'")
+                                    break
                     if eps_data:
-                        for item in _filter_and_sort_data(eps_data):
-                            result["earnings_per_share"].append({
-                                "period": item.get("end"),
-                                "value": item.get("val"),
-                                "form": item.get("form"),
-                                "accn": item.get("accn"),
-                            })
+                        break
+
+            if not eps_data:
+                logger.debug(f"XBRL: No EPS data found. Tried {len(EPS_FIELD_NAMES)} field names.")
+
+            for item in _filter_and_sort_data(eps_data):
+                result["earnings_per_share"].append({
+                    "period": item.get("end"),
+                    "value": item.get("val"),
+                    "form": item.get("form"),
+                    "accn": item.get("accn"),
+                })
         except Exception as e:
             logger.warning(f"Error parsing XBRL facts: {str(e)}", exc_info=True)
 
@@ -477,11 +604,16 @@ class XBRLService:
             return cleaned
 
         def _build_metric_entry(series: List[Dict]) -> Dict:
-            entry: Dict[str, Dict] = {}
+            """Build a metric entry with current, prior, series, and period change."""
+            entry: Dict[str, any] = {}
             if series:
                 entry["current"] = series[0]
             if len(series) > 1:
                 entry["prior"] = series[1]
+                # Compute period-over-period change (OBJECTIVE calculation only)
+                current_val = series[0].get("value")
+                prior_val = series[1].get("value")
+                entry["change"] = compute_period_change(current_val, prior_val)
             if series:
                 entry["series"] = series
             return entry
