@@ -279,6 +279,48 @@ def generate_xbrl_summary(
         "Retry generation for detailed change analysis comparing to prior periods."
     )
 
+    # Build the raw_summary.sections structure that frontend expects
+    # Frontend reads from raw_summary.sections for ALL tabs
+    sections_for_frontend = {
+        "executive_snapshot": {
+            "headline": f"{company_name} {filing_type or 'SEC'} Filing - Partial Analysis",
+            "key_points": [
+                "Financial metrics extracted from XBRL data" if has_xbrl_data else "XBRL metrics unavailable for this filing",
+                f"{len(risk_factors)} risk factors identified from filing" if risk_factors else "Risk factors require full AI analysis",
+                "MD&A excerpt extracted from filing" if management_discussion and "From the SEC Filing" in management_discussion else "MD&A requires full AI analysis",
+                "Click 'Retry Full Analysis' for complete AI-powered insights"
+            ],
+            "tone": "neutral"
+        },
+        # Financial highlights - frontend expects this in sections
+        "financial_highlights": financial_highlights,
+        # Risk factors - already in correct format
+        "risk_factors": risk_factors,
+        # MD&A - frontend expects 'management_discussion_insights' with specific structure
+        "management_discussion_insights": {
+            "themes": [management_discussion] if management_discussion else ["Management discussion requires full AI analysis. Please retry."],
+            "quotes": [],
+            "capital_allocation": []
+        },
+        # Guidance - frontend expects 'guidance_outlook'
+        "guidance_outlook": {
+            "outlook": key_changes,
+            "targets": [],
+            "assumptions": []
+        },
+        # Liquidity - placeholder for frontend
+        "liquidity_capital_structure": {
+            "summary": "Liquidity analysis requires full AI processing. Please retry for detailed capital structure insights.",
+            "metrics": [],
+            "concerns": []
+        },
+        # Trends - placeholder for frontend
+        "three_year_trend": {
+            "summary": "Trend analysis requires full AI processing. Please retry for multi-period comparison.",
+            "metrics": []
+        }
+    }
+
     return {
         "status": "partial",
         "message": "Full analysis timed out. Showing extracted filing data.",
@@ -288,17 +330,11 @@ def generate_xbrl_summary(
         "management_discussion": management_discussion,
         "key_changes": key_changes,
         "raw_summary": {
-            "sections": {
-                "executive_snapshot": {
-                    "headline": f"{company_name} {filing_type} filing - partial analysis",
-                    "key_points": [
-                        "Financial metrics extracted from XBRL data" if has_xbrl_data else "XBRL metrics pending",
-                        f"{len(risk_factors)} risk factors identified" if risk_factors else "Risk factors pending",
-                        "MD&A excerpt available" if management_discussion and "From the SEC Filing" in management_discussion else "MD&A pending full analysis",
-                        "Retry for complete AI-powered insights"
-                    ],
-                    "tone": "neutral"
-                }
+            "sections": sections_for_frontend,
+            "section_coverage": {
+                "covered_count": 3 if has_xbrl_data else 2,
+                "total_count": 7,
+                "coverage_ratio": 0.43 if has_xbrl_data else 0.29
             }
         }
     }

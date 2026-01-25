@@ -32,7 +32,8 @@ class XBRLService:
                 
                 if response.status_code == 200:
                     data = response.json()
-                    return self._parse_xbrl_facts(data)
+                    # Pass accession_number to filter for the specific filing
+                    return self._parse_xbrl_facts(data, target_accession=accession_number)
                 else:
                     # Fallback: try to extract from filing HTML
                     return await self._extract_from_filing_html(accession_number, cik)
@@ -40,8 +41,14 @@ class XBRLService:
             logger.error(f"Error fetching XBRL data: {str(e)}", exc_info=True)
             return None
 
-    def _parse_xbrl_facts(self, facts_data: Dict) -> Dict:
-        """Parse XBRL facts from SEC API response"""
+    def _parse_xbrl_facts(self, facts_data: Dict, target_accession: Optional[str] = None) -> Dict:
+        """Parse XBRL facts from SEC API response.
+
+        Args:
+            facts_data: Raw XBRL facts from SEC API
+            target_accession: If provided, filter to entries matching this accession number.
+                            Falls back to most recent 5 periods if no match found.
+        """
         result = {
             "revenue": [],
             "net_income": [],
@@ -50,57 +57,97 @@ class XBRLService:
             "cash_and_equivalents": [],
             "earnings_per_share": [],
         }
-        
+
+        # Normalize target accession for matching (remove dashes)
+        normalized_accession = target_accession.replace("-", "") if target_accession else None
+
+        def _filter_and_sort_data(data_list: list, max_items: int = 5) -> list:
+            """Sort by date descending and optionally filter by accession.
+
+            This fixes the critical bug where we were taking the FIRST 5 items
+            (oldest data) instead of the MOST RECENT 5 items.
+            """
+            if not isinstance(data_list, list):
+                return []
+
+            # Filter to valid dict entries with dates
+            valid_items = [
+                item for item in data_list
+                if isinstance(item, dict) and item.get("end")
+            ]
+
+            # Sort by end date DESCENDING (most recent first)
+            sorted_items = sorted(
+                valid_items,
+                key=lambda x: x.get("end", ""),
+                reverse=True
+            )
+
+            # If we have a target accession, try to filter to matching entries
+            if normalized_accession:
+                matching = [
+                    item for item in sorted_items
+                    if item.get("accn", "").replace("-", "") == normalized_accession
+                ]
+                # If we found matches for this specific filing, use them
+                if matching:
+                    return matching[:max_items]
+
+            # Fall back to most recent entries (now correctly sorted)
+            return sorted_items[:max_items]
+
         try:
             facts = facts_data.get("facts", {})
-            
+
             # US GAAP facts
             us_gaap = facts.get("us-gaap", {})
             if not isinstance(us_gaap, dict):
                 return result
-            
-            # Extract revenue
-            if "Revenues" in us_gaap:
-                revenues_fact = us_gaap["Revenues"]
-                if isinstance(revenues_fact, dict) and "units" in revenues_fact:
-                    revenue_data = revenues_fact["units"].get("USD", [])
-                    if isinstance(revenue_data, list):
-                        for item in revenue_data[:5]:  # Last 5 periods
-                            if isinstance(item, dict):
-                                result["revenue"].append({
-                                    "period": item.get("end"),
-                                    "value": item.get("val"),
-                                    "form": item.get("form"),
-                                })
-            
+
+            # Extract revenue - try multiple possible field names
+            revenue_data = []
+            for revenue_key in ["Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax", "SalesRevenueNet"]:
+                if revenue_key in us_gaap:
+                    revenues_fact = us_gaap[revenue_key]
+                    if isinstance(revenues_fact, dict) and "units" in revenues_fact:
+                        revenue_data = revenues_fact["units"].get("USD", [])
+                        if revenue_data:
+                            break
+
+            for item in _filter_and_sort_data(revenue_data):
+                result["revenue"].append({
+                    "period": item.get("end"),
+                    "value": item.get("val"),
+                    "form": item.get("form"),
+                    "accn": item.get("accn"),
+                })
+
             # Extract net income
             if "NetIncomeLoss" in us_gaap:
                 net_income_fact = us_gaap["NetIncomeLoss"]
                 if isinstance(net_income_fact, dict) and "units" in net_income_fact:
                     net_income_data = net_income_fact["units"].get("USD", [])
-                    if isinstance(net_income_data, list):
-                        for item in net_income_data[:5]:
-                            if isinstance(item, dict):
-                                result["net_income"].append({
-                                    "period": item.get("end"),
-                                    "value": item.get("val"),
-                                    "form": item.get("form"),
-                                })
-            
+                    for item in _filter_and_sort_data(net_income_data):
+                        result["net_income"].append({
+                            "period": item.get("end"),
+                            "value": item.get("val"),
+                            "form": item.get("form"),
+                            "accn": item.get("accn"),
+                        })
+
             # Extract total assets
             if "Assets" in us_gaap:
                 assets_fact = us_gaap["Assets"]
                 if isinstance(assets_fact, dict) and "units" in assets_fact:
                     assets_data = assets_fact["units"].get("USD", [])
-                    if isinstance(assets_data, list):
-                        for item in assets_data[:5]:
-                            if isinstance(item, dict):
-                                result["total_assets"].append({
-                                    "period": item.get("end"),
-                                    "value": item.get("val"),
-                                    "form": item.get("form"),
-                                })
-            
+                    for item in _filter_and_sort_data(assets_data):
+                        result["total_assets"].append({
+                            "period": item.get("end"),
+                            "value": item.get("val"),
+                            "form": item.get("form"),
+                            "accn": item.get("accn"),
+                        })
+
             # Extract EPS - try multiple unit formats
             if "EarningsPerShareBasic" in us_gaap:
                 eps_fact = us_gaap["EarningsPerShareBasic"]
@@ -112,18 +159,18 @@ class XBRLService:
                         if unit_key in units:
                             eps_data = units[unit_key]
                             break
-                    
-                    if eps_data and isinstance(eps_data, list):
-                        for item in eps_data[:5]:
-                            if isinstance(item, dict):
-                                result["earnings_per_share"].append({
-                                    "period": item.get("end"),
-                                    "value": item.get("val"),
-                                    "form": item.get("form"),
-                                })
+
+                    if eps_data:
+                        for item in _filter_and_sort_data(eps_data):
+                            result["earnings_per_share"].append({
+                                "period": item.get("end"),
+                                "value": item.get("val"),
+                                "form": item.get("form"),
+                                "accn": item.get("accn"),
+                            })
         except Exception as e:
             logger.warning(f"Error parsing XBRL facts: {str(e)}", exc_info=True)
-        
+
         return result
 
     async def _extract_from_filing_html(self, accession_number: str, cik: str) -> Optional[Dict]:

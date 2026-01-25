@@ -544,11 +544,18 @@ async def generate_summary_stream(
                 # Better: track stage_started_at for AI
                 time_in_stage = current_time - stage_started_at
                 
-                if time_in_stage > 60.0:
+                if time_in_stage > 75.0:
                     logger.warning(f"[stream:{filing_id}] AI summarization timed out after {time_in_stage:.1f}s. Switching to fallback.")
                     summary_task.cancel()
-                    # Use fallback
-                    summary_payload = generate_xbrl_summary(xbrl_metrics, company_name)
+                    # Use fallback with full filing context for meaningful partial results
+                    summary_payload = generate_xbrl_summary(
+                        xbrl_data=xbrl_metrics,
+                        company_name=company_name,
+                        filing_date=filing_in_session.filing_date.isoformat() if filing_in_session.filing_date else "Unknown",
+                        filing_text=filing_text,
+                        filing_type=filing_type,
+                        filing_excerpt=excerpt,
+                    )
                     # Break loop manually since task is cancelled/ignored
                     break
 
@@ -565,7 +572,14 @@ async def generate_summary_stream(
                 except asyncio.CancelledError:
                     # Looked like we already handled fallback, but ensure payload is set
                     if not summary_payload:
-                         summary_payload = generate_xbrl_summary(xbrl_metrics, company_name)
+                        summary_payload = generate_xbrl_summary(
+                            xbrl_data=xbrl_metrics,
+                            company_name=company_name,
+                            filing_date=filing_in_session.filing_date.isoformat() if filing_in_session.filing_date else "Unknown",
+                            filing_text=filing_text,
+                            filing_type=filing_type,
+                            filing_excerpt=excerpt,
+                        )
             mark_stage("generate_summary")
 
             summary_status = summary_payload.get("status", "complete")
@@ -601,6 +615,24 @@ async def generate_summary_stream(
             sections_info["risk_factors"] = risk_section
             management_section = summary_payload.get("management_discussion")
             guidance_section = summary_payload.get("key_changes")
+
+            # CRITICAL: Add MD&A and guidance to sections_info for frontend tabs
+            # Frontend reads from raw_summary.sections, not top-level fields
+            if management_section and "management_discussion_insights" not in sections_info:
+                # Wrap in expected structure if not already present from AI
+                sections_info["management_discussion_insights"] = {
+                    "themes": [management_section] if isinstance(management_section, str) else management_section,
+                    "quotes": [],
+                    "capital_allocation": []
+                }
+
+            if guidance_section and "guidance_outlook" not in sections_info:
+                # Wrap in expected structure if not already present from AI
+                sections_info["guidance_outlook"] = {
+                    "outlook": guidance_section if isinstance(guidance_section, str) else str(guidance_section),
+                    "targets": [],
+                    "assumptions": []
+                }
 
             raw_summary["sections"] = sections_info
             raw_summary["status"] = summary_status
