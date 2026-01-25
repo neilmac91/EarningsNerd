@@ -210,7 +210,7 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
                   {unavailableSections.map((section) => (
                     <li key={section} className="flex items-center space-x-2">
                       <span className="w-1.5 h-1.5 bg-slate-400 rounded-full"></span>
-                      <span>{section} data was not available</span>
+                      <span>{section} — not found in this filing</span>
                     </li>
                   ))}
                 </ul>

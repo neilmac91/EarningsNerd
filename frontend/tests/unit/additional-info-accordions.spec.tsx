@@ -32,8 +32,8 @@ describe('SummarySections additional accordions', () => {
 
     // Unavailable sections should be listed in the disclosure
     expect(screen.getByText('Not included in this filing:')).toBeInTheDocument()
-    expect(screen.getByText(/Guidance data was not available/i)).toBeInTheDocument()
-    expect(screen.getByText(/Liquidity data was not available/i)).toBeInTheDocument()
+    expect(screen.getByText(/Guidance — not found in this filing/i)).toBeInTheDocument()
+    expect(screen.getByText(/Liquidity — not found in this filing/i)).toBeInTheDocument()
   })
 
   it('hides tabs with placeholder text like "Not available" or "requires full"', () => {
