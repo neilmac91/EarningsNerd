@@ -53,7 +53,33 @@ Follow this precise order to minimize token usage and maximize signal:
 4.  **Footnotes:** Search for "Commitments and Contingencies" and "Legal Proceedings."
 ---
 ## 📍 PHASE 2: MANDATORY DATA EXTRACTION
-*Instruction: If a specific metric is not explicitly stated, mark as "Not Disclosed" rather than calculating it yourself, UNLESS the calculation is simple subtraction.*
+
+### CRITICAL: "Not Disclosed" is a FAILURE STATE
+**YOU MUST EXHAUST ALL OPTIONS before using "Not Disclosed":**
+
+1. **Search the ENTIRE document** - Financial data often appears in multiple locations:
+   - Condensed Consolidated Statements of Operations (primary source)
+   - Management's Discussion and Analysis (narrative context)
+   - Notes to Financial Statements (supplementary details)
+   - Press release language embedded in filings
+
+2. **Look for alternative presentations:**
+   - Revenue may appear as "Net sales", "Total revenue", "Total net sales"
+   - Net income may appear as "Net earnings", "Net profit"
+   - Cash flow data in both direct and indirect format
+
+3. **Extract from tables:** Financial tables contain the key metrics. Look for:
+   - Numbers in parentheses = negative values
+   - Numbers followed by commas = thousands format
+   - Dollar signs preceding values
+
+4. **ONLY use "Not Disclosed" when:**
+   - You have searched ALL sections of the document
+   - The metric genuinely does not appear anywhere
+   - You have checked alternate terminology
+
+**NEVER default to "Not Disclosed" without thorough search. This is a premium product - empty responses are unacceptable.**
+
 **A. Financial Performance (YoY)**
 | Metric | Extraction Target |
 |--------|-------------------|

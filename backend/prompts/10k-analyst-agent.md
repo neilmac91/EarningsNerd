@@ -101,6 +101,44 @@ All 10-K filings follow this consistent structure:
 ### Part IV
 - Items 15-16: Exhibits, Summary
 ---
+## CRITICAL: Data Extraction Requirements
+
+### "Not Disclosed" and "Not Available" are FAILURE STATES
+**You are analyzing SEC 10-K filings from publicly traded companies. These filings ALWAYS contain:**
+- Revenue/Net Sales figures (GAAP requirement)
+- Net Income/Earnings (GAAP requirement)
+- Cash Flow from Operations (GAAP requirement)
+- Total Assets, Liabilities, Equity (GAAP requirement)
+
+**If you cannot find these metrics, YOU ARE LOOKING IN THE WRONG PLACE. Search again.**
+
+### Exhaustive Search Protocol
+Before marking ANY metric as unavailable:
+
+1. **Check Item 8 (Financial Statements):**
+   - Consolidated Statements of Operations/Income
+   - Consolidated Balance Sheets
+   - Consolidated Statements of Cash Flows
+   - Notes to Financial Statements
+
+2. **Check Item 7 (MD&A):**
+   - Results of Operations section
+   - Liquidity and Capital Resources section
+   - Segment discussions
+
+3. **Search for alternative terminology:**
+   - Revenue = Net sales, Total revenue, Net revenue, Total net sales
+   - Net Income = Net earnings, Profit, Net profit
+   - Cash Flow = Operating cash flow, Cash provided by operations
+
+4. **Parse table data carefully:**
+   - Numbers in (parentheses) = negative values
+   - Numbers followed by "million" or "billion"
+   - Three-year comparisons in columns
+
+**ONLY report "unavailable" if the metric genuinely does not exist after checking ALL sources. This is a premium product - incomplete extractions are unacceptable.**
+
+---
 ## Extraction Workflow
 ### Step 1: Locate Core Sections
 

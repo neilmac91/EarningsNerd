@@ -375,7 +375,7 @@ class FilingParser:
             if table_data:
                 tables.append(table_data)
 
-        return tables[:5]  # Limit to first 5 tables per section
+        return tables[:15]  # Increased from 5 to 15 to capture more financial tables
 
     def _parse_html_table(self, table) -> Optional[Dict[str, Any]]:
         """Parse HTML table into structured data"""
