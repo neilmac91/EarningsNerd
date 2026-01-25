@@ -542,6 +542,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
             isSaved={!!isSaved}
             debug={debugSummary}
             isAuthenticated={isAuthenticated}
+            onRetry={handleGenerateSummary}
           />
         ) : (
           <StreamingSummaryDisplay
@@ -934,6 +935,7 @@ function SummaryDisplay({
   isSaved,
   debug,
   isAuthenticated,
+  onRetry,
 }: {
   summary: Summary
   filing: Filing
@@ -942,6 +944,7 @@ function SummaryDisplay({
   isSaved: boolean
   debug?: boolean
   isAuthenticated: boolean
+  onRetry?: () => void
 }) {
   const markdownContent = summary.business_overview || ''
   const cleanedMarkdown = useMemo(() => stripInternalNotices(markdownContent), [markdownContent])
@@ -954,6 +957,8 @@ function SummaryDisplay({
   const trimmedMarkdown = cleanedMarkdown.trim()
   const isFallbackMessage = trimmedMarkdown === fallbackMessage
   const hasPolishedMarkdown = trimmedMarkdown.length > 0 && !isFallbackMessage && !writerError
+
+  const isPartial = rawSummary?.status === 'partial'
 
   const isError = Boolean(writerError) || isFallbackMessage || (!hasPolishedMarkdown && trimmedMarkdown.length === 0)
 
@@ -1144,6 +1149,19 @@ function SummaryDisplay({
                         </span>
                       )}
                     </span>
+                  )}
+                  {isPartial && (
+                    <span className="inline-flex items-center rounded-full border border-yellow-200 bg-yellow-50 px-3 py-1 text-xs font-medium text-yellow-800">
+                      Partial Result
+                    </span>
+                  )}
+                  {isPartial && onRetry && (
+                    <button
+                      onClick={onRetry}
+                      className="ml-2 inline-flex items-center px-3 py-1 text-xs font-medium text-primary-700 bg-primary-50 rounded-full hover:bg-primary-100 transition-colors border border-primary-200"
+                    >
+                      Retry Full Analysis
+                    </button>
                   )}
                 </div>
               </div>
