@@ -1696,8 +1696,16 @@ Rules:
                         break
                     raise
             
-            # If we got a response, break out of model loop
+            # Validate response content before breaking
             if response is not None:
+                content = response.choices[0].message.content
+                # Check for empty content (blocked/filtered) or just whitespace
+                if not content or not content.strip():
+                    logger.warning(f"Model {model_name} returned empty payload. Treating as failure and trying next model...")
+                    last_error = ValueError("Empty payload received from AI model")
+                    continue
+                
+                # Valid response received
                 break
 
         if response is None:
