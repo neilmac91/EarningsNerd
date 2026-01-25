@@ -526,8 +526,17 @@ async def generate_summary_stream(
             ]
             summarize_heartbeat_index = 0
             summary_payload = None
-            
-            
+
+            # Build fallback kwargs once to avoid duplication (DRY principle)
+            fallback_kwargs = {
+                "xbrl_data": xbrl_metrics,
+                "company_name": company_name,
+                "filing_date": filing_in_session.filing_date.isoformat() if filing_in_session.filing_date else "Unknown",
+                "filing_text": filing_text,
+                "filing_type": filing_type,
+                "filing_excerpt": excerpt,
+            }
+
             while not summary_task.done():
                 done, pending = await asyncio.wait(
                     [summary_task], 
@@ -548,14 +557,7 @@ async def generate_summary_stream(
                     logger.warning(f"[stream:{filing_id}] AI summarization timed out after {time_in_stage:.1f}s. Switching to fallback.")
                     summary_task.cancel()
                     # Use fallback with full filing context for meaningful partial results
-                    summary_payload = generate_xbrl_summary(
-                        xbrl_data=xbrl_metrics,
-                        company_name=company_name,
-                        filing_date=filing_in_session.filing_date.isoformat() if filing_in_session.filing_date else "Unknown",
-                        filing_text=filing_text,
-                        filing_type=filing_type,
-                        filing_excerpt=excerpt,
-                    )
+                    summary_payload = generate_xbrl_summary(**fallback_kwargs)
                     # Break loop manually since task is cancelled/ignored
                     break
 
@@ -572,14 +574,7 @@ async def generate_summary_stream(
                 except asyncio.CancelledError:
                     # Looked like we already handled fallback, but ensure payload is set
                     if not summary_payload:
-                        summary_payload = generate_xbrl_summary(
-                            xbrl_data=xbrl_metrics,
-                            company_name=company_name,
-                            filing_date=filing_in_session.filing_date.isoformat() if filing_in_session.filing_date else "Unknown",
-                            filing_text=filing_text,
-                            filing_type=filing_type,
-                            filing_excerpt=excerpt,
-                        )
+                        summary_payload = generate_xbrl_summary(**fallback_kwargs)
             mark_stage("generate_summary")
 
             summary_status = summary_payload.get("status", "complete")

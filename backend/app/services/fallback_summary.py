@@ -321,6 +321,36 @@ def generate_xbrl_summary(
         }
     }
 
+    # Calculate coverage dynamically based on actual section content
+    # This provides accurate feedback to the frontend about what data is available
+    total_sections = 7  # exec_snapshot, financials, risks, mda, guidance, liquidity, trends
+
+    covered_sections = 1  # executive_snapshot is always populated
+
+    # Check if financial_highlights has real data (not just placeholders)
+    if has_xbrl_data and financial_highlights.get("table"):
+        table_has_data = any(
+            row.get("current_period") not in (None, "Not available", "Loading...")
+            for row in financial_highlights.get("table", [])
+        )
+        if table_has_data:
+            covered_sections += 1
+
+    # Check if risk_factors has real extracted content
+    if risk_factors and len(risk_factors) > 0:
+        # Check it's not just placeholder content
+        first_risk = risk_factors[0] if risk_factors else {}
+        if not first_risk.get("summary", "").startswith("Risk factors for"):
+            covered_sections += 1
+
+    # Check if management_discussion has real extracted content
+    if management_discussion and "From the SEC Filing" in management_discussion:
+        covered_sections += 1
+
+    # guidance_outlook, liquidity_capital_structure, three_year_trend are always placeholders (0)
+
+    coverage_ratio = round(covered_sections / total_sections, 2)
+
     return {
         "status": "partial",
         "message": "Full analysis timed out. Showing extracted filing data.",
@@ -332,9 +362,9 @@ def generate_xbrl_summary(
         "raw_summary": {
             "sections": sections_for_frontend,
             "section_coverage": {
-                "covered_count": 3 if has_xbrl_data else 2,
-                "total_count": 7,
-                "coverage_ratio": 0.43 if has_xbrl_data else 0.29
+                "covered_count": covered_sections,
+                "total_count": total_sections,
+                "coverage_ratio": coverage_ratio
             }
         }
     }
