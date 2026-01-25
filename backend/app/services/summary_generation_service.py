@@ -11,6 +11,9 @@ from app.schemas import attach_normalized_facts
 from app.services.subscription_service import increment_user_usage, get_current_month
 from app.config import settings
 from app.database import SessionLocal
+import logging
+
+logger = logging.getLogger(__name__)
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
@@ -121,14 +124,14 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
     
     # Create a new database session for the background task
     with SessionLocal() as db:
-        print(f"Starting summary generation for filing {filing_id}")
+        logger.info(f"Starting summary generation for filing {filing_id}")
         # Eagerly load content_cache and company relationship to avoid detached session issues
         filing = db.query(Filing).options(
             joinedload(Filing.content_cache),
             joinedload(Filing.company)
         ).filter(Filing.id == filing_id).first()
         if not filing:
-            print(f"Filing {filing_id} not found")
+            logger.warning(f"Filing {filing_id} not found")
             return
         
         # Cache company data early to avoid detached session issues
@@ -141,7 +144,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
         # Check if summary already exists
         existing = db.query(Summary).filter(Summary.filing_id == filing_id).first()
         if existing:
-            print(f"Summary already exists for filing {filing_id}")
+            logger.info(f"Summary already exists for filing {filing_id}")
             # If summary already exists, still increment usage if user generated it
             if user_id:
                 user = db.query(User).filter(User.id == user_id).first()
@@ -152,7 +155,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
         
         # Check if OpenAI API key is configured
         if not settings.OPENAI_API_KEY:
-            print(f"Warning: OpenAI API key not configured. Cannot generate summary for filing {filing_id}")
+            logger.warning(f"Warning: OpenAI API key not configured. Cannot generate summary for filing {filing_id}")
             # Create a placeholder summary indicating API key is missing
             summary = Summary(
                 filing_id=filing_id,
@@ -178,7 +181,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
         async def generate_summary_core() -> None:
                 # Step 1: File Validation
                 record_progress(db, filing_id, "fetching")
-                print(f"[{filing_id}] Step 1: File Validation - Confirming document is accessible and parsable...")
+                logger.info(f"[{filing_id}] Step 1: File Validation - Confirming document is accessible and parsable...")
 
                 processing_profile = {
                     "include_previous": False,
@@ -218,7 +221,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                         .limit(1)
                         .all()
                     )
-                    print(f"Found {len(previous_filings)} previous 10-K filings for trend analysis")
+                    logger.info(f"Found {len(previous_filings)} previous 10-K filings for trend analysis")
 
                 async def fetch_filing_text(url: str) -> Optional[str]:
                     try:
@@ -226,7 +229,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                             url, timeout=processing_profile["document_timeout"]
                         )
                     except Exception as exc:
-                        print(f"Error fetching filing from {url}: {str(exc)}")
+                        logger.error(f"Error fetching filing from {url}: {str(exc)}")
                         return None
 
                 tasks = [asyncio.create_task(fetch_filing_text(filing_document_url))]
@@ -238,7 +241,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                 xbrl_task = None
                 xbrl_start = None
                 if processing_profile["fetch_xbrl"]:
-                    print(f"[{filing_id}] Fetching XBRL data in parallel...")
+                    logger.info(f"[{filing_id}] Fetching XBRL data in parallel...")
 
                     async def fetch_xbrl_data() -> Optional[Dict[str, Any]]:
                         try:
@@ -249,12 +252,12 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                                 timeout=processing_profile["xbrl_timeout"],
                             )
                         except asyncio.TimeoutError:
-                            print(
+                            logger.warning(
                                 f"[{filing_id}] ⚠ XBRL data fetch timed out after {processing_profile['xbrl_timeout']:.0f}s, continuing without it"
                             )
                             return None
                         except Exception as exc:
-                            print(f"[{filing_id}] ⚠ Could not extract XBRL data: {str(exc)}")
+                            logger.warning(f"[{filing_id}] ⚠ Could not extract XBRL data: {str(exc)}")
                             return None
 
                     xbrl_start = time.time()
@@ -266,16 +269,16 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                     raise RuntimeError("Unable to retrieve this filing at the moment — please try again shortly.")
 
                 fetch_time = time.time() - start_time
-                print(
+                logger.info(
                     f"[{filing_id}] ✓ File validated and fetched: {len(filing_text):,} characters in {fetch_time:.1f}s"
                 )
 
                 # Step 2: Section Parsing
                 record_progress(db, filing_id, "parsing")
-                print(f"[{filing_id}] Step 2: Section Parsing - Extracting major sections (Item 1A: Risk Factors, Item 7: MD&A)...")
+                logger.info(f"[{filing_id}] Step 2: Section Parsing - Extracting major sections (Item 1A: Risk Factors, Item 7: MD&A)...")
                 
                 excerpt = get_or_cache_excerpt(db, filing, filing_text)
-                print(f"[{filing_id}] ✓ Parsing complete...")
+                logger.info(f"[{filing_id}] ✓ Parsing complete...")
 
                 xbrl_data = None
                 if xbrl_task:
@@ -288,7 +291,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                             db.commit()
                         if xbrl_start:
                             xbrl_time = time.time() - xbrl_start
-                            print(f"[{filing_id}] ✓ Extracted XBRL data in {xbrl_time:.1f}s")
+                            logger.info(f"[{filing_id}] ✓ Extracted XBRL data in {xbrl_time:.1f}s")
 
                 previous_filings_text: List[Dict[str, Any]] = []
                 for index, result in enumerate(results[1:], 0):
@@ -306,7 +309,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                                 "text": result,
                             }
                         )
-                        print(
+                        logger.info(
                             f"Fetched previous 10-K from {prev_filing.filing_date}: {len(result):,} characters"
                         )
 
@@ -316,12 +319,12 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
 
                 # Step 3: Content Analysis
                 record_progress(db, filing_id, "analyzing")
-                print(f"[{filing_id}] Step 3: Content Analysis - Analyzing risk factors...")
+                logger.info(f"[{filing_id}] Step 3: Content Analysis - Analyzing risk factors...")
 
                 # Step 4: Summary Generation
-                print(f"[{filing_id}] Step 4: Generating financial overview...")
+                logger.info(f"[{filing_id}] Step 4: Generating financial overview...")
                 ai_start = time.time()
-                print(f"[{filing_id}] Step 5: Generating investor-focused summary...")
+                logger.info(f"[{filing_id}] Step 5: Generating investor-focused summary...")
                 summary_data = await openai_service.summarize_filing(
                     filing_text,
                     company_name,
@@ -332,7 +335,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                     filing_excerpt=excerpt,
                 )
                 ai_time = time.time() - ai_start
-                print(f"[{filing_id}] ✓ AI summary generated in {ai_time:.1f}s")
+                logger.info(f"[{filing_id}] ✓ AI summary generated in {ai_time:.1f}s")
                 
                 # Check summary status - handle error, partial, and complete
                 summary_status = summary_data.get("status", "complete")
@@ -345,7 +348,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                 # Log partial status if applicable
                 if summary_status == "partial":
                     partial_message = summary_data.get("message", "Some sections may not have loaded fully.")
-                    print(f"[{filing_id}] ⚠ Partial summary generated: {partial_message}")
+                    logger.warning(f"[{filing_id}] ⚠ Partial summary generated: {partial_message}")
 
                 section_coverage = (
                     (summary_data.get("raw_summary") or {}).get("section_coverage")
@@ -359,7 +362,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                     section_coverage=section_coverage,
                 )
                 if section_coverage:
-                    print(
+                    logger.info(
                         f"[{filing_id}] coverage snapshot: "
                         f"{section_coverage.get('covered_count', 0)}/"
                         f"{section_coverage.get('total_count', 0)} sections populated"
@@ -414,7 +417,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                 db.commit()
 
                 total_time = time.time() - start_time
-                print(
+                logger.info(
                     f"[{filing_id}] ✓ Summary generation completed in {total_time:.1f}s total"
                 )
 
@@ -429,7 +432,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
         try:
             await asyncio.wait_for(generate_summary_core(), timeout=global_timeout)
         except asyncio.TimeoutError:
-            print(
+            logger.error(
                 f"[{filing_id}] ✗ Summary generation exceeded global timeout of {global_timeout}s"
             )
             record_progress(db, filing_id, "error", error="timeout")
@@ -458,12 +461,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
             db.add(error_summary)
             db.commit()
         except Exception as inner_error:
-            import traceback
-
-            error_trace = traceback.format_exc()
-            error_msg = str(inner_error)
-            print(f"Error in timeout wrapper: {error_msg}")
-            print(f"Traceback: {error_trace}")
+            logger.error(f"Error in timeout wrapper: {str(inner_error)}", exc_info=True)
             record_progress(
                 db,
                 filing_id,

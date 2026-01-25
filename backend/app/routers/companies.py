@@ -9,8 +9,10 @@ from datetime import datetime, timedelta
 import httpx
 import asyncio
 import atexit
+import logging
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 class StockQuote(BaseModel):
     price: Optional[float]
@@ -339,7 +341,8 @@ async def get_stock_quote(ticker: str) -> Optional[StockQuote]:
         return None
     except Exception as e:
         # Silently fail - don't break the page if stock quote fails
-        print(f"Error fetching stock quote for {ticker}: {str(e)}")
+        if ticker:
+            logger.error(f"Error fetching stock quote for {ticker}: {str(e)}")
         return None
 
 @router.get("/{ticker}", response_model=CompanyResponse)
