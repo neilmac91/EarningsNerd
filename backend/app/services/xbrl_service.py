@@ -79,12 +79,27 @@ REVENUE_FIELD_NAMES = [
     "RevenueFromSalesOfGoods",
     "RevenueFromServices",
     "SalesRevenueProductsAndServices",
+    # Pharmaceutical/Biotech specific (BioMarin, Gilead, Amgen, etc.)
+    "ProductRevenue",
+    "ProductSales",
+    "ProductSalesNet",
+    "NetProductRevenue",
+    "NetProductSales",
+    "ProductRevenueNet",
+    "RevenuesFromExternalCustomers",
+    "CollaborationRevenue",
+    "LicenseRevenue",
+    "RoyaltyRevenue",
+    "ContractWithCustomerLiabilityRevenueRecognized",
     # Other variations used by specific industries
     "OperatingRevenue",
     "RegulatedAndUnregulatedOperatingRevenue",
     # Financial services
     "InterestAndDividendIncomeOperating",
     "RevenuesNetOfInterestExpense",
+    # Technology/Software
+    "SubscriptionRevenue",
+    "ServiceRevenue",
 ]
 
 # Comprehensive list of EPS field names used by major companies
@@ -109,6 +124,12 @@ EPS_FIELD_NAMES = [
     # Attributable to common stockholders
     "EarningsPerShareBasicAttributableToCommonStockholders",
     "EarningsPerShareDilutedAttributableToCommonStockholders",
+    # Attributable to parent
+    "NetIncomeLossAttributableToParentPerBasicShare",
+    "NetIncomeLossAttributableToParentPerDilutedShare",
+    # Discontinued operations
+    "IncomeLossFromDiscontinuedOperationsNetOfTaxPerBasicShare",
+    "IncomeLossFromDiscontinuedOperationsNetOfTaxPerDilutedShare",
 ]
 
 # Comprehensive list of Net Income field names used by major companies
@@ -126,6 +147,7 @@ NET_INCOME_FIELD_NAMES = [
     "IncomeLossFromContinuingOperations",
     "IncomeLossFromContinuingOperationsIncludingPortionAttributableToNoncontrollingInterest",
     "IncomeLossFromContinuingOperationsAfterTax",
+    "IncomeLossFromContinuingOperationsAttributableToParent",
     # Comprehensive income (used by some companies as primary)
     "ComprehensiveIncomeNetOfTax",
     "ComprehensiveIncomeNetOfTaxIncludingPortionAttributableToNoncontrollingInterest",
@@ -135,6 +157,12 @@ NET_INCOME_FIELD_NAMES = [
     "IncomeLossFromOperations",
     # Before taxes (useful for analysis)
     "IncomeLossFromContinuingOperationsBeforeIncomeTaxesExtraordinaryItemsNoncontrollingInterest",
+    "IncomeLossFromContinuingOperationsBeforeIncomeTaxesMinorityInterestAndIncomeLossFromEquityMethodInvestments",
+    # Pharmaceutical/Biotech specific
+    "IncomeLossBeforeGainOrLossOnSaleOfPropertiesIncomeFromEquityMethodInvestmentsAndIncomeTaxes",
+    "IncomeLossFromEquityMethodInvestments",
+    # Net income including noncontrolling interest
+    "NetIncomeLossIncludingPortionAttributableToNoncontrollingInterest",
 ]
 
 
@@ -338,13 +366,24 @@ class XBRLService:
             # Extract revenue - try multiple possible field names
             # Uses module-level REVENUE_FIELD_NAMES constant for performance
             revenue_data = []
+            matched_revenue_field = None
             for revenue_key in REVENUE_FIELD_NAMES:
                 if revenue_key in us_gaap:
                     revenues_fact = us_gaap[revenue_key]
                     if isinstance(revenues_fact, dict) and "units" in revenues_fact:
                         revenue_data = revenues_fact["units"].get("USD", [])
                         if revenue_data:
+                            matched_revenue_field = revenue_key
+                            logger.debug(f"XBRL: Found revenue using field '{revenue_key}'")
                             break
+
+            if not revenue_data:
+                # Log available revenue-like fields for debugging
+                available_revenue_fields = [k for k in us_gaap.keys() if 'revenue' in k.lower() or 'sales' in k.lower()]
+                logger.warning(
+                    f"XBRL: No revenue data found. Tried {len(REVENUE_FIELD_NAMES)} field names. "
+                    f"Available revenue-like fields in XBRL: {available_revenue_fields[:10]}"
+                )
 
             for item in _filter_and_sort_data(revenue_data):
                 result["revenue"].append({
@@ -369,7 +408,12 @@ class XBRLService:
                             break
 
             if not net_income_data:
-                logger.debug(f"XBRL: No net income data found. Tried {len(NET_INCOME_FIELD_NAMES)} field names.")
+                # Log available income-like fields for debugging
+                available_income_fields = [k for k in us_gaap.keys() if 'income' in k.lower() or 'profit' in k.lower() or 'loss' in k.lower()]
+                logger.warning(
+                    f"XBRL: No net income data found. Tried {len(NET_INCOME_FIELD_NAMES)} field names. "
+                    f"Available income-like fields in XBRL: {available_income_fields[:10]}"
+                )
 
             for item in _filter_and_sort_data(net_income_data):
                 result["net_income"].append({
