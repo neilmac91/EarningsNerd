@@ -294,7 +294,7 @@ class OpenAIService:
             return combined[:limit]
         return ""
     
-    def extract_critical_sections(self, filing_text: str, filing_type: str = "10-K") -> str:
+    def extract_critical_sections(self, filing_text: str, filing_type: str = "10-K", cleaned_text: Optional[str] = None) -> str:
         """Extract ONLY the most critical sections for fast summarization.
         
         For 10-K: Item 1A (Risk Factors) and Item 7 (MD&A)
@@ -305,12 +305,16 @@ class OpenAIService:
         filing_type_key = (filing_type or "10-K").upper()
         
         # Remove HTML/XML tags for cleaner extraction
-        try:
-            from bs4 import BeautifulSoup
-            soup = BeautifulSoup(filing_text, 'html.parser')
-            filing_text_clean = soup.get_text(separator='\n', strip=False)
-        except:
-            filing_text_clean = filing_text
+        # OPTIMIZATION: Use provided cleaned_text if available to avoid re-parsing
+        if cleaned_text:
+            filing_text_clean = cleaned_text
+        else:
+            try:
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(filing_text, 'html.parser')
+                filing_text_clean = soup.get_text(separator='\n', strip=False)
+            except:
+                filing_text_clean = filing_text
         
         critical_sections = []
         
@@ -1383,7 +1387,12 @@ Return JSON containing only the `{section_key}` key."""
             filing_text_clean = filing_text
 
         # Use the provided excerpt or extract critical sections (regex intensive)
-        filing_sample = filing_excerpt or self.extract_critical_sections(filing_text, filing_type_key)
+        # PASS cleaned_text to avoid double parsing!
+        filing_sample = filing_excerpt or self.extract_critical_sections(
+            filing_text, 
+            filing_type_key, 
+            cleaned_text=filing_text_clean
+        )
         
         if not filing_sample:
             # Fallback to first 15k chars if extraction fails

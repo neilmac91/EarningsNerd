@@ -325,13 +325,15 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   const debugSummary = searchParams?.get('debug') === '1'
 
   const handleGenerateSummary = useCallback(async () => {
-    // POC mode: allow all users to generate summaries (auth check disabled)
-    // TODO: Re-enable auth check when user registration is implemented
-    // if (!isAuthenticated) {
-    //   setGenerationError('Please sign in to generate summaries.')
-    //   router.push('/login')
-    //   return
-    // }
+    // Feature flag for auth requirement (default to false implies POC mode/open access)
+    const requireAuth = process.env.NEXT_PUBLIC_REQUIRE_AUTH_FOR_SUMMARY === 'true'
+
+    if (requireAuth && !isAuthenticated) {
+      setGenerationError('Please sign in to generate summaries.')
+      // Optional: Redirect to login or show modal
+      // router.push('/login')
+      return
+    }
     setHasStartedGeneration(true)
     setGenerationError(null)
     setIsStreaming(true)
@@ -385,19 +387,22 @@ function FilingDetailView({ filingId }: { filingId: number }) {
 
   // Auto-generate summary when page loads if no summary exists
   useEffect(() => {
+    const requireAuth = process.env.NEXT_PUBLIC_REQUIRE_AUTH_FOR_SUMMARY === 'true'
+    const shouldAutoGenerate = !requireAuth || isAuthenticated
+
     // Auto-generate if all conditions are met
-    // POC mode: removed isAuthenticated check to allow all users
     if (
       filing &&
       !summaryLoading &&
       !isStreaming &&
       !hasSummaryContent &&
       !hasStartedGeneration &&
-      !generationError
+      !generationError &&
+      shouldAutoGenerate
     ) {
       handleGenerateSummary()
     }
-  }, [filing, summaryLoading, isStreaming, hasSummaryContent, hasStartedGeneration, generationError, handleGenerateSummary])
+  }, [filing, summaryLoading, isStreaming, hasSummaryContent, hasStartedGeneration, generationError, handleGenerateSummary, isAuthenticated])
 
   useEffect(() => {
     if (hasSummaryContent) {
