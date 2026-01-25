@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Union
 from datetime import datetime, timedelta
 import httpx
 import random
@@ -141,7 +141,7 @@ NET_INCOME_FIELD_NAMES = [
 def compute_period_change(
     current_value: Optional[float],
     prior_value: Optional[float]
-) -> Dict[str, Optional[float]]:
+) -> Dict[str, Optional[Union[float, str]]]:
     """Compute OBJECTIVE period-over-period change between two values.
 
     This function provides purely mathematical change calculations with
@@ -159,7 +159,7 @@ def compute_period_change(
 
         Returns None values if calculation not possible (missing data or division by zero)
     """
-    result: Dict[str, Optional[float]] = {
+    result: Dict[str, Optional[Union[float, str]]] = {
         "absolute": None,
         "percentage": None,
         "direction": None,

@@ -12,6 +12,7 @@ from app.services.subscription_service import increment_user_usage, get_current_
 from app.config import settings
 from app.database import SessionLocal
 import logging
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -533,12 +534,13 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                             "covered_sections": covered_sections,
                             "sections_unavailable": sections_unavailable,
                             # Include the actual summary data so frontend can display it
+                            # Built dynamically from HIDEABLE_SECTIONS to avoid missing sections
                             "partial_data": {
-                                "business_overview": summary_data.get("business_overview"),
-                                "financial_highlights": normalized_financial_section,
-                                "risk_factors": summary_data.get("risk_factors"),
-                                "management_discussion": summary_data.get("management_discussion"),
-                                "key_changes": summary_data.get("key_changes"),
+                                section: (
+                                    normalized_financial_section if section == "financial_highlights"
+                                    else summary_data.get(section)
+                                )
+                                for section in HIDEABLE_SECTIONS
                             },
                         },
                     )
@@ -629,7 +631,6 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
             # Do NOT save to Summary table - timeout results are discarded
             # Do NOT commit any summary to database
         except Exception as inner_error:
-            import traceback
             error_msg = str(inner_error)
             error_trace = traceback.format_exc()
             logger.error(f"Error in timeout wrapper: {error_msg}", exc_info=True)
