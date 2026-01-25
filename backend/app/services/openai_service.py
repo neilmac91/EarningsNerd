@@ -612,13 +612,20 @@ class OpenAIService:
             cleaned = cleaned[:-3]
         return cleaned.strip()
 
-    def _repair_json(self, json_str: str) -> str:
+    def _repair_json(self, json_str: Optional[str]) -> str:
         """Attempt to repair common JSON syntax errors from LLMs.
+
+        Args:
+            json_str: The JSON string to repair, or None.
+
+        Returns:
+            Repaired JSON string, or empty string if input is None/empty.
 
         Handles:
         - Unquoted property names (JavaScript-style): {company_name: "val"}
         - Single quotes for keys: {'key': "val"}
         - Single quotes for string values: {"key": 'val'}
+        - Single quotes in arrays: ['val1', 'val2']
         - Trailing commas: {"a": 1,}
         - Python booleans: True/False/None -> true/false/null
         """
@@ -644,15 +651,26 @@ class OpenAIService:
         # Replace 'key': with "key":
         repaired = re.sub(r"\'([^\']+)\'\s*:", r'"\1":', repaired)
 
-        # 3. Fix single quotes used for string values (simple cases)
+        # 3. Fix single quotes used for string values (after colon)
         # Replace : 'value' with : "value" (handles values after colon)
-        # Be careful: only replace single-quoted strings, not apostrophes in text
         repaired = re.sub(r":\s*\'([^\']*)\'(\s*[,}\]])", r': "\1"\2', repaired)
 
-        # 4. Fix trailing commas before closing braces/brackets
+        # 4. Fix single quotes in arrays: ['val1', 'val2']
+        # Replace single-quoted strings in array contexts
+        # First element: ['value' -> ["value"
+        repaired = re.sub(r"\[\s*\'([^\']*)\'", r'["\1"', repaired)
+        # Subsequent elements: , 'value' -> , "value" (handles all remaining array elements)
+        # Run multiple times to catch all elements since regex doesn't overlap
+        for _ in range(10):  # Max 10 iterations to prevent infinite loops
+            new_repaired = re.sub(r",\s*\'([^\']*)\'", r', "\1"', repaired)
+            if new_repaired == repaired:
+                break
+            repaired = new_repaired
+
+        # 5. Fix trailing commas before closing braces/brackets
         repaired = re.sub(r",\s*([\]}])", r"\1", repaired)
 
-        # 5. Fix Python-style booleans and None
+        # 6. Fix Python-style booleans and None
         # Use word boundaries to avoid replacing inside strings
         repaired = re.sub(r'\bTrue\b', 'true', repaired)
         repaired = re.sub(r'\bFalse\b', 'false', repaired)

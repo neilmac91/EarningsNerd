@@ -117,6 +117,57 @@ class TestRepairJson:
         parsed = json.loads(repaired)
         assert parsed["company_name"] == "Acme Corp"
 
+    # === Single Quotes in Arrays (New Fix per PR Review) ===
+
+    def test_single_quoted_strings_in_array(self, service):
+        """Fix single-quoted strings in arrays."""
+        malformed = "{'items': ['value1', 'value2', 'value3']}"
+        repaired = service._repair_json(malformed)
+        parsed = json.loads(repaired)
+        assert parsed["items"] == ["value1", "value2", "value3"]
+
+    def test_single_quoted_strings_in_array_with_double_quoted_key(self, service):
+        """Fix single-quoted array values with double-quoted key."""
+        malformed = '{"items": [\'first\', \'second\']}'
+        repaired = service._repair_json(malformed)
+        parsed = json.loads(repaired)
+        assert parsed["items"] == ["first", "second"]
+
+    def test_single_quoted_single_element_array(self, service):
+        """Fix single-quoted string as sole array element."""
+        malformed = "{'tags': ['only-one']}"
+        repaired = service._repair_json(malformed)
+        parsed = json.loads(repaired)
+        assert parsed["tags"] == ["only-one"]
+
+    def test_single_quoted_strings_in_nested_array(self, service):
+        """Fix single-quoted strings in nested arrays."""
+        malformed = "{'data': {'items': ['a', 'b', 'c']}}"
+        repaired = service._repair_json(malformed)
+        parsed = json.loads(repaired)
+        assert parsed["data"]["items"] == ["a", "b", "c"]
+
+    def test_mixed_arrays_with_numbers_and_single_quoted_strings(self, service):
+        """Handle arrays with mixed numbers and single-quoted strings."""
+        malformed = "{'mixed': [1, 'two', 3, 'four']}"
+        repaired = service._repair_json(malformed)
+        parsed = json.loads(repaired)
+        assert parsed["mixed"] == [1, "two", 3, "four"]
+
+    def test_realistic_risk_factors_array(self, service):
+        """Test realistic LLM output with single-quoted risk factors."""
+        malformed = """{
+  "risk_factors": [
+    'Supply chain disruption',
+    'Regulatory changes',
+    'Competition from rivals'
+  ]
+}"""
+        repaired = service._repair_json(malformed)
+        parsed = json.loads(repaired)
+        assert len(parsed["risk_factors"]) == 3
+        assert parsed["risk_factors"][0] == "Supply chain disruption"
+
     # === Trailing Commas (Existing Fix) ===
 
     def test_trailing_comma_object(self, service):
