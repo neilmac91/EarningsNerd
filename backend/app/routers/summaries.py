@@ -475,18 +475,19 @@ async def generate_summary_stream(
             
             yield f"data: {json.dumps({'type': 'progress', 'stage': 'summarizing', 'message': 'Step 5: Generating investor-focused summary...', 'percent': 50})}\n\n"
             
-            # Wait for excerpt and XBRL with a short timeout (don't block AI for too long)
+            # Wait for excerpt and XBRL with reasonable timeout
+            # CRITICAL: 2s was too aggressive - SEC API for large companies can take 5-10s
             excerpt = None
             xbrl_metrics = None
             try:
-                # Give excerpt/XBRL 2 seconds max, then proceed with AI
+                # Give excerpt/XBRL 8 seconds - this is critical for financial data accuracy
                 tasks_to_wait = [excerpt_task]
                 if xbrl_task:
                     tasks_to_wait.append(xbrl_task)
-                
+
                 results = await asyncio.wait_for(
                     asyncio.gather(*tasks_to_wait, return_exceptions=True),
-                    timeout=2.0
+                    timeout=8.0
                 )
                 
                 excerpt = results[0] if not isinstance(results[0], Exception) else None
