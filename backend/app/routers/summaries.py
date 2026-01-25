@@ -288,7 +288,12 @@ async def generate_summary_stream(
             
             if cached_content and cached_content.critical_excerpt:
                 # Check age (valid if < 24 hours)
-                age = datetime.datetime.now(datetime.timezone.utc) - cached_content.updated_at
+                last_updated = cached_content.updated_at or cached_content.created_at
+                if not last_updated:
+                    # Should not happen given database constraints, but safe fallback
+                    last_updated = datetime.datetime.now(datetime.timezone.utc)
+                
+                age = datetime.datetime.now(datetime.timezone.utc) - last_updated
                 if age < timedelta(hours=24):
                     cache_is_valid = True
                     excerpt_from_cache = cached_content.critical_excerpt
