@@ -71,9 +71,10 @@ class TrendingTickerService:
         self._sec_service = SECEdgarService()
         self._logger = logging.getLogger(__name__)
         self._last_error: Optional[str] = None
-        cache_root = Path("/tmp") if settings.ENVIRONMENT == "production" else Path(".")
+        import tempfile
+        cache_root = Path(tempfile.gettempdir()) if settings.ENVIRONMENT == "production" else Path(".")
         self._cache_file_path = (cache_root / self._persistent_cache_filename).resolve()
-        self._symbol_cache_path = (cache_root / ".cache/sec_ticker_lookup.json").resolve()
+        self._symbol_cache_path = (cache_root / "sec_ticker_lookup.json").resolve()
         self._http_client: Optional[httpx.AsyncClient] = None
         self._http_client_lock = asyncio.Lock()
         # Rate limit tracking: source -> (backoff_until, consecutive_429s)
