@@ -2227,7 +2227,7 @@ Do not include any additional keys or text outside the JSON object."""
             print(f"Structured extraction error: {error_msg}")
             return {
                 "status": "error",
-                "message": "Unable to retrieve this filing at the moment — please try again shortly.",
+                "message": f"DEBUG_ERROR: {str(extraction_error)}",
                 "summary_title": f"{company_name} {filing_type_key} Filing Summary",
                 "sections": [],
                 "insights": {
