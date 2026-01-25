@@ -295,8 +295,13 @@ By: /s/ Luca Maestri
 
 def extract_critical_sections_test(filing_text: str, filing_type: str = "10-Q") -> str:
     """
-    This is the UPDATED extract_critical_sections logic.
-    Copy of the fixed code for testing.
+    Standalone copy of extract_critical_sections logic for testing.
+
+    NOTE: This is intentionally a copy rather than an import from openai_service.py
+    because this script is designed to run without requiring the full app configuration
+    (database, API keys, etc.). This allows quick verification of regex patterns without
+    setting up environment variables. When updating extraction logic, remember to update
+    both this test and the main implementation in openai_service.py.
     """
     filing_type_key = (filing_type or "10-K").upper()
 
@@ -304,7 +309,7 @@ def extract_critical_sections_test(filing_text: str, filing_type: str = "10-Q") 
     try:
         soup = BeautifulSoup(filing_text, 'html.parser')
         filing_text_clean = soup.get_text(separator='\n', strip=False)
-    except:
+    except Exception:
         filing_text_clean = filing_text
 
     critical_sections = []

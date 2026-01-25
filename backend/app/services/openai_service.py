@@ -365,21 +365,22 @@ class OpenAIService:
                 soup = BeautifulSoup(filing_text, 'html.parser')
                 # Preserve table structure by using separator that maintains spacing
                 filing_text_clean = soup.get_text(separator='\n', strip=False)
-            except:
+            except Exception:
                 filing_text_clean = filing_text
 
         critical_sections = []
 
         if filing_type_key == "10-K":
             # PRIORITY 1: Extract Item 8 - Financial Statements (MOST CRITICAL for metrics)
+            # Using [\s\S]*? for consistent multiline matching (same as 10-Q patterns)
             financial_patterns = [
-                r"ITEM\s*8\.?\s*[-–—]?\s*FINANCIAL\s+STATEMENTS[^\n]*\n(.*?)(?=ITEM\s*9|PART\s*III|SIGNATURES|$)",
-                r"ITEM\s*8\.?\s*FINANCIAL\s+STATEMENTS\s+AND\s+SUPPLEMENTARY\s+DATA[^\n]*\n(.*?)(?=ITEM\s*9|PART\s*III|$)",
-                r"CONSOLIDATED\s+STATEMENTS\s+OF\s+(?:OPERATIONS|INCOME|EARNINGS)[^\n]*\n(.*?)(?=ITEM\s*9|PART\s*III|SIGNATURES|$)",
-                r"(?:CONSOLIDATED\s+)?FINANCIAL\s+STATEMENTS[^\n]*\n(.*?)(?=NOTES\s+TO\s+CONSOLIDATED|ITEM\s*9|$)",
+                r"ITEM\s*8\.?\s*[-–—]?\s*FINANCIAL\s+STATEMENTS[^\n]*\n([\s\S]*?)(?=\nITEM\s*9\.|\nPART\s*III|\nSIGNATURES|$)",
+                r"ITEM\s*8\.?\s*FINANCIAL\s+STATEMENTS\s+AND\s+SUPPLEMENTARY\s+DATA[^\n]*\n([\s\S]*?)(?=\nITEM\s*9\.|\nPART\s*III|$)",
+                r"CONSOLIDATED\s+STATEMENTS\s+OF\s+(?:OPERATIONS|INCOME|EARNINGS)[^\n]*\n([\s\S]*?)(?=\nITEM\s*9\.|\nPART\s*III|\nSIGNATURES|$)",
+                r"(?:CONSOLIDATED\s+)?FINANCIAL\s+STATEMENTS[^\n]*\n([\s\S]*?)(?=\nNOTES\s+TO\s+CONSOLIDATED|\nITEM\s*9\.|$)",
             ]
             for pattern in financial_patterns:
-                match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
+                match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.MULTILINE)
                 if match:
                     financial_text = match.group(1).strip()
                     # Increased limit to 40000 chars to capture full financial statements
@@ -387,14 +388,15 @@ class OpenAIService:
                     break
 
             # PRIORITY 2: Extract Item 7 - MD&A (narrative context for financials)
+            # Using [\s\S]*? for consistent multiline matching
             mda_patterns = [
-                r"ITEM\s*7\.?\s*[-–—]?\s*MANAGEMENT['']?S?\s+DISCUSSION[^\n]*\n(.*?)(?=ITEM\s*7A|ITEM\s*8|QUANTITATIVE|$)",
-                r"ITEM\s*7\.?\s*MANAGEMENT['']?S?\s+DISCUSSION\s+AND\s+ANALYSIS[^\n]*\n(.*?)(?=ITEM\s*7A|ITEM\s*8|$)",
-                r"MANAGEMENT['']?S?\s+DISCUSSION\s+AND\s+ANALYSIS\s+OF\s+FINANCIAL[^\n]*\n(.*?)(?=ITEM\s*7A|ITEM\s*8|QUANTITATIVE|$)",
-                r"MD&A[^\n]*\n(.*?)(?=ITEM\s*8|QUANTITATIVE|$)",
+                r"ITEM\s*7\.?\s*[-–—]?\s*MANAGEMENT['']?S?\s+DISCUSSION[^\n]*\n([\s\S]*?)(?=\nITEM\s*7A\.|\nITEM\s*8\.|\nQUANTITATIVE|$)",
+                r"ITEM\s*7\.?\s*MANAGEMENT['']?S?\s+DISCUSSION\s+AND\s+ANALYSIS[^\n]*\n([\s\S]*?)(?=\nITEM\s*7A\.|\nITEM\s*8\.|$)",
+                r"MANAGEMENT['']?S?\s+DISCUSSION\s+AND\s+ANALYSIS\s+OF\s+FINANCIAL[^\n]*\n([\s\S]*?)(?=\nITEM\s*7A\.|\nITEM\s*8\.|\nQUANTITATIVE|$)",
+                r"MD&A[^\n]*\n([\s\S]*?)(?=\nITEM\s*8\.|\nQUANTITATIVE|$)",
             ]
             for pattern in mda_patterns:
-                match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
+                match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.MULTILINE)
                 if match:
                     mda_text = match.group(1).strip()
                     # Increased limit to 35000 chars to capture full MD&A
@@ -402,13 +404,14 @@ class OpenAIService:
                     break
 
             # PRIORITY 3: Extract Item 1A - Risk Factors
+            # Using [\s\S]*? for consistent multiline matching
             risk_patterns = [
-                r"ITEM\s*1A\.?\s*[-–—]?\s*RISK\s+FACTORS[^\n]*\n(.*?)(?=ITEM\s*1B|ITEM\s*2|UNRESOLVED|PROPERTIES|$)",
-                r"ITEM\s*1A\.?\s*RISK\s+FACTORS[^\n]*\n(.*?)(?=ITEM\s*2|PART\s*II|$)",
-                r"RISK\s+FACTORS[^\n]*\n(.*?)(?=ITEM\s*2|ITEM\s*1B|PROPERTIES|$)",
+                r"ITEM\s*1A\.?\s*[-–—]?\s*RISK\s+FACTORS[^\n]*\n([\s\S]*?)(?=\nITEM\s*1B\.|\nITEM\s*2\.|\nUNRESOLVED|\nPROPERTIES|$)",
+                r"ITEM\s*1A\.?\s*RISK\s+FACTORS[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.|\nPART\s*II|$)",
+                r"RISK\s+FACTORS[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.|\nITEM\s*1B\.|\nPROPERTIES|$)",
             ]
             for pattern in risk_patterns:
-                match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
+                match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.MULTILINE)
                 if match:
                     risk_text = match.group(1).strip()
                     # Increased limit to 25000 chars for comprehensive risk coverage
@@ -2661,7 +2664,7 @@ Do not include any additional keys or text outside the JSON object."""
                 elif filing_type_key == "10-Q":
                     quarter = (date_obj.month - 1) // 3 + 1
                     period_suffix = f" (Q{quarter} {year})"
-            except:
+            except (ValueError, TypeError):
                 pass
         summary_title = f"{company_name} {filing_type_label} Filing Summary{period_suffix}"
         
