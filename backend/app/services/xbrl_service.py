@@ -10,24 +10,31 @@ logger = logging.getLogger(__name__)
 # Comprehensive list of revenue field names used by major companies
 # Defined at module level for performance (avoid recreating on each call)
 REVENUE_FIELD_NAMES = [
-    # Standard revenue fields
+    # Standard revenue fields (most common)
     "Revenues",
+    "Revenue",  # Singular form used by some companies
     "RevenueFromContractWithCustomerExcludingAssessedTax",
     "SalesRevenueNet",
     "RevenueFromContractWithCustomer",
     # Net revenue variations
     "NetRevenues",
+    "NetSales",  # Common for retail/consumer goods (Walmart, Target)
     "TotalRevenue",
     "TotalRevenues",
     "TotalNetRevenues",
+    "TotalNetSales",
     # Product/Service breakdowns (sometimes used as primary)
     "SalesRevenueGoodsNet",
     "SalesRevenueServicesNet",
     "RevenueFromSalesOfGoods",
     "RevenueFromServices",
+    "SalesRevenueProductsAndServices",
     # Other variations used by specific industries
     "OperatingRevenue",
     "RegulatedAndUnregulatedOperatingRevenue",
+    # Financial services
+    "InterestAndDividendIncomeOperating",
+    "RevenuesNetOfInterestExpense",
 ]
 
 
