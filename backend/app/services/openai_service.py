@@ -425,14 +425,15 @@ class OpenAIService:
             # TOC entries have short text; actual sections have substantial content
             financial_patterns = [
                 # Match Item 1 header with multiple spaces (actual section, not TOC)
-                r"ITEM\s*1\.?\s{2,}(?:CONDENSED\s+)?(?:CONSOLIDATED\s+)?FINANCIAL\s+STATEMENTS[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.?\s{2,}MANAGEMENT|\nITEM\s*2\.)",
+                # PR FEEDBACK FIX: Require \s{2,} in all lookaheads to avoid matching TOC entries
+                r"ITEM\s*1\.?\s{2,}(?:CONDENSED\s+)?(?:CONSOLIDATED\s+)?FINANCIAL\s+STATEMENTS[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.?\s{2,})",
                 # PART I FINANCIAL INFORMATION header
-                r"PART\s*I\s*[-–—]?\s*FINANCIAL\s+INFORMATION[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.?\s{2,}MANAGEMENT|\nITEM\s*2\.)",
+                r"PART\s*I\s*[-–—]?\s*FINANCIAL\s+INFORMATION[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.?\s{2,})",
                 # Direct financial statement headers (these appear in actual content, not TOC)
-                r"CONDENSED\s+CONSOLIDATED\s+STATEMENTS\s+OF\s+OPERATIONS\s+\(Unaudited\)[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.|\nManagement['']?s\s+Discussion)",
-                r"(?:CONDENSED\s+)?CONSOLIDATED\s+BALANCE\s+SHEETS?\s+\(Unaudited\)[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.|\nManagement['']?s\s+Discussion)",
+                r"CONDENSED\s+CONSOLIDATED\s+STATEMENTS\s+OF\s+OPERATIONS\s+\(Unaudited\)[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.\s{2,}|\nManagement['']?s\s+Discussion)",
+                r"(?:CONDENSED\s+)?CONSOLIDATED\s+BALANCE\s+SHEETS?\s+\(Unaudited\)[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.\s{2,}|\nManagement['']?s\s+Discussion)",
                 # Fallback: Any Financial Statements header with substantial content
-                r"FINANCIAL\s+STATEMENTS[^\n]*\n([\s\S]{1000,}?)(?=\nITEM\s*2\.|\nManagement['']?s\s+Discussion|$)",
+                r"FINANCIAL\s+STATEMENTS[^\n]*\n([\s\S]{1000,}?)(?=\nITEM\s*2\.\s{2,}|\nManagement['']?s\s+Discussion|$)",
             ]
             for pattern in financial_patterns:
                 match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
@@ -471,11 +472,12 @@ class OpenAIService:
                 # Primary: Match "Item 2.    Management's Discussion" with spaces (not newlines) between
                 r"ITEM\s*2\.?\s{2,}MANAGEMENT['']?S?\s+DISCUSSION[^\n]*\n([\s\S]*?)(?=\nITEM\s*3\.?\s{2,}|\nITEM\s*4\.?\s{2,}|\nQUANTITATIVE|\nCONTROLS|\nPART\s*II|$)",
                 # Secondary: Match with any whitespace but require substantial content after header
-                r"ITEM\s*2\.?[^\n]*MANAGEMENT['']?S?\s+DISCUSSION\s+AND\s+ANALYSIS[^\n]*\n([\s\S]{500,}?)(?=\nITEM\s*3\.|\nITEM\s*4\.|\nPART\s*II|$)",
+                # PR FEEDBACK FIX: Require \s{2,} after item numbers in lookaheads
+                r"ITEM\s*2\.?[^\n]*MANAGEMENT['']?S?\s+DISCUSSION\s+AND\s+ANALYSIS[^\n]*\n([\s\S]{500,}?)(?=\nITEM\s*3\.\s{2,}|\nITEM\s*4\.\s{2,}|\nPART\s*II|$)",
                 # Tertiary: Direct MD&A header (no Item number prefix)
-                r"MANAGEMENT['']?S?\s+DISCUSSION\s+AND\s+ANALYSIS\s+OF\s+FINANCIAL\s+CONDITION[^\n]*\n([\s\S]{500,}?)(?=\nITEM\s*3\.|\nQUANTITATIVE|\nCONTROLS|\nPART\s*II|$)",
+                r"MANAGEMENT['']?S?\s+DISCUSSION\s+AND\s+ANALYSIS\s+OF\s+FINANCIAL\s+CONDITION[^\n]*\n([\s\S]{500,}?)(?=\nITEM\s*3\.\s{2,}|\nQUANTITATIVE|\nCONTROLS|\nPART\s*II|$)",
                 # Fallback: More lenient but still require content
-                r"ITEM\s*2\.[^\n]*DISCUSSION[^\n]*\n([\s\S]{500,}?)(?=\nITEM\s*[34]\.|\nPART\s*II|$)",
+                r"ITEM\s*2\.[^\n]*DISCUSSION[^\n]*\n([\s\S]{500,}?)(?=\nITEM\s*[34]\.\s{2,}|\nPART\s*II|$)",
             ]
             for pattern in mda_patterns:
                 match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.MULTILINE)
@@ -495,13 +497,14 @@ class OpenAIService:
             # In 10-Q, Risk Factors are often in PART II, not PART I
             risk_patterns = [
                 # PART II Risk Factors (common in 10-Q)
-                r"PART\s*II[^\n]*\n[\s\S]*?ITEM\s*1A\.?\s{2,}RISK\s+FACTORS[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.|\nITEM\s*3\.|\nITEM\s*[456]\.|\nSIGNATURE|$)",
+                # PR FEEDBACK FIX: Require \s{2,} after item numbers in lookaheads
+                r"PART\s*II[^\n]*\n[\s\S]*?ITEM\s*1A\.?\s{2,}RISK\s+FACTORS[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.\s{2,}|\nITEM\s*3\.\s{2,}|\nITEM\s*[456]\.\s{2,}|\nSIGNATURE|$)",
                 # Standard Item 1A with spacing (actual section, not TOC)
-                r"ITEM\s*1A\.?\s{2,}RISK\s+FACTORS[^\n]*\n([\s\S]{200,}?)(?=\nITEM\s*2\.|\nITEM\s*3\.|\nPART\s*II|$)",
+                r"ITEM\s*1A\.?\s{2,}RISK\s+FACTORS[^\n]*\n([\s\S]{200,}?)(?=\nITEM\s*2\.\s{2,}|\nITEM\s*3\.\s{2,}|\nPART\s*II|$)",
                 # Fallback with content length requirement
-                r"ITEM\s*1A\.[^\n]*RISK\s+FACTORS[^\n]*\n([\s\S]{200,}?)(?=\nITEM\s*[23]\.|\nPART\s*II|$)",
+                r"ITEM\s*1A\.[^\n]*RISK\s+FACTORS[^\n]*\n([\s\S]{200,}?)(?=\nITEM\s*[23]\.\s{2,}|\nPART\s*II|$)",
                 # Direct "Risk Factors" header with substantial content
-                r"\nRISK\s+FACTORS\n([\s\S]{200,}?)(?=\nITEM\s*2\.|\nLEGAL|\nPART\s*II|\nSIGNATURE|$)",
+                r"\nRISK\s+FACTORS\n([\s\S]{200,}?)(?=\nITEM\s*2\.\s{2,}|\nLEGAL|\nPART\s*II|\nSIGNATURE|$)",
             ]
             for pattern in risk_patterns:
                 match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.MULTILINE)

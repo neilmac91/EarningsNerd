@@ -7,6 +7,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 export default defineConfig({
   plugins: [react()],
+  // Set feature flags for tests - tests expect tabbed UI to be available
+  define: {
+    'process.env.NEXT_PUBLIC_ENABLE_SECTION_TABS': JSON.stringify('true'),
+    'process.env.NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS': JSON.stringify('true'),
+  },
   test: {
     environment: 'jsdom',
     globals: true,

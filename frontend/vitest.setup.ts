@@ -1,5 +1,10 @@
 import '@testing-library/jest-dom/vitest'
 
+// Enable feature flags for tests to ensure tabbed UI is available
+// Tests were written expecting the tabbed interface
+process.env.NEXT_PUBLIC_ENABLE_SECTION_TABS = 'true'
+process.env.NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS = 'true'
+
 class ResizeObserverMock {
   observe() {}
   unobserve() {}

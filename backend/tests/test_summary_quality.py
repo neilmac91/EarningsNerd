@@ -144,14 +144,15 @@ class TestCoverageQualityGate:
 
     def test_full_coverage(self):
         """All sections populated should return full coverage."""
+        # NOTE: Content must be >20 chars and not contain placeholder patterns
         summary_data = {
-            "business_overview": "Apple Inc. designs and manufactures...",
-            "financial_highlights": {"revenue": 94000000000},
-            "risk_factors": [{"title": "Competition", "summary": "..."}],
-            "management_discussion": "Management's discussion...",
-            "key_changes": "Year-over-year changes...",
-            "forward_guidance": "Management expects...",
-            "additional_disclosures": "Other disclosures...",
+            "business_overview": "Apple Inc. designs, manufactures, and markets smartphones, personal computers, tablets, and accessories worldwide.",
+            "financial_highlights": {"revenue": 94000000000, "notes": "Revenue increased 15% YoY driven by strong Services growth."},
+            "risk_factors": [{"title": "Competition", "summary": "The markets for the Company products are highly competitive with many well-established players."}],
+            "management_discussion": "Management's discussion and analysis of financial condition and results of operations for Q4 2024.",
+            "key_changes": "Year-over-year changes include higher R&D investment and expanded manufacturing capacity in Asia.",
+            "forward_guidance": "Management expects revenue growth of 10-15% in the next fiscal year based on current demand trends.",
+            "additional_disclosures": "Other disclosures include related party transactions and subsequent events affecting the financial statements.",
         }
 
         covered, total, covered_sections, missing = calculate_section_coverage(summary_data)
@@ -161,10 +162,11 @@ class TestCoverageQualityGate:
 
     def test_minimum_coverage_met(self):
         """Minimum coverage (3/7) should be detected."""
+        # NOTE: Content must be >20 chars and not contain placeholder patterns
         summary_data = {
-            "business_overview": "Company overview...",
-            "financial_highlights": {"revenue": 94000000000},
-            "risk_factors": [{"title": "Risk 1"}],
+            "business_overview": "Company overview for fiscal year 2024 including detailed analysis of market position and competitive landscape.",
+            "financial_highlights": {"revenue": 94000000000, "notes": "Revenue growth accelerated in Q4."},
+            "risk_factors": [{"title": "Risk 1", "summary": "Supply chain constraints may impact production capacity in upcoming quarters."}],
             "management_discussion": None,
             "key_changes": None,
             "forward_guidance": None,
@@ -177,8 +179,9 @@ class TestCoverageQualityGate:
 
     def test_below_minimum_coverage(self):
         """Below minimum coverage should be detected."""
+        # NOTE: Content must be >20 chars and not contain placeholder patterns
         summary_data = {
-            "business_overview": "Overview...",
+            "business_overview": "Apple Inc. is a technology company that designs and manufactures consumer electronics and software.",
             "financial_highlights": None,
             "risk_factors": None,
             "management_discussion": None,
@@ -208,9 +211,10 @@ class TestCoverageQualityGate:
 
     def test_missing_sections_identified(self):
         """Missing sections should be correctly identified."""
+        # NOTE: Content must be >20 chars and not contain placeholder patterns
         summary_data = {
-            "business_overview": "Overview...",
-            "financial_highlights": {"data": "exists"},
+            "business_overview": "Apple Inc. is a technology company that designs, manufactures, and markets consumer electronics worldwide.",
+            "financial_highlights": {"data": "exists", "notes": "Financial data for the fiscal year ending September 2024."},
             "risk_factors": None,
             "management_discussion": None,
             "key_changes": None,
@@ -229,11 +233,12 @@ class TestResultTypeDesignation:
 
     def test_full_result_with_good_coverage(self):
         """Should return 'full' for adequate coverage without errors."""
+        # NOTE: Content must be >20 chars and not contain placeholder patterns
         summary_data = {
-            "business_overview": "Overview...",
-            "financial_highlights": {"revenue": 100},
-            "risk_factors": [{"risk": "data"}],
-            "management_discussion": "MD&A...",
+            "business_overview": "Apple Inc. is a technology company that designs, manufactures, and markets consumer electronics worldwide.",
+            "financial_highlights": {"revenue": 100000000000, "notes": "Revenue increased 12% compared to the prior year quarter."},
+            "risk_factors": [{"risk": "Competition in consumer electronics market remains intense with many well-funded competitors."}],
+            "management_discussion": "Management's discussion and analysis covers results of operations and financial condition for Q4 2024.",
             "key_changes": None,
             "forward_guidance": None,
             "additional_disclosures": None,
@@ -245,8 +250,9 @@ class TestResultTypeDesignation:
 
     def test_partial_result_insufficient_coverage(self):
         """Should return 'partial' for insufficient coverage."""
+        # NOTE: Only 1 section with substantive content (>20 chars)
         summary_data = {
-            "business_overview": "Overview...",
+            "business_overview": "Apple Inc. is a technology company that designs and manufactures consumer electronics globally.",
             "financial_highlights": None,
             "risk_factors": None,
             "management_discussion": None,
@@ -261,14 +267,15 @@ class TestResultTypeDesignation:
 
     def test_partial_result_with_errors(self):
         """Should return 'partial' when errors occurred."""
+        # NOTE: Even with full coverage, errors should result in 'partial'
         summary_data = {
-            "business_overview": "Overview...",
-            "financial_highlights": {"revenue": 100},
-            "risk_factors": [{"risk": "data"}],
-            "management_discussion": "MD&A...",
-            "key_changes": "Changes...",
-            "forward_guidance": "Guidance...",
-            "additional_disclosures": "Disclosures...",
+            "business_overview": "Apple Inc. is a technology company that designs and manufactures consumer electronics globally.",
+            "financial_highlights": {"revenue": 100000000000, "notes": "Revenue increased 12% compared to the prior year."},
+            "risk_factors": [{"risk": "Competition in consumer electronics market remains intense with many competitors."}],
+            "management_discussion": "Management's discussion covers results of operations and financial condition for Q4 2024.",
+            "key_changes": "Changes include higher R&D investment and expanded manufacturing capacity in Asia.",
+            "forward_guidance": "Management expects revenue growth of 10-15% based on current demand trends.",
+            "additional_disclosures": "Other disclosures include related party transactions and subsequent events.",
         }
 
         result_type, reason = determine_result_type(summary_data, had_errors=True)
@@ -277,10 +284,11 @@ class TestResultTypeDesignation:
 
     def test_partial_result_with_timeout(self):
         """Should return 'partial' when timeout occurred."""
+        # NOTE: Content must be >20 chars for sections to be counted
         summary_data = {
-            "business_overview": "Overview...",
-            "financial_highlights": {"revenue": 100},
-            "risk_factors": [{"risk": "data"}],
+            "business_overview": "Apple Inc. is a technology company that designs and manufactures consumer electronics globally.",
+            "financial_highlights": {"revenue": 100000000000, "notes": "Revenue increased 12% compared to the prior year."},
+            "risk_factors": [{"risk": "Competition in consumer electronics market remains intense with many competitors."}],
             "management_discussion": None,
             "key_changes": None,
             "forward_guidance": None,
@@ -385,11 +393,12 @@ class TestSummaryQualityIntegration:
 
     def test_low_quality_summary_detected(self):
         """A low-quality summary should be flagged as partial."""
+        # NOTE: Only 1 section with substantive content - should be below minimum
         summary = {
             "business_overview": None,
             "financial_highlights": None,
             "risk_factors": None,
-            "management_discussion": "Some text.",
+            "management_discussion": "Management's discussion and analysis covers results of operations for Q4 2024.",
             "key_changes": None,
             "forward_guidance": None,
             "additional_disclosures": None,
