@@ -173,15 +173,21 @@ async def generate_summary(
 async def generate_summary_stream(
     filing_id: int,
     request: Request,
+    force: bool = False,
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
-    """Generate AI summary with streaming response (guests allowed)"""
+    """Generate AI summary with streaming response (guests allowed).
+
+    Args:
+        force: If True, delete existing summary and regenerate from scratch.
+               Use this for "Regenerate Analysis" functionality.
+    """
     # Use user ID for authenticated users, IP for guests
     client_host = request.client.host if request.client else "unknown"
     user_id_log = current_user.id if current_user else "Guest"
-    logger.info(f"[stream:{filing_id}] Incoming stream request from {user_id_log} (IP: {client_host})")
-    
+    logger.info(f"[stream:{filing_id}] Incoming stream request from {user_id_log} (IP: {client_host}, force={force})")
+
     rate_limit_key = f"summary:{current_user.id}" if current_user else f"summary:guest:{client_host}"
 
     enforce_rate_limit(
@@ -195,22 +201,41 @@ async def generate_summary_stream(
         joinedload(Filing.content_cache),
         joinedload(Filing.company)
     ).filter(Filing.id == filing_id).first()
-    
+
     if not filing:
         raise HTTPException(status_code=404, detail="Filing not found")
-    
+
     # Check if summary already exists
     summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
     if summary:
-        # Return existing summary as JSON
-        async def existing_summary():
-            payload = {
-                'type': 'complete',
-                'summary': summary.business_overview,
-                'summary_id': summary.id,
-            }
-            yield f"data: {json.dumps(payload)}\n\n"
-        return StreamingResponse(existing_summary(), media_type="text/event-stream")
+        if force:
+            # Force regeneration: delete existing summary and related data
+            logger.info(f"[stream:{filing_id}] Force regeneration requested - deleting existing summary")
+            db.delete(summary)
+
+            # Also clear XBRL data to get fresh data
+            if filing.xbrl_data is not None:
+                filing.xbrl_data = None
+                logger.info(f"[stream:{filing_id}] Cleared XBRL data for regeneration")
+
+            # Clear progress record
+            progress = db.query(SummaryGenerationProgress).filter(
+                SummaryGenerationProgress.filing_id == filing_id
+            ).first()
+            if progress:
+                db.delete(progress)
+
+            db.commit()
+        else:
+            # Return existing summary as JSON
+            async def existing_summary():
+                payload = {
+                    'type': 'complete',
+                    'summary': summary.business_overview,
+                    'summary_id': summary.id,
+                }
+                yield f"data: {json.dumps(payload)}\n\n"
+            return StreamingResponse(existing_summary(), media_type="text/event-stream")
 
     # Removed blocking synchronous DB query here. Filing existence is checked inside stream_summary.
     # Removed caching of company data and filing attributes here. These will be fetched inside stream_summary.
