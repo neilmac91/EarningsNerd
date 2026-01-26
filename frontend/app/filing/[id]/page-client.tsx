@@ -1118,7 +1118,7 @@ function SummaryDisplay({
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-2">
                   <FileText className="h-6 w-6 text-primary-600" />
-                  <h2 className="text-xl font-semibold text-gray-900">Editorial Summary</h2>
+                  <h2 className="text-xl font-semibold text-gray-900">Summary</h2>
                 </div>
                 {/* Retry button - shown for partial results or fallback summaries */}
                 {(isPartial || writerFallback) && onRetry && (

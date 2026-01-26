@@ -173,8 +173,7 @@ def generate_xbrl_summary(
     filing_type = (filing_type or "10-Q").upper()
 
     # Defaults
-    business_overview = f"## Quick Summary for {company_name}\n\n"
-    business_overview += "The full AI analysis is taking longer than expected. Here is a preliminary overview based on available filing data.\n\n"
+    business_overview = f"## {company_name} {filing_type} Summary\n\n"
 
     # Extract metrics if available
     metrics_summary = []
@@ -206,56 +205,80 @@ def generate_xbrl_summary(
     else:
         business_overview += "Financial metrics are being processed.\n\n"
 
-    business_overview += "> **Note:** This is a partial summary. You can retry generating the full analysis below."
+    business_overview += "_Click 'Regenerate Analysis' for the full AI-powered insights._"
 
     # ALWAYS provide financial_highlights with meaningful structure
     if has_xbrl_data:
         revenue = xbrl_data.get('revenue', {}).get('current', {})
         net_income = xbrl_data.get('net_income', {}).get('current', {})
+        eps = xbrl_data.get('earnings_per_share', {}).get('current', {})
+        prior_revenue = xbrl_data.get('revenue', {}).get('prior', {})
+        prior_net_income = xbrl_data.get('net_income', {}).get('prior', {})
+
+        table_rows = []
+
+        # Revenue row
+        rev_current = format_currency(revenue.get('value'))
+        rev_prior = format_currency(prior_revenue.get('value')) if prior_revenue.get('value') else "—"
+        rev_commentary = "Full comparison available in detailed analysis." if rev_current == "Not disclosed" else f"Period from XBRL data"
+        table_rows.append({
+            "metric": "Revenue",
+            "current_period": rev_current,
+            "prior_period": rev_prior,
+            "change": "—",
+            "commentary": rev_commentary
+        })
+
+        # Net Income row
+        ni_current = format_currency(net_income.get('value'))
+        ni_prior = format_currency(prior_net_income.get('value')) if prior_net_income.get('value') else "—"
+        ni_commentary = "Full comparison available in detailed analysis." if ni_current == "Not disclosed" else f"Prior period from XBRL"
+        table_rows.append({
+            "metric": "Net Income",
+            "current_period": ni_current,
+            "prior_period": ni_prior,
+            "change": "—",
+            "commentary": ni_commentary
+        })
+
+        # EPS row if available
+        if eps.get('value') is not None:
+            table_rows.append({
+                "metric": "EPS (Basic)",
+                "current_period": f"${eps.get('value'):.2f}" if eps.get('value') else "—",
+                "prior_period": "—",
+                "change": "—",
+                "commentary": f"Period: {eps.get('period', 'N/A')}"
+            })
+
         financial_highlights = {
-            "table": [
-                {
-                    "metric": "Revenue",
-                    "current_period": format_currency(revenue.get('value')),
-                    "prior_period": "Pending analysis",
-                    "change": "Pending",
-                    "commentary": "Full comparison available in detailed analysis."
-                },
-                {
-                    "metric": "Net Income",
-                    "current_period": format_currency(net_income.get('value')),
-                    "prior_period": "Pending analysis",
-                    "change": "Pending",
-                    "commentary": "Full comparison available in detailed analysis."
-                }
-            ],
+            "table": table_rows,
             "profitability": ["Profitability metrics available in full analysis."],
             "cash_flow": ["Cash flow analysis available in full analysis."],
             "balance_sheet": ["Balance sheet metrics available in full analysis."]
         }
     else:
-        # Show clear "Not available" messaging instead of misleading "Loading..."
-        # The user should understand this data isn't coming - they need to retry
+        # Show clear "Not available" messaging
         financial_highlights = {
             "table": [
                 {
                     "metric": "Revenue",
-                    "current_period": "Not available",
-                    "prior_period": "Not available",
+                    "current_period": "—",
+                    "prior_period": "—",
                     "change": "—",
-                    "commentary": "XBRL data unavailable. Retry for full financial analysis."
+                    "commentary": "Regenerate for financial data"
                 },
                 {
                     "metric": "Net Income",
-                    "current_period": "Not available",
-                    "prior_period": "Not available",
+                    "current_period": "—",
+                    "prior_period": "—",
                     "change": "—",
-                    "commentary": "XBRL data unavailable. Retry for full financial analysis."
+                    "commentary": "Regenerate for financial data"
                 }
             ],
-            "profitability": ["Financial metrics not available in this partial summary. Retry for complete analysis."],
-            "cash_flow": ["Financial metrics not available in this partial summary. Retry for complete analysis."],
-            "balance_sheet": ["Financial metrics not available in this partial summary. Retry for complete analysis."]
+            "profitability": ["Regenerate analysis for profitability metrics."],
+            "cash_flow": ["Regenerate analysis for cash flow data."],
+            "balance_sheet": ["Regenerate analysis for balance sheet metrics."]
         }
 
     # EXTRACT REAL RISK FACTORS from filing text
