@@ -35,29 +35,91 @@ HIDEABLE_SECTIONS = [
 def calculate_section_coverage(summary_data: Dict[str, Any]) -> Tuple[int, int, List[str], List[str]]:
     """Calculate section coverage for a summary.
 
+    CRITICAL FIX: Properly detect placeholder/failure content that shouldn't count as "covered".
+    The AI may return text like "Not Disclosed" which passes basic non-empty checks
+    but represents a failure state, not actual content.
+
     Returns:
         Tuple of (covered_count, total_count, covered_sections, missing_sections)
     """
+    # Placeholder patterns that indicate failure, NOT success
+    PLACEHOLDER_PATTERNS = [
+        "not disclosed", "not available", "unavailable", "n/a",
+        "not found", "not provided", "no data", "could not",
+        "unable to", "failed to", "missing", "pending",
+        "being processed", "retry", "error",
+    ]
+
+    def _has_substantive_content(data: Any) -> bool:
+        """Check if data contains actual substantive content, not placeholders."""
+        if data is None:
+            return False
+
+        if isinstance(data, str):
+            text = data.strip().lower()
+            if not text or len(text) < 20:
+                return False
+            # Check for placeholder patterns
+            for pattern in PLACEHOLDER_PATTERNS:
+                if pattern in text and len(text) < 200:
+                    # Short text containing placeholder = not substantive
+                    return False
+            return True
+
+        if isinstance(data, list):
+            # For lists (like risk_factors), check if any item has real content
+            if not data:
+                return False
+            for item in data:
+                if isinstance(item, dict):
+                    # Check if dict has substantive string values
+                    for val in item.values():
+                        if isinstance(val, str) and len(val.strip()) > 20:
+                            text_lower = val.strip().lower()
+                            has_placeholder = any(p in text_lower for p in PLACEHOLDER_PATTERNS)
+                            if not has_placeholder:
+                                return True
+                elif isinstance(item, str) and len(item.strip()) > 20:
+                    return True
+            return False
+
+        if isinstance(data, dict):
+            # For dicts (like financial_highlights), check for substantive nested data
+            if not data:
+                return False
+            # Check common nested fields
+            for key in ["table", "notes", "summary", "content"]:
+                if key in data:
+                    if _has_substantive_content(data[key]):
+                        return True
+            # Check all values
+            for val in data.values():
+                if isinstance(val, str) and len(val.strip()) > 50:
+                    text_lower = val.strip().lower()
+                    has_placeholder = any(p in text_lower for p in PLACEHOLDER_PATTERNS)
+                    if not has_placeholder:
+                        return True
+                elif isinstance(val, (list, dict)) and val:
+                    if _has_substantive_content(val):
+                        return True
+            return False
+
+        return False
+
     total_sections = len(HIDEABLE_SECTIONS)
     covered_sections = []
     missing_sections = []
 
     for section in HIDEABLE_SECTIONS:
-        # Check if section has substantive data
         section_data = summary_data.get(section)
-
-        # Consider a section "covered" if it has non-empty, non-null data
-        is_covered = False
-        if section_data is not None:
-            if isinstance(section_data, str) and section_data.strip():
-                is_covered = True
-            elif isinstance(section_data, (list, dict)) and section_data:
-                is_covered = True
+        is_covered = _has_substantive_content(section_data)
 
         if is_covered:
             covered_sections.append(section)
         else:
             missing_sections.append(section)
+            logger.debug(f"Section '{section}' not covered: {type(section_data).__name__}, "
+                        f"sample: {str(section_data)[:100] if section_data else 'None'}")
 
     return len(covered_sections), total_sections, covered_sections, missing_sections
 

@@ -275,9 +275,17 @@ class XBRLService:
             result = None
 
         finally:
-            # Always cache the result (success, failure, or None) to avoid repeated lookups
-            _xbrl_cache[cache_key] = (datetime.now(), result)
-            logger.debug(f"XBRL cached for {cache_key} (result: {'found' if result else 'none'})")
+            # Only cache successful results for 24 hours
+            # CRITICAL FIX: Do NOT cache None/failure results for 24 hours!
+            # This was causing persistent failures where a transient SEC API issue
+            # would block all retries for an entire day.
+            if result is not None:
+                _xbrl_cache[cache_key] = (datetime.now(), result)
+                logger.debug(f"XBRL cached for {cache_key} (result: found)")
+            else:
+                # For failures, don't cache at all - allow immediate retry
+                # This enables the "Retry Full Analysis" button to actually work
+                logger.debug(f"XBRL NOT cached for {cache_key} (result: none - allowing retry)")
 
             # Probabilistic cache cleanup to avoid race conditions in async environments
             # ~1% chance of cleanup when cache has >100 entries
@@ -346,13 +354,18 @@ class XBRLService:
                     logger.debug(f"XBRL filter: found {len(matching)} matches for {normalized_accession}")
                     return matching[:max_items]
                 else:
+                    # CRITICAL FIX: Do NOT fall back to wrong-year data!
+                    # Return empty list instead of data from a different filing period.
+                    # This prevents the bug where Jan 2025 filing shows 2018 revenue data.
                     logger.warning(
                         f"XBRL filter: NO matches for accession {normalized_accession}. "
-                        f"Falling back to most recent {max_items} items. "
+                        f"Returning empty list to avoid wrong-year data. "
                         f"Sample accns in data: {sample_accns}"
                     )
+                    return []
 
-            # Fall back to most recent entries (now correctly sorted)
+            # Only fall back to most recent entries when NO target accession specified
+            # (e.g., for general company lookups, not specific filing analysis)
             return sorted_items[:max_items]
 
         try:
