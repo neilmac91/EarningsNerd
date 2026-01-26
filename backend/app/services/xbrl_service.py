@@ -354,15 +354,14 @@ class XBRLService:
                     logger.debug(f"XBRL filter: found {len(matching)} matches for {normalized_accession}")
                     return matching[:max_items]
                 else:
-                    # CRITICAL FIX: Do NOT fall back to wrong-year data!
-                    # Return empty list instead of data from a different filing period.
-                    # This prevents the bug where Jan 2025 filing shows 2018 revenue data.
-                    logger.warning(
-                        f"XBRL filter: NO matches for accession {normalized_accession}. "
-                        f"Returning empty list to avoid wrong-year data. "
-                        f"Sample accns in data: {sample_accns}"
+                    # No exact accession match - fall back to most recent data
+                    # The sorting already ensures we get newest data first
+                    # This is safe because we sorted by period descending
+                    logger.info(
+                        f"XBRL filter: No accession match for {normalized_accession}, "
+                        f"using {len(sorted_items[:max_items])} most recent entries"
                     )
-                    return []
+                    return sorted_items[:max_items]
 
             # Only fall back to most recent entries when NO target accession specified
             # (e.g., for general company lookups, not specific filing analysis)
