@@ -421,22 +421,32 @@ class OpenAIService:
         elif filing_type_key == "10-Q":
             # PRIORITY 1: Extract Item 1 - Financial Statements (MOST CRITICAL for metrics)
             # This is where revenue, net income, EPS, and cash flow data lives!
-            # FIXED: Use more specific lookaheads to avoid matching "MANAGEMENT" in content
+            # CRITICAL FIX: Avoid matching Table of Contents entries
+            # TOC entries have short text; actual sections have substantial content
             financial_patterns = [
-                # Match Item 1 header, capture everything until Item 2 header
-                r"ITEM\s*1\.?\s*[-–—]?\s*(?:CONDENSED\s+)?(?:CONSOLIDATED\s+)?FINANCIAL\s+STATEMENTS[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.?\s*[-–—]?\s*MANAGEMENT|\nITEM\s*2\.)",
-                r"PART\s*I\s*[-–—]?\s*FINANCIAL\s+INFORMATION[^\n]*\n[\s\S]*?ITEM\s*1\.?[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.?\s*[-–—]?\s*MANAGEMENT|\nITEM\s*2\.)",
-                r"CONDENSED\s+CONSOLIDATED\s+STATEMENTS\s+OF\s+(?:OPERATIONS|INCOME)[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.?\s*[-–—]?\s*MANAGEMENT|\nITEM\s*2\.)",
-                r"(?:CONDENSED\s+)?CONSOLIDATED\s+BALANCE\s+SHEETS?[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.?\s*[-–—]?\s*MANAGEMENT|\nITEM\s*2\.)",
-                r"FINANCIAL\s+STATEMENTS[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.?\s*[-–—]?\s*MANAGEMENT|\nITEM\s*2\.)",
+                # Match Item 1 header with multiple spaces (actual section, not TOC)
+                # PR FEEDBACK FIX: Require \s{2,} in all lookaheads to avoid matching TOC entries
+                r"ITEM\s*1\.?\s{2,}(?:CONDENSED\s+)?(?:CONSOLIDATED\s+)?FINANCIAL\s+STATEMENTS[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.?\s{2,})",
+                # PART I FINANCIAL INFORMATION header
+                r"PART\s*I\s*[-–—]?\s*FINANCIAL\s+INFORMATION[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.?\s{2,})",
+                # Direct financial statement headers (these appear in actual content, not TOC)
+                r"CONDENSED\s+CONSOLIDATED\s+STATEMENTS\s+OF\s+OPERATIONS\s+\(Unaudited\)[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.\s{2,}|\nManagement['']?s\s+Discussion)",
+                r"(?:CONDENSED\s+)?CONSOLIDATED\s+BALANCE\s+SHEETS?\s+\(Unaudited\)[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.\s{2,}|\nManagement['']?s\s+Discussion)",
+                # Fallback: Any Financial Statements header with substantial content
+                r"FINANCIAL\s+STATEMENTS[^\n]*\n([\s\S]{1000,}?)(?=\nITEM\s*2\.\s{2,}|\nManagement['']?s\s+Discussion|$)",
             ]
             for pattern in financial_patterns:
                 match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
                 if match:
                     financial_text = match.group(1).strip()
-                    # 35000 chars to capture full condensed financial statements + notes
-                    critical_sections.append(f"ITEM 1 - FINANCIAL STATEMENTS:\n{financial_text[:35000]}")
-                    break
+                    # Verify this isn't a TOC entry (actual financial statements are long)
+                    if len(financial_text) > 500:
+                        # 35000 chars to capture full condensed financial statements + notes
+                        critical_sections.append(f"ITEM 1 - FINANCIAL STATEMENTS:\n{financial_text[:35000]}")
+                        logger.info(f"10-Q Financial Statements extraction: captured {len(financial_text):,} chars")
+                        break
+                    else:
+                        logger.debug(f"10-Q Financial: skipping short match ({len(financial_text)} chars) - likely TOC entry")
 
             # If no financial statements found via patterns, try to find the actual tables
             if not any("FINANCIAL STATEMENTS" in s for s in critical_sections):
@@ -454,33 +464,60 @@ class OpenAIService:
                         break
 
             # PRIORITY 2: Extract Item 2 - MD&A (narrative context for financials)
-            # FIXED: Use [\s\S]*? for multiline matching and more specific lookaheads
+            # CRITICAL FIX: Patterns must avoid matching Table of Contents entries
+            # TOC format: "Item 2.\nManagement's Discussion...\n12" (with line breaks)
+            # Actual format: "Item 2.    Management's Discussion..." (on same line, with spaces/tabs)
+            # Use [^\n]+ after Item header to ensure we match actual section, not TOC
             mda_patterns = [
-                r"ITEM\s*2\.?\s*[-–—]?\s*MANAGEMENT['']?S?\s+DISCUSSION[^\n]*\n([\s\S]*?)(?=\nITEM\s*3\.?\s*[-–—]?|\nITEM\s*4\.?\s*[-–—]?|\nQUANTITATIVE|\nCONTROLS|$)",
-                r"ITEM\s*2\.?\s*MANAGEMENT['']?S?\s+DISCUSSION\s+AND\s+ANALYSIS[^\n]*\n([\s\S]*?)(?=\nITEM\s*3\.|\nITEM\s*4\.|$)",
-                r"MANAGEMENT['']?S?\s+DISCUSSION\s+AND\s+ANALYSIS\s+OF\s+FINANCIAL[^\n]*\n([\s\S]*?)(?=\nITEM\s*3\.|\nQUANTITATIVE|\nCONTROLS|$)",
+                # Primary: Match "Item 2.    Management's Discussion" with spaces (not newlines) between
+                r"ITEM\s*2\.?\s{2,}MANAGEMENT['']?S?\s+DISCUSSION[^\n]*\n([\s\S]*?)(?=\nITEM\s*3\.?\s{2,}|\nITEM\s*4\.?\s{2,}|\nQUANTITATIVE|\nCONTROLS|\nPART\s*II|$)",
+                # Secondary: Match with any whitespace but require substantial content after header
+                # PR FEEDBACK FIX: Require \s{2,} after item numbers in lookaheads
+                r"ITEM\s*2\.?[^\n]*MANAGEMENT['']?S?\s+DISCUSSION\s+AND\s+ANALYSIS[^\n]*\n([\s\S]{500,}?)(?=\nITEM\s*3\.\s{2,}|\nITEM\s*4\.\s{2,}|\nPART\s*II|$)",
+                # Tertiary: Direct MD&A header (no Item number prefix)
+                r"MANAGEMENT['']?S?\s+DISCUSSION\s+AND\s+ANALYSIS\s+OF\s+FINANCIAL\s+CONDITION[^\n]*\n([\s\S]{500,}?)(?=\nITEM\s*3\.\s{2,}|\nQUANTITATIVE|\nCONTROLS|\nPART\s*II|$)",
+                # Fallback: More lenient but still require content
+                r"ITEM\s*2\.[^\n]*DISCUSSION[^\n]*\n([\s\S]{500,}?)(?=\nITEM\s*[34]\.\s{2,}|\nPART\s*II|$)",
             ]
             for pattern in mda_patterns:
                 match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.MULTILINE)
                 if match:
                     mda_text = match.group(1).strip()
-                    # Increased to 30000 chars for comprehensive MD&A coverage
-                    critical_sections.append(f"ITEM 2 - MANAGEMENT'S DISCUSSION AND ANALYSIS:\n{mda_text[:30000]}")
-                    break
+                    # Verify this isn't a TOC entry (TOC entries are short, actual content is long)
+                    if len(mda_text) > 200:
+                        # Increased to 30000 chars for comprehensive MD&A coverage
+                        critical_sections.append(f"ITEM 2 - MANAGEMENT'S DISCUSSION AND ANALYSIS:\n{mda_text[:30000]}")
+                        logger.info(f"10-Q MD&A extraction: captured {len(mda_text):,} chars")
+                        break
+                    else:
+                        logger.debug(f"10-Q MD&A: skipping short match ({len(mda_text)} chars) - likely TOC entry")
 
             # PRIORITY 3: Extract Item 1A - Risk Factors (if present - not always in 10-Q)
-            # FIXED: Use [\s\S]*? for multiline matching
+            # CRITICAL FIX: Avoid matching TOC entries (short text with page numbers)
+            # In 10-Q, Risk Factors are often in PART II, not PART I
             risk_patterns = [
-                r"ITEM\s*1A\.?\s*[-–—]?\s*RISK\s+FACTORS[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.|\nITEM\s*3\.|\nPART\s*II|$)",
-                r"RISK\s+FACTORS[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.|\nLEGAL|\nPART\s*II|$)",
+                # PART II Risk Factors (common in 10-Q)
+                # PR FEEDBACK FIX: Require \s{2,} after item numbers in lookaheads
+                r"PART\s*II[^\n]*\n[\s\S]*?ITEM\s*1A\.?\s{2,}RISK\s+FACTORS[^\n]*\n([\s\S]*?)(?=\nITEM\s*2\.\s{2,}|\nITEM\s*3\.\s{2,}|\nITEM\s*[456]\.\s{2,}|\nSIGNATURE|$)",
+                # Standard Item 1A with spacing (actual section, not TOC)
+                r"ITEM\s*1A\.?\s{2,}RISK\s+FACTORS[^\n]*\n([\s\S]{200,}?)(?=\nITEM\s*2\.\s{2,}|\nITEM\s*3\.\s{2,}|\nPART\s*II|$)",
+                # Fallback with content length requirement
+                r"ITEM\s*1A\.[^\n]*RISK\s+FACTORS[^\n]*\n([\s\S]{200,}?)(?=\nITEM\s*[23]\.\s{2,}|\nPART\s*II|$)",
+                # Direct "Risk Factors" header with substantial content
+                r"\nRISK\s+FACTORS\n([\s\S]{200,}?)(?=\nITEM\s*2\.\s{2,}|\nLEGAL|\nPART\s*II|\nSIGNATURE|$)",
             ]
             for pattern in risk_patterns:
                 match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.MULTILINE)
                 if match:
                     risk_text = match.group(1).strip()
-                    # 15000 chars for 10-Q risk factors (usually shorter than 10-K)
-                    critical_sections.append(f"ITEM 1A - RISK FACTORS:\n{risk_text[:15000]}")
-                    break
+                    # Verify this isn't a TOC entry
+                    if len(risk_text) > 100:
+                        # 15000 chars for 10-Q risk factors (usually shorter than 10-K)
+                        critical_sections.append(f"ITEM 1A - RISK FACTORS:\n{risk_text[:15000]}")
+                        logger.info(f"10-Q Risk Factors extraction: captured {len(risk_text):,} chars")
+                        break
+                    else:
+                        logger.debug(f"10-Q Risk Factors: skipping short match ({len(risk_text)} chars) - likely TOC entry")
 
         # Combine all critical sections
         if critical_sections:

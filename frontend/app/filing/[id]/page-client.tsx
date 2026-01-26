@@ -22,6 +22,7 @@ import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import { isAxiosError } from 'axios'
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
 import analytics from '@/lib/analytics'
+import { ENABLE_FINANCIAL_CHARTS } from '@/lib/featureFlags'
 
 // --- Constants ---
 
@@ -1176,9 +1177,12 @@ function SummaryDisplay({
                 metrics={metadata.financial_highlights.table}
                 notes={metadata.financial_highlights.notes}
               />
-              <ChartErrorBoundary>
-                <FinancialCharts metrics={metadata.financial_highlights.table} />
-              </ChartErrorBoundary>
+              {/* Charts controlled by feature flag - hidden by default */}
+              {ENABLE_FINANCIAL_CHARTS && (
+                <ChartErrorBoundary>
+                  <FinancialCharts metrics={metadata.financial_highlights.table} />
+                </ChartErrorBoundary>
+              )}
             </>
           )}
 

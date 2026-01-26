@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
 import { FileText, TrendingUp, AlertTriangle, Building2, BarChart3 } from 'lucide-react'
 import type { RiskFactor, MetricItem } from '../types/summary'
 import { renderMarkdownValue, getAccordionContent, normalizeRisk } from '../lib/formatters'
@@ -11,6 +12,7 @@ import { SummaryMDA } from '@/features/filings/components/SummaryMDA'
 import { SummaryGuidance } from '@/features/filings/components/SummaryGuidance'
 import { SummaryLiquidity } from '@/features/filings/components/SummaryLiquidity'
 import { SummaryTrends } from '@/features/filings/components/SummaryTrends'
+import { ENABLE_SECTION_TABS } from '@/lib/featureFlags'
 
 interface RawSummaryData {
   sections?: Record<string, unknown>
@@ -242,6 +244,76 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
     }
   }
 
+  // Get the full summary content for simplified view
+  const getSimplifiedSummaryContent = (): string => {
+    // Priority: executive_snapshot > business_overview > raw markdown from any available section
+    if (sections.executive_snapshot) {
+      const content = renderMarkdownValue(sections.executive_snapshot)
+      if (content && !isPlaceholderText(content)) {
+        return content
+      }
+    }
+
+    if (summary.business_overview && !isPlaceholderText(summary.business_overview)) {
+      return summary.business_overview
+    }
+
+    // Fallback: try to extract from management discussion
+    if (sections.management_discussion_insights) {
+      const mdaContent = getAccordionContent(sections.management_discussion_insights)
+      if (mdaContent && !isPlaceholderText(mdaContent)) {
+        return mdaContent
+      }
+    }
+
+    return 'Summary is being generated. Please retry for full analysis.'
+  }
+
+  // SIMPLIFIED VIEW: Single markdown summary (when ENABLE_SECTION_TABS is false)
+  if (!ENABLE_SECTION_TABS) {
+    const summaryContent = getSimplifiedSummaryContent()
+
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="border-b border-slate-200 px-6 py-4">
+          <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+            <FileText className="h-5 w-5 text-emerald-600" />
+            AI Analysis
+          </h2>
+        </div>
+        <div className="p-6">
+          <div className="prose prose-slate prose-sm max-w-none">
+            <ReactMarkdown
+              components={{
+                h1: ({ children }) => <h1 className="text-xl font-bold text-slate-900 mt-6 mb-3">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-lg font-semibold text-slate-800 mt-5 mb-2">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-base font-medium text-slate-700 mt-4 mb-2">{children}</h3>,
+                p: ({ children }) => <p className="text-slate-600 mb-3 leading-relaxed">{children}</p>,
+                ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
+                ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
+                li: ({ children }) => <li className="text-slate-600">{children}</li>,
+                strong: ({ children }) => <strong className="font-semibold text-slate-800">{children}</strong>,
+                table: ({ children }) => (
+                  <div className="overflow-x-auto my-4">
+                    <table className="min-w-full divide-y divide-slate-200 border border-slate-200 rounded-lg">
+                      {children}
+                    </table>
+                  </div>
+                ),
+                thead: ({ children }) => <thead className="bg-slate-50">{children}</thead>,
+                th: ({ children }) => <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">{children}</th>,
+                td: ({ children }) => <td className="px-4 py-3 text-sm text-slate-600 border-t border-slate-100">{children}</td>,
+              }}
+            >
+              {summaryContent}
+            </ReactMarkdown>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // LEGACY TABBED VIEW: Original multi-section UI (when ENABLE_SECTION_TABS is true)
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
       {/* Scrollable Tabs Container */}

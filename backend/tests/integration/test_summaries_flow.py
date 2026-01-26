@@ -72,16 +72,17 @@ async def test_generate_summary_background_success():
         mock_xbrl.get_xbrl_data = AsyncMock(return_value=None) # Skip XBRL for simplicity
         
         # Mock OpenAI Response
+        # NOTE: Content must be >20 chars and not contain placeholder patterns for coverage calculation
         mock_summary_data = {
             "status": "complete",
-            "business_overview": "Overview text",
-            "financial_highlights": {"revenue": "1B"},
-            "risk_factors": [{"summary": "Risk 1", "supporting_evidence": "Evidence 1"}],
-            "management_discussion": "MD&A text",
-            "key_changes": "Changes text",
+            "business_overview": "Apple Inc. is a technology company that designs, manufactures, and markets consumer electronics worldwide.",
+            "financial_highlights": {"revenue": "1B", "notes": "Revenue increased 12% compared to the prior year quarter."},
+            "risk_factors": [{"summary": "Supply chain constraints may impact production capacity in upcoming quarters.", "supporting_evidence": "Item 1A discusses semiconductor supply issues."}],
+            "management_discussion": "Management's discussion and analysis covers results of operations and financial condition for Q4 2024.",
+            "key_changes": "Changes include higher R&D investment and expanded manufacturing capacity in Asia.",
             "raw_summary": {
-                "sections": {"financial_highlights": {}},
-                "section_coverage": {"covered_count": 5, "total_count": 5}
+                "sections": {"financial_highlights": {"notes": "Revenue increased 12% compared to the prior year."}},
+                "section_coverage": {"covered_count": 5, "total_count": 7}
             }
         }
         mock_openai.summarize_filing = AsyncMock(return_value=mock_summary_data)
@@ -101,7 +102,8 @@ async def test_generate_summary_background_success():
         added_instances = [args[0] for name, args, kwargs in mock_db.add.mock_calls]
         summary_saved = next((obj for obj in added_instances if isinstance(obj, Summary)), None)
         assert summary_saved is not None
-        assert summary_saved.business_overview == "Overview text"
+        # NOTE: business_overview is now longer for coverage requirements
+        assert "Apple Inc." in summary_saved.business_overview
         assert summary_saved.filing_id == filing_id
         
         # 4. Check Commit
