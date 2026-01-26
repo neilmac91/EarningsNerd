@@ -4,12 +4,14 @@ EdgarTools Configuration
 Contains configuration constants and enums for SEC filing operations.
 """
 
+import os
 from enum import Enum
-from typing import List
+from typing import List, Optional
 
 
 # SEC EDGAR identity - required by SEC for API access
-EDGAR_IDENTITY = "neil@earningsnerd.io"
+# Load from environment variable with sensible default
+EDGAR_IDENTITY = os.environ.get("EDGAR_IDENTITY", "neil@earningsnerd.io")
 
 
 class FilingType(str, Enum):
@@ -40,6 +42,9 @@ class FilingType(str, Enum):
     # Institutional Holdings
     FORM_13F = "13F-HR"  # Quarterly holdings report
     FORM_13F_AMENDED = "13F-HR/A"
+
+    # Unknown/Other - fallback for unrecognized filing types
+    UNKNOWN = "UNKNOWN"
 
     @property
     def is_annual(self) -> bool:
@@ -75,18 +80,20 @@ class FilingType(str, Enum):
         ]
 
     @classmethod
-    def from_string(cls, value: str) -> "FilingType":
+    def from_string(cls, value: str, strict: bool = True) -> "FilingType":
         """
         Convert a string to FilingType, handling common variations.
 
         Args:
             value: Filing type string (e.g., "10-K", "10K", "10-k")
+            strict: If True, raise ValueError for unknown types.
+                   If False, return UNKNOWN for unrecognized types.
 
         Returns:
             Corresponding FilingType enum
 
         Raises:
-            ValueError: If the string doesn't match any filing type
+            ValueError: If strict=True and the string doesn't match any filing type
         """
         normalized = value.upper().strip()
 
@@ -105,7 +112,9 @@ class FilingType(str, Enum):
             if filing_type.value.upper() == normalized:
                 return filing_type
 
-        raise ValueError(f"Unknown filing type: {value}")
+        if strict:
+            raise ValueError(f"Unknown filing type: {value}")
+        return cls.UNKNOWN
 
 
 # Thread pool configuration for async operations

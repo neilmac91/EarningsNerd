@@ -64,7 +64,12 @@ class SECEdgarServiceCompat:
             )
 
             all_filings = filings_10k + filings_10q
-            all_filings.sort(key=lambda f: f.filing_date, reverse=True)
+            # Sort by date descending, handling None filing_date gracefully
+            from datetime import date as date_type
+            all_filings.sort(
+                key=lambda f: f.filing_date if f.filing_date else date_type.min,
+                reverse=True
+            )
 
             return {
                 "filings": {
@@ -116,8 +121,12 @@ class SECEdgarServiceCompat:
                     logger.warning(f"Unknown filing type: {form_type}")
                     continue
 
-            # Sort by date descending
-            all_filings.sort(key=lambda f: f.filing_date, reverse=True)
+            # Sort by date descending, handling None filing_date gracefully
+            from datetime import date as date_type
+            all_filings.sort(
+                key=lambda f: f.filing_date if f.filing_date else date_type.min,
+                reverse=True
+            )
 
             if limit:
                 all_filings = all_filings[:limit]
@@ -166,16 +175,32 @@ class SECEdgarServiceCompat:
         force_refresh: bool = False,
     ) -> Dict[str, Dict]:
         """
-        Get all company tickers.
+        Get all company tickers from SEC.
 
-        Note: EdgarTools doesn't provide a bulk ticker endpoint.
-        This returns an empty dict - callers should use search instead.
+        Returns a dictionary mapping index to company info:
+        {
+            "0": {"cik_str": "320193", "ticker": "AAPL", "title": "Apple Inc."},
+            ...
+        }
         """
-        logger.warning(
-            "get_company_tickers() is deprecated with EdgarTools. "
-            "Use search_company() for lookups instead."
-        )
-        return {}
+        import httpx
+        from .config import EDGAR_IDENTITY
+
+        # SEC provides a bulk company tickers endpoint
+        tickers_url = "https://www.sec.gov/files/company_tickers.json"
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    tickers_url,
+                    headers={"User-Agent": EDGAR_IDENTITY},
+                    timeout=30.0,
+                )
+                response.raise_for_status()
+                return response.json()
+        except Exception as e:
+            logger.warning(f"Failed to fetch company tickers from SEC: {e}")
+            return {}
 
 
 class XBRLServiceCompat:

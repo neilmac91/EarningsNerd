@@ -425,19 +425,24 @@ class EdgarXBRLService:
 
         return result
 
-    def extract_standardized_metrics(self, xbrl_data: Dict) -> Dict[str, Any]:
+    def extract_standardized_metrics(self, xbrl_data: Optional[Dict]) -> Dict[str, Any]:
         """
         Extract standardized financial metrics from XBRL data.
 
         This method maintains backward compatibility with the legacy interface.
 
         Args:
-            xbrl_data: Raw XBRL data dictionary
+            xbrl_data: Raw XBRL data dictionary (can be None)
 
         Returns:
             Dictionary with standardized metrics including current, prior,
-            change calculations, and series data.
+            change calculations, and series data. Returns empty dict if
+            xbrl_data is None or empty.
         """
+        # Handle None or empty input
+        if not xbrl_data:
+            return {}
+
         def normalise_series(entries: List[Dict]) -> List[Dict]:
             cleaned = []
             seen_periods = set()

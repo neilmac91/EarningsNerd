@@ -164,9 +164,10 @@ class EdgarClient:
                 )
                 filings.extend(form_filings)
 
-            # Sort by filing date descending
+            # Sort by filing date descending, handling None dates gracefully
+            from datetime import date as date_type_sort
             filings.sort(
-                key=lambda f: f.filing_date if f.filing_date else "",
+                key=lambda f: f.filing_date if f.filing_date else date_type_sort.min,
                 reverse=True
             )
 
@@ -367,22 +368,28 @@ class EdgarClient:
         """Transform EdgarTools Filing to our Filing model."""
         from datetime import date as date_type
 
+        # Parse filing date with error handling
         filing_date = edgar_filing.filing_date
         if isinstance(filing_date, str):
-            filing_date = date_type.fromisoformat(filing_date)
+            try:
+                filing_date = date_type.fromisoformat(filing_date)
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid filing date format: {filing_date}")
+                filing_date = None
 
+        # Parse period end date with error handling
         period_end = None
         if hasattr(edgar_filing, 'period_of_report') and edgar_filing.period_of_report:
             period_end = edgar_filing.period_of_report
             if isinstance(period_end, str):
-                period_end = date_type.fromisoformat(period_end)
+                try:
+                    period_end = date_type.fromisoformat(period_end)
+                except (ValueError, TypeError):
+                    logger.warning(f"Invalid period_of_report format: {period_end}")
+                    period_end = None
 
-        # Determine filing type enum
-        try:
-            filing_type = FilingType.from_string(edgar_filing.form)
-        except ValueError:
-            # For unsupported forms, use the raw value
-            filing_type = FilingType.FORM_10K  # Default fallback
+        # Determine filing type enum - use non-strict mode to get UNKNOWN for unrecognized forms
+        filing_type = FilingType.from_string(edgar_filing.form, strict=False)
 
         return Filing(
             accession_number=edgar_filing.accession_number,
@@ -448,11 +455,25 @@ class EdgarClient:
                     value = row[col]
                     if value is not None and not (hasattr(value, '__iter__') and len(value) == 0):
                         try:
-                            # Parse the column as a date
-                            if isinstance(col, str):
-                                period_end = date_type.fromisoformat(col)
-                            else:
+                            # Parse the column as a date with error handling
+                            period_end = None
+                            if isinstance(col, date_type):
                                 period_end = col
+                            elif isinstance(col, str):
+                                try:
+                                    period_end = date_type.fromisoformat(col)
+                                except (ValueError, TypeError):
+                                    logger.debug(f"Skipping metric with unparseable date: {col}")
+                                    continue
+                            else:
+                                # Try to convert to date if it has date-like attributes
+                                if hasattr(col, 'date'):
+                                    period_end = col.date()
+                                else:
+                                    continue
+
+                            if period_end is None:
+                                continue
 
                             metrics.append(FinancialMetric(
                                 name=candidate,
@@ -460,7 +481,8 @@ class EdgarClient:
                                 period_end=period_end,
                                 accession_number=accession_number,
                             ))
-                        except (ValueError, TypeError):
+                        except (ValueError, TypeError) as e:
+                            logger.debug(f"Error extracting metric value: {e}")
                             continue
                 break  # Use first matching candidate
 

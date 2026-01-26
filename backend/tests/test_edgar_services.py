@@ -59,9 +59,18 @@ class TestFilingType:
         assert FilingType.from_string("10K") == FilingType.FORM_10K
         assert FilingType.from_string("10k") == FilingType.FORM_10K
 
-    def test_from_string_invalid(self):
+    def test_from_string_invalid_strict(self):
         with pytest.raises(ValueError):
-            FilingType.from_string("invalid")
+            FilingType.from_string("invalid", strict=True)
+
+    def test_from_string_invalid_non_strict(self):
+        result = FilingType.from_string("invalid", strict=False)
+        assert result == FilingType.UNKNOWN
+
+    def test_unknown_filing_type(self):
+        assert FilingType.UNKNOWN.value == "UNKNOWN"
+        assert FilingType.UNKNOWN.is_annual is False
+        assert FilingType.UNKNOWN.is_quarterly is False
 
 
 class TestCompanyModel:
@@ -258,5 +267,36 @@ class TestBackwardCompatibility:
         # Should have expected methods
         assert hasattr(sec_edgar_service, "search_company")
         assert hasattr(sec_edgar_service, "get_filings")
+        assert hasattr(sec_edgar_service, "get_company_tickers")
         assert hasattr(xbrl_service, "get_xbrl_data")
         assert hasattr(xbrl_service, "extract_standardized_metrics")
+
+
+class TestNullHandling:
+    """Test null/None handling in various services."""
+
+    def test_extract_standardized_metrics_with_none(self):
+        """Test that extract_standardized_metrics handles None input."""
+        from app.services.edgar.xbrl_service import edgar_xbrl_service
+
+        result = edgar_xbrl_service.extract_standardized_metrics(None)
+        assert result == {}
+
+    def test_extract_standardized_metrics_with_empty_dict(self):
+        """Test that extract_standardized_metrics handles empty dict."""
+        from app.services.edgar.xbrl_service import edgar_xbrl_service
+
+        result = edgar_xbrl_service.extract_standardized_metrics({})
+        assert result == {}
+
+
+class TestEdgarConfig:
+    """Test configuration loading."""
+
+    def test_edgar_identity_has_value(self):
+        """Test that EDGAR_IDENTITY is configured."""
+        from app.services.edgar.config import EDGAR_IDENTITY
+
+        assert EDGAR_IDENTITY is not None
+        assert len(EDGAR_IDENTITY) > 0
+        assert "@" in EDGAR_IDENTITY  # Should be an email
