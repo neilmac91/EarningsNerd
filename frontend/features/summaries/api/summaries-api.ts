@@ -74,10 +74,12 @@ export const generateSummaryStream = async (
   onChunk: (chunk: string) => void,
   onProgress: (stage: string, message: string, data?: ProgressData) => void,
   onComplete: (summaryId: number) => void,
-  onError: (error: string) => void
+  onError: (error: string) => void,
+  options?: { force?: boolean }
 ): Promise<void> => {
   const apiUrl = getApiUrl()
-  const url = `${apiUrl}/api/summaries/filing/${filingId}/generate-stream`
+  const forceParam = options?.force ? '?force=true' : ''
+  const url = `${apiUrl}/api/summaries/filing/${filingId}/generate-stream${forceParam}`
 
   const controller = new AbortController()
   const streamStart = performance.now()

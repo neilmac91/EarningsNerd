@@ -278,7 +278,7 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
         <div className="border-b border-slate-200 px-6 py-4">
           <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
             <FileText className="h-5 w-5 text-emerald-600" />
-            AI Analysis
+            Key Takeaways
           </h2>
         </div>
         <div className="p-6">

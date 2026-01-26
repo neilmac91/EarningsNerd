@@ -16,7 +16,6 @@ import { format } from 'date-fns'
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import SubscriptionGate from '@/components/SubscriptionGate'
 import FinancialMetricsTable from '@/components/FinancialMetricsTable'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import { isAxiosError } from 'axios'
@@ -324,7 +323,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   const activeErrorMessage = generationError || summaryErrorMessage
   const debugSummary = searchParams?.get('debug') === '1'
 
-  const handleGenerateSummary = useCallback(async () => {
+  const handleGenerateSummary = useCallback(async (options?: { force?: boolean }) => {
     // Feature flag for auth requirement (default to false implies POC mode/open access)
     const requireAuth = process.env.NEXT_PUBLIC_REQUIRE_AUTH_FOR_SUMMARY === 'true'
 
@@ -339,7 +338,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
     setIsStreaming(true)
     setStreamingText('')
     setStreamingStage('initializing')
-    setStreamingMessage('Initializing AI analysis...')
+    setStreamingMessage(options?.force ? 'Regenerating analysis...' : 'Initializing AI analysis...')
 
     try {
       await generateSummaryStream(
@@ -370,7 +369,8 @@ function FilingDetailView({ filingId }: { filingId: number }) {
           setIsStreaming(false)
           // Reset progress state on error
           setStreamingText('')
-        }
+        },
+        { force: options?.force }
       )
     } catch (error: unknown) {
       const errObj = error as { message?: string }
@@ -383,7 +383,12 @@ function FilingDetailView({ filingId }: { filingId: number }) {
     } finally {
       setIsStreaming(false)
     }
-  }, [filingId, refetch, queryClient])
+  }, [filingId, refetch, queryClient, isAuthenticated])
+
+  // Wrapper for regeneration with force=true
+  const handleRegenerateSummary = useCallback(() => {
+    handleGenerateSummary({ force: true })
+  }, [handleGenerateSummary])
 
   // Auto-generate summary when page loads if no summary exists
   useEffect(() => {
@@ -529,7 +534,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
             message={streamingMessage}
             filing={filing}
             error={generationError}
-            onRetry={handleGenerateSummary}
+            onRetry={handleRegenerateSummary}
             elapsedSeconds={elapsedSeconds}
           />
         ) : summary && hasSummaryContent && filing ? (
@@ -541,7 +546,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
             isSaved={!!isSaved}
             debug={debugSummary}
             isAuthenticated={isAuthenticated}
-            onRetry={handleGenerateSummary}
+            onRetry={handleRegenerateSummary}
           />
         ) : (
           <StreamingSummaryDisplay
@@ -550,7 +555,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
             message={activeErrorMessage || 'Initializing AI analysis...'}
             filing={filing}
             error={activeErrorMessage}
-            onRetry={handleGenerateSummary}
+            onRetry={handleRegenerateSummary}
             elapsedSeconds={0}
           />
         )}
@@ -952,7 +957,6 @@ function SummaryDisplay({
   const fallbackMessage = 'Summary temporarily unavailable — please retry.'
   const writerError = rawSummary?.writer_error
   const writerFallback = rawSummary?.writer?.fallback_used === true
-  const fallbackReason = rawSummary?.writer?.fallback_reason
   const trimmedMarkdown = cleanedMarkdown.trim()
   const isFallbackMessage = trimmedMarkdown === fallbackMessage
   const hasPolishedMarkdown = trimmedMarkdown.length > 0 && !isFallbackMessage && !writerError
@@ -976,15 +980,6 @@ function SummaryDisplay({
   }
 
   const metadata: MetadataSections | null = rawSummary ? (rawSummary.sections as MetadataSections ?? null) : null
-
-  const coverageSnapshot = rawSummary?.section_coverage as
-    | { covered_count?: number; total_count?: number; coverage_ratio?: number }
-    | undefined
-  const hasCoverageSnapshot =
-    !!coverageSnapshot &&
-    typeof coverageSnapshot.covered_count === 'number' &&
-    typeof coverageSnapshot.total_count === 'number' &&
-    coverageSnapshot.total_count > 0
 
   const handleExportPDF = () => {
     const apiUrl = getApiUrl()
@@ -1088,35 +1083,25 @@ function SummaryDisplay({
             )}
           </div>
         )}
-        <SubscriptionGate requirePro={false}>
+        {/* Export buttons - only show for Pro users */}
+        {isPro && (
           <div className="flex flex-wrap items-center gap-3">
-            {isPro ? (
-              <>
-                <button
-                  onClick={handleExportPDF}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Export PDF
-                </button>
-                <button
-                  onClick={handleExportCSV}
-                  className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                >
-                  <FileDown className="h-4 w-4 mr-2" />
-                  Export CSV
-                </button>
-              </>
-            ) : (
-              <Link
-                href="/pricing"
-                className="inline-flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm font-medium"
-              >
-                Upgrade to Export
-              </Link>
-            )}
+            <button
+              onClick={handleExportPDF}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export PDF
+            </button>
+            <button
+              onClick={handleExportCSV}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+            >
+              <FileDown className="h-4 w-4 mr-2" />
+              Export CSV
+            </button>
           </div>
-        </SubscriptionGate>
+        )}
       </div>
 
       {isError ? (
@@ -1133,36 +1118,15 @@ function SummaryDisplay({
                   <FileText className="h-6 w-6 text-primary-600" />
                   <h2 className="text-xl font-semibold text-gray-900">Editorial Summary</h2>
                 </div>
-                <div className="flex items-center space-x-3">
-                  {hasCoverageSnapshot && (
-                    <span className="inline-flex items-center rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-800">
-                      {coverageSnapshot.covered_count}/{coverageSnapshot.total_count} sections populated
-                    </span>
-                  )}
-                  {writerFallback && (
-                    <span className="inline-flex items-center rounded-full border border-amber-400/40 bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-                      Auto-generated summary
-                      {fallbackReason && (
-                        <span className="ml-2 text-amber-600" title={fallbackReason}>
-                          ⚠️
-                        </span>
-                      )}
-                    </span>
-                  )}
-                  {isPartial && (
-                    <span className="inline-flex items-center rounded-full border border-yellow-200 bg-yellow-50 px-3 py-1 text-xs font-medium text-yellow-800">
-                      Partial Result
-                    </span>
-                  )}
-                  {isPartial && onRetry && (
-                    <button
-                      onClick={onRetry}
-                      className="ml-2 inline-flex items-center px-3 py-1 text-xs font-medium text-primary-700 bg-primary-50 rounded-full hover:bg-primary-100 transition-colors border border-primary-200"
-                    >
-                      Retry Full Analysis
-                    </button>
-                  )}
-                </div>
+                {/* Retry button - shown for partial results or fallback summaries */}
+                {(isPartial || writerFallback) && onRetry && (
+                  <button
+                    onClick={onRetry}
+                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors border border-primary-200"
+                  >
+                    Regenerate Analysis
+                  </button>
+                )}
               </div>
               <ReactMarkdown remarkPlugins={[remarkGfm]} className="markdown-body text-gray-800">
                 {cleanedMarkdown}
