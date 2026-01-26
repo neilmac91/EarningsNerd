@@ -5,6 +5,7 @@ import { Providers } from './providers'
 import Header from '@/components/Header'
 import Footer from '@/components/Footer'
 import CookieConsent from '@/components/CookieConsent'
+import { Analytics } from '@vercel/analytics/next'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -55,6 +56,7 @@ export default function RootLayout({
           {children}
           <Footer />
           <CookieConsent />
+          <Analytics />
         </Providers>
       </body>
     </html>
