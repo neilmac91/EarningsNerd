@@ -11,7 +11,8 @@ import logging
 from app.database import get_db
 from app.models import Filing, Summary, User, SummaryGenerationProgress, FilingContentCache
 from app.routers.auth import get_current_user
-from app.services.xbrl_service import clear_xbrl_cache, get_xbrl_cache_stats
+# EdgarTools migration: Using new edgar module
+from app.services.edgar import clear_xbrl_cache, get_xbrl_cache_stats
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

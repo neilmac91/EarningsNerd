@@ -4,9 +4,9 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List, Tuple, Literal
 from sqlalchemy.orm import Session, joinedload
 from app.models import Filing, Summary, SummaryGenerationProgress, User, FilingContentCache
-from app.services.sec_edgar import sec_edgar_service
+# EdgarTools migration: Using new edgar module for SEC services
+from app.services.edgar.compat import sec_edgar_service, xbrl_service
 from app.services.openai_service import openai_service
-from app.services.xbrl_service import xbrl_service
 from app.schemas import attach_normalized_facts
 from app.services.subscription_service import increment_user_usage, get_current_month
 from app.config import settings

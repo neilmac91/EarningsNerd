@@ -3,7 +3,9 @@ from sqlalchemy.orm import Session
 from typing import Dict, List, Optional, Tuple
 from app.database import get_db
 from app.models import Company
-from app.services.sec_edgar import sec_edgar_service, SECEdgarServiceError
+# EdgarTools migration: Using new edgar module for SEC services
+from app.services.edgar.compat import sec_edgar_service
+from app.services.edgar.exceptions import EdgarError as SECEdgarServiceError
 from pydantic import BaseModel
 from datetime import datetime, timedelta
 import httpx
