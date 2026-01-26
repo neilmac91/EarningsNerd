@@ -214,13 +214,14 @@ def generate_xbrl_summary(
         eps = xbrl_data.get('earnings_per_share', {}).get('current', {})
         prior_revenue = xbrl_data.get('revenue', {}).get('prior', {})
         prior_net_income = xbrl_data.get('net_income', {}).get('prior', {})
+        prior_eps = xbrl_data.get('earnings_per_share', {}).get('prior', {})
 
         table_rows = []
 
         # Revenue row
         rev_current = format_currency(revenue.get('value'))
         rev_prior = format_currency(prior_revenue.get('value')) if prior_revenue.get('value') else "—"
-        rev_commentary = "Full comparison available in detailed analysis." if rev_current == "Not disclosed" else f"Period from XBRL data"
+        rev_commentary = "Full comparison available in detailed analysis." if rev_current == "Not disclosed" else "From XBRL data"
         table_rows.append({
             "metric": "Revenue",
             "current_period": rev_current,
@@ -232,7 +233,7 @@ def generate_xbrl_summary(
         # Net Income row
         ni_current = format_currency(net_income.get('value'))
         ni_prior = format_currency(prior_net_income.get('value')) if prior_net_income.get('value') else "—"
-        ni_commentary = "Full comparison available in detailed analysis." if ni_current == "Not disclosed" else f"Prior period from XBRL"
+        ni_commentary = "Full comparison available in detailed analysis." if ni_current == "Not disclosed" else "From XBRL data"
         table_rows.append({
             "metric": "Net Income",
             "current_period": ni_current,
@@ -243,12 +244,13 @@ def generate_xbrl_summary(
 
         # EPS row if available
         if eps.get('value') is not None:
+            eps_prior = f"${prior_eps.get('value'):.2f}" if prior_eps.get('value') is not None else "—"
             table_rows.append({
                 "metric": "EPS (Basic)",
-                "current_period": f"${eps.get('value'):.2f}" if eps.get('value') else "—",
-                "prior_period": "—",
+                "current_period": f"${eps.get('value'):.2f}",
+                "prior_period": eps_prior,
                 "change": "—",
-                "commentary": f"Period: {eps.get('period', 'N/A')}"
+                "commentary": "From XBRL data"
             })
 
         financial_highlights = {
