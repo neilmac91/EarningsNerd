@@ -12,7 +12,8 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from app.config import settings
-from app.services.sec_edgar import SECEdgarService
+# EdgarTools migration: Using compat wrapper for SEC services
+from app.services.edgar.compat import SECEdgarServiceCompat as SECEdgarService
 
 
 class TrendingTickerService:

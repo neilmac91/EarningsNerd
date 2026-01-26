@@ -18,6 +18,10 @@ passlib[bcrypt]==1.7.4
 python-dateutil==2.8.2
 stripe==7.8.0
 weasyprint==60.1
+# EdgarTools - unified SEC filing library (replaces arelle, sec-edgar-downloader, sec-parser)
+edgartools>=5.12.0
+
+# Legacy SEC packages - TO BE REMOVED after migration
 arelle-release==2.27.0
 sec-edgar-downloader==5.0.3
 sec-parser>=0.58.0

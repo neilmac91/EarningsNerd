@@ -5,15 +5,17 @@ from datetime import datetime
 import logging
 from app.database import get_db
 from app.models import Company, Filing, FilingContentCache
-from app.services.sec_edgar import sec_edgar_service, SECEdgarServiceError
-from app.services.sec_client import (
-    sec_client,
+# EdgarTools migration: Using new edgar module for SEC services
+from app.services.edgar.compat import sec_edgar_service
+from app.services.edgar.exceptions import (
+    EdgarError as SECEdgarServiceError,
     CompanyNotFoundError,
     FilingNotFoundError,
-    FilingParseError,
+    EdgarParseError as FilingParseError,
+    EdgarRateLimitError as SECRateLimitError,
 )
-from app.services.sec_client import SECClient
-from app.services.sec_rate_limiter import SECRateLimitError
+# Keep legacy sec_client for markdown parsing until fully migrated
+from app.services.sec_client import sec_client, SECClient
 from app.schemas import (
     FilingMarkdownResponse,
     FilingMetadata,

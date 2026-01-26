@@ -19,9 +19,9 @@ from app.models import (
     SummaryGenerationProgress,
     FilingContentCache,
 )
-from app.services.sec_edgar import sec_edgar_service
+# EdgarTools migration: Using new edgar module for SEC services
+from app.services.edgar.compat import sec_edgar_service, xbrl_service
 from app.services.openai_service import openai_service
-from app.services.xbrl_service import xbrl_service
 from app.schemas import attach_normalized_facts
 from app.routers.auth import get_current_user, get_current_user_optional
 from app.services.subscription_service import check_usage_limit, increment_user_usage, get_current_month
