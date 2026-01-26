@@ -20,17 +20,18 @@ logger = logging.getLogger(__name__)
 def _require_admin(user: User) -> None:
     """Verify user has admin privileges.
 
-    For now, any authenticated user can use admin endpoints.
-    In production, this should check for admin role.
+    Only users with is_admin=True can access admin endpoints.
     """
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required"
         )
-    # TODO: Add proper admin role check
-    # if not user.is_admin:
-    #     raise HTTPException(status_code=403, detail="Admin access required")
+    if not user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
 
 
 @router.delete("/filing/{filing_id}/summary")

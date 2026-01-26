@@ -16,7 +16,6 @@ import { format } from 'date-fns'
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import SubscriptionGate from '@/components/SubscriptionGate'
 import FinancialMetricsTable from '@/components/FinancialMetricsTable'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import { isAxiosError } from 'axios'
@@ -960,7 +959,6 @@ function SummaryDisplay({
   const fallbackMessage = 'Summary temporarily unavailable — please retry.'
   const writerError = rawSummary?.writer_error
   const writerFallback = rawSummary?.writer?.fallback_used === true
-  const fallbackReason = rawSummary?.writer?.fallback_reason
   const trimmedMarkdown = cleanedMarkdown.trim()
   const isFallbackMessage = trimmedMarkdown === fallbackMessage
   const hasPolishedMarkdown = trimmedMarkdown.length > 0 && !isFallbackMessage && !writerError
@@ -984,15 +982,6 @@ function SummaryDisplay({
   }
 
   const metadata: MetadataSections | null = rawSummary ? (rawSummary.sections as MetadataSections ?? null) : null
-
-  const coverageSnapshot = rawSummary?.section_coverage as
-    | { covered_count?: number; total_count?: number; coverage_ratio?: number }
-    | undefined
-  const hasCoverageSnapshot =
-    !!coverageSnapshot &&
-    typeof coverageSnapshot.covered_count === 'number' &&
-    typeof coverageSnapshot.total_count === 'number' &&
-    coverageSnapshot.total_count > 0
 
   const handleExportPDF = () => {
     const apiUrl = getApiUrl()
