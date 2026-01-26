@@ -22,7 +22,7 @@ Usage:
 import logging
 from typing import Any, Dict, List, Optional
 
-from edgar import Company as EdgarCompany, set_identity
+from edgar import Company as EdgarCompany, set_identity, find as edgar_find
 
 from .async_executor import run_in_executor, run_in_executor_with_timeout
 from .config import EDGAR_IDENTITY, FilingType, EDGAR_DEFAULT_TIMEOUT_SECONDS
@@ -93,30 +93,63 @@ class EdgarClient:
                 raise CompanyNotFoundError(ticker, cause=exc)
             raise translate_edgartools_exception(exc) from exc
 
-    async def search_company(self, query: str) -> List[Company]:
+    async def search_company(self, query: str, limit: int = 10) -> List[Company]:
         """
         Search for companies by name or ticker.
 
+        Uses EdgarTools' find() function for fuzzy company name search,
+        which matches against company names and tickers in the SEC database.
+
         Args:
             query: Search query (ticker, partial name, etc.)
+            limit: Maximum number of results to return (default 10)
 
         Returns:
             List of matching Company objects
-
-        Note:
-            Currently uses direct ticker lookup.
-            For fuzzy search, consider using EdgarTools' find() function.
         """
         query = query.strip()
         if not query:
             return []
 
-        # Try as ticker first (most common use case)
+        logger.debug(f"Searching companies for query: {query}")
+
+        # Try exact ticker lookup first (faster for exact matches)
         try:
             company = await self.get_company(query)
+            logger.debug(f"Found exact ticker match: {query}")
             return [company]
         except CompanyNotFoundError:
-            return []
+            pass  # Fall through to fuzzy search
+
+        # Use EdgarTools find() for fuzzy company name search
+        try:
+            search_results = await run_in_executor_with_timeout(
+                lambda: edgar_find(query),
+                timeout=self.timeout,
+            )
+
+            if not search_results or len(search_results) == 0:
+                logger.debug(f"No companies found for query: {query}")
+                return []
+
+            # Get tickers from search results and fetch company details
+            tickers = search_results.tickers if hasattr(search_results, 'tickers') else []
+            logger.debug(f"Found {len(tickers)} matches for '{query}': {tickers[:5]}")
+
+            companies = []
+            for ticker in tickers[:limit]:
+                try:
+                    company = await self.get_company(ticker)
+                    companies.append(company)
+                except (CompanyNotFoundError, EdgarError) as e:
+                    logger.warning(f"Could not fetch details for ticker {ticker}: {e}")
+                    continue
+
+            return companies
+
+        except Exception as exc:
+            logger.error(f"Error searching companies for '{query}': {exc}")
+            raise translate_edgartools_exception(exc) from exc
 
     async def get_filings(
         self,

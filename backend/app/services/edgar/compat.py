@@ -40,19 +40,28 @@ class SECEdgarServiceCompat:
 
         Returns legacy format:
         [{"ticker": "AAPL", "name": "Apple Inc.", "cik": "0000320193", "exchange": None}]
+
+        Raises:
+            EdgarError: If there's a network or API error
         """
         try:
             companies = await edgar_client.search_company(query)
             return [c.to_dict() for c in companies]
+        except EdgarError:
+            # Propagate EdgarError (includes network errors) to caller
+            raise
         except Exception as e:
-            logger.error(f"Error searching company: {e}")
-            return []
+            logger.error(f"Unexpected error searching company: {e}")
+            raise EdgarError(f"Failed to search companies: {e}", cause=e)
 
     async def get_company_submissions(self, cik: str) -> Dict[str, Any]:
         """
         Get company submissions (filings).
 
         Returns legacy format with nested filings structure.
+
+        Raises:
+            EdgarError: If there's a network or API error
         """
         try:
             # Get filings for common types
@@ -75,14 +84,17 @@ class SECEdgarServiceCompat:
                 "filings": {
                     "recent": {
                         "form": [f.filing_type.value for f in all_filings],
-                        "filingDate": [f.filing_date.isoformat() for f in all_filings],
+                        "filingDate": [f.filing_date.isoformat() if f.filing_date else None for f in all_filings],
                         "accessionNumber": [f.accession_number for f in all_filings],
                     }
                 }
             }
+        except EdgarError:
+            # Propagate EdgarError (includes network errors) to caller
+            raise
         except Exception as e:
-            logger.error(f"Error getting submissions: {e}")
-            return {"filings": {"recent": {"form": [], "filingDate": [], "accessionNumber": []}}}
+            logger.error(f"Unexpected error getting submissions: {e}")
+            raise EdgarError(f"Failed to get company submissions: {e}", cause=e)
 
     async def get_filings(
         self,
@@ -133,9 +145,12 @@ class SECEdgarServiceCompat:
 
             return [f.to_dict() for f in all_filings]
 
+        except EdgarError:
+            # Propagate EdgarError (includes network errors) to caller
+            raise
         except Exception as e:
-            logger.error(f"Error getting filings: {e}")
-            return []
+            logger.error(f"Unexpected error getting filings: {e}")
+            raise EdgarError(f"Failed to get filings: {e}", cause=e)
 
     async def get_filing_document(
         self,
