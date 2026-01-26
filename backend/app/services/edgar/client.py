@@ -19,6 +19,7 @@ Usage:
     xbrl = await client.get_xbrl_data("AAPL", accession_number="...")
 """
 
+import asyncio
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -132,19 +133,24 @@ class EdgarClient:
                 logger.debug(f"No companies found for query: {query}")
                 return []
 
-            # Get tickers from search results and fetch company details
+            # Get tickers from search results and fetch company details in parallel
             tickers = search_results.tickers if hasattr(search_results, 'tickers') else []
             logger.debug(f"Found {len(tickers)} matches for '{query}': {tickers[:5]}")
 
-            companies = []
-            for ticker in tickers[:limit]:
+            async def fetch_company_details(ticker: str) -> Optional[Company]:
+                """Fetch company details, returning None on error."""
                 try:
-                    company = await self.get_company(ticker)
-                    companies.append(company)
+                    return await self.get_company(ticker)
                 except (CompanyNotFoundError, EdgarError) as e:
                     logger.warning(f"Could not fetch details for ticker {ticker}: {e}")
-                    continue
+                    return None
 
+            # Fetch all companies in parallel using asyncio.gather
+            tasks = [fetch_company_details(ticker) for ticker in tickers[:limit]]
+            company_results = await asyncio.gather(*tasks)
+
+            # Filter out None results (failed fetches)
+            companies = [company for company in company_results if company is not None]
             return companies
 
         except Exception as exc:
