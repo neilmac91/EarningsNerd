@@ -12,7 +12,7 @@ alembic>=1.13.2
 redis==7.1.0
 openai>=1.30.0,<3.0.0
 beautifulsoup4==4.14.3
-lxml>=5.2.2,<6.0.0
+lxml>=5.2.2,<7.0.0
 python-jose[cryptography]>=3.5.0
 passlib[bcrypt]==1.7.4
 python-dateutil==2.9.0.post0
