@@ -1,4 +1,20 @@
-import axios from 'axios'
+import axios, { AxiosError } from 'axios'
+
+// Custom error class that preserves backend error details
+export class ApiError extends Error {
+  status: number
+  detail: string
+  isRetryable: boolean
+
+  constructor(status: number, detail: string) {
+    super(detail)
+    this.name = 'ApiError'
+    this.status = status
+    this.detail = detail
+    // 503 (Service Unavailable), 429 (Rate Limited), and 5xx errors are retryable
+    this.isRetryable = status === 503 || status === 429 || (status >= 500 && status < 600)
+  }
+}
 
 // Determine API URL: prefer env var, fallback based on environment
 export const getApiUrl = () => {
@@ -48,5 +64,40 @@ api.interceptors.request.use((config) => {
   }
   return config
 })
+
+// Response error interceptor to extract backend error details
+api.interceptors.response.use(
+  (response) => response,
+  (error: AxiosError<{ detail?: string }>) => {
+    // Extract the status code and detail message from the backend
+    const status = error.response?.status || 0
+    const backendDetail = error.response?.data?.detail
+
+    // Create user-friendly error message based on status and backend detail
+    let errorMessage: string
+
+    if (backendDetail) {
+      // Use the backend's user-friendly message
+      errorMessage = backendDetail
+    } else if (status === 503) {
+      errorMessage = 'Service temporarily unavailable. Please try again in a moment.'
+    } else if (status === 429) {
+      errorMessage = 'Too many requests. Please wait a moment before trying again.'
+    } else if (status === 404) {
+      errorMessage = 'The requested resource was not found.'
+    } else if (status >= 500) {
+      errorMessage = 'A server error occurred. Please try again later.'
+    } else if (error.message?.includes('Network Error') || error.message?.includes('ECONNREFUSED')) {
+      errorMessage = `Unable to connect to the server. Please ensure the backend API is running on ${getApiUrl()}`
+    } else if (error.message?.includes('timeout')) {
+      errorMessage = 'The request timed out. Please try again.'
+    } else {
+      errorMessage = error.message || 'An unexpected error occurred.'
+    }
+
+    // Throw our custom ApiError with the extracted details
+    throw new ApiError(status, errorMessage)
+  }
+)
 
 export default api
