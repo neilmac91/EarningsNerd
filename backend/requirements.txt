@@ -5,24 +5,24 @@ pydantic>=2.9.0,<3.0.0
 pydantic-settings>=2.4.0,<3.0.0
 email-validator>=2.0.0
 httpx>=0.28.1,<1
-python-dotenv==1.0.0
+python-dotenv==1.2.1
 sqlalchemy>=2.0.36,<3.0.0
-psycopg2-binary==2.9.9
+psycopg2-binary==2.9.11
 alembic>=1.13.2
 redis==5.0.1
 openai>=1.30.0,<2.0.0
-beautifulsoup4==4.12.3
+beautifulsoup4==4.14.3
 lxml>=5.2.2,<6.0.0
 python-jose[cryptography]>=3.5.0
 passlib[bcrypt]==1.7.4
-python-dateutil==2.8.2
+python-dateutil==2.9.0.post0
 stripe==7.8.0
 weasyprint==68.0
 # EdgarTools - unified SEC filing library (replaces arelle, sec-edgar-downloader, sec-parser)
 edgartools>=5.12.0
 
 # Legacy SEC packages - TO BE REMOVED after migration
-arelle-release==2.27.0
+arelle-release==2.38.6
 sec-edgar-downloader==5.0.3
 sec-parser>=0.58.0
 posthog==7.6.0
