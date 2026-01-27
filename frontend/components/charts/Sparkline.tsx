@@ -37,7 +37,7 @@ export const Sparkline = ({ data, unit = 'USD' }: SparklineProps) => {
           <Tooltip
             cursor={{ stroke: '#1f2937', strokeWidth: 1, strokeDasharray: '3 3' }}
             contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(15,23,42,0.08)' }}
-            formatter={(value) => fmtValue(Number(value), unit)}
+            formatter={(value) => typeof value === 'number' ? fmtValue(value, unit) : ''}
             labelStyle={{ color: '#111827', fontWeight: 500 }}
           />
           <Area type="monotone" dataKey="value" stroke={areaColor} strokeWidth={2} fill="url(#sparklineFill)" />
