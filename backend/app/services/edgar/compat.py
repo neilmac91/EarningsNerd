@@ -16,12 +16,15 @@ Usage:
 """
 
 import logging
+from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
+
+import httpx
 
 from .client import edgar_client
 from .xbrl_service import edgar_xbrl_service, clear_xbrl_cache, get_xbrl_cache_stats
-from .exceptions import CompanyNotFoundError, FilingNotFoundError, EdgarError
-from .config import FilingType
+from .exceptions import EdgarError
+from .config import FilingType, EDGAR_IDENTITY
 
 logger = logging.getLogger(__name__)
 
@@ -34,9 +37,83 @@ class SECEdgarServiceCompat:
     working while using the new EdgarTools backend.
     """
 
+    # Cached company tickers for fast local search
+    _tickers_cache: Optional[Dict[str, Dict]] = None
+    _tickers_cache_time: Optional[datetime] = None
+    _cache_ttl = timedelta(hours=24)
+
+    async def _get_cached_tickers(self) -> Dict[str, Dict]:
+        """Fetch company tickers from SEC with 24-hour caching and stale fallback."""
+        if (
+            self._tickers_cache is not None
+            and self._tickers_cache_time is not None
+            and datetime.now() - self._tickers_cache_time < self._cache_ttl
+        ):
+            return self._tickers_cache
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    "https://www.sec.gov/files/company_tickers.json",
+                    headers={"User-Agent": EDGAR_IDENTITY},
+                    timeout=15.0,
+                )
+                response.raise_for_status()
+                data = response.json()
+                SECEdgarServiceCompat._tickers_cache = data
+                SECEdgarServiceCompat._tickers_cache_time = datetime.now()
+                return data
+        except Exception as e:
+            if self._tickers_cache is not None:
+                logger.warning("SEC ticker fetch failed, serving stale cache: %s", e)
+                return self._tickers_cache
+            raise EdgarError(f"Unable to fetch SEC ticker list: {e}", cause=e)
+
+    def _local_search(self, tickers_data: Dict[str, Dict], query: str) -> List[Dict[str, Any]]:
+        """Fast in-memory search over cached company tickers."""
+        query_lower = query.lower().strip()
+        if not query_lower:
+            return []
+
+        exact_matches: List[Dict[str, Any]] = []
+        partial_matches: List[Dict[str, Any]] = []
+        max_results = 20
+
+        for company_data in tickers_data.values():
+            if not isinstance(company_data, dict):
+                continue
+
+            ticker = company_data.get("ticker", "").strip()
+            name = company_data.get("title", "").strip()
+            cik = company_data.get("cik_str", "")
+
+            entry = {
+                "ticker": ticker,
+                "name": name,
+                "cik": str(cik).zfill(10),
+                "exchange": None,
+            }
+
+            if query_lower == ticker.lower():
+                exact_matches.append(entry)
+            elif query_lower in name.lower() or query_lower in ticker.lower():
+                partial_matches.append(entry)
+
+            if len(exact_matches) >= max_results:
+                break
+
+        results = exact_matches[:max_results]
+        remaining = max_results - len(results)
+        if remaining > 0:
+            results.extend(partial_matches[:remaining])
+        return results
+
     async def search_company(self, query: str) -> List[Dict[str, Any]]:
         """
         Search for companies by ticker or name.
+
+        Uses fast local search on cached SEC ticker data. Falls back to
+        EdgarTools fuzzy search only if local search yields no results.
 
         Returns legacy format:
         [{"ticker": "AAPL", "name": "Apple Inc.", "cik": "0000320193", "exchange": None}]
@@ -44,11 +121,22 @@ class SECEdgarServiceCompat:
         Raises:
             EdgarError: If there's a network or API error
         """
+        # Primary: fast local search on cached data (<1ms)
+        try:
+            tickers_data = await self._get_cached_tickers()
+            results = self._local_search(tickers_data, query)
+            if results:
+                return results
+        except EdgarError:
+            raise
+        except Exception as e:
+            logger.warning(f"Local search failed, trying EdgarTools: {e}")
+
+        # Fallback: EdgarTools fuzzy search (for queries local search can't match)
         try:
             companies = await edgar_client.search_company(query)
             return [c.to_dict() for c in companies]
         except EdgarError:
-            # Propagate EdgarError (includes network errors) to caller
             raise
         except Exception as e:
             logger.error(f"Unexpected error searching company: {e}")
@@ -163,9 +251,6 @@ class SECEdgarServiceCompat:
 
         Note: This method uses direct HTTP as EdgarTools doesn't expose URL-based access.
         """
-        import httpx
-        from .config import EDGAR_IDENTITY
-
         timeout = timeout or 60.0
 
         async with httpx.AsyncClient() as client:
@@ -190,32 +275,11 @@ class SECEdgarServiceCompat:
         force_refresh: bool = False,
     ) -> Dict[str, Dict]:
         """
-        Get all company tickers from SEC.
-
-        Returns a dictionary mapping index to company info:
-        {
-            "0": {"cik_str": "320193", "ticker": "AAPL", "title": "Apple Inc."},
-            ...
-        }
+        Get all company tickers from SEC (delegates to cached fetch).
         """
-        import httpx
-        from .config import EDGAR_IDENTITY
-
-        # SEC provides a bulk company tickers endpoint
-        tickers_url = "https://www.sec.gov/files/company_tickers.json"
-
-        try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    tickers_url,
-                    headers={"User-Agent": EDGAR_IDENTITY},
-                    timeout=30.0,
-                )
-                response.raise_for_status()
-                return response.json()
-        except Exception as e:
-            logger.warning(f"Failed to fetch company tickers from SEC: {e}")
-            return {}
+        if force_refresh:
+            SECEdgarServiceCompat._tickers_cache_time = None
+        return await self._get_cached_tickers()
 
 
 class XBRLServiceCompat:
