@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Search, Loader2 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { searchCompanies, Company } from '@/features/companies/api/companies-api'
-import { getApiUrl, ApiError } from '@/lib/api/client'
+import { ApiError } from '@/lib/api/client'
 import { useRouter } from 'next/navigation'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import analytics from '@/lib/analytics'
@@ -91,9 +91,7 @@ export default function CompanySearch() {
                 {error instanceof ApiError
                   ? error.detail
                   : error instanceof Error
-                    ? error.message.includes('Network Error') || error.message.includes('ECONNREFUSED')
-                      ? `Unable to connect to the server. Please ensure the backend API is running on ${getApiUrl()}`
-                      : error.message
+                    ? error.message
                     : 'An unexpected error occurred. Please try again.'}
               </div>
             </div>
