@@ -26,7 +26,7 @@ from typing import Any, Dict, List, Optional
 from edgar import Company as EdgarCompany, set_identity, find as edgar_find
 
 from .async_executor import run_in_executor, run_in_executor_with_timeout
-from .config import EDGAR_IDENTITY, FilingType, EDGAR_DEFAULT_TIMEOUT_SECONDS
+from .config import EDGAR_IDENTITY, FilingType, EDGAR_DEFAULT_TIMEOUT_SECONDS, EDGAR_THREAD_POOL_SIZE
 from .exceptions import (
     CompanyNotFoundError,
     FilingNotFoundError,
@@ -44,17 +44,9 @@ logger = logging.getLogger(__name__)
 set_identity(EDGAR_IDENTITY)
 logger.info(f"EdgarTools initialized with identity: {EDGAR_IDENTITY}")
 
-# Lazy-init semaphore for search concurrency control
-# Cannot create at module level - no event loop exists yet
-_edgar_search_semaphore: Optional[asyncio.Semaphore] = None
-
-
-def _get_search_semaphore() -> asyncio.Semaphore:
-    """Get or create the search semaphore (lazy initialization)."""
-    global _edgar_search_semaphore
-    if _edgar_search_semaphore is None:
-        _edgar_search_semaphore = asyncio.Semaphore(EDGAR_THREAD_POOL_SIZE)
-    return _edgar_search_semaphore
+# Semaphore for search concurrency control
+# Python 3.10+ allows creating Semaphore at module level without active event loop
+_edgar_search_semaphore = asyncio.Semaphore(EDGAR_THREAD_POOL_SIZE)
 
 
 class EdgarClient:
@@ -159,7 +151,7 @@ class EdgarClient:
 
             async def fetch_company_details(ticker: str) -> Optional[Company]:
                 """Fetch company details, returning None on error."""
-                async with _get_search_semaphore():
+                async with _edgar_search_semaphore:
                     try:
                         return await self.get_company(ticker)
                     except (CompanyNotFoundError, EdgarError) as e:
