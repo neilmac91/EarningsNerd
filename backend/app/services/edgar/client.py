@@ -31,6 +31,9 @@ from .exceptions import (
     CompanyNotFoundError,
     FilingNotFoundError,
     EdgarError,
+    EdgarNetworkError,
+    EdgarTimeoutError,
+    EdgarRateLimitError,
     translate_edgartools_exception,
 )
 from .models import Company, Filing, XBRLData, FinancialMetric
@@ -40,6 +43,18 @@ logger = logging.getLogger(__name__)
 # Initialize EdgarTools identity on module load
 set_identity(EDGAR_IDENTITY)
 logger.info(f"EdgarTools initialized with identity: {EDGAR_IDENTITY}")
+
+# Lazy-init semaphore for search concurrency control
+# Cannot create at module level - no event loop exists yet
+_edgar_search_semaphore: Optional[asyncio.Semaphore] = None
+
+
+def _get_search_semaphore() -> asyncio.Semaphore:
+    """Get or create the search semaphore (lazy initialization)."""
+    global _edgar_search_semaphore
+    if _edgar_search_semaphore is None:
+        _edgar_search_semaphore = asyncio.Semaphore(EDGAR_THREAD_POOL_SIZE)
+    return _edgar_search_semaphore
 
 
 class EdgarClient:
@@ -121,6 +136,11 @@ class EdgarClient:
             return [company]
         except CompanyNotFoundError:
             pass  # Fall through to fuzzy search
+        except EdgarRateLimitError:
+            raise  # Don't fallback for rate limits - propagate to caller
+        except (EdgarTimeoutError, EdgarNetworkError) as e:
+            logger.warning(f"Exact ticker lookup failed for '{query}': {e}, trying fuzzy search")
+            pass  # Fall through to fuzzy search
 
         # Use EdgarTools find() for fuzzy company name search
         try:
@@ -139,11 +159,12 @@ class EdgarClient:
 
             async def fetch_company_details(ticker: str) -> Optional[Company]:
                 """Fetch company details, returning None on error."""
-                try:
-                    return await self.get_company(ticker)
-                except (CompanyNotFoundError, EdgarError) as e:
-                    logger.warning(f"Could not fetch details for ticker {ticker}: {e}")
-                    return None
+                async with _get_search_semaphore():
+                    try:
+                        return await self.get_company(ticker)
+                    except (CompanyNotFoundError, EdgarError) as e:
+                        logger.warning(f"Could not fetch details for ticker {ticker}: {e}")
+                        return None
 
             # Fetch all companies in parallel using asyncio.gather
             tasks = [fetch_company_details(ticker) for ticker in tickers[:limit]]
@@ -153,6 +174,8 @@ class EdgarClient:
             companies = [company for company in company_results if company is not None]
             return companies
 
+        except EdgarError:
+            raise  # Already translated, don't double-wrap
         except Exception as exc:
             logger.error(f"Error searching companies for '{query}': {exc}")
             raise translate_edgartools_exception(exc) from exc
