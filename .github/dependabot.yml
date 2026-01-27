@@ -17,9 +17,6 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    labels:
-      - "dependencies"
-      - "frontend"
     reviewers:
       - "neilmac91"
     commit-message:
@@ -42,9 +39,6 @@ updates:
         update-types:
           - "minor"
           - "patch"
-    labels:
-      - "dependencies"
-      - "backend"
     reviewers:
       - "neilmac91"
     commit-message:
@@ -56,8 +50,5 @@ updates:
     schedule:
       interval: "weekly"
       day: "monday"
-    labels:
-      - "dependencies"
-      - "ci"
     commit-message:
       prefix: "ci(deps):"
