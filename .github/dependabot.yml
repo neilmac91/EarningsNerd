@@ -8,15 +8,38 @@ updates:
       day: "monday"
     open-pull-requests-limit: 10
     groups:
+      # Only group patch-level security fixes together (safe to auto-merge)
       security-patches:
         applies-to: security-updates
-        patterns:
-          - "*"
+        update-types:
+          - "patch"
       minor-updates:
         applies-to: version-updates
         update-types:
           - "minor"
           - "patch"
+    # Prevent Dependabot from proposing major version bumps automatically.
+    # Major upgrades (Next.js 14→16, Tailwind 3→4, etc.) require manual
+    # migration and should be handled as dedicated tasks, not auto-PRs.
+    ignore:
+      - dependency-name: "next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint-config-next"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/react-dom"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "recharts"
+        update-types: ["version-update:semver-major"]
     reviewers:
       - "neilmac91"
     commit-message:
@@ -32,8 +55,8 @@ updates:
     groups:
       security-patches:
         applies-to: security-updates
-        patterns:
-          - "*"
+        update-types:
+          - "patch"
       minor-updates:
         applies-to: version-updates
         update-types:
