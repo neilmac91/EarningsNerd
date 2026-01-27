@@ -37,6 +37,11 @@ updates:
         applies-to: security-updates
         patterns:
           - "*"
+      minor-updates:
+        applies-to: version-updates
+        update-types:
+          - "minor"
+          - "patch"
     labels:
       - "dependencies"
       - "backend"
