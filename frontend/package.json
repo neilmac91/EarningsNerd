@@ -17,27 +17,27 @@
     "deploy": "vercel --prod"
   },
   "dependencies": {
-    "@sentry/nextjs": "^10.35.0",
-    "@tanstack/react-query": "^5.17.0",
+    "@sentry/nextjs": "^10.36.0",
+    "@tanstack/react-query": "^5.90.20",
     "@vercel/analytics": "^1.6.1",
-    "autoprefixer": "^10.4.17",
-    "axios": "^1.6.5",
+    "autoprefixer": "^10.4.23",
+    "axios": "^1.13.3",
     "clsx": "^2.1.0",
     "date-fns": "^3.0.6",
     "lodash": "^4.17.23",
-    "lucide-react": "^0.309.0",
-    "next": "14.2.35",
+    "lucide-react": "^0.563.0",
+    "next": "16.1.5",
     "postcss": "^8.4.33",
-    "posthog-js": "^1.331.3",
+    "posthog-js": "^1.335.3",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^9.1.0",
-    "recharts": "^2.15.4",
+    "recharts": "^3.7.0",
     "remark-gfm": "^4.0.1",
     "tailwindcss": "^3.4.1"
   },
   "devDependencies": {
-    "@playwright/test": "^1.47.0",
+    "@playwright/test": "^1.58.0",
     "@tailwindcss/forms": "^0.5.11",
     "@testing-library/jest-dom": "^6.4.2",
     "@testing-library/react": "^14.3.1",
@@ -53,6 +53,6 @@
     "rimraf": "^5.0.10",
     "typescript": "^5.3.3",
     "vercel": "^48.9.0",
-    "vitest": "^4.0.8"
+    "vitest": "^4.0.18"
   }
 }
