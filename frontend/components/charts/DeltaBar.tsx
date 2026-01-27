@@ -45,7 +45,7 @@ export const DeltaBar = ({ label, current, prior, unit = 'USD' }: DeltaBarProps)
           <Tooltip
             cursor={{ fill: 'rgba(17, 24, 39, 0.04)' }}
             contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(15,23,42,0.08)' }}
-            formatter={(value: number) => formatValue(value, unit)}
+            formatter={(value) => formatValue(Number(value), unit)}
           />
           <Bar dataKey="prior" fill={palette.prior} radius={[4, 4, 0, 0]} barSize={28} />
           <Bar dataKey="current" fill={palette.current} radius={[4, 4, 0, 0]} barSize={28} />

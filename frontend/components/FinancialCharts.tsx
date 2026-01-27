@@ -129,8 +129,8 @@ export default function FinancialCharts({ metrics }: FinancialChartsProps) {
                     border: '1px solid #e2e8f0',
                     boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
                   }}
-                  formatter={(value: number) => [
-                    fmtCurrency(value, { digits: 2, compact: true }), 
+                  formatter={(value) => [
+                    fmtCurrency(Number(value), { digits: 2, compact: true }),
                     ''
                   ]}
                 />

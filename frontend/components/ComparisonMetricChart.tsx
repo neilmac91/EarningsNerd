@@ -53,7 +53,7 @@ export default function ComparisonMetricChart({
         />
         <Tooltip
           contentStyle={{ borderRadius: 8, borderColor: '#e5e7eb' }}
-          formatter={(value: number) => value.toLocaleString()}
+          formatter={(value) => Number(value).toLocaleString()}
         />
         <Line
           type="monotone"
