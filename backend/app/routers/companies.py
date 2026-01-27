@@ -215,10 +215,10 @@ async def search_companies(
         return result
     except SECEdgarServiceError as e:
         logger.warning(f"SEC EDGAR error searching for '{q}': {e}")
-        raise HTTPException(status_code=503, detail="SEC EDGAR is temporarily unavailable. Please retry shortly.")
+        raise HTTPException(status_code=503, detail="SEC EDGAR is temporarily unavailable. Please retry shortly.") from e
     except Exception as e:
         logger.error(f"Unexpected error searching companies for '{q}': {e}")
-        raise HTTPException(status_code=500, detail=f"Error searching companies: {str(e)}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred while searching for companies.") from e
 
 @router.get("/trending", response_model=List[CompanyResponse])
 async def get_trending_companies(
