@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Search, Loader2 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { searchCompanies, Company } from '@/features/companies/api/companies-api'
-import { getApiUrl } from '@/lib/api/client'
+import { ApiError } from '@/lib/api/client'
 import { useRouter } from 'next/navigation'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import analytics from '@/lib/analytics'
@@ -23,11 +23,19 @@ export default function CompanySearch() {
     return () => clearTimeout(timer)
   }, [query])
 
-  const { data: companies, isLoading, error, isError } = useQuery({
+  const { data: companies, isLoading, error, isError, refetch } = useQuery({
     queryKey: ['companies', debouncedQuery],
     queryFn: () => searchCompanies(debouncedQuery),
     enabled: debouncedQuery.length > 0,
-    retry: 1,
+    // Retry logic: retry more for transient errors (503, 429, 5xx)
+    retry: (failureCount, error) => {
+      if (error instanceof ApiError && error.isRetryable) {
+        return failureCount < 3 // Retry up to 3 times for transient errors
+      }
+      return failureCount < 1 // Only retry once for other errors
+    },
+    // Exponential backoff: 1s, 2s, 4s
+    retryDelay: (attemptIndex) => Math.min(1000 * Math.pow(2, attemptIndex), 4000),
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
   })
@@ -76,13 +84,24 @@ export default function CompanySearch() {
           aria-live="polite"
           className="absolute z-10 w-full mt-2 bg-red-50 border border-red-200 rounded-lg shadow-lg p-4"
         >
-          <div className="text-red-800 font-semibold mb-1">Error searching companies</div>
-          <div className="text-sm text-red-600">
-            {error instanceof Error 
-              ? error.message.includes('Network Error') || error.message.includes('ECONNREFUSED')
-                ? `Unable to connect to the server. Please ensure the backend API is running on ${getApiUrl()}`
-                : error.message
-              : 'An unexpected error occurred. Please try again.'}
+          <div className="flex items-start justify-between">
+            <div className="flex-1">
+              <div className="text-red-800 font-semibold mb-1">Error searching companies</div>
+              <div className="text-sm text-red-600">
+                {error instanceof ApiError
+                  ? error.detail
+                  : error instanceof Error
+                    ? error.message
+                    : 'An unexpected error occurred. Please try again.'}
+              </div>
+            </div>
+            <button
+              onClick={() => refetch()}
+              className="ml-4 px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-800 text-sm font-medium rounded-md transition-colors"
+              aria-label="Retry search"
+            >
+              Try Again
+            </button>
           </div>
         </div>
       )}
