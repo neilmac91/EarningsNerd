@@ -16,11 +16,13 @@ EarningsNerd is an AI-powered SEC filing analysis platform that transforms dense
 ### Backend (from `/backend`)
 ```bash
 pip install -r requirements.txt                    # Install dependencies
+alembic upgrade head                               # Run migrations (before tests)
 uvicorn main:app --reload --host 0.0.0.0 --port 8000  # Dev server
 pytest tests/                                      # Run all tests
 pytest tests/unit/                                 # Unit tests only
-alembic upgrade head                               # Run migrations
+pytest tests/smoke/ -v                             # Smoke tests (critical paths)
 python3 scripts/deploy_check.py                    # Pre-deploy validation
+python3 scripts/validate_db_performance.py         # PostgreSQL performance check
 python3 scripts/verify_extraction_standalone.py   # Test XBRL extraction
 ```
 
@@ -82,11 +84,14 @@ docker-compose down                   # Stop databases
 | `backend/app/services/openai_service.py` | AI summarization logic, prompt engineering |
 | `backend/app/services/summary_generation_service.py` | Summary orchestration, progress tracking |
 | `backend/app/services/xbrl_service.py` | XBRL financial data extraction |
+| `backend/app/services/redis_service.py` | Redis connection pooling, health checks |
 | `backend/app/services/audit_service.py` | Audit logging for GDPR compliance |
 | `backend/app/routers/summaries.py` | Summary endpoints with SSE streaming |
 | `backend/app/routers/admin.py` | Admin endpoints for data management |
 | `backend/prompts/*.md` | System prompts for 10-K/10-Q analysis |
 | `backend/scripts/deploy_check.py` | Pre-deployment validation script |
+| `backend/scripts/validate_db_performance.py` | PostgreSQL performance benchmarking |
+| `backend/tests/smoke/test_critical_paths.py` | Critical path smoke tests (18 tests) |
 | `frontend/lib/api/client.ts` | API client with smart URL detection |
 | `frontend/components/SummarySections.tsx` | Summary display component |
 
@@ -102,6 +107,8 @@ docker-compose down                   # Stop databases
 - **Audit Logging:** Tracks user actions for GDPR compliance
 - **Batch Transactions:** Database commits are batched outside loops for performance (see `filings.py`)
 - **Model Validation:** SQLAlchemy event listeners validate NOT NULL fields before INSERT/UPDATE
+- **Request Timeouts:** Per-endpoint configurable timeouts (30s default, 120s summaries)
+- **Health Checks:** `/health` (basic), `/health/detailed` (DB + Redis verification)
 
 ### Frontend
 - **Feature-Based Structure:** `/features` groups domains (auth, companies, filings, etc.)
@@ -144,6 +151,7 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 ```
 DATABASE_URL=postgresql://...
 REDIS_URL=redis://...
+SKIP_REDIS_INIT=false             # Set to true in tests to skip Redis (auto-set by conftest.py)
 OPENAI_API_KEY=...
 OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
 SECRET_KEY=...                    # JWT signing (recommended: 64+ chars)
@@ -151,6 +159,7 @@ STRIPE_SECRET_KEY=...
 STRIPE_WEBHOOK_SECRET=...
 RESEND_API_KEY=...
 POSTHOG_API_KEY=...
+SENTRY_DSN=...                    # Sentry error tracking DSN
 ENVIRONMENT=development|production
 CORS_ORIGINS_STR=http://localhost:3000,https://yourdomain.com
 ```
@@ -170,16 +179,35 @@ NEXT_PUBLIC_ENABLE_SECTION_TABS=true|false
 - **Backend:** pytest + pytest-asyncio, AsyncMock for async services
 - **Frontend:** Vitest (unit), Playwright (E2E), Testing Library (components)
 
-Key test files:
+### Test Markers
+
+Custom pytest markers defined in `backend/tests/conftest.py`:
+- `@pytest.mark.smoke` - Critical path validation tests
+- `@pytest.mark.integration` - Integration tests
+- `@pytest.mark.performance` - Performance tests
+- `@pytest.mark.requires_db` - Tests requiring database (skip gracefully if unavailable)
+- `@pytest.mark.slow` - Long-running tests
+
+### Key Test Files
+
+- `backend/tests/smoke/test_critical_paths.py` - 18 smoke tests for critical paths
 - `backend/tests/integration/test_summaries_flow.py` - Summary generation E2E
 - `backend/tests/test_xbrl_extraction.py` - XBRL parsing validation
 - `backend/tests/test_summary_quality.py` - Output quality validation
 - `frontend/__tests__/guards.test.ts` - Route guard tests
 
+### Test Configuration
+
+The `backend/tests/conftest.py` automatically:
+- Sets mock environment variables for tests
+- Sets `SKIP_REDIS_INIT=true` to bypass Redis initialization
+- Registers custom pytest markers
+
 ### Verification Scripts
 
 Located in `backend/scripts/`:
 - `deploy_check.py` - Pre-deployment validation (env vars, DB, dependencies)
+- `validate_db_performance.py` - PostgreSQL performance benchmarking
 - `verify_extraction_standalone.py` - Test XBRL extraction against live SEC data
 - `verify_extraction_fix.py` - Full verification with app config
 - `debug_extraction.py` - Debug regex patterns for extraction
@@ -221,6 +249,50 @@ python scripts/fix_null_sec_urls.py --execute
 # Fix specific ticker
 python scripts/fix_null_sec_urls.py --ticker BMRN --execute
 ```
+
+## Health Check Endpoints
+
+| Endpoint | Purpose | Response |
+|----------|---------|----------|
+| `GET /health` | Basic health check for load balancers | `{"status": "healthy"}` |
+| `GET /health/detailed` | Detailed check with DB + Redis status | See example below |
+
+### Detailed Health Check Response
+
+```json
+{
+  "status": "healthy",
+  "checks": {
+    "database": {
+      "healthy": true,
+      "latency_ms": 2.45
+    },
+    "redis": {
+      "healthy": true,
+      "latency_ms": 1.12
+    }
+  },
+  "timestamp": 1706454000.123
+}
+```
+
+**Status codes:**
+- `200` with `status: healthy` - All dependencies operational
+- `200` with `status: degraded` - Non-critical dependency (Redis) unavailable
+- `503` with `status: unhealthy` - Critical dependency (database) unavailable
+
+## Request Timeout Configuration
+
+Per-endpoint timeouts configured in `backend/main.py`:
+
+| Endpoint Pattern | Timeout |
+|------------------|---------|
+| `/api/summaries/` | 120s |
+| `/api/filings/` | 60s |
+| `/health` | 5s |
+| Default | 30s |
+
+Streaming endpoints (`*stream*`, `*/progress`) are excluded from timeout middleware.
 
 ## API Conventions
 
