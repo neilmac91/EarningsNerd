@@ -98,8 +98,11 @@ async def check_redis_health() -> dict:
     """
     import time
 
+    # Fast timeout to prevent hanging in CI/test environments without Redis
+    HEALTH_CHECK_TIMEOUT = 2.0
+
     try:
-        client = await get_redis_client()
+        client = await asyncio.wait_for(get_redis_client(), timeout=HEALTH_CHECK_TIMEOUT)
         if client is None:
             return {
                 "healthy": False,
@@ -107,7 +110,7 @@ async def check_redis_health() -> dict:
             }
 
         start = time.perf_counter()
-        pong = await client.ping()
+        pong = await asyncio.wait_for(client.ping(), timeout=HEALTH_CHECK_TIMEOUT)
         latency_ms = (time.perf_counter() - start) * 1000
 
         if pong:
@@ -120,6 +123,12 @@ async def check_redis_health() -> dict:
                 "healthy": False,
                 "error": "Redis ping returned False"
             }
+    except asyncio.TimeoutError:
+        logger.warning("Redis health check timed out")
+        return {
+            "healthy": False,
+            "error": "Health check timed out (Redis may not be running)"
+        }
     except RedisConnectionError as e:
         logger.warning(f"Redis connection error: {e}")
         return {
@@ -137,6 +146,13 @@ async def check_redis_health() -> dict:
         return {
             "healthy": False,
             "error": f"Redis error: {str(e)}"
+        }
+    except OSError as e:
+        # Handle connection refused, network unreachable, etc.
+        logger.warning(f"Redis connection failed (OS error): {e}")
+        return {
+            "healthy": False,
+            "error": f"Connection failed: {str(e)}"
         }
 
 
