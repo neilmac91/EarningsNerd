@@ -74,13 +74,14 @@ def fix_null_sec_urls(session, dry_run: bool = True, ticker: str = None):
 
     fixed_count = 0
     for filing in filings:
-        filing_id = filing[0]
-        accession_number = filing[1]
-        document_url = filing[2]
-        current_sec_url = filing[3]
-        cik = filing[4]
-        company_ticker = filing[5]
-        company_name = filing[6]
+        # Use named attribute access for clarity and maintainability
+        row = filing._mapping
+        filing_id = row["id"]
+        accession_number = row["accession_number"]
+        current_sec_url = row["sec_url"]
+        cik = row["cik"]
+        company_ticker = row["ticker"]
+        company_name = row["name"]
 
         new_sec_url = generate_sec_url(cik, accession_number)
 
@@ -141,8 +142,8 @@ def main():
 
     session = SessionLocal()
     try:
-        count = fix_null_sec_urls(session, dry_run=dry_run, ticker=args.ticker)
-        return 0 if count >= 0 else 1
+        fix_null_sec_urls(session, dry_run=dry_run, ticker=args.ticker)
+        return 0
     except Exception as e:
         logger.exception(f"Error fixing NULL sec_urls: {e}")
         session.rollback()

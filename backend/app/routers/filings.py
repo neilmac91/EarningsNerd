@@ -359,6 +359,8 @@ async def get_company_filings(
         )
 
         filings = []
+        new_filings = []  # Track newly added filings for batch refresh
+
         for sec_filing in sec_filings:
             # Validate required fields from SEC response before database operations
             sec_url = sec_filing.get("sec_url")
@@ -394,8 +396,7 @@ async def get_company_filings(
                     sec_url=sec_url
                 )
                 db.add(filing)
-                db.commit()
-                db.refresh(filing)
+                new_filings.append(filing)
             else:
                 # Update existing filing with new URL format if it's using old format
                 # Only update if new values are valid (not None)
@@ -403,18 +404,23 @@ async def get_company_filings(
                     if sec_url and document_url:
                         filing.sec_url = sec_url
                         filing.document_url = document_url
-                        db.commit()
-                        db.refresh(filing)
                     else:
                         logger.warning(
                             f"Skipping URL update for filing {filing.accession_number} - "
                             f"new sec_url or document_url is None"
                         )
 
-            # Convert to response model
-            filings.append(FilingResponse.from_orm(filing))
+            filings.append(filing)
 
-        return filings
+        # Batch commit: single transaction for all database changes
+        if new_filings or db.dirty:
+            db.commit()
+            # Refresh new filings to get generated IDs
+            for filing in new_filings:
+                db.refresh(filing)
+
+        # Convert to response models after commit
+        return [FilingResponse.from_orm(f) for f in filings]
 
     except asyncio.TimeoutError:
         # SEC EDGAR is slow, fall back to cached data

@@ -216,9 +216,9 @@ def validate_filing_before_insert(mapper, connection, target):
             )
 
     if target.document_url is None:
-        logger.warning(
-            f"Filing {target.accession_number}: document_url is None, "
-            f"this may cause issues with filing display"
+        raise ValueError(
+            f"Filing {target.accession_number}: document_url cannot be None "
+            f"(NOT NULL constraint)"
         )
 
 
