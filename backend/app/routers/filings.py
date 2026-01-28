@@ -360,31 +360,56 @@ async def get_company_filings(
 
         filings = []
         for sec_filing in sec_filings:
+            # Validate required fields from SEC response before database operations
+            sec_url = sec_filing.get("sec_url")
+            document_url = sec_filing.get("document_url")
+
+            # Skip filings with missing required URLs to prevent NOT NULL violations
+            if not sec_url:
+                logger.warning(
+                    f"Skipping filing {sec_filing.get('accession_number')} - missing sec_url"
+                )
+                continue
+
             # Check if filing exists in database
             filing = db.query(Filing).filter(
                 Filing.accession_number == sec_filing["accession_number"]
             ).first()
 
             if not filing:
+                # Only create new filing if we have all required fields
+                if not document_url:
+                    logger.warning(
+                        f"Skipping new filing {sec_filing.get('accession_number')} - missing document_url"
+                    )
+                    continue
+
                 filing = Filing(
                     company_id=company.id,
                     accession_number=sec_filing["accession_number"],
                     filing_type=sec_filing["filing_type"],
                     filing_date=datetime.fromisoformat(sec_filing["filing_date"]),
                     period_end_date=datetime.fromisoformat(sec_filing["report_date"]) if sec_filing.get("report_date") else None,
-                    document_url=sec_filing["document_url"],
-                    sec_url=sec_filing["sec_url"]
+                    document_url=document_url,
+                    sec_url=sec_url
                 )
                 db.add(filing)
                 db.commit()
                 db.refresh(filing)
             else:
                 # Update existing filing with new URL format if it's using old format
+                # Only update if new values are valid (not None)
                 if filing.sec_url and "cgi-bin/viewer" in filing.sec_url:
-                    filing.sec_url = sec_filing["sec_url"]
-                    filing.document_url = sec_filing["document_url"]
-                    db.commit()
-                    db.refresh(filing)
+                    if sec_url and document_url:
+                        filing.sec_url = sec_url
+                        filing.document_url = document_url
+                        db.commit()
+                        db.refresh(filing)
+                    else:
+                        logger.warning(
+                            f"Skipping URL update for filing {filing.accession_number} - "
+                            f"new sec_url or document_url is None"
+                        )
 
             # Convert to response model
             filings.append(FilingResponse.from_orm(filing))
@@ -394,6 +419,7 @@ async def get_company_filings(
     except asyncio.TimeoutError:
         # SEC EDGAR is slow, fall back to cached data
         logger.warning(f"SEC EDGAR timeout for {ticker_upper}, returning cached filings")
+        db.rollback()  # Ensure clean session state
         cached = get_cached_filings()
         if cached:
             return cached
@@ -405,12 +431,15 @@ async def get_company_filings(
     except SECEdgarServiceError as e:
         # SEC EDGAR error, try to return cached data
         logger.warning(f"SEC EDGAR error for {ticker_upper}: {e}, attempting to return cached filings")
+        db.rollback()  # Ensure clean session state
         cached = get_cached_filings()
         if cached:
             return cached
         raise HTTPException(status_code=503, detail="SEC EDGAR is temporarily unavailable. Please retry shortly.") from e
     except Exception as e:
         logger.exception(f"Unexpected error fetching filings for {ticker_upper}")
+        # Rollback any pending transaction to recover session state
+        db.rollback()
         # Try to return cached data on any error
         cached = get_cached_filings()
         if cached:

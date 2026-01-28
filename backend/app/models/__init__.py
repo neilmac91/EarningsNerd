@@ -1,4 +1,5 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, Float, JSON
+import logging
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, Float, JSON, event
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -6,6 +7,8 @@ from app.database import Base
 from app.models.waitlist import WaitlistSignup
 from app.models.contact import ContactSubmission
 from app.models.audit_log import AuditLog
+
+logger = logging.getLogger(__name__)
 
 
 class User(Base):
@@ -186,3 +189,44 @@ __all__ = [
     "Watchlist",
     "WaitlistSignup",
 ]
+
+
+# SQLAlchemy event listeners for data validation
+# These catch issues at the Python level before they hit the database
+
+@event.listens_for(Filing, "before_insert")
+def validate_filing_before_insert(mapper, connection, target):
+    """Validate Filing required fields before INSERT."""
+    if target.sec_url is None:
+        # Generate sec_url if missing (defensive fallback)
+        if target.accession_number:
+            accession_clean = target.accession_number.replace("-", "")
+            # Try to get CIK from company relationship or use placeholder
+            cik = "0"
+            if hasattr(target, 'company') and target.company and target.company.cik:
+                cik = target.company.cik.lstrip("0") or "0"
+            target.sec_url = f"https://www.sec.gov/Archives/edgar/data/{cik}/{accession_clean}/"
+            logger.warning(
+                f"Filing {target.accession_number}: sec_url was None, "
+                f"auto-generated: {target.sec_url}"
+            )
+        else:
+            raise ValueError(
+                f"Filing sec_url cannot be None and accession_number is required to generate it"
+            )
+
+    if target.document_url is None:
+        logger.warning(
+            f"Filing {target.accession_number}: document_url is None, "
+            f"this may cause issues with filing display"
+        )
+
+
+@event.listens_for(Filing, "before_update")
+def validate_filing_before_update(mapper, connection, target):
+    """Validate Filing required fields before UPDATE."""
+    if target.sec_url is None:
+        raise ValueError(
+            f"Filing {target.accession_number}: Cannot set sec_url to None "
+            f"(NOT NULL constraint)"
+        )
