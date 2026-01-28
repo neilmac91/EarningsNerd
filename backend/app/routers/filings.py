@@ -1,8 +1,10 @@
+import asyncio
+import logging
+from datetime import datetime
+from typing import List, Optional
+
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
-from typing import List, Optional
-from datetime import datetime
-import logging
 from app.database import get_db
 from app.models import Company, Filing, FilingContentCache
 # EdgarTools migration: Using new edgar module for SEC services
@@ -25,6 +27,10 @@ from app.schemas import (
 from pydantic import BaseModel
 
 logger = logging.getLogger(__name__)
+
+# Constants for filings endpoint configuration
+SEC_REQUEST_TIMEOUT_SECONDS = 20.0  # Timeout for SEC EDGAR requests (within frontend's 30s limit)
+CACHED_FILINGS_LIMIT = 20  # Maximum number of cached filings to return as fallback
 
 router = APIRouter()
 
@@ -305,8 +311,6 @@ async def get_company_filings(
 
     Falls back to cached database filings if SEC EDGAR is slow or unavailable.
     """
-    import asyncio
-
     ticker_upper = ticker.upper()
     company = db.query(Company).filter(Company.ticker == ticker_upper).first()
 
@@ -344,15 +348,14 @@ async def get_company_filings(
         cached = db.query(Filing).filter(
             Filing.company_id == company.id,
             Filing.filing_type.in_(types_list)
-        ).order_by(Filing.filing_date.desc()).limit(20).all()
+        ).order_by(Filing.filing_date.desc()).limit(CACHED_FILINGS_LIMIT).all()
         return [FilingResponse.from_orm(f) for f in cached]
 
     try:
         # Try to fetch from SEC with a timeout to ensure we respond within frontend's limit
-        # Use 20s timeout to leave room for network latency and response serialization
         sec_filings = await asyncio.wait_for(
             sec_edgar_service.get_filings(company.cik, types_list),
-            timeout=20.0
+            timeout=SEC_REQUEST_TIMEOUT_SECONDS
         )
 
         filings = []
