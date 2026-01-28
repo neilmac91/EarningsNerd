@@ -105,6 +105,8 @@ docker-compose down                   # Stop databases
 - **Caching:** Redis for XBRL data (24h TTL), filing content, markdown cache
 - **Fallback System:** `fallback_summary.py` generates summaries when AI fails
 - **Audit Logging:** Tracks user actions for GDPR compliance
+- **Batch Transactions:** Database commits are batched outside loops for performance (see `filings.py`)
+- **Model Validation:** SQLAlchemy event listeners validate NOT NULL fields before INSERT/UPDATE
 - **Request Timeouts:** Per-endpoint configurable timeouts (30s default, 120s summaries)
 - **Health Checks:** `/health` (basic), `/health/detailed` (DB + Redis verification)
 
@@ -209,6 +211,44 @@ Located in `backend/scripts/`:
 - `verify_extraction_standalone.py` - Test XBRL extraction against live SEC data
 - `verify_extraction_fix.py` - Full verification with app config
 - `debug_extraction.py` - Debug regex patterns for extraction
+- `fix_null_sec_urls.py` - Repair filings with NULL sec_url values (see Data Integrity below)
+
+## Data Integrity
+
+### Filing Model Validation
+
+The `Filing` model has NOT NULL constraints on `sec_url` and `document_url`. SQLAlchemy event listeners in `backend/app/models/__init__.py` enforce these at the Python level:
+
+- **`before_insert`**: Validates `sec_url` and `document_url` are not None. Auto-generates `sec_url` if missing but `accession_number` exists.
+- **`before_update`**: Prevents setting `sec_url` to None.
+
+### SEC URL Generation
+
+SEC filing URLs follow the format:
+```
+https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/
+```
+
+Where:
+- `{cik}` = Company CIK with leading zeros stripped (e.g., `320193` not `0000320193`)
+- `{accession}` = Accession number with dashes removed (e.g., `000032019323000077`)
+
+This is generated in `backend/app/services/edgar/client.py:_transform_filing()`.
+
+### Fixing Corrupt Data
+
+If filings with NULL `sec_url` exist (causes `PendingRollbackError`), run:
+
+```bash
+# Dry run - see what would be fixed
+python scripts/fix_null_sec_urls.py
+
+# Apply fixes
+python scripts/fix_null_sec_urls.py --execute
+
+# Fix specific ticker
+python scripts/fix_null_sec_urls.py --ticker BMRN --execute
+```
 
 ## Health Check Endpoints
 

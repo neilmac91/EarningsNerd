@@ -454,6 +454,17 @@ class EdgarClient:
         # Determine filing type enum - use non-strict mode to get UNKNOWN for unrecognized forms
         filing_type = FilingType.from_string(edgar_filing.form, strict=False)
 
+        # Generate SEC filing URL
+        # Format: https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/
+        accession_clean = edgar_filing.accession_number.replace("-", "")
+        cik_clean = cik.lstrip("0") or "0"  # Remove leading zeros, but keep at least "0"
+        sec_url = f"https://www.sec.gov/Archives/edgar/data/{cik_clean}/{accession_clean}/"
+
+        # Get document URL, falling back to primary_document attribute
+        document_url = None
+        if hasattr(edgar_filing, 'primary_document') and edgar_filing.primary_document:
+            document_url = edgar_filing.primary_document
+
         return Filing(
             accession_number=edgar_filing.accession_number,
             filing_type=filing_type,
@@ -462,7 +473,8 @@ class EdgarClient:
             ticker=ticker,
             cik=cik,
             company_name=edgar_filing.company if hasattr(edgar_filing, 'company') else None,
-            document_url=edgar_filing.primary_document if hasattr(edgar_filing, 'primary_document') else None,
+            document_url=document_url,
+            sec_url=sec_url,
         )
 
     async def _extract_xbrl_data(
