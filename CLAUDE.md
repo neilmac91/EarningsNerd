@@ -202,3 +202,44 @@ Located in `backend/scripts/`:
 - **Database:** Managed PostgreSQL
 - **Cache:** Managed Redis
 - **Analytics:** Vercel Analytics (auto-enabled), PostHog (event tracking)
+
+## Claude Skills
+
+This project includes a skill directory at `.claude/skills/` providing specialized knowledge for Claude Code.
+
+### Available Skills
+
+| Category | Skill | Description |
+|----------|-------|-------------|
+| Payments | `stripe-best-practices` | Modern Stripe API patterns |
+| Infrastructure | `cloudflare-agents-sdk` | Building AI agents on Cloudflare Workers |
+| Frontend | `react-best-practices` | 57 React/Next.js optimization rules |
+| Frontend | `web-design-guidelines` | UI code review tool |
+| Deployment | `vercel-deploy` | Deploy to Vercel with claimable URLs |
+| Subagents | `voltagent` | 126+ specialized Claude Code subagents |
+
+### Using Skills
+
+**Automatic**: Claude can auto-load relevant skills based on context (e.g., Stripe skill when discussing payments).
+
+**Manual**: Invoke via slash command:
+```
+/stripe-best-practices
+/react-best-practices
+```
+
+### Adding New Skills
+
+1. Create directory under appropriate category in `.claude/skills/`
+2. Add `SKILL.md` with frontmatter:
+   ```yaml
+   ---
+   name: my-skill
+   description: Brief description
+   version: 1.0.0
+   author: your-name
+   ---
+   ```
+3. Include instructions and reference content
+
+See `.claude/skills/README.md` for full documentation.
