@@ -27,6 +27,9 @@ export class ChatAgent extends AIChatAgent<Env> {
 ## Adding System Prompts
 
 ```typescript
+// StreamCallback is a function that receives each chunk of the streamed response
+type StreamCallback = (chunk: string) => void;
+
 export class ChatAgent extends AIChatAgent<Env> {
   async onChatMessage(messages: Message[], onChunk: StreamCallback) {
     const result = await streamText({

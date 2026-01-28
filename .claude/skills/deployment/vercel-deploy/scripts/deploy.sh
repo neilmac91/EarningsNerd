@@ -2,9 +2,42 @@
 # Vercel Claimable Deployment Script
 # Packages and deploys projects to Vercel with claimable URLs
 
-set -e
+set -euo pipefail
 
 DEPLOY_ENDPOINT="https://claude-skills-deploy.vercel.com/api/deploy"
+
+# Check if jq is available for robust JSON parsing
+HAS_JQ=false
+if command -v jq &>/dev/null; then
+    HAS_JQ=true
+fi
+
+# Parse JSON value - uses jq if available, falls back to grep/cut
+# Usage: parse_json "$json" "key"
+parse_json() {
+    local json="$1"
+    local key="$2"
+
+    if [[ "$HAS_JQ" == true ]]; then
+        echo "$json" | jq -r ".$key // \"\""
+    else
+        # Fallback: grep/cut (less robust but works without jq)
+        echo "$json" | grep -o "\"$key\":\"[^\"]*\"" | cut -d'"' -f4 || echo ""
+    fi
+}
+
+# Check if JSON has a key using jq or grep
+# Usage: json_has_key "$json" "keyname"
+json_has_key() {
+    local json="$1"
+    local key="$2"
+
+    if [[ "$HAS_JQ" == true ]]; then
+        echo "$json" | jq -e ".$key" &>/dev/null
+    else
+        echo "$json" | grep -q "\"$key\""
+    fi
+}
 
 # Detect framework from package.json
 detect_framework() {
@@ -15,56 +48,108 @@ detect_framework() {
         return
     fi
 
-    local deps=$(cat "$pkg_json" | grep -E '"(dependencies|devDependencies)"' -A 100 | head -100)
+    if [[ "$HAS_JQ" == true ]]; then
+        # Robust detection using jq
+        local deps
+        deps=$(jq -r '(.dependencies // {}) + (.devDependencies // {}) | keys[]' "$pkg_json" 2>/dev/null || echo "")
 
-    # Order matters - check more specific frameworks first
-    if echo "$deps" | grep -q '"next"'; then
-        echo "nextjs"
-    elif echo "$deps" | grep -q '"@remix-run/react"'; then
-        echo "remix"
-    elif echo "$deps" | grep -q '"gatsby"'; then
-        echo "gatsby"
-    elif echo "$deps" | grep -q '"astro"'; then
-        echo "astro"
-    elif echo "$deps" | grep -q '"@sveltejs/kit"'; then
-        echo "sveltekit"
-    elif echo "$deps" | grep -q '"svelte"'; then
-        echo "svelte"
-    elif echo "$deps" | grep -q '"nuxt"'; then
-        echo "nuxt"
-    elif echo "$deps" | grep -q '"vue"'; then
-        echo "vue"
-    elif echo "$deps" | grep -q '"@angular/core"'; then
-        echo "angular"
-    elif echo "$deps" | grep -q '"solid-js"'; then
-        echo "solid"
-    elif echo "$deps" | grep -q '"preact"'; then
-        echo "preact"
-    elif echo "$deps" | grep -q '"react"'; then
-        echo "create-react-app"
-    elif echo "$deps" | grep -q '"@nestjs/core"'; then
-        echo "nestjs"
-    elif echo "$deps" | grep -q '"express"'; then
-        echo "express"
-    elif echo "$deps" | grep -q '"fastify"'; then
-        echo "fastify"
-    elif echo "$deps" | grep -q '"hono"'; then
-        echo "hono"
-    elif echo "$deps" | grep -q '"koa"'; then
-        echo "koa"
+        # Order matters - check more specific frameworks first
+        if echo "$deps" | grep -q "^next$"; then
+            echo "nextjs"
+        elif echo "$deps" | grep -q "^@remix-run/react$"; then
+            echo "remix"
+        elif echo "$deps" | grep -q "^gatsby$"; then
+            echo "gatsby"
+        elif echo "$deps" | grep -q "^astro$"; then
+            echo "astro"
+        elif echo "$deps" | grep -q "^@sveltejs/kit$"; then
+            echo "sveltekit"
+        elif echo "$deps" | grep -q "^svelte$"; then
+            echo "svelte"
+        elif echo "$deps" | grep -q "^nuxt$"; then
+            echo "nuxt"
+        elif echo "$deps" | grep -q "^vue$"; then
+            echo "vue"
+        elif echo "$deps" | grep -q "^@angular/core$"; then
+            echo "angular"
+        elif echo "$deps" | grep -q "^solid-js$"; then
+            echo "solid"
+        elif echo "$deps" | grep -q "^preact$"; then
+            echo "preact"
+        elif echo "$deps" | grep -q "^react$"; then
+            echo "create-react-app"
+        elif echo "$deps" | grep -q "^@nestjs/core$"; then
+            echo "nestjs"
+        elif echo "$deps" | grep -q "^express$"; then
+            echo "express"
+        elif echo "$deps" | grep -q "^fastify$"; then
+            echo "fastify"
+        elif echo "$deps" | grep -q "^hono$"; then
+            echo "hono"
+        elif echo "$deps" | grep -q "^koa$"; then
+            echo "koa"
+        else
+            echo "other"
+        fi
     else
-        echo "other"
+        # Fallback: grep-based detection (less robust)
+        echo "Warning: jq not found, using fallback framework detection" >&2
+
+        local content
+        content=$(cat "$pkg_json")
+
+        # Order matters - check more specific frameworks first
+        if echo "$content" | grep -q '"next"'; then
+            echo "nextjs"
+        elif echo "$content" | grep -q '"@remix-run/react"'; then
+            echo "remix"
+        elif echo "$content" | grep -q '"gatsby"'; then
+            echo "gatsby"
+        elif echo "$content" | grep -q '"astro"'; then
+            echo "astro"
+        elif echo "$content" | grep -q '"@sveltejs/kit"'; then
+            echo "sveltekit"
+        elif echo "$content" | grep -q '"svelte"'; then
+            echo "svelte"
+        elif echo "$content" | grep -q '"nuxt"'; then
+            echo "nuxt"
+        elif echo "$content" | grep -q '"vue"'; then
+            echo "vue"
+        elif echo "$content" | grep -q '"@angular/core"'; then
+            echo "angular"
+        elif echo "$content" | grep -q '"solid-js"'; then
+            echo "solid"
+        elif echo "$content" | grep -q '"preact"'; then
+            echo "preact"
+        elif echo "$content" | grep -q '"react"'; then
+            echo "create-react-app"
+        elif echo "$content" | grep -q '"@nestjs/core"'; then
+            echo "nestjs"
+        elif echo "$content" | grep -q '"express"'; then
+            echo "express"
+        elif echo "$content" | grep -q '"fastify"'; then
+            echo "fastify"
+        elif echo "$content" | grep -q '"hono"'; then
+            echo "hono"
+        elif echo "$content" | grep -q '"koa"'; then
+            echo "koa"
+        else
+            echo "other"
+        fi
     fi
 }
 
 # Handle static HTML projects
 handle_static_html() {
     local dir="$1"
-    local html_files=$(find "$dir" -maxdepth 1 -name "*.html" | wc -l)
+    local html_files
+    html_files=$(find "$dir" -maxdepth 1 -name "*.html" | wc -l)
 
     if [[ $html_files -eq 1 ]]; then
-        local html_file=$(find "$dir" -maxdepth 1 -name "*.html")
-        local basename=$(basename "$html_file")
+        local html_file
+        html_file=$(find "$dir" -maxdepth 1 -name "*.html")
+        local basename
+        basename=$(basename "$html_file")
         if [[ "$basename" != "index.html" ]]; then
             echo "Renaming $basename to index.html for static deployment" >&2
             mv "$html_file" "$dir/index.html"
@@ -75,7 +160,8 @@ handle_static_html() {
 # Create tarball from directory
 create_tarball() {
     local source_dir="$1"
-    local tarball_path=$(mktemp /tmp/deploy-XXXXXX.tgz)
+    local tarball_path
+    tarball_path=$(mktemp /tmp/deploy-XXXXXX.tgz)
 
     tar -czf "$tarball_path" \
         --exclude='node_modules' \
@@ -130,7 +216,8 @@ deploy() {
     # Upload to deployment endpoint
     echo "Uploading to Vercel..." >&2
 
-    local response=$(curl -s -X POST "$DEPLOY_ENDPOINT" \
+    local response
+    response=$(curl -s -X POST "$DEPLOY_ENDPOINT" \
         -H "Content-Type: application/gzip" \
         -H "X-Framework: $framework" \
         --data-binary "@$tarball_path")
@@ -140,12 +227,23 @@ deploy() {
         rm -f "$tarball_path"
     fi
 
-    # Parse response
-    local preview_url=$(echo "$response" | grep -o '"previewUrl":"[^"]*"' | cut -d'"' -f4)
-    local claim_url=$(echo "$response" | grep -o '"claimUrl":"[^"]*"' | cut -d'"' -f4)
-    local deployment_id=$(echo "$response" | grep -o '"deploymentId":"[^"]*"' | cut -d'"' -f4)
-    local project_id=$(echo "$response" | grep -o '"projectId":"[^"]*"' | cut -d'"' -f4)
-    local error=$(echo "$response" | grep -o '"error":"[^"]*"' | cut -d'"' -f4)
+    # Parse response using jq if available, fallback to grep/cut
+    local preview_url claim_url deployment_id project_id error
+
+    if [[ "$HAS_JQ" == true ]]; then
+        preview_url=$(echo "$response" | jq -r '.previewUrl // ""')
+        claim_url=$(echo "$response" | jq -r '.claimUrl // ""')
+        deployment_id=$(echo "$response" | jq -r '.deploymentId // ""')
+        project_id=$(echo "$response" | jq -r '.projectId // ""')
+        error=$(echo "$response" | jq -r '.error // ""')
+    else
+        # Fallback: grep/cut parsing
+        preview_url=$(echo "$response" | grep -o '"previewUrl":"[^"]*"' | cut -d'"' -f4 || echo "")
+        claim_url=$(echo "$response" | grep -o '"claimUrl":"[^"]*"' | cut -d'"' -f4 || echo "")
+        deployment_id=$(echo "$response" | grep -o '"deploymentId":"[^"]*"' | cut -d'"' -f4 || echo "")
+        project_id=$(echo "$response" | grep -o '"projectId":"[^"]*"' | cut -d'"' -f4 || echo "")
+        error=$(echo "$response" | grep -o '"error":"[^"]*"' | cut -d'"' -f4 || echo "")
+    fi
 
     if [[ -n "$error" ]]; then
         echo "Error: $error" >&2

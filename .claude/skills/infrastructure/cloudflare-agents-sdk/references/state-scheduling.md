@@ -160,6 +160,15 @@ await this.schedule(
 Define methods matching the scheduled task name:
 
 ```typescript
+import { Agent, ScheduleMetadata } from "@cloudflare/agents";
+
+// ScheduleMetadata contains information about the scheduled task:
+// interface ScheduleMetadata {
+//   id: string;           // Unique schedule identifier
+//   type: "cron" | "scheduled";  // Schedule type
+//   scheduledTime: Date;  // When the task was scheduled to run
+// }
+
 export class MyAgent extends Agent<Env, MyState> {
   // Handler receives payload and schedule metadata
   async sendHolidayGreeting(

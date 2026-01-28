@@ -126,7 +126,7 @@ async processOrder(payload: { orderId: number }) {
 
 ### Dependencies
 ```bash
-npm install @cloudflare/agents agents-sdk ai @ai-sdk/openai
+npm install @cloudflare/agents ai @ai-sdk/openai
 ```
 
 ## Client Integration
