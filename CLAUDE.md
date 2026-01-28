@@ -9,7 +9,7 @@ EarningsNerd is an AI-powered SEC filing analysis platform that transforms dense
 **Backend:** FastAPI (Python 3.11), SQLAlchemy 2.0, PostgreSQL 15, Redis 7
 **Frontend:** Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui, React Query
 **AI:** OpenAI-compatible API (Google AI Studio gemini-2.0-flash)
-**Payments:** Stripe | **Email:** Resend | **Analytics:** PostHog | **Errors:** Sentry
+**Payments:** Stripe | **Email:** Resend | **Analytics:** PostHog, Vercel Analytics | **Errors:** Sentry
 
 ## Quick Commands
 
@@ -21,6 +21,7 @@ pytest tests/                                      # Run all tests
 pytest tests/unit/                                 # Unit tests only
 alembic upgrade head                               # Run migrations
 python3 scripts/deploy_check.py                    # Pre-deploy validation
+python3 scripts/verify_extraction_standalone.py   # Test XBRL extraction
 ```
 
 ### Frontend (from `/frontend`)
@@ -44,8 +45,8 @@ docker-compose down                   # Stop databases
 ```
 /backend
 ├── app/
-│   ├── routers/          # API endpoints (auth, companies, filings, summaries, etc.)
-│   ├── services/         # Business logic (openai_service.py, xbrl_service.py, etc.)
+│   ├── routers/          # API endpoints (auth, companies, filings, summaries, admin, etc.)
+│   ├── services/         # Business logic (openai_service.py, xbrl_service.py, audit_service.py)
 │   ├── models/           # SQLAlchemy ORM models
 │   ├── schemas/          # Pydantic validation schemas
 │   ├── integrations/     # External APIs (finnhub, earnings_whispers)
@@ -53,6 +54,7 @@ docker-compose down                   # Stop databases
 │   └── database.py       # DB session management
 ├── tests/                # pytest tests (unit/, integration/, performance/)
 ├── prompts/              # AI system prompts (10k-analyst-agent.md, 10q-analyst-agent.md)
+├── scripts/              # Verification and debug scripts
 ├── migrations/           # Alembic migrations
 └── main.py               # FastAPI app entry point
 
@@ -68,7 +70,8 @@ docker-compose down                   # Stop databases
 │   └── */api/            # API client functions per domain
 ├── lib/
 │   ├── api/client.ts     # Axios instance with auth interceptors
-│   └── api/types.ts      # TypeScript API types
+│   ├── api/types.ts      # TypeScript API types
+│   └── featureFlags.ts   # Feature flag configuration
 └── hooks/                # Custom React hooks
 ```
 
@@ -79,8 +82,11 @@ docker-compose down                   # Stop databases
 | `backend/app/services/openai_service.py` | AI summarization logic, prompt engineering |
 | `backend/app/services/summary_generation_service.py` | Summary orchestration, progress tracking |
 | `backend/app/services/xbrl_service.py` | XBRL financial data extraction |
+| `backend/app/services/audit_service.py` | Audit logging for GDPR compliance |
 | `backend/app/routers/summaries.py` | Summary endpoints with SSE streaming |
+| `backend/app/routers/admin.py` | Admin endpoints for data management |
 | `backend/prompts/*.md` | System prompts for 10-K/10-Q analysis |
+| `backend/scripts/deploy_check.py` | Pre-deployment validation script |
 | `frontend/lib/api/client.ts` | API client with smart URL detection |
 | `frontend/components/SummarySections.tsx` | Summary display component |
 
@@ -91,18 +97,20 @@ docker-compose down                   # Stop databases
 - **Async/Await:** All I/O operations are async (SEC API, OpenAI, database)
 - **Streaming Responses:** SSE for long-running summary generation with 3s heartbeats
 - **Rate Limiting:** SEC EDGAR: 10 req/sec with exponential backoff
-- **Caching:** Redis for XBRL data (24h TTL), filing content, company tickers
+- **Caching:** Redis for XBRL data (24h TTL), filing content, markdown cache
 - **Fallback System:** `fallback_summary.py` generates summaries when AI fails
+- **Audit Logging:** Tracks user actions for GDPR compliance
 
 ### Frontend
 - **Feature-Based Structure:** `/features` groups domains (auth, companies, filings, etc.)
 - **React Query:** Server state management with caching and auto-refetch
 - **Type Safety:** Strict TypeScript throughout
+- **Feature Flags:** `lib/featureFlags.ts` controls optional features
 
 ## Database Models
 
 Core tables in `backend/app/models/__init__.py`:
-- `User` - Authentication, preferences
+- `User` - Authentication, preferences, `is_admin` flag
 - `Company` - CIK, ticker, name
 - `Filing` - SEC filings (10-K, 10-Q)
 - `Summary` - AI-generated summaries
@@ -110,6 +118,23 @@ Core tables in `backend/app/models/__init__.py`:
 - `Watchlist` - User company watchlists
 - `Subscription` - Stripe subscriptions
 - `EmailSubscriber` - Newsletter signups
+- `AuditLog` - User action audit trail (GDPR compliance)
+- `FilingContentCache` - Cached filing content with markdown
+- `SummaryGenerationProgress` - Real-time generation progress tracking
+
+## Admin Features
+
+Admin endpoints require `is_admin=True` on the user account. Available at `/api/admin/`:
+
+| Endpoint | Purpose |
+|----------|---------|
+| `DELETE /filing/{id}/summary` | Delete summary for a filing |
+| `DELETE /filing/{id}/xbrl` | Clear XBRL cache for a filing |
+| `DELETE /filing/{id}/reset` | Full reset (summary, XBRL, content cache, progress) |
+| `POST /xbrl/clear-memory-cache` | Clear in-memory XBRL cache |
+| `GET /xbrl/cache-stats` | View XBRL cache statistics |
+| `GET /filings/audit-xbrl` | Audit filings for stale XBRL data |
+| `POST /filings/bulk-reset-stale` | Bulk reset stale filings (supports dry_run) |
 
 ## Environment Variables
 
@@ -134,6 +159,8 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=...
 NEXT_PUBLIC_POSTHOG_KEY=...
 NEXT_PUBLIC_SENTRY_DSN=...
+NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS=true|false
+NEXT_PUBLIC_ENABLE_SECTION_TABS=true|false
 ```
 
 ## Testing
@@ -144,11 +171,20 @@ NEXT_PUBLIC_SENTRY_DSN=...
 Key test files:
 - `backend/tests/integration/test_summaries_flow.py` - Summary generation E2E
 - `backend/tests/test_xbrl_extraction.py` - XBRL parsing validation
+- `backend/tests/test_summary_quality.py` - Output quality validation
 - `frontend/__tests__/guards.test.ts` - Route guard tests
+
+### Verification Scripts
+
+Located in `backend/scripts/`:
+- `deploy_check.py` - Pre-deployment validation (env vars, DB, dependencies)
+- `verify_extraction_standalone.py` - Test XBRL extraction against live SEC data
+- `verify_extraction_fix.py` - Full verification with app config
+- `debug_extraction.py` - Debug regex patterns for extraction
 
 ## API Conventions
 
-- All API routes prefixed with `/api/v1/`
+- All API routes prefixed with `/api/v1/` (admin routes at `/api/admin/`)
 - JWT auth via `Authorization: Bearer <token>` header
 - Streaming endpoints use Server-Sent Events (SSE)
 - JSON responses with Pydantic schema validation
@@ -162,6 +198,7 @@ Key test files:
 ## Deployment
 
 - **Backend:** Render.com (see `render.yaml`)
-- **Frontend:** Firebase Hosting or Vercel
+- **Frontend:** Vercel or Firebase Hosting
 - **Database:** Managed PostgreSQL
 - **Cache:** Managed Redis
+- **Analytics:** Vercel Analytics (auto-enabled), PostHog (event tracking)
