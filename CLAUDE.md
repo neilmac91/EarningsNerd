@@ -8,7 +8,7 @@ EarningsNerd is an AI-powered SEC filing analysis platform that transforms dense
 
 **Backend:** FastAPI (Python 3.11), SQLAlchemy 2.0, PostgreSQL 15, Redis 7
 **Frontend:** Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui, React Query
-**AI:** OpenAI-compatible API (Google AI Studio gemini-2.0-flash)
+**AI:** OpenAI-compatible API (Google AI Studio gemini-3-pro-preview)
 **Payments:** Stripe | **Email:** Resend | **Analytics:** PostHog, Vercel Analytics | **Errors:** Sentry
 
 ## Quick Commands
@@ -109,7 +109,7 @@ docker-compose down                   # Stop databases
 
 ## Database Models
 
-Core tables in `backend/app/models/__init__.py`:
+Core tables in `backend/app/models/`:
 - `User` - Authentication, preferences, `is_admin` flag
 - `Company` - CIK, ticker, name
 - `Filing` - SEC filings (10-K, 10-Q)
@@ -143,14 +143,14 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 DATABASE_URL=postgresql://...
 REDIS_URL=redis://...
 OPENAI_API_KEY=...
-OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
-SECRET_KEY=...                    # JWT signing (min 64 chars)
+OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+SECRET_KEY=...                    # JWT signing (recommended: 64+ chars)
 STRIPE_SECRET_KEY=...
 STRIPE_WEBHOOK_SECRET=...
 RESEND_API_KEY=...
 POSTHOG_API_KEY=...
 ENVIRONMENT=development|production
-CORS_ORIGINS_STR=http://localhost:3000
+CORS_ORIGINS_STR=http://localhost:3000,https://yourdomain.com
 ```
 
 ### Frontend (.env.local)
@@ -184,7 +184,7 @@ Located in `backend/scripts/`:
 
 ## API Conventions
 
-- All API routes prefixed with `/api/v1/` (admin routes at `/api/admin/`)
+- All API routes prefixed with `/api/` (admin routes at `/api/admin/`)
 - JWT auth via `Authorization: Bearer <token>` header
 - Streaming endpoints use Server-Sent Events (SSE)
 - JSON responses with Pydantic schema validation
