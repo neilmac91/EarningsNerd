@@ -120,4 +120,5 @@ class FilingType(str, Enum):
 # Thread pool configuration for async operations
 # Configurable via environment variables for production tuning
 EDGAR_THREAD_POOL_SIZE = int(os.environ.get("EDGAR_THREAD_POOL_SIZE", "4"))
-EDGAR_DEFAULT_TIMEOUT_SECONDS = float(os.environ.get("EDGAR_DEFAULT_TIMEOUT_SECONDS", "30.0"))
+# Reduced timeout to fit within frontend's 30s limit - allow room for network latency
+EDGAR_DEFAULT_TIMEOUT_SECONDS = float(os.environ.get("EDGAR_DEFAULT_TIMEOUT_SECONDS", "15.0"))

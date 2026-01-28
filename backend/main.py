@@ -6,6 +6,35 @@ import os
 import time
 from dotenv import load_dotenv
 
+# Load environment variables early for Sentry initialization
+load_dotenv()
+
+# Initialize Sentry for error tracking (must be done before FastAPI app creation)
+try:
+    import sentry_sdk
+    from sentry_sdk.integrations.fastapi import FastApiIntegration
+    from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
+
+    sentry_dsn = os.getenv("SENTRY_DSN", "")
+    if sentry_dsn:
+        sentry_sdk.init(
+            dsn=sentry_dsn,
+            environment=os.getenv("ENVIRONMENT", "development"),
+            traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
+            profiles_sample_rate=0.1,  # 10% of sampled transactions for profiling
+            integrations=[
+                FastApiIntegration(transaction_style="endpoint"),
+                SqlalchemyIntegration(),
+            ],
+            # Don't send PII
+            send_default_pii=False,
+        )
+        print("✓ Sentry error tracking initialized")
+    else:
+        print("⚠️  SENTRY_DSN not configured - error tracking disabled")
+except ImportError:
+    print("Sentry SDK not available - install sentry-sdk for error tracking")
+
 from app.database import engine, Base
 from app.routers import (
     companies,
@@ -26,8 +55,6 @@ from app.routers import (
     admin,
 )
 from app.config import settings
-
-load_dotenv()
 
 # Create database tables
 @asynccontextmanager
@@ -141,3 +168,21 @@ async def root():
 @app.get("/health")
 async def health_check():
     return {"status": "healthy"}
+
+
+@app.get("/robots.txt", include_in_schema=False)
+async def robots_txt():
+    """Serve robots.txt to prevent search engine indexing of API endpoints."""
+    from fastapi.responses import PlainTextResponse
+    content = """# EarningsNerd API - robots.txt
+# This is an API server, not intended for search engine indexing.
+# The main website is at https://earningsnerd.io
+
+User-agent: *
+Disallow: /api/
+Allow: /
+
+# Sitemap for the frontend
+Sitemap: https://earningsnerd.io/sitemap.xml
+"""
+    return PlainTextResponse(content=content, media_type="text/plain")
