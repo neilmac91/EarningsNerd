@@ -301,9 +301,15 @@ async def get_company_filings(
     filing_types: Optional[str] = Query(None, description="Comma-separated filing types (e.g., '10-K,10-Q')"),
     db: Session = Depends(get_db)
 ):
-    """Get filings for a company"""
-    company = db.query(Company).filter(Company.ticker == ticker.upper()).first()
-    
+    """Get filings for a company.
+
+    Falls back to cached database filings if SEC EDGAR is slow or unavailable.
+    """
+    import asyncio
+
+    ticker_upper = ticker.upper()
+    company = db.query(Company).filter(Company.ticker == ticker_upper).first()
+
     if not company:
         # Try to fetch company from SEC and create it
         try:
@@ -327,23 +333,35 @@ async def get_company_filings(
             raise HTTPException(status_code=503, detail="SEC EDGAR is temporarily unavailable. Please retry shortly.") from e
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error fetching company: {str(e)}") from e
-    
+
     # Parse filing types
     types_list = ["10-K", "10-Q"]
     if filing_types:
         types_list = [t.strip() for t in filing_types.split(",")]
-    
+
+    # Helper to get cached filings from database
+    def get_cached_filings() -> List[FilingResponse]:
+        cached = db.query(Filing).filter(
+            Filing.company_id == company.id,
+            Filing.filing_type.in_(types_list)
+        ).order_by(Filing.filing_date.desc()).limit(20).all()
+        return [FilingResponse.from_orm(f) for f in cached]
+
     try:
-        # Fetch from SEC
-        sec_filings = await sec_edgar_service.get_filings(company.cik, types_list)
-        
+        # Try to fetch from SEC with a timeout to ensure we respond within frontend's limit
+        # Use 20s timeout to leave room for network latency and response serialization
+        sec_filings = await asyncio.wait_for(
+            sec_edgar_service.get_filings(company.cik, types_list),
+            timeout=20.0
+        )
+
         filings = []
         for sec_filing in sec_filings:
             # Check if filing exists in database
             filing = db.query(Filing).filter(
                 Filing.accession_number == sec_filing["accession_number"]
             ).first()
-            
+
             if not filing:
                 filing = Filing(
                     company_id=company.id,
@@ -364,14 +382,37 @@ async def get_company_filings(
                     filing.document_url = sec_filing["document_url"]
                     db.commit()
                     db.refresh(filing)
-            
+
             # Convert to response model
             filings.append(FilingResponse.from_orm(filing))
-        
+
         return filings
+
+    except asyncio.TimeoutError:
+        # SEC EDGAR is slow, fall back to cached data
+        logger.warning(f"SEC EDGAR timeout for {ticker_upper}, returning cached filings")
+        cached = get_cached_filings()
+        if cached:
+            return cached
+        # No cached data available
+        raise HTTPException(
+            status_code=503,
+            detail="SEC EDGAR is slow to respond and no cached data is available. Please retry in a moment."
+        )
     except SECEdgarServiceError as e:
+        # SEC EDGAR error, try to return cached data
+        logger.warning(f"SEC EDGAR error for {ticker_upper}: {e}, attempting to return cached filings")
+        cached = get_cached_filings()
+        if cached:
+            return cached
         raise HTTPException(status_code=503, detail="SEC EDGAR is temporarily unavailable. Please retry shortly.") from e
     except Exception as e:
+        logger.exception(f"Unexpected error fetching filings for {ticker_upper}")
+        # Try to return cached data on any error
+        cached = get_cached_filings()
+        if cached:
+            logger.info(f"Returning {len(cached)} cached filings for {ticker_upper} after error")
+            return cached
         raise HTTPException(status_code=500, detail=f"Error fetching filings: {str(e)}") from e
 
 @router.get("/{filing_id}", response_model=FilingResponse)
