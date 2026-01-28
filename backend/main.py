@@ -92,18 +92,22 @@ async def lifespan(app: FastAPI):
 
     # Initialize Redis connection pool (with timeout to prevent hanging in CI/test)
     from app.services.redis_service import get_redis_pool, check_redis_health, close_redis
-    REDIS_INIT_TIMEOUT = 3.0  # Fast fail for CI environments
-    try:
-        await asyncio.wait_for(get_redis_pool(), timeout=REDIS_INIT_TIMEOUT)
-        redis_health = await check_redis_health()
-        if redis_health.get("healthy"):
-            print(f"✓ Redis connected: latency={redis_health.get('latency_ms', 'N/A')}ms")
-        else:
-            print(f"⚠️  Redis not available: {redis_health.get('error', 'unknown error')} (caching degraded)")
-    except asyncio.TimeoutError:
-        print("⚠️  Redis initialization timed out (caching degraded)")
-    except Exception as e:
-        print(f"⚠️  Redis initialization failed: {e} (caching degraded)")
+
+    if not settings.SKIP_REDIS_INIT:
+        REDIS_INIT_TIMEOUT = 3.0  # Fast fail for CI environments
+        try:
+            await asyncio.wait_for(get_redis_pool(), timeout=REDIS_INIT_TIMEOUT)
+            redis_health = await check_redis_health()
+            if redis_health.get("healthy"):
+                print(f"✓ Redis connected: latency={redis_health.get('latency_ms', 'N/A')}ms")
+            else:
+                print(f"⚠️  Redis not available: {redis_health.get('error', 'unknown error')} (caching degraded)")
+        except asyncio.TimeoutError:
+            print("⚠️  Redis initialization timed out (caching degraded)")
+        except Exception as e:
+            print(f"⚠️  Redis initialization failed: {e} (caching degraded)")
+    else:
+        print("⊘ Redis initialization skipped (SKIP_REDIS_INIT=true)")
 
     yield
 

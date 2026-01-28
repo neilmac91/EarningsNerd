@@ -13,6 +13,9 @@ os.environ["OPENAI_API_KEY"] = "sk-test-key-for-mocking"
 os.environ["STRIPE_SECRET_KEY"] = "sk_test_mock_stripe_key_12345"
 os.environ["STRIPE_WEBHOOK_SECRET"] = "whsec_mock_stripe_webhook_12345"
 
+# Skip Redis initialization in tests - prevents 3+ second timeout per test
+os.environ["SKIP_REDIS_INIT"] = "true"
+
 
 def pytest_configure(config):
     """Register custom markers."""

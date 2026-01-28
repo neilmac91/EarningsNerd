@@ -31,10 +31,16 @@ from sqlite3 import OperationalError as SQLiteOperationalError
 from main import app
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def client():
-    """Create a test client for the FastAPI app."""
-    return TestClient(app)
+    """
+    Create a test client for the FastAPI app.
+
+    Module scope means TestClient lifespan runs once per test module,
+    dramatically reducing startup overhead in CI.
+    """
+    with TestClient(app) as test_client:
+        yield test_client
 
 
 def _is_db_table_error(exc: Exception) -> bool:

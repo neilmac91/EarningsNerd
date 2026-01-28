@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     
     # Redis
     REDIS_URL: str = "redis://localhost:6379"
+    SKIP_REDIS_INIT: bool = False  # Set to True in tests to skip Redis initialization
     
     # SEC EDGAR API
     SEC_EDGAR_BASE_URL: str = "https://data.sec.gov"

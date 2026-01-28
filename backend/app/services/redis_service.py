@@ -24,10 +24,11 @@ _client: Optional[aioredis.Redis] = None
 _init_lock: asyncio.Lock | None = None
 
 
-def _get_init_lock() -> asyncio.Lock:
-    """Get or create the initialization lock (must be created in async context)."""
+async def _get_init_lock() -> asyncio.Lock:
+    """Get or create the initialization lock in async context (thread-safe)."""
     global _init_lock
     if _init_lock is None:
+        # Create lock inside async context to ensure event loop exists
         _init_lock = asyncio.Lock()
     return _init_lock
 
@@ -43,7 +44,7 @@ async def get_redis_pool() -> Optional[ConnectionPool]:
     if _pool is not None:
         return _pool
 
-    async with _get_init_lock():
+    async with await _get_init_lock():
         # Double-check after acquiring lock
         if _pool is not None:
             return _pool
@@ -75,7 +76,7 @@ async def get_redis_client() -> Optional[aioredis.Redis]:
     if _client is not None:
         return _client
 
-    async with _get_init_lock():
+    async with await _get_init_lock():
         # Double-check after acquiring lock
         if _client is not None:
             return _client
@@ -159,7 +160,7 @@ async def check_redis_health() -> dict:
 async def close_redis() -> None:
     """Close the Redis connection pool gracefully."""
     global _pool, _client, _init_lock
-    async with _get_init_lock():
+    async with await _get_init_lock():
         if _client is not None:
             try:
                 await _client.close()
