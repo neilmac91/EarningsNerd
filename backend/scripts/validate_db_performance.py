@@ -21,7 +21,6 @@ Expected Results (Basic-1gb instance):
 import os
 import sys
 import time
-from contextlib import contextmanager
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -40,14 +39,27 @@ def get_database_url():
     return url
 
 
-@contextmanager
-def timer(description: str):
-    """Context manager for timing operations."""
+def measure_operation(operation_func, description: str) -> tuple[float, any]:
+    """
+    Measure the execution time of an operation.
+
+    Args:
+        operation_func: Callable to execute and time
+        description: Description for logging
+
+    Returns:
+        Tuple of (elapsed_ms, result)
+    """
     start = time.perf_counter()
-    yield
-    elapsed_ms = (time.perf_counter() - start) * 1000
-    print(f"  {description}: {elapsed_ms:.2f}ms")
-    return elapsed_ms
+    try:
+        result = operation_func()
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        print(f"  {description}: {elapsed_ms:.2f}ms")
+        return elapsed_ms, result
+    except Exception as e:
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        print(f"  {description}: FAILED after {elapsed_ms:.2f}ms - {e}")
+        raise
 
 
 def run_validation():
@@ -74,6 +86,7 @@ def run_validation():
     try:
         from sqlalchemy import create_engine, text
         from sqlalchemy.orm import sessionmaker
+        from sqlalchemy.exc import SQLAlchemyError, OperationalError, InterfaceError
     except ImportError:
         print("ERROR: SQLAlchemy not installed. Run: pip install sqlalchemy")
         sys.exit(1)
@@ -109,8 +122,14 @@ def run_validation():
         else:
             print("  ⚠️  SLOW (> 100ms)")
         conn.close()
-    except Exception as e:
-        print(f"  ❌ FAILED: {e}")
+    except OperationalError as e:
+        print(f"  ❌ FAILED (connection error): {e}")
+        sys.exit(1)
+    except InterfaceError as e:
+        print(f"  ❌ FAILED (interface error): {e}")
+        sys.exit(1)
+    except SQLAlchemyError as e:
+        print(f"  ❌ FAILED (database error): {e}")
         sys.exit(1)
 
     print()
@@ -129,8 +148,8 @@ def run_validation():
         else:
             print("  ⚠️  SLOW (> 5ms)")
         session.close()
-    except Exception as e:
-        print(f"  ❌ FAILED: {e}")
+    except SQLAlchemyError as e:
+        print(f"  ❌ FAILED (database error): {e}")
 
     print()
     print("3. Table Count Query")
@@ -168,8 +187,8 @@ def run_validation():
                     break
 
         session.close()
-    except Exception as e:
-        print(f"  ❌ FAILED: {e}")
+    except SQLAlchemyError as e:
+        print(f"  ❌ FAILED (database error): {e}")
 
     print()
     print("4. Connection Pool Health")
@@ -200,8 +219,8 @@ def run_validation():
             print("  ⚠️  SLOW (> 500ms)")
 
         results["pool_health"] = pool_time
-    except Exception as e:
-        print(f"  ❌ FAILED: {e}")
+    except SQLAlchemyError as e:
+        print(f"  ❌ FAILED (database error): {e}")
 
     print()
     print("5. Index Check")
@@ -222,8 +241,8 @@ def run_validation():
             print("  No indexes found (consider adding indexes for better performance)")
 
         session.close()
-    except Exception as e:
-        print(f"  ❌ FAILED: {e}")
+    except SQLAlchemyError as e:
+        print(f"  ❌ FAILED (database error): {e}")
 
     print()
     print("=" * 60)

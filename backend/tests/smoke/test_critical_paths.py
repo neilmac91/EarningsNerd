@@ -5,7 +5,11 @@ These tests verify that the core functionality of the application is operational
 Run these tests after every deployment to ensure critical paths are working.
 
 Usage:
+    # Run from backend directory
     pytest tests/smoke/ -v --tb=short
+
+    # Or with PYTHONPATH set
+    PYTHONPATH=. pytest tests/smoke/ -v --tb=short
 
 Critical Paths Tested:
 1. Health check endpoints (basic and detailed)
@@ -13,17 +17,17 @@ Critical Paths Tested:
 3. Filing retrieval
 4. Authentication flow
 5. Database connectivity
+
+Note:
+    Tests that require database access are marked with @pytest.mark.requires_db
+    and will skip gracefully if the database is not initialized.
 """
 
 import pytest
 from fastapi.testclient import TestClient
-from unittest.mock import patch, MagicMock, AsyncMock
-import sys
-import os
+from sqlite3 import OperationalError as SQLiteOperationalError
 
-# Add backend to path
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
-
+# Import app - relies on PYTHONPATH or running from backend directory
 from main import app
 
 
@@ -31,6 +35,16 @@ from main import app
 def client():
     """Create a test client for the FastAPI app."""
     return TestClient(app)
+
+
+def _is_db_table_error(exc: Exception) -> bool:
+    """Check if an exception is due to missing database tables."""
+    error_str = str(exc).lower()
+    return (
+        "no such table" in error_str or
+        "relation" in error_str and "does not exist" in error_str or
+        isinstance(exc, SQLiteOperationalError)
+    )
 
 
 class TestHealthEndpoints:
@@ -96,6 +110,7 @@ class TestCompanyEndpoints:
         # 500 indicates a code error, which is what we want to catch
         assert response.status_code in [200, 404, 503]
 
+    @pytest.mark.requires_db
     def test_trending_companies_endpoint_exists(self, client):
         """Trending companies endpoint should exist."""
         try:
@@ -104,15 +119,14 @@ class TestCompanyEndpoints:
             # In production, this should always return 200
             assert response.status_code in [200, 500]
         except Exception as e:
-            # Database not initialized in test env - this is expected
-            # In production smoke tests, this should pass
-            if "no such table" in str(e):
-                pytest.skip("Database tables not initialized (expected in local test env)")
+            if _is_db_table_error(e):
+                pytest.skip("Database tables not initialized (run in production for full coverage)")
 
 
 class TestFilingsEndpoints:
     """Test filings-related endpoints."""
 
+    @pytest.mark.requires_db
     def test_recent_filings_endpoint_exists(self, client):
         """Recent filings endpoint should exist."""
         try:
@@ -121,9 +135,8 @@ class TestFilingsEndpoints:
             # In production, this should return 200
             assert response.status_code in [200, 404, 500]
         except Exception as e:
-            # Database not initialized in test env - this is expected
-            if "no such table" in str(e):
-                pytest.skip("Database tables not initialized (expected in local test env)")
+            if _is_db_table_error(e):
+                pytest.skip("Database tables not initialized (run in production for full coverage)")
 
 
 class TestAuthEndpoints:
@@ -169,6 +182,7 @@ class TestSEOEndpoints:
         assert "User-agent" in response.text
         assert "Disallow: /api/" in response.text
 
+    @pytest.mark.requires_db
     def test_sitemap_endpoint_exists(self, client):
         """Sitemap endpoint should exist."""
         try:
@@ -177,9 +191,8 @@ class TestSEOEndpoints:
             # In production with DB, this should return 200
             assert response.status_code in [200, 500]
         except Exception as e:
-            # Database not initialized in test env - this is expected
-            if "no such table" in str(e):
-                pytest.skip("Database tables not initialized (expected in local test env)")
+            if _is_db_table_error(e):
+                pytest.skip("Database tables not initialized (run in production for full coverage)")
 
 
 class TestSecurityHeaders:

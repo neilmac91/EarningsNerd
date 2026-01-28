@@ -5,25 +5,48 @@ Provides:
 - Connection pooling for Redis
 - Health check functionality
 - Graceful degradation when Redis is unavailable
+- Thread-safe lazy initialization with asyncio.Lock
 """
 
+import asyncio
 import logging
 from typing import Optional
-import redis.asyncio as redis
+import redis.asyncio as aioredis
 from redis.asyncio.connection import ConnectionPool
+from redis.exceptions import RedisError, ConnectionError as RedisConnectionError
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Global connection pool (initialized lazily)
+# Global connection pool (initialized lazily with lock protection)
 _pool: Optional[ConnectionPool] = None
-_client: Optional[redis.Redis] = None
+_client: Optional[aioredis.Redis] = None
+_init_lock: asyncio.Lock | None = None
+
+
+def _get_init_lock() -> asyncio.Lock:
+    """Get or create the initialization lock (must be created in async context)."""
+    global _init_lock
+    if _init_lock is None:
+        _init_lock = asyncio.Lock()
+    return _init_lock
 
 
 async def get_redis_pool() -> Optional[ConnectionPool]:
-    """Get or create the Redis connection pool."""
+    """
+    Get or create the Redis connection pool.
+
+    Thread-safe lazy initialization using asyncio.Lock to prevent
+    race conditions when multiple coroutines attempt initialization.
+    """
     global _pool
-    if _pool is None:
+    if _pool is not None:
+        return _pool
+
+    async with _get_init_lock():
+        # Double-check after acquiring lock
+        if _pool is not None:
+            return _pool
         try:
             _pool = ConnectionPool.from_url(
                 settings.REDIS_URL,
@@ -33,20 +56,33 @@ async def get_redis_pool() -> Optional[ConnectionPool]:
                 socket_connect_timeout=5.0,
             )
             logger.info(f"Redis connection pool created for {settings.REDIS_URL}")
-        except Exception as e:
-            logger.warning(f"Failed to create Redis connection pool: {e}")
+        except RedisError as e:
+            logger.warning(f"Failed to create Redis connection pool (Redis error): {e}")
+            return None
+        except ValueError as e:
+            logger.warning(f"Failed to create Redis connection pool (invalid URL): {e}")
             return None
     return _pool
 
 
-async def get_redis_client() -> Optional[redis.Redis]:
-    """Get a Redis client from the connection pool."""
+async def get_redis_client() -> Optional[aioredis.Redis]:
+    """
+    Get a Redis client from the connection pool.
+
+    Thread-safe lazy initialization using asyncio.Lock.
+    """
     global _client
-    if _client is None:
+    if _client is not None:
+        return _client
+
+    async with _get_init_lock():
+        # Double-check after acquiring lock
+        if _client is not None:
+            return _client
         pool = await get_redis_pool()
         if pool is None:
             return None
-        _client = redis.Redis(connection_pool=pool)
+        _client = aioredis.Redis(connection_pool=pool)
     return _client
 
 
@@ -84,33 +120,40 @@ async def check_redis_health() -> dict:
                 "healthy": False,
                 "error": "Redis ping returned False"
             }
-    except redis.ConnectionError as e:
+    except RedisConnectionError as e:
         logger.warning(f"Redis connection error: {e}")
         return {
             "healthy": False,
             "error": f"Connection error: {str(e)}"
         }
-    except redis.TimeoutError as e:
+    except aioredis.TimeoutError as e:
         logger.warning(f"Redis timeout: {e}")
         return {
             "healthy": False,
             "error": f"Timeout: {str(e)}"
         }
-    except Exception as e:
-        logger.error(f"Redis health check failed: {e}")
+    except RedisError as e:
+        logger.error(f"Redis health check failed (Redis error): {e}")
         return {
             "healthy": False,
-            "error": str(e)
+            "error": f"Redis error: {str(e)}"
         }
 
 
 async def close_redis() -> None:
     """Close the Redis connection pool gracefully."""
-    global _pool, _client
-    if _client is not None:
-        await _client.close()
-        _client = None
-    if _pool is not None:
-        await _pool.disconnect()
-        _pool = None
-        logger.info("Redis connection pool closed")
+    global _pool, _client, _init_lock
+    async with _get_init_lock():
+        if _client is not None:
+            try:
+                await _client.close()
+            except RedisError as e:
+                logger.warning(f"Error closing Redis client: {e}")
+            _client = None
+        if _pool is not None:
+            try:
+                await _pool.disconnect()
+            except RedisError as e:
+                logger.warning(f"Error disconnecting Redis pool: {e}")
+            _pool = None
+            logger.info("Redis connection pool closed")

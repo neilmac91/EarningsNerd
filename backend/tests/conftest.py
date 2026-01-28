@@ -28,4 +28,7 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "slow: mark test as slow-running"
     )
+    config.addinivalue_line(
+        "markers", "requires_db: mark test as requiring database (skips gracefully if not available)"
+    )
 
