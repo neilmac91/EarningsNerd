@@ -1128,9 +1128,11 @@ function SummaryDisplay({
                   </button>
                 )}
               </div>
-              <ReactMarkdown remarkPlugins={[remarkGfm]} className="markdown-body text-gray-800">
-                {cleanedMarkdown}
-              </ReactMarkdown>
+              <div className="markdown-body text-gray-800">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {cleanedMarkdown}
+                </ReactMarkdown>
+              </div>
             </section>
           )}
 
