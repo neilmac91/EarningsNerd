@@ -21,6 +21,7 @@ Usage:
 
 import asyncio
 import logging
+from itertools import islice
 from typing import Any, Dict, List, Optional
 
 from edgar import Company as EdgarCompany, set_identity, find as edgar_find
@@ -210,10 +211,18 @@ class EdgarClient:
                 amended_value = f"{filing_type.value}/A"
                 form_types.append(amended_value)
 
+            # Calculate per-form limit to avoid loading all historical filings
+            # We fetch more than needed per form to account for sorting across form types
+            per_form_limit = (limit * 2) if limit is not None else 20
+
             filings = []
             for form_type in form_types:
+                # Use islice to limit filings BEFORE materializing full list
+                # This prevents OOM when companies have 80+ years of filings
                 form_filings = await run_in_executor_with_timeout(
-                    lambda ft=form_type: list(edgar_company.get_filings(form=ft)),
+                    lambda ft=form_type, lim=per_form_limit: list(
+                        islice(edgar_company.get_filings(form=ft), lim)
+                    ),
                     timeout=self.timeout,
                 )
                 filings.extend(form_filings)
@@ -225,7 +234,7 @@ class EdgarClient:
                 reverse=True
             )
 
-            # Apply limit
+            # Apply final limit after sorting
             if limit:
                 filings = filings[:limit]
 
