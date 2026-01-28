@@ -16,11 +16,11 @@ EarningsNerd is an AI-powered SEC filing analysis platform that transforms dense
 ### Backend (from `/backend`)
 ```bash
 pip install -r requirements.txt                    # Install dependencies
+alembic upgrade head                               # Run migrations (before tests)
 uvicorn main:app --reload --host 0.0.0.0 --port 8000  # Dev server
 pytest tests/                                      # Run all tests
 pytest tests/unit/                                 # Unit tests only
 pytest tests/smoke/ -v                             # Smoke tests (critical paths)
-alembic upgrade head                               # Run migrations
 python3 scripts/deploy_check.py                    # Pre-deploy validation
 python3 scripts/validate_db_performance.py         # PostgreSQL performance check
 python3 scripts/verify_extraction_standalone.py   # Test XBRL extraction
@@ -215,9 +215,28 @@ Located in `backend/scripts/`:
 | Endpoint | Purpose | Response |
 |----------|---------|----------|
 | `GET /health` | Basic health check for load balancers | `{"status": "healthy"}` |
-| `GET /health/detailed` | Detailed check with DB + Redis status | `{"status": "healthy|degraded|unhealthy", "checks": {...}}` |
+| `GET /health/detailed` | Detailed check with DB + Redis status | See example below |
 
-The detailed health check returns:
+### Detailed Health Check Response
+
+```json
+{
+  "status": "healthy",
+  "checks": {
+    "database": {
+      "healthy": true,
+      "latency_ms": 2.45
+    },
+    "redis": {
+      "healthy": true,
+      "latency_ms": 1.12
+    }
+  },
+  "timestamp": 1706454000.123
+}
+```
+
+**Status codes:**
 - `200` with `status: healthy` - All dependencies operational
 - `200` with `status: degraded` - Non-critical dependency (Redis) unavailable
 - `503` with `status: unhealthy` - Critical dependency (database) unavailable
