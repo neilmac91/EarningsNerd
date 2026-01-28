@@ -213,7 +213,7 @@ class EdgarClient:
 
             # Calculate per-form limit to avoid loading all historical filings
             # We fetch more than needed per form to account for sorting across form types
-            per_form_limit = (limit * 2) if limit else 20
+            per_form_limit = (limit * 2) if limit is not None else 20
 
             filings = []
             for form_type in form_types:
