@@ -70,10 +70,12 @@ docker-compose down                   # Stop databases
 │   ├── (auth)/           # Login/register routes
 │   ├── company/[ticker]/ # Company detail pages
 │   ├── filing/[id]/      # Filing summary pages
+│   ├── compare/          # Filing comparison pages
 │   ├── dashboard/        # User dashboard (watchlist, saved summaries)
+│   ├── contact/          # Contact form page
 │   └── layout.tsx        # Root layout with providers
-├── components/           # Reusable React components
-├── features/             # Domain modules (auth, companies, filings, summaries, watchlist)
+├── components/           # Reusable React components (34+ components)
+├── features/             # Domain modules (auth, companies, filings, summaries, watchlist, contact)
 │   └── */api/            # API client functions per domain
 ├── lib/
 │   ├── api/client.ts     # Axios instance with auth interceptors
@@ -84,19 +86,75 @@ docker-compose down                   # Stop databases
 
 ## Key Files
 
+### Backend Services
+
 | File | Purpose |
 |------|---------|
 | `backend/app/services/openai_service.py` | AI summarization logic, prompt engineering |
 | `backend/app/services/summary_generation_service.py` | Summary orchestration, progress tracking |
-| `backend/app/services/edgar/xbrl_service.py` | XBRL financial data extraction with two-tier caching |
-| `backend/app/services/edgar/compat.py` | SEC EDGAR compatibility layer with two-tier ticker caching |
+| `backend/app/services/sec_client.py` | High-level facade combining SEC EDGAR, rate limiter, filing parser, markdown serializer |
+| `backend/app/services/filing_parser.py` | Parses SEC filings into semantic structures using sec-parser |
+| `backend/app/services/markdown_serializer.py` | Converts parsed SEC filings to clean Markdown for LLM consumption |
+| `backend/app/services/subscription_service.py` | User subscription usage tracking (FREE_TIER_SUMMARY_LIMIT = 5) |
+| `backend/app/services/rate_limiter.py` | In-memory sliding window rate limiter |
+| `backend/app/services/sec_rate_limiter.py` | SEC EDGAR-specific rate limiter with token bucket and exponential backoff |
+| `backend/app/services/email_service.py` | Resend API wrapper for email delivery with HTML templates |
+| `backend/app/services/prompt_loader.py` | Loads AI prompts from markdown files |
+| `backend/app/services/hot_filings.py` | Identifies trending SEC filings using Finnhub/EarningsWhispers signals |
+| `backend/app/services/trending_service.py` | Trending tickers with keyword sentiment analysis |
+| `backend/app/services/export_service.py` | PDF/HTML export of summaries and filings |
+| `backend/app/services/waitlist_service.py` | Waitlist signups with referral codes and priority scoring |
+| `backend/app/services/posthog_client.py` | PostHog analytics event tracking |
 | `backend/app/services/redis_service.py` | Redis connection pooling, cache helpers, TTL config, event loop safety |
 | `backend/app/services/logging_service.py` | Structured logging, correlation IDs, request context |
 | `backend/app/services/metrics_service.py` | Application metrics for monitoring dashboards |
-| `backend/app/services/edgar/circuit_breaker.py` | Circuit breaker pattern for SEC EDGAR resilience |
 | `backend/app/services/audit_service.py` | Audit logging for GDPR compliance |
-| `backend/app/routers/summaries.py` | Summary endpoints with SSE streaming |
-| `backend/app/routers/admin.py` | Admin endpoints for data management |
+
+### EDGAR Integration (`backend/app/services/edgar/`)
+
+| File | Purpose |
+|------|---------|
+| `xbrl_service.py` | XBRL financial data extraction with two-tier caching |
+| `compat.py` | SEC EDGAR compatibility layer with two-tier ticker caching |
+| `client.py` | SEC EDGAR API client |
+| `circuit_breaker.py` | Circuit breaker pattern for SEC EDGAR resilience |
+| `async_executor.py` | Async wrapper for EdgarTools using dedicated thread pool |
+| `config.py` | EdgarTools configuration (thread pool size, timeouts) |
+| `exceptions.py` | EdgarTools-specific exception definitions |
+| `models.py` | EdgarTools domain models (dataclass wrappers) |
+
+### External Integrations (`backend/app/integrations/`)
+
+| File | Purpose |
+|------|---------|
+| `finnhub.py` | News sentiment analysis (buzz_ratio, articles_in_last_week, bullish_percent) |
+| `earnings_whispers.py` | Earnings surprise signals and company earnings data |
+
+### API Routers (`backend/app/routers/`)
+
+| File | Prefix | Purpose |
+|------|--------|---------|
+| `summaries.py` | `/api/summaries` | Summary endpoints with SSE streaming |
+| `filings.py` | `/api/filings` | Filing retrieval and management |
+| `companies.py` | `/api/companies` | Company search and details |
+| `auth.py` | `/api/auth` | Authentication (login, register, refresh) |
+| `users.py` | `/api/users` | User profile, export, deletion |
+| `admin.py` | `/api/admin` | Admin endpoints for data management |
+| `compare.py` | `/api/compare` | Filing comparison endpoints |
+| `contact.py` | `/api/contact` | Contact form submission |
+| `email.py` | `/api/email` | Email management endpoints |
+| `hot_filings.py` | `/api` | Hot filings (`GET /hot-filings`, `POST /refresh-hot-filings`) |
+| `trending.py` | `/api` | Trending tickers (`GET /trending-tickers`) |
+| `subscriptions.py` | `/api/subscriptions` | Subscription management |
+| `saved_summaries.py` | `/api/saved-summaries` | Save/manage summaries |
+| `watchlist.py` | `/api/watchlist` | Company watchlist management |
+| `webhooks.py` | `/api` | Resend webhook handlers (`POST /webhooks/resend`) |
+| `sitemap.py` | `/` | XML sitemap generation (`GET /sitemap.xml`) |
+
+### Other Key Files
+
+| File | Purpose |
+|------|---------|
 | `backend/prompts/*.md` | System prompts for 10-K/10-Q analysis |
 | `backend/scripts/deploy_check.py` | Pre-deployment validation script |
 | `backend/scripts/validate_db_performance.py` | PostgreSQL performance benchmarking |
@@ -147,10 +205,28 @@ docker-compose down                   # Stop databases
   - Critical for test stability with Starlette TestClient
 
 ### Frontend
-- **Feature-Based Structure:** `/features` groups domains (auth, companies, filings, etc.)
+- **Feature-Based Structure:** `/features` groups domains (auth, companies, filings, summaries, watchlist, contact)
 - **React Query:** Server state management with caching and auto-refetch
 - **Type Safety:** Strict TypeScript throughout
 - **Feature Flags:** `lib/featureFlags.ts` controls optional features
+- **Error Boundaries:** `GlobalErrorBoundary`, `ChartErrorBoundary` for graceful error handling
+
+### Key Frontend Components
+
+| Component | Purpose |
+|-----------|---------|
+| `SummarySections.tsx` | Summary display with collapsible sections |
+| `SummaryProgress.tsx` | Real-time progress for summary generation |
+| `HotFilings.tsx` | Trending/hot SEC filings display |
+| `TrendingCompanies.tsx` | List of trending companies |
+| `TrendingTickers.tsx` | List of trending stock tickers |
+| `FinancialCharts.tsx` | Financial data visualization |
+| `FinancialMetricsTable.tsx` | Table display for financial metrics |
+| `ComparisonMetricChart.tsx` | Filing comparison visualizations |
+| `ContactForm.tsx` | Contact form component |
+| `CookieConsent.tsx` | Cookie consent banner |
+| `GlobalErrorBoundary.tsx` | App-wide error boundary with Sentry |
+| `ChartErrorBoundary.tsx` | Error boundary for chart rendering |
 
 ## Database Models
 
@@ -161,8 +237,10 @@ Core tables in `backend/app/models/`:
 - `Summary` - AI-generated summaries
 - `SavedSummary` - User-saved summaries
 - `Watchlist` - User company watchlists
-- `Subscription` - Stripe subscriptions
-- `EmailSubscriber` - Newsletter signups
+- `UserUsage` - Per-month summary generation count for rate limiting
+- `UserSearch` - User search history tracking
+- `WaitlistSignup` - Waitlist signups with referral codes and priority scoring
+- `ContactSubmission` - Contact form submissions with status tracking
 - `AuditLog` - User action audit trail (GDPR compliance)
 - `FilingContentCache` - Cached filing content with markdown
 - `SummaryGenerationProgress` - Real-time generation progress tracking
@@ -185,17 +263,49 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 
 ### Backend (.env)
 ```
+# Database & Cache
 DATABASE_URL=postgresql://...
 REDIS_URL=redis://...
 SKIP_REDIS_INIT=false             # Set to true in tests to skip Redis (auto-set by conftest.py)
+
+# AI Configuration
 OPENAI_API_KEY=...
 OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
+AI_DEFAULT_MODEL=gemini-3-pro-preview  # Primary AI model
+RECOVERY_MAX_CONCURRENCY=3        # Max concurrent calls for section recovery
+
+# Auth & Security
 SECRET_KEY=...                    # JWT signing (recommended: 64+ chars)
+
+# Stripe
 STRIPE_SECRET_KEY=...
 STRIPE_WEBHOOK_SECRET=...
+
+# Email (Resend)
 RESEND_API_KEY=...
+
+# Analytics & Monitoring
 POSTHOG_API_KEY=...
 SENTRY_DSN=...                    # Sentry error tracking DSN
+
+# External APIs - Finnhub
+FINNHUB_API_KEY=...               # Required for sentiment analysis
+FINNHUB_API_BASE=https://finnhub.io/api/v1
+FINNHUB_TIMEOUT_SECONDS=6.0       # Timeout for Finnhub API calls
+FINNHUB_MAX_CONCURRENCY=4         # Max concurrent Finnhub requests
+
+# External APIs - EarningsWhispers
+EARNINGS_WHISPERS_API_BASE=https://www.earningswhispers.com/api
+
+# Hot Filings
+HOT_FILINGS_REFRESH_TOKEN=...     # Token for hot filings service
+HOT_FILINGS_USER_AGENT=...        # Custom User-Agent for hot filings
+
+# Streaming Configuration
+STREAM_HEARTBEAT_INTERVAL=3       # Heartbeat interval in seconds
+STREAM_TIMEOUT=600                # Stream timeout in seconds
+
+# Application
 ENVIRONMENT=development|production
 CORS_ORIGINS_STR=http://localhost:3000,https://yourdomain.com
 ```
@@ -226,11 +336,23 @@ Custom pytest markers defined in `backend/tests/conftest.py`:
 
 ### Key Test Files
 
-- `backend/tests/smoke/test_critical_paths.py` - 18 smoke tests for critical paths
-- `backend/tests/unit/test_circuit_breaker.py` - 14 circuit breaker pattern tests
-- `backend/tests/unit/test_two_tier_cache.py` - LRU eviction, concurrent access, stress tests
-- `backend/tests/unit/test_event_loop_safety.py` - Event loop detection, Redis connection safety
-- `backend/tests/integration/test_summaries_flow.py` - Summary generation E2E
+**Smoke Tests (`backend/tests/smoke/`):**
+- `test_critical_paths.py` - 18 smoke tests for critical paths
+
+**Unit Tests (`backend/tests/unit/`):**
+- `test_circuit_breaker.py` - 14 circuit breaker pattern tests
+- `test_two_tier_cache.py` - LRU eviction, concurrent access, stress tests
+- `test_event_loop_safety.py` - Event loop detection, Redis connection safety
+- `test_json_repair.py` - JSON repair functionality for malformed AI responses
+- `test_openai_service_retry.py` - OpenAI service retry logic and error handling
+
+**Integration Tests (`backend/tests/integration/`):**
+- `test_summaries_flow.py` - Summary generation E2E
+- `test_extra_cache_logic.py` - Additional cache scenarios and edge cases
+- `test_stream_latency.py` - SSE streaming latency and performance
+- `test_summary_stream_heartbeat.py` - Heartbeat behavior in streaming responses
+
+**Other Tests:**
 - `backend/tests/test_xbrl_extraction.py` - XBRL parsing validation
 - `backend/tests/test_summary_quality.py` - Output quality validation
 - `frontend/__tests__/guards.test.ts` - Route guard tests
@@ -249,6 +371,10 @@ Located in `backend/scripts/`:
 - `validate_db_performance.py` - PostgreSQL performance benchmarking
 - `verify_extraction_standalone.py` - Test XBRL extraction against live SEC data
 - `verify_extraction_fix.py` - Full verification with app config
+- `verify_extraction_mock.py` - Tests XBRL extraction with mock data
+- `verify_xbrl_fallback.py` - Verifies XBRL fallback mechanisms
+- `verify_startup_config.py` - Detailed startup configuration verification
+- `test_startup.py` - Validates application startup configuration
 - `debug_extraction.py` - Debug regex patterns for extraction
 - `fix_null_sec_urls.py` - Repair filings with NULL sec_url values (see Data Integrity below)
 
