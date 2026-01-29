@@ -5,6 +5,10 @@ Provides XBRL financial data extraction using EdgarTools.
 This service maintains API compatibility with the legacy xbrl_service.py
 to enable gradual migration.
 
+Caching Strategy (Two-Tier):
+- L1: In-memory cache (fast, process-local)
+- L2: Redis cache (persistent, shared across instances)
+
 Usage:
     from app.services.edgar.xbrl_service import edgar_xbrl_service
 
@@ -30,7 +34,7 @@ logger = logging.getLogger(__name__)
 # Ensure identity is set
 set_identity(EDGAR_IDENTITY)
 
-# Module-level cache for XBRL data
+# Module-level cache for XBRL data (L1 - in-memory)
 # Key: "{cik}:{accession_number}"
 # Value: (cached_datetime, data_dict)
 _xbrl_cache: Dict[str, Tuple[datetime, Optional[Dict]]] = {}
@@ -46,17 +50,18 @@ def clear_xbrl_cache() -> int:
     return count
 
 
-def get_xbrl_cache_stats() -> Dict[str, int]:
-    """Get cache statistics for monitoring."""
+def get_xbrl_cache_stats() -> Dict[str, Any]:
+    """Get cache statistics for monitoring (L1 in-memory cache)."""
     now = datetime.now()
     valid_count = sum(
         1 for cached_time, _ in _xbrl_cache.values()
         if now - cached_time < _cache_ttl
     )
     return {
-        "total_entries": len(_xbrl_cache),
-        "valid_entries": valid_count,
-        "expired_entries": len(_xbrl_cache) - valid_count,
+        "l1_total_entries": len(_xbrl_cache),
+        "l1_valid_entries": valid_count,
+        "l1_expired_entries": len(_xbrl_cache) - valid_count,
+        "cache_ttl_hours": _cache_ttl.total_seconds() / 3600,
     }
 
 
@@ -83,6 +88,10 @@ class EdgarXBRLService:
         This method maintains backward compatibility with the legacy
         xbrl_service.get_xbrl_data() interface.
 
+        Uses two-tier caching:
+        - L1: In-memory cache (fast, process-local)
+        - L2: Redis cache (persistent, shared across instances)
+
         Args:
             accession_number: Filing accession number
             cik: Company CIK (Central Index Key)
@@ -100,30 +109,58 @@ class EdgarXBRLService:
         """
         global _xbrl_cache
 
-        # Build cache key
-        cache_key = f"{cik}:{accession_number}"
+        # Build cache keys
+        memory_key = f"{cik}:{accession_number}"
+        redis_key = f"xbrl:{cik}:{accession_number}"
 
-        # Check cache first
-        if cache_key in _xbrl_cache:
-            cached_time, cached_data = _xbrl_cache[cache_key]
+        # L1: Check in-memory cache first (fastest)
+        if memory_key in _xbrl_cache:
+            cached_time, cached_data = _xbrl_cache[memory_key]
             if datetime.now() - cached_time < _cache_ttl:
-                logger.debug(f"XBRL cache hit for {cache_key}")
+                logger.debug(f"XBRL L1 cache hit for {memory_key}")
                 return cached_data
             else:
-                logger.debug(f"XBRL cache expired for {cache_key}")
-                del _xbrl_cache[cache_key]
+                logger.debug(f"XBRL L1 cache expired for {memory_key}")
+                del _xbrl_cache[memory_key]
 
-        # Fetch from EdgarTools
+        # L2: Check Redis cache (persistent, shared)
+        redis_data = await self._get_from_redis(redis_key)
+        if redis_data is not None:
+            logger.debug(f"XBRL L2 cache hit for {redis_key}")
+            # Populate L1 cache from L2
+            _xbrl_cache[memory_key] = (datetime.now(), redis_data)
+            return redis_data
+
+        # Cache miss - fetch from EdgarTools
         result = await self._fetch_xbrl_data(cik, accession_number)
 
-        # Cache successful results only
+        # Cache successful results in both tiers
         if result is not None:
-            _xbrl_cache[cache_key] = (datetime.now(), result)
-            logger.debug(f"XBRL cached for {cache_key}")
+            _xbrl_cache[memory_key] = (datetime.now(), result)
+            await self._set_to_redis(redis_key, result)
+            logger.debug(f"XBRL cached (L1+L2) for {memory_key}")
         else:
-            logger.debug(f"XBRL NOT cached for {cache_key} (no data)")
+            logger.debug(f"XBRL NOT cached for {memory_key} (no data)")
 
         return result
+
+    async def _get_from_redis(self, key: str) -> Optional[Dict[str, Any]]:
+        """Get XBRL data from Redis cache (L2)."""
+        try:
+            from app.services.redis_service import cache_get
+            return await cache_get(key)
+        except Exception as e:
+            logger.debug(f"Redis L2 cache get failed for {key}: {e}")
+            return None
+
+    async def _set_to_redis(self, key: str, data: Dict[str, Any]) -> bool:
+        """Set XBRL data in Redis cache (L2)."""
+        try:
+            from app.services.redis_service import cache_set, CacheTTL
+            return await cache_set(key, data, CacheTTL.XBRL_DATA)
+        except Exception as e:
+            logger.debug(f"Redis L2 cache set failed for {key}: {e}")
+            return False
 
     async def _fetch_xbrl_data(
         self,
