@@ -187,13 +187,14 @@ class OpenAIService:
             base_url=base_url
         )
         # Model name constants for maintainability
-        self._MODEL_GEMINI_3_PRO = "gemini-3-pro-preview"
+        # Primary model sourced from settings for single source of truth
+        self._MODEL_GEMINI_3_PRO = settings.AI_DEFAULT_MODEL  # From config.py
         self._MODEL_GEMINI_2_5_PRO = "gemini-2.5-pro"
         self._MODEL_GEMINI_2_5_FLASH = "gemini-2.5-flash"
 
         # Google AI Studio model names
         # Updated to use Gemini Pro 3.0 for highest quality outputs
-        self.model = self._MODEL_GEMINI_3_PRO  # Gemini Pro 3.0 (high-precision multimodal reasoning)
+        self.model = self._MODEL_GEMINI_3_PRO  # Sourced from settings.AI_DEFAULT_MODEL
         # Fallback models in case primary is rate-limited
         self._fallback_models = [
             self._MODEL_GEMINI_3_PRO,

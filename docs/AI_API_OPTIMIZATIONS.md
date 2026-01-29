@@ -1,7 +1,8 @@
 # AI API Optimization Opportunities
 
 **Document Created:** 2026-01-25
-**Status:** Pending Implementation
+**Last Updated:** 2026-01-29
+**Status:** Partially Implemented (Quality-First Model Selection)
 **Reviewed By:** API Architect + AI Engineer Agents
 
 ---
@@ -72,23 +73,29 @@ async def _recover_missing_sections(self, missing_sections, ...):
 
 ---
 
-### 2. Model Selection by Task (HIGH PRIORITY)
+### 2. Model Selection by Task (IMPLEMENTED - QUALITY-FIRST)
 
-**Current:** All tasks use `gemini-3-pro-preview`
+**Status:** ✅ Implemented with quality-first approach (2026-01-29)
 
-**Location:** `backend/app/services/openai_service.py:189-212`
+**Decision:** After evaluating cost vs. quality trade-offs, the team chose to prioritize **output quality** over cost savings. All tasks now use `gemini-3-pro-preview` consistently.
 
-**Recommended Configuration:**
+**Location:** `backend/app/services/openai_service.py:189-220`
 
-| Task | Current Model | Recommended Model | Rationale |
-|------|---------------|-------------------|-----------|
-| Structured Extraction | gemini-3-pro-preview | gemini-3-pro-preview | Needs high accuracy |
-| Section Recovery | gemini-3-pro-preview | **gemini-2.5-flash** | Simpler task, lower cost |
-| Editorial Writer | gemini-3-pro-preview | **gemini-2.5-pro** | Creative but constrained |
+**Current Configuration (Quality-First):**
 
-**Implementation Point:** `_run_secondary_completion()` at lines 1116-1161
+| Task | Model | Rationale |
+|------|-------|-----------|
+| Structured Extraction | gemini-3-pro-preview | Highest accuracy for JSON extraction |
+| Section Recovery | gemini-3-pro-preview | Quality gap-filling for missing sections |
+| Editorial Writer | gemini-3-pro-preview | High quality user-facing markdown output |
 
-**Estimated Savings:** 30-50% token cost reduction for recovery + writer stages
+**Configuration Source:** `settings.AI_DEFAULT_MODEL` in `backend/app/config.py`
+
+**Alternative (Cost-Optimized):** If cost reduction becomes a priority, consider:
+- Section Recovery → `gemini-2.5-flash` (saves ~30% tokens)
+- Editorial Writer → `gemini-2.5-pro` (saves ~20% tokens)
+
+**Trade-off:** Quality-first approach may cost 30-50% more in API usage but delivers significantly better summary quality for end users
 
 ---
 
