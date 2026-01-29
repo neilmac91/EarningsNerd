@@ -74,9 +74,11 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
 
     if (!existingPreferences) {
       // Check "Do Not Track" browser setting
+      // Note: window.doNotTrack is non-standard but supported by some browsers
+      const windowDoNotTrack = 'doNotTrack' in window ? (window as Window & { doNotTrack?: string }).doNotTrack : undefined
       const doNotTrack =
         navigator.doNotTrack === '1' ||
-        (window as unknown as { doNotTrack?: string }).doNotTrack === '1'
+        windowDoNotTrack === '1'
 
       if (doNotTrack) {
         // Respect DNT by only enabling essential cookies

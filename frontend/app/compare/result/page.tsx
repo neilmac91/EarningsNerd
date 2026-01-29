@@ -167,6 +167,39 @@ export default function CompareResultPage() {
     return insightsArray
   }, [comparison.financial_metrics, filingLabels])
 
+  // Memoize derived computations from metricInsights
+  const deltaHighlights = useMemo(() => {
+    const deltas: Array<{
+      metric: string
+      label: string
+      delta: number
+      display: string
+    }> = []
+
+    metricInsights.forEach((insight) => {
+      insight.series.forEach((point, idx) => {
+        if (idx === insight.baseIndex || point.delta === null) return
+        deltas.push({
+          metric: insight.metric,
+          label: point.label,
+          delta: point.delta,
+          display: point.display,
+        })
+      })
+    })
+
+    return deltas
+      .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
+      .slice(0, 6)
+  }, [metricInsights])
+
+  const metricsWithTrend = useMemo(() => {
+    return metricInsights.filter(
+      (insight) =>
+        insight.series.filter((point) => point.numeric !== null).length >= 2
+    ).slice(0, 4)
+  }, [metricInsights])
+
   // Early returns after all hooks
   if (!comparisonData) {
     return (
@@ -212,36 +245,6 @@ export default function CompareResultPage() {
       </div>
     )
   }
-
-  const deltaHighlights = (() => {
-    const deltas: Array<{
-      metric: string
-      label: string
-      delta: number
-      display: string
-    }> = []
-
-    metricInsights.forEach((insight) => {
-      insight.series.forEach((point, idx) => {
-        if (idx === insight.baseIndex || point.delta === null) return
-        deltas.push({
-          metric: insight.metric,
-          label: point.label,
-          delta: point.delta,
-          display: point.display,
-        })
-      })
-    })
-
-    return deltas
-      .sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta))
-      .slice(0, 6)
-  })()
-
-  const metricsWithTrend = metricInsights.filter(
-    (insight) =>
-      insight.series.filter((point) => point.numeric !== null).length >= 2
-  ).slice(0, 4)
 
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark">
