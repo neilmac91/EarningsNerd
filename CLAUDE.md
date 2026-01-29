@@ -8,7 +8,7 @@ EarningsNerd is an AI-powered SEC filing analysis platform that transforms dense
 
 **Backend:** FastAPI (Python 3.11), SQLAlchemy 2.0, PostgreSQL 15, Redis 7
 **Frontend:** Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui, React Query
-**AI:** OpenAI-compatible API (Google AI Studio gemini-3-pro-preview)
+**AI:** OpenAI-compatible API (Google AI Studio gemini-2.0-flash)
 **Payments:** Stripe | **Email:** Resend | **Analytics:** PostHog, Vercel Analytics | **Errors:** Sentry
 
 ## Quick Commands
@@ -48,7 +48,12 @@ docker-compose down                   # Stop databases
 /backend
 ├── app/
 │   ├── routers/          # API endpoints (auth, companies, filings, summaries, admin, etc.)
-│   ├── services/         # Business logic (openai_service.py, xbrl_service.py, audit_service.py)
+│   ├── services/         # Business logic layer
+│   │   ├── edgar/        # SEC EDGAR integration (circuit_breaker, client, xbrl_service)
+│   │   ├── logging_service.py   # Structured logging with correlation IDs
+│   │   ├── metrics_service.py   # Application metrics aggregation
+│   │   ├── redis_service.py     # Connection pooling, cache helpers, health checks
+│   │   └── openai_service.py    # AI summarization logic
 │   ├── models/           # SQLAlchemy ORM models
 │   ├── schemas/          # Pydantic validation schemas
 │   ├── integrations/     # External APIs (finnhub, earnings_whispers)
@@ -84,7 +89,10 @@ docker-compose down                   # Stop databases
 | `backend/app/services/openai_service.py` | AI summarization logic, prompt engineering |
 | `backend/app/services/summary_generation_service.py` | Summary orchestration, progress tracking |
 | `backend/app/services/xbrl_service.py` | XBRL financial data extraction |
-| `backend/app/services/redis_service.py` | Redis connection pooling, health checks |
+| `backend/app/services/redis_service.py` | Redis connection pooling, cache helpers, TTL config |
+| `backend/app/services/logging_service.py` | Structured logging, correlation IDs, request context |
+| `backend/app/services/metrics_service.py` | Application metrics for monitoring dashboards |
+| `backend/app/services/edgar/circuit_breaker.py` | Circuit breaker pattern for SEC EDGAR resilience |
 | `backend/app/services/audit_service.py` | Audit logging for GDPR compliance |
 | `backend/app/routers/summaries.py` | Summary endpoints with SSE streaming |
 | `backend/app/routers/admin.py` | Admin endpoints for data management |
@@ -108,7 +116,20 @@ docker-compose down                   # Stop databases
 - **Batch Transactions:** Database commits are batched outside loops for performance (see `filings.py`)
 - **Model Validation:** SQLAlchemy event listeners validate NOT NULL fields before INSERT/UPDATE
 - **Request Timeouts:** Per-endpoint configurable timeouts (30s default, 120s summaries)
-- **Health Checks:** `/health` (basic), `/health/detailed` (DB + Redis verification)
+- **Health Checks:** `/health` (basic), `/health/detailed` (DB + Redis + circuit breaker), `/metrics` (full stats)
+- **Circuit Breaker Pattern:** Protects SEC EDGAR API from cascading failures:
+  - States: CLOSED (normal) → OPEN (5 failures, reject fast) → HALF_OPEN (test recovery after 30s)
+  - Only network errors trip circuit (timeouts, connection errors, rate limits)
+  - Business errors (404, parse errors) do NOT trip circuit
+  - Automatic recovery with configurable thresholds
+- **Structured Logging:** JSON logs in production with correlation ID propagation:
+  - `X-Correlation-ID` header auto-generated/extracted per request
+  - Request context (method, path, client IP, duration) in all logs
+  - Use `get_logger(__name__)` and `log_api_call()` helpers
+- **Cache Helpers:** Type-safe Redis caching with TTL presets:
+  - `cache_get()`, `cache_set()`, `cache_get_or_set()` for cache-aside pattern
+  - `CacheTTL` enum: XBRL_DATA (24h), FILING_METADATA (6h), HOT_FILINGS (5m)
+  - `CacheNamespace` for key organization (xbrl, filing, company, etc.)
 
 ### Frontend
 - **Feature-Based Structure:** `/features` groups domains (auth, companies, filings, etc.)
@@ -191,6 +212,7 @@ Custom pytest markers defined in `backend/tests/conftest.py`:
 ### Key Test Files
 
 - `backend/tests/smoke/test_critical_paths.py` - 18 smoke tests for critical paths
+- `backend/tests/unit/test_circuit_breaker.py` - 14 circuit breaker pattern tests
 - `backend/tests/integration/test_summaries_flow.py` - Summary generation E2E
 - `backend/tests/test_xbrl_extraction.py` - XBRL parsing validation
 - `backend/tests/test_summary_quality.py` - Output quality validation
@@ -250,12 +272,13 @@ python scripts/fix_null_sec_urls.py --execute
 python scripts/fix_null_sec_urls.py --ticker BMRN --execute
 ```
 
-## Health Check Endpoints
+## Health Check & Monitoring Endpoints
 
 | Endpoint | Purpose | Response |
 |----------|---------|----------|
 | `GET /health` | Basic health check for load balancers | `{"status": "healthy"}` |
-| `GET /health/detailed` | Detailed check with DB + Redis status | See example below |
+| `GET /health/detailed` | Detailed check with DB + Redis + circuit breaker | See example below |
+| `GET /metrics` | Application metrics for monitoring dashboards | See metrics response below |
 
 ### Detailed Health Check Response
 
@@ -270,9 +293,37 @@ python scripts/fix_null_sec_urls.py --ticker BMRN --execute
     "redis": {
       "healthy": true,
       "latency_ms": 1.12
+    },
+    "sec_edgar_circuit": {
+      "state": "closed",
+      "healthy": true,
+      "stats": {
+        "total_requests": 1500,
+        "success_rate": 98.5,
+        "rejected_requests": 0
+      }
     }
   },
   "timestamp": 1706454000.123
+}
+```
+
+### Metrics Endpoint Response
+
+```json
+{
+  "timestamp": "2024-01-29T12:34:56Z",
+  "app": {"name": "EarningsNerd API", "version": "1.0.0", "environment": "production"},
+  "requests": {
+    "total_requests": 5432,
+    "successful_requests": 5201,
+    "average_latency_ms": 45.23,
+    "error_rate_percent": 4.25,
+    "requests_per_minute": 12
+  },
+  "circuit_breaker": {"sec_edgar": {"state": "closed", "stats": {...}}},
+  "cache": {"redis": {"healthy": true, "hit_rate": 84.75}},
+  "database": {"pool_size": 10, "checked_in": 8, "checked_out": 2}
 }
 ```
 
