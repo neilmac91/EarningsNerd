@@ -22,6 +22,7 @@ import { isAxiosError } from 'axios'
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
 import analytics from '@/lib/analytics'
 import { ENABLE_FINANCIAL_CHARTS } from '@/lib/featureFlags'
+import { sanitizeFilename } from '@/lib/format'
 
 // --- Constants ---
 
@@ -1005,7 +1006,7 @@ function SummaryDisplay({
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `${filing.filing_type}_${filing.filing_date ? format(new Date(filing.filing_date), 'yyyyMMdd') : 'summary'}.pdf`
+        a.download = `${sanitizeFilename(filing.filing_type, 'filing')}_${filing.filing_date ? format(new Date(filing.filing_date), 'yyyyMMdd') : 'summary'}.pdf`
         document.body.appendChild(a)
         a.click()
         window.URL.revokeObjectURL(url)
@@ -1041,7 +1042,7 @@ function SummaryDisplay({
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `${filing.filing_type}_${filing.filing_date ? format(new Date(filing.filing_date), 'yyyyMMdd') : 'summary'}.csv`
+        a.download = `${sanitizeFilename(filing.filing_type, 'filing')}_${filing.filing_date ? format(new Date(filing.filing_date), 'yyyyMMdd') : 'summary'}.csv`
         document.body.appendChild(a)
         a.click()
         window.URL.revokeObjectURL(url)
