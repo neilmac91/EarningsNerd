@@ -61,7 +61,8 @@ async def get_subscription_status(
         try:
             subscription = stripe.Subscription.retrieve(current_user.stripe_subscription_id)
             subscription_status = subscription.status
-        except:
+        except stripe.error.StripeError:
+            # Subscription may have been deleted or is inaccessible
             pass
     
     return SubscriptionStatus(

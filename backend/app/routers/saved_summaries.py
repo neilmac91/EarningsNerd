@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, Depends, status
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, HTTPException, Depends, status, Query
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc
 from typing import List, Optional
 from pydantic import BaseModel
@@ -32,25 +32,34 @@ async def save_summary(
     db: Session = Depends(get_db)
 ):
     """Save a summary to user's account"""
-    # Check if summary exists
-    summary = db.query(Summary).filter(Summary.id == data.summary_id).first()
-    if not summary:
+    # Check if summary exists and eagerly load related data to avoid N+1 queries
+    row = (
+        db.query(Summary, Filing, Company)
+        .join(Filing, Summary.filing_id == Filing.id)
+        .join(Company, Filing.company_id == Company.id)
+        .filter(Summary.id == data.summary_id)
+        .first()
+    )
+    if not row:
         raise HTTPException(status_code=404, detail="Summary not found")
-    
+    summary, filing, company = row
+
     # Check if already saved
     existing = db.query(SavedSummary).filter(
         SavedSummary.user_id == current_user.id,
         SavedSummary.summary_id == data.summary_id
     ).first()
-    
+
     if existing:
         # Update notes if provided
         if data.notes is not None:
             existing.notes = data.notes
             db.commit()
             db.refresh(existing)
-        return _format_saved_summary_response(existing, db)
-    
+        return _format_saved_summary_response(
+            existing, db, summary=summary, filing=filing, company=company
+        )
+
     # Create new saved summary
     saved_summary = SavedSummary(
         user_id=current_user.id,
@@ -60,8 +69,10 @@ async def save_summary(
     db.add(saved_summary)
     db.commit()
     db.refresh(saved_summary)
-    
-    return _format_saved_summary_response(saved_summary, db)
+
+    return _format_saved_summary_response(
+        saved_summary, db, summary=summary, filing=filing, company=company
+    )
 
 @router.get("/", response_model=List[SavedSummaryResponse])
 async def get_saved_summaries(
@@ -113,25 +124,36 @@ async def delete_saved_summary(
 @router.put("/{saved_summary_id}")
 async def update_saved_summary(
     saved_summary_id: int,
-    notes: Optional[str],
+    notes: Optional[str] = Query(None, description="Optional notes to add to the saved summary"),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Update notes for a saved summary"""
-    saved_summary = db.query(SavedSummary).filter(
-        SavedSummary.id == saved_summary_id,
-        SavedSummary.user_id == current_user.id
-    ).first()
-    
-    if not saved_summary:
+    # Single query with joins to avoid N+1
+    row = (
+        db.query(SavedSummary, Summary, Filing, Company)
+        .join(Summary, SavedSummary.summary_id == Summary.id)
+        .join(Filing, Summary.filing_id == Filing.id)
+        .join(Company, Filing.company_id == Company.id)
+        .filter(
+            SavedSummary.id == saved_summary_id,
+            SavedSummary.user_id == current_user.id
+        )
+        .first()
+    )
+
+    if not row:
         raise HTTPException(status_code=404, detail="Saved summary not found")
-    
+    saved_summary, summary, filing, company = row
+
     if notes is not None:
         saved_summary.notes = notes
         db.commit()
         db.refresh(saved_summary)
-    
-    return _format_saved_summary_response(saved_summary, db)
+
+    return _format_saved_summary_response(
+        saved_summary, db, summary=summary, filing=filing, company=company
+    )
 
 def _format_saved_summary_response(
     saved_summary: SavedSummary,
