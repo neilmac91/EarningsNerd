@@ -73,7 +73,9 @@ def extract_critical_sections_test(filing_text: str, filing_type: str = "10-Q") 
     try:
         soup = BeautifulSoup(filing_text, 'html.parser')
         filing_text_clean = soup.get_text(separator='\n', strip=False)
-    except:
+    except (TypeError, ValueError, AttributeError) as e:
+        # Fallback to raw text if HTML parsing fails
+        print(f"Warning: HTML parsing failed ({e}), using raw text")
         filing_text_clean = filing_text
 
     critical_sections = []
