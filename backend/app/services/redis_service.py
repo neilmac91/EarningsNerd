@@ -118,6 +118,11 @@ def reset_cache_stats() -> None:
 
 
 # Global connection pool (initialized lazily with lock protection)
+# WHY track _init_lock_loop: asyncio objects (Lock, connections) are bound to the
+# event loop they were created in. In production, there's typically one loop.
+# In tests (especially with Starlette TestClient), each test module may create
+# a new event loop. Using objects from a dead/different loop causes hangs or errors.
+# By tracking which loop created our objects, we can detect loop changes and reset.
 _pool: Optional[ConnectionPool] = None
 _client: Optional[aioredis.Redis] = None
 _init_lock: asyncio.Lock | None = None
@@ -131,6 +136,12 @@ def _reset_on_loop_change() -> bool:
     This handles the case where tests run in different event loops
     (e.g., Starlette TestClient creates a new loop per test module).
     Old pool/client objects bound to a dead loop would hang indefinitely.
+
+    WHY this is needed: asyncio objects like Lock and Redis connections are
+    bound to the event loop that created them. If the loop changes (common in
+    tests), operations on these stale objects will hang forever waiting on a
+    dead loop. By detecting loop changes and resetting state, we ensure
+    connections are always bound to the current, running loop.
 
     Returns True if reset was performed, False otherwise.
     """

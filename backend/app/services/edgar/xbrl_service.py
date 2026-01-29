@@ -44,12 +44,26 @@ _xbrl_cache: OrderedDict[str, Tuple[datetime, Optional[Dict]]] = OrderedDict()
 _cache_ttl = timedelta(hours=24)
 _cache_max_size = 1000  # Maximum entries before LRU eviction
 
-# Async lock to protect cache operations from concurrent coroutine access
+# Cache operation counters for structured logging and metrics
+_cache_hits = 0
+_cache_misses = 0
+_cache_evictions = 0
+
+# Async lock to protect cache operations from concurrent coroutine access.
+# WHY lazy initialization: asyncio.Lock must be created within an event loop context.
+# If created at module import time (outside of async context), it binds to no loop
+# or the wrong loop, causing "attached to a different loop" errors.
+# By creating it lazily on first use, we ensure it binds to the correct running loop.
 _cache_lock: asyncio.Lock | None = None
 
 
 def _get_cache_lock() -> asyncio.Lock:
-    """Get or create the cache lock (lazy initialization for event loop safety)."""
+    """
+    Get or create the cache lock (lazy initialization for event loop safety).
+
+    This pattern ensures the asyncio.Lock is created within the context of the
+    event loop that will actually use it, avoiding "attached to a different loop" errors.
+    """
     global _cache_lock
     if _cache_lock is None:
         _cache_lock = asyncio.Lock()
@@ -84,8 +98,9 @@ def _cache_set_sync(key: str, value: Tuple[datetime, Optional[Dict]]) -> None:
     Set a value in L1 cache with LRU eviction (sync version, call within lock).
 
     If cache exceeds max size, evicts oldest entries (least recently used).
+    Tracks eviction count for metrics and uses structured logging.
     """
-    global _xbrl_cache
+    global _xbrl_cache, _cache_evictions
 
     # If key exists, move to end (most recently used)
     if key in _xbrl_cache:
@@ -97,9 +112,36 @@ def _cache_set_sync(key: str, value: Tuple[datetime, Optional[Dict]]) -> None:
     _xbrl_cache[key] = value
 
     # Evict oldest entries if over max size
+    evicted_this_call = 0
     while len(_xbrl_cache) > _cache_max_size:
-        oldest_key, _ = _xbrl_cache.popitem(last=False)
-        logger.debug(f"XBRL cache LRU eviction: {oldest_key}")
+        oldest_key, (cached_time, _) = _xbrl_cache.popitem(last=False)
+        _cache_evictions += 1
+        evicted_this_call += 1
+        # Structured log with key details for debugging cache pressure
+        logger.info(
+            "XBRL L1 cache eviction",
+            extra={
+                "event": "cache_eviction",
+                "cache_type": "xbrl_l1",
+                "evicted_key": oldest_key,
+                "entry_age_hours": round((datetime.now() - cached_time).total_seconds() / 3600, 2),
+                "cache_size": len(_xbrl_cache),
+                "total_evictions": _cache_evictions,
+            }
+        )
+
+    # Log batch eviction summary if multiple entries evicted
+    if evicted_this_call > 1:
+        logger.warning(
+            f"XBRL L1 cache batch eviction: {evicted_this_call} entries",
+            extra={
+                "event": "cache_batch_eviction",
+                "cache_type": "xbrl_l1",
+                "evicted_count": evicted_this_call,
+                "new_key": key,
+                "cache_size": len(_xbrl_cache),
+            }
+        )
 
 
 def get_xbrl_cache_stats() -> Dict[str, Any]:
@@ -117,6 +159,10 @@ def get_xbrl_cache_stats() -> Dict[str, Any]:
     )
     expired_count = total - valid_count
 
+    # Calculate hit rate
+    total_ops = _cache_hits + _cache_misses
+    hit_rate = round(_cache_hits / total_ops * 100, 2) if total_ops > 0 else 0.0
+
     return {
         # New L1-prefixed keys for two-tier caching clarity
         "l1_total_entries": total,
@@ -124,6 +170,10 @@ def get_xbrl_cache_stats() -> Dict[str, Any]:
         "l1_expired_entries": expired_count,
         "l1_max_size": _cache_max_size,
         "l1_utilization_percent": round(total / _cache_max_size * 100, 1) if _cache_max_size > 0 else 0,
+        "l1_hits": _cache_hits,
+        "l1_misses": _cache_misses,
+        "l1_hit_rate": hit_rate,
+        "l1_evictions": _cache_evictions,
         "cache_ttl_hours": _cache_ttl.total_seconds() / 3600,
         # Backward compatibility aliases (deprecated)
         "total_entries": total,
@@ -174,7 +224,7 @@ class EdgarXBRLService:
                 "earnings_per_share": [...],
             }
         """
-        global _xbrl_cache
+        global _xbrl_cache, _cache_hits, _cache_misses
 
         # Build cache keys
         memory_key = f"{cik}:{accession_number}"
@@ -187,11 +237,15 @@ class EdgarXBRLService:
                 if datetime.now() - cached_time < _cache_ttl:
                     # Move to end for LRU ordering (most recently used)
                     _xbrl_cache.move_to_end(memory_key)
+                    _cache_hits += 1
                     logger.debug(f"XBRL L1 cache hit for {memory_key}")
                     return cached_data
                 else:
                     logger.debug(f"XBRL L1 cache expired for {memory_key}")
                     del _xbrl_cache[memory_key]
+
+        # L1 cache miss - track it
+        _cache_misses += 1
 
         # L2: Check Redis cache (persistent, shared)
         redis_data = await self._get_from_redis(redis_key)
