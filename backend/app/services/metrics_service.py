@@ -14,6 +14,8 @@ Usage:
     metrics = await get_all_metrics()
 """
 
+import asyncio
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Dict, Any, Optional
@@ -38,33 +40,39 @@ class RequestMetrics:
     # Recent request timestamps for rate calculation
     _recent_timestamps: list = field(default_factory=list)
 
+    # Reentrant lock for concurrent access safety
+    # RLock allows same thread to acquire lock multiple times (needed for nested calls)
+    _lock: threading.RLock = field(default_factory=threading.RLock)
+
     @property
     def average_latency_ms(self) -> float:
-        """Calculate average request latency."""
-        if self.total_requests == 0:
-            return 0.0
-        return self.total_latency_ms / self.total_requests
+        """Calculate average request latency (thread-safe)."""
+        with self._lock:
+            if self.total_requests == 0:
+                return 0.0
+            return self.total_latency_ms / self.total_requests
 
     @property
     def error_rate(self) -> float:
-        """Calculate error rate as a percentage."""
-        if self.total_requests == 0:
-            return 0.0
-        errors = self.client_errors + self.server_errors
-        return errors / self.total_requests * 100
+        """Calculate error rate as a percentage (thread-safe)."""
+        with self._lock:
+            if self.total_requests == 0:
+                return 0.0
+            errors = self.client_errors + self.server_errors
+            return errors / self.total_requests * 100
 
     @property
     def requests_per_minute(self) -> float:
-        """Calculate recent requests per minute."""
+        """Calculate recent requests per minute (thread-safe)."""
         now = time.time()
         cutoff = now - 60  # Last minute
 
-        # Clean old timestamps
-        self._recent_timestamps = [
-            ts for ts in self._recent_timestamps if ts > cutoff
-        ]
-
-        return len(self._recent_timestamps)
+        with self._lock:
+            # Clean old timestamps
+            self._recent_timestamps = [
+                ts for ts in self._recent_timestamps if ts > cutoff
+            ]
+            return len(self._recent_timestamps)
 
     def record_request(
         self,
@@ -72,43 +80,45 @@ class RequestMetrics:
         status_code: int,
         latency_ms: float,
     ) -> None:
-        """Record a completed request."""
-        self.total_requests += 1
-        self.total_latency_ms += latency_ms
-        self._recent_timestamps.append(time.time())
+        """Record a completed request (thread-safe)."""
+        with self._lock:
+            self.total_requests += 1
+            self.total_latency_ms += latency_ms
+            self._recent_timestamps.append(time.time())
 
-        # Categorize by status code
-        if 200 <= status_code < 300:
-            self.successful_requests += 1
-        elif 400 <= status_code < 500:
-            self.client_errors += 1
-        elif status_code >= 500:
-            self.server_errors += 1
+            # Categorize by status code
+            if 200 <= status_code < 300:
+                self.successful_requests += 1
+            elif 400 <= status_code < 500:
+                self.client_errors += 1
+            elif status_code >= 500:
+                self.server_errors += 1
 
-        # Track top endpoints
-        if endpoint not in self.endpoint_counts:
-            self.endpoint_counts[endpoint] = 0
-        self.endpoint_counts[endpoint] += 1
+            # Track top endpoints
+            if endpoint not in self.endpoint_counts:
+                self.endpoint_counts[endpoint] = 0
+            self.endpoint_counts[endpoint] += 1
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert metrics to dictionary."""
-        # Get top 10 endpoints by request count
-        top_endpoints = sorted(
-            self.endpoint_counts.items(),
-            key=lambda x: x[1],
-            reverse=True
-        )[:10]
+        """Convert metrics to dictionary (thread-safe)."""
+        with self._lock:
+            # Get top 10 endpoints by request count
+            top_endpoints = sorted(
+                self.endpoint_counts.items(),
+                key=lambda x: x[1],
+                reverse=True
+            )[:10]
 
-        return {
-            "total_requests": self.total_requests,
-            "successful_requests": self.successful_requests,
-            "client_errors": self.client_errors,
-            "server_errors": self.server_errors,
-            "average_latency_ms": round(self.average_latency_ms, 2),
-            "error_rate_percent": round(self.error_rate, 2),
-            "requests_per_minute": self.requests_per_minute,
-            "top_endpoints": dict(top_endpoints),
-        }
+            return {
+                "total_requests": self.total_requests,
+                "successful_requests": self.successful_requests,
+                "client_errors": self.client_errors,
+                "server_errors": self.server_errors,
+                "average_latency_ms": round(self.average_latency_ms, 2),
+                "error_rate_percent": round(self.error_rate, 2),
+                "requests_per_minute": self.requests_per_minute,
+                "top_endpoints": dict(top_endpoints),
+            }
 
 
 # Global request metrics instance
@@ -240,23 +250,35 @@ async def get_health_summary() -> Dict[str, Any]:
     except ImportError:
         pass
 
-    # Check database
+    # Check database (using async to avoid blocking event loop)
     try:
         from sqlalchemy import text
-        from app.database import SessionLocal
-        import time
+        from app.database import engine
 
         start = time.perf_counter()
-        db = SessionLocal()
-        try:
-            db.execute(text("SELECT 1"))
-            latency_ms = (time.perf_counter() - start) * 1000
-            components["database"] = {
-                "healthy": True,
-                "latency_ms": round(latency_ms, 2),
-            }
-        finally:
-            db.close()
+
+        # Run sync DB check in thread pool to avoid blocking event loop
+        def _sync_db_check():
+            with engine.connect() as conn:
+                conn.execute(text("SELECT 1"))
+                return True
+
+        loop = asyncio.get_running_loop()
+        await asyncio.wait_for(
+            loop.run_in_executor(None, _sync_db_check),
+            timeout=2.0
+        )
+        latency_ms = (time.perf_counter() - start) * 1000
+        components["database"] = {
+            "healthy": True,
+            "latency_ms": round(latency_ms, 2),
+        }
+    except asyncio.TimeoutError:
+        components["database"] = {
+            "healthy": False,
+            "error": "Database health check timed out",
+        }
+        status = "unhealthy"
     except Exception as e:
         components["database"] = {
             "healthy": False,
