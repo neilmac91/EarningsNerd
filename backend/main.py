@@ -42,6 +42,9 @@ from app.services.logging_service import (
     CorrelationIdMiddleware,
     get_logger,
 )
+
+# Initialize logger for startup messages
+logger = get_logger(__name__)
 from app.routers import (
     companies,
     filings,
@@ -82,40 +85,40 @@ async def lifespan(app: FastAPI):
             loop.run_in_executor(None, _validate_db_connection),
             timeout=5.0
         )
-        print("✓ Database connection validated successfully")
+        logger.info("Database connection validated successfully")
     except asyncio.TimeoutError:
-        print("✗ Database connection validation timed out")
+        logger.critical("Database connection validation timed out")
         raise RuntimeError("Cannot start application: database connection timed out")
     except Exception as e:
-        print(f"✗ Database connection failed: {e}")
+        logger.critical(f"Database connection failed: {e}")
         raise RuntimeError(f"Cannot start application: database unreachable - {e}")
 
     # Validate Google AI Studio configuration
     is_valid, warnings = settings.validate_openai_config()
 
     if warnings:
-        print("⚠️  Google AI Studio Configuration Warnings:")
+        logger.warning("Google AI Studio Configuration Warnings:")
         for warning in warnings:
-            print(f"   - {warning}")
+            logger.warning(f"  - {warning}")
     if is_valid:
-        print(f"✓ Google AI Studio configured: base_url={settings.OPENAI_BASE_URL}, model=gemini-2.0-flash")
+        logger.info(f"Google AI Studio configured: base_url={settings.OPENAI_BASE_URL}, model=gemini-2.0-flash")
     else:
-        print("✗ Google AI Studio configuration is invalid. AI summaries may not work.")
+        logger.error("Google AI Studio configuration is invalid. AI summaries may not work.")
 
     # Validate Stripe configuration
     stripe_valid, stripe_warnings = settings.validate_stripe_config()
     if stripe_warnings:
-        print("⚠️  Stripe Configuration Warnings:")
+        logger.warning("Stripe Configuration Warnings:")
         for warning in stripe_warnings:
-            print(f"   - {warning}")
+            logger.warning(f"  - {warning}")
     if stripe_valid:
-        print("✓ Stripe configured: API key present")
+        logger.info("Stripe configured: API key present")
         if settings.STRIPE_WEBHOOK_SECRET:
-            print("✓ Stripe webhook secret configured: subscription events will be processed")
+            logger.info("Stripe webhook secret configured: subscription events will be processed")
         else:
-            print("⚠️  Stripe webhook secret not configured: subscription events will fail")
+            logger.warning("Stripe webhook secret not configured: subscription events will fail")
     else:
-        print("✗ Stripe configuration is invalid. Subscription features will be disabled.")
+        logger.error("Stripe configuration is invalid. Subscription features will be disabled.")
 
     # Initialize Redis connection pool (with timeout to prevent hanging in CI/test)
     from app.services.redis_service import get_redis_pool, check_redis_health, close_redis
@@ -126,26 +129,26 @@ async def lifespan(app: FastAPI):
             await asyncio.wait_for(get_redis_pool(), timeout=REDIS_INIT_TIMEOUT)
             redis_health = await check_redis_health()
             if redis_health.get("healthy"):
-                print(f"✓ Redis connected: latency={redis_health.get('latency_ms', 'N/A')}ms")
+                logger.info(f"Redis connected: latency={redis_health.get('latency_ms', 'N/A')}ms")
             else:
-                print(f"⚠️  Redis not available: {redis_health.get('error', 'unknown error')} (caching degraded)")
+                logger.warning(f"Redis not available: {redis_health.get('error', 'unknown error')} (caching degraded)")
         except asyncio.TimeoutError:
-            print("⚠️  Redis initialization timed out (caching degraded)")
+            logger.warning("Redis initialization timed out (caching degraded)")
         except Exception as e:
-            print(f"⚠️  Redis initialization failed: {e} (caching degraded)")
+            logger.warning(f"Redis initialization failed: {e} (caching degraded)")
     else:
-        print("⊘ Redis initialization skipped (SKIP_REDIS_INIT=true)")
+        logger.info("Redis initialization skipped (SKIP_REDIS_INIT=true)")
 
     yield
 
     # Shutdown
     await close_redis()
-    print("✓ Redis connections closed")
+    logger.info("Redis connections closed")
 
     # Shutdown EdgarTools thread pool
     from app.services.edgar.async_executor import shutdown_executor
     shutdown_executor(wait=True)
-    print("✓ EdgarTools thread pool shut down")
+    logger.info("EdgarTools thread pool shut down")
 
 app = FastAPI(
     title="EarningsNerd API",
