@@ -7,12 +7,9 @@ const nextConfig = {
   env: {
     NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL ||
       (process.env.NODE_ENV === 'production' ? 'https://api.earningsnerd.io' : 'http://localhost:8000'),
-    NEXT_PUBLIC_SENTRY_DSN:
-      process.env.NEXT_PUBLIC_SENTRY_DSN ||
-      'https://ece733dc1e5aa4e794d80f2bcc498e24@o4510744719851520.ingest.de.sentry.io/4510744722276432',
-    SENTRY_DSN:
-      process.env.SENTRY_DSN ||
-      'https://ece733dc1e5aa4e794d80f2bcc498e24@o4510744719851520.ingest.de.sentry.io/4510744722276432',
+    // Sentry DSN should be configured via environment variables only (no hardcoded fallback)
+    NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN || '',
+    SENTRY_DSN: process.env.SENTRY_DSN || '',
     // Feature flags for UI simplification
     // Set to 'true' to enable legacy tabbed UI, 'false' for simplified single-view
     NEXT_PUBLIC_ENABLE_SECTION_TABS: process.env.NEXT_PUBLIC_ENABLE_SECTION_TABS || 'false',

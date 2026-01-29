@@ -1,4 +1,5 @@
 import api from '@/lib/api/client'
+import { isApiError, getErrorStatus } from '@/lib/api/types'
 
 // Auth APIs
 export const register = async (email: string, password: string, fullName?: string) => {
@@ -27,8 +28,7 @@ export const getCurrentUserSafe = async () => {
   try {
     return await getCurrentUser()
   } catch (error: unknown) {
-    const axiosErr = error as { response?: { status?: number } }
-    if (axiosErr.response?.status === 401) {
+    if (isApiError(error) && getErrorStatus(error) === 401) {
       return null
     }
     throw error

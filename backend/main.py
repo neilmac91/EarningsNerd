@@ -65,8 +65,30 @@ from app.config import settings
 # Create database tables
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
-    Base.metadata.create_all(bind=engine)
+    # Startup - run sync DB operation in thread pool to avoid blocking event loop
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, lambda: Base.metadata.create_all(bind=engine))
+
+    # Validate database connection at startup
+    from sqlalchemy import text
+
+    def _validate_db_connection():
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+            return True
+
+    try:
+        await asyncio.wait_for(
+            loop.run_in_executor(None, _validate_db_connection),
+            timeout=5.0
+        )
+        print("✓ Database connection validated successfully")
+    except asyncio.TimeoutError:
+        print("✗ Database connection validation timed out")
+        raise RuntimeError("Cannot start application: database connection timed out")
+    except Exception as e:
+        print(f"✗ Database connection failed: {e}")
+        raise RuntimeError(f"Cannot start application: database unreachable - {e}")
 
     # Validate Google AI Studio configuration
     is_valid, warnings = settings.validate_openai_config()

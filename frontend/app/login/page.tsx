@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser, login } from '@/features/auth/api/auth-api'
+import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import SecondaryHeader from '@/components/SecondaryHeader'
@@ -35,8 +36,9 @@ export default function LoginPage() {
       router.refresh()
     } catch (err: unknown) {
       console.error('Login error:', err)
-      const axiosErr = err as { response?: { data?: { detail?: string } }; message?: string }
-      const errorMessage = axiosErr.response?.data?.detail || axiosErr.message || 'Login failed. Please check your credentials.'
+      const errorMessage = isApiError(err)
+        ? getErrorMessage(err)
+        : 'Login failed. Please check your credentials.'
       setError(errorMessage)
     } finally {
       setLoading(false)

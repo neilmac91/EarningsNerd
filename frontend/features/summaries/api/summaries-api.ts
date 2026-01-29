@@ -1,5 +1,6 @@
 import api, { getApiUrl } from '@/lib/api/client'
 import type { FinancialHighlights, RiskFactor } from '@/types/summary'
+import { isApiError, getErrorStatus } from '@/lib/api/types'
 
 // Reduced to 120 seconds (2 minutes) to match backend pipeline timeout guarantee
 // The heartbeat mechanism keeps the connection alive, but we now have a hard limit
@@ -271,8 +272,7 @@ export const getSummary = async (filingId: number): Promise<Summary | null> => {
     return response.data
   } catch (error: unknown) {
     // If 404 or other error, return null instead of throwing
-    const axiosErr = error as { response?: { status?: number } }
-    if (axiosErr.response?.status === 404) {
+    if (isApiError(error) && getErrorStatus(error) === 404) {
       return null
     }
     throw error

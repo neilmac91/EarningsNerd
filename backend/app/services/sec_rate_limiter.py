@@ -11,7 +11,7 @@ This module provides a robust rate limiter with:
 import asyncio
 import logging
 import time
-from typing import Callable, TypeVar, Awaitable
+from typing import Callable, Optional, TypeVar, Awaitable
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -46,15 +46,22 @@ class SECRateLimiter:
         # Token bucket state
         self._tokens = float(self.requests_per_second)
         self._last_update = time.monotonic()
-        self._lock = asyncio.Lock()
+        # Lazy lock initialization for event loop safety (created on first use)
+        self._lock: Optional[asyncio.Lock] = None
 
         # Request tracking for monitoring
         self._total_requests = 0
         self._rate_limit_hits = 0
 
+    def _get_lock(self) -> asyncio.Lock:
+        """Get or create the rate limiter lock (lazy initialization for event loop safety)."""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
+
     async def _wait_for_token(self) -> None:
         """Wait until a token is available in the bucket"""
-        async with self._lock:
+        async with self._get_lock():
             now = time.monotonic()
             time_passed = now - self._last_update
             self._last_update = now

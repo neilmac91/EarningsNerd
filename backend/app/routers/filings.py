@@ -471,7 +471,9 @@ async def get_recent_filings(
 ):
     """Get recent filings across all companies"""
     from sqlalchemy import desc
-    filings = db.query(Filing).join(Company).order_by(desc(Filing.filing_date)).limit(limit).all()
+    from sqlalchemy.orm import joinedload
+    # Use joinedload to eagerly load company relationship, avoiding N+1 queries
+    filings = db.query(Filing).options(joinedload(Filing.company)).order_by(desc(Filing.filing_date)).limit(limit).all()
 
     return [FilingResponse.from_orm(filing) for filing in filings]
 

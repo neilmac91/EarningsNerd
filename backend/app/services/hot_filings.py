@@ -69,9 +69,16 @@ class HotFilingsService:
         self._cache = {}
         self._cache_expiry = {}
         self._ttl = timedelta(minutes=ttl_minutes)
-        self._lock = asyncio.Lock()
+        # Lazy lock initialization for event loop safety (created on first use)
+        self._lock: Optional[asyncio.Lock] = None
         self._whispers_client = whispers_client or earnings_whispers_client
         self._news_client = news_client or finnhub_client
+
+    def _get_lock(self) -> asyncio.Lock:
+        """Get or create the cache lock (lazy initialization for event loop safety)."""
+        if self._lock is None:
+            self._lock = asyncio.Lock()
+        return self._lock
 
     async def get_hot_filings(
         self,
@@ -81,7 +88,7 @@ class HotFilingsService:
     ) -> Dict[str, object]:
         now = datetime.utcnow()
 
-        async with self._lock:
+        async with self._get_lock():
             cache_entry = self._cache.get(limit)
             cache_expiry = self._cache_expiry.get(limit)
 

@@ -13,6 +13,7 @@ Provides:
 import asyncio
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -21,6 +22,9 @@ import redis.asyncio as aioredis
 from redis.asyncio.connection import ConnectionPool
 from redis.exceptions import RedisError, ConnectionError as RedisConnectionError
 from app.config import settings
+
+# Connection pool configuration (configurable via environment variables)
+REDIS_MAX_CONNECTIONS = int(os.getenv("REDIS_MAX_CONNECTIONS", "50"))
 
 logger = logging.getLogger(__name__)
 
@@ -214,12 +218,12 @@ async def get_redis_pool() -> Optional[ConnectionPool]:
         try:
             _pool = ConnectionPool.from_url(
                 settings.REDIS_URL,
-                max_connections=10,
+                max_connections=REDIS_MAX_CONNECTIONS,
                 decode_responses=True,
                 socket_timeout=5.0,
                 socket_connect_timeout=5.0,
             )
-            logger.info(f"Redis connection pool created for {settings.REDIS_URL}")
+            logger.info(f"Redis connection pool created for {settings.REDIS_URL} (max_connections={REDIS_MAX_CONNECTIONS})")
         except RedisError as e:
             logger.warning(f"Failed to create Redis connection pool (Redis error): {e}")
             return None
@@ -497,12 +501,16 @@ async def cache_delete(key: str) -> bool:
         return False
 
 
-async def cache_delete_pattern(pattern: str) -> int:
+async def cache_delete_pattern(pattern: str, max_keys: int = 10000) -> int:
     """
-    Delete all keys matching a pattern.
+    Delete all keys matching a pattern with safety limits.
 
     Use with caution - this scans the keyspace.
     Returns number of keys deleted.
+
+    Args:
+        pattern: Redis key pattern (e.g., "xbrl:*")
+        max_keys: Maximum number of keys to delete (safety limit)
 
     Example:
         # Delete all XBRL cache entries
@@ -510,15 +518,39 @@ async def cache_delete_pattern(pattern: str) -> int:
     """
     global _cache_stats
 
-    client = await get_redis_client()
+    try:
+        client = await asyncio.wait_for(
+            get_redis_client(),
+            timeout=CACHE_OPERATION_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        logger.warning(f"Redis client acquisition timed out for cache_delete_pattern({pattern})")
+        _cache_stats.errors += 1
+        return 0
+
     if client is None:
         return 0
 
     try:
         deleted = 0
         async for key in client.scan_iter(match=pattern, count=100):
-            await client.delete(key)
-            deleted += 1
+            # Safety limit to prevent unbounded operations
+            if deleted >= max_keys:
+                logger.warning(
+                    "cache_delete_pattern reached max_keys limit",
+                    extra={"pattern": pattern, "max_keys": max_keys, "deleted": deleted}
+                )
+                break
+            try:
+                await asyncio.wait_for(
+                    client.delete(key),
+                    timeout=CACHE_OPERATION_TIMEOUT
+                )
+                deleted += 1
+            except asyncio.TimeoutError:
+                logger.warning(f"Timeout deleting key: {key}")
+                _cache_stats.errors += 1
+                continue
 
         if deleted > 0:
             _cache_stats.deletes += deleted

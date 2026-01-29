@@ -3,6 +3,7 @@
 import { useState, Suspense, useRef, useEffect } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { createCheckoutSession, getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
+import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { Check, Loader2 } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { ThemeToggle } from '@/components/ThemeToggle'
@@ -68,8 +69,10 @@ function PricingContent() {
       }
     },
     onError: (error: unknown) => {
-      const axiosErr = error as { response?: { data?: { detail?: string } } }
-      alert(axiosErr.response?.data?.detail || 'Failed to create checkout session')
+      const errorMessage = isApiError(error)
+        ? getErrorMessage(error)
+        : 'Failed to create checkout session'
+      alert(errorMessage)
       setIsLoadingCheckout(null)
     },
   })

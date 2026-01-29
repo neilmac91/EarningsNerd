@@ -243,9 +243,11 @@ class EdgarXBRLService:
                 else:
                     logger.debug(f"XBRL L1 cache expired for {memory_key}")
                     del _xbrl_cache[memory_key]
-
-        # L1 cache miss - track it
-        _cache_misses += 1
+                    # L1 cache miss (expired) - track inside lock for thread safety
+                    _cache_misses += 1
+            else:
+                # L1 cache miss (not found) - track inside lock for thread safety
+                _cache_misses += 1
 
         # L2: Check Redis cache (persistent, shared)
         redis_data = await self._get_from_redis(redis_key)
