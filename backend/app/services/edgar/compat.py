@@ -25,6 +25,7 @@ from .client import edgar_client
 from .xbrl_service import edgar_xbrl_service, clear_xbrl_cache, get_xbrl_cache_stats
 from .exceptions import EdgarError
 from .config import FilingType, EDGAR_IDENTITY
+from .circuit_breaker import edgar_circuit_breaker, CircuitOpenError
 
 logger = logging.getLogger(__name__)
 
@@ -52,17 +53,23 @@ class SECEdgarServiceCompat:
             return self._tickers_cache
 
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    "https://www.sec.gov/files/company_tickers.json",
-                    headers={"User-Agent": EDGAR_IDENTITY},
-                    timeout=15.0,
-                )
-                response.raise_for_status()
-                data = response.json()
-                SECEdgarServiceCompat._tickers_cache = data
-                SECEdgarServiceCompat._tickers_cache_time = datetime.now()
-                return data
+            async with edgar_circuit_breaker:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(
+                        "https://www.sec.gov/files/company_tickers.json",
+                        headers={"User-Agent": EDGAR_IDENTITY},
+                        timeout=15.0,
+                    )
+                    response.raise_for_status()
+                    data = response.json()
+                    SECEdgarServiceCompat._tickers_cache = data
+                    SECEdgarServiceCompat._tickers_cache_time = datetime.now()
+                    return data
+        except CircuitOpenError as e:
+            if self._tickers_cache is not None:
+                logger.warning("SEC circuit breaker open, serving stale cache: %s", e)
+                return self._tickers_cache
+            raise EdgarError(f"SEC EDGAR circuit breaker is open: {e}", cause=e)
         except Exception as e:
             if self._tickers_cache is not None:
                 logger.warning("SEC ticker fetch failed, serving stale cache: %s", e)
@@ -252,23 +259,29 @@ class SECEdgarServiceCompat:
         Note: This method uses direct HTTP as EdgarTools doesn't expose URL-based access.
         """
         timeout = timeout or 60.0
+        import asyncio as aio
 
-        async with httpx.AsyncClient() as client:
-            for attempt in range(max_retries):
-                try:
-                    response = await client.get(
-                        document_url,
-                        headers={"User-Agent": EDGAR_IDENTITY},
-                        timeout=timeout,
-                        follow_redirects=True,
-                    )
-                    response.raise_for_status()
-                    return response.text
-                except Exception as e:
-                    if attempt == max_retries - 1:
-                        raise EdgarError(f"Failed to fetch document: {e}", cause=e)
-                    import asyncio
-                    await asyncio.sleep(2 ** attempt)
+        try:
+            async with edgar_circuit_breaker:
+                async with httpx.AsyncClient() as client:
+                    for attempt in range(max_retries):
+                        try:
+                            response = await client.get(
+                                document_url,
+                                headers={"User-Agent": EDGAR_IDENTITY},
+                                timeout=timeout,
+                                follow_redirects=True,
+                            )
+                            response.raise_for_status()
+                            return response.text
+                        except Exception as e:
+                            if attempt == max_retries - 1:
+                                raise
+                            await aio.sleep(2 ** attempt)
+        except CircuitOpenError as e:
+            raise EdgarError(f"SEC EDGAR circuit breaker is open: {e}", cause=e)
+        except Exception as e:
+            raise EdgarError(f"Failed to fetch document: {e}", cause=e)
 
     async def get_company_tickers(
         self,

@@ -1,22 +1,121 @@
 """
-Redis Service - Connection management and validation for EarningsNerd.
+Redis Service - Connection management and caching for EarningsNerd.
 
 Provides:
 - Connection pooling for Redis
 - Health check functionality
 - Graceful degradation when Redis is unavailable
 - Thread-safe lazy initialization with asyncio.Lock
+- Typed caching helpers with TTL configuration
+- Cache metrics tracking
 """
 
 import asyncio
+import json
 import logging
-from typing import Optional
+import time
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Optional, TypeVar, Generic
 import redis.asyncio as aioredis
 from redis.asyncio.connection import ConnectionPool
 from redis.exceptions import RedisError, ConnectionError as RedisConnectionError
 from app.config import settings
 
 logger = logging.getLogger(__name__)
+
+T = TypeVar("T")
+
+
+class CacheTTL(int, Enum):
+    """
+    TTL configuration for different cache types.
+
+    Values are in seconds. These are tuned for EarningsNerd's use cases:
+    - XBRL data changes rarely, so long TTL (24h)
+    - Filing metadata changes moderately, medium TTL (6h)
+    - Company search is semi-dynamic, shorter TTL (1h)
+    - Session data needs to be fresh, short TTL (30m)
+    """
+
+    # Long-lived data (24 hours)
+    XBRL_DATA = 86400
+    FILING_CONTENT = 86400
+    MARKDOWN_CACHE = 86400
+
+    # Medium-lived data (6 hours)
+    FILING_METADATA = 21600
+    COMPANY_INFO = 21600
+
+    # Short-lived data (1 hour)
+    COMPANY_SEARCH = 3600
+    SEC_TICKERS = 3600
+
+    # Very short-lived data (30 minutes)
+    SESSION = 1800
+    RATE_LIMIT = 1800
+
+    # Ephemeral data (5 minutes)
+    HOT_FILINGS = 300
+    TRENDING = 300
+
+
+class CacheNamespace(str, Enum):
+    """
+    Cache key namespaces to prevent collisions and enable bulk operations.
+    """
+
+    XBRL = "xbrl"
+    FILING = "filing"
+    COMPANY = "company"
+    SEARCH = "search"
+    SESSION = "session"
+    RATE_LIMIT = "rl"
+    METRICS = "metrics"
+
+
+@dataclass
+class CacheStats:
+    """Statistics for cache monitoring."""
+
+    hits: int = 0
+    misses: int = 0
+    errors: int = 0
+    sets: int = 0
+    deletes: int = 0
+
+    @property
+    def hit_rate(self) -> float:
+        """Calculate cache hit rate as a percentage."""
+        total = self.hits + self.misses
+        return (self.hits / total * 100) if total > 0 else 0.0
+
+    def to_dict(self) -> dict:
+        """Convert stats to dictionary for monitoring."""
+        return {
+            "hits": self.hits,
+            "misses": self.misses,
+            "errors": self.errors,
+            "sets": self.sets,
+            "deletes": self.deletes,
+            "hit_rate": round(self.hit_rate, 2),
+        }
+
+
+# Global cache statistics
+_cache_stats = CacheStats()
+
+
+def get_cache_stats() -> dict:
+    """Get cache statistics for monitoring endpoints."""
+    return _cache_stats.to_dict()
+
+
+def reset_cache_stats() -> None:
+    """Reset cache statistics (mainly for testing)."""
+    global _cache_stats
+    _cache_stats = CacheStats()
+
 
 # Global connection pool (initialized lazily with lock protection)
 _pool: Optional[ConnectionPool] = None
@@ -174,3 +273,216 @@ async def close_redis() -> None:
                 logger.warning(f"Error disconnecting Redis pool: {e}")
             _pool = None
             logger.info("Redis connection pool closed")
+
+
+# =============================================================================
+# Cache Helper Functions
+# =============================================================================
+
+
+def make_cache_key(namespace: CacheNamespace, *parts: str) -> str:
+    """
+    Build a cache key with namespace prefix.
+
+    Example:
+        make_cache_key(CacheNamespace.XBRL, "AAPL", "0000320193-24-000077")
+        # Returns: "xbrl:AAPL:0000320193-24-000077"
+    """
+    return f"{namespace.value}:{':'.join(str(p) for p in parts)}"
+
+
+async def cache_get(key: str) -> Optional[Any]:
+    """
+    Get a value from cache.
+
+    Returns None if key doesn't exist or Redis is unavailable.
+    Automatically deserializes JSON values.
+    """
+    global _cache_stats
+
+    client = await get_redis_client()
+    if client is None:
+        _cache_stats.misses += 1
+        return None
+
+    try:
+        value = await client.get(key)
+        if value is None:
+            _cache_stats.misses += 1
+            return None
+
+        _cache_stats.hits += 1
+
+        # Try to deserialize JSON
+        try:
+            return json.loads(value)
+        except (json.JSONDecodeError, TypeError):
+            return value
+
+    except RedisError as e:
+        logger.warning(f"Redis get error for key {key}: {e}")
+        _cache_stats.errors += 1
+        return None
+
+
+async def cache_set(
+    key: str,
+    value: Any,
+    ttl: int = CacheTTL.FILING_METADATA,
+) -> bool:
+    """
+    Set a value in cache with TTL.
+
+    Automatically serializes non-string values to JSON.
+    Returns True if successful, False otherwise.
+    """
+    global _cache_stats
+
+    client = await get_redis_client()
+    if client is None:
+        return False
+
+    try:
+        # Serialize non-string values to JSON
+        if not isinstance(value, str):
+            value = json.dumps(value)
+
+        await client.setex(key, ttl, value)
+        _cache_stats.sets += 1
+        return True
+
+    except RedisError as e:
+        logger.warning(f"Redis set error for key {key}: {e}")
+        _cache_stats.errors += 1
+        return False
+
+
+async def cache_delete(key: str) -> bool:
+    """
+    Delete a key from cache.
+
+    Returns True if key was deleted, False otherwise.
+    """
+    global _cache_stats
+
+    client = await get_redis_client()
+    if client is None:
+        return False
+
+    try:
+        result = await client.delete(key)
+        if result > 0:
+            _cache_stats.deletes += 1
+        return result > 0
+
+    except RedisError as e:
+        logger.warning(f"Redis delete error for key {key}: {e}")
+        _cache_stats.errors += 1
+        return False
+
+
+async def cache_delete_pattern(pattern: str) -> int:
+    """
+    Delete all keys matching a pattern.
+
+    Use with caution - this scans the keyspace.
+    Returns number of keys deleted.
+
+    Example:
+        # Delete all XBRL cache entries
+        await cache_delete_pattern("xbrl:*")
+    """
+    global _cache_stats
+
+    client = await get_redis_client()
+    if client is None:
+        return 0
+
+    try:
+        deleted = 0
+        async for key in client.scan_iter(match=pattern, count=100):
+            await client.delete(key)
+            deleted += 1
+
+        if deleted > 0:
+            _cache_stats.deletes += deleted
+            logger.info(f"Deleted {deleted} keys matching pattern {pattern}")
+
+        return deleted
+
+    except RedisError as e:
+        logger.warning(f"Redis delete pattern error for {pattern}: {e}")
+        _cache_stats.errors += 1
+        return 0
+
+
+async def cache_get_or_set(
+    key: str,
+    factory: callable,
+    ttl: int = CacheTTL.FILING_METADATA,
+) -> Optional[Any]:
+    """
+    Get a value from cache, or compute and cache it if missing.
+
+    This is a convenience method for the common cache-aside pattern.
+
+    Args:
+        key: Cache key
+        factory: Async function to compute the value if not cached
+        ttl: Time to live in seconds
+
+    Returns:
+        Cached or computed value, or None if computation fails
+    """
+    # Try to get from cache first
+    cached = await cache_get(key)
+    if cached is not None:
+        return cached
+
+    # Compute the value
+    try:
+        if asyncio.iscoroutinefunction(factory):
+            value = await factory()
+        else:
+            value = factory()
+
+        if value is not None:
+            await cache_set(key, value, ttl)
+
+        return value
+
+    except Exception as e:
+        logger.warning(f"Cache factory error for key {key}: {e}")
+        return None
+
+
+async def cache_exists(key: str) -> bool:
+    """Check if a key exists in cache."""
+    client = await get_redis_client()
+    if client is None:
+        return False
+
+    try:
+        return await client.exists(key) > 0
+    except RedisError as e:
+        logger.warning(f"Redis exists error for key {key}: {e}")
+        return False
+
+
+async def cache_ttl(key: str) -> Optional[int]:
+    """
+    Get remaining TTL for a key in seconds.
+
+    Returns None if key doesn't exist or Redis is unavailable.
+    Returns -1 if key has no TTL (persistent).
+    Returns -2 if key doesn't exist.
+    """
+    client = await get_redis_client()
+    if client is None:
+        return None
+
+    try:
+        return await client.ttl(key)
+    except RedisError as e:
+        logger.warning(f"Redis TTL error for key {key}: {e}")
+        return None
