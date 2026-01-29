@@ -167,14 +167,29 @@ configure_logging(
 app.add_middleware(CorrelationIdMiddleware)
 
 # CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_origin_regex=r"http://localhost:\d+",
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# More restrictive in production, flexible in development
+_cors_config = {
+    "allow_origins": settings.CORS_ORIGINS,
+    "allow_credentials": True,
+    # Explicit methods instead of wildcard for security
+    "allow_methods": ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    # Explicit headers for security - include common auth and content headers
+    "allow_headers": [
+        "Authorization",
+        "Content-Type",
+        "Accept",
+        "Origin",
+        "X-Requested-With",
+        "X-Correlation-ID",
+    ],
+    "expose_headers": ["X-Correlation-ID"],
+}
+
+# Only allow localhost regex in development (for various dev server ports)
+if settings.ENVIRONMENT != "production":
+    _cors_config["allow_origin_regex"] = r"http://localhost:\d+"
+
+app.add_middleware(CORSMiddleware, **_cors_config)
 
 # Security headers middleware
 @app.middleware("http")
@@ -255,6 +270,39 @@ app.include_router(email.router, prefix="/api/email", tags=["Email"])
 app.include_router(contact.router, prefix="/api/contact", tags=["Contact"])
 app.include_router(webhooks.router, prefix="/api", tags=["Webhooks"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
+
+
+# Global exception handler for unhandled errors
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """
+    Catch-all exception handler for unhandled errors.
+    Provides consistent error response format and logs the error.
+    """
+    from fastapi.responses import JSONResponse
+
+    # Log the error with full context
+    logger.exception(
+        f"Unhandled exception on {request.method} {request.url.path}: {exc}"
+    )
+
+    # Report to Sentry if available
+    try:
+        import sentry_sdk
+        sentry_sdk.capture_exception(exc)
+    except ImportError:
+        pass
+
+    # Return a generic error response (don't leak internal details in production)
+    error_detail = str(exc) if settings.ENVIRONMENT != "production" else "An unexpected error occurred"
+
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": error_detail,
+            "type": "internal_server_error",
+        }
+    )
 
 
 @app.get("/")

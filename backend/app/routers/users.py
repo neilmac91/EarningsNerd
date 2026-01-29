@@ -274,9 +274,7 @@ async def delete_user_account(
             f"USER DELETION COMPLETED: User {user_id} successfully deleted. "
             f"Third-party deletion results: {deletion_results}"
         )
-
-        # TODO: Send final confirmation email to user_email
-        # (email service implementation needed)
+        # Future: Send final confirmation email to user_email (requires email service integration)
 
         return {
             "status": "success",

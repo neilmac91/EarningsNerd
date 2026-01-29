@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getCompany, Company } from '@/features/companies/api/companies-api'
@@ -136,22 +136,27 @@ export default function CompanyPageClient() {
     setExpandedYears(newExpanded)
   }
 
-  const filteredFilings = filterType
-    ? filings?.filter((f) => f.filing_type === filterType)
-    : filings
+  // Memoize filtered and grouped filings to avoid recalculating on every render
+  const { groupedFilings, sortedYears } = useMemo(() => {
+    const filtered = filterType
+      ? filings?.filter((f) => f.filing_type === filterType)
+      : filings
 
-  // Group filings by year
-  const groupedFilings = filteredFilings?.reduce((acc, filing) => {
-    const year = new Date(filing.filing_date).getFullYear().toString()
-    if (!acc[year]) {
-      acc[year] = []
-    }
-    acc[year].push(filing)
-    return acc
-  }, {} as Record<string, Filing[]>) || {}
+    // Group filings by year
+    const grouped = filtered?.reduce((acc, filing) => {
+      const year = new Date(filing.filing_date).getFullYear().toString()
+      if (!acc[year]) {
+        acc[year] = []
+      }
+      acc[year].push(filing)
+      return acc
+    }, {} as Record<string, Filing[]>) || {}
 
-  // Sort years in descending order (newest first)
-  const sortedYears = Object.keys(groupedFilings).sort((a, b) => parseInt(b) - parseInt(a))
+    // Sort years in descending order (newest first)
+    const years = Object.keys(grouped).sort((a, b) => parseInt(b) - parseInt(a))
+
+    return { groupedFilings: grouped, sortedYears: years }
+  }, [filings, filterType])
 
   // Get styling for filing type
   const getFilingTypeStyles = (filingType: string) => {
