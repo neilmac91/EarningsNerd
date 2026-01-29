@@ -120,6 +120,11 @@ async def lifespan(app: FastAPI):
     await close_redis()
     print("✓ Redis connections closed")
 
+    # Shutdown EdgarTools thread pool
+    from app.services.edgar.async_executor import shutdown_executor
+    shutdown_executor(wait=True)
+    print("✓ EdgarTools thread pool shut down")
+
 app = FastAPI(
     title="EarningsNerd API",
     description="AI-powered SEC filing analysis and summarization",

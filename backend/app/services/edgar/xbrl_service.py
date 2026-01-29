@@ -6,7 +6,7 @@ This service maintains API compatibility with the legacy xbrl_service.py
 to enable gradual migration.
 
 Caching Strategy (Two-Tier):
-- L1: In-memory cache (fast, process-local)
+- L1: In-memory cache (fast, process-local, LRU eviction at 1000 entries)
 - L2: Redis cache (persistent, shared across instances)
 
 Usage:
@@ -20,6 +20,7 @@ Usage:
 """
 
 import logging
+from collections import OrderedDict
 from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -34,11 +35,13 @@ logger = logging.getLogger(__name__)
 # Ensure identity is set
 set_identity(EDGAR_IDENTITY)
 
-# Module-level cache for XBRL data (L1 - in-memory)
+# Module-level cache for XBRL data (L1 - in-memory with LRU eviction)
 # Key: "{cik}:{accession_number}"
 # Value: (cached_datetime, data_dict)
-_xbrl_cache: Dict[str, Tuple[datetime, Optional[Dict]]] = {}
+# Using OrderedDict for LRU eviction - most recently accessed items at end
+_xbrl_cache: OrderedDict[str, Tuple[datetime, Optional[Dict]]] = OrderedDict()
 _cache_ttl = timedelta(hours=24)
+_cache_max_size = 1000  # Maximum entries before LRU eviction
 
 
 def clear_xbrl_cache() -> int:
@@ -48,6 +51,29 @@ def clear_xbrl_cache() -> int:
     _xbrl_cache.clear()
     logger.info(f"Cleared {count} XBRL cache entries")
     return count
+
+
+def _cache_set(key: str, value: Tuple[datetime, Optional[Dict]]) -> None:
+    """
+    Set a value in L1 cache with LRU eviction.
+
+    If cache exceeds max size, evicts oldest entries (least recently used).
+    """
+    global _xbrl_cache
+
+    # If key exists, move to end (most recently used)
+    if key in _xbrl_cache:
+        _xbrl_cache.move_to_end(key)
+        _xbrl_cache[key] = value
+        return
+
+    # Add new entry
+    _xbrl_cache[key] = value
+
+    # Evict oldest entries if over max size
+    while len(_xbrl_cache) > _cache_max_size:
+        oldest_key, _ = _xbrl_cache.popitem(last=False)
+        logger.debug(f"XBRL cache LRU eviction: {oldest_key}")
 
 
 def get_xbrl_cache_stats() -> Dict[str, Any]:
@@ -70,6 +96,8 @@ def get_xbrl_cache_stats() -> Dict[str, Any]:
         "l1_total_entries": total,
         "l1_valid_entries": valid_count,
         "l1_expired_entries": expired_count,
+        "l1_max_size": _cache_max_size,
+        "l1_utilization_percent": round(total / _cache_max_size * 100, 1) if _cache_max_size > 0 else 0,
         "cache_ttl_hours": _cache_ttl.total_seconds() / 3600,
         # Backward compatibility aliases (deprecated)
         "total_entries": total,
@@ -130,6 +158,8 @@ class EdgarXBRLService:
         if memory_key in _xbrl_cache:
             cached_time, cached_data = _xbrl_cache[memory_key]
             if datetime.now() - cached_time < _cache_ttl:
+                # Move to end for LRU ordering (most recently used)
+                _xbrl_cache.move_to_end(memory_key)
                 logger.debug(f"XBRL L1 cache hit for {memory_key}")
                 return cached_data
             else:
@@ -140,8 +170,8 @@ class EdgarXBRLService:
         redis_data = await self._get_from_redis(redis_key)
         if redis_data is not None:
             logger.debug(f"XBRL L2 cache hit for {redis_key}")
-            # Populate L1 cache from L2
-            _xbrl_cache[memory_key] = (datetime.now(), redis_data)
+            # Populate L1 cache from L2 with LRU eviction
+            _cache_set(memory_key, (datetime.now(), redis_data))
             return redis_data
 
         # Cache miss - fetch from EdgarTools
@@ -149,7 +179,7 @@ class EdgarXBRLService:
 
         # Cache successful results in both tiers
         if result is not None:
-            _xbrl_cache[memory_key] = (datetime.now(), result)
+            _cache_set(memory_key, (datetime.now(), result))
             await self._set_to_redis(redis_key, result)
             logger.debug(f"XBRL cached (L1+L2) for {memory_key}")
         else:
