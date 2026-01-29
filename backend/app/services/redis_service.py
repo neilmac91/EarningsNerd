@@ -121,14 +121,33 @@ def reset_cache_stats() -> None:
 _pool: Optional[ConnectionPool] = None
 _client: Optional[aioredis.Redis] = None
 _init_lock: asyncio.Lock | None = None
+_init_lock_loop: Optional[asyncio.AbstractEventLoop] = None
 
 
 async def _get_init_lock() -> asyncio.Lock:
-    """Get or create the initialization lock in async context (thread-safe)."""
-    global _init_lock
-    if _init_lock is None:
-        # Create lock inside async context to ensure event loop exists
-        _init_lock = asyncio.Lock()
+    """
+    Get or create the initialization lock in async context (thread-safe).
+
+    Handles event loop changes (e.g., during tests) by recreating the lock
+    when the current event loop differs from the one the lock was created on.
+    """
+    global _init_lock, _init_lock_loop
+
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop - create lock without tracking
+        if _init_lock is None:
+            _init_lock = asyncio.Lock()
+        return _init_lock
+
+    # Check if lock exists and is bound to current loop
+    if _init_lock is not None and _init_lock_loop is current_loop:
+        return _init_lock
+
+    # Create new lock for current loop (handles loop changes during tests)
+    _init_lock = asyncio.Lock()
+    _init_lock_loop = current_loop
     return _init_lock
 
 
@@ -258,7 +277,7 @@ async def check_redis_health() -> dict:
 
 async def close_redis() -> None:
     """Close the Redis connection pool gracefully."""
-    global _pool, _client, _init_lock
+    global _pool, _client, _init_lock, _init_lock_loop
     async with await _get_init_lock():
         if _client is not None:
             try:

@@ -51,17 +51,30 @@ def clear_xbrl_cache() -> int:
 
 
 def get_xbrl_cache_stats() -> Dict[str, Any]:
-    """Get cache statistics for monitoring (L1 in-memory cache)."""
+    """
+    Get cache statistics for monitoring (L1 in-memory cache).
+
+    Returns dict with both new (l1_*) and legacy (total_entries, valid_entries)
+    keys for backward compatibility.
+    """
     now = datetime.now()
+    total = len(_xbrl_cache)
     valid_count = sum(
         1 for cached_time, _ in _xbrl_cache.values()
         if now - cached_time < _cache_ttl
     )
+    expired_count = total - valid_count
+
     return {
-        "l1_total_entries": len(_xbrl_cache),
+        # New L1-prefixed keys for two-tier caching clarity
+        "l1_total_entries": total,
         "l1_valid_entries": valid_count,
-        "l1_expired_entries": len(_xbrl_cache) - valid_count,
+        "l1_expired_entries": expired_count,
         "cache_ttl_hours": _cache_ttl.total_seconds() / 3600,
+        # Backward compatibility aliases (deprecated)
+        "total_entries": total,
+        "valid_entries": valid_count,
+        "expired_entries": expired_count,
     }
 
 
