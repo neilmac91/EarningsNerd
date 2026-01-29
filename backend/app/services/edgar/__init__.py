@@ -37,6 +37,13 @@ from .xbrl_service import (
     clear_xbrl_cache,
     get_xbrl_cache_stats,
 )
+from .circuit_breaker import (
+    CircuitBreaker,
+    CircuitBreakerConfig,
+    CircuitOpenError,
+    edgar_circuit_breaker,
+)
+from .async_executor import run_with_circuit_breaker
 
 __all__ = [
     # Configuration
@@ -65,4 +72,10 @@ __all__ = [
     "Filing",
     "FinancialMetric",
     "XBRLData",
+    # Circuit Breaker
+    "CircuitBreaker",
+    "CircuitBreakerConfig",
+    "CircuitOpenError",
+    "edgar_circuit_breaker",
+    "run_with_circuit_breaker",
 ]

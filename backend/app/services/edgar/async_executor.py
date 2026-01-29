@@ -26,6 +26,7 @@ from typing import Callable, TypeVar, ParamSpec, Awaitable
 
 from .config import EDGAR_THREAD_POOL_SIZE, EDGAR_DEFAULT_TIMEOUT_SECONDS
 from .exceptions import EdgarTimeoutError, translate_edgartools_exception
+from .circuit_breaker import edgar_circuit_breaker, CircuitOpenError
 
 logger = logging.getLogger(__name__)
 
@@ -112,6 +113,43 @@ async def run_in_executor_with_timeout(
             timeout_seconds=timeout,
             cause=exc,
         )
+
+
+async def run_with_circuit_breaker(
+    func: Callable[[], T],
+    timeout: float = EDGAR_DEFAULT_TIMEOUT_SECONDS,
+    use_circuit_breaker: bool = True,
+) -> T:
+    """
+    Run a synchronous function with timeout and circuit breaker protection.
+
+    This is the recommended way to call EdgarTools operations in production.
+    It combines timeout handling with circuit breaker protection for resilience.
+
+    Args:
+        func: Zero-argument callable (use lambda for args)
+        timeout: Maximum seconds to wait
+        use_circuit_breaker: Whether to use circuit breaker (default True)
+
+    Returns:
+        The return value of func
+
+    Raises:
+        CircuitOpenError: If the circuit breaker is open
+        EdgarTimeoutError: If the operation times out
+        EdgarError: Translated from any EdgarTools exception
+
+    Example:
+        company = await run_with_circuit_breaker(
+            lambda: Company("AAPL"),
+            timeout=30.0
+        )
+    """
+    if not use_circuit_breaker:
+        return await run_in_executor_with_timeout(func, timeout)
+
+    async with edgar_circuit_breaker:
+        return await run_in_executor_with_timeout(func, timeout)
 
 
 def async_edgar(func: Callable[P, T]) -> Callable[P, Awaitable[T]]:

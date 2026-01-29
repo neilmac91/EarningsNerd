@@ -37,6 +37,11 @@ except ImportError:
     print("Sentry SDK not available - install sentry-sdk for error tracking")
 
 from app.database import engine, Base
+from app.services.logging_service import (
+    configure_logging,
+    CorrelationIdMiddleware,
+    get_logger,
+)
 from app.routers import (
     companies,
     filings,
@@ -121,6 +126,15 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Configure structured logging
+configure_logging(
+    level="DEBUG" if settings.ENVIRONMENT == "development" else "INFO",
+    json_format=settings.ENVIRONMENT == "production",
+)
+
+# Correlation ID middleware (adds X-Correlation-ID to all requests)
+app.add_middleware(CorrelationIdMiddleware)
 
 # CORS middleware
 app.add_middleware(
@@ -213,19 +227,6 @@ app.include_router(webhooks.router, prefix="/api", tags=["Webhooks"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 
 
-@app.middleware("http")
-async def log_request_latency(request: Request, call_next):
-    start_time = time.perf_counter()
-    response = None
-    try:
-        response = await call_next(request)
-        return response
-    finally:
-        duration_ms = (time.perf_counter() - start_time) * 1000
-        if request.url.path.startswith("/api/"):
-            print(f"[API] {request.method} {request.url.path} {duration_ms:.1f} ms")
-
-
 @app.get("/")
 async def root():
     return {
@@ -292,6 +293,24 @@ async def health_check_detailed():
         if health_status["status"] == "healthy":
             health_status["status"] = "degraded"
 
+    # Check circuit breaker status
+    from app.services.edgar.circuit_breaker import edgar_circuit_breaker
+    cb_status = edgar_circuit_breaker.get_status()
+    health_status["checks"]["sec_edgar_circuit"] = {
+        "state": cb_status["state"],
+        "healthy": cb_status["state"] != "open",
+        "stats": {
+            "total_requests": cb_status["stats"]["total_requests"],
+            "success_rate": round(cb_status["stats"]["success_rate"], 1),
+            "rejected_requests": cb_status["stats"]["rejected_requests"],
+        }
+    }
+
+    # Circuit breaker open is degraded (not unhealthy - we have fallbacks)
+    if cb_status["state"] == "open":
+        if health_status["status"] == "healthy":
+            health_status["status"] = "degraded"
+
     # Return appropriate HTTP status
     from fastapi.responses import JSONResponse
     if health_status["status"] == "unhealthy":
@@ -318,3 +337,19 @@ Allow: /
 Sitemap: https://earningsnerd.io/sitemap.xml
 """
     return PlainTextResponse(content=content, media_type="text/plain")
+
+
+@app.get("/metrics", tags=["Monitoring"])
+async def get_metrics():
+    """
+    Get application metrics for monitoring dashboards.
+
+    Returns comprehensive metrics including:
+    - Application info
+    - HTTP request statistics
+    - Circuit breaker status
+    - Cache statistics
+    - Database pool stats
+    """
+    from app.services.metrics_service import get_all_metrics
+    return await get_all_metrics()
