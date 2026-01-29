@@ -6,7 +6,7 @@ services:
     plan: standard
     rootDir: backend
     buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
-    startCommand: python ../scripts/update_contact_schema.py && uvicorn main:app --host 0.0.0.0 --port $PORT --workers 2
+    startCommand: alembic upgrade head && python ../scripts/update_contact_schema.py && uvicorn main:app --host 0.0.0.0 --port $PORT --workers 2
     healthCheckPath: /health
     envVars:
       - key: DATABASE_URL

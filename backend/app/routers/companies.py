@@ -40,7 +40,16 @@ YAHOO_HEADERS = {
 
 _quote_cache: Dict[str, Tuple[StockQuote, datetime]] = {}
 _yahoo_client: Optional[httpx.AsyncClient] = None
-_yahoo_client_lock = asyncio.Lock()
+# Lazy lock initialization for event loop safety (see xbrl_service.py pattern)
+_yahoo_client_lock: Optional[asyncio.Lock] = None
+
+
+def _get_yahoo_client_lock() -> asyncio.Lock:
+    """Get or create the Yahoo client lock (lazy initialization for event loop safety)."""
+    global _yahoo_client_lock
+    if _yahoo_client_lock is None:
+        _yahoo_client_lock = asyncio.Lock()
+    return _yahoo_client_lock
 
 
 def _get_cached_quote(ticker: str) -> Optional[StockQuote]:
@@ -74,7 +83,7 @@ async def _get_yahoo_client() -> httpx.AsyncClient:
     if _yahoo_client and not _yahoo_client.is_closed:
         return _yahoo_client
 
-    async with _yahoo_client_lock:
+    async with _get_yahoo_client_lock():
         if _yahoo_client is None or _yahoo_client.is_closed:
             _yahoo_client = httpx.AsyncClient(
                 timeout=YAHOO_TIMEOUT,

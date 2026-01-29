@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser, register } from '@/features/auth/api/auth-api'
+import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
 import { Loader2 } from 'lucide-react'
 import SecondaryHeader from '@/components/SecondaryHeader'
@@ -35,8 +36,10 @@ export default function RegisterPage() {
       }
       router.push('/')
     } catch (err: unknown) {
-      const axiosErr = err as { response?: { data?: { detail?: string } } }
-      setError(axiosErr.response?.data?.detail || 'Registration failed')
+      const errorMessage = isApiError(err)
+        ? getErrorMessage(err)
+        : 'Registration failed'
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

@@ -77,7 +77,8 @@ class TrendingTickerService:
         self._cache_file_path = (cache_root / self._persistent_cache_filename).resolve()
         self._symbol_cache_path = (cache_root / "sec_ticker_lookup.json").resolve()
         self._http_client: Optional[httpx.AsyncClient] = None
-        self._http_client_lock = asyncio.Lock()
+        # Lazy lock initialization for event loop safety (created on first use)
+        self._http_client_lock: Optional[asyncio.Lock] = None
         # Rate limit tracking: source -> (backoff_until, consecutive_429s)
         self._rate_limit_backoff: Dict[str, tuple[Optional[datetime], int]] = {}
         self._ensure_cache_directory()
@@ -507,11 +508,17 @@ class TrendingTickerService:
         except ValueError:
             return None
 
+    def _get_lock(self) -> asyncio.Lock:
+        """Get or create the HTTP client lock (lazy initialization for event loop safety)."""
+        if self._http_client_lock is None:
+            self._http_client_lock = asyncio.Lock()
+        return self._http_client_lock
+
     async def _get_http_client(self) -> httpx.AsyncClient:
         if self._http_client and not self._http_client.is_closed:
             return self._http_client
 
-        async with self._http_client_lock:
+        async with self._get_lock():
             if self._http_client is None or self._http_client.is_closed:
                 self._http_client = httpx.AsyncClient(
                     timeout=httpx.Timeout(8.0, connect=2.0, read=6.0),

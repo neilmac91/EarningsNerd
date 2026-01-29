@@ -1319,7 +1319,7 @@ class OpenAIService:
                 error_msg = str(model_error)
                 last_error = model_error
                 if any(keyword in error_msg.lower() for keyword in ("rate limit", "429", "model", "unavailable")):
-                    print(f"Secondary completion model {model_name} failed ({error_msg[:120]}). Trying next model...")
+                    logger.warning(f"Secondary completion model {model_name} failed ({error_msg[:120]}). Trying next model...")
                     continue
                 break
         if last_error:
@@ -2509,7 +2509,7 @@ Do not include any additional keys or text outside the JSON object."""
                         max_tokens=config.get("max_tokens", 1500),
                         stream=True  # Enable streaming
                     )
-                    print(f"Successfully using streaming model: {model_name}")
+                    logger.info(f"Successfully using streaming model: {model_name}")
                     async for chunk in stream:
                         if chunk.choices and len(chunk.choices) > 0:
                             delta = chunk.choices[0].delta
@@ -2520,7 +2520,7 @@ Do not include any additional keys or text outside the JSON object."""
                     error_msg = str(model_error)
                     # If rate-limited or model not found, try next model
                     if "rate limit" in error_msg.lower() or "429" in error_msg or "not found" in error_msg.lower() or "model" in error_msg.lower():
-                        print(f"Model {model_name} failed ({error_msg[:100]}), trying next model...")
+                        logger.warning(f"Model {model_name} failed ({error_msg[:100]}), trying next model...")
                         continue
                     else:
                         raise
@@ -2553,7 +2553,7 @@ Do not include any additional keys or text outside the JSON object."""
             
         except asyncio.TimeoutError:
             timeout_seconds = self._get_type_config(filing_type_key).get("ai_timeout", 30.0)
-            print(f"Structured extraction timed out after {timeout_seconds}s for {filing_type_key}")
+            logger.warning(f"Structured extraction timed out after {timeout_seconds}s for {filing_type_key}")
             return {
                 "status": "error",
                 "message": f"Unable to complete summary due to parsing timeout. Suggest retrying later.",
@@ -2574,7 +2574,7 @@ Do not include any additional keys or text outside the JSON object."""
             }
         except Exception as extraction_error:
             error_msg = str(extraction_error)
-            print(f"Structured extraction error: {error_msg}")
+            logger.error(f"Structured extraction error: {error_msg}")
             return {
                 "status": "error",
                 "message": f"DEBUG_ERROR: {str(extraction_error)}",
@@ -2668,7 +2668,7 @@ Do not include any additional keys or text outside the JSON object."""
                 writer_fallback_reason = fallback_reason
         except Exception as writer_exc:
             writer_error = str(writer_exc)
-            print(f"Writer stage failed: {writer_error}")
+            logger.error(f"Writer stage failed: {writer_error}")
             # Generate fallback markdown from structured data
             final_markdown = self._build_structured_markdown(structured_summary, f"Writer failed: {writer_error[:100]}")
 
