@@ -88,8 +88,9 @@ docker-compose down                   # Stop databases
 |------|---------|
 | `backend/app/services/openai_service.py` | AI summarization logic, prompt engineering |
 | `backend/app/services/summary_generation_service.py` | Summary orchestration, progress tracking |
-| `backend/app/services/xbrl_service.py` | XBRL financial data extraction |
-| `backend/app/services/redis_service.py` | Redis connection pooling, cache helpers, TTL config |
+| `backend/app/services/edgar/xbrl_service.py` | XBRL financial data extraction with two-tier caching |
+| `backend/app/services/edgar/compat.py` | SEC EDGAR compatibility layer with two-tier ticker caching |
+| `backend/app/services/redis_service.py` | Redis connection pooling, cache helpers, TTL config, event loop safety |
 | `backend/app/services/logging_service.py` | Structured logging, correlation IDs, request context |
 | `backend/app/services/metrics_service.py` | Application metrics for monitoring dashboards |
 | `backend/app/services/edgar/circuit_breaker.py` | Circuit breaker pattern for SEC EDGAR resilience |
@@ -130,6 +131,16 @@ docker-compose down                   # Stop databases
   - `cache_get()`, `cache_set()`, `cache_get_or_set()` for cache-aside pattern
   - `CacheTTL` enum: XBRL_DATA (24h), FILING_METADATA (6h), HOT_FILINGS (5m)
   - `CacheNamespace` for key organization (xbrl, filing, company, etc.)
+  - 2-second timeout on all cache operations to prevent hanging
+- **Two-Tier Caching:** XBRL data and SEC tickers use L1 (memory) + L2 (Redis):
+  - L1: In-memory cache for fast process-local access (<1ms)
+  - L2: Redis cache for persistence and cross-instance sharing
+  - Graceful fallback to stale L1 cache on Redis/network failures
+  - `get_xbrl_cache_stats()` returns both `l1_*` and legacy keys for compatibility
+- **Event Loop Safety:** Redis connections handle event loop changes gracefully:
+  - `_reset_on_loop_change()` detects when running in a new event loop
+  - Automatically resets pool/client/lock to prevent hangs on stale connections
+  - Critical for test stability with Starlette TestClient
 
 ### Frontend
 - **Feature-Based Structure:** `/features` groups domains (auth, companies, filings, etc.)
