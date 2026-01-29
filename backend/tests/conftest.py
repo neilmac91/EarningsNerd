@@ -34,4 +34,7 @@ def pytest_configure(config):
     config.addinivalue_line(
         "markers", "requires_db: mark test as requiring database (skips gracefully if not available)"
     )
+    config.addinivalue_line(
+        "markers", "unit: mark test as a unit test"
+    )
 

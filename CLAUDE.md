@@ -228,6 +228,8 @@ Custom pytest markers defined in `backend/tests/conftest.py`:
 
 - `backend/tests/smoke/test_critical_paths.py` - 18 smoke tests for critical paths
 - `backend/tests/unit/test_circuit_breaker.py` - 14 circuit breaker pattern tests
+- `backend/tests/unit/test_two_tier_cache.py` - LRU eviction, concurrent access, stress tests
+- `backend/tests/unit/test_event_loop_safety.py` - Event loop detection, Redis connection safety
 - `backend/tests/integration/test_summaries_flow.py` - Summary generation E2E
 - `backend/tests/test_xbrl_extraction.py` - XBRL parsing validation
 - `backend/tests/test_summary_quality.py` - Output quality validation
@@ -337,7 +339,20 @@ python scripts/fix_null_sec_urls.py --ticker BMRN --execute
     "requests_per_minute": 12
   },
   "circuit_breaker": {"sec_edgar": {"state": "closed", "stats": {...}}},
-  "cache": {"redis": {"healthy": true, "hit_rate": 84.75}},
+  "cache": {
+    "redis": {"healthy": true, "hit_rate": 84.75, "hits": 1200, "misses": 215},
+    "xbrl_l1": {
+      "total_entries": 450,
+      "valid_entries": 445,
+      "max_size": 1000,
+      "utilization_percent": 45.0,
+      "hits": 3200,
+      "misses": 800,
+      "hit_rate": 80.0,
+      "evictions": 50
+    }
+  },
+  "thread_pool": {"edgar": {"max_workers": 4, "threads_created": 3}},
   "database": {"pool_size": 10, "checked_in": 8, "checked_out": 2}
 }
 ```
@@ -346,6 +361,80 @@ python scripts/fix_null_sec_urls.py --ticker BMRN --execute
 - `200` with `status: healthy` - All dependencies operational
 - `200` with `status: degraded` - Non-critical dependency (Redis) unavailable
 - `503` with `status: unhealthy` - Critical dependency (database) unavailable
+
+## Operational Runbook
+
+### Cache Management
+
+**L1 (In-Memory) Cache:**
+- Max 1000 entries with LRU eviction
+- 24-hour TTL
+- Check stats: `GET /metrics` → `cache.xbrl_l1`
+- Clear via admin: `POST /api/admin/xbrl/clear-memory-cache`
+
+**L2 (Redis) Cache:**
+- Persistent across restarts
+- Shared across instances
+- Check stats: `GET /metrics` → `cache.redis`
+- Clear pattern: Use Redis CLI `SCAN` + `DEL` for bulk deletion
+
+**Cache Pressure Indicators:**
+- `l1_utilization_percent > 90%` - Cache is near capacity, expect more evictions
+- `l1_evictions` increasing rapidly - High churn, consider increasing `_cache_max_size`
+- `l1_hit_rate < 50%` - Poor cache effectiveness, review access patterns
+- Look for `cache_eviction` events in logs for structured eviction details
+
+### Circuit Breaker Management
+
+**States:**
+- `closed` - Normal operation, all requests pass through
+- `open` - Failing fast, rejecting requests (check SEC EDGAR status)
+- `half_open` - Testing recovery, limited requests allowed
+
+**Actions:**
+- If stuck in `open`: Check SEC EDGAR status, network connectivity
+- Manual reset (if needed): Restart application or use admin endpoint
+- Check stats: `GET /metrics` → `circuit_breaker.sec_edgar`
+
+### Common Issues
+
+| Symptom | Likely Cause | Resolution |
+|---------|--------------|------------|
+| Tests hang for 30+ minutes | Stale Redis connections from previous event loop | Fixed by `_reset_on_loop_change()` - update to latest code |
+| `RuntimeError: Lock bound to different event loop` | asyncio.Lock created in wrong loop | Use lazy lock initialization pattern |
+| High memory usage | L1 cache unbounded | Check `_cache_max_size` is set (default 1000) |
+| Slow health checks | Sync DB check blocking event loop | Use `run_in_executor()` for DB operations |
+| Metrics deadlock | Using `threading.Lock` with nested calls | Use `threading.RLock` for reentrant locking |
+
+### Performance Tuning
+
+**L1 Cache Size:**
+```python
+# In xbrl_service.py
+_cache_max_size = 1000  # Increase for more memory, fewer evictions
+```
+
+**Redis Timeouts:**
+```python
+# In redis_service.py
+CACHE_OPERATION_TIMEOUT = 2.0  # Increase if Redis is slow
+```
+
+**Thread Pool Size:**
+```python
+# In edgar/config.py
+EDGAR_THREAD_POOL_SIZE = 4  # Increase for more concurrent SEC API calls
+```
+
+### Monitoring Alerts (Suggested Thresholds)
+
+| Metric | Warning | Critical |
+|--------|---------|----------|
+| `cache.xbrl_l1.utilization_percent` | > 80% | > 95% |
+| `cache.redis.healthy` | - | `false` |
+| `circuit_breaker.sec_edgar.state` | `half_open` | `open` |
+| `requests.error_rate_percent` | > 5% | > 15% |
+| `database.checked_out` | > 8 | = pool_size |
 
 ## Request Timeout Configuration
 
