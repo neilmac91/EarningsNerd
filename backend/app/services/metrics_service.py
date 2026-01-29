@@ -200,17 +200,21 @@ async def get_all_metrics() -> Dict[str, Any]:
         try:
             from app.services.edgar.xbrl_service import get_xbrl_cache_stats
             xbrl_stats = get_xbrl_cache_stats()
+            l1_stats_map = {
+                "total_entries": ("l1_total_entries", 0),
+                "valid_entries": ("l1_valid_entries", 0),
+                "expired_entries": ("l1_expired_entries", 0),
+                "max_size": ("l1_max_size", 1000),
+                "utilization_percent": ("l1_utilization_percent", 0),
+                "ttl_hours": ("cache_ttl_hours", 24),
+                "hits": ("l1_hits", 0),
+                "misses": ("l1_misses", 0),
+                "hit_rate": ("l1_hit_rate", 0),
+                "evictions": ("l1_evictions", 0),
+            }
             metrics["cache"]["xbrl_l1"] = {
-                "total_entries": xbrl_stats.get("l1_total_entries", 0),
-                "valid_entries": xbrl_stats.get("l1_valid_entries", 0),
-                "expired_entries": xbrl_stats.get("l1_expired_entries", 0),
-                "max_size": xbrl_stats.get("l1_max_size", 1000),
-                "utilization_percent": xbrl_stats.get("l1_utilization_percent", 0),
-                "ttl_hours": xbrl_stats.get("cache_ttl_hours", 24),
-                "hits": xbrl_stats.get("l1_hits", 0),
-                "misses": xbrl_stats.get("l1_misses", 0),
-                "hit_rate": xbrl_stats.get("l1_hit_rate", 0),
-                "evictions": xbrl_stats.get("l1_evictions", 0),
+                dest_key: xbrl_stats.get(src_key, default)
+                for dest_key, (src_key, default) in l1_stats_map.items()
             }
         except ImportError:
             pass
