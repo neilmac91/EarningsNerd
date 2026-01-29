@@ -121,14 +121,63 @@ def reset_cache_stats() -> None:
 _pool: Optional[ConnectionPool] = None
 _client: Optional[aioredis.Redis] = None
 _init_lock: asyncio.Lock | None = None
+_init_lock_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
+def _reset_on_loop_change() -> bool:
+    """
+    Detect event loop change and reset all Redis globals if needed.
+
+    This handles the case where tests run in different event loops
+    (e.g., Starlette TestClient creates a new loop per test module).
+    Old pool/client objects bound to a dead loop would hang indefinitely.
+
+    Returns True if reset was performed, False otherwise.
+    """
+    global _pool, _client, _init_lock, _init_lock_loop
+
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop - nothing to check
+        return False
+
+    # If loop changed, reset everything to avoid using stale connections
+    if _init_lock_loop is not None and _init_lock_loop is not current_loop:
+        logger.debug("Event loop change detected, resetting Redis connections")
+        _pool = None
+        _client = None
+        _init_lock = None
+        _init_lock_loop = None
+        return True
+
+    return False
 
 
 async def _get_init_lock() -> asyncio.Lock:
-    """Get or create the initialization lock in async context (thread-safe)."""
-    global _init_lock
-    if _init_lock is None:
-        # Create lock inside async context to ensure event loop exists
-        _init_lock = asyncio.Lock()
+    """
+    Get or create the initialization lock in async context (thread-safe).
+
+    Handles event loop changes (e.g., during tests) by recreating the lock
+    when the current event loop differs from the one the lock was created on.
+    """
+    global _init_lock, _init_lock_loop
+
+    try:
+        current_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        # No running loop - create lock without tracking
+        if _init_lock is None:
+            _init_lock = asyncio.Lock()
+        return _init_lock
+
+    # Check if lock exists and is bound to current loop
+    if _init_lock is not None and _init_lock_loop is current_loop:
+        return _init_lock
+
+    # Create new lock for current loop (handles loop changes during tests)
+    _init_lock = asyncio.Lock()
+    _init_lock_loop = current_loop
     return _init_lock
 
 
@@ -140,6 +189,10 @@ async def get_redis_pool() -> Optional[ConnectionPool]:
     race conditions when multiple coroutines attempt initialization.
     """
     global _pool
+
+    # Reset if event loop changed (prevents hanging on stale connections)
+    _reset_on_loop_change()
+
     if _pool is not None:
         return _pool
 
@@ -172,6 +225,10 @@ async def get_redis_client() -> Optional[aioredis.Redis]:
     Thread-safe lazy initialization using asyncio.Lock.
     """
     global _client
+
+    # Reset if event loop changed (prevents hanging on stale connections)
+    _reset_on_loop_change()
+
     if _client is not None:
         return _client
 
@@ -258,7 +315,7 @@ async def check_redis_health() -> dict:
 
 async def close_redis() -> None:
     """Close the Redis connection pool gracefully."""
-    global _pool, _client, _init_lock
+    global _pool, _client, _init_lock, _init_lock_loop
     async with await _get_init_lock():
         if _client is not None:
             try:
@@ -291,22 +348,39 @@ def make_cache_key(namespace: CacheNamespace, *parts: str) -> str:
     return f"{namespace.value}:{':'.join(str(p) for p in parts)}"
 
 
+# Timeout for cache operations to prevent hanging in degraded scenarios
+CACHE_OPERATION_TIMEOUT = 2.0
+
+
 async def cache_get(key: str) -> Optional[Any]:
     """
     Get a value from cache.
 
     Returns None if key doesn't exist or Redis is unavailable.
     Automatically deserializes JSON values.
+    Has a 2-second timeout to prevent hanging.
     """
     global _cache_stats
 
-    client = await get_redis_client()
+    try:
+        client = await asyncio.wait_for(
+            get_redis_client(),
+            timeout=CACHE_OPERATION_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        logger.warning(f"Redis client acquisition timed out for cache_get({key})")
+        _cache_stats.errors += 1
+        return None
+
     if client is None:
         _cache_stats.misses += 1
         return None
 
     try:
-        value = await client.get(key)
+        value = await asyncio.wait_for(
+            client.get(key),
+            timeout=CACHE_OPERATION_TIMEOUT
+        )
         if value is None:
             _cache_stats.misses += 1
             return None
@@ -319,6 +393,10 @@ async def cache_get(key: str) -> Optional[Any]:
         except (json.JSONDecodeError, TypeError):
             return value
 
+    except asyncio.TimeoutError:
+        logger.warning(f"Redis get timed out for key {key}")
+        _cache_stats.errors += 1
+        return None
     except RedisError as e:
         logger.warning(f"Redis get error for key {key}: {e}")
         _cache_stats.errors += 1
@@ -335,10 +413,20 @@ async def cache_set(
 
     Automatically serializes non-string values to JSON.
     Returns True if successful, False otherwise.
+    Has a 2-second timeout to prevent hanging.
     """
     global _cache_stats
 
-    client = await get_redis_client()
+    try:
+        client = await asyncio.wait_for(
+            get_redis_client(),
+            timeout=CACHE_OPERATION_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        logger.warning(f"Redis client acquisition timed out for cache_set({key})")
+        _cache_stats.errors += 1
+        return False
+
     if client is None:
         return False
 
@@ -347,10 +435,17 @@ async def cache_set(
         if not isinstance(value, str):
             value = json.dumps(value)
 
-        await client.setex(key, ttl, value)
+        await asyncio.wait_for(
+            client.setex(key, ttl, value),
+            timeout=CACHE_OPERATION_TIMEOUT
+        )
         _cache_stats.sets += 1
         return True
 
+    except asyncio.TimeoutError:
+        logger.warning(f"Redis set timed out for key {key}")
+        _cache_stats.errors += 1
+        return False
     except RedisError as e:
         logger.warning(f"Redis set error for key {key}: {e}")
         _cache_stats.errors += 1
@@ -362,10 +457,20 @@ async def cache_delete(key: str) -> bool:
     Delete a key from cache.
 
     Returns True if key was deleted, False otherwise.
+    Has a 2-second timeout to prevent hanging.
     """
     global _cache_stats
 
-    client = await get_redis_client()
+    try:
+        client = await asyncio.wait_for(
+            get_redis_client(),
+            timeout=CACHE_OPERATION_TIMEOUT
+        )
+    except asyncio.TimeoutError:
+        logger.warning(f"Redis client acquisition timed out for cache_delete({key})")
+        _cache_stats.errors += 1
+        return False
+
     if client is None:
         return False
 

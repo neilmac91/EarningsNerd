@@ -44,7 +44,15 @@ class SECEdgarServiceCompat:
     _cache_ttl = timedelta(hours=24)
 
     async def _get_cached_tickers(self) -> Dict[str, Dict]:
-        """Fetch company tickers from SEC with 24-hour caching and stale fallback."""
+        """
+        Fetch company tickers from SEC with two-tier caching and stale fallback.
+
+        Cache hierarchy:
+        - L1: In-memory class-level cache (fastest)
+        - L2: Redis cache (persistent, shared across instances)
+        - Fallback: Serve stale L1 cache if fetch fails
+        """
+        # L1: Check in-memory cache first
         if (
             self._tickers_cache is not None
             and self._tickers_cache_time is not None
@@ -52,6 +60,16 @@ class SECEdgarServiceCompat:
         ):
             return self._tickers_cache
 
+        # L2: Check Redis cache
+        redis_key = "sec:company_tickers"
+        redis_data = await self._get_tickers_from_redis(redis_key)
+        if redis_data is not None:
+            logger.debug("SEC tickers L2 cache hit")
+            SECEdgarServiceCompat._tickers_cache = redis_data
+            SECEdgarServiceCompat._tickers_cache_time = datetime.now()
+            return redis_data
+
+        # Fetch from SEC EDGAR
         try:
             async with edgar_circuit_breaker:
                 async with httpx.AsyncClient() as client:
@@ -62,8 +80,13 @@ class SECEdgarServiceCompat:
                     )
                     response.raise_for_status()
                     data = response.json()
+
+                    # Update both cache tiers
                     SECEdgarServiceCompat._tickers_cache = data
                     SECEdgarServiceCompat._tickers_cache_time = datetime.now()
+                    await self._set_tickers_to_redis(redis_key, data)
+
+                    logger.debug("SEC tickers fetched and cached (L1+L2)")
                     return data
         except CircuitOpenError as e:
             if self._tickers_cache is not None:
@@ -75,6 +98,24 @@ class SECEdgarServiceCompat:
                 logger.warning("SEC ticker fetch failed, serving stale cache: %s", e)
                 return self._tickers_cache
             raise EdgarError(f"Unable to fetch SEC ticker list: {e}", cause=e)
+
+    async def _get_tickers_from_redis(self, key: str) -> Optional[Dict[str, Dict]]:
+        """Get tickers data from Redis cache (L2)."""
+        try:
+            from app.services.redis_service import cache_get
+            return await cache_get(key)
+        except Exception as e:
+            logger.debug(f"Redis L2 tickers cache get failed: {e}")
+            return None
+
+    async def _set_tickers_to_redis(self, key: str, data: Dict[str, Dict]) -> bool:
+        """Set tickers data in Redis cache (L2)."""
+        try:
+            from app.services.redis_service import cache_set, CacheTTL
+            return await cache_set(key, data, CacheTTL.SEC_TICKERS)
+        except Exception as e:
+            logger.debug(f"Redis L2 tickers cache set failed: {e}")
+            return False
 
     def _local_search(self, tickers_data: Dict[str, Dict], query: str) -> List[Dict[str, Any]]:
         """Fast in-memory search over cached company tickers."""
