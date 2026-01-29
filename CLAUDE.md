@@ -8,7 +8,7 @@ EarningsNerd is an AI-powered SEC filing analysis platform that transforms dense
 
 **Backend:** FastAPI (Python 3.11), SQLAlchemy 2.0, PostgreSQL 15, Redis 7
 **Frontend:** Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui, React Query
-**AI:** OpenAI-compatible API (Google AI Studio gemini-2.0-flash)
+**AI:** OpenAI-compatible API (Google AI Studio gemini-3-pro-preview)
 **Payments:** Stripe | **Email:** Resend | **Analytics:** PostHog, Vercel Analytics | **Errors:** Sentry
 
 ## Quick Commands
