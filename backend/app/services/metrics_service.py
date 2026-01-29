@@ -40,27 +40,30 @@ class RequestMetrics:
     # Recent request timestamps for rate calculation
     _recent_timestamps: list = field(default_factory=list)
 
-    # Thread lock for concurrent access safety
-    _lock: threading.Lock = field(default_factory=threading.Lock)
+    # Reentrant lock for concurrent access safety
+    # RLock allows same thread to acquire lock multiple times (needed for nested calls)
+    _lock: threading.RLock = field(default_factory=threading.RLock)
 
     @property
     def average_latency_ms(self) -> float:
-        """Calculate average request latency."""
-        if self.total_requests == 0:
-            return 0.0
-        return self.total_latency_ms / self.total_requests
+        """Calculate average request latency (thread-safe)."""
+        with self._lock:
+            if self.total_requests == 0:
+                return 0.0
+            return self.total_latency_ms / self.total_requests
 
     @property
     def error_rate(self) -> float:
-        """Calculate error rate as a percentage."""
-        if self.total_requests == 0:
-            return 0.0
-        errors = self.client_errors + self.server_errors
-        return errors / self.total_requests * 100
+        """Calculate error rate as a percentage (thread-safe)."""
+        with self._lock:
+            if self.total_requests == 0:
+                return 0.0
+            errors = self.client_errors + self.server_errors
+            return errors / self.total_requests * 100
 
     @property
     def requests_per_minute(self) -> float:
-        """Calculate recent requests per minute."""
+        """Calculate recent requests per minute (thread-safe)."""
         now = time.time()
         cutoff = now - 60  # Last minute
 

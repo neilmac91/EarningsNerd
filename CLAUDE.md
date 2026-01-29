@@ -133,10 +133,14 @@ docker-compose down                   # Stop databases
   - `CacheNamespace` for key organization (xbrl, filing, company, etc.)
   - 2-second timeout on all cache operations to prevent hanging
 - **Two-Tier Caching:** XBRL data and SEC tickers use L1 (memory) + L2 (Redis):
-  - L1: In-memory cache for fast process-local access (<1ms)
+  - L1: In-memory cache with LRU eviction (max 1000 entries) and `asyncio.Lock` protection
   - L2: Redis cache for persistence and cross-instance sharing
   - Graceful fallback to stale L1 cache on Redis/network failures
   - `get_xbrl_cache_stats()` returns both `l1_*` and legacy keys for compatibility
+- **Thread-Safe Metrics:** Request metrics use `threading.RLock` for safe concurrent access:
+  - Reentrant lock allows nested property calls without deadlock
+  - All metric properties (`average_latency_ms`, `error_rate`, `requests_per_minute`) are protected
+  - `record_request()` and `to_dict()` are fully thread-safe
 - **Event Loop Safety:** Redis connections handle event loop changes gracefully:
   - `_reset_on_loop_change()` detects when running in a new event loop
   - Automatically resets pool/client/lock to prevent hangs on stale connections

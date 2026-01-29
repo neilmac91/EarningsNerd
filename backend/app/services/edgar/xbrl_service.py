@@ -19,6 +19,7 @@ Usage:
     metrics = edgar_xbrl_service.extract_standardized_metrics(data)
 """
 
+import asyncio
 import logging
 from collections import OrderedDict
 from datetime import date, datetime, timedelta
@@ -43,9 +44,24 @@ _xbrl_cache: OrderedDict[str, Tuple[datetime, Optional[Dict]]] = OrderedDict()
 _cache_ttl = timedelta(hours=24)
 _cache_max_size = 1000  # Maximum entries before LRU eviction
 
+# Async lock to protect cache operations from concurrent coroutine access
+_cache_lock: asyncio.Lock | None = None
+
+
+def _get_cache_lock() -> asyncio.Lock:
+    """Get or create the cache lock (lazy initialization for event loop safety)."""
+    global _cache_lock
+    if _cache_lock is None:
+        _cache_lock = asyncio.Lock()
+    return _cache_lock
+
 
 def clear_xbrl_cache() -> int:
-    """Clear the XBRL cache. Returns number of entries cleared."""
+    """
+    Clear the XBRL cache. Returns number of entries cleared.
+
+    Note: For async contexts, prefer async_clear_xbrl_cache() for thread safety.
+    """
     global _xbrl_cache
     count = len(_xbrl_cache)
     _xbrl_cache.clear()
@@ -53,9 +69,19 @@ def clear_xbrl_cache() -> int:
     return count
 
 
-def _cache_set(key: str, value: Tuple[datetime, Optional[Dict]]) -> None:
+async def async_clear_xbrl_cache() -> int:
+    """Clear the XBRL cache (async-safe). Returns number of entries cleared."""
+    global _xbrl_cache
+    async with _get_cache_lock():
+        count = len(_xbrl_cache)
+        _xbrl_cache.clear()
+        logger.info(f"Cleared {count} XBRL cache entries")
+        return count
+
+
+def _cache_set_sync(key: str, value: Tuple[datetime, Optional[Dict]]) -> None:
     """
-    Set a value in L1 cache with LRU eviction.
+    Set a value in L1 cache with LRU eviction (sync version, call within lock).
 
     If cache exceeds max size, evicts oldest entries (least recently used).
     """
@@ -154,24 +180,26 @@ class EdgarXBRLService:
         memory_key = f"{cik}:{accession_number}"
         redis_key = f"xbrl:{cik}:{accession_number}"
 
-        # L1: Check in-memory cache first (fastest)
-        if memory_key in _xbrl_cache:
-            cached_time, cached_data = _xbrl_cache[memory_key]
-            if datetime.now() - cached_time < _cache_ttl:
-                # Move to end for LRU ordering (most recently used)
-                _xbrl_cache.move_to_end(memory_key)
-                logger.debug(f"XBRL L1 cache hit for {memory_key}")
-                return cached_data
-            else:
-                logger.debug(f"XBRL L1 cache expired for {memory_key}")
-                del _xbrl_cache[memory_key]
+        # L1: Check in-memory cache first (fastest) - protected by async lock
+        async with _get_cache_lock():
+            if memory_key in _xbrl_cache:
+                cached_time, cached_data = _xbrl_cache[memory_key]
+                if datetime.now() - cached_time < _cache_ttl:
+                    # Move to end for LRU ordering (most recently used)
+                    _xbrl_cache.move_to_end(memory_key)
+                    logger.debug(f"XBRL L1 cache hit for {memory_key}")
+                    return cached_data
+                else:
+                    logger.debug(f"XBRL L1 cache expired for {memory_key}")
+                    del _xbrl_cache[memory_key]
 
         # L2: Check Redis cache (persistent, shared)
         redis_data = await self._get_from_redis(redis_key)
         if redis_data is not None:
             logger.debug(f"XBRL L2 cache hit for {redis_key}")
             # Populate L1 cache from L2 with LRU eviction
-            _cache_set(memory_key, (datetime.now(), redis_data))
+            async with _get_cache_lock():
+                _cache_set_sync(memory_key, (datetime.now(), redis_data))
             return redis_data
 
         # Cache miss - fetch from EdgarTools
@@ -179,7 +207,8 @@ class EdgarXBRLService:
 
         # Cache successful results in both tiers
         if result is not None:
-            _cache_set(memory_key, (datetime.now(), result))
+            async with _get_cache_lock():
+                _cache_set_sync(memory_key, (datetime.now(), result))
             await self._set_to_redis(redis_key, result)
             logger.debug(f"XBRL cached (L1+L2) for {memory_key}")
         else:
