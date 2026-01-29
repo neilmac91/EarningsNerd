@@ -162,4 +162,30 @@ export const fmtPercent = (
   return `${formatted}%`
 }
 
+/**
+ * Sanitize a string for safe use in download filenames.
+ * Removes or replaces characters that could cause XSS or path traversal issues.
+ *
+ * @param name - The string to sanitize
+ * @param fallback - Fallback value if result is empty (default: 'file')
+ * @returns Sanitized filename component
+ */
+export const sanitizeFilename = (name: string | null | undefined, fallback = 'file'): string => {
+  if (!name) {
+    return fallback
+  }
+
+  // Remove path traversal sequences and dangerous characters
+  // Keep only alphanumeric, hyphen, underscore, and period
+  const sanitized = name
+    .replace(/\.\./g, '') // Remove path traversal
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '') // Remove illegal filename chars
+    .replace(/[^a-zA-Z0-9._-]/g, '_') // Replace other special chars with underscore
+    .replace(/_+/g, '_') // Collapse multiple underscores
+    .replace(/^[._]+|[._]+$/g, '') // Trim leading/trailing dots and underscores
+    .slice(0, 100) // Limit length to prevent issues
+
+  return sanitized || fallback
+}
+
 

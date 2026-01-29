@@ -29,8 +29,10 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_PUBLISHABLE_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""  # Webhook signing secret from Stripe dashboard
-    STRIPE_PRICE_MONTHLY_ID: str = "price_pro_monthly"
-    STRIPE_PRICE_YEARLY_ID: str = "price_pro_yearly"
+    # Price IDs from Stripe Dashboard > Products > Pricing
+    # MUST be set via environment variables - no defaults to fail obviously if misconfigured
+    STRIPE_PRICE_MONTHLY_ID: str = ""
+    STRIPE_PRICE_YEARLY_ID: str = ""
 
     # PostHog (server-side tracking)
     POSTHOG_API_KEY: str = ""
@@ -153,7 +155,7 @@ class Settings(BaseSettings):
         """Validate Stripe configuration and return (is_valid, warnings)"""
         warnings = []
         is_valid = True
-        
+
         # Check if Stripe is configured at all
         if not self.STRIPE_SECRET_KEY:
             warnings.append("STRIPE_SECRET_KEY is not set. Stripe features (subscriptions, payments) will be disabled.")
@@ -161,7 +163,22 @@ class Settings(BaseSettings):
         elif len(self.STRIPE_SECRET_KEY) < 20:
             warnings.append(f"STRIPE_SECRET_KEY appears too short (length: {len(self.STRIPE_SECRET_KEY)}). Expected at least 20 characters.")
             is_valid = False
-        
+
+        # Check Price IDs are set (critical for checkout sessions)
+        if self.STRIPE_SECRET_KEY:
+            if not self.STRIPE_PRICE_MONTHLY_ID:
+                warnings.append(
+                    "STRIPE_PRICE_MONTHLY_ID is not set. Monthly subscription checkout will fail. "
+                    "Set this to your Stripe Price ID from Dashboard > Products > Pricing."
+                )
+                is_valid = False
+            if not self.STRIPE_PRICE_YEARLY_ID:
+                warnings.append(
+                    "STRIPE_PRICE_YEARLY_ID is not set. Yearly subscription checkout will fail. "
+                    "Set this to your Stripe Price ID from Dashboard > Products > Pricing."
+                )
+                is_valid = False
+
         # Check webhook secret (critical for subscription management)
         if self.STRIPE_SECRET_KEY and not self.STRIPE_WEBHOOK_SECRET:
             warnings.append(
@@ -171,7 +188,7 @@ class Settings(BaseSettings):
             )
             # Don't mark as invalid since Stripe can work without webhooks (manual subscription management)
             # but warn strongly
-        
+
         return is_valid, warnings
 
 settings = Settings()
