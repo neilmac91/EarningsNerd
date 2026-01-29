@@ -145,9 +145,7 @@ async def handle_email_sent(data: Dict[str, Any]):
     subject = data.get("subject")
 
     logger.info(f"Email sent: {email_id} to {to} - Subject: {subject}")
-
-    # TODO: Update database record if needed
-    # For example, mark contact submission as "email_sent"
+    # Future: Update database record to mark contact submission as "email_sent"
 
 
 async def handle_email_delivered(data: Dict[str, Any]):
@@ -156,8 +154,7 @@ async def handle_email_delivered(data: Dict[str, Any]):
     to = data.get("to")
 
     logger.info(f"Email delivered: {email_id} to {to}")
-
-    # TODO: Update database record if needed
+    # Future: Update database record to mark email as delivered
 
 
 async def handle_email_delayed(data: Dict[str, Any]):
@@ -175,9 +172,7 @@ async def handle_email_bounced(data: Dict[str, Any]):
     bounce_type = data.get("bounce_type")  # "hard" or "soft"
 
     logger.error(f"Email bounced ({bounce_type}): {email_id} to {to}")
-
-    # TODO: For hard bounces, consider marking email as invalid in database
-    # TODO: For contact submissions, update status to "bounce"
+    # Future: For hard bounces, mark email as invalid; update contact submission status
 
 
 async def handle_email_complained(data: Dict[str, Any]):
@@ -186,9 +181,7 @@ async def handle_email_complained(data: Dict[str, Any]):
     to = data.get("to")
 
     logger.error(f"Email marked as spam: {email_id} to {to}")
-
-    # TODO: Consider unsubscribing this email address
-    # TODO: Update contact submission status if applicable
+    # Future: Auto-unsubscribe this email address to comply with anti-spam regulations
 
 
 async def handle_email_opened(data: Dict[str, Any]):
@@ -197,8 +190,7 @@ async def handle_email_opened(data: Dict[str, Any]):
     to = data.get("to")
 
     logger.info(f"Email opened: {email_id} by {to}")
-
-    # TODO: Track email open rates
+    # Future: Track email open rates for analytics
 
 
 async def handle_email_clicked(data: Dict[str, Any]):
@@ -208,5 +200,4 @@ async def handle_email_clicked(data: Dict[str, Any]):
     link = data.get("link")
 
     logger.info(f"Email link clicked: {email_id} by {to} - Link: {link}")
-
-    # TODO: Track click-through rates
+    # Future: Track click-through rates for analytics
