@@ -282,6 +282,7 @@ class CircuitBreaker:
                 async with self._lock:
                     if self._state == CircuitState.OPEN:  # Double-check after lock
                         self._state = CircuitState.HALF_OPEN
+                        self._stats.last_state_change_time = time.time()
                         self._stats.reset_consecutive()
                         logger.info(
                             f"Circuit breaker '{self.name}' transitioned to half-open "
@@ -302,14 +303,19 @@ class CircuitBreaker:
 
         if current_state == CircuitState.HALF_OPEN:
             # Limit concurrent requests in half-open state
-            acquired = self._half_open_semaphore.locked()
-            if acquired:
+            # Use very small timeout to fail fast atomically
+            # This prevents the TOCTOU race condition between locked() and acquire()
+            try:
+                await asyncio.wait_for(
+                    self._half_open_semaphore.acquire(),
+                    timeout=0.001  # 1ms timeout - enough for immediate acquire, fast fail if blocked
+                )
+            except asyncio.TimeoutError:
                 self._stats.record_rejection()
                 raise CircuitOpenError(
                     self.name,
                     message="Circuit in half-open state, max concurrent requests reached"
                 )
-            await self._half_open_semaphore.acquire()
 
         return self
 

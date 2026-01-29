@@ -227,6 +227,7 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
 
         # Process request
         start_time = time.perf_counter()
+        response = None
 
         try:
             response = await call_next(request)
