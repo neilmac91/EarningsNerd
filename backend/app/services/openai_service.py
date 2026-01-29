@@ -187,13 +187,14 @@ class OpenAIService:
             base_url=base_url
         )
         # Model name constants for maintainability
-        self._MODEL_GEMINI_3_PRO = "gemini-3-pro-preview"
+        # Primary model sourced from settings for single source of truth
+        self._MODEL_GEMINI_3_PRO = settings.AI_DEFAULT_MODEL  # From config.py
         self._MODEL_GEMINI_2_5_PRO = "gemini-2.5-pro"
         self._MODEL_GEMINI_2_5_FLASH = "gemini-2.5-flash"
 
         # Google AI Studio model names
         # Updated to use Gemini Pro 3.0 for highest quality outputs
-        self.model = self._MODEL_GEMINI_3_PRO  # Gemini Pro 3.0 (high-precision multimodal reasoning)
+        self.model = self._MODEL_GEMINI_3_PRO  # Sourced from settings.AI_DEFAULT_MODEL
         # Fallback models in case primary is rate-limited
         self._fallback_models = [
             self._MODEL_GEMINI_3_PRO,
@@ -211,12 +212,12 @@ class OpenAIService:
             "10-K": self._MODEL_GEMINI_3_PRO,  # Gemini Pro 3.0 for 10-K
             "10-Q": self._MODEL_GEMINI_3_PRO,  # Gemini Pro 3.0 for 10-Q
         }
-        # Task-specific model selection for cost optimization
-        # Uses cheaper/faster models for simpler tasks
+        # Task-specific model selection - all use Gemini 3 Pro for maximum quality
+        # Quality improvement: using gemini-3-pro-preview across all tasks
         self._task_models = {
             "structured_extraction": self._MODEL_GEMINI_3_PRO,   # Needs high accuracy
-            "section_recovery": self._MODEL_GEMINI_2_5_FLASH,    # Simpler task, lower cost
-            "editorial_writer": self._MODEL_GEMINI_2_5_PRO,      # Creative but constrained
+            "section_recovery": self._MODEL_GEMINI_3_PRO,        # Quality gap-filling
+            "editorial_writer": self._MODEL_GEMINI_3_PRO,        # High quality final output
         }
         # Concurrency control for parallel section recovery
         # Limits concurrent API calls to prevent rate limiting

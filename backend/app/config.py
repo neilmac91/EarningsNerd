@@ -101,6 +101,9 @@ class Settings(BaseSettings):
     XBRL_CACHE_TTL_HOURS: int = 24  # XBRL data changes only quarterly
     STRUCTURED_EXTRACTION_CACHE_TTL_SECONDS: int = 3600  # 1 hour for retry window
 
+    # AI Model Settings
+    AI_DEFAULT_MODEL: str = "gemini-3-pro-preview"  # Primary model for all AI tasks
+
     # AI Recovery Settings
     RECOVERY_MAX_CONCURRENCY: int = 3  # Max concurrent API calls for section recovery
 

@@ -101,7 +101,7 @@ async def lifespan(app: FastAPI):
         for warning in warnings:
             logger.warning(f"  - {warning}")
     if is_valid:
-        logger.info(f"Google AI Studio configured: base_url={settings.OPENAI_BASE_URL}, model=gemini-2.0-flash")
+        logger.info(f"Google AI Studio configured: base_url={settings.OPENAI_BASE_URL}, model={settings.AI_DEFAULT_MODEL}")
     else:
         logger.error("Google AI Studio configuration is invalid. AI summaries may not work.")
 
