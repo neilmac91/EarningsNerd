@@ -5,6 +5,7 @@ import { formatDistanceToNowStrict } from 'date-fns'
 import { Flame, ArrowUpRight, AlertTriangle } from 'lucide-react'
 import clsx from 'clsx'
 import Link from 'next/link'
+import posthog from 'posthog-js'
 
 import { getApiUrl } from '@/lib/api/client'
 
@@ -93,7 +94,7 @@ export default function HotFilings({ limit = 8 }: { limit?: number }) {
         <button
           type="button"
           onClick={() => refetch()}
-          className="mt-3 inline-flex items-center rounded-md border border-white/20 px-3 py-1 text-xs font-medium text-white transition hover:bg-white/10"
+          className="mt-3 inline-flex items-center rounded-md border border-white/20 px-3 py-1 text-xs font-medium text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
         >
           Retry
         </button>
@@ -191,7 +192,12 @@ export default function HotFilings({ limit = 8 }: { limit?: number }) {
                 ) : null}
                 <Link
                   href={filing.filing_id ? `/filing/${filing.filing_id}` : '#'}
-                  className="mt-4 inline-flex items-center rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:border-orange-400 hover:text-orange-200"
+                  onClick={() => posthog.capture('hot_filing_summary_clicked', {
+                    filing_id: filing.filing_id,
+                    symbol: filing.symbol,
+                    buzz_score: filing.buzz_score
+                  })}
+                  className="mt-4 inline-flex items-center rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:border-orange-400 hover:text-orange-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
                 >
                   View AI Summary
                   <ArrowUpRight className="ml-1 h-3 w-3" />
@@ -208,7 +214,7 @@ export default function HotFilings({ limit = 8 }: { limit?: number }) {
           type="button"
           onClick={() => refetch()}
           disabled={isRefetching}
-          className="inline-flex items-center rounded-md border border-white/10 px-2 py-1 text-[10px] font-semibold text-slate-200 transition hover:border-orange-400 hover:text-orange-200 disabled:opacity-60"
+          className="inline-flex items-center rounded-md border border-white/10 px-2 py-1 text-[10px] font-semibold text-slate-200 transition hover:border-orange-400 hover:text-orange-200 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
         >
           {isRefetching ? 'Refreshing…' : 'Refresh'}
         </button>
