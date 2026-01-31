@@ -97,9 +97,12 @@ class Settings(BaseSettings):
     FINNHUB_TIMEOUT_SECONDS: float = 6.0
     FINNHUB_MAX_CONCURRENCY: int = 4
 
-    # FMP (Financial Modeling Prep) - Earnings Calendar
+    # Stocktwits API (no key required for trending endpoint)
+    STOCKTWITS_TIMEOUT_SECONDS: float = 6.0
+
+    # Financial Modeling Prep (FMP) API
     FMP_API_KEY: str = ""
-    FMP_API_BASE: str = "https://financialmodelingprep.com/stable"
+    FMP_API_BASE: str = "https://financialmodelingprep.com/api/v3"
     FMP_TIMEOUT_SECONDS: float = 6.0
     FMP_MAX_CONCURRENCY: int = 4
 
