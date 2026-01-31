@@ -1,17 +1,13 @@
 import asyncio
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Dict, List, Optional, Set, TypeVar
 
 from sqlalchemy import desc, func
 from sqlalchemy.orm import Session, joinedload
 
-from app.integrations.earnings_whispers import (
-    EarningsWhispersClient,
-    EarningsWhispersSignal,
-    earnings_whispers_client,
-)
+from app.integrations.fmp import FMPClient, FMPEarningsEvent, fmp_client
 from app.integrations.finnhub import FinnhubClient, FinnhubSentiment, finnhub_client
 from app.models import Filing, UserSearch
 
@@ -63,7 +59,7 @@ class HotFilingsService:
     def __init__(
         self,
         ttl_minutes: int = 15,
-        whispers_client: Optional[EarningsWhispersClient] = None,
+        fmp_client_instance: Optional[FMPClient] = None,
         news_client: Optional[FinnhubClient] = None,
     ) -> None:
         self._cache = {}
@@ -71,7 +67,7 @@ class HotFilingsService:
         self._ttl = timedelta(minutes=ttl_minutes)
         # Lazy lock initialization for event loop safety (created on first use)
         self._lock: Optional[asyncio.Lock] = None
-        self._whispers_client = whispers_client or earnings_whispers_client
+        self._fmp_client = fmp_client_instance or fmp_client
         self._news_client = news_client or finnhub_client
 
     def _get_lock(self) -> asyncio.Lock:
@@ -164,10 +160,9 @@ class HotFilingsService:
         }
 
         tickers = set(ticker_to_company.keys())
-        whispers_signals = await self._load_earnings_whispers_signals(tickers)
-        normalized_whispers = _normalize(
-            {symbol: signal.score for symbol, signal in whispers_signals.items()}
-        )
+
+        # Load FMP earnings calendar data
+        fmp_earnings = await self._load_fmp_earnings(tickers)
 
         news_sentiments = await self._load_finnhub_sentiments(tickers)
         normalized_news_buzz = _normalize(
@@ -199,14 +194,15 @@ class HotFilingsService:
         normalized_search = _normalize(search_interest)
         normalized_velocity = _normalize(filing_velocity)
 
+        today = date.today()
         hot_records: List[HotFilingRecord] = []
         for filing in recent_filings:
             if not filing.company:
                 continue
 
             ticker = (filing.company.ticker or "").upper()
-            signal: Optional[EarningsWhispersSignal] = (
-                whispers_signals.get(ticker) if ticker else None
+            fmp_event: Optional[FMPEarningsEvent] = (
+                fmp_earnings.get(ticker) if ticker else None
             )
             sentiment: Optional[FinnhubSentiment] = (
                 news_sentiments.get(ticker) if ticker else None
@@ -219,14 +215,25 @@ class HotFilingsService:
             search_score = normalized_search.get(filing.company_id, 0.0) * 3.0
             velocity_score = normalized_velocity.get(filing.company_id, 0.0) * 2.0
 
-            whispers_score = normalized_whispers.get(ticker, 0.0) * 4.0
-            earnings_event_bonus = 0.0
-            if signal and signal.event_time:
-                hours_from_event = abs((signal.event_time - now).total_seconds()) / 3600
-                if hours_from_event <= 24:
-                    earnings_event_bonus = 2.0
-                elif hours_from_event <= 72:
-                    earnings_event_bonus = 1.0
+            # FMP earnings calendar bonus (replaces EarningsWhispers)
+            fmp_earnings_bonus = 0.0
+            if fmp_event and fmp_event.earnings_date:
+                days_to_earnings = (fmp_event.earnings_date - today).days
+                if days_to_earnings == 0:
+                    # Earnings TODAY - maximum boost
+                    fmp_earnings_bonus = 4.0
+                elif 0 < days_to_earnings <= 1:
+                    # Earnings tomorrow
+                    fmp_earnings_bonus = 3.0
+                elif days_to_earnings <= 3:
+                    # Earnings within 3 days
+                    fmp_earnings_bonus = 2.0
+                elif days_to_earnings <= 7:
+                    # Earnings within a week
+                    fmp_earnings_bonus = 1.0
+                elif -1 <= days_to_earnings < 0:
+                    # Just reported (yesterday) - post-earnings buzz
+                    fmp_earnings_bonus = 2.5
 
             news_buzz_score = normalized_news_buzz.get(ticker, 0.0) * 4.0
             news_headline_score = normalized_news_headlines.get(ticker, 0.0) * 3.0
@@ -241,8 +248,7 @@ class HotFilingsService:
                 + search_score
                 + velocity_score
                 + filing_type_bonus
-                + whispers_score
-                + earnings_event_bonus
+                + fmp_earnings_bonus
                 + news_buzz_score
                 + news_headline_score
                 + news_sentiment_bonus
@@ -258,10 +264,8 @@ class HotFilingsService:
                 add_source("search_activity")
             if velocity_score > 0:
                 add_source("filing_velocity")
-            if whispers_score > 0:
-                add_source("earnings_whispers_buzz")
-            if earnings_event_bonus > 0:
-                add_source("earnings_whispers_event")
+            if fmp_earnings_bonus > 0:
+                add_source("earnings_calendar")
             if news_buzz_score > 0:
                 add_source("finnhub_news_buzz")
             if news_headline_score > 0 or news_sentiment_bonus > 0:
@@ -272,8 +276,7 @@ class HotFilingsService:
                 "search_activity": round(search_score, 2),
                 "filing_velocity": round(velocity_score, 2),
                 "filing_type_bonus": round(filing_type_bonus, 2),
-                "earnings_whispers": round(whispers_score, 2),
-                "earnings_event_bonus": round(earnings_event_bonus, 2),
+                "earnings_calendar": round(fmp_earnings_bonus, 2),
                 "news_buzz": round(news_buzz_score, 2),
                 "news_headlines": round(news_headline_score, 2),
                 "news_sentiment": round(news_sentiment_bonus, 2),
@@ -287,7 +290,7 @@ class HotFilingsService:
                     "buzz_score": buzz_score,
                     "sources": sources,
                     "components": buzz_components,
-                    "earnings_whispers_raw": signal.raw_score if signal else None,
+                    "fmp_earnings_date": fmp_event.earnings_date.isoformat() if fmp_event else None,
                     "finnhub_sentiment": sentiment.raw if sentiment else None,
                 },
             )
@@ -312,19 +315,21 @@ class HotFilingsService:
         return hot_records[:limit]
 
 
-    async def _load_earnings_whispers_signals(
+    async def _load_fmp_earnings(
         self, tickers: Set[str]
-    ) -> Dict[str, EarningsWhispersSignal]:
-        if not tickers or not self._whispers_client:
+    ) -> Dict[str, FMPEarningsEvent]:
+        """Load upcoming earnings events from FMP API."""
+        if not tickers or not self._fmp_client:
             return {}
 
         try:
-            signals = await self._whispers_client.fetch_hot_symbols(limit=50)
+            # Fetch 14-day window of earnings (7 past, 7 future)
+            events = await self._fmp_client.fetch_earnings_calendar()
         except Exception as exc:  # pragma: no cover - network failures
-            logger.warning("Unable to load EarningsWhispers signals", exc_info=exc)
+            logger.warning("Unable to load FMP earnings calendar", exc_info=exc)
             return {}
 
-        return {symbol: signal for symbol, signal in signals.items() if symbol in tickers}
+        return {symbol: event for symbol, event in events.items() if symbol in tickers}
 
 
     async def _load_finnhub_sentiments(

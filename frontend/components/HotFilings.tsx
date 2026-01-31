@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { formatDistanceToNowStrict } from 'date-fns'
-import { Flame, ArrowUpRight, AlertTriangle } from 'lucide-react'
+import { Flame, ArrowUpRight, AlertTriangle, Calendar } from 'lucide-react'
 import clsx from 'clsx'
 import Link from 'next/link'
 import posthog from 'posthog-js'
@@ -10,6 +10,36 @@ import posthog from 'posthog-js'
 import { getApiUrl } from '@/lib/api/client'
 
 const API_BASE_URL = getApiUrl().replace(/\/$/, '')
+
+// Human-readable labels for buzz sources
+const SOURCE_LABELS: Record<string, string> = {
+  recency: 'Recent',
+  search_activity: 'Searched',
+  filing_velocity: 'Active Filer',
+  earnings_calendar: 'Earnings Soon',
+  finnhub_news_buzz: 'In the News',
+  finnhub_sentiment: 'Sentiment',
+}
+
+// Human-readable labels for buzz components
+const COMPONENT_LABELS: Record<string, string> = {
+  recency: 'Recency',
+  search_activity: 'Search Activity',
+  filing_velocity: 'Filing Velocity',
+  filing_type_bonus: 'Filing Type',
+  earnings_calendar: 'Earnings Calendar',
+  news_buzz: 'News Buzz',
+  news_headlines: 'Headlines',
+  news_sentiment: 'Sentiment',
+}
+
+function formatSourceLabel(source: string): string {
+  return SOURCE_LABELS[source] ?? source.replace(/_/g, ' ')
+}
+
+function formatComponentLabel(key: string): string {
+  return COMPONENT_LABELS[key] ?? key.replace(/_/g, ' ')
+}
 
 export type HotFiling = {
   filing_id: number | null
@@ -152,9 +182,15 @@ export default function HotFilings({ limit = 8 }: { limit?: number }) {
                     {filing.sources.map((source) => (
                       <span
                         key={source}
-                        className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5"
+                        className={clsx(
+                          'inline-flex items-center gap-1 rounded-full border px-2 py-0.5',
+                          source === 'earnings_calendar'
+                            ? 'border-amber-400/30 bg-amber-500/10 text-amber-200'
+                            : 'border-white/10 bg-white/5'
+                        )}
                       >
-                        {source.replace('_', ' ')}
+                        {source === 'earnings_calendar' && <Calendar className="h-3 w-3" />}
+                        {formatSourceLabel(source)}
                       </span>
                     ))}
                   </div>
@@ -184,7 +220,7 @@ export default function HotFilings({ limit = 8 }: { limit?: number }) {
                       .slice(0, 2)
                       .map(([key, value]) => (
                         <div key={key} className="flex items-center justify-between gap-3">
-                          <span>{key.replace('_', ' ')}</span>
+                          <span>{formatComponentLabel(key)}</span>
                           <span className="font-semibold text-slate-200">{value.toFixed(1)}</span>
                         </div>
                       ))}
