@@ -8,10 +8,13 @@ import QuickAccessBar from '@/components/QuickAccessBar'
 import HotFilings from '@/components/HotFilings'
 import TrendingTickers from '@/components/TrendingTickers'
 
+// Rule 6.2: Hoist static values outside component
+const CURRENT_YEAR = new Date().getFullYear()
+
 // Rule 6.2: Hoist static skeleton components outside
 function HotFilingsSkeleton() {
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" role="status" aria-live="polite" aria-label="Loading hot filings">
       {Array.from({ length: 5 }).map((_, i) => (
         <div
           key={i}
@@ -24,7 +27,7 @@ function HotFilingsSkeleton() {
 
 function TrendingTickersSkeleton() {
   return (
-    <div className="mt-12">
+    <div className="mt-12" role="status" aria-live="polite" aria-label="Loading market movers">
       <div className="mb-4 flex items-center gap-2">
         <div className="h-5 w-5 animate-pulse rounded bg-white/10" />
         <div className="h-6 w-32 animate-pulse rounded bg-white/10" />
@@ -98,12 +101,12 @@ export default function Home() {
       <footer className="border-t border-border-light bg-background-light dark:border-border-dark dark:bg-background-dark">
         <div className="mx-auto flex max-w-7xl flex-col gap-8 px-6 py-12 text-sm text-text-secondary-light dark:text-text-secondary-dark md:flex-row md:items-center md:justify-between">
           <div className="font-medium text-text-tertiary-light dark:text-text-tertiary-dark">
-            &copy; {new Date().getFullYear()} EarningsNerd. All rights reserved.
+            &copy; {CURRENT_YEAR} EarningsNerd. All rights reserved.
           </div>
           <div className="flex flex-wrap items-center gap-6">
-            <Link href="/privacy" className="font-medium transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark">Privacy</Link>
-            <Link href="/security" className="font-medium transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark">Security</Link>
-            <Link href="mailto:hello@earningsnerd.com" className="font-medium transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark">Contact</Link>
+            <Link href="/privacy" className="font-medium transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500">Privacy</Link>
+            <Link href="/security" className="font-medium transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500">Security</Link>
+            <Link href="mailto:hello@earningsnerd.com" className="font-medium transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500">Contact</Link>
           </div>
         </div>
       </footer>
