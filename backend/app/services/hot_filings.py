@@ -222,7 +222,7 @@ class HotFilingsService:
                 if days_to_earnings == 0:
                     # Earnings TODAY - maximum boost
                     fmp_earnings_bonus = 4.0
-                elif 0 < days_to_earnings <= 1:
+                elif days_to_earnings == 1:
                     # Earnings tomorrow
                     fmp_earnings_bonus = 3.0
                 elif days_to_earnings <= 3:
@@ -231,7 +231,7 @@ class HotFilingsService:
                 elif days_to_earnings <= 7:
                     # Earnings within a week
                     fmp_earnings_bonus = 1.0
-                elif -1 <= days_to_earnings < 0:
+                elif days_to_earnings == -1:
                     # Just reported (yesterday) - post-earnings buzz
                     fmp_earnings_bonus = 2.5
 
