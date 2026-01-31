@@ -35,14 +35,10 @@ describe('QuickAccessBar', () => {
   it('displays correct tickers', () => {
     render(<QuickAccessBar />)
 
-    expect(screen.getByText('AAPL')).toBeInTheDocument()
-    expect(screen.getByText('NVDA')).toBeInTheDocument()
-    expect(screen.getByText('TSLA')).toBeInTheDocument()
-    expect(screen.getByText('MSFT')).toBeInTheDocument()
-    expect(screen.getByText('META')).toBeInTheDocument()
-    expect(screen.getByText('GOOGL')).toBeInTheDocument()
-    expect(screen.getByText('AMZN')).toBeInTheDocument()
-    expect(screen.getByText('BABA')).toBeInTheDocument()
+    // Use loop to stay in sync with TOP_COMPANIES constant
+    TOP_COMPANIES.forEach(({ ticker }) => {
+      expect(screen.getByText(ticker)).toBeInTheDocument()
+    })
   })
 
   it('links to correct company pages', () => {

@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Flame, RefreshCw, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react'
 import clsx from 'clsx'
@@ -69,13 +69,13 @@ function SentimentBadge({ score }: { score?: number | null }) {
 function TrendingTickerCard({ ticker }: { ticker: TrendingTicker }) {
   const mentions = formatMentions(ticker.tweet_volume)
 
-  const handleClick = () => {
+  const handleClick = useCallback(() => {
     posthog.capture('market_mover_clicked', {
       symbol: ticker.symbol,
       sentiment_score: ticker.sentiment_score,
       tweet_volume: ticker.tweet_volume
     })
-  }
+  }, [ticker.symbol, ticker.sentiment_score, ticker.tweet_volume])
 
   return (
     <Link
