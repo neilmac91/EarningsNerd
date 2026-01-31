@@ -1,112 +1,184 @@
 'use client'
 
 import Link from 'next/link'
-import { useCallback, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Flame, RefreshCw, ArrowUpRight, ArrowDownRight, Minus } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Flame, RefreshCw, TrendingUp, TrendingDown, Minus, Eye } from 'lucide-react'
 import clsx from 'clsx'
 import { formatDistanceToNowStrict } from 'date-fns'
 import posthog from 'posthog-js'
 
-import { getTrendingTickers, TrendingTicker } from '@/features/companies/api/companies-api'
+import {
+  getTrendingTickers,
+  refreshTickerPrices,
+  TrendingTicker,
+  PriceData,
+} from '@/features/companies/api/companies-api'
 
-const MENTIONS_REFRESH_INTERVAL = 10 * 60 * 1000 // 10 minutes
+const FULL_REFRESH_INTERVAL = 10 * 60 * 1000 // 10 minutes for full data
+const PRICE_REFRESH_INTERVAL = 2 * 60 * 1000 // 2 minutes for prices only
 const DEFAULT_EMPTY_MESSAGE = 'Trending data is temporarily unavailable. Please check back soon.'
 
-const formatMentions = (volume?: number | null): string | null => {
-  if (volume === null || volume === undefined) {
+const formatPrice = (price?: number | null): string | null => {
+  if (price === null || price === undefined) {
+    return null
+  }
+  return `$${price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+const formatChangePercent = (change?: number | null): string | null => {
+  if (change === null || change === undefined) {
+    return null
+  }
+  const sign = change >= 0 ? '+' : ''
+  return `${sign}${change.toFixed(2)}%`
+}
+
+const formatWatchlistCount = (count?: number | null): string | null => {
+  if (count === null || count === undefined) {
     return null
   }
 
-  if (volume >= 1_000_000) {
-    return `${Math.round(volume / 100_000) / 10}M mentions`
+  if (count >= 1_000_000) {
+    return `${(count / 1_000_000).toFixed(1)}M`
   }
-  if (volume >= 1_000) {
-    return `${Math.round(volume / 100) / 10}K mentions`
+  if (count >= 1_000) {
+    return `${(count / 1_000).toFixed(1)}K`
   }
-  if (volume > 0) {
-    return `${volume.toLocaleString()} mentions`
-  }
-  return null
+  return count.toLocaleString()
 }
 
-const getSentiment = (score?: number | null) => {
-  if (score === undefined || score === null) {
-    return { label: 'Sentiment unavailable', tone: 'neutral' as const }
+function PriceChangeIndicator({ changePercent }: { changePercent?: number | null }) {
+  if (changePercent === null || changePercent === undefined) {
+    return null
   }
 
-  if (score > 0.15) {
-    return { label: 'Bullish', tone: 'positive' as const }
-  }
-  if (score < -0.15) {
-    return { label: 'Bearish', tone: 'negative' as const }
-  }
-  return { label: 'Neutral', tone: 'neutral' as const }
-}
-
-function SentimentBadge({ score }: { score?: number | null }) {
-  const sentiment = getSentiment(score)
-
-  const iconClass = 'h-4 w-4'
+  const isPositive = changePercent > 0
+  const isNegative = changePercent < 0
+  const iconClass = 'h-3 w-3'
 
   return (
     <span
       className={clsx(
-        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium',
-        sentiment.tone === 'positive' && 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300',
-        sentiment.tone === 'negative' && 'border-rose-500/40 bg-rose-500/10 text-rose-300',
-        sentiment.tone === 'neutral' && 'border-slate-500/40 bg-slate-500/10 text-slate-200'
+        'inline-flex items-center gap-0.5 text-sm font-medium',
+        isPositive && 'text-emerald-400',
+        isNegative && 'text-rose-400',
+        !isPositive && !isNegative && 'text-slate-400'
       )}
     >
-      {sentiment.tone === 'positive' && <ArrowUpRight className={iconClass} />}
-      {sentiment.tone === 'negative' && <ArrowDownRight className={iconClass} />}
-      {sentiment.tone === 'neutral' && <Minus className={iconClass} />}
-      <span>{sentiment.label}</span>
+      {isPositive && <TrendingUp className={iconClass} />}
+      {isNegative && <TrendingDown className={iconClass} />}
+      {!isPositive && !isNegative && <Minus className={iconClass} />}
+      <span>{formatChangePercent(changePercent)}</span>
     </span>
   )
 }
 
-function TrendingTickerCard({ ticker }: { ticker: TrendingTicker }) {
-  const mentions = formatMentions(ticker.tweet_volume)
+function TrendingTickerCard({
+  ticker,
+  priceOverride,
+}: {
+  ticker: TrendingTicker
+  priceOverride?: PriceData
+}) {
+  // Use price override if available (from 2-min refresh), otherwise use original
+  const price = priceOverride?.price ?? ticker.price
+  const change = priceOverride?.change ?? ticker.change
+  const changePercent = priceOverride?.change_percent ?? ticker.change_percent
+
+  const watchlistFormatted = formatWatchlistCount(ticker.watchlist_count)
+  const priceFormatted = formatPrice(price)
 
   const handleClick = useCallback(() => {
     posthog.capture('market_mover_clicked', {
       symbol: ticker.symbol,
-      sentiment_score: ticker.sentiment_score,
-      tweet_volume: ticker.tweet_volume
+      price: price,
+      change_percent: changePercent,
+      watchlist_count: ticker.watchlist_count,
+      source: 'stocktwits',
     })
-  }, [ticker.symbol, ticker.sentiment_score, ticker.tweet_volume])
+  }, [ticker.symbol, price, changePercent, ticker.watchlist_count])
 
   return (
     <Link
       href={`/company/${ticker.symbol}`}
       onClick={handleClick}
-      className="flex min-w-[200px] flex-col gap-3 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg transition-all duration-200 hover:-translate-y-1 hover:bg-white/10 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+      className="flex min-w-[240px] flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg transition-all duration-200 hover:-translate-y-1 hover:bg-white/10 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
     >
-      <div className="flex items-center justify-between">
-        <div>
+      {/* Header: Symbol + Price */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0 flex-1">
           <div className="text-lg font-semibold text-white">{ticker.symbol}</div>
-          <div className="text-sm text-slate-300 line-clamp-2">{ticker.name ?? 'Loading company name…'}</div>
+          <div className="truncate text-sm text-slate-300">
+            {ticker.name ?? 'Loading...'}
+          </div>
         </div>
-        {mentions ? (
-          <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-slate-100">
-            {mentions}
-          </span>
-        ) : null}
+        {priceFormatted && (
+          <div className="text-right">
+            <div className="text-lg font-semibold text-white">{priceFormatted}</div>
+            <PriceChangeIndicator changePercent={changePercent} />
+          </div>
+        )}
       </div>
-      {ticker.sentiment_score != null ? <SentimentBadge score={ticker.sentiment_score} /> : null}
+
+      {/* Footer: Watchlist count */}
+      {watchlistFormatted && (
+        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+          <Eye className="h-3.5 w-3.5" />
+          <span>{watchlistFormatted} watching</span>
+        </div>
+      )}
     </Link>
   )
 }
 
 export default function TrendingTickers() {
+  const queryClient = useQueryClient()
+  const [priceOverrides, setPriceOverrides] = useState<Record<string, PriceData>>({})
+
+  // Main query for full trending data (10 min interval)
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['trending-tickers'],
     queryFn: getTrendingTickers,
-    staleTime: MENTIONS_REFRESH_INTERVAL,
-    refetchInterval: MENTIONS_REFRESH_INTERVAL,
+    staleTime: FULL_REFRESH_INTERVAL,
+    refetchInterval: FULL_REFRESH_INTERVAL,
     retry: 1,
   })
+
+  // 2-minute price refresh
+  useEffect(() => {
+    if (!data?.tickers?.length) return
+
+    const symbols = data.tickers.map((t) => t.symbol)
+
+    const refreshPrices = async () => {
+      try {
+        const response = await refreshTickerPrices(symbols)
+        setPriceOverrides(response.prices)
+      } catch (err) {
+        // Silently fail price refresh - not critical
+        console.debug('Price refresh failed:', err)
+      }
+    }
+
+    // Initial price refresh after main data loads
+    const initialTimeout = setTimeout(refreshPrices, 5000)
+
+    // Set up 2-minute interval
+    const interval = setInterval(refreshPrices, PRICE_REFRESH_INTERVAL)
+
+    return () => {
+      clearTimeout(initialTimeout)
+      clearInterval(interval)
+    }
+  }, [data?.tickers])
+
+  // Clear price overrides when main data refreshes
+  useEffect(() => {
+    if (data?.timestamp) {
+      setPriceOverrides({})
+    }
+  }, [data?.timestamp])
 
   const hasTickers = Boolean(data?.tickers?.length)
   const updatedAgo = useMemo(() => {
@@ -131,13 +203,21 @@ export default function TrendingTickers() {
           </div>
         </header>
         <div className="flex gap-4 overflow-x-auto pb-2">
-          {Array.from({ length: 4 }).map((_, index) => (
+          {Array.from({ length: 5 }).map((_, index) => (
             <div
               key={index}
-              className="flex min-w-[200px] flex-col gap-3 rounded-2xl border border-white/5 bg-white/5 p-4"
+              className="flex min-w-[240px] flex-col gap-3 rounded-2xl border border-white/5 bg-white/5 p-4"
             >
-              <div className="h-6 w-20 animate-pulse rounded bg-white/10" />
-              <div className="h-4 w-full animate-pulse rounded bg-white/10" />
+              <div className="flex justify-between">
+                <div className="space-y-2">
+                  <div className="h-6 w-16 animate-pulse rounded bg-white/10" />
+                  <div className="h-4 w-28 animate-pulse rounded bg-white/10" />
+                </div>
+                <div className="space-y-2 text-right">
+                  <div className="h-6 w-20 animate-pulse rounded bg-white/10" />
+                  <div className="h-4 w-14 animate-pulse rounded bg-white/10" />
+                </div>
+              </div>
               <div className="h-4 w-24 animate-pulse rounded bg-white/10" />
             </div>
           ))}
@@ -187,7 +267,9 @@ export default function TrendingTickers() {
         </div>
         <div className="flex items-center gap-3">
           {data?.source && (
-            <span className="text-xs uppercase tracking-wide text-slate-300/70">Source: {data.source}</span>
+            <span className="text-xs uppercase tracking-wide text-slate-300/70">
+              Source: {data.source}
+            </span>
           )}
           <button
             onClick={() => refetch()}
@@ -208,11 +290,39 @@ export default function TrendingTickers() {
       )}
 
       {hasTickers ? (
-        <div className="flex gap-4 overflow-x-auto pb-2">
-          {data?.tickers.map((ticker) => (
-            <TrendingTickerCard key={ticker.symbol} ticker={ticker} />
-          ))}
-        </div>
+        <>
+          <div className="flex gap-4 overflow-x-auto pb-2">
+            {data?.tickers.map((ticker) => (
+              <TrendingTickerCard
+                key={ticker.symbol}
+                ticker={ticker}
+                priceOverride={priceOverrides[ticker.symbol]}
+              />
+            ))}
+          </div>
+
+          {/* Subtle footer attribution */}
+          <div className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500">
+            <span>Data from</span>
+            <a
+              href="https://stocktwits.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-400 hover:text-slate-300"
+            >
+              Stocktwits
+            </a>
+            <span>&</span>
+            <a
+              href="https://financialmodelingprep.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-slate-400 hover:text-slate-300"
+            >
+              FMP
+            </a>
+          </div>
+        </>
       ) : (
         <div className="rounded-xl border border-slate-500/40 bg-slate-500/10 p-4 text-sm text-slate-200">
           {emptyStateMessage}

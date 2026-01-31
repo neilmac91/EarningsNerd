@@ -97,6 +97,15 @@ class Settings(BaseSettings):
     FINNHUB_TIMEOUT_SECONDS: float = 6.0
     FINNHUB_MAX_CONCURRENCY: int = 4
 
+    # Stocktwits API (no key required for trending endpoint)
+    STOCKTWITS_TIMEOUT_SECONDS: float = 6.0
+
+    # Financial Modeling Prep (FMP) API
+    FMP_API_KEY: str = ""
+    FMP_API_BASE: str = "https://financialmodelingprep.com/api/v3"
+    FMP_TIMEOUT_SECONDS: float = 6.0
+    FMP_MAX_CONCURRENCY: int = 4
+
     # Cache Settings
     XBRL_CACHE_TTL_HOURS: int = 24  # XBRL data changes only quarterly
     STRUCTURED_EXTRACTION_CACHE_TTL_SECONDS: int = 3600  # 1 hour for retry window
