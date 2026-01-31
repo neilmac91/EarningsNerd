@@ -314,17 +314,19 @@ class TestFMPClient:
         result = await unconfigured_client.get_quotes(["AAPL", "MSFT"])
         assert result == {}
 
-    def test_coerce_float_valid_values(self, client):
+    def test_coerce_float_valid_values(self):
         """Coerce float should handle valid values."""
-        assert client._coerce_float(123.45) == 123.45
-        assert client._coerce_float("123.45") == 123.45
-        assert client._coerce_float(100) == 100.0
+        from app.integrations.fmp import _coerce_float
+        assert _coerce_float(123.45) == 123.45
+        assert _coerce_float("123.45") == 123.45
+        assert _coerce_float(100) == 100.0
 
-    def test_coerce_float_invalid_values(self, client):
+    def test_coerce_float_invalid_values(self):
         """Coerce float should return None for invalid values."""
-        assert client._coerce_float(None) is None
-        assert client._coerce_float("") is None
-        assert client._coerce_float("not a number") is None
+        from app.integrations.fmp import _coerce_float
+        assert _coerce_float(None) is None
+        assert _coerce_float("") is None
+        assert _coerce_float("not a number") is None
 
 
 class TestTrendingServiceIntegration:
