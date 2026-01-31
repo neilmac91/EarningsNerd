@@ -135,7 +135,7 @@ class FMPClient:
         Fetch company profiles for multiple symbols (batch).
 
         FMP supports comma-separated symbols in the URL path.
-        Max recommended batch size is 25 symbols.
+        Processes symbols in batches of 25 for resilience.
 
         Returns a dict mapping symbol -> FMPProfile.
         """
@@ -146,39 +146,45 @@ class FMPClient:
         if not symbols:
             return {}
 
-        # Limit to 25 symbols per batch
-        batch = symbols[:25]
-        symbols_param = ",".join(batch)
-        url = f"{self._base_url}/profile/{symbols_param}"
-        params = {"apikey": self._api_key}
+        results: Dict[str, FMPProfile] = {}
+        batch_size = 25
 
-        try:
-            async with self._semaphore:
-                async with httpx.AsyncClient(timeout=self._timeout) as client:
-                    response = await client.get(url, params=params)
-                    response.raise_for_status()
-                    data = response.json()
-        except httpx.HTTPStatusError as exc:
-            logger.warning(
-                "FMP profile batch returned %d for %d symbols",
-                exc.response.status_code,
-                len(batch),
-            )
-            return {}
-        except httpx.HTTPError as exc:
-            logger.warning("FMP profile batch request failed: %s", exc)
-            return {}
-        except ValueError as exc:
-            logger.warning("FMP profile batch returned invalid JSON: %s", exc)
-            return {}
+        for i in range(0, len(symbols), batch_size):
+            batch = symbols[i:i + batch_size]
+            symbols_param = ",".join(batch)
+            url = f"{self._base_url}/profile/{symbols_param}"
+            params = {"apikey": self._api_key}
 
-        return self._parse_profiles(data)
+            try:
+                async with self._semaphore:
+                    async with httpx.AsyncClient(timeout=self._timeout) as client:
+                        response = await client.get(url, params=params)
+                        response.raise_for_status()
+                        data = response.json()
+            except httpx.HTTPStatusError as exc:
+                logger.warning(
+                    "FMP profile batch returned %d for %d symbols",
+                    exc.response.status_code,
+                    len(batch),
+                )
+                continue
+            except httpx.HTTPError as exc:
+                logger.warning("FMP profile batch request failed: %s", exc)
+                continue
+            except ValueError as exc:
+                logger.warning("FMP profile batch returned invalid JSON: %s", exc)
+                continue
+
+            results.update(self._parse_profiles(data))
+
+        return results
 
     async def get_quotes(self, symbols: List[str]) -> Dict[str, Dict]:
         """
         Fetch real-time quotes for multiple symbols.
 
         This is a lightweight endpoint for price updates.
+        Processes symbols in batches of 50 for resilience.
         """
         if not self._api_key:
             return {}
@@ -186,41 +192,43 @@ class FMPClient:
         if not symbols:
             return {}
 
-        # Limit to 50 symbols per batch for quotes
-        batch = symbols[:50]
-        symbols_param = ",".join(batch)
-        url = f"{self._base_url}/quote/{symbols_param}"
-        params = {"apikey": self._api_key}
-
-        try:
-            async with self._semaphore:
-                async with httpx.AsyncClient(timeout=self._timeout) as client:
-                    response = await client.get(url, params=params)
-                    response.raise_for_status()
-                    data = response.json()
-        except httpx.HTTPError as exc:
-            logger.warning("FMP quote batch request failed: %s", exc)
-            return {}
-        except ValueError as exc:
-            logger.warning("FMP quote batch returned invalid JSON: %s", exc)
-            return {}
-
-        if not isinstance(data, list):
-            return {}
-
         results: Dict[str, Dict] = {}
-        for item in data:
-            if not isinstance(item, dict):
+        batch_size = 50
+
+        for i in range(0, len(symbols), batch_size):
+            batch = symbols[i:i + batch_size]
+            symbols_param = ",".join(batch)
+            url = f"{self._base_url}/quote/{symbols_param}"
+            params = {"apikey": self._api_key}
+
+            try:
+                async with self._semaphore:
+                    async with httpx.AsyncClient(timeout=self._timeout) as client:
+                        response = await client.get(url, params=params)
+                        response.raise_for_status()
+                        data = response.json()
+            except httpx.HTTPError as exc:
+                logger.warning("FMP quote batch request failed: %s", exc)
                 continue
-            symbol = item.get("symbol")
-            if symbol:
-                results[symbol.upper()] = {
-                    "price": item.get("price"),
-                    "change": item.get("change"),
-                    "changesPercentage": item.get("changesPercentage"),
-                    "volume": item.get("volume"),
-                    "marketCap": item.get("marketCap"),
-                }
+            except ValueError as exc:
+                logger.warning("FMP quote batch returned invalid JSON: %s", exc)
+                continue
+
+            if not isinstance(data, list):
+                continue
+
+            for item in data:
+                if not isinstance(item, dict):
+                    continue
+                symbol = item.get("symbol")
+                if symbol:
+                    results[symbol.upper()] = {
+                        "price": item.get("price"),
+                        "change": item.get("change"),
+                        "changesPercentage": item.get("changesPercentage"),
+                        "volume": item.get("volume"),
+                        "marketCap": item.get("marketCap"),
+                    }
 
         return results
 

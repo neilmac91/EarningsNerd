@@ -80,7 +80,7 @@ export const getTrendingTickers = async (): Promise<TrendingTickerResponse> => {
 }
 
 export const refreshTickerPrices = async (symbols: string[]): Promise<PriceRefreshResponse> => {
-  const response = await api.post('/api/trending_tickers/refresh-prices', null, {
+  const response = await api.get('/api/trending_tickers/refresh-prices', {
     params: { symbols },
     paramsSerializer: {
       indexes: null, // Use repeated params: ?symbols=AAPL&symbols=MSFT

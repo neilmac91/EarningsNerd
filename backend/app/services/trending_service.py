@@ -448,7 +448,7 @@ class TrendingTickerService:
             with self._cache_file_path.open("w", encoding="utf-8") as cache_file:
                 json.dump(sanitized, cache_file)
         except Exception as exc:
-            self._logger.debug("Unable to persist trending cache: %s", exc)
+            self._logger.debug("Unable to persist trending cache: %s", exc, exc_info=True)
 
     def _load_persistent_cache(self, initial_load: bool = False) -> Optional[Dict[str, Any]]:
         try:
@@ -470,7 +470,7 @@ class TrendingTickerService:
             self._cache_timestamp = timestamp
             return data
         except Exception as exc:
-            self._logger.debug("Unable to load persisted trending cache: %s", exc)
+            self._logger.debug("Unable to load persisted trending cache: %s", exc, exc_info=True)
             return None
 
     def _default_fallback_tickers(self) -> List[Dict[str, Any]]:

@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import List, Optional
 
 from fastapi import APIRouter, Query
@@ -42,7 +43,7 @@ async def get_trending_tickers():
     return data
 
 
-@router.post("/trending_tickers/refresh-prices")
+@router.get("/trending_tickers/refresh-prices")
 async def refresh_ticker_prices(
     symbols: List[str] = Query(
         default=[],
@@ -58,8 +59,6 @@ async def refresh_ticker_prices(
 
     Max 50 symbols per request.
     """
-    from datetime import datetime
-
     if not symbols:
         return PriceRefreshResponse(
             prices={},

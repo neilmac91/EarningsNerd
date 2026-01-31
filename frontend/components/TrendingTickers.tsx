@@ -171,7 +171,8 @@ export default function TrendingTickers() {
       clearTimeout(initialTimeout)
       clearInterval(interval)
     }
-  }, [data?.tickers])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data?.tickers?.map((t) => t.symbol).join(',')])
 
   // Clear price overrides when main data refreshes
   useEffect(() => {
