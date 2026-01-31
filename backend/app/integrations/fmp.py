@@ -86,7 +86,7 @@ class FMPClient:
         if from_date is None:
             from_date = today - timedelta(days=7)
         if to_date is None:
-            to_date = today + timedelta(days=14)
+            to_date = today + timedelta(days=7)
 
         url = f"{self._base_url}/earnings-calendar"
         params = {
