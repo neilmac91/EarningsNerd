@@ -84,7 +84,7 @@ function TrendingTickerCard({ ticker }: { ticker: TrendingTicker }) {
           </span>
         )}
       </div>
-      <SentimentBadge score={ticker.sentiment_score} />
+      {ticker.sentiment_score != null ? <SentimentBadge score={ticker.sentiment_score} /> : null}
     </Link>
   )
 }
@@ -117,7 +117,7 @@ export default function TrendingTickers() {
         <header className="mb-4 flex items-center justify-between gap-3 text-white">
           <div className="flex items-center gap-2">
             <Flame className="h-5 w-5 text-orange-300" />
-            <h2 className="text-lg font-semibold">Trending Tickers</h2>
+            <h2 className="text-lg font-semibold">Market Movers</h2>
           </div>
         </header>
         <div className="flex gap-4 overflow-x-auto pb-2">
@@ -141,7 +141,7 @@ export default function TrendingTickers() {
       <section className="mt-12">
         <header className="mb-3 flex items-center gap-2 text-white">
           <Flame className="h-5 w-5 text-orange-300" />
-          <h2 className="text-lg font-semibold">Trending Tickers</h2>
+          <h2 className="text-lg font-semibold">Market Movers</h2>
         </header>
         <div className="rounded-xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-200">
           Unable to load trending data. Please try again soon.
@@ -168,10 +168,11 @@ export default function TrendingTickers() {
         <div className="flex items-center gap-2">
           <Flame className="h-5 w-5 text-orange-300" />
           <div>
-            <h2 className="text-lg font-semibold">Trending Tickers</h2>
-            {updatedAgo && (
-              <p className="text-xs text-slate-300/80">Updated {updatedAgo}</p>
-            )}
+            <h2 className="text-lg font-semibold">Market Movers</h2>
+            <p className="text-xs text-slate-400">
+              What's moving in the market today
+              {updatedAgo && <span className="text-slate-300/80"> • Updated {updatedAgo}</span>}
+            </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
