@@ -98,7 +98,7 @@ class Settings(BaseSettings):
     FINNHUB_MAX_CONCURRENCY: int = 4
 
     # FMP (Financial Modeling Prep) - Earnings Calendar
-    FMP_API_KEY: str = "Nl1psWTwI1VRag5EDklIrxbCuZZ6VHif"
+    FMP_API_KEY: str = ""
     FMP_API_BASE: str = "https://financialmodelingprep.com/stable"
     FMP_TIMEOUT_SECONDS: float = 6.0
     FMP_MAX_CONCURRENCY: int = 4
