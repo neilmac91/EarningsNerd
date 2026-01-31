@@ -62,13 +62,11 @@ class FMPClient:
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         timeout_seconds: Optional[float] = None,
-        max_concurrency: Optional[int] = None,
     ) -> None:
         self._api_key = (api_key or settings.FMP_API_KEY or "").strip()
         self._base_url = (base_url or settings.FMP_API_BASE).rstrip("/")
         timeout_value = timeout_seconds or settings.FMP_TIMEOUT_SECONDS
         self._timeout = httpx.Timeout(timeout_value)
-        self._max_concurrency = max(1, max_concurrency or settings.FMP_MAX_CONCURRENCY)
 
     async def fetch_earnings_calendar(
         self,
