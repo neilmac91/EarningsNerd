@@ -152,7 +152,7 @@ export default function HotFilings({ limit = 8 }: { limit?: number }) {
         return (
           <div
             key={`${filing.filing_id}-${filing.filing_date}`}
-            className="group rounded-xl border border-white/10 bg-white/5 p-4 transition hover:border-orange-400/50 hover:bg-white/10"
+            className="glass-card group rounded-xl p-4 transition-all duration-300"
           >
             <div className="flex items-start justify-between gap-4">
               <div>

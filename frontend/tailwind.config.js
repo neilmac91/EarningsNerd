@@ -61,15 +61,38 @@ module.exports = {
       fontFamily: {
         sans: ['var(--font-inter)', ...fontFamily.sans],
       },
+      backgroundImage: {
+        'hero-gradient': 'linear-gradient(to bottom right, #0B1120, #111827, #1a1147)',
+        'hero-glow': 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(16, 185, 129, 0.12), transparent)',
+        'cta-gradient': 'linear-gradient(135deg, #064E3B, #0f172a, #1e1b4b)',
+      },
+      boxShadow: {
+        'glow-mint': '0 0 40px -10px rgba(16, 185, 129, 0.3)',
+        'glow-mint-sm': '0 0 20px -5px rgba(16, 185, 129, 0.2)',
+        'glow-mint-lg': '0 0 60px -15px rgba(16, 185, 129, 0.25)',
+      },
       keyframes: {
         shimmer: {
           '100%': {
             transform: 'translateX(100%)',
           },
         },
+        'fade-up': {
+          '0%': { opacity: '0', transform: 'translateY(20px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'count-up': {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         shimmer: 'shimmer 2s infinite',
+        'fade-up': 'fade-up 0.6s ease-out forwards',
+        'fade-up-delay-1': 'fade-up 0.6s ease-out 0.1s forwards',
+        'fade-up-delay-2': 'fade-up 0.6s ease-out 0.2s forwards',
+        'fade-up-delay-3': 'fade-up 0.6s ease-out 0.3s forwards',
+        'count-up': 'count-up 0.4s ease-out forwards',
       },
     },
   },
