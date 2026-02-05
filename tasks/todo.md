@@ -95,7 +95,7 @@ AI-powered summaries that turn            │   summary page    │
 AAPL  NVDA  TSLA  MSFT  META  GOOGL
 ```
 
-- **Background:** Full-bleed dark gradient — `from-slate-950 via-slate-900 to-indigo-950/30`
+- **Background:** Full-bleed dark gradient, using the `hero-dark` definition from the Tailwind config.
 - **Headline:** 56-72px bold, "SEC Filing Analysis" in mint gradient text
 - **Subheadline:** 18-20px, muted gray, one compelling sentence
 - **Search bar:** Elevated with glow effect, glass-morphism border
