@@ -46,9 +46,9 @@
 6. **Capture Lessons**: Update 'tasks/lessons.md' after corrections
 
 ## Core Principles
-- **Simplicity First**: Make every change as simple as possible. Impact minimal code.
+- **Simplicity First**: Strive for the simplest possible solution, avoiding over-engineering.
 - **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
-- **Minimal Impact**: Changes should only touch what's necessary. Avoid introducing bugs.
+- **Minimal Impact**: Touch only what's necessary to reduce the risk of unintended side-effects.
 
 ## Project Overview
 
