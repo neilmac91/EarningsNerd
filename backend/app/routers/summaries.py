@@ -235,7 +235,15 @@ async def generate_summary_stream(
                     'summary_id': summary.id,
                 }
                 yield f"data: {json.dumps(payload)}\n\n"
-            return StreamingResponse(existing_summary(), media_type="text/event-stream")
+            return StreamingResponse(
+                existing_summary(),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    "X-Accel-Buffering": "no",  # Disable buffering for Cloud Run/nginx
+                }
+            )
 
     # Removed blocking synchronous DB query here. Filing existence is checked inside stream_summary.
     # Removed caching of company data and filing attributes here. These will be fetched inside stream_summary.
@@ -762,7 +770,15 @@ async def generate_summary_stream(
             else:
                 logger.info(f"[stream:{filing_id}] pipeline finished in {total_elapsed:.2f}s")
 
-    return StreamingResponse(stream_summary(), media_type="text/event-stream")
+    return StreamingResponse(
+        stream_summary(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable buffering for Cloud Run/nginx
+        }
+    )
 
 @router.get("/filing/{filing_id}", response_model=SummaryResponse)
 async def get_summary(filing_id: int, db: Session = Depends(get_db)):
