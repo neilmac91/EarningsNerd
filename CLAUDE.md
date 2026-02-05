@@ -9,7 +9,7 @@
 - Write detailed specs upfront to reduce ambiguity
 
 ### 2. Subagent Strategy to keep main context window clean
-- Offload research, exploration, and parallel analysis to subagents (/.claude/agents)
+- Offload research, exploration, and parallel analysis to subagents (.claude/agents)
 - For complex problems, throw more compute at it via subagents
 - One task per subagent for focused execution
 
