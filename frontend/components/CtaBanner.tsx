@@ -29,9 +29,9 @@ function CtaBanner() {
             </Link>
             <Link
               href="/company/AAPL"
-              className="inline-flex items-center gap-2 rounded-full border border-white/20 px-8 py-3.5 text-base font-semibold text-white transition-all hover:border-white/40 hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              className="inline-flex items-center gap-1 text-sm font-medium text-slate-400 underline underline-offset-4 decoration-slate-600 transition-colors hover:text-white hover:decoration-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
-              See an Example
+              or see an example
             </Link>
           </div>
         </div>

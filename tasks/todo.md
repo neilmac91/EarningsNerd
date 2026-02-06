@@ -195,7 +195,7 @@ Four features in a 2x2 grid:
 
 - Slightly larger cards with more breathing room
 - Subtle gradient backgrounds based on positive/negative change
-- Remove "Data from Stocktwits" attribution (competitive signal)
+- Keep "Data from Stocktwits" attribution (required — verify contractual obligations before any removal)
 - Add a "View All →" link
 
 **Files to modify:** `components/TrendingTickers.tsx` (styling refinements)
@@ -211,12 +211,15 @@ Four features in a 2x2 grid:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Ready to decode your next filing?
 
-  [Get Started Free →]           [See an Example →]
+  [Get Started Free →]
+  or see an example
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 - Gradient background (mint-900 to slate-900)
-- Large headline, two CTA buttons (primary + secondary)
+- Large headline with one dominant primary CTA
+- "Get Started Free" as the primary button (solid mint, larger)
+- "See an Example" as a secondary text link (ghost/underline style, not a competing button)
 - Subtle radial glow behind the text
 
 **New files:** `components/CtaBanner.tsx`
