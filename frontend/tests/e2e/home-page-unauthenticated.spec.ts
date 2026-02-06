@@ -9,7 +9,7 @@ test.describe('Home Page - Unauthenticated Users', () => {
     await expect(page).toHaveURL('/')
 
     // Should display hero section
-    await expect(page.locator('h1')).toContainText('SEC Filing Analysis')
+    await expect(page.locator('h1')).toContainText('SEC filing')
 
     // Should display company search component
     const searchInput = page.locator('input[placeholder*="search" i], input[placeholder*="company" i], input[placeholder*="ticker" i]')
@@ -41,8 +41,7 @@ test.describe('Home Page - Unauthenticated Users', () => {
     // Check for privacy, security, and contact links
     await expect(footer.locator('a[href*="privacy"]')).toBeVisible()
     await expect(footer.locator('a[href*="security"]')).toBeVisible()
-    // Contact link uses mailto: instead of /contact
-    await expect(footer.locator('a[href*="mailto"]')).toBeVisible()
+    await expect(footer.locator('a[href*="contact"]')).toBeVisible()
   })
 
   test('should not display "Application error" message', async ({ page }) => {

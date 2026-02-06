@@ -13,8 +13,8 @@ test.describe('Authentication Flow', () => {
     await expect(page.locator('input[type="password"]')).toBeVisible()
     await expect(page.locator('button[type="submit"]')).toBeVisible()
 
-    // Check for link to registration
-    await expect(page.locator('a[href="/register"]')).toBeVisible()
+    // Check for link to registration (scoped to form, not header)
+    await expect(page.getByRole('link', { name: 'Sign up' })).toBeVisible()
   })
 
   test('should display registration page with form elements', async ({ page }) => {
@@ -31,8 +31,8 @@ test.describe('Authentication Flow', () => {
     await expect(page.locator('input[type="password"]')).toBeVisible()
     await expect(page.locator('button[type="submit"]')).toBeVisible()
 
-    // Check for link to login
-    await expect(page.locator('a[href="/login"]')).toBeVisible()
+    // Check for link to login (scoped to form, not header)
+    await expect(page.getByRole('link', { name: 'Login' })).toBeVisible()
   })
 
   test('should show validation error for invalid login credentials', async ({ page }) => {
@@ -69,12 +69,12 @@ test.describe('Authentication Flow', () => {
     await page.goto('/login')
     await expect(page).toHaveURL('/login')
 
-    // Click link to register
-    await page.locator('a[href="/register"]').click()
+    // Click in-form link to register (not the header link)
+    await page.getByRole('link', { name: 'Sign up' }).click()
     await expect(page).toHaveURL('/register')
 
-    // Click link back to login
-    await page.locator('a[href="/login"]').click()
+    // Click in-form link back to login (not the header link)
+    await page.getByRole('link', { name: 'Login' }).click()
     await expect(page).toHaveURL('/login')
   })
 
