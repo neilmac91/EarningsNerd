@@ -22,10 +22,10 @@ weasyprint==68.1
 edgartools>=5.12.0
 
 # Legacy SEC packages - TO BE REMOVED after migration
-arelle-release==2.39.10
+arelle-release==2.40.1
 sec-edgar-downloader==5.1.0
 sec-parser>=0.58.0
-posthog==7.13.1
+posthog==7.14.0
 json-repair>=0.30.0
 sentry-sdk[fastapi]>=2.0.0
 
