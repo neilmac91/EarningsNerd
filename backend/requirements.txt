@@ -27,7 +27,7 @@ sec-edgar-downloader==5.1.0
 sec-parser>=0.58.0
 posthog==7.13.1
 json-repair>=0.30.0
-sentry-sdk[fastapi]>=2.0.0
+sentry-sdk[fastapi]>=2.59.0
 
 # Testing
 pytest>=7.4.0
