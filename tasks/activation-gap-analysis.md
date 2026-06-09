@@ -135,7 +135,7 @@ Score = Impact on activation × Confidence ÷ Effort+Risk. Effort: S (<1d), M (1
 
 | # | Gap | Evidence | Activation impact | Effort | Risk | Proposed fix |
 |---|-----|----------|-------------------|--------|------|--------------|
-| Q1 | Waitlist gate can block all traffic | `middleware.ts:40-55` | Critical — gate on = zero activation | S | Low | Default `WAITLIST_MODE` to off (`!== 'false'` → `=== 'true'`), or add `/company`, `/filing`, `/` to ALLOWED_PATHS for a "live demo even while waitlisted" mode |
+| Q1 | Waitlist gate blocks all traffic (confirmed: deliberate pre-launch state; go-live planned soon) | `middleware.ts:40-55` | Critical — gate on = zero activation | S | Low | At launch, flip the default so live mode is fail-safe (`!== 'false'` → `=== 'true'`, i.e. waitlist requires opt-in, a misconfigured env can't re-gate the product). Optionally pre-launch: add `/company`, `/filing` to ALLOWED_PATHS so waitlist visitors can try the demo summary (Q2) |
 | Q2 | No zero-wait first impression | `page.tsx:84-96`; `HeroMockup.tsx` | Critical — visitors judge the product before generating | S–M | Low | Pre-generate summaries for the 8 QuickAccessBar tickers' latest 10-Ks; point "See an Example" directly at one (`/filing/{id}`) — instant cached render, no wait |
 | Q3 | "Stalled" warning at 15s during normal runs | `page-client.tsx:614-623` | High — false failure signal mid-wait | S | None | Raise threshold to ~45s; show expected duration ("usually 30–60s") |
 | Q4 | XBRL 8s lottery degrades financial grounding | `summaries.py:46-47,524-527`; 3s/6s fetch timeouts | High — direct driver of hollow summaries | S | Low | Raise enrichment budget to 15–20s and start XBRL fetch concurrently with filing fetch (currently inside a serialized window); surface "financials unavailable" honestly when it still fails |
@@ -171,10 +171,20 @@ The first *engineering* bet after that is S3 (eval harness) before S1 (prompt/sc
 ## 7. Open Questions & Appendix
 
 ### Product decisions needed
-1. **Waitlist intent:** Is `WAITLIST_MODE` deliberately on in production? If lead capture matters, recommend "live product + optional waitlist banner" rather than a hard gate. (The separate homepage-redesign plan in `tasks/todo.md` also proposes removing the redirect.)
+1. **Waitlist intent — ANSWERED (2026-06-09):** Gate is deliberate; go-live planned soon. See "Go-live checklist" below for the minimum set to ship before/with the flip. (The separate homepage-redesign plan in `tasks/todo.md` also proposes removing the redirect.)
 2. **Anonymous quota policy:** unlimited (current), daily cap, or email-gated after N summaries? Affects S5; recommendation: 3/day per IP, never gate the *first* summary.
 3. **Model strategy:** approve a bake-off including Claude models, or constrain to the Google AI Studio stack? Affects S3 scope.
 4. **Latency vs quality budget:** is ~90s acceptable for live generation if quality becomes reliable, or is sub-30s a requirement (which would push toward pre-generation of popular filings as the primary strategy)?
+
+### Go-live checklist (minimum set before flipping the waitlist off)
+The launch moment is the one shot at first impressions for accumulated waitlist demand, so these should land *before or with* the flip — all are S/S–M effort:
+1. **Q2 — instant example summary**: pre-generate the QuickAccessBar tickers' latest 10-Ks; point "See an Example" at a cached `/filing/{id}`. Launch traffic must see value in 0 seconds, not after a 30–80s coinflip.
+2. **Q3 — fix the 15s "stalled" warning** (`page-client.tsx:614-623`): otherwise the first live generation most visitors run looks broken mid-flight.
+3. **Q4 — XBRL budget fix** (`summaries.py:47`): cheapest single lever on first-summary quality.
+4. **Q7 — orphaned-task cleanup** (`summaries.py:151`): a launch-day traffic spike multiplies stuck-"generating" states.
+5. **S5 decision — anonymous quota**: launch is exactly when uncapped guest generation (`summaries.py:339-352`) gets expensive; a 3/day-per-IP cap that never blocks the *first* summary is enough.
+6. **Funnel instrumentation** (below): without events, you can't see whether launch activated anyone.
+Everything else (Q5, Q6, Q8, S1–S4) can follow post-launch, with S3 (eval harness) first among them.
 
 ### Measurement gap
 No funnel analytics events exist on the activation path (PostHog is integrated server-side, `posthog_client.py`, but search→filing→generate→success is not instrumented). Before/while shipping Q1–Q5, add events: `search_performed`, `filing_selected`, `generation_started/succeeded/failed/timed_out`, `summary_viewed`, with result_type and duration. Without this, roadmap impact can't be verified.
