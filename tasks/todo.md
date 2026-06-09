@@ -11,9 +11,11 @@ Strategic bets pause for review before/after. Quick wins ship in batches.
 - [x] **Q1 — Waitlist gate.** DECISION (user): keep gate up, open the demo. Added
       `/company`,`/filing` to ALLOWED_PREFIXES so waitlist visitors can try the full
       flow; homepage `/` stays gated. Default flip deferred to launch. ✅ guards tests pass.
-- [ ] **Q2 — Zero-wait example.** Pre-generate latest-10-K summaries for QuickAccessBar
-      tickers; deep-link "See an Example" to a cached `/filing/{id}`. Needs prod infra to
-      populate cache → build script + flagged CTA wiring; confirm approach with user.
+- [x] **Q2 — Zero-wait example.** `backend/scripts/pregenerate_examples.py` resolves each
+      QuickAccessBar ticker's latest 10-K, persists Company/Filing, and caches the summary via
+      `generate_summary_background`. Homepage "See an Example" CTA deep-links to
+      `/filing/{NEXT_PUBLIC_EXAMPLE_FILING_ID}` when set, else falls back to `/company/AAPL`.
+      Cache population runs in prod (network+AI). ✅ eslint clean, 30 vitest pass, script imports.
 - [x] **Q3 — "Stalled" warning at 15s.** Raised threshold to 45s + "usually 30–60s" hint.
       `page-client.tsx:618`. ✅ verified: eslint clean, 30 vitest pass.
 - [x] **Q4 — XBRL timeout lottery.** XBRL now starts concurrently with the filing-document

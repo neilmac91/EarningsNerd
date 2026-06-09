@@ -32,3 +32,16 @@ export const ENABLE_FINANCIAL_CHARTS =
  */
 export const ENABLE_RECOMMENDED_FILING =
   process.env.NEXT_PUBLIC_ENABLE_RECOMMENDED_FILING !== 'false'
+
+/**
+ * Pre-generated example filing for zero-wait activation.
+ * When set, the homepage "See an Example" CTA deep-links directly to the
+ * cached filing summary at `/filing/{id}` instead of the `/company/AAPL`
+ * fallback — so first-time visitors see an instant example with no
+ * 3-click + 30-80s generation wait.
+ *
+ * Set NEXT_PUBLIC_EXAMPLE_FILING_ID to a filing id whose Summary has been
+ * pre-generated (see backend/scripts/pregenerate_examples.py).
+ * Default: undefined (CTA falls back to /company/AAPL).
+ */
+export const EXAMPLE_FILING_ID = process.env.NEXT_PUBLIC_EXAMPLE_FILING_ID
