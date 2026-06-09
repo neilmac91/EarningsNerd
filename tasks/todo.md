@@ -19,8 +19,10 @@ Strategic bets pause for review before/after. Quick wins ship in batches.
 - [x] **Q4 — XBRL timeout lottery.** XBRL now starts concurrently with the filing-document
       fetch (was serialized after it); enrichment budget raised 8s→18s.
       `summaries.py`. ✅ verified: 261 backend tests pass.
-- [ ] **Q5 — Default to the right filing.** Preselect latest 10-K with "Recommended"
-      badge on company page. (frontend, behind flag)
+- [x] **Q5 — Default to the right filing.** "Recommended" banner + row badge for the latest
+      10-K (else latest filing) on the company page, one-click summary CTA. Behind
+      `ENABLE_RECOMMENDED_FILING` flag (default on). Also fixed a latent rules-of-hooks
+      violation (useMemo after early returns). ✅ eslint clean, 30 vitest pass.
 - [x] **Q6 — Stream resilience.** Added one automatic stream retry on transient failure
       (before content delivered). NOTE: roadmap's timeout-mismatch premise was partly
       inaccurate (stream excluded from endpoint middleware `main.py:237`; client 120s is an

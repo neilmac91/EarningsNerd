@@ -23,3 +23,12 @@ export const ENABLE_SECTION_TABS =
  */
 export const ENABLE_FINANCIAL_CHARTS =
   process.env.NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS === 'true'
+
+/**
+ * Highlight a "Recommended" filing (latest 10-K, else latest filing) on the company page
+ * with a one-click summary CTA, so first-time visitors don't have to decide between filing
+ * types/dates before activating. The full year-grouped list stays below.
+ * Default: enabled (set NEXT_PUBLIC_ENABLE_RECOMMENDED_FILING='false' to disable).
+ */
+export const ENABLE_RECOMMENDED_FILING =
+  process.env.NEXT_PUBLIC_ENABLE_RECOMMENDED_FILING !== 'false'
