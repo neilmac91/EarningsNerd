@@ -12,7 +12,10 @@ const ALLOWED_PATHS = new Set([
   '/favicon.ico',
 ])
 
-const ALLOWED_PREFIXES = ['/_next', '/api', '/public', '/assets']
+// Demo surfaces are reachable even while the waitlist gate is up, so prospective users
+// can experience the core product (choose company -> pick filing -> get summary) before
+// signing up. The homepage `/` stays gated and still routes to /waitlist.
+const ALLOWED_PREFIXES = ['/_next', '/api', '/public', '/assets', '/company', '/filing']
 
 // Protected routes that require authentication
 const PROTECTED_ROUTES = ['/dashboard', '/profile', '/settings']

@@ -8,9 +8,9 @@ Strategic bets pause for review before/after. Quick wins ship in batches.
 
 ## Quick Wins
 
-- [ ] **Q1 — Waitlist gate (DECISION REQUIRED).** Flipping the default is an
-      outward-facing launch event; confirm with user before changing gate semantics.
-      Safe sub-task: optionally add `/company`,`/filing` to ALLOWED_PATHS for the demo.
+- [x] **Q1 — Waitlist gate.** DECISION (user): keep gate up, open the demo. Added
+      `/company`,`/filing` to ALLOWED_PREFIXES so waitlist visitors can try the full
+      flow; homepage `/` stays gated. Default flip deferred to launch. ✅ guards tests pass.
 - [ ] **Q2 — Zero-wait example.** Pre-generate latest-10-K summaries for QuickAccessBar
       tickers; deep-link "See an Example" to a cached `/filing/{id}`. Needs prod infra to
       populate cache → build script + flagged CTA wiring; confirm approach with user.
