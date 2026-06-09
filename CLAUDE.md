@@ -106,32 +106,44 @@ docker-compose down                   # Stop databases
 │   │   └── openai_service.py    # AI summarization logic
 │   ├── models/           # SQLAlchemy ORM models
 │   ├── schemas/          # Pydantic validation schemas
-│   ├── integrations/     # External APIs (finnhub, earnings_whispers)
+│   ├── integrations/     # External APIs (finnhub, earnings_whispers, fmp, stocktwits)
 │   ├── config.py         # Pydantic Settings (env validation)
 │   └── database.py       # DB session management
-├── tests/                # pytest tests (unit/, integration/, performance/)
+├── pipeline/             # SEC data pipeline (extract, validate, quality, schema, write)
+├── tests/                # pytest tests (unit/, integration/, performance/, smoke/)
 ├── prompts/              # AI system prompts (10k-analyst-agent.md, 10q-analyst-agent.md)
 ├── scripts/              # Verification and debug scripts
+├── docs/                 # Design docs (plan_sec_pipeline.md)
 ├── migrations/           # Alembic migrations
 └── main.py               # FastAPI app entry point
 
 /frontend
 ├── app/                  # Next.js App Router pages
-│   ├── (auth)/           # Login/register routes
+│   ├── login/, register/ # Auth routes (root-level, no route group)
 │   ├── company/[ticker]/ # Company detail pages
 │   ├── filing/[id]/      # Filing summary pages
-│   ├── compare/          # Filing comparison pages
-│   ├── dashboard/        # User dashboard (watchlist, saved summaries)
+│   ├── compare/result/   # Filing comparison pages
+│   ├── dashboard/        # User dashboard (settings, watchlist)
 │   ├── contact/          # Contact form page
+│   ├── pricing/          # Pricing page
+│   ├── waitlist/         # Waitlist signup page
+│   ├── privacy/, security/  # Legal/info pages
 │   └── layout.tsx        # Root layout with providers
-├── components/           # Reusable React components (34+ components)
-├── features/             # Domain modules (auth, companies, filings, summaries, watchlist, contact)
-│   └── */api/            # API client functions per domain
+├── components/           # Reusable React components (40+ components, incl. charts/, ui/)
+├── features/             # Domain modules (auth, companies, filings, subscriptions, summaries, watchlist, contact)
+│   ├── */api/            # API client functions per domain
+│   └── filings/components/  # Filing-specific summary section components
 ├── lib/
 │   ├── api/client.ts     # Axios instance with auth interceptors
 │   ├── api/types.ts      # TypeScript API types
-│   └── featureFlags.ts   # Feature flag configuration
-└── hooks/                # Custom React hooks
+│   ├── featureFlags.ts   # Feature flag configuration
+│   ├── guards.ts         # Route guards
+│   ├── formatters.ts, format.ts  # Formatting utilities
+│   ├── analytics.ts      # Analytics integration
+│   ├── QualityGate.ts    # Summary quality gating
+│   └── stripInternalNotices.ts  # Strip internal AI notices from output
+├── hooks/                # Custom React hooks (useCountUp)
+└── types/                # Shared TypeScript types (summary.ts)
 ```
 
 ## Key Files
@@ -149,6 +161,9 @@ docker-compose down                   # Stop databases
 | `backend/app/services/rate_limiter.py` | In-memory sliding window rate limiter |
 | `backend/app/services/sec_rate_limiter.py` | SEC EDGAR-specific rate limiter with token bucket and exponential backoff |
 | `backend/app/services/email_service.py` | Resend API wrapper for email delivery with HTML templates |
+| `backend/app/services/resend_service.py` | Low-level Resend API client |
+| `backend/app/services/fallback_summary.py` | Generates deterministic summaries when AI generation fails |
+| `backend/app/services/sec_edgar.py` | Legacy SEC EDGAR integration module |
 | `backend/app/services/prompt_loader.py` | Loads AI prompts from markdown files |
 | `backend/app/services/hot_filings.py` | Identifies trending SEC filings using Finnhub/EarningsWhispers signals |
 | `backend/app/services/trending_service.py` | Trending tickers with keyword sentiment analysis |
@@ -179,6 +194,20 @@ docker-compose down                   # Stop databases
 |------|---------|
 | `finnhub.py` | News sentiment analysis (buzz_ratio, articles_in_last_week, bullish_percent) |
 | `earnings_whispers.py` | Earnings surprise signals and company earnings data |
+| `fmp.py` | Financial Modeling Prep: stock symbol validation, price data, earnings calendar |
+| `stocktwits.py` | Stocktwits trending symbols API for social sentiment signals |
+
+### SEC Data Pipeline (`backend/pipeline/`)
+
+Modular ETL pipeline for SEC filing data (see `backend/docs/plan_sec_pipeline.md`):
+
+| File | Purpose |
+|------|---------|
+| `extract.py` | Extraction logic for filing data |
+| `validate.py` | Validation of extracted data |
+| `quality.py` | Data quality checks |
+| `schema.py` | Schema definitions for pipeline data |
+| `write.py` | Persist/write pipeline output |
 
 ### API Routers (`backend/app/routers/`)
 
@@ -197,8 +226,8 @@ docker-compose down                   # Stop databases
 | `trending.py` | `/api` | Trending tickers (`GET /trending-tickers`) |
 | `subscriptions.py` | `/api/subscriptions` | Subscription management |
 | `saved_summaries.py` | `/api/saved-summaries` | Save/manage summaries |
-| `watchlist.py` | `/api/watchlist` | Company watchlist management |
-| `webhooks.py` | `/api` | Resend webhook handlers (`POST /webhooks/resend`) |
+| `watchlist.py` | `/api/watchlist`, `/api/waitlist` | Company watchlist + waitlist signup (`waitlist_router`) |
+| `webhooks.py` | `/api` | Resend + Stripe webhook handlers (`POST /webhooks/resend`, `POST /webhooks/stripe`) |
 | `sitemap.py` | `/` | XML sitemap generation (`GET /sitemap.xml`) |
 
 ### Other Key Files
@@ -255,7 +284,7 @@ docker-compose down                   # Stop databases
   - Critical for test stability with Starlette TestClient
 
 ### Frontend
-- **Feature-Based Structure:** `/features` groups domains (auth, companies, filings, summaries, watchlist, contact)
+- **Feature-Based Structure:** `/features` groups domains (auth, companies, filings, subscriptions, summaries, watchlist, contact)
 - **React Query:** Server state management with caching and auto-refetch
 - **Type Safety:** Strict TypeScript throughout
 - **Feature Flags:** `lib/featureFlags.ts` controls optional features
@@ -347,6 +376,15 @@ FINNHUB_MAX_CONCURRENCY=4         # Max concurrent Finnhub requests
 # External APIs - EarningsWhispers
 EARNINGS_WHISPERS_API_BASE=https://www.earningswhispers.com/api
 
+# External APIs - Financial Modeling Prep (FMP)
+FMP_API_KEY=...                   # Stock validation, price data, earnings calendar
+FMP_API_BASE=https://financialmodelingprep.com/api/v3
+FMP_TIMEOUT_SECONDS=6.0
+FMP_MAX_CONCURRENCY=4
+
+# External APIs - Stocktwits (no key required for trending endpoint)
+STOCKTWITS_TIMEOUT_SECONDS=6.0
+
 # Hot Filings
 HOT_FILINGS_REFRESH_TOKEN=...     # Token for hot filings service
 HOT_FILINGS_USER_AGENT=...        # Custom User-Agent for hot filings
@@ -379,6 +417,7 @@ NEXT_PUBLIC_ENABLE_SECTION_TABS=true|false
 
 Custom pytest markers defined in `backend/tests/conftest.py`:
 - `@pytest.mark.smoke` - Critical path validation tests
+- `@pytest.mark.unit` - Unit tests
 - `@pytest.mark.integration` - Integration tests
 - `@pytest.mark.performance` - Performance tests
 - `@pytest.mark.requires_db` - Tests requiring database (skip gracefully if unavailable)
@@ -395,6 +434,7 @@ Custom pytest markers defined in `backend/tests/conftest.py`:
 - `test_event_loop_safety.py` - Event loop detection, Redis connection safety
 - `test_json_repair.py` - JSON repair functionality for malformed AI responses
 - `test_openai_service_retry.py` - OpenAI service retry logic and error handling
+- `test_stocktwits_fmp.py` - Stocktwits and FMP integration tests
 
 **Integration Tests (`backend/tests/integration/`):**
 - `test_summaries_flow.py` - Summary generation E2E
@@ -402,10 +442,17 @@ Custom pytest markers defined in `backend/tests/conftest.py`:
 - `test_stream_latency.py` - SSE streaming latency and performance
 - `test_summary_stream_heartbeat.py` - Heartbeat behavior in streaming responses
 
+**Performance Tests (`backend/tests/performance/`):**
+- `test_concurrent_streams.py` - Concurrent SSE stream load testing
+
 **Other Tests:**
 - `backend/tests/test_xbrl_extraction.py` - XBRL parsing validation
 - `backend/tests/test_summary_quality.py` - Output quality validation
+- `backend/tests/test_edgar_services.py` - EDGAR service tests
+- `backend/tests/test_sec_10k_pipeline.py` - 10-K pipeline tests
 - `frontend/__tests__/guards.test.ts` - Route guard tests
+- `frontend/tests/e2e/` - Playwright E2E specs (auth, dashboard, filing render)
+- `frontend/tests/unit/` - Vitest unit specs (formatters, summary stream, markdown rendering)
 
 ### Test Configuration
 
