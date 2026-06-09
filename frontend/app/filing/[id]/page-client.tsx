@@ -615,7 +615,9 @@ function StreamingSummaryDisplay({
   const [isStalled, setIsStalled] = useState(false)
 
   useEffect(() => {
-    if (elapsedSeconds > 15 && stage !== 'completed' && stage !== 'summarizing' && !isError) {
+    // Normal generation runs ~30-60s; only flag a genuine stall well past that window
+    // so we never signal "failure" during a healthy run (was 15s — inside the normal window).
+    if (elapsedSeconds > 45 && stage !== 'completed' && stage !== 'summarizing' && !isError) {
       setIsStalled(true)
     } else {
       setIsStalled(false)
@@ -763,6 +765,11 @@ function StreamingSummaryDisplay({
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 {filing.filing_type} • {isError ? 'Failed' : isGenerating ? 'Processing...' : 'Ready'}
               </p>
+              {isGenerating && !isError && (
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  This usually takes 30–60 seconds
+                </p>
+              )}
             </div>
           </div>
 
