@@ -380,3 +380,48 @@ boxShadow: {
 
 *Plan created: 2026-02-05*
 *Awaiting approval before implementation begins.*
+
+---
+---
+
+# Activation Gap Analysis — Investigation Plan & Progress (2026-06-09)
+
+Diagnostic review (read-only): prioritized gap analysis + roadmap for activation
+(anonymous visitor → first successful, high-quality summary). No application
+code changes; deliverable is `tasks/activation-gap-analysis.md`.
+
+## Phase 1 — Map reality
+- [x] Confirm CLAUDE.md against actual code (entry points, routes, services)
+- [x] Identify real entry points for a new visitor (landing, middleware, quick-access tickers)
+
+## Phase 2 — Trace activation funnel (subagent: frontend)
+- [x] Landing page → search → company page → filing page → stream → render
+- [x] Auth/waitlist gates, error/empty/slow states, clicks and waits per step
+- [x] SSE consumption, timeouts, retry behavior, progress UX
+
+## Phase 3 — Trace backend pipeline (subagent: backend)
+- [x] companies/filings/summaries routers; anonymous gating truth table
+- [x] Generation orchestration steps, timeouts, fallbacks, failure modes
+- [x] Rate limiting, circuit breaker, caching layers
+
+## Phase 4 — AI quality audit (subagent: AI)
+- [x] openai_service prompt construction, model params, retries, JSON repair
+- [x] Prompts vs schema conflict; section extraction; XBRL grounding
+- [x] Fallback/recovery machinery and silent-degradation paths
+- [x] Spot-verify load-bearing claims directly (middleware.ts:40, summaries.py:44/47, openai_service.py:1922-1959, prompts/10k-analyst-agent.md:9-13)
+
+## Phase 5 — Synthesize & deliver
+- [x] Score gaps (Impact × Confidence ÷ Effort), split Quick Wins vs Strategic Bets
+- [x] Write `tasks/activation-gap-analysis.md` (7 sections per spec)
+- [x] Chat summary
+- [x] Commit & push to `claude/earningsnerd-activation-diagnostic-qscmnn`
+
+## Review
+Report delivered at `tasks/activation-gap-analysis.md`. Top findings: waitlist
+middleware gate can block the entire funnel; no zero-wait demo summary path;
+prompt/JSON-schema conflict with no API-level structured-output enforcement;
+brittle regex extraction + 8s XBRL budget driving "hit and miss" quality;
+placeholder/fallback content indistinguishable from real content (silent
+degradation). See report for full evidence and sequencing. Note: this section
+relates to the earlier homepage-redesign plan above — that plan's "remove
+waitlist redirect" item aligns with this report's #1 quick win.
