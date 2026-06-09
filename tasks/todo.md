@@ -1,3 +1,55 @@
+# Activation Roadmap — Execution Checklist
+
+Source of truth: `tasks/activation-gap-analysis.md`. North star: anonymous visitor →
+first successful, high-quality summary, fast and reliable.
+
+Order: quick wins first (Q1→Q8), then strategic bets (S3 harness → S1 → S2 → S4 → S5).
+Strategic bets pause for review before/after. Quick wins ship in batches.
+
+## Quick Wins
+
+- [ ] **Q1 — Waitlist gate (DECISION REQUIRED).** Flipping the default is an
+      outward-facing launch event; confirm with user before changing gate semantics.
+      Safe sub-task: optionally add `/company`,`/filing` to ALLOWED_PATHS for the demo.
+- [ ] **Q2 — Zero-wait example.** Pre-generate latest-10-K summaries for QuickAccessBar
+      tickers; deep-link "See an Example" to a cached `/filing/{id}`. Needs prod infra to
+      populate cache → build script + flagged CTA wiring; confirm approach with user.
+- [x] **Q3 — "Stalled" warning at 15s.** Raised threshold to 45s + "usually 30–60s" hint.
+      `page-client.tsx:618`. ✅ verified: eslint clean, 30 vitest pass.
+- [x] **Q4 — XBRL timeout lottery.** XBRL now starts concurrently with the filing-document
+      fetch (was serialized after it); enrichment budget raised 8s→18s.
+      `summaries.py`. ✅ verified: 261 backend tests pass.
+- [ ] **Q5 — Default to the right filing.** Preselect latest 10-K with "Recommended"
+      badge on company page. (frontend, behind flag)
+- [x] **Q6 — Stream resilience.** Added one automatic stream retry on transient failure
+      (before content delivered). NOTE: roadmap's timeout-mismatch premise was partly
+      inaccurate (stream excluded from endpoint middleware `main.py:237`; client 120s is an
+      *inactivity* timeout reset by 3s heartbeats) — so timeout reshuffling was unnecessary;
+      the real gap was no auto-retry. ✅ eslint clean, vitest pass.
+- [x] **Q7 — Orphaned background tasks.** `run_generation_guarded` wrapper guarantees a
+      terminal "error" state if a fire-and-forget task crashes; `/progress` flips stale
+      (>180s) non-terminal rows to retryable error. ✅ 7 new unit tests pass.
+- [x] **Q8 — Raw 500s on circuit-open.** Global FastAPI handler converts `CircuitOpenError`
+      → 503 + Retry-After. ✅ 2 new unit tests pass.
+
+## Strategic Bets (pause for review)
+
+- [ ] **S3 — Eval harness FIRST.** 15–25 filing golden set; deterministic numeric
+      accuracy vs XBRL + schema-validity + coverage scoring; baseline current pipeline.
+- [ ] **S1 — Prompt/schema conflict.** Rewrite prompts around schema; enable JSON mode;
+      delete narrative-format instructions; pin temperature. Gated; prove via S3.
+- [ ] **S2 — Brittle section extraction.** 10-K TOC-length guard; non-TOC validation;
+      alternate-pattern retry; XBRL-derived segments.
+- [ ] **S4 — Semantic quality gate + honest degradation.** Validate→targeted regen;
+      quality badge instead of stripped notices; auto-expire below-bar cached summaries.
+- [ ] **S5 — Anonymous quota (DECISION REQUIRED).** Per-IP/device daily cap; never gate
+      the first summary.
+
+## Review log
+(append outcomes per item as they ship)
+
+---
+
 # Homepage Redesign Plan
 
 ## Status: AWAITING APPROVAL

@@ -723,6 +723,63 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
             # Do NOT save to Summary table - error results are discarded
             # Do NOT commit any summary to database
 
+# Stages from which generation can no longer make progress on its own.
+TERMINAL_STAGES = {"completed", "error", "partial"}
+
+# A non-terminal progress row older than this is considered orphaned (a crashed/abandoned
+# background task). The longest legitimate run is the 10-K global_timeout (120s) plus the
+# stream pipeline (90s); 180s leaves comfortable headroom before we call it dead.
+STALE_PROGRESS_SECONDS = 180
+
+
+def mark_stale_progress_as_error(progress: SummaryGenerationProgress) -> bool:
+    """Detect an orphaned (stuck) progress row and flip it to a retryable error in-place.
+
+    Fire-and-forget background generation can die without recording a terminal state if it
+    crashes before its inner guard runs. Rather than leave the UI spinning forever, surface
+    a stale non-terminal row as an error the user can retry. Returns True if it mutated the
+    row (caller is responsible for committing)."""
+    if progress.stage in TERMINAL_STAGES:
+        return False
+
+    last_update = progress.updated_at or progress.started_at
+    if last_update is None:
+        return False
+    if last_update.tzinfo is None:
+        last_update = last_update.replace(tzinfo=timezone.utc)
+
+    if (_utcnow() - last_update).total_seconds() <= STALE_PROGRESS_SECONDS:
+        return False
+
+    progress.stage = "error"
+    progress.error = "Generation stalled and was abandoned. Please retry."
+    return True
+
+
+async def run_generation_guarded(filing_id: int, user_id: Optional[int]) -> None:
+    """Fire-and-forget-safe wrapper around generate_summary_background.
+
+    create_task swallows unhandled exceptions, so a crash in the *setup* phase (before the
+    inner try/except in generate_summary_background) would otherwise leave the progress row
+    stuck in 'queued'/'fetching' forever. This guarantees a terminal 'error' state is always
+    recorded, using a fresh session in case the original one is poisoned."""
+    try:
+        await generate_summary_background(filing_id, user_id)
+    except Exception as exc:  # noqa: BLE001 - last line of defense for a detached task
+        logger.error(
+            f"[{filing_id}] Background summary generation crashed unexpectedly: {exc}",
+            exc_info=True,
+        )
+        try:
+            with SessionLocal() as db:
+                record_progress(db, filing_id, "error", error=str(exc)[:200])
+        except Exception as record_exc:  # noqa: BLE001
+            logger.error(
+                f"[{filing_id}] Failed to record crashed-generation error state: {record_exc}",
+                exc_info=True,
+            )
+
+
 def get_generation_progress_snapshot(filing_id: int) -> Optional[Dict[str, Any]]:
     """Return the persisted generation progress for a filing, if available."""
     with SessionLocal() as session:

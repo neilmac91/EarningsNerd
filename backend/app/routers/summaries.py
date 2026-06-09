@@ -29,6 +29,8 @@ from app.services.export_service import export_service
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.summary_generation_service import (
     generate_summary_background,
+    run_generation_guarded,
+    mark_stale_progress_as_error,
     get_generation_progress_snapshot,
     record_progress,
     progress_as_dict,
@@ -43,8 +45,11 @@ SUMMARY_LIMITER = RateLimiter(limit=5, window_seconds=60)
 # Hard pipeline timeout to guarantee user receives response within this time
 PIPELINE_TIMEOUT_SECONDS = 90
 
-# Timeout for XBRL/excerpt enrichment - SEC API for large companies can take 5-10s
-CONTEXT_ENRICHMENT_TIMEOUT_SECONDS = 8.0
+# Timeout for XBRL/excerpt enrichment. XBRL fetch starts concurrently with the filing
+# document fetch (see stream_summary), so this is the *additional* budget we wait at the
+# join point. The XBRL service's own internal timeout is 15s (EDGAR_DEFAULT_TIMEOUT_SECONDS);
+# an 8s ceiling here silently truncated it on large issuers, producing hollow financials.
+CONTEXT_ENRICHMENT_TIMEOUT_SECONDS = 18.0
 
 class SummaryResponse(BaseModel):
     id: int
@@ -80,6 +85,10 @@ async def get_summary_progress(
         .first()
     )
     if progress:
+        # Surface orphaned/stalled generations as a retryable error instead of an
+        # eternal "generating" state if the background task died without finishing.
+        if mark_stale_progress_as_error(progress):
+            db.commit()
         return progress_as_dict(progress)
 
     return {"stage": "pending", "elapsedSeconds": 0}
@@ -148,7 +157,7 @@ async def generate_summary(
         record_progress(db, filing_id, "queued")
         db.commit()
 
-        asyncio.create_task(generate_summary_background(filing_id, user_id))
+        asyncio.create_task(run_generation_guarded(filing_id, user_id))
     except Exception as e:
         db.rollback()
         raise e
@@ -351,7 +360,37 @@ async def generate_summary_stream(
             else:
                 logger.info(f"[stream:{filing_id}] Guest user access. Rate limit already enforced.")
             # Note: We use cached values from outer scope, but filling_in_session is already populated.
-            
+
+            # Start XBRL fetching NOW, concurrently with the (slow) filing-document fetch below.
+            # XBRL only needs the accession number + CIK (already cached above), not the document
+            # text, so serializing it after the fetch wasted the entire fetch window and left it
+            # racing an 8s budget. Running it in parallel gives it the realistic time it needs.
+            xbrl_task = None
+            if filing_type and filing_type.upper() in {"10-K", "10-Q"} and company_cik:
+                async def fetch_xbrl():
+                    try:
+                        data = await xbrl_service.get_xbrl_data(filing_accession_number, company_cik)
+                        if data:
+                            metrics = xbrl_service.extract_standardized_metrics(data)
+
+                            # DB OP: Update filing xbrl_data
+                            def update_xbrl_sync():
+                                # Use a new session for this thread operation to ensure thread safety
+                                from app.database import SessionLocal
+                                with SessionLocal() as xbrl_session:
+                                    filing_for_update = xbrl_session.query(Filing).filter(Filing.id == filing_id).first()
+                                    if filing_for_update:
+                                        filing_for_update.xbrl_data = data
+                                        xbrl_session.commit()
+
+                            await run_sync_db(update_xbrl_sync)
+                            return metrics
+                    except Exception as xbrl_error:
+                        logger.warning(f"[stream:{filing_id}] Error updating XBRL data: {str(xbrl_error)}")
+                        pass
+                    return None
+                xbrl_task = asyncio.create_task(fetch_xbrl())
+
             # Step 1: File Validation
             # DB OP: Record progress
             await run_sync_db(record_progress, session, filing_id, "fetching")
@@ -466,34 +505,9 @@ async def generate_summary_stream(
                 excerpt_task = asyncio.create_task(return_cached_excerpt())
             else:
                 excerpt_task = asyncio.create_task(run_sync_db(extract_excerpt_sync))
-            
-            # Start XBRL fetching in parallel
-            xbrl_task = None
-            if filing_type and filing_type.upper() in {"10-K", "10-Q"} and company_cik:
-                async def fetch_xbrl():
-                    try:
-                        data = await xbrl_service.get_xbrl_data(filing_accession_number, company_cik)
-                        if data:
-                            metrics = xbrl_service.extract_standardized_metrics(data)
-                            
-                            # DB OP: Update filing xbrl_data
-                            def update_xbrl_sync():
-                                # Use a new session for this thread operation to ensure thread safety
-                                from app.database import SessionLocal
-                                with SessionLocal() as xbrl_session:
-                                    filing_for_update = xbrl_session.query(Filing).filter(Filing.id == filing_id).first()
-                                    if filing_for_update:
-                                        filing_for_update.xbrl_data = data
-                                        xbrl_session.commit()
-                            
-                            await run_sync_db(update_xbrl_sync)
-                            return metrics
-                    except Exception as xbrl_error:
-                        logger.warning(f"[stream:{filing_id}] Error updating XBRL data: {str(xbrl_error)}")
-                        pass
-                    return None
-                xbrl_task = asyncio.create_task(fetch_xbrl())
-            
+
+            # XBRL fetch was already started concurrently with the document fetch above.
+
             # Wait for parsing to complete
             yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Parsing complete...', 'percent': 25})}\n\n"
 
