@@ -5,7 +5,7 @@ import logging
 from openai import AsyncOpenAI
 from typing import Any, Dict, List, Optional, Tuple
 from app.config import settings
-from app.services.prompt_loader import get_prompt
+from app.services.prompt_loader import get_prompt, get_structured_prompt
 import json
 import re
 from bs4 import BeautifulSoup
@@ -1919,7 +1919,15 @@ EXTRACTED FINANCIAL SIGNALS:
                 f"{prompt_template.user}\n"
             )
 
-        prompt = f"""{prompt_template.system}
+        # Roadmap S1 (flagged): in structured-output mode use the schema-first prompt (which
+        # omits the narrative "produce a cohesive markdown summary / 600-1000 words" block that
+        # contradicts the JSON demand). Off → current behavior, unchanged.
+        structured_mode = settings.USE_STRUCTURED_OUTPUT
+        analyst_preamble = (
+            get_structured_prompt(filing_type_key) if structured_mode else prompt_template.system
+        )
+
+        prompt = f"""{analyst_preamble}
 
 You are a forensic financial analyst preparing structured briefing materials for newsroom editors.
 
@@ -1965,26 +1973,33 @@ Rules:
                 try:
                     # Fixed timeout (no exponential scaling) for predictable latency
                     timeout = base_timeout
+                    create_kwargs: Dict[str, Any] = dict(
+                        model=model_name,
+                        messages=[
+                            {
+                                "role": "system",
+                                "content": (
+                                    "You are a structured data extraction engine for financial journalism. "
+                                    "You never write narrative prose. You output STRICT RFC8259 COMPLIANT JSON. "
+                                    "ALL keys and strings must use DOUBLE QUOTES. No trailing commas. "
+                                    "Adhere strictly to the requested schema. "
+                                    "Fill in 'Not disclosed' when data is missing. "
+                                    "Never invent prior-period figures."
+                                ),
+                            },
+                            {"role": "user", "content": prompt},
+                        ],
+                        # Roadmap S1: pin extraction temperature low (0.1) in structured mode for
+                        # determinism; otherwise keep the prior 0.2.
+                        temperature=0.1 if structured_mode else 0.2,
+                        max_tokens=config.get("max_tokens", 1500),
+                    )
+                    # Enforce JSON at the API layer in structured mode so validity no longer
+                    # depends on the model resolving a prompt-vs-schema conflict.
+                    if structured_mode:
+                        create_kwargs["response_format"] = {"type": "json_object"}
                     response = await asyncio.wait_for(
-                        self.client.chat.completions.create(
-                            model=model_name,
-                            messages=[
-                                {
-                                    "role": "system",
-                                    "content": (
-                                        "You are a structured data extraction engine for financial journalism. "
-                                        "You never write narrative prose. You output STRICT RFC8259 COMPLIANT JSON. "
-                                        "ALL keys and strings must use DOUBLE QUOTES. No trailing commas. "
-                                        "Adhere strictly to the requested schema. "
-                                        "Fill in 'Not disclosed' when data is missing. "
-                                        "Never invent prior-period figures."
-                                    ),
-                                },
-                                {"role": "user", "content": prompt},
-                            ],
-                            temperature=0.2,
-                            max_tokens=config.get("max_tokens", 1500),
-                        ),
+                        self.client.chat.completions.create(**create_kwargs),
                         timeout=timeout,
                     )
                     # Success - break out of retry loop

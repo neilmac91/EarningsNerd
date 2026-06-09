@@ -113,6 +113,14 @@ class Settings(BaseSettings):
     # AI Model Settings
     AI_DEFAULT_MODEL: str = "gemini-3-pro-preview"  # Primary model for all AI tasks
 
+    # Structured-output mode for Phase-A extraction (roadmap S1). When True, the structured
+    # extraction call uses an API-level response_format (JSON object), a schema-described
+    # prompt with the narrative-format instructions removed, and a pinned low temperature —
+    # eliminating the prompt-vs-schema contradiction that drives "hit and miss" output.
+    # Default False: keep the current behavior until the eval harness (S3) proves the new path
+    # beats baseline. Toggle with AI_USE_STRUCTURED_OUTPUT=true.
+    USE_STRUCTURED_OUTPUT: bool = False
+
     # AI Recovery Settings
     RECOVERY_MAX_CONCURRENCY: int = 3  # Max concurrent API calls for section recovery
 

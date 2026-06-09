@@ -45,8 +45,13 @@ Strategic bets pause for review before/after. Quick wins ship in batches.
       tracked), golden-set seed + auto-builder, runner+report, README. ✅ 12 offline scorer
       tests pass. Running the baseline/bake-off requires SEC network + provider keys (prod/CI).
       Per checkpoint rule, PAUSE before S1 (prompt/schema rewrite) for review.
-- [ ] **S1 — Prompt/schema conflict.** Rewrite prompts around schema; enable JSON mode;
-      delete narrative-format instructions; pin temperature. Gated; prove via S3.
+- [x] **S1 — Prompt/schema conflict (BEHIND DEFAULT-OFF FLAG).** `AI_USE_STRUCTURED_OUTPUT`
+      flag: structured mode uses new schema-first prompts (`prompts/10k|10q-structured-agent.md`,
+      narrative-format block removed), enforces `response_format={"type":"json_object"}` at the
+      API layer, and pins temperature to 0.1. Flag off = current behavior, byte-for-byte.
+      ✅ 2 unit tests (off unchanged / on enforces JSON+schema prompt+temp); 152 unit+smoke pass.
+      ADOPTION GATE: run the S3 harness `baseline` candidate with the flag on vs off; flip the
+      default only if it beats baseline on schema-validity + numeric accuracy + coverage.
 - [ ] **S2 — Brittle section extraction.** 10-K TOC-length guard; non-TOC validation;
       alternate-pattern retry; XBRL-derived segments.
 - [ ] **S4 — Semantic quality gate + honest degradation.** Validate→targeted regen;
