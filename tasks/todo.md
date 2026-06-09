@@ -36,8 +36,13 @@ Strategic bets pause for review before/after. Quick wins ship in batches.
 
 ## Strategic Bets (pause for review)
 
-- [ ] **S3 — Eval harness FIRST.** 15–25 filing golden set; deterministic numeric
-      accuracy vs XBRL + schema-validity + coverage scoring; baseline current pipeline.
+- [x] **S3 — Eval harness (BUILT; baselining needs API keys/network).** `backend/evals/`:
+      canonical schema, deterministic scorers (schema-validity + numeric-accuracy-vs-XBRL +
+      substantive-coverage), multi-provider registry (baseline/gemini-json/claude-sonnet/
+      claude-opus/qwen/kimi/deepseek — Claude via native SDK, others OpenAI-compat, cost
+      tracked), golden-set seed + auto-builder, runner+report, README. ✅ 12 offline scorer
+      tests pass. Running the baseline/bake-off requires SEC network + provider keys (prod/CI).
+      Per checkpoint rule, PAUSE before S1 (prompt/schema rewrite) for review.
 - [ ] **S1 — Prompt/schema conflict.** Rewrite prompts around schema; enable JSON mode;
       delete narrative-format instructions; pin temperature. Gated; prove via S3.
 - [ ] **S2 — Brittle section extraction.** 10-K TOC-length guard; non-TOC validation;
