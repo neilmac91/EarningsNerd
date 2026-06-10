@@ -58,8 +58,13 @@ Strategic bets pause for review before/after. Quick wins ship in batches.
       confidence logging (N/3 critical sections). ✅ 2 unit tests; 277 backend tests pass.
       FOLLOW-UP (smaller, deferred): replace Apple-specific segment regex in
       `filing_parser.py:754` with XBRL-derived segments.
-- [ ] **S4 — Semantic quality gate + honest degradation.** Validate→targeted regen;
-      quality badge instead of stripped notices; auto-expire below-bar cached summaries.
+- [x] **S4 — Semantic quality gate + honest degradation.** Backend: `assess_quality` verdict
+      (coverage + XBRL numeric grounding) always attached to `raw_summary.quality`; flagged
+      `AI_QUALITY_GATE` skips caching "partial" summaries so the next visit regenerates.
+      Frontend (flagged `NEXT_PUBLIC_ENABLE_QUALITY_BADGE`): explicit Full/Partial badge +
+      stops client-side notice-stripping + regenerate CTA. ✅ 4 verdict unit tests; 281 backend
+      + 30 frontend tests pass. (Targeted per-section regen loop: deferred — `_recover_missing_sections`
+      already regenerates empty sections; verdict now makes degradation honest.)
 - [ ] **S5 — Anonymous quota (DECISION: 3/day per IP, never gate the first summary).**
       Per-IP/device daily cap with friendly "create a free account for more". To implement
       after S4.

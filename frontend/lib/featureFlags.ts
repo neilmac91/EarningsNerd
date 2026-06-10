@@ -45,3 +45,15 @@ export const ENABLE_RECOMMENDED_FILING =
  * Default: undefined (CTA falls back to /company/AAPL).
  */
 export const EXAMPLE_FILING_ID = process.env.NEXT_PUBLIC_EXAMPLE_FILING_ID
+
+/**
+ * Honest degradation (roadmap S4). When enabled, the filing summary shows an explicit quality
+ * badge ("Full summary" / "Partial — ...; retry") driven by the backend's
+ * `raw_summary.quality` verdict, and STOPS stripping internal failure notices client-side —
+ * so a degraded summary is surfaced honestly with a one-click regenerate instead of being
+ * dressed up as a complete one.
+ * Default: disabled (set NEXT_PUBLIC_ENABLE_QUALITY_BADGE='true' to enable), preserving the
+ * current notice-stripping behavior until validated.
+ */
+export const ENABLE_QUALITY_BADGE =
+  process.env.NEXT_PUBLIC_ENABLE_QUALITY_BADGE === 'true'

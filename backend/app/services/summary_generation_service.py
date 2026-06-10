@@ -124,6 +124,66 @@ def calculate_section_coverage(summary_data: Dict[str, Any]) -> Tuple[int, int, 
     return len(covered_sections), total_sections, covered_sections, missing_sections
 
 
+def _xbrl_value_appears(value: float, haystack_lower: str) -> bool:
+    """Does an XBRL value appear in the summary text, in any common rendering (billions/
+    millions/grouped)? Mirrors the eval harness's grounding check without importing it."""
+    av = abs(value)
+    candidates: set[str] = set()
+    if av >= 1e9:
+        for d in range(0, 4):  # 0-3 decimals: covers "383", "383.3", "383.29", "383.285"
+            candidates.add(f"{av / 1e9:.{d}f}")
+    if av >= 1e6:
+        candidates.add(f"{av / 1e6:,.0f}")
+        candidates.add(f"{av / 1e6:.0f}")
+    candidates.add(f"{int(round(av)):,}")
+    return any(c.lower() in haystack_lower for c in candidates if len(c.replace(",", "")) >= 2)
+
+
+def assess_quality(
+    summary_data: Dict[str, Any], xbrl_metrics: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Deterministic quality verdict for a generated summary (roadmap S4).
+
+    Returns {tier: "full"|"partial", reasons, numeric_grounded, covered_count, total_count}.
+    "partial" means thin section coverage OR financials that don't match the SEC-verified XBRL —
+    the signal the UI surfaces honestly (quality badge) instead of silently stripping notices."""
+    covered, total, _, _ = calculate_section_coverage(summary_data)
+    reasons: List[str] = []
+
+    numeric_grounded = True
+    if xbrl_metrics:
+        import json as _json
+
+        haystack = (
+            str(summary_data.get("business_overview") or "")
+            + " "
+            + _json.dumps(summary_data.get("financial_highlights") or {}, default=str)
+        ).lower()
+        checks: List[bool] = []
+        for key in ("revenue", "net_income"):
+            node = xbrl_metrics.get(key)
+            current = node.get("current", {}) if isinstance(node, dict) else {}
+            value = current.get("value") if isinstance(current, dict) else None
+            if value is not None:
+                checks.append(_xbrl_value_appears(float(value), haystack))
+        if checks:
+            numeric_grounded = all(checks)
+            if not numeric_grounded:
+                reasons.append("financial figures not grounded in SEC XBRL data")
+
+    if covered < MINIMUM_SECTIONS_FOR_FULL_RESULT:
+        reasons.append(f"only {covered}/{total} sections populated")
+
+    tier = "full" if (covered >= MINIMUM_SECTIONS_FOR_FULL_RESULT and numeric_grounded) else "partial"
+    return {
+        "tier": tier,
+        "reasons": reasons,
+        "numeric_grounded": numeric_grounded,
+        "covered_count": covered,
+        "total_count": total,
+    }
+
+
 def determine_result_type(
     summary_data: Dict[str, Any],
     had_errors: bool = False,

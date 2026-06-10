@@ -121,6 +121,13 @@ class Settings(BaseSettings):
     # beats baseline. Toggle with AI_USE_STRUCTURED_OUTPUT=true.
     USE_STRUCTURED_OUTPUT: bool = False
 
+    # Semantic quality gate (roadmap S4). When True, summaries assessed "partial" (thin
+    # coverage or financials not grounded in XBRL) are NOT persisted, so the next visit
+    # regenerates instead of serving a cached below-bar summary. The quality verdict itself is
+    # always attached to raw_summary["quality"] regardless of this flag (additive metadata).
+    # Default False to preserve current caching behavior until validated.
+    AI_QUALITY_GATE: bool = False
+
     # AI Recovery Settings
     RECOVERY_MAX_CONCURRENCY: int = 3  # Max concurrent API calls for section recovery
 

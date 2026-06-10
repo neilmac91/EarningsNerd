@@ -20,6 +20,7 @@ import FinancialMetricsTable from '@/components/FinancialMetricsTable'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import { isAxiosError } from 'axios'
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
+import { ENABLE_QUALITY_BADGE } from '@/lib/featureFlags'
 import analytics from '@/lib/analytics'
 import { ENABLE_FINANCIAL_CHARTS } from '@/lib/featureFlags'
 import { sanitizeFilename } from '@/lib/format'
@@ -959,8 +960,15 @@ function SummaryDisplay({
   onRetry?: () => void
 }) {
   const markdownContent = summary.business_overview || ''
-  const cleanedMarkdown = useMemo(() => stripInternalNotices(markdownContent), [markdownContent])
+  // S4 honest degradation: when the quality badge is enabled we stop stripping internal
+  // notices so a degraded summary isn't dressed up as complete (the badge tells the story).
+  const cleanedMarkdown = useMemo(
+    () => (ENABLE_QUALITY_BADGE ? markdownContent : stripInternalNotices(markdownContent)),
+    [markdownContent]
+  )
   const rawSummary = summary.raw_summary && typeof summary.raw_summary === 'object' ? summary.raw_summary : null
+  const quality = rawSummary?.quality as { tier?: string; reasons?: string[] } | undefined
+  const isPartialQuality = ENABLE_QUALITY_BADGE && quality?.tier === 'partial'
 
   const fallbackMessage = 'Summary temporarily unavailable — please retry.'
   const writerError = rawSummary?.writer_error
@@ -1125,9 +1133,24 @@ function SummaryDisplay({
                 <div className="flex items-center space-x-2">
                   <FileText className="h-6 w-6 text-primary-600" />
                   <h2 className="text-xl font-semibold text-gray-900">Summary</h2>
+                  {/* S4 quality badge: honest signal of full vs partial output */}
+                  {ENABLE_QUALITY_BADGE && quality?.tier && (
+                    <span
+                      title={quality.reasons && quality.reasons.length ? quality.reasons.join('; ') : undefined}
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        quality.tier === 'full'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      {quality.tier === 'full'
+                        ? 'Full summary'
+                        : `Partial${quality.reasons && quality.reasons.length ? ` — ${quality.reasons[0]}` : ''}`}
+                    </span>
+                  )}
                 </div>
                 {/* Retry button - shown for partial results or fallback summaries */}
-                {(isPartial || writerFallback) && onRetry && (
+                {(isPartial || writerFallback || isPartialQuality) && onRetry && (
                   <button
                     onClick={onRetry}
                     className="inline-flex items-center px-4 py-2 text-sm font-medium text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors border border-primary-200"

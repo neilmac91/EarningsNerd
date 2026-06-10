@@ -31,6 +31,7 @@ from app.services.summary_generation_service import (
     generate_summary_background,
     run_generation_guarded,
     mark_stale_progress_as_error,
+    assess_quality,
     get_generation_progress_snapshot,
     record_progress,
     progress_as_dict,
@@ -683,20 +684,37 @@ async def generate_summary_stream(
             raw_summary["sections"] = sections_info
             raw_summary["status"] = summary_status
 
+            # S4: deterministic quality verdict (always attached as metadata for the UI badge).
+            quality = assess_quality(summary_payload, xbrl_metrics)
+            raw_summary["quality"] = quality
+
+            # S4 quality gate (flagged, default off): don't cache a below-bar summary so the
+            # next visit regenerates instead of serving a stale partial. Excerpt/section cache
+            # is still written (cheap, speeds the retry).
+            from app.config import settings as _settings
+            skip_persist = _settings.AI_QUALITY_GATE and quality["tier"] == "partial"
+            if skip_persist:
+                logger.info(
+                    f"[stream:{filing_id}] Quality gate: tier=partial, not caching summary "
+                    f"(reasons: {quality['reasons']})"
+                )
+
             # DB OP: Persist summary
             def save_summary_sync():
                 filing_for_cache = session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
 
-                summary = Summary(
-                    filing_id=filing_id,
-                    business_overview=markdown,
-                    financial_highlights=normalized_financial_section,
-                    risk_factors=risk_section,
-                    management_discussion=management_section,
-                    key_changes=guidance_section,
-                    raw_summary=raw_summary
-                )
-                session.add(summary)
+                summary = None
+                if not skip_persist:
+                    summary = Summary(
+                        filing_id=filing_id,
+                        business_overview=markdown,
+                        financial_highlights=normalized_financial_section,
+                        risk_factors=risk_section,
+                        management_discussion=management_section,
+                        key_changes=guidance_section,
+                        raw_summary=raw_summary
+                    )
+                    session.add(summary)
 
                 if filing_for_cache:
                     cache = filing_for_cache.content_cache
@@ -717,7 +735,7 @@ async def generate_summary_stream(
                         session.add(cache)
 
                 session.commit()
-                return summary.id
+                return summary.id if summary is not None else None
 
             saved_summary_id = await run_sync_db(save_summary_sync)
             
