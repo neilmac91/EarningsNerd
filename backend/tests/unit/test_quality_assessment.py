@@ -58,3 +58,21 @@ def test_no_xbrl_does_not_force_partial_on_grounding():
     verdict = assess_quality(summary, None)
     assert verdict["numeric_grounded"] is True  # nothing to contradict
     assert verdict["tier"] == "full"
+
+
+def test_million_scale_decimals_are_grounded():
+    """Million-scale figures with decimals (e.g. $120.5M) must match (parity with eval harness)."""
+    xbrl = {
+        "revenue": {"current": {"value": 120_500_000.0}},
+        "net_income": {"current": {"value": 12_250_000.0}},
+    }
+    summary = {
+        "business_overview": "Revenue was $120.5 million and net income was $12.25 million.",
+        "financial_highlights": {"revenue": "$120.5M", "net_income": "$12.25M"},
+        "risk_factors": [{"text": "Customer concentration remains a material risk to results."}],
+        "management_discussion": "Management noted steady margin improvement through the period.",
+        "key_changes": "The company initiated a modest share-repurchase program this year.",
+    }
+    verdict = assess_quality(summary, xbrl)
+    assert verdict["numeric_grounded"] is True
+    assert verdict["tier"] == "full"

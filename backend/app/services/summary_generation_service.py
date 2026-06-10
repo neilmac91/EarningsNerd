@@ -133,8 +133,9 @@ def _xbrl_value_appears(value: float, haystack_lower: str) -> bool:
         for d in range(0, 4):  # 0-3 decimals: covers "383", "383.3", "383.29", "383.285"
             candidates.add(f"{av / 1e9:.{d}f}")
     if av >= 1e6:
-        candidates.add(f"{av / 1e6:,.0f}")
-        candidates.add(f"{av / 1e6:.0f}")
+        for d in range(0, 4):  # 0-3 decimals, grouped and ungrouped (e.g. "120.5", "1,250")
+            candidates.add(f"{av / 1e6:.{d}f}")
+            candidates.add(f"{av / 1e6:,.{d}f}")
     candidates.add(f"{int(round(av)):,}")
     return any(c.lower() in haystack_lower for c in candidates if len(c.replace(",", "")) >= 2)
 

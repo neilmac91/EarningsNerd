@@ -262,7 +262,9 @@ async def generate_summary_stream(
     # generate (a cached summary returned above and is not counted). Never gates the first
     # summary — a new IP is always under the cap — and fails open if Redis is down.
     from app.config import settings as _settings
-    if current_user is None and _settings.ENABLE_GUEST_DAILY_QUOTA:
+    # Skip when the client IP is unresolvable ("unknown" from a proxy/network config) — all such
+    # guests would otherwise share one quota key and exhaust the daily limit collectively.
+    if current_user is None and _settings.ENABLE_GUEST_DAILY_QUOTA and client_host != "unknown":
         from app.services.guest_quota import check_and_increment_guest_quota
 
         allowed, count = await check_and_increment_guest_quota(
@@ -708,14 +710,16 @@ async def generate_summary_stream(
             quality = assess_quality(summary_payload, xbrl_metrics)
             raw_summary["quality"] = quality
 
-            # S4 quality gate (flagged, default off): don't cache a below-bar summary so the
-            # next visit regenerates instead of serving a stale partial. Excerpt/section cache
-            # is still written (cheap, speeds the retry).
+            # S4 quality gate (flagged, default off): the summary is ALWAYS persisted, so the
+            # streamed result doesn't vanish when the client refetches and isn't regenerated from
+            # scratch on revisit. When a result is assessed "partial", the gate instead skips
+            # charging the user's monthly quota (they weren't served a full result); the UI
+            # surfaces it honestly via the quality badge + one-click Regenerate.
             from app.config import settings as _settings
-            skip_persist = _settings.AI_QUALITY_GATE and quality["tier"] == "partial"
-            if skip_persist:
+            count_usage = not (_settings.AI_QUALITY_GATE and quality["tier"] == "partial")
+            if not count_usage:
                 logger.info(
-                    f"[stream:{filing_id}] Quality gate: tier=partial, not caching summary "
+                    f"[stream:{filing_id}] Quality gate: tier=partial, not charging usage "
                     f"(reasons: {quality['reasons']})"
                 )
 
@@ -723,18 +727,16 @@ async def generate_summary_stream(
             def save_summary_sync():
                 filing_for_cache = session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
 
-                summary = None
-                if not skip_persist:
-                    summary = Summary(
-                        filing_id=filing_id,
-                        business_overview=markdown,
-                        financial_highlights=normalized_financial_section,
-                        risk_factors=risk_section,
-                        management_discussion=management_section,
-                        key_changes=guidance_section,
-                        raw_summary=raw_summary
-                    )
-                    session.add(summary)
+                summary = Summary(
+                    filing_id=filing_id,
+                    business_overview=markdown,
+                    financial_highlights=normalized_financial_section,
+                    risk_factors=risk_section,
+                    management_discussion=management_section,
+                    key_changes=guidance_section,
+                    raw_summary=raw_summary
+                )
+                session.add(summary)
 
                 if filing_for_cache:
                     cache = filing_for_cache.content_cache
@@ -755,20 +757,20 @@ async def generate_summary_stream(
                         session.add(cache)
 
                 session.commit()
-                return summary.id if summary is not None else None
+                return summary.id
 
             saved_summary_id = await run_sync_db(save_summary_sync)
             
             mark_stage("persist_summary")
 
-            if user_id:
+            if user_id and count_usage:
                 def track_usage_sync():
                     from app.models import User
                     user = session.query(User).filter(User.id == user_id).first()
                     if user:
                         month = get_current_month()
                         increment_user_usage(user.id, month, session)
-                
+
                 await run_sync_db(track_usage_sync)
                 
             mark_stage("usage_tracking")

@@ -121,11 +121,12 @@ class Settings(BaseSettings):
     # beats baseline. Toggle with AI_USE_STRUCTURED_OUTPUT=true.
     USE_STRUCTURED_OUTPUT: bool = False
 
-    # Semantic quality gate (roadmap S4). When True, summaries assessed "partial" (thin
-    # coverage or financials not grounded in XBRL) are NOT persisted, so the next visit
-    # regenerates instead of serving a cached below-bar summary. The quality verdict itself is
-    # always attached to raw_summary["quality"] regardless of this flag (additive metadata).
-    # Default False to preserve current caching behavior until validated.
+    # Semantic quality gate (roadmap S4). When True, a summary assessed "partial" (thin coverage
+    # or financials not grounded in XBRL) does NOT consume the user's monthly quota — they
+    # weren't served a full result. The summary is always persisted regardless (so the streamed
+    # result doesn't vanish on refetch), and the UI surfaces partials honestly via the quality
+    # badge + Regenerate. The verdict is always attached to raw_summary["quality"] (additive
+    # metadata). Default False to preserve current behavior until validated.
     AI_QUALITY_GATE: bool = False
 
     # Anonymous (guest) daily summary quota (roadmap S5). Guests currently have no daily/monthly
