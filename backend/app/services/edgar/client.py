@@ -431,6 +431,9 @@ class EdgarClient:
         """Transform EdgarTools Filing to our Filing model."""
         from datetime import date as date_type
 
+        # EdgarTools exposes Company.cik as an int; normalize so string ops (lstrip) work
+        cik = str(cik)
+
         # Parse filing date with error handling
         filing_date = edgar_filing.filing_date
         if isinstance(filing_date, str):
@@ -460,10 +463,12 @@ class EdgarClient:
         cik_clean = cik.lstrip("0") or "0"  # Remove leading zeros, but keep at least "0"
         sec_url = f"https://www.sec.gov/Archives/edgar/data/{cik_clean}/{accession_clean}/"
 
-        # Get document URL, falling back to primary_document attribute
-        document_url = None
-        if hasattr(edgar_filing, 'primary_document') and edgar_filing.primary_document:
-            document_url = edgar_filing.primary_document
+        # Resolve the absolute document URL. EdgarTools exposes `filing_url` (the canonical
+        # absolute URL to the primary document); fall back to joining the archive folder with
+        # the bare `primary_document` filename so document_url is always fetchable, never relative.
+        document_url = getattr(edgar_filing, 'filing_url', None)
+        if not document_url and getattr(edgar_filing, 'primary_document', None):
+            document_url = sec_url + edgar_filing.primary_document
 
         return Filing(
             accession_number=edgar_filing.accession_number,

@@ -302,7 +302,7 @@ class EdgarXBRLService:
 
             # Get company via EdgarTools
             edgar_company = await run_in_executor_with_timeout(
-                lambda: EdgarCompany(cik=cik_padded),
+                lambda: EdgarCompany(cik_padded),
                 timeout=self.timeout,
             )
 
