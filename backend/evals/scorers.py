@@ -171,6 +171,94 @@ def score_coverage(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
 
 
 # ---------------------------------------------------------------------------
+# Numeric precision / contradiction (Artifact-1 hard gate G1)
+# ---------------------------------------------------------------------------
+# `score_numeric_accuracy` above measures RECALL — are the right numbers present? It cannot
+# catch a confidently-wrong figure: a summary whose revenue field reads "$4.2B" still scores
+# perfect recall if the correct "$3.8B" appears elsewhere. Precision closes that: it checks the
+# LABELED financial fields directly, so a number that contradicts ground truth is caught.
+_LABELED_METRICS = ("revenue", "net_income", "eps")
+_NUMBER_TOKEN_RE = re.compile(r"\$?\d[\d,]*(?:\.\d+)?")
+
+
+def score_numeric_precision(
+    payload: Dict[str, Any], ground_truth: List[GroundTruthFact]
+) -> Tuple[float, List[str]]:
+    """Precision of the labeled financial fields. Returns (precision, contradictions).
+
+    For each ground-truth metric with a matching `financial_highlights` field that contains a
+    number, the field must render that metric's value. A number present but not matching is a
+    contradiction (a likely hallucination). Absent values ("Not disclosed") are coverage's
+    concern, not a contradiction. precision = 1.0 when nothing numeric is checkable."""
+    fh = payload.get("financial_highlights")
+    if not isinstance(fh, dict) or not ground_truth:
+        return 1.0, []
+    gt_by_metric = {f.metric: f for f in ground_truth}
+    checked = 0
+    contradictions: List[str] = []
+    for metric in _LABELED_METRICS:
+        fact = gt_by_metric.get(metric)
+        if fact is None:
+            continue
+        field_val = fh.get(metric)
+        if not isinstance(field_val, str) or not _NUMBER_TOKEN_RE.search(field_val):
+            continue  # absent or non-numeric → not a contradiction
+        checked += 1
+        renderings = _number_renderings(fact.value, fact.unit)
+        if not any(r.lower() in field_val.lower() for r in renderings):
+            contradictions.append(
+                f"{metric}: field '{field_val.strip()[:50]}' contradicts ground truth "
+                f"{fact.value:g} {fact.unit}"
+            )
+    precision = round((checked - len(contradictions)) / checked, 4) if checked else 1.0
+    return precision, contradictions
+
+
+# ---------------------------------------------------------------------------
+# Output hygiene (Artifact-1 hard gate G4)
+# ---------------------------------------------------------------------------
+# Leaked AI/internal notices and placeholder filler must never reach a user. Deterministic and
+# cheap to catch in the prose fields. (G2 fabricated comparatives / G3 hallucinated events need
+# the source document and are assessed by the optional LLM judge, not here.)
+HYGIENE_PATTERNS = (
+    "as an ai", "as a language model", "i cannot", "i'm sorry", "i am sorry",
+    "internal note", "internal only", "system prompt", "do not show", "do not display",
+    "todo", "tbd", "lorem ipsum", "[insert", "[placeholder", "placeholder text", "xxxx",
+)
+_HYGIENE_PROSE_FIELDS = ("executive_summary", "management_discussion", "outlook")
+
+
+def detect_hygiene_violations(payload: Dict[str, Any]) -> List[str]:
+    """Return human-readable hygiene violations found in the prose fields and risk list."""
+    violations: List[str] = []
+
+    def scan(label: str, text: Any) -> None:
+        if not isinstance(text, str):
+            return
+        low = text.lower()
+        for p in HYGIENE_PATTERNS:
+            if p in low:
+                violations.append(f"{label}: contains '{p}'")
+
+    for key in _HYGIENE_PROSE_FIELDS:
+        scan(key, payload.get(key))
+    rf = payload.get("risk_factors")
+    if isinstance(rf, list):
+        for i, item in enumerate(rf):
+            scan(f"risk_factors[{i}]", item)
+    return violations
+
+
+def compute_gate_failures(
+    payload: Dict[str, Any], contradictions: List[str]
+) -> List[str]:
+    """Combine Artifact-1 deterministic hard gates into a single veto list."""
+    failures = [f"G1 numeric fidelity — {c}" for c in contradictions]
+    failures += [f"G4 output hygiene — {h}" for h in detect_hygiene_violations(payload)]
+    return failures
+
+
+# ---------------------------------------------------------------------------
 # Top-level
 # ---------------------------------------------------------------------------
 def _financial_haystack(payload: Dict[str, Any]) -> str:
@@ -201,6 +289,8 @@ def score_summary(
     if payload is None:
         return RubricScore(
             schema_valid=False, repaired=True, numeric_accuracy=0.0, coverage=0.0,
+            numeric_precision=0.0,
+            gate_failures=["G1 numeric fidelity — unparseable output (no JSON object found)"],
             missing_sections=list(REQUIRED_SECTIONS),
             missing_facts=[f.metric for f in ground_truth],
         )
@@ -210,11 +300,14 @@ def score_summary(
         _financial_haystack(payload), ground_truth
     )
     coverage, missing_sections = score_coverage(payload)
+    precision, contradictions = score_numeric_precision(payload, ground_truth)
     return RubricScore(
         schema_valid=schema_valid,
         repaired=repaired,
         numeric_accuracy=numeric,
         coverage=coverage,
+        numeric_precision=precision,
+        gate_failures=compute_gate_failures(payload, contradictions),
         missing_sections=missing_sections,
         matched_facts=matched,
         missing_facts=missing_facts,
