@@ -1,3 +1,81 @@
+# Activation Roadmap — Execution Checklist
+
+Source of truth: `tasks/activation-gap-analysis.md`. North star: anonymous visitor →
+first successful, high-quality summary, fast and reliable.
+
+Order: quick wins first (Q1→Q8), then strategic bets (S3 harness → S1 → S2 → S4 → S5).
+Strategic bets pause for review before/after. Quick wins ship in batches.
+
+## Quick Wins
+
+- [x] **Q1 — Waitlist gate.** DECISION (user): keep gate up, open the demo. Added
+      `/company`,`/filing` to ALLOWED_PREFIXES so waitlist visitors can try the full
+      flow; homepage `/` stays gated. Default flip deferred to launch. ✅ guards tests pass.
+- [x] **Q2 — Zero-wait example.** `backend/scripts/pregenerate_examples.py` resolves each
+      QuickAccessBar ticker's latest 10-K, persists Company/Filing, and caches the summary via
+      `generate_summary_background`. Homepage "See an Example" CTA deep-links to
+      `/filing/{NEXT_PUBLIC_EXAMPLE_FILING_ID}` when set, else falls back to `/company/AAPL`.
+      Cache population runs in prod (network+AI). ✅ eslint clean, 30 vitest pass, script imports.
+- [x] **Q3 — "Stalled" warning at 15s.** Raised threshold to 45s + "usually 30–60s" hint.
+      `page-client.tsx:618`. ✅ verified: eslint clean, 30 vitest pass.
+- [x] **Q4 — XBRL timeout lottery.** XBRL now starts concurrently with the filing-document
+      fetch (was serialized after it); enrichment budget raised 8s→18s.
+      `summaries.py`. ✅ verified: 261 backend tests pass.
+- [x] **Q5 — Default to the right filing.** "Recommended" banner + row badge for the latest
+      10-K (else latest filing) on the company page, one-click summary CTA. Behind
+      `ENABLE_RECOMMENDED_FILING` flag (default on). Also fixed a latent rules-of-hooks
+      violation (useMemo after early returns). ✅ eslint clean, 30 vitest pass.
+- [x] **Q6 — Stream resilience.** Added one automatic stream retry on transient failure
+      (before content delivered). NOTE: roadmap's timeout-mismatch premise was partly
+      inaccurate (stream excluded from endpoint middleware `main.py:237`; client 120s is an
+      *inactivity* timeout reset by 3s heartbeats) — so timeout reshuffling was unnecessary;
+      the real gap was no auto-retry. ✅ eslint clean, vitest pass.
+- [x] **Q7 — Orphaned background tasks.** `run_generation_guarded` wrapper guarantees a
+      terminal "error" state if a fire-and-forget task crashes; `/progress` flips stale
+      (>180s) non-terminal rows to retryable error. ✅ 7 new unit tests pass.
+- [x] **Q8 — Raw 500s on circuit-open.** Global FastAPI handler converts `CircuitOpenError`
+      → 503 + Retry-After. ✅ 2 new unit tests pass.
+
+## Strategic Bets (pause for review)
+
+- [x] **S3 — Eval harness (BUILT; baselining needs API keys/network).** `backend/evals/`:
+      canonical schema, deterministic scorers (schema-validity + numeric-accuracy-vs-XBRL +
+      substantive-coverage), multi-provider registry (baseline/gemini-json/claude-sonnet/
+      claude-opus/qwen/kimi/deepseek — Claude via native SDK, others OpenAI-compat, cost
+      tracked), golden-set seed + auto-builder, runner+report, README. ✅ 12 offline scorer
+      tests pass. Running the baseline/bake-off requires SEC network + provider keys (prod/CI).
+      Per checkpoint rule, PAUSE before S1 (prompt/schema rewrite) for review.
+- [x] **S1 — Prompt/schema conflict (BEHIND DEFAULT-OFF FLAG).** `AI_USE_STRUCTURED_OUTPUT`
+      flag: structured mode uses new schema-first prompts (`prompts/10k|10q-structured-agent.md`,
+      narrative-format block removed), enforces `response_format={"type":"json_object"}` at the
+      API layer, and pins temperature to 0.1. Flag off = current behavior, byte-for-byte.
+      ✅ 2 unit tests (off unchanged / on enforces JSON+schema prompt+temp); 152 unit+smoke pass.
+      ADOPTION GATE: run the S3 harness `baseline` candidate with the flag on vs off; flip the
+      default only if it beats baseline on schema-validity + numeric accuracy + coverage.
+- [x] **S2 — Brittle section extraction (core).** Added the missing 10-K TOC/length guard:
+      `_looks_like_toc` + `_accept_section` reject TOC slivers and fall through to the next
+      pattern (the 10-K path previously accepted the first match unguarded). Added extraction-
+      confidence logging (N/3 critical sections). ✅ 2 unit tests; 277 backend tests pass.
+      FOLLOW-UP (smaller, deferred): replace Apple-specific segment regex in
+      `filing_parser.py:754` with XBRL-derived segments.
+- [x] **S4 — Semantic quality gate + honest degradation.** Backend: `assess_quality` verdict
+      (coverage + XBRL numeric grounding) always attached to `raw_summary.quality`; flagged
+      `AI_QUALITY_GATE` skips caching "partial" summaries so the next visit regenerates.
+      Frontend (flagged `NEXT_PUBLIC_ENABLE_QUALITY_BADGE`): explicit Full/Partial badge +
+      stops client-side notice-stripping + regenerate CTA. ✅ 4 verdict unit tests; 281 backend
+      + 30 frontend tests pass. (Targeted per-section regen loop: deferred — `_recover_missing_sections`
+      already regenerates empty sections; verdict now makes degradation honest.)
+- [x] **S5 — Anonymous quota.** `guest_quota.check_and_increment_guest_quota` (atomic Redis
+      INCR, fails open) enforces a per-IP daily cap for guests in the stream endpoint, only when
+      actually generating (cached hits don't count) and never gating the first summary. Friendly
+      429 "create a free account" when over. Behind `ENABLE_GUEST_DAILY_QUOTA` (default off),
+      `GUEST_DAILY_SUMMARY_LIMIT=3`. ✅ 4 unit tests; 285 backend tests pass.
+
+## Review log
+(append outcomes per item as they ship)
+
+---
+
 # Homepage Redesign Plan
 
 ## Status: AWAITING APPROVAL
@@ -380,3 +458,48 @@ boxShadow: {
 
 *Plan created: 2026-02-05*
 *Awaiting approval before implementation begins.*
+
+---
+---
+
+# Activation Gap Analysis — Investigation Plan & Progress (2026-06-09)
+
+Diagnostic review (read-only): prioritized gap analysis + roadmap for activation
+(anonymous visitor → first successful, high-quality summary). No application
+code changes; deliverable is `tasks/activation-gap-analysis.md`.
+
+## Phase 1 — Map reality
+- [x] Confirm CLAUDE.md against actual code (entry points, routes, services)
+- [x] Identify real entry points for a new visitor (landing, middleware, quick-access tickers)
+
+## Phase 2 — Trace activation funnel (subagent: frontend)
+- [x] Landing page → search → company page → filing page → stream → render
+- [x] Auth/waitlist gates, error/empty/slow states, clicks and waits per step
+- [x] SSE consumption, timeouts, retry behavior, progress UX
+
+## Phase 3 — Trace backend pipeline (subagent: backend)
+- [x] companies/filings/summaries routers; anonymous gating truth table
+- [x] Generation orchestration steps, timeouts, fallbacks, failure modes
+- [x] Rate limiting, circuit breaker, caching layers
+
+## Phase 4 — AI quality audit (subagent: AI)
+- [x] openai_service prompt construction, model params, retries, JSON repair
+- [x] Prompts vs schema conflict; section extraction; XBRL grounding
+- [x] Fallback/recovery machinery and silent-degradation paths
+- [x] Spot-verify load-bearing claims directly (middleware.ts:40, summaries.py:44/47, openai_service.py:1922-1959, prompts/10k-analyst-agent.md:9-13)
+
+## Phase 5 — Synthesize & deliver
+- [x] Score gaps (Impact × Confidence ÷ Effort), split Quick Wins vs Strategic Bets
+- [x] Write `tasks/activation-gap-analysis.md` (7 sections per spec)
+- [x] Chat summary
+- [x] Commit & push to `claude/earningsnerd-activation-diagnostic-qscmnn`
+
+## Review
+Report delivered at `tasks/activation-gap-analysis.md`. Top findings: waitlist
+middleware gate can block the entire funnel; no zero-wait demo summary path;
+prompt/JSON-schema conflict with no API-level structured-output enforcement;
+brittle regex extraction + 8s XBRL budget driving "hit and miss" quality;
+placeholder/fallback content indistinguishable from real content (silent
+degradation). See report for full evidence and sequencing. Note: this section
+relates to the earlier homepage-redesign plan above — that plan's "remove
+waitlist redirect" item aligns with this report's #1 quick win.
