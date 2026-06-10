@@ -199,3 +199,28 @@ def test_score_summary_clean_passes_gates():
     assert score.passed_gates is True
     assert score.gate_failures == []
     assert score.numeric_precision == 1.0
+
+
+# Sign fidelity: a loss reported as a profit must fail G1 even though abs-value renderings match.
+NET_LOSS = GroundTruthFact(metric="net_income", value=-1_200_000_000.0, unit="USD")
+
+
+def test_sign_flip_loss_reported_as_profit_is_a_contradiction():
+    fh = {"revenue": "$383.3 billion", "net_income": "$1.2 billion",  # positive, but truth is a loss
+          "eps": "$6.13", "key_metrics": []}
+    precision, contradictions = score_numeric_precision(_payload(financial_highlights=fh), [NET_LOSS])
+    assert precision == 0.0 and any("sign mismatch" in c for c in contradictions)
+
+
+def test_loss_reported_as_loss_passes():
+    for phrasing in ("net loss of $1.2 billion", "$(1.2) billion", "-$1.2 billion"):
+        fh = {"revenue": "$383.3 billion", "net_income": phrasing, "eps": "$6.13", "key_metrics": []}
+        precision, contradictions = score_numeric_precision(_payload(financial_highlights=fh), [NET_LOSS])
+        assert precision == 1.0 and contradictions == [], phrasing
+
+
+def test_profit_reported_as_loss_is_a_contradiction():
+    fh = {"revenue": "$383.3 billion", "net_income": "net loss of $96.995 billion",
+          "eps": "$6.13", "key_metrics": []}
+    precision, contradictions = score_numeric_precision(_payload(financial_highlights=fh), [NET_INCOME])
+    assert precision == 0.0 and any("sign mismatch" in c for c in contradictions)

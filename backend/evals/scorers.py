@@ -179,6 +179,16 @@ def score_coverage(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
 # LABELED financial fields directly, so a number that contradicts ground truth is caught.
 _LABELED_METRICS = ("revenue", "net_income", "eps")
 _NUMBER_TOKEN_RE = re.compile(r"\$?\d[\d,]*(?:\.\d+)?")
+# Negative-value indicators: a leading minus or accounting parentheses on a figure, or an
+# explicit loss word. `_number_renderings` matches on abs(value), so without this a profit
+# reported where the truth is a loss (sign-flipped) would silently satisfy the G1 gate.
+_NEGATIVE_INDICATOR_RE = re.compile(r"-\s*\$?\d|\(\s*\$?\d")
+_LOSS_WORDS = ("loss", "deficit", "negative")
+
+
+def _indicates_negative(field_val: str) -> bool:
+    low = field_val.lower()
+    return bool(_NEGATIVE_INDICATOR_RE.search(field_val)) or any(w in low for w in _LOSS_WORDS)
 
 
 def score_numeric_precision(
@@ -187,9 +197,9 @@ def score_numeric_precision(
     """Precision of the labeled financial fields. Returns (precision, contradictions).
 
     For each ground-truth metric with a matching `financial_highlights` field that contains a
-    number, the field must render that metric's value. A number present but not matching is a
-    contradiction (a likely hallucination). Absent values ("Not disclosed") are coverage's
-    concern, not a contradiction. precision = 1.0 when nothing numeric is checkable."""
+    number, the field must (a) match the metric's sign and (b) render its value. A wrong number
+    OR a flipped sign (a loss reported as a profit) is a contradiction. Absent values
+    ("Not disclosed") are coverage's concern. precision = 1.0 when nothing numeric is checkable."""
     fh = payload.get("financial_highlights")
     if not isinstance(fh, dict) or not ground_truth:
         return 1.0, []
@@ -204,6 +214,12 @@ def score_numeric_precision(
         if not isinstance(field_val, str) or not _NUMBER_TOKEN_RE.search(field_val):
             continue  # absent or non-numeric → not a contradiction
         checked += 1
+        if (fact.value < 0) != _indicates_negative(field_val):
+            contradictions.append(
+                f"{metric}: field '{field_val.strip()[:50]}' sign mismatch with ground truth "
+                f"{fact.value:g} {fact.unit}"
+            )
+            continue
         renderings = _number_renderings(fact.value, fact.unit)
         if not any(r.lower() in field_val.lower() for r in renderings):
             contradictions.append(

@@ -25,6 +25,7 @@ from evals.scorers import parse_model_json
 DEFAULT_JUDGE_MODEL = "claude-opus-4-8"  # strong reasoning; judging faithfulness > generating it
 JUDGE_PASS_THRESHOLD = 4.0  # mean dimension score required to PASS when no gate fails (Artifact 1)
 _DIMENSIONS = ("faithfulness", "insight", "clarity", "specificity")
+_anthropic_client: Any = None  # shared lazily across calls to reuse the connection pool
 
 _JUDGE_SYSTEM = (
     "You are a strict, adversarial evaluator of AI-generated SEC-filing summaries for an "
@@ -67,8 +68,9 @@ class JudgeVerdict:
 
     @property
     def passed(self) -> bool:
-        """PASS requires no judge gate failure AND a mean dimension score over threshold."""
-        return not self.gate_failures and self.mean_dimension >= JUDGE_PASS_THRESHOLD
+        """Consistent with the final verdict (which already folds in gates / explicit FAIL /
+        the dimension bar), so an explicit FAIL is never counted as a pass."""
+        return self.verdict == "PASS"
 
 
 def build_judge_messages(
@@ -113,13 +115,17 @@ def parse_judge_response(raw: str) -> JudgeVerdict:
         notes=str(payload.get("notes", ""))[:300],
         raw=raw or "",
     )
-    # Trust an explicit PASS/FAIL only when consistent with the gates; otherwise derive it so a
-    # model can't claim PASS while reporting a gate failure.
+    # Resolve the final verdict. Gates always veto; an explicit FAIL is always respected (so a
+    # FAIL with high dimension scores is never counted as a pass); an explicit PASS stands unless
+    # a gate vetoes; with no explicit verdict we fall back to the dimension bar.
     explicit = str(payload.get("verdict", "")).strip().upper()
-    if explicit in ("PASS", "FAIL"):
-        verdict.verdict = "FAIL" if gate_failures else explicit
+    meets_bar = not gate_failures and verdict.mean_dimension >= JUDGE_PASS_THRESHOLD
+    if gate_failures or explicit == "FAIL":
+        verdict.verdict = "FAIL"
+    elif explicit == "PASS":
+        verdict.verdict = "PASS"
     else:
-        verdict.verdict = "PASS" if verdict.passed else "FAIL"
+        verdict.verdict = "PASS" if meets_bar else "FAIL"
     return verdict
 
 
@@ -142,9 +148,13 @@ async def judge_summary(
     if not api_key:
         return JudgeVerdict(verdict="FAIL", error="missing ANTHROPIC_API_KEY")
 
+    global _anthropic_client
+    if _anthropic_client is None:
+        _anthropic_client = anthropic.AsyncAnthropic(api_key=api_key)
+    client = _anthropic_client
+
     system, user = build_judge_messages(summary_payload, company, filing_type, excerpt, xbrl_text)
     try:
-        client = anthropic.AsyncAnthropic(api_key=api_key)
         resp = await client.messages.create(
             model=model_id, max_tokens=max_tokens, temperature=0.0,
             system=system, messages=[{"role": "user", "content": user}],

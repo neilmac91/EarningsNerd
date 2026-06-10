@@ -47,6 +47,17 @@ def test_low_dimensions_fail_when_verdict_absent():
     assert v.verdict == "FAIL" and v.passed is False  # mean 2.25 < threshold
 
 
+def test_explicit_fail_with_high_dimensions_is_not_a_pass():
+    # The judge says FAIL but reports no gates and high scores — must NOT be counted as a pass.
+    raw = json.dumps({
+        "gate_failures": [],
+        "dimensions": {"faithfulness": 5, "insight": 5, "clarity": 5, "specificity": 5},
+        "verdict": "FAIL",
+    })
+    v = parse_judge_response(raw)
+    assert v.verdict == "FAIL" and v.passed is False
+
+
 def test_parse_garbage_is_fail_with_error():
     v = parse_judge_response("the summary looks fine to me")
     assert v.verdict == "FAIL" and v.error is not None
