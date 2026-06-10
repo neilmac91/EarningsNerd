@@ -258,6 +258,26 @@ async def generate_summary_stream(
     # Removed blocking synchronous DB query here. Filing existence is checked inside stream_summary.
     # Removed caching of company data and filing attributes here. These will be fetched inside stream_summary.
 
+    # S5: per-IP daily quota for guests (flagged). Only reached when we're actually going to
+    # generate (a cached summary returned above and is not counted). Never gates the first
+    # summary — a new IP is always under the cap — and fails open if Redis is down.
+    from app.config import settings as _settings
+    if current_user is None and _settings.ENABLE_GUEST_DAILY_QUOTA:
+        from app.services.guest_quota import check_and_increment_guest_quota
+
+        allowed, count = await check_and_increment_guest_quota(
+            client_host, _settings.GUEST_DAILY_SUMMARY_LIMIT
+        )
+        if not allowed:
+            logger.info(f"[stream:{filing_id}] Guest {client_host} over daily quota ({count}/{_settings.GUEST_DAILY_SUMMARY_LIMIT})")
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    f"You've reached today's free limit of {_settings.GUEST_DAILY_SUMMARY_LIMIT} "
+                    "summaries. Create a free account to generate more."
+                ),
+            )
+
     user_id = current_user.id if current_user else None
     logger.info(f"[stream:{filing_id}] Starting summary stream for user {user_id}")
 

@@ -65,9 +65,11 @@ Strategic bets pause for review before/after. Quick wins ship in batches.
       stops client-side notice-stripping + regenerate CTA. ✅ 4 verdict unit tests; 281 backend
       + 30 frontend tests pass. (Targeted per-section regen loop: deferred — `_recover_missing_sections`
       already regenerates empty sections; verdict now makes degradation honest.)
-- [ ] **S5 — Anonymous quota (DECISION: 3/day per IP, never gate the first summary).**
-      Per-IP/device daily cap with friendly "create a free account for more". To implement
-      after S4.
+- [x] **S5 — Anonymous quota.** `guest_quota.check_and_increment_guest_quota` (atomic Redis
+      INCR, fails open) enforces a per-IP daily cap for guests in the stream endpoint, only when
+      actually generating (cached hits don't count) and never gating the first summary. Friendly
+      429 "create a free account" when over. Behind `ENABLE_GUEST_DAILY_QUOTA` (default off),
+      `GUEST_DAILY_SUMMARY_LIMIT=3`. ✅ 4 unit tests; 285 backend tests pass.
 
 ## Review log
 (append outcomes per item as they ship)

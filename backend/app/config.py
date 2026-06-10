@@ -128,6 +128,14 @@ class Settings(BaseSettings):
     # Default False to preserve current caching behavior until validated.
     AI_QUALITY_GATE: bool = False
 
+    # Anonymous (guest) daily summary quota (roadmap S5). Guests currently have no daily/monthly
+    # cap (only 5/60s per IP), so one IP could trigger thousands of AI calls/month. A small daily
+    # cap keeps free activation sustainable WITHOUT ever gating the first summary (a brand-new IP
+    # is always under the cap). Fails open if Redis is unavailable — infra must never block a
+    # first-time visitor's first summary. Default off; flip ENABLE_GUEST_DAILY_QUOTA to enable.
+    ENABLE_GUEST_DAILY_QUOTA: bool = False
+    GUEST_DAILY_SUMMARY_LIMIT: int = 3
+
     # AI Recovery Settings
     RECOVERY_MAX_CONCURRENCY: int = 3  # Max concurrent API calls for section recovery
 
