@@ -52,12 +52,17 @@ Strategic bets pause for review before/after. Quick wins ship in batches.
       ✅ 2 unit tests (off unchanged / on enforces JSON+schema prompt+temp); 152 unit+smoke pass.
       ADOPTION GATE: run the S3 harness `baseline` candidate with the flag on vs off; flip the
       default only if it beats baseline on schema-validity + numeric accuracy + coverage.
-- [ ] **S2 — Brittle section extraction.** 10-K TOC-length guard; non-TOC validation;
-      alternate-pattern retry; XBRL-derived segments.
+- [x] **S2 — Brittle section extraction (core).** Added the missing 10-K TOC/length guard:
+      `_looks_like_toc` + `_accept_section` reject TOC slivers and fall through to the next
+      pattern (the 10-K path previously accepted the first match unguarded). Added extraction-
+      confidence logging (N/3 critical sections). ✅ 2 unit tests; 277 backend tests pass.
+      FOLLOW-UP (smaller, deferred): replace Apple-specific segment regex in
+      `filing_parser.py:754` with XBRL-derived segments.
 - [ ] **S4 — Semantic quality gate + honest degradation.** Validate→targeted regen;
       quality badge instead of stripped notices; auto-expire below-bar cached summaries.
-- [ ] **S5 — Anonymous quota (DECISION REQUIRED).** Per-IP/device daily cap; never gate
-      the first summary.
+- [ ] **S5 — Anonymous quota (DECISION: 3/day per IP, never gate the first summary).**
+      Per-IP/device daily cap with friendly "create a free account for more". To implement
+      after S4.
 
 ## Review log
 (append outcomes per item as they ship)

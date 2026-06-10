@@ -344,6 +344,26 @@ class OpenAIService:
             return combined[:limit]
         return ""
     
+    @staticmethod
+    def _looks_like_toc(text: str) -> bool:
+        """Heuristic: does this captured span look like a table-of-contents entry rather than
+        real section content? TOC spans are short and/or dense with dotted leaders
+        ("Item 8 ....... 45"). Used to reject TOC slivers during section extraction (roadmap S2)."""
+        sample = text[:2000].lower()
+        if "table of contents" in sample:
+            return True
+        leaders = len(re.findall(r"\.{4,}", text[:5000]))
+        if leaders >= 5 and len(text) < 3000:
+            return True
+        return False
+
+    @classmethod
+    def _accept_section(cls, text: str, min_chars: int) -> bool:
+        """A captured section is real content only if it clears a length floor and isn't TOC-like.
+        The 10-K extraction path previously had no such guard, so an Item-8 regex that hit the
+        table of contents fed the model a sliver of real content (roadmap S2)."""
+        return len(text) >= min_chars and not cls._looks_like_toc(text)
+
     def extract_critical_sections(self, filing_text: str, filing_type: str = "10-K", cleaned_text: Optional[str] = None) -> str:
         """Extract ALL critical sections for comprehensive summarization.
 
@@ -384,8 +404,14 @@ class OpenAIService:
                 match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.MULTILINE)
                 if match:
                     financial_text = match.group(1).strip()
+                    # S2: reject TOC-like/short matches and try the next pattern instead of
+                    # feeding the model a sliver captured from the table of contents.
+                    if not self._accept_section(financial_text, 500):
+                        logger.debug(f"10-K Item 8: skipping TOC-like/short match ({len(financial_text)} chars)")
+                        continue
                     # Increased limit to 40000 chars to capture full financial statements
                     critical_sections.append(f"ITEM 8 - FINANCIAL STATEMENTS AND SUPPLEMENTARY DATA:\n{financial_text[:40000]}")
+                    logger.info(f"10-K Item 8 extraction: captured {len(financial_text):,} chars")
                     break
 
             # PRIORITY 2: Extract Item 7 - MD&A (narrative context for financials)
@@ -400,8 +426,12 @@ class OpenAIService:
                 match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.MULTILINE)
                 if match:
                     mda_text = match.group(1).strip()
+                    if not self._accept_section(mda_text, 500):
+                        logger.debug(f"10-K Item 7: skipping TOC-like/short match ({len(mda_text)} chars)")
+                        continue
                     # Increased limit to 35000 chars to capture full MD&A
                     critical_sections.append(f"ITEM 7 - MANAGEMENT'S DISCUSSION AND ANALYSIS:\n{mda_text[:35000]}")
+                    logger.info(f"10-K Item 7 extraction: captured {len(mda_text):,} chars")
                     break
 
             # PRIORITY 3: Extract Item 1A - Risk Factors
@@ -415,8 +445,12 @@ class OpenAIService:
                 match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.MULTILINE)
                 if match:
                     risk_text = match.group(1).strip()
+                    if not self._accept_section(risk_text, 200):
+                        logger.debug(f"10-K Item 1A: skipping TOC-like/short match ({len(risk_text)} chars)")
+                        continue
                     # Increased limit to 25000 chars for comprehensive risk coverage
                     critical_sections.append(f"ITEM 1A - RISK FACTORS:\n{risk_text[:25000]}")
+                    logger.info(f"10-K Item 1A extraction: captured {len(risk_text):,} chars")
                     break
 
         elif filing_type_key == "10-Q":
@@ -523,7 +557,13 @@ class OpenAIService:
         # Combine all critical sections
         if critical_sections:
             combined = "\n\n" + "="*50 + "\n\n".join(critical_sections)
-            logger.info(f"Extracted {len(critical_sections)} critical sections, total {len(combined):,} chars")
+            # S2: extraction confidence — how many of the 3 critical sections we captured.
+            # Low confidence (<2/3) is a strong signal of thin grounding for downstream gating.
+            expected = 3
+            logger.info(
+                f"{filing_type_key} extraction confidence: {len(critical_sections)}/{expected} "
+                f"critical sections, total {len(combined):,} chars"
+            )
             return combined
         else:
             # Enhanced fallback: Search for ANY financial data in the document
