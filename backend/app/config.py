@@ -118,7 +118,8 @@ class Settings(BaseSettings):
     # prompt with the narrative-format instructions removed, and a pinned low temperature —
     # eliminating the prompt-vs-schema contradiction that drives "hit and miss" output.
     # Default False: keep the current behavior until the eval harness (S3) proves the new path
-    # beats baseline. Toggle with AI_USE_STRUCTURED_OUTPUT=true.
+    # beats baseline. Toggle with USE_STRUCTURED_OUTPUT=true (no env prefix is configured on
+    # Settings, so the env var name matches the field name; case-insensitive).
     USE_STRUCTURED_OUTPUT: bool = False
 
     # Semantic quality gate (roadmap S4). When True, a summary assessed "partial" (thin coverage

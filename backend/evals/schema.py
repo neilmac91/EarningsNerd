@@ -97,16 +97,31 @@ class RubricScore:
     repaired: bool  # needed JSON repair to parse (a soft failure of "enforced structure")
     numeric_accuracy: float  # [0,1] recall of ground-truth facts present in output
     coverage: float  # [0,1] fraction of required sections with substantive content
+    # [0,1] precision of labeled financial fields: do the numbers in revenue/net_income/eps
+    # match ground truth (vs. a confidently-wrong figure)? Recall asks "are the right numbers
+    # present"; precision asks "are the present numbers right" — a hallucinated figure alongside
+    # the correct one passes recall but fails precision. Closes the recall-only gap.
+    numeric_precision: float = 1.0
+    # Artifact-1 HARD GATES. A non-empty list is a promotion VETO independent of `aggregate()`:
+    # a single fabricated number or leaked notice fails the summary no matter how good the prose.
+    gate_failures: List[str] = field(default_factory=list)
     missing_sections: List[str] = field(default_factory=list)
     matched_facts: List[str] = field(default_factory=list)
     missing_facts: List[str] = field(default_factory=list)
+
+    @property
+    def passed_gates(self) -> bool:
+        """True when no hard gate failed. Gate-passing is required for promotion."""
+        return not self.gate_failures
 
     def aggregate(self) -> float:
         """Single 0-1 quality number. Weights schema-validity, grounding, and coverage.
 
         Numeric accuracy is weighted highest because a confidently-wrong financial summary is
         the worst activation outcome; schema validity is a gate-style signal (the whole point
-        of S1) so it carries real weight too."""
+        of S1) so it carries real weight too. NOTE: hard gates (`gate_failures`) are a separate
+        veto and are deliberately NOT folded into this number — aggregate ranks the candidates
+        that already cleared the gates."""
         schema_component = 1.0 if (self.schema_valid and not self.repaired) else (
             0.5 if self.schema_valid else 0.0
         )

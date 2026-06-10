@@ -8,20 +8,37 @@ without a measurement loop is how the current "hit and miss" state arose.
 ## What it measures
 
 Every candidate produces the same canonical summary shape (`schema.EVAL_SUMMARY_JSON_SCHEMA`)
-and is scored by three **deterministic** metrics (no LLM-judge needed for the verdict):
+and is scored by **deterministic** metrics (no LLM-judge needed for the verdict):
 
 | Metric | What it catches | Source |
 |---|---|---|
 | **schema validity** (+ `repaired` flag) | "enforced, not requested" structured output — the S1 thesis | `scorers.validate_schema` / `parse_model_json` |
-| **numeric accuracy** | hallucinated/missing financials vs XBRL ground truth | `scorers.score_numeric_accuracy` |
+| **numeric accuracy** (recall) | *missing* financials vs XBRL ground truth | `scorers.score_numeric_accuracy` |
+| **numeric precision** | a *wrong* number in a labeled financial field — recall is fooled when the correct value also appears, precision is not | `scorers.score_numeric_precision` |
 | **coverage** | sections that are present *and substantive* (not "Not disclosed") | `scorers.score_coverage` |
 
-`RubricScore.aggregate()` combines them (0.30 schema · 0.45 numeric · 0.25 coverage). These
-scorers are pure functions, unit-tested offline in `tests/unit/test_eval_scorers.py` — run
-them anytime with `pytest tests/unit/test_eval_scorers.py`.
+`RubricScore.aggregate()` combines schema/recall/coverage (0.30 · 0.45 · 0.25). These scorers are
+pure functions, unit-tested offline in `tests/unit/test_eval_scorers.py` — run them anytime with
+`pytest tests/unit/test_eval_scorers.py`.
 
-An LLM-judge usefulness/precision dimension can be layered on later; the deterministic three
-are what gate adoption.
+### Hard gates (a promotion veto — Artifact 1)
+
+Some failures are unacceptable at any aggregate. `RubricScore.gate_failures` lists them and
+`RubricScore.passed_gates` is the veto — a gate-failing run **cannot count as a PASS** regardless
+of its score:
+
+- **G1 numeric fidelity** — a labeled financial field contradicts ground truth (deterministic).
+- **G4 output hygiene** — leaked AI/internal notices or placeholder filler (deterministic).
+- **G2 fabricated comparatives / G3 hallucinated facts** — need the source, so they are assessed
+  by the optional **LLM judge** (`judge.py`), a *secondary, evidence-citing* signal — never a
+  replacement for the deterministic gates. Off by default (`--judge`); see below.
+
+### Consistency (Artifact 3)
+
+"Hit and miss" is a *variance* problem a single run can't see. `--runs N` scores each
+(candidate, filing) N times and reports **`pass_rate`** (gate-passing runs clearing the aggregate
+threshold) and **`aggregate_stdev`**. Two candidates with the same mean can differ wildly in
+consistency — that's what to optimize for.
 
 ## Candidates (the bake-off)
 
@@ -60,11 +77,15 @@ python -m evals.build_golden_set --dry-run  # preview without writing
 # 2. Baseline the current pipeline first.
 python -m evals.runner --candidates baseline
 
-# 3. Bake off candidates against it.
-python -m evals.runner --candidates baseline,gemini-json,claude-sonnet,claude-opus,qwen,kimi,deepseek
+# 3. Bake off candidates against it. --runs measures consistency; --judge adds the
+#    secondary LLM-judge signal (needs `pip install anthropic` + ANTHROPIC_API_KEY).
+python -m evals.runner --candidates baseline,gemini-json,claude-sonnet,claude-opus \
+    --runs 3 --pass-threshold 0.7 --judge claude-opus-4-8
 ```
 
-Reports land in `evals/reports/eval_<timestamp>.{json,md}`, ranked by mean aggregate.
+Reports land in `evals/reports/eval_<timestamp>.{json,md}`, ranked by `pass_rate` then mean
+aggregate. Flags: `--runs N` (consistency), `--pass-threshold` (aggregate a gate-passing run must
+clear to PASS, default 0.7), `--judge <model>` (secondary signal, off by default).
 
 ## Golden set
 
@@ -75,10 +96,13 @@ known problem case (e.g. a pre-2019 filing) to cover the roadmap's intended mix.
 
 ## Adoption rule
 
-Promote a candidate to default **only if it beats `baseline` on schema-validity AND numeric
-accuracy AND coverage with no regression**, at acceptable latency/cost. Otherwise keep the
-flag off, report the numbers, and recommend next steps. The harness is also the regression
-suite for every future prompt change.
+Promote a candidate to default (flip `AI_USE_STRUCTURED_OUTPUT` / `AI_QUALITY_GATE`, or switch
+`AI_DEFAULT_MODEL`) **only if it beats `baseline` on schema-validity AND numeric accuracy AND
+coverage, with no hard-gate regression** (`gate_fail_rate` no worse than baseline), **AND meets
+the consistency target** (high `pass_rate`, low `aggregate_stdev`) — at acceptable latency/cost.
+The optional `judge_pass_rate` is corroborating evidence, not the gate. Otherwise keep the flag
+off, report the numbers, and recommend next steps. The harness is also the regression suite for
+every future prompt change.
 
 > The baseline maps the current pipeline into the canonical shape but does **not** enforce the
 > canonical schema, so it typically scores schema-invalid here. That gap is precisely what S1

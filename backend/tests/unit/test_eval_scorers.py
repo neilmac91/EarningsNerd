@@ -8,9 +8,11 @@ import pytest
 
 from evals.schema import GroundTruthFact
 from evals.scorers import (
+    detect_hygiene_violations,
     parse_model_json,
     score_coverage,
     score_numeric_accuracy,
+    score_numeric_precision,
     score_summary,
     validate_schema,
 )
@@ -125,3 +127,100 @@ def test_score_summary_unparseable_is_zero_floor():
     score = score_summary("totally not json", [REVENUE])
     assert score.schema_valid is False
     assert score.aggregate() == 0.0
+    assert score.passed_gates is False  # unparseable output is a hard-gate veto
+
+
+# ---------------------------------------------------------------------------
+# Artifact-1 hard gates: numeric precision (G1) and output hygiene (G4)
+# ---------------------------------------------------------------------------
+def _payload(**overrides):
+    base = {
+        "executive_summary": "A detailed multi-sentence overview of the business and its results.",
+        "financial_highlights": {"revenue": "$383.3 billion", "net_income": "$96.995 billion",
+                                 "eps": "$6.13", "key_metrics": ["Services revenue up double digits"]},
+        "risk_factors": ["Concentration in iPhone revenue exposes results to demand swings."],
+        "management_discussion": "Management cited gross-margin expansion and disciplined opex control.",
+        "outlook": "The company expects continued Services momentum and steady capital returns.",
+    }
+    base.update(overrides)
+    return base
+
+
+def test_numeric_precision_perfect_when_labeled_fields_match():
+    precision, contradictions = score_numeric_precision(_payload(), [REVENUE, NET_INCOME, EPS])
+    assert precision == 1.0 and contradictions == []
+
+
+def test_numeric_precision_catches_wrong_revenue_recall_would_miss():
+    # Wrong number in the labeled revenue field, but the correct one appears in prose — recall is
+    # fooled, precision is not. This is the recall-only gap the hard gate closes.
+    fh = {"revenue": "$999.9 billion", "net_income": "$96.995 billion", "eps": "$6.13",
+          "key_metrics": []}
+    payload = _payload(financial_highlights=fh,
+                       executive_summary="Revenue was $383.3 billion, a record year for the company.")
+    recall, _, _ = score_numeric_accuracy(__import__("json").dumps(fh) + " Revenue was $383.3 billion",
+                                          [REVENUE])
+    precision, contradictions = score_numeric_precision(payload, [REVENUE])
+    assert recall == 1.0  # the correct figure is present somewhere
+    assert precision == 0.0 and any("revenue" in c for c in contradictions)
+
+
+def test_numeric_precision_absent_value_is_not_a_contradiction():
+    fh = {"revenue": "Not disclosed", "net_income": "$96.995 billion", "eps": "$6.13",
+          "key_metrics": []}
+    precision, contradictions = score_numeric_precision(_payload(financial_highlights=fh),
+                                                        [REVENUE, NET_INCOME, EPS])
+    assert precision == 1.0 and contradictions == []  # absent → coverage's concern, not G1
+
+
+def test_hygiene_detects_leaked_notices_and_placeholders():
+    payload = _payload(
+        executive_summary="As an AI language model, I cannot provide financial advice. TODO: fill in.",
+        outlook="[insert outlook here]",
+    )
+    violations = detect_hygiene_violations(payload)
+    assert any("as an ai" in v for v in violations)
+    assert any("executive_summary" in v for v in violations)
+    assert any("outlook" in v for v in violations)
+
+
+def test_score_summary_sets_gate_failures_and_veto():
+    import json as _json
+    wrong = _payload(financial_highlights={"revenue": "$999.9 billion", "net_income": "$96.995 billion",
+                                            "eps": "$6.13", "key_metrics": []})
+    score = score_summary(_json.dumps(wrong), [REVENUE, NET_INCOME, EPS])
+    assert score.passed_gates is False
+    assert any(f.startswith("G1") for f in score.gate_failures)
+
+
+def test_score_summary_clean_passes_gates():
+    import json as _json
+    score = score_summary(_json.dumps(_payload()), [REVENUE, NET_INCOME, EPS])
+    assert score.passed_gates is True
+    assert score.gate_failures == []
+    assert score.numeric_precision == 1.0
+
+
+# Sign fidelity: a loss reported as a profit must fail G1 even though abs-value renderings match.
+NET_LOSS = GroundTruthFact(metric="net_income", value=-1_200_000_000.0, unit="USD")
+
+
+def test_sign_flip_loss_reported_as_profit_is_a_contradiction():
+    fh = {"revenue": "$383.3 billion", "net_income": "$1.2 billion",  # positive, but truth is a loss
+          "eps": "$6.13", "key_metrics": []}
+    precision, contradictions = score_numeric_precision(_payload(financial_highlights=fh), [NET_LOSS])
+    assert precision == 0.0 and any("sign mismatch" in c for c in contradictions)
+
+
+def test_loss_reported_as_loss_passes():
+    for phrasing in ("net loss of $1.2 billion", "$(1.2) billion", "-$1.2 billion"):
+        fh = {"revenue": "$383.3 billion", "net_income": phrasing, "eps": "$6.13", "key_metrics": []}
+        precision, contradictions = score_numeric_precision(_payload(financial_highlights=fh), [NET_LOSS])
+        assert precision == 1.0 and contradictions == [], phrasing
+
+
+def test_profit_reported_as_loss_is_a_contradiction():
+    fh = {"revenue": "$383.3 billion", "net_income": "net loss of $96.995 billion",
+          "eps": "$6.13", "key_metrics": []}
+    precision, contradictions = score_numeric_precision(_payload(financial_highlights=fh), [NET_INCOME])
+    assert precision == 0.0 and any("sign mismatch" in c for c in contradictions)
