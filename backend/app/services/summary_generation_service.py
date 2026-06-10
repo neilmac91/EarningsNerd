@@ -124,6 +124,67 @@ def calculate_section_coverage(summary_data: Dict[str, Any]) -> Tuple[int, int, 
     return len(covered_sections), total_sections, covered_sections, missing_sections
 
 
+def _xbrl_value_appears(value: float, haystack_lower: str) -> bool:
+    """Does an XBRL value appear in the summary text, in any common rendering (billions/
+    millions/grouped)? Mirrors the eval harness's grounding check without importing it."""
+    av = abs(value)
+    candidates: set[str] = set()
+    if av >= 1e9:
+        for d in range(0, 4):  # 0-3 decimals: covers "383", "383.3", "383.29", "383.285"
+            candidates.add(f"{av / 1e9:.{d}f}")
+    if av >= 1e6:
+        for d in range(0, 4):  # 0-3 decimals, grouped and ungrouped (e.g. "120.5", "1,250")
+            candidates.add(f"{av / 1e6:.{d}f}")
+            candidates.add(f"{av / 1e6:,.{d}f}")
+    candidates.add(f"{int(round(av)):,}")
+    return any(c.lower() in haystack_lower for c in candidates if len(c.replace(",", "")) >= 2)
+
+
+def assess_quality(
+    summary_data: Dict[str, Any], xbrl_metrics: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Deterministic quality verdict for a generated summary (roadmap S4).
+
+    Returns {tier: "full"|"partial", reasons, numeric_grounded, covered_count, total_count}.
+    "partial" means thin section coverage OR financials that don't match the SEC-verified XBRL —
+    the signal the UI surfaces honestly (quality badge) instead of silently stripping notices."""
+    covered, total, _, _ = calculate_section_coverage(summary_data)
+    reasons: List[str] = []
+
+    numeric_grounded = True
+    if xbrl_metrics:
+        import json as _json
+
+        haystack = (
+            str(summary_data.get("business_overview") or "")
+            + " "
+            + _json.dumps(summary_data.get("financial_highlights") or {}, default=str)
+        ).lower()
+        checks: List[bool] = []
+        for key in ("revenue", "net_income"):
+            node = xbrl_metrics.get(key)
+            current = node.get("current", {}) if isinstance(node, dict) else {}
+            value = current.get("value") if isinstance(current, dict) else None
+            if value is not None:
+                checks.append(_xbrl_value_appears(float(value), haystack))
+        if checks:
+            numeric_grounded = all(checks)
+            if not numeric_grounded:
+                reasons.append("financial figures not grounded in SEC XBRL data")
+
+    if covered < MINIMUM_SECTIONS_FOR_FULL_RESULT:
+        reasons.append(f"only {covered}/{total} sections populated")
+
+    tier = "full" if (covered >= MINIMUM_SECTIONS_FOR_FULL_RESULT and numeric_grounded) else "partial"
+    return {
+        "tier": tier,
+        "reasons": reasons,
+        "numeric_grounded": numeric_grounded,
+        "covered_count": covered,
+        "total_count": total,
+    }
+
+
 def determine_result_type(
     summary_data: Dict[str, Any],
     had_errors: bool = False,
@@ -722,6 +783,63 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
             )
             # Do NOT save to Summary table - error results are discarded
             # Do NOT commit any summary to database
+
+# Stages from which generation can no longer make progress on its own.
+TERMINAL_STAGES = {"completed", "error", "partial"}
+
+# A non-terminal progress row older than this is considered orphaned (a crashed/abandoned
+# background task). The longest legitimate run is the 10-K global_timeout (120s) plus the
+# stream pipeline (90s); 180s leaves comfortable headroom before we call it dead.
+STALE_PROGRESS_SECONDS = 180
+
+
+def mark_stale_progress_as_error(progress: SummaryGenerationProgress) -> bool:
+    """Detect an orphaned (stuck) progress row and flip it to a retryable error in-place.
+
+    Fire-and-forget background generation can die without recording a terminal state if it
+    crashes before its inner guard runs. Rather than leave the UI spinning forever, surface
+    a stale non-terminal row as an error the user can retry. Returns True if it mutated the
+    row (caller is responsible for committing)."""
+    if progress.stage in TERMINAL_STAGES:
+        return False
+
+    last_update = progress.updated_at or progress.started_at
+    if last_update is None:
+        return False
+    if last_update.tzinfo is None:
+        last_update = last_update.replace(tzinfo=timezone.utc)
+
+    if (_utcnow() - last_update).total_seconds() <= STALE_PROGRESS_SECONDS:
+        return False
+
+    progress.stage = "error"
+    progress.error = "Generation stalled and was abandoned. Please retry."
+    return True
+
+
+async def run_generation_guarded(filing_id: int, user_id: Optional[int]) -> None:
+    """Fire-and-forget-safe wrapper around generate_summary_background.
+
+    create_task swallows unhandled exceptions, so a crash in the *setup* phase (before the
+    inner try/except in generate_summary_background) would otherwise leave the progress row
+    stuck in 'queued'/'fetching' forever. This guarantees a terminal 'error' state is always
+    recorded, using a fresh session in case the original one is poisoned."""
+    try:
+        await generate_summary_background(filing_id, user_id)
+    except Exception as exc:  # noqa: BLE001 - last line of defense for a detached task
+        logger.error(
+            f"[{filing_id}] Background summary generation crashed unexpectedly: {exc}",
+            exc_info=True,
+        )
+        try:
+            with SessionLocal() as db:
+                record_progress(db, filing_id, "error", error=str(exc)[:200])
+        except Exception as record_exc:  # noqa: BLE001
+            logger.error(
+                f"[{filing_id}] Failed to record crashed-generation error state: {record_exc}",
+                exc_info=True,
+            )
+
 
 def get_generation_progress_snapshot(filing_id: int) -> Optional[Dict[str, Any]]:
     """Return the persisted generation progress for a filing, if available."""

@@ -1,3 +1,81 @@
+# Activation Roadmap — Execution Checklist
+
+Source of truth: `tasks/activation-gap-analysis.md`. North star: anonymous visitor →
+first successful, high-quality summary, fast and reliable.
+
+Order: quick wins first (Q1→Q8), then strategic bets (S3 harness → S1 → S2 → S4 → S5).
+Strategic bets pause for review before/after. Quick wins ship in batches.
+
+## Quick Wins
+
+- [x] **Q1 — Waitlist gate.** DECISION (user): keep gate up, open the demo. Added
+      `/company`,`/filing` to ALLOWED_PREFIXES so waitlist visitors can try the full
+      flow; homepage `/` stays gated. Default flip deferred to launch. ✅ guards tests pass.
+- [x] **Q2 — Zero-wait example.** `backend/scripts/pregenerate_examples.py` resolves each
+      QuickAccessBar ticker's latest 10-K, persists Company/Filing, and caches the summary via
+      `generate_summary_background`. Homepage "See an Example" CTA deep-links to
+      `/filing/{NEXT_PUBLIC_EXAMPLE_FILING_ID}` when set, else falls back to `/company/AAPL`.
+      Cache population runs in prod (network+AI). ✅ eslint clean, 30 vitest pass, script imports.
+- [x] **Q3 — "Stalled" warning at 15s.** Raised threshold to 45s + "usually 30–60s" hint.
+      `page-client.tsx:618`. ✅ verified: eslint clean, 30 vitest pass.
+- [x] **Q4 — XBRL timeout lottery.** XBRL now starts concurrently with the filing-document
+      fetch (was serialized after it); enrichment budget raised 8s→18s.
+      `summaries.py`. ✅ verified: 261 backend tests pass.
+- [x] **Q5 — Default to the right filing.** "Recommended" banner + row badge for the latest
+      10-K (else latest filing) on the company page, one-click summary CTA. Behind
+      `ENABLE_RECOMMENDED_FILING` flag (default on). Also fixed a latent rules-of-hooks
+      violation (useMemo after early returns). ✅ eslint clean, 30 vitest pass.
+- [x] **Q6 — Stream resilience.** Added one automatic stream retry on transient failure
+      (before content delivered). NOTE: roadmap's timeout-mismatch premise was partly
+      inaccurate (stream excluded from endpoint middleware `main.py:237`; client 120s is an
+      *inactivity* timeout reset by 3s heartbeats) — so timeout reshuffling was unnecessary;
+      the real gap was no auto-retry. ✅ eslint clean, vitest pass.
+- [x] **Q7 — Orphaned background tasks.** `run_generation_guarded` wrapper guarantees a
+      terminal "error" state if a fire-and-forget task crashes; `/progress` flips stale
+      (>180s) non-terminal rows to retryable error. ✅ 7 new unit tests pass.
+- [x] **Q8 — Raw 500s on circuit-open.** Global FastAPI handler converts `CircuitOpenError`
+      → 503 + Retry-After. ✅ 2 new unit tests pass.
+
+## Strategic Bets (pause for review)
+
+- [x] **S3 — Eval harness (BUILT; baselining needs API keys/network).** `backend/evals/`:
+      canonical schema, deterministic scorers (schema-validity + numeric-accuracy-vs-XBRL +
+      substantive-coverage), multi-provider registry (baseline/gemini-json/claude-sonnet/
+      claude-opus/qwen/kimi/deepseek — Claude via native SDK, others OpenAI-compat, cost
+      tracked), golden-set seed + auto-builder, runner+report, README. ✅ 12 offline scorer
+      tests pass. Running the baseline/bake-off requires SEC network + provider keys (prod/CI).
+      Per checkpoint rule, PAUSE before S1 (prompt/schema rewrite) for review.
+- [x] **S1 — Prompt/schema conflict (BEHIND DEFAULT-OFF FLAG).** `AI_USE_STRUCTURED_OUTPUT`
+      flag: structured mode uses new schema-first prompts (`prompts/10k|10q-structured-agent.md`,
+      narrative-format block removed), enforces `response_format={"type":"json_object"}` at the
+      API layer, and pins temperature to 0.1. Flag off = current behavior, byte-for-byte.
+      ✅ 2 unit tests (off unchanged / on enforces JSON+schema prompt+temp); 152 unit+smoke pass.
+      ADOPTION GATE: run the S3 harness `baseline` candidate with the flag on vs off; flip the
+      default only if it beats baseline on schema-validity + numeric accuracy + coverage.
+- [x] **S2 — Brittle section extraction (core).** Added the missing 10-K TOC/length guard:
+      `_looks_like_toc` + `_accept_section` reject TOC slivers and fall through to the next
+      pattern (the 10-K path previously accepted the first match unguarded). Added extraction-
+      confidence logging (N/3 critical sections). ✅ 2 unit tests; 277 backend tests pass.
+      FOLLOW-UP (smaller, deferred): replace Apple-specific segment regex in
+      `filing_parser.py:754` with XBRL-derived segments.
+- [x] **S4 — Semantic quality gate + honest degradation.** Backend: `assess_quality` verdict
+      (coverage + XBRL numeric grounding) always attached to `raw_summary.quality`; flagged
+      `AI_QUALITY_GATE` skips caching "partial" summaries so the next visit regenerates.
+      Frontend (flagged `NEXT_PUBLIC_ENABLE_QUALITY_BADGE`): explicit Full/Partial badge +
+      stops client-side notice-stripping + regenerate CTA. ✅ 4 verdict unit tests; 281 backend
+      + 30 frontend tests pass. (Targeted per-section regen loop: deferred — `_recover_missing_sections`
+      already regenerates empty sections; verdict now makes degradation honest.)
+- [x] **S5 — Anonymous quota.** `guest_quota.check_and_increment_guest_quota` (atomic Redis
+      INCR, fails open) enforces a per-IP daily cap for guests in the stream endpoint, only when
+      actually generating (cached hits don't count) and never gating the first summary. Friendly
+      429 "create a free account" when over. Behind `ENABLE_GUEST_DAILY_QUOTA` (default off),
+      `GUEST_DAILY_SUMMARY_LIMIT=3`. ✅ 4 unit tests; 285 backend tests pass.
+
+## Review log
+(append outcomes per item as they ship)
+
+---
+
 # Homepage Redesign Plan
 
 ## Status: AWAITING APPROVAL

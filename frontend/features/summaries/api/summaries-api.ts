@@ -70,6 +70,20 @@ export interface ProgressData {
   percent?: number
 }
 
+// Errors that must NOT be auto-retried: retrying can't help and would waste the user's time.
+const isNonRetryableStreamError = (message: string): boolean => {
+  const m = (message || '').toLowerCase()
+  return (
+    m.includes('monthly limit') ||
+    m.includes('upgrade to pro') ||
+    m.includes('permission') ||
+    m.includes('sign in') ||
+    m.includes('authentication')
+  )
+}
+
+const STREAM_RETRY_BACKOFF_MS = 1200
+
 export const generateSummaryStream = async (
   filingId: number,
   onChunk: (chunk: string) => void,
@@ -78,6 +92,50 @@ export const generateSummaryStream = async (
   onError: (error: string) => void,
   options?: { force?: boolean }
 ): Promise<void> => {
+  const MAX_ATTEMPTS = 2 // one automatic retry before surfacing the error to the user
+
+  // Track whether the user has already seen real output. Once content is delivered we must
+  // never silently retry (it would duplicate or reset their summary) — surface the error.
+  let deliveredContent = false
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    const result = await runStreamAttempt(filingId, onChunk, onProgress, onComplete, options, () => {
+      deliveredContent = true
+    })
+
+    if (result.ok) return
+
+    const canRetry =
+      attempt < MAX_ATTEMPTS &&
+      !deliveredContent &&
+      result.retryable &&
+      !isNonRetryableStreamError(result.error)
+
+    if (!canRetry) {
+      onError(result.error)
+      throw new Error(result.error)
+    }
+
+    console.warn(`[summary] ${filingId} stream attempt ${attempt} failed (${result.error}); retrying once...`)
+    onProgress('initializing', 'Connection interrupted — retrying...')
+    await new Promise((resolve) => setTimeout(resolve, STREAM_RETRY_BACKOFF_MS))
+  }
+}
+
+interface StreamAttemptResult {
+  ok: boolean
+  retryable: boolean
+  error: string
+}
+
+const runStreamAttempt = async (
+  filingId: number,
+  onChunk: (chunk: string) => void,
+  onProgress: (stage: string, message: string, data?: ProgressData) => void,
+  onComplete: (summaryId: number) => void,
+  options: { force?: boolean } | undefined,
+  markContentDelivered: () => void
+): Promise<StreamAttemptResult> => {
   const apiUrl = getApiUrl()
   const forceParam = options?.force ? '?force=true' : ''
   const url = `${apiUrl}/api/summaries/filing/${filingId}/generate-stream${forceParam}`
@@ -152,7 +210,7 @@ export const generateSummaryStream = async (
       } catch {
         // If response is not JSON, use default message
       }
-      throw new Error(errorMessage)
+      return { ok: false, retryable: false, error: errorMessage }
     }
 
     // Handle other HTTP errors
@@ -174,7 +232,9 @@ export const generateSummaryStream = async (
         errorMessage = 'Server error. Please try again later.'
       }
     }
-    throw new Error(errorMessage)
+    // 5xx is transient (worth one retry); 403/429 and other 4xx are not.
+    const retryable = response.status >= 500
+    return { ok: false, retryable, error: errorMessage }
   }
 
   console.info(
@@ -187,10 +247,14 @@ export const generateSummaryStream = async (
 
   if (!reader) {
     clearTimeoutSafely()
-    throw new Error('No reader available')
+    return { ok: false, retryable: true, error: 'No reader available' }
   }
 
   resetTimeout()
+
+  // An SSE 'error' event from the backend is captured here (not surfaced immediately) so the
+  // caller can decide whether to retry before showing it to the user.
+  let streamErrorMessage: string | null = null
 
   try {
     while (true) {
@@ -211,6 +275,7 @@ export const generateSummaryStream = async (
               const chunkSize =
                 typeof data.content === 'string' ? data.content.length : 0
               console.info(`[summary] ${filingId} chunk received (${chunkSize} chars)`)
+              markContentDelivered()
               onChunk(data.content)
             } else if (data.type === 'progress') {
               const stageName = typeof data.stage === 'string' ? data.stage : 'unknown'
@@ -224,10 +289,11 @@ export const generateSummaryStream = async (
               onProgress(stageName, message, progressData)
             } else if (data.type === 'complete' || data.type === 'partial') {
               recordStageTiming(data.type, data.message || 'summary ready')
+              markContentDelivered()
               onComplete(data.summary_id)
             } else if (data.type === 'error') {
               console.warn(`[summary] ${filingId} stream error: ${data.message}`)
-              onError(data.message)
+              streamErrorMessage = typeof data.message === 'string' ? data.message : 'Error generating summary'
             } else if (data.type === 'start') {
               const message = typeof data.message === 'string' ? data.message : ''
               recordStageTiming('start', message)
@@ -239,15 +305,19 @@ export const generateSummaryStream = async (
         }
       }
     }
+
+    if (streamErrorMessage) {
+      // Backend-emitted error mid-stream — transient by default; retry decision is the caller's.
+      return { ok: false, retryable: true, error: streamErrorMessage }
+    }
+    return { ok: true, retryable: false, error: '' }
   } catch (error: unknown) {
     const errObj = error as { name?: string; message?: string }
     if (errObj?.name === 'AbortError') {
       const timeoutMessage = `Request timed out after ${STREAM_TIMEOUT_MS / 1000} seconds without activity.`
-      onError(timeoutMessage)
-      throw new Error(timeoutMessage)
+      return { ok: false, retryable: true, error: timeoutMessage }
     }
-    onError(errObj?.message || 'Failed to generate summary stream.')
-    throw error
+    return { ok: false, retryable: true, error: errObj?.message || 'Failed to generate summary stream.' }
   } finally {
     clearTimeoutSafely()
     controller.abort()

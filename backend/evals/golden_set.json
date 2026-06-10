@@ -1,0 +1,12 @@
+{
+  "_README": "Golden set for the summary-quality bake-off. Each entry needs a real EDGAR accession_number + document_url and ground_truth financial facts before its scores are trustworthy. Run `python -m evals.build_golden_set` (needs network) to auto-resolve accession/url and auto-populate ground_truth from XBRL, which flips `verified` to true. CIKs below are pre-filled for well-known issuers; ADD small-cap / non-financial / pre-2019 entries to round out the 15-25 filing mix the roadmap calls for.",
+  "filings": [
+    {"ticker": "AAPL", "cik": "320193", "company_name": "Apple Inc.", "filing_type": "10-K", "accession_number": "", "document_url": "", "ground_truth": [], "verified": false, "notes": "mega-cap, hardware+services"},
+    {"ticker": "MSFT", "cik": "789019", "company_name": "Microsoft Corp.", "filing_type": "10-K", "accession_number": "", "document_url": "", "ground_truth": [], "verified": false, "notes": "mega-cap, software"},
+    {"ticker": "NVDA", "cik": "1045810", "company_name": "NVIDIA Corp.", "filing_type": "10-Q", "accession_number": "", "document_url": "", "ground_truth": [], "verified": false, "notes": "mega-cap, semis, 10-Q"},
+    {"ticker": "JPM", "cik": "19617", "company_name": "JPMorgan Chase & Co.", "filing_type": "10-K", "accession_number": "", "document_url": "", "ground_truth": [], "verified": false, "notes": "financial issuer (different statement structure)"},
+    {"ticker": "KO", "cik": "21344", "company_name": "The Coca-Cola Company", "filing_type": "10-Q", "accession_number": "", "document_url": "", "ground_truth": [], "verified": false, "notes": "consumer staples, 10-Q"},
+    {"ticker": "TSLA", "cik": "1318605", "company_name": "Tesla, Inc.", "filing_type": "10-K", "accession_number": "", "document_url": "", "ground_truth": [], "verified": false, "notes": "auto/energy, segment-heavy"},
+    {"ticker": "AMZN", "cik": "1018724", "company_name": "Amazon.com, Inc.", "filing_type": "10-K", "accession_number": "", "document_url": "", "ground_truth": [], "verified": false, "notes": "mega-cap, thin margins"}
+  ]
+}
