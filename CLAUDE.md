@@ -687,11 +687,20 @@ Streaming endpoints (`*stream*`, `*/progress`) are excluded from timeout middlew
 
 ## Deployment
 
-- **Backend:** Render.com (see `render.yaml`)
-- **Frontend:** Vercel or Firebase Hosting
-- **Database:** Managed PostgreSQL
-- **Cache:** Managed Redis
-- **Analytics:** Vercel Analytics (auto-enabled), PostHog (event tracking)
+- **Backend:** Google Cloud Run (project `earnings-nerd`, region `us-west1`). Containerized via
+  `backend/Dockerfile`; schema is created at startup by `Base.metadata.create_all()` (no Alembic).
+  Deploy/setup steps and the weekly Cloud Run Job + Cloud Scheduler cron are documented in
+  `tasks/gcp-deploy-runbook.md`.
+- **Database:** Cloud SQL for PostgreSQL 15 (`earningsnerd-db`), reached via the Cloud SQL connector
+  socket (`?host=/cloudsql/<connection-name>` in `DATABASE_URL`).
+- **Cache:** Redis optional — currently disabled (`SKIP_REDIS_INIT=true`); add Memorystore if needed.
+- **Secrets:** Google Secret Manager, mounted as env vars on the Cloud Run service/job.
+- **Custom domain:** `api.earningsnerd.io` via Cloud Run domain mapping (Cloudflare CNAME → `ghs.googlehosted.com`, DNS-only).
+- **Frontend:** Vercel (`NEXT_PUBLIC_API_BASE_URL=https://api.earningsnerd.io`).
+- **Analytics:** Vercel Analytics (auto-enabled), PostHog (event tracking).
+
+> Migrated off Render.com (June 2026). The old `render.yaml` has been removed; it was stale
+> (referenced a non-existent `alembic` setup and a removed `update_contact_schema.py`).
 
 ## Claude Skills
 

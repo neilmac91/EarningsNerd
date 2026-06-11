@@ -15,26 +15,30 @@ try:
     import sentry_sdk
     from sentry_sdk.integrations.fastapi import FastApiIntegration
     from sentry_sdk.integrations.sqlalchemy import SqlalchemyIntegration
-
-    sentry_dsn = os.getenv("SENTRY_DSN", "")
-    if sentry_dsn:
-        sentry_sdk.init(
-            dsn=sentry_dsn,
-            environment=os.getenv("ENVIRONMENT", "development"),
-            traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
-            profiles_sample_rate=0.1,  # 10% of sampled transactions for profiling
-            integrations=[
-                FastApiIntegration(transaction_style="endpoint"),
-                SqlalchemyIntegration(),
-            ],
-            # Don't send PII
-            send_default_pii=False,
-        )
-        print("✓ Sentry error tracking initialized")
-    else:
-        print("⚠️  SENTRY_DSN not configured - error tracking disabled")
 except ImportError:
     print("Sentry SDK not available - install sentry-sdk for error tracking")
+else:
+    sentry_dsn = os.getenv("SENTRY_DSN", "")
+    if sentry_dsn:
+        try:
+            sentry_sdk.init(
+                dsn=sentry_dsn,
+                environment=os.getenv("ENVIRONMENT", "development"),
+                traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
+                profiles_sample_rate=0.1,  # 10% of sampled transactions for profiling
+                integrations=[
+                    FastApiIntegration(transaction_style="endpoint"),
+                    SqlalchemyIntegration(),
+                ],
+                # Don't send PII
+                send_default_pii=False,
+            )
+            print("✓ Sentry error tracking initialized")
+        except Exception as e:
+            # A malformed DSN or init failure must never block application startup
+            print(f"⚠️  Sentry initialization failed ({e}) - error tracking disabled")
+    else:
+        print("⚠️  SENTRY_DSN not configured - error tracking disabled")
 
 from app.database import engine, Base
 from app.services.logging_service import (
