@@ -42,8 +42,10 @@
   }
 }
 
-.animate-float {
-  animation: float 3s ease-in-out infinite;
+@media (prefers-reduced-motion: no-preference) {
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
 }
 
 @keyframes gradient-shift {

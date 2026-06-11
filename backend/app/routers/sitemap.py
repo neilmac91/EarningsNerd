@@ -2,49 +2,55 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Company
+from app.models import Company, Filing
 from datetime import datetime
 
 router = APIRouter()
 
+# Static frontend routes worth indexing: (path, changefreq, priority)
+STATIC_PAGES = [
+    ("/", "daily", "1.0"),
+    ("/pricing", "weekly", "0.8"),
+    ("/contact", "monthly", "0.5"),
+    ("/privacy", "yearly", "0.3"),
+    ("/security", "yearly", "0.3"),
+]
+
+
+def _url_entry(loc: str, lastmod: str, changefreq: str, priority: str) -> str:
+    return (
+        "  <url>\n"
+        f"    <loc>{loc}</loc>\n"
+        f"    <lastmod>{lastmod}</lastmod>\n"
+        f"    <changefreq>{changefreq}</changefreq>\n"
+        f"    <priority>{priority}</priority>\n"
+        "  </url>\n"
+    )
+
+
 @router.get("/sitemap.xml")
 async def generate_sitemap(db: Session = Depends(get_db)):
-    """Generate XML sitemap for all companies"""
-    base_url = "https://earningsnerd.com"  # Update with your actual domain
-    
-    # Get all companies
-    companies = db.query(Company).all()
-    
-    # Generate sitemap XML
+    """Generate XML sitemap: static pages + company pages + filing pages
+    (the long-tail SEO asset: every ticker x every filing)."""
+    base_url = "https://www.earningsnerd.io"
+    today = datetime.now().strftime("%Y-%m-%d")
+
     sitemap = '<?xml version="1.0" encoding="UTF-8"?>\n'
     sitemap += '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-    
-    # Add homepage
-    sitemap += '  <url>\n'
-    sitemap += f'    <loc>{base_url}/</loc>\n'
-    sitemap += f'    <lastmod>{datetime.now().strftime("%Y-%m-%d")}</lastmod>\n'
-    sitemap += '    <changefreq>daily</changefreq>\n'
-    sitemap += '    <priority>1.0</priority>\n'
-    sitemap += '  </url>\n'
-    
-    # Add pricing page
-    sitemap += '  <url>\n'
-    sitemap += f'    <loc>{base_url}/pricing</loc>\n'
-    sitemap += f'    <lastmod>{datetime.now().strftime("%Y-%m-%d")}</lastmod>\n'
-    sitemap += '    <changefreq>weekly</changefreq>\n'
-    sitemap += '    <priority>0.8</priority>\n'
-    sitemap += '  </url>\n'
-    
-    # Add company pages
-    for company in companies:
-        sitemap += '  <url>\n'
-        sitemap += f'    <loc>{base_url}/company/{company.ticker}</loc>\n'
-        sitemap += f'    <lastmod>{datetime.now().strftime("%Y-%m-%d")}</lastmod>\n'
-        sitemap += '    <changefreq>weekly</changefreq>\n'
-        sitemap += '    <priority>0.7</priority>\n'
-        sitemap += '  </url>\n'
-    
+
+    for path, changefreq, priority in STATIC_PAGES:
+        sitemap += _url_entry(f"{base_url}{path}", today, changefreq, priority)
+
+    for company in db.query(Company).all():
+        sitemap += _url_entry(
+            f"{base_url}/company/{company.ticker}", today, "weekly", "0.7"
+        )
+
+    for filing_id, filing_date in db.query(Filing.id, Filing.filing_date).all():
+        lastmod = filing_date.strftime("%Y-%m-%d") if filing_date else today
+        sitemap += _url_entry(f"{base_url}/filing/{filing_id}", lastmod, "monthly", "0.6")
+
     sitemap += '</urlset>'
-    
+
     return Response(content=sitemap, media_type="application/xml")
 

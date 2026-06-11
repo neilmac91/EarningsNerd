@@ -29,12 +29,22 @@ from app.services.export_service import export_service
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.summary_generation_service import (
     generate_summary_background,
+    run_generation_guarded,
+    mark_stale_progress_as_error,
+    assess_quality,
     get_generation_progress_snapshot,
     record_progress,
     progress_as_dict,
     get_or_cache_excerpt
 )
 from app.services.fallback_summary import generate_xbrl_summary
+from app.services.posthog_client import (
+    EVENT_GENERATION_STARTED,
+    EVENT_GENERATION_SUCCEEDED,
+    EVENT_GENERATION_FAILED,
+    EVENT_GENERATION_TIMED_OUT,
+    capture_funnel_event,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -43,8 +53,11 @@ SUMMARY_LIMITER = RateLimiter(limit=5, window_seconds=60)
 # Hard pipeline timeout to guarantee user receives response within this time
 PIPELINE_TIMEOUT_SECONDS = 90
 
-# Timeout for XBRL/excerpt enrichment - SEC API for large companies can take 5-10s
-CONTEXT_ENRICHMENT_TIMEOUT_SECONDS = 8.0
+# Timeout for XBRL/excerpt enrichment. XBRL fetch starts concurrently with the filing
+# document fetch (see stream_summary), so this is the *additional* budget we wait at the
+# join point. The XBRL service's own internal timeout is 15s (EDGAR_DEFAULT_TIMEOUT_SECONDS);
+# an 8s ceiling here silently truncated it on large issuers, producing hollow financials.
+CONTEXT_ENRICHMENT_TIMEOUT_SECONDS = 18.0
 
 class SummaryResponse(BaseModel):
     id: int
@@ -80,6 +93,10 @@ async def get_summary_progress(
         .first()
     )
     if progress:
+        # Surface orphaned/stalled generations as a retryable error instead of an
+        # eternal "generating" state if the background task died without finishing.
+        if mark_stale_progress_as_error(progress):
+            db.commit()
         return progress_as_dict(progress)
 
     return {"stage": "pending", "elapsedSeconds": 0}
@@ -148,7 +165,7 @@ async def generate_summary(
         record_progress(db, filing_id, "queued")
         db.commit()
 
-        asyncio.create_task(generate_summary_background(filing_id, user_id))
+        asyncio.create_task(run_generation_guarded(filing_id, user_id))
     except Exception as e:
         db.rollback()
         raise e
@@ -174,6 +191,8 @@ async def generate_summary_stream(
     filing_id: int,
     request: Request,
     force: bool = False,
+    entry_point: Optional[str] = None,
+    ph_id: Optional[str] = None,
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
@@ -182,6 +201,10 @@ async def generate_summary_stream(
     Args:
         force: If True, delete existing summary and regenerate from scratch.
                Use this for "Regenerate Analysis" functionality.
+        entry_point: Where the visitor entered the funnel (forwarded by the
+                     frontend for activation analytics, e.g. "homepage").
+        ph_id: The client's PostHog distinct_id, so server-side funnel events
+               join with frontend events on the same person.
     """
     # Use user ID for authenticated users, IP for guests
     client_host = request.client.host if request.client else "unknown"
@@ -248,8 +271,46 @@ async def generate_summary_stream(
     # Removed blocking synchronous DB query here. Filing existence is checked inside stream_summary.
     # Removed caching of company data and filing attributes here. These will be fetched inside stream_summary.
 
+    # S5: per-IP daily quota for guests (flagged). Only reached when we're actually going to
+    # generate (a cached summary returned above and is not counted). Never gates the first
+    # summary — a new IP is always under the cap — and fails open if Redis is down.
+    from app.config import settings as _settings
+    # Skip when the client IP is unresolvable ("unknown" from a proxy/network config) — all such
+    # guests would otherwise share one quota key and exhaust the daily limit collectively.
+    if current_user is None and _settings.ENABLE_GUEST_DAILY_QUOTA and client_host != "unknown":
+        from app.services.guest_quota import check_and_increment_guest_quota
+
+        allowed, count = await check_and_increment_guest_quota(
+            client_host, _settings.GUEST_DAILY_SUMMARY_LIMIT
+        )
+        if not allowed:
+            logger.info(f"[stream:{filing_id}] Guest {client_host} over daily quota ({count}/{_settings.GUEST_DAILY_SUMMARY_LIMIT})")
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    f"You've reached today's free limit of {_settings.GUEST_DAILY_SUMMARY_LIMIT} "
+                    "summaries. Create a free account to generate more."
+                ),
+            )
+
     user_id = current_user.id if current_user else None
     logger.info(f"[stream:{filing_id}] Starting summary stream for user {user_id}")
+
+    # Activation funnel telemetry context. Plain values are captured eagerly here —
+    # the generator below runs after this request's DB session is gone, so ORM
+    # attribute access inside it would be unsafe. Prefer the client's PostHog
+    # distinct_id so server events join frontend events on the same person.
+    telemetry_distinct_id = (ph_id or "")[:200] or (
+        str(current_user.id) if current_user else f"guest:{client_host}"
+    )
+    telemetry_entry_point = (entry_point or "")[:64] or None
+    telemetry_ctx = {
+        "filing_id": filing_id,
+        "filing_type": filing.filing_type,
+        "ticker": filing.company.ticker if filing.company else None,
+        "user_type": "authenticated" if current_user else "guest",
+        "forced": force,
+    }
 
     async def stream_summary():
         # Create a new session for the async generator to avoid detached session issues
@@ -262,6 +323,16 @@ async def generate_summary_stream(
         pipeline_started_at = time.time()
         stage_started_at = pipeline_started_at
         stage_timings: List[tuple[str, float]] = []
+
+        capture_funnel_event(
+            telemetry_distinct_id,
+            EVENT_GENERATION_STARTED,
+            entry_point=telemetry_entry_point,
+            **telemetry_ctx,
+        )
+
+        def elapsed_ms() -> int:
+            return int((time.time() - pipeline_started_at) * 1000)
 
         def mark_stage(stage_name: str):
             nonlocal stage_started_at
@@ -351,7 +422,37 @@ async def generate_summary_stream(
             else:
                 logger.info(f"[stream:{filing_id}] Guest user access. Rate limit already enforced.")
             # Note: We use cached values from outer scope, but filling_in_session is already populated.
-            
+
+            # Start XBRL fetching NOW, concurrently with the (slow) filing-document fetch below.
+            # XBRL only needs the accession number + CIK (already cached above), not the document
+            # text, so serializing it after the fetch wasted the entire fetch window and left it
+            # racing an 8s budget. Running it in parallel gives it the realistic time it needs.
+            xbrl_task = None
+            if filing_type and filing_type.upper() in {"10-K", "10-Q"} and company_cik:
+                async def fetch_xbrl():
+                    try:
+                        data = await xbrl_service.get_xbrl_data(filing_accession_number, company_cik)
+                        if data:
+                            metrics = xbrl_service.extract_standardized_metrics(data)
+
+                            # DB OP: Update filing xbrl_data
+                            def update_xbrl_sync():
+                                # Use a new session for this thread operation to ensure thread safety
+                                from app.database import SessionLocal
+                                with SessionLocal() as xbrl_session:
+                                    filing_for_update = xbrl_session.query(Filing).filter(Filing.id == filing_id).first()
+                                    if filing_for_update:
+                                        filing_for_update.xbrl_data = data
+                                        xbrl_session.commit()
+
+                            await run_sync_db(update_xbrl_sync)
+                            return metrics
+                    except Exception as xbrl_error:
+                        logger.warning(f"[stream:{filing_id}] Error updating XBRL data: {str(xbrl_error)}")
+                        pass
+                    return None
+                xbrl_task = asyncio.create_task(fetch_xbrl())
+
             # Step 1: File Validation
             # DB OP: Record progress
             await run_sync_db(record_progress, session, filing_id, "fetching")
@@ -466,34 +567,9 @@ async def generate_summary_stream(
                 excerpt_task = asyncio.create_task(return_cached_excerpt())
             else:
                 excerpt_task = asyncio.create_task(run_sync_db(extract_excerpt_sync))
-            
-            # Start XBRL fetching in parallel
-            xbrl_task = None
-            if filing_type and filing_type.upper() in {"10-K", "10-Q"} and company_cik:
-                async def fetch_xbrl():
-                    try:
-                        data = await xbrl_service.get_xbrl_data(filing_accession_number, company_cik)
-                        if data:
-                            metrics = xbrl_service.extract_standardized_metrics(data)
-                            
-                            # DB OP: Update filing xbrl_data
-                            def update_xbrl_sync():
-                                # Use a new session for this thread operation to ensure thread safety
-                                from app.database import SessionLocal
-                                with SessionLocal() as xbrl_session:
-                                    filing_for_update = xbrl_session.query(Filing).filter(Filing.id == filing_id).first()
-                                    if filing_for_update:
-                                        filing_for_update.xbrl_data = data
-                                        xbrl_session.commit()
-                            
-                            await run_sync_db(update_xbrl_sync)
-                            return metrics
-                    except Exception as xbrl_error:
-                        logger.warning(f"[stream:{filing_id}] Error updating XBRL data: {str(xbrl_error)}")
-                        pass
-                    return None
-                xbrl_task = asyncio.create_task(fetch_xbrl())
-            
+
+            # XBRL fetch was already started concurrently with the document fetch above.
+
             # Wait for parsing to complete
             yield f"data: {json.dumps({'type': 'progress', 'stage': 'parsing', 'message': 'Parsing complete...', 'percent': 25})}\n\n"
 
@@ -669,6 +745,23 @@ async def generate_summary_stream(
             raw_summary["sections"] = sections_info
             raw_summary["status"] = summary_status
 
+            # S4: deterministic quality verdict (always attached as metadata for the UI badge).
+            quality = assess_quality(summary_payload, xbrl_metrics)
+            raw_summary["quality"] = quality
+
+            # S4 quality gate (flagged, default off): the summary is ALWAYS persisted, so the
+            # streamed result doesn't vanish when the client refetches and isn't regenerated from
+            # scratch on revisit. When a result is assessed "partial", the gate instead skips
+            # charging the user's monthly quota (they weren't served a full result); the UI
+            # surfaces it honestly via the quality badge + one-click Regenerate.
+            from app.config import settings as _settings
+            count_usage = not (_settings.AI_QUALITY_GATE and quality["tier"] == "partial")
+            if not count_usage:
+                logger.info(
+                    f"[stream:{filing_id}] Quality gate: tier=partial, not charging usage "
+                    f"(reasons: {quality['reasons']})"
+                )
+
             # DB OP: Persist summary
             def save_summary_sync():
                 filing_for_cache = session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
@@ -709,14 +802,14 @@ async def generate_summary_stream(
             
             mark_stage("persist_summary")
 
-            if user_id:
+            if user_id and count_usage:
                 def track_usage_sync():
                     from app.models import User
                     user = session.query(User).filter(User.id == user_id).first()
                     if user:
                         month = get_current_month()
                         increment_user_usage(user.id, month, session)
-                
+
                 await run_sync_db(track_usage_sync)
                 
             mark_stage("usage_tracking")
@@ -726,7 +819,19 @@ async def generate_summary_stream(
 
             summary_status = summary_payload.get("status", "complete")
             summary_message = summary_payload.get("message")
-            
+
+            # A persisted result with status "error" means only fallback content was
+            # produced — count it as a failure in the funnel, not a success.
+            capture_funnel_event(
+                telemetry_distinct_id,
+                EVENT_GENERATION_SUCCEEDED if summary_status != "error" else EVENT_GENERATION_FAILED,
+                duration_ms=elapsed_ms(),
+                result_type=summary_status,
+                quality_verdict=quality.get("tier"),
+                entry_point=telemetry_entry_point,
+                **telemetry_ctx,
+            )
+
             yield f"data: {json.dumps({'type': 'chunk', 'content': markdown})}\n\n"
             
             if summary_status == "partial":
@@ -738,6 +843,14 @@ async def generate_summary_stream(
         except TimeoutError:
             # Pipeline hard timeout reached
             logger.warning(f"[stream:{filing_id}] Pipeline timeout after {PIPELINE_TIMEOUT_SECONDS}s")
+            capture_funnel_event(
+                telemetry_distinct_id,
+                EVENT_GENERATION_TIMED_OUT,
+                duration_ms=elapsed_ms(),
+                result_type="timeout",
+                entry_point=telemetry_entry_point,
+                **telemetry_ctx,
+            )
             try:
                 await run_sync_db(record_progress, session, filing_id, "error", error="Pipeline timeout")
             except Exception as e:
@@ -746,6 +859,15 @@ async def generate_summary_stream(
         except Exception as e:
             logger.error(f"[stream:{filing_id}] Error in streaming summary: {str(e)}", exc_info=True)
             error_msg = str(e)
+            capture_funnel_event(
+                telemetry_distinct_id,
+                EVENT_GENERATION_FAILED,
+                duration_ms=elapsed_ms(),
+                result_type="error",
+                entry_point=telemetry_entry_point,
+                error=error_msg[:200],
+                **telemetry_ctx,
+            )
             try:
                 await run_sync_db(record_progress, session, filing_id, "error", error=error_msg[:200])
             except Exception as e:

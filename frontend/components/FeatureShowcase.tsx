@@ -8,8 +8,8 @@ const FEATURES = [
     icon: Brain,
   },
   {
-    title: 'Real-Time XBRL Data',
-    description: 'Financial metrics pulled directly from standardized XBRL tags. Revenue, margins, EPS, and more — accurate and up to date.',
+    title: 'XBRL-Verified Financials',
+    description: 'Financial metrics drawn from the standardized XBRL data filed with the SEC. Revenue, margins, EPS, and more — traced to the source.',
     icon: BarChart3,
   },
   {

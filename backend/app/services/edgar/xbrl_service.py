@@ -30,6 +30,7 @@ from edgar import Company as EdgarCompany, set_identity
 from .async_executor import run_in_executor, run_in_executor_with_timeout
 from .config import EDGAR_IDENTITY, EDGAR_DEFAULT_TIMEOUT_SECONDS
 from .models import FinancialMetric, MetricChange, MetricSeries, XBRLData
+from .statement_parser import extract_metric_values, statement_dataframe
 
 logger = logging.getLogger(__name__)
 
@@ -302,13 +303,15 @@ class EdgarXBRLService:
 
             # Get company via EdgarTools
             edgar_company = await run_in_executor_with_timeout(
-                lambda: EdgarCompany(cik=cik_padded),
+                lambda: EdgarCompany(cik_padded),
                 timeout=self.timeout,
             )
 
-            # Get financials
+            # Get financials. EdgarTools 5.x exposes Company.get_financials()
+            # (there is no `financials` property; attribute access raises and
+            # silently forced every request onto the company-facts fallback).
             financials = await run_in_executor_with_timeout(
-                lambda: edgar_company.financials,
+                edgar_company.get_financials,
                 timeout=self.timeout,
             )
 
@@ -328,53 +331,49 @@ class EdgarXBRLService:
 
             # Try to get income statement
             try:
-                income_stmt = await run_in_executor(lambda: financials.income_statement)
-                if income_stmt is not None:
-                    df = await run_in_executor(lambda: income_stmt.to_dataframe())
-                    if df is not None and not df.empty:
-                        result["revenue"] = self._extract_from_dataframe(
-                            df,
-                            ["Revenues", "Revenue", "TotalRevenue", "TotalRevenues",
-                             "NetSales", "SalesRevenueNet", "RevenueFromContractWithCustomerExcludingAssessedTax"],
-                            accession_number
-                        )
-                        result["net_income"] = self._extract_from_dataframe(
-                            df,
-                            ["NetIncomeLoss", "ProfitLoss", "NetIncome",
-                             "NetIncomeLossAvailableToCommonStockholdersBasic"],
-                            accession_number
-                        )
-                        result["earnings_per_share"] = self._extract_from_dataframe(
-                            df,
-                            ["EarningsPerShareBasic", "EarningsPerShareDiluted",
-                             "BasicEarningsPerShare", "EarningsPerShareBasicAndDiluted"],
-                            accession_number
-                        )
+                df = await run_in_executor(lambda: statement_dataframe(financials, "income_statement"))
+                if df is not None and not df.empty:
+                    result["revenue"] = self._extract_from_dataframe(
+                        df,
+                        ["RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues",
+                         "Revenue", "TotalRevenue", "TotalRevenues", "NetSales", "SalesRevenueNet"],
+                        accession_number
+                    )
+                    result["net_income"] = self._extract_from_dataframe(
+                        df,
+                        ["NetIncomeLoss", "ProfitLoss", "NetIncome",
+                         "NetIncomeLossAvailableToCommonStockholdersBasic"],
+                        accession_number
+                    )
+                    result["earnings_per_share"] = self._extract_from_dataframe(
+                        df,
+                        ["EarningsPerShareBasic", "EarningsPerShareDiluted",
+                         "BasicEarningsPerShare", "EarningsPerShareBasicAndDiluted"],
+                        accession_number
+                    )
             except Exception as e:
                 logger.warning(f"Error extracting income statement: {e}")
 
             # Try to get balance sheet
             try:
-                balance_sheet = await run_in_executor(lambda: financials.balance_sheet)
-                if balance_sheet is not None:
-                    df = await run_in_executor(lambda: balance_sheet.to_dataframe())
-                    if df is not None and not df.empty:
-                        result["total_assets"] = self._extract_from_dataframe(
-                            df,
-                            ["Assets", "TotalAssets"],
-                            accession_number
-                        )
-                        result["total_liabilities"] = self._extract_from_dataframe(
-                            df,
-                            ["Liabilities", "TotalLiabilities", "LiabilitiesAndStockholdersEquity"],
-                            accession_number
-                        )
-                        result["cash_and_equivalents"] = self._extract_from_dataframe(
-                            df,
-                            ["CashAndCashEquivalentsAtCarryingValue", "Cash",
-                             "CashAndCashEquivalents", "CashCashEquivalentsAndShortTermInvestments"],
-                            accession_number
-                        )
+                df = await run_in_executor(lambda: statement_dataframe(financials, "balance_sheet"))
+                if df is not None and not df.empty:
+                    result["total_assets"] = self._extract_from_dataframe(
+                        df,
+                        ["Assets", "TotalAssets"],
+                        accession_number
+                    )
+                    result["total_liabilities"] = self._extract_from_dataframe(
+                        df,
+                        ["Liabilities", "TotalLiabilities", "LiabilitiesAndStockholdersEquity"],
+                        accession_number
+                    )
+                    result["cash_and_equivalents"] = self._extract_from_dataframe(
+                        df,
+                        ["CashAndCashEquivalentsAtCarryingValue", "Cash",
+                         "CashAndCashEquivalents", "CashCashEquivalentsAndShortTermInvestments"],
+                        accession_number
+                    )
             except Exception as e:
                 logger.warning(f"Error extracting balance sheet: {e}")
 
@@ -395,41 +394,17 @@ class EdgarXBRLService:
         candidates: List[str],
         accession_number: str,
     ) -> List[Dict[str, Any]]:
-        """Extract metric values from a DataFrame."""
-        result = []
-
-        for candidate in candidates:
-            if candidate in df.index:
-                row = df.loc[candidate]
-                for col in row.index:
-                    try:
-                        value = row[col]
-                        if value is None:
-                            continue
-                        # Handle pandas NA
-                        if hasattr(value, 'item'):
-                            value = value.item()
-                        if value is None or (isinstance(value, float) and value != value):  # NaN check
-                            continue
-
-                        # Parse column as date
-                        period = str(col)
-                        if isinstance(col, date):
-                            period = col.isoformat()
-
-                        result.append({
-                            "period": period,
-                            "value": float(value),
-                            "form": None,
-                            "accn": accession_number,
-                        })
-                    except (ValueError, TypeError):
-                        continue
-                break  # Use first matching candidate
-
-        # Sort by period descending and limit to 5
-        result.sort(key=lambda x: x["period"], reverse=True)
-        return result[:5]
+        """Extract metric values from an EdgarTools statement DataFrame."""
+        _, values = extract_metric_values(df, candidates)
+        return [
+            {
+                "period": period,
+                "value": value,
+                "form": None,
+                "accn": accession_number,
+            }
+            for period, value in values[:5]
+        ]
 
     async def _fallback_to_company_facts(
         self,
@@ -484,6 +459,31 @@ class EdgarXBRLService:
 
         normalized_accession = target_accession.replace("-", "") if target_accession else None
 
+        def _is_target(item: Dict) -> bool:
+            return bool(
+                normalized_accession
+                and item.get("accn", "").replace("-", "") == normalized_accession
+            )
+
+        def _duration_penalty(item: Dict) -> int:
+            """Distance from the standard duration for the item's form.
+
+            Companyfacts reports several durations sharing one period end
+            (Q4 + FY both end on the fiscal year end; Q3 + 9-month YTD both
+            end on the quarter end). The standard statement value is the
+            12-month figure for a 10-K and the 3-month figure for a 10-Q.
+            Instant facts (no start) have a single duration; penalty 0.
+            """
+            start, end = item.get("start"), item.get("end")
+            if not start:
+                return 0
+            try:
+                days = (date.fromisoformat(end) - date.fromisoformat(start)).days
+            except (ValueError, TypeError):
+                return 0
+            target_days = 365 if (item.get("form") or "").startswith("10-K") else 91
+            return abs(days - target_days)
+
         def filter_and_sort(data_list: list, max_items: int = 5) -> list:
             if not isinstance(data_list, list):
                 return []
@@ -493,21 +493,74 @@ class EdgarXBRLService:
                 if isinstance(item, dict) and item.get("end")
             ]
 
+            # When the target filing reported this concept, use its facts only
+            # (current value + the comparatives restated in that same filing).
+            matching = [item for item in valid_items if _is_target(item)]
+            if matching:
+                valid_items = matching
+
+            # Dedupe by period end: prefer the standard duration for the form,
+            # then the most recently filed restatement.
+            best_by_end: Dict[str, Dict] = {}
+            for item in valid_items:
+                incumbent = best_by_end.get(item["end"])
+                if incumbent is None:
+                    best_by_end[item["end"]] = item
+                    continue
+                key = (_duration_penalty(item), item.get("filed") or "")
+                incumbent_key = (_duration_penalty(incumbent), incumbent.get("filed") or "")
+                # Lower penalty wins; on a tie, later filed date wins.
+                if key[0] < incumbent_key[0] or (key[0] == incumbent_key[0] and key[1] > incumbent_key[1]):
+                    best_by_end[item["end"]] = item
+
             sorted_items = sorted(
-                valid_items,
+                best_by_end.values(),
                 key=lambda x: x.get("end", ""),
                 reverse=True
             )
-
-            if normalized_accession:
-                matching = [
-                    item for item in sorted_items
-                    if item.get("accn", "").replace("-", "") == normalized_accession
-                ]
-                if matching:
-                    return matching[:max_items]
-
             return sorted_items[:max_items]
+
+        def select_fact_data(fields: List[str], unit_keys: Tuple[str, ...] = ("USD",)) -> list:
+            """Pick the candidate concept actually used by recent filings.
+
+            Taking the first concept present is wrong: issuers retire tags over
+            time (e.g. AAPL last reported `Revenues` in FY2018 and has used
+            `RevenueFromContractWithCustomerExcludingAssessedTax` since), so a
+            stale concept would shadow the live one and surface years-old
+            values as "current". Prefer a concept with facts from the target
+            filing; otherwise the one with the most recent period end.
+            """
+            best_key: Optional[Tuple[int, str]] = None
+            best_data: list = []
+            for field in fields:
+                fact = us_gaap.get(field)
+                if not (isinstance(fact, dict) and isinstance(fact.get("units"), dict)):
+                    continue
+                for unit_key in unit_keys:
+                    data = fact["units"].get(unit_key) or []
+                    valid = [i for i in data if isinstance(i, dict) and i.get("end")]
+                    if not valid:
+                        continue
+                    has_target = any(_is_target(i) for i in valid)
+                    latest_end = max(i["end"] for i in valid)
+                    key = (0 if has_target else 1, latest_end)
+                    if (
+                        best_key is None
+                        or key[0] < best_key[0]
+                        or (key[0] == best_key[0] and key[1] > best_key[1])
+                    ):
+                        best_key, best_data = key, valid
+                    break  # first unit key with data for this concept
+            return best_data
+
+        def append_items(metric: str, data: list) -> None:
+            for item in filter_and_sort(data):
+                result[metric].append({
+                    "period": item.get("end"),
+                    "value": item.get("val"),
+                    "form": item.get("form"),
+                    "accn": item.get("accn"),
+                })
 
         try:
             facts = facts_data.get("facts", {})
@@ -516,74 +569,15 @@ class EdgarXBRLService:
             if not isinstance(us_gaap, dict):
                 return result
 
-            # Revenue
-            revenue_fields = ["Revenues", "Revenue", "RevenueFromContractWithCustomerExcludingAssessedTax",
-                           "SalesRevenueNet", "NetSales", "TotalRevenue"]
-            for field in revenue_fields:
-                if field in us_gaap:
-                    fact = us_gaap[field]
-                    if isinstance(fact, dict) and "units" in fact:
-                        data = fact["units"].get("USD", [])
-                        if data:
-                            for item in filter_and_sort(data):
-                                result["revenue"].append({
-                                    "period": item.get("end"),
-                                    "value": item.get("val"),
-                                    "form": item.get("form"),
-                                    "accn": item.get("accn"),
-                                })
-                            break
-
-            # Net Income
-            net_income_fields = ["NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"]
-            for field in net_income_fields:
-                if field in us_gaap:
-                    fact = us_gaap[field]
-                    if isinstance(fact, dict) and "units" in fact:
-                        data = fact["units"].get("USD", [])
-                        if data:
-                            for item in filter_and_sort(data):
-                                result["net_income"].append({
-                                    "period": item.get("end"),
-                                    "value": item.get("val"),
-                                    "form": item.get("form"),
-                                    "accn": item.get("accn"),
-                                })
-                            break
-
-            # Assets
-            if "Assets" in us_gaap:
-                fact = us_gaap["Assets"]
-                if isinstance(fact, dict) and "units" in fact:
-                    data = fact["units"].get("USD", [])
-                    for item in filter_and_sort(data):
-                        result["total_assets"].append({
-                            "period": item.get("end"),
-                            "value": item.get("val"),
-                            "form": item.get("form"),
-                            "accn": item.get("accn"),
-                        })
-
-            # EPS
-            eps_fields = ["EarningsPerShareBasic", "EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"]
-            for field in eps_fields:
-                if field in us_gaap:
-                    fact = us_gaap[field]
-                    if isinstance(fact, dict) and "units" in fact:
-                        for unit_key in ["USD/shares", "USD", "pure"]:
-                            if unit_key in fact["units"]:
-                                data = fact["units"][unit_key]
-                                if data:
-                                    for item in filter_and_sort(data):
-                                        result["earnings_per_share"].append({
-                                            "period": item.get("end"),
-                                            "value": item.get("val"),
-                                            "form": item.get("form"),
-                                            "accn": item.get("accn"),
-                                        })
-                                    break
-                        if result["earnings_per_share"]:
-                            break
+            append_items("revenue", select_fact_data(
+                ["Revenues", "Revenue", "RevenueFromContractWithCustomerExcludingAssessedTax",
+                 "SalesRevenueNet", "NetSales", "TotalRevenue"]))
+            append_items("net_income", select_fact_data(
+                ["NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"]))
+            append_items("total_assets", select_fact_data(["Assets"]))
+            append_items("earnings_per_share", select_fact_data(
+                ["EarningsPerShareBasic", "EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"],
+                unit_keys=("USD/shares", "USD", "pure")))
 
         except Exception as e:
             logger.warning(f"Error parsing company facts: {e}")

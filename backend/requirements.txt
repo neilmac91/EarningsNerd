@@ -1,9 +1,9 @@
 fastapi>=0.115.0,<1.0.0
 uvicorn[standard]>=0.27.0,<1.0.0
-python-multipart>=0.0.18
+python-multipart>=0.0.28
 pydantic>=2.9.0,<3.0.0
 pydantic-settings>=2.4.0,<3.0.0
-email-validator>=2.0.0
+email-validator>=2.3.0
 httpx>=0.28.1,<1
 python-dotenv==1.2.2
 sqlalchemy>=2.0.36,<3.0.0
@@ -11,7 +11,7 @@ psycopg2-binary==2.9.12
 alembic>=1.13.2
 redis==7.4.0
 openai>=1.30.0,<3.0.0
-beautifulsoup4==4.14.3
+beautifulsoup4==4.15.0
 lxml>=5.2.2,<7.0.0
 python-jose[cryptography]>=3.5.0
 passlib[bcrypt]==1.7.4
@@ -22,12 +22,12 @@ weasyprint==68.1
 edgartools>=5.12.0
 
 # Legacy SEC packages - TO BE REMOVED after migration
-arelle-release==2.39.10
+arelle-release==2.41.4
 sec-edgar-downloader==5.1.0
 sec-parser>=0.58.0
-posthog==7.13.1
+posthog==7.18.1
 json-repair>=0.30.0
-sentry-sdk[fastapi]>=2.0.0
+sentry-sdk[fastapi]>=2.59.0
 
 # Testing
 pytest>=7.4.0

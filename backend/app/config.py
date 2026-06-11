@@ -111,7 +111,32 @@ class Settings(BaseSettings):
     STRUCTURED_EXTRACTION_CACHE_TTL_SECONDS: int = 3600  # 1 hour for retry window
 
     # AI Model Settings
-    AI_DEFAULT_MODEL: str = "gemini-3-pro-preview"  # Primary model for all AI tasks
+    AI_DEFAULT_MODEL: str = "gemini-3.1-pro-preview"  # Primary model for all AI tasks (gemini-3-pro-preview deprecated for inference)
+
+    # Structured-output mode for Phase-A extraction (roadmap S1). When True, the structured
+    # extraction call uses an API-level response_format (JSON object), a schema-described
+    # prompt with the narrative-format instructions removed, and a pinned low temperature —
+    # eliminating the prompt-vs-schema contradiction that drives "hit and miss" output.
+    # Default False: keep the current behavior until the eval harness (S3) proves the new path
+    # beats baseline. Toggle with USE_STRUCTURED_OUTPUT=true (no env prefix is configured on
+    # Settings, so the env var name matches the field name; case-insensitive).
+    USE_STRUCTURED_OUTPUT: bool = False
+
+    # Semantic quality gate (roadmap S4). When True, a summary assessed "partial" (thin coverage
+    # or financials not grounded in XBRL) does NOT consume the user's monthly quota — they
+    # weren't served a full result. The summary is always persisted regardless (so the streamed
+    # result doesn't vanish on refetch), and the UI surfaces partials honestly via the quality
+    # badge + Regenerate. The verdict is always attached to raw_summary["quality"] (additive
+    # metadata). Default False to preserve current behavior until validated.
+    AI_QUALITY_GATE: bool = False
+
+    # Anonymous (guest) daily summary quota (roadmap S5). Guests currently have no daily/monthly
+    # cap (only 5/60s per IP), so one IP could trigger thousands of AI calls/month. A small daily
+    # cap keeps free activation sustainable WITHOUT ever gating the first summary (a brand-new IP
+    # is always under the cap). Fails open if Redis is unavailable — infra must never block a
+    # first-time visitor's first summary. Default off; flip ENABLE_GUEST_DAILY_QUOTA to enable.
+    ENABLE_GUEST_DAILY_QUOTA: bool = False
+    GUEST_DAILY_SUMMARY_LIMIT: int = 3
 
     # AI Recovery Settings
     RECOVERY_MAX_CONCURRENCY: int = 3  # Max concurrent API calls for section recovery
