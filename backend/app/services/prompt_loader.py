@@ -18,6 +18,14 @@ _PROMPT_FILES = {
     "10-Q": "10q-analyst-agent.md",
 }
 
+# Schema-first prompts used when USE_STRUCTURED_OUTPUT is enabled (roadmap S1). These keep the
+# extraction/grounding guidance but omit the narrative-format instructions that contradict
+# JSON output.
+_STRUCTURED_PROMPT_FILES = {
+    "10-K": "10k-structured-agent.md",
+    "10-Q": "10q-structured-agent.md",
+}
+
 
 def _split_prompt(markdown: str) -> tuple[str, str]:
     markers = [
@@ -45,10 +53,27 @@ def _load_prompts() -> Dict[str, PromptTemplate]:
     return loaded
 
 
+def _load_structured_prompts() -> Dict[str, str]:
+    prompts_dir = Path(__file__).resolve().parents[2] / "prompts"
+    return {
+        filing_type: (prompts_dir / filename).read_text(encoding="utf-8").strip()
+        for filing_type, filename in _STRUCTURED_PROMPT_FILES.items()
+    }
+
+
 _PROMPTS = _load_prompts()
+_STRUCTURED_PROMPTS = _load_structured_prompts()
+
+
+def _normalize_filing_type(filing_type: str) -> str:
+    filing_key = (filing_type or "").upper()
+    return "10-K" if filing_key == "10K" else ("10-Q" if filing_key == "10Q" else filing_key)
 
 
 def get_prompt(filing_type: str) -> PromptTemplate:
-    filing_key = (filing_type or "").upper()
-    normalized = "10-K" if filing_key == "10K" else ("10-Q" if filing_key == "10Q" else filing_key)
-    return _PROMPTS.get(normalized, _PROMPTS["10-K"])
+    return _PROMPTS.get(_normalize_filing_type(filing_type), _PROMPTS["10-K"])
+
+
+def get_structured_prompt(filing_type: str) -> str:
+    """Schema-first system prompt (no narrative-format block) for USE_STRUCTURED_OUTPUT mode."""
+    return _STRUCTURED_PROMPTS.get(_normalize_filing_type(filing_type), _STRUCTURED_PROMPTS["10-K"])

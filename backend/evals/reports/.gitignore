@@ -1,0 +1,4 @@
+# Generated bake-off reports are run artifacts, not source. Keep the directory,
+# ignore its generated contents. Surface results in the PR/chat instead.
+*
+!.gitignore

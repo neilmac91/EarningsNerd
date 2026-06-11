@@ -7,11 +7,12 @@ import { getCompany, Company } from '@/features/companies/api/companies-api'
 import { getCompanyFilings, Filing } from '@/features/filings/api/filings-api'
 import { addToWatchlist, removeFromWatchlist, getWatchlist, WatchlistItem } from '@/features/watchlist/api/watchlist-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
-import { FileText, ExternalLink, Loader2, ChevronDown, Filter, Star } from 'lucide-react'
+import { FileText, ExternalLink, Loader2, ChevronDown, Filter, Star, Sparkles, ArrowRight } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import analytics from '@/lib/analytics'
+import { ENABLE_RECOMMENDED_FILING } from '@/lib/featureFlags'
 
 export default function CompanyPageClient() {
   const params = useParams()
@@ -84,6 +85,38 @@ export default function CompanyPageClient() {
     }
   }, [company])
 
+  // Memoize filtered and grouped filings to avoid recalculating on every render.
+  // Declared before the early returns below so hook order stays stable across renders.
+  const { groupedFilings, sortedYears, recommendedFiling } = useMemo(() => {
+    const filtered = filterType
+      ? filings?.filter((f) => f.filing_type === filterType)
+      : filings
+
+    // Group filings by year
+    const grouped = filtered?.reduce((acc, filing) => {
+      const year = new Date(filing.filing_date).getFullYear().toString()
+      if (!acc[year]) {
+        acc[year] = []
+      }
+      acc[year].push(filing)
+      return acc
+    }, {} as Record<string, Filing[]>) || {}
+
+    // Sort years in descending order (newest first)
+    const years = Object.keys(grouped).sort((a, b) => parseInt(b) - parseInt(a))
+
+    // Recommended filing: latest 10-K (the canonical annual report) if available,
+    // otherwise the most recent filing of any type. Computed from the FULL list (not the
+    // active type filter) so the recommendation is stable as the user filters.
+    const byDateDesc = (a: Filing, b: Filing) =>
+      new Date(b.filing_date).getTime() - new Date(a.filing_date).getTime()
+    const tenKs = (filings ?? []).filter((f) => f.filing_type === '10-K')
+    const recommendedFiling =
+      [...tenKs].sort(byDateDesc)[0] ?? [...(filings ?? [])].sort(byDateDesc)[0] ?? null
+
+    return { groupedFilings: grouped, sortedYears: years, recommendedFiling }
+  }, [filings, filterType])
+
   // Handle case where ticker might not be available
   if (!ticker) {
     return (
@@ -135,28 +168,6 @@ export default function CompanyPageClient() {
     }
     setExpandedYears(newExpanded)
   }
-
-  // Memoize filtered and grouped filings to avoid recalculating on every render
-  const { groupedFilings, sortedYears } = useMemo(() => {
-    const filtered = filterType
-      ? filings?.filter((f) => f.filing_type === filterType)
-      : filings
-
-    // Group filings by year
-    const grouped = filtered?.reduce((acc, filing) => {
-      const year = new Date(filing.filing_date).getFullYear().toString()
-      if (!acc[year]) {
-        acc[year] = []
-      }
-      acc[year].push(filing)
-      return acc
-    }, {} as Record<string, Filing[]>) || {}
-
-    // Sort years in descending order (newest first)
-    const years = Object.keys(grouped).sort((a, b) => parseInt(b) - parseInt(a))
-
-    return { groupedFilings: grouped, sortedYears: years }
-  }, [filings, filterType])
 
   // Get styling for filing type
   const getFilingTypeStyles = (filingType: string) => {
@@ -296,6 +307,37 @@ export default function CompanyPageClient() {
             )}
           </div>
 
+          {ENABLE_RECOMMENDED_FILING && !filingsLoading && !filingsError && recommendedFiling && (
+            <div className="mb-6 rounded-xl border border-primary-200 dark:border-primary-500/40 bg-gradient-to-r from-primary-50 to-white dark:from-primary-900/20 dark:to-slate-900 p-4 sm:p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="mt-0.5 h-5 w-5 flex-shrink-0 text-primary-600 dark:text-primary-400" />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex items-center rounded-full bg-primary-600 px-2 py-0.5 text-xs font-semibold text-white">
+                        Recommended
+                      </span>
+                      <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                        {recommendedFiling.filing_type} · {format(new Date(recommendedFiling.filing_date), 'MMM d, yyyy')}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                      Not sure where to start? This is {companyData.name}&apos;s most recent{' '}
+                      {recommendedFiling.filing_type === '10-K' ? 'annual report' : 'filing'} — get an instant AI summary.
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href={`/filing/${recommendedFiling.id}`}
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
+                >
+                  Summarize this filing
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </div>
+          )}
+
           {filingsLoading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
@@ -359,6 +401,12 @@ export default function CompanyPageClient() {
                                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${styles.badgeBg} ${styles.badgeText}`}>
                                           {filing.filing_type}
                                         </span>
+                                        {ENABLE_RECOMMENDED_FILING && recommendedFiling?.id === filing.id && (
+                                          <span className="inline-flex items-center gap-1 rounded-full bg-primary-600 px-2 py-0.5 text-xs font-semibold text-white">
+                                            <Sparkles className="h-3 w-3" />
+                                            Recommended
+                                          </span>
+                                        )}
                                         <span className="text-sm text-gray-500 dark:text-gray-400">
                                           {format(new Date(filing.filing_date), 'MMM d, yyyy')}
                                         </span>

@@ -131,7 +131,7 @@ export default function DashboardPage() {
                 </button>
                 <Link
                   href="/login"
-                  className="inline-flex items-center rounded-lg bg-mint-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-mint-700"
+                  className="inline-flex items-center rounded-lg bg-mint-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-mint-400"
                 >
                   Go to login
                 </Link>
@@ -232,7 +232,7 @@ export default function DashboardPage() {
                 </p>
                 <Link
                   href="/pricing"
-                  className="block w-full text-center px-4 py-2 bg-mint-500 text-white rounded-lg hover:bg-mint-600 transition-colors font-medium"
+                  className="block w-full text-center px-4 py-2 bg-mint-500 text-slate-950 rounded-lg hover:bg-mint-400 transition-colors font-medium"
                 >
                   Upgrade to Pro
                 </Link>

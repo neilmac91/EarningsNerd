@@ -94,7 +94,7 @@ export default function ComparePage() {
                 <button
                   onClick={handleSearch}
                   disabled={isSearching}
-                  className="px-6 py-2 bg-mint-500 text-white rounded-lg hover:bg-mint-600 transition-colors disabled:opacity-60 font-semibold"
+                  className="px-6 py-2 bg-mint-500 text-slate-950 rounded-lg hover:bg-mint-400 transition-colors disabled:opacity-60 font-semibold"
                 >
                   {isSearching ? (
                     <span className="flex items-center justify-center">
@@ -172,7 +172,7 @@ export default function ComparePage() {
                   <button
                     onClick={handleCompare}
                     disabled={compareMutation.isPending}
-                    className="mt-6 w-full px-6 py-3 bg-mint-500 text-white rounded-lg hover:bg-mint-600 transition-colors font-semibold disabled:opacity-50"
+                    className="mt-6 w-full px-6 py-3 bg-mint-500 text-slate-950 rounded-lg hover:bg-mint-400 transition-colors font-semibold disabled:opacity-50"
                   >
                     {compareMutation.isPending ? (
                       <span className="flex items-center justify-center">
@@ -195,7 +195,7 @@ export default function ComparePage() {
                   action={
                     <Link
                       href="/company/AAPL"
-                      className="inline-flex items-center rounded-lg bg-mint-500 px-4 py-2 text-sm font-semibold text-white hover:bg-mint-600 transition"
+                      className="inline-flex items-center rounded-lg bg-mint-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-mint-400 transition"
                     >
                       Explore companies
                     </Link>

@@ -1,6 +1,8 @@
 import { memo } from 'react'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
+import ExampleCtaLink from '@/components/ExampleCtaLink'
+import { exampleFilingHref } from '@/lib/featureFlags'
 
 function CtaBanner() {
   return (
@@ -20,18 +22,19 @@ function CtaBanner() {
             Stop spending hours on filings. Get the insights that matter in minutes.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
+            <ExampleCtaLink
+              href={exampleFilingHref('cta_banner_example')}
+              placement="cta_banner"
+              className="inline-flex items-center gap-2 rounded-full bg-mint-500 px-8 py-3.5 text-base font-semibold text-slate-950 shadow-glow-mint transition-all hover:bg-mint-400 hover:shadow-glow-mint-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+            >
+              Run your first summary
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </ExampleCtaLink>
             <Link
               href="/register"
-              className="inline-flex items-center gap-2 rounded-full bg-mint-500 px-8 py-3.5 text-base font-semibold text-white shadow-glow-mint transition-all hover:bg-mint-400 hover:shadow-glow-mint-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
-            >
-              Get Started Free
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link
-              href="/company/AAPL"
               className="inline-flex items-center gap-1 text-sm font-medium text-slate-400 underline underline-offset-4 decoration-slate-600 transition-colors hover:text-white hover:decoration-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
-              or see an example
+              or create a free account
             </Link>
           </div>
         </div>

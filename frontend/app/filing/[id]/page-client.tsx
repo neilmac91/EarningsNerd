@@ -20,6 +20,7 @@ import FinancialMetricsTable from '@/components/FinancialMetricsTable'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import { isAxiosError } from 'axios'
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
+import { ENABLE_QUALITY_BADGE } from '@/lib/featureFlags'
 import analytics from '@/lib/analytics'
 import { ENABLE_FINANCIAL_CHARTS } from '@/lib/featureFlags'
 import { sanitizeFilename } from '@/lib/format'
@@ -77,6 +78,30 @@ const getFriendlyErrorMessage = (error: unknown): string | null => {
   if (typeof error === 'string') return error
 
   return 'Unexpected error occurred while loading the summary.'
+}
+
+// Activation funnel: where did the session that led here enter the app?
+// An explicit ?entry= param (set by CTAs) wins; otherwise the document referrer
+// identifies the session's acquisition path. Note that document.referrer is fixed
+// per document load, so client-side navigations report the session's original
+// entry — which is the segmentation the activation funnel cares about.
+const getEntryPoint = (): string => {
+  if (typeof window === 'undefined') return 'unknown'
+  const explicit = new URLSearchParams(window.location.search).get('entry')
+  if (explicit) return explicit.slice(0, 64)
+  const referrer = document.referrer
+  if (!referrer) return 'direct'
+  try {
+    const ref = new URL(referrer)
+    if (ref.origin !== window.location.origin) return 'external'
+    if (ref.pathname === '/') return 'homepage'
+    if (ref.pathname === '/waitlist') return 'waitlist'
+    if (ref.pathname.startsWith('/company/')) return 'company_page'
+    if (ref.pathname.startsWith('/compare')) return 'compare'
+    return 'internal'
+  } catch {
+    return 'unknown'
+  }
 }
 
 // --- Components ---
@@ -227,6 +252,9 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false)
   const hasTrackedFilingView = useRef(false)
   const hasTrackedSummaryGenerated = useRef(false)
+  const hasTrackedSummaryViewed = useRef(false)
+  const viewStartedAt = useRef<number>(Date.now())
+  const entryPoint = useMemo(() => getEntryPoint(), [])
 
   const { data: currentUser } = useQuery({
     queryKey: ['current-user'],
@@ -371,7 +399,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
           // Reset progress state on error
           setStreamingText('')
         },
-        { force: options?.force }
+        { force: options?.force, entryPoint }
       )
     } catch (error: unknown) {
       const errObj = error as { message?: string }
@@ -384,7 +412,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
     } finally {
       setIsStreaming(false)
     }
-  }, [filingId, refetch, queryClient, isAuthenticated])
+  }, [filingId, refetch, queryClient, isAuthenticated, entryPoint])
 
   // Wrapper for regeneration with force=true
   const handleRegenerateSummary = useCallback(() => {
@@ -438,6 +466,23 @@ function FilingDetailView({ filingId }: { filingId: number }) {
       hasTrackedSummaryGenerated.current = true
     }
   }, [hasSummaryContent, filing])
+
+  // Activation funnel terminal step: the visitor actually sees summary content
+  // (cached or freshly generated). duration_ms is time from page mount to content.
+  useEffect(() => {
+    if (!hasTrackedSummaryViewed.current && hasSummaryContent && filing && summary) {
+      analytics.summaryViewed({
+        filingId: filing.id,
+        ticker: filing.company?.ticker ?? null,
+        filingType: filing.filing_type,
+        entryPoint,
+        resultType: summary.raw_summary?.status,
+        qualityVerdict: summary.raw_summary?.quality?.tier,
+        durationMs: Date.now() - viewStartedAt.current,
+      })
+      hasTrackedSummaryViewed.current = true
+    }
+  }, [hasSummaryContent, filing, summary, entryPoint])
 
   if (filingLoading) {
     return (
@@ -615,7 +660,9 @@ function StreamingSummaryDisplay({
   const [isStalled, setIsStalled] = useState(false)
 
   useEffect(() => {
-    if (elapsedSeconds > 15 && stage !== 'completed' && stage !== 'summarizing' && !isError) {
+    // Normal generation runs ~30-60s; only flag a genuine stall well past that window
+    // so we never signal "failure" during a healthy run (was 15s — inside the normal window).
+    if (elapsedSeconds > 45 && stage !== 'completed' && stage !== 'summarizing' && !isError) {
       setIsStalled(true)
     } else {
       setIsStalled(false)
@@ -763,6 +810,11 @@ function StreamingSummaryDisplay({
               <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                 {filing.filing_type} • {isError ? 'Failed' : isGenerating ? 'Processing...' : 'Ready'}
               </p>
+              {isGenerating && !isError && (
+                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                  This usually takes 30–60 seconds
+                </p>
+              )}
             </div>
           </div>
 
@@ -952,8 +1004,15 @@ function SummaryDisplay({
   onRetry?: () => void
 }) {
   const markdownContent = summary.business_overview || ''
-  const cleanedMarkdown = useMemo(() => stripInternalNotices(markdownContent), [markdownContent])
+  // S4 honest degradation: when the quality badge is enabled we stop stripping internal
+  // notices so a degraded summary isn't dressed up as complete (the badge tells the story).
+  const cleanedMarkdown = useMemo(
+    () => (ENABLE_QUALITY_BADGE ? markdownContent : stripInternalNotices(markdownContent)),
+    [markdownContent]
+  )
   const rawSummary = summary.raw_summary && typeof summary.raw_summary === 'object' ? summary.raw_summary : null
+  const quality = rawSummary?.quality as { tier?: string; reasons?: string[] } | undefined
+  const isPartialQuality = ENABLE_QUALITY_BADGE && quality?.tier === 'partial'
 
   const fallbackMessage = 'Summary temporarily unavailable — please retry.'
   const writerError = rawSummary?.writer_error
@@ -1118,9 +1177,24 @@ function SummaryDisplay({
                 <div className="flex items-center space-x-2">
                   <FileText className="h-6 w-6 text-primary-600" />
                   <h2 className="text-xl font-semibold text-gray-900">Summary</h2>
+                  {/* S4 quality badge: honest signal of full vs partial output */}
+                  {ENABLE_QUALITY_BADGE && quality?.tier && (
+                    <span
+                      title={quality.reasons && quality.reasons.length ? quality.reasons.join('; ') : undefined}
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                        quality.tier === 'full'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-amber-100 text-amber-800'
+                      }`}
+                    >
+                      {quality.tier === 'full'
+                        ? 'Full summary'
+                        : `Partial${quality.reasons && quality.reasons.length ? ` — ${quality.reasons[0]}` : ''}`}
+                    </span>
+                  )}
                 </div>
                 {/* Retry button - shown for partial results or fallback summaries */}
-                {(isPartial || writerFallback) && onRetry && (
+                {(isPartial || writerFallback || isPartialQuality) && onRetry && (
                   <button
                     onClick={onRetry}
                     className="inline-flex items-center px-4 py-2 text-sm font-medium text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors border border-primary-200"

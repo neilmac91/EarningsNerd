@@ -1,0 +1,516 @@
+{
+  "_README": "Golden set for the summary-quality bake-off. Ground truth is extracted from each filing's OWN XBRL instance (undimensioned facts ending on the filing's period_of_report, full-year duration for 10-Ks / quarter duration for 10-Qs), so it means 'what the filed document reports' \u2014 independent of the product pipeline. Run `python -m evals.build_golden_set` (needs network) to re-resolve the latest filings and regenerate facts; entries pass hard invariants (revenue > 0, sign(eps) == sign(net_income), period/duration match) before `verified` flips to true, and failures are recorded in `verification_problems`. Unverified entries are excluded from runs unless --allow-unverified is passed.",
+  "filings": [
+    {
+      "ticker": "AAPL",
+      "cik": "320193",
+      "company_name": "Apple Inc.",
+      "filing_type": "10-K",
+      "accession_number": "0000320193-25-000079",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 416161000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 112010000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": 7.49,
+          "unit": "USD_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "mega-cap, hardware+services"
+    },
+    {
+      "ticker": "MSFT",
+      "cik": "789019",
+      "company_name": "Microsoft Corp.",
+      "filing_type": "10-K",
+      "accession_number": "0000950170-25-100235",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/789019/000095017025100235/msft-20250630.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 281724000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 101832000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": 13.7,
+          "unit": "USD_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "mega-cap, software"
+    },
+    {
+      "ticker": "NVDA",
+      "cik": "1045810",
+      "company_name": "NVIDIA Corp.",
+      "filing_type": "10-Q",
+      "accession_number": "0001045810-26-000052",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000052/nvda-20260426.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 81615000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 58321000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": 2.4,
+          "unit": "USD_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "mega-cap, semis, 10-Q"
+    },
+    {
+      "ticker": "JPM",
+      "cik": "19617",
+      "company_name": "JPMorgan Chase & Co.",
+      "filing_type": "10-K",
+      "accession_number": "0001628280-26-008131",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/19617/000162828026008131/jpm-20251231.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 182447000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 57048000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": 20.05,
+          "unit": "USD_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "financial issuer (different statement structure)"
+    },
+    {
+      "ticker": "KO",
+      "cik": "21344",
+      "company_name": "The Coca-Cola Company",
+      "filing_type": "10-Q",
+      "accession_number": "0001628280-26-028802",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/21344/000162828026028802/ko-20260403.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 12472000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 3924000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": 0.91,
+          "unit": "USD_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "consumer staples, 10-Q"
+    },
+    {
+      "ticker": "TSLA",
+      "cik": "1318605",
+      "company_name": "Tesla, Inc.",
+      "filing_type": "10-K",
+      "accession_number": "0001628280-26-003952",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1318605/000162828026003952/tsla-20251231.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 94827000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 3794000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": 1.18,
+          "unit": "USD_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "auto/energy, segment-heavy"
+    },
+    {
+      "ticker": "AMZN",
+      "cik": "1018724",
+      "company_name": "Amazon.com, Inc.",
+      "filing_type": "10-K",
+      "accession_number": "0001018724-26-000004",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1018724/000101872426000004/amzn-20251231.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 716924000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 77670000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": 7.29,
+          "unit": "USD_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "mega-cap, thin margins"
+    },
+    {
+      "ticker": "BRK.B",
+      "cik": "1067983",
+      "company_name": "Berkshire Hathaway Inc.",
+      "filing_type": "10-K",
+      "accession_number": "0001193125-26-083899",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1067983/000119312526083899/brka-20251231.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 371444000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 66968000000.0,
+          "unit": "USD"
+        }
+      ],
+      "verified": false,
+      "notes": "financial conglomerate, complex/insurance statements",
+      "verification_problems": [
+        "eps: no consolidated fact for period 2025-12-31"
+      ]
+    },
+    {
+      "ticker": "XOM",
+      "cik": "34088",
+      "company_name": "Exxon Mobil Corporation",
+      "filing_type": "10-K",
+      "accession_number": "0000034088-26-000045",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/34088/000003408826000045/xom-20251231.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 332238000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 28844000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": 6.7,
+          "unit": "USD_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "energy, commodity-driven, non-financial"
+    },
+    {
+      "ticker": "PFE",
+      "cik": "78003",
+      "company_name": "Pfizer Inc.",
+      "filing_type": "10-Q",
+      "accession_number": "0000078003-26-000054",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/78003/000007800326000054/pfe-20260329.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 14451000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 2687000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": 0.47,
+          "unit": "USD_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "pharma, 10-Q, volatile post-COVID revenue"
+    },
+    {
+      "ticker": "F",
+      "cik": "37996",
+      "company_name": "Ford Motor Company",
+      "filing_type": "10-Q",
+      "accession_number": "0000037996-26-000086",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/37996/000003799626000086/f-20260331.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 43253000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 2551000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": 0.64,
+          "unit": "USD_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "auto + captive finance arm, 10-Q"
+    },
+    {
+      "ticker": "WMT",
+      "cik": "104169",
+      "company_name": "Walmart Inc.",
+      "filing_type": "10-K",
+      "accession_number": "0000104169-26-000055",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/104169/000010416926000055/wmt-20260131.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 713163000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 21893000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": 2.74,
+          "unit": "USD_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "retail, high revenue / thin margin"
+    },
+    {
+      "ticker": "COST",
+      "cik": "909832",
+      "company_name": "Costco Wholesale Corporation",
+      "filing_type": "10-Q",
+      "accession_number": "0000909832-26-000051",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/909832/000090983226000051/cost-20260510.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 70527000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 2192000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": 4.94,
+          "unit": "USD_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "retail, 10-Q, membership model"
+    },
+    {
+      "ticker": "BA",
+      "cik": "12927",
+      "company_name": "The Boeing Company",
+      "filing_type": "10-K",
+      "accession_number": "0001628280-26-004357",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/12927/000162828026004357/ba-20251231.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 89463000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 2235000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": 2.49,
+          "unit": "USD_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "aerospace, negative net income \u2014 stresses signed-number grounding"
+    },
+    {
+      "ticker": "INTC",
+      "cik": "50863",
+      "company_name": "Intel Corporation",
+      "filing_type": "10-Q",
+      "accession_number": "0000050863-26-000079",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/50863/000005086326000079/intc-20260328.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 13577000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": -3728000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": -0.73,
+          "unit": "USD_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "semis, recent losses, 10-Q"
+    },
+    {
+      "ticker": "PLTR",
+      "cik": "1321655",
+      "company_name": "Palantir Technologies Inc.",
+      "filing_type": "10-Q",
+      "accession_number": "0001321655-26-000028",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1321655/000132165526000028/pltr-20260331.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 1632583000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 870527000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": 0.36,
+          "unit": "USD_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "newer issuer, SBC-heavy, 10-Q"
+    },
+    {
+      "ticker": "RIVN",
+      "cik": "1874178",
+      "company_name": "Rivian Automotive, Inc.",
+      "filing_type": "10-K",
+      "accession_number": "0001874178-26-000008",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1874178/000187417826000008/rivn-20251231.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 5387000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": -3646000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": -3.07,
+          "unit": "USD_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "recent IPO (2021), pre-profit, limited prior-period history \u2014 no-comparatives case"
+    },
+    {
+      "ticker": "COIN",
+      "cik": "1679788",
+      "company_name": "Coinbase Global, Inc.",
+      "filing_type": "10-Q",
+      "accession_number": "0001679788-26-000054",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1679788/000167978826000054/coin-20260331.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 1412982000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": -394117000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": -1.49,
+          "unit": "USD_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "crypto, highly volatile results, newer issuer"
+    },
+    {
+      "ticker": "BYND",
+      "cik": "1655210",
+      "company_name": "Beyond Meat, Inc.",
+      "filing_type": "10-Q",
+      "accession_number": "0001655210-26-000037",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1655210/000165521026000037/bynd-20260328.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 58206000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": -28482000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": -0.06,
+          "unit": "USD_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "small-cap, persistent losses, thin/messy XBRL \u2014 adversarial case"
+    }
+  ]
+}

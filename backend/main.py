@@ -272,6 +272,32 @@ app.include_router(webhooks.router, prefix="/api", tags=["Webhooks"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 
 
+# SEC EDGAR circuit-breaker handler: when the breaker is open we are deliberately
+# failing fast to protect a struggling upstream. Surface that as a friendly, retryable
+# 503 instead of a generic 500 (CircuitOpenError does not subclass EdgarError, so the
+# routers' `except SECEdgarServiceError` handlers would otherwise miss it).
+from app.services.edgar.circuit_breaker import CircuitOpenError
+
+
+@app.exception_handler(CircuitOpenError)
+async def circuit_open_exception_handler(request: Request, exc: CircuitOpenError):
+    from fastapi.responses import JSONResponse
+
+    retry_after = int(exc.time_until_recovery) if exc.time_until_recovery else 30
+    logger.warning(
+        f"Circuit '{exc.circuit_name}' open on {request.method} {request.url.path}; "
+        f"returning 503 (retry in ~{retry_after}s)"
+    )
+    return JSONResponse(
+        status_code=503,
+        headers={"Retry-After": str(retry_after)},
+        content={
+            "detail": "SEC EDGAR is temporarily unavailable. Please retry shortly.",
+            "retry_after_seconds": retry_after,
+        },
+    )
+
+
 # Global exception handler for unhandled errors
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
