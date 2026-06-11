@@ -9,11 +9,15 @@ import type { TrendingTickerResponse } from '@/features/companies/api/companies-
  * breaks (or slows the build) when the backend is unreachable.
  */
 
-const getBackendUrl = (): string =>
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  (process.env.NODE_ENV === 'development'
-    ? 'http://localhost:8000'
-    : 'https://api.earningsnerd.io')
+const getBackendUrl = (): string => {
+  const url =
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    (process.env.NODE_ENV === 'development'
+      ? 'http://localhost:8000'
+      : 'https://api.earningsnerd.io')
+  // Tolerate a configured trailing slash (avoids `//api/...` request paths).
+  return url.replace(/\/$/, '')
+}
 
 const fetchJson = async <T>(path: string, revalidateSeconds: number): Promise<T | null> => {
   try {
@@ -93,7 +97,8 @@ const pickMetrics = (summary: SummaryPayload): ExampleMetric[] => {
   const facts = summary.financial_highlights?.normalized?.metrics ?? []
   const picked: ExampleMetric[] = []
   for (const { label, pattern } of METRIC_MATCHERS) {
-    const fact = facts.find((f) => f.metric && pattern.test(f.metric) && f.currentPeriod)
+    // Defensive: the payload is external — tolerate null entries in the array.
+    const fact = facts.find((f) => f?.metric && pattern.test(f.metric) && f.currentPeriod)
     if (fact?.currentPeriod) {
       picked.push({ label, value: fact.currentPeriod, deltaPercent: fact.deltaPercent })
     }

@@ -103,17 +103,29 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
       inputRef.current?.blur()
       return
     }
-    if (navigableTickers.length === 0) return
     if (e.key === 'ArrowDown') {
+      if (navigableTickers.length === 0) return
       e.preventDefault()
       setHighlightIndex((i) => (i + 1) % navigableTickers.length)
     } else if (e.key === 'ArrowUp') {
+      if (navigableTickers.length === 0) return
       e.preventDefault()
       setHighlightIndex((i) => (i <= 0 ? navigableTickers.length - 1 : i - 1))
     } else if (e.key === 'Enter') {
       e.preventDefault()
       const ticker = navigableTickers[highlightIndex === -1 ? 0 : highlightIndex]
-      if (ticker) router.push(`/company/${ticker}`)
+      if (ticker) {
+        router.push(`/company/${ticker}`)
+      } else {
+        // No results yet (query in flight): if the input is ticker-shaped,
+        // navigate directly — power users shouldn't wait for autocomplete.
+        // Name-like queries ("apple inc") are NOT navigated; they'd produce
+        // junk /company/ URLs.
+        const typed = query.trim().toUpperCase()
+        if (/^[A-Z]{1,5}(-[A-Z])?$/.test(typed)) {
+          router.push(`/company/${typed}`)
+        }
+      }
     }
   }
 

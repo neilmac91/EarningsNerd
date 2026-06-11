@@ -7,11 +7,15 @@ export const revalidate = 3600
 
 // Resolved inline (instead of importing lib/api/client) to keep axios and its
 // interceptors out of this metadata route's server bundle.
-const getBackendUrl = (): string =>
-  process.env.NEXT_PUBLIC_API_BASE_URL ||
-  (process.env.NODE_ENV === 'development'
-    ? 'http://localhost:8000'
-    : 'https://api.earningsnerd.io')
+const getBackendUrl = (): string => {
+  const url =
+    process.env.NEXT_PUBLIC_API_BASE_URL ||
+    (process.env.NODE_ENV === 'development'
+      ? 'http://localhost:8000'
+      : 'https://api.earningsnerd.io')
+  // Tolerate a configured trailing slash (avoids `//sitemap.xml`).
+  return url.replace(/\/$/, '')
+}
 
 const STATIC_ENTRIES: MetadataRoute.Sitemap = [
   { url: `${SITE_URL}/`, changeFrequency: 'daily', priority: 1 },

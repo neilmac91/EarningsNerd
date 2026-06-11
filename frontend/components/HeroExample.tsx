@@ -70,8 +70,13 @@ function HeroExample({ example }: { example: ExampleData | null }) {
   const data = example ?? FALLBACK
   const isFallback = example === null
   // Parse the calendar date only — `new Date('2022-10-28')` is UTC midnight
-  // and renders the previous day in negative-offset timezones.
-  const filedLabel = format(parseISO(data.filingDate.slice(0, 10)), 'MMM d, yyyy')
+  // and renders the previous day in negative-offset timezones. Guard against
+  // a malformed upstream date: format() throws on invalid dates, which would
+  // crash the homepage render; omit the label instead.
+  const parsedDate = parseISO(data.filingDate.slice(0, 10))
+  const filedLabel = Number.isNaN(parsedDate.getTime())
+    ? null
+    : format(parsedDate, 'MMM d, yyyy')
 
   return (
     <div className="relative">
@@ -118,9 +123,11 @@ function HeroExample({ example }: { example: ExampleData | null }) {
                 </span>
               )}
             </div>
-            <span className="flex-shrink-0 font-mono text-xs tabular-nums text-slate-400">
-              filed {filedLabel}
-            </span>
+            {filedLabel && (
+              <span className="flex-shrink-0 font-mono text-xs tabular-nums text-slate-400">
+                filed {filedLabel}
+              </span>
+            )}
           </div>
 
           {/* Executive snapshot — real summary text */}
