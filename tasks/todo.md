@@ -14,15 +14,15 @@ share a manifest/lockfile; finish with Issue #240 and a legacy-deps issue.
 
 ## Phase 2 — Security
 - [x] Merge PR #234 (@protobufjs/utf8, root lockfile) → f8188a5
-- [ ] Rebase + merge PR #226 (frontend minor group, incl. next 16.2.6 security)
+- [x] Update-branch + merge PR #226 (frontend minors incl. next 16.2.6 security) → 11ca006
 - [ ] Confirm PR #233 auto-closes (subsumed by #226)
 
 ## Phase 3 — Backend deps
 - [x] Merge PR #222 (python-multipart floor) → 8f5d475
 - [x] Merge PR #223 (email-validator floor) → 9149c0d
 - [x] Merge PR #225 (sentry-sdk floor) → 5ac2906
-- [ ] Rebase + merge PR #224 (pydantic floor — conflicted on adjacent lines, rebase kicked)
-- [ ] Rebase + merge PR #235 (pinned bumps: bs4, arelle, posthog)
+- [ ] Merge PR #224 (pydantic floor — conflicted; waiting on dependabot auto-rebase)
+- [x] Rebase + merge PR #235 (pinned bumps: bs4, arelle, posthog) → 62d5699
 
 ## Phase 4 — Frontend devDep majors (serial, rebase + CI gate between each)
 - [ ] #227 jsdom 29
@@ -35,14 +35,24 @@ share a manifest/lockfile; finish with Issue #240 and a legacy-deps issue.
 - [ ] #229 lucide-react 1.x
 
 ## Phase 6 — Engineering + debt
-- [ ] File tech-debt issue: remove legacy SEC packages (arelle-release,
-      sec-edgar-downloader, sec-parser if migrated)
-- [ ] Implement Issue #240 (accession-aware XBRL extraction) in dedicated PR
+- [x] File tech-debt issue: remove legacy SEC packages → issue #244
+      (verified: arelle-release + sec-edgar-downloader have zero imports;
+      sec-parser still used by filing_parser.py)
+- [x] Implement Issue #240 (accession-aware XBRL extraction) → PR from this
+      branch. New `edgar/instance_extractor.py` (shared duration/period
+      filters), instance-first fetch order, v2 cache keys, 10-Q/10-K xbrl
+      timeout budget raise, 20 new unit tests; 341 backend tests pass.
 
 ## Review notes
 - #220: verified hunk-by-hunk against main before closing (ci.yml, vercel.json,
   devops-automator.md all already applied).
 - #224 conflict despite "different lines": see tasks/lessons.md (adjacent-line rule).
+- `@dependabot rebase` comments are posted with backtick-escaping + a footer,
+  so dependabot ignores them. Working levers: GitHub's update-branch API for
+  conflict-free PRs; dependabot's own conflict-triggered auto-rebase otherwise.
+- #240 fix deviates from the issue text deliberately: companyfacts (accession-
+  aware since #239) outranks get_financials(), which is demoted to last resort
+  because it IS the wrong-filing source the issue targets.
 
 ---
 
