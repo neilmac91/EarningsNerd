@@ -31,11 +31,24 @@ accession-awareness rework to follow-up issue.
       holds for every entry; AAPL rev now 416.161B (matches filing).
 - [x] 6. 13 unit tests in tests/unit/test_statement_extraction.py.
 - [x] 7. Backend unit+smoke suite: 194 passed.
-- [ ] 8. Commit + push to PR branch.
+- [x] 8. Pushed as f729e56 (rebased onto a8293f5 gitignore commit).
 - [x] 9. Filed issue #240 (accession-aware XBRL rework).
-- [ ] 10. Reply on all 6 review threads (4 valid → fixed; 2 model-ID → reasoned
-      rejection) and resolve them.
+- [x] 10. Replied on all 6 review threads (4 valid → fixed with mechanism
+      corrections; 2 model-ID suggestions rejected — gemini-1.5-pro is retired,
+      gemini-3.1-pro-preview verified by operator) and resolved them.
 
 ## Review
 
-(to fill at completion)
+The reviewers' symptoms were real but their mechanisms were wrong; empirical
+probing of edgartools 5.36 changed the fix entirely. Key discovery: the
+statement-dataframe path was dead code in ALL edgartools 5.x (no
+`Company.financials` property + concepts in a column, not the index), so prod
+XBRL always came from the companyfacts fallback, whose first-concept-wins
+selection surfaced retired tags. Golden ground truth now comes from each
+filing's own XBRL with duration windows + hard invariants: 18/19 verified,
+EPS × shares ≈ NI for every entry, AAPL 416.161B matches the filed statement.
+Revenue concept priority: `Revenues` (statement top line) over contract
+revenue — scorers do exact-rendering matching, and summaries quote the top
+line (WMT 713.163B incl. membership income, not 706.413B). BRK.B honestly
+unverified (EPS only tagged per share class). Deferred: accession-aware
+product XBRL (#240).
