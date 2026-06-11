@@ -80,6 +80,30 @@ export const analytics = {
     })
   },
 
+  // Activation funnel: fired when a visitor actually sees summary content.
+  // Generation outcomes (generation_started/succeeded/failed/timed_out) are
+  // captured server-side with the same distinct_id (forwarded on the stream
+  // request) so the funnel joins on one person without double counting.
+  summaryViewed: (props: {
+    filingId: number
+    ticker: string | null
+    filingType: string
+    entryPoint: string
+    resultType?: string
+    qualityVerdict?: string
+    durationMs?: number
+  }) => {
+    safeCapture('summary_viewed', {
+      filing_id: props.filingId,
+      ticker: props.ticker,
+      filing_type: props.filingType,
+      entry_point: props.entryPoint,
+      result_type: props.resultType,
+      quality_verdict: props.qualityVerdict,
+      duration_ms: props.durationMs,
+    })
+  },
+
   summarySaved: (filingId: number, ticker: string | null) => {
     safeCapture('summary_saved', {
       filing_id: filingId,
