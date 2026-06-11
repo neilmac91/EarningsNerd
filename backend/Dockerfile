@@ -42,6 +42,7 @@ ENV DB_MAX_OVERFLOW=5
 ENV DB_POOL_RECYCLE=1800
 ENV DB_CONNECT_TIMEOUT=10
 
-# Run database migrations and start the server
+# Start the server. Schema is created at startup via Base.metadata.create_all()
+# in main.py's lifespan handler (this project has no Alembic config).
 # Note: Cloud Run uses a single worker by default which is fine for scale-to-zero
-CMD alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port ${PORT}
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT}
