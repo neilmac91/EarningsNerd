@@ -13,6 +13,7 @@ import SocialProofStrip from '@/components/SocialProofStrip'
 import HowItWorks from '@/components/HowItWorks'
 import FeatureShowcase from '@/components/FeatureShowcase'
 import CtaBanner from '@/components/CtaBanner'
+import ExampleCtaLink from '@/components/ExampleCtaLink'
 import { EXAMPLE_FILING_ID } from '@/lib/featureFlags'
 
 const SITE_URL = 'https://www.earningsnerd.io'
@@ -130,12 +131,13 @@ export default function Home() {
                   Get Started Free
                   <ArrowRight className="h-4 w-4" />
                 </Link>
-                <Link
+                <ExampleCtaLink
                   href={EXAMPLE_FILING_ID ? `/filing/${EXAMPLE_FILING_ID}?entry=hero_example` : '/company/AAPL'}
+                  placement="hero"
                   className="inline-flex items-center gap-2 rounded-full border border-white/20 px-7 py-3 text-base font-medium text-slate-300 transition-all hover:border-white/40 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 >
                   See an Example
-                </Link>
+                </ExampleCtaLink>
               </div>
 
               {/* Search bar */}
@@ -169,7 +171,7 @@ export default function Home() {
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <div className="mb-8 flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-white">
-              <span>🔥</span> Trending Filings
+              <span aria-hidden="true">🔥</span> Trending Filings
             </h2>
           </div>
           <Suspense fallback={<HotFilingsSkeleton />}>

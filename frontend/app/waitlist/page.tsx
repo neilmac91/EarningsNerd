@@ -1,6 +1,21 @@
 import { Suspense } from 'react'
+import type { Metadata } from 'next'
+import { ArrowRight } from 'lucide-react'
 import WaitlistForm from '@/components/WaitlistForm'
 import WaitlistCounter from '@/components/WaitlistCounter'
+import ExampleCtaLink from '@/components/ExampleCtaLink'
+import { EXAMPLE_FILING_ID } from '@/lib/featureFlags'
+
+// While the waitlist gate is up, this page is the de-facto homepage — it needs
+// its own metadata and a self-canonical so search engines index something real.
+export const metadata: Metadata = {
+  title: 'EarningsNerd — Read a 10-K in 5 minutes, not 5 hours',
+  description:
+    'Join the EarningsNerd waitlist. AI-powered summaries turn dense SEC 10-K and 10-Q filings into clear, decision-ready insights — sourced directly from SEC EDGAR.',
+  alternates: {
+    canonical: '/waitlist',
+  },
+}
 
 export default function WaitlistPage() {
   return (
@@ -35,6 +50,18 @@ export default function WaitlistPage() {
 
             <p className="mt-4 text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
               No spam. Early access invites and product updates only.
+            </p>
+
+            <p className="mt-6 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              Don&apos;t want to wait?{' '}
+              <ExampleCtaLink
+                href={EXAMPLE_FILING_ID ? `/filing/${EXAMPLE_FILING_ID}?entry=waitlist_example` : '/company/AAPL'}
+                placement="waitlist"
+                className="inline-flex items-center gap-1 font-semibold text-mint-700 underline underline-offset-4 transition-colors hover:text-mint-600 dark:text-mint-400 dark:hover:text-mint-300"
+              >
+                Try a live example summary
+                <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+              </ExampleCtaLink>
             </p>
           </div>
 

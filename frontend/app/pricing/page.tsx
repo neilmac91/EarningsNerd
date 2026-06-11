@@ -261,7 +261,7 @@ function PricingContent() {
             >
               {plan.popular && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                  <span className="bg-primary-600 text-white px-4 py-1 rounded-full text-sm font-medium">
+                  <span className="bg-primary-500 text-slate-950 px-4 py-1 rounded-full text-sm font-medium">
                     Most Popular
                   </span>
                 </div>
@@ -294,7 +294,7 @@ function PricingContent() {
                   plan.disabled
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                     : plan.popular
-                    ? 'bg-primary-600 text-white hover:bg-primary-700'
+                    ? 'bg-primary-500 text-slate-950 hover:bg-primary-400'
                     : 'bg-gray-900 text-white hover:bg-gray-800'
                 }`}
               >

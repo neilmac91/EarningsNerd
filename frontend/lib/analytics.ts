@@ -64,6 +64,12 @@ export const analytics = {
     safeCapture('company_viewed', { ticker, name })
   },
 
+  // Activation funnel: zero-effort entry — a visitor clicks through to the
+  // pre-generated example summary instead of searching.
+  exampleCtaClicked: (placement: string, target: string) => {
+    safeCapture('example_cta_clicked', { placement, target })
+  },
+
   filingViewed: (filingId: number, ticker: string | null, filingType: string) => {
     safeCapture('filing_viewed', {
       filing_id: filingId,
