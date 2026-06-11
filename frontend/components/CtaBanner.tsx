@@ -22,7 +22,7 @@ function CtaBanner() {
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Link
               href="/register"
-              className="inline-flex items-center gap-2 rounded-full bg-mint-500 px-8 py-3.5 text-base font-semibold text-white shadow-glow-mint transition-all hover:bg-mint-400 hover:shadow-glow-mint-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+              className="inline-flex items-center gap-2 rounded-full bg-mint-500 px-8 py-3.5 text-base font-semibold text-slate-950 shadow-glow-mint transition-all hover:bg-mint-400 hover:shadow-glow-mint-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
             >
               Get Started Free
               <ArrowRight className="h-4 w-4" />

@@ -8,7 +8,7 @@ import { memo } from 'react'
  */
 function HeroMockup() {
   return (
-    <div className="relative">
+    <div className="relative" aria-hidden="true">
       {/* Ambient glow behind the mockup */}
       <div className="absolute -inset-4 rounded-3xl bg-mint-500/10 blur-3xl" aria-hidden="true" />
 
@@ -37,7 +37,7 @@ function HeroMockup() {
               <span className="text-sm font-semibold text-white">Apple Inc.</span>
               <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs text-slate-400">10-K</span>
             </div>
-            <span className="text-xs text-slate-500">FY 2025</span>
+            <span className="text-xs text-slate-500">FY 2022</span>
           </div>
 
           {/* Executive summary section */}
@@ -60,17 +60,17 @@ function HeroMockup() {
             <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3">
               <div className="text-[10px] text-slate-500">Revenue</div>
               <div className="mt-1 text-sm font-bold text-white">$394.3B</div>
-              <div className="mt-0.5 text-[10px] font-medium text-emerald-400">+8.2%</div>
+              <div className="mt-0.5 text-[10px] font-medium text-emerald-400">+7.8%</div>
             </div>
             <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3">
               <div className="text-[10px] text-slate-500">Net Income</div>
-              <div className="mt-1 text-sm font-bold text-white">$97.2B</div>
-              <div className="mt-0.5 text-[10px] font-medium text-emerald-400">+10.1%</div>
+              <div className="mt-1 text-sm font-bold text-white">$99.8B</div>
+              <div className="mt-0.5 text-[10px] font-medium text-emerald-400">+5.4%</div>
             </div>
             <div className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3">
-              <div className="text-[10px] text-slate-500">EPS</div>
-              <div className="mt-1 text-sm font-bold text-white">$6.42</div>
-              <div className="mt-0.5 text-[10px] font-medium text-emerald-400">+11.4%</div>
+              <div className="text-[10px] text-slate-500">Diluted EPS</div>
+              <div className="mt-1 text-sm font-bold text-white">$6.11</div>
+              <div className="mt-0.5 text-[10px] font-medium text-emerald-400">+8.9%</div>
             </div>
           </div>
 

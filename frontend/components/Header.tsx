@@ -52,7 +52,7 @@ export default function Header() {
           </Link>
           <Link
             href="/register"
-            className="inline-flex items-center gap-1.5 rounded-full bg-mint-500 px-5 py-2 text-sm font-semibold text-white shadow-glow-mint-sm transition-all hover:bg-mint-400 hover:shadow-glow-mint focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+            className="inline-flex items-center gap-1.5 rounded-full bg-mint-500 px-5 py-2 text-sm font-semibold text-slate-950 shadow-glow-mint-sm transition-all hover:bg-mint-400 hover:shadow-glow-mint focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
           >
             Get Started
             <ArrowRight className="h-3.5 w-3.5" />
@@ -96,7 +96,7 @@ export default function Header() {
               <Link
                 href="/register"
                 onClick={() => setMobileMenuOpen(false)}
-                className="block rounded-lg bg-mint-500 px-3 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-mint-400"
+                className="block rounded-lg bg-mint-500 px-3 py-2.5 text-center text-sm font-semibold text-slate-950 transition-colors hover:bg-mint-400"
               >
                 Get Started
               </Link>
