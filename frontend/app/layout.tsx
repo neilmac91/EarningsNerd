@@ -23,7 +23,7 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: '/og-image.svg',
+        url: '/og-image.png',
         width: 1200,
         height: 630,
         alt: 'EarningsNerd - SEC filing summaries in minutes',
@@ -34,7 +34,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'EarningsNerd - AI-Powered SEC Filing Analysis',
     description: 'Transform dense SEC filings into clear, actionable insights using AI.',
-    images: ['/og-image.svg'],
+    images: ['/og-image.png'],
   },
   icons: {
     icon: '/assets/earningsnerd-icon-dark.svg',

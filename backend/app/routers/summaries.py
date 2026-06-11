@@ -38,6 +38,13 @@ from app.services.summary_generation_service import (
     get_or_cache_excerpt
 )
 from app.services.fallback_summary import generate_xbrl_summary
+from app.services.posthog_client import (
+    EVENT_GENERATION_STARTED,
+    EVENT_GENERATION_SUCCEEDED,
+    EVENT_GENERATION_FAILED,
+    EVENT_GENERATION_TIMED_OUT,
+    capture_funnel_event,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -184,6 +191,8 @@ async def generate_summary_stream(
     filing_id: int,
     request: Request,
     force: bool = False,
+    entry_point: Optional[str] = None,
+    ph_id: Optional[str] = None,
     current_user: Optional[User] = Depends(get_current_user_optional),
     db: Session = Depends(get_db)
 ):
@@ -192,6 +201,10 @@ async def generate_summary_stream(
     Args:
         force: If True, delete existing summary and regenerate from scratch.
                Use this for "Regenerate Analysis" functionality.
+        entry_point: Where the visitor entered the funnel (forwarded by the
+                     frontend for activation analytics, e.g. "homepage").
+        ph_id: The client's PostHog distinct_id, so server-side funnel events
+               join with frontend events on the same person.
     """
     # Use user ID for authenticated users, IP for guests
     client_host = request.client.host if request.client else "unknown"
@@ -283,6 +296,22 @@ async def generate_summary_stream(
     user_id = current_user.id if current_user else None
     logger.info(f"[stream:{filing_id}] Starting summary stream for user {user_id}")
 
+    # Activation funnel telemetry context. Plain values are captured eagerly here —
+    # the generator below runs after this request's DB session is gone, so ORM
+    # attribute access inside it would be unsafe. Prefer the client's PostHog
+    # distinct_id so server events join frontend events on the same person.
+    telemetry_distinct_id = (ph_id or "")[:200] or (
+        str(current_user.id) if current_user else f"guest:{client_host}"
+    )
+    telemetry_entry_point = (entry_point or "")[:64] or None
+    telemetry_ctx = {
+        "filing_id": filing_id,
+        "filing_type": filing.filing_type,
+        "ticker": filing.company.ticker if filing.company else None,
+        "user_type": "authenticated" if current_user else "guest",
+        "forced": force,
+    }
+
     async def stream_summary():
         # Create a new session for the async generator to avoid detached session issues
         from app.database import SessionLocal
@@ -294,6 +323,16 @@ async def generate_summary_stream(
         pipeline_started_at = time.time()
         stage_started_at = pipeline_started_at
         stage_timings: List[tuple[str, float]] = []
+
+        capture_funnel_event(
+            telemetry_distinct_id,
+            EVENT_GENERATION_STARTED,
+            entry_point=telemetry_entry_point,
+            **telemetry_ctx,
+        )
+
+        def elapsed_ms() -> int:
+            return int((time.time() - pipeline_started_at) * 1000)
 
         def mark_stage(stage_name: str):
             nonlocal stage_started_at
@@ -780,7 +819,19 @@ async def generate_summary_stream(
 
             summary_status = summary_payload.get("status", "complete")
             summary_message = summary_payload.get("message")
-            
+
+            # A persisted result with status "error" means only fallback content was
+            # produced — count it as a failure in the funnel, not a success.
+            capture_funnel_event(
+                telemetry_distinct_id,
+                EVENT_GENERATION_SUCCEEDED if summary_status != "error" else EVENT_GENERATION_FAILED,
+                duration_ms=elapsed_ms(),
+                result_type=summary_status,
+                quality_verdict=quality.get("tier"),
+                entry_point=telemetry_entry_point,
+                **telemetry_ctx,
+            )
+
             yield f"data: {json.dumps({'type': 'chunk', 'content': markdown})}\n\n"
             
             if summary_status == "partial":
@@ -792,6 +843,14 @@ async def generate_summary_stream(
         except TimeoutError:
             # Pipeline hard timeout reached
             logger.warning(f"[stream:{filing_id}] Pipeline timeout after {PIPELINE_TIMEOUT_SECONDS}s")
+            capture_funnel_event(
+                telemetry_distinct_id,
+                EVENT_GENERATION_TIMED_OUT,
+                duration_ms=elapsed_ms(),
+                result_type="timeout",
+                entry_point=telemetry_entry_point,
+                **telemetry_ctx,
+            )
             try:
                 await run_sync_db(record_progress, session, filing_id, "error", error="Pipeline timeout")
             except Exception as e:
@@ -800,6 +859,15 @@ async def generate_summary_stream(
         except Exception as e:
             logger.error(f"[stream:{filing_id}] Error in streaming summary: {str(e)}", exc_info=True)
             error_msg = str(e)
+            capture_funnel_event(
+                telemetry_distinct_id,
+                EVENT_GENERATION_FAILED,
+                duration_ms=elapsed_ms(),
+                result_type="error",
+                entry_point=telemetry_entry_point,
+                error=error_msg[:200],
+                **telemetry_ctx,
+            )
             try:
                 await run_sync_db(record_progress, session, filing_id, "error", error=error_msg[:200])
             except Exception as e:

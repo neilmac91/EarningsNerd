@@ -80,6 +80,30 @@ const getFriendlyErrorMessage = (error: unknown): string | null => {
   return 'Unexpected error occurred while loading the summary.'
 }
 
+// Activation funnel: where did the session that led here enter the app?
+// An explicit ?entry= param (set by CTAs) wins; otherwise the document referrer
+// identifies the session's acquisition path. Note that document.referrer is fixed
+// per document load, so client-side navigations report the session's original
+// entry — which is the segmentation the activation funnel cares about.
+const getEntryPoint = (): string => {
+  if (typeof window === 'undefined') return 'unknown'
+  const explicit = new URLSearchParams(window.location.search).get('entry')
+  if (explicit) return explicit.slice(0, 64)
+  const referrer = document.referrer
+  if (!referrer) return 'direct'
+  try {
+    const ref = new URL(referrer)
+    if (ref.origin !== window.location.origin) return 'external'
+    if (ref.pathname === '/') return 'homepage'
+    if (ref.pathname === '/waitlist') return 'waitlist'
+    if (ref.pathname.startsWith('/company/')) return 'company_page'
+    if (ref.pathname.startsWith('/compare')) return 'compare'
+    return 'internal'
+  } catch {
+    return 'unknown'
+  }
+}
+
 // --- Components ---
 const FinancialCharts = dynamic(() => import('@/components/FinancialCharts'), {
   ssr: false,
@@ -228,6 +252,9 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false)
   const hasTrackedFilingView = useRef(false)
   const hasTrackedSummaryGenerated = useRef(false)
+  const hasTrackedSummaryViewed = useRef(false)
+  const viewStartedAt = useRef<number>(Date.now())
+  const entryPoint = useMemo(() => getEntryPoint(), [])
 
   const { data: currentUser } = useQuery({
     queryKey: ['current-user'],
@@ -372,7 +399,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
           // Reset progress state on error
           setStreamingText('')
         },
-        { force: options?.force }
+        { force: options?.force, entryPoint }
       )
     } catch (error: unknown) {
       const errObj = error as { message?: string }
@@ -385,7 +412,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
     } finally {
       setIsStreaming(false)
     }
-  }, [filingId, refetch, queryClient, isAuthenticated])
+  }, [filingId, refetch, queryClient, isAuthenticated, entryPoint])
 
   // Wrapper for regeneration with force=true
   const handleRegenerateSummary = useCallback(() => {
@@ -439,6 +466,23 @@ function FilingDetailView({ filingId }: { filingId: number }) {
       hasTrackedSummaryGenerated.current = true
     }
   }, [hasSummaryContent, filing])
+
+  // Activation funnel terminal step: the visitor actually sees summary content
+  // (cached or freshly generated). duration_ms is time from page mount to content.
+  useEffect(() => {
+    if (!hasTrackedSummaryViewed.current && hasSummaryContent && filing && summary) {
+      analytics.summaryViewed({
+        filingId: filing.id,
+        ticker: filing.company?.ticker ?? null,
+        filingType: filing.filing_type,
+        entryPoint,
+        resultType: summary.raw_summary?.status,
+        qualityVerdict: summary.raw_summary?.quality?.tier,
+        durationMs: Date.now() - viewStartedAt.current,
+      })
+      hasTrackedSummaryViewed.current = true
+    }
+  }, [hasSummaryContent, filing, summary, entryPoint])
 
   if (filingLoading) {
     return (

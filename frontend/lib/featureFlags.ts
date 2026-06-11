@@ -47,6 +47,16 @@ export const ENABLE_RECOMMENDED_FILING =
 export const EXAMPLE_FILING_ID = process.env.NEXT_PUBLIC_EXAMPLE_FILING_ID
 
 /**
+ * Href for "see an example" CTAs. Deep-links to the pre-generated example
+ * filing (tagged with an `entry` param for funnel attribution) when
+ * EXAMPLE_FILING_ID is set, else falls back to the company page.
+ */
+export const exampleFilingHref = (entry: string): string =>
+  EXAMPLE_FILING_ID
+    ? `/filing/${EXAMPLE_FILING_ID}?entry=${encodeURIComponent(entry)}`
+    : '/company/AAPL'
+
+/**
  * Honest degradation (roadmap S4). When enabled, the filing summary shows an explicit quality
  * badge ("Full summary" / "Partial — ...; retry") driven by the backend's
  * `raw_summary.quality` verdict, and STOPS stripping internal failure notices client-side —

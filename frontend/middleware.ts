@@ -4,6 +4,7 @@ const ALLOWED_PATHS = new Set([
   '/waitlist',
   '/login',
   '/register',
+  '/pricing',
   '/privacy',
   '/security',
   '/contact',

@@ -9,11 +9,20 @@ import { useRouter } from 'next/navigation'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import analytics from '@/lib/analytics'
 
-export default function CompanySearch() {
+export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusDesktop?: boolean }) {
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const router = useRouter()
   const lastTrackedQuery = useRef<string>('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // Desktop-only autofocus: search is the hero's primary action. Skipped on
+  // small screens, where autofocus pops the keyboard and jumps the viewport.
+  useEffect(() => {
+    if (autoFocusDesktop && window.matchMedia('(min-width: 1024px)').matches) {
+      inputRef.current?.focus({ preventScroll: true })
+    }
+  }, [autoFocusDesktop])
 
   // Debounce search
   useEffect(() => {
@@ -62,6 +71,7 @@ export default function CompanySearch() {
       <div className="relative">
         <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
         <input
+          ref={inputRef}
           id="company-search"
           type="text"
           value={query}

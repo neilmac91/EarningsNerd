@@ -76,9 +76,51 @@ Strategic bets pause for review before/after. Quick wins ship in batches.
 
 ---
 
+# Homepage Redesign v2 — Execution Record (PR #241, 2026-06-11)
+
+Spec: `tasks/homepage-redesign-v2.md`. Operator steps: `tasks/launch-runbook.md`.
+
+- [x] **Phase 0 — Truth & Safety.** Honest social-proof claims (fabricated
+      stats removed; XBRL claim softened per Codex review); hero mockup
+      relabeled FY 2022 with Apple's actual filed figures; dark-on-mint
+      CTA text sitewide (WCAG AA); reduced-motion guards; 🔥 aria-hidden;
+      `/pricing` allowlisted + guest-safe pricing page.
+- [x] **SB1 — Funnel instrumentation.** Server-side `generation_started/
+      succeeded/failed/timed_out` (duration_ms, result_type,
+      quality_verdict, entry_point; client distinct_id forwarded via
+      `ph_id`); client-side `summary_viewed` + `example_cta_clicked`;
+      entry_point attribution via `?entry=` + referrer.
+- [x] **Phase 1 — Open & Index.** Duplicate WAITLIST_MODE redirect removed
+      (middleware is single source; `/` prerenders statically);
+      `app/robots.ts` + `app/sitemap.ts` proxying the backend sitemap
+      (domain fixed, filing URLs added); homepage metadata + canonical +
+      JSON-LD (Organization/WebSite/SearchAction); `/waitlist` metadata +
+      example CTA; PNG og-image.
+- [x] **Phase 2 — Activation-first hero.** Search focal (desktop
+      autofocus); register demoted out of hero & CtaBanner; HeroMockup =
+      real date-stamped AAPL FY2022 preview, clickable, server component;
+      mobile ExampleSummaryCard.
+- [x] **Phase 3 — Honest persuasion.** AccuracySection ("Where the numbers
+      come from"); free-tier clarity line; "Real-Time XBRL" → "XBRL-
+      Verified Financials".
+- [x] **Ops prep.** Weekly `pregenerate_examples` Render cron;
+      launch runbook with gate-flip checklist, PostHog funnel definition,
+      Search Console + CWV steps.
+- [ ] **Phase 4 — Measure (operator).** Gate flip, env vars, PostHog
+      dashboard, 2-week baseline → A/B program. See runbook.
+
+---
+
 # Homepage Redesign Plan
 
-## Status: AWAITING APPROVAL
+## Status: SHIPPED (26df0ac, 2026-02-05) — SUPERSEDED by `tasks/homepage-redesign-v2.md`
+
+> ⚠️ Do not "approve" or re-implement this plan: it shipped in full the same day
+> it was written. The v2 review (branch `claude/wonderful-hawking-c3s4dl`,
+> `tasks/homepage-redesign-v2.md`) re-scoped the homepage work around truth,
+> reachability, activation, and measurement. v2 Phases 0–3 + SB1 shipped in
+> PR #241 (2026-06-11); remaining operator steps live in
+> `tasks/launch-runbook.md`.
 
 ---
 

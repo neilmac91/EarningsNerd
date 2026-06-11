@@ -1,6 +1,19 @@
 import api, { getApiUrl } from '@/lib/api/client'
 import type { FinancialHighlights, RiskFactor } from '@/types/summary'
 import { isApiError, getErrorStatus } from '@/lib/api/types'
+import posthog from 'posthog-js'
+
+// Forwarded with the stream request so server-side funnel events
+// (generation_started/succeeded/failed/timed_out) attach to the same PostHog
+// person as the frontend events (summary_viewed, search, etc.).
+const getPosthogDistinctId = (): string | null => {
+  if (typeof window === 'undefined') return null
+  try {
+    return posthog.get_distinct_id() || null
+  } catch {
+    return null
+  }
+}
 
 // Reduced to 120 seconds (2 minutes) to match backend pipeline timeout guarantee
 // The heartbeat mechanism keeps the connection alive, but we now have a hard limit
@@ -20,6 +33,11 @@ export interface Summary {
       covered_count?: number
       total_count?: number
       coverage_ratio?: number
+    }
+    status?: string
+    quality?: {
+      tier?: string
+      reasons?: string[]
     }
     writer_error?: string
     writer?: {
@@ -90,7 +108,7 @@ export const generateSummaryStream = async (
   onProgress: (stage: string, message: string, data?: ProgressData) => void,
   onComplete: (summaryId: number) => void,
   onError: (error: string) => void,
-  options?: { force?: boolean }
+  options?: { force?: boolean; entryPoint?: string }
 ): Promise<void> => {
   const MAX_ATTEMPTS = 2 // one automatic retry before surfacing the error to the user
 
@@ -133,12 +151,17 @@ const runStreamAttempt = async (
   onChunk: (chunk: string) => void,
   onProgress: (stage: string, message: string, data?: ProgressData) => void,
   onComplete: (summaryId: number) => void,
-  options: { force?: boolean } | undefined,
+  options: { force?: boolean; entryPoint?: string } | undefined,
   markContentDelivered: () => void
 ): Promise<StreamAttemptResult> => {
   const apiUrl = getApiUrl()
-  const forceParam = options?.force ? '?force=true' : ''
-  const url = `${apiUrl}/api/summaries/filing/${filingId}/generate-stream${forceParam}`
+  const params = new URLSearchParams()
+  if (options?.force) params.set('force', 'true')
+  if (options?.entryPoint) params.set('entry_point', options.entryPoint)
+  const phId = getPosthogDistinctId()
+  if (phId) params.set('ph_id', phId)
+  const query = params.toString()
+  const url = `${apiUrl}/api/summaries/filing/${filingId}/generate-stream${query ? `?${query}` : ''}`
 
   const controller = new AbortController()
   const streamStart = performance.now()

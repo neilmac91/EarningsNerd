@@ -1,7 +1,5 @@
 import { Suspense } from 'react'
-import { redirect } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
+import type { Metadata } from 'next'
 
 // Rule 2.1: Direct imports, no barrel files
 import CompanySearch from '@/components/CompanySearch'
@@ -9,11 +7,56 @@ import QuickAccessBar from '@/components/QuickAccessBar'
 import HotFilings from '@/components/HotFilings'
 import TrendingTickers from '@/components/TrendingTickers'
 import HeroMockup from '@/components/HeroMockup'
+import ExampleSummaryCard from '@/components/ExampleSummaryCard'
 import SocialProofStrip from '@/components/SocialProofStrip'
 import HowItWorks from '@/components/HowItWorks'
 import FeatureShowcase from '@/components/FeatureShowcase'
+import AccuracySection from '@/components/AccuracySection'
 import CtaBanner from '@/components/CtaBanner'
-import { EXAMPLE_FILING_ID } from '@/lib/featureFlags'
+import ExampleCtaLink from '@/components/ExampleCtaLink'
+import { exampleFilingHref } from '@/lib/featureFlags'
+
+const SITE_URL = 'https://www.earningsnerd.io'
+
+export const metadata: Metadata = {
+  title: 'EarningsNerd — Understand any SEC filing in minutes',
+  description:
+    'AI-powered summaries that turn 100-page 10-Ks and 10-Qs into clear, decision-ready insights. Financials, risks, and trends — sourced directly from SEC EDGAR.',
+  alternates: {
+    canonical: '/',
+  },
+}
+
+// Foundational structured data: Organization + WebSite with a SearchAction
+// (ticker search resolves to /company/{ticker}).
+const JSON_LD = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${SITE_URL}/#organization`,
+      name: 'EarningsNerd',
+      url: SITE_URL,
+      logo: `${SITE_URL}/assets/earningsnerd-icon-dark.svg`,
+      description: 'AI-powered SEC filing analysis. 10-K and 10-Q summaries sourced from SEC EDGAR.',
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}/#website`,
+      name: 'EarningsNerd',
+      url: SITE_URL,
+      publisher: { '@id': `${SITE_URL}/#organization` },
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: `${SITE_URL}/company/{search_term_string}`,
+        },
+        'query-input': 'required name=search_term_string',
+      },
+    },
+  ],
+}
 
 // Rule 6.2: Hoist static skeleton components outside
 function HotFilingsSkeleton() {
@@ -49,15 +92,14 @@ function TrendingTickersSkeleton() {
 }
 
 export default function Home() {
-  // Waitlist is enabled by default unless explicitly disabled
-  const isWaitlistEnabled = process.env.WAITLIST_MODE !== 'false'
-
-  if (isWaitlistEnabled) {
-    redirect('/waitlist')
-  }
-
+  // The WAITLIST_MODE gate lives in middleware.ts (single source of truth) —
+  // keeping this page free of redirects lets it render statically.
   return (
     <div className="bg-slate-950 text-white">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
+      />
       {/* ═══════════════════════════════════════════════════════════
           HERO SECTION — Split layout with copy left, mockup right
           ═══════════════════════════════════════════════════════════ */}
@@ -80,30 +122,32 @@ export default function Home() {
                 all in one place.
               </p>
 
-              {/* CTA buttons */}
-              <div className="mt-8 flex flex-wrap items-center gap-4">
-                <Link
-                  href="/register"
-                  className="inline-flex items-center gap-2 rounded-full bg-mint-500 px-7 py-3 text-base font-semibold text-white shadow-glow-mint transition-all hover:bg-mint-400 hover:shadow-glow-mint-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
-                >
-                  Get Started Free
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-                <Link
-                  href={EXAMPLE_FILING_ID ? `/filing/${EXAMPLE_FILING_ID}` : '/company/AAPL'}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/20 px-7 py-3 text-base font-medium text-slate-300 transition-all hover:border-white/40 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                >
-                  See an Example
-                </Link>
+              {/* Primary action: search. One hero, one action — registration
+                  lives in the header; the example link is the zero-effort path. */}
+              <div className="mt-8">
+                <CompanySearch autoFocusDesktop />
               </div>
 
-              {/* Search bar */}
-              <div className="mt-10">
-                <CompanySearch />
+              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                <ExampleCtaLink
+                  href={exampleFilingHref('hero_example')}
+                  placement="hero"
+                  className="inline-flex items-center gap-1 font-medium text-mint-400 underline underline-offset-4 decoration-mint-400/40 transition-colors hover:text-mint-300 hover:decoration-mint-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+                >
+                  See a live example →
+                </ExampleCtaLink>
+                <span className="text-slate-500">
+                  Your first summary is free — no signup needed.
+                </span>
               </div>
 
               {/* Quick access tickers */}
               <QuickAccessBar />
+
+              {/* Compact example for small screens (full mockup is lg-only) */}
+              <div className="mt-8 lg:hidden">
+                <ExampleSummaryCard />
+              </div>
             </div>
 
             {/* Right: Product mockup */}
@@ -128,7 +172,7 @@ export default function Home() {
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <div className="mb-8 flex items-center justify-between">
             <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-white">
-              <span>🔥</span> Trending Filings
+              <span aria-hidden="true">🔥</span> Trending Filings
             </h2>
           </div>
           <Suspense fallback={<HotFilingsSkeleton />}>
@@ -149,6 +193,13 @@ export default function Home() {
           ═══════════════════════════════════════════════════════════ */}
       <section className="py-20 sm:py-24">
         <FeatureShowcase />
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════
+          WHERE THE NUMBERS COME FROM (objection handling)
+          ═══════════════════════════════════════════════════════════ */}
+      <section className="py-20 sm:py-24">
+        <AccuracySection />
       </section>
 
       {/* ═══════════════════════════════════════════════════════════
