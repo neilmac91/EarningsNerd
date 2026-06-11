@@ -66,7 +66,8 @@ EarningsNerd is an AI-powered SEC filing analysis platform that transforms dense
 ### Backend (from `/backend`)
 ```bash
 pip install -r requirements.txt                    # Install dependencies
-alembic upgrade head                               # Run migrations (before tests)
+# Schema is created at startup (Base.metadata.create_all in main.py's lifespan);
+# one-off SQL migrations live in migrations/ and are applied manually.
 uvicorn main:app --reload --host 0.0.0.0 --port 8000  # Dev server
 pytest tests/                                      # Run all tests
 pytest tests/unit/                                 # Unit tests only
@@ -114,7 +115,7 @@ docker-compose down                   # Stop databases
 ├── prompts/              # AI system prompts (10k-analyst-agent.md, 10q-analyst-agent.md)
 ├── scripts/              # Verification and debug scripts
 ├── docs/                 # Design docs (plan_sec_pipeline.md)
-├── migrations/           # Alembic migrations
+├── migrations/           # One-off SQL migrations (applied manually; no Alembic)
 └── main.py               # FastAPI app entry point
 
 /frontend
@@ -687,11 +688,13 @@ Streaming endpoints (`*stream*`, `*/progress`) are excluded from timeout middlew
 
 ## Deployment
 
-- **Backend:** Render.com (see `render.yaml`)
-- **Frontend:** Vercel or Firebase Hosting
-- **Database:** Managed PostgreSQL
-- **Cache:** Managed Redis
+- **Backend:** Google Cloud Run (`earningsnerd-backend`, project `earnings-nerd`, region `us-west1`) — see `tasks/gcp-deploy-runbook.md`. Build via `gcloud builds submit` from `/backend`; deploys are manual (no auto-deploy on push).
+- **Frontend:** Vercel
+- **Database:** Cloud SQL PostgreSQL 15 (`earningsnerd-db`, via Cloud SQL socket)
+- **Cache:** Redis is OFF in production (`SKIP_REDIS_INIT=true`) — the two-tier cache runs L1 (in-memory) only; Redis via docker-compose for local development
+- **Example-refresh cron:** Cloud Run job `earningsnerd-pregenerate` + Cloud Scheduler (Mondays 06:00 UTC)
 - **Analytics:** Vercel Analytics (auto-enabled), PostHog (event tracking)
+- **Legacy:** `render.yaml` (Render.com) is deprecated — kept until Render is decommissioned
 
 ## Claude Skills
 

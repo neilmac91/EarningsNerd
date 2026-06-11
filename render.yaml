@@ -1,3 +1,9 @@
+# DEPRECATED (2026-06-11): the backend now runs on Google Cloud Run — see
+# tasks/gcp-deploy-runbook.md and the Deployment section of CLAUDE.md.
+# This file is kept only until the Render services are decommissioned
+# (per the runbook's "decommission Render" step); delete it afterwards.
+# NOTE: the startCommand below is also stale — it runs `alembic upgrade head`,
+# but the project has no Alembic config (schema comes from create_all()).
 services:
   - type: web
     name: earningsnerd-backend
