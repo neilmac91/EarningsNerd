@@ -4,7 +4,7 @@ import { ArrowRight } from 'lucide-react'
 import WaitlistForm from '@/components/WaitlistForm'
 import WaitlistCounter from '@/components/WaitlistCounter'
 import ExampleCtaLink from '@/components/ExampleCtaLink'
-import { EXAMPLE_FILING_ID } from '@/lib/featureFlags'
+import { exampleFilingHref } from '@/lib/featureFlags'
 
 // While the waitlist gate is up, this page is the de-facto homepage — it needs
 // its own metadata and a self-canonical so search engines index something real.
@@ -55,7 +55,7 @@ export default function WaitlistPage() {
             <p className="mt-6 text-sm text-text-secondary-light dark:text-text-secondary-dark">
               Don&apos;t want to wait?{' '}
               <ExampleCtaLink
-                href={EXAMPLE_FILING_ID ? `/filing/${EXAMPLE_FILING_ID}?entry=waitlist_example` : '/company/AAPL'}
+                href={exampleFilingHref('waitlist_example')}
                 placement="waitlist"
                 className="inline-flex items-center gap-1 font-semibold text-mint-700 underline underline-offset-4 transition-colors hover:text-mint-600 dark:text-mint-400 dark:hover:text-mint-300"
               >

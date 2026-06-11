@@ -1,7 +1,5 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
-import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
 
 // Rule 2.1: Direct imports, no barrel files
 import CompanySearch from '@/components/CompanySearch'
@@ -9,12 +7,14 @@ import QuickAccessBar from '@/components/QuickAccessBar'
 import HotFilings from '@/components/HotFilings'
 import TrendingTickers from '@/components/TrendingTickers'
 import HeroMockup from '@/components/HeroMockup'
+import ExampleSummaryCard from '@/components/ExampleSummaryCard'
 import SocialProofStrip from '@/components/SocialProofStrip'
 import HowItWorks from '@/components/HowItWorks'
 import FeatureShowcase from '@/components/FeatureShowcase'
+import AccuracySection from '@/components/AccuracySection'
 import CtaBanner from '@/components/CtaBanner'
 import ExampleCtaLink from '@/components/ExampleCtaLink'
-import { EXAMPLE_FILING_ID } from '@/lib/featureFlags'
+import { exampleFilingHref } from '@/lib/featureFlags'
 
 const SITE_URL = 'https://www.earningsnerd.io'
 
@@ -122,31 +122,32 @@ export default function Home() {
                 all in one place.
               </p>
 
-              {/* CTA buttons */}
-              <div className="mt-8 flex flex-wrap items-center gap-4">
-                <Link
-                  href="/register"
-                  className="inline-flex items-center gap-2 rounded-full bg-mint-500 px-7 py-3 text-base font-semibold text-slate-950 shadow-glow-mint transition-all hover:bg-mint-400 hover:shadow-glow-mint-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
-                >
-                  Get Started Free
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-                <ExampleCtaLink
-                  href={EXAMPLE_FILING_ID ? `/filing/${EXAMPLE_FILING_ID}?entry=hero_example` : '/company/AAPL'}
-                  placement="hero"
-                  className="inline-flex items-center gap-2 rounded-full border border-white/20 px-7 py-3 text-base font-medium text-slate-300 transition-all hover:border-white/40 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-                >
-                  See an Example
-                </ExampleCtaLink>
+              {/* Primary action: search. One hero, one action — registration
+                  lives in the header; the example link is the zero-effort path. */}
+              <div className="mt-8">
+                <CompanySearch autoFocusDesktop />
               </div>
 
-              {/* Search bar */}
-              <div className="mt-10">
-                <CompanySearch />
+              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                <ExampleCtaLink
+                  href={exampleFilingHref('hero_example')}
+                  placement="hero"
+                  className="inline-flex items-center gap-1 font-medium text-mint-400 underline underline-offset-4 decoration-mint-400/40 transition-colors hover:text-mint-300 hover:decoration-mint-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+                >
+                  See a live example →
+                </ExampleCtaLink>
+                <span className="text-slate-500">
+                  Your first summary is free — no signup needed.
+                </span>
               </div>
 
               {/* Quick access tickers */}
               <QuickAccessBar />
+
+              {/* Compact example for small screens (full mockup is lg-only) */}
+              <div className="mt-8 lg:hidden">
+                <ExampleSummaryCard />
+              </div>
             </div>
 
             {/* Right: Product mockup */}
@@ -192,6 +193,13 @@ export default function Home() {
           ═══════════════════════════════════════════════════════════ */}
       <section className="py-20 sm:py-24">
         <FeatureShowcase />
+      </section>
+
+      {/* ═══════════════════════════════════════════════════════════
+          WHERE THE NUMBERS COME FROM (objection handling)
+          ═══════════════════════════════════════════════════════════ */}
+      <section className="py-20 sm:py-24">
+        <AccuracySection />
       </section>
 
       {/* ═══════════════════════════════════════════════════════════
