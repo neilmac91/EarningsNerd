@@ -40,12 +40,12 @@ class ModelConfig:
 REGISTRY: Dict[str, ModelConfig] = {
     "baseline": ModelConfig(
         name="baseline", provider="openai_compat",
-        model_id=os.environ.get("AI_DEFAULT_MODEL", "gemini-3-pro-preview"),
+        model_id=os.environ.get("AI_DEFAULT_MODEL", "gemini-3.1-pro-preview"),
         input_price_per_1m=2.0, output_price_per_1m=12.0, price_verified=False,
         base_url_env="OPENAI_BASE_URL", api_key_env="OPENAI_API_KEY", json_mode="none",
     ),
     "gemini-json": ModelConfig(
-        name="gemini-json", provider="openai_compat", model_id="gemini-3-pro-preview",
+        name="gemini-json", provider="openai_compat", model_id="gemini-3.1-pro-preview",
         input_price_per_1m=2.0, output_price_per_1m=12.0, price_verified=False,
         base_url_env="OPENAI_BASE_URL",
         base_url_default="https://generativelanguage.googleapis.com/v1beta/openai/",

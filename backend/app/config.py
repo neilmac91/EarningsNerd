@@ -111,7 +111,7 @@ class Settings(BaseSettings):
     STRUCTURED_EXTRACTION_CACHE_TTL_SECONDS: int = 3600  # 1 hour for retry window
 
     # AI Model Settings
-    AI_DEFAULT_MODEL: str = "gemini-3-pro-preview"  # Primary model for all AI tasks
+    AI_DEFAULT_MODEL: str = "gemini-3.1-pro-preview"  # Primary model for all AI tasks (gemini-3-pro-preview deprecated for inference)
 
     # Structured-output mode for Phase-A extraction (roadmap S1). When True, the structured
     # extraction call uses an API-level response_format (JSON object), a schema-described
