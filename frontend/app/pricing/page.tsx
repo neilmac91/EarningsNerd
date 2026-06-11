@@ -3,6 +3,7 @@
 import { useState, Suspense, useRef, useEffect } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { createCheckoutSession, getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
+import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { Check, Loader2 } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -22,16 +23,27 @@ function PricingContent() {
   const hasTrackedPricingView = useRef(false)
   const hasTrackedVariantExposure = useRef(false)
 
+  // The pricing page is publicly reachable; only fetch account-scoped data for
+  // signed-in users so guests see the plain guest/free-tier view, not a 401 error card.
+  const { data: currentUser } = useQuery({
+    queryKey: ['current-user'],
+    queryFn: getCurrentUserSafe,
+    retry: false,
+  })
+  const isAuthenticated = Boolean(currentUser)
+
   const { data: subscription, isError: subscriptionError, error: subscriptionErrorData, refetch: refetchSubscription, isFetching: subscriptionFetching } = useQuery({
     queryKey: ['subscription'],
     queryFn: getSubscriptionStatus,
     retry: false,
+    enabled: isAuthenticated,
   })
 
   const { data: usage, isError: usageError, error: usageErrorData, refetch: refetchUsage, isFetching: usageFetching } = useQuery({
     queryKey: ['usage'],
     queryFn: getUsage,
     retry: false,
+    enabled: isAuthenticated,
   })
 
   useEffect(() => {
@@ -78,6 +90,11 @@ function PricingContent() {
   })
 
   const handleUpgrade = async (priceId: string) => {
+    // Guests can't create a checkout session (401) — send them to sign up instead.
+    if (!isAuthenticated) {
+      router.push('/register')
+      return
+    }
     setIsLoadingCheckout(priceId)
     try {
       const priceValue = billingCycle === 'monthly' ? priceConfig.monthly : priceConfig.yearly
@@ -105,8 +122,8 @@ function PricingContent() {
         'Company search',
         'Historical filing access',
       ],
-      cta: 'Current Plan',
-      disabled: true,
+      cta: isAuthenticated ? 'Current Plan' : 'Get Started Free',
+      disabled: isAuthenticated,
       priceId: null,
     },
     {
@@ -271,8 +288,8 @@ function PricingContent() {
               </ul>
 
               <button
-                onClick={() => plan.priceId && handleUpgrade(plan.priceId)}
-                disabled={plan.disabled || !plan.priceId || isLoadingCheckout === plan.priceId}
+                onClick={() => (plan.priceId ? handleUpgrade(plan.priceId) : router.push('/register'))}
+                disabled={plan.disabled || (isAuthenticated && !plan.priceId) || isLoadingCheckout === plan.priceId}
                 className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
                   plan.disabled
                     ? 'bg-gray-100 text-gray-400 cursor-not-allowed'

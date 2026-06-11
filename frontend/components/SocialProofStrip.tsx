@@ -2,7 +2,7 @@ const CLAIMS: readonly string[] = [
   'Every SEC-registered company',
   '10-K & 10-Q coverage',
   'Sourced directly from SEC EDGAR',
-  'Every figure traceable to XBRL',
+  'Financials grounded in XBRL data',
 ]
 
 export default function SocialProofStrip() {
