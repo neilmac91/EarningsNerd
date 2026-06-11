@@ -1,3 +1,51 @@
+# Open PR/Issue Queue Drain — Execution Tracker (2026-06-11)
+
+Approved runbook: close redundant PR, land feature work, then drain the
+dependabot queue in risk order (security → backend floors → frontend devDep
+majors → frontend runtime majors), serial with rebase+CI gates wherever PRs
+share a manifest/lockfile; finish with Issue #240 and a legacy-deps issue.
+
+## Phase 0 — Hygiene
+- [x] Close PR #220 (fully redundant — every hunk already on main)
+
+## Phase 1 — Feature work
+- [x] Merge PR #242 (homepage v2; reviews resolved, CI green) → 5a0c159
+- [ ] OPERATOR: set NEXT_PUBLIC_EXAMPLE_FILING_ID in Vercel (launch-runbook step 4)
+
+## Phase 2 — Security
+- [x] Merge PR #234 (@protobufjs/utf8, root lockfile) → f8188a5
+- [ ] Rebase + merge PR #226 (frontend minor group, incl. next 16.2.6 security)
+- [ ] Confirm PR #233 auto-closes (subsumed by #226)
+
+## Phase 3 — Backend deps
+- [x] Merge PR #222 (python-multipart floor) → 8f5d475
+- [x] Merge PR #223 (email-validator floor) → 9149c0d
+- [x] Merge PR #225 (sentry-sdk floor) → 5ac2906
+- [ ] Rebase + merge PR #224 (pydantic floor — conflicted on adjacent lines, rebase kicked)
+- [ ] Rebase + merge PR #235 (pinned bumps: bs4, arelle, posthog)
+
+## Phase 4 — Frontend devDep majors (serial, rebase + CI gate between each)
+- [ ] #227 jsdom 29
+- [ ] #228 @vitejs/plugin-react 6
+- [ ] #230 vercel CLI 53
+- [ ] #231 TypeScript 6
+
+## Phase 5 — Frontend runtime majors
+- [ ] #232 @vercel/analytics 2.x
+- [ ] #229 lucide-react 1.x
+
+## Phase 6 — Engineering + debt
+- [ ] File tech-debt issue: remove legacy SEC packages (arelle-release,
+      sec-edgar-downloader, sec-parser if migrated)
+- [ ] Implement Issue #240 (accession-aware XBRL extraction) in dedicated PR
+
+## Review notes
+- #220: verified hunk-by-hunk against main before closing (ci.yml, vercel.json,
+  devops-automator.md all already applied).
+- #224 conflict despite "different lines": see tasks/lessons.md (adjacent-line rule).
+
+---
+
 # Activation Roadmap — Execution Checklist
 
 Source of truth: `tasks/activation-gap-analysis.md`. North star: anonymous visitor →
