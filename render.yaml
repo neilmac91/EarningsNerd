@@ -42,3 +42,29 @@ services:
       - key: CORS_ORIGINS_STR
         value: https://earningsnerd.io,https://www.earningsnerd.io
 
+
+  # Weekly refresh of the pre-generated example summaries (homepage "See a live
+  # example" CTAs) so the cached example never drifts stale after new filings.
+  # Set the sync:false env vars in the Render dashboard (mirror the web service).
+  - type: cron
+    name: earningsnerd-pregenerate-examples
+    env: python
+    region: oregon
+    plan: starter
+    rootDir: backend
+    schedule: "0 6 * * 1" # Mondays 06:00 UTC
+    buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements.txt
+    startCommand: python scripts/pregenerate_examples.py
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SECRET_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_BASE_URL
+        value: https://generativelanguage.googleapis.com/v1beta/openai/
+      - key: SEC_EDGAR_BASE_URL
+        value: https://data.sec.gov
+      - key: ENVIRONMENT
+        value: production
