@@ -6,15 +6,20 @@ Every code prerequisite is done; the steps below are operator actions.*
 ## A. Pre-flip (do in order)
 
 1. **Merge PR #241** and confirm the production deploys are green
-   (Vercel frontend + Render backend).
-2. **Create the cron's env vars on Render** — the new
-   `earningsnerd-pregenerate-examples` cron service needs `DATABASE_URL`,
-   `SECRET_KEY`, `OPENAI_API_KEY` set in its dashboard (mirror the web
-   service values).
+   (Vercel frontend + Cloud Run backend — `gcloud run services describe
+   earningsnerd-backend --region=us-west1`).
+2. **Create the example-refresh job on Cloud Run** — `earningsnerd-pregenerate`
+   job + weekly Cloud Scheduler trigger, with secrets attached via
+   `--set-secrets` (see `tasks/gcp-deploy-runbook.md` Phase 9).
 3. **Pre-generate the example summaries** (don't wait for the weekly cron):
-   open a shell on the Render backend service and run
-   `python scripts/pregenerate_examples.py`. Copy the **AAPL filing id**
-   from its output.
+   `gcloud run jobs execute earningsnerd-pregenerate --region=us-west1 --wait`,
+   then copy the **AAPL filing id** from the execution logs
+   (Cloud Console → Cloud Run → Jobs → latest execution → Logs, or
+   `gcloud logging read 'resource.type=cloud_run_job AND
+   resource.labels.job_name=earningsnerd-pregenerate' --limit=50
+   --format='value(textPayload)'` — look for `AAPL: filing_id=...`).
+   NOTE: the Cloud SQL database started fresh — filing ids from the old
+   Render database are invalid.
 4. **Set the frontend env vars on Vercel** (Production):
    - `NEXT_PUBLIC_EXAMPLE_FILING_ID=<filing id from step 3>` — without it,
      every "see a live example" CTA silently degrades to `/company/AAPL`.
@@ -23,11 +28,11 @@ Every code prerequisite is done; the steps below are operator actions.*
      regenerate, stops client-side notice-stripping).
    - Confirm `NEXT_PUBLIC_POSTHOG_KEY` is set — all frontend funnel events
      silently no-op without it.
-5. **Set the backend env vars on Render** (web service):
-   - `ENABLE_GUEST_DAILY_QUOTA=true` (3/day per IP; never blocks the first
-     summary).
-   - Confirm `POSTHOG_API_KEY` is set — server-side generation events
-     no-op without it.
+5. **Set the backend env vars on Cloud Run**:
+   `gcloud run services update earningsnerd-backend --region=us-west1
+   --update-env-vars=ENABLE_GUEST_DAILY_QUOTA=true` (3/day per IP; never
+   blocks the first summary). Confirm `POSTHOG_API_KEY` is set (as a secret
+   or env var) — server-side generation events no-op without it.
 6. **Smoke-test the preview/production** while still gated: `/company/AAPL`
    → recommended filing → summary generates; the example CTA on `/waitlist`
    lands on the cached example instantly; events appear in PostHog

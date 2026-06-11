@@ -58,22 +58,13 @@ METRIC_CONCEPTS: Dict[str, Tuple[str, List[str]]] = {
     ]),
 }
 
-# Acceptable duration windows in days. 52/53-week fiscal years run 364-371 days;
-# fiscal quarters run 84-98. Anything outside is the wrong period slice (Q4 vs FY,
-# quarter vs YTD) and must not become ground truth.
-DURATION_WINDOWS = {"10-K": (320, 390), "10-Q": (75, 105)}
-
-
 def _duration_ok(start: Optional[str], end: Optional[str], filing_type: str) -> bool:
-    from datetime import date
-    if not start or not end:
-        return False
-    try:
-        days = (date.fromisoformat(str(end)) - date.fromisoformat(str(start))).days
-    except (ValueError, TypeError):
-        return False
-    low, high = DURATION_WINDOWS[filing_type]
-    return low <= days <= high
+    # Shared with the product's accession-aware extraction (issue #240): the
+    # duration windows live in app.services.edgar.instance_extractor so the
+    # eval harness and the product ground on the same period semantics.
+    # Imported lazily — app imports may need env vars that __main__ sets first.
+    from app.services.edgar.instance_extractor import duration_in_window
+    return duration_in_window(start, end, filing_type)
 
 
 def _fact_for_metric(xb, metric: str, period_of_report: str, filing_type: str) -> Tuple[Optional[float], Optional[str]]:

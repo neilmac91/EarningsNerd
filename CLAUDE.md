@@ -66,7 +66,8 @@ EarningsNerd is an AI-powered SEC filing analysis platform that transforms dense
 ### Backend (from `/backend`)
 ```bash
 pip install -r requirements.txt                    # Install dependencies
-alembic upgrade head                               # Run migrations (before tests)
+# Schema is created at startup (Base.metadata.create_all in main.py's lifespan);
+# one-off SQL migrations live in migrations/ and are applied manually.
 uvicorn main:app --reload --host 0.0.0.0 --port 8000  # Dev server
 pytest tests/                                      # Run all tests
 pytest tests/unit/                                 # Unit tests only
@@ -114,7 +115,7 @@ docker-compose down                   # Stop databases
 ├── prompts/              # AI system prompts (10k-analyst-agent.md, 10q-analyst-agent.md)
 ├── scripts/              # Verification and debug scripts
 ├── docs/                 # Design docs (plan_sec_pipeline.md)
-├── migrations/           # Alembic migrations
+├── migrations/           # One-off SQL migrations (applied manually; no Alembic)
 └── main.py               # FastAPI app entry point
 
 /frontend
@@ -687,13 +688,16 @@ Streaming endpoints (`*stream*`, `*/progress`) are excluded from timeout middlew
 
 ## Deployment
 
-- **Backend:** Google Cloud Run (project `earnings-nerd`, region `us-west1`). Containerized via
-  `backend/Dockerfile`; schema is created at startup by `Base.metadata.create_all()` (no Alembic).
-  Deploy/setup steps and the weekly Cloud Run Job + Cloud Scheduler cron are documented in
+- **Backend:** Google Cloud Run (`earningsnerd-backend`, project `earnings-nerd`, region `us-west1`).
+  Containerized via `backend/Dockerfile`; schema is created at startup by `Base.metadata.create_all()`
+  (no Alembic). Build via `gcloud builds submit` from `/backend`; deploys are manual (no auto-deploy
+  on push). Deploy/setup steps and the weekly example-refresh cron (Cloud Run job
+  `earningsnerd-pregenerate` + Cloud Scheduler, Mondays 06:00 UTC) are documented in
   `tasks/gcp-deploy-runbook.md`.
 - **Database:** Cloud SQL for PostgreSQL 15 (`earningsnerd-db`), reached via the Cloud SQL connector
   socket (`?host=/cloudsql/<connection-name>` in `DATABASE_URL`).
-- **Cache:** Redis optional — currently disabled (`SKIP_REDIS_INIT=true`); add Memorystore if needed.
+- **Cache:** Redis is OFF in production (`SKIP_REDIS_INIT=true`) — the two-tier cache runs L1
+  (in-memory) only; Redis via docker-compose for local development. Add Memorystore if needed.
 - **Secrets:** Google Secret Manager, mounted as env vars on the Cloud Run service/job.
 - **Custom domain:** `api.earningsnerd.io` via Cloud Run domain mapping (Cloudflare CNAME → `ghs.googlehosted.com`, DNS-only).
 - **Frontend:** Vercel (`NEXT_PUBLIC_API_BASE_URL=https://api.earningsnerd.io`).

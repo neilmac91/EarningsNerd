@@ -6,7 +6,7 @@ import CompanySearch from '@/components/CompanySearch'
 import QuickAccessBar from '@/components/QuickAccessBar'
 import HotFilings from '@/components/HotFilings'
 import TrendingTickers from '@/components/TrendingTickers'
-import HeroMockup from '@/components/HeroMockup'
+import HeroExample from '@/components/HeroExample'
 import ExampleSummaryCard from '@/components/ExampleSummaryCard'
 import SocialProofStrip from '@/components/SocialProofStrip'
 import HowItWorks from '@/components/HowItWorks'
@@ -15,6 +15,11 @@ import AccuracySection from '@/components/AccuracySection'
 import CtaBanner from '@/components/CtaBanner'
 import ExampleCtaLink from '@/components/ExampleCtaLink'
 import { exampleFilingHref } from '@/lib/featureFlags'
+import {
+  fetchExampleData,
+  fetchHotFilingsInitial,
+  fetchTrendingInitial,
+} from '@/lib/serverApi'
 
 const SITE_URL = 'https://www.earningsnerd.io'
 
@@ -91,9 +96,18 @@ function TrendingTickersSkeleton() {
   )
 }
 
-export default function Home() {
+export default async function Home() {
   // The WAITLIST_MODE gate lives in middleware.ts (single source of truth) —
-  // keeping this page free of redirects lets it render statically.
+  // keeping this page free of redirects lets it render statically (ISR).
+  // Live data is fetched server-side so the first paint shows the real
+  // product; every fetcher returns null on failure and the page falls back
+  // to static content.
+  const [example, hotInitial, trendingInitial] = await Promise.all([
+    fetchExampleData(),
+    fetchHotFilingsInitial(4),
+    fetchTrendingInitial(),
+  ])
+
   return (
     <div className="bg-slate-950 text-white">
       <script
@@ -144,16 +158,16 @@ export default function Home() {
               {/* Quick access tickers */}
               <QuickAccessBar />
 
-              {/* Compact example for small screens (full mockup is lg-only) */}
+              {/* Compact example for small screens (full example card is lg-only) */}
               <div className="mt-8 lg:hidden">
-                <ExampleSummaryCard />
+                <ExampleSummaryCard example={example} />
               </div>
             </div>
 
-            {/* Right: Product mockup */}
+            {/* Right: Live example summary */}
             <div className="hidden lg:block">
               <div className="animate-float">
-                <HeroMockup />
+                <HeroExample example={example} />
               </div>
             </div>
           </div>
@@ -176,7 +190,7 @@ export default function Home() {
             </h2>
           </div>
           <Suspense fallback={<HotFilingsSkeleton />}>
-            <HotFilings limit={4} />
+            <HotFilings limit={4} initialData={hotInitial ?? undefined} />
           </Suspense>
         </div>
       </section>
@@ -208,7 +222,7 @@ export default function Home() {
       <section id="trending" className="py-20 sm:py-24">
         <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
           <Suspense fallback={<TrendingTickersSkeleton />}>
-            <TrendingTickers />
+            <TrendingTickers initialData={trendingInitial ?? undefined} />
           </Suspense>
         </div>
       </section>
