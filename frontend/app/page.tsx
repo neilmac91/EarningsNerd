@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { redirect } from 'next/navigation'
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 
@@ -14,6 +14,48 @@ import HowItWorks from '@/components/HowItWorks'
 import FeatureShowcase from '@/components/FeatureShowcase'
 import CtaBanner from '@/components/CtaBanner'
 import { EXAMPLE_FILING_ID } from '@/lib/featureFlags'
+
+const SITE_URL = 'https://www.earningsnerd.io'
+
+export const metadata: Metadata = {
+  title: 'EarningsNerd — Understand any SEC filing in minutes',
+  description:
+    'AI-powered summaries that turn 100-page 10-Ks and 10-Qs into clear, decision-ready insights. Financials, risks, and trends — sourced directly from SEC EDGAR.',
+  alternates: {
+    canonical: '/',
+  },
+}
+
+// Foundational structured data: Organization + WebSite with a SearchAction
+// (ticker search resolves to /company/{ticker}).
+const JSON_LD = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${SITE_URL}/#organization`,
+      name: 'EarningsNerd',
+      url: SITE_URL,
+      logo: `${SITE_URL}/assets/earningsnerd-icon-dark.svg`,
+      description: 'AI-powered SEC filing analysis. 10-K and 10-Q summaries sourced from SEC EDGAR.',
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}/#website`,
+      name: 'EarningsNerd',
+      url: SITE_URL,
+      publisher: { '@id': `${SITE_URL}/#organization` },
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: `${SITE_URL}/company/{search_term_string}`,
+        },
+        'query-input': 'required name=search_term_string',
+      },
+    },
+  ],
+}
 
 // Rule 6.2: Hoist static skeleton components outside
 function HotFilingsSkeleton() {
@@ -49,15 +91,14 @@ function TrendingTickersSkeleton() {
 }
 
 export default function Home() {
-  // Waitlist is enabled by default unless explicitly disabled
-  const isWaitlistEnabled = process.env.WAITLIST_MODE !== 'false'
-
-  if (isWaitlistEnabled) {
-    redirect('/waitlist')
-  }
-
+  // The WAITLIST_MODE gate lives in middleware.ts (single source of truth) —
+  // keeping this page free of redirects lets it render statically.
   return (
     <div className="bg-slate-950 text-white">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
+      />
       {/* ═══════════════════════════════════════════════════════════
           HERO SECTION — Split layout with copy left, mockup right
           ═══════════════════════════════════════════════════════════ */}
@@ -90,7 +131,7 @@ export default function Home() {
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <Link
-                  href={EXAMPLE_FILING_ID ? `/filing/${EXAMPLE_FILING_ID}` : '/company/AAPL'}
+                  href={EXAMPLE_FILING_ID ? `/filing/${EXAMPLE_FILING_ID}?entry=hero_example` : '/company/AAPL'}
                   className="inline-flex items-center gap-2 rounded-full border border-white/20 px-7 py-3 text-base font-medium text-slate-300 transition-all hover:border-white/40 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
                 >
                   See an Example

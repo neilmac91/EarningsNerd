@@ -10,7 +10,7 @@ router = APIRouter()
 @router.get("/sitemap.xml")
 async def generate_sitemap(db: Session = Depends(get_db)):
     """Generate XML sitemap for all companies"""
-    base_url = "https://earningsnerd.com"  # Update with your actual domain
+    base_url = "https://www.earningsnerd.io"
     
     # Get all companies
     companies = db.query(Company).all()
