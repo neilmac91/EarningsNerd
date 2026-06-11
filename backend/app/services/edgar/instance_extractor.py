@@ -16,6 +16,7 @@ exercise these functions with fake fact-query objects.
 """
 
 import logging
+from datetime import date
 from typing import Any, Dict, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
@@ -89,8 +90,6 @@ def _iso_date(value: Any) -> Optional[str]:
 
 def duration_in_window(start: Any, end: Any, form: str) -> bool:
     """True when [start, end] spans the standard duration for the base form."""
-    from datetime import date
-
     window = DURATION_WINDOWS.get(normalize_form(form))
     start_iso, end_iso = _iso_date(start), _iso_date(end)
     if window is None or not start_iso or not end_iso:
