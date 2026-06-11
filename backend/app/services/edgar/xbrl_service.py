@@ -29,6 +29,14 @@ from edgar import Company as EdgarCompany, set_identity
 
 from .async_executor import run_in_executor, run_in_executor_with_timeout
 from .config import EDGAR_IDENTITY, EDGAR_DEFAULT_TIMEOUT_SECONDS
+from .instance_extractor import (
+    DURATION_CONCEPTS,
+    DURATION_WINDOWS,
+    INSTANT_CONCEPTS,
+    duration_series,
+    instant_series,
+    normalize_form,
+)
 from .models import FinancialMetric, MetricChange, MetricSeries, XBRLData
 from .statement_parser import extract_metric_values, statement_dataframe
 
@@ -36,6 +44,12 @@ logger = logging.getLogger(__name__)
 
 # Ensure identity is set
 set_identity(EDGAR_IDENTITY)
+
+# Cache key version — bump whenever extraction semantics change so stale
+# entries written by the previous logic cannot be served under the same key.
+# v2: accession-aware primary path (issue #240); v1 entries could hold the
+# latest 10-K's figures for any accession and must age out unread.
+_XBRL_CACHE_VERSION = "v2"
 
 # Module-level cache for XBRL data (L1 - in-memory with LRU eviction)
 # Key: "{cik}:{accession_number}"
@@ -183,6 +197,70 @@ def get_xbrl_cache_stats() -> Dict[str, Any]:
     }
 
 
+def _extract_from_filing_instance_sync(
+    cik_padded: str,
+    accession_number: str,
+) -> Optional[Dict[str, Any]]:
+    """Extract metrics from the requested filing's OWN XBRL instance.
+
+    Synchronous on purpose: the whole chain (company lookup -> filing
+    resolution -> instance parse) runs as ONE executor call, sharing a single
+    timeout budget and occupying a single thread-pool slot.
+
+    Returns the legacy result-dict shape, or None when the filing cannot be
+    resolved or has no usable instance (callers then fall back).
+    """
+    company = EdgarCompany(cik_padded)
+    filings = list(company.get_filings(accession_number=accession_number))
+    if not filings:
+        logger.info(f"Filing {accession_number} not found by accession for CIK {cik_padded}")
+        return None
+    filing = filings[0]
+
+    form = str(filing.form or "")
+    base_form = normalize_form(form)
+    if base_form not in DURATION_WINDOWS:
+        logger.info(f"Form {form!r} has no standard duration window; skipping instance extraction")
+        return None
+
+    period_of_report = str(filing.period_of_report or "")
+    if not period_of_report:
+        logger.info(f"Filing {accession_number} has no period_of_report")
+        return None
+
+    xb = filing.xbrl()
+    if xb is None:
+        logger.info(f"Filing {accession_number} has no XBRL instance")
+        return None
+
+    result: Dict[str, Any] = {
+        "revenue": [],
+        "net_income": [],
+        "total_assets": [],
+        "total_liabilities": [],
+        "cash_and_equivalents": [],
+        "earnings_per_share": [],
+    }
+    for metric, concepts in DURATION_CONCEPTS.items():
+        result[metric] = [
+            {"period": end, "value": value, "form": form, "accn": accession_number}
+            for end, value in duration_series(xb, concepts, base_form, period_of_report)
+        ]
+    for metric, concepts in INSTANT_CONCEPTS.items():
+        result[metric] = [
+            {"period": end, "value": value, "form": form, "accn": accession_number}
+            for end, value in instant_series(xb, concepts, period_of_report)
+        ]
+
+    # Anchor requirement: at least one income-statement metric for the
+    # filing's own period — otherwise this instance is unusable and the
+    # accession-aware companyfacts fallback should take over.
+    if not any(result[key] for key in ("revenue", "net_income", "earnings_per_share")):
+        logger.info(f"No usable consolidated facts in instance for {accession_number}")
+        return None
+    return result
+
+
 class EdgarXBRLService:
     """
     XBRL data extraction service using EdgarTools.
@@ -227,9 +305,9 @@ class EdgarXBRLService:
         """
         global _xbrl_cache, _cache_hits, _cache_misses
 
-        # Build cache keys
-        memory_key = f"{cik}:{accession_number}"
-        redis_key = f"xbrl:{cik}:{accession_number}"
+        # Build cache keys (versioned — see _XBRL_CACHE_VERSION)
+        memory_key = f"{_XBRL_CACHE_VERSION}:{cik}:{accession_number}"
+        redis_key = f"xbrl:{_XBRL_CACHE_VERSION}:{cik}:{accession_number}"
 
         # L1: Check in-memory cache first (fastest) - protected by async lock
         async with _get_cache_lock():
@@ -296,11 +374,56 @@ class EdgarXBRLService:
         cik: str,
         accession_number: str,
     ) -> Optional[Dict[str, Any]]:
-        """Fetch XBRL data using EdgarTools."""
-        try:
-            # Pad CIK to 10 digits
-            cik_padded = cik.zfill(10)
+        """Fetch XBRL data using EdgarTools.
 
+        Order matters (issue #240):
+        1. The requested filing's own XBRL instance — the only source whose
+           periods and durations are guaranteed to belong to this accession.
+        2. The companyfacts API — accession-aware since PR #239 (prefers facts
+           the target filing reported, dedupes by standard duration).
+        3. Company.get_financials() — built from the company's LATEST 10-K,
+           so for any other filing it can return another filing's numbers;
+           last resort only.
+        """
+        cik_padded = cik.zfill(10)
+
+        result = await self._fetch_from_filing_instance(cik_padded, accession_number)
+        if result is not None:
+            logger.debug(f"XBRL extracted from filing instance for {accession_number}")
+            return result
+
+        result = await self._fallback_to_company_facts(cik_padded, accession_number)
+        if result is not None and any(result.values()):
+            return result
+
+        return await self._fetch_from_latest_financials(cik_padded, accession_number)
+
+    async def _fetch_from_filing_instance(
+        self,
+        cik_padded: str,
+        accession_number: str,
+    ) -> Optional[Dict[str, Any]]:
+        """Accession-aware primary path: the requested filing's own XBRL instance."""
+        try:
+            return await run_in_executor_with_timeout(
+                lambda: _extract_from_filing_instance_sync(cik_padded, accession_number),
+                timeout=self.timeout,
+            )
+        except Exception as e:
+            logger.warning(f"Accession-aware XBRL extraction failed for {accession_number}: {e}")
+            return None
+
+    async def _fetch_from_latest_financials(
+        self,
+        cik_padded: str,
+        accession_number: str,
+    ) -> Optional[Dict[str, Any]]:
+        """LAST RESORT: Company.get_financials() builds from the company's
+        latest 10-K, so for any other filing these can be a different filing's
+        numbers (issue #240). Reached only when the filing's own instance and
+        the companyfacts API both produced nothing.
+        """
+        try:
             # Get company via EdgarTools
             edgar_company = await run_in_executor_with_timeout(
                 lambda: EdgarCompany(cik_padded),
@@ -316,8 +439,8 @@ class EdgarXBRLService:
             )
 
             if not financials:
-                logger.warning(f"No financials available for CIK {cik}")
-                return await self._fallback_to_company_facts(cik_padded, accession_number)
+                logger.warning(f"No financials available for CIK {cik_padded}")
+                return None
 
             # Extract data from financials
             result = {
@@ -377,16 +500,16 @@ class EdgarXBRLService:
             except Exception as e:
                 logger.warning(f"Error extracting balance sheet: {e}")
 
-            # If we got any data, return it
+            # If we got any data, return it (companyfacts already ran earlier
+            # in the chain — see _fetch_xbrl_data — so there is nothing left
+            # to fall back to from here).
             if any(result.values()):
                 return result
-
-            # Fallback to company facts API
-            return await self._fallback_to_company_facts(cik_padded, accession_number)
+            return None
 
         except Exception as e:
             logger.error(f"Error fetching XBRL data: {e}", exc_info=True)
-            return await self._fallback_to_company_facts(cik.zfill(10), accession_number)
+            return None
 
     def _extract_from_dataframe(
         self,

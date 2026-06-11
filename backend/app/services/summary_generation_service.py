@@ -406,10 +406,14 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                 record_progress(db, filing_id, "fetching")
                 logger.info(f"[{filing_id}] Step 1: File Validation - Confirming document is accessible and parsable...")
 
+                # XBRL budgets account for the accession-aware primary path
+                # (issue #240): a cold filing.xbrl() parse downloads and parses
+                # the instance documents (typically 2-10s), unlike the old
+                # single companyfacts JSON fetch. Cached filings return in ms.
                 processing_profile = {
                     "include_previous": False,
                     "document_timeout": 15.0,
-                    "xbrl_timeout": 6.0,
+                    "xbrl_timeout": 12.0,
                     "fetch_xbrl": filing_type in {"10-K", "10-Q"},
                 }
 
@@ -418,7 +422,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                         {
                             "include_previous": True,
                             "document_timeout": 15.0,
-                            "xbrl_timeout": 6.0,
+                            "xbrl_timeout": 12.0,
                         }
                     )
                 elif filing_type == "10-Q":
@@ -426,7 +430,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                         {
                             "include_previous": False,
                             "document_timeout": 10.0,
-                            "xbrl_timeout": 3.0,
+                            "xbrl_timeout": 10.0,
                         }
                     )
 

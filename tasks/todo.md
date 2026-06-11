@@ -1,3 +1,65 @@
+# Open PR/Issue Queue Drain — Execution Tracker (2026-06-11)
+
+Approved runbook: close redundant PR, land feature work, then drain the
+dependabot queue in risk order (security → backend floors → frontend devDep
+majors → frontend runtime majors), serial with rebase+CI gates wherever PRs
+share a manifest/lockfile; finish with Issue #240 and a legacy-deps issue.
+
+## Phase 0 — Hygiene
+- [x] Close PR #220 (fully redundant — every hunk already on main)
+
+## Phase 1 — Feature work
+- [x] Merge PR #242 (homepage v2; reviews resolved, CI green) → 5a0c159
+- [ ] OPERATOR: set NEXT_PUBLIC_EXAMPLE_FILING_ID in Vercel (launch-runbook step 4)
+
+## Phase 2 — Security
+- [x] Merge PR #234 (@protobufjs/utf8, root lockfile) → f8188a5
+- [x] Update-branch + merge PR #226 (frontend minors incl. next 16.2.6 security) → 11ca006
+- [x] Close PR #233 manually (subsumed by #226; conflicted + automation disabled)
+- [x] Merge PR #243 (NEW while executing: root npm group, @grpc/grpc-js security) → 7f55bed
+- [x] Merge PR #246 (NEW while executing: frontend protobufjs 7.6.3 patch) → d1a83b8
+
+## Phase 3 — Backend deps
+- [x] Merge PR #222 (python-multipart floor) → 8f5d475
+- [x] Merge PR #223 (email-validator floor) → 9149c0d
+- [x] Merge PR #225 (sentry-sdk floor) → 5ac2906
+- [x] Merge PR #224 (pydantic floor; manually rebased — automation disabled
+      on >30-day PRs, resolved adjacent-line conflict) → 5708b75
+- [x] Rebase + merge PR #235 (pinned bumps: bs4, arelle, posthog) → 62d5699
+
+## Phase 4 — Frontend devDep majors (serial, CI gate between each)
+- [x] #227 jsdom 29 (update-branch API) → 9fcc810
+- [x] #228 @vitejs/plugin-react 6 (update-branch API) → 76bbecf
+- [x] #230 vercel CLI 53 (rebuilt bump on main; lockfile conflicted) → 0b3bc95
+- [x] #231 TypeScript 6 (rebuilt; full prod build green under TS6) → c16e905
+
+## Phase 5 — Frontend runtime majors
+- [x] #232 @vercel/analytics 2.x (rebuilt) → 16d4c9d
+- [x] #229 lucide-react 1.x (rebuilt; all 51 imported icons verified
+      present in 1.14.0 before merge) → 7792142
+
+## Phase 6 — Engineering + debt
+- [x] File tech-debt issue: remove legacy SEC packages → issue #244
+      (verified: arelle-release + sec-edgar-downloader have zero imports;
+      sec-parser still used by filing_parser.py)
+- [x] Implement Issue #240 (accession-aware XBRL extraction) → PR from this
+      branch. New `edgar/instance_extractor.py` (shared duration/period
+      filters), instance-first fetch order, v2 cache keys, 10-Q/10-K xbrl
+      timeout budget raise, 20 new unit tests; 341 backend tests pass.
+
+## Review notes
+- #220: verified hunk-by-hunk against main before closing (ci.yml, vercel.json,
+  devops-automator.md all already applied).
+- #224 conflict despite "different lines": see tasks/lessons.md (adjacent-line rule).
+- `@dependabot rebase` comments are posted with backtick-escaping + a footer,
+  so dependabot ignores them. Working levers: GitHub's update-branch API for
+  conflict-free PRs; dependabot's own conflict-triggered auto-rebase otherwise.
+- #240 fix deviates from the issue text deliberately: companyfacts (accession-
+  aware since #239) outranks get_financials(), which is demoted to last resort
+  because it IS the wrong-filing source the issue targets.
+
+---
+
 # Activation Roadmap — Execution Checklist
 
 Source of truth: `tasks/activation-gap-analysis.md`. North star: anonymous visitor →
