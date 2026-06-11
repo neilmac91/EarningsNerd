@@ -1,5 +1,5 @@
 {
-  "_README": "Golden set for the summary-quality bake-off. Each entry needs a real EDGAR accession_number + document_url and ground_truth financial facts before its scores are trustworthy. Run `python -m evals.build_golden_set` (needs network) to auto-resolve accession/url and auto-populate ground_truth from XBRL, which flips `verified` to true. CIKs below are pre-filled for well-known issuers; ADD small-cap / non-financial / pre-2019 entries to round out the 15-25 filing mix the roadmap calls for.",
+  "_README": "Golden set for the summary-quality bake-off. Ground truth is extracted from each filing's OWN XBRL instance (undimensioned facts ending on the filing's period_of_report, full-year duration for 10-Ks / quarter duration for 10-Qs), so it means 'what the filed document reports' \u2014 independent of the product pipeline. Run `python -m evals.build_golden_set` (needs network) to re-resolve the latest filings and regenerate facts; entries pass hard invariants (revenue > 0, sign(eps) == sign(net_income), period/duration match) before `verified` flips to true, and failures are recorded in `verification_problems`. Unverified entries are excluded from runs unless --allow-unverified is passed.",
   "filings": [
     {
       "ticker": "AAPL",
@@ -11,7 +11,7 @@
       "ground_truth": [
         {
           "metric": "revenue",
-          "value": 265595000000.0,
+          "value": 416161000000.0,
           "unit": "USD"
         },
         {
@@ -38,7 +38,7 @@
       "ground_truth": [
         {
           "metric": "revenue",
-          "value": 36148000000.0,
+          "value": 281724000000.0,
           "unit": "USD"
         },
         {
@@ -141,22 +141,22 @@
       "cik": "1318605",
       "company_name": "Tesla, Inc.",
       "filing_type": "10-K",
-      "accession_number": "0001104659-26-053166",
-      "document_url": "https://www.sec.gov/Archives/edgar/data/1318605/000110465926053166/tm2611837d1_10ka.htm",
+      "accession_number": "0001628280-26-003952",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1318605/000162828026003952/tsla-20251231.htm",
       "ground_truth": [
         {
           "metric": "revenue",
-          "value": 22387000000.0,
+          "value": 94827000000.0,
           "unit": "USD"
         },
         {
           "metric": "net_income",
-          "value": 477000000.0,
+          "value": 3794000000.0,
           "unit": "USD"
         },
         {
           "metric": "eps",
-          "value": 0.15,
+          "value": 1.18,
           "unit": "USD_per_share"
         }
       ],
@@ -207,15 +207,13 @@
           "metric": "net_income",
           "value": 66968000000.0,
           "unit": "USD"
-        },
-        {
-          "metric": "eps",
-          "value": 3035.0,
-          "unit": "USD_per_share"
         }
       ],
-      "verified": true,
-      "notes": "financial conglomerate, complex/insurance statements"
+      "verified": false,
+      "notes": "financial conglomerate, complex/insurance statements",
+      "verification_problems": [
+        "eps: no consolidated fact for period 2025-12-31"
+      ]
     },
     {
       "ticker": "XOM",
@@ -281,12 +279,12 @@
       "ground_truth": [
         {
           "metric": "revenue",
-          "value": 184992000000.0,
+          "value": 43253000000.0,
           "unit": "USD"
         },
         {
           "metric": "net_income",
-          "value": -36000000.0,
+          "value": 2551000000.0,
           "unit": "USD"
         },
         {
@@ -335,17 +333,17 @@
       "ground_truth": [
         {
           "metric": "revenue",
-          "value": 136904000000.0,
+          "value": 70527000000.0,
           "unit": "USD"
         },
         {
           "metric": "net_income",
-          "value": 6228000000.0,
+          "value": 2192000000.0,
           "unit": "USD"
         },
         {
           "metric": "eps",
-          "value": 14.03,
+          "value": 4.94,
           "unit": "USD_per_share"
         }
       ],

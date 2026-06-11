@@ -23,6 +23,7 @@ import asyncio
 import logging
 from itertools import islice
 from typing import Any, Dict, List, Optional
+from urllib.parse import urljoin
 
 from edgar import Company as EdgarCompany, set_identity, find as edgar_find
 
@@ -38,6 +39,7 @@ from .exceptions import (
     translate_edgartools_exception,
 )
 from .models import Company, Filing, XBRLData, FinancialMetric
+from .statement_parser import extract_metric_values, statement_dataframe
 
 logger = logging.getLogger(__name__)
 
@@ -217,11 +219,16 @@ class EdgarClient:
 
             filings = []
             for form_type in form_types:
+                # EdgarTools' `amendments` flag (default True) EXPANDS the form filter
+                # ("10-K" -> {"10-K", "10-K/A"}), which leaks amendments into exact-form
+                # requests. Base forms must pass False; explicit "/A" forms must pass
+                # True because False would strip the "/A" suffix from the filter itself.
+                is_amended_form = form_type.endswith("/A")
                 # Use islice to limit filings BEFORE materializing full list
                 # This prevents OOM when companies have 80+ years of filings
                 form_filings = await run_in_executor_with_timeout(
-                    lambda ft=form_type, lim=per_form_limit: list(
-                        islice(edgar_company.get_filings(form=ft), lim)
+                    lambda ft=form_type, amd=is_amended_form, lim=per_form_limit: list(
+                        islice(edgar_company.get_filings(form=ft, amendments=amd), lim)
                     ),
                     timeout=self.timeout,
                 )
@@ -304,9 +311,10 @@ class EdgarClient:
                 timeout=self.timeout,
             )
 
-            # Get financials via EdgarTools
+            # Get financials via EdgarTools (5.x exposes get_financials();
+            # there is no `financials` property)
             financials = await run_in_executor_with_timeout(
-                lambda: edgar_company.financials,
+                edgar_company.get_financials,
                 timeout=self.timeout,
             )
 
@@ -463,12 +471,14 @@ class EdgarClient:
         cik_clean = cik.lstrip("0") or "0"  # Remove leading zeros, but keep at least "0"
         sec_url = f"https://www.sec.gov/Archives/edgar/data/{cik_clean}/{accession_clean}/"
 
-        # Resolve the absolute document URL. EdgarTools exposes `filing_url` (the canonical
-        # absolute URL to the primary document); fall back to joining the archive folder with
-        # the bare `primary_document` filename so document_url is always fetchable, never relative.
-        document_url = getattr(edgar_filing, 'filing_url', None)
-        if not document_url and getattr(edgar_filing, 'primary_document', None):
-            document_url = sec_url + edgar_filing.primary_document
+        # Resolve the absolute document URL from listing metadata only. EntityFiling
+        # carries `primary_document` as a plain attribute; do NOT touch `filing_url`,
+        # which lazily downloads the filing SGML (a blocking SEC fetch per filing that
+        # would turn every metadata listing into N network calls and can raise mid-list).
+        document_url = None
+        primary_document = getattr(edgar_filing, 'primary_document', None)
+        if primary_document:
+            document_url = urljoin(sec_url, primary_document)
 
         return Filing(
             accession_number=edgar_filing.accession_number,
@@ -494,22 +504,18 @@ class EdgarClient:
 
         try:
             # Get income statement
-            income_stmt = await run_in_executor(lambda: financials.income_statement)
-            if income_stmt is not None:
-                df = await run_in_executor(lambda: income_stmt.to_dataframe())
-                if df is not None and not df.empty:
-                    xbrl_data.revenue = self._extract_metric_series(df, ["Revenues", "Revenue", "TotalRevenue", "NetSales"], accession_number)
-                    xbrl_data.net_income = self._extract_metric_series(df, ["NetIncomeLoss", "ProfitLoss", "NetIncome"], accession_number)
-                    xbrl_data.earnings_per_share = self._extract_metric_series(df, ["EarningsPerShareBasic", "BasicEarningsPerShare", "EarningsPerShareDiluted"], accession_number)
+            df = await run_in_executor(lambda: statement_dataframe(financials, "income_statement"))
+            if df is not None and not df.empty:
+                xbrl_data.revenue = self._extract_metric_series(df, ["RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues", "Revenue", "TotalRevenue", "NetSales"], accession_number)
+                xbrl_data.net_income = self._extract_metric_series(df, ["NetIncomeLoss", "ProfitLoss", "NetIncome"], accession_number)
+                xbrl_data.earnings_per_share = self._extract_metric_series(df, ["EarningsPerShareBasic", "BasicEarningsPerShare", "EarningsPerShareDiluted"], accession_number)
 
             # Get balance sheet
-            balance_sheet = await run_in_executor(lambda: financials.balance_sheet)
-            if balance_sheet is not None:
-                df = await run_in_executor(lambda: balance_sheet.to_dataframe())
-                if df is not None and not df.empty:
-                    xbrl_data.total_assets = self._extract_metric_series(df, ["Assets", "TotalAssets"], accession_number)
-                    xbrl_data.total_liabilities = self._extract_metric_series(df, ["Liabilities", "TotalLiabilities"], accession_number)
-                    xbrl_data.cash_and_equivalents = self._extract_metric_series(df, ["CashAndCashEquivalentsAtCarryingValue", "Cash", "CashAndCashEquivalents"], accession_number)
+            df = await run_in_executor(lambda: statement_dataframe(financials, "balance_sheet"))
+            if df is not None and not df.empty:
+                xbrl_data.total_assets = self._extract_metric_series(df, ["Assets", "TotalAssets"], accession_number)
+                xbrl_data.total_liabilities = self._extract_metric_series(df, ["Liabilities", "TotalLiabilities"], accession_number)
+                xbrl_data.cash_and_equivalents = self._extract_metric_series(df, ["CashAndCashEquivalentsAtCarryingValue", "Cash", "CashAndCashEquivalents"], accession_number)
 
         except Exception as exc:
             logger.warning(f"Error extracting XBRL data: {exc}")
@@ -522,53 +528,24 @@ class EdgarClient:
         candidates: List[str],
         accession_number: Optional[str],
     ) -> List[FinancialMetric]:
-        """Extract a metric series from a DataFrame."""
+        """Extract a metric series from an EdgarTools statement DataFrame."""
         from datetime import date as date_type
 
+        matched_concept, values = extract_metric_values(df, candidates)
         metrics = []
-
-        # Find the first matching row
-        for candidate in candidates:
-            if candidate in df.index:
-                row = df.loc[candidate]
-                for col in row.index:
-                    value = row[col]
-                    if value is not None and not (hasattr(value, '__iter__') and len(value) == 0):
-                        try:
-                            # Parse the column as a date with error handling
-                            period_end = None
-                            if isinstance(col, date_type):
-                                period_end = col
-                            elif isinstance(col, str):
-                                try:
-                                    period_end = date_type.fromisoformat(col)
-                                except (ValueError, TypeError):
-                                    logger.debug(f"Skipping metric with unparseable date: {col}")
-                                    continue
-                            else:
-                                # Try to convert to date if it has date-like attributes
-                                if hasattr(col, 'date'):
-                                    period_end = col.date()
-                                else:
-                                    continue
-
-                            if period_end is None:
-                                continue
-
-                            metrics.append(FinancialMetric(
-                                name=candidate,
-                                value=float(value),
-                                period_end=period_end,
-                                accession_number=accession_number,
-                            ))
-                        except (ValueError, TypeError) as e:
-                            logger.debug(f"Error extracting metric value: {e}")
-                            continue
-                break  # Use first matching candidate
-
-        # Sort by period descending
-        metrics.sort(key=lambda m: m.period_end, reverse=True)
-        return metrics[:5]  # Return most recent 5 periods
+        for period_iso, value in values[:5]:
+            try:
+                period_end = date_type.fromisoformat(period_iso)
+            except (ValueError, TypeError):
+                logger.debug(f"Skipping metric with unparseable date: {period_iso}")
+                continue
+            metrics.append(FinancialMetric(
+                name=matched_concept,
+                value=value,
+                period_end=period_end,
+                accession_number=accession_number,
+            ))
+        return metrics
 
 
 # Singleton instance for convenience
