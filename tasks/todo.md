@@ -15,24 +15,28 @@ share a manifest/lockfile; finish with Issue #240 and a legacy-deps issue.
 ## Phase 2 — Security
 - [x] Merge PR #234 (@protobufjs/utf8, root lockfile) → f8188a5
 - [x] Update-branch + merge PR #226 (frontend minors incl. next 16.2.6 security) → 11ca006
-- [ ] Confirm PR #233 auto-closes (subsumed by #226)
+- [x] Close PR #233 manually (subsumed by #226; conflicted + automation disabled)
+- [x] Merge PR #243 (NEW while executing: root npm group, @grpc/grpc-js security) → 7f55bed
+- [x] Merge PR #246 (NEW while executing: frontend protobufjs 7.6.3 patch) → d1a83b8
 
 ## Phase 3 — Backend deps
 - [x] Merge PR #222 (python-multipart floor) → 8f5d475
 - [x] Merge PR #223 (email-validator floor) → 9149c0d
 - [x] Merge PR #225 (sentry-sdk floor) → 5ac2906
-- [ ] Merge PR #224 (pydantic floor — conflicted; waiting on dependabot auto-rebase)
+- [x] Merge PR #224 (pydantic floor; manually rebased — automation disabled
+      on >30-day PRs, resolved adjacent-line conflict) → 5708b75
 - [x] Rebase + merge PR #235 (pinned bumps: bs4, arelle, posthog) → 62d5699
 
-## Phase 4 — Frontend devDep majors (serial, rebase + CI gate between each)
-- [ ] #227 jsdom 29
-- [ ] #228 @vitejs/plugin-react 6
-- [ ] #230 vercel CLI 53
-- [ ] #231 TypeScript 6
+## Phase 4 — Frontend devDep majors (serial, CI gate between each)
+- [x] #227 jsdom 29 (update-branch API) → 9fcc810
+- [x] #228 @vitejs/plugin-react 6 (update-branch API) → 76bbecf
+- [x] #230 vercel CLI 53 (rebuilt bump on main; lockfile conflicted) → 0b3bc95
+- [x] #231 TypeScript 6 (rebuilt; full prod build green under TS6) → c16e905
 
 ## Phase 5 — Frontend runtime majors
-- [ ] #232 @vercel/analytics 2.x
-- [ ] #229 lucide-react 1.x
+- [x] #232 @vercel/analytics 2.x (rebuilt) → 16d4c9d
+- [x] #229 lucide-react 1.x (rebuilt; all 51 imported icons verified
+      present in 1.14.0 before merge) → 7792142
 
 ## Phase 6 — Engineering + debt
 - [x] File tech-debt issue: remove legacy SEC packages → issue #244
