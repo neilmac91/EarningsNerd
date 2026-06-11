@@ -1,0 +1,178 @@
+import { format, parseISO } from 'date-fns'
+import ExampleCtaLink from '@/components/ExampleCtaLink'
+import { exampleFilingHref } from '@/lib/featureFlags'
+import type { ExampleData, ExampleMetric } from '@/lib/serverApi'
+
+/**
+ * Hero product visual. When the pre-generated example summary is reachable it
+ * renders the REAL thing (excerpt, metrics, quality verdict — fetched
+ * server-side with hourly ISR), so the preview can never drift from what a
+ * click delivers. Falls back to a verified static snapshot of Apple's FY 2022
+ * 10-K (filed 2022-10-28; figures checked against the filing's XBRL).
+ */
+
+// Static fallback — every value verified against Apple's FY 2022 10-K XBRL.
+const AAPL_FY22_EDGAR_URL =
+  'https://www.sec.gov/Archives/edgar/data/320193/000032019322000108/'
+
+const FALLBACK: ExampleData = {
+  filingId: 0,
+  ticker: 'AAPL',
+  companyName: 'Apple Inc.',
+  filingType: '10-K',
+  filingDate: '2022-10-28',
+  secUrl: AAPL_FY22_EDGAR_URL,
+  excerpt:
+    'Net sales rose 8% to $394.3B, led by iPhone and Services growth. Gross margin expanded to 43.3%, and operating cash flow reached a record $122.2B.',
+  qualityTier: null,
+  metrics: [
+    { label: 'Revenue', value: '$394.3B', deltaPercent: 7.8 },
+    { label: 'Net Income', value: '$99.8B', deltaPercent: 5.4 },
+    { label: 'Diluted EPS', value: '$6.11', deltaPercent: 8.9 },
+  ],
+}
+
+// XBRL concepts behind the fallback metrics (shown as hover receipts).
+const FALLBACK_CONCEPTS: Record<string, string> = {
+  Revenue: 'us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
+  'Net Income': 'us-gaap:NetIncomeLoss',
+  'Diluted EPS': 'us-gaap:EarningsPerShareDiluted',
+}
+
+const formatDelta = (delta?: number | null): string | null => {
+  if (delta === null || delta === undefined || !Number.isFinite(delta)) return null
+  return `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`
+}
+
+function MetricCell({ metric, isFallback }: { metric: ExampleMetric; isFallback: boolean }) {
+  const delta = formatDelta(metric.deltaPercent)
+  return (
+    <div
+      className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-3"
+      title={isFallback ? FALLBACK_CONCEPTS[metric.label] : 'Reported in the filing’s XBRL data'}
+    >
+      <div className="text-xs text-slate-400">{metric.label}</div>
+      <div className="mt-1 text-sm font-bold tabular-nums text-white">{metric.value}</div>
+      {delta && (
+        <div
+          className={`mt-0.5 text-xs font-medium tabular-nums ${
+            (metric.deltaPercent ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+          }`}
+        >
+          {delta}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function HeroExample({ example }: { example: ExampleData | null }) {
+  const data = example ?? FALLBACK
+  const isFallback = example === null
+  // Parse the calendar date only — `new Date('2022-10-28')` is UTC midnight
+  // and renders the previous day in negative-offset timezones.
+  const filedLabel = format(parseISO(data.filingDate.slice(0, 10)), 'MMM d, yyyy')
+
+  return (
+    <div className="relative">
+      {/* Ambient glow behind the card */}
+      <div className="absolute -inset-4 rounded-3xl bg-mint-500/10 blur-3xl" aria-hidden="true" />
+
+      {/* Browser frame */}
+      <div className="mockup-frame relative shadow-2xl">
+        {/* Title bar */}
+        <div className="mockup-frame-titlebar flex items-center gap-2 px-4 py-3">
+          <div className="flex gap-1.5" aria-hidden="true">
+            <span className="h-3 w-3 rounded-full bg-red-500/70" />
+            <span className="h-3 w-3 rounded-full bg-yellow-500/70" />
+            <span className="h-3 w-3 rounded-full bg-green-500/70" />
+          </div>
+          <div className="mx-auto flex-1 max-w-xs">
+            <div className="rounded-md bg-white/5 px-3 py-1 text-center font-mono text-xs text-slate-400">
+              earningsnerd.io — example summary
+            </div>
+          </div>
+        </div>
+
+        {/* Page content */}
+        <div className="space-y-4 p-5">
+          {/* Header area */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2">
+              <div
+                className="h-6 w-6 flex-shrink-0 rounded-full bg-gradient-to-br from-mint-400 to-cyan-400"
+                aria-hidden="true"
+              />
+              <span className="truncate text-sm font-semibold text-white">{data.companyName}</span>
+              <span className="flex-shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-xs text-slate-300">
+                {data.filingType}
+              </span>
+              {data.qualityTier === 'full' && (
+                <span className="flex-shrink-0 rounded-full border border-mint-500/30 bg-mint-500/10 px-2 py-0.5 text-xs font-medium text-mint-300">
+                  Full summary
+                </span>
+              )}
+              {data.qualityTier === 'partial' && (
+                <span className="flex-shrink-0 rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-300">
+                  Partial
+                </span>
+              )}
+            </div>
+            <span className="flex-shrink-0 font-mono text-xs tabular-nums text-slate-400">
+              filed {filedLabel}
+            </span>
+          </div>
+
+          {/* Executive snapshot — real summary text */}
+          <div className="rounded-xl border border-white/[0.06] bg-white/[0.03] p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <div className="h-1.5 w-1.5 rounded-full bg-mint-400" aria-hidden="true" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-mint-400">
+                Executive Snapshot
+              </span>
+            </div>
+            <p className="text-xs leading-relaxed text-slate-300">{data.excerpt}</p>
+          </div>
+
+          {/* Metrics — with the receipt: where the numbers come from */}
+          {data.metrics.length > 0 && (
+            <div>
+              <div className="grid grid-cols-3 gap-3">
+                {data.metrics.map((metric) => (
+                  <MetricCell key={metric.label} metric={metric} isFallback={isFallback} />
+                ))}
+              </div>
+              <a
+                href={data.secUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-flex items-center gap-1 font-mono text-[11px] text-slate-500 underline-offset-2 transition-colors hover:text-mint-400 hover:underline"
+              >
+                Figures from the company&apos;s XBRL filing · verify on SEC EDGAR ↗
+              </a>
+            </div>
+          )}
+
+          {/* Footer CTA into the real example */}
+          <ExampleCtaLink
+            href={exampleFilingHref('hero_visual_example')}
+            placement="hero_visual"
+            className="group flex items-center justify-between rounded-xl border border-mint-500/20 bg-mint-500/5 px-4 py-3 transition-colors hover:border-mint-500/40 hover:bg-mint-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+          >
+            <span className="text-xs font-medium text-mint-300">
+              Read the full example summary
+            </span>
+            <span
+              className="text-xs text-mint-400 transition-transform group-hover:translate-x-0.5"
+              aria-hidden="true"
+            >
+              →
+            </span>
+          </ExampleCtaLink>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default HeroExample

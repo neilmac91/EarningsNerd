@@ -1,17 +1,29 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { Search, Loader2 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { searchCompanies, Company } from '@/features/companies/api/companies-api'
 import { ApiError } from '@/lib/api/client'
 import { useRouter } from 'next/navigation'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
+import { matchTopTickers } from '@/lib/topTickers'
 import analytics from '@/lib/analytics'
+
+const isTypingTarget = (el: EventTarget | null): boolean => {
+  if (!(el instanceof HTMLElement)) return false
+  return (
+    el.tagName === 'INPUT' ||
+    el.tagName === 'TEXTAREA' ||
+    el.tagName === 'SELECT' ||
+    el.isContentEditable
+  )
+}
 
 export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusDesktop?: boolean }) {
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [highlightIndex, setHighlightIndex] = useState(-1)
   const router = useRouter()
   const lastTrackedQuery = useRef<string>('')
   const inputRef = useRef<HTMLInputElement>(null)
@@ -22,6 +34,21 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
     if (autoFocusDesktop && window.matchMedia('(min-width: 1024px)').matches) {
       inputRef.current?.focus({ preventScroll: true })
     }
+  }, [autoFocusDesktop])
+
+  // "/" or Cmd/Ctrl+K focuses search from anywhere on the page.
+  useEffect(() => {
+    if (!autoFocusDesktop) return
+    const onKeyDown = (e: KeyboardEvent) => {
+      const slash = e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey
+      const cmdK = e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)
+      if ((slash && !isTypingTarget(e.target)) || cmdK) {
+        e.preventDefault()
+        inputRef.current?.focus()
+      }
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
   }, [autoFocusDesktop])
 
   // Debounce search
@@ -53,6 +80,43 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
     router.push(`/company/${company.ticker}`)
   }
 
+  // Instant local matches from the top-tickers seed while the network query
+  // is still in flight (zero-latency feedback for the most common searches).
+  const localMatches = useMemo(() => matchTopTickers(query), [query])
+  const showLocalResults =
+    query.length > 0 && !companies && !isError && localMatches.length > 0
+
+  // The list keyboard navigation operates over (network results win once in).
+  const navigableTickers = useMemo(() => {
+    if (companies?.length) return companies.map((c) => c.ticker)
+    if (showLocalResults) return localMatches.map((t) => t.ticker)
+    return []
+  }, [companies, showLocalResults, localMatches])
+
+  useEffect(() => {
+    setHighlightIndex(-1)
+  }, [query, companies])
+
+  const handleInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Escape') {
+      setQuery('')
+      inputRef.current?.blur()
+      return
+    }
+    if (navigableTickers.length === 0) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setHighlightIndex((i) => (i + 1) % navigableTickers.length)
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setHighlightIndex((i) => (i <= 0 ? navigableTickers.length - 1 : i - 1))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const ticker = navigableTickers[highlightIndex === -1 ? 0 : highlightIndex]
+      if (ticker) router.push(`/company/${ticker}`)
+    }
+  }
+
   useEffect(() => {
     if (
       debouncedQuery.length > 0 &&
@@ -76,13 +140,29 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={handleInputKeyDown}
           placeholder="Search any company (e.g., AAPL, Apple, Microsoft)..."
+          role="combobox"
+          aria-expanded={navigableTickers.length > 0}
+          aria-controls="company-search-results"
+          aria-activedescendant={
+            highlightIndex >= 0 ? `company-search-option-${highlightIndex}` : undefined
+          }
           aria-label="Search for a company"
           aria-describedby={isError ? "company-search-error" : undefined}
+          aria-autocomplete="list"
           className="hero-search-glow w-full rounded-xl border border-white/10 bg-slate-900/80 py-4 pl-12 pr-4 text-lg text-white placeholder:text-slate-500 backdrop-blur-sm focus:border-mint-500/40 focus:outline-none"
         />
         {isLoading && (
           <Loader2 className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-mint-400" />
+        )}
+        {!isLoading && !query && (
+          <kbd
+            className="absolute right-4 top-1/2 hidden -translate-y-1/2 rounded-md border border-white/15 bg-white/5 px-2 py-0.5 font-mono text-xs text-slate-500 sm:block"
+            aria-hidden="true"
+          >
+            /
+          </kbd>
         )}
       </div>
 
@@ -123,14 +203,53 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
         </div>
       )}
 
+      {/* Instant local matches (shown only until network results arrive) */}
+      {showLocalResults && (
+        <div
+          id="company-search-results"
+          role="listbox"
+          aria-label="Instant matches"
+          className="absolute z-10 mt-2 w-full overflow-hidden rounded-xl border border-white/10 bg-slate-900/95 shadow-lg backdrop-blur-sm"
+        >
+          {localMatches.map((match, index) => (
+            <button
+              key={match.ticker}
+              id={`company-search-option-${index}`}
+              role="option"
+              aria-selected={index === highlightIndex}
+              onClick={() => router.push(`/company/${match.ticker}`)}
+              className={`flex w-full items-baseline gap-3 border-b border-white/[0.06] px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-white/5 ${
+                index === highlightIndex ? 'bg-white/10' : ''
+              }`}
+            >
+              <span className="font-mono text-sm font-semibold text-mint-400">{match.ticker}</span>
+              <span className="truncate text-sm text-slate-300">{match.name}</span>
+              <span className="ml-auto font-mono text-[10px] uppercase tracking-wide text-slate-600">
+                instant
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Search Results */}
       {companies && companies.length > 0 && (
-        <div className="absolute z-10 mt-2 max-h-96 w-full overflow-y-auto rounded-xl border border-white/10 bg-slate-900/95 shadow-lg backdrop-blur-sm">
-          {companies.map((company) => (
+        <div
+          id="company-search-results"
+          role="listbox"
+          aria-label="Company results"
+          className="absolute z-10 mt-2 max-h-96 w-full overflow-y-auto rounded-xl border border-white/10 bg-slate-900/95 shadow-lg backdrop-blur-sm"
+        >
+          {companies.map((company, index) => (
             <button
               key={company.id}
+              id={`company-search-option-${index}`}
+              role="option"
+              aria-selected={index === highlightIndex}
               onClick={() => handleCompanyClick(company)}
-              className="w-full border-b border-white/[0.06] px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-white/5"
+              className={`w-full border-b border-white/[0.06] px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-white/5 ${
+                index === highlightIndex ? 'bg-white/10' : ''
+              }`}
             >
               <div className="font-semibold text-white">{company.name}</div>
               <div className="flex flex-col space-y-1 text-sm">
