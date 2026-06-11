@@ -86,10 +86,19 @@ function getBuzzLabel(score: number): string {
 
 const skeletonCards = new Array(6).fill(null)
 
-export default function HotFilings({ limit = 8 }: { limit?: number }) {
+export default function HotFilings({
+  limit = 8,
+  initialData,
+}: {
+  limit?: number
+  // Server-fetched payload (ISR) so the first paint shows real filings
+  // instead of skeletons; the client query keeps refreshing as before.
+  initialData?: HotFilingsResponse
+}) {
   const { data, error, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['hot-filings', limit],
     queryFn: () => fetchHotFilings(limit),
+    initialData,
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
@@ -202,7 +211,7 @@ export default function HotFilings({ limit = 8 }: { limit?: number }) {
                   <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
                     Buzz
                   </span>
-                  <span className="text-lg font-bold text-orange-300">{filing.buzz_score.toFixed(1)}</span>
+                  <span className="text-lg font-bold tabular-nums text-orange-300">{filing.buzz_score.toFixed(1)}</span>
                 </div>
                 <div className="mt-2 flex w-36 items-center space-x-2">
                   <div className="h-2 w-full rounded-full bg-slate-700">

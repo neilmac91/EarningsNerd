@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Flame, RefreshCw, TrendingUp, TrendingDown, Minus, Eye } from 'lucide-react'
 import clsx from 'clsx'
 import { formatDistanceToNowStrict } from 'date-fns'
@@ -12,6 +12,7 @@ import {
   getTrendingTickers,
   refreshTickerPrices,
   TrendingTicker,
+  TrendingTickerResponse,
   PriceData,
 } from '@/features/companies/api/companies-api'
 
@@ -69,7 +70,7 @@ function PriceChangeIndicator({ changePercent }: { changePercent?: number | null
       {isPositive && <TrendingUp className={iconClass} />}
       {isNegative && <TrendingDown className={iconClass} />}
       {!isPositive && !isNegative && <Minus className={iconClass} />}
-      <span>{formatChangePercent(changePercent)}</span>
+      <span className="tabular-nums">{formatChangePercent(changePercent)}</span>
     </span>
   )
 }
@@ -83,7 +84,6 @@ function TrendingTickerCard({
 }) {
   // Use price override if available (from 2-min refresh), otherwise use original
   const price = priceOverride?.price ?? ticker.price
-  const change = priceOverride?.change ?? ticker.change
   const changePercent = priceOverride?.change_percent ?? ticker.change_percent
 
   const watchlistFormatted = formatWatchlistCount(ticker.watchlist_count)
@@ -115,7 +115,7 @@ function TrendingTickerCard({
         </div>
         {priceFormatted && (
           <div className="text-right">
-            <div className="text-lg font-semibold text-white">{priceFormatted}</div>
+            <div className="text-lg font-semibold tabular-nums text-white">{priceFormatted}</div>
             <PriceChangeIndicator changePercent={changePercent} />
           </div>
         )}
@@ -132,14 +132,20 @@ function TrendingTickerCard({
   )
 }
 
-export default function TrendingTickers() {
-  const queryClient = useQueryClient()
+export default function TrendingTickers({
+  initialData,
+}: {
+  // Server-fetched payload (ISR) so the first paint shows real tickers
+  // instead of skeletons; the client query keeps refreshing as before.
+  initialData?: TrendingTickerResponse
+} = {}) {
   const [priceOverrides, setPriceOverrides] = useState<Record<string, PriceData>>({})
 
   // Main query for full trending data (10 min interval)
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['trending-tickers'],
     queryFn: getTrendingTickers,
+    initialData,
     staleTime: FULL_REFRESH_INTERVAL,
     refetchInterval: FULL_REFRESH_INTERVAL,
     retry: 1,
@@ -261,7 +267,7 @@ export default function TrendingTickers() {
           <div>
             <h2 className="text-lg font-semibold">Market Movers</h2>
             <p className="text-xs text-slate-400">
-              What's moving in the market today
+              What&apos;s moving in the market today
               {updatedAgo && <span className="text-slate-300/80"> • Updated {updatedAgo}</span>}
             </p>
           </div>
