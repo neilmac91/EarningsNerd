@@ -1,7 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Request, Response
+from fastapi import APIRouter, HTTPException, Depends, status, Request, Response, Query
+from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy import func
 from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional
 from datetime import datetime, timedelta, timezone
@@ -11,11 +13,14 @@ import hmac
 import hashlib
 import secrets
 import logging
+from urllib.parse import urlencode
 
+import httpx
+from authlib.integrations.httpx_client import AsyncOAuth2Client
 from jose import JWTError, jwt
 
 from app.database import get_db
-from app.models import User
+from app.models import User, OAuthAccount
 from app.config import settings
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.audit_service import (
@@ -522,6 +527,152 @@ async def get_current_user_info(
         "is_pro": current_user.is_pro,
         "email_verified": current_user.email_verified,
     }
+
+
+# ─── Google OAuth ────────────────────────────────────────────────────────────
+
+_GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+_GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+_GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
+_OAUTH_STATE_COOKIE = "oauth_state"
+_OAUTH_STATE_MAX_AGE = 600  # 10 minutes
+
+
+@router.get("/google")
+async def google_login():
+    """Redirect the browser to Google's consent screen."""
+    if not settings.GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=503, detail="Google Sign-In is not configured.")
+    state = secrets.token_urlsafe(32)
+    params = {
+        "client_id": settings.GOOGLE_CLIENT_ID,
+        "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": state,
+        "access_type": "online",
+        "prompt": "select_account",
+    }
+    redirect = RedirectResponse(
+        url=f"{_GOOGLE_AUTH_URL}?{urlencode(params)}",
+        status_code=302,
+    )
+    redirect.set_cookie(
+        _OAUTH_STATE_COOKIE,
+        state,
+        httponly=True,
+        samesite="lax",
+        max_age=_OAUTH_STATE_MAX_AGE,
+        secure=settings.COOKIE_SECURE,
+    )
+    return redirect
+
+
+@router.get("/google/callback")
+async def google_callback(
+    request: Request,
+    db: Session = Depends(get_db),
+    code: Optional[str] = Query(None),
+    state: Optional[str] = Query(None),
+    error: Optional[str] = Query(None),
+):
+    """Exchange Google auth code for tokens, upsert user, issue JWT cookie."""
+    frontend_url = settings.FRONTEND_URL
+
+    if error:
+        return RedirectResponse(f"{frontend_url}/login?error=google_denied", status_code=302)
+
+    if not code or not state:
+        return RedirectResponse(f"{frontend_url}/login?error=google_invalid", status_code=302)
+
+    # Validate CSRF state
+    stored_state = request.cookies.get(_OAUTH_STATE_COOKIE)
+    if not stored_state or not secrets.compare_digest(stored_state, state):
+        return RedirectResponse(f"{frontend_url}/login?error=oauth_state_mismatch", status_code=302)
+
+    # Exchange code for access token
+    try:
+        async with AsyncOAuth2Client(
+            client_id=settings.GOOGLE_CLIENT_ID,
+            client_secret=settings.GOOGLE_CLIENT_SECRET,
+            redirect_uri=settings.GOOGLE_REDIRECT_URI,
+        ) as client:
+            token_data = await client.fetch_token(
+                _GOOGLE_TOKEN_URL,
+                code=code,
+                grant_type="authorization_code",
+            )
+    except Exception as exc:
+        logger.warning("Google token exchange failed: %s", exc.__class__.__name__)
+        return RedirectResponse(f"{frontend_url}/login?error=google_token_failed", status_code=302)
+
+    # Fetch userinfo (sub, email, email_verified, name)
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as hx:
+            resp = await hx.get(
+                _GOOGLE_USERINFO_URL,
+                headers={"Authorization": f"Bearer {token_data['access_token']}"},
+            )
+            resp.raise_for_status()
+            userinfo = resp.json()
+    except Exception as exc:
+        logger.warning("Google userinfo fetch failed: %s", exc.__class__.__name__)
+        return RedirectResponse(f"{frontend_url}/login?error=google_userinfo_failed", status_code=302)
+
+    google_sub: Optional[str] = userinfo.get("sub")
+    email_raw: str = userinfo.get("email", "").strip().lower()
+    email: Optional[str] = email_raw or None
+    email_verified_by_google: bool = bool(userinfo.get("email_verified", False))
+    full_name: Optional[str] = userinfo.get("name")
+
+    if not google_sub or not email:
+        return RedirectResponse(f"{frontend_url}/login?error=google_missing_claims", status_code=302)
+
+    # Find existing OAuth link
+    oauth_row = (
+        db.query(OAuthAccount)
+        .filter_by(provider="google", provider_account_id=google_sub)
+        .first()
+    )
+
+    if oauth_row:
+        user = oauth_row.user
+    else:
+        # Link to existing verified account if emails match and both sides verified
+        existing = db.query(User).filter(func.lower(User.email) == email).first()
+        if existing and existing.email_verified and email_verified_by_google:
+            user = existing
+        else:
+            user = User(
+                email=email,
+                full_name=full_name,
+                hashed_password=None,
+                email_verified=email_verified_by_google,
+            )
+            db.add(user)
+            db.flush()
+
+        oauth_row = OAuthAccount(
+            user_id=user.id,
+            provider="google",
+            provider_account_id=google_sub,
+            provider_email=email,
+        )
+        db.add(oauth_row)
+
+    user.last_login_at = datetime.now(timezone.utc)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        logger.warning("Google OAuth IntegrityError for sub=%s", google_sub)
+        return RedirectResponse(f"{frontend_url}/login?error=google_account_conflict", status_code=302)
+
+    access_token = create_access_token(data={"sub": str(user.id)})
+    redirect = RedirectResponse(url=frontend_url, status_code=302)
+    redirect.delete_cookie(_OAUTH_STATE_COOKIE)
+    _set_auth_cookie(redirect, access_token)
+    return redirect
 
 
 @router.post("/logout")
