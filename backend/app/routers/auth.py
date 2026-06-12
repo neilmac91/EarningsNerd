@@ -187,8 +187,35 @@ def _set_auth_cookie(response: Response, token: str) -> None:
     )
 
 
+def _set_refresh_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=settings.REFRESH_COOKIE_NAME,
+        value=token,
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        domain=settings.COOKIE_DOMAIN,
+        path="/api/auth",  # only sent to auth endpoints — limits exposure surface
+    )
+
+
 def _clear_auth_cookie(response: Response) -> None:
     response.delete_cookie(key=settings.COOKIE_NAME, domain=settings.COOKIE_DOMAIN, path="/")
+
+
+def _clear_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(key=settings.REFRESH_COOKIE_NAME, domain=settings.COOKIE_DOMAIN, path="/api/auth")
+
+
+def _issue_tokens(response: Response, user: User) -> None:
+    """Set both auth cookies and update user.refresh_token fields. Caller must db.commit()."""
+    access_token = create_access_token(data={"sub": str(user.id)})
+    raw_refresh, hashed_refresh = _generate_token()
+    user.refresh_token = hashed_refresh
+    user.refresh_token_expires = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
+    _set_auth_cookie(response, access_token)
+    _set_refresh_cookie(response, raw_refresh)
 
 
 def _get_token_from_request(
@@ -357,21 +384,14 @@ async def register(
         return {"message": "If that email address is new to us, check your inbox for a verification link."}
 
     await _send_verification_email_safe(user, frontend_url)
+    _issue_tokens(response, user)
     db.commit()
     db.refresh(user)
     log_register(db, user.id, user.email, ip_address=ip)
-
-    # Issue session cookie so the user can browse; gated actions require email_verified
-    access_token = create_access_token(data={"sub": str(user.id)})
-    _set_auth_cookie(response, access_token)
-    return {
-        "message": "If that email address is new to us, check your inbox for a verification link.",
-        "access_token": access_token,
-        "token_type": "bearer",
-    }
+    return {"message": "If that email address is new to us, check your inbox for a verification link."}
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login")
 async def login(
     user_data: UserLogin,
     request: Request,
@@ -392,12 +412,10 @@ async def login(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive")
 
     user.last_login_at = datetime.now(timezone.utc)
+    _issue_tokens(response, user)
     db.commit()
     log_login_success(db, user.id, user.email, ip_address=ip)
-
-    access_token = create_access_token(data={"sub": str(user.id)})
-    _set_auth_cookie(response, access_token)
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {"token_type": "bearer"}
 
 
 @router.post("/verify-email")
@@ -661,18 +679,51 @@ async def google_callback(
         db.add(oauth_row)
 
     user.last_login_at = datetime.now(timezone.utc)
+    redirect = RedirectResponse(url=frontend_url, status_code=302)
+    redirect.delete_cookie(_OAUTH_STATE_COOKIE)
+    _issue_tokens(redirect, user)
     try:
         db.commit()
     except IntegrityError:
         db.rollback()
         logger.warning("Google OAuth IntegrityError for sub=%s", google_sub)
         return RedirectResponse(f"{frontend_url}/login?error=google_account_conflict", status_code=302)
-
-    access_token = create_access_token(data={"sub": str(user.id)})
-    redirect = RedirectResponse(url=frontend_url, status_code=302)
-    redirect.delete_cookie(_OAUTH_STATE_COOKIE)
-    _set_auth_cookie(redirect, access_token)
     return redirect
+
+
+@router.post("/refresh")
+async def refresh(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    """Issue a new access token + rotated refresh token using the refresh cookie."""
+    _add_auth_security_headers(response)
+    raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
+    if not raw_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No refresh token")
+
+    hashed = _hash_token(raw_token)
+    now = datetime.now(timezone.utc)
+    user = db.query(User).filter(User.refresh_token == hashed).first()
+
+    if not user:
+        # Token not found — could be replay of a rotated token; treat as session tampered
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+
+    if user.refresh_token_expires and user.refresh_token_expires < now:
+        user.refresh_token = None
+        user.refresh_token_expires = None
+        db.commit()
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
+
+    if not user.is_active:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive")
+
+    # Rotate: issue fresh pair
+    _issue_tokens(response, user)
+    db.commit()
+    return {"token_type": "bearer"}
 
 
 @router.post("/logout")
@@ -682,13 +733,17 @@ async def logout(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db),
 ):
-    """Clear the auth cookie."""
+    """Clear auth + refresh cookies and invalidate refresh token in DB."""
     _add_auth_security_headers(response)
     try:
         user = await get_current_user_optional(request, credentials, db)
         if user:
             log_logout(db, user.id, user.email, ip_address=_get_client_ip(request))
+            user.refresh_token = None
+            user.refresh_token_expires = None
+            db.commit()
     except Exception:
         pass
     _clear_auth_cookie(response)
+    _clear_refresh_cookie(response)
     return {"status": "success"}

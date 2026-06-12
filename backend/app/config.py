@@ -58,7 +58,9 @@ class Settings(BaseSettings):
     # JWT
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days (Increment 5 will shorten to 1h + refresh)
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60  # 1 hour; refresh token handles long-lived sessions
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
+    REFRESH_COOKIE_NAME: str = "earningsnerd_refresh_token"
     PASSWORD_MIN_LENGTH: int = 8  # OWASP ASVS v5 minimum; no composition rules
     PASSWORD_MAX_LENGTH: int = 128  # DoS prevention
     JWT_ISSUER: str = "earningsnerd"

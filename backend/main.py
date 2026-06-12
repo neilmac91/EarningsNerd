@@ -40,7 +40,7 @@ else:
     else:
         print("⚠️  SENTRY_DSN not configured - error tracking disabled")
 
-from app.database import engine, Base
+from app.database import engine, Base, get_db
 from app.services.logging_service import (
     configure_logging,
     CorrelationIdMiddleware,
@@ -448,16 +448,15 @@ Sitemap: https://earningsnerd.io/sitemap.xml
 
 
 @app.get("/metrics", tags=["Monitoring"])
-async def get_metrics():
-    """
-    Get application metrics for monitoring dashboards.
-
-    Returns comprehensive metrics including:
-    - Application info
-    - HTTP request statistics
-    - Circuit breaker status
-    - Cache statistics
-    - Database pool stats
-    """
+async def get_metrics(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer(auto_error=False)),
+    db=Depends(get_db),
+):
+    """Application metrics — admin only."""
+    from app.routers.auth import get_current_user
+    user = await get_current_user(request, credentials, db)
+    if not user.is_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin access required")
     from app.services.metrics_service import get_all_metrics
     return await get_all_metrics()

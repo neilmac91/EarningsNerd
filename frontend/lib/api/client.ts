@@ -1,4 +1,4 @@
-import axios, { AxiosError } from 'axios'
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 
 // Custom error class that preserves backend error details
 export class ApiError extends Error {
@@ -58,26 +58,88 @@ const api = axios.create({
 
 // Set baseURL dynamically on each request (for client-side)
 api.interceptors.request.use((config) => {
-  // Always set baseURL dynamically to ensure correct URL in client-side
   if (typeof window !== 'undefined') {
     config.baseURL = getApiUrl()
   }
   return config
 })
 
-// Response error interceptor to extract backend error details
+// ─── Auto-refresh interceptor ────────────────────────────────────────────────
+// On 401: silently call /api/auth/refresh (uses the httpOnly refresh cookie),
+// then retry the original request. If refresh also fails, redirect to /login.
+
+type RetryConfig = InternalAxiosRequestConfig & { _retried?: boolean }
+
+let isRefreshing = false
+let refreshQueue: Array<{ resolve: () => void; reject: (err: unknown) => void }> = []
+
+function flushQueue() {
+  refreshQueue.forEach(({ resolve }) => resolve())
+  refreshQueue = []
+}
+
+function rejectQueue(err: unknown) {
+  refreshQueue.forEach(({ reject }) => reject(err))
+  refreshQueue = []
+}
+
+// Auth endpoints that must never trigger a refresh attempt
+const AUTH_SKIP = ['/api/auth/login', '/api/auth/refresh', '/api/auth/logout', '/api/auth/register']
+
+// ─── Response interceptor ────────────────────────────────────────────────────
+
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<{ detail?: string }>) => {
-    // Extract the status code and detail message from the backend
-    const status = error.response?.status || 0
-    const backendDetail = error.response?.data?.detail
+  async (error: AxiosError<{ detail?: string }>) => {
+    const originalRequest = error.config as RetryConfig | undefined
+    const status = error.response?.status ?? 0
+    const url = originalRequest?.url ?? ''
 
-    // Create user-friendly error message based on status and backend detail
+    // Attempt silent token refresh on 401, except for auth endpoints themselves
+    const shouldRefresh =
+      status === 401 &&
+      originalRequest &&
+      !originalRequest._retried &&
+      !AUTH_SKIP.some((path) => url.includes(path))
+
+    if (shouldRefresh) {
+      if (isRefreshing) {
+        // Queue request until refresh completes
+        return new Promise((resolve, reject) => {
+          refreshQueue.push({
+            resolve: () => {
+              originalRequest._retried = true
+              resolve(api(originalRequest))
+            },
+            reject,
+          })
+        })
+      }
+
+      originalRequest._retried = true
+      isRefreshing = true
+
+      try {
+        await api.post('/api/auth/refresh')
+        flushQueue()
+        isRefreshing = false
+        return api(originalRequest)
+      } catch (refreshErr) {
+        rejectQueue(refreshErr)
+        isRefreshing = false
+        // Refresh token is expired or invalid — force re-login
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login'
+        }
+        throw new ApiError(401, 'Your session has expired. Please log in again.')
+      }
+    }
+
+    // ─── Standard error handling ──────────────────────────────────────────────
+    const backendDetail = error.response?.data?.detail
     let errorMessage: string
 
     if (backendDetail) {
-      // Use the backend's user-friendly message
       errorMessage = backendDetail
     } else if (status === 503) {
       errorMessage = 'Service temporarily unavailable. Please try again in a moment.'
@@ -95,7 +157,6 @@ api.interceptors.response.use(
       errorMessage = error.message || 'An unexpected error occurred.'
     }
 
-    // Throw our custom ApiError with the extracted details
     throw new ApiError(status, errorMessage)
   }
 )
