@@ -67,7 +67,7 @@ from app.routers import (
     webhooks,
     admin,
 )
-from app.config import settings
+from app.config import settings, APP_VERSION
 
 # Create database tables
 @asynccontextmanager
@@ -157,7 +157,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="EarningsNerd API",
     description="AI-powered SEC filing analysis and summarization",
-    version="1.0.0",
+    version=APP_VERSION,
     lifespan=lifespan
 )
 
@@ -339,7 +339,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 async def root():
     return {
         "message": "EarningsNerd API",
-        "version": "1.0.0",
+        "version": APP_VERSION,
         "status": "operational"
     }
 
