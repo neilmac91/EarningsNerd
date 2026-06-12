@@ -21,6 +21,8 @@ from dataclasses import dataclass, field
 from typing import Dict, Any, Optional
 import logging
 
+from app.config import APP_VERSION
+
 logger = logging.getLogger(__name__)
 
 
@@ -161,7 +163,7 @@ async def get_all_metrics() -> Dict[str, Any]:
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "app": {
             "name": "EarningsNerd API",
-            "version": "1.0.0",
+            "version": APP_VERSION,
             "python_version": sys.version.split()[0],
             "environment": _get_environment(),
         },

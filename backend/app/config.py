@@ -3,6 +3,10 @@ from pydantic import field_validator
 from typing import List, Union
 import os
 
+# Single source of truth for the app version (FastAPI metadata, "/" payload,
+# /metrics). Bump on notable releases; also serves as a deploy marker.
+APP_VERSION = "1.1.0"
+
 class Settings(BaseSettings):
     # Database
     # Using SQLite for development if PostgreSQL is not available
