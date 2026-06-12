@@ -1,5 +1,6 @@
 import logging
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, Float, JSON, event
+import uuid
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, Float, JSON, Uuid, event
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -14,22 +15,45 @@ logger = logging.getLogger(__name__)
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
+    # Nullable: social-only accounts have no password
+    hashed_password = Column(String, nullable=True)
     full_name = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     is_pro = Column(Boolean, default=False)
     is_admin = Column(Boolean, default=False)
     stripe_customer_id = Column(String, nullable=True)
     stripe_subscription_id = Column(String, nullable=True)
+    # Email verification
+    email_verified = Column(Boolean, default=False, nullable=False)
+    # Password reset (store SHA-256 hash of token, never raw token)
+    password_reset_token = Column(String, nullable=True)
+    password_reset_expires = Column(DateTime(timezone=True), nullable=True)
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
+
     searches = relationship("UserSearch", back_populates="user", cascade="all, delete-orphan")
     saved_summaries = relationship("SavedSummary", back_populates="user", cascade="all, delete-orphan")
     usage = relationship("UserUsage", back_populates="user", cascade="all, delete-orphan")
     watchlist = relationship("Watchlist", back_populates="user", cascade="all, delete-orphan")
+    oauth_accounts = relationship("OAuthAccount", back_populates="user", cascade="all, delete-orphan")
+
+
+class OAuthAccount(Base):
+    """Stores OAuth provider links for a user. One user may have multiple providers."""
+    __tablename__ = "oauth_accounts"
+
+    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider = Column(String(20), nullable=False)           # 'google' | 'apple'
+    provider_account_id = Column(String, nullable=False)    # provider's 'sub' claim
+    # Email from provider — may be a private relay address for Apple
+    provider_email = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="oauth_accounts")
 
 
 class Company(Base):
@@ -50,9 +74,9 @@ class Company(Base):
 
 class Watchlist(Base):
     __tablename__ = "watchlist"
-    
+
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
@@ -109,9 +133,9 @@ class Summary(Base):
 
 class UserSearch(Base):
     __tablename__ = "user_searches"
-    
+
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     query = Column(String, nullable=False)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -121,9 +145,9 @@ class UserSearch(Base):
 
 class SavedSummary(Base):
     __tablename__ = "saved_summaries"
-    
+
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     summary_id = Column(Integer, ForeignKey("summaries.id"), nullable=False)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -135,7 +159,7 @@ class UserUsage(Base):
     __tablename__ = "user_usage"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     month = Column(String, nullable=False, index=True)  # Format: "YYYY-MM"
     summary_count = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -180,6 +204,7 @@ __all__ = [
     "ContactSubmission",
     "Filing",
     "FilingContentCache",
+    "OAuthAccount",
     "SavedSummary",
     "Summary",
     "SummaryGenerationProgress",

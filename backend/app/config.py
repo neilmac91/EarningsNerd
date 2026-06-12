@@ -58,11 +58,24 @@ class Settings(BaseSettings):
     # JWT
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
-    PASSWORD_MIN_LENGTH: int = 12
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days (Increment 5 will shorten to 1h + refresh)
+    PASSWORD_MIN_LENGTH: int = 8  # OWASP ASVS v5 minimum; no composition rules
+    PASSWORD_MAX_LENGTH: int = 128  # DoS prevention
     JWT_ISSUER: str = "earningsnerd"
     JWT_AUDIENCE: str = "earningsnerd-users"
     JWT_LEEWAY_SECONDS: int = 10
+
+    # OAuth — Google
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = "https://api.earningsnerd.io/api/auth/google/callback"
+
+    # OAuth — Apple Sign In
+    APPLE_TEAM_ID: str = ""
+    APPLE_CLIENT_ID: str = ""   # Services ID, e.g. "io.earningsnerd.web"
+    APPLE_KEY_ID: str = ""
+    APPLE_PRIVATE_KEY: str = "" # PEM content of the .p8 file
+    APPLE_REDIRECT_URI: str = "https://api.earningsnerd.io/api/auth/apple/callback"
 
     @field_validator('SECRET_KEY', mode='before')
     @classmethod

@@ -16,8 +16,8 @@ class AuditLog(Base):
 
     id = Column(Integer, primary_key=True, index=True)
 
-    # User information (nullable because user may be deleted)
-    user_id = Column(Integer, nullable=True, index=True)
+    # User information (nullable because user may be deleted; stored as string to survive user deletion)
+    user_id = Column(String(36), nullable=True, index=True)
     user_email = Column(String(255), nullable=True, index=True)
 
     # Action details
