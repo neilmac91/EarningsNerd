@@ -690,9 +690,11 @@ Streaming endpoints (`*stream*`, `*/progress`) are excluded from timeout middlew
 
 - **Backend:** Google Cloud Run (`earningsnerd-backend`, project `earnings-nerd`, region `us-west1`).
   Containerized via `backend/Dockerfile`; schema is created at startup by `Base.metadata.create_all()`
-  (no Alembic). Build via `gcloud builds submit` from `/backend`; deploys are manual (no auto-deploy
-  on push). Deploy/setup steps and the weekly example-refresh cron (Cloud Run job
-  `earningsnerd-pregenerate` + Cloud Scheduler, Mondays 06:00 UTC) are documented in
+  (no Alembic). CD: the `deploy-backend` job in `.github/workflows/ci.yml` deploys on push to main
+  — gated on all test jobs, only when `backend/` changed, keyless auth via Workload Identity
+  Federation (repo variables `GCP_WIF_PROVIDER` + `GCP_DEPLOYER_SA`). It also updates the weekly
+  example-refresh cron (Cloud Run job `earningsnerd-pregenerate` + Cloud Scheduler, Mondays 06:00
+  UTC). Manual fallback: `gcloud builds submit` from `/backend` + `gcloud run deploy` — see
   `tasks/gcp-deploy-runbook.md`.
 - **Database:** Cloud SQL for PostgreSQL 15 (`earningsnerd-db`), reached via the Cloud SQL connector
   socket (`?host=/cloudsql/<connection-name>` in `DATABASE_URL`).
