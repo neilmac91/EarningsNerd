@@ -64,3 +64,23 @@ export const deleteUserAccount = async () => {
   const response = await api.delete('/api/users/me')
   return response.data
 }
+
+export const verifyEmail = async (token: string) => {
+  const response = await api.post('/api/auth/verify-email', { token })
+  return response.data
+}
+
+export const resendVerification = async (email: string) => {
+  const response = await api.post('/api/auth/resend-verification', { email })
+  return response.data
+}
+
+export const forgotPassword = async (email: string) => {
+  const response = await api.post('/api/auth/forgot-password', { email })
+  return response.data
+}
+
+export const resetPassword = async (token: string, newPassword: string) => {
+  const response = await api.post('/api/auth/reset-password', { token, new_password: newPassword })
+  return response.data
+}

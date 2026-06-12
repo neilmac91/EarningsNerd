@@ -109,6 +109,11 @@ async def generate_summary(
     db: Session = Depends(get_db)
 ):
     """Generate AI summary for a filing"""
+    if not current_user.email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Please verify your email address before generating summaries.",
+        )
     enforce_rate_limit(
         request,
         SUMMARY_LIMITER,

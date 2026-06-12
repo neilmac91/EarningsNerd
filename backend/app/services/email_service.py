@@ -135,3 +135,87 @@ async def send_referral_success_email(
         subject="You just moved up the EarningsNerd waitlist!",
         html=f"{html}<pre style=\"display:none\">{text}</pre>",
     )
+
+
+async def send_verification_email(
+    *,
+    to_email: str,
+    name: str | None,
+    verification_link: str,
+) -> None:
+    greeting = f"Hi {name}," if name else "Hi there,"
+    html_body = f"""
+    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;">Thanks for creating an EarningsNerd account. Please verify your email address to unlock AI-powered SEC filing summaries.</p>
+    <p style="margin:0 0 24px;">
+      <a href="{verification_link}" style="display:inline-block;background:#34d399;color:#0b0f14;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px;text-decoration:none;">Verify my email</a>
+    </p>
+    <p style="margin:0 0 12px;font-size:14px;color:#9ca3af;">This link expires in 24 hours. If you didn&apos;t create an account, you can safely ignore this email.</p>
+    <p style="margin:0;font-size:12px;color:#6b7280;">Can&apos;t click the button? Copy this link:<br>{verification_link}</p>
+    """
+    text_body = (
+        f"{greeting}\n\nPlease verify your email address to unlock EarningsNerd.\n\n"
+        f"{verification_link}\n\nThis link expires in 24 hours."
+    )
+    await send_email(
+        to=[to_email],
+        subject="Verify your EarningsNerd email",
+        html=f"{_wrap_html(html_body)}<pre style=\"display:none\">{text_body}</pre>",
+    )
+
+
+async def send_password_reset_email(
+    *,
+    to_email: str,
+    name: str | None,
+    reset_link: str,
+) -> None:
+    greeting = f"Hi {name}," if name else "Hi there,"
+    html_body = f"""
+    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;">We received a request to reset your EarningsNerd password.</p>
+    <p style="margin:0 0 24px;">
+      <a href="{reset_link}" style="display:inline-block;background:#34d399;color:#0b0f14;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px;text-decoration:none;">Reset my password</a>
+    </p>
+    <p style="margin:0 0 12px;font-size:14px;color:#9ca3af;">This link expires in 1 hour and can only be used once. If you didn&apos;t request a reset, no action is needed.</p>
+    <p style="margin:0;font-size:12px;color:#6b7280;">Can&apos;t click the button? Copy this link:<br>{reset_link}</p>
+    """
+    text_body = (
+        f"{greeting}\n\nReset your EarningsNerd password:\n\n"
+        f"{reset_link}\n\nThis link expires in 1 hour and can only be used once."
+    )
+    await send_email(
+        to=[to_email],
+        subject="Reset your EarningsNerd password",
+        html=f"{_wrap_html(html_body)}<pre style=\"display:none\">{text_body}</pre>",
+    )
+
+
+async def send_account_exists_email(
+    *,
+    to_email: str,
+    name: str | None,
+    login_link: str,
+    reset_link: str,
+) -> None:
+    """Sent when someone tries to register with an already-registered email (anti-enumeration)."""
+    greeting = f"Hi {name}," if name else "Hi there,"
+    html_body = f"""
+    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;">Someone tried to create an EarningsNerd account using this email address, but you already have one.</p>
+    <p style="margin:0 0 8px;">
+      <a href="{login_link}" style="display:inline-block;background:#34d399;color:#0b0f14;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px;text-decoration:none;">Log in to your account</a>
+    </p>
+    <p style="margin:16px 0 0;font-size:14px;color:#9ca3af;">Forgot your password?
+      <a href="{reset_link}" style="color:#a7f3d0;">Reset it here</a>.
+      If this wasn&apos;t you, no action is needed.</p>
+    """
+    text_body = (
+        f"{greeting}\n\nSomeone tried to sign up with your email, but you already have an account.\n\n"
+        f"Log in: {login_link}\nReset password: {reset_link}\n\nIf this wasn't you, no action is needed."
+    )
+    await send_email(
+        to=[to_email],
+        subject="Someone tried to sign up with your EarningsNerd email",
+        html=f"{_wrap_html(html_body)}<pre style=\"display:none\">{text_body}</pre>",
+    )

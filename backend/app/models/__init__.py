@@ -27,6 +27,9 @@ class User(Base):
     stripe_subscription_id = Column(String, nullable=True)
     # Email verification
     email_verified = Column(Boolean, default=False, nullable=False)
+    # Email verification (store SHA-256 hash of token, never raw token)
+    email_verification_token = Column(String, nullable=True)
+    email_verification_expires = Column(DateTime(timezone=True), nullable=True)
     # Password reset (store SHA-256 hash of token, never raw token)
     password_reset_token = Column(String, nullable=True)
     password_reset_expires = Column(DateTime(timezone=True), nullable=True)

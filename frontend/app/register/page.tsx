@@ -34,7 +34,7 @@ export default function RegisterPage() {
       } catch {
         // Ignore analytics errors to avoid blocking signup
       }
-      router.push('/')
+      router.push(`/check-email?email=${encodeURIComponent(email)}`)
     } catch (err: unknown) {
       const errorMessage = isApiError(err)
         ? getErrorMessage(err)
@@ -107,11 +107,11 @@ export default function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                minLength={12}
+                minLength={8}
                 className="w-full px-3 py-2 border border-border-light rounded-lg bg-background-light text-text-primary-light placeholder:text-text-tertiary-light focus:outline-none focus:ring-2 focus:ring-mint-500/50 focus:border-mint-500 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
               />
               <p className="mt-2 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
-                Use at least 12 characters with upper/lowercase letters and a number.
+                At least 8 characters.
               </p>
             </div>
 
