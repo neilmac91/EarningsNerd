@@ -688,13 +688,23 @@ Streaming endpoints (`*stream*`, `*/progress`) are excluded from timeout middlew
 
 ## Deployment
 
-- **Backend:** Google Cloud Run (`earningsnerd-backend`, project `earnings-nerd`, region `us-west1`) — see `tasks/gcp-deploy-runbook.md`. Build via `gcloud builds submit` from `/backend`; deploys are manual (no auto-deploy on push).
-- **Frontend:** Vercel
-- **Database:** Cloud SQL PostgreSQL 15 (`earningsnerd-db`, via Cloud SQL socket)
-- **Cache:** Redis is OFF in production (`SKIP_REDIS_INIT=true`) — the two-tier cache runs L1 (in-memory) only; Redis via docker-compose for local development
-- **Example-refresh cron:** Cloud Run job `earningsnerd-pregenerate` + Cloud Scheduler (Mondays 06:00 UTC)
-- **Analytics:** Vercel Analytics (auto-enabled), PostHog (event tracking)
-- **Legacy:** `render.yaml` (Render.com) is deprecated — kept until Render is decommissioned
+- **Backend:** Google Cloud Run (`earningsnerd-backend`, project `earnings-nerd`, region `us-west1`).
+  Containerized via `backend/Dockerfile`; schema is created at startup by `Base.metadata.create_all()`
+  (no Alembic). Build via `gcloud builds submit` from `/backend`; deploys are manual (no auto-deploy
+  on push). Deploy/setup steps and the weekly example-refresh cron (Cloud Run job
+  `earningsnerd-pregenerate` + Cloud Scheduler, Mondays 06:00 UTC) are documented in
+  `tasks/gcp-deploy-runbook.md`.
+- **Database:** Cloud SQL for PostgreSQL 15 (`earningsnerd-db`), reached via the Cloud SQL connector
+  socket (`?host=/cloudsql/<connection-name>` in `DATABASE_URL`).
+- **Cache:** Redis is OFF in production (`SKIP_REDIS_INIT=true`) — the two-tier cache runs L1
+  (in-memory) only; Redis via docker-compose for local development. Add Memorystore if needed.
+- **Secrets:** Google Secret Manager, mounted as env vars on the Cloud Run service/job.
+- **Custom domain:** `api.earningsnerd.io` via Cloud Run domain mapping (Cloudflare CNAME → `ghs.googlehosted.com`, DNS-only).
+- **Frontend:** Vercel (`NEXT_PUBLIC_API_BASE_URL=https://api.earningsnerd.io`).
+- **Analytics:** Vercel Analytics (auto-enabled), PostHog (event tracking).
+
+> Migrated off Render.com (June 2026). The old `render.yaml` has been removed; it was stale
+> (referenced a non-existent `alembic` setup and a removed `update_contact_schema.py`).
 
 ## Claude Skills
 

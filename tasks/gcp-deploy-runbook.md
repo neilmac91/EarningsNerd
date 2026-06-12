@@ -123,7 +123,7 @@ curl -s https://api.earningsnerd.io/health ; echo
 gcloud run jobs create earningsnerd-pregenerate \
   --image=us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:latest \
   --region=us-west1 \
-  --add-cloudsql-instances=earnings-nerd:us-west1:earningsnerd-db \
+  --set-cloudsql-instances=earnings-nerd:us-west1:earningsnerd-db \
   --cpu=1 --memory=1Gi --task-timeout=3600 \
   --set-secrets=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest \
   --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/@SEC_EDGAR_BASE_URL=https://data.sec.gov" \
