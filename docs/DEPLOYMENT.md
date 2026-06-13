@@ -36,10 +36,15 @@ refreshes the weekly example-pregeneration job, and health-checks
 Vercel's GitHub integration builds and deploys the `frontend/` app on every push to `main`
 (and creates preview deployments for PRs). CI does **not** deploy the frontend.
 
-> **Known config wart:** there are currently two `vercel.json` files — `/vercel.json` (region
-> `sfo1`) and `frontend/vercel.json` (region `iad1`, plus a hardcoded Sentry DSN). Vercel reads
-> only the one at the project's configured **Root Directory**; the other is inert. Consolidate to
-> a single file once the active Root Directory is confirmed in the Vercel dashboard.
+> **Single source of Vercel config.** The project's **Root Directory** is set to `frontend`, so
+> Vercel reads `frontend/vercel.json` (region `iad1`) — that is the only Vercel config file
+> (the inert repo-root `/vercel.json` was removed). Build/dev/install commands are relative to
+> `frontend/`, so there is **no** `cd frontend` prefix.
+>
+> **Sentry DSN lives in the Vercel dashboard, not the repo.** Set `NEXT_PUBLIC_SENTRY_DSN` **and**
+> `SENTRY_DSN` as project environment variables (Production **and** Preview). `instrumentation.ts`
+> reads `SENTRY_DSN || NEXT_PUBLIC_SENTRY_DSN`; `instrumentation-client.ts` reads
+> `NEXT_PUBLIC_SENTRY_DSN`. If both are unset, Sentry silently does not initialize.
 
 ---
 

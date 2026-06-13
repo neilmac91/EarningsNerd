@@ -55,10 +55,10 @@ After the first deployment, set the environment variable in Vercel dashboard:
    - **Value**: `https://api.earningsnerd.io`
    - **Environment**: Production, Preview, Development (select all)
    - **Name**: `NEXT_PUBLIC_SENTRY_DSN`
-   - **Value**: `https://ece733dc1e5aa4e794d80f2bcc498e24@o4510744719851520.ingest.de.sentry.io/4510744722276432`
+   - **Value**: _(your Sentry DSN — copy from Sentry → Project Settings → Client Keys (DSN); not stored in this repo)_
    - **Environment**: Production, Preview, Development (select all)
    - **Name**: `SENTRY_DSN`
-   - **Value**: `https://ece733dc1e5aa4e794d80f2bcc498e24@o4510744719851520.ingest.de.sentry.io/4510744722276432`
+   - **Value**: _(your Sentry DSN — copy from Sentry → Project Settings → Client Keys (DSN); not stored in this repo)_
    - **Environment**: Production, Preview, Development (select all)
 5. Click **Save**
 
