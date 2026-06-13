@@ -875,9 +875,10 @@ async def export_summary_pdf(
             }
         )
     except Exception as e:
+        logger.error(f"PDF export failed for filing {filing_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to generate PDF: {str(e)}"
+            detail="Failed to generate PDF. Please try again later."
         )
 
 @router.get("/filing/{filing_id}/export/csv")
@@ -921,7 +922,8 @@ async def export_summary_csv(
             }
         )
     except Exception as e:
+        logger.error(f"CSV export failed for filing {filing_id}: {e}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to generate CSV: {str(e)}"
+            detail="Failed to generate CSV. Please try again later."
         )
