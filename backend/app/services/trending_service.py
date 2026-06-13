@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-import asyncio
-import atexit
 from datetime import datetime, timedelta
 import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set
 
-import httpx
 
 from app.config import settings
 from app.integrations.stocktwits import stocktwits_client, StocktwitsClient, StocktwitsSymbol
@@ -17,7 +14,6 @@ from app.services.redis_service import (
     cache_get,
     cache_set,
     CacheNamespace,
-    CacheTTL,
 )
 
 

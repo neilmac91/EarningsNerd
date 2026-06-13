@@ -5,7 +5,6 @@ They allow clearing cached summaries and XBRL data to fix issues with stale data
 """
 from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.orm import Session
-from typing import Optional
 import logging
 
 from app.database import get_db
@@ -196,7 +195,7 @@ async def clear_xbrl_memory_cache(
     logger.info(f"Admin {current_user.id} cleared XBRL memory cache ({count} entries)")
 
     return {
-        "message": f"XBRL memory cache cleared",
+        "message": "XBRL memory cache cleared",
         "entries_cleared": count,
         "stats_before": stats_before
     }

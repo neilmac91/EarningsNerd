@@ -22,7 +22,7 @@ Usage:
 import asyncio
 import logging
 from itertools import islice
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 from urllib.parse import urljoin
 
 from edgar import Company as EdgarCompany, set_identity, find as edgar_find
@@ -498,7 +498,6 @@ class EdgarClient:
         accession_number: Optional[str] = None,
     ) -> Optional[XBRLData]:
         """Extract XBRL data from EdgarTools financials object."""
-        from datetime import date as date_type
 
         xbrl_data = XBRLData()
 

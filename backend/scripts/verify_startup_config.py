@@ -4,7 +4,6 @@ Verification script for startup configuration validation.
 Tests that configuration validation works correctly.
 """
 import sys
-import os
 from pathlib import Path
 
 # Add parent directory to path
@@ -20,7 +19,7 @@ def test_stripe_validation():
     # Test 1: No Stripe key
     settings1 = Settings(STRIPE_SECRET_KEY="")
     valid1, warnings1 = settings1.validate_stripe_config()
-    print(f"Test 1 - No Stripe key:")
+    print("Test 1 - No Stripe key:")
     print(f"  Valid: {valid1}")
     print(f"  Warnings: {warnings1}")
     assert not valid1, "Should be invalid without Stripe key"
@@ -30,7 +29,7 @@ def test_stripe_validation():
     # Test 2: Stripe key but no webhook secret
     settings2 = Settings(STRIPE_SECRET_KEY="sk_test_12345678901234567890")
     valid2, warnings2 = settings2.validate_stripe_config()
-    print(f"Test 2 - Stripe key but no webhook secret:")
+    print("Test 2 - Stripe key but no webhook secret:")
     print(f"  Valid: {valid2}")
     print(f"  Warnings: {warnings2}")
     assert valid2, "Should be valid with Stripe key"
@@ -43,7 +42,7 @@ def test_stripe_validation():
         STRIPE_WEBHOOK_SECRET="whsec_12345678901234567890"
     )
     valid3, warnings3 = settings3.validate_stripe_config()
-    print(f"Test 3 - Both Stripe key and webhook secret:")
+    print("Test 3 - Both Stripe key and webhook secret:")
     print(f"  Valid: {valid3}")
     print(f"  Warnings: {warnings3}")
     assert valid3, "Should be valid with both configured"
@@ -53,7 +52,7 @@ def test_stripe_validation():
     # Test 4: Short Stripe key
     settings4 = Settings(STRIPE_SECRET_KEY="sk_test_short")
     valid4, warnings4 = settings4.validate_stripe_config()
-    print(f"Test 4 - Short Stripe key:")
+    print("Test 4 - Short Stripe key:")
     print(f"  Valid: {valid4}")
     print(f"  Warnings: {warnings4}")
     assert not valid4, "Should be invalid with short key"
@@ -74,7 +73,7 @@ def test_openai_validation():
         OPENAI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai/"
     )
     valid1, warnings1 = settings1.validate_openai_config()
-    print(f"Test 1 - No OpenAI key:")
+    print("Test 1 - No OpenAI key:")
     print(f"  Valid: {valid1}")
     print(f"  Warnings: {warnings1}")
     assert not valid1
@@ -87,7 +86,7 @@ def test_openai_validation():
         OPENAI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai/"
     )
     valid2, warnings2 = settings2.validate_openai_config()
-    print(f"Test 2 - Valid OpenAI-compatible config:")
+    print("Test 2 - Valid OpenAI-compatible config:")
     print(f"  Valid: {valid2}")
     print(f"  Warnings: {warnings2}")
     assert valid2

@@ -13,9 +13,8 @@ All models use dataclasses for:
 """
 
 from dataclasses import dataclass, field
-from datetime import date, datetime
-from decimal import Decimal
-from typing import Any, Dict, List, Optional, Union
+from datetime import date
+from typing import Any, Dict, List, Optional
 
 from .config import FilingType
 

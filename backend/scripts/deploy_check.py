@@ -4,7 +4,6 @@ Pre-deployment verification script.
 Checks all prerequisites before deploying to production.
 """
 import sys
-import os
 from pathlib import Path
 
 # Add parent directory to path
@@ -90,9 +89,9 @@ def check_environment_variables():
     
     # Special check for Stripe webhook secret
     if settings.STRIPE_SECRET_KEY and not settings.STRIPE_WEBHOOK_SECRET:
-        print(f"\n⚠️  CRITICAL WARNING: STRIPE_SECRET_KEY is set but STRIPE_WEBHOOK_SECRET is missing!")
-        print(f"   Webhook endpoints will fail signature verification.")
-        print(f"   Subscription events will NOT be processed.")
+        print("\n⚠️  CRITICAL WARNING: STRIPE_SECRET_KEY is set but STRIPE_WEBHOOK_SECRET is missing!")
+        print("   Webhook endpoints will fail signature verification.")
+        print("   Subscription events will NOT be processed.")
         warnings.append("STRIPE_WEBHOOK_SECRET_MISSING")
     
     return all_passed, critical_failures, warnings
@@ -106,7 +105,7 @@ def check_configuration_validation():
     
     # OpenAI validation
     openai_valid, openai_warnings = settings.validate_openai_config()
-    print(f"\nOpenAI-compatible Configuration (Google AI Studio recommended):")
+    print("\nOpenAI-compatible Configuration (Google AI Studio recommended):")
     print(f"  Status: {'✓ Valid' if openai_valid else '✗ Invalid'}")
     if openai_warnings:
         for warning in openai_warnings:
@@ -114,7 +113,7 @@ def check_configuration_validation():
     
     # Stripe validation
     stripe_valid, stripe_warnings = settings.validate_stripe_config()
-    print(f"\nStripe Configuration:")
+    print("\nStripe Configuration:")
     print(f"  Status: {'✓ Valid' if stripe_valid else '✗ Invalid'}")
     if stripe_warnings:
         for warning in stripe_warnings:
@@ -130,11 +129,11 @@ def check_database():
     print("=" * 60)
     
     try:
-        from app.database import engine, Base
+        from app.database import engine
         from sqlalchemy import inspect
         
         # Try to connect
-        with engine.connect() as conn:
+        with engine.connect():
             print("✓ Database connection successful")
             
             # Check if tables exist
@@ -240,7 +239,7 @@ def main():
         print(f"{status}: {check_name.replace('_', ' ').title()}")
     
     if critical_failures:
-        print(f"\n❌ CRITICAL FAILURES:")
+        print("\n❌ CRITICAL FAILURES:")
         for failure in critical_failures:
             print(f"   - {failure} must be configured")
     

@@ -5,7 +5,6 @@ Provides shared fixtures and markers for all test suites.
 """
 
 import os
-import pytest
 
 # Set mock environment variables for all tests at module level to avoid Pydantic validation errors at import time
 os.environ["SECRET_KEY"] = "test-secret-key-must-be-long-enough-123"

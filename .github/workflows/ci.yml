@@ -20,10 +20,8 @@ jobs:
           pip install -r backend/requirements.txt
           pip install ruff bandit
       - name: Lint with Ruff
-        run: |
-          # Run warnings-only mode first to avoid failing build on style issues immediately
-          # In strict mode, remove --exit-zero
-          cd backend && ruff check . --exit-zero
+        # Blocking: the tree is clean and rules live in backend/ruff.toml.
+        run: cd backend && ruff check .
       - name: Security scan with Bandit
         run: |
           # Scan app directory, skipping tests

@@ -28,7 +28,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import text
-from app.database import SessionLocal, engine
+from app.database import SessionLocal
 
 logging.basicConfig(
     level=logging.INFO,
@@ -103,9 +103,9 @@ def fix_null_sec_urls(session, dry_run: bool = True, ticker: str = None):
                 "filing_id": filing_id
             })
             fixed_count += 1
-            logger.info(f"    FIXED")
+            logger.info("    FIXED")
         else:
-            logger.info(f"    [DRY RUN - no changes made]")
+            logger.info("    [DRY RUN - no changes made]")
 
     if not dry_run:
         session.commit()

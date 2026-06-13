@@ -1,20 +1,16 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Request, Header
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime
 import stripe
 from app.database import get_db
-from app.models import User, UserUsage
+from app.models import User
 from app.routers.auth import get_current_user
 from app.config import settings
 from app.services.posthog_client import capture_event
 from app.services.subscription_service import (
     get_current_month,
     get_user_usage_count,
-    increment_user_usage,
-    check_usage_limit,
     FREE_TIER_SUMMARY_LIMIT
 )
 

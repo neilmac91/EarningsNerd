@@ -37,7 +37,7 @@ from .instance_extractor import (
     instant_series,
     normalize_form,
 )
-from .models import FinancialMetric, MetricChange, MetricSeries, XBRLData
+from .models import MetricChange
 from .statement_parser import extract_metric_values, statement_dataframe
 
 logger = logging.getLogger(__name__)
