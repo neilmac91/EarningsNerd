@@ -98,7 +98,7 @@ jiter==0.15.0
     # via openai
 json-repair==0.60.1
     # via -r requirements.in
-lxml==5.4.0
+lxml==6.1.0
     # via
     #   -r requirements.in
     #   edgartools

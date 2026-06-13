@@ -19,7 +19,7 @@ openai>=1.30.0,<3.0.0
 beautifulsoup4==4.15.0
 # Hold lxml on the tested 5.x and pandas (transitive via edgartools) on the tested
 # 2.x major — locking the known-good set rather than jumping to untested majors.
-lxml>=5.2.2,<6.0.0
+lxml>=6.1.0,<7.0.0
 pandas>=2.0.0,<3.0.0
 python-jose[cryptography]>=3.5.0
 passlib[bcrypt]==1.7.4
