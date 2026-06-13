@@ -18,6 +18,7 @@ from app.services.refresh_token_service import (
     rotate_refresh_token,
     revoke_refresh_token,
     RefreshTokenError,
+    RefreshTokenReuseError,
 )
 
 router = APIRouter()
@@ -153,7 +154,7 @@ def _client_ip(request: Request) -> Optional[str]:
 
 def _issue_refresh_token(db: Session, user: User, request: Request, response: Response) -> None:
     """Mint a refresh token, persist it, and set the HttpOnly refresh cookie."""
-    raw_token = create_refresh_token(
+    _, raw_token = create_refresh_token(
         db,
         user,
         user_agent=request.headers.get("user-agent"),
@@ -354,10 +355,20 @@ async def refresh(
         )
         # Persist the rotation (old revoked + new issued).
         db.commit()
-    except RefreshTokenError as exc:
-        # Commit first so any reuse-triggered chain revocation is durable, then clear the
-        # client's stale cookies so it falls back to a fresh login.
+    except RefreshTokenReuseError as exc:
+        # Reuse revoked the user's whole active chain — commit so that revocation is durable.
         db.commit()
+        _clear_refresh_cookie(response)
+        _clear_auth_cookie(response)
+        logger.warning(f"Refresh reuse detected: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except RefreshTokenError as exc:
+        # Missing / expired / unknown token — no DB writes were made, so do not commit
+        # (avoids needless write transactions on unauthenticated traffic). Just clear cookies.
         _clear_refresh_cookie(response)
         _clear_auth_cookie(response)
         logger.info(f"Refresh rejected: {exc}")

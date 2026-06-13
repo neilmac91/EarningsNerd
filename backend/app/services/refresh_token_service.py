@@ -22,7 +22,16 @@ logger = logging.getLogger(__name__)
 
 
 class RefreshTokenError(Exception):
-    """Raised when a refresh token is missing, invalid, expired, or reused."""
+    """Raised when a refresh token is missing, invalid, or expired."""
+
+
+class RefreshTokenReuseError(RefreshTokenError):
+    """Raised when an already-revoked refresh token is replayed (reuse/theft signal).
+
+    Distinct from the base error because handling it modifies the database (the user's
+    active token chain is revoked), so the caller must commit — whereas a missing/expired/
+    unknown token makes no writes and must not trigger a commit on unauthenticated traffic.
+    """
 
 
 def _hash_token(raw_token: str) -> str:
@@ -41,11 +50,12 @@ def create_refresh_token(
     *,
     user_agent: Optional[str] = None,
     ip: Optional[str] = None,
-) -> str:
-    """Mint and persist a new refresh token for ``user``; return the raw token.
+) -> Tuple[RefreshToken, str]:
+    """Mint and persist a new refresh token for ``user``; return ``(token, raw_token)``.
 
     The raw token is returned to the caller (to set as a cookie) and is never stored —
-    only its hash is. The caller is responsible for committing the session.
+    only its hash is. The flushed ``RefreshToken`` is returned too so callers can link a
+    rotation chain without re-querying. The caller is responsible for committing the session.
     """
     raw_token = secrets.token_urlsafe(48)
     token = RefreshToken(
@@ -57,7 +67,7 @@ def create_refresh_token(
     )
     db.add(token)
     db.flush()  # assign token.id without forcing the caller's commit boundary
-    return raw_token
+    return token, raw_token
 
 
 def rotate_refresh_token(
@@ -96,7 +106,7 @@ def rotate_refresh_token(
             token.user_id,
             revoked,
         )
-        raise RefreshTokenError("Refresh token has already been used")
+        raise RefreshTokenReuseError("Refresh token has already been used")
 
     if token.expires_at < now:
         raise RefreshTokenError("Refresh token has expired")
@@ -105,16 +115,11 @@ def rotate_refresh_token(
     if user is None or not user.is_active:
         raise RefreshTokenError("User is no longer active")
 
-    new_raw_token = create_refresh_token(db, user, user_agent=user_agent, ip=ip)
+    new_token, new_raw_token = create_refresh_token(db, user, user_agent=user_agent, ip=ip)
     token.revoked_at = now
-    # Link the rotation chain for auditability / reuse detection.
-    replacement = (
-        db.query(RefreshToken)
-        .filter(RefreshToken.token_hash == _hash_token(new_raw_token))
-        .first()
-    )
-    if replacement is not None:
-        token.replaced_by_id = replacement.id
+    # Link the rotation chain for auditability / reuse detection (no extra query needed —
+    # the flushed replacement already has its id).
+    token.replaced_by_id = new_token.id
 
     return user, new_raw_token
 

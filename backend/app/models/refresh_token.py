@@ -21,7 +21,7 @@ class RefreshToken(Base):
     __tablename__ = "refresh_tokens"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # SHA-256 hex digest of the raw token (64 chars). The raw token is never persisted.
     token_hash = Column(String(64), unique=True, nullable=False, index=True)
@@ -30,7 +30,7 @@ class RefreshToken(Base):
     revoked_at = Column(DateTime, nullable=True)
 
     # Rotation chain: the token that superseded this one (set when rotated).
-    replaced_by_id = Column(Integer, ForeignKey("refresh_tokens.id"), nullable=True)
+    replaced_by_id = Column(Integer, ForeignKey("refresh_tokens.id", ondelete="SET NULL"), nullable=True)
 
     # Lightweight audit context (best-effort; not used for authorization).
     user_agent = Column(String(500), nullable=True)
