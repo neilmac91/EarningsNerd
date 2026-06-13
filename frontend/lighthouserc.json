@@ -2,9 +2,9 @@
   "ci": {
     "collect": {
       "startServerCommand": "npm run start",
-      "startServerReadyPattern": "Ready in|started server",
+      "startServerReadyPattern": "Ready in|Local:|started server",
       "url": ["http://localhost:3000/", "http://localhost:3000/pricing"],
-      "numberOfRuns": 1,
+      "numberOfRuns": 3,
       "settings": {
         "chromeFlags": "--no-sandbox --headless=new"
       }

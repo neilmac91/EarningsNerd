@@ -67,6 +67,11 @@ jobs:
   # continue-on-error + warn-level assertions, and intentionally NOT in the
   # deploy-backend `needs:` gate — it reports scores + a public report URL, it
   # never fails the pipeline. Promote assertions to "error" once a baseline is set.
+  #
+  # CAVEAT: this runs `next start` with NO backend, so the homepage's server-side
+  # data fetches stall/fail and depress LCP/TTFB — the score here UNDERSTATES prod.
+  # Treat it as a regression signal for the static shell; get the authoritative
+  # number from PageSpeed Insights / Lighthouse against the live or Vercel-preview URL.
   lighthouse:
     runs-on: ubuntu-latest
     continue-on-error: true
