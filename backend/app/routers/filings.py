@@ -123,6 +123,18 @@ async def get_company_filings(
         filings = []
         new_filings = []  # Track newly added filings for batch refresh
 
+        # Prefetch existing filings in a single query to avoid an N+1
+        # (previously this loop issued one SELECT per SEC filing).
+        accession_numbers = [
+            f["accession_number"] for f in sec_filings if f.get("accession_number")
+        ]
+        existing_by_accession = {
+            f.accession_number: f
+            for f in db.query(Filing)
+            .filter(Filing.accession_number.in_(accession_numbers))
+            .all()
+        } if accession_numbers else {}
+
         for sec_filing in sec_filings:
             # Validate required fields from SEC response before database operations
             sec_url = sec_filing.get("sec_url")
@@ -135,10 +147,13 @@ async def get_company_filings(
                 )
                 continue
 
-            # Check if filing exists in database
-            filing = db.query(Filing).filter(
-                Filing.accession_number == sec_filing["accession_number"]
-            ).first()
+            accession_number = sec_filing.get("accession_number")
+            if not accession_number:
+                logger.warning("Skipping filing - missing accession_number")
+                continue
+
+            # Check if filing exists (from the prefetched map — no per-iteration query)
+            filing = existing_by_accession.get(accession_number)
 
             if not filing:
                 # Only create new filing if we have all required fields
@@ -150,7 +165,7 @@ async def get_company_filings(
 
                 filing = Filing(
                     company_id=company.id,
-                    accession_number=sec_filing["accession_number"],
+                    accession_number=accession_number,
                     filing_type=sec_filing["filing_type"],
                     filing_date=datetime.fromisoformat(sec_filing["filing_date"]),
                     period_end_date=datetime.fromisoformat(sec_filing["report_date"]) if sec_filing.get("report_date") else None,
