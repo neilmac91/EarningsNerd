@@ -1,4 +1,6 @@
-import axios, { AxiosError } from 'axios'
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
+import { hasActiveSession, clearSessionActive } from './session'
+import { refreshAccessToken } from './refresh'
 
 // Custom error class that preserves backend error details
 export class ApiError extends Error {
@@ -65,12 +67,71 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Response error interceptor to extract backend error details
+// Endpoints whose own 401s must never trigger a silent refresh (the refresh itself, plus
+// the credential-issuing endpoints — a failed login is not an expired session).
+const NO_REFRESH_PATHS = [
+  '/api/auth/refresh',
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/logout',
+]
+
+export function isRefreshableRequest(url?: string): boolean {
+  if (!url) return true
+  // Match on the path only, so a query param that happens to contain an auth path
+  // (e.g. ?redirect=/api/auth/login) doesn't wrongly mark the request non-refreshable.
+  const pathname = url.split('?')[0]
+  return !NO_REFRESH_PATHS.some((path) => pathname.includes(path))
+}
+
+// Single in-flight refresh shared across concurrent 401s, so a burst of requests that all
+// expire together triggers exactly one /refresh call rather than a stampede.
+let refreshPromise: Promise<void> | null = null
+
+function ensureRefreshed(): Promise<void> {
+  if (!refreshPromise) {
+    refreshPromise = refreshAccessToken(getApiUrl()).finally(() => {
+      refreshPromise = null
+    })
+  }
+  return refreshPromise
+}
+
+// Response error interceptor: silent token refresh on 401, then backend error extraction.
 api.interceptors.response.use(
   (response) => response,
-  (error: AxiosError<{ detail?: string }>) => {
+  async (error: AxiosError<{ detail?: string }>) => {
     // Extract the status code and detail message from the backend
     const status = error.response?.status || 0
+    const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined
+
+    // Expired access token on a logged-in session: refresh once and replay the request.
+    // Gated on hasActiveSession() so guests never attempt a (pointless) refresh, and on
+    // _retry so a request is only ever retried a single time.
+    if (
+      status === 401 &&
+      original &&
+      !original._retry &&
+      isRefreshableRequest(original.url) &&
+      hasActiveSession()
+    ) {
+      original._retry = true
+      let refreshed = false
+      try {
+        await ensureRefreshed()
+        refreshed = true
+      } catch {
+        // Refresh failed — the session is genuinely gone. Clear the flag so we stop trying,
+        // then fall through to surface the original 401 to the caller.
+        clearSessionActive()
+      }
+      // Replay outside the try: an error from the *retried* request (e.g. 500/429, or a
+      // persistent 401) must propagate as-is, not be mistaken for a refresh failure.
+      if (refreshed) {
+        return await api(original)
+      }
+    }
+
     const backendDetail = error.response?.data?.detail
 
     // Create user-friendly error message based on status and backend detail

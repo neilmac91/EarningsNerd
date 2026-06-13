@@ -58,10 +58,10 @@ class Settings(BaseSettings):
     # JWT
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
-    # Refresh tokens (opaque, rotated, stored hashed server-side). The access-token TTL above
-    # stays long-lived until the frontend silent-refresh interceptor ships; once it does, the
-    # access TTL can be cut (e.g. to 30 minutes) and the refresh token becomes the durable session.
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # short-lived; the frontend silently refreshes it
+    # Refresh tokens (opaque, rotated, stored hashed server-side) are the durable session: the
+    # access token above is short-lived and the frontend API client silently exchanges an
+    # expired one via /api/auth/refresh, so users are not logged out every 30 minutes.
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     REFRESH_COOKIE_NAME: str = "earningsnerd_refresh_token"
     PASSWORD_MIN_LENGTH: int = 12
