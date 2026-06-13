@@ -4,8 +4,16 @@ node_modules
 dist
 out
 .env
+.env.*
+*.env.bak
 .env.local
 .env.production
+
+# Build / test artifacts (regenerated; never commit)
+*.tsbuildinfo
+.lighthouseci/
+playwright-report/
+test-results/
 
 # Python / FastAPI
 __pycache__/

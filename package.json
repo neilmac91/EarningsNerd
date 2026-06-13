@@ -1,6 +1,0 @@
-{
-  "dependencies": {
-    "firebase": "^12.5.0",
-    "resend": "^6.12.4"
-  }
-}
