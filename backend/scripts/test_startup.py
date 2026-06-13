@@ -59,7 +59,8 @@ def check_startup_validation():
     print("\n4. FastAPI Application:")
     try:
         from fastapi import FastAPI
-        
+        from app.routers import auth, companies, filings, summaries  # noqa: F401
+
         FastAPI(title="EarningsNerd API")
         print("   ✓ FastAPI app created")
         print("   ✓ Routers imported successfully")

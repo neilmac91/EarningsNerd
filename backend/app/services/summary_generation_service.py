@@ -12,7 +12,6 @@ from app.services.subscription_service import increment_user_usage, get_current_
 from app.config import settings
 from app.database import SessionLocal
 import logging
-import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -759,7 +758,6 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
             # Do NOT commit any summary to database
         except Exception as inner_error:
             error_msg = str(inner_error)
-            traceback.format_exc()
             logger.error(f"Error in timeout wrapper: {error_msg}", exc_info=True)
 
             # ERROR = PARTIAL RESULT - Do NOT cache to database

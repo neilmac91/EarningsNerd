@@ -2140,10 +2140,8 @@ Rules:
             raise ValueError("Structured summary payload is empty.")
 
         metadata = structured_summary.get("metadata", {})
-        metadata.get("company_name", "The company")
         filing_type = metadata.get("filing_type", "filing")
         filing_type_key = (str(filing_type) or "").upper()
-        metadata.get("reporting_period", "the reported period")
 
         structured_payload = json.dumps(structured_summary, indent=2, ensure_ascii=False)
 

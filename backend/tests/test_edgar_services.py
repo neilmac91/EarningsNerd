@@ -249,7 +249,10 @@ class TestBackwardCompatibility:
 
     def test_xbrl_cache_functions(self):
         """Test that cache functions are exported correctly."""
-        from app.services.edgar import get_xbrl_cache_stats
+        from app.services.edgar import get_xbrl_cache_stats, clear_xbrl_cache
+
+        # Both cache helpers must be exported
+        assert clear_xbrl_cache is not None
 
         # Should not raise
         stats = get_xbrl_cache_stats()

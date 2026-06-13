@@ -573,8 +573,6 @@ async def generate_summary_stream(
                 
                 # Check for AI Timeout (60s)
                 current_time = time.time()
-                current_time - (pipeline_started_at + 30) # rough estimate, or track start of AI stage
-                # Better: track stage_started_at for AI
                 time_in_stage = current_time - stage_started_at
                 
                 if time_in_stage > 75.0:
