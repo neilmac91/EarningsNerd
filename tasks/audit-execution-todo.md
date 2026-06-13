@@ -11,7 +11,8 @@ Branch: `claude/earnings-nerd-audit-ovjet5`. Approved plan, executed as 6 commit
 
 ## PR 2 — Deploy config (P1) ✅ 0175887
 - [x] engines.node=20.x + frontend/.nvmrc
-- [~] vercel.json consolidation + DSN: SKIPPED per maintainer (root-dir unconfirmed); documented in DEPLOYMENT.md
+- [x] vercel.json consolidation + DSN: DONE — Root Directory confirmed `frontend`. Removed dead
+      root /vercel.json; pulled hardcoded Sentry DSN out of frontend/vercel.json into Vercel dashboard env vars.
 
 ## PR 3 — Documentation overhaul (P0) ✅ bf486f4
 - [x] Root .md 39 -> 3 (README, CLAUDE, CONTRIBUTING)
