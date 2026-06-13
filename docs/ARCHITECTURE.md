@@ -78,7 +78,8 @@ fails or times out.
 ## Summary generation: one user-facing pipeline
 
 There is a single user-facing generation path — the SSE **streaming** pipeline in
-`summaries.py` (`POST /generate-stream`), polled for progress via `GET /progress`.
+`summaries.py` (`POST /api/summaries/filing/{id}/generate-stream`), polled for progress via
+`GET /api/summaries/filing/{id}/progress`.
 `summary_generation_service.py:generate_summary_background()` is retained as a **batch-only**
 helper, used solely by the weekly example-pregeneration cron (`scripts/pregenerate_examples.py`),
 not by any HTTP route. (A previously divergent `POST /generate` background route was removed.)
