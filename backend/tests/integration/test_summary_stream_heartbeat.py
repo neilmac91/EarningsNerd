@@ -195,6 +195,74 @@ async def test_stream_handles_ai_error_gracefully():
         app.dependency_overrides.clear()
 
 @pytest.mark.asyncio
+async def test_ai_error_status_records_error_progress():
+    """
+    When AI summarization *returns* an error status (vs. raising), the pipeline must record
+    progress as 'error' before streaming the error, so the /progress endpoint reports a
+    retryable error immediately instead of leaving a stale 'summarizing' state to age out.
+    """
+    filing_id = 321
+    user_id = 654
+
+    async def error_status_summarize(*args, **kwargs):
+        return {"status": "error", "message": "Model returned an error"}
+
+    mock_filing = MagicMock()
+    mock_filing.id = filing_id
+    mock_filing.document_url = "http://test.com/filing.htm"
+    mock_filing.filing_type = "10-K"
+    mock_filing.accession_number = "000-000-000"
+    mock_filing.company = MagicMock()
+    mock_filing.company.name = "Test Corp"
+    mock_filing.company.cik = "1234567890"
+    mock_filing.content_cache = None
+
+    mock_user = MagicMock()
+    mock_user.id = user_id
+    mock_user.is_pro = True
+
+    mock_db = MagicMock()
+    mock_db.query.return_value.options.return_value.filter.return_value.first.return_value = mock_filing
+    mock_db.query.return_value.filter.return_value.first.return_value = None
+
+    async def override_get_current_user():
+        return mock_user
+
+    def override_get_db():
+        return mock_db
+
+    mock_session_cls = MagicMock()
+    mock_session_cls.return_value = mock_db
+    mock_session_cls.return_value.__enter__.return_value = mock_db
+
+    app.dependency_overrides[get_current_user] = override_get_current_user
+    app.dependency_overrides[get_db] = override_get_db
+
+    try:
+        with patch("app.services.summary_pipeline.sec_edgar_service.get_filing_document", new_callable=AsyncMock, return_value="Filing text"), \
+             patch("app.services.summary_pipeline.openai_service.summarize_filing", side_effect=error_status_summarize), \
+             patch("app.services.summary_pipeline.check_usage_limit", return_value=(True, 0, 10)), \
+             patch("app.services.summary_pipeline.record_progress") as mock_record, \
+             patch("app.services.summary_pipeline.get_or_cache_excerpt", return_value="excerpt"), \
+             patch("app.database.SessionLocal", mock_session_cls):
+
+            client = TestClient(app)
+            response = client.post(
+                f"/api/summaries/filing/{filing_id}/generate-stream",
+                headers={"Authorization": "Bearer test-token"},
+            )
+
+            assert response.status_code == 200
+            assert "error" in response.text.lower()
+            # The fix: progress is persisted as "error" on the AI-error-status path.
+            assert any("error" in call.args for call in mock_record.call_args_list), (
+                f"expected a record_progress(..., 'error', ...) call; got {mock_record.call_args_list}"
+            )
+    finally:
+        app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
 async def test_heartbeat_events_emitted_at_interval():
     """
     Verify that heartbeat events are emitted approximately every 5 seconds.
