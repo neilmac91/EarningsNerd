@@ -78,7 +78,10 @@ const NO_REFRESH_PATHS = [
 
 export function isRefreshableRequest(url?: string): boolean {
   if (!url) return true
-  return !NO_REFRESH_PATHS.some((path) => url.includes(path))
+  // Match on the path only, so a query param that happens to contain an auth path
+  // (e.g. ?redirect=/api/auth/login) doesn't wrongly mark the request non-refreshable.
+  const pathname = url.split('?')[0]
+  return !NO_REFRESH_PATHS.some((path) => pathname.includes(path))
 }
 
 // Single in-flight refresh shared across concurrent 401s, so a burst of requests that all
@@ -113,13 +116,19 @@ api.interceptors.response.use(
       hasActiveSession()
     ) {
       original._retry = true
+      let refreshed = false
       try {
         await ensureRefreshed()
-        return await api(original)
+        refreshed = true
       } catch {
         // Refresh failed — the session is genuinely gone. Clear the flag so we stop trying,
         // then fall through to surface the original 401 to the caller.
         clearSessionActive()
+      }
+      // Replay outside the try: an error from the *retried* request (e.g. 500/429, or a
+      // persistent 401) must propagate as-is, not be mistaken for a refresh failure.
+      if (refreshed) {
+        return await api(original)
       }
     }
 

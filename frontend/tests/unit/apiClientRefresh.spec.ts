@@ -129,4 +129,49 @@ describe('silent refresh interceptor', () => {
     expect(refreshMock).toHaveBeenCalledTimes(1)
     expect(adapter).toHaveBeenCalledTimes(2)
   })
+
+  it('propagates a non-401 error from the replayed request and keeps the session', async () => {
+    // Regression: the replay must run outside the refresh try/catch, so a 500 (or 429) from
+    // the *retried* request surfaces as itself — not swallowed and reported as the original 401,
+    // and without wrongly clearing a still-valid session.
+    markSessionActive()
+    let call = 0
+    api.defaults.adapter = vi.fn(async (config: any) => {
+      call += 1
+      if (call === 1) throw make401(config) // access token expired
+      // Refresh succeeded; the replayed request then hits a real server error.
+      const err: any = new Error('Request failed with status code 500')
+      err.config = config
+      err.response = { status: 500, data: { detail: 'boom' }, headers: {}, config }
+      err.isAxiosError = true
+      throw err
+    }) as any
+    refreshMock.mockResolvedValue(undefined)
+
+    await expect(api.get('/api/filings/123')).rejects.toMatchObject({ status: 500 })
+    expect(refreshMock).toHaveBeenCalledTimes(1)
+    expect(hasActiveSession()).toBe(true) // valid session must NOT be cleared
+  })
+
+  it('falls back to the in-memory flag when localStorage is unavailable', async () => {
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('localStorage blocked')
+    })
+    const setItem = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('localStorage blocked')
+    })
+    try {
+      // Even though storage throws, marking then reading the session works in-memory, so a
+      // logged-in user in Safari private mode still gets silent refresh.
+      markSessionActive()
+      expect(hasActiveSession()).toBe(true)
+
+      const res = await api.get('/api/filings/9')
+      expect(res.status).toBe(200)
+      expect(refreshMock).toHaveBeenCalledTimes(1)
+    } finally {
+      getItem.mockRestore()
+      setItem.mockRestore()
+    }
+  })
 })

@@ -9,18 +9,25 @@
  */
 const SESSION_KEY = 'en_session_active'
 
+// In-memory fallback for when localStorage is unavailable (Safari private mode, storage
+// blocked by browser settings). Without it, hasActiveSession() would always be false there
+// and silent refresh would be disabled — logging those users out every time the access token
+// expires. The flag still works for the lifetime of the page in that case.
+let inMemorySessionActive = false
+
 export function markSessionActive(): void {
+  inMemorySessionActive = true
   try {
     if (typeof window !== 'undefined') {
       window.localStorage.setItem(SESSION_KEY, '1')
     }
   } catch {
-    // localStorage may be unavailable (private mode, SSR). Refresh simply won't be gated;
-    // the worst case is a single wasted /refresh attempt, which fails closed.
+    // localStorage unavailable — the in-memory flag above carries the session.
   }
 }
 
 export function clearSessionActive(): void {
+  inMemorySessionActive = false
   try {
     if (typeof window !== 'undefined') {
       window.localStorage.removeItem(SESSION_KEY)
@@ -32,8 +39,11 @@ export function clearSessionActive(): void {
 
 export function hasActiveSession(): boolean {
   try {
-    return typeof window !== 'undefined' && window.localStorage.getItem(SESSION_KEY) === '1'
+    if (typeof window !== 'undefined') {
+      return window.localStorage.getItem(SESSION_KEY) === '1'
+    }
   } catch {
-    return false
+    // Fall through to the in-memory flag if localStorage is blocked/disabled.
   }
+  return inMemorySessionActive
 }
