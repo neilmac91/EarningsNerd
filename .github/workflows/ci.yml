@@ -46,6 +46,10 @@ jobs:
       - name: Install dependencies
         run: npm ci
         working-directory: frontend
+      - name: Typecheck (app/library code)
+        # Specs are typechecked at runtime by Vitest; this gates shipped code.
+        run: npm run typecheck
+        working-directory: frontend
       - name: Verify vitest config
         run: |
           ls -la vitest.config.* || echo "No vitest config files found"

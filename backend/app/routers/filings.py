@@ -361,6 +361,18 @@ async def get_company_filings(
         filings = []
         new_filings = []  # Track newly added filings for batch refresh
 
+        # Prefetch existing filings in a single query to avoid an N+1
+        # (previously this loop issued one SELECT per SEC filing).
+        accession_numbers = [
+            f["accession_number"] for f in sec_filings if f.get("accession_number")
+        ]
+        existing_by_accession = {
+            f.accession_number: f
+            for f in db.query(Filing)
+            .filter(Filing.accession_number.in_(accession_numbers))
+            .all()
+        } if accession_numbers else {}
+
         for sec_filing in sec_filings:
             # Validate required fields from SEC response before database operations
             sec_url = sec_filing.get("sec_url")
@@ -373,10 +385,8 @@ async def get_company_filings(
                 )
                 continue
 
-            # Check if filing exists in database
-            filing = db.query(Filing).filter(
-                Filing.accession_number == sec_filing["accession_number"]
-            ).first()
+            # Check if filing exists (from the prefetched map — no per-iteration query)
+            filing = existing_by_accession.get(sec_filing["accession_number"])
 
             if not filing:
                 # Only create new filing if we have all required fields

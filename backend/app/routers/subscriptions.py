@@ -234,10 +234,16 @@ async def stripe_webhook(
                 user.stripe_subscription_id = None
                 db.commit()
         
+    except HTTPException:
+        # Preserve intended status codes (e.g. 400 for signature/payload errors).
+        # Without this, the broad handler below would mask them as 500s, which
+        # also makes Stripe retry on what are really client errors.
+        db.rollback()
+        raise
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error processing webhook: {str(e)}")
     finally:
         db.close()
-    
+
     return {"status": "success"}
