@@ -45,6 +45,10 @@ Vercel's GitHub integration builds and deploys the `frontend/` app on every push
 > `SENTRY_DSN` as project environment variables (Production **and** Preview). `instrumentation.ts`
 > reads `SENTRY_DSN || NEXT_PUBLIC_SENTRY_DSN`; `instrumentation-client.ts` reads
 > `NEXT_PUBLIC_SENTRY_DSN`. If both are unset, Sentry silently does not initialize.
+>
+> **Rotating the DSN:** `SENTRY_DSN` is read at runtime, so changing it in the dashboard takes effect
+> on the next request. `NEXT_PUBLIC_SENTRY_DSN`, however, is baked into the client bundle by Next.js
+> **at build time** — rotating it requires a **new deployment (rebuild)** to reach the browser.
 
 ---
 
