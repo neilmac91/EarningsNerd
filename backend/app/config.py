@@ -117,6 +117,14 @@ class Settings(BaseSettings):
     # AI Model Settings
     AI_DEFAULT_MODEL: str = "gemini-3.1-pro-preview"  # Primary model for all AI tasks (gemini-3-pro-preview deprecated for inference)
 
+    # Optional cheaper model for low-risk sub-tasks (cost/latency — roadmap A11).
+    # Both default to "" → fall back to AI_DEFAULT_MODEL, so behavior is UNCHANGED until set.
+    # Flip only after the eval harness (backend/evals) shows no quality regression.
+    #   AI_FAST_MODEL             — cheaper model for any task that opts in (e.g. gemini-2.5-flash)
+    #   AI_SECTION_RECOVERY_MODEL — overrides just the section-recovery task; falls back to AI_FAST_MODEL
+    AI_FAST_MODEL: str = ""
+    AI_SECTION_RECOVERY_MODEL: str = ""
+
     # Structured-output mode for Phase-A extraction (roadmap S1). When True, the structured
     # extraction call uses an API-level response_format (JSON object), a schema-described
     # prompt with the narrative-format instructions removed, and a pinned low temperature —
