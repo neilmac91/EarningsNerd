@@ -213,10 +213,17 @@ class OpenAIService:
             "10-Q": self._MODEL_GEMINI_3_PRO,  # Gemini Pro 3.0 for 10-Q
         }
         # Task-specific model selection - all use Gemini 3 Pro for maximum quality
-        # Quality improvement: using gemini-3-pro-preview across all tasks
+        # Per-task model routing. Extraction and editorial stay on the Pro model (quality bar).
+        # Section recovery may opt into a cheaper model (A11) — defaults to Pro until an operator
+        # sets AI_SECTION_RECOVERY_MODEL or AI_FAST_MODEL, so behavior is unchanged out of the box.
+        _section_recovery_model = (
+            settings.AI_SECTION_RECOVERY_MODEL.strip()
+            or settings.AI_FAST_MODEL.strip()
+            or self._MODEL_GEMINI_3_PRO
+        )
         self._task_models = {
             "structured_extraction": self._MODEL_GEMINI_3_PRO,   # Needs high accuracy
-            "section_recovery": self._MODEL_GEMINI_3_PRO,        # Quality gap-filling
+            "section_recovery": _section_recovery_model,         # Cheaper-model candidate (A11)
             "editorial_writer": self._MODEL_GEMINI_3_PRO,        # High quality final output
         }
         # Concurrency control for parallel section recovery
@@ -241,7 +248,7 @@ class OpenAIService:
 
         Task types:
         - structured_extraction: Primary JSON extraction (needs highest accuracy)
-        - section_recovery: Fill missing sections (simpler, use Flash for cost savings)
+        - section_recovery: Fill missing sections (simpler; opt-in cheaper model via config — A11)
         - editorial_writer: Convert to markdown (creative, use Pro)
 
         Falls back to filing-type model if task not recognized.
@@ -1331,7 +1338,8 @@ class OpenAIService:
         import time
         import json
 
-        # Use Flash model for section recovery (simpler task, lower cost)
+        # Section recovery uses the configured recovery model (Pro by default; can opt into a
+        # cheaper model via AI_SECTION_RECOVERY_MODEL / AI_FAST_MODEL — see config.py / A11).
         models_to_try = [self.get_model_for_task("section_recovery", filing_type_key)] + self._fallback_models
         models_to_try = list(dict.fromkeys(models_to_try))
         last_error: Optional[Exception] = None

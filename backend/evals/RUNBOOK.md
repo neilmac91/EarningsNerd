@@ -92,6 +92,21 @@ USE_STRUCTURED_OUTPUT=false python -m evals.runner --candidates baseline --runs 
 USE_STRUCTURED_OUTPUT=true  python -m evals.runner --candidates baseline --runs 3
 ```
 
+### A11 — cheaper section-recovery model
+
+`AI_SECTION_RECOVERY_MODEL` routes only the section-recovery sub-task to a cheaper model
+(defaults to the Pro model — unchanged until set). `baseline` exercises recovery end-to-end,
+so test the flip the same way as the S1 flag:
+```bash
+# unset (Pro recovery) vs flash recovery
+python -m evals.runner --candidates baseline --runs 3
+AI_SECTION_RECOVERY_MODEL=gemini-2.5-flash python -m evals.runner --candidates baseline --runs 3
+```
+Promote (set the env in prod) only if the flash run shows **no regression** in `coverage` /
+`num_recall` and **no increase** in `gate_fail`, with comparable `pass_rate` / `agg_stdev`
+(the same adoption rule as Step 8). Recovery failures degrade gracefully (an unfilled section
+stays empty, never corrupted), so this is the lowest-risk place to start cheaper-model routing.
+
 ---
 
 ## Step 6 — The bake-off
