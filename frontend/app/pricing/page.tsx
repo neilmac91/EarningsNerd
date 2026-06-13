@@ -209,7 +209,7 @@ function PricingContent() {
                 type="button"
                 role="switch"
                 aria-checked={billingCycle === 'yearly'}
-                aria-label="Bill yearly"
+                aria-label="Billing cycle"
                 onClick={() => {
                   const nextCycle = billingCycle === 'monthly' ? 'yearly' : 'monthly'
                   analytics.billingCycleToggled(billingCycle, nextCycle)
