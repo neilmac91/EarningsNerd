@@ -1,17 +1,16 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Request
 from sqlalchemy.orm import Session, joinedload
-from typing import Optional, Dict, Any, List
+from typing import Optional, List
 import asyncio
 import time
 import datetime
 from datetime import timedelta
 import json
-import concurrent.futures
 from pydantic import BaseModel
 import logging
 from fastapi.responses import Response, StreamingResponse
 
-from app.database import get_db, SessionLocal
+from app.database import get_db
 from app.models import (
     Filing,
     Summary,
@@ -23,7 +22,7 @@ from app.models import (
 from app.services.edgar.compat import sec_edgar_service, xbrl_service
 from app.services.openai_service import openai_service
 from app.schemas import attach_normalized_facts
-from app.routers.auth import get_current_user, get_current_user_optional
+from app.routers.auth import get_current_user_optional
 from app.services.subscription_service import check_usage_limit, increment_user_usage, get_current_month
 from app.services.export_service import export_service
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
@@ -574,7 +573,7 @@ async def generate_summary_stream(
                 
                 # Check for AI Timeout (60s)
                 current_time = time.time()
-                ai_duration = current_time - (pipeline_started_at + 30) # rough estimate, or track start of AI stage
+                current_time - (pipeline_started_at + 30) # rough estimate, or track start of AI stage
                 # Better: track stage_started_at for AI
                 time_in_stage = current_time - stage_started_at
                 
@@ -841,7 +840,6 @@ async def export_summary_pdf(
     db: Session = Depends(get_db)
 ):
     """Export summary as PDF (Pro feature)"""
-    from app.routers.auth import get_current_user
     
     # Require authentication for exports
     if not current_user:
@@ -888,7 +886,6 @@ async def export_summary_csv(
     db: Session = Depends(get_db)
 ):
     """Export summary financial metrics as CSV (Pro feature)"""
-    from app.routers.auth import get_current_user
     
     # Require authentication for exports
     if not current_user:

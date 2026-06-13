@@ -1,7 +1,7 @@
 
 import pytest
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 from app.services.openai_service import OpenAIService
 
 @pytest.mark.asyncio

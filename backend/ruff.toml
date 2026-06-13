@@ -1,0 +1,17 @@
+# Ruff configuration for the EarningsNerd backend.
+# CI runs `ruff check .` as a blocking gate (see .github/workflows/ci.yml).
+
+target-version = "py311"
+line-length = 120
+
+[lint]
+# Default rule set (pyflakes `F` + a subset of pycodestyle `E`).
+# Line-length (E501) is intentionally not enforced — formatting is out of scope here.
+ignore = ["E501"]
+
+[lint.per-file-ignores]
+# Package __init__ files legitimately re-export names without using them locally.
+"__init__.py" = ["F401"]
+# main.py imports app modules *after* load_dotenv() + Sentry.init(), which must run
+# first — the ordering is deliberate, so module-import-not-at-top does not apply.
+"main.py" = ["E402"]

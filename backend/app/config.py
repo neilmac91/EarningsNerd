@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings
 from pydantic import field_validator
-from typing import List, Union
+from typing import List
 import os
 
 # Single source of truth for the app version (FastAPI metadata, "/" payload,

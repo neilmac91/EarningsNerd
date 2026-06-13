@@ -309,7 +309,7 @@ class SECEdgarServiceCompat:
                             )
                             response.raise_for_status()
                             return response.text
-                        except Exception as e:
+                        except Exception:
                             if attempt == max_retries - 1:
                                 raise
                             await aio.sleep(2 ** attempt)

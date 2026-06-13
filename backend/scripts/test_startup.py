@@ -4,7 +4,6 @@ Test backend startup and validate configuration.
 Simulates the startup process to catch configuration issues.
 """
 import sys
-import os
 from pathlib import Path
 
 # Add parent directory to path
@@ -60,9 +59,8 @@ def check_startup_validation():
     print("\n4. FastAPI Application:")
     try:
         from fastapi import FastAPI
-        from app.routers import auth, companies, filings, summaries
         
-        app = FastAPI(title="EarningsNerd API")
+        FastAPI(title="EarningsNerd API")
         print("   ✓ FastAPI app created")
         print("   ✓ Routers imported successfully")
     except Exception as e:

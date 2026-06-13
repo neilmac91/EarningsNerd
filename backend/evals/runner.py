@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional
 
 from evals.judge import judge_summary
 from evals.models import REGISTRY, ModelConfig, call_model, cost_usd
-from evals.schema import GoldenFiling, GroundTruthFact
+from evals.schema import GoldenFiling
 from evals.scorers import parse_model_json, score_summary
 
 GOLDEN_PATH = Path(__file__).with_name("golden_set.json")

@@ -6,7 +6,7 @@ Contains configuration constants and enums for SEC filing operations.
 
 import os
 from enum import Enum
-from typing import List, Optional
+from typing import List
 
 
 # SEC EDGAR identity - required by SEC for API access

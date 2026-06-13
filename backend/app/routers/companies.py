@@ -236,7 +236,7 @@ async def get_trending_companies(
 ):
     """Get trending companies based on search/filing activity"""
     from sqlalchemy import func, desc
-    from app.models import UserSearch, Filing
+    from app.models import Filing
     
     # Get companies with most recent filings in the last 30 days
     from datetime import datetime, timedelta

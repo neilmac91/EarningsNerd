@@ -26,7 +26,7 @@ from typing import Callable, TypeVar, ParamSpec, Awaitable
 
 from .config import EDGAR_THREAD_POOL_SIZE, EDGAR_DEFAULT_TIMEOUT_SECONDS
 from .exceptions import EdgarTimeoutError, translate_edgartools_exception
-from .circuit_breaker import edgar_circuit_breaker, CircuitOpenError
+from .circuit_breaker import edgar_circuit_breaker
 
 logger = logging.getLogger(__name__)
 

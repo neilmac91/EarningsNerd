@@ -279,10 +279,8 @@ class TestConcurrentInitialization:
     @pytest.mark.asyncio
     async def test_concurrent_pool_initialization_uses_lock(self):
         """Concurrent get_redis_pool calls should be serialized by lock."""
-        import app.services.redis_service as redis_module
 
         init_count = 0
-        original_from_url = None
 
         with patch('app.services.redis_service.ConnectionPool') as mock_pool_class:
             mock_pool = MagicMock()
@@ -307,7 +305,6 @@ class TestConcurrentInitialization:
     @pytest.mark.asyncio
     async def test_concurrent_client_initialization_uses_lock(self):
         """Concurrent get_redis_client calls should be serialized by lock."""
-        import app.services.redis_service as redis_module
 
         mock_pool = MagicMock()
         client_init_count = 0

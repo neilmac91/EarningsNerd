@@ -574,7 +574,7 @@ class OpenAIService:
             return combined
         else:
             # Enhanced fallback: Search for ANY financial data in the document
-            logger.warning(f"No sections found via patterns, using enhanced fallback extraction")
+            logger.warning("No sections found via patterns, using enhanced fallback extraction")
 
             # Try to find financial tables anywhere in the document
             financial_keywords = [
@@ -1335,8 +1335,6 @@ class OpenAIService:
         max_tokens: int = 350,
     ) -> Optional[str]:
         import asyncio
-        import time
-        import json
 
         # Section recovery uses the configured recovery model (Pro by default; can opt into a
         # cheaper model via AI_SECTION_RECOVERY_MODEL / AI_FAST_MODEL — see config.py / A11).
@@ -2142,10 +2140,10 @@ Rules:
             raise ValueError("Structured summary payload is empty.")
 
         metadata = structured_summary.get("metadata", {})
-        company_name = metadata.get("company_name", "The company")
+        metadata.get("company_name", "The company")
         filing_type = metadata.get("filing_type", "filing")
         filing_type_key = (str(filing_type) or "").upper()
-        reporting_period = metadata.get("reporting_period", "the reported period")
+        metadata.get("reporting_period", "the reported period")
 
         structured_payload = json.dumps(structured_summary, indent=2, ensure_ascii=False)
 
@@ -2548,7 +2546,6 @@ Return ONLY valid JSON (no Markdown code fences) with this structure:
 Do not include any additional keys or text outside the JSON object."""
 
         try:
-            import asyncio
             system_prompt = "\n\n".join(
                 part
                 for part in [
@@ -2620,7 +2617,7 @@ Do not include any additional keys or text outside the JSON object."""
             logger.warning(f"Structured extraction timed out after {timeout_seconds}s for {filing_type_key}")
             return {
                 "status": "error",
-                "message": f"Unable to complete summary due to parsing timeout. Suggest retrying later.",
+                "message": "Unable to complete summary due to parsing timeout. Suggest retrying later.",
                 "summary_title": f"{company_name} {filing_type_key} Filing Summary",
                 "sections": [],
                 "insights": {

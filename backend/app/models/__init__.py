@@ -212,7 +212,7 @@ def validate_filing_before_insert(mapper, connection, target):
             )
         else:
             raise ValueError(
-                f"Filing sec_url cannot be None and accession_number is required to generate it"
+                "Filing sec_url cannot be None and accession_number is required to generate it"
             )
 
     if target.document_url is None:

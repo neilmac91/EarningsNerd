@@ -14,10 +14,9 @@ import asyncio
 import json
 import logging
 import os
-import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional, TypeVar, Generic
+from typing import Any, Optional, TypeVar
 import redis.asyncio as aioredis
 from redis.asyncio.connection import ConnectionPool
 from redis.exceptions import RedisError, ConnectionError as RedisConnectionError

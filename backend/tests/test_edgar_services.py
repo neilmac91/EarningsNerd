@@ -7,7 +7,6 @@ and maintain backward compatibility with the legacy interfaces.
 
 import pytest
 from datetime import date
-from unittest.mock import Mock, patch, AsyncMock
 
 # Test the models
 from app.services.edgar.models import (
@@ -250,7 +249,7 @@ class TestBackwardCompatibility:
 
     def test_xbrl_cache_functions(self):
         """Test that cache functions are exported correctly."""
-        from app.services.edgar import clear_xbrl_cache, get_xbrl_cache_stats
+        from app.services.edgar import get_xbrl_cache_stats
 
         # Should not raise
         stats = get_xbrl_cache_stats()

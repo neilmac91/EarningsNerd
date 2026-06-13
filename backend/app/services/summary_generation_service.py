@@ -759,7 +759,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
             # Do NOT commit any summary to database
         except Exception as inner_error:
             error_msg = str(inner_error)
-            error_trace = traceback.format_exc()
+            traceback.format_exc()
             logger.error(f"Error in timeout wrapper: {error_msg}", exc_info=True)
 
             # ERROR = PARTIAL RESULT - Do NOT cache to database
