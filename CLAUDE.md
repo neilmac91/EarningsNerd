@@ -159,16 +159,12 @@ docker-compose down                   # Stop databases
 |------|---------|
 | `backend/app/services/openai_service.py` | AI summarization logic, prompt engineering |
 | `backend/app/services/summary_generation_service.py` | Summary orchestration, progress tracking |
-| `backend/app/services/sec_client.py` | High-level facade combining SEC EDGAR, rate limiter, filing parser, markdown serializer |
-| `backend/app/services/filing_parser.py` | Parses SEC filings into semantic structures using sec-parser |
-| `backend/app/services/markdown_serializer.py` | Converts parsed SEC filings to clean Markdown for LLM consumption |
 | `backend/app/services/subscription_service.py` | User subscription usage tracking (FREE_TIER_SUMMARY_LIMIT = 5) |
 | `backend/app/services/rate_limiter.py` | In-memory sliding window rate limiter |
 | `backend/app/services/sec_rate_limiter.py` | SEC EDGAR-specific rate limiter with token bucket and exponential backoff |
 | `backend/app/services/email_service.py` | Resend API wrapper for email delivery with HTML templates |
 | `backend/app/services/resend_service.py` | Low-level Resend API client |
 | `backend/app/services/fallback_summary.py` | Generates deterministic summaries when AI generation fails |
-| `backend/app/services/sec_edgar.py` | Legacy SEC EDGAR integration module |
 | `backend/app/services/prompt_loader.py` | Loads AI prompts from markdown files |
 | `backend/app/services/hot_filings.py` | Identifies trending SEC filings using Finnhub/EarningsWhispers signals |
 | `backend/app/services/trending_service.py` | Trending tickers with keyword sentiment analysis |
@@ -451,10 +447,8 @@ Custom pytest markers defined in `backend/tests/conftest.py`:
 - `test_concurrent_streams.py` - Concurrent SSE stream load testing
 
 **Other Tests:**
-- `backend/tests/test_xbrl_extraction.py` - XBRL parsing validation
 - `backend/tests/test_summary_quality.py` - Output quality validation
 - `backend/tests/test_edgar_services.py` - EDGAR service tests
-- `backend/tests/test_sec_10k_pipeline.py` - 10-K pipeline tests
 - `frontend/__tests__/guards.test.ts` - Route guard tests
 - `frontend/tests/e2e/` - Playwright E2E specs (auth, dashboard, filing render)
 - `frontend/tests/unit/` - Vitest unit specs (formatters, summary stream, markdown rendering)
@@ -472,9 +466,7 @@ Located in `backend/scripts/`:
 - `deploy_check.py` - Pre-deployment validation (env vars, DB, dependencies)
 - `validate_db_performance.py` - PostgreSQL performance benchmarking
 - `verify_extraction_standalone.py` - Test XBRL extraction against live SEC data
-- `verify_extraction_fix.py` - Full verification with app config
 - `verify_extraction_mock.py` - Tests XBRL extraction with mock data
-- `verify_xbrl_fallback.py` - Verifies XBRL fallback mechanisms
 - `verify_startup_config.py` - Detailed startup configuration verification
 - `test_startup.py` - Validates application startup configuration
 - `debug_extraction.py` - Debug regex patterns for extraction
