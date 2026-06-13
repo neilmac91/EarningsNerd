@@ -141,7 +141,7 @@ class CompanyResponse(BaseModel):
 async def search_companies(
     q: str = Query(..., min_length=1, description="Search query (company name or ticker)"),
     db: Session = Depends(get_db)
-):
+) -> List[CompanyResponse]:
     """Search for companies by name or ticker"""
     try:
         # Search SEC database
@@ -233,7 +233,7 @@ async def search_companies(
 async def get_trending_companies(
     limit: int = Query(10, ge=1, le=20),
     db: Session = Depends(get_db)
-):
+) -> List[CompanyResponse]:
     """Get trending companies based on search/filing activity"""
     from sqlalchemy import func, desc
     from app.models import Filing
@@ -361,7 +361,7 @@ async def get_stock_quote(ticker: str) -> Optional[StockQuote]:
         return None
 
 @router.get("/{ticker}", response_model=CompanyResponse)
-async def get_company(ticker: str, db: Session = Depends(get_db)):
+async def get_company(ticker: str, db: Session = Depends(get_db)) -> CompanyResponse:
     """Get company by ticker"""
     company = db.query(Company).filter(Company.ticker == ticker.upper()).first()
     
