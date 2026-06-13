@@ -112,6 +112,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
         working-directory: frontend
+      - name: Drop flaky packages.microsoft.com apt source
+        # GitHub-hosted runners ship a packages.microsoft.com apt repo (azure-cli + prod)
+        # that intermittently returns 403. That aborts the `apt-get update` inside the next
+        # step's `playwright install --with-deps`, failing e2e for reasons unrelated to our
+        # code — and since deploy-backend gates on e2e, it blocks production deploys too.
+        # Nothing here needs that repo, so remove any source referencing it before apt runs.
+        # Best-effort: this must never fail the build.
+        run: |
+          grep -rlE 'packages\.microsoft\.com' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null \
+            | sudo xargs -r rm -f || true
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
         working-directory: frontend
