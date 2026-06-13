@@ -158,7 +158,7 @@ docker-compose down                   # Stop databases
 | File | Purpose |
 |------|---------|
 | `backend/app/services/openai_service.py` | AI summarization logic, prompt engineering |
-| `backend/app/services/summary_generation_service.py` | Summary orchestration, progress tracking |
+| `backend/app/services/summary_generation_service.py` | Shared generation helpers (progress, quality, excerpt cache) + `generate_summary_background` (batch/cron only; the user-facing path is SSE streaming in `summaries.py`) |
 | `backend/app/services/subscription_service.py` | User subscription usage tracking (FREE_TIER_SUMMARY_LIMIT = 5) |
 | `backend/app/services/rate_limiter.py` | In-memory sliding window rate limiter |
 | `backend/app/services/sec_rate_limiter.py` | SEC EDGAR-specific rate limiter with token bucket and exponential backoff |

@@ -75,12 +75,18 @@ fails or times out.
 - `GET /health`, `GET /health/detailed` (DB + Redis + circuit breaker), `GET /metrics`.
 - Sentry for error tracking (backend + frontend), PostHog for product analytics.
 
-## Known architectural debt (tracked, not yet addressed)
+## Summary generation: one user-facing pipeline
 
-- **Two summary pipelines** — the streaming path (`summaries.py`) and a background path
-  (`summary_generation_service.py`) have diverged in partial-result caching behavior.
-- **Two SEC backends** — a legacy `sec_edgar.py` still powers markdown endpoints alongside the
-  newer EdgarTools-based path; the top-level `app/services/xbrl_service.py` is superseded by
-  `edgar/xbrl_service.py`.
+There is a single user-facing generation path — the SSE **streaming** pipeline in
+`summaries.py` (`POST /api/summaries/filing/{id}/generate-stream`), polled for progress via
+`GET /api/summaries/filing/{id}/progress`.
+`summary_generation_service.py:generate_summary_background()` is retained as a **batch-only**
+helper, used solely by the weekly example-pregeneration cron (`scripts/pregenerate_examples.py`),
+not by any HTTP route. (A previously divergent `POST /generate` background route was removed.)
+
+## Known residual debt (minor)
+
+- The `FilingContentCache.markdown_*` columns are unused since the legacy markdown stack was
+  retired; dropping them needs a destructive migration, so they remain as inert columns.
 
 See `docs/history/plans/` for the original design and improvement plans behind these areas.
