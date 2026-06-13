@@ -28,7 +28,8 @@ Host the backend on **Google Cloud Run** (project `earnings-nerd`, region `us-we
 service `earningsnerd-backend`):
 
 - The service is **containerized** via `backend/Dockerfile`; the image installs the pinned
-  `requirements.txt` (see [ADR-0004 context] and the pip-tools lockfile).
+  `requirements.txt` (see [ADR-0003](./0003-edgartools-for-sec-data.md) for the dependency
+  consolidation that shaped it, and the pip-tools lockfile).
 - **Continuous deployment** runs from the `deploy-backend` job in
   `.github/workflows/ci.yml` on push to `main`, gated on all test jobs and only when
   `backend/` changed. Auth to GCP is **keyless** via Workload Identity Federation
