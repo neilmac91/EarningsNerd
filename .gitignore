@@ -8,6 +8,9 @@ out
 *.env.bak
 .env.local
 .env.production
+# but DO track the example templates
+!.env.example
+!.env.local.example
 
 # Build / test artifacts (regenerated; never commit)
 *.tsbuildinfo
