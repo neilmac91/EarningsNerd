@@ -77,11 +77,11 @@ async def test_stream_heartbeat_during_long_ai_operation():
     mock_session_cls.return_value.__enter__.return_value = mock_db # Handle context manager usage too
     
     try:
-        with patch("app.routers.summaries.sec_edgar_service.get_filing_document", new_callable=AsyncMock, return_value="Filing text content"), \
-             patch("app.routers.summaries.openai_service.summarize_filing", side_effect=slow_summarize_filing), \
-             patch("app.routers.summaries.check_usage_limit", return_value=(True, 0, 10)), \
-             patch("app.routers.summaries.record_progress"), \
-             patch("app.routers.summaries.get_or_cache_excerpt", return_value="excerpt"), \
+        with patch("app.services.summary_pipeline.sec_edgar_service.get_filing_document", new_callable=AsyncMock, return_value="Filing text content"), \
+             patch("app.services.summary_pipeline.openai_service.summarize_filing", side_effect=slow_summarize_filing), \
+             patch("app.services.summary_pipeline.check_usage_limit", return_value=(True, 0, 10)), \
+             patch("app.services.summary_pipeline.record_progress"), \
+             patch("app.services.summary_pipeline.get_or_cache_excerpt", return_value="excerpt"), \
              patch("app.config.settings.STREAM_HEARTBEAT_INTERVAL", 0.1), \
              patch("app.database.SessionLocal", mock_session_cls):
             
@@ -175,11 +175,11 @@ async def test_stream_handles_ai_error_gracefully():
     app.dependency_overrides[get_db] = override_get_db
 
     try:
-        with patch("app.routers.summaries.sec_edgar_service.get_filing_document", new_callable=AsyncMock, return_value="Filing text"), \
-             patch("app.routers.summaries.openai_service.summarize_filing", side_effect=failing_summarize_filing), \
-             patch("app.routers.summaries.check_usage_limit", return_value=(True, 0, 10)), \
-             patch("app.routers.summaries.record_progress"), \
-             patch("app.routers.summaries.get_or_cache_excerpt", return_value="excerpt"), \
+        with patch("app.services.summary_pipeline.sec_edgar_service.get_filing_document", new_callable=AsyncMock, return_value="Filing text"), \
+             patch("app.services.summary_pipeline.openai_service.summarize_filing", side_effect=failing_summarize_filing), \
+             patch("app.services.summary_pipeline.check_usage_limit", return_value=(True, 0, 10)), \
+             patch("app.services.summary_pipeline.record_progress"), \
+             patch("app.services.summary_pipeline.get_or_cache_excerpt", return_value="excerpt"), \
              patch("app.database.SessionLocal", mock_session_cls):
             
             client = TestClient(app)
