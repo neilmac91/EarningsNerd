@@ -57,14 +57,14 @@ async def test_stream_handles_high_latency_fetch():
     app.dependency_overrides[get_db] = override_get_db
     
     try:
-        with patch("app.routers.summaries.sec_edgar_service.get_filing_document", side_effect=slow_fetch), \
-             patch("app.routers.summaries.openai_service.summarize_filing", return_value={"status": "complete", "business_overview": "Summary"}), \
-             patch("app.routers.summaries.check_usage_limit", return_value=(True, 0, 10)), \
-             patch("app.routers.summaries.record_progress"), \
-             patch("app.routers.summaries.get_or_cache_excerpt", return_value="excerpt"), \
+        with patch("app.services.summary_pipeline.sec_edgar_service.get_filing_document", side_effect=slow_fetch), \
+             patch("app.services.summary_pipeline.openai_service.summarize_filing", return_value={"status": "complete", "business_overview": "Summary"}), \
+             patch("app.services.summary_pipeline.check_usage_limit", return_value=(True, 0, 10)), \
+             patch("app.services.summary_pipeline.record_progress"), \
+             patch("app.services.summary_pipeline.get_or_cache_excerpt", return_value="excerpt"), \
              patch("app.config.settings.STREAM_HEARTBEAT_INTERVAL", 0.3), \
              patch("app.database.SessionLocal", mock_session_cls), \
-             patch("app.routers.summaries.xbrl_service.get_xbrl_data", new_callable=AsyncMock, return_value=None):
+             patch("app.services.summary_pipeline.xbrl_service.get_xbrl_data", new_callable=AsyncMock, return_value=None):
             
             client = TestClient(app)
             
