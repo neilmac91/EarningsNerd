@@ -90,3 +90,10 @@ not by any HTTP route. (A previously divergent `POST /generate` background route
   retired; dropping them needs a destructive migration, so they remain as inert columns.
 
 See `docs/history/plans/` for the original design and improvement plans behind these areas.
+
+## Decision records
+
+The significant, hard-to-reverse decisions behind this architecture — and the trade-offs
+they accepted — are recorded as ADRs in [`docs/adr/`](./adr/): the hosting move to Cloud
+Run, Gemini via the OpenAI-compatible client, `edgartools` for SEC data,
+Redis-off-in-prod, and staying on React 18 under Next 16.
