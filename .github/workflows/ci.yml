@@ -63,6 +63,39 @@ jobs:
         run: npx vitest run --config vitest.config.mts
         working-directory: frontend
 
+  # Advisory performance measurement (Lighthouse). Non-blocking by design:
+  # continue-on-error + warn-level assertions, and intentionally NOT in the
+  # deploy-backend `needs:` gate — it reports scores + a public report URL, it
+  # never fails the pipeline. Promote assertions to "error" once a baseline is set.
+  lighthouse:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@v1
+      - name: Build
+        run: npm run build
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+          WAITLIST_MODE: 'false'
+      - name: Lighthouse CI (advisory)
+        run: npx lhci autorun
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+          WAITLIST_MODE: 'false'
+
   e2e-tests:
     runs-on: ubuntu-latest
     steps:
