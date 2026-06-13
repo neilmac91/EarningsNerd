@@ -63,8 +63,12 @@ def _spawn_background(coro) -> None:
     task.add_done_callback(_background_tasks.discard)
 
 
-# Hard pipeline timeout to guarantee the user receives a response within this time.
-PIPELINE_TIMEOUT_SECONDS = 90
+# Pipeline-level hard timeout. This is a *backstop* against a genuine hang/runaway — it sits
+# deliberately above the sum of the per-step budgets (≈15s fetch + 18s enrichment + 75s AI
+# fallback ≈ 108s) so the per-step timeouts remain the primary controls and the AI fallback
+# always gets to produce a (partial) result rather than being pre-empted into a timeout error.
+# The whole pipeline body runs inside `asyncio.timeout(PIPELINE_TIMEOUT_SECONDS)`.
+PIPELINE_TIMEOUT_SECONDS = 120
 
 # Timeout for XBRL/excerpt enrichment. XBRL fetch starts concurrently with the filing
 # document fetch, so this is the *additional* budget we wait at the join point. The XBRL
@@ -620,24 +624,21 @@ async def stream_filing_summary(
             entry_point=telemetry_entry_point,
             **telemetry_ctx,
         )
+        # Record on a FRESH session. asyncio.timeout cancels the pending await, but the
+        # threadpool worker behind it may still be using `session` (threads aren't
+        # cancellable) and SQLAlchemy Sessions aren't thread-safe — touching the shared one
+        # here would race. The shared session is cleaned up in `finally`.
+        def record_timeout_progress():
+            with database.SessionLocal() as err_session:
+                record_progress(err_session, filing_id, "error", error="Pipeline timeout")
         try:
-            await run_sync_db(session.rollback)
-        except Exception as rollback_err:
-            logger.error(f"[stream:{filing_id}] Failed to roll back session: {rollback_err}")
-        try:
-            await run_sync_db(record_progress, session, filing_id, "error", error="Pipeline timeout")
+            await run_sync_db(record_timeout_progress)
         except Exception as e:
             logger.error(f"[stream:{filing_id}] Failed to record pipeline timeout error: {e}", exc_info=True)
         yield {'type': 'error', 'message': 'Summary generation timed out. Please try again.'}
     except Exception as e:
         logger.error(f"[stream:{filing_id}] Error in streaming summary: {str(e)}", exc_info=True)
         error_msg = str(e)
-        # A failed DB op (e.g. save_summary_sync) leaves the session in a poisoned
-        # transaction; roll back so the record_progress below can actually persist.
-        try:
-            await run_sync_db(session.rollback)
-        except Exception as rollback_err:
-            logger.error(f"[stream:{filing_id}] Failed to roll back session: {rollback_err}")
         capture_funnel_event(
             telemetry_distinct_id,
             EVENT_GENERATION_FAILED,
@@ -647,8 +648,14 @@ async def stream_filing_summary(
             error=error_msg[:200],
             **telemetry_ctx,
         )
+        # Record on a fresh session: the shared session may carry a poisoned transaction from
+        # the failed op (and could still be in use by its threadpool worker). The shared
+        # session is rolled back/closed in `finally`.
+        def record_stream_error_progress():
+            with database.SessionLocal() as err_session:
+                record_progress(err_session, filing_id, "error", error=error_msg[:200])
         try:
-            await run_sync_db(record_progress, session, filing_id, "error", error=error_msg[:200])
+            await run_sync_db(record_stream_error_progress)
         except Exception as e:
             logger.error(f"[stream:{filing_id}] Failed to record streaming error: {e}", exc_info=True)
 
