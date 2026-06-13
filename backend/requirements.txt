@@ -20,11 +20,6 @@ weasyprint==68.1
 # EdgarTools - unified SEC filing library (replaced arelle-release and
 # sec-edgar-downloader, both removed after verifying zero imports — issue #244)
 edgartools>=5.12.0
-
-# Still required by app/services/filing_parser.py (semantic 10-K/10-Q section
-# parsing, with a regex fallback when unavailable); remove only after
-# filing_parser migrates to edgartools.
-sec-parser>=0.58.0
 posthog==7.18.1
 json-repair>=0.30.0
 sentry-sdk[fastapi]>=2.59.0
