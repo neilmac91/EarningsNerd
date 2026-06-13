@@ -2,11 +2,15 @@
   "name": "earningsnerd-frontend",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "typecheck": "tsc --noEmit -p tsconfig.ci.json",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",

@@ -4,5 +4,12 @@ __pycache__/
 *.pyc
 .pytest_cache/
 
+# Environment files (never commit secrets or backups)
+.env
+.env.*
+*.env.bak
+# but DO track the example template
+!.env.example
+
 # Generated eval bake-off reports (run artifacts, not source)
 evals/reports/

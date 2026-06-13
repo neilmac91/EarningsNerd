@@ -1,0 +1,13 @@
+{
+  "//": "Typecheck config for CI: app/library/feature code only. Test specs are typechecked at runtime by Vitest/Playwright and are excluded here to keep the gate focused on shipped code.",
+  "extends": "./tsconfig.json",
+  "exclude": [
+    "node_modules",
+    "tests",
+    "__tests__",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "**/*.test.ts",
+    "**/*.test.tsx"
+  ]
+}
