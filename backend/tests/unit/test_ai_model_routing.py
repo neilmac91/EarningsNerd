@@ -36,6 +36,12 @@ def test_recovery_falls_back_to_fast_model(monkeypatch):
     assert svc.get_model_for_task("section_recovery") == FLASH
 
 
+def test_whitespace_only_values_fall_through_to_pro(monkeypatch):
+    # A blank/whitespace env must not be treated as a real model name.
+    svc = _fresh_service(monkeypatch, fast="   ", recovery="  ")
+    assert svc.get_model_for_task("section_recovery") == PRO
+
+
 def test_explicit_recovery_overrides_fast_model(monkeypatch):
     svc = _fresh_service(monkeypatch, fast="gemini-2.5-pro", recovery=FLASH)
     assert svc.get_model_for_task("section_recovery") == FLASH

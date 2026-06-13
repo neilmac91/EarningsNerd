@@ -217,8 +217,8 @@ class OpenAIService:
         # Section recovery may opt into a cheaper model (A11) — defaults to Pro until an operator
         # sets AI_SECTION_RECOVERY_MODEL or AI_FAST_MODEL, so behavior is unchanged out of the box.
         _section_recovery_model = (
-            settings.AI_SECTION_RECOVERY_MODEL
-            or settings.AI_FAST_MODEL
+            settings.AI_SECTION_RECOVERY_MODEL.strip()
+            or settings.AI_FAST_MODEL.strip()
             or self._MODEL_GEMINI_3_PRO
         )
         self._task_models = {
