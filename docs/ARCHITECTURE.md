@@ -8,7 +8,7 @@ This document is the human-facing overview; the exhaustive, agent-oriented refer
 
 ```
 ┌─────────────┐      HTTPS / SSE       ┌──────────────────────────────┐
-│  Next.js 14 │ ─────────────────────▶ │  FastAPI backend             │
+│  Next.js 16 │ ─────────────────────▶ │  FastAPI backend             │
 │  (Vercel)   │ ◀───────────────────── │  (Google Cloud Run)          │
 └─────────────┘   cookie-based JWT     └──────────────────────────────┘
                                           │        │            │
@@ -21,7 +21,7 @@ This document is the human-facing overview; the exhaustive, agent-oriented refer
                      └───────────────┘     └────────────────┘      └────────────────┘
 ```
 
-- **Frontend:** Next.js 14 (App Router) + TypeScript + Tailwind/shadcn, React Query for server
+- **Frontend:** Next.js 16 (App Router) + TypeScript + Tailwind/shadcn, React Query for server
   state, Recharts for financial charts, PostHog + Sentry. Auth is an **HttpOnly cookie** set by the
   backend — the token is never readable by client JS.
 - **Backend:** FastAPI (Python 3.11), SQLAlchemy 2.0 ORM (no raw SQL), async I/O throughout.

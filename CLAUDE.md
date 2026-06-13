@@ -57,8 +57,8 @@ EarningsNerd is an AI-powered SEC filing analysis platform that transforms dense
 ## Tech Stack
 
 **Backend:** FastAPI (Python 3.11), SQLAlchemy 2.0, PostgreSQL 15, Redis 7
-**Frontend:** Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui, React Query
-**AI:** OpenAI-compatible API (Google AI Studio gemini-3-pro-preview)
+**Frontend:** Next.js 16 (App Router), TypeScript, Tailwind CSS, shadcn/ui, React Query
+**AI:** OpenAI-compatible API (Google AI Studio gemini-3.1-pro-preview)
 **Payments:** Stripe | **Email:** Resend | **Analytics:** PostHog, Vercel Analytics | **Errors:** Sentry
 
 ## Quick Commands
@@ -225,10 +225,10 @@ Modular ETL pipeline for SEC filing data (see `backend/docs/plan_sec_pipeline.md
 | `email.py` | `/api/email` | Email management endpoints |
 | `hot_filings.py` | `/api` | Hot filings (`GET /hot-filings`, `POST /refresh-hot-filings`) |
 | `trending.py` | `/api` | Trending tickers (`GET /trending-tickers`) |
-| `subscriptions.py` | `/api/subscriptions` | Subscription management |
+| `subscriptions.py` | `/api/subscriptions` | Subscription management + Stripe webhook (`POST /api/subscriptions/webhook`, signature-verified) |
 | `saved_summaries.py` | `/api/saved-summaries` | Save/manage summaries |
 | `watchlist.py` | `/api/watchlist`, `/api/waitlist` | Company watchlist + waitlist signup (`waitlist_router`) |
-| `webhooks.py` | `/api` | Resend + Stripe webhook handlers (`POST /webhooks/resend`, `POST /webhooks/stripe`) |
+| `webhooks.py` | `/api` | Resend webhook handler (`POST /api/webhooks/resend`) |
 | `sitemap.py` | `/` | XML sitemap generation (`GET /sitemap.xml`) |
 
 ### Other Key Files
@@ -351,7 +351,7 @@ SKIP_REDIS_INIT=false             # Set to true in tests to skip Redis (auto-set
 # AI Configuration
 OPENAI_API_KEY=...
 OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
-AI_DEFAULT_MODEL=gemini-3-pro-preview  # Primary AI model
+AI_DEFAULT_MODEL=gemini-3.1-pro-preview  # Primary AI model
 RECOVERY_MAX_CONCURRENCY=3        # Max concurrent calls for section recovery
 
 # Auth & Security
