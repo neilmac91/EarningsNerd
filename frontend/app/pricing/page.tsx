@@ -158,7 +158,7 @@ function PricingContent() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">Pricing</h1>
+          <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">Pricing</h2>
           <p className="text-lg text-gray-600 dark:text-slate-300 max-w-2xl mx-auto">
             Choose the plan that works for you. Upgrade or downgrade at any time.
           </p>
@@ -206,6 +206,10 @@ function PricingContent() {
                 Monthly
               </span>
               <button
+                type="button"
+                role="switch"
+                aria-checked={billingCycle === 'yearly'}
+                aria-label="Bill yearly"
                 onClick={() => {
                   const nextCycle = billingCycle === 'monthly' ? 'yearly' : 'monthly'
                   analytics.billingCycleToggled(billingCycle, nextCycle)
@@ -237,7 +241,14 @@ function PricingContent() {
                 </p>
               </div>
               {!usage.is_pro && usage.summaries_limit && (
-                <div className="w-32 bg-blue-200 rounded-full h-2">
+                <div
+                  className="w-32 bg-blue-200 rounded-full h-2"
+                  role="progressbar"
+                  aria-label={`${usage.summaries_used} of ${usage.summaries_limit} summaries used this month`}
+                  aria-valuenow={usage.summaries_used}
+                  aria-valuemin={0}
+                  aria-valuemax={usage.summaries_limit}
+                >
                   <div
                     className="bg-blue-600 h-2 rounded-full transition-all"
                     style={{ width: `${(usage.summaries_used / usage.summaries_limit) * 100}%` }}
@@ -292,7 +303,7 @@ function PricingContent() {
                 disabled={plan.disabled || (isAuthenticated && !plan.priceId) || isLoadingCheckout === plan.priceId}
                 className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
                   plan.disabled
-                    ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                    ? 'bg-gray-100 text-gray-600 cursor-not-allowed'
                     : plan.popular
                     ? 'bg-primary-500 text-slate-950 hover:bg-primary-400'
                     : 'bg-gray-900 text-white hover:bg-gray-800'
