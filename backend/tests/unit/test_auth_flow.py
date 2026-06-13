@@ -116,3 +116,90 @@ def test_weak_password_rejected(client):
         json={"email": _unique_email(), "password": "short"},
     )
     assert resp.status_code == 422
+
+
+# --- Refresh token flow -----------------------------------------------------------------
+
+@pytest.mark.requires_db
+def test_register_sets_refresh_cookie(client):
+    """Registration sets an HttpOnly, auth-path-scoped refresh cookie alongside the access cookie."""
+    client.cookies.clear()
+    resp = client.post(
+        "/api/auth/register",
+        json={"email": _unique_email(), "password": VALID_PASSWORD},
+    )
+    assert resp.status_code == 200, resp.text
+    set_cookie = resp.headers.get("set-cookie", "")
+    assert "earningsnerd_refresh_token=" in set_cookie
+    assert "HttpOnly" in set_cookie
+    assert "Path=/api/auth" in set_cookie
+    client.cookies.clear()
+
+
+def _login(client, registered_user) -> str:
+    """Log in and return the issued refresh-token cookie value."""
+    resp = client.post(
+        "/api/auth/login",
+        json={"email": registered_user["email"], "password": registered_user["password"]},
+    )
+    assert resp.status_code == 200, resp.text
+    refresh_cookie = client.cookies.get("earningsnerd_refresh_token")
+    assert refresh_cookie
+    return refresh_cookie
+
+
+@pytest.mark.requires_db
+def test_refresh_rotates_and_issues_new_access_token(client, registered_user):
+    """A valid refresh cookie yields a new access token and rotates the refresh token."""
+    client.cookies.clear()
+    old_refresh = _login(client, registered_user)
+
+    resp = client.post("/api/auth/refresh")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["access_token"]
+    # Rotation: the cookie jar now holds a different refresh token.
+    new_refresh = client.cookies.get("earningsnerd_refresh_token")
+    assert new_refresh and new_refresh != old_refresh
+
+    # The rotated (new) token still works for a subsequent refresh.
+    assert client.post("/api/auth/refresh").status_code == 200
+    client.cookies.clear()
+
+
+@pytest.mark.requires_db
+def test_refresh_reuse_of_rotated_token_is_rejected(client, registered_user):
+    """Replaying a token that was already rotated away is rejected (reuse detection)."""
+    client.cookies.clear()
+    stolen = _login(client, registered_user)
+
+    # Legitimate rotation consumes `stolen` and issues a replacement.
+    assert client.post("/api/auth/refresh").status_code == 200
+
+    # Replaying the consumed token (via body, since the cookie has rotated) is rejected.
+    client.cookies.clear()
+    resp = client.post("/api/auth/refresh", json={"refresh_token": stolen})
+    assert resp.status_code == 401
+    client.cookies.clear()
+
+
+@pytest.mark.requires_db
+def test_refresh_without_token_rejected(client):
+    """Refresh with no cookie and no body token is a 401."""
+    client.cookies.clear()
+    resp = client.post("/api/auth/refresh")
+    assert resp.status_code == 401
+
+
+@pytest.mark.requires_db
+def test_logout_revokes_refresh_token(client, registered_user):
+    """After logout the previously-issued refresh token can no longer be used."""
+    client.cookies.clear()
+    refresh_before_logout = _login(client, registered_user)
+
+    assert client.post("/api/auth/logout").status_code == 200
+
+    # The token issued before logout is now revoked.
+    client.cookies.clear()
+    resp = client.post("/api/auth/refresh", json={"refresh_token": refresh_before_logout})
+    assert resp.status_code == 401
+    client.cookies.clear()

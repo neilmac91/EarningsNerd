@@ -13,6 +13,13 @@ from app.database import get_db
 from app.models import User
 from app.config import settings
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
+from app.services.refresh_token_service import (
+    create_refresh_token,
+    rotate_refresh_token,
+    revoke_refresh_token,
+    RefreshTokenError,
+    RefreshTokenReuseError,
+)
 
 router = APIRouter()
 security = HTTPBearer(auto_error=False)
@@ -57,6 +64,10 @@ class UserLogin(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+class RefreshRequest(BaseModel):
+    # Optional body fallback for non-browser clients; browsers use the HttpOnly cookie.
+    refresh_token: Optional[str] = None
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify password - supports both bcrypt and passlib formats"""
@@ -114,6 +125,43 @@ def _clear_auth_cookie(response: Response) -> None:
         domain=settings.COOKIE_DOMAIN,
         path="/",
     )
+
+# Refresh cookie is scoped to the auth path so it is only ever sent to /api/auth/* —
+# it never rides along with ordinary API requests, shrinking its exposure surface.
+REFRESH_COOKIE_PATH = "/api/auth"
+
+def _set_refresh_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=settings.REFRESH_COOKIE_NAME,
+        value=token,
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        domain=settings.COOKIE_DOMAIN,
+        path=REFRESH_COOKIE_PATH,
+    )
+
+def _clear_refresh_cookie(response: Response) -> None:
+    response.delete_cookie(
+        key=settings.REFRESH_COOKIE_NAME,
+        domain=settings.COOKIE_DOMAIN,
+        path=REFRESH_COOKIE_PATH,
+    )
+
+def _client_ip(request: Request) -> Optional[str]:
+    return request.client.host if request.client else None
+
+def _issue_refresh_token(db: Session, user: User, request: Request, response: Response) -> None:
+    """Mint a refresh token, persist it, and set the HttpOnly refresh cookie."""
+    _, raw_token = create_refresh_token(
+        db,
+        user,
+        user_agent=request.headers.get("user-agent"),
+        ip=_client_ip(request),
+    )
+    db.commit()
+    _set_refresh_cookie(response, raw_token)
 
 def _get_token_from_request(
     credentials: Optional[HTTPAuthorizationCredentials],
@@ -246,6 +294,7 @@ async def register(
     # Create token
     access_token = create_access_token(data={"sub": user.email})
     _set_auth_cookie(response, access_token)
+    _issue_refresh_token(db, user, request, response)
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.post("/login", response_model=Token)
@@ -277,6 +326,61 @@ async def login(
     
     access_token = create_access_token(data={"sub": user.email})
     _set_auth_cookie(response, access_token)
+    _issue_refresh_token(db, user, request, response)
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@router.post("/refresh", response_model=Token)
+async def refresh(
+    request: Request,
+    response: Response,
+    body: Optional[RefreshRequest] = None,
+    db: Session = Depends(get_db),
+):
+    """Exchange a valid refresh token for a new access token (and a rotated refresh token).
+
+    The refresh token is read from the HttpOnly cookie (browsers) with an optional JSON
+    body fallback for non-browser clients. Rotation is single-use: each refresh revokes the
+    presented token and issues a fresh one.
+    """
+    raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
+    if not raw_token and body is not None:
+        raw_token = body.refresh_token
+
+    try:
+        user, new_refresh_token = rotate_refresh_token(
+            db,
+            raw_token,
+            user_agent=request.headers.get("user-agent"),
+            ip=_client_ip(request),
+        )
+        # Persist the rotation (old revoked + new issued).
+        db.commit()
+    except RefreshTokenReuseError as exc:
+        # Reuse revoked the user's whole active chain — commit so that revocation is durable.
+        db.commit()
+        _clear_refresh_cookie(response)
+        _clear_auth_cookie(response)
+        logger.warning(f"Refresh reuse detected: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except RefreshTokenError as exc:
+        # Missing / expired / unknown token — no DB writes were made, so do not commit
+        # (avoids needless write transactions on unauthenticated traffic). Just clear cookies.
+        _clear_refresh_cookie(response)
+        _clear_auth_cookie(response)
+        logger.info(f"Refresh rejected: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    access_token = create_access_token(data={"sub": user.email})
+    _set_auth_cookie(response, access_token)
+    _set_refresh_cookie(response, new_refresh_token)
     return {"access_token": access_token, "token_type": "bearer"}
 
 @router.get("/me")
@@ -290,7 +394,15 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
     }
 
 @router.post("/logout")
-async def logout(response: Response):
-    """Clear auth cookie"""
+async def logout(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+):
+    """Revoke the refresh token (if present) and clear both auth cookies."""
+    raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
+    if revoke_refresh_token(db, raw_token):
+        db.commit()
     _clear_auth_cookie(response)
+    _clear_refresh_cookie(response)
     return {"status": "success"}

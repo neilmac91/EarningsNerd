@@ -7,6 +7,7 @@ from app.database import Base
 from app.models.waitlist import WaitlistSignup
 from app.models.contact import ContactSubmission
 from app.models.audit_log import AuditLog
+from app.models.refresh_token import RefreshToken
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +31,7 @@ class User(Base):
     saved_summaries = relationship("SavedSummary", back_populates="user", cascade="all, delete-orphan")
     usage = relationship("UserUsage", back_populates="user", cascade="all, delete-orphan")
     watchlist = relationship("Watchlist", back_populates="user", cascade="all, delete-orphan")
+    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
 
 
 class Company(Base):
