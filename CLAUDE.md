@@ -50,6 +50,10 @@
 - **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
 - **Minimal Impact**: Touch only what's necessary to reduce the risk of unintended side-effects.
 
+> These reinforce the four behavioral principles in the `karpathy-guidelines` skill
+> (`.claude/skills/meta/karpathy-guidelines/`): Think Before Coding, Simplicity First,
+> Surgical Changes, Goal-Driven Execution.
+
 ## Project Overview
 
 EarningsNerd is an AI-powered SEC filing analysis platform that transforms dense SEC filings (10-Ks and 10-Qs) into clear, actionable insights for investors. It combines SEC EDGAR data retrieval, XBRL parsing, and generative AI summarization.
