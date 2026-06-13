@@ -28,11 +28,8 @@ from app.services.subscription_service import check_usage_limit, increment_user_
 from app.services.export_service import export_service
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.summary_generation_service import (
-    generate_summary_background,
-    run_generation_guarded,
     mark_stale_progress_as_error,
     assess_quality,
-    get_generation_progress_snapshot,
     record_progress,
     progress_as_dict,
     get_or_cache_excerpt
@@ -100,91 +97,6 @@ async def get_summary_progress(
         return progress_as_dict(progress)
 
     return {"stage": "pending", "elapsedSeconds": 0}
-
-@router.post("/filing/{filing_id}/generate", response_model=SummaryResponse)
-async def generate_summary(
-    filing_id: int,
-    request: Request,
-    current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    """Generate AI summary for a filing"""
-    enforce_rate_limit(
-        request,
-        SUMMARY_LIMITER,
-        f"summary:{current_user.id}",
-        error_detail="Too many summary requests. Please try again shortly.",
-    )
-    filing = db.query(Filing).filter(Filing.id == filing_id).first()
-    
-    if not filing:
-        raise HTTPException(status_code=404, detail="Filing not found")
-    
-    # Check if summary already exists
-    summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-    
-    if summary:
-        return summary
-    
-    try:
-        # Lock the row for the given filing_id to prevent race conditions
-        progress = (
-            db.query(SummaryGenerationProgress)
-            .filter(SummaryGenerationProgress.filing_id == filing_id)
-            .with_for_update()
-            .first()
-        )
-
-        # If progress exists and is not in an error state, another task is already running or completed
-        if progress and progress.stage not in ["error"]:
-            # Return a response indicating that generation is already in progress
-            return {
-                "id": 0,
-                "filing_id": filing_id,
-                "business_overview": "Summary generation is already in progress.",
-                "financial_highlights": None,
-                "risk_factors": None,
-                "management_discussion": None,
-                "key_changes": None,
-                "raw_summary": None,
-            }
-
-        # Check usage limits for authenticated user
-        user_id = current_user.id
-        can_generate, current_count, limit = check_usage_limit(current_user, db)
-        if not can_generate:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=(
-                    f"You've reached your monthly limit of {limit} summaries. "
-                    "Upgrade to Pro for unlimited summaries."
-                ),
-            )
-
-        # If no progress or errored progress, (re)start the generation
-        record_progress(db, filing_id, "queued")
-        db.commit()
-
-        asyncio.create_task(run_generation_guarded(filing_id, user_id))
-    except Exception as e:
-        db.rollback()
-        raise e
-    finally:
-        # The rollback is handled by the exception block, and commit by the happy path.
-        # The session is closed by the dependency injection system.
-        pass
-    
-    # Return placeholder response with accurate timing
-    return {
-        "id": 0,
-        "filing_id": filing_id,
-        "business_overview": "Generating summary... This typically takes 15-30 seconds.",
-        "financial_highlights": None,
-        "risk_factors": None,
-        "management_discussion": None,
-        "key_changes": None,
-        "raw_summary": None
-    }
 
 @router.post("/filing/{filing_id}/generate-stream")
 async def generate_summary_stream(

@@ -77,10 +77,6 @@ export interface SavedSummary {
 }
 
 // Summary APIs
-export const generateSummary = async (filingId: number): Promise<Summary> => {
-  const response = await api.post(`/api/summaries/filing/${filingId}/generate`)
-  return response.data
-}
 
 export interface ProgressData {
   elapsed_seconds?: number

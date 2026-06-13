@@ -9,7 +9,7 @@ from jose import JWTError, jwt
 from app.database import get_db
 from app.models import Watchlist, Company, User, Filing, Summary, WaitlistSignup
 from app.routers.auth import get_current_user
-from app.routers.summaries import get_generation_progress_snapshot
+from app.services.summary_generation_service import get_generation_progress_snapshot
 from app.config import settings
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.waitlist_service import (
