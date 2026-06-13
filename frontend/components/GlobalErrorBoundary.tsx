@@ -34,9 +34,12 @@ export class GlobalErrorBoundary extends Component<Props, State> {
     // Store error info for display
     this.setState({ errorInfo })
 
-    // Report to Sentry if available
-    if (typeof window !== 'undefined' && (window as any).Sentry?.captureException) {
-      (window as any).Sentry.captureException(error);
+    // Report to Sentry if available (guard window first — this can run during SSR)
+    if (typeof window !== 'undefined') {
+      const sentry = (window as unknown as {
+        Sentry?: { captureException?: (error: unknown) => void }
+      }).Sentry
+      sentry?.captureException?.(error)
     }
   }
 
