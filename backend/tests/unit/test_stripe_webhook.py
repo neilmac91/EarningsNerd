@@ -60,6 +60,29 @@ def test_malformed_payload_returns_400(client):
 
 
 @pytest.mark.requires_db
+def test_malformed_event_metadata_returns_400(client):
+    """A verified event missing metadata.user_id is a 400 (unprocessable), not a 500.
+
+    Returning 400 stops Stripe from endlessly retrying an event we can never process.
+    """
+    event = {
+        "type": "checkout.session.completed",
+        "data": {"object": {"subscription": "sub_test_123", "metadata": {}}},
+    }
+    with patch(
+        "app.routers.subscriptions.stripe.Webhook.construct_event",
+        return_value=event,
+    ):
+        resp = client.post(
+            "/api/subscriptions/webhook",
+            content=b"{}",
+            headers={"stripe-signature": "t=1,v1=deadbeef"},
+        )
+    assert resp.status_code == 400
+    assert "malformed" in resp.json()["detail"].lower()
+
+
+@pytest.mark.requires_db
 def test_valid_event_for_unknown_user_is_accepted(client):
     """A verified checkout.session.completed for a non-existent user is a no-op 200."""
     event = {

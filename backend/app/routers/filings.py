@@ -385,8 +385,13 @@ async def get_company_filings(
                 )
                 continue
 
+            accession_number = sec_filing.get("accession_number")
+            if not accession_number:
+                logger.warning("Skipping filing - missing accession_number")
+                continue
+
             # Check if filing exists (from the prefetched map — no per-iteration query)
-            filing = existing_by_accession.get(sec_filing["accession_number"])
+            filing = existing_by_accession.get(accession_number)
 
             if not filing:
                 # Only create new filing if we have all required fields
@@ -398,7 +403,7 @@ async def get_company_filings(
 
                 filing = Filing(
                     company_id=company.id,
-                    accession_number=sec_filing["accession_number"],
+                    accession_number=accession_number,
                     filing_type=sec_filing["filing_type"],
                     filing_date=datetime.fromisoformat(sec_filing["filing_date"]),
                     period_end_date=datetime.fromisoformat(sec_filing["report_date"]) if sec_filing.get("report_date") else None,

@@ -240,6 +240,11 @@ async def stripe_webhook(
         # also makes Stripe retry on what are really client errors.
         db.rollback()
         raise
+    except (KeyError, ValueError, TypeError) as e:
+        # Malformed event payload (e.g. missing metadata.user_id, non-int id).
+        # Return 400 so Stripe does not keep retrying an unprocessable event.
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Malformed webhook payload: {str(e)}")
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error processing webhook: {str(e)}")
