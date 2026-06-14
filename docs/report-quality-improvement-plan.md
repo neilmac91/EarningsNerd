@@ -1,8 +1,10 @@
 # EarningsNerd — Report Quality Improvement Plan
 
-> **Status: DRAFT FOR APPROVAL (Gate 2).** This document is a *plan*. No production code, prompts, or
-> configuration have been changed. Implementation will not begin until explicitly approved. The only
-> files written during this review are evidence/scratch artifacts under `tasks/` and this document.
+> **Status: APPROVED 2026-06-14 — Phase 0 (quick wins) implemented; later phases pending.**
+> The owner approved the plan and answered §10: ship quick-wins first; move toward DeepSeek for cost;
+> honest-but-rare degradation; objective single-filing summaries (diffing stays deferred). Phase-0
+> code changes (A1–A6) are now on `claude/nice-curie-ugassy` with tests green; before/after validation
+> below. Phases 1–2 / Track B remain unstarted and await go-ahead.
 
 **Author:** report-quality review engagement · **Date:** 2026-06-14 · **Branch:** `claude/nice-curie-ugassy`
 

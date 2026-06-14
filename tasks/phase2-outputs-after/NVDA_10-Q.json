@@ -1,0 +1,595 @@
+{
+  "ticker": "NVDA",
+  "filing_type": "10-Q",
+  "company": "NVIDIA Corp.",
+  "accession": "0001045810-26-000052",
+  "document_url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000052/nvda-20260426.htm",
+  "ground_truth": [
+    {
+      "metric": "revenue",
+      "value": 81615000000.0,
+      "unit": "USD"
+    },
+    {
+      "metric": "net_income",
+      "value": 58321000000.0,
+      "unit": "USD"
+    },
+    {
+      "metric": "eps",
+      "value": 2.4,
+      "unit": "USD_per_share"
+    }
+  ],
+  "grounding": {
+    "filing_text_len": 1167053,
+    "excerpt_len": 3795,
+    "xbrl_metrics": {
+      "revenue": {
+        "current": {
+          "period": "2026-04-26",
+          "value": 81615000000.0,
+          "form": "10-Q"
+        },
+        "prior": {
+          "period": "2025-04-27",
+          "value": 44062000000.0,
+          "form": "10-Q"
+        },
+        "change": {
+          "absolute": 37553000000.0,
+          "percentage": 85.23,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2026-04-26",
+            "value": 81615000000.0,
+            "form": "10-Q"
+          },
+          {
+            "period": "2025-04-27",
+            "value": 44062000000.0,
+            "form": "10-Q"
+          }
+        ]
+      },
+      "net_income": {
+        "current": {
+          "period": "2026-04-26",
+          "value": 58321000000.0,
+          "form": "10-Q"
+        },
+        "prior": {
+          "period": "2025-04-27",
+          "value": 18775000000.0,
+          "form": "10-Q"
+        },
+        "change": {
+          "absolute": 39546000000.0,
+          "percentage": 210.63,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2026-04-26",
+            "value": 58321000000.0,
+            "form": "10-Q"
+          },
+          {
+            "period": "2025-04-27",
+            "value": 18775000000.0,
+            "form": "10-Q"
+          }
+        ]
+      },
+      "earnings_per_share": {
+        "current": {
+          "period": "2026-04-26",
+          "value": 2.4,
+          "form": "10-Q"
+        },
+        "prior": {
+          "period": "2025-04-27",
+          "value": 0.77,
+          "form": "10-Q"
+        },
+        "change": {
+          "absolute": 1.63,
+          "percentage": 211.69,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2026-04-26",
+            "value": 2.4,
+            "form": "10-Q"
+          },
+          {
+            "period": "2025-04-27",
+            "value": 0.77,
+            "form": "10-Q"
+          }
+        ]
+      },
+      "net_margin": {
+        "current": {
+          "period": "2026-04-26",
+          "value": 71.45867793910433,
+          "form": "10-Q"
+        },
+        "prior": {
+          "period": "2025-04-27",
+          "value": 42.61041260042667,
+          "form": "10-Q"
+        },
+        "change": {
+          "absolute": 28.85,
+          "percentage": 67.7,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2026-04-26",
+            "value": 71.45867793910433,
+            "form": "10-Q"
+          },
+          {
+            "period": "2025-04-27",
+            "value": 42.61041260042667,
+            "form": "10-Q"
+          }
+        ]
+      }
+    }
+  },
+  "score": {
+    "schema_valid": false,
+    "repaired": false,
+    "numeric_accuracy": 1.0,
+    "coverage": 1.0,
+    "numeric_precision": 1.0,
+    "gate_failures": [],
+    "missing_sections": [],
+    "matched_facts": [
+      "revenue",
+      "net_income",
+      "eps"
+    ],
+    "missing_facts": [],
+    "aggregate": 0.7
+  },
+  "status": "partial",
+  "message": "Some sections may not have loaded fully.",
+  "coverage": {
+    "per_section": {
+      "covenants_contingencies": true,
+      "executive_snapshot": true,
+      "financial_highlights": true,
+      "guidance_outlook": true,
+      "liquidity_capital_structure": true,
+      "management_discussion_insights": true,
+      "notable_footnotes": true,
+      "risk_factors": true,
+      "segment_performance": true,
+      "three_year_trend": true
+    },
+    "covered": [
+      "covenants_contingencies",
+      "executive_snapshot",
+      "financial_highlights",
+      "guidance_outlook",
+      "liquidity_capital_structure",
+      "management_discussion_insights",
+      "notable_footnotes",
+      "risk_factors",
+      "segment_performance",
+      "three_year_trend"
+    ],
+    "missing": [],
+    "covered_count": 10,
+    "total_count": 10,
+    "coverage_ratio": 1.0
+  },
+  "summary": {
+    "summary_title": "NVIDIA Corp. 10-Q Filing Summary (Quarter ended April 26, 2026)",
+    "sections": [
+      {
+        "title": "Key Risks",
+        "content": "\u2022 Standard forward-looking statement risks regarding actual results differing materially from expectations. (Evidence: These statements involve known and unknown risks, uncertainties and other factors, which may cause our actual results, performance, time frames or achievements to be materially different from any futu)"
+      },
+      {
+        "title": "Financial Overview",
+        "content": "\u2022 Revenue: $81.6B \u2014 Extracted from SEC-verified XBRL data.\n\u2022 Net Income: $58.3B \u2014 Extracted from SEC-verified XBRL data.\n\u2022 Diluted EPS: $2.40 \u2014 Extracted from SEC-verified XBRL data.\n\u2022 Net Margin: 71.5% \u2014 Extracted from SEC-verified XBRL data."
+      },
+      {
+        "title": "Management Commentary",
+        "content": "Themes: - Strategic expansion from PC graphics to scientific computing, AI, data science, autonomous vehicles, robotics, and digital twin applications.\n- Positioning as a foundational data center-scale AI infrastructure company.\nQuotes: - Speaker: Management\nQuote: NVIDIA is now a data center-scale AI infrastructure company reshaping all industries.\nContext: Describing the company's evolution and current market position in the business overview.\nCapital Allocation: - Not disclosed\u2014Capital allocation plans were not observed in the provided excerpts.\nSource Section Ref: Item 1A. Risk Factors"
+      },
+      {
+        "title": "Strategic Developments",
+        "content": "Guidance: Not disclosed\nTone: neutral\nDrivers: - Not disclosed\u2014Specific guidance drivers were not observed in the provided excerpts.\nWatch Items: - Not disclosed\u2014Specific watch items were not observed in the provided excerpts.\nSource Section Ref: Not disclosed\nKey Drivers: Not disclosed\u2014Specific guidance drivers were not observed in the provided excerpts."
+      }
+    ],
+    "insights": {
+      "sentiment": "Positive to Neutral",
+      "growth_drivers": [
+        "Not disclosed\u2014Specific guidance drivers were not observed in the provided excerpts."
+      ],
+      "risk_signals": [
+        "Standard forward-looking statement risks regarding actual results differing materially from expectat"
+      ]
+    },
+    "status": "partial",
+    "business_overview": "*Auto-generated from structured data because the writer output failed validation (Editorial summary length must be 80-280 words (current: 22).).*\n## Executive Summary\nNVIDIA reports $81.6B in quarterly revenue with exceptional 71.5% net margin Management's disclosed tone was positive. Generated $81.6B in revenue and $58.3B in net income for the quarter ended April 26, 2026.; Achieved a highly robust net margin of 71.5% and diluted EPS of $2.40.; Management highlights the company's evolution into a data center-scale AI infrastructure provider reshaping all industries.\n\n## Financials\n- Revenue: $81.6B \u2013 Extracted from SEC-verified XBRL data.\n- Net Income: $58.3B \u2013 Extracted from SEC-verified XBRL data.\n- Diluted EPS: $2.40 \u2013 Extracted from SEC-verified XBRL data.\n- Net Margin: 71.5% \u2013 Extracted from SEC-verified XBRL data.\n- Profitability: Net margin reported at 71.5%, indicating highly efficient conversion of revenue to net income.\n- Cash flow: Not disclosed\u2014Cash flow figures were not observed in the provided excerpts.\n- Balance sheet: Not disclosed\u2014Balance sheet figures were not observed in the provided excerpts.\n\n## Risks\n- Standard forward-looking statement risks regarding actual results differing materially from expectations. (Evidence: These statements involve known and unknown risks, uncertainties and other factors, which may cause our actual results, performance, time frames or achievements to be materially different from any future results...)\n\n## Management Commentary\n- Themes: Strategic expansion from PC graphics to scientific computing, AI, data science, autonomous vehicles, robotics, and digital twin applications.; Positioning as a foundational data center-scale AI infrastructure company.\n- Capital allocation: Not disclosed\u2014Capital allocation plans were not observed in the provided excerpts.\n> \"NVIDIA is now a data center-scale AI infrastructure company reshaping all industries.\" \u2013 Management\n\n## Outlook\n- Tone: neutral\n- Drivers: Not disclosed\u2014Specific guidance drivers were not observed in the provided excerpts.\n- Watch items: Not disclosed\u2014Specific watch items were not observed in the provided excerpts.",
+    "financial_highlights": {
+      "table": [
+        {
+          "metric": "Revenue",
+          "current_period": "$81.6B",
+          "prior_period": "Not disclosed",
+          "change": "Not disclosed",
+          "commentary": "Extracted from SEC-verified XBRL data."
+        },
+        {
+          "metric": "Net Income",
+          "current_period": "$58.3B",
+          "prior_period": "Not disclosed",
+          "change": "Not disclosed",
+          "commentary": "Extracted from SEC-verified XBRL data."
+        },
+        {
+          "metric": "Diluted EPS",
+          "current_period": "$2.40",
+          "prior_period": "Not disclosed",
+          "change": "Not disclosed",
+          "commentary": "Extracted from SEC-verified XBRL data."
+        },
+        {
+          "metric": "Net Margin",
+          "current_period": "71.5%",
+          "prior_period": "Not disclosed",
+          "change": "Not disclosed",
+          "commentary": "Extracted from SEC-verified XBRL data."
+        }
+      ],
+      "profitability": [
+        "Net margin reported at 71.5%, indicating highly efficient conversion of revenue to net income."
+      ],
+      "cash_flow": [
+        "Not disclosed\u2014Cash flow figures were not observed in the provided excerpts."
+      ],
+      "balance_sheet": [
+        "Not disclosed\u2014Balance sheet figures were not observed in the provided excerpts."
+      ],
+      "source_section_ref": "XBRL Standardized Financial Data"
+    },
+    "risk_factors": [
+      {
+        "summary": "Standard forward-looking statement risks regarding actual results differing materially from expectations.",
+        "supporting_evidence": "These statements involve known and unknown risks, uncertainties and other factors, which may cause our actual results, performance, time frames or achievements to be materially different from any future results..."
+      }
+    ],
+    "management_discussion": "Themes: - Strategic expansion from PC graphics to scientific computing, AI, data science, autonomous vehicles, robotics, and digital twin applications.\n- Positioning as a foundational data center-scale AI infrastructure company.\nQuotes: - Speaker: Management\nQuote: NVIDIA is now a data center-scale AI infrastructure company reshaping all industries.\nContext: Describing the company's evolution and current market position in the business overview.\nCapital Allocation: - Not disclosed\u2014Capital allocation plans were not observed in the provided excerpts.\nSource Section Ref: Item 1A. Risk Factors",
+    "key_changes": "Guidance: Not disclosed\nTone: neutral\nDrivers: - Not disclosed\u2014Specific guidance drivers were not observed in the provided excerpts.\nWatch Items: - Not disclosed\u2014Specific watch items were not observed in the provided excerpts.\nSource Section Ref: Not disclosed",
+    "raw_summary": {
+      "structured": {
+        "metadata": {
+          "company_name": "NVIDIA Corp.",
+          "filing_type": "10-Q",
+          "reporting_period": "Quarter ended April 26, 2026",
+          "filing_date": "Not disclosed",
+          "currency": "USD",
+          "has_prior_period": false
+        },
+        "sections": {
+          "executive_snapshot": {
+            "headline": "NVIDIA reports $81.6B in quarterly revenue with exceptional 71.5% net margin",
+            "key_points": [
+              "Generated $81.6B in revenue and $58.3B in net income for the quarter ended April 26, 2026.",
+              "Achieved a highly robust net margin of 71.5% and diluted EPS of $2.40.",
+              "Management highlights the company's evolution into a data center-scale AI infrastructure provider reshaping all industries."
+            ],
+            "tone": "positive",
+            "source_section_ref": "XBRL Standardized Financial Data and Item 1A. Risk Factors"
+          },
+          "financial_highlights": {
+            "table": [
+              {
+                "metric": "Revenue",
+                "current_period": "$81.6B",
+                "prior_period": "Not disclosed",
+                "change": "Not disclosed",
+                "commentary": "Extracted from SEC-verified XBRL data."
+              },
+              {
+                "metric": "Net Income",
+                "current_period": "$58.3B",
+                "prior_period": "Not disclosed",
+                "change": "Not disclosed",
+                "commentary": "Extracted from SEC-verified XBRL data."
+              },
+              {
+                "metric": "Diluted EPS",
+                "current_period": "$2.40",
+                "prior_period": "Not disclosed",
+                "change": "Not disclosed",
+                "commentary": "Extracted from SEC-verified XBRL data."
+              },
+              {
+                "metric": "Net Margin",
+                "current_period": "71.5%",
+                "prior_period": "Not disclosed",
+                "change": "Not disclosed",
+                "commentary": "Extracted from SEC-verified XBRL data."
+              }
+            ],
+            "profitability": [
+              "Net margin reported at 71.5%, indicating highly efficient conversion of revenue to net income."
+            ],
+            "cash_flow": [
+              "Not disclosed\u2014Cash flow figures were not observed in the provided excerpts."
+            ],
+            "balance_sheet": [
+              "Not disclosed\u2014Balance sheet figures were not observed in the provided excerpts."
+            ],
+            "source_section_ref": "XBRL Standardized Financial Data"
+          },
+          "risk_factors": [
+            {
+              "summary": "Standard forward-looking statement risks regarding actual results differing materially from expectations.",
+              "supporting_evidence": "These statements involve known and unknown risks, uncertainties and other factors, which may cause our actual results, performance, time frames or achievements to be materially different from any future results..."
+            }
+          ],
+          "management_discussion_insights": {
+            "themes": [
+              "Strategic expansion from PC graphics to scientific computing, AI, data science, autonomous vehicles, robotics, and digital twin applications.",
+              "Positioning as a foundational data center-scale AI infrastructure company."
+            ],
+            "quotes": [
+              {
+                "speaker": "Management",
+                "quote": "NVIDIA is now a data center-scale AI infrastructure company reshaping all industries.",
+                "context": "Describing the company's evolution and current market position in the business overview."
+              }
+            ],
+            "capital_allocation": [
+              "Not disclosed\u2014Capital allocation plans were not observed in the provided excerpts."
+            ],
+            "source_section_ref": "Item 1A. Risk Factors"
+          },
+          "segment_performance": [
+            {
+              "segment": "Not disclosed",
+              "revenue": "Not disclosed",
+              "change": "Not disclosed",
+              "commentary": "Not disclosed\u2014Segment performance details were not observed in the provided excerpts.",
+              "source_section_ref": "Not disclosed"
+            }
+          ],
+          "liquidity_capital_structure": {
+            "leverage": "Not disclosed",
+            "liquidity": "Not disclosed",
+            "shareholder_returns": [
+              "Not disclosed\u2014Shareholder return metrics were not observed in the provided excerpts."
+            ],
+            "source_section_ref": "Not disclosed"
+          },
+          "covenants_contingencies": {
+            "debt_covenants": [
+              "Not disclosed\u2014Debt covenants were not observed in the provided excerpts."
+            ],
+            "contingent_liabilities": [
+              "Not disclosed\u2014Contingent liabilities were not observed in the provided excerpts."
+            ],
+            "source_section_ref": "Not disclosed"
+          },
+          "guidance_outlook": {
+            "guidance": "Not disclosed",
+            "tone": "neutral",
+            "drivers": [
+              "Not disclosed\u2014Specific guidance drivers were not observed in the provided excerpts."
+            ],
+            "watch_items": [
+              "Not disclosed\u2014Specific watch items were not observed in the provided excerpts."
+            ],
+            "source_section_ref": "Not disclosed"
+          },
+          "notable_footnotes": [
+            {
+              "item": "Not disclosed",
+              "impact": "Not disclosed\u2014Footnote details were not observed in the provided excerpts.",
+              "source_section_ref": "Not disclosed"
+            }
+          ],
+          "three_year_trend": {
+            "trend_summary": "Not disclosed\u2014Three-year trend data was not observed in the provided excerpts.",
+            "inflections": [
+              "Not disclosed\u2014Inflection points were not observed in the provided excerpts."
+            ],
+            "compare_prior_period": {
+              "available": false,
+              "insights": [
+                "Not disclosed\u2014Prior period data was not observed in the provided excerpts."
+              ]
+            },
+            "source_section_ref": "Not disclosed"
+          }
+        }
+      },
+      "sections": {
+        "executive_snapshot": {
+          "headline": "NVIDIA reports $81.6B in quarterly revenue with exceptional 71.5% net margin",
+          "key_points": [
+            "Generated $81.6B in revenue and $58.3B in net income for the quarter ended April 26, 2026.",
+            "Achieved a highly robust net margin of 71.5% and diluted EPS of $2.40.",
+            "Management highlights the company's evolution into a data center-scale AI infrastructure provider reshaping all industries."
+          ],
+          "tone": "positive",
+          "source_section_ref": "XBRL Standardized Financial Data and Item 1A. Risk Factors"
+        },
+        "financial_highlights": {
+          "table": [
+            {
+              "metric": "Revenue",
+              "current_period": "$81.6B",
+              "prior_period": "Not disclosed",
+              "change": "Not disclosed",
+              "commentary": "Extracted from SEC-verified XBRL data."
+            },
+            {
+              "metric": "Net Income",
+              "current_period": "$58.3B",
+              "prior_period": "Not disclosed",
+              "change": "Not disclosed",
+              "commentary": "Extracted from SEC-verified XBRL data."
+            },
+            {
+              "metric": "Diluted EPS",
+              "current_period": "$2.40",
+              "prior_period": "Not disclosed",
+              "change": "Not disclosed",
+              "commentary": "Extracted from SEC-verified XBRL data."
+            },
+            {
+              "metric": "Net Margin",
+              "current_period": "71.5%",
+              "prior_period": "Not disclosed",
+              "change": "Not disclosed",
+              "commentary": "Extracted from SEC-verified XBRL data."
+            }
+          ],
+          "profitability": [
+            "Net margin reported at 71.5%, indicating highly efficient conversion of revenue to net income."
+          ],
+          "cash_flow": [
+            "Not disclosed\u2014Cash flow figures were not observed in the provided excerpts."
+          ],
+          "balance_sheet": [
+            "Not disclosed\u2014Balance sheet figures were not observed in the provided excerpts."
+          ],
+          "source_section_ref": "XBRL Standardized Financial Data"
+        },
+        "risk_factors": [
+          {
+            "summary": "Standard forward-looking statement risks regarding actual results differing materially from expectations.",
+            "supporting_evidence": "These statements involve known and unknown risks, uncertainties and other factors, which may cause our actual results, performance, time frames or achievements to be materially different from any future results..."
+          }
+        ],
+        "management_discussion_insights": {
+          "themes": [
+            "Strategic expansion from PC graphics to scientific computing, AI, data science, autonomous vehicles, robotics, and digital twin applications.",
+            "Positioning as a foundational data center-scale AI infrastructure company."
+          ],
+          "quotes": [
+            {
+              "speaker": "Management",
+              "quote": "NVIDIA is now a data center-scale AI infrastructure company reshaping all industries.",
+              "context": "Describing the company's evolution and current market position in the business overview."
+            }
+          ],
+          "capital_allocation": [
+            "Not disclosed\u2014Capital allocation plans were not observed in the provided excerpts."
+          ],
+          "source_section_ref": "Item 1A. Risk Factors"
+        },
+        "segment_performance": [
+          {
+            "segment": "Not disclosed",
+            "revenue": "Not disclosed",
+            "change": "Not disclosed",
+            "commentary": "Not disclosed\u2014Segment performance details were not observed in the provided excerpts.",
+            "source_section_ref": "Not disclosed"
+          }
+        ],
+        "liquidity_capital_structure": {
+          "leverage": "Not disclosed",
+          "liquidity": "Not disclosed",
+          "shareholder_returns": [
+            "Not disclosed\u2014Shareholder return metrics were not observed in the provided excerpts."
+          ],
+          "source_section_ref": "Not disclosed"
+        },
+        "covenants_contingencies": {
+          "debt_covenants": [
+            "Not disclosed\u2014Debt covenants were not observed in the provided excerpts."
+          ],
+          "contingent_liabilities": [
+            "Not disclosed\u2014Contingent liabilities were not observed in the provided excerpts."
+          ],
+          "source_section_ref": "Not disclosed"
+        },
+        "guidance_outlook": {
+          "guidance": "Not disclosed",
+          "tone": "neutral",
+          "drivers": [
+            "Not disclosed\u2014Specific guidance drivers were not observed in the provided excerpts."
+          ],
+          "watch_items": [
+            "Not disclosed\u2014Specific watch items were not observed in the provided excerpts."
+          ],
+          "source_section_ref": "Not disclosed"
+        },
+        "notable_footnotes": [
+          {
+            "item": "Not disclosed",
+            "impact": "Not disclosed\u2014Footnote details were not observed in the provided excerpts.",
+            "source_section_ref": "Not disclosed"
+          }
+        ],
+        "three_year_trend": {
+          "trend_summary": "Not disclosed\u2014Three-year trend data was not observed in the provided excerpts.",
+          "inflections": [
+            "Not disclosed\u2014Inflection points were not observed in the provided excerpts."
+          ],
+          "compare_prior_period": {
+            "available": false,
+            "insights": [
+              "Not disclosed\u2014Prior period data was not observed in the provided excerpts."
+            ]
+          },
+          "source_section_ref": "Not disclosed"
+        }
+      },
+      "section_coverage": {
+        "per_section": {
+          "covenants_contingencies": true,
+          "executive_snapshot": true,
+          "financial_highlights": true,
+          "guidance_outlook": true,
+          "liquidity_capital_structure": true,
+          "management_discussion_insights": true,
+          "notable_footnotes": true,
+          "risk_factors": true,
+          "segment_performance": true,
+          "three_year_trend": true
+        },
+        "covered": [
+          "covenants_contingencies",
+          "executive_snapshot",
+          "financial_highlights",
+          "guidance_outlook",
+          "liquidity_capital_structure",
+          "management_discussion_insights",
+          "notable_footnotes",
+          "risk_factors",
+          "segment_performance",
+          "three_year_trend"
+        ],
+        "missing": [],
+        "covered_count": 10,
+        "total_count": 10,
+        "coverage_ratio": 1.0
+      },
+      "writer": {
+        "markdown": "*Auto-generated from structured data because the writer output failed validation (Editorial summary length must be 80-280 words (current: 22).).*\n## Executive Summary\nNVIDIA reports $81.6B in quarterly revenue with exceptional 71.5% net margin Management's disclosed tone was positive. Generated $81.6B in revenue and $58.3B in net income for the quarter ended April 26, 2026.; Achieved a highly robust net margin of 71.5% and diluted EPS of $2.40.; Management highlights the company's evolution into a data center-scale AI infrastructure provider reshaping all industries.\n\n## Financials\n- Revenue: $81.6B \u2013 Extracted from SEC-verified XBRL data.\n- Net Income: $58.3B \u2013 Extracted from SEC-verified XBRL data.\n- Diluted EPS: $2.40 \u2013 Extracted from SEC-verified XBRL data.\n- Net Margin: 71.5% \u2013 Extracted from SEC-verified XBRL data.\n- Profitability: Net margin reported at 71.5%, indicating highly efficient conversion of revenue to net income.\n- Cash flow: Not disclosed\u2014Cash flow figures were not observed in the provided excerpts.\n- Balance sheet: Not disclosed\u2014Balance sheet figures were not observed in the provided excerpts.\n\n## Risks\n- Standard forward-looking statement risks regarding actual results differing materially from expectations. (Evidence: These statements involve known and unknown risks, uncertainties and other factors, which may cause our actual results, performance, time frames or achievements to be materially different from any future results...)\n\n## Management Commentary\n- Themes: Strategic expansion from PC graphics to scientific computing, AI, data science, autonomous vehicles, robotics, and digital twin applications.; Positioning as a foundational data center-scale AI infrastructure company.\n- Capital allocation: Not disclosed\u2014Capital allocation plans were not observed in the provided excerpts.\n> \"NVIDIA is now a data center-scale AI infrastructure company reshaping all industries.\" \u2013 Management\n\n## Outlook\n- Tone: neutral\n- Drivers: Not disclosed\u2014Specific guidance drivers were not observed in the provided excerpts.\n- Watch items: Not disclosed\u2014Specific watch items were not observed in the provided excerpts.",
+        "word_count": 305,
+        "model_used": "gemini-2.5-flash",
+        "fallback_used": true,
+        "fallback_reason": "Editorial summary length must be 80-280 words (current: 22)."
+      },
+      "writer_fallback_reason": "Editorial summary length must be 80-280 words (current: 22)."
+    },
+    "message": "Some sections may not have loaded fully."
+  }
+}

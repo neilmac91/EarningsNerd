@@ -33,7 +33,7 @@ async def _capture_create_kwargs(monkeypatch) -> list[dict]:
 
 
 @pytest.mark.asyncio
-async def test_flag_off_uses_narrative_prompt_and_no_response_format(monkeypatch):
+async def test_flag_off_uses_narrative_prompt_but_still_enforces_json(monkeypatch):
     monkeypatch.setattr(settings, "USE_STRUCTURED_OUTPUT", False)
     calls = await _capture_create_kwargs(monkeypatch)
 
@@ -45,7 +45,9 @@ async def test_flag_off_uses_narrative_prompt_and_no_response_format(monkeypatch
 
     assert calls, "AI create() was never called"
     first = calls[0]
-    assert "response_format" not in first  # current behavior: no API-level JSON enforcement
+    # Phase 0: JSON is now ALWAYS enforced at the API layer (provider-agnostic), independent of
+    # the flag. The flag now only controls the prompt (narrative vs schema-first) and temperature.
+    assert first.get("response_format") == {"type": "json_object"}
     assert first["temperature"] == 0.2
     user_prompt = first["messages"][1]["content"]
     # The narrative analyst prompt (the contradiction S1 removes) is present when flag is off.
