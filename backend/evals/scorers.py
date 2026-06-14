@@ -20,6 +20,7 @@ PLACEHOLDER_PATTERNS = (
     "not disclosed", "not available", "unavailable", "n/a", "not found",
     "not provided", "no data", "could not", "unable to", "failed to",
     "missing", "pending", "being processed", "retry", "error",
+    "not captured", "not extracted",
 )
 
 _MIN_SUBSTANTIVE_CHARS = 20
@@ -240,6 +241,13 @@ HYGIENE_PATTERNS = (
     "as an ai", "as a language model", "i cannot", "i'm sorry", "i am sorry",
     "internal note", "internal only", "system prompt", "do not show", "do not display",
     "todo", "tbd", "lorem ipsum", "[insert", "[placeholder", "placeholder text", "xxxx",
+    # Regression guard: known product boilerplate/templated filler that must never reach a user
+    # again (report-quality Phase 0 removed these from _apply_structured_fallbacks).
+    "based on available xbrl data", "proxy for balance sheet size",
+    "align with standard operational and market conditions",
+    "focused on operational execution and market conditions",
+    "ongoing business momentum", "not disclosed in the targeted excerpts",
+    "standard risk disclosures apply", "adopted a neutral tone",
 )
 _HYGIENE_PROSE_FIELDS = ("executive_summary", "management_discussion", "outlook")
 
