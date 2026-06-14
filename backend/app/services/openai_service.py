@@ -291,7 +291,8 @@ class OpenAIService:
         overrides = {
             "10-K": {
                 "ai_timeout": 150.0,  # More time for larger 10-K filings
-                "max_tokens": 12000,  # 10-K schema is largest; prevents mid-JSON truncation
+                "max_tokens": 8192,  # Gemini's max output limit (avoids a 400 from strict gateways);
+                                     # still 3x the old 2.5k, enough headroom to avoid truncation
                 "sample_length": 100000,  # 10-K filings are larger
                 "section_limits": {
                     "financials": 50000,  # 10-K has more detailed financials
