@@ -33,8 +33,7 @@ competitors, deliver an approval-ready improvement plan. **No production code un
 
 ## Findings log (evidence: file:line / output / source)
 
-### PHASE 1 — P1.0 + P1.1 IMPLEMENTED + VALIDATED (2026-06-14)
-Model decision: DEFAULT = deepseek-v4-pro (non-thinking). Web-verified newest (V4, Apr 2026);
+### PHASE 1 — P1.0 + P1.1 IMPLEMENTED + VALIDATED (2026-06-14)Model decision: DEFAULT = deepseek-v4-pro (non-thinking). Web-verified newest (V4, Apr 2026);
 deepseek-chat legacy alias retires Jul 24 2026. flash hallucinates on thin input (fabricated JPM
 Dimon quote) → pro chosen; still ~4x cheaper than Gemini. Non-thinking = extra_body {"thinking":{"type":"disabled"}}.
 

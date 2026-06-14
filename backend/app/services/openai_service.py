@@ -371,6 +371,32 @@ class OpenAIService:
         table of contents fed the model a sliver of real content (roadmap S2)."""
         return len(text) >= min_chars and not cls._looks_like_toc(text)
 
+    @staticmethod
+    def _dense_window(text: str, keywords: List[str], window: int = 130000, step: int = 20000) -> str:
+        """Return the `window`-char slice of `text` densest in `keywords`, scanning the whole document.
+
+        P1.2 robustness: targeted Item regex is fragile on 10-Qs and complex (e.g. bank) filings and
+        can return a few-thousand-char sliver. Rather than feed the model that sliver, hand it the
+        most relevant large slab of the actual document — the cheap, large-context model uses it.
+        Returns "" only for empty input; the whole text when it is already within `window`."""
+        if not text:
+            return ""
+        if len(text) <= window:
+            return text
+        best_start, best_score = 0, -1
+        last = len(text) - window
+        i = 0
+        while True:
+            i = min(i, last)
+            chunk = text[i:i + window].lower()
+            score = sum(chunk.count(kw) for kw in keywords)
+            if score > best_score:
+                best_score, best_start = score, i
+            if i >= last:
+                break
+            i += step
+        return text[best_start:best_start + window]
+
     def extract_critical_sections(self, filing_text: str, filing_type: str = "10-K", cleaned_text: Optional[str] = None) -> str:
         """Extract ALL critical sections for comprehensive summarization.
 
@@ -417,7 +443,7 @@ class OpenAIService:
                         logger.debug(f"10-K Item 8: skipping TOC-like/short match ({len(financial_text)} chars)")
                         continue
                     # Increased limit to 40000 chars to capture full financial statements
-                    critical_sections.append(f"ITEM 8 - FINANCIAL STATEMENTS AND SUPPLEMENTARY DATA:\n{financial_text[:40000]}")
+                    critical_sections.append(f"ITEM 8 - FINANCIAL STATEMENTS AND SUPPLEMENTARY DATA:\n{financial_text[:70000]}")
                     logger.info(f"10-K Item 8 extraction: captured {len(financial_text):,} chars")
                     break
 
@@ -437,7 +463,7 @@ class OpenAIService:
                         logger.debug(f"10-K Item 7: skipping TOC-like/short match ({len(mda_text)} chars)")
                         continue
                     # Increased limit to 35000 chars to capture full MD&A
-                    critical_sections.append(f"ITEM 7 - MANAGEMENT'S DISCUSSION AND ANALYSIS:\n{mda_text[:35000]}")
+                    critical_sections.append(f"ITEM 7 - MANAGEMENT'S DISCUSSION AND ANALYSIS:\n{mda_text[:55000]}")
                     logger.info(f"10-K Item 7 extraction: captured {len(mda_text):,} chars")
                     break
 
@@ -456,7 +482,7 @@ class OpenAIService:
                         logger.debug(f"10-K Item 1A: skipping TOC-like/short match ({len(risk_text)} chars)")
                         continue
                     # Increased limit to 25000 chars for comprehensive risk coverage
-                    critical_sections.append(f"ITEM 1A - RISK FACTORS:\n{risk_text[:25000]}")
+                    critical_sections.append(f"ITEM 1A - RISK FACTORS:\n{risk_text[:45000]}")
                     logger.info(f"10-K Item 1A extraction: captured {len(risk_text):,} chars")
                     break
 
@@ -484,7 +510,7 @@ class OpenAIService:
                     # Verify this isn't a TOC entry (actual financial statements are long)
                     if len(financial_text) > 500:
                         # 35000 chars to capture full condensed financial statements + notes
-                        critical_sections.append(f"ITEM 1 - FINANCIAL STATEMENTS:\n{financial_text[:35000]}")
+                        critical_sections.append(f"ITEM 1 - FINANCIAL STATEMENTS:\n{financial_text[:50000]}")
                         logger.info(f"10-Q Financial Statements extraction: captured {len(financial_text):,} chars")
                         break
                     else:
@@ -502,7 +528,7 @@ class OpenAIService:
                     match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
                     if match:
                         financial_text = match.group(1).strip()
-                        critical_sections.append(f"FINANCIAL DATA:\n{financial_text[:35000]}")
+                        critical_sections.append(f"FINANCIAL DATA:\n{financial_text[:50000]}")
                         break
 
             # PRIORITY 2: Extract Item 2 - MD&A (narrative context for financials)
@@ -528,7 +554,7 @@ class OpenAIService:
                     # Verify this isn't a TOC entry (TOC entries are short, actual content is long)
                     if len(mda_text) > 200:
                         # Increased to 30000 chars for comprehensive MD&A coverage
-                        critical_sections.append(f"ITEM 2 - MANAGEMENT'S DISCUSSION AND ANALYSIS:\n{mda_text[:30000]}")
+                        critical_sections.append(f"ITEM 2 - MANAGEMENT'S DISCUSSION AND ANALYSIS:\n{mda_text[:45000]}")
                         logger.info(f"10-Q MD&A extraction: captured {len(mda_text):,} chars")
                         break
                     else:
@@ -555,53 +581,45 @@ class OpenAIService:
                     # Verify this isn't a TOC entry
                     if len(risk_text) > 100:
                         # 15000 chars for 10-Q risk factors (usually shorter than 10-K)
-                        critical_sections.append(f"ITEM 1A - RISK FACTORS:\n{risk_text[:15000]}")
+                        critical_sections.append(f"ITEM 1A - RISK FACTORS:\n{risk_text[:25000]}")
                         logger.info(f"10-Q Risk Factors extraction: captured {len(risk_text):,} chars")
                         break
                     else:
                         logger.debug(f"10-Q Risk Factors: skipping short match ({len(risk_text)} chars) - likely TOC entry")
 
-        # Combine all critical sections
-        if critical_sections:
-            combined = "\n\n" + "="*50 + "\n\n".join(critical_sections)
-            # S2: extraction confidence — how many of the 3 critical sections we captured.
-            # Low confidence (<2/3) is a strong signal of thin grounding for downstream gating.
-            expected = 3
+        # P1.2: targeted regex extraction is high-precision when it lands, but fragile on 10-Qs and
+        # complex (e.g. bank) filings where it can return a few-thousand-char sliver. When the
+        # captured text is thin, augment it with large, keyword-anchored slices of the actual document
+        # so the model sees the real Risk Factors and MD&A narrative. XBRL already supplies the
+        # verified financials (P1.1), so this targets narrative depth.
+        combined = ("\n\n" + "=" * 50 + "\n\n".join(critical_sections)) if critical_sections else ""
+        RICH_MIN = 60000
+        if len(combined) >= RICH_MIN:
             logger.info(
-                f"{filing_type_key} extraction confidence: {len(critical_sections)}/{expected} "
-                f"critical sections, total {len(combined):,} chars"
+                f"{filing_type_key} extraction: {len(critical_sections)}/3 sections, "
+                f"{len(combined):,} chars (targeted)"
             )
             return combined
-        else:
-            # Enhanced fallback: Search for ANY financial data in the document
-            logger.warning("No sections found via patterns, using enhanced fallback extraction")
 
-            # Try to find financial tables anywhere in the document
-            financial_keywords = [
-                "total revenue", "net revenue", "net sales", "total net sales",
-                "net income", "net earnings", "earnings per share", "diluted eps",
-                "operating income", "gross profit", "cash flow", "total assets"
-            ]
-
-            # Find the section with the most financial keywords
-            best_start = 0
-            best_score = 0
-            chunk_size = 50000
-
-            for i in range(0, min(len(filing_text_clean), 200000), 10000):
-                chunk = filing_text_clean[i:i+chunk_size].lower()
-                score = sum(1 for kw in financial_keywords if kw in chunk)
-                if score > best_score:
-                    best_score = score
-                    best_start = i
-
-            if best_score > 2:
-                logger.info(f"Fallback found {best_score} financial keywords at offset {best_start}")
-                return filing_text_clean[best_start:best_start+chunk_size]
-
-            # Last resort: return first 50000 chars
-            logger.warning("Using last-resort fallback: first 50000 chars of document")
-            return filing_text_clean[:50000]
+        risk_kw = ["risk factors", "could adversely", "material adverse", "adversely affect",
+                   "we may", "uncertaint", "regulatory", "litigation", "competition", "cybersecurity"]
+        fin_kw = ["operating activities", "cash flow", "consolidated statements", "balance sheet",
+                  "net income", "total revenue", "net sales", "gross", "operating income", "liquidity"]
+        risk_slice = self._dense_window(filing_text_clean, risk_kw)
+        fin_slice = self._dense_window(filing_text_clean, fin_kw)
+        parts: List[str] = []
+        if combined:
+            parts.append(combined)
+        if risk_slice:
+            parts.append("RISK & NARRATIVE CONTEXT (recovered from filing):\n" + risk_slice)
+        if fin_slice and fin_slice != risk_slice:
+            parts.append("FINANCIAL & MD&A CONTEXT (recovered from filing):\n" + fin_slice)
+        recovered = ("\n\n" + "=" * 50 + "\n\n").join(p for p in parts if p)
+        logger.info(
+            f"{filing_type_key} extraction: thin targeted ({len(combined):,} chars) — augmented "
+            f"with recovered windows to {len(recovered):,} chars"
+        )
+        return recovered[:320000] or filing_text_clean[:120000]
     
     def extract_sections(self, filing_text: str, filing_type: str = "10-K") -> Dict[str, str]:
         """

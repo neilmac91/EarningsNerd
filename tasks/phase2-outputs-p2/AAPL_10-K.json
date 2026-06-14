@@ -1,0 +1,1119 @@
+{
+  "ticker": "AAPL",
+  "filing_type": "10-K",
+  "company": "Apple Inc.",
+  "accession": "0000320193-25-000079",
+  "document_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
+  "ground_truth": [
+    {
+      "metric": "revenue",
+      "value": 416161000000.0,
+      "unit": "USD"
+    },
+    {
+      "metric": "net_income",
+      "value": 112010000000.0,
+      "unit": "USD"
+    },
+    {
+      "metric": "eps",
+      "value": 7.49,
+      "unit": "USD_per_share"
+    }
+  ],
+  "grounding": {
+    "filing_text_len": 1520208,
+    "excerpt_len": 260154,
+    "xbrl_metrics": {
+      "revenue": {
+        "current": {
+          "period": "2025-09-27",
+          "value": 416161000000.0,
+          "form": "10-K"
+        },
+        "prior": {
+          "period": "2024-09-28",
+          "value": 391035000000.0,
+          "form": "10-K"
+        },
+        "change": {
+          "absolute": 25126000000.0,
+          "percentage": 6.43,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2025-09-27",
+            "value": 416161000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2024-09-28",
+            "value": 391035000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2023-09-30",
+            "value": 383285000000.0,
+            "form": "10-K"
+          }
+        ]
+      },
+      "net_income": {
+        "current": {
+          "period": "2025-09-27",
+          "value": 112010000000.0,
+          "form": "10-K"
+        },
+        "prior": {
+          "period": "2024-09-28",
+          "value": 93736000000.0,
+          "form": "10-K"
+        },
+        "change": {
+          "absolute": 18274000000.0,
+          "percentage": 19.5,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2025-09-27",
+            "value": 112010000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2024-09-28",
+            "value": 93736000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2023-09-30",
+            "value": 96995000000.0,
+            "form": "10-K"
+          }
+        ]
+      },
+      "earnings_per_share": {
+        "current": {
+          "period": "2025-09-27",
+          "value": 7.49,
+          "form": "10-K"
+        },
+        "prior": {
+          "period": "2024-09-28",
+          "value": 6.11,
+          "form": "10-K"
+        },
+        "change": {
+          "absolute": 1.38,
+          "percentage": 22.59,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2025-09-27",
+            "value": 7.49,
+            "form": "10-K"
+          },
+          {
+            "period": "2024-09-28",
+            "value": 6.11,
+            "form": "10-K"
+          },
+          {
+            "period": "2023-09-30",
+            "value": 6.16,
+            "form": "10-K"
+          }
+        ]
+      },
+      "net_margin": {
+        "current": {
+          "period": "2025-09-27",
+          "value": 26.91506412181824,
+          "form": "10-K"
+        },
+        "prior": {
+          "period": "2024-09-28",
+          "value": 23.971255769943866,
+          "form": "10-K"
+        },
+        "change": {
+          "absolute": 2.94,
+          "percentage": 12.28,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2025-09-27",
+            "value": 26.91506412181824,
+            "form": "10-K"
+          },
+          {
+            "period": "2024-09-28",
+            "value": 23.971255769943866,
+            "form": "10-K"
+          },
+          {
+            "period": "2023-09-30",
+            "value": 25.30623426432028,
+            "form": "10-K"
+          }
+        ]
+      },
+      "operating_cash_flow": {
+        "current": {
+          "period": "2025-09-27",
+          "value": 111482000000.0,
+          "form": "10-K"
+        },
+        "prior": {
+          "period": "2024-09-28",
+          "value": 118254000000.0,
+          "form": "10-K"
+        },
+        "change": {
+          "absolute": -6772000000.0,
+          "percentage": -5.73,
+          "direction": "decrease"
+        },
+        "series": [
+          {
+            "period": "2025-09-27",
+            "value": 111482000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2024-09-28",
+            "value": 118254000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2023-09-30",
+            "value": 110543000000.0,
+            "form": "10-K"
+          }
+        ]
+      },
+      "capital_expenditures": {
+        "current": {
+          "period": "2025-09-27",
+          "value": 12715000000.0,
+          "form": "10-K"
+        },
+        "prior": {
+          "period": "2024-09-28",
+          "value": 9447000000.0,
+          "form": "10-K"
+        },
+        "change": {
+          "absolute": 3268000000.0,
+          "percentage": 34.59,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2025-09-27",
+            "value": 12715000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2024-09-28",
+            "value": 9447000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2023-09-30",
+            "value": 10959000000.0,
+            "form": "10-K"
+          }
+        ]
+      },
+      "gross_profit": {
+        "current": {
+          "period": "2025-09-27",
+          "value": 195201000000.0,
+          "form": "10-K"
+        },
+        "prior": {
+          "period": "2024-09-28",
+          "value": 180683000000.0,
+          "form": "10-K"
+        },
+        "change": {
+          "absolute": 14518000000.0,
+          "percentage": 8.04,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2025-09-27",
+            "value": 195201000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2024-09-28",
+            "value": 180683000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2023-09-30",
+            "value": 169148000000.0,
+            "form": "10-K"
+          }
+        ]
+      },
+      "operating_income": {
+        "current": {
+          "period": "2025-09-27",
+          "value": 133050000000.0,
+          "form": "10-K"
+        },
+        "prior": {
+          "period": "2024-09-28",
+          "value": 123216000000.0,
+          "form": "10-K"
+        },
+        "change": {
+          "absolute": 9834000000.0,
+          "percentage": 7.98,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2025-09-27",
+            "value": 133050000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2024-09-28",
+            "value": 123216000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2023-09-30",
+            "value": 114301000000.0,
+            "form": "10-K"
+          }
+        ]
+      },
+      "free_cash_flow": {
+        "current": {
+          "period": "2025-09-27",
+          "value": 98767000000.0,
+          "form": "10-K"
+        },
+        "prior": {
+          "period": "2024-09-28",
+          "value": 108807000000.0,
+          "form": "10-K"
+        },
+        "change": {
+          "absolute": -10040000000.0,
+          "percentage": -9.23,
+          "direction": "decrease"
+        },
+        "series": [
+          {
+            "period": "2025-09-27",
+            "value": 98767000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2024-09-28",
+            "value": 108807000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2023-09-30",
+            "value": 99584000000.0,
+            "form": "10-K"
+          }
+        ]
+      },
+      "gross_margin": {
+        "current": {
+          "period": "2025-09-27",
+          "value": 46.90516410716045,
+          "form": "10-K"
+        },
+        "prior": {
+          "period": "2024-09-28",
+          "value": 46.206349815233935,
+          "form": "10-K"
+        },
+        "change": {
+          "absolute": 0.7,
+          "percentage": 1.51,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2025-09-27",
+            "value": 46.90516410716045,
+            "form": "10-K"
+          },
+          {
+            "period": "2024-09-28",
+            "value": 46.206349815233935,
+            "form": "10-K"
+          },
+          {
+            "period": "2023-09-30",
+            "value": 44.13112957720756,
+            "form": "10-K"
+          }
+        ]
+      },
+      "operating_margin": {
+        "current": {
+          "period": "2025-09-27",
+          "value": 31.970799762591884,
+          "form": "10-K"
+        },
+        "prior": {
+          "period": "2024-09-28",
+          "value": 31.510222870075566,
+          "form": "10-K"
+        },
+        "change": {
+          "absolute": 0.46,
+          "percentage": 1.46,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2025-09-27",
+            "value": 31.970799762591884,
+            "form": "10-K"
+          },
+          {
+            "period": "2024-09-28",
+            "value": 31.510222870075566,
+            "form": "10-K"
+          },
+          {
+            "period": "2023-09-30",
+            "value": 29.821412265024723,
+            "form": "10-K"
+          }
+        ]
+      }
+    }
+  },
+  "score": {
+    "schema_valid": false,
+    "repaired": false,
+    "numeric_accuracy": 0.6667,
+    "coverage": 1.0,
+    "numeric_precision": 1.0,
+    "financial_depth": 1.0,
+    "gate_failures": [],
+    "missing_sections": [],
+    "matched_facts": [
+      "revenue",
+      "net_income"
+    ],
+    "missing_facts": [
+      "eps"
+    ],
+    "aggregate": 0.55
+  },
+  "status": "partial",
+  "message": "Some sections may not have loaded fully.",
+  "coverage": {
+    "per_section": {
+      "covenants_contingencies": true,
+      "executive_snapshot": true,
+      "financial_highlights": true,
+      "guidance_outlook": true,
+      "liquidity_capital_structure": true,
+      "management_discussion_insights": true,
+      "notable_footnotes": true,
+      "risk_factors": true,
+      "segment_performance": true,
+      "three_year_trend": true
+    },
+    "covered": [
+      "covenants_contingencies",
+      "executive_snapshot",
+      "financial_highlights",
+      "guidance_outlook",
+      "liquidity_capital_structure",
+      "management_discussion_insights",
+      "notable_footnotes",
+      "risk_factors",
+      "segment_performance",
+      "three_year_trend"
+    ],
+    "missing": [],
+    "covered_count": 10,
+    "total_count": 10,
+    "coverage_ratio": 1.0
+  },
+  "summary": {
+    "summary_title": "Apple Inc. 10-K Filing Summary (FY2025)",
+    "sections": [
+      {
+        "title": "Key Risks",
+        "content": "\u2022 Tariffs and trade restrictions could materially impact supply chain, costs, and demand. (Evidence: Beginning in the second quarter of 2025, new U.S. Tariffs were announced, including additional tariffs on imports from China, India, Japan, South Korea, Taiwan, Vietnam and the EU... The ultimate impa)\n\u2022 Intense competition and rapid technological change may erode market share and margins. (Evidence: The Company has a minority market share in the global smartphone, personal computer, tablet and wearables markets... Certain competitors have the resources, experience or cost structures to provide pr)\n\u2022 Regulatory and legal challenges, including antitrust actions, could force business model changes and impose significant fines. (Evidence: The Company is subject to civil antitrust lawsuits in the U.S. alleging monopolization... On April 23, 2025, the Commission fined the Company \u20ac500 million in the Article 5(4) Investigation...)\n\u2022 Dependence on single-source suppliers and outsourcing partners in Asia exposes the company to supply disruptions. (Evidence: A significant majority of the Company\u2019s manufacturing is performed in whole or in part by outsourcing partners located primarily in China mainland, India, Japan, South Korea, Taiwan and Vietnam...)\n\u2022 Unfavorable resolution of tax examinations could materially impact financial results. (Evidence: As of September 27, 2025, the total amount of gross unrecognized tax benefits was $23.2 billion... The Company believes it is reasonably possible that its gross unrecognized tax benefits could decreas)"
+      },
+      {
+        "title": "Financial Overview",
+        "content": "\u2022 Total Net Sales: $416.2B (vs. $391.0B) \u2014 +6.4% \u2014 Growth driven by Services (+13.5%) and iPhone (+4.2%), partially offset by Wearables, Home and Accessories (-3.6%).\n\u2022 Gross Margin: $195.2B (46.9%) (vs. $180.7B (46.2%)) \u2014 +70 bps \u2014 Products gross margin decreased 40 bps to 36.8% due to mix and tariff costs; Services gross margin increased 150 bps to 75.4%.\n\u2022 Operating Income: $133.1B (32.0% margin) (vs. $123.2B (31.5% margin)) \u2014 +8.0% \u2014 Operating expenses grew 8.1% to $62.2B, with R&D up 10.1% to $34.6B.\n\u2022 Net Income: $112.0B (vs. $93.7B) \u2014 +19.5% \u2014 Benefited from lower effective tax rate (15.6% vs. 24.1%) due to absence of prior year's $10.2B State Aid Decision charge.\n\u2022 Diluted EPS: $7.46 (vs. $6.08) \u2014 +22.7% \u2014 Reflects higher net income and share repurchases reducing diluted share count by 2.6%.\n\u2022 Operating Cash Flow: $111.5B (vs. $118.3B) \u2014 -5.7% \u2014 Decrease driven by higher income tax payments ($43.4B vs. $26.1B) and working capital changes.\n\u2022 Free Cash Flow: $98.8B (vs. $108.8B) \u2014 -9.2% \u2014 CapEx increased 34.6% to $12.7B, reflecting investments in manufacturing and data centers."
+      },
+      {
+        "title": "Management Commentary",
+        "content": "Themes: - Services growth is a key driver, with advertising, App Store, and cloud services leading the 13.5% increase.\n- iPhone revenue growth was driven by Pro models, while Mac benefited from new product launches across laptops and desktops.\n- Tariff costs and product mix pressured Products gross margin, partially offset by favorable costs.\n- R&D spending increased 10.1% to $34.6B, reflecting investments in headcount and infrastructure.\n- The effective tax rate dropped to 15.6% from 24.1%, primarily due to the absence of the prior year's $10.2B State Aid Decision charge.\nQuotes: - Speaker: Management\nQuote: Products gross margin increased during 2025 compared to 2024 primarily due to favorable costs and a different mix of products, partially offset by tariff costs.\nContext: Discussion of Products gross margin drivers in MD&A.\n- Speaker: Management\nQuote: The Company believes its balances of cash, cash equivalents and marketable securities... along with cash generated by ongoing operations and continued access to debt markets, will be sufficient to satisfy its cash requirements and capital return program over the next 12 months and beyond.\nContext: Liquidity and Capital Resources section.\nCapital Allocation: - Repurchased $89.3B of common stock (402 million shares) and paid $15.4B in dividends and dividend equivalents.\n- Announced a new $100B share repurchase program in May 2025 and raised the quarterly dividend to $0.26 per share.\n- Capital expenditures increased to $12.7B, up 34.6% YoY, focused on manufacturing and data center investments.\n- Issued $4.5B in new term debt and maintained $8.0B in commercial paper outstanding.\nSource Section Ref: Item 7. Management\u2019s Discussion and Analysis"
+      },
+      {
+        "title": "Strategic Developments",
+        "content": "Guidance: Not disclosed\u2014Apple does not provide quantitative financial guidance in its 10-K filing.\nTone: cautious\nDrivers: - Management notes that gross margins will be subject to volatility and downward pressure due to factors including competition, tariffs, and product mix.\n- Services growth expected to continue, but regulatory changes (e.g., DMA, Epic Games injunction) could impact App Store revenue.\nWatch Items: - Impact of U.S. tariffs and potential retaliatory measures on supply chain and product costs.\n- Outcome of antitrust litigation and DMA investigations, which could force business model changes.\n- Resolution of uncertain tax positions, with up to $6B potential decrease in unrecognized tax benefits.\nSource Section Ref: Item 7. MD&A \u2013 Gross Margin; Item 1A. Risk Factors\nForward Guidance: Not disclosed\u2014Apple does not provide quantitative financial guidance in its 10-K filing.\nKey Drivers: Management notes that gross margins will be subject to volatility and downward pressure due to factors including competition, tariffs, and product mix.; Services growth expected to continue, but regulatory changes (e.g., DMA, Epic Games injunction) could impact App Store revenue."
+      }
+    ],
+    "insights": {
+      "sentiment": "Positive to Cautious",
+      "growth_drivers": [
+        "Management notes that gross margins will be subject to volatility and downward pressure due to factors including competition, tariffs, and product mix.",
+        "Services growth expected to continue, but regulatory changes (e.g., DMA, Epic Games injunction) could impact App Store revenue."
+      ],
+      "risk_signals": [
+        "Tariffs and trade restrictions could materially impact supply chain, costs, and demand.",
+        "Intense competition and rapid technological change may erode market share and margins.",
+        "Regulatory and legal challenges, including antitrust actions, could force business model changes and",
+        "Dependence on single-source suppliers and outsourcing partners in Asia exposes the company to supply",
+        "Unfavorable resolution of tax examinations could materially impact financial results."
+      ]
+    },
+    "status": "partial",
+    "business_overview": "*Auto-generated from structured data because the writer output failed validation (Editorial summary length must be 100-320 words (current: 340).).*\n## Executive Summary\nApple reports FY2025 revenue of $416.2B (+6.4% YoY) and net income of $112.0B (+19.5% YoY), driven by Services growth and iPhone strength, while navigating tariff uncertainties and regulatory challenges. Management's disclosed tone was positive. Total net sales increased 6.4% to $416.2B, with Services revenue up 13.5% to $109.2B, now 26.2% of total sales.; Net income rose 19.5% to $112.0B, aided by a lower effective tax rate of 15.6% vs. 24.1% in FY2024, which included a one-time $10.2B charge related to the EU State Aid Decision.; iPhone revenue grew 4.2% to $209.6B, driven by higher sales of Pro models; Mac revenue surged 12.4% to $33.7B.; Gross margin expanded 70 bps to 46.9%, with Services gross margin reaching 75.4%.; The company returned $104.7B to shareholders through $89.3B in share repurchases and $15.4B in dividends, while increasing the quarterly dividend to $0.26 per share.\n\n## Financials\n- Total Net Sales: $416.2B vs. $391.0B (+6.4%) \u2013 Growth driven by Services (+13.5%) and iPhone (+4.2%), partially offset by Wearables, Home and Accessories (-3.6%).\n- Gross Margin: $195.2B (46.9%) vs. $180.7B (46.2%) (+70 bps) \u2013 Products gross margin decreased 40 bps to 36.8% due to mix and tariff costs; Services gross margin increased 150 bps to 75.4%.\n- Operating Income: $133.1B (32.0% margin) vs. $123.2B (31.5% margin) (+8.0%) \u2013 Operating expenses grew 8.1% to $62.2B, with R&D up 10.1% to $34.6B.\n- Net Income: $112.0B vs. $93.7B (+19.5%) \u2013 Benefited from lower effective tax rate (15.6% vs. 24.1%) due to absence of prior year's $10.2B State Aid Decision charge.\n- Diluted EPS: $7.46 vs. $6.08 (+22.7%) \u2013 Reflects higher net income and share repurchases reducing diluted share count by 2.6%.\n- Operating Cash Flow: $111.5B vs. $118.3B (-5.7%) \u2013 Decrease driven by higher income tax payments ($43.4B vs. $26.1B) and working capital changes.\n- Free Cash Flow: $98.8B vs. $108.8B (-9.2%) \u2013 CapEx increased 34.6% to $12.7B, reflecting investments in manufacturing and data centers.\n- Profitability: Total gross margin expanded 70 bps to 46.9%, with Services gross margin reaching 75.4% (up 150 bps) and Products gross margin declining 40 bps to 36.8% due to tariff costs and product mix.; Net margin improved to 26.9% from 24.0%, driven by operating leverage and a lower effective tax rate.\n- Cash flow: Operating cash flow decreased 5.7% to $111.5B, primarily due to a $17.3B increase in cash taxes paid, partially offset by higher net income.; Free cash flow of $98.8B supported $104.7B in shareholder returns, with the gap funded by net debt issuance and cash reserves.\n- Balance sheet: Cash and marketable securities totaled $132.4B, down from $156.7B, reflecting significant share repurchases.; Total debt (term debt + commercial paper) was $98.7B, with $20.3B current; net cash position of $33.7B.; Total assets of $359.2B; shareholders' equity of $73.7B, up from $57.0B, driven by net income partially offset by buybacks.\n\n## Risks\n- Tariffs and trade restrictions could materially impact supply chain, costs, and demand. (Evidence: Beginning in the second quarter of 2025, new U.S. Tariffs were announced, including additional tariffs on imports from China, India, Japan, South Korea, Taiwan, Vietnam and the EU... The ultimate impact remains uncertain and will depend on several factors...)\n- Intense competition and rapid technological change may erode market share and margins. (Evidence: The Company has a minority market share in the global smartphone, personal computer, tablet and wearables markets... Certain competitors have the resources, experience or cost structures to provide products and services at little or no profit or even at a loss.)\n- Regulatory and legal challenges, including antitrust actions, could force business model changes and impose significant fines. (Evidence: The Company is subject to civil antitrust lawsuits in the U.S. alleging monopolization... On April 23, 2025, the Commission fined the Company \u20ac500 million in the Article 5(4) Investigation...)\n- Dependence on single-source suppliers and outsourcing partners in Asia exposes the company to supply disruptions. (Evidence: A significant majority of the Company\u2019s manufacturing is performed in whole or in part by outsourcing partners located primarily in China mainland, India, Japan, South Korea, Taiwan and Vietnam...)\n- Unfavorable resolution of tax examinations could materially impact financial results. (Evidence: As of September 27, 2025, the total amount of gross unrecognized tax benefits was $23.2 billion... The Company believes it is reasonably possible that its gross unrecognized tax benefits could decrease as much as $6 billion in the next 12 months.)\n\n## Management Commentary\n- Themes: Services growth is a key driver, with advertising, App Store, and cloud services leading the 13.5% increase.; iPhone revenue growth was driven by Pro models, while Mac benefited from new product launches across laptops and desktops.; Tariff costs and product mix pressured Products gross margin, partially offset by favorable costs.; R&D spending increased 10.1% to $34.6B, reflecting investments in headcount and infrastructure.; The effective tax rate dropped to 15.6% from 24.1%, primarily due to the absence of the prior year's $10.2B State Aid Decision charge.\n- Capital allocation: Repurchased $89.3B of common stock (402 million shares) and paid $15.4B in dividends and dividend equivalents.; Announced a new $100B share repurchase program in May 2025 and raised the quarterly dividend to $0.26 per share.; Capital expenditures increased to $12.7B, up 34.6% YoY, focused on manufacturing and data center investments.; Issued $4.5B in new term debt and maintained $8.0B in commercial paper outstanding.\n> \"Products gross margin increased during 2025 compared to 2024 primarily due to favorable costs and a different mix of products, partially offset by tariff costs.\" \u2013 Management\n> \"The Company believes its balances of cash, cash equivalents and marketable securities... along with cash generated by ongoing operations and continued access to debt markets, will be sufficient to satisfy its cash requirements and capital return program over the next 12 months and beyond.\" \u2013 Management\n\n## Outlook\n- Guidance: Not disclosed\u2014Apple does not provide quantitative financial guidance in its 10-K filing.\n- Tone: cautious\n- Drivers: Management notes that gross margins will be subject to volatility and downward pressure due to factors including competition, tariffs, and product mix.; Services growth expected to continue, but regulatory changes (e.g., DMA, Epic Games injunction) could impact App Store revenue.\n- Watch items: Impact of U.S. tariffs and potential retaliatory measures on supply chain and product costs.; Outcome of antitrust litigation and DMA investigations, which could force business model changes.; Resolution of uncertain tax positions, with up to $6B potential decrease in unrecognized tax benefits.",
+    "financial_highlights": {
+      "table": [
+        {
+          "metric": "Total Net Sales",
+          "current_period": "$416.2B",
+          "prior_period": "$391.0B",
+          "change": "+6.4%",
+          "commentary": "Growth driven by Services (+13.5%) and iPhone (+4.2%), partially offset by Wearables, Home and Accessories (-3.6%)."
+        },
+        {
+          "metric": "Gross Margin",
+          "current_period": "$195.2B (46.9%)",
+          "prior_period": "$180.7B (46.2%)",
+          "change": "+70 bps",
+          "commentary": "Products gross margin decreased 40 bps to 36.8% due to mix and tariff costs; Services gross margin increased 150 bps to 75.4%."
+        },
+        {
+          "metric": "Operating Income",
+          "current_period": "$133.1B (32.0% margin)",
+          "prior_period": "$123.2B (31.5% margin)",
+          "change": "+8.0%",
+          "commentary": "Operating expenses grew 8.1% to $62.2B, with R&D up 10.1% to $34.6B."
+        },
+        {
+          "metric": "Net Income",
+          "current_period": "$112.0B",
+          "prior_period": "$93.7B",
+          "change": "+19.5%",
+          "commentary": "Benefited from lower effective tax rate (15.6% vs. 24.1%) due to absence of prior year's $10.2B State Aid Decision charge."
+        },
+        {
+          "metric": "Diluted EPS",
+          "current_period": "$7.46",
+          "prior_period": "$6.08",
+          "change": "+22.7%",
+          "commentary": "Reflects higher net income and share repurchases reducing diluted share count by 2.6%."
+        },
+        {
+          "metric": "Operating Cash Flow",
+          "current_period": "$111.5B",
+          "prior_period": "$118.3B",
+          "change": "-5.7%",
+          "commentary": "Decrease driven by higher income tax payments ($43.4B vs. $26.1B) and working capital changes."
+        },
+        {
+          "metric": "Free Cash Flow",
+          "current_period": "$98.8B",
+          "prior_period": "$108.8B",
+          "change": "-9.2%",
+          "commentary": "CapEx increased 34.6% to $12.7B, reflecting investments in manufacturing and data centers."
+        }
+      ],
+      "profitability": [
+        "Total gross margin expanded 70 bps to 46.9%, with Services gross margin reaching 75.4% (up 150 bps) and Products gross margin declining 40 bps to 36.8% due to tariff costs and product mix.",
+        "Net margin improved to 26.9% from 24.0%, driven by operating leverage and a lower effective tax rate."
+      ],
+      "cash_flow": [
+        "Operating cash flow decreased 5.7% to $111.5B, primarily due to a $17.3B increase in cash taxes paid, partially offset by higher net income.",
+        "Free cash flow of $98.8B supported $104.7B in shareholder returns, with the gap funded by net debt issuance and cash reserves."
+      ],
+      "balance_sheet": [
+        "Cash and marketable securities totaled $132.4B, down from $156.7B, reflecting significant share repurchases.",
+        "Total debt (term debt + commercial paper) was $98.7B, with $20.3B current; net cash position of $33.7B.",
+        "Total assets of $359.2B; shareholders' equity of $73.7B, up from $57.0B, driven by net income partially offset by buybacks."
+      ],
+      "source_section_ref": "Item 8. Financial Statements and Supplementary Data"
+    },
+    "risk_factors": [
+      {
+        "summary": "Tariffs and trade restrictions could materially impact supply chain, costs, and demand.",
+        "supporting_evidence": "Beginning in the second quarter of 2025, new U.S. Tariffs were announced, including additional tariffs on imports from China, India, Japan, South Korea, Taiwan, Vietnam and the EU... The ultimate impact remains uncertain and will depend on several factors..."
+      },
+      {
+        "summary": "Intense competition and rapid technological change may erode market share and margins.",
+        "supporting_evidence": "The Company has a minority market share in the global smartphone, personal computer, tablet and wearables markets... Certain competitors have the resources, experience or cost structures to provide products and services at little or no profit or even at a loss."
+      },
+      {
+        "summary": "Regulatory and legal challenges, including antitrust actions, could force business model changes and impose significant fines.",
+        "supporting_evidence": "The Company is subject to civil antitrust lawsuits in the U.S. alleging monopolization... On April 23, 2025, the Commission fined the Company \u20ac500 million in the Article 5(4) Investigation..."
+      },
+      {
+        "summary": "Dependence on single-source suppliers and outsourcing partners in Asia exposes the company to supply disruptions.",
+        "supporting_evidence": "A significant majority of the Company\u2019s manufacturing is performed in whole or in part by outsourcing partners located primarily in China mainland, India, Japan, South Korea, Taiwan and Vietnam..."
+      },
+      {
+        "summary": "Unfavorable resolution of tax examinations could materially impact financial results.",
+        "supporting_evidence": "As of September 27, 2025, the total amount of gross unrecognized tax benefits was $23.2 billion... The Company believes it is reasonably possible that its gross unrecognized tax benefits could decrease as much as $6 billion in the next 12 months."
+      }
+    ],
+    "management_discussion": "Themes: - Services growth is a key driver, with advertising, App Store, and cloud services leading the 13.5% increase.\n- iPhone revenue growth was driven by Pro models, while Mac benefited from new product launches across laptops and desktops.\n- Tariff costs and product mix pressured Products gross margin, partially offset by favorable costs.\n- R&D spending increased 10.1% to $34.6B, reflecting investments in headcount and infrastructure.\n- The effective tax rate dropped to 15.6% from 24.1%, primarily due to the absence of the prior year's $10.2B State Aid Decision charge.\nQuotes: - Speaker: Management\nQuote: Products gross margin increased during 2025 compared to 2024 primarily due to favorable costs and a different mix of products, partially offset by tariff costs.\nContext: Discussion of Products gross margin drivers in MD&A.\n- Speaker: Management\nQuote: The Company believes its balances of cash, cash equivalents and marketable securities... along with cash generated by ongoing operations and continued access to debt markets, will be sufficient to satisfy its cash requirements and capital return program over the next 12 months and beyond.\nContext: Liquidity and Capital Resources section.\nCapital Allocation: - Repurchased $89.3B of common stock (402 million shares) and paid $15.4B in dividends and dividend equivalents.\n- Announced a new $100B share repurchase program in May 2025 and raised the quarterly dividend to $0.26 per share.\n- Capital expenditures increased to $12.7B, up 34.6% YoY, focused on manufacturing and data center investments.\n- Issued $4.5B in new term debt and maintained $8.0B in commercial paper outstanding.\nSource Section Ref: Item 7. Management\u2019s Discussion and Analysis",
+    "key_changes": "Guidance: Not disclosed\u2014Apple does not provide quantitative financial guidance in its 10-K filing.\nTone: cautious\nDrivers: - Management notes that gross margins will be subject to volatility and downward pressure due to factors including competition, tariffs, and product mix.\n- Services growth expected to continue, but regulatory changes (e.g., DMA, Epic Games injunction) could impact App Store revenue.\nWatch Items: - Impact of U.S. tariffs and potential retaliatory measures on supply chain and product costs.\n- Outcome of antitrust litigation and DMA investigations, which could force business model changes.\n- Resolution of uncertain tax positions, with up to $6B potential decrease in unrecognized tax benefits.\nSource Section Ref: Item 7. MD&A \u2013 Gross Margin; Item 1A. Risk Factors",
+    "raw_summary": {
+      "structured": {
+        "metadata": {
+          "company_name": "Apple Inc.",
+          "filing_type": "10-K",
+          "reporting_period": "2025-09-27",
+          "filing_date": "2025-10-31",
+          "currency": "USD",
+          "has_prior_period": true
+        },
+        "sections": {
+          "executive_snapshot": {
+            "headline": "Apple reports FY2025 revenue of $416.2B (+6.4% YoY) and net income of $112.0B (+19.5% YoY), driven by Services growth and iPhone strength, while navigating tariff uncertainties and regulatory challenges.",
+            "key_points": [
+              "Total net sales increased 6.4% to $416.2B, with Services revenue up 13.5% to $109.2B, now 26.2% of total sales.",
+              "Net income rose 19.5% to $112.0B, aided by a lower effective tax rate of 15.6% vs. 24.1% in FY2024, which included a one-time $10.2B charge related to the EU State Aid Decision.",
+              "iPhone revenue grew 4.2% to $209.6B, driven by higher sales of Pro models; Mac revenue surged 12.4% to $33.7B.",
+              "Gross margin expanded 70 bps to 46.9%, with Services gross margin reaching 75.4%.",
+              "The company returned $104.7B to shareholders through $89.3B in share repurchases and $15.4B in dividends, while increasing the quarterly dividend to $0.26 per share."
+            ],
+            "tone": "positive",
+            "source_section_ref": "Item 7. Management\u2019s Discussion and Analysis"
+          },
+          "financial_highlights": {
+            "table": [
+              {
+                "metric": "Total Net Sales",
+                "current_period": "$416.2B",
+                "prior_period": "$391.0B",
+                "change": "+6.4%",
+                "commentary": "Growth driven by Services (+13.5%) and iPhone (+4.2%), partially offset by Wearables, Home and Accessories (-3.6%)."
+              },
+              {
+                "metric": "Gross Margin",
+                "current_period": "$195.2B (46.9%)",
+                "prior_period": "$180.7B (46.2%)",
+                "change": "+70 bps",
+                "commentary": "Products gross margin decreased 40 bps to 36.8% due to mix and tariff costs; Services gross margin increased 150 bps to 75.4%."
+              },
+              {
+                "metric": "Operating Income",
+                "current_period": "$133.1B (32.0% margin)",
+                "prior_period": "$123.2B (31.5% margin)",
+                "change": "+8.0%",
+                "commentary": "Operating expenses grew 8.1% to $62.2B, with R&D up 10.1% to $34.6B."
+              },
+              {
+                "metric": "Net Income",
+                "current_period": "$112.0B",
+                "prior_period": "$93.7B",
+                "change": "+19.5%",
+                "commentary": "Benefited from lower effective tax rate (15.6% vs. 24.1%) due to absence of prior year's $10.2B State Aid Decision charge."
+              },
+              {
+                "metric": "Diluted EPS",
+                "current_period": "$7.46",
+                "prior_period": "$6.08",
+                "change": "+22.7%",
+                "commentary": "Reflects higher net income and share repurchases reducing diluted share count by 2.6%."
+              },
+              {
+                "metric": "Operating Cash Flow",
+                "current_period": "$111.5B",
+                "prior_period": "$118.3B",
+                "change": "-5.7%",
+                "commentary": "Decrease driven by higher income tax payments ($43.4B vs. $26.1B) and working capital changes."
+              },
+              {
+                "metric": "Free Cash Flow",
+                "current_period": "$98.8B",
+                "prior_period": "$108.8B",
+                "change": "-9.2%",
+                "commentary": "CapEx increased 34.6% to $12.7B, reflecting investments in manufacturing and data centers."
+              }
+            ],
+            "profitability": [
+              "Total gross margin expanded 70 bps to 46.9%, with Services gross margin reaching 75.4% (up 150 bps) and Products gross margin declining 40 bps to 36.8% due to tariff costs and product mix.",
+              "Net margin improved to 26.9% from 24.0%, driven by operating leverage and a lower effective tax rate."
+            ],
+            "cash_flow": [
+              "Operating cash flow decreased 5.7% to $111.5B, primarily due to a $17.3B increase in cash taxes paid, partially offset by higher net income.",
+              "Free cash flow of $98.8B supported $104.7B in shareholder returns, with the gap funded by net debt issuance and cash reserves."
+            ],
+            "balance_sheet": [
+              "Cash and marketable securities totaled $132.4B, down from $156.7B, reflecting significant share repurchases.",
+              "Total debt (term debt + commercial paper) was $98.7B, with $20.3B current; net cash position of $33.7B.",
+              "Total assets of $359.2B; shareholders' equity of $73.7B, up from $57.0B, driven by net income partially offset by buybacks."
+            ],
+            "source_section_ref": "Item 8. Financial Statements and Supplementary Data"
+          },
+          "risk_factors": [
+            {
+              "summary": "Tariffs and trade restrictions could materially impact supply chain, costs, and demand.",
+              "supporting_evidence": "Beginning in the second quarter of 2025, new U.S. Tariffs were announced, including additional tariffs on imports from China, India, Japan, South Korea, Taiwan, Vietnam and the EU... The ultimate impact remains uncertain and will depend on several factors..."
+            },
+            {
+              "summary": "Intense competition and rapid technological change may erode market share and margins.",
+              "supporting_evidence": "The Company has a minority market share in the global smartphone, personal computer, tablet and wearables markets... Certain competitors have the resources, experience or cost structures to provide products and services at little or no profit or even at a loss."
+            },
+            {
+              "summary": "Regulatory and legal challenges, including antitrust actions, could force business model changes and impose significant fines.",
+              "supporting_evidence": "The Company is subject to civil antitrust lawsuits in the U.S. alleging monopolization... On April 23, 2025, the Commission fined the Company \u20ac500 million in the Article 5(4) Investigation..."
+            },
+            {
+              "summary": "Dependence on single-source suppliers and outsourcing partners in Asia exposes the company to supply disruptions.",
+              "supporting_evidence": "A significant majority of the Company\u2019s manufacturing is performed in whole or in part by outsourcing partners located primarily in China mainland, India, Japan, South Korea, Taiwan and Vietnam..."
+            },
+            {
+              "summary": "Unfavorable resolution of tax examinations could materially impact financial results.",
+              "supporting_evidence": "As of September 27, 2025, the total amount of gross unrecognized tax benefits was $23.2 billion... The Company believes it is reasonably possible that its gross unrecognized tax benefits could decrease as much as $6 billion in the next 12 months."
+            }
+          ],
+          "management_discussion_insights": {
+            "themes": [
+              "Services growth is a key driver, with advertising, App Store, and cloud services leading the 13.5% increase.",
+              "iPhone revenue growth was driven by Pro models, while Mac benefited from new product launches across laptops and desktops.",
+              "Tariff costs and product mix pressured Products gross margin, partially offset by favorable costs.",
+              "R&D spending increased 10.1% to $34.6B, reflecting investments in headcount and infrastructure.",
+              "The effective tax rate dropped to 15.6% from 24.1%, primarily due to the absence of the prior year's $10.2B State Aid Decision charge."
+            ],
+            "quotes": [
+              {
+                "speaker": "Management",
+                "quote": "Products gross margin increased during 2025 compared to 2024 primarily due to favorable costs and a different mix of products, partially offset by tariff costs.",
+                "context": "Discussion of Products gross margin drivers in MD&A."
+              },
+              {
+                "speaker": "Management",
+                "quote": "The Company believes its balances of cash, cash equivalents and marketable securities... along with cash generated by ongoing operations and continued access to debt markets, will be sufficient to satisfy its cash requirements and capital return program over the next 12 months and beyond.",
+                "context": "Liquidity and Capital Resources section."
+              }
+            ],
+            "capital_allocation": [
+              "Repurchased $89.3B of common stock (402 million shares) and paid $15.4B in dividends and dividend equivalents.",
+              "Announced a new $100B share repurchase program in May 2025 and raised the quarterly dividend to $0.26 per share.",
+              "Capital expenditures increased to $12.7B, up 34.6% YoY, focused on manufacturing and data center investments.",
+              "Issued $4.5B in new term debt and maintained $8.0B in commercial paper outstanding."
+            ],
+            "source_section_ref": "Item 7. Management\u2019s Discussion and Analysis"
+          },
+          "segment_performance": [
+            {
+              "segment": "Americas",
+              "revenue": "$178.4B",
+              "change": "+6.8%",
+              "commentary": "Growth driven by iPhone and Services; unfavorable currency impact noted.",
+              "source_section_ref": "Item 7. MD&A \u2013 Segment Operating Performance"
+            },
+            {
+              "segment": "Europe",
+              "revenue": "$111.0B",
+              "change": "+9.6%",
+              "commentary": "Higher sales of Services, iPhone, and Mac.",
+              "source_section_ref": "Item 7. MD&A \u2013 Segment Operating Performance"
+            },
+            {
+              "segment": "Greater China",
+              "revenue": "$64.4B",
+              "change": "-3.8%",
+              "commentary": "Decline due to lower iPhone sales, partially offset by Mac growth.",
+              "source_section_ref": "Item 7. MD&A \u2013 Segment Operating Performance"
+            },
+            {
+              "segment": "Japan",
+              "revenue": "$28.7B",
+              "change": "+14.6%",
+              "commentary": "Growth from iPhone, Services, and iPad.",
+              "source_section_ref": "Item 7. MD&A \u2013 Segment Operating Performance"
+            },
+            {
+              "segment": "Rest of Asia Pacific",
+              "revenue": "$33.7B",
+              "change": "+9.9%",
+              "commentary": "Higher sales of iPhone, Services, and Mac.",
+              "source_section_ref": "Item 7. MD&A \u2013 Segment Operating Performance"
+            }
+          ],
+          "liquidity_capital_structure": {
+            "leverage": "Total debt of $98.7B (term debt $90.7B + commercial paper $8.0B) against $132.4B in cash and marketable securities; net cash position of $33.7B. Debt-to-equity ratio is 1.34, but net debt is negative.",
+            "liquidity": "Cash and marketable securities of $132.4B, plus $111.5B in operating cash flow. Management states this is sufficient for cash requirements and capital return program for the next 12 months and beyond.",
+            "shareholder_returns": [
+              "Share repurchases: $89.3B (402 million shares) in FY2025; new $100B program authorized in May 2025.",
+              "Dividends: $15.4B paid; quarterly dividend raised to $0.26 per share, with annual increases intended."
+            ],
+            "source_section_ref": "Item 7. MD&A \u2013 Liquidity and Capital Resources; Note 9 \u2013 Debt"
+          },
+          "covenants_contingencies": {
+            "debt_covenants": [
+              "Not disclosed\u2014the company's debt agreements are standard senior unsecured notes with no material covenant restrictions detailed in the filing."
+            ],
+            "contingent_liabilities": [
+              "EU Digital Markets Act investigations: \u20ac500 million fine imposed in April 2025 under Article 5(4); preliminary findings in Article 6(4) investigation could lead to fines up to 10% of annual worldwide net sales.",
+              "DOJ antitrust lawsuit filed March 2024 alleging monopolization of smartphone markets; various civil suits seeking damages.",
+              "Epic Games litigation: California District Court found Apple in violation of 2021 injunction, enjoining commissions on out-of-app purchases; appeal pending.",
+              "Unrecognized tax benefits of $23.2B; reasonably possible decrease of up to $6B in next 12 months."
+            ],
+            "source_section_ref": "Item 3. Legal Proceedings; Note 7 \u2013 Income Taxes; Note 12 \u2013 Commitments, Contingencies and Supply Concentrations"
+          },
+          "guidance_outlook": {
+            "guidance": "Not disclosed\u2014Apple does not provide quantitative financial guidance in its 10-K filing.",
+            "tone": "cautious",
+            "drivers": [
+              "Management notes that gross margins will be subject to volatility and downward pressure due to factors including competition, tariffs, and product mix.",
+              "Services growth expected to continue, but regulatory changes (e.g., DMA, Epic Games injunction) could impact App Store revenue."
+            ],
+            "watch_items": [
+              "Impact of U.S. tariffs and potential retaliatory measures on supply chain and product costs.",
+              "Outcome of antitrust litigation and DMA investigations, which could force business model changes.",
+              "Resolution of uncertain tax positions, with up to $6B potential decrease in unrecognized tax benefits."
+            ],
+            "source_section_ref": "Item 7. MD&A \u2013 Gross Margin; Item 1A. Risk Factors"
+          },
+          "notable_footnotes": [
+            {
+              "item": "State Aid Decision resolution",
+              "impact": "In FY2024, a one-time $10.2B net charge was recorded; in FY2025, the effective tax rate normalized to 15.6%, boosting net income comparability.",
+              "source_section_ref": "Note 7 \u2013 Income Taxes"
+            },
+            {
+              "item": "Segment reporting change (ASU 2023-07)",
+              "impact": "Adopted in FY2025, requiring disclosure of segment expenses and CODM information; no impact on financial results but enhanced segment transparency.",
+              "source_section_ref": "Note 1 \u2013 Summary of Significant Accounting Policies; Note 13 \u2013 Segment Information"
+            },
+            {
+              "item": "Concentration of trade receivables",
+              "impact": "One customer represented 12% of trade receivables; third-party cellular carriers accounted for 34%, indicating moderate credit concentration risk.",
+              "source_section_ref": "Note 4 \u2013 Financial Instruments"
+            },
+            {
+              "item": "Vendor non-trade receivables concentration",
+              "impact": "Two vendors accounted for 46% and 23% of vendor non-trade receivables, highlighting dependency on key manufacturing partners.",
+              "source_section_ref": "Note 4 \u2013 Financial Instruments"
+            }
+          ],
+          "three_year_trend": {
+            "trend_summary": "Revenue grew at a 3-year CAGR of 4.2%, with Services increasing from 22.2% to 26.2% of total sales. Net income CAGR was 7.5%, with FY2024 depressed by the State Aid Decision charge. Gross margin expanded from 44.1% to 46.9% over the period.",
+            "inflections": [
+              "FY2024 net income declined 3.4% due to $10.2B tax charge; FY2025 rebounded 19.5% as tax rate normalized.",
+              "Services revenue surpassed $100B for the first time in FY2025, with gross margin exceeding 75%.",
+              "iPhone revenue growth stalled in FY2024 (flat YoY) but resumed growth in FY2025 (+4.2%).",
+              "Wearables, Home and Accessories declined for two consecutive years (-7.1% in FY2024, -3.6% in FY2025)."
+            ],
+            "compare_prior_period": {
+              "available": true,
+              "insights": [
+                "FY2024 revenue growth was only 2.0%, compared to 6.4% in FY2025, indicating acceleration.",
+                "FY2024 effective tax rate was 24.1% vs. 15.6% in FY2025, making net income growth appear unusually high in FY2025.",
+                "Operating cash flow declined in FY2025 after growing 7.0% in FY2024, due to higher tax payments."
+              ]
+            },
+            "source_section_ref": "Item 7. MD&A; Item 8. Financial Statements"
+          }
+        }
+      },
+      "sections": {
+        "executive_snapshot": {
+          "headline": "Apple reports FY2025 revenue of $416.2B (+6.4% YoY) and net income of $112.0B (+19.5% YoY), driven by Services growth and iPhone strength, while navigating tariff uncertainties and regulatory challenges.",
+          "key_points": [
+            "Total net sales increased 6.4% to $416.2B, with Services revenue up 13.5% to $109.2B, now 26.2% of total sales.",
+            "Net income rose 19.5% to $112.0B, aided by a lower effective tax rate of 15.6% vs. 24.1% in FY2024, which included a one-time $10.2B charge related to the EU State Aid Decision.",
+            "iPhone revenue grew 4.2% to $209.6B, driven by higher sales of Pro models; Mac revenue surged 12.4% to $33.7B.",
+            "Gross margin expanded 70 bps to 46.9%, with Services gross margin reaching 75.4%.",
+            "The company returned $104.7B to shareholders through $89.3B in share repurchases and $15.4B in dividends, while increasing the quarterly dividend to $0.26 per share."
+          ],
+          "tone": "positive",
+          "source_section_ref": "Item 7. Management\u2019s Discussion and Analysis"
+        },
+        "financial_highlights": {
+          "table": [
+            {
+              "metric": "Total Net Sales",
+              "current_period": "$416.2B",
+              "prior_period": "$391.0B",
+              "change": "+6.4%",
+              "commentary": "Growth driven by Services (+13.5%) and iPhone (+4.2%), partially offset by Wearables, Home and Accessories (-3.6%)."
+            },
+            {
+              "metric": "Gross Margin",
+              "current_period": "$195.2B (46.9%)",
+              "prior_period": "$180.7B (46.2%)",
+              "change": "+70 bps",
+              "commentary": "Products gross margin decreased 40 bps to 36.8% due to mix and tariff costs; Services gross margin increased 150 bps to 75.4%."
+            },
+            {
+              "metric": "Operating Income",
+              "current_period": "$133.1B (32.0% margin)",
+              "prior_period": "$123.2B (31.5% margin)",
+              "change": "+8.0%",
+              "commentary": "Operating expenses grew 8.1% to $62.2B, with R&D up 10.1% to $34.6B."
+            },
+            {
+              "metric": "Net Income",
+              "current_period": "$112.0B",
+              "prior_period": "$93.7B",
+              "change": "+19.5%",
+              "commentary": "Benefited from lower effective tax rate (15.6% vs. 24.1%) due to absence of prior year's $10.2B State Aid Decision charge."
+            },
+            {
+              "metric": "Diluted EPS",
+              "current_period": "$7.46",
+              "prior_period": "$6.08",
+              "change": "+22.7%",
+              "commentary": "Reflects higher net income and share repurchases reducing diluted share count by 2.6%."
+            },
+            {
+              "metric": "Operating Cash Flow",
+              "current_period": "$111.5B",
+              "prior_period": "$118.3B",
+              "change": "-5.7%",
+              "commentary": "Decrease driven by higher income tax payments ($43.4B vs. $26.1B) and working capital changes."
+            },
+            {
+              "metric": "Free Cash Flow",
+              "current_period": "$98.8B",
+              "prior_period": "$108.8B",
+              "change": "-9.2%",
+              "commentary": "CapEx increased 34.6% to $12.7B, reflecting investments in manufacturing and data centers."
+            }
+          ],
+          "profitability": [
+            "Total gross margin expanded 70 bps to 46.9%, with Services gross margin reaching 75.4% (up 150 bps) and Products gross margin declining 40 bps to 36.8% due to tariff costs and product mix.",
+            "Net margin improved to 26.9% from 24.0%, driven by operating leverage and a lower effective tax rate."
+          ],
+          "cash_flow": [
+            "Operating cash flow decreased 5.7% to $111.5B, primarily due to a $17.3B increase in cash taxes paid, partially offset by higher net income.",
+            "Free cash flow of $98.8B supported $104.7B in shareholder returns, with the gap funded by net debt issuance and cash reserves."
+          ],
+          "balance_sheet": [
+            "Cash and marketable securities totaled $132.4B, down from $156.7B, reflecting significant share repurchases.",
+            "Total debt (term debt + commercial paper) was $98.7B, with $20.3B current; net cash position of $33.7B.",
+            "Total assets of $359.2B; shareholders' equity of $73.7B, up from $57.0B, driven by net income partially offset by buybacks."
+          ],
+          "source_section_ref": "Item 8. Financial Statements and Supplementary Data"
+        },
+        "risk_factors": [
+          {
+            "summary": "Tariffs and trade restrictions could materially impact supply chain, costs, and demand.",
+            "supporting_evidence": "Beginning in the second quarter of 2025, new U.S. Tariffs were announced, including additional tariffs on imports from China, India, Japan, South Korea, Taiwan, Vietnam and the EU... The ultimate impact remains uncertain and will depend on several factors..."
+          },
+          {
+            "summary": "Intense competition and rapid technological change may erode market share and margins.",
+            "supporting_evidence": "The Company has a minority market share in the global smartphone, personal computer, tablet and wearables markets... Certain competitors have the resources, experience or cost structures to provide products and services at little or no profit or even at a loss."
+          },
+          {
+            "summary": "Regulatory and legal challenges, including antitrust actions, could force business model changes and impose significant fines.",
+            "supporting_evidence": "The Company is subject to civil antitrust lawsuits in the U.S. alleging monopolization... On April 23, 2025, the Commission fined the Company \u20ac500 million in the Article 5(4) Investigation..."
+          },
+          {
+            "summary": "Dependence on single-source suppliers and outsourcing partners in Asia exposes the company to supply disruptions.",
+            "supporting_evidence": "A significant majority of the Company\u2019s manufacturing is performed in whole or in part by outsourcing partners located primarily in China mainland, India, Japan, South Korea, Taiwan and Vietnam..."
+          },
+          {
+            "summary": "Unfavorable resolution of tax examinations could materially impact financial results.",
+            "supporting_evidence": "As of September 27, 2025, the total amount of gross unrecognized tax benefits was $23.2 billion... The Company believes it is reasonably possible that its gross unrecognized tax benefits could decrease as much as $6 billion in the next 12 months."
+          }
+        ],
+        "management_discussion_insights": {
+          "themes": [
+            "Services growth is a key driver, with advertising, App Store, and cloud services leading the 13.5% increase.",
+            "iPhone revenue growth was driven by Pro models, while Mac benefited from new product launches across laptops and desktops.",
+            "Tariff costs and product mix pressured Products gross margin, partially offset by favorable costs.",
+            "R&D spending increased 10.1% to $34.6B, reflecting investments in headcount and infrastructure.",
+            "The effective tax rate dropped to 15.6% from 24.1%, primarily due to the absence of the prior year's $10.2B State Aid Decision charge."
+          ],
+          "quotes": [
+            {
+              "speaker": "Management",
+              "quote": "Products gross margin increased during 2025 compared to 2024 primarily due to favorable costs and a different mix of products, partially offset by tariff costs.",
+              "context": "Discussion of Products gross margin drivers in MD&A."
+            },
+            {
+              "speaker": "Management",
+              "quote": "The Company believes its balances of cash, cash equivalents and marketable securities... along with cash generated by ongoing operations and continued access to debt markets, will be sufficient to satisfy its cash requirements and capital return program over the next 12 months and beyond.",
+              "context": "Liquidity and Capital Resources section."
+            }
+          ],
+          "capital_allocation": [
+            "Repurchased $89.3B of common stock (402 million shares) and paid $15.4B in dividends and dividend equivalents.",
+            "Announced a new $100B share repurchase program in May 2025 and raised the quarterly dividend to $0.26 per share.",
+            "Capital expenditures increased to $12.7B, up 34.6% YoY, focused on manufacturing and data center investments.",
+            "Issued $4.5B in new term debt and maintained $8.0B in commercial paper outstanding."
+          ],
+          "source_section_ref": "Item 7. Management\u2019s Discussion and Analysis"
+        },
+        "segment_performance": [
+          {
+            "segment": "Americas",
+            "revenue": "$178.4B",
+            "change": "+6.8%",
+            "commentary": "Growth driven by iPhone and Services; unfavorable currency impact noted.",
+            "source_section_ref": "Item 7. MD&A \u2013 Segment Operating Performance"
+          },
+          {
+            "segment": "Europe",
+            "revenue": "$111.0B",
+            "change": "+9.6%",
+            "commentary": "Higher sales of Services, iPhone, and Mac.",
+            "source_section_ref": "Item 7. MD&A \u2013 Segment Operating Performance"
+          },
+          {
+            "segment": "Greater China",
+            "revenue": "$64.4B",
+            "change": "-3.8%",
+            "commentary": "Decline due to lower iPhone sales, partially offset by Mac growth.",
+            "source_section_ref": "Item 7. MD&A \u2013 Segment Operating Performance"
+          },
+          {
+            "segment": "Japan",
+            "revenue": "$28.7B",
+            "change": "+14.6%",
+            "commentary": "Growth from iPhone, Services, and iPad.",
+            "source_section_ref": "Item 7. MD&A \u2013 Segment Operating Performance"
+          },
+          {
+            "segment": "Rest of Asia Pacific",
+            "revenue": "$33.7B",
+            "change": "+9.9%",
+            "commentary": "Higher sales of iPhone, Services, and Mac.",
+            "source_section_ref": "Item 7. MD&A \u2013 Segment Operating Performance"
+          }
+        ],
+        "liquidity_capital_structure": {
+          "leverage": "Total debt of $98.7B (term debt $90.7B + commercial paper $8.0B) against $132.4B in cash and marketable securities; net cash position of $33.7B. Debt-to-equity ratio is 1.34, but net debt is negative.",
+          "liquidity": "Cash and marketable securities of $132.4B, plus $111.5B in operating cash flow. Management states this is sufficient for cash requirements and capital return program for the next 12 months and beyond.",
+          "shareholder_returns": [
+            "Share repurchases: $89.3B (402 million shares) in FY2025; new $100B program authorized in May 2025.",
+            "Dividends: $15.4B paid; quarterly dividend raised to $0.26 per share, with annual increases intended."
+          ],
+          "source_section_ref": "Item 7. MD&A \u2013 Liquidity and Capital Resources; Note 9 \u2013 Debt"
+        },
+        "covenants_contingencies": {
+          "debt_covenants": [
+            "Not disclosed\u2014the company's debt agreements are standard senior unsecured notes with no material covenant restrictions detailed in the filing."
+          ],
+          "contingent_liabilities": [
+            "EU Digital Markets Act investigations: \u20ac500 million fine imposed in April 2025 under Article 5(4); preliminary findings in Article 6(4) investigation could lead to fines up to 10% of annual worldwide net sales.",
+            "DOJ antitrust lawsuit filed March 2024 alleging monopolization of smartphone markets; various civil suits seeking damages.",
+            "Epic Games litigation: California District Court found Apple in violation of 2021 injunction, enjoining commissions on out-of-app purchases; appeal pending.",
+            "Unrecognized tax benefits of $23.2B; reasonably possible decrease of up to $6B in next 12 months."
+          ],
+          "source_section_ref": "Item 3. Legal Proceedings; Note 7 \u2013 Income Taxes; Note 12 \u2013 Commitments, Contingencies and Supply Concentrations"
+        },
+        "guidance_outlook": {
+          "guidance": "Not disclosed\u2014Apple does not provide quantitative financial guidance in its 10-K filing.",
+          "tone": "cautious",
+          "drivers": [
+            "Management notes that gross margins will be subject to volatility and downward pressure due to factors including competition, tariffs, and product mix.",
+            "Services growth expected to continue, but regulatory changes (e.g., DMA, Epic Games injunction) could impact App Store revenue."
+          ],
+          "watch_items": [
+            "Impact of U.S. tariffs and potential retaliatory measures on supply chain and product costs.",
+            "Outcome of antitrust litigation and DMA investigations, which could force business model changes.",
+            "Resolution of uncertain tax positions, with up to $6B potential decrease in unrecognized tax benefits."
+          ],
+          "source_section_ref": "Item 7. MD&A \u2013 Gross Margin; Item 1A. Risk Factors"
+        },
+        "notable_footnotes": [
+          {
+            "item": "State Aid Decision resolution",
+            "impact": "In FY2024, a one-time $10.2B net charge was recorded; in FY2025, the effective tax rate normalized to 15.6%, boosting net income comparability.",
+            "source_section_ref": "Note 7 \u2013 Income Taxes"
+          },
+          {
+            "item": "Segment reporting change (ASU 2023-07)",
+            "impact": "Adopted in FY2025, requiring disclosure of segment expenses and CODM information; no impact on financial results but enhanced segment transparency.",
+            "source_section_ref": "Note 1 \u2013 Summary of Significant Accounting Policies; Note 13 \u2013 Segment Information"
+          },
+          {
+            "item": "Concentration of trade receivables",
+            "impact": "One customer represented 12% of trade receivables; third-party cellular carriers accounted for 34%, indicating moderate credit concentration risk.",
+            "source_section_ref": "Note 4 \u2013 Financial Instruments"
+          },
+          {
+            "item": "Vendor non-trade receivables concentration",
+            "impact": "Two vendors accounted for 46% and 23% of vendor non-trade receivables, highlighting dependency on key manufacturing partners.",
+            "source_section_ref": "Note 4 \u2013 Financial Instruments"
+          }
+        ],
+        "three_year_trend": {
+          "trend_summary": "Revenue grew at a 3-year CAGR of 4.2%, with Services increasing from 22.2% to 26.2% of total sales. Net income CAGR was 7.5%, with FY2024 depressed by the State Aid Decision charge. Gross margin expanded from 44.1% to 46.9% over the period.",
+          "inflections": [
+            "FY2024 net income declined 3.4% due to $10.2B tax charge; FY2025 rebounded 19.5% as tax rate normalized.",
+            "Services revenue surpassed $100B for the first time in FY2025, with gross margin exceeding 75%.",
+            "iPhone revenue growth stalled in FY2024 (flat YoY) but resumed growth in FY2025 (+4.2%).",
+            "Wearables, Home and Accessories declined for two consecutive years (-7.1% in FY2024, -3.6% in FY2025)."
+          ],
+          "compare_prior_period": {
+            "available": true,
+            "insights": [
+              "FY2024 revenue growth was only 2.0%, compared to 6.4% in FY2025, indicating acceleration.",
+              "FY2024 effective tax rate was 24.1% vs. 15.6% in FY2025, making net income growth appear unusually high in FY2025.",
+              "Operating cash flow declined in FY2025 after growing 7.0% in FY2024, due to higher tax payments."
+            ]
+          },
+          "source_section_ref": "Item 7. MD&A; Item 8. Financial Statements"
+        }
+      },
+      "section_coverage": {
+        "per_section": {
+          "covenants_contingencies": true,
+          "executive_snapshot": true,
+          "financial_highlights": true,
+          "guidance_outlook": true,
+          "liquidity_capital_structure": true,
+          "management_discussion_insights": true,
+          "notable_footnotes": true,
+          "risk_factors": true,
+          "segment_performance": true,
+          "three_year_trend": true
+        },
+        "covered": [
+          "covenants_contingencies",
+          "executive_snapshot",
+          "financial_highlights",
+          "guidance_outlook",
+          "liquidity_capital_structure",
+          "management_discussion_insights",
+          "notable_footnotes",
+          "risk_factors",
+          "segment_performance",
+          "three_year_trend"
+        ],
+        "missing": [],
+        "covered_count": 10,
+        "total_count": 10,
+        "coverage_ratio": 1.0
+      },
+      "writer": {
+        "markdown": "*Auto-generated from structured data because the writer output failed validation (Editorial summary length must be 100-320 words (current: 340).).*\n## Executive Summary\nApple reports FY2025 revenue of $416.2B (+6.4% YoY) and net income of $112.0B (+19.5% YoY), driven by Services growth and iPhone strength, while navigating tariff uncertainties and regulatory challenges. Management's disclosed tone was positive. Total net sales increased 6.4% to $416.2B, with Services revenue up 13.5% to $109.2B, now 26.2% of total sales.; Net income rose 19.5% to $112.0B, aided by a lower effective tax rate of 15.6% vs. 24.1% in FY2024, which included a one-time $10.2B charge related to the EU State Aid Decision.; iPhone revenue grew 4.2% to $209.6B, driven by higher sales of Pro models; Mac revenue surged 12.4% to $33.7B.; Gross margin expanded 70 bps to 46.9%, with Services gross margin reaching 75.4%.; The company returned $104.7B to shareholders through $89.3B in share repurchases and $15.4B in dividends, while increasing the quarterly dividend to $0.26 per share.\n\n## Financials\n- Total Net Sales: $416.2B vs. $391.0B (+6.4%) \u2013 Growth driven by Services (+13.5%) and iPhone (+4.2%), partially offset by Wearables, Home and Accessories (-3.6%).\n- Gross Margin: $195.2B (46.9%) vs. $180.7B (46.2%) (+70 bps) \u2013 Products gross margin decreased 40 bps to 36.8% due to mix and tariff costs; Services gross margin increased 150 bps to 75.4%.\n- Operating Income: $133.1B (32.0% margin) vs. $123.2B (31.5% margin) (+8.0%) \u2013 Operating expenses grew 8.1% to $62.2B, with R&D up 10.1% to $34.6B.\n- Net Income: $112.0B vs. $93.7B (+19.5%) \u2013 Benefited from lower effective tax rate (15.6% vs. 24.1%) due to absence of prior year's $10.2B State Aid Decision charge.\n- Diluted EPS: $7.46 vs. $6.08 (+22.7%) \u2013 Reflects higher net income and share repurchases reducing diluted share count by 2.6%.\n- Operating Cash Flow: $111.5B vs. $118.3B (-5.7%) \u2013 Decrease driven by higher income tax payments ($43.4B vs. $26.1B) and working capital changes.\n- Free Cash Flow: $98.8B vs. $108.8B (-9.2%) \u2013 CapEx increased 34.6% to $12.7B, reflecting investments in manufacturing and data centers.\n- Profitability: Total gross margin expanded 70 bps to 46.9%, with Services gross margin reaching 75.4% (up 150 bps) and Products gross margin declining 40 bps to 36.8% due to tariff costs and product mix.; Net margin improved to 26.9% from 24.0%, driven by operating leverage and a lower effective tax rate.\n- Cash flow: Operating cash flow decreased 5.7% to $111.5B, primarily due to a $17.3B increase in cash taxes paid, partially offset by higher net income.; Free cash flow of $98.8B supported $104.7B in shareholder returns, with the gap funded by net debt issuance and cash reserves.\n- Balance sheet: Cash and marketable securities totaled $132.4B, down from $156.7B, reflecting significant share repurchases.; Total debt (term debt + commercial paper) was $98.7B, with $20.3B current; net cash position of $33.7B.; Total assets of $359.2B; shareholders' equity of $73.7B, up from $57.0B, driven by net income partially offset by buybacks.\n\n## Risks\n- Tariffs and trade restrictions could materially impact supply chain, costs, and demand. (Evidence: Beginning in the second quarter of 2025, new U.S. Tariffs were announced, including additional tariffs on imports from China, India, Japan, South Korea, Taiwan, Vietnam and the EU... The ultimate impact remains uncertain and will depend on several factors...)\n- Intense competition and rapid technological change may erode market share and margins. (Evidence: The Company has a minority market share in the global smartphone, personal computer, tablet and wearables markets... Certain competitors have the resources, experience or cost structures to provide products and services at little or no profit or even at a loss.)\n- Regulatory and legal challenges, including antitrust actions, could force business model changes and impose significant fines. (Evidence: The Company is subject to civil antitrust lawsuits in the U.S. alleging monopolization... On April 23, 2025, the Commission fined the Company \u20ac500 million in the Article 5(4) Investigation...)\n- Dependence on single-source suppliers and outsourcing partners in Asia exposes the company to supply disruptions. (Evidence: A significant majority of the Company\u2019s manufacturing is performed in whole or in part by outsourcing partners located primarily in China mainland, India, Japan, South Korea, Taiwan and Vietnam...)\n- Unfavorable resolution of tax examinations could materially impact financial results. (Evidence: As of September 27, 2025, the total amount of gross unrecognized tax benefits was $23.2 billion... The Company believes it is reasonably possible that its gross unrecognized tax benefits could decrease as much as $6 billion in the next 12 months.)\n\n## Management Commentary\n- Themes: Services growth is a key driver, with advertising, App Store, and cloud services leading the 13.5% increase.; iPhone revenue growth was driven by Pro models, while Mac benefited from new product launches across laptops and desktops.; Tariff costs and product mix pressured Products gross margin, partially offset by favorable costs.; R&D spending increased 10.1% to $34.6B, reflecting investments in headcount and infrastructure.; The effective tax rate dropped to 15.6% from 24.1%, primarily due to the absence of the prior year's $10.2B State Aid Decision charge.\n- Capital allocation: Repurchased $89.3B of common stock (402 million shares) and paid $15.4B in dividends and dividend equivalents.; Announced a new $100B share repurchase program in May 2025 and raised the quarterly dividend to $0.26 per share.; Capital expenditures increased to $12.7B, up 34.6% YoY, focused on manufacturing and data center investments.; Issued $4.5B in new term debt and maintained $8.0B in commercial paper outstanding.\n> \"Products gross margin increased during 2025 compared to 2024 primarily due to favorable costs and a different mix of products, partially offset by tariff costs.\" \u2013 Management\n> \"The Company believes its balances of cash, cash equivalents and marketable securities... along with cash generated by ongoing operations and continued access to debt markets, will be sufficient to satisfy its cash requirements and capital return program over the next 12 months and beyond.\" \u2013 Management\n\n## Outlook\n- Guidance: Not disclosed\u2014Apple does not provide quantitative financial guidance in its 10-K filing.\n- Tone: cautious\n- Drivers: Management notes that gross margins will be subject to volatility and downward pressure due to factors including competition, tariffs, and product mix.; Services growth expected to continue, but regulatory changes (e.g., DMA, Epic Games injunction) could impact App Store revenue.\n- Watch items: Impact of U.S. tariffs and potential retaliatory measures on supply chain and product costs.; Outcome of antitrust litigation and DMA investigations, which could force business model changes.; Resolution of uncertain tax positions, with up to $6B potential decrease in unrecognized tax benefits.",
+        "word_count": 1084,
+        "model_used": "deepseek-v4-pro",
+        "fallback_used": true,
+        "fallback_reason": "Editorial summary length must be 100-320 words (current: 340)."
+      },
+      "writer_fallback_reason": "Editorial summary length must be 100-320 words (current: 340)."
+    },
+    "message": "Some sections may not have loaded fully."
+  }
+}
