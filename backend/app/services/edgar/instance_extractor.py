@@ -218,7 +218,11 @@ def instant_series(
                 continue
             if _iso_date(row.get("period_start")) is not None:
                 continue  # duration fact, not an instant
-            end = _iso_date(row.get("period_end"))
+            # Instant (balance-sheet) facts carry their date in `period_instant`; `period_end` is
+            # None for them. Keying only on period_end silently dropped EVERY balance-sheet fact
+            # (total assets, equity, debt, cash), so balance-sheet XBRL was always empty and ROE/ROA
+            # never derived. Fall back to period_instant.
+            end = _iso_date(row.get("period_end")) or _iso_date(row.get("period_instant"))
             value = _numeric(row.get("numeric_value"))
             if end is None or value is None or end > period_of_report:
                 continue
