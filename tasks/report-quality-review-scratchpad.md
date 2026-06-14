@@ -33,6 +33,25 @@ competitors, deliver an approval-ready improvement plan. **No production code un
 
 ## Findings log (evidence: file:line / output / source)
 
+### PHASE 0 IMPLEMENTED + VALIDATED (approved 2026-06-14) — commit 89aad89
+Changes A1-A6 (config.py, openai_service.py, summary_generation_service.py, evals/scorers.py).
+Before/after live regen of the 4 previously-failing filings (tasks/phase2-outputs-after/), DEFAULT path:
+| Filing | BEFORE | AFTER | note |
+| AAPL 10-K | boilerplate | RICH genuine report (cash flow, balance sheet, 3 cited risks, mgmt quotes) | excerpt 50k |
+| JPM 10-K | ERROR (crash) | partial, accurate #s, honest narrative gaps | bank: 50k excerpt mis-targeted → R4/A7 |
+| NVDA 10-Q | ERROR (crash) | partial, real #s+themes+quote, honest gaps | excerpt 3.8k → R4/A7 |
+| WMT 10-K | ERROR (crash) | (validating) | |
+Result: 0 crashes (was 4/4 on these), 0 fabricated boilerplate. Crash fix (A1) + truncation fix
+(A2) confirmed. Residual = thin extraction on bank/10-Q (R4 → Phase 1 A7) + model still emits
+subjective adjectives "robust"/"exceptional" (→ Phase 1 A9 objective-prompt hardening) + EPS
+basic-vs-diluted (→ A11 reconciliation). 239 unit+smoke tests pass.
+
+Phase 1 next (await go-ahead): A7 extraction, A8 XBRL 4→~12 metrics, A9 objective schema-first
+prompt, A11 XBRL number reconciliation, A12 DeepSeek bake-off. Then Track B: B1 click-to-source,
+B2 top-insights-first, A13 cash-flow-quality readout.
+
+## Findings log (earlier phases below)
+
 ### PHASE 1 — Pipeline diagnosis (ROOT-CAUSE FOUND)
 Production user path: summaries.py:71 → summary_pipeline.stream_filing_summary →
 summary_pipeline.py:394 openai_service.summarize_filing (NOT summarize_filing_stream — that
