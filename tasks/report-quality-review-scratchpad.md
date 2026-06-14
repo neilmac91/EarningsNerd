@@ -33,6 +33,32 @@ competitors, deliver an approval-ready improvement plan. **No production code un
 
 ## Findings log (evidence: file:line / output / source)
 
+### PHASE 1 — P1.0 + P1.1 IMPLEMENTED + VALIDATED (2026-06-14)
+Model decision: DEFAULT = deepseek-v4-pro (non-thinking). Web-verified newest (V4, Apr 2026);
+deepseek-chat legacy alias retires Jul 24 2026. flash hallucinates on thin input (fabricated JPM
+Dimon quote) → pro chosen; still ~4x cheaper than Gemini. Non-thinking = extra_body {"thinking":{"type":"disabled"}}.
+
+P1.1 (financial depth): xbrl extraction 4 metrics → 15. Added cash-flow + balance-sheet + margin
+concepts to instance_extractor DURATION/INSTANT_CONCEPTS (auto-flow via generic loop) + statement
+fallback (added cash_flow_statement) + extract_standardized_metrics derives FCF (ocf-|capex|),
+gross/operating margin + standardizes total_assets/cash/equity/long_term_debt. generate_structured_summary
+xbrl_section now feeds all 15 with prior-period YoY. Issuer-safe: no GrossProfit concept → no bogus
+bank gross margin (JPM verified).
+P1.0 (measurement): score_financial_depth scorer (cash_flow/balance_sheet/margins, term-near-number,
+placeholder-aware) wired into RubricScore.financial_depth + runner report `depth` column. 2 unit tests.
+
+Live validation (DeepSeek v4-pro, tasks/phase2-outputs-p1/):
+- NVDA 10-Q (thin 3.8k excerpt): BEFORE = "cash flow not observed"; AFTER = full income stmt +
+  gross/op/net margins + Operating CF $50.3B + FCF $48.6B, all with YoY. The honest-but-thin → deep win.
+- JPM 10-K (bank): AFTER = Total Assets $4.42T (+10.5% YoY), correct net-income DECLINE -2.4%, NO
+  bogus gross margin. (Narrative still thin → P1.2.)
+- AAPL: even deeper.
+Writer still fails (now for being TOO long, 298-372 words) → confirms 3a (drop writer, P1.4).
+241 unit+smoke tests pass. NEXT: P1.2 (full-filing markdown ingestion), P1.3 (issuer-type), P1.4
+(objective prompt + drop writer), P1.5 (reconcile), P1.6 (bake-off).
+
+## Findings log (earlier phases below)
+
 ### PHASE 0 IMPLEMENTED + VALIDATED (approved 2026-06-14) — commit 89aad89
 Changes A1-A6 (config.py, openai_service.py, summary_generation_service.py, evals/scorers.py).
 Before/after live regen of the 4 previously-failing filings (tasks/phase2-outputs-after/), DEFAULT path:

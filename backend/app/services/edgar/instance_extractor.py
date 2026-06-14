@@ -49,6 +49,19 @@ DURATION_CONCEPTS: Dict[str, List[str]] = {
         "EarningsPerShareDiluted",
         "EarningsPerShareBasicAndDiluted",
     ],
+    # P1.1 depth: income-statement profitability + cash-flow-statement flows. All are
+    # duration facts for the filing's period; absent concepts (e.g. GrossProfit for a bank)
+    # simply yield an empty series — never wrong data.
+    "gross_profit": ["GrossProfit"],
+    "operating_income": ["OperatingIncomeLoss"],
+    "operating_cash_flow": [
+        "NetCashProvidedByUsedInOperatingActivities",
+        "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+    ],
+    "capital_expenditures": [
+        "PaymentsToAcquirePropertyPlantAndEquipment",
+        "PaymentsToAcquireProductiveAssets",
+    ],
 }
 
 # Balance-sheet (instant) concepts. Deliberately excludes
@@ -64,6 +77,14 @@ INSTANT_CONCEPTS: Dict[str, List[str]] = {
         "CashCashEquivalentsAndShortTermInvestments",
         "Cash",
     ],
+    # P1.1 depth: balance-sheet equity + debt (instant facts). LongTermDebt is a
+    # conservative, clearly-labelled debt anchor (not "total debt", which has no single
+    # universal concept); the model still sees the full balance sheet for the rest.
+    "shareholders_equity": [
+        "StockholdersEquity",
+        "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+    ],
+    "long_term_debt": ["LongTermDebtNoncurrent", "LongTermDebt"],
 }
 
 

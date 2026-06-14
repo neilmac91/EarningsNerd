@@ -1823,24 +1823,46 @@ Return JSON containing only the `{section_key}` key."""
 
         xbrl_section = ""
         if xbrl_metrics:
-            revenue_info = (xbrl_metrics.get('revenue') or {}).get('current', {})
-            income_info = (xbrl_metrics.get('net_income') or {}).get('current', {})
-            eps_info = (xbrl_metrics.get('earnings_per_share') or {}).get('current', {})
-            margin_info = (xbrl_metrics.get('net_margin') or {}).get('current', {})
+            def _fmt(value: Optional[float], kind: str) -> str:
+                if value is None:
+                    return "Not disclosed"
+                if kind == "pct":
+                    return f"{value:.1f}%"
+                if kind == "eps":
+                    return f"{value:,.2f}"
+                return f"${value:,.0f}"
 
-            def _format_currency(value: Optional[float]) -> str:
-                return f"${value:,.0f}" if value is not None else "Not disclosed"
-
-            def _format_percent(value: Optional[float]) -> str:
-                return f"{value:.1f}%" if value is not None else "Not disclosed"
-
-            xbrl_section = f"""
-XBRL STANDARDIZED FINANCIAL DATA (SEC-verified):
-- Revenue: {_format_currency(revenue_info.get('value'))} (period: {revenue_info.get('period', 'N/A')})
-- Net Income: {_format_currency(income_info.get('value'))} (period: {income_info.get('period', 'N/A')})
-- EPS: {eps_info.get('value') if eps_info.get('value') is not None else 'Not disclosed'} (period: {eps_info.get('period', 'N/A')})
-- Net Margin: {_format_percent(margin_info.get('value'))} (period: {margin_info.get('period', 'N/A')})
-""".strip()
+            # P1.1: surface the full standardized financial picture (cash flow, balance sheet,
+            # margins) with prior-period values for YoY context. Only metrics actually present are
+            # emitted — no "Not disclosed" noise — so the model grounds on verified figures.
+            _xbrl_spec = [
+                ("Revenue", "revenue", "usd"), ("Gross Profit", "gross_profit", "usd"),
+                ("Operating Income", "operating_income", "usd"), ("Net Income", "net_income", "usd"),
+                ("EPS", "earnings_per_share", "eps"), ("Gross Margin", "gross_margin", "pct"),
+                ("Operating Margin", "operating_margin", "pct"), ("Net Margin", "net_margin", "pct"),
+                ("Operating Cash Flow", "operating_cash_flow", "usd"),
+                ("Capital Expenditures", "capital_expenditures", "usd"),
+                ("Free Cash Flow", "free_cash_flow", "usd"), ("Total Assets", "total_assets", "usd"),
+                ("Cash & Equivalents", "cash_and_equivalents", "usd"),
+                ("Long-term Debt", "long_term_debt", "usd"),
+                ("Shareholders' Equity", "shareholders_equity", "usd"),
+            ]
+            xbrl_rows = []
+            for label, key, kind in _xbrl_spec:
+                entry = xbrl_metrics.get(key) or {}
+                current = entry.get("current") or {}
+                if current.get("value") is None:
+                    continue
+                line = f"- {label}: {_fmt(current.get('value'), kind)} (period: {current.get('period', 'N/A')})"
+                prior = entry.get("prior") or {}
+                if prior.get("value") is not None:
+                    line += f"; prior: {_fmt(prior.get('value'), kind)} ({prior.get('period', 'N/A')})"
+                xbrl_rows.append(line)
+            if xbrl_rows:
+                xbrl_section = (
+                    "XBRL STANDARDIZED FINANCIAL DATA (SEC-verified; quote these figures verbatim):\n"
+                    + "\n".join(xbrl_rows)
+                )
 
         data_summary = f"""
 EXTRACTED FINANCIAL SIGNALS:

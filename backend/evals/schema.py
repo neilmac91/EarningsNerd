@@ -102,6 +102,10 @@ class RubricScore:
     # present"; precision asks "are the present numbers right" — a hallucinated figure alongside
     # the correct one passes recall but fails precision. Closes the recall-only gap.
     numeric_precision: float = 1.0
+    # [0,1] fraction of {cash_flow, balance_sheet, margins} surfaced with real figures
+    # (report-quality P1). Reported alongside the aggregate (not folded into it, to keep the
+    # adoption math stable) — it tracks whether the depth work is landing, run over run.
+    financial_depth: float = 1.0
     # Artifact-1 HARD GATES. A non-empty list is a promotion VETO independent of `aggregate()`:
     # a single fabricated number or leaked notice fails the summary no matter how good the prose.
     gate_failures: List[str] = field(default_factory=list)
