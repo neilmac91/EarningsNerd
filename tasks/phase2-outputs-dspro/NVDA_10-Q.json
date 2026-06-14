@@ -1,0 +1,604 @@
+{
+  "ticker": "NVDA",
+  "filing_type": "10-Q",
+  "company": "NVIDIA Corp.",
+  "accession": "0001045810-26-000052",
+  "document_url": "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000052/nvda-20260426.htm",
+  "ground_truth": [
+    {
+      "metric": "revenue",
+      "value": 81615000000.0,
+      "unit": "USD"
+    },
+    {
+      "metric": "net_income",
+      "value": 58321000000.0,
+      "unit": "USD"
+    },
+    {
+      "metric": "eps",
+      "value": 2.4,
+      "unit": "USD_per_share"
+    }
+  ],
+  "grounding": {
+    "filing_text_len": 1167053,
+    "excerpt_len": 3795,
+    "xbrl_metrics": {
+      "revenue": {
+        "current": {
+          "period": "2026-04-26",
+          "value": 81615000000.0,
+          "form": "10-Q"
+        },
+        "prior": {
+          "period": "2025-04-27",
+          "value": 44062000000.0,
+          "form": "10-Q"
+        },
+        "change": {
+          "absolute": 37553000000.0,
+          "percentage": 85.23,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2026-04-26",
+            "value": 81615000000.0,
+            "form": "10-Q"
+          },
+          {
+            "period": "2025-04-27",
+            "value": 44062000000.0,
+            "form": "10-Q"
+          }
+        ]
+      },
+      "net_income": {
+        "current": {
+          "period": "2026-04-26",
+          "value": 58321000000.0,
+          "form": "10-Q"
+        },
+        "prior": {
+          "period": "2025-04-27",
+          "value": 18775000000.0,
+          "form": "10-Q"
+        },
+        "change": {
+          "absolute": 39546000000.0,
+          "percentage": 210.63,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2026-04-26",
+            "value": 58321000000.0,
+            "form": "10-Q"
+          },
+          {
+            "period": "2025-04-27",
+            "value": 18775000000.0,
+            "form": "10-Q"
+          }
+        ]
+      },
+      "earnings_per_share": {
+        "current": {
+          "period": "2026-04-26",
+          "value": 2.4,
+          "form": "10-Q"
+        },
+        "prior": {
+          "period": "2025-04-27",
+          "value": 0.77,
+          "form": "10-Q"
+        },
+        "change": {
+          "absolute": 1.63,
+          "percentage": 211.69,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2026-04-26",
+            "value": 2.4,
+            "form": "10-Q"
+          },
+          {
+            "period": "2025-04-27",
+            "value": 0.77,
+            "form": "10-Q"
+          }
+        ]
+      },
+      "net_margin": {
+        "current": {
+          "period": "2026-04-26",
+          "value": 71.45867793910433,
+          "form": "10-Q"
+        },
+        "prior": {
+          "period": "2025-04-27",
+          "value": 42.61041260042667,
+          "form": "10-Q"
+        },
+        "change": {
+          "absolute": 28.85,
+          "percentage": 67.7,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2026-04-26",
+            "value": 71.45867793910433,
+            "form": "10-Q"
+          },
+          {
+            "period": "2025-04-27",
+            "value": 42.61041260042667,
+            "form": "10-Q"
+          }
+        ]
+      }
+    }
+  },
+  "score": {
+    "schema_valid": false,
+    "repaired": false,
+    "numeric_accuracy": 1.0,
+    "coverage": 1.0,
+    "numeric_precision": 1.0,
+    "gate_failures": [],
+    "missing_sections": [],
+    "matched_facts": [
+      "revenue",
+      "net_income",
+      "eps"
+    ],
+    "missing_facts": [],
+    "aggregate": 0.7
+  },
+  "status": "complete",
+  "message": null,
+  "coverage": {
+    "per_section": {
+      "covenants_contingencies": true,
+      "executive_snapshot": true,
+      "financial_highlights": true,
+      "guidance_outlook": true,
+      "liquidity_capital_structure": true,
+      "management_discussion_insights": true,
+      "notable_footnotes": true,
+      "risk_factors": true,
+      "segment_performance": true,
+      "three_year_trend": true
+    },
+    "covered": [
+      "covenants_contingencies",
+      "executive_snapshot",
+      "financial_highlights",
+      "guidance_outlook",
+      "liquidity_capital_structure",
+      "management_discussion_insights",
+      "notable_footnotes",
+      "risk_factors",
+      "segment_performance",
+      "three_year_trend"
+    ],
+    "missing": [],
+    "covered_count": 10,
+    "total_count": 10,
+    "coverage_ratio": 1.0
+  },
+  "summary": {
+    "summary_title": "NVIDIA Corp. 10-Q Filing Summary (2026-04-26)",
+    "sections": [
+      {
+        "title": "Key Risks",
+        "content": "\u2022 Forward-looking statements involve risks and uncertainties that may cause actual results to differ materially. (Evidence: This Quarterly Report on Form 10-Q contains forward-looking statements... which may cause our actual results, performance, time frames or achievements to be materially different from any future result)\n\u2022 NVIDIA's business is subject to risks detailed in the Annual Report on Form 10-K, which are incorporated by reference. (Evidence: We discuss many of these risks... in our Annual Report on Form 10-K for the fiscal year ended January 25, 2026 in greater detail under the heading 'Risk Factors'.)"
+      },
+      {
+        "title": "Financial Overview",
+        "content": "\u2022 Revenue: $81.6B \u2014 Revenue for the three months ended April 26, 2026, per XBRL data. Prior period figures not available in provided excerpts.\n\u2022 Net Income: $58.3B \u2014 Net income for the three months ended April 26, 2026, per XBRL data.\n\u2022 Diluted EPS: $2.40 \u2014 Diluted earnings per share for the three months ended April 26, 2026, per XBRL data.\n\u2022 Net Margin: 71.5% \u2014 Net margin calculated as net income divided by revenue for the current period."
+      },
+      {
+        "title": "Management Commentary",
+        "content": "Themes: - NVIDIA has evolved from PC graphics to a data center-scale AI infrastructure company.\n- The company's platforms now address AI, data science, autonomous vehicles, robotics, and digital twins.\nQuotes: - Speaker: Management (Item 1A Overview)\nQuote: NVIDIA is now a data center-scale AI infrastructure company reshaping all industries.\nContext: Describing the company's strategic transformation and current business focus.\nCapital Allocation: - Not disclosed\u2014no specific capital allocation details provided in excerpts.\nSource Section Ref: Item 1A. Risk Factors (Overview)"
+      },
+      {
+        "title": "Strategic Developments",
+        "content": "Guidance: Not disclosed\u2014no specific guidance figures provided in excerpts.\nTone: neutral\nDrivers: - Not disclosed\u2014no forward-looking drivers explicitly stated in excerpts beyond general AI infrastructure demand.\nWatch Items: - Not disclosed\u2014no specific watch items mentioned in excerpts.\nSource Section Ref: Not disclosed\nForward Guidance: Not disclosed\u2014no specific guidance figures provided in excerpts.\nKey Drivers: Not disclosed\u2014no forward-looking drivers explicitly stated in excerpts beyond general AI infrastructure demand."
+      }
+    ],
+    "insights": {
+      "sentiment": "Positive to Neutral",
+      "growth_drivers": [
+        "Not disclosed\u2014no forward-looking drivers explicitly stated in excerpts beyond general AI infrastructure demand."
+      ],
+      "risk_signals": [
+        "Forward-looking statements involve risks and uncertainties that may cause actual results to differ m",
+        "NVIDIA's business is subject to risks detailed in the Annual Report on Form 10-K, which are incorpor"
+      ]
+    },
+    "status": "complete",
+    "business_overview": "## Quarter at a Glance\n- Revenue hit $81.6B for the three months ended April 26, 2026, per XBRL data.\n- Net income reached $58.3B, yielding a net margin of 71.5%.\n- Management describes NVIDIA as a data center-scale AI infrastructure company reshaping all industries.\n\n## Key Numbers\n- Revenue: $81.6B; prior period comparison not disclosed.\n- Net income: $58.3B; prior period comparison not disclosed.\n- Diluted EPS: $2.40; prior period comparison not disclosed.\n- Net margin: 71.5%, calculated from current period figures.\n- Cash flow and balance sheet figures were not disclosed in the provided excerpts.\n\n## Guidance & Outlook\n- No specific guidance figures were disclosed.\n- Management\u2019s commentary points to continued AI infrastructure demand as a general driver.\n\n## Key Risks\n- Forward-looking statements carry material uncertainty; actual results may differ significantly.\n- Risks detailed in the Annual Report on Form 10-K for fiscal year ended January 25, 2026 remain relevant and are incorporated by reference.\n\n## Liquidity & Balance Sheet\n- Liquidity, leverage, and shareholder return figures were not disclosed.\n- Debt covenants and contingent liabilities were not disclosed.\n\n## Operational Highlights\n- NVIDIA\u2019s platforms now span AI, data science, autonomous vehicles, robotics, and digital twins.\n- Segment-level revenue details were not disclosed.",
+    "financial_highlights": {
+      "table": [
+        {
+          "metric": "Revenue",
+          "current_period": "$81.6B",
+          "prior_period": "Not disclosed",
+          "change": "Not disclosed",
+          "commentary": "Revenue for the three months ended April 26, 2026, per XBRL data. Prior period figures not available in provided excerpts."
+        },
+        {
+          "metric": "Net Income",
+          "current_period": "$58.3B",
+          "prior_period": "Not disclosed",
+          "change": "Not disclosed",
+          "commentary": "Net income for the three months ended April 26, 2026, per XBRL data."
+        },
+        {
+          "metric": "Diluted EPS",
+          "current_period": "$2.40",
+          "prior_period": "Not disclosed",
+          "change": "Not disclosed",
+          "commentary": "Diluted earnings per share for the three months ended April 26, 2026, per XBRL data."
+        },
+        {
+          "metric": "Net Margin",
+          "current_period": "71.5%",
+          "prior_period": "Not disclosed",
+          "change": "Not disclosed",
+          "commentary": "Net margin calculated as net income divided by revenue for the current period."
+        }
+      ],
+      "profitability": [
+        "Net margin of 71.5% indicates strong profitability, though prior period comparison is unavailable."
+      ],
+      "cash_flow": [
+        "Not disclosed\u2014cash flow statement referenced in filing index but figures not provided in excerpts."
+      ],
+      "balance_sheet": [
+        "Not disclosed\u2014balance sheet referenced in filing index but figures not provided in excerpts."
+      ],
+      "source_section_ref": "Item 1. Financial Statements (index)"
+    },
+    "risk_factors": [
+      {
+        "summary": "Forward-looking statements involve risks and uncertainties that may cause actual results to differ materially.",
+        "supporting_evidence": "This Quarterly Report on Form 10-Q contains forward-looking statements... which may cause our actual results, performance, time frames or achievements to be materially different from any future results..."
+      },
+      {
+        "summary": "NVIDIA's business is subject to risks detailed in the Annual Report on Form 10-K, which are incorporated by reference.",
+        "supporting_evidence": "We discuss many of these risks... in our Annual Report on Form 10-K for the fiscal year ended January 25, 2026 in greater detail under the heading 'Risk Factors'."
+      }
+    ],
+    "management_discussion": "Themes: - NVIDIA has evolved from PC graphics to a data center-scale AI infrastructure company.\n- The company's platforms now address AI, data science, autonomous vehicles, robotics, and digital twins.\nQuotes: - Speaker: Management (Item 1A Overview)\nQuote: NVIDIA is now a data center-scale AI infrastructure company reshaping all industries.\nContext: Describing the company's strategic transformation and current business focus.\nCapital Allocation: - Not disclosed\u2014no specific capital allocation details provided in excerpts.\nSource Section Ref: Item 1A. Risk Factors (Overview)",
+    "key_changes": "Guidance: Not disclosed\u2014no specific guidance figures provided in excerpts.\nTone: neutral\nDrivers: - Not disclosed\u2014no forward-looking drivers explicitly stated in excerpts beyond general AI infrastructure demand.\nWatch Items: - Not disclosed\u2014no specific watch items mentioned in excerpts.\nSource Section Ref: Not disclosed",
+    "raw_summary": {
+      "structured": {
+        "metadata": {
+          "company_name": "NVIDIA Corp.",
+          "filing_type": "10-Q",
+          "reporting_period": "2026-04-26",
+          "filing_date": "Not disclosed",
+          "currency": "USD",
+          "has_prior_period": true
+        },
+        "sections": {
+          "executive_snapshot": {
+            "headline": "NVIDIA reports Q1 FY2027 net income of $58.3B on revenue of $81.6B, driven by data center AI infrastructure demand.",
+            "key_points": [
+              "Revenue reached $81.6B for the three months ended April 26, 2026, per XBRL data.",
+              "Net income was $58.3B, with diluted EPS of $2.40, reflecting a net margin of 71.5%.",
+              "Management highlights NVIDIA's evolution into a 'data center-scale AI infrastructure company reshaping all industries.'"
+            ],
+            "tone": "positive",
+            "source_section_ref": "Item 1A. Risk Factors (Overview)"
+          },
+          "financial_highlights": {
+            "table": [
+              {
+                "metric": "Revenue",
+                "current_period": "$81.6B",
+                "prior_period": "Not disclosed",
+                "change": "Not disclosed",
+                "commentary": "Revenue for the three months ended April 26, 2026, per XBRL data. Prior period figures not available in provided excerpts."
+              },
+              {
+                "metric": "Net Income",
+                "current_period": "$58.3B",
+                "prior_period": "Not disclosed",
+                "change": "Not disclosed",
+                "commentary": "Net income for the three months ended April 26, 2026, per XBRL data."
+              },
+              {
+                "metric": "Diluted EPS",
+                "current_period": "$2.40",
+                "prior_period": "Not disclosed",
+                "change": "Not disclosed",
+                "commentary": "Diluted earnings per share for the three months ended April 26, 2026, per XBRL data."
+              },
+              {
+                "metric": "Net Margin",
+                "current_period": "71.5%",
+                "prior_period": "Not disclosed",
+                "change": "Not disclosed",
+                "commentary": "Net margin calculated as net income divided by revenue for the current period."
+              }
+            ],
+            "profitability": [
+              "Net margin of 71.5% indicates strong profitability, though prior period comparison is unavailable."
+            ],
+            "cash_flow": [
+              "Not disclosed\u2014cash flow statement referenced in filing index but figures not provided in excerpts."
+            ],
+            "balance_sheet": [
+              "Not disclosed\u2014balance sheet referenced in filing index but figures not provided in excerpts."
+            ],
+            "source_section_ref": "Item 1. Financial Statements (index)"
+          },
+          "risk_factors": [
+            {
+              "summary": "Forward-looking statements involve risks and uncertainties that may cause actual results to differ materially.",
+              "supporting_evidence": "This Quarterly Report on Form 10-Q contains forward-looking statements... which may cause our actual results, performance, time frames or achievements to be materially different from any future results..."
+            },
+            {
+              "summary": "NVIDIA's business is subject to risks detailed in the Annual Report on Form 10-K, which are incorporated by reference.",
+              "supporting_evidence": "We discuss many of these risks... in our Annual Report on Form 10-K for the fiscal year ended January 25, 2026 in greater detail under the heading 'Risk Factors'."
+            }
+          ],
+          "management_discussion_insights": {
+            "themes": [
+              "NVIDIA has evolved from PC graphics to a data center-scale AI infrastructure company.",
+              "The company's platforms now address AI, data science, autonomous vehicles, robotics, and digital twins."
+            ],
+            "quotes": [
+              {
+                "speaker": "Management (Item 1A Overview)",
+                "quote": "NVIDIA is now a data center-scale AI infrastructure company reshaping all industries.",
+                "context": "Describing the company's strategic transformation and current business focus."
+              }
+            ],
+            "capital_allocation": [
+              "Not disclosed\u2014no specific capital allocation details provided in excerpts."
+            ],
+            "source_section_ref": "Item 1A. Risk Factors (Overview)"
+          },
+          "segment_performance": [
+            {
+              "segment": "Not disclosed\u2014segment information not provided in excerpts",
+              "revenue": "Not disclosed",
+              "change": "Not disclosed",
+              "commentary": "Segment-level revenue details are not available in the provided text.",
+              "source_section_ref": "Not disclosed"
+            }
+          ],
+          "liquidity_capital_structure": {
+            "leverage": "Not disclosed\u2014no leverage metrics provided in excerpts.",
+            "liquidity": "Not disclosed\u2014no liquidity figures provided in excerpts.",
+            "shareholder_returns": [
+              "Not disclosed\u2014no share repurchase or dividend information in excerpts."
+            ],
+            "source_section_ref": "Not disclosed"
+          },
+          "covenants_contingencies": {
+            "debt_covenants": [
+              "Not disclosed\u2014no debt covenant details in excerpts."
+            ],
+            "contingent_liabilities": [
+              "Not disclosed\u2014no contingent liability disclosures in excerpts."
+            ],
+            "source_section_ref": "Not disclosed"
+          },
+          "guidance_outlook": {
+            "guidance": "Not disclosed\u2014no specific guidance figures provided in excerpts.",
+            "tone": "neutral",
+            "drivers": [
+              "Not disclosed\u2014no forward-looking drivers explicitly stated in excerpts beyond general AI infrastructure demand."
+            ],
+            "watch_items": [
+              "Not disclosed\u2014no specific watch items mentioned in excerpts."
+            ],
+            "source_section_ref": "Not disclosed"
+          },
+          "notable_footnotes": [
+            {
+              "item": "Not disclosed\u2014no footnote details provided in excerpts.",
+              "impact": "Not disclosed",
+              "source_section_ref": "Not disclosed"
+            }
+          ],
+          "three_year_trend": {
+            "trend_summary": "Not disclosed\u2014insufficient historical data in excerpts to establish a three-year trend.",
+            "inflections": [
+              "Not disclosed\u2014no inflection points identifiable from provided data."
+            ],
+            "compare_prior_period": {
+              "available": false,
+              "insights": [
+                "Prior period figures for the three months ended April 27, 2025 are referenced in the filing index but not provided in the excerpts."
+              ]
+            },
+            "source_section_ref": "Item 1. Financial Statements (index)"
+          }
+        }
+      },
+      "sections": {
+        "executive_snapshot": {
+          "headline": "NVIDIA reports Q1 FY2027 net income of $58.3B on revenue of $81.6B, driven by data center AI infrastructure demand.",
+          "key_points": [
+            "Revenue reached $81.6B for the three months ended April 26, 2026, per XBRL data.",
+            "Net income was $58.3B, with diluted EPS of $2.40, reflecting a net margin of 71.5%.",
+            "Management highlights NVIDIA's evolution into a 'data center-scale AI infrastructure company reshaping all industries.'"
+          ],
+          "tone": "positive",
+          "source_section_ref": "Item 1A. Risk Factors (Overview)"
+        },
+        "financial_highlights": {
+          "table": [
+            {
+              "metric": "Revenue",
+              "current_period": "$81.6B",
+              "prior_period": "Not disclosed",
+              "change": "Not disclosed",
+              "commentary": "Revenue for the three months ended April 26, 2026, per XBRL data. Prior period figures not available in provided excerpts."
+            },
+            {
+              "metric": "Net Income",
+              "current_period": "$58.3B",
+              "prior_period": "Not disclosed",
+              "change": "Not disclosed",
+              "commentary": "Net income for the three months ended April 26, 2026, per XBRL data."
+            },
+            {
+              "metric": "Diluted EPS",
+              "current_period": "$2.40",
+              "prior_period": "Not disclosed",
+              "change": "Not disclosed",
+              "commentary": "Diluted earnings per share for the three months ended April 26, 2026, per XBRL data."
+            },
+            {
+              "metric": "Net Margin",
+              "current_period": "71.5%",
+              "prior_period": "Not disclosed",
+              "change": "Not disclosed",
+              "commentary": "Net margin calculated as net income divided by revenue for the current period."
+            }
+          ],
+          "profitability": [
+            "Net margin of 71.5% indicates strong profitability, though prior period comparison is unavailable."
+          ],
+          "cash_flow": [
+            "Not disclosed\u2014cash flow statement referenced in filing index but figures not provided in excerpts."
+          ],
+          "balance_sheet": [
+            "Not disclosed\u2014balance sheet referenced in filing index but figures not provided in excerpts."
+          ],
+          "source_section_ref": "Item 1. Financial Statements (index)"
+        },
+        "risk_factors": [
+          {
+            "summary": "Forward-looking statements involve risks and uncertainties that may cause actual results to differ materially.",
+            "supporting_evidence": "This Quarterly Report on Form 10-Q contains forward-looking statements... which may cause our actual results, performance, time frames or achievements to be materially different from any future results..."
+          },
+          {
+            "summary": "NVIDIA's business is subject to risks detailed in the Annual Report on Form 10-K, which are incorporated by reference.",
+            "supporting_evidence": "We discuss many of these risks... in our Annual Report on Form 10-K for the fiscal year ended January 25, 2026 in greater detail under the heading 'Risk Factors'."
+          }
+        ],
+        "management_discussion_insights": {
+          "themes": [
+            "NVIDIA has evolved from PC graphics to a data center-scale AI infrastructure company.",
+            "The company's platforms now address AI, data science, autonomous vehicles, robotics, and digital twins."
+          ],
+          "quotes": [
+            {
+              "speaker": "Management (Item 1A Overview)",
+              "quote": "NVIDIA is now a data center-scale AI infrastructure company reshaping all industries.",
+              "context": "Describing the company's strategic transformation and current business focus."
+            }
+          ],
+          "capital_allocation": [
+            "Not disclosed\u2014no specific capital allocation details provided in excerpts."
+          ],
+          "source_section_ref": "Item 1A. Risk Factors (Overview)"
+        },
+        "segment_performance": [
+          {
+            "segment": "Not disclosed\u2014segment information not provided in excerpts",
+            "revenue": "Not disclosed",
+            "change": "Not disclosed",
+            "commentary": "Segment-level revenue details are not available in the provided text.",
+            "source_section_ref": "Not disclosed"
+          }
+        ],
+        "liquidity_capital_structure": {
+          "leverage": "Not disclosed\u2014no leverage metrics provided in excerpts.",
+          "liquidity": "Not disclosed\u2014no liquidity figures provided in excerpts.",
+          "shareholder_returns": [
+            "Not disclosed\u2014no share repurchase or dividend information in excerpts."
+          ],
+          "source_section_ref": "Not disclosed"
+        },
+        "covenants_contingencies": {
+          "debt_covenants": [
+            "Not disclosed\u2014no debt covenant details in excerpts."
+          ],
+          "contingent_liabilities": [
+            "Not disclosed\u2014no contingent liability disclosures in excerpts."
+          ],
+          "source_section_ref": "Not disclosed"
+        },
+        "guidance_outlook": {
+          "guidance": "Not disclosed\u2014no specific guidance figures provided in excerpts.",
+          "tone": "neutral",
+          "drivers": [
+            "Not disclosed\u2014no forward-looking drivers explicitly stated in excerpts beyond general AI infrastructure demand."
+          ],
+          "watch_items": [
+            "Not disclosed\u2014no specific watch items mentioned in excerpts."
+          ],
+          "source_section_ref": "Not disclosed"
+        },
+        "notable_footnotes": [
+          {
+            "item": "Not disclosed\u2014no footnote details provided in excerpts.",
+            "impact": "Not disclosed",
+            "source_section_ref": "Not disclosed"
+          }
+        ],
+        "three_year_trend": {
+          "trend_summary": "Not disclosed\u2014insufficient historical data in excerpts to establish a three-year trend.",
+          "inflections": [
+            "Not disclosed\u2014no inflection points identifiable from provided data."
+          ],
+          "compare_prior_period": {
+            "available": false,
+            "insights": [
+              "Prior period figures for the three months ended April 27, 2025 are referenced in the filing index but not provided in the excerpts."
+            ]
+          },
+          "source_section_ref": "Item 1. Financial Statements (index)"
+        }
+      },
+      "section_coverage": {
+        "per_section": {
+          "covenants_contingencies": true,
+          "executive_snapshot": true,
+          "financial_highlights": true,
+          "guidance_outlook": true,
+          "liquidity_capital_structure": true,
+          "management_discussion_insights": true,
+          "notable_footnotes": true,
+          "risk_factors": true,
+          "segment_performance": true,
+          "three_year_trend": true
+        },
+        "covered": [
+          "covenants_contingencies",
+          "executive_snapshot",
+          "financial_highlights",
+          "guidance_outlook",
+          "liquidity_capital_structure",
+          "management_discussion_insights",
+          "notable_footnotes",
+          "risk_factors",
+          "segment_performance",
+          "three_year_trend"
+        ],
+        "missing": [],
+        "covered_count": 10,
+        "total_count": 10,
+        "coverage_ratio": 1.0
+      },
+      "writer": {
+        "markdown": "## Quarter at a Glance\n- Revenue hit $81.6B for the three months ended April 26, 2026, per XBRL data.\n- Net income reached $58.3B, yielding a net margin of 71.5%.\n- Management describes NVIDIA as a data center-scale AI infrastructure company reshaping all industries.\n\n## Key Numbers\n- Revenue: $81.6B; prior period comparison not disclosed.\n- Net income: $58.3B; prior period comparison not disclosed.\n- Diluted EPS: $2.40; prior period comparison not disclosed.\n- Net margin: 71.5%, calculated from current period figures.\n- Cash flow and balance sheet figures were not disclosed in the provided excerpts.\n\n## Guidance & Outlook\n- No specific guidance figures were disclosed.\n- Management\u2019s commentary points to continued AI infrastructure demand as a general driver.\n\n## Key Risks\n- Forward-looking statements carry material uncertainty; actual results may differ significantly.\n- Risks detailed in the Annual Report on Form 10-K for fiscal year ended January 25, 2026 remain relevant and are incorporated by reference.\n\n## Liquidity & Balance Sheet\n- Liquidity, leverage, and shareholder return figures were not disclosed.\n- Debt covenants and contingent liabilities were not disclosed.\n\n## Operational Highlights\n- NVIDIA\u2019s platforms now span AI, data science, autonomous vehicles, robotics, and digital twins.\n- Segment-level revenue details were not disclosed.",
+        "word_count": 207,
+        "model_used": "deepseek-v4-pro"
+      }
+    }
+  }
+}
