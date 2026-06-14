@@ -2053,6 +2053,7 @@ Return ONLY valid JSON (no markdown fences) that matches this schema (replace pl
 {schema_template}
 
 Rules:
+- OBJECTIVITY: Use neutral, factual language. Do NOT use promotional or subjective adjectives (e.g. strong, robust, solid, healthy, surged, soared, plunged, record, exceptional, impressive, fortress); state magnitude and direction with figures instead (e.g. "increased 14% YoY"). Such words are permitted ONLY inside a direct, attributed management quote.
 - Keep monetary values human-readable (e.g., "$17.7B", "$425M", "$912M").
 - Express percentage changes with one decimal place where available (e.g., "up 8.3% YoY").
 - For arrays, include 1-4 high-signal, evidence-backed bullets ordered by materiality. If nothing qualifies, return ["Not disclosed—<concise reason>"] instead of leaving the array empty.
@@ -2780,20 +2781,14 @@ Do not include any additional keys or text outside the JSON object."""
         guidance_structured = sections_info.get("guidance_outlook")
         guidance_section = _stringify(guidance_structured)
 
+        # P1.4: render markdown deterministically from the structured data — no second editorial-
+        # writer LLM call. The structured render is rich and objective; the separate writer added
+        # cost, latency and a recurring failure mode (it kept failing the length gate) plus a
+        # journalistic voice at odds with the objective-summary goal (approved decision 3a).
         writer_result = None
         writer_error: Optional[str] = None
         writer_fallback_reason: Optional[str] = None
-        try:
-            writer_result = await self.generate_editorial_markdown(structured_summary)
-            final_markdown = writer_result.get("markdown", "").strip()
-            if writer_result.get("fallback_used"):
-                fallback_reason = writer_result.get("fallback_reason") or "Writer output failed validation; structured fallback applied."
-                writer_fallback_reason = fallback_reason
-        except Exception as writer_exc:
-            writer_error = str(writer_exc)
-            logger.error(f"Writer stage failed: {writer_error}")
-            # Generate fallback markdown from structured data
-            final_markdown = self._build_structured_markdown(structured_summary, f"Writer failed: {writer_error[:100]}")
+        final_markdown = self._build_structured_markdown(structured_summary)
 
         raw_summary_payload = {
             "structured": structured_summary,
