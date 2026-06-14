@@ -245,7 +245,18 @@ async def main(
 
     results: List[Dict[str, Any]] = []
     for f in runnable:
-        grounding = await _get_grounding(f)
+        try:
+            grounding = await _get_grounding(f)
+        except Exception as exc:  # noqa: BLE001 — a transient fetch failure (e.g. SEC 429) on one
+            # filing must not crash the whole bake-off; record it and move on.
+            print(f"  ! grounding failed for {f.ticker} {f.filing_type}: {type(exc).__name__}: {exc}")
+            for cand in candidates:
+                for i in range(runs):
+                    results.append({"candidate": cand, "ticker": f.ticker,
+                                    "filing_type": f.filing_type, "run": i, "score": None,
+                                    "aggregate": 0.0, "passed_gates": False, "judge": None,
+                                    "error": f"grounding: {type(exc).__name__}: {exc}"})
+            continue
         for cand in candidates:
             for i in range(runs):
                 tag = f" run {i + 1}/{runs}" if runs > 1 else ""
