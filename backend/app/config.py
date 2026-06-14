@@ -184,8 +184,8 @@ class Settings(BaseSettings):
         warnings = []
         is_valid = True
         
-        # Check base URL - accept Google AI Studio or OpenRouter
-        valid_providers = ["openrouter.ai", "generativelanguage.googleapis.com"]
+        # Check base URL - accept Google AI Studio, OpenRouter, or DeepSeek
+        valid_providers = ["openrouter.ai", "generativelanguage.googleapis.com", "api.deepseek.com"]
         if not self.OPENAI_BASE_URL:
             warnings.append("OPENAI_BASE_URL is not set")
             is_valid = False

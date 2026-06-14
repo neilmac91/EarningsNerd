@@ -2102,6 +2102,16 @@ Rules:
                     # depends on the model resolving a prompt-vs-schema conflict. Critical for
                     # reliable extraction across Gemini/DeepSeek and for avoiding non-object output.
                     create_kwargs["response_format"] = {"type": "json_object"}
+                    # DeepSeek V4 is a reasoning model that defaults to "thinking" mode; disable it
+                    # for this deterministic extraction task. Also cap max_tokens to the provider's
+                    # output limit — Gemini rejects/clamps above ~8192, while DeepSeek V4 allows far
+                    # more (so it keeps the headroom that prevents mid-JSON truncation).
+                    is_deepseek = ("deepseek" in model_name.lower()
+                                   or "deepseek" in (settings.OPENAI_BASE_URL or "").lower())
+                    if is_deepseek:
+                        create_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
+                    else:
+                        create_kwargs["max_tokens"] = min(create_kwargs["max_tokens"], 8192)
                     response = await asyncio.wait_for(
                         self.client.chat.completions.create(**create_kwargs),
                         timeout=timeout,
