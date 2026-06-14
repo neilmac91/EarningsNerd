@@ -1,0 +1,564 @@
+{
+  "ticker": "XOM",
+  "filing_type": "10-K",
+  "company": "Exxon Mobil Corporation",
+  "accession": "0000034088-26-000045",
+  "document_url": "https://www.sec.gov/Archives/edgar/data/34088/000003408826000045/xom-20251231.htm",
+  "ground_truth": [
+    {
+      "metric": "revenue",
+      "value": 332238000000.0,
+      "unit": "USD"
+    },
+    {
+      "metric": "net_income",
+      "value": 28844000000.0,
+      "unit": "USD"
+    },
+    {
+      "metric": "eps",
+      "value": 6.7,
+      "unit": "USD_per_share"
+    }
+  ],
+  "grounding": {
+    "filing_text_len": 5591068,
+    "excerpt_len": 760,
+    "xbrl_metrics": {
+      "revenue": {
+        "current": {
+          "period": "2025-12-31",
+          "value": 332238000000.0,
+          "form": "10-K"
+        },
+        "prior": {
+          "period": "2024-12-31",
+          "value": 349585000000.0,
+          "form": "10-K"
+        },
+        "change": {
+          "absolute": -17347000000.0,
+          "percentage": -4.96,
+          "direction": "decrease"
+        },
+        "series": [
+          {
+            "period": "2025-12-31",
+            "value": 332238000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2024-12-31",
+            "value": 349585000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2023-12-31",
+            "value": 344582000000.0,
+            "form": "10-K"
+          }
+        ]
+      },
+      "net_income": {
+        "current": {
+          "period": "2025-12-31",
+          "value": 28844000000.0,
+          "form": "10-K"
+        },
+        "prior": {
+          "period": "2024-12-31",
+          "value": 33680000000.0,
+          "form": "10-K"
+        },
+        "change": {
+          "absolute": -4836000000.0,
+          "percentage": -14.36,
+          "direction": "decrease"
+        },
+        "series": [
+          {
+            "period": "2025-12-31",
+            "value": 28844000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2024-12-31",
+            "value": 33680000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2023-12-31",
+            "value": 36010000000.0,
+            "form": "10-K"
+          }
+        ]
+      },
+      "earnings_per_share": {
+        "current": {
+          "period": "2025-12-31",
+          "value": 6.7,
+          "form": "10-K"
+        },
+        "prior": {
+          "period": "2024-12-31",
+          "value": 7.84,
+          "form": "10-K"
+        },
+        "change": {
+          "absolute": -1.14,
+          "percentage": -14.54,
+          "direction": "decrease"
+        },
+        "series": [
+          {
+            "period": "2025-12-31",
+            "value": 6.7,
+            "form": "10-K"
+          },
+          {
+            "period": "2024-12-31",
+            "value": 7.84,
+            "form": "10-K"
+          },
+          {
+            "period": "2023-12-31",
+            "value": 8.89,
+            "form": "10-K"
+          }
+        ]
+      },
+      "net_margin": {
+        "current": {
+          "period": "2025-12-31",
+          "value": 8.681728158729586,
+          "form": "10-K"
+        },
+        "prior": {
+          "period": "2024-12-31",
+          "value": 9.634280647052934,
+          "form": "10-K"
+        },
+        "change": {
+          "absolute": -0.95,
+          "percentage": -9.89,
+          "direction": "decrease"
+        },
+        "series": [
+          {
+            "period": "2025-12-31",
+            "value": 8.681728158729586,
+            "form": "10-K"
+          },
+          {
+            "period": "2024-12-31",
+            "value": 9.634280647052934,
+            "form": "10-K"
+          },
+          {
+            "period": "2023-12-31",
+            "value": 10.450342734095223,
+            "form": "10-K"
+          }
+        ]
+      }
+    }
+  },
+  "score": {
+    "schema_valid": false,
+    "repaired": false,
+    "numeric_accuracy": 1.0,
+    "coverage": 0.8,
+    "numeric_precision": 1.0,
+    "gate_failures": [],
+    "missing_sections": [
+      "risk_factors"
+    ],
+    "matched_facts": [
+      "revenue",
+      "net_income",
+      "eps"
+    ],
+    "missing_facts": [],
+    "aggregate": 0.65
+  },
+  "status": "partial",
+  "message": "Some sections may not have loaded fully. Missing sections: risk_factors",
+  "coverage": {
+    "per_section": {
+      "executive_snapshot": true,
+      "financial_highlights": true,
+      "guidance_outlook": true,
+      "liquidity_capital_structure": true,
+      "management_discussion_insights": true,
+      "notable_footnotes": true,
+      "risk_factors": false,
+      "segment_performance": true,
+      "three_year_trend": true
+    },
+    "covered": [
+      "executive_snapshot",
+      "financial_highlights",
+      "guidance_outlook",
+      "liquidity_capital_structure",
+      "management_discussion_insights",
+      "notable_footnotes",
+      "segment_performance",
+      "three_year_trend"
+    ],
+    "missing": [
+      "risk_factors"
+    ],
+    "covered_count": 8,
+    "total_count": 9,
+    "coverage_ratio": 0.8888888888888888
+  },
+  "summary": {
+    "summary_title": "Exxon Mobil Corporation 10-K Filing Summary (2025-12-31)",
+    "sections": [
+      {
+        "title": "Financial Overview",
+        "content": "\u2022 Revenue: $332.2B \u2014 Reported for FY2025\n\u2022 Net Income: $28.8B \u2014 Reported for FY2025\n\u2022 EPS: $6.7 \u2014 Reported for FY2025\n\u2022 Net Margin: 8.7% \u2014 Reported for FY2025"
+      },
+      {
+        "title": "Management Commentary",
+        "content": "Themes: - Management's discussion focused on operational execution and market conditions. See Item 2 in the full filing for detailed narrative.\nCapital Allocation: - Capital allocation priorities reflected in the financial statements. Review cash flow statement for deployment details.\nSource Section Ref: Item 2. MD&A"
+      },
+      {
+        "title": "Strategic Developments",
+        "content": "Guidance: Company did not provide formal guidance in this filing. Many companies provide outlook during earnings calls instead.\nTone: neutral\nDrivers: - Current revenue of $332.2B reflects ongoing business momentum.\nWatch Items: - Earnings call transcript may contain forward-looking commentary not included in SEC filings.\nSource Section Ref: Forward-looking statements\nForward Guidance: Company did not provide formal guidance in this filing. Many companies provide outlook during earnings calls instead.\nKey Drivers: Current revenue of $332.2B reflects ongoing business momentum."
+      }
+    ],
+    "insights": {
+      "sentiment": "Neutral",
+      "growth_drivers": [
+        "Current revenue of $332.2B reflects ongoing business momentum."
+      ],
+      "risk_signals": []
+    },
+    "status": "partial",
+    "business_overview": "*Auto-generated from structured data because the writer output failed validation (Editorial summary length must be 200-300 words (current: 23).).*\n## Executive Summary\nExxon Mobil Reports $332.2B Revenue and $28.8B Net Income for FY2025 Management adopted a neutral tone. FY2025 Revenue reached $332.2B.; Net Income reported at $28.8B with an 8.7% net margin.; Diluted EPS stood at $6.7.; Auditor confirmed effective internal control over financial reporting as of December 31, 2025.\n\n## Financials\n- Revenue: $332.2B \u2013 Reported for FY2025\n- Net Income: $28.8B \u2013 Reported for FY2025\n- EPS: $6.7 \u2013 Reported for FY2025\n- Net Margin: 8.7% \u2013 Reported for FY2025\n- Profitability: Net margin reported at 8.7% for FY2025.\n- Cash flow: Not disclosed\u2014cash flow figures not provided in excerpts.\n- Balance sheet: Not disclosed\u2014balance sheet figures not provided in excerpts.\n\n## Risks\n- No material incremental risks were highlighted beyond routine disclosures.\n\n## Management Commentary\n- Themes: Management's discussion focused on operational execution and market conditions. See Item 2 in the full filing for detailed narrative.\n- Capital allocation: Capital allocation priorities reflected in the financial statements. Review cash flow statement for deployment details.\n\n## Outlook\n- Guidance: Company did not provide formal guidance in this filing. Many companies provide outlook during earnings calls instead.\n- Tone: neutral\n- Drivers: Current revenue of $332.2B reflects ongoing business momentum.\n- Watch items: Earnings call transcript may contain forward-looking commentary not included in SEC filings.",
+    "financial_highlights": {
+      "table": [
+        {
+          "metric": "Revenue",
+          "current_period": "$332.2B",
+          "prior_period": "Not disclosed",
+          "change": "Not disclosed",
+          "commentary": "Reported for FY2025"
+        },
+        {
+          "metric": "Net Income",
+          "current_period": "$28.8B",
+          "prior_period": "Not disclosed",
+          "change": "Not disclosed",
+          "commentary": "Reported for FY2025"
+        },
+        {
+          "metric": "EPS",
+          "current_period": "$6.7",
+          "prior_period": "Not disclosed",
+          "change": "Not disclosed",
+          "commentary": "Reported for FY2025"
+        },
+        {
+          "metric": "Net Margin",
+          "current_period": "8.7%",
+          "prior_period": "Not disclosed",
+          "change": "Not disclosed",
+          "commentary": "Reported for FY2025"
+        }
+      ],
+      "profitability": [
+        "Net margin reported at 8.7% for FY2025."
+      ],
+      "cash_flow": [
+        "Not disclosed\u2014cash flow figures not provided in excerpts."
+      ],
+      "balance_sheet": [
+        "Not disclosed\u2014balance sheet figures not provided in excerpts."
+      ],
+      "source_section_ref": "Item 8 - Financial Statements and Supplementary Data"
+    },
+    "risk_factors": [],
+    "management_discussion": "Themes: - Management's discussion focused on operational execution and market conditions. See Item 2 in the full filing for detailed narrative.\nCapital Allocation: - Capital allocation priorities reflected in the financial statements. Review cash flow statement for deployment details.\nSource Section Ref: Item 2. MD&A",
+    "key_changes": "Guidance: Company did not provide formal guidance in this filing. Many companies provide outlook during earnings calls instead.\nTone: neutral\nDrivers: - Current revenue of $332.2B reflects ongoing business momentum.\nWatch Items: - Earnings call transcript may contain forward-looking commentary not included in SEC filings.\nSource Section Ref: Forward-looking statements",
+    "raw_summary": {
+      "structured": {
+        "metadata": {
+          "company_name": "Exxon Mobil Corporation",
+          "filing_type": "10-K",
+          "reporting_period": "2025-12-31",
+          "filing_date": "Not disclosed",
+          "currency": "USD",
+          "has_prior_period": false
+        },
+        "sections": {
+          "executive_snapshot": {
+            "headline": "Exxon Mobil Reports $332.2B Revenue and $28.8B Net Income for FY2025",
+            "key_points": [
+              "FY2025 Revenue reached $332.2B.",
+              "Net Income reported at $28.8B with an 8.7% net margin.",
+              "Diluted EPS stood at $6.7.",
+              "Auditor confirmed effective internal control over financial reporting as of December 31, 2025."
+            ],
+            "tone": "neutral",
+            "source_section_ref": "Item 8 - Financial Statements and Supplementary Data"
+          },
+          "financial_highlights": {
+            "table": [
+              {
+                "metric": "Revenue",
+                "current_period": "$332.2B",
+                "prior_period": "Not disclosed",
+                "change": "Not disclosed",
+                "commentary": "Reported for FY2025"
+              },
+              {
+                "metric": "Net Income",
+                "current_period": "$28.8B",
+                "prior_period": "Not disclosed",
+                "change": "Not disclosed",
+                "commentary": "Reported for FY2025"
+              },
+              {
+                "metric": "EPS",
+                "current_period": "$6.7",
+                "prior_period": "Not disclosed",
+                "change": "Not disclosed",
+                "commentary": "Reported for FY2025"
+              },
+              {
+                "metric": "Net Margin",
+                "current_period": "8.7%",
+                "prior_period": "Not disclosed",
+                "change": "Not disclosed",
+                "commentary": "Reported for FY2025"
+              }
+            ],
+            "profitability": [
+              "Net margin reported at 8.7% for FY2025."
+            ],
+            "cash_flow": [
+              "Not disclosed\u2014cash flow figures not provided in excerpts."
+            ],
+            "balance_sheet": [
+              "Not disclosed\u2014balance sheet figures not provided in excerpts."
+            ],
+            "source_section_ref": "Item 8 - Financial Statements and Supplementary Data"
+          },
+          "risk_factors": [],
+          "management_discussion_insights": {
+            "themes": [
+              "Management's discussion focused on operational execution and market conditions. See Item 2 in the full filing for detailed narrative."
+            ],
+            "quotes": [],
+            "capital_allocation": [
+              "Capital allocation priorities reflected in the financial statements. Review cash flow statement for deployment details."
+            ],
+            "source_section_ref": "Item 2. MD&A"
+          },
+          "segment_performance": [
+            {
+              "segment": "Company-wide",
+              "revenue": "$332.2B",
+              "change": "Not disclosed",
+              "commentary": "Segment detail was not present; investors should review full filing tables.",
+              "source_section_ref": "Segment disclosures (not surfaced in sampled excerpts)"
+            }
+          ],
+          "liquidity_capital_structure": {
+            "leverage": "Debt and leverage commentary not captured in sampled passages.",
+            "liquidity": "Liquidity not quantified in excerpts; standardized revenue indicates scale of $332.2B.",
+            "shareholder_returns": [
+              "No explicit reference to dividends or buybacks within the excerpted text."
+            ],
+            "source_section_ref": "Liquidity and capital resources (not surfaced in sampled excerpts)"
+          },
+          "guidance_outlook": {
+            "guidance": "Company did not provide formal guidance in this filing. Many companies provide outlook during earnings calls instead.",
+            "tone": "neutral",
+            "drivers": [
+              "Current revenue of $332.2B reflects ongoing business momentum."
+            ],
+            "watch_items": [
+              "Earnings call transcript may contain forward-looking commentary not included in SEC filings."
+            ],
+            "source_section_ref": "Forward-looking statements"
+          },
+          "notable_footnotes": [
+            {
+              "item": "No specific footnotes surfaced in the extracted passages.",
+              "impact": "Review the full filing footnotes for accounting nuances or adjustments.",
+              "source_section_ref": "Footnotes (not surfaced in sampled excerpts)"
+            }
+          ],
+          "three_year_trend": {
+            "trend_summary": "Latest standardized revenue of $332.2B anchors the recent trajectory.",
+            "inflections": [
+              "Net margin currently at 8.7% per standardized data."
+            ],
+            "compare_prior_period": {
+              "available": true,
+              "insights": [
+                "Prior revenue reference point: $349.6B"
+              ]
+            },
+            "source_section_ref": "Trend discussion (not surfaced in sampled excerpts)"
+          }
+        }
+      },
+      "sections": {
+        "executive_snapshot": {
+          "headline": "Exxon Mobil Reports $332.2B Revenue and $28.8B Net Income for FY2025",
+          "key_points": [
+            "FY2025 Revenue reached $332.2B.",
+            "Net Income reported at $28.8B with an 8.7% net margin.",
+            "Diluted EPS stood at $6.7.",
+            "Auditor confirmed effective internal control over financial reporting as of December 31, 2025."
+          ],
+          "tone": "neutral",
+          "source_section_ref": "Item 8 - Financial Statements and Supplementary Data"
+        },
+        "financial_highlights": {
+          "table": [
+            {
+              "metric": "Revenue",
+              "current_period": "$332.2B",
+              "prior_period": "Not disclosed",
+              "change": "Not disclosed",
+              "commentary": "Reported for FY2025"
+            },
+            {
+              "metric": "Net Income",
+              "current_period": "$28.8B",
+              "prior_period": "Not disclosed",
+              "change": "Not disclosed",
+              "commentary": "Reported for FY2025"
+            },
+            {
+              "metric": "EPS",
+              "current_period": "$6.7",
+              "prior_period": "Not disclosed",
+              "change": "Not disclosed",
+              "commentary": "Reported for FY2025"
+            },
+            {
+              "metric": "Net Margin",
+              "current_period": "8.7%",
+              "prior_period": "Not disclosed",
+              "change": "Not disclosed",
+              "commentary": "Reported for FY2025"
+            }
+          ],
+          "profitability": [
+            "Net margin reported at 8.7% for FY2025."
+          ],
+          "cash_flow": [
+            "Not disclosed\u2014cash flow figures not provided in excerpts."
+          ],
+          "balance_sheet": [
+            "Not disclosed\u2014balance sheet figures not provided in excerpts."
+          ],
+          "source_section_ref": "Item 8 - Financial Statements and Supplementary Data"
+        },
+        "risk_factors": [],
+        "management_discussion_insights": {
+          "themes": [
+            "Management's discussion focused on operational execution and market conditions. See Item 2 in the full filing for detailed narrative."
+          ],
+          "quotes": [],
+          "capital_allocation": [
+            "Capital allocation priorities reflected in the financial statements. Review cash flow statement for deployment details."
+          ],
+          "source_section_ref": "Item 2. MD&A"
+        },
+        "segment_performance": [
+          {
+            "segment": "Company-wide",
+            "revenue": "$332.2B",
+            "change": "Not disclosed",
+            "commentary": "Segment detail was not present; investors should review full filing tables.",
+            "source_section_ref": "Segment disclosures (not surfaced in sampled excerpts)"
+          }
+        ],
+        "liquidity_capital_structure": {
+          "leverage": "Debt and leverage commentary not captured in sampled passages.",
+          "liquidity": "Liquidity not quantified in excerpts; standardized revenue indicates scale of $332.2B.",
+          "shareholder_returns": [
+            "No explicit reference to dividends or buybacks within the excerpted text."
+          ],
+          "source_section_ref": "Liquidity and capital resources (not surfaced in sampled excerpts)"
+        },
+        "guidance_outlook": {
+          "guidance": "Company did not provide formal guidance in this filing. Many companies provide outlook during earnings calls instead.",
+          "tone": "neutral",
+          "drivers": [
+            "Current revenue of $332.2B reflects ongoing business momentum."
+          ],
+          "watch_items": [
+            "Earnings call transcript may contain forward-looking commentary not included in SEC filings."
+          ],
+          "source_section_ref": "Forward-looking statements"
+        },
+        "notable_footnotes": [
+          {
+            "item": "No specific footnotes surfaced in the extracted passages.",
+            "impact": "Review the full filing footnotes for accounting nuances or adjustments.",
+            "source_section_ref": "Footnotes (not surfaced in sampled excerpts)"
+          }
+        ],
+        "three_year_trend": {
+          "trend_summary": "Latest standardized revenue of $332.2B anchors the recent trajectory.",
+          "inflections": [
+            "Net margin currently at 8.7% per standardized data."
+          ],
+          "compare_prior_period": {
+            "available": true,
+            "insights": [
+              "Prior revenue reference point: $349.6B"
+            ]
+          },
+          "source_section_ref": "Trend discussion (not surfaced in sampled excerpts)"
+        }
+      },
+      "section_coverage": {
+        "per_section": {
+          "executive_snapshot": true,
+          "financial_highlights": true,
+          "guidance_outlook": true,
+          "liquidity_capital_structure": true,
+          "management_discussion_insights": true,
+          "notable_footnotes": true,
+          "risk_factors": false,
+          "segment_performance": true,
+          "three_year_trend": true
+        },
+        "covered": [
+          "executive_snapshot",
+          "financial_highlights",
+          "guidance_outlook",
+          "liquidity_capital_structure",
+          "management_discussion_insights",
+          "notable_footnotes",
+          "segment_performance",
+          "three_year_trend"
+        ],
+        "missing": [
+          "risk_factors"
+        ],
+        "covered_count": 8,
+        "total_count": 9,
+        "coverage_ratio": 0.8888888888888888
+      },
+      "writer": {
+        "markdown": "*Auto-generated from structured data because the writer output failed validation (Editorial summary length must be 200-300 words (current: 23).).*\n## Executive Summary\nExxon Mobil Reports $332.2B Revenue and $28.8B Net Income for FY2025 Management adopted a neutral tone. FY2025 Revenue reached $332.2B.; Net Income reported at $28.8B with an 8.7% net margin.; Diluted EPS stood at $6.7.; Auditor confirmed effective internal control over financial reporting as of December 31, 2025.\n\n## Financials\n- Revenue: $332.2B \u2013 Reported for FY2025\n- Net Income: $28.8B \u2013 Reported for FY2025\n- EPS: $6.7 \u2013 Reported for FY2025\n- Net Margin: 8.7% \u2013 Reported for FY2025\n- Profitability: Net margin reported at 8.7% for FY2025.\n- Cash flow: Not disclosed\u2014cash flow figures not provided in excerpts.\n- Balance sheet: Not disclosed\u2014balance sheet figures not provided in excerpts.\n\n## Risks\n- No material incremental risks were highlighted beyond routine disclosures.\n\n## Management Commentary\n- Themes: Management's discussion focused on operational execution and market conditions. See Item 2 in the full filing for detailed narrative.\n- Capital allocation: Capital allocation priorities reflected in the financial statements. Review cash flow statement for deployment details.\n\n## Outlook\n- Guidance: Company did not provide formal guidance in this filing. Many companies provide outlook during earnings calls instead.\n- Tone: neutral\n- Drivers: Current revenue of $332.2B reflects ongoing business momentum.\n- Watch items: Earnings call transcript may contain forward-looking commentary not included in SEC filings.",
+        "word_count": 236,
+        "model_used": "gemini-2.5-flash",
+        "fallback_used": true,
+        "fallback_reason": "Editorial summary length must be 200-300 words (current: 23)."
+      },
+      "writer_fallback_reason": "Editorial summary length must be 200-300 words (current: 23)."
+    },
+    "message": "Some sections may not have loaded fully. Missing sections: risk_factors"
+  }
+}

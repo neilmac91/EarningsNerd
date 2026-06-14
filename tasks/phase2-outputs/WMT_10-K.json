@@ -1,0 +1,211 @@
+{
+  "ticker": "WMT",
+  "filing_type": "10-K",
+  "company": "Walmart Inc.",
+  "accession": "0000104169-26-000055",
+  "document_url": "https://www.sec.gov/Archives/edgar/data/104169/000010416926000055/wmt-20260131.htm",
+  "ground_truth": [
+    {
+      "metric": "revenue",
+      "value": 713163000000.0,
+      "unit": "USD"
+    },
+    {
+      "metric": "net_income",
+      "value": 21893000000.0,
+      "unit": "USD"
+    },
+    {
+      "metric": "eps",
+      "value": 2.74,
+      "unit": "USD_per_share"
+    }
+  ],
+  "grounding": {
+    "filing_text_len": 2323981,
+    "excerpt_len": 50000,
+    "xbrl_metrics": {
+      "revenue": {
+        "current": {
+          "period": "2026-01-31",
+          "value": 713163000000.0,
+          "form": "10-K"
+        },
+        "prior": {
+          "period": "2025-01-31",
+          "value": 680985000000.0,
+          "form": "10-K"
+        },
+        "change": {
+          "absolute": 32178000000.0,
+          "percentage": 4.73,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2026-01-31",
+            "value": 713163000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2025-01-31",
+            "value": 680985000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2024-01-31",
+            "value": 648125000000.0,
+            "form": "10-K"
+          }
+        ]
+      },
+      "net_income": {
+        "current": {
+          "period": "2026-01-31",
+          "value": 21893000000.0,
+          "form": "10-K"
+        },
+        "prior": {
+          "period": "2025-01-31",
+          "value": 19436000000.0,
+          "form": "10-K"
+        },
+        "change": {
+          "absolute": 2457000000.0,
+          "percentage": 12.64,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2026-01-31",
+            "value": 21893000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2025-01-31",
+            "value": 19436000000.0,
+            "form": "10-K"
+          },
+          {
+            "period": "2024-01-31",
+            "value": 15511000000.0,
+            "form": "10-K"
+          }
+        ]
+      },
+      "earnings_per_share": {
+        "current": {
+          "period": "2026-01-31",
+          "value": 2.74,
+          "form": "10-K"
+        },
+        "prior": {
+          "period": "2025-01-31",
+          "value": 2.42,
+          "form": "10-K"
+        },
+        "change": {
+          "absolute": 0.32,
+          "percentage": 13.22,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2026-01-31",
+            "value": 2.74,
+            "form": "10-K"
+          },
+          {
+            "period": "2025-01-31",
+            "value": 2.42,
+            "form": "10-K"
+          },
+          {
+            "period": "2024-01-31",
+            "value": 1.92,
+            "form": "10-K"
+          }
+        ]
+      },
+      "net_margin": {
+        "current": {
+          "period": "2026-01-31",
+          "value": 3.069845182658102,
+          "form": "10-K"
+        },
+        "prior": {
+          "period": "2025-01-31",
+          "value": 2.854101044810091,
+          "form": "10-K"
+        },
+        "change": {
+          "absolute": 0.22,
+          "percentage": 7.56,
+          "direction": "increase"
+        },
+        "series": [
+          {
+            "period": "2026-01-31",
+            "value": 3.069845182658102,
+            "form": "10-K"
+          },
+          {
+            "period": "2025-01-31",
+            "value": 2.854101044810091,
+            "form": "10-K"
+          },
+          {
+            "period": "2024-01-31",
+            "value": 2.3932111861137897,
+            "form": "10-K"
+          }
+        ]
+      }
+    }
+  },
+  "score": {
+    "schema_valid": false,
+    "repaired": false,
+    "numeric_accuracy": 0.0,
+    "coverage": 0.0,
+    "numeric_precision": 1.0,
+    "gate_failures": [],
+    "missing_sections": [
+      "executive_summary",
+      "financial_highlights",
+      "risk_factors",
+      "management_discussion",
+      "outlook"
+    ],
+    "matched_facts": [],
+    "missing_facts": [
+      "revenue",
+      "net_income",
+      "eps"
+    ],
+    "aggregate": 0.0
+  },
+  "status": "error",
+  "message": "DEBUG_ERROR: 'list' object has no attribute 'get'",
+  "coverage": {},
+  "summary": {
+    "status": "error",
+    "message": "DEBUG_ERROR: 'list' object has no attribute 'get'",
+    "summary_title": "Walmart Inc. 10-K Filing Summary",
+    "sections": [],
+    "insights": {
+      "sentiment": "Neutral",
+      "growth_drivers": [],
+      "risk_signals": []
+    },
+    "business_overview": "Unable to retrieve this filing at the moment \u2014 please try again shortly.",
+    "financial_highlights": {},
+    "risk_factors": [],
+    "management_discussion": "",
+    "key_changes": "",
+    "raw_summary": {
+      "error": "structured_extraction_failed",
+      "detail": "'list' object has no attribute 'get'"
+    }
+  }
+}
