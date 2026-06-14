@@ -164,10 +164,22 @@ a distressed, loss-making company was described as showing *"ongoing business mo
 its narrowing losses or going-concern risk.
 
 **Achievable quality (bake-off, clean schema-first path).** The harness's candidate path uses a leaner
-schema + 4 096 tokens + API-enforced JSON; results land in `backend/evals/reports/` and will be cited in
-the final numbers once the run completes. The point it demonstrates: **the model is not the problem — the
-production pipeline is.** A correctly-budgeted, type-safe, schema-enforced extraction produces populated,
-schema-valid output where the baseline fails.
+schema + 4 096 tokens + API-enforced JSON. Run over the first 4 golden filings (AAPL/MSFT/NVDA/JPM;
+`backend/evals/reports/eval_20260614T002153Z.md`):
+
+| candidate | pass_rate | schema_valid | num_recall | coverage | $cost (4) | latency | notes |
+|---|---|---|---|---|---|---|---|
+| **gemini-json** (clean schema-first) | **0.75** | **0.75** | 0.75 | 0.55 | $0.128 | 19 s | same model as baseline |
+| baseline (prod pipeline) | 0.00 | **0.00** | 0.75 | 0.95* | ~$0 | 56 s | *coverage inflated by boilerplate back-fill |
+| deepseek | 0.00 | 0.00 | **1.00** | 0.35 | **$0.016** | **7 s** | cheapest/fastest, best numbers; needs schema adherence |
+| claude-sonnet | — | — | — | — | — | — | 4/4 errored — **harness API-integration bug**, not a quality signal |
+
+**The decisive point: the *same* Gemini model goes from baseline's 0 % schema-valid / 0.0 pass-rate to
+0.75 / 0.75 when run through a correctly-budgeted, type-safe, schema-enforced extraction.** The model is
+not the problem — the production pipeline is. (Also note: baseline did **not** crash on these 4 here
+`errors:0`, vs 4/8 crashes in the direct capture — confirming the R1 crash is **intermittent / model-
+nondeterministic**, as flagged in §2. **DeepSeek** is a live cost-migration candidate: ~8× cheaper and 8×
+faster with perfect numeric recall, pending schema-adherence work — see A12.)
 
 ---
 
