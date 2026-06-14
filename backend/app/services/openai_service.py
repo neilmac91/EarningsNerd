@@ -1856,8 +1856,10 @@ Return JSON containing only the `{section_key}` key."""
             _xbrl_spec = [
                 ("Revenue", "revenue", "usd"), ("Gross Profit", "gross_profit", "usd"),
                 ("Operating Income", "operating_income", "usd"), ("Net Income", "net_income", "usd"),
-                ("EPS", "earnings_per_share", "eps"), ("Gross Margin", "gross_margin", "pct"),
+                ("EPS (Basic)", "earnings_per_share", "eps"), ("EPS (Diluted)", "eps_diluted", "eps"),
+                ("Gross Margin", "gross_margin", "pct"),
                 ("Operating Margin", "operating_margin", "pct"), ("Net Margin", "net_margin", "pct"),
+                ("Return on Equity", "return_on_equity", "pct"), ("Return on Assets", "return_on_assets", "pct"),
                 ("Operating Cash Flow", "operating_cash_flow", "usd"),
                 ("Capital Expenditures", "capital_expenditures", "usd"),
                 ("Free Cash Flow", "free_cash_flow", "usd"), ("Total Assets", "total_assets", "usd"),

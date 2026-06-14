@@ -49,6 +49,9 @@ DURATION_CONCEPTS: Dict[str, List[str]] = {
         "EarningsPerShareDiluted",
         "EarningsPerShareBasicAndDiluted",
     ],
+    # P1.5: diluted EPS explicitly, so a report can show basic AND diluted (the figure investors
+    # quote) without conflating them — the basic/diluted mismatch the eval kept flagging.
+    "eps_diluted": ["EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"],
     # P1.1 depth: income-statement profitability + cash-flow-statement flows. All are
     # duration facts for the filing's period; absent concepts (e.g. GrossProfit for a bank)
     # simply yield an empty series — never wrong data.

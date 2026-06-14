@@ -450,6 +450,7 @@ class EdgarXBRLService:
                 "total_liabilities": [],
                 "cash_and_equivalents": [],
                 "earnings_per_share": [],
+                "eps_diluted": [],
                 # P1.1 depth additions
                 "gross_profit": [],
                 "operating_income": [],
@@ -480,6 +481,9 @@ class EdgarXBRLService:
                         ["EarningsPerShareBasic", "EarningsPerShareDiluted",
                          "BasicEarningsPerShare", "EarningsPerShareBasicAndDiluted"],
                         accession_number
+                    )
+                    result["eps_diluted"] = self._extract_from_dataframe(
+                        df, ["EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"], accession_number
                     )
                     result["gross_profit"] = self._extract_from_dataframe(
                         df, ["GrossProfit"], accession_number
@@ -833,7 +837,7 @@ class EdgarXBRLService:
                 metrics["net_margin"] = build_metric_entry(margin_series)
 
         # P1.1 depth: surface cash-flow + balance-sheet metrics the pipeline already collects.
-        for key in ("operating_cash_flow", "capital_expenditures", "gross_profit",
+        for key in ("eps_diluted", "operating_cash_flow", "capital_expenditures", "gross_profit",
                     "operating_income", "total_assets", "cash_and_equivalents",
                     "shareholders_equity", "long_term_debt"):
             series = normalise_series(xbrl_data.get(key, []))
@@ -873,6 +877,25 @@ class EdgarXBRLService:
                                          "value": (num_v / rev_v) * 100, "form": rev.get("form")})
                 if m_series:
                     metrics[margin_key] = build_metric_entry(m_series)
+
+        # P1.3 issuer-relevant returns: ROE and ROA — the right profitability read where gross
+        # margin doesn't apply (banks, insurers, REITs). Net income (period) over equity / assets.
+        equity_series = normalise_series(xbrl_data.get("shareholders_equity", []))
+        assets_series = normalise_series(xbrl_data.get("total_assets", []))
+        for ratio_key, denom_series in (("return_on_equity", equity_series),
+                                        ("return_on_assets", assets_series)):
+            if net_income_series and denom_series:
+                denom_by_period = {e["period"]: e for e in denom_series}
+                r_series = []
+                for ni in net_income_series:
+                    denom = denom_by_period.get(ni["period"])
+                    ni_v = ni.get("value")
+                    denom_v = denom.get("value") if denom else None
+                    if ni_v is not None and denom_v and denom_v != 0:
+                        r_series.append({"period": ni["period"],
+                                         "value": (ni_v / denom_v) * 100, "form": ni.get("form")})
+                if r_series:
+                    metrics[ratio_key] = build_metric_entry(r_series)
 
         return metrics
 
