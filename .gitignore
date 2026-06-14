@@ -43,7 +43,5 @@ coverage/
 pydantic/
 
 # Report-quality review: bulky generated validation reports (kept local; results summarized in
-# docs/ + the PR description). Already-committed dirs are consolidated before opening the PR.
-tasks/phase2-outputs-p4/
-tasks/phase2-outputs-p5/
-tasks/phase2-outputs-p6/
+# docs/report-quality-improvement-plan.md + the PR descriptions, with sample reports attached there).
+tasks/phase2-outputs*/
