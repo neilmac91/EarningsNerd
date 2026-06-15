@@ -64,12 +64,9 @@ test.describe('Authentication Flow', () => {
   test('should have back to home link on login page', async ({ page }) => {
     await page.goto('/login')
 
-    // Check for back to home link or button
-    const backLink = page.locator('a[href="/"], a[href*="home"], button:has-text("back")')
-    const backLinkCount = await backLink.count()
-
-    // Should have a way to navigate back
-    expect(backLinkCount).toBeGreaterThan(0)
+    // AuthShell renders "Back to home" (href="/") — use toBeVisible() so
+    // Playwright retries until the Suspense boundary has resolved.
+    await expect(page.locator('a[href="/"]').first()).toBeVisible()
   })
 
   test('should navigate between login and register pages', async ({ page }) => {
