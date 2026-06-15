@@ -17,12 +17,13 @@ psycopg2-binary==2.9.12
 redis==8.0.0
 openai>=1.30.0,<3.0.0
 beautifulsoup4==4.15.0
-# Pin pandas (transitive via edgartools) on the tested 2.x major. lxml is held at
+# Allow pandas 3.x (validated: edgartools requires only pandas>=2.0.0, numpy 2.x already
+# in use, full backend suite passes on 3.0.x). lxml is held at
 # >=6.1.0 to fix CVE-2026-41066 / PYSEC-2026-87 (XXE local-file disclosure via the
 # default resolve_entities=True; fixed in 6.1.0) — it parses externally-authored SEC
 # XBRL/XML. Neither edgartools (lxml>=4.4) nor pandas (lxml>=4.9.2) caps the major.
 lxml>=6.1.0,<7.0.0
-pandas>=2.0.0,<3.0.0
+pandas>=2.0.0,<4.0.0
 python-jose[cryptography]>=3.5.0
 passlib[bcrypt]==1.7.4
 python-dateutil==2.9.0.post0
