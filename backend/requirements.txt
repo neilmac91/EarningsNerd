@@ -192,7 +192,7 @@ rank-bm25==0.2.2
     # via edgartools
 rapidfuzz==3.14.5
     # via edgartools
-redis==7.4.0
+redis==8.0.0
     # via -r requirements.in
 requests==2.34.2
     # via
