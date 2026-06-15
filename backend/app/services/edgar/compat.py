@@ -363,6 +363,20 @@ class XBRLServiceCompat:
         """
         return edgar_xbrl_service.extract_standardized_metrics(xbrl_data)
 
+    async def get_filing_sections(
+        self,
+        accession_number: str,
+        cik: str,
+        filing_type: str,
+    ) -> Optional[Dict[str, str]]:
+        """
+        Extract critical sections (financials / mda / risk) via edgartools' native parser.
+
+        Returns a dict of clean section text, or None when unavailable (callers fall back
+        to the legacy regex extractor).
+        """
+        return await edgar_xbrl_service.get_filing_sections(accession_number, cik, filing_type)
+
 
 # Singleton instances for drop-in replacement
 sec_edgar_service = SECEdgarServiceCompat()

@@ -229,6 +229,27 @@ async def stream_filing_summary(
                     return None
                 xbrl_task = asyncio.create_task(fetch_xbrl())
 
+            # Fetch edgartools-parsed sections in parallel with the document fetch (needs only
+            # accession + CIK). High-precision excerpt source; the regex extractor is the fallback.
+            # Skipped on a cache hit (the cached excerpt is reused, no re-extraction needed).
+            sections_task = None
+            if (
+                not cache_is_valid
+                and settings.USE_EDGARTOOLS_SECTIONS
+                and company_cik
+                and filing_type
+                and filing_type.upper() in {"10-K", "10-Q"}
+            ):
+                async def fetch_sections():
+                    try:
+                        return await xbrl_service.get_filing_sections(
+                            filing_accession_number, company_cik, filing_type
+                        )
+                    except Exception as sections_error:  # noqa: BLE001
+                        logger.warning(f"[stream:{filing_id}] Section parse failed: {sections_error}")
+                        return None
+                sections_task = asyncio.create_task(fetch_sections())
+
             # Step 1: File Validation
             # DB OP: Record progress
             await run_sync_db(record_progress, session, filing_id, "fetching")
@@ -327,11 +348,16 @@ async def stream_filing_summary(
 
             yield {'type': 'progress', 'stage': 'parsing', 'message': 'Step 2: Section Parsing - Extracting major sections (Item 1A: Risk Factors, Item 7: MD&A)...', 'percent': 20}
 
+            # Resolve the parallel section parse (if any) before building the excerpt.
+            sections = None
+            if sections_task is not None:
+                sections = await sections_task
+
             # Extract excerpt
             def extract_excerpt_sync():
                 with database.SessionLocal() as thread_session:
                     thread_filing = thread_session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
-                    return get_or_cache_excerpt(thread_session, thread_filing, filing_text)
+                    return get_or_cache_excerpt(thread_session, thread_filing, filing_text, sections=sections)
 
             if cache_is_valid:
                 # Use the cached excerpt directly
