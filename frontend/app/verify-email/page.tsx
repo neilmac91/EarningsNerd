@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { verifyEmail } from '@/features/auth/api/auth-api'
 import Link from 'next/link'
 import { Loader2, CheckCircle, XCircle } from 'lucide-react'
-import SecondaryHeader from '@/components/SecondaryHeader'
+import AuthShell from '@/components/auth/AuthShell'
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams()
@@ -30,69 +30,70 @@ function VerifyEmailContent() {
         setStatus('error')
         const msg =
           err && typeof err === 'object' && 'response' in err
-            ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail ?? 'Verification failed.'
+            ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail ??
+              'Verification failed.'
             : 'Verification failed.'
         setErrorMessage(msg)
       })
   }, [token, router])
 
   return (
-    <div className="min-h-screen bg-background-light dark:bg-background-dark">
-      <SecondaryHeader backHref="/login" backLabel="Back to Login" />
+    <AuthShell>
+      <div className="text-center">
+        {status === 'loading' && (
+          <>
+            <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-mint-500" />
+            <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+              Verifying your email…
+            </h1>
+          </>
+        )}
 
-      <div className="flex min-h-[calc(100vh-80px)] items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md rounded-2xl border border-border-light bg-panel-light p-8 shadow-lg dark:border-border-dark dark:bg-panel-dark text-center">
-          {status === 'loading' && (
-            <>
-              <Loader2 className="h-10 w-10 animate-spin text-mint-500 mx-auto mb-4" />
-              <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
-                Verifying your email…
-              </h1>
-            </>
-          )}
+        {status === 'success' && (
+          <>
+            <div className="mb-4 flex justify-center">
+              <CheckCircle className="animate-check-pop h-12 w-12 text-mint-500" />
+            </div>
+            <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+              Email verified!
+            </h1>
+            <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              Your account is active. Redirecting you now…
+            </p>
+            <Link href="/" className="mt-6 inline-block text-sm font-medium text-mint-600 hover:underline dark:text-mint-400">
+              Continue to EarningsNerd
+            </Link>
+          </>
+        )}
 
-          {status === 'success' && (
-            <>
-              <CheckCircle className="h-10 w-10 text-mint-500 mx-auto mb-4" />
-              <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
-                Email verified!
-              </h1>
-              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-6">
-                Your account is active. Redirecting you now…
+        {status === 'error' && (
+          <>
+            <div className="mb-4 flex justify-center">
+              <XCircle className="h-12 w-12 text-red-500" />
+            </div>
+            <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+              Verification failed
+            </h1>
+            <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              {errorMessage}
+            </p>
+            <div className="mt-6 space-y-2 text-sm">
+              <p>
+                <Link href="/check-email" className="font-medium text-mint-600 hover:underline dark:text-mint-400">
+                  Resend verification email
+                </Link>
               </p>
-              <Link href="/" className="text-mint-600 hover:underline dark:text-mint-400 text-sm">
-                Continue to EarningsNerd
-              </Link>
-            </>
-          )}
-
-          {status === 'error' && (
-            <>
-              <XCircle className="h-10 w-10 text-red-500 mx-auto mb-4" />
-              <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
-                Verification failed
-              </h1>
-              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-6">
-                {errorMessage}
+              <p className="text-text-tertiary-light dark:text-text-tertiary-dark">
+                or{' '}
+                <Link href="/login" className="text-mint-600 hover:underline dark:text-mint-400">
+                  back to login
+                </Link>
               </p>
-              <div className="space-y-2 text-sm">
-                <p>
-                  <Link href="/check-email" className="text-mint-600 hover:underline dark:text-mint-400">
-                    Resend verification email
-                  </Link>
-                </p>
-                <p className="text-text-tertiary-light dark:text-text-tertiary-dark">
-                  or{' '}
-                  <Link href="/login" className="text-mint-600 hover:underline dark:text-mint-400">
-                    back to login
-                  </Link>
-                </p>
-              </div>
-            </>
-          )}
-        </div>
+            </div>
+          </>
+        )}
       </div>
-    </div>
+    </AuthShell>
   )
 }
 

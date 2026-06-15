@@ -6,8 +6,9 @@ import { resetPassword } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
 import { Loader2, CheckCircle } from 'lucide-react'
-import SecondaryHeader from '@/components/SecondaryHeader'
 import StateCard from '@/components/StateCard'
+import AuthShell from '@/components/auth/AuthShell'
+import PasswordField from '@/components/auth/PasswordField'
 
 function ResetPasswordContent() {
   const searchParams = useSearchParams()
@@ -27,7 +28,6 @@ function ResetPasswordContent() {
       setError('Passwords do not match.')
       return
     }
-
     if (!token) {
       setError('Invalid or missing reset token. Please request a new password reset link.')
       return
@@ -45,110 +45,98 @@ function ResetPasswordContent() {
     }
   }
 
-  return (
-    <div className="min-h-screen bg-background-light dark:bg-background-dark">
-      <SecondaryHeader backHref="/login" backLabel="Back to Login" />
-
-      <div className="flex min-h-[calc(100vh-80px)] items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md rounded-2xl border border-border-light bg-panel-light p-8 shadow-lg dark:border-border-dark dark:bg-panel-dark">
-          {!success ? (
-            <>
-              <h1 className="text-2xl font-bold text-center text-text-primary-light dark:text-text-primary-dark mb-3">
-                Choose a new password
-              </h1>
-              <p className="text-sm text-center text-text-secondary-light dark:text-text-secondary-dark mb-8">
-                At least 8 characters.
-              </p>
-
-              {error && (
-                <div className="mb-6">
-                  <StateCard variant="error" title="Error" message={error} />
-                </div>
-              )}
-
-              {!token && (
-                <div className="mb-6">
-                  <StateCard
-                    variant="error"
-                    title="Invalid link"
-                    message="This reset link is invalid. Please request a new one."
-                  />
-                </div>
-              )}
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">
-                    New password
-                  </label>
-                  <input
-                    type="password"
-                    id="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={8}
-                    disabled={!token}
-                    className="w-full px-3 py-2 border border-border-light rounded-lg bg-background-light text-text-primary-light placeholder:text-text-tertiary-light focus:outline-none focus:ring-2 focus:ring-mint-500/50 focus:border-mint-500 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark disabled:opacity-50"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="confirm" className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">
-                    Confirm new password
-                  </label>
-                  <input
-                    type="password"
-                    id="confirm"
-                    value={confirm}
-                    onChange={(e) => setConfirm(e.target.value)}
-                    required
-                    minLength={8}
-                    disabled={!token}
-                    className="w-full px-3 py-2 border border-border-light rounded-lg bg-background-light text-text-primary-light placeholder:text-text-tertiary-light focus:outline-none focus:ring-2 focus:ring-mint-500/50 focus:border-mint-500 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark disabled:opacity-50"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading || !token}
-                  className="w-full bg-mint-500 text-slate-950 py-2.5 rounded-lg hover:bg-mint-400 font-semibold disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-mint-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Resetting…
-                    </span>
-                  ) : (
-                    'Reset password'
-                  )}
-                </button>
-              </form>
-
-              <p className="mt-6 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                Need a new link?{' '}
-                <Link href="/forgot-password" className="text-mint-600 hover:underline dark:text-mint-400">
-                  Request reset
-                </Link>
-              </p>
-            </>
-          ) : (
-            <div className="text-center">
-              <CheckCircle className="h-10 w-10 text-mint-500 mx-auto mb-4" />
-              <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
-                Password updated!
-              </h1>
-              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-6">
-                Redirecting you to login…
-              </p>
-              <Link href="/login" className="text-mint-600 hover:underline dark:text-mint-400 text-sm">
-                Go to login
-              </Link>
-            </div>
-          )}
+  if (success) {
+    return (
+      <AuthShell>
+        <div className="text-center">
+          <div className="mb-4 flex justify-center">
+            <CheckCircle className="animate-check-pop h-12 w-12 text-mint-500" />
+          </div>
+          <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+            Password updated!
+          </h1>
+          <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            Redirecting you to login…
+          </p>
+          <Link href="/login" className="mt-6 inline-block text-sm font-medium text-mint-600 hover:underline dark:text-mint-400">
+            Go to login
+          </Link>
         </div>
-      </div>
-    </div>
+      </AuthShell>
+    )
+  }
+
+  return (
+    <AuthShell>
+      <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+        Choose a new password
+      </h1>
+      <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+        At least 8 characters.
+      </p>
+
+      {error && (
+        <div className="mt-6">
+          <StateCard variant="error" title="Error" message={error} />
+        </div>
+      )}
+
+      {!token && (
+        <div className="mt-6">
+          <StateCard
+            variant="error"
+            title="Invalid link"
+            message="This reset link is invalid. Please request a new one."
+          />
+        </div>
+      )}
+
+      <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+        <PasswordField
+          id="password"
+          label="New password"
+          value={password}
+          onChange={setPassword}
+          autoComplete="new-password"
+          required
+          minLength={8}
+          showStrength
+          autoFocus={!!token}
+        />
+
+        <PasswordField
+          id="confirm"
+          label="Confirm new password"
+          value={confirm}
+          onChange={setConfirm}
+          autoComplete="new-password"
+          required
+          minLength={8}
+        />
+
+        <button
+          type="submit"
+          disabled={loading || !token}
+          className="w-full rounded-lg bg-mint-500 py-2.5 font-semibold text-slate-950 transition-all hover:bg-mint-400 active:scale-[0.99] disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+        >
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Resetting…
+            </span>
+          ) : (
+            'Reset password'
+          )}
+        </button>
+      </form>
+
+      <p className="mt-8 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+        Need a new link?{' '}
+        <Link href="/forgot-password" className="font-medium text-mint-600 hover:underline dark:text-mint-400">
+          Request reset
+        </Link>
+      </p>
+    </AuthShell>
   )
 }
 

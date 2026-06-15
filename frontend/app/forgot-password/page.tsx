@@ -4,9 +4,9 @@ import { useState } from 'react'
 import { forgotPassword } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
-import { Loader2 } from 'lucide-react'
-import SecondaryHeader from '@/components/SecondaryHeader'
+import { Loader2, MailCheck } from 'lucide-react'
 import StateCard from '@/components/StateCard'
+import AuthShell from '@/components/auth/AuthShell'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -29,79 +29,81 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background-light dark:bg-background-dark">
-      <SecondaryHeader backHref="/login" backLabel="Back to Login" />
-
-      <div className="flex min-h-[calc(100vh-80px)] items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md rounded-2xl border border-border-light bg-panel-light p-8 shadow-lg dark:border-border-dark dark:bg-panel-dark">
-          <h1 className="text-2xl font-bold text-center text-text-primary-light dark:text-text-primary-dark mb-3">
+    <AuthShell>
+      {!submitted ? (
+        <>
+          <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
             Reset your password
           </h1>
+          <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            Enter your email and we&apos;ll send you a reset link.
+          </p>
 
-          {!submitted ? (
-            <>
-              <p className="text-sm text-center text-text-secondary-light dark:text-text-secondary-dark mb-8">
-                Enter your email and we&apos;ll send you a reset link.
-              </p>
-
-              {error && (
-                <div className="mb-6">
-                  <StateCard variant="error" title="Error" message={error} />
-                </div>
-              )}
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    className="w-full px-3 py-2 border border-border-light rounded-lg bg-background-light text-text-primary-light placeholder:text-text-tertiary-light focus:outline-none focus:ring-2 focus:ring-mint-500/50 focus:border-mint-500 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
-                  />
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full bg-mint-500 text-slate-950 py-2.5 rounded-lg hover:bg-mint-400 font-semibold disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-mint-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
-                >
-                  {loading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Sending…
-                    </span>
-                  ) : (
-                    'Send reset link'
-                  )}
-                </button>
-              </form>
-            </>
-          ) : (
-            <div className="text-center">
-              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-2">
-                If an account exists for
-              </p>
-              <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-6">
-                {email}
-              </p>
-              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-8">
-                you&apos;ll receive a reset link shortly. The link expires in 1 hour.
-              </p>
+          {error && (
+            <div className="mt-6">
+              <StateCard variant="error" title="Error" message={error} />
             </div>
           )}
 
-          <p className="mt-6 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            <Link href="/login" className="text-mint-600 hover:underline dark:text-mint-400">
-              Back to login
-            </Link>
+          <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+            <div>
+              <label
+                htmlFor="email"
+                className="mb-1 block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark"
+              >
+                Email
+              </label>
+              <input
+                type="email"
+                id="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                autoFocus
+                className="w-full rounded-lg border border-border-light bg-background-light px-3 py-2 text-text-primary-light placeholder:text-text-tertiary-light focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/50 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-lg bg-mint-500 py-2.5 font-semibold text-slate-950 transition-all hover:bg-mint-400 active:scale-[0.99] disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Sending…
+                </span>
+              ) : (
+                'Send reset link'
+              )}
+            </button>
+          </form>
+        </>
+      ) : (
+        <div className="text-center">
+          <div className="mb-4 flex justify-center">
+            <div className="animate-check-pop rounded-full bg-mint-500/10 p-4">
+              <MailCheck className="h-8 w-8 text-mint-500" />
+            </div>
+          </div>
+          <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+            Check your email
+          </h1>
+          <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            If an account exists for{' '}
+            <span className="font-medium text-text-primary-light dark:text-text-primary-dark">{email}</span>, a
+            password reset link is on its way. It expires in 1 hour.
           </p>
         </div>
-      </div>
-    </div>
+      )}
+
+      <p className="mt-8 text-center text-sm">
+        <Link href="/login" className="text-text-secondary-light hover:underline dark:text-text-secondary-dark">
+          Back to login
+        </Link>
+      </p>
+    </AuthShell>
   )
 }
