@@ -2,8 +2,7 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
+import { SiteHeader, SiteFooter } from '@/components/SiteChrome'
 import CookieConsent from '@/components/CookieConsent'
 import { Analytics } from '@vercel/analytics/next'
 
@@ -52,9 +51,9 @@ export default function RootLayout({
       <head />
       <body>
         <Providers>
-          <Header />
+          <SiteHeader />
           {children}
-          <Footer />
+          <SiteFooter />
           <CookieConsent />
           <Analytics />
         </Providers>
