@@ -204,6 +204,12 @@ async def get_redis_pool() -> Optional[ConnectionPool]:
     """
     global _pool
 
+    # Redis intentionally disabled (prod runs the two-tier cache L1-only). Never attempt a
+    # connection — otherwise the default redis://localhost pool is built lazily and every cache
+    # op pays the full CACHE_OPERATION_TIMEOUT before falling back.
+    if settings.SKIP_REDIS_INIT:
+        return None
+
     # Reset if event loop changed (prevents hanging on stale connections)
     _reset_on_loop_change()
 
@@ -240,6 +246,10 @@ async def get_redis_client() -> Optional[aioredis.Redis]:
     """
     global _client
 
+    # Short-circuit when Redis is disabled so cache ops don't pay the acquisition timeout.
+    if settings.SKIP_REDIS_INIT:
+        return None
+
     # Reset if event loop changed (prevents hanging on stale connections)
     _reset_on_loop_change()
 
@@ -268,6 +278,11 @@ async def check_redis_health() -> dict:
         - error: str error message (if unhealthy)
     """
     import time
+
+    # Redis intentionally disabled — report healthy-but-disabled so /health/detailed and
+    # /metrics don't flap to "degraded" for an expected configuration (both gate on "healthy").
+    if settings.SKIP_REDIS_INIT:
+        return {"healthy": True, "disabled": True, "latency_ms": 0.0}
 
     # Fast timeout to prevent hanging in CI/test environments without Redis
     HEALTH_CHECK_TIMEOUT = 2.0
