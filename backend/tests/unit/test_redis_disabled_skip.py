@@ -25,12 +25,15 @@ async def test_pool_and_client_return_none_when_disabled():
 
 @pytest.mark.asyncio
 async def test_cache_ops_are_fast_no_op_when_disabled():
+    misses_before = redis_service._cache_stats.misses
     start = time.perf_counter()
     assert await redis_service.cache_get("any-key") is None
     assert await redis_service.cache_set("any-key", {"a": 1}) is False
     elapsed = time.perf_counter() - start
     # No per-op acquisition timeout: well under a single CACHE_OPERATION_TIMEOUT (2s).
     assert elapsed < 0.5, f"cache ops took {elapsed:.2f}s — expected instant when Redis disabled"
+    # A disabled-Redis read must NOT register as a cache miss (would pollute the hit-rate metric).
+    assert redis_service._cache_stats.misses == misses_before
 
 
 @pytest.mark.asyncio

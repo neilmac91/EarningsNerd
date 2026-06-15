@@ -391,6 +391,11 @@ async def cache_get(key: str) -> Optional[Any]:
     """
     global _cache_stats
 
+    # Redis disabled: skip without touching stats — counting these as misses would otherwise
+    # pollute the hit-rate metric on every call.
+    if settings.SKIP_REDIS_INIT:
+        return None
+
     try:
         client = await asyncio.wait_for(
             get_redis_client(),
@@ -446,6 +451,9 @@ async def cache_set(
     """
     global _cache_stats
 
+    if settings.SKIP_REDIS_INIT:
+        return False
+
     try:
         client = await asyncio.wait_for(
             get_redis_client(),
@@ -490,6 +498,9 @@ async def cache_delete(key: str) -> bool:
     """
     global _cache_stats
 
+    if settings.SKIP_REDIS_INIT:
+        return False
+
     try:
         client = await asyncio.wait_for(
             get_redis_client(),
@@ -531,6 +542,9 @@ async def cache_delete_pattern(pattern: str, max_keys: int = 10000) -> int:
         await cache_delete_pattern("xbrl:*")
     """
     global _cache_stats
+
+    if settings.SKIP_REDIS_INIT:
+        return 0
 
     try:
         client = await asyncio.wait_for(
