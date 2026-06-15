@@ -47,6 +47,7 @@ def calculate_section_coverage(summary_data: Dict[str, Any]) -> Tuple[int, int, 
         "not found", "not provided", "no data", "could not",
         "unable to", "failed to", "missing", "pending",
         "being processed", "retry", "error",
+        "not captured", "not extracted", "were not extracted",
     ]
 
     def _has_substantive_content(data: Any) -> bool:

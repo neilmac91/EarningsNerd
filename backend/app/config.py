@@ -144,8 +144,8 @@ class Settings(BaseSettings):
     # weren't served a full result. The summary is always persisted regardless (so the streamed
     # result doesn't vanish on refetch), and the UI surfaces partials honestly via the quality
     # badge + Regenerate. The verdict is always attached to raw_summary["quality"] (additive
-    # metadata). Default False to preserve current behavior until validated.
-    AI_QUALITY_GATE: bool = False
+    # metadata). Enabled (report-quality Phase 0): users are not charged quota for partial results.
+    AI_QUALITY_GATE: bool = True
 
     # Anonymous (guest) daily summary quota (roadmap S5). Guests currently have no daily/monthly
     # cap (only 5/60s per IP), so one IP could trigger thousands of AI calls/month. A small daily

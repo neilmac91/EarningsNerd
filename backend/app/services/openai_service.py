@@ -264,7 +264,7 @@ class OpenAIService:
             "sample_length": 80000,  # Increased from 25000 to capture more content
             "previous_section_limit": 30000,  # Increased from 15000
             "ai_timeout": 120.0,  # Increased for larger content processing
-            "max_tokens": 2000,  # Increased for more comprehensive summaries
+            "max_tokens": 8000,  # Large enough for the full multi-section JSON schema (avoids truncation)
             "max_sections": 8,  # Increased from 6 to include all key sections
             "section_priority": [
                 "financials",  # PRIORITY: Financial statements first
@@ -291,7 +291,8 @@ class OpenAIService:
         overrides = {
             "10-K": {
                 "ai_timeout": 150.0,  # More time for larger 10-K filings
-                "max_tokens": 2500,
+                "max_tokens": 8192,  # Gemini's max output limit (avoids a 400 from strict gateways);
+                                     # still 3x the old 2.5k, enough headroom to avoid truncation
                 "sample_length": 100000,  # 10-K filings are larger
                 "section_limits": {
                     "financials": 50000,  # 10-K has more detailed financials
@@ -308,7 +309,7 @@ class OpenAIService:
                 "sample_length": 70000,  # Increased from 22000
                 "previous_section_limit": 25000,  # Increased from 15000
                 "ai_timeout": 100.0,  # Increased from 75
-                "max_tokens": 1800,
+                "max_tokens": 8000,  # Prevents mid-JSON truncation on the multi-section schema
                 "max_sections": 6,
                 "section_limits": {
                     "financials": 35000,  # Increased from 10000 - CRITICAL
@@ -939,7 +940,7 @@ class OpenAIService:
 
         # 10-Q: tighter, 1‑page bulletin-style summary
         if filing_type_key == "10-Q":
-            min_words, max_words = 120, 260
+            min_words, max_words = 80, 280
             required_sections = {
                 "Quarter at a Glance",
                 "Key Numbers",
@@ -948,7 +949,7 @@ class OpenAIService:
                 "Liquidity & Balance Sheet",
             }
         else:
-            min_words, max_words = 200, 300
+            min_words, max_words = 100, 320
             required_sections = {
                 "Executive Summary",
                 "Financials",
@@ -1132,8 +1133,10 @@ class OpenAIService:
             summary_bits.append(headline.strip())
         else:
             summary_bits.append(f"{company_name} filed its {filing_type.upper()} covering {reporting_period}.")
-        if tone:
-            summary_bits.append(f"Management adopted a {tone} tone.")
+        # Only surface tone when it carries signal — "neutral" is the uninformative default and
+        # reads as filler, so it is omitted (report-quality Phase 0).
+        if tone and str(tone).strip().lower() not in ("neutral", ""):
+            summary_bits.append(f"Management's disclosed tone was {str(tone).strip().lower()}.")
         if key_points:
             cleaned_points = "; ".join(point.strip() for point in key_points if point)
             if cleaned_points:
@@ -1250,6 +1253,27 @@ class OpenAIService:
             lines.append("- Guidance was not disclosed; monitor subsequent updates for direction.")
 
         return "\n".join(lines).strip()
+
+    @staticmethod
+    def _coerce_summary_dict(data: Any) -> Dict[str, Any]:
+        """Normalize parsed model JSON to the expected object shape.
+
+        Some models (especially without a strict schema) return a top-level array, or a
+        single-element array wrapping the object. Without this guard, ``data.get(...)`` raises
+        ``'list' object has no attribute 'get'`` and the whole summary fails with the user-facing
+        "Unable to retrieve this filing" error. Coercing here keeps the pipeline alive so the
+        structured fallbacks can fill any gaps instead of crashing.
+        """
+        if isinstance(data, dict):
+            return data
+        if isinstance(data, list):
+            for item in data:  # prefer an element that looks like the summary object
+                if isinstance(item, dict) and ("sections" in item or "metadata" in item):
+                    return item
+            for item in data:
+                if isinstance(item, dict):
+                    return item
+        return {}
 
     def _section_is_empty(self, value: Any) -> bool:
         if value is None:
@@ -1564,7 +1588,7 @@ Return JSON containing only the `{section_key}` key."""
             else:
                 key_points.append("Core filing excerpts offered minimal narrative detail; review standardized data for context.")
             if margin_info["current"]:
-                key_points.append(f"Net margin tracked at {margin_info['current']} based on available XBRL data.")
+                key_points.append(f"Net margin {margin_info['current']} (from XBRL data).")
             sections["executive_snapshot"] = {
                 "headline": headline,
                 "key_points": key_points,
@@ -1621,12 +1645,10 @@ Return JSON containing only the `{section_key}` key."""
                     or "Profitability commentary unavailable in provided excerpts."
                 ],
                 "cash_flow": [
-                    "Cash flow details were not disclosed in the targeted excerpts; monitor future filings for updates."
+                    "Cash flow figures were not captured from this filing's extracted text."
                 ],
                 "balance_sheet": [
-                    revenue_info["current"]
-                    and f"Revenue scale of {revenue_info['current']} provides a proxy for balance sheet size."
-                    or "Balance sheet specifics were absent from the extracted text."
+                    "Balance sheet figures were not captured from this filing's extracted text."
                 ],
             }
 
@@ -1634,9 +1656,9 @@ Return JSON containing only the `{section_key}` key."""
             # If no new risks extracted, provide more helpful context
             sections["risk_factors"] = [
                 {
-                    "summary": "Risk factors for this period align with standard operational and market conditions. Review Item 1A in the full filing for comprehensive disclosure.",
-                    "supporting_evidence": "Standard risk disclosures apply. No material changes highlighted in this quarterly filing.",
-                    "materiality": "standard",
+                    "summary": "Risk factors were not extracted from this filing.",
+                    "supporting_evidence": "",
+                    "materiality": "unknown",
                     "source_section_ref": "Item 1A. Risk Factors",
                 }
             ]
@@ -1645,11 +1667,11 @@ Return JSON containing only the `{section_key}` key."""
             # Provide more useful fallback that still offers value
             sections["management_discussion_insights"] = {
                 "themes": [
-                    "Management's discussion focused on operational execution and market conditions. See Item 2 in the full filing for detailed narrative."
+                    "Management discussion was not extracted from this filing."
                 ],
                 "quotes": [],
                 "capital_allocation": [
-                    "Capital allocation priorities reflected in the financial statements. Review cash flow statement for deployment details."
+                    "Capital allocation detail was not extracted from this filing."
                 ],
                 "source_section_ref": "Item 2. MD&A",
             }
@@ -1666,11 +1688,7 @@ Return JSON containing only the `{section_key}` key."""
             ]
 
         if self._section_is_empty(sections.get("liquidity_capital_structure")):
-            liquidity_line = (
-                f"Liquidity not quantified in excerpts; standardized revenue indicates scale of {revenue_info['current']}."
-                if revenue_info["current"]
-                else "Liquidity metrics were omitted from extracted sections."
-            )
+            liquidity_line = "Liquidity figures were not captured from this filing's extracted text."
             sections["liquidity_capital_structure"] = {
                 "leverage": "Debt and leverage commentary not captured in sampled passages.",
                 "liquidity": liquidity_line,
@@ -1682,12 +1700,10 @@ Return JSON containing only the `{section_key}` key."""
 
         if self._section_is_empty(sections.get("guidance_outlook")):
             sections["guidance_outlook"] = {
-                "guidance": "Company did not provide formal guidance in this filing. Many companies provide outlook during earnings calls instead.",
+                "guidance": "Guidance was not extracted from this filing.",
                 "tone": "neutral",
                 "drivers": [
-                    revenue_info["current"]
-                    and f"Current revenue of {revenue_info['current']} reflects ongoing business momentum."
-                    or "Business performance drivers detailed in MD&A section."
+                    "Guidance drivers were not extracted from this filing."
                 ],
                 "watch_items": [
                     "Earnings call transcript may contain forward-looking commentary not included in SEC filings."
@@ -2040,10 +2056,10 @@ Rules:
                         temperature=0.1 if structured_mode else 0.2,
                         max_tokens=config.get("max_tokens", 1500),
                     )
-                    # Enforce JSON at the API layer in structured mode so validity no longer
-                    # depends on the model resolving a prompt-vs-schema conflict.
-                    if structured_mode:
-                        create_kwargs["response_format"] = {"type": "json_object"}
+                    # Always enforce JSON at the API layer (provider-agnostic) so validity never
+                    # depends on the model resolving a prompt-vs-schema conflict. Critical for
+                    # reliable extraction across Gemini/DeepSeek and for avoiding non-object output.
+                    create_kwargs["response_format"] = {"type": "json_object"}
                     response = await asyncio.wait_for(
                         self.client.chat.completions.create(**create_kwargs),
                         timeout=timeout,
@@ -2109,7 +2125,15 @@ Rules:
                 # Re-raise with original error for clearer debugging
                 raise initial_error
 
-        sections_info = summary_data.get("sections") or {}
+        # R1 guard: coerce non-object JSON (bare array / wrapped object) so .get() never crashes.
+        summary_data = self._coerce_summary_dict(summary_data)
+        sections_info = summary_data.get("sections")
+        if not isinstance(sections_info, dict):
+            sections_info = {}
+        metadata = summary_data.get("metadata")
+        if not isinstance(metadata, dict):
+            metadata = {}
+
         missing_sections = self._find_empty_sections(sections_info)
         if missing_sections:
             detailed_sections = self.extract_sections(filing_text, filing_type_key)
@@ -2118,17 +2142,18 @@ Rules:
                 filing_type_key,
                 detailed_sections,
                 filing_sample,
-                summary_data.get("metadata", {}),
+                metadata,
             )
             if recovered:
                 sections_info.update(recovered)
 
         self._apply_structured_fallbacks(
             sections_info,
-            summary_data.get("metadata", {}),
+            metadata,
             xbrl_metrics,
         )
         summary_data["sections"] = sections_info
+        summary_data["metadata"] = metadata
 
         return summary_data
 
@@ -2636,7 +2661,7 @@ Do not include any additional keys or text outside the JSON object."""
             logger.error(f"Structured extraction error: {error_msg}")
             return {
                 "status": "error",
-                "message": f"DEBUG_ERROR: {str(extraction_error)}",
+                "message": "We couldn't generate this summary just now. Please try again shortly.",
                 "summary_title": f"{company_name} {filing_type_key} Filing Summary",
                 "sections": [],
                 "insights": {
