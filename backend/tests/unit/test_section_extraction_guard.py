@@ -33,3 +33,56 @@ def test_10k_extraction_skips_toc_and_captures_real_item8():
     # The real Item 8 content is captured, not the empty TOC sliver.
     assert real_marker in result
     assert "ITEM 8 - FINANCIAL STATEMENTS" in result
+
+
+# ---------------------------------------------------------------------------
+# edgartools section assembler (report-quality fix). The regex extractor above
+# silently returns ~0 chars on modern element-fragmented 10-K HTML; the product
+# now prefers edgartools-parsed sections, assembled by the helper below. These
+# guard the assembler's labels, caps, ordering, and empty-input behavior.
+# ---------------------------------------------------------------------------
+
+
+def test_assemble_excerpt_from_sections_10k_labels_and_order():
+    sections = {
+        "financials": "Net sales were $383,285 million. " * 50,
+        "mda": "Gross margin expanded on services mix. " * 50,
+        "risk": "Supply concentration could adversely affect results. " * 50,
+    }
+    out = openai_service.assemble_excerpt_from_sections(sections, "10-K")
+
+    # All three sections are present with the canonical 10-K labels.
+    assert "ITEM 8 - FINANCIAL STATEMENTS AND SUPPLEMENTARY DATA" in out
+    assert "ITEM 7 - MANAGEMENT'S DISCUSSION AND ANALYSIS" in out
+    assert "ITEM 1A - RISK FACTORS" in out
+    # Real content (not a sliver) survives.
+    assert "Net sales were $383,285 million." in out
+    # Financials (Item 8) is emitted before MD&A (Item 7), matching the regex path ordering.
+    assert out.index("ITEM 8 -") < out.index("ITEM 7 -") < out.index("ITEM 1A -")
+
+
+def test_assemble_excerpt_from_sections_10q_labels():
+    sections = {
+        "financials": "Condensed consolidated statements of operations. " * 30,
+        "mda": "Management's discussion of liquidity. " * 30,
+        "risk": "Risk factors specific to the quarter. " * 30,
+    }
+    out = openai_service.assemble_excerpt_from_sections(sections, "10-Q")
+    assert "ITEM 1 - FINANCIAL STATEMENTS" in out
+    assert "ITEM 2 - MANAGEMENT'S DISCUSSION AND ANALYSIS" in out
+    assert "ITEM 1A - RISK FACTORS" in out
+
+
+def test_assemble_excerpt_caps_each_section():
+    # A section far larger than its cap (Item 8 -> 70000) is truncated.
+    sections = {"financials": "A" * 200000}
+    out = openai_service.assemble_excerpt_from_sections(sections, "10-K")
+    body = out.split("ITEM 8 - FINANCIAL STATEMENTS AND SUPPLEMENTARY DATA:\n", 1)[1]
+    assert len(body) == 70000
+
+
+def test_assemble_excerpt_empty_inputs_return_empty():
+    assert openai_service.assemble_excerpt_from_sections(None, "10-K") == ""
+    assert openai_service.assemble_excerpt_from_sections({}, "10-K") == ""
+    # A sub-threshold stub (<200 chars) is dropped, yielding no excerpt.
+    assert openai_service.assemble_excerpt_from_sections({"risk": "tiny"}, "10-K") == ""

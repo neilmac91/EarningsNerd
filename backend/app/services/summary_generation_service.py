@@ -304,12 +304,22 @@ def progress_as_dict(progress: SummaryGenerationProgress) -> Dict[str, Any]:
         "sectionCoverage": progress.section_coverage,
     }
 
+# An edgartools-parsed excerpt below this many chars is treated as "thin" (e.g. only a stub
+# parsed), so we fall back to the legacy regex + dense-window extractor for more depth. Real
+# filings parse to tens of thousands of chars, so this only catches near-empty edge cases.
+_EDGARTOOLS_EXCERPT_MIN = 8000
+
+
 def get_or_cache_excerpt(
     db: Session,
     filing: Filing,
     filing_text: Optional[str],
+    sections: Optional[Dict[str, str]] = None,
 ) -> Optional[str]:
-    if not filing_text:
+    # ``sections`` (when provided) is edgartools-parsed section text; it lets us build a
+    # high-precision excerpt even when ``filing_text`` is empty (e.g. a cache-hit path). We
+    # still need one of the two inputs to produce anything.
+    if not filing_text and not sections:
         return None
 
     # Get filing_id safely - it should be accessible even if filing is detached
@@ -326,12 +336,23 @@ def get_or_cache_excerpt(
 
     cache = filing_reattached.content_cache
     filing_type = filing_reattached.filing_type
-    
+
     if cache and cache.critical_excerpt:
         return cache.critical_excerpt
 
     filing_type_key = (filing_type or "10-K").upper()
-    excerpt = openai_service.extract_critical_sections(filing_text, filing_type_key)
+
+    # Prefer edgartools' native section parser (precise, robust to fragmented HTML); fall back
+    # to the legacy regex + dense-window extractor when sections are unavailable or too thin.
+    excerpt = None
+    if sections and settings.USE_EDGARTOOLS_SECTIONS:
+        excerpt = openai_service.assemble_excerpt_from_sections(
+            sections, filing_type_key, filing_text=filing_text
+        )
+        if excerpt and len(excerpt) < _EDGARTOOLS_EXCERPT_MIN:
+            excerpt = None
+    if not excerpt:
+        excerpt = openai_service.extract_critical_sections(filing_text or "", filing_type_key)
     if excerpt:
         if cache is None:
             cache = FilingContentCache(filing_id=filing_id, critical_excerpt=excerpt)
@@ -490,6 +511,32 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                     xbrl_start = time.time()
                     xbrl_task = asyncio.create_task(fetch_xbrl_data())
 
+                # Fetch edgartools-parsed sections in parallel (needs only accession + CIK, like
+                # XBRL). Used as the high-precision excerpt source; the regex extractor is the
+                # fallback when this returns nothing.
+                sections_task = None
+                if (
+                    settings.USE_EDGARTOOLS_SECTIONS
+                    and company_cik
+                    and filing_type in {"10-K", "10-Q"}
+                ):
+                    async def fetch_sections() -> Optional[Dict[str, str]]:
+                        try:
+                            return await asyncio.wait_for(
+                                xbrl_service.get_filing_sections(
+                                    filing_accession_number, company_cik, filing_type
+                                ),
+                                timeout=processing_profile["document_timeout"],
+                            )
+                        except asyncio.TimeoutError:
+                            logger.warning(f"[{filing_id}] ⚠ Section parse timed out, using regex fallback")
+                            return None
+                        except Exception as exc:
+                            logger.warning(f"[{filing_id}] ⚠ Section parse failed ({exc}), using regex fallback")
+                            return None
+
+                    sections_task = asyncio.create_task(fetch_sections())
+
                 results = await asyncio.gather(*tasks, return_exceptions=True)
                 filing_text = results[0] if results and not isinstance(results[0], Exception) else None
                 if not filing_text:
@@ -503,8 +550,12 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                 # Step 2: Section Parsing
                 record_progress(db, filing_id, "parsing")
                 logger.info(f"[{filing_id}] Step 2: Section Parsing - Extracting major sections (Item 1A: Risk Factors, Item 7: MD&A)...")
-                
-                excerpt = get_or_cache_excerpt(db, filing, filing_text)
+
+                sections = None
+                if sections_task is not None:
+                    sections = await sections_task
+
+                excerpt = get_or_cache_excerpt(db, filing, filing_text, sections=sections)
                 logger.info(f"[{filing_id}] ✓ Parsing complete...")
 
                 xbrl_data = None

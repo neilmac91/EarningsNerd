@@ -60,12 +60,34 @@ def _xbrl_to_text(metrics: Optional[Dict[str, Any]]) -> str:
 
 
 async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
-    """Fetch filing text + critical excerpt + XBRL metrics using the app's own services."""
+    """Fetch filing text + critical excerpt + XBRL metrics using the app's own services.
+
+    Mirrors the product excerpt path (summary_generation_service.get_or_cache_excerpt): prefer
+    edgartools' native section parser, fall back to the legacy regex extractor — so the bake-off
+    scores exactly what production serves.
+    """
     from app.services.edgar.compat import sec_edgar_service, xbrl_service
     from app.services.openai_service import openai_service
+    from app.config import settings
 
+    form = filing.filing_type.upper()
     text = await sec_edgar_service.get_filing_document(filing.document_url, timeout=30.0)
-    excerpt = openai_service.extract_critical_sections(text or "", filing.filing_type.upper()) or (text or "")
+
+    excerpt = None
+    source = "regex"
+    if settings.USE_EDGARTOOLS_SECTIONS and filing.cik and filing.accession_number:
+        try:
+            sections = await xbrl_service.get_filing_sections(filing.accession_number, filing.cik, form)
+        except Exception:  # noqa: BLE001
+            sections = None
+        if sections:
+            built = openai_service.assemble_excerpt_from_sections(sections, form, filing_text=text)
+            if built and len(built) >= 8000:
+                excerpt, source = built, "edgartools"
+    if not excerpt:
+        excerpt = openai_service.extract_critical_sections(text or "", form) or (text or "")
+    print(f"    excerpt[{filing.ticker} {form}]: {len(excerpt):,} chars (source={source})")
+
     metrics = None
     try:
         xbrl = await xbrl_service.get_xbrl_data(filing.accession_number, filing.cik)

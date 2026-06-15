@@ -139,6 +139,19 @@ class Settings(BaseSettings):
     # Settings, so the env var name matches the field name; case-insensitive).
     USE_STRUCTURED_OUTPUT: bool = False
 
+    # Native section extraction via edgartools (report-quality fix). The legacy regex extractor
+    # in openai_service.extract_critical_sections assumes a line-oriented plain-text 10-K layout;
+    # on modern inline-XBRL filings BeautifulSoup.get_text(separator='\n') shreds the item headers
+    # across many lines, so the targeted regex captures ~0 chars and the pipeline silently falls
+    # back to keyword "dense windows" (~260k chars of lower-precision text). edgartools' own parser
+    # (filing.obj().sections / obj['Item 7']) resolves the real section boundaries, yielding a
+    # smaller, higher-precision excerpt (verified: AAPL 10-K ~147k precise chars vs ~260k window).
+    # When True (default), the pipeline prefers edgartools sections and falls back to the legacy
+    # regex + dense-window path whenever sections come back empty/thin or parsing fails — so the
+    # safety net is preserved. Set USE_EDGARTOOLS_SECTIONS=false for instant rollback to the
+    # legacy-only behavior.
+    USE_EDGARTOOLS_SECTIONS: bool = True
+
     # Semantic quality gate (roadmap S4). When True, a summary assessed "partial" (thin coverage
     # or financials not grounded in XBRL) does NOT consume the user's monthly quota — they
     # weren't served a full result. The summary is always persisted regardless (so the streamed

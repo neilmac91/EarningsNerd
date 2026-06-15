@@ -623,7 +623,85 @@ class OpenAIService:
             f"with recovered windows to {len(recovered):,} chars"
         )
         return recovered[:320000] or filing_text_clean[:120000]
-    
+
+    # Per-form display labels + length caps for sections parsed by edgartools
+    # (xbrl_service.get_filing_sections). Mirrors the labels/caps the regex path emits so the
+    # downstream prompt is byte-for-byte compatible regardless of which extractor produced it.
+    _SECTION_LAYOUT = {
+        "10-K": [
+            ("financials", "ITEM 8 - FINANCIAL STATEMENTS AND SUPPLEMENTARY DATA", 70000),
+            ("mda", "ITEM 7 - MANAGEMENT'S DISCUSSION AND ANALYSIS", 55000),
+            ("risk", "ITEM 1A - RISK FACTORS", 45000),
+        ],
+        "10-Q": [
+            ("financials", "ITEM 1 - FINANCIAL STATEMENTS", 50000),
+            ("mda", "ITEM 2 - MANAGEMENT'S DISCUSSION AND ANALYSIS", 45000),
+            ("risk", "ITEM 1A - RISK FACTORS", 25000),
+        ],
+    }
+
+    # Financial keyword set for the dense-window backfill (mirrors the regex path's fin_kw).
+    _FIN_KW = ["operating activities", "cash flow", "consolidated statements", "balance sheet",
+               "net income", "total revenue", "net sales", "gross", "operating income", "liquidity"]
+    # Below this many chars, a parsed Item 8 (10-K) / Item 1 (10-Q) is treated as a stub — some
+    # filers incorporate the financial statements by reference, leaving only a short pointer.
+    _FINANCIALS_MIN_CHARS = 5000
+
+    def assemble_excerpt_from_sections(
+        self,
+        sections: Optional[Dict[str, str]],
+        filing_type: str = "10-K",
+        filing_text: Optional[str] = None,
+    ) -> str:
+        """Build the critical-sections excerpt from edgartools-parsed section text.
+
+        ``sections`` is keyed by canonical name ("financials" / "mda" / "risk") as returned by
+        ``xbrl_service.get_filing_sections``. When the financial-statements section is thin/absent
+        (e.g. incorporated by reference) and ``filing_text`` is supplied, a dense financial window
+        of the document is appended so statement-level depth isn't lost — XBRL still supplies the
+        verified headline numbers separately. Returns "" when nothing usable is present so the
+        caller can fall back to the legacy regex extractor.
+        """
+        if not sections:
+            return ""
+        filing_type_key = (filing_type or "10-K").upper()
+        layout = self._SECTION_LAYOUT.get(filing_type_key, self._SECTION_LAYOUT["10-K"])
+
+        parts: List[str] = []
+        financials_len = 0
+        for canonical, label, cap in layout:
+            text = (sections.get(canonical) or "").strip()
+            if len(text) < 200:
+                continue
+            parts.append(f"{label}:\n{text[:cap]}")
+            if canonical == "financials":
+                financials_len = len(text)
+            logger.info(f"{filing_type_key} {label.split(' - ')[0]} (edgartools): captured {len(text):,} chars")
+
+        if not parts:
+            return ""
+
+        # Backfill a thin/absent financial-statements section with a dense financial window.
+        if financials_len < self._FINANCIALS_MIN_CHARS and filing_text:
+            try:
+                clean = BeautifulSoup(filing_text, "html.parser").get_text(separator="\n", strip=False)
+            except Exception:  # noqa: BLE001
+                clean = filing_text
+            fin_slice = self._dense_window(clean, self._FIN_KW)
+            if fin_slice:
+                parts.append("FINANCIAL STATEMENTS CONTEXT (recovered from filing):\n" + fin_slice)
+                logger.info(
+                    f"{filing_type_key} financials thin ({financials_len:,} chars) — "
+                    f"backfilled dense window ({len(fin_slice):,} chars)"
+                )
+
+        excerpt = ("\n\n" + "=" * 50 + "\n\n").join(parts)
+        logger.info(
+            f"{filing_type_key} extraction: {len(parts)} sections via edgartools, "
+            f"{len(excerpt):,} chars (precise)"
+        )
+        return excerpt[:320000]
+
     def extract_sections(self, filing_text: str, filing_type: str = "10-K") -> Dict[str, str]:
         """
         Extract key sections from filing text with improved patterns.
