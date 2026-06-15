@@ -212,12 +212,22 @@ jobs:
         if: steps.changes.outputs.backend == 'true'
         run: |
           gcloud run deploy earningsnerd-backend --region=us-west1 \
-            --image="$IMAGE:${GITHUB_SHA::7}" --quiet
+            --image="$IMAGE:${GITHUB_SHA::7}" \
+            --update-secrets=OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
+            --update-env-vars=OPENAI_BASE_URL=https://api.deepseek.com/v1,AI_DEFAULT_MODEL=deepseek-v4-pro \
+            --quiet
+          # Always route live traffic to the new revision. A prior manual `--no-traffic --tag`
+          # deploy can pin traffic to an old revision, which silently makes every CD deploy "dark"
+          # (new revision built + healthy at 0% traffic while prod keeps serving the old image).
+          gcloud run services update-traffic earningsnerd-backend --region=us-west1 --to-latest --quiet
       - name: Update pregenerate job image
         if: steps.changes.outputs.backend == 'true'
         run: |
           gcloud run jobs update earningsnerd-pregenerate --region=us-west1 \
-            --image="$IMAGE:${GITHUB_SHA::7}" --quiet
+            --image="$IMAGE:${GITHUB_SHA::7}" \
+            --update-secrets=OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
+            --update-env-vars=OPENAI_BASE_URL=https://api.deepseek.com/v1,AI_DEFAULT_MODEL=deepseek-v4-pro \
+            --quiet
       - name: Verify health
         if: steps.changes.outputs.backend == 'true'
         run: |
