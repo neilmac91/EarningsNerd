@@ -609,12 +609,14 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                                     prev_accession, company_cik, "10-K"
                                 )
                                 if prev_sections:
-                                    prev_excerpt = (
-                                        openai_service.assemble_excerpt_from_sections(
-                                            prev_sections, "10-K", filing_text=result
-                                        )
-                                        or None
-                                    )
+                                    # Off the event loop: the thin-financials backfill parses the
+                                    # multi-MB prior filing with BeautifulSoup. (Pure CPU, no DB.)
+                                    prev_excerpt = await asyncio.to_thread(
+                                        openai_service.assemble_excerpt_from_sections,
+                                        prev_sections,
+                                        "10-K",
+                                        filing_text=result,
+                                    ) or None
                             except Exception as exc:  # noqa: BLE001 — never block on prior-filing parse
                                 logger.warning(
                                     f"[{filing_id}] ⚠ Prior 10-K section parse failed ({exc}), using regex fallback"
