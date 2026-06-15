@@ -172,6 +172,42 @@ def score_coverage(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
 
 
 # ---------------------------------------------------------------------------
+# Financial depth (report-quality P1.0)
+# ---------------------------------------------------------------------------
+# Coverage asks "are the sections non-empty?". DEPTH asks the question Phase-1 is about: does the
+# financial content actually surface cash flow, the balance sheet, and margins — not just the three
+# headline income-statement numbers? A category counts only when its term sits next to a real number
+# and not inside a placeholder phrase, so "cash flow not disclosed" does NOT score.
+_DEPTH_CATEGORIES: Dict[str, Tuple[str, ...]] = {
+    "cash_flow": ("operating cash flow", "free cash flow", "cash flow from operations",
+                  "cash provided by operating", "capital expenditure", "capex"),
+    "balance_sheet": ("total assets", "total debt", "long-term debt", "long term debt",
+                      "shareholders' equity", "shareholders equity", "stockholders' equity"),
+    "margins": ("gross margin", "operating margin", "gross profit", "operating income"),
+}
+
+
+def _term_near_number(text: str, terms: Tuple[str, ...]) -> bool:
+    """True when any term appears within ~40 chars of a digit and not inside a placeholder phrase."""
+    for term in terms:
+        start = text.find(term)
+        while start != -1:
+            window = text[max(0, start - 40): start + len(term) + 40]
+            if re.search(r"\d", window) and not any(p in window for p in PLACEHOLDER_PATTERNS):
+                return True
+            start = text.find(term, start + 1)
+    return False
+
+
+def score_financial_depth(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
+    """Fraction of {cash_flow, balance_sheet, margins} surfaced with real figures. (ratio, missing)."""
+    blob = _financial_haystack(payload).lower()
+    missing = [name for name, terms in _DEPTH_CATEGORIES.items() if not _term_near_number(blob, terms)]
+    present = len(_DEPTH_CATEGORIES) - len(missing)
+    return round(present / len(_DEPTH_CATEGORIES), 4), missing
+
+
+# ---------------------------------------------------------------------------
 # Numeric precision / contradiction (Artifact-1 hard gate G1)
 # ---------------------------------------------------------------------------
 # `score_numeric_accuracy` above measures RECALL — are the right numbers present? It cannot
@@ -313,7 +349,7 @@ def score_summary(
     if payload is None:
         return RubricScore(
             schema_valid=False, repaired=True, numeric_accuracy=0.0, coverage=0.0,
-            numeric_precision=0.0,
+            numeric_precision=0.0, financial_depth=0.0,
             gate_failures=["G1 numeric fidelity — unparseable output (no JSON object found)"],
             missing_sections=list(REQUIRED_SECTIONS),
             missing_facts=[f.metric for f in ground_truth],
@@ -325,12 +361,14 @@ def score_summary(
     )
     coverage, missing_sections = score_coverage(payload)
     precision, contradictions = score_numeric_precision(payload, ground_truth)
+    depth, _ = score_financial_depth(payload)
     return RubricScore(
         schema_valid=schema_valid,
         repaired=repaired,
         numeric_accuracy=numeric,
         coverage=coverage,
         numeric_precision=precision,
+        financial_depth=depth,
         gate_failures=compute_gate_failures(payload, contradictions),
         missing_sections=missing_sections,
         matched_facts=matched,

@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     # Check environment variable first, then .env file
     # Pydantic Settings automatically prioritizes env vars, but we'll make it explicit
     OPENAI_API_KEY: str = ""
-    OPENAI_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta/openai/"  # Google AI Studio base URL
+    OPENAI_BASE_URL: str = "https://api.deepseek.com/v1"  # DeepSeek (OpenAI-compatible); override via env for other providers
     
     # Stripe
     STRIPE_SECRET_KEY: str = ""
@@ -120,7 +120,7 @@ class Settings(BaseSettings):
     STRUCTURED_EXTRACTION_CACHE_TTL_SECONDS: int = 3600  # 1 hour for retry window
 
     # AI Model Settings
-    AI_DEFAULT_MODEL: str = "gemini-3.1-pro-preview"  # Primary model for all AI tasks (gemini-3-pro-preview deprecated for inference)
+    AI_DEFAULT_MODEL: str = "deepseek-v4-pro"  # Primary model (DeepSeek V4 migration, non-thinking; chose pro over flash on the quality preference). Prod sets this + OPENAI_BASE_URL + OPENAI_API_KEY via env/Secret Manager.
 
     # Optional cheaper model for low-risk sub-tasks (cost/latency — roadmap A11).
     # Both default to "" → fall back to AI_DEFAULT_MODEL, so behavior is UNCHANGED until set.
@@ -184,8 +184,8 @@ class Settings(BaseSettings):
         warnings = []
         is_valid = True
         
-        # Check base URL - accept Google AI Studio or OpenRouter
-        valid_providers = ["openrouter.ai", "generativelanguage.googleapis.com"]
+        # Check base URL - accept Google AI Studio, OpenRouter, or DeepSeek
+        valid_providers = ["openrouter.ai", "generativelanguage.googleapis.com", "api.deepseek.com"]
         if not self.OPENAI_BASE_URL:
             warnings.append("OPENAI_BASE_URL is not set")
             is_valid = False

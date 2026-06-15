@@ -9,7 +9,7 @@ def _result(candidate, aggregate, passed_gates, run):
     return {
         "candidate": candidate, "ticker": "AAPL", "filing_type": "10-K", "run": run,
         "score": {"schema_valid": True, "repaired": False, "numeric_accuracy": aggregate,
-                  "numeric_precision": 1.0, "coverage": 1.0},
+                  "numeric_precision": 1.0, "coverage": 1.0, "financial_depth": 1.0},
         "aggregate": aggregate, "passed_gates": passed_gates, "judge": None,
         "latency_seconds": 1.0, "cost_usd": 0.0, "error": None,
     }

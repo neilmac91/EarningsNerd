@@ -183,6 +183,7 @@ def _summarize(
             "mean_numeric_accuracy": mean("numeric_accuracy"),
             "mean_numeric_precision": mean("numeric_precision"),
             "mean_coverage": mean("coverage"),
+            "mean_financial_depth": mean("financial_depth"),
             "judge_pass_rate": round(sum(1 for j in judged if j.get("passed")) / len(judged), 4) if judged else None,
             "total_cost_usd": round(sum(r.get("cost_usd", 0.0) for r in rs), 4),
             "mean_latency_seconds": round(statistics.mean([r["latency_seconds"] for r in rs if r.get("latency_seconds")]), 3) if any(r.get("latency_seconds") for r in rs) else 0.0,
@@ -199,8 +200,8 @@ def _write_report(summary: Dict[str, Any], results: List[Dict[str, Any]]) -> Pat
     lines = [f"# Summary-quality bake-off — {stamp}", "",
              "Ranked by pass_rate (gate-passing runs clearing the aggregate threshold), then mean aggregate.",
              "",
-             "| candidate | n | pass_rate | agg | agg_stdev | gate_fail | schema_valid | repaired | num_recall | num_precision | coverage | judge_pass | $cost | latency(s) | errors |",
-             "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+             "| candidate | n | pass_rate | agg | agg_stdev | gate_fail | schema_valid | repaired | num_recall | num_precision | coverage | depth | judge_pass | $cost | latency(s) | errors |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     ranked = sorted(summary.items(),
                     key=lambda kv: (kv[1]["pass_rate"], kv[1]["mean_aggregate"]), reverse=True)
     for cand, s in ranked:
@@ -208,7 +209,7 @@ def _write_report(summary: Dict[str, Any], results: List[Dict[str, Any]]) -> Pat
         lines.append(
             f"| {cand} | {s['n']} | {s['pass_rate']} | {s['mean_aggregate']} | {s['aggregate_stdev']} | "
             f"{s['gate_fail_rate']} | {s['schema_valid_rate']} | {s['repaired_rate']} | "
-            f"{s['mean_numeric_accuracy']} | {s['mean_numeric_precision']} | {s['mean_coverage']} | "
+            f"{s['mean_numeric_accuracy']} | {s['mean_numeric_precision']} | {s['mean_coverage']} | {s['mean_financial_depth']} | "
             f"{judge_pass} | {s['total_cost_usd']} | {s['mean_latency_seconds']} | {s['errors']} |"
         )
     lines += [
@@ -244,7 +245,18 @@ async def main(
 
     results: List[Dict[str, Any]] = []
     for f in runnable:
-        grounding = await _get_grounding(f)
+        try:
+            grounding = await _get_grounding(f)
+        except Exception as exc:  # noqa: BLE001 — a transient fetch failure (e.g. SEC 429) on one
+            # filing must not crash the whole bake-off; record it and move on.
+            print(f"  ! grounding failed for {f.ticker} {f.filing_type}: {type(exc).__name__}: {exc}")
+            for cand in candidates:
+                for i in range(runs):
+                    results.append({"candidate": cand, "ticker": f.ticker,
+                                    "filing_type": f.filing_type, "run": i, "score": None,
+                                    "aggregate": 0.0, "passed_gates": False, "judge": None,
+                                    "error": f"grounding: {type(exc).__name__}: {exc}"})
+            continue
         for cand in candidates:
             for i in range(runs):
                 tag = f" run {i + 1}/{runs}" if runs > 1 else ""

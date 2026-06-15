@@ -11,6 +11,7 @@ from evals.scorers import (
     detect_hygiene_violations,
     parse_model_json,
     score_coverage,
+    score_financial_depth,
     score_numeric_accuracy,
     score_numeric_precision,
     score_summary,
@@ -224,3 +225,42 @@ def test_profit_reported_as_loss_is_a_contradiction():
           "eps": "$6.13", "key_metrics": []}
     precision, contradictions = score_numeric_precision(_payload(financial_highlights=fh), [NET_INCOME])
     assert precision == 0.0 and any("sign mismatch" in c for c in contradictions)
+
+
+def test_financial_depth_rewards_cash_flow_balance_sheet_and_margins():
+    """A deep financial section (P1.1 output) scores 1.0 across all three categories."""
+    payload = {
+        "executive_summary": "Solid year.",
+        "financial_highlights": {
+            "revenue": "$416.2B",
+            "key_metrics": [
+                "Operating cash flow $111.5B; free cash flow $98.8B",
+                "Total assets $359.2B; long-term debt $98.7B; shareholders' equity $73.7B",
+                "Gross margin 46.9%; operating margin 32.0%",
+            ],
+        },
+        "management_discussion": "",
+        "outlook": "",
+    }
+    depth, missing = score_financial_depth(payload)
+    assert depth == 1.0
+    assert missing == []
+
+
+def test_financial_depth_ignores_placeholders_and_bare_terms():
+    """'cash flow not disclosed' (placeholder) and a term with no number do NOT score depth."""
+    payload = {
+        "executive_summary": "Revenue was $416.2B.",
+        "financial_highlights": {
+            "revenue": "$416.2B",
+            "key_metrics": [
+                "Cash flow not disclosed in the provided excerpts",
+                "Balance sheet figures were not captured",
+            ],
+        },
+        "management_discussion": "Margins discussed qualitatively.",
+        "outlook": "",
+    }
+    depth, missing = score_financial_depth(payload)
+    assert depth == 0.0
+    assert set(missing) == {"cash_flow", "balance_sheet", "margins"}
