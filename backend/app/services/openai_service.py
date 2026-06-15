@@ -383,12 +383,15 @@ class OpenAIService:
             return ""
         if len(text) <= window:
             return text
+        # Lowercase once up front, not per overlapping chunk — on a multi-MB filing the sliding
+        # window re-lowercases the same characters dozens of times otherwise.
+        text_lower = text.lower()
         best_start, best_score = 0, -1
         last = len(text) - window
         i = 0
         while True:
             i = min(i, last)
-            chunk = text[i:i + window].lower()
+            chunk = text_lower[i:i + window]
             score = sum(chunk.count(kw) for kw in keywords)
             if score > best_score:
                 best_score, best_start = score, i
