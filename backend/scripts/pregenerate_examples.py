@@ -24,7 +24,13 @@ import argparse
 import asyncio
 import logging
 import os
+import sys
 from datetime import datetime
+
+# Make the backend root importable as `app.*` even when this file is run directly as
+# `python scripts/pregenerate_examples.py` (which puts scripts/ on sys.path, not the backend root).
+# Without this the Cloud Run pregenerate job fails with `ModuleNotFoundError: No module named 'app'`.
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 logger = logging.getLogger(__name__)
 
