@@ -3,6 +3,8 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
 import { SiteHeader, SiteFooter } from '@/components/SiteChrome'
+import VerificationBanner from '@/components/VerificationBanner'
+import EmailVerificationModal from '@/components/EmailVerificationModal'
 import CookieConsent from '@/components/CookieConsent'
 import { Analytics } from '@vercel/analytics/next'
 
@@ -52,8 +54,10 @@ export default function RootLayout({
       <body>
         <Providers>
           <SiteHeader />
+          <VerificationBanner />
           {children}
           <SiteFooter />
+          <EmailVerificationModal />
           <CookieConsent />
           <Analytics />
         </Providers>

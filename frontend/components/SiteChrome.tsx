@@ -15,7 +15,7 @@ const AUTH_ROUTES = [
   '/reset-password',
 ]
 
-function isAuthRoute(pathname: string | null): boolean {
+export function isAuthRoute(pathname: string | null): boolean {
   if (!pathname) return false
   return AUTH_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))
 }

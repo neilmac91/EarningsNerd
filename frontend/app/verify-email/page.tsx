@@ -2,6 +2,7 @@
 
 import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { verifyEmail } from '@/features/auth/api/auth-api'
 import Link from 'next/link'
 import { Loader2, CheckCircle, XCircle } from 'lucide-react'
@@ -10,6 +11,7 @@ import AuthShell from '@/components/auth/AuthShell'
 function VerifyEmailContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const queryClient = useQueryClient()
   const token = searchParams.get('token') ?? ''
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
   const [errorMessage, setErrorMessage] = useState('')
@@ -24,6 +26,9 @@ function VerifyEmailContent() {
     verifyEmail(token)
       .then(() => {
         setStatus('success')
+        // Refresh cached identity so the banner/avatar dot clear immediately
+        queryClient.invalidateQueries({ queryKey: ['current-user'] })
+        queryClient.invalidateQueries({ queryKey: ['user'] })
         setTimeout(() => router.push('/'), 3000)
       })
       .catch((err: unknown) => {
@@ -35,7 +40,7 @@ function VerifyEmailContent() {
             : 'Verification failed.'
         setErrorMessage(msg)
       })
-  }, [token, router])
+  }, [token, router, queryClient])
 
   return (
     <AuthShell>

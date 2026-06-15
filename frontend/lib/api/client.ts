@@ -86,6 +86,10 @@ function rejectQueue(err: unknown) {
 // Auth endpoints that must never trigger a refresh attempt
 const AUTH_SKIP = ['/api/auth/login', '/api/auth/refresh', '/api/auth/logout', '/api/auth/register']
 
+// Dispatched on a 403 whose detail asks the user to verify their email, so a
+// global listener (EmailVerificationModal) can show a graceful prompt.
+export const EMAIL_VERIFICATION_REQUIRED_EVENT = 'email-verification-required'
+
 // ─── Response interceptor ────────────────────────────────────────────────────
 
 api.interceptors.response.use(
@@ -137,6 +141,17 @@ api.interceptors.response.use(
 
     // ─── Standard error handling ──────────────────────────────────────────────
     const backendDetail = error.response?.data?.detail
+
+    // Surface the email-verification gate as a friendly global prompt
+    if (
+      status === 403 &&
+      backendDetail &&
+      /verify your email/i.test(backendDetail) &&
+      typeof window !== 'undefined'
+    ) {
+      window.dispatchEvent(new CustomEvent(EMAIL_VERIFICATION_REQUIRED_EVENT, { detail: backendDetail }))
+    }
+
     let errorMessage: string
 
     if (backendDetail) {
