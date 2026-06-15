@@ -122,6 +122,18 @@ class TestRedisPoolLoopSafety:
 
     def setup_method(self):
         import app.services.redis_service as redis_module
+        # These exercise the ENABLED init path (loop reset + locking); the suite default is
+        # SKIP_REDIS_INIT=true, which now short-circuits before any of that.
+        self._skip_redis = redis_module.settings.SKIP_REDIS_INIT
+        redis_module.settings.SKIP_REDIS_INIT = False
+        redis_module._pool = None
+        redis_module._client = None
+        redis_module._init_lock = None
+        redis_module._init_lock_loop = None
+
+    def teardown_method(self):
+        import app.services.redis_service as redis_module
+        redis_module.settings.SKIP_REDIS_INIT = self._skip_redis
         redis_module._pool = None
         redis_module._client = None
         redis_module._init_lock = None
@@ -271,6 +283,17 @@ class TestConcurrentInitialization:
 
     def setup_method(self):
         import app.services.redis_service as redis_module
+        # Exercise the ENABLED init path; the suite default SKIP_REDIS_INIT=true short-circuits it.
+        self._skip_redis = redis_module.settings.SKIP_REDIS_INIT
+        redis_module.settings.SKIP_REDIS_INIT = False
+        redis_module._pool = None
+        redis_module._client = None
+        redis_module._init_lock = None
+        redis_module._init_lock_loop = None
+
+    def teardown_method(self):
+        import app.services.redis_service as redis_module
+        redis_module.settings.SKIP_REDIS_INIT = self._skip_redis
         redis_module._pool = None
         redis_module._client = None
         redis_module._init_lock = None
