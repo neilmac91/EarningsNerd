@@ -48,12 +48,17 @@ DEFAULT_TICKERS = [
 ]
 
 
-async def pregenerate_for_ticker(ticker: str) -> None:
-    """Resolve the latest 10-K for ``ticker``, persist it, and cache its summary."""
+async def pregenerate_for_ticker(ticker: str, force: bool = False) -> None:
+    """Resolve the latest 10-K for ``ticker``, persist it, and cache its summary.
+
+    When ``force`` is True, an existing summary + cached critical excerpt for the filing are
+    cleared first, so generation re-runs from scratch on the current code/prompts (otherwise
+    generation is idempotent and skips filings that already have a summary).
+    """
     # Imports are deferred so the module parses/imports without app config
     # (and so SKIP_REDIS_INIT is set before app modules initialize).
     from app.database import SessionLocal
-    from app.models import Company, Filing
+    from app.models import Company, Filing, FilingContentCache, Summary
     from app.services.edgar.compat import sec_edgar_service
     from app.services.summary_generation_service import generate_summary_background
 
@@ -123,24 +128,41 @@ async def pregenerate_for_ticker(ticker: str) -> None:
 
         filing_id = filing.id
 
+        # Force refresh: drop the existing summary + cached excerpt so generation re-runs on the
+        # current extraction path (the critical_excerpt is otherwise reused as-is, and generation
+        # short-circuits when a Summary already exists).
+        if force:
+            deleted = db.query(Summary).filter(Summary.filing_id == filing_id).delete()
+            cache = (
+                db.query(FilingContentCache)
+                .filter(FilingContentCache.filing_id == filing_id)
+                .first()
+            )
+            if cache:
+                cache.critical_excerpt = None
+            db.commit()
+            print(
+                f"{ticker_upper}: force reset filing {filing_id} "
+                f"(removed {deleted} summary, cleared cached excerpt)"
+            )
+
     # Trigger generation (idempotent: returns early if a Summary already
     # exists; manages its own DB session).
     await generate_summary_background(filing_id, user_id=None)
 
     # Report whether a cached summary now exists.
-    from app.models import Summary
-
     with SessionLocal() as db:
         summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
         status = "summary cached" if summary else "NO summary (check OPENAI_API_KEY/logs)"
         print(f"{ticker_upper}: filing_id={filing_id} accession={filing.accession_number} -> {status}")
 
 
-async def main(tickers: list[str]) -> None:
-    print(f"Pre-generating example summaries for {len(tickers)} ticker(s): {', '.join(tickers)}")
+async def main(tickers: list[str], force: bool = False) -> None:
+    mode = " (force refresh)" if force else ""
+    print(f"Pre-generating example summaries for {len(tickers)} ticker(s){mode}: {', '.join(tickers)}")
     for ticker in tickers:
         try:
-            await pregenerate_for_ticker(ticker)
+            await pregenerate_for_ticker(ticker, force=force)
         except Exception as exc:  # noqa: BLE001 — keep going for remaining tickers
             logger.exception("Failed to pre-generate example for %s", ticker)
             print(f"{ticker.upper()}: ERROR — {exc}")
@@ -166,6 +188,12 @@ if __name__ == "__main__":
         default=None,
         help="Comma-separated tickers (default: homepage QuickAccessBar tickers).",
     )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Reset each filing's existing summary + cached excerpt before regenerating, so the "
+             "refresh picks up the current extraction/prompts instead of skipping cached filings.",
+    )
     args = parser.parse_args()
 
     if args.tickers:
@@ -173,4 +201,4 @@ if __name__ == "__main__":
     else:
         ticker_list = list(DEFAULT_TICKERS)
 
-    asyncio.run(main(ticker_list))
+    asyncio.run(main(ticker_list, force=args.force))
