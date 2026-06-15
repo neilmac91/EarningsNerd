@@ -120,7 +120,7 @@ orjson==3.11.9
     # via edgartools
 packaging==26.2
     # via pytest
-pandas==2.3.3
+pandas==3.0.3
     # via
     #   -r requirements.in
     #   edgartools
@@ -184,8 +184,6 @@ python-jose==3.5.0
     # via -r requirements.in
 python-multipart==0.0.32
     # via -r requirements.in
-pytz==2026.2
-    # via pandas
 pyyaml==6.0.3
     # via uvicorn
 rank-bm25==0.2.2
@@ -257,8 +255,6 @@ typing-inspection==0.4.2
     #   fastapi
     #   pydantic
     #   pydantic-settings
-tzdata==2026.2
-    # via pandas
 unidecode==1.4.0
     # via edgartools
 urllib3==2.7.0
