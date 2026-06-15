@@ -4,7 +4,7 @@
 #   pip install pip-tools && pip-compile requirements.in -o requirements.txt
 # (Docker and CI install the pinned requirements.txt for reproducible builds.)
 
-fastapi>=0.115.0,<1.0.0
+fastapi>=0.137.0,<1.0.0
 uvicorn[standard]>=0.27.0,<1.0.0
 python-multipart>=0.0.28
 pydantic>=2.13.4,<3.0.0
@@ -31,10 +31,10 @@ weasyprint==68.1
 # EdgarTools - unified SEC filing library (replaced arelle-release and
 # sec-edgar-downloader, both removed after verifying zero imports — issue #244)
 edgartools>=5.12.0
-posthog==7.18.1
+posthog==7.18.3
 json-repair>=0.30.0
 sentry-sdk[fastapi]>=2.59.0
 
 # Testing
-pytest>=7.4.0
+pytest>=9.1.0
 pytest-asyncio>=0.23.0
