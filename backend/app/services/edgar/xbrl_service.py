@@ -317,8 +317,11 @@ def _extract_sections_sync(
             ("mda", "part_i_item_2"),
             ("risk", "part_ii_item_1a"),
         ):
+            # edgartools' Sections is dict-like (.get); Section.text is a method in 5.36.0, but
+            # guard against it being a plain str/property in other versions.
             section = sections.get(skey) if hasattr(sections, "get") else None
-            text = section.text() if section is not None and hasattr(section, "text") else None
+            text_attr = getattr(section, "text", None) if section is not None else None
+            text = text_attr() if callable(text_attr) else text_attr
             if text and len(text.strip()) >= _SECTION_MIN_CHARS:
                 out[canonical] = text.strip()
 

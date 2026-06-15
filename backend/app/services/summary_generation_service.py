@@ -555,7 +555,24 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                 if sections_task is not None:
                     sections = await sections_task
 
-                excerpt = get_or_cache_excerpt(db, filing, filing_text, sections=sections)
+                # Build the excerpt off the event loop. When edgartools sections are unavailable
+                # (fallback) or the financials section is thin (backfill), excerpt construction runs
+                # BeautifulSoup + regex over a multi-MB document — blocking the loop here would stall
+                # the in-flight XBRL fetch. Use a fresh session inside the worker thread (mirrors the
+                # SSE path's extract_excerpt_sync).
+                def _build_excerpt_sync() -> Optional[str]:
+                    with SessionLocal() as excerpt_session:
+                        excerpt_filing = (
+                            excerpt_session.query(Filing)
+                            .options(joinedload(Filing.content_cache))
+                            .filter(Filing.id == filing_id)
+                            .first()
+                        )
+                        return get_or_cache_excerpt(
+                            excerpt_session, excerpt_filing, filing_text, sections=sections
+                        )
+
+                excerpt = await asyncio.to_thread(_build_excerpt_sync)
                 logger.info(f"[{filing_id}] ✓ Parsing complete...")
 
                 xbrl_data = None
