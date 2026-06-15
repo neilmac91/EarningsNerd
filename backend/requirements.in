@@ -22,7 +22,7 @@ beautifulsoup4==4.15.0
 # default resolve_entities=True; fixed in 6.1.0) — it parses externally-authored SEC
 # XBRL/XML. Neither edgartools (lxml>=4.4) nor pandas (lxml>=4.9.2) caps the major.
 lxml>=6.1.0,<7.0.0
-pandas>=2.0.0,<3.0.0
+pandas>=3.0.3,<4.0.0
 python-jose[cryptography]>=3.5.0
 passlib[bcrypt]==1.7.4
 python-dateutil==2.9.0.post0
