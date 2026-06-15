@@ -127,6 +127,10 @@ async def pregenerate_for_ticker(ticker: str, force: bool = False) -> None:
             db.refresh(filing)
 
         filing_id = filing.id
+        # Materialize the accession now, while ``filing`` is still bound to this session — the
+        # force-reset commit below expires ORM attributes, and the report block runs after this
+        # session has closed (accessing filing.accession_number there raises DetachedInstanceError).
+        filing_accession_number = filing.accession_number
 
         # Force refresh: drop the existing summary + cached excerpt so generation re-runs on the
         # current extraction path (the critical_excerpt is otherwise reused as-is, and generation
@@ -154,7 +158,7 @@ async def pregenerate_for_ticker(ticker: str, force: bool = False) -> None:
     with SessionLocal() as db:
         summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
         status = "summary cached" if summary else "NO summary (check OPENAI_API_KEY/logs)"
-        print(f"{ticker_upper}: filing_id={filing_id} accession={filing.accession_number} -> {status}")
+        print(f"{ticker_upper}: filing_id={filing_id} accession={filing_accession_number} -> {status}")
 
 
 async def main(tickers: list[str], force: bool = False) -> None:

@@ -1981,7 +1981,13 @@ EXTRACTED FINANCIAL SIGNALS:
             for i, prev_filing in enumerate(previous_filings[:1], 1):
                 prev_filing_date = prev_filing.get("filing_date", "Unknown date")
                 prev_text = prev_filing.get("text", "")
-                prev_sample = self.extract_critical_sections(prev_text, "10-K") or prev_text[:12000]
+                # Prefer an edgartools-parsed excerpt built upstream; fall back to the legacy
+                # regex extractor, then to a raw slice.
+                prev_sample = (
+                    prev_filing.get("excerpt")
+                    or self.extract_critical_sections(prev_text, "10-K")
+                    or prev_text[:12000]
+                )
                 previous_filings_context += f"\n### Prior 10-K {i} ({prev_filing_date}):\n{prev_sample}\n"
 
         focus_guidance = {
@@ -2548,7 +2554,9 @@ EXTRACTED FINANCIAL DATA FROM FILING:
             for i, prev_filing in enumerate(previous_filings[:1], 1):
                 prev_filing_date = prev_filing.get("filing_date", "Unknown date")
                 prev_text = prev_filing.get("text", "")
-                prev_sample = self.extract_critical_sections(prev_text, "10-K")
+                # Prefer an edgartools-parsed excerpt built upstream; fall back to the legacy
+                # regex extractor, then to a raw slice.
+                prev_sample = prev_filing.get("excerpt") or self.extract_critical_sections(prev_text, "10-K")
                 if not prev_sample:
                     prev_sample = prev_text[:15000]
                 previous_filings_context += f"\n### Previous 10-K {i} ({prev_filing_date}):\n{prev_sample}\n"
