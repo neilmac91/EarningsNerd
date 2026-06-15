@@ -1,20 +1,16 @@
 from fastapi import APIRouter, HTTPException, Depends, status, Request, Header
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 from pydantic import BaseModel
 from typing import Optional
-from datetime import datetime
 import stripe
 from app.database import get_db
-from app.models import User, UserUsage
+from app.models import User
 from app.routers.auth import get_current_user
 from app.config import settings
 from app.services.posthog_client import capture_event
 from app.services.subscription_service import (
     get_current_month,
     get_user_usage_count,
-    increment_user_usage,
-    check_usage_limit,
     FREE_TIER_SUMMARY_LIMIT
 )
 
@@ -239,10 +235,21 @@ async def stripe_webhook(
                 user.stripe_subscription_id = None
                 db.commit()
         
+    except HTTPException:
+        # Preserve intended status codes (e.g. 400 for signature/payload errors).
+        # Without this, the broad handler below would mask them as 500s, which
+        # also makes Stripe retry on what are really client errors.
+        db.rollback()
+        raise
+    except (KeyError, ValueError, TypeError) as e:
+        # Malformed event payload (e.g. missing metadata.user_id, non-int id).
+        # Return 400 so Stripe does not keep retrying an unprocessable event.
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Malformed webhook payload: {str(e)}")
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=f"Error processing webhook: {str(e)}")
     finally:
         db.close()
-    
+
     return {"status": "success"}

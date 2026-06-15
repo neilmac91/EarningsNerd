@@ -213,10 +213,17 @@ class OpenAIService:
             "10-Q": self._MODEL_GEMINI_3_PRO,  # Gemini Pro 3.0 for 10-Q
         }
         # Task-specific model selection - all use Gemini 3 Pro for maximum quality
-        # Quality improvement: using gemini-3-pro-preview across all tasks
+        # Per-task model routing. Extraction and editorial stay on the Pro model (quality bar).
+        # Section recovery may opt into a cheaper model (A11) — defaults to Pro until an operator
+        # sets AI_SECTION_RECOVERY_MODEL or AI_FAST_MODEL, so behavior is unchanged out of the box.
+        _section_recovery_model = (
+            settings.AI_SECTION_RECOVERY_MODEL.strip()
+            or settings.AI_FAST_MODEL.strip()
+            or self._MODEL_GEMINI_3_PRO
+        )
         self._task_models = {
             "structured_extraction": self._MODEL_GEMINI_3_PRO,   # Needs high accuracy
-            "section_recovery": self._MODEL_GEMINI_3_PRO,        # Quality gap-filling
+            "section_recovery": _section_recovery_model,         # Cheaper-model candidate (A11)
             "editorial_writer": self._MODEL_GEMINI_3_PRO,        # High quality final output
         }
         # Concurrency control for parallel section recovery
@@ -241,7 +248,7 @@ class OpenAIService:
 
         Task types:
         - structured_extraction: Primary JSON extraction (needs highest accuracy)
-        - section_recovery: Fill missing sections (simpler, use Flash for cost savings)
+        - section_recovery: Fill missing sections (simpler; opt-in cheaper model via config — A11)
         - editorial_writer: Convert to markdown (creative, use Pro)
 
         Falls back to filing-type model if task not recognized.
@@ -257,7 +264,7 @@ class OpenAIService:
             "sample_length": 80000,  # Increased from 25000 to capture more content
             "previous_section_limit": 30000,  # Increased from 15000
             "ai_timeout": 120.0,  # Increased for larger content processing
-            "max_tokens": 2000,  # Increased for more comprehensive summaries
+            "max_tokens": 8000,  # Large enough for the full multi-section JSON schema (avoids truncation)
             "max_sections": 8,  # Increased from 6 to include all key sections
             "section_priority": [
                 "financials",  # PRIORITY: Financial statements first
@@ -284,7 +291,7 @@ class OpenAIService:
         overrides = {
             "10-K": {
                 "ai_timeout": 150.0,  # More time for larger 10-K filings
-                "max_tokens": 2500,
+                "max_tokens": 12000,  # 10-K schema is largest; prevents mid-JSON truncation
                 "sample_length": 100000,  # 10-K filings are larger
                 "section_limits": {
                     "financials": 50000,  # 10-K has more detailed financials
@@ -301,7 +308,7 @@ class OpenAIService:
                 "sample_length": 70000,  # Increased from 22000
                 "previous_section_limit": 25000,  # Increased from 15000
                 "ai_timeout": 100.0,  # Increased from 75
-                "max_tokens": 1800,
+                "max_tokens": 8000,  # Prevents mid-JSON truncation on the multi-section schema
                 "max_sections": 6,
                 "section_limits": {
                     "financials": 35000,  # Increased from 10000 - CRITICAL
@@ -364,6 +371,35 @@ class OpenAIService:
         table of contents fed the model a sliver of real content (roadmap S2)."""
         return len(text) >= min_chars and not cls._looks_like_toc(text)
 
+    @staticmethod
+    def _dense_window(text: str, keywords: List[str], window: int = 130000, step: int = 20000) -> str:
+        """Return the `window`-char slice of `text` densest in `keywords`, scanning the whole document.
+
+        P1.2 robustness: targeted Item regex is fragile on 10-Qs and complex (e.g. bank) filings and
+        can return a few-thousand-char sliver. Rather than feed the model that sliver, hand it the
+        most relevant large slab of the actual document — the cheap, large-context model uses it.
+        Returns "" only for empty input; the whole text when it is already within `window`."""
+        if not text:
+            return ""
+        if len(text) <= window:
+            return text
+        # Lowercase once up front, not per overlapping chunk — on a multi-MB filing the sliding
+        # window re-lowercases the same characters dozens of times otherwise.
+        text_lower = text.lower()
+        best_start, best_score = 0, -1
+        last = len(text) - window
+        i = 0
+        while True:
+            i = min(i, last)
+            chunk = text_lower[i:i + window]
+            score = sum(chunk.count(kw) for kw in keywords)
+            if score > best_score:
+                best_score, best_start = score, i
+            if i >= last:
+                break
+            i += step
+        return text[best_start:best_start + window]
+
     def extract_critical_sections(self, filing_text: str, filing_type: str = "10-K", cleaned_text: Optional[str] = None) -> str:
         """Extract ALL critical sections for comprehensive summarization.
 
@@ -410,7 +446,7 @@ class OpenAIService:
                         logger.debug(f"10-K Item 8: skipping TOC-like/short match ({len(financial_text)} chars)")
                         continue
                     # Increased limit to 40000 chars to capture full financial statements
-                    critical_sections.append(f"ITEM 8 - FINANCIAL STATEMENTS AND SUPPLEMENTARY DATA:\n{financial_text[:40000]}")
+                    critical_sections.append(f"ITEM 8 - FINANCIAL STATEMENTS AND SUPPLEMENTARY DATA:\n{financial_text[:70000]}")
                     logger.info(f"10-K Item 8 extraction: captured {len(financial_text):,} chars")
                     break
 
@@ -430,7 +466,7 @@ class OpenAIService:
                         logger.debug(f"10-K Item 7: skipping TOC-like/short match ({len(mda_text)} chars)")
                         continue
                     # Increased limit to 35000 chars to capture full MD&A
-                    critical_sections.append(f"ITEM 7 - MANAGEMENT'S DISCUSSION AND ANALYSIS:\n{mda_text[:35000]}")
+                    critical_sections.append(f"ITEM 7 - MANAGEMENT'S DISCUSSION AND ANALYSIS:\n{mda_text[:55000]}")
                     logger.info(f"10-K Item 7 extraction: captured {len(mda_text):,} chars")
                     break
 
@@ -449,7 +485,7 @@ class OpenAIService:
                         logger.debug(f"10-K Item 1A: skipping TOC-like/short match ({len(risk_text)} chars)")
                         continue
                     # Increased limit to 25000 chars for comprehensive risk coverage
-                    critical_sections.append(f"ITEM 1A - RISK FACTORS:\n{risk_text[:25000]}")
+                    critical_sections.append(f"ITEM 1A - RISK FACTORS:\n{risk_text[:45000]}")
                     logger.info(f"10-K Item 1A extraction: captured {len(risk_text):,} chars")
                     break
 
@@ -477,7 +513,7 @@ class OpenAIService:
                     # Verify this isn't a TOC entry (actual financial statements are long)
                     if len(financial_text) > 500:
                         # 35000 chars to capture full condensed financial statements + notes
-                        critical_sections.append(f"ITEM 1 - FINANCIAL STATEMENTS:\n{financial_text[:35000]}")
+                        critical_sections.append(f"ITEM 1 - FINANCIAL STATEMENTS:\n{financial_text[:50000]}")
                         logger.info(f"10-Q Financial Statements extraction: captured {len(financial_text):,} chars")
                         break
                     else:
@@ -495,7 +531,7 @@ class OpenAIService:
                     match = re.search(pattern, filing_text_clean, re.IGNORECASE | re.DOTALL | re.MULTILINE)
                     if match:
                         financial_text = match.group(1).strip()
-                        critical_sections.append(f"FINANCIAL DATA:\n{financial_text[:35000]}")
+                        critical_sections.append(f"FINANCIAL DATA:\n{financial_text[:50000]}")
                         break
 
             # PRIORITY 2: Extract Item 2 - MD&A (narrative context for financials)
@@ -521,7 +557,7 @@ class OpenAIService:
                     # Verify this isn't a TOC entry (TOC entries are short, actual content is long)
                     if len(mda_text) > 200:
                         # Increased to 30000 chars for comprehensive MD&A coverage
-                        critical_sections.append(f"ITEM 2 - MANAGEMENT'S DISCUSSION AND ANALYSIS:\n{mda_text[:30000]}")
+                        critical_sections.append(f"ITEM 2 - MANAGEMENT'S DISCUSSION AND ANALYSIS:\n{mda_text[:45000]}")
                         logger.info(f"10-Q MD&A extraction: captured {len(mda_text):,} chars")
                         break
                     else:
@@ -548,53 +584,45 @@ class OpenAIService:
                     # Verify this isn't a TOC entry
                     if len(risk_text) > 100:
                         # 15000 chars for 10-Q risk factors (usually shorter than 10-K)
-                        critical_sections.append(f"ITEM 1A - RISK FACTORS:\n{risk_text[:15000]}")
+                        critical_sections.append(f"ITEM 1A - RISK FACTORS:\n{risk_text[:25000]}")
                         logger.info(f"10-Q Risk Factors extraction: captured {len(risk_text):,} chars")
                         break
                     else:
                         logger.debug(f"10-Q Risk Factors: skipping short match ({len(risk_text)} chars) - likely TOC entry")
 
-        # Combine all critical sections
-        if critical_sections:
-            combined = "\n\n" + "="*50 + "\n\n".join(critical_sections)
-            # S2: extraction confidence — how many of the 3 critical sections we captured.
-            # Low confidence (<2/3) is a strong signal of thin grounding for downstream gating.
-            expected = 3
+        # P1.2: targeted regex extraction is high-precision when it lands, but fragile on 10-Qs and
+        # complex (e.g. bank) filings where it can return a few-thousand-char sliver. When the
+        # captured text is thin, augment it with large, keyword-anchored slices of the actual document
+        # so the model sees the real Risk Factors and MD&A narrative. XBRL already supplies the
+        # verified financials (P1.1), so this targets narrative depth.
+        combined = ("\n\n" + "=" * 50 + "\n\n".join(critical_sections)) if critical_sections else ""
+        RICH_MIN = 60000
+        if len(combined) >= RICH_MIN:
             logger.info(
-                f"{filing_type_key} extraction confidence: {len(critical_sections)}/{expected} "
-                f"critical sections, total {len(combined):,} chars"
+                f"{filing_type_key} extraction: {len(critical_sections)}/3 sections, "
+                f"{len(combined):,} chars (targeted)"
             )
             return combined
-        else:
-            # Enhanced fallback: Search for ANY financial data in the document
-            logger.warning(f"No sections found via patterns, using enhanced fallback extraction")
 
-            # Try to find financial tables anywhere in the document
-            financial_keywords = [
-                "total revenue", "net revenue", "net sales", "total net sales",
-                "net income", "net earnings", "earnings per share", "diluted eps",
-                "operating income", "gross profit", "cash flow", "total assets"
-            ]
-
-            # Find the section with the most financial keywords
-            best_start = 0
-            best_score = 0
-            chunk_size = 50000
-
-            for i in range(0, min(len(filing_text_clean), 200000), 10000):
-                chunk = filing_text_clean[i:i+chunk_size].lower()
-                score = sum(1 for kw in financial_keywords if kw in chunk)
-                if score > best_score:
-                    best_score = score
-                    best_start = i
-
-            if best_score > 2:
-                logger.info(f"Fallback found {best_score} financial keywords at offset {best_start}")
-                return filing_text_clean[best_start:best_start+chunk_size]
-
-            # Last resort: return first 50000 chars
-            logger.warning("Using last-resort fallback: first 50000 chars of document")
-            return filing_text_clean[:50000]
+        risk_kw = ["risk factors", "could adversely", "material adverse", "adversely affect",
+                   "we may", "uncertaint", "regulatory", "litigation", "competition", "cybersecurity"]
+        fin_kw = ["operating activities", "cash flow", "consolidated statements", "balance sheet",
+                  "net income", "total revenue", "net sales", "gross", "operating income", "liquidity"]
+        risk_slice = self._dense_window(filing_text_clean, risk_kw)
+        fin_slice = self._dense_window(filing_text_clean, fin_kw)
+        parts: List[str] = []
+        if combined:
+            parts.append(combined)
+        if risk_slice:
+            parts.append("RISK & NARRATIVE CONTEXT (recovered from filing):\n" + risk_slice)
+        if fin_slice and fin_slice != risk_slice:
+            parts.append("FINANCIAL & MD&A CONTEXT (recovered from filing):\n" + fin_slice)
+        recovered = ("\n\n" + "=" * 50 + "\n\n").join(p for p in parts if p)
+        logger.info(
+            f"{filing_type_key} extraction: thin targeted ({len(combined):,} chars) — augmented "
+            f"with recovered windows to {len(recovered):,} chars"
+        )
+        return recovered[:320000] or filing_text_clean[:120000]
     
     def extract_sections(self, filing_text: str, filing_type: str = "10-K") -> Dict[str, str]:
         """
@@ -932,7 +960,7 @@ class OpenAIService:
 
         # 10-Q: tighter, 1‑page bulletin-style summary
         if filing_type_key == "10-Q":
-            min_words, max_words = 120, 260
+            min_words, max_words = 80, 280
             required_sections = {
                 "Quarter at a Glance",
                 "Key Numbers",
@@ -941,7 +969,7 @@ class OpenAIService:
                 "Liquidity & Balance Sheet",
             }
         else:
-            min_words, max_words = 200, 300
+            min_words, max_words = 100, 320
             required_sections = {
                 "Executive Summary",
                 "Financials",
@@ -1125,8 +1153,10 @@ class OpenAIService:
             summary_bits.append(headline.strip())
         else:
             summary_bits.append(f"{company_name} filed its {filing_type.upper()} covering {reporting_period}.")
-        if tone:
-            summary_bits.append(f"Management adopted a {tone} tone.")
+        # Only surface tone when it carries signal — "neutral" is the uninformative default and
+        # reads as filler, so it is omitted (report-quality Phase 0).
+        if tone and str(tone).strip().lower() not in ("neutral", ""):
+            summary_bits.append(f"Management's disclosed tone was {str(tone).strip().lower()}.")
         if key_points:
             cleaned_points = "; ".join(point.strip() for point in key_points if point)
             if cleaned_points:
@@ -1244,6 +1274,27 @@ class OpenAIService:
 
         return "\n".join(lines).strip()
 
+    @staticmethod
+    def _coerce_summary_dict(data: Any) -> Dict[str, Any]:
+        """Normalize parsed model JSON to the expected object shape.
+
+        Some models (especially without a strict schema) return a top-level array, or a
+        single-element array wrapping the object. Without this guard, ``data.get(...)`` raises
+        ``'list' object has no attribute 'get'`` and the whole summary fails with the user-facing
+        "Unable to retrieve this filing" error. Coercing here keeps the pipeline alive so the
+        structured fallbacks can fill any gaps instead of crashing.
+        """
+        if isinstance(data, dict):
+            return data
+        if isinstance(data, list):
+            for item in data:  # prefer an element that looks like the summary object
+                if isinstance(item, dict) and ("sections" in item or "metadata" in item):
+                    return item
+            for item in data:
+                if isinstance(item, dict):
+                    return item
+        return {}
+
     def _section_is_empty(self, value: Any) -> bool:
         if value is None:
             return True
@@ -1328,10 +1379,9 @@ class OpenAIService:
         max_tokens: int = 350,
     ) -> Optional[str]:
         import asyncio
-        import time
-        import json
 
-        # Use Flash model for section recovery (simpler task, lower cost)
+        # Section recovery uses the configured recovery model (Pro by default; can opt into a
+        # cheaper model via AI_SECTION_RECOVERY_MODEL / AI_FAST_MODEL — see config.py / A11).
         models_to_try = [self.get_model_for_task("section_recovery", filing_type_key)] + self._fallback_models
         models_to_try = list(dict.fromkeys(models_to_try))
         last_error: Optional[Exception] = None
@@ -1558,7 +1608,7 @@ Return JSON containing only the `{section_key}` key."""
             else:
                 key_points.append("Core filing excerpts offered minimal narrative detail; review standardized data for context.")
             if margin_info["current"]:
-                key_points.append(f"Net margin tracked at {margin_info['current']} based on available XBRL data.")
+                key_points.append(f"Net margin {margin_info['current']} (from XBRL data).")
             sections["executive_snapshot"] = {
                 "headline": headline,
                 "key_points": key_points,
@@ -1615,12 +1665,10 @@ Return JSON containing only the `{section_key}` key."""
                     or "Profitability commentary unavailable in provided excerpts."
                 ],
                 "cash_flow": [
-                    "Cash flow details were not disclosed in the targeted excerpts; monitor future filings for updates."
+                    "Cash flow figures were not captured from this filing's extracted text."
                 ],
                 "balance_sheet": [
-                    revenue_info["current"]
-                    and f"Revenue scale of {revenue_info['current']} provides a proxy for balance sheet size."
-                    or "Balance sheet specifics were absent from the extracted text."
+                    "Balance sheet figures were not captured from this filing's extracted text."
                 ],
             }
 
@@ -1628,9 +1676,9 @@ Return JSON containing only the `{section_key}` key."""
             # If no new risks extracted, provide more helpful context
             sections["risk_factors"] = [
                 {
-                    "summary": "Risk factors for this period align with standard operational and market conditions. Review Item 1A in the full filing for comprehensive disclosure.",
-                    "supporting_evidence": "Standard risk disclosures apply. No material changes highlighted in this quarterly filing.",
-                    "materiality": "standard",
+                    "summary": "Risk factors were not extracted from this filing.",
+                    "supporting_evidence": "",
+                    "materiality": "unknown",
                     "source_section_ref": "Item 1A. Risk Factors",
                 }
             ]
@@ -1639,11 +1687,11 @@ Return JSON containing only the `{section_key}` key."""
             # Provide more useful fallback that still offers value
             sections["management_discussion_insights"] = {
                 "themes": [
-                    "Management's discussion focused on operational execution and market conditions. See Item 2 in the full filing for detailed narrative."
+                    "Management discussion was not extracted from this filing."
                 ],
                 "quotes": [],
                 "capital_allocation": [
-                    "Capital allocation priorities reflected in the financial statements. Review cash flow statement for deployment details."
+                    "Capital allocation detail was not extracted from this filing."
                 ],
                 "source_section_ref": "Item 2. MD&A",
             }
@@ -1660,11 +1708,7 @@ Return JSON containing only the `{section_key}` key."""
             ]
 
         if self._section_is_empty(sections.get("liquidity_capital_structure")):
-            liquidity_line = (
-                f"Liquidity not quantified in excerpts; standardized revenue indicates scale of {revenue_info['current']}."
-                if revenue_info["current"]
-                else "Liquidity metrics were omitted from extracted sections."
-            )
+            liquidity_line = "Liquidity figures were not captured from this filing's extracted text."
             sections["liquidity_capital_structure"] = {
                 "leverage": "Debt and leverage commentary not captured in sampled passages.",
                 "liquidity": liquidity_line,
@@ -1676,12 +1720,10 @@ Return JSON containing only the `{section_key}` key."""
 
         if self._section_is_empty(sections.get("guidance_outlook")):
             sections["guidance_outlook"] = {
-                "guidance": "Company did not provide formal guidance in this filing. Many companies provide outlook during earnings calls instead.",
+                "guidance": "Guidance was not extracted from this filing.",
                 "tone": "neutral",
                 "drivers": [
-                    revenue_info["current"]
-                    and f"Current revenue of {revenue_info['current']} reflects ongoing business momentum."
-                    or "Business performance drivers detailed in MD&A section."
+                    "Guidance drivers were not extracted from this filing."
                 ],
                 "watch_items": [
                     "Earnings call transcript may contain forward-looking commentary not included in SEC filings."
@@ -1802,24 +1844,48 @@ Return JSON containing only the `{section_key}` key."""
 
         xbrl_section = ""
         if xbrl_metrics:
-            revenue_info = (xbrl_metrics.get('revenue') or {}).get('current', {})
-            income_info = (xbrl_metrics.get('net_income') or {}).get('current', {})
-            eps_info = (xbrl_metrics.get('earnings_per_share') or {}).get('current', {})
-            margin_info = (xbrl_metrics.get('net_margin') or {}).get('current', {})
+            def _fmt(value: Optional[float], kind: str) -> str:
+                if value is None:
+                    return "Not disclosed"
+                if kind == "pct":
+                    return f"{value:.1f}%"
+                if kind == "eps":
+                    return f"{value:,.2f}"
+                return f"${value:,.0f}"
 
-            def _format_currency(value: Optional[float]) -> str:
-                return f"${value:,.0f}" if value is not None else "Not disclosed"
-
-            def _format_percent(value: Optional[float]) -> str:
-                return f"{value:.1f}%" if value is not None else "Not disclosed"
-
-            xbrl_section = f"""
-XBRL STANDARDIZED FINANCIAL DATA (SEC-verified):
-- Revenue: {_format_currency(revenue_info.get('value'))} (period: {revenue_info.get('period', 'N/A')})
-- Net Income: {_format_currency(income_info.get('value'))} (period: {income_info.get('period', 'N/A')})
-- EPS: {eps_info.get('value') if eps_info.get('value') is not None else 'Not disclosed'} (period: {eps_info.get('period', 'N/A')})
-- Net Margin: {_format_percent(margin_info.get('value'))} (period: {margin_info.get('period', 'N/A')})
-""".strip()
+            # P1.1: surface the full standardized financial picture (cash flow, balance sheet,
+            # margins) with prior-period values for YoY context. Only metrics actually present are
+            # emitted — no "Not disclosed" noise — so the model grounds on verified figures.
+            _xbrl_spec = [
+                ("Revenue", "revenue", "usd"), ("Gross Profit", "gross_profit", "usd"),
+                ("Operating Income", "operating_income", "usd"), ("Net Income", "net_income", "usd"),
+                ("EPS (Basic)", "earnings_per_share", "eps"), ("EPS (Diluted)", "eps_diluted", "eps"),
+                ("Gross Margin", "gross_margin", "pct"),
+                ("Operating Margin", "operating_margin", "pct"), ("Net Margin", "net_margin", "pct"),
+                ("Return on Equity", "return_on_equity", "pct"), ("Return on Assets", "return_on_assets", "pct"),
+                ("Operating Cash Flow", "operating_cash_flow", "usd"),
+                ("Capital Expenditures", "capital_expenditures", "usd"),
+                ("Free Cash Flow", "free_cash_flow", "usd"), ("Total Assets", "total_assets", "usd"),
+                ("Cash & Equivalents", "cash_and_equivalents", "usd"),
+                ("Long-term Debt", "long_term_debt", "usd"),
+                ("Shareholders' Equity", "shareholders_equity", "usd"),
+            ]
+            xbrl_rows = []
+            for label, key, kind in _xbrl_spec:
+                entry = xbrl_metrics.get(key) or {}
+                current = entry.get("current") or {}
+                if current.get("value") is None:
+                    continue
+                line = f"- {label}: {_fmt(current.get('value'), kind)} (period: {current.get('period', 'N/A')})"
+                prior = entry.get("prior") or {}
+                if prior.get("value") is not None:
+                    line += f"; prior: {_fmt(prior.get('value'), kind)} ({prior.get('period', 'N/A')})"
+                xbrl_rows.append(line)
+            if xbrl_rows:
+                xbrl_section = (
+                    "XBRL STANDARDIZED FINANCIAL DATA (SEC-verified; quote these figures verbatim):\n"
+                    + "\n".join(xbrl_rows)
+                )
 
         data_summary = f"""
 EXTRACTED FINANCIAL SIGNALS:
@@ -1992,6 +2058,7 @@ Return ONLY valid JSON (no markdown fences) that matches this schema (replace pl
 {schema_template}
 
 Rules:
+- OBJECTIVITY: Use neutral, factual language. Do NOT use promotional or subjective adjectives (e.g. strong, robust, solid, healthy, surged, soared, plunged, record, exceptional, impressive, fortress); state magnitude and direction with figures instead (e.g. "increased 14% YoY"). Such words are permitted ONLY inside a direct, attributed management quote.
 - Keep monetary values human-readable (e.g., "$17.7B", "$425M", "$912M").
 - Express percentage changes with one decimal place where available (e.g., "up 8.3% YoY").
 - For arrays, include 1-4 high-signal, evidence-backed bullets ordered by materiality. If nothing qualifies, return ["Not disclosed—<concise reason>"] instead of leaving the array empty.
@@ -2034,10 +2101,20 @@ Rules:
                         temperature=0.1 if structured_mode else 0.2,
                         max_tokens=config.get("max_tokens", 1500),
                     )
-                    # Enforce JSON at the API layer in structured mode so validity no longer
-                    # depends on the model resolving a prompt-vs-schema conflict.
-                    if structured_mode:
-                        create_kwargs["response_format"] = {"type": "json_object"}
+                    # Always enforce JSON at the API layer (provider-agnostic) so validity never
+                    # depends on the model resolving a prompt-vs-schema conflict. Critical for
+                    # reliable extraction across Gemini/DeepSeek and for avoiding non-object output.
+                    create_kwargs["response_format"] = {"type": "json_object"}
+                    # DeepSeek V4 is a reasoning model that defaults to "thinking" mode; disable it
+                    # for this deterministic extraction task. Also cap max_tokens to the provider's
+                    # output limit — Gemini rejects/clamps above ~8192, while DeepSeek V4 allows far
+                    # more (so it keeps the headroom that prevents mid-JSON truncation).
+                    is_deepseek = ("deepseek" in model_name.lower()
+                                   or "deepseek" in (settings.OPENAI_BASE_URL or "").lower())
+                    if is_deepseek:
+                        create_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
+                    else:
+                        create_kwargs["max_tokens"] = min(create_kwargs["max_tokens"], 8192)
                     response = await asyncio.wait_for(
                         self.client.chat.completions.create(**create_kwargs),
                         timeout=timeout,
@@ -2103,7 +2180,15 @@ Rules:
                 # Re-raise with original error for clearer debugging
                 raise initial_error
 
-        sections_info = summary_data.get("sections") or {}
+        # R1 guard: coerce non-object JSON (bare array / wrapped object) so .get() never crashes.
+        summary_data = self._coerce_summary_dict(summary_data)
+        sections_info = summary_data.get("sections")
+        if not isinstance(sections_info, dict):
+            sections_info = {}
+        metadata = summary_data.get("metadata")
+        if not isinstance(metadata, dict):
+            metadata = {}
+
         missing_sections = self._find_empty_sections(sections_info)
         if missing_sections:
             detailed_sections = self.extract_sections(filing_text, filing_type_key)
@@ -2112,17 +2197,18 @@ Rules:
                 filing_type_key,
                 detailed_sections,
                 filing_sample,
-                summary_data.get("metadata", {}),
+                metadata,
             )
             if recovered:
                 sections_info.update(recovered)
 
         self._apply_structured_fallbacks(
             sections_info,
-            summary_data.get("metadata", {}),
+            metadata,
             xbrl_metrics,
         )
         summary_data["sections"] = sections_info
+        summary_data["metadata"] = metadata
 
         return summary_data
 
@@ -2134,10 +2220,8 @@ Rules:
             raise ValueError("Structured summary payload is empty.")
 
         metadata = structured_summary.get("metadata", {})
-        company_name = metadata.get("company_name", "The company")
         filing_type = metadata.get("filing_type", "filing")
         filing_type_key = (str(filing_type) or "").upper()
-        reporting_period = metadata.get("reporting_period", "the reported period")
 
         structured_payload = json.dumps(structured_summary, indent=2, ensure_ascii=False)
 
@@ -2540,7 +2624,6 @@ Return ONLY valid JSON (no Markdown code fences) with this structure:
 Do not include any additional keys or text outside the JSON object."""
 
         try:
-            import asyncio
             system_prompt = "\n\n".join(
                 part
                 for part in [
@@ -2612,7 +2695,7 @@ Do not include any additional keys or text outside the JSON object."""
             logger.warning(f"Structured extraction timed out after {timeout_seconds}s for {filing_type_key}")
             return {
                 "status": "error",
-                "message": f"Unable to complete summary due to parsing timeout. Suggest retrying later.",
+                "message": "Unable to complete summary due to parsing timeout. Suggest retrying later.",
                 "summary_title": f"{company_name} {filing_type_key} Filing Summary",
                 "sections": [],
                 "insights": {
@@ -2633,7 +2716,7 @@ Do not include any additional keys or text outside the JSON object."""
             logger.error(f"Structured extraction error: {error_msg}")
             return {
                 "status": "error",
-                "message": f"DEBUG_ERROR: {str(extraction_error)}",
+                "message": "We couldn't generate this summary just now. Please try again shortly.",
                 "summary_title": f"{company_name} {filing_type_key} Filing Summary",
                 "sections": [],
                 "insights": {
@@ -2713,20 +2796,14 @@ Do not include any additional keys or text outside the JSON object."""
         guidance_structured = sections_info.get("guidance_outlook")
         guidance_section = _stringify(guidance_structured)
 
+        # P1.4: render markdown deterministically from the structured data — no second editorial-
+        # writer LLM call. The structured render is rich and objective; the separate writer added
+        # cost, latency and a recurring failure mode (it kept failing the length gate) plus a
+        # journalistic voice at odds with the objective-summary goal (approved decision 3a).
         writer_result = None
         writer_error: Optional[str] = None
         writer_fallback_reason: Optional[str] = None
-        try:
-            writer_result = await self.generate_editorial_markdown(structured_summary)
-            final_markdown = writer_result.get("markdown", "").strip()
-            if writer_result.get("fallback_used"):
-                fallback_reason = writer_result.get("fallback_reason") or "Writer output failed validation; structured fallback applied."
-                writer_fallback_reason = fallback_reason
-        except Exception as writer_exc:
-            writer_error = str(writer_exc)
-            logger.error(f"Writer stage failed: {writer_error}")
-            # Generate fallback markdown from structured data
-            final_markdown = self._build_structured_markdown(structured_summary, f"Writer failed: {writer_error[:100]}")
+        final_markdown = self._build_structured_markdown(structured_summary)
 
         raw_summary_payload = {
             "structured": structured_summary,

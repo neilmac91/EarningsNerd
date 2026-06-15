@@ -37,7 +37,7 @@ from .instance_extractor import (
     instant_series,
     normalize_form,
 )
-from .models import FinancialMetric, MetricChange, MetricSeries, XBRLData
+from .models import MetricChange
 from .statement_parser import extract_metric_values, statement_dataframe
 
 logger = logging.getLogger(__name__)
@@ -450,6 +450,14 @@ class EdgarXBRLService:
                 "total_liabilities": [],
                 "cash_and_equivalents": [],
                 "earnings_per_share": [],
+                "eps_diluted": [],
+                # P1.1 depth additions
+                "gross_profit": [],
+                "operating_income": [],
+                "operating_cash_flow": [],
+                "capital_expenditures": [],
+                "shareholders_equity": [],
+                "long_term_debt": [],
             }
 
             # Try to get income statement
@@ -474,6 +482,15 @@ class EdgarXBRLService:
                          "BasicEarningsPerShare", "EarningsPerShareBasicAndDiluted"],
                         accession_number
                     )
+                    result["eps_diluted"] = self._extract_from_dataframe(
+                        df, ["EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"], accession_number
+                    )
+                    result["gross_profit"] = self._extract_from_dataframe(
+                        df, ["GrossProfit"], accession_number
+                    )
+                    result["operating_income"] = self._extract_from_dataframe(
+                        df, ["OperatingIncomeLoss"], accession_number
+                    )
             except Exception as e:
                 logger.warning(f"Error extracting income statement: {e}")
 
@@ -497,8 +514,36 @@ class EdgarXBRLService:
                          "CashAndCashEquivalents", "CashCashEquivalentsAndShortTermInvestments"],
                         accession_number
                     )
+                    result["shareholders_equity"] = self._extract_from_dataframe(
+                        df,
+                        ["StockholdersEquity",
+                         "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"],
+                        accession_number
+                    )
+                    result["long_term_debt"] = self._extract_from_dataframe(
+                        df, ["LongTermDebtNoncurrent", "LongTermDebt"], accession_number
+                    )
             except Exception as e:
                 logger.warning(f"Error extracting balance sheet: {e}")
+
+            # Try to get cash-flow statement (P1.1 depth: operating CF + capex -> free cash flow)
+            try:
+                df = await run_in_executor(lambda: statement_dataframe(financials, "cash_flow_statement"))
+                if df is not None and not df.empty:
+                    result["operating_cash_flow"] = self._extract_from_dataframe(
+                        df,
+                        ["NetCashProvidedByUsedInOperatingActivities",
+                         "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations"],
+                        accession_number
+                    )
+                    result["capital_expenditures"] = self._extract_from_dataframe(
+                        df,
+                        ["PaymentsToAcquirePropertyPlantAndEquipment",
+                         "PaymentsToAcquireProductiveAssets"],
+                        accession_number
+                    )
+            except Exception as e:
+                logger.warning(f"Error extracting cash-flow statement: {e}")
 
             # If we got any data, return it (companyfacts already ran earlier
             # in the chain — see _fetch_xbrl_data — so there is nothing left
@@ -790,6 +835,67 @@ class EdgarXBRLService:
                     })
             if margin_series:
                 metrics["net_margin"] = build_metric_entry(margin_series)
+
+        # P1.1 depth: surface cash-flow + balance-sheet metrics the pipeline already collects.
+        for key in ("eps_diluted", "operating_cash_flow", "capital_expenditures", "gross_profit",
+                    "operating_income", "total_assets", "cash_and_equivalents",
+                    "shareholders_equity", "long_term_debt"):
+            series = normalise_series(xbrl_data.get(key, []))
+            if series:
+                metrics[key] = build_metric_entry(series)
+
+        # Derived: free cash flow = operating cash flow - capital expenditures (per period).
+        # abs(capex) handles filers that tag the outflow as negative.
+        ocf_series = normalise_series(xbrl_data.get("operating_cash_flow", []))
+        capex_series = normalise_series(xbrl_data.get("capital_expenditures", []))
+        if ocf_series and capex_series:
+            capex_by_period = {e["period"]: e for e in capex_series}
+            fcf_series = []
+            for ocf in ocf_series:
+                capex = capex_by_period.get(ocf["period"])
+                ocf_v = ocf.get("value")
+                capex_v = capex.get("value") if capex else None
+                if ocf_v is not None and capex_v is not None:
+                    fcf_series.append({"period": ocf["period"],
+                                       "value": ocf_v - abs(capex_v), "form": ocf.get("form")})
+            if fcf_series:
+                metrics["free_cash_flow"] = build_metric_entry(fcf_series)
+
+        # Derived margins (gross/operating). Same issuer-type caveat as net_margin (hardened in P1.3).
+        for margin_key, numerator_key in (("gross_margin", "gross_profit"),
+                                          ("operating_margin", "operating_income")):
+            num_series = normalise_series(xbrl_data.get(numerator_key, []))
+            if revenue_series and num_series:
+                num_by_period = {e["period"]: e for e in num_series}
+                m_series = []
+                for rev in revenue_series:
+                    num = num_by_period.get(rev["period"])
+                    rev_v = rev.get("value")
+                    num_v = num.get("value") if num else None
+                    if rev_v and num_v is not None and rev_v != 0:
+                        m_series.append({"period": rev["period"],
+                                         "value": (num_v / rev_v) * 100, "form": rev.get("form")})
+                if m_series:
+                    metrics[margin_key] = build_metric_entry(m_series)
+
+        # P1.3 issuer-relevant returns: ROE and ROA — the right profitability read where gross
+        # margin doesn't apply (banks, insurers, REITs). Net income (period) over equity / assets.
+        equity_series = normalise_series(xbrl_data.get("shareholders_equity", []))
+        assets_series = normalise_series(xbrl_data.get("total_assets", []))
+        for ratio_key, denom_series in (("return_on_equity", equity_series),
+                                        ("return_on_assets", assets_series)):
+            if net_income_series and denom_series:
+                denom_by_period = {e["period"]: e for e in denom_series}
+                r_series = []
+                for ni in net_income_series:
+                    denom = denom_by_period.get(ni["period"])
+                    ni_v = ni.get("value")
+                    denom_v = denom.get("value") if denom else None
+                    if ni_v is not None and denom_v and denom_v != 0:
+                        r_series.append({"period": ni["period"],
+                                         "value": (ni_v / denom_v) * 100, "form": ni.get("form")})
+                if r_series:
+                    metrics[ratio_key] = build_metric_entry(r_series)
 
         return metrics
 

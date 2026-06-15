@@ -123,9 +123,9 @@ export default function RegisterPage() {
               onChange={setPassword}
               autoComplete="new-password"
               required
-              minLength={8}
+              minLength={12}
               showStrength
-              hint="At least 8 characters."
+              hint="At least 12 characters, with upper- and lowercase letters and a number."
             />
 
             <button

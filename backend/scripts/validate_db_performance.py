@@ -179,9 +179,9 @@ def run_validation():
                     print(f"  COUNT({table}): {count} rows in {elapsed:.2f}ms")
 
                     if elapsed < 50:
-                        print(f"  ✅ PASS (< 50ms)")
+                        print("  ✅ PASS (< 50ms)")
                     else:
-                        print(f"  ⚠️  SLOW (> 50ms)")
+                        print("  ⚠️  SLOW (> 50ms)")
 
                     results["count_query"] = elapsed
                     break

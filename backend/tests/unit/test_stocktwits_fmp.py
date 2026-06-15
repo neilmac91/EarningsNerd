@@ -6,18 +6,15 @@ used by the Market Movers feature.
 """
 
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 from app.integrations.stocktwits import (
     StocktwitsClient,
     StocktwitsSymbol,
-    stocktwits_client,
 )
 from app.integrations.fmp import (
     FMPClient,
     FMPProfile,
-    FMPEtf,
-    fmp_client,
 )
 
 

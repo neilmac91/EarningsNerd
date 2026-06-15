@@ -4,8 +4,8 @@ EdgarTools Integration Module
 This module provides a clean, typed interface for SEC EDGAR operations
 using the EdgarTools library. It replaces the previous custom implementation
 that used sec-edgar-downloader and arelle (both removed from requirements —
-issue #244). sec-parser remains in use by app/services/filing_parser.py for
-semantic 10-K/10-Q section parsing.
+issue #244), and the legacy sec_edgar/sec_client/sec-parser markdown stack
+(removed once its endpoints were retired).
 
 Usage:
     from app.services.edgar import (

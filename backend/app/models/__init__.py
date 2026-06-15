@@ -1,6 +1,5 @@
 import logging
-import uuid
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, Float, JSON, Uuid, event
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, Float, JSON, event
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -8,6 +7,7 @@ from app.database import Base
 from app.models.waitlist import WaitlistSignup
 from app.models.contact import ContactSubmission
 from app.models.audit_log import AuditLog
+from app.models.refresh_token import RefreshToken
 
 logger = logging.getLogger(__name__)
 
@@ -15,9 +15,9 @@ logger = logging.getLogger(__name__)
 class User(Base):
     __tablename__ = "users"
 
-    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
+    id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
-    # Nullable: social-only accounts have no password
+    # Nullable: social-only accounts (Google/Apple) have no password
     hashed_password = Column(String, nullable=True)
     full_name = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
@@ -25,17 +25,13 @@ class User(Base):
     is_admin = Column(Boolean, default=False)
     stripe_customer_id = Column(String, nullable=True)
     stripe_subscription_id = Column(String, nullable=True)
-    # Email verification
+    # Email verification (store SHA-256 hash of token, never the raw token)
     email_verified = Column(Boolean, default=False, nullable=False)
-    # Email verification (store SHA-256 hash of token, never raw token)
     email_verification_token = Column(String, nullable=True)
     email_verification_expires = Column(DateTime(timezone=True), nullable=True)
-    # Password reset (store SHA-256 hash of token, never raw token)
+    # Password reset (store SHA-256 hash of token, never the raw token)
     password_reset_token = Column(String, nullable=True)
     password_reset_expires = Column(DateTime(timezone=True), nullable=True)
-    # Refresh token (store SHA-256 hash; rotated on every use)
-    refresh_token = Column(String, nullable=True)
-    refresh_token_expires = Column(DateTime(timezone=True), nullable=True)
     last_login_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
@@ -44,15 +40,17 @@ class User(Base):
     saved_summaries = relationship("SavedSummary", back_populates="user", cascade="all, delete-orphan")
     usage = relationship("UserUsage", back_populates="user", cascade="all, delete-orphan")
     watchlist = relationship("Watchlist", back_populates="user", cascade="all, delete-orphan")
+    refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     oauth_accounts = relationship("OAuthAccount", back_populates="user", cascade="all, delete-orphan")
 
 
 class OAuthAccount(Base):
-    """Stores OAuth provider links for a user. One user may have multiple providers."""
+    """OAuth provider links for a user. One user may link multiple providers
+    (Google, Apple), all pointing at the same integer users.id."""
     __tablename__ = "oauth_accounts"
 
-    id = Column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     provider = Column(String(20), nullable=False)           # 'google' | 'apple'
     provider_account_id = Column(String, nullable=False)    # provider's 'sub' claim
     # Email from provider — may be a private relay address for Apple
@@ -80,9 +78,9 @@ class Company(Base):
 
 class Watchlist(Base):
     __tablename__ = "watchlist"
-
+    
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
@@ -139,9 +137,9 @@ class Summary(Base):
 
 class UserSearch(Base):
     __tablename__ = "user_searches"
-
+    
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     query = Column(String, nullable=False)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -151,9 +149,9 @@ class UserSearch(Base):
 
 class SavedSummary(Base):
     __tablename__ = "saved_summaries"
-
+    
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     summary_id = Column(Integer, ForeignKey("summaries.id"), nullable=False)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -165,7 +163,7 @@ class UserUsage(Base):
     __tablename__ = "user_usage"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     month = Column(String, nullable=False, index=True)  # Format: "YYYY-MM"
     summary_count = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -243,7 +241,7 @@ def validate_filing_before_insert(mapper, connection, target):
             )
         else:
             raise ValueError(
-                f"Filing sec_url cannot be None and accession_number is required to generate it"
+                "Filing sec_url cannot be None and accession_number is required to generate it"
             )
 
     if target.document_url is None:

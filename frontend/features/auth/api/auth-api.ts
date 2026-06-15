@@ -1,5 +1,6 @@
 import api from '@/lib/api/client'
 import { isApiError, getErrorStatus } from '@/lib/api/types'
+import { markSessionActive, clearSessionActive } from '@/lib/api/session'
 
 // Auth APIs
 export const register = async (email: string, password: string, fullName?: string) => {
@@ -8,6 +9,9 @@ export const register = async (email: string, password: string, fullName?: strin
     password,
     full_name: fullName,
   })
+  // Mark the session active so the API client may silently refresh an expired access token
+  // for this user. Guests stay unmarked and never attempt a (pointless) refresh.
+  markSessionActive()
   return response.data
 }
 
@@ -16,11 +20,16 @@ export const login = async (email: string, password: string) => {
     email,
     password,
   })
+  markSessionActive()
   return response.data
 }
 
 export const getCurrentUser = async () => {
   const response = await api.get('/api/auth/me')
+  // A confirmed identity means there's a session — mark it so the client will silently
+  // refresh an expired access token. This also covers OAuth redirect logins, where the
+  // JS login()/register() path (which normally sets the marker) never runs.
+  markSessionActive()
   return response.data
 }
 
@@ -29,6 +38,8 @@ export const getCurrentUserSafe = async () => {
     return await getCurrentUser()
   } catch (error: unknown) {
     if (isApiError(error) && getErrorStatus(error) === 401) {
+      // Not logged in — clear any stale session marker so we stop attempting refreshes.
+      clearSessionActive()
       return null
     }
     throw error
@@ -36,8 +47,14 @@ export const getCurrentUserSafe = async () => {
 }
 
 export const logout = async () => {
-  const response = await api.post('/api/auth/logout')
-  return response.data
+  try {
+    const response = await api.post('/api/auth/logout')
+    return response.data
+  } finally {
+    // Always drop the session flag, even if the server call fails, so a logged-out client
+    // stops attempting silent refreshes.
+    clearSessionActive()
+  }
 }
 
 // User data management APIs (GDPR compliance)

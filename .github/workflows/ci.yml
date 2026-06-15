@@ -20,10 +20,8 @@ jobs:
           pip install -r backend/requirements.txt
           pip install ruff bandit
       - name: Lint with Ruff
-        run: |
-          # Run warnings-only mode first to avoid failing build on style issues immediately
-          # In strict mode, remove --exit-zero
-          cd backend && ruff check . --exit-zero
+        # Blocking: the tree is clean and rules live in backend/ruff.toml.
+        run: cd backend && ruff check .
       - name: Security scan with Bandit
         run: |
           # Scan app directory, skipping tests
@@ -46,6 +44,13 @@ jobs:
       - name: Install dependencies
         run: npm ci
         working-directory: frontend
+      - name: Lint
+        run: npm run lint
+        working-directory: frontend
+      - name: Typecheck (app/library code)
+        # Specs are typechecked at runtime by Vitest; this gates shipped code.
+        run: npm run typecheck
+        working-directory: frontend
       - name: Verify vitest config
         run: |
           ls -la vitest.config.* || echo "No vitest config files found"
@@ -55,6 +60,44 @@ jobs:
       - name: Run unit tests
         run: npx vitest run --config vitest.config.mts
         working-directory: frontend
+
+  # Advisory performance measurement (Lighthouse). Non-blocking by design:
+  # continue-on-error + warn-level assertions, and intentionally NOT in the
+  # deploy-backend `needs:` gate — it reports scores + a public report URL, it
+  # never fails the pipeline. Promote assertions to "error" once a baseline is set.
+  #
+  # CAVEAT: this runs `next start` with NO backend, so the homepage's server-side
+  # data fetches stall/fail and depress LCP/TTFB — the score here UNDERSTATES prod.
+  # Treat it as a regression signal for the static shell; get the authoritative
+  # number from PageSpeed Insights / Lighthouse against the live or Vercel-preview URL.
+  lighthouse:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20.19.0'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+      - name: Install Chrome
+        uses: browser-actions/setup-chrome@v2
+      - name: Build
+        run: npm run build
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+          WAITLIST_MODE: 'false'
+      - name: Lighthouse CI (advisory)
+        run: npx lhci autorun
+        working-directory: frontend
+        env:
+          NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+          WAITLIST_MODE: 'false'
 
   e2e-tests:
     runs-on: ubuntu-latest
@@ -69,6 +112,16 @@ jobs:
       - name: Install dependencies
         run: npm ci
         working-directory: frontend
+      - name: Drop flaky packages.microsoft.com apt source
+        # GitHub-hosted runners ship a packages.microsoft.com apt repo (azure-cli + prod)
+        # that intermittently returns 403. That aborts the `apt-get update` inside the next
+        # step's `playwright install --with-deps`, failing e2e for reasons unrelated to our
+        # code — and since deploy-backend gates on e2e, it blocks production deploys too.
+        # Nothing here needs that repo, so remove any source referencing it before apt runs.
+        # Best-effort: this must never fail the build.
+        run: |
+          grep -rlE 'packages\.microsoft\.com' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null \
+            | sudo xargs -r rm -f || true
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
         working-directory: frontend
@@ -159,12 +212,22 @@ jobs:
         if: steps.changes.outputs.backend == 'true'
         run: |
           gcloud run deploy earningsnerd-backend --region=us-west1 \
-            --image="$IMAGE:${GITHUB_SHA::7}" --quiet
+            --image="$IMAGE:${GITHUB_SHA::7}" \
+            --update-secrets=OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
+            --update-env-vars=OPENAI_BASE_URL=https://api.deepseek.com/v1,AI_DEFAULT_MODEL=deepseek-v4-pro \
+            --quiet
+          # Always route live traffic to the new revision. A prior manual `--no-traffic --tag`
+          # deploy can pin traffic to an old revision, which silently makes every CD deploy "dark"
+          # (new revision built + healthy at 0% traffic while prod keeps serving the old image).
+          gcloud run services update-traffic earningsnerd-backend --region=us-west1 --to-latest --quiet
       - name: Update pregenerate job image
         if: steps.changes.outputs.backend == 'true'
         run: |
           gcloud run jobs update earningsnerd-pregenerate --region=us-west1 \
-            --image="$IMAGE:${GITHUB_SHA::7}" --quiet
+            --image="$IMAGE:${GITHUB_SHA::7}" \
+            --update-secrets=OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
+            --update-env-vars=OPENAI_BASE_URL=https://api.deepseek.com/v1,AI_DEFAULT_MODEL=deepseek-v4-pro \
+            --quiet
       - name: Verify health
         if: steps.changes.outputs.backend == 'true'
         run: |

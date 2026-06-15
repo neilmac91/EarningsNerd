@@ -8,46 +8,48 @@ from pydantic import BaseModel, EmailStr, field_validator
 from typing import Optional
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
-import uuid
-import hmac
+from urllib.parse import urlencode
 import hashlib
 import secrets
 import logging
-from urllib.parse import urlencode
 
 import httpx
-from authlib.integrations.httpx_client import AsyncOAuth2Client
+import bcrypt
 from jose import JWTError, jwt
 
 from app.database import get_db
 from app.models import User, OAuthAccount
 from app.config import settings
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
-from app.services.audit_service import (
-    log_failed_login,
-    log_login_success,
-    log_register,
-    log_logout,
+from app.services.refresh_token_service import (
+    create_refresh_token,
+    rotate_refresh_token,
+    revoke_refresh_token,
+    RefreshTokenError,
+    RefreshTokenReuseError,
 )
-
-from argon2 import PasswordHasher
-from argon2.exceptions import VerifyMismatchError, InvalidHashError
-_argon2 = PasswordHasher(time_cost=3, memory_cost=65536, parallelism=1, hash_len=32, salt_len=16)
 
 router = APIRouter()
 security = HTTPBearer(auto_error=False)
 logger = logging.getLogger(__name__)
 
-LOGIN_LIMITER          = RateLimiter(limit=10, window_seconds=60)
-REGISTER_LIMITER       = RateLimiter(limit=5,  window_seconds=60)
-RESET_REQUEST_LIMITER  = RateLimiter(limit=3,  window_seconds=3600)  # 3/hr per email
-RESEND_VERIFY_LIMITER  = RateLimiter(limit=3,  window_seconds=3600)  # 3/hr per email
+LOGIN_LIMITER = RateLimiter(limit=10, window_seconds=60)
+REGISTER_LIMITER = RateLimiter(limit=5, window_seconds=60)
+RESET_REQUEST_LIMITER = RateLimiter(limit=3, window_seconds=3600)   # 3/hr per email
+RESEND_VERIFY_LIMITER = RateLimiter(limit=3, window_seconds=3600)   # 3/hr per email
 
 EMAIL_VERIFY_EXPIRY_HOURS = 24
 PASSWORD_RESET_EXPIRY_HOURS = 1
 
+# Google OAuth (OIDC) endpoints
+_GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+_GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+_GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
+_OAUTH_STATE_COOKIE = "oauth_state"
+_OAUTH_STATE_MAX_AGE = 600  # 10 minutes
 
-# ─── Pydantic schemas ────────────────────────────────────────────────────────
+
+# ─── Pydantic schemas ─────────────────────────────────────────────────────────
 
 class UserCreate(BaseModel):
     email: EmailStr
@@ -64,8 +66,12 @@ class UserCreate(BaseModel):
     def validate_password(cls, value: str) -> str:
         if len(value) < settings.PASSWORD_MIN_LENGTH:
             raise ValueError(f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters.")
-        if len(value) > settings.PASSWORD_MAX_LENGTH:
-            raise ValueError(f"Password must be at most {settings.PASSWORD_MAX_LENGTH} characters.")
+        if not any(char.islower() for char in value):
+            raise ValueError("Password must include at least one lowercase letter.")
+        if not any(char.isupper() for char in value):
+            raise ValueError("Password must include at least one uppercase letter.")
+        if not any(char.isdigit() for char in value):
+            raise ValueError("Password must include at least one number.")
         return value
 
 
@@ -82,6 +88,11 @@ class UserLogin(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+
+class RefreshRequest(BaseModel):
+    # Optional body fallback for non-browser clients; browsers use the HttpOnly cookie.
+    refresh_token: Optional[str] = None
 
 
 class VerifyEmailRequest(BaseModel):
@@ -115,38 +126,40 @@ class ResetPasswordRequest(BaseModel):
     def validate_password(cls, value: str) -> str:
         if len(value) < settings.PASSWORD_MIN_LENGTH:
             raise ValueError(f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters.")
-        if len(value) > settings.PASSWORD_MAX_LENGTH:
-            raise ValueError(f"Password must be at most {settings.PASSWORD_MAX_LENGTH} characters.")
+        if not any(char.islower() for char in value):
+            raise ValueError("Password must include at least one lowercase letter.")
+        if not any(char.isupper() for char in value):
+            raise ValueError("Password must include at least one uppercase letter.")
+        if not any(char.isdigit() for char in value):
+            raise ValueError("Password must include at least one number.")
         return value
 
 
-# ─── Password helpers ────────────────────────────────────────────────────────
+# ─── Password helpers (bcrypt) ──────────────────────────────────────────────────
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify password - supports both bcrypt and passlib formats"""
     if not hashed_password:
         return False
-    if hashed_password.startswith("$argon2"):
-        try:
-            return _argon2.verify(hashed_password, plain_password)
-        except (VerifyMismatchError, InvalidHashError):
-            return False
-    # bcrypt fallback for existing hashes
     try:
-        import bcrypt as _bcrypt
-        return _bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
+        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
     except Exception:
         try:
             from passlib.context import CryptContext
-            return CryptContext(schemes=["bcrypt"], deprecated="auto").verify(plain_password, hashed_password)
+            pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+            return pwd_context.verify(plain_password, hashed_password)
         except Exception:
             return False
 
 
 def get_password_hash(password: str) -> str:
-    return _argon2.hash(password)
+    """Hash password using bcrypt"""
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
+    return hashed.decode('utf-8')
 
 
-# ─── Token helpers ───────────────────────────────────────────────────────────
+# ─── Token helpers ──────────────────────────────────────────────────────────────
 
 def _generate_token() -> tuple[str, str]:
     """Return (raw_token_to_email, sha256_hash_to_store). Never store the raw token."""
@@ -159,9 +172,12 @@ def _hash_token(raw: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     now = datetime.now(timezone.utc)
-    expire = now + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
+    if expires_delta:
+        expire = now + expires_delta
+    else:
+        expire = now + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode = {
         **data,
         "exp": expire,
@@ -171,7 +187,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
         "aud": settings.JWT_AUDIENCE,
         "jti": uuid4().hex,
     }
-    return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return encoded_jwt
 
 
 def _set_auth_cookie(response: Response, token: str) -> None:
@@ -187,35 +204,54 @@ def _set_auth_cookie(response: Response, token: str) -> None:
     )
 
 
+def _clear_auth_cookie(response: Response) -> None:
+    response.delete_cookie(
+        key=settings.COOKIE_NAME,
+        domain=settings.COOKIE_DOMAIN,
+        path="/",
+    )
+
+
+# Refresh cookie is scoped to the auth path so it is only ever sent to /api/auth/* —
+# it never rides along with ordinary API requests, shrinking its exposure surface.
+REFRESH_COOKIE_PATH = "/api/auth"
+
+
 def _set_refresh_cookie(response: Response, token: str) -> None:
     response.set_cookie(
         key=settings.REFRESH_COOKIE_NAME,
         value=token,
-        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
         httponly=True,
         secure=settings.COOKIE_SECURE,
         samesite=settings.COOKIE_SAMESITE,
         domain=settings.COOKIE_DOMAIN,
-        path="/api/auth",  # only sent to auth endpoints — limits exposure surface
+        path=REFRESH_COOKIE_PATH,
     )
 
 
-def _clear_auth_cookie(response: Response) -> None:
-    response.delete_cookie(key=settings.COOKIE_NAME, domain=settings.COOKIE_DOMAIN, path="/")
-
-
 def _clear_refresh_cookie(response: Response) -> None:
-    response.delete_cookie(key=settings.REFRESH_COOKIE_NAME, domain=settings.COOKIE_DOMAIN, path="/api/auth")
+    response.delete_cookie(
+        key=settings.REFRESH_COOKIE_NAME,
+        domain=settings.COOKIE_DOMAIN,
+        path=REFRESH_COOKIE_PATH,
+    )
 
 
-def _issue_tokens(response: Response, user: User) -> None:
-    """Set both auth cookies and update user.refresh_token fields. Caller must db.commit()."""
-    access_token = create_access_token(data={"sub": str(user.id)})
-    raw_refresh, hashed_refresh = _generate_token()
-    user.refresh_token = hashed_refresh
-    user.refresh_token_expires = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
-    _set_auth_cookie(response, access_token)
-    _set_refresh_cookie(response, raw_refresh)
+def _client_ip(request: Request) -> Optional[str]:
+    return request.client.host if request.client else None
+
+
+def _issue_refresh_token(db: Session, user: User, request: Request, response: Response) -> None:
+    """Mint a refresh token, persist it, and set the HttpOnly refresh cookie."""
+    _, raw_token = create_refresh_token(
+        db,
+        user,
+        user_agent=request.headers.get("user-agent"),
+        ip=_client_ip(request),
+    )
+    db.commit()
+    _set_refresh_cookie(response, raw_token)
 
 
 def _get_token_from_request(
@@ -224,28 +260,15 @@ def _get_token_from_request(
 ) -> Optional[str]:
     if credentials and credentials.credentials:
         return credentials.credentials
-    return request.cookies.get(settings.COOKIE_NAME)
+    cookie_token = request.cookies.get(settings.COOKIE_NAME)
+    return cookie_token
 
-
-def _add_auth_security_headers(response: Response) -> None:
-    response.headers["Cache-Control"] = "no-store"
-    response.headers["Pragma"] = "no-cache"
-
-
-def _get_client_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
-
-
-# ─── Auth dependencies ───────────────────────────────────────────────────────
 
 async def get_current_user(
     request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db),
-) -> User:
+    db: Session = Depends(get_db)
+):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -256,117 +279,110 @@ async def get_current_user(
         raise credentials_exception
     try:
         payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM],
-            audience=settings.JWT_AUDIENCE, issuer=settings.JWT_ISSUER,
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+            audience=settings.JWT_AUDIENCE,
+            issuer=settings.JWT_ISSUER,
             options={"require": ["exp", "sub", "iat", "iss", "aud"]},
         )
-        user_id_str: str = payload.get("sub")
-        if not user_id_str:
+        email: str = payload.get("sub")
+        if email is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
 
-    try:
-        user_id = uuid.UUID(user_id_str)
-    except (ValueError, AttributeError):
-        raise credentials_exception
-
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.email == email).first()
     if user is None:
         raise credentials_exception
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is inactive",
+        )
     return user
 
 
 async def get_current_user_optional(
     request: Request,
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
-    db: Session = Depends(get_db),
+    db: Session = Depends(get_db)
 ) -> Optional[User]:
+    """Get current user if authenticated, otherwise return None"""
     token = _get_token_from_request(credentials, request)
     if not token:
         return None
+
     try:
+        if not token or not isinstance(token, str) or len(token.strip()) == 0:
+            return None
+
         payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM],
-            audience=settings.JWT_AUDIENCE, issuer=settings.JWT_ISSUER,
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.ALGORITHM],
+            audience=settings.JWT_AUDIENCE,
+            issuer=settings.JWT_ISSUER,
             options={"require": ["exp", "sub", "iat", "iss", "aud"]},
         )
-        user_id_str: str = payload.get("sub")
-        if not user_id_str:
+        email: str = payload.get("sub")
+        if email is None:
             return None
-        user_id = uuid.UUID(user_id_str)
-    except (JWTError, ValueError, AttributeError) as e:
-        logger.debug(f"Optional auth failed: {e.__class__.__name__}")
+    except (JWTError, HTTPException, Exception) as e:
+        logger.warning(f"Optional auth failed: {e.__class__.__name__} - {e}")
         return None
 
     try:
-        user = db.query(User).filter(User.id == user_id).first()
+        user = db.query(User).filter(User.email == email).first()
         if user and not user.is_active:
+            logger.warning(f"Optional auth: User {email} is inactive")
             return None
         return user
     except Exception as e:
-        logger.error(f"DB error during optional auth: {e.__class__.__name__}")
+        logger.error(f"Database error during optional auth: {e.__class__.__name__} - {e}")
         return None
 
 
-# ─── Email helper (graceful in dev when Resend is not configured) ─────────────
+# ─── Email helper (graceful in dev when Resend is not configured) ──────────────
 
-async def _send_verification_email_safe(user: User, frontend_url: str) -> None:
-    """Send verification email; in dev without Resend, log the link instead."""
-    from app.services.email_service import send_verification_email
-    from app.services.resend_service import ResendError
-
+async def _send_verification_email_safe(db: Session, user: User) -> None:
+    """Generate + persist a verification token and email the link.
+    Falls back to logging the link when Resend is unconfigured (dev)."""
     raw_token, hashed = _generate_token()
-    expiry = datetime.now(timezone.utc) + timedelta(hours=EMAIL_VERIFY_EXPIRY_HOURS)
     user.email_verification_token = hashed
-    user.email_verification_expires = expiry
-    # Caller must commit after this function
+    user.email_verification_expires = datetime.now(timezone.utc) + timedelta(hours=EMAIL_VERIFY_EXPIRY_HOURS)
+    db.commit()
 
-    link = f"{frontend_url}/verify-email?token={raw_token}"
+    link = f"{settings.FRONTEND_URL}/verify-email?token={raw_token}"
     try:
+        from app.services.email_service import send_verification_email
         await send_verification_email(to_email=user.email, name=user.full_name, verification_link=link)
-    except ResendError as e:
-        # Dev / unconfigured Resend — log the link so local testing still works
-        logger.warning(f"Resend not configured ({e}). Verification link: {link}")
-
-    return raw_token  # not used by callers, but useful in tests
+    except Exception as e:
+        logger.warning(f"Verification email not sent ({e.__class__.__name__}); link: {link}")
 
 
-# ─── Endpoints ───────────────────────────────────────────────────────────────
+# ─── Endpoints ──────────────────────────────────────────────────────────────────
 
-@router.post("/register")
+@router.post("/register", response_model=Token)
 async def register(
     user_data: UserCreate,
     request: Request,
     response: Response,
     db: Session = Depends(get_db),
 ):
-    """Register a new user. Returns the same opaque message for new and duplicate emails."""
-    enforce_rate_limit(request, REGISTER_LIMITER, "register",
-                       error_detail="Too many registration attempts. Please try again in a minute.")
-    _add_auth_security_headers(response)
-    ip = _get_client_ip(request)
-    frontend_url = settings.FRONTEND_URL
-
+    """Register a new user, issue a session, and send an email-verification link."""
+    enforce_rate_limit(
+        request,
+        REGISTER_LIMITER,
+        "register",
+        error_detail="Too many registration attempts. Please try again in a minute.",
+    )
     existing_user = db.query(User).filter(User.email == user_data.email).first()
-
     if existing_user:
-        # Equalise timing with a real hash, then silently notify the existing address.
-        get_password_hash(user_data.password)
-        try:
-            from app.services.email_service import send_account_exists_email
-            from app.services.resend_service import ResendError
-            await send_account_exists_email(
-                to_email=existing_user.email,
-                name=existing_user.full_name,
-                login_link=f"{frontend_url}/login",
-                reset_link=f"{frontend_url}/forgot-password",
-            )
-        except Exception:
-            pass  # never surface to caller
-        return {"message": "If that email address is new to us, check your inbox for a verification link."}
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
 
     hashed_password = get_password_hash(user_data.password)
     user = User(
@@ -377,60 +393,114 @@ async def register(
     )
     db.add(user)
     try:
-        db.flush()  # get user.id without committing
+        db.commit()
+        db.refresh(user)
     except IntegrityError:
         db.rollback()
-        get_password_hash(user_data.password)
-        return {"message": "If that email address is new to us, check your inbox for a verification link."}
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
 
-    await _send_verification_email_safe(user, frontend_url)
-    _issue_tokens(response, user)
-    db.commit()
-    db.refresh(user)
-    log_register(db, user.id, user.email, ip_address=ip)
-    return {"message": "If that email address is new to us, check your inbox for a verification link."}
+    await _send_verification_email_safe(db, user)
+
+    access_token = create_access_token(data={"sub": user.email})
+    _set_auth_cookie(response, access_token)
+    _issue_refresh_token(db, user, request, response)
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
-@router.post("/login")
+@router.post("/login", response_model=Token)
 async def login(
     user_data: UserLogin,
     request: Request,
     response: Response,
     db: Session = Depends(get_db),
 ):
-    """Authenticate with email and password."""
-    enforce_rate_limit(request, LOGIN_LIMITER, "login",
-                       error_detail="Too many login attempts. Please try again in a minute.")
-    _add_auth_security_headers(response)
-    ip = _get_client_ip(request)
-
+    """Login user"""
+    enforce_rate_limit(
+        request,
+        LOGIN_LIMITER,
+        "login",
+        error_detail="Too many login attempts. Please try again in a minute.",
+    )
     user = db.query(User).filter(User.email == user_data.email).first()
+
     if not user or not verify_password(user_data.password, user.hashed_password):
-        log_failed_login(db, email=user_data.email, ip_address=ip, error_message="invalid_credentials")
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password"
+        )
     if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is inactive",
+        )
 
     user.last_login_at = datetime.now(timezone.utc)
-    _issue_tokens(response, user)
     db.commit()
-    log_login_success(db, user.id, user.email, ip_address=ip)
-    return {"token_type": "bearer"}
+    access_token = create_access_token(data={"sub": user.email})
+    _set_auth_cookie(response, access_token)
+    _issue_refresh_token(db, user, request, response)
+    return {"access_token": access_token, "token_type": "bearer"}
+
+
+@router.post("/refresh", response_model=Token)
+async def refresh(
+    request: Request,
+    response: Response,
+    body: Optional[RefreshRequest] = None,
+    db: Session = Depends(get_db),
+):
+    """Exchange a valid refresh token for a new access token (and a rotated refresh token)."""
+    raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
+    if not raw_token and body is not None:
+        raw_token = body.refresh_token
+
+    try:
+        user, new_refresh_token = rotate_refresh_token(
+            db,
+            raw_token,
+            user_agent=request.headers.get("user-agent"),
+            ip=_client_ip(request),
+        )
+        db.commit()
+    except RefreshTokenReuseError as exc:
+        db.commit()
+        _clear_refresh_cookie(response)
+        _clear_auth_cookie(response)
+        logger.warning(f"Refresh reuse detected: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except RefreshTokenError as exc:
+        _clear_refresh_cookie(response)
+        _clear_auth_cookie(response)
+        logger.info(f"Refresh rejected: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired refresh token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    access_token = create_access_token(data={"sub": user.email})
+    _set_auth_cookie(response, access_token)
+    _set_refresh_cookie(response, new_refresh_token)
+    return {"access_token": access_token, "token_type": "bearer"}
 
 
 @router.post("/verify-email")
 async def verify_email(
     payload: VerifyEmailRequest,
-    response: Response,
     db: Session = Depends(get_db),
 ):
     """Verify a user's email address using the single-use token from the verification email."""
-    _add_auth_security_headers(response)
     hashed = _hash_token(payload.token)
     now = datetime.now(timezone.utc)
 
     user = db.query(User).filter(User.email_verification_token == hashed).first()
-
     if not user:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired verification link.")
     if user.email_verification_expires and user.email_verification_expires < now:
@@ -447,72 +517,62 @@ async def verify_email(
 async def resend_verification(
     payload: ResendVerificationRequest,
     request: Request,
-    response: Response,
     db: Session = Depends(get_db),
 ):
     """Resend the email verification link. Rate-limited to 3/hr per address."""
-    enforce_rate_limit(request, RESEND_VERIFY_LIMITER, f"resend:{payload.email}",
-                       error_detail="Too many resend requests. Please wait before trying again.")
-    _add_auth_security_headers(response)
-
+    enforce_rate_limit(
+        request, RESEND_VERIFY_LIMITER, f"resend:{payload.email}",
+        error_detail="Too many resend requests. Please wait before trying again.",
+    )
     user = db.query(User).filter(User.email == payload.email).first()
     # Always return the same response (anti-enumeration)
-    _OPAQUE = {"message": "If that email has an unverified account, a new verification link is on its way."}
-
+    opaque = {"message": "If that email has an unverified account, a new verification link is on its way."}
     if not user or user.email_verified:
-        return _OPAQUE
+        return opaque
 
-    await _send_verification_email_safe(user, settings.FRONTEND_URL)
-    db.commit()
-    return _OPAQUE
+    await _send_verification_email_safe(db, user)
+    return opaque
 
 
 @router.post("/forgot-password")
 async def forgot_password(
     payload: ForgotPasswordRequest,
     request: Request,
-    response: Response,
     db: Session = Depends(get_db),
 ):
     """Request a password reset link. Rate-limited to 3/hr per email address."""
-    enforce_rate_limit(request, RESET_REQUEST_LIMITER, f"reset:{payload.email}",
-                       error_detail="Too many reset requests. Please wait before trying again.")
-    _add_auth_security_headers(response)
-    _OPAQUE = {"message": "If an account exists for that email, a password reset link is on its way."}
+    enforce_rate_limit(
+        request, RESET_REQUEST_LIMITER, f"reset:{payload.email}",
+        error_detail="Too many reset requests. Please wait before trying again.",
+    )
+    opaque = {"message": "If an account exists for that email, a password reset link is on its way."}
 
     user = db.query(User).filter(User.email == payload.email).first()
-    if not user:
-        return _OPAQUE
-    if not user.hashed_password:
-        # Social-only account — let them know they log in via Google/Apple
-        # (we know the account exists, but we reveal nothing extra about the provider)
-        return _OPAQUE
+    if not user or not user.hashed_password:
+        # Unknown email, or a social-only account with no password — reveal nothing extra.
+        return opaque
 
     raw_token, hashed = _generate_token()
-    expiry = datetime.now(timezone.utc) + timedelta(hours=PASSWORD_RESET_EXPIRY_HOURS)
     user.password_reset_token = hashed
-    user.password_reset_expires = expiry
+    user.password_reset_expires = datetime.now(timezone.utc) + timedelta(hours=PASSWORD_RESET_EXPIRY_HOURS)
     db.commit()
 
     reset_link = f"{settings.FRONTEND_URL}/reset-password?token={raw_token}"
     try:
         from app.services.email_service import send_password_reset_email
-        from app.services.resend_service import ResendError
         await send_password_reset_email(to_email=user.email, name=user.full_name, reset_link=reset_link)
     except Exception as e:
-        logger.warning(f"Could not send reset email to {user.email}: {e}. Link: {reset_link}")
+        logger.warning(f"Reset email not sent to {user.email} ({e.__class__.__name__}); link: {reset_link}")
 
-    return _OPAQUE
+    return opaque
 
 
 @router.post("/reset-password")
 async def reset_password(
     payload: ResetPasswordRequest,
-    response: Response,
     db: Session = Depends(get_db),
 ):
     """Set a new password using the single-use token from the reset email."""
-    _add_auth_security_headers(response)
     hashed = _hash_token(payload.token)
     now = datetime.now(timezone.utc)
 
@@ -525,36 +585,13 @@ async def reset_password(
     user.hashed_password = get_password_hash(payload.new_password)
     user.password_reset_token = None
     user.password_reset_expires = None
-    # Also verify email if somehow not verified (user just proved email access)
+    # The user proved control of their inbox, so confirm the email too.
     user.email_verified = True
     db.commit()
     return {"message": "Password updated. You can now log in with your new password."}
 
 
-@router.get("/me")
-async def get_current_user_info(
-    response: Response,
-    current_user: User = Depends(get_current_user),
-):
-    """Return the authenticated user's profile."""
-    _add_auth_security_headers(response)
-    return {
-        "id": str(current_user.id),
-        "email": current_user.email,
-        "full_name": current_user.full_name,
-        "is_pro": current_user.is_pro,
-        "email_verified": current_user.email_verified,
-    }
-
-
-# ─── Google OAuth ────────────────────────────────────────────────────────────
-
-_GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
-_GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
-_GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
-_OAUTH_STATE_COOKIE = "oauth_state"
-_OAUTH_STATE_MAX_AGE = 600  # 10 minutes
-
+# ─── Google OAuth (OIDC via httpx — no extra dependency) ───────────────────────
 
 @router.get("/google")
 async def google_login():
@@ -571,17 +608,10 @@ async def google_login():
         "access_type": "online",
         "prompt": "select_account",
     }
-    redirect = RedirectResponse(
-        url=f"{_GOOGLE_AUTH_URL}?{urlencode(params)}",
-        status_code=302,
-    )
+    redirect = RedirectResponse(url=f"{_GOOGLE_AUTH_URL}?{urlencode(params)}", status_code=302)
     redirect.set_cookie(
-        _OAUTH_STATE_COOKIE,
-        state,
-        httponly=True,
-        samesite="lax",
-        max_age=_OAUTH_STATE_MAX_AGE,
-        secure=settings.COOKIE_SECURE,
+        _OAUTH_STATE_COOKIE, state, httponly=True, samesite="lax",
+        max_age=_OAUTH_STATE_MAX_AGE, secure=settings.COOKIE_SECURE,
     )
     return redirect
 
@@ -594,59 +624,54 @@ async def google_callback(
     state: Optional[str] = Query(None),
     error: Optional[str] = Query(None),
 ):
-    """Exchange Google auth code for tokens, upsert user, issue JWT cookie."""
+    """Exchange Google's auth code, upsert the user, link the provider, issue a session."""
     frontend_url = settings.FRONTEND_URL
 
     if error:
         return RedirectResponse(f"{frontend_url}/login?error=google_denied", status_code=302)
-
     if not code or not state:
         return RedirectResponse(f"{frontend_url}/login?error=google_invalid", status_code=302)
 
-    # Validate CSRF state
     stored_state = request.cookies.get(_OAUTH_STATE_COOKIE)
     if not stored_state or not secrets.compare_digest(stored_state, state):
         return RedirectResponse(f"{frontend_url}/login?error=oauth_state_mismatch", status_code=302)
 
-    # Exchange code for access token
-    try:
-        async with AsyncOAuth2Client(
-            client_id=settings.GOOGLE_CLIENT_ID,
-            client_secret=settings.GOOGLE_CLIENT_SECRET,
-            redirect_uri=settings.GOOGLE_REDIRECT_URI,
-        ) as client:
-            token_data = await client.fetch_token(
-                _GOOGLE_TOKEN_URL,
-                code=code,
-                grant_type="authorization_code",
-            )
-    except Exception as exc:
-        logger.warning("Google token exchange failed: %s", exc.__class__.__name__)
-        return RedirectResponse(f"{frontend_url}/login?error=google_token_failed", status_code=302)
-
-    # Fetch userinfo (sub, email, email_verified, name)
+    # Exchange the authorization code for tokens.
     try:
         async with httpx.AsyncClient(timeout=10.0) as hx:
-            resp = await hx.get(
-                _GOOGLE_USERINFO_URL,
-                headers={"Authorization": f"Bearer {token_data['access_token']}"},
+            token_resp = await hx.post(
+                _GOOGLE_TOKEN_URL,
+                data={
+                    "code": code,
+                    "client_id": settings.GOOGLE_CLIENT_ID,
+                    "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                    "redirect_uri": settings.GOOGLE_REDIRECT_URI,
+                    "grant_type": "authorization_code",
+                },
             )
-            resp.raise_for_status()
-            userinfo = resp.json()
-    except Exception as exc:
-        logger.warning("Google userinfo fetch failed: %s", exc.__class__.__name__)
-        return RedirectResponse(f"{frontend_url}/login?error=google_userinfo_failed", status_code=302)
+            token_resp.raise_for_status()
+            access_token_google = token_resp.json().get("access_token")
+            if not access_token_google:
+                raise ValueError("no access_token in Google response")
 
-    google_sub: Optional[str] = userinfo.get("sub")
-    email_raw: str = userinfo.get("email", "").strip().lower()
-    email: Optional[str] = email_raw or None
-    email_verified_by_google: bool = bool(userinfo.get("email_verified", False))
-    full_name: Optional[str] = userinfo.get("name")
+            userinfo_resp = await hx.get(
+                _GOOGLE_USERINFO_URL,
+                headers={"Authorization": f"Bearer {access_token_google}"},
+            )
+            userinfo_resp.raise_for_status()
+            userinfo = userinfo_resp.json()
+    except Exception as exc:
+        logger.warning("Google OAuth exchange failed: %s", exc.__class__.__name__)
+        return RedirectResponse(f"{frontend_url}/login?error=google_token_failed", status_code=302)
+
+    google_sub = userinfo.get("sub")
+    email = (userinfo.get("email") or "").strip().lower() or None
+    email_verified_by_google = bool(userinfo.get("email_verified", False))
+    full_name = userinfo.get("name")
 
     if not google_sub or not email:
         return RedirectResponse(f"{frontend_url}/login?error=google_missing_claims", status_code=302)
 
-    # Find existing OAuth link
     oauth_row = (
         db.query(OAuthAccount)
         .filter_by(provider="google", provider_account_id=google_sub)
@@ -656,7 +681,7 @@ async def google_callback(
     if oauth_row:
         user = oauth_row.user
     else:
-        # Link to existing verified account if emails match and both sides verified
+        # Link to an existing account only when both sides have a verified email.
         existing = db.query(User).filter(func.lower(User.email) == email).first()
         if existing and existing.email_verified and email_verified_by_google:
             user = existing
@@ -669,81 +694,54 @@ async def google_callback(
             )
             db.add(user)
             db.flush()
-
-        oauth_row = OAuthAccount(
+        db.add(OAuthAccount(
             user_id=user.id,
             provider="google",
             provider_account_id=google_sub,
             provider_email=email,
-        )
-        db.add(oauth_row)
+        ))
 
     user.last_login_at = datetime.now(timezone.utc)
+
     redirect = RedirectResponse(url=frontend_url, status_code=302)
     redirect.delete_cookie(_OAUTH_STATE_COOKIE)
-    _issue_tokens(redirect, user)
+    access_token = create_access_token(data={"sub": user.email})
+    _set_auth_cookie(redirect, access_token)
     try:
+        _, raw_refresh = create_refresh_token(
+            db, user, user_agent=request.headers.get("user-agent"), ip=_client_ip(request),
+        )
         db.commit()
     except IntegrityError:
         db.rollback()
         logger.warning("Google OAuth IntegrityError for sub=%s", google_sub)
         return RedirectResponse(f"{frontend_url}/login?error=google_account_conflict", status_code=302)
+    _set_refresh_cookie(redirect, raw_refresh)
     return redirect
 
 
-@router.post("/refresh")
-async def refresh(
-    request: Request,
-    response: Response,
-    db: Session = Depends(get_db),
-):
-    """Issue a new access token + rotated refresh token using the refresh cookie."""
-    _add_auth_security_headers(response)
-    raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
-    if not raw_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="No refresh token")
-
-    hashed = _hash_token(raw_token)
-    now = datetime.now(timezone.utc)
-    user = db.query(User).filter(User.refresh_token == hashed).first()
-
-    if not user:
-        # Token not found — could be replay of a rotated token; treat as session tampered
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
-
-    if user.refresh_token_expires and user.refresh_token_expires < now:
-        user.refresh_token = None
-        user.refresh_token_expires = None
-        db.commit()
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Refresh token expired")
-
-    if not user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="User account is inactive")
-
-    # Rotate: issue fresh pair
-    _issue_tokens(response, user)
-    db.commit()
-    return {"token_type": "bearer"}
+@router.get("/me")
+async def get_current_user_info(current_user: User = Depends(get_current_user)):
+    """Get current user info"""
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "full_name": current_user.full_name,
+        "is_pro": current_user.is_pro,
+        "email_verified": current_user.email_verified,
+    }
 
 
 @router.post("/logout")
 async def logout(
     request: Request,
     response: Response,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
     db: Session = Depends(get_db),
 ):
-    """Clear auth + refresh cookies and invalidate refresh token in DB."""
-    _add_auth_security_headers(response)
-    try:
-        user = await get_current_user_optional(request, credentials, db)
-        if user:
-            log_logout(db, user.id, user.email, ip_address=_get_client_ip(request))
-            user.refresh_token = None
-            user.refresh_token_expires = None
-            db.commit()
-    except Exception:
-        pass
+    """Revoke the refresh token (if present) and clear both auth cookies."""
+    raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
+    if revoke_refresh_token(db, raw_token):
+        db.commit()
     _clear_auth_cookie(response)
     _clear_refresh_cookie(response)
     return {"status": "success"}

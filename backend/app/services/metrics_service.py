@@ -18,7 +18,7 @@ import asyncio
 import threading
 import time
 from dataclasses import dataclass, field
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 import logging
 
 from app.config import APP_VERSION

@@ -1,4 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
+import { hasActiveSession, clearSessionActive } from './session'
+import { refreshAccessToken } from './refresh'
 
 // Custom error class that preserves backend error details
 export class ApiError extends Error {
@@ -58,91 +60,85 @@ const api = axios.create({
 
 // Set baseURL dynamically on each request (for client-side)
 api.interceptors.request.use((config) => {
+  // Always set baseURL dynamically to ensure correct URL in client-side
   if (typeof window !== 'undefined') {
     config.baseURL = getApiUrl()
   }
   return config
 })
 
-// ─── Auto-refresh interceptor ────────────────────────────────────────────────
-// On 401: silently call /api/auth/refresh (uses the httpOnly refresh cookie),
-// then retry the original request. If refresh also fails, redirect to /login.
+// Endpoints whose own 401s must never trigger a silent refresh (the refresh itself, plus
+// the credential-issuing endpoints — a failed login is not an expired session).
+const NO_REFRESH_PATHS = [
+  '/api/auth/refresh',
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/logout',
+]
 
-type RetryConfig = InternalAxiosRequestConfig & { _retried?: boolean }
-
-let isRefreshing = false
-let refreshQueue: Array<{ resolve: () => void; reject: (err: unknown) => void }> = []
-
-function flushQueue() {
-  refreshQueue.forEach(({ resolve }) => resolve())
-  refreshQueue = []
-}
-
-function rejectQueue(err: unknown) {
-  refreshQueue.forEach(({ reject }) => reject(err))
-  refreshQueue = []
-}
-
-// Auth endpoints that must never trigger a refresh attempt
-const AUTH_SKIP = ['/api/auth/login', '/api/auth/refresh', '/api/auth/logout', '/api/auth/register']
-
-// Dispatched on a 403 whose detail asks the user to verify their email, so a
-// global listener (EmailVerificationModal) can show a graceful prompt.
+// Dispatched on a 403 whose detail asks the user to verify their email, so a global
+// listener (EmailVerificationModal) can show a graceful prompt instead of a raw error.
 export const EMAIL_VERIFICATION_REQUIRED_EVENT = 'email-verification-required'
 
-// ─── Response interceptor ────────────────────────────────────────────────────
+export function isRefreshableRequest(url?: string): boolean {
+  if (!url) return true
+  // Match on the path only, so a query param that happens to contain an auth path
+  // (e.g. ?redirect=/api/auth/login) doesn't wrongly mark the request non-refreshable.
+  const pathname = url.split('?')[0]
+  return !NO_REFRESH_PATHS.some((path) => pathname.includes(path))
+}
 
+// Single in-flight refresh shared across concurrent 401s, so a burst of requests that all
+// expire together triggers exactly one /refresh call rather than a stampede.
+let refreshPromise: Promise<void> | null = null
+
+function ensureRefreshed(): Promise<void> {
+  if (!refreshPromise) {
+    refreshPromise = refreshAccessToken(getApiUrl()).finally(() => {
+      refreshPromise = null
+    })
+  }
+  return refreshPromise
+}
+
+// Response error interceptor: silent token refresh on 401, then backend error extraction.
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError<{ detail?: string }>) => {
-    const originalRequest = error.config as RetryConfig | undefined
-    const status = error.response?.status ?? 0
-    const url = originalRequest?.url ?? ''
+    // Extract the status code and detail message from the backend
+    const status = error.response?.status || 0
+    const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined
 
-    // Attempt silent token refresh on 401, except for auth endpoints themselves
-    const shouldRefresh =
+    // Expired access token on a logged-in session: refresh once and replay the request.
+    // Gated on hasActiveSession() so guests never attempt a (pointless) refresh, and on
+    // _retry so a request is only ever retried a single time.
+    if (
       status === 401 &&
-      originalRequest &&
-      !originalRequest._retried &&
-      !AUTH_SKIP.some((path) => url.includes(path))
-
-    if (shouldRefresh) {
-      if (isRefreshing) {
-        // Queue request until refresh completes
-        return new Promise((resolve, reject) => {
-          refreshQueue.push({
-            resolve: () => {
-              originalRequest._retried = true
-              resolve(api(originalRequest))
-            },
-            reject,
-          })
-        })
-      }
-
-      originalRequest._retried = true
-      isRefreshing = true
-
+      original &&
+      !original._retry &&
+      isRefreshableRequest(original.url) &&
+      hasActiveSession()
+    ) {
+      original._retry = true
+      let refreshed = false
       try {
-        await api.post('/api/auth/refresh')
-        flushQueue()
-        isRefreshing = false
-        return api(originalRequest)
-      } catch (refreshErr) {
-        rejectQueue(refreshErr)
-        isRefreshing = false
-        // Refresh token is expired or invalid — force re-login
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login'
-        }
-        throw new ApiError(401, 'Your session has expired. Please log in again.')
+        await ensureRefreshed()
+        refreshed = true
+      } catch {
+        // Refresh failed — the session is genuinely gone. Clear the flag so we stop trying,
+        // then fall through to surface the original 401 to the caller.
+        clearSessionActive()
+      }
+      // Replay outside the try: an error from the *retried* request (e.g. 500/429, or a
+      // persistent 401) must propagate as-is, not be mistaken for a refresh failure.
+      if (refreshed) {
+        return await api(original)
       }
     }
 
-    // ─── Standard error handling ──────────────────────────────────────────────
     const backendDetail = error.response?.data?.detail
 
-    // Surface the email-verification gate as a friendly global prompt
+    // Surface the email-verification gate as a friendly global prompt (e.g. on checkout).
     if (
       status === 403 &&
       backendDetail &&
@@ -152,9 +148,11 @@ api.interceptors.response.use(
       window.dispatchEvent(new CustomEvent(EMAIL_VERIFICATION_REQUIRED_EVENT, { detail: backendDetail }))
     }
 
+    // Create user-friendly error message based on status and backend detail
     let errorMessage: string
 
     if (backendDetail) {
+      // Use the backend's user-friendly message
       errorMessage = backendDetail
     } else if (status === 503) {
       errorMessage = 'Service temporarily unavailable. Please try again in a moment.'
@@ -172,6 +170,7 @@ api.interceptors.response.use(
       errorMessage = error.message || 'An unexpected error occurred.'
     }
 
+    // Throw our custom ApiError with the extracted details
     throw new ApiError(status, errorMessage)
   }
 )

@@ -4,8 +4,19 @@ node_modules
 dist
 out
 .env
+.env.*
+*.env.bak
 .env.local
 .env.production
+# but DO track the example templates
+!.env.example
+!.env.local.example
+
+# Build / test artifacts (regenerated; never commit)
+*.tsbuildinfo
+.lighthouseci/
+playwright-report/
+test-results/
 
 # Python / FastAPI
 __pycache__/
@@ -30,3 +41,7 @@ coverage/
 
 # Local directories that conflict with Python packages
 pydantic/
+
+# Report-quality review: bulky generated validation reports (kept local; results summarized in
+# docs/report-quality-improvement-plan.md + the PR descriptions, with sample reports attached there).
+tasks/phase2-outputs*/

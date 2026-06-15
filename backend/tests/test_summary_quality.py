@@ -7,9 +7,8 @@ Per execution plan: These tests verify:
 3. Full/partial result designation
 4. Executive Summary completeness requirements
 """
-import pytest
 import re
-from typing import Dict, Any, List
+from typing import List
 
 from app.services.summary_generation_service import (
     calculate_section_coverage,

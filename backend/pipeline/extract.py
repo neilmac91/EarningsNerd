@@ -252,7 +252,6 @@ def extract_ixbrl_metrics(
         )
     financials.free_cash_flow = free_cash_flow_metric
 
-    liquidity_metrics: Dict[str, Optional[Metric]] = {}
     liquidity_source = Liquidity()
     cash_current, cash_prior, cash_anchors = _collect_values(root, LIQUIDITY_METRICS["cash"], contexts)
     if cash_current is not None or cash_prior is not None:

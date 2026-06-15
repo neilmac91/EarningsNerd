@@ -72,7 +72,7 @@ function ResetPasswordContent() {
         Choose a new password
       </h1>
       <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        At least 8 characters.
+        At least 12 characters, with upper- and lowercase letters and a number.
       </p>
 
       {error && (
@@ -99,7 +99,7 @@ function ResetPasswordContent() {
           onChange={setPassword}
           autoComplete="new-password"
           required
-          minLength={8}
+          minLength={12}
           showStrength
           autoFocus={!!token}
         />
@@ -111,7 +111,7 @@ function ResetPasswordContent() {
           onChange={setConfirm}
           autoComplete="new-password"
           required
-          minLength={8}
+          minLength={12}
         />
 
         <button

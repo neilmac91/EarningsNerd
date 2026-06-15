@@ -6,13 +6,7 @@ to use the new EdgarTools services through the same interface as the
 legacy services.
 
 Usage:
-    # Replace legacy imports:
-    # from app.services.xbrl_service import xbrl_service
-    # With:
-    from app.services.edgar.compat import xbrl_service
-
-    # Or for sec_edgar_service:
-    from app.services.edgar.compat import sec_edgar_service
+    from app.services.edgar.compat import xbrl_service, sec_edgar_service
 """
 
 import logging
@@ -315,7 +309,7 @@ class SECEdgarServiceCompat:
                             )
                             response.raise_for_status()
                             return response.text
-                        except Exception as e:
+                        except Exception:
                             if attempt == max_retries - 1:
                                 raise
                             await aio.sleep(2 ** attempt)

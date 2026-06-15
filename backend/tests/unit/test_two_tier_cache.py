@@ -7,15 +7,13 @@ Covers stress testing, concurrent access, and LRU eviction.
 
 import asyncio
 import pytest
-from collections import OrderedDict
 from datetime import datetime, timedelta
-from unittest.mock import AsyncMock, patch, MagicMock
+from unittest.mock import AsyncMock, patch
 
 # Import cache components
 from app.services.edgar.xbrl_service import (
     _xbrl_cache,
     _cache_max_size,
-    _cache_ttl,
     _cache_set_sync,
     _get_cache_lock,
     get_xbrl_cache_stats,
@@ -197,7 +195,6 @@ class TestAsyncCacheLock:
     @pytest.mark.asyncio
     async def test_concurrent_cache_operations_are_safe(self):
         """Concurrent cache operations should not corrupt the cache."""
-        import app.services.edgar.xbrl_service as xbrl_module
 
         # Mock Redis to avoid actual network calls
         with patch.object(EdgarXBRLService, '_get_from_redis', new_callable=AsyncMock) as mock_redis_get, \
@@ -284,7 +281,6 @@ class TestConcurrentAccess:
         for i in range(5):
             _cache_set_sync(f"test:existing{i}", (datetime.now(), {"index": i}))
 
-        read_results = []
 
         async def read_op(key: str):
             async with lock:

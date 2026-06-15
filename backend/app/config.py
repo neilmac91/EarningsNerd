@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings
 from pydantic import field_validator
-from typing import List, Union
+from typing import List
 import os
 
 # Single source of truth for the app version (FastAPI metadata, "/" payload,
@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     # Check environment variable first, then .env file
     # Pydantic Settings automatically prioritizes env vars, but we'll make it explicit
     OPENAI_API_KEY: str = ""
-    OPENAI_BASE_URL: str = "https://generativelanguage.googleapis.com/v1beta/openai/"  # Google AI Studio base URL
+    OPENAI_BASE_URL: str = "https://api.deepseek.com/v1"  # DeepSeek (OpenAI-compatible); override via env for other providers
     
     # Stripe
     STRIPE_SECRET_KEY: str = ""
@@ -58,11 +58,13 @@ class Settings(BaseSettings):
     # JWT
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60  # 1 hour; refresh token handles long-lived sessions
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # short-lived; the frontend silently refreshes it
+    # Refresh tokens (opaque, rotated, stored hashed server-side) are the durable session: the
+    # access token above is short-lived and the frontend API client silently exchanges an
+    # expired one via /api/auth/refresh, so users are not logged out every 30 minutes.
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     REFRESH_COOKIE_NAME: str = "earningsnerd_refresh_token"
-    PASSWORD_MIN_LENGTH: int = 8  # OWASP ASVS v5 minimum; no composition rules
-    PASSWORD_MAX_LENGTH: int = 128  # DoS prevention
+    PASSWORD_MIN_LENGTH: int = 12
     JWT_ISSUER: str = "earningsnerd"
     JWT_AUDIENCE: str = "earningsnerd-users"
     JWT_LEEWAY_SECONDS: int = 10
@@ -130,7 +132,15 @@ class Settings(BaseSettings):
     STRUCTURED_EXTRACTION_CACHE_TTL_SECONDS: int = 3600  # 1 hour for retry window
 
     # AI Model Settings
-    AI_DEFAULT_MODEL: str = "gemini-3.1-pro-preview"  # Primary model for all AI tasks (gemini-3-pro-preview deprecated for inference)
+    AI_DEFAULT_MODEL: str = "deepseek-v4-pro"  # Primary model (DeepSeek V4 migration, non-thinking; chose pro over flash on the quality preference). Prod sets this + OPENAI_BASE_URL + OPENAI_API_KEY via env/Secret Manager.
+
+    # Optional cheaper model for low-risk sub-tasks (cost/latency — roadmap A11).
+    # Both default to "" → fall back to AI_DEFAULT_MODEL, so behavior is UNCHANGED until set.
+    # Flip only after the eval harness (backend/evals) shows no quality regression.
+    #   AI_FAST_MODEL             — cheaper model for any task that opts in (e.g. gemini-2.5-flash)
+    #   AI_SECTION_RECOVERY_MODEL — overrides just the section-recovery task; falls back to AI_FAST_MODEL
+    AI_FAST_MODEL: str = ""
+    AI_SECTION_RECOVERY_MODEL: str = ""
 
     # Structured-output mode for Phase-A extraction (roadmap S1). When True, the structured
     # extraction call uses an API-level response_format (JSON object), a schema-described
@@ -146,8 +156,8 @@ class Settings(BaseSettings):
     # weren't served a full result. The summary is always persisted regardless (so the streamed
     # result doesn't vanish on refetch), and the UI surfaces partials honestly via the quality
     # badge + Regenerate. The verdict is always attached to raw_summary["quality"] (additive
-    # metadata). Default False to preserve current behavior until validated.
-    AI_QUALITY_GATE: bool = False
+    # metadata). Enabled (report-quality Phase 0): users are not charged quota for partial results.
+    AI_QUALITY_GATE: bool = True
 
     # Anonymous (guest) daily summary quota (roadmap S5). Guests currently have no daily/monthly
     # cap (only 5/60s per IP), so one IP could trigger thousands of AI calls/month. A small daily
@@ -186,8 +196,8 @@ class Settings(BaseSettings):
         warnings = []
         is_valid = True
         
-        # Check base URL - accept Google AI Studio or OpenRouter
-        valid_providers = ["openrouter.ai", "generativelanguage.googleapis.com"]
+        # Check base URL - accept Google AI Studio, OpenRouter, or DeepSeek
+        valid_providers = ["openrouter.ai", "generativelanguage.googleapis.com", "api.deepseek.com"]
         if not self.OPENAI_BASE_URL:
             warnings.append("OPENAI_BASE_URL is not set")
             is_valid = False
