@@ -596,12 +596,37 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                         and index < len(prev_filing_refs)
                     ):
                         prev_filing = prev_filing_refs[index]
+
+                        # Build the prior 10-K's excerpt with the same edgartools-first path used
+                        # for the main filing, so the year-over-year trend context isn't stuck on
+                        # the legacy regex/dense-window extractor. Falls back to regex in
+                        # summarize_filing when this is None.
+                        prev_excerpt = None
+                        prev_accession = prev_filing.accession_number
+                        if settings.USE_EDGARTOOLS_SECTIONS and company_cik and prev_accession:
+                            try:
+                                prev_sections = await xbrl_service.get_filing_sections(
+                                    prev_accession, company_cik, "10-K"
+                                )
+                                if prev_sections:
+                                    prev_excerpt = (
+                                        openai_service.assemble_excerpt_from_sections(
+                                            prev_sections, "10-K", filing_text=result
+                                        )
+                                        or None
+                                    )
+                            except Exception as exc:  # noqa: BLE001 — never block on prior-filing parse
+                                logger.warning(
+                                    f"[{filing_id}] ⚠ Prior 10-K section parse failed ({exc}), using regex fallback"
+                                )
+
                         previous_filings_text.append(
                             {
                                 "filing_date": prev_filing.filing_date.isoformat()
                                 if prev_filing.filing_date
                                 else None,
                                 "text": result,
+                                "excerpt": prev_excerpt,
                             }
                         )
                         logger.info(
