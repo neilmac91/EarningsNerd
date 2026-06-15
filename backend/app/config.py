@@ -69,6 +69,18 @@ class Settings(BaseSettings):
     JWT_AUDIENCE: str = "earningsnerd-users"
     JWT_LEEWAY_SECONDS: int = 10
 
+    # OAuth — Google
+    GOOGLE_CLIENT_ID: str = ""
+    GOOGLE_CLIENT_SECRET: str = ""
+    GOOGLE_REDIRECT_URI: str = "https://api.earningsnerd.io/api/auth/google/callback"
+
+    # OAuth — Apple Sign In
+    APPLE_TEAM_ID: str = ""
+    APPLE_CLIENT_ID: str = ""   # Services ID, e.g. "io.earningsnerd.web"
+    APPLE_KEY_ID: str = ""
+    APPLE_PRIVATE_KEY: str = "" # PEM content of the .p8 file
+    APPLE_REDIRECT_URI: str = "https://api.earningsnerd.io/api/auth/apple/callback"
+
     @field_validator('SECRET_KEY', mode='before')
     @classmethod
     def check_secret_key(cls, v, values):

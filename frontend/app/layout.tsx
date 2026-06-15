@@ -2,8 +2,9 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
-import Header from '@/components/Header'
-import Footer from '@/components/Footer'
+import { SiteHeader, SiteFooter } from '@/components/SiteChrome'
+import VerificationBanner from '@/components/VerificationBanner'
+import EmailVerificationModal from '@/components/EmailVerificationModal'
 import CookieConsent from '@/components/CookieConsent'
 import { Analytics } from '@vercel/analytics/next'
 
@@ -52,9 +53,11 @@ export default function RootLayout({
       <head />
       <body>
         <Providers>
-          <Header />
+          <SiteHeader />
+          <VerificationBanner />
           {children}
-          <Footer />
+          <SiteFooter />
+          <EmailVerificationModal />
           <CookieConsent />
           <Analytics />
         </Providers>

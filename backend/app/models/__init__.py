@@ -17,21 +17,47 @@ class User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
+    # Nullable: social-only accounts (Google/Apple) have no password
+    hashed_password = Column(String, nullable=True)
     full_name = Column(String, nullable=True)
     is_active = Column(Boolean, default=True)
     is_pro = Column(Boolean, default=False)
     is_admin = Column(Boolean, default=False)
     stripe_customer_id = Column(String, nullable=True)
     stripe_subscription_id = Column(String, nullable=True)
+    # Email verification (store SHA-256 hash of token, never the raw token)
+    email_verified = Column(Boolean, default=False, nullable=False)
+    email_verification_token = Column(String, nullable=True)
+    email_verification_expires = Column(DateTime(timezone=True), nullable=True)
+    # Password reset (store SHA-256 hash of token, never the raw token)
+    password_reset_token = Column(String, nullable=True)
+    password_reset_expires = Column(DateTime(timezone=True), nullable=True)
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
+
     searches = relationship("UserSearch", back_populates="user", cascade="all, delete-orphan")
     saved_summaries = relationship("SavedSummary", back_populates="user", cascade="all, delete-orphan")
     usage = relationship("UserUsage", back_populates="user", cascade="all, delete-orphan")
     watchlist = relationship("Watchlist", back_populates="user", cascade="all, delete-orphan")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
+    oauth_accounts = relationship("OAuthAccount", back_populates="user", cascade="all, delete-orphan")
+
+
+class OAuthAccount(Base):
+    """OAuth provider links for a user. One user may link multiple providers
+    (Google, Apple), all pointing at the same integer users.id."""
+    __tablename__ = "oauth_accounts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider = Column(String(20), nullable=False)           # 'google' | 'apple'
+    provider_account_id = Column(String, nullable=False)    # provider's 'sub' claim
+    # Email from provider — may be a private relay address for Apple
+    provider_email = Column(String, nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    user = relationship("User", back_populates="oauth_accounts")
 
 
 class Company(Base):
@@ -182,6 +208,7 @@ __all__ = [
     "ContactSubmission",
     "Filing",
     "FilingContentCache",
+    "OAuthAccount",
     "SavedSummary",
     "Summary",
     "SummaryGenerationProgress",

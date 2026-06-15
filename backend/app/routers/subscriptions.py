@@ -75,6 +75,11 @@ async def create_checkout_session(
     db: Session = Depends(get_db)
 ):
     """Create Stripe Checkout session for subscription"""
+    if not current_user.email_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Please verify your email address before subscribing.",
+        )
     if not settings.STRIPE_SECRET_KEY:
         raise HTTPException(
             status_code=500,

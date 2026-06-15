@@ -1,0 +1,111 @@
+'use client'
+
+import { useEffect, useState, Suspense } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
+import { verifyEmail } from '@/features/auth/api/auth-api'
+import Link from 'next/link'
+import { Loader2, CheckCircle, XCircle } from 'lucide-react'
+import AuthShell from '@/components/auth/AuthShell'
+
+function VerifyEmailContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  const queryClient = useQueryClient()
+  const token = searchParams.get('token') ?? ''
+  const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading')
+  const [errorMessage, setErrorMessage] = useState('')
+
+  useEffect(() => {
+    if (!token) {
+      setStatus('error')
+      setErrorMessage('No verification token found. Please use the link from your email.')
+      return
+    }
+
+    verifyEmail(token)
+      .then(() => {
+        setStatus('success')
+        // Refresh cached identity so the banner/avatar dot clear immediately
+        queryClient.invalidateQueries({ queryKey: ['current-user'] })
+        queryClient.invalidateQueries({ queryKey: ['user'] })
+        setTimeout(() => router.push('/'), 3000)
+      })
+      .catch((err: unknown) => {
+        setStatus('error')
+        const msg =
+          err && typeof err === 'object' && 'response' in err
+            ? (err as { response?: { data?: { detail?: string } } }).response?.data?.detail ??
+              'Verification failed.'
+            : 'Verification failed.'
+        setErrorMessage(msg)
+      })
+  }, [token, router, queryClient])
+
+  return (
+    <AuthShell>
+      <div className="text-center">
+        {status === 'loading' && (
+          <>
+            <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-mint-500" />
+            <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+              Verifying your email…
+            </h1>
+          </>
+        )}
+
+        {status === 'success' && (
+          <>
+            <div className="mb-4 flex justify-center">
+              <CheckCircle className="animate-check-pop h-12 w-12 text-mint-500" />
+            </div>
+            <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+              Email verified!
+            </h1>
+            <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              Your account is active. Redirecting you now…
+            </p>
+            <Link href="/" className="mt-6 inline-block text-sm font-medium text-mint-600 hover:underline dark:text-mint-400">
+              Continue to EarningsNerd
+            </Link>
+          </>
+        )}
+
+        {status === 'error' && (
+          <>
+            <div className="mb-4 flex justify-center">
+              <XCircle className="h-12 w-12 text-red-500" />
+            </div>
+            <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+              Verification failed
+            </h1>
+            <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              {errorMessage}
+            </p>
+            <div className="mt-6 space-y-2 text-sm">
+              <p>
+                <Link href="/check-email" className="font-medium text-mint-600 hover:underline dark:text-mint-400">
+                  Resend verification email
+                </Link>
+              </p>
+              <p className="text-text-tertiary-light dark:text-text-tertiary-dark">
+                or{' '}
+                <Link href="/login" className="text-mint-600 hover:underline dark:text-mint-400">
+                  back to login
+                </Link>
+              </p>
+            </div>
+          </>
+        )}
+      </div>
+    </AuthShell>
+  )
+}
+
+export default function VerifyEmailPage() {
+  return (
+    <Suspense>
+      <VerifyEmailContent />
+    </Suspense>
+  )
+}

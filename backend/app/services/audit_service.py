@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 def create_audit_log(
     db: Session,
     action: str,
-    user_id: Optional[int] = None,
+    user_id=None,  # UUID, int, or str — always stored as string
     user_email: Optional[str] = None,
     entity_type: Optional[str] = None,
     entity_id: Optional[str] = None,
@@ -60,7 +60,7 @@ def create_audit_log(
     """
     try:
         audit_log = AuditLog(
-            user_id=user_id,
+            user_id=str(user_id) if user_id is not None else None,
             user_email=user_email,
             action=action,
             entity_type=entity_type,
@@ -94,7 +94,7 @@ def create_audit_log(
 
 def log_user_deletion(
     db: Session,
-    user_id: int,
+    user_id,
     user_email: str,
     third_party_results: Dict[str, str],
     ip_address: Optional[str] = None,
@@ -118,7 +118,7 @@ def log_user_deletion(
 
 def log_data_export(
     db: Session,
-    user_id: int,
+    user_id,
     user_email: str,
     ip_address: Optional[str] = None,
 ) -> AuditLog:
@@ -161,7 +161,7 @@ def log_failed_login(
 
 def log_subscription_change(
     db: Session,
-    user_id: int,
+    user_id,
     user_email: str,
     subscription_id: str,
     action: str,  # "created", "updated", "cancelled"
@@ -178,3 +178,30 @@ def log_subscription_change(
         details=details or {},
         status="success",
     )
+
+
+def log_login_success(db: Session, user_id, user_email: str, ip_address: Optional[str] = None) -> AuditLog:
+    return create_audit_log(db=db, action="login_success", user_id=user_id, user_email=user_email,
+                            entity_type="user", ip_address=ip_address)
+
+
+def log_register(db: Session, user_id, user_email: str, ip_address: Optional[str] = None) -> AuditLog:
+    return create_audit_log(db=db, action="register", user_id=user_id, user_email=user_email,
+                            entity_type="user", ip_address=ip_address)
+
+
+def log_logout(db: Session, user_id, user_email: str, ip_address: Optional[str] = None) -> AuditLog:
+    return create_audit_log(db=db, action="logout", user_id=user_id, user_email=user_email,
+                            entity_type="user", ip_address=ip_address)
+
+
+def log_oauth_login(db: Session, user_id, user_email: str, provider: str,
+                    ip_address: Optional[str] = None) -> AuditLog:
+    return create_audit_log(db=db, action="oauth_login", user_id=user_id, user_email=user_email,
+                            entity_type="user", ip_address=ip_address, details={"provider": provider})
+
+
+def log_oauth_linked(db: Session, user_id, user_email: str, provider: str,
+                     ip_address: Optional[str] = None) -> AuditLog:
+    return create_audit_log(db=db, action="oauth_linked", user_id=user_id, user_email=user_email,
+                            entity_type="user", ip_address=ip_address, details={"provider": provider})

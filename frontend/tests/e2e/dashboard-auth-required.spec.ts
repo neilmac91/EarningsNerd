@@ -8,12 +8,8 @@ test.describe('Dashboard - Authentication Required', () => {
     // Should redirect to login page
     await expect(page).toHaveURL(/\/login/)
 
-    // Verify login page is displayed
-    await expect(page.locator('h1')).toContainText('Login')
-
-    // Should have email and password fields
-    await expect(page.locator('input[type="email"]')).toBeVisible()
-    await expect(page.locator('input[type="password"]')).toBeVisible()
+    // Verify login page is displayed (redesigned heading)
+    await expect(page.locator('h1')).toContainText('Welcome back')
   })
 
   test('should not display "Application error" when accessing dashboard without auth', async ({ page }) => {

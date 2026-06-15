@@ -5,10 +5,13 @@ import { useRouter } from 'next/navigation'
 import { getCurrentUser, register } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
-import { Loader2 } from 'lucide-react'
-import SecondaryHeader from '@/components/SecondaryHeader'
+import { Loader2, Mail } from 'lucide-react'
 import StateCard from '@/components/StateCard'
 import analytics from '@/lib/analytics'
+import AuthShell from '@/components/auth/AuthShell'
+import SocialAuthButtons from '@/components/auth/SocialAuthButtons'
+import AuthDivider from '@/components/auth/AuthDivider'
+import PasswordField from '@/components/auth/PasswordField'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -17,6 +20,9 @@ export default function RegisterPage() {
   const [fullName, setFullName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showEmail, setShowEmail] = useState(false)
+
+  const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? ''
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -34,11 +40,9 @@ export default function RegisterPage() {
       } catch {
         // Ignore analytics errors to avoid blocking signup
       }
-      router.push('/')
+      router.push(`/check-email?email=${encodeURIComponent(email)}`)
     } catch (err: unknown) {
-      const errorMessage = isApiError(err)
-        ? getErrorMessage(err)
-        : 'Registration failed'
+      const errorMessage = isApiError(err) ? getErrorMessage(err) : 'Registration failed'
       setError(errorMessage)
     } finally {
       setLoading(false)
@@ -46,45 +50,59 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background-light dark:bg-background-dark">
-      <SecondaryHeader
-        backHref="/"
-        backLabel="Back to Home"
-      />
+    <AuthShell>
+      <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+        Create your account
+      </h1>
+      <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+        Start your free trial and unlock AI summaries.
+      </p>
 
-      <div className="flex min-h-[calc(100vh-80px)] items-center justify-center px-4 py-10">
-        <div className="w-full max-w-md rounded-2xl border border-border-light bg-panel-light p-8 shadow-lg dark:border-border-dark dark:bg-panel-dark">
-          <h1 className="text-3xl font-bold text-center text-text-primary-light dark:text-text-primary-dark mb-3">Create account</h1>
-          <p className="text-sm text-center text-text-secondary-light dark:text-text-secondary-dark mb-8">
-            Start your free trial and unlock AI summaries.
-          </p>
+      {error && (
+        <div className="mt-6">
+          <StateCard variant="error" title="Registration failed" message={error} />
+        </div>
+      )}
 
-          {error && (
-            <div className="mb-6">
-              <StateCard
-                variant="error"
-                title="Registration Failed"
-                message={error}
-              />
-            </div>
-          )}
+      <div className="mt-8">
+        <SocialAuthButtons apiBase={apiBase} appleLabel="Sign up with Apple" googleLabel="Sign up with Google" />
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <AuthDivider />
+
+        {!showEmail ? (
+          <button
+            type="button"
+            onClick={() => setShowEmail(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-border-light bg-transparent px-4 py-3 text-sm font-medium text-text-primary-light transition-all hover:bg-panel-light active:scale-[0.99] dark:border-border-dark dark:text-text-primary-dark dark:hover:bg-panel-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+          >
+            <Mail className="h-4 w-4" />
+            Sign up with email
+          </button>
+        ) : (
+          <form onSubmit={handleSubmit} className="animate-fade-up space-y-4">
             <div>
-              <label htmlFor="fullName" className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">
-                Full Name (Optional)
+              <label
+                htmlFor="fullName"
+                className="mb-1 block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark"
+              >
+                Full name <span className="text-text-tertiary-light dark:text-text-tertiary-dark">(optional)</span>
               </label>
               <input
                 type="text"
                 id="fullName"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="w-full px-3 py-2 border border-border-light rounded-lg bg-background-light text-text-primary-light placeholder:text-text-tertiary-light focus:outline-none focus:ring-2 focus:ring-mint-500/50 focus:border-mint-500 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
+                autoComplete="name"
+                autoFocus
+                className="w-full rounded-lg border border-border-light bg-background-light px-3 py-2 text-text-primary-light placeholder:text-text-tertiary-light focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/50 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
               />
             </div>
 
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">
+              <label
+                htmlFor="email"
+                className="mb-1 block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark"
+              >
                 Email
               </label>
               <input
@@ -93,52 +111,47 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-3 py-2 border border-border-light rounded-lg bg-background-light text-text-primary-light placeholder:text-text-tertiary-light focus:outline-none focus:ring-2 focus:ring-mint-500/50 focus:border-mint-500 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
+                autoComplete="email"
+                className="w-full rounded-lg border border-border-light bg-background-light px-3 py-2 text-text-primary-light placeholder:text-text-tertiary-light focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/50 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
               />
             </div>
 
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">
-                Password
-              </label>
-              <input
-                type="password"
-                id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={12}
-                className="w-full px-3 py-2 border border-border-light rounded-lg bg-background-light text-text-primary-light placeholder:text-text-tertiary-light focus:outline-none focus:ring-2 focus:ring-mint-500/50 focus:border-mint-500 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
-              />
-              <p className="mt-2 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
-                Use at least 12 characters with upper/lowercase letters and a number.
-              </p>
-            </div>
+            <PasswordField
+              id="password"
+              label="Password"
+              value={password}
+              onChange={setPassword}
+              autoComplete="new-password"
+              required
+              minLength={12}
+              showStrength
+              hint="At least 12 characters, with upper- and lowercase letters and a number."
+            />
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-mint-500 text-slate-950 py-2.5 rounded-lg hover:bg-mint-400 font-semibold disabled:opacity-50 transition-colors focus:outline-none focus:ring-2 focus:ring-mint-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900"
+              className="w-full rounded-lg bg-mint-500 py-2.5 font-semibold text-slate-950 transition-all hover:bg-mint-400 active:scale-[0.99] disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Creating account...
+                  Creating account…
                 </span>
               ) : (
-                'Sign Up'
+                'Create account'
               )}
             </button>
           </form>
-
-          <p className="mt-6 text-center text-text-secondary-light dark:text-text-secondary-dark">
-            Already have an account?{' '}
-            <Link href="/login" className="text-mint-600 hover:underline dark:text-mint-400">
-              Login
-            </Link>
-          </p>
-        </div>
+        )}
       </div>
-    </div>
+
+      <p className="mt-8 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+        Already have an account?{' '}
+        <Link href="/login" className="font-medium text-mint-600 hover:underline dark:text-mint-400">
+          Sign in
+        </Link>
+      </p>
+    </AuthShell>
   )
 }

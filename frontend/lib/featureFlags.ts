@@ -67,3 +67,12 @@ export const exampleFilingHref = (entry: string): string =>
  */
 export const ENABLE_QUALITY_BADGE =
   process.env.NEXT_PUBLIC_ENABLE_QUALITY_BADGE === 'true'
+
+/**
+ * Show the "Continue with Apple" sign-in button.
+ * Ships off by default — the Apple backend exchange (Increment 4) and the Apple
+ * Developer Console setup must be live first, otherwise the button 404s.
+ * Flip NEXT_PUBLIC_ENABLE_APPLE_SIGNIN='true' once Sign in with Apple is wired up.
+ */
+export const ENABLE_APPLE_SIGNIN =
+  process.env.NEXT_PUBLIC_ENABLE_APPLE_SIGNIN === 'true'

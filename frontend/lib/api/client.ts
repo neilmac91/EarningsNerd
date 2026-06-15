@@ -76,6 +76,10 @@ const NO_REFRESH_PATHS = [
   '/api/auth/logout',
 ]
 
+// Dispatched on a 403 whose detail asks the user to verify their email, so a global
+// listener (EmailVerificationModal) can show a graceful prompt instead of a raw error.
+export const EMAIL_VERIFICATION_REQUIRED_EVENT = 'email-verification-required'
+
 export function isRefreshableRequest(url?: string): boolean {
   if (!url) return true
   // Match on the path only, so a query param that happens to contain an auth path
@@ -133,6 +137,16 @@ api.interceptors.response.use(
     }
 
     const backendDetail = error.response?.data?.detail
+
+    // Surface the email-verification gate as a friendly global prompt (e.g. on checkout).
+    if (
+      status === 403 &&
+      backendDetail &&
+      /verify your email/i.test(backendDetail) &&
+      typeof window !== 'undefined'
+    ) {
+      window.dispatchEvent(new CustomEvent(EMAIL_VERIFICATION_REQUIRED_EVENT, { detail: backendDetail }))
+    }
 
     // Create user-friendly error message based on status and backend detail
     let errorMessage: string
