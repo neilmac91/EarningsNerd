@@ -10,6 +10,7 @@ from app.database import get_db
 from app.models import ContactSubmission
 from app.schemas.contact import ContactSubmissionCreate, ContactSubmissionResponse
 from app.services.resend_service import ResendError, send_email
+from app.services.turnstile import enforce_turnstile
 from app.config import settings
 
 router = APIRouter()
@@ -107,6 +108,8 @@ async def submit_contact_form(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=f"Too many requests. Please try again in {RATE_LIMIT_WINDOW_HOURS} hour(s).",
         )
+
+    await enforce_turnstile(request)  # no-op unless Turnstile is configured
 
     # Create database entry (store hashed IP for privacy)
     db_submission = ContactSubmission(

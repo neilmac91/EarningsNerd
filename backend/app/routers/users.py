@@ -224,12 +224,12 @@ async def delete_user_account(
         # 2. Send deletion request to PostHog
         if POSTHOG_AVAILABLE and posthog_client:
             try:
-                # PostHog GDPR deletion - sends delete event
+                # PostHog GDPR deletion — keyed by distinct_id (user id). Do not echo the
+                # email back as a property; the $delete event already targets this person.
                 posthog_client.capture(
                     distinct_id=str(user_id),
                     event='$delete',
                     properties={
-                        'email': user_email,
                         'deletion_timestamp': datetime.utcnow().isoformat()
                     }
                 )

@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     REFRESH_COOKIE_NAME: str = "earningsnerd_refresh_token"
     PASSWORD_MIN_LENGTH: int = 12
+    # Screen new/reset passwords against the HaveIBeenPwned breach corpus (k-anonymity).
+    # Fails open on any error so a third-party outage never blocks sign-ups. Disabled in tests.
+    PWNED_PASSWORD_CHECK_ENABLED: bool = True
     JWT_ISSUER: str = "earningsnerd"
     JWT_AUDIENCE: str = "earningsnerd-users"
     JWT_LEEWAY_SECONDS: int = 10
@@ -79,6 +82,11 @@ class Settings(BaseSettings):
     # no team/key IDs or .p8 private key (those are only for client-secret/code exchange).
     APPLE_CLIENT_ID: str = ""   # Services ID, e.g. "io.earningsnerd.web"
     APPLE_REDIRECT_URI: str = "https://api.earningsnerd.io/api/auth/apple/callback"
+
+    # Cloudflare Turnstile bot defense. When unset, verification is a no-op (dark) so the
+    # feature only activates once BOTH this secret and the frontend NEXT_PUBLIC_TURNSTILE_SITE_KEY
+    # are configured. Verifies the widget token on register/login/contact/waitlist.
+    TURNSTILE_SECRET_KEY: str = ""
 
     @field_validator('SECRET_KEY', mode='before')
     @classmethod
@@ -202,6 +210,13 @@ class Settings(BaseSettings):
             self.OPENAI_API_KEY = env_key.strip()
         if "COOKIE_SECURE" not in os.environ:
             self.COOKIE_SECURE = self.ENVIRONMENT == "production"
+        # Fail closed: production must never silently use the local SQLite default (an empty,
+        # ephemeral, unencrypted DB on a fresh container). Force an explicit production DATABASE_URL.
+        if self.ENVIRONMENT == "production" and self.DATABASE_URL.strip().lower().startswith("sqlite"):
+            raise ValueError(
+                "DATABASE_URL must point at a production database in production; refusing to start "
+                "on the sqlite default. Set DATABASE_URL to your Postgres/Cloud SQL connection string."
+            )
     
     def validate_openai_config(self) -> tuple[bool, list[str]]:
         """Validate OpenAI-compatible configuration and return (is_valid, warnings)"""

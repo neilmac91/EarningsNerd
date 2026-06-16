@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Check, Copy, Loader2 } from 'lucide-react'
 import { getApiUrl } from '@/lib/api/client'
+import TurnstileWidget from '@/components/auth/TurnstileWidget'
+import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 
 type WaitlistSuccess = {
   message?: string
@@ -26,6 +28,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [honeypot, setHoneypot] = useState('')
+  const [turnstileToken, setTurnstileToken] = useState('')
   const [referralCode, setReferralCode] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -68,7 +71,10 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
     try {
       const response = await fetch(`${getApiUrl()}/api/waitlist/join`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(turnstileToken ? { 'cf-turnstile-response': turnstileToken } : {}),
+        },
         body: JSON.stringify({
           email: email.trim(),
           name: name.trim() || null,
@@ -256,9 +262,11 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
           </div>
         )}
 
+        <TurnstileWidget onToken={setTurnstileToken} />
+
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isSubmitting || (TURNSTILE_ENABLED && !turnstileToken)}
           className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-mint-500 px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-mint-400 disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}

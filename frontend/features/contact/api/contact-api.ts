@@ -17,7 +17,13 @@ export interface ContactSubmissionResponse {
   created_at: string
 }
 
-export const submitContactForm = async (data: ContactSubmission): Promise<ContactSubmissionResponse> => {
-  const response = await api.post('/api/contact/', data)
+export const submitContactForm = async (
+  data: ContactSubmission,
+  turnstileToken?: string,
+): Promise<ContactSubmissionResponse> => {
+  const config = turnstileToken
+    ? { headers: { 'cf-turnstile-response': turnstileToken } }
+    : undefined
+  const response = await api.post('/api/contact/', data, config)
   return response.data
 }

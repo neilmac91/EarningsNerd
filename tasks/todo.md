@@ -1,46 +1,102 @@
-# Targeted Section Extraction Fix — edgartools native parser (branch: claude/nice-curie-ugassy)
+# Auth, Privacy & Conversion Hardening — Implementation Tracker
 
-## Problem (root cause, confirmed by 2 agents + live verification)
-`extract_critical_sections` regexes assume a line-oriented plain-text 10-K layout
-(`ITEM 8. FINANCIAL STATEMENTS ... [^\n]*\n`, bound on `\nITEM 9.`). Input is raw `.htm`
-normalized by `BeautifulSoup.get_text(separator='\n')`, which shreds modern inline-XBRL
-headers across many one-token lines → 0 targeted chars → `_dense_window` fallback to a fixed
-~260,154-char keyword slab. Quality degrades silently (tests only use idealized single-line headers).
+Branch: `claude/clever-keller-l0v83e`
+Context: Phase 2 of the auth/security/privacy plan. User authorized autonomous
+execution of the safely-implementable items (P0 + self-contained P1/P2),
+"balanced" risk appetite, B2C, ~$50–100/mo budget, keep-and-harden custom auth.
 
-## Fix (approved): edgartools native sections primary, regex+dense-window fallback, behind a flag
-Live-verified: `filing.obj()['Item 1A'|'Item 7'|'Item 8']` yields clean sections
-(AAPL 10-K: 68k / 18k / 61k chars = ~147k precise vs ~260k window — higher quality, lower cost).
+Baseline before changes: **259 passed** (unit + smoke).
 
-## Tasks
-- [x] config.py: `USE_EDGARTOOLS_SECTIONS: bool = True`
-- [x] xbrl_service.py: `_extract_sections_sync` + `EdgarXBRLService.get_filing_sections` (executor + timeout, graceful None)
-- [x] compat.py: `XBRLServiceCompat.get_filing_sections` passthrough
-- [x] openai_service.py: `assemble_excerpt_from_sections(sections, filing_type, filing_text)` (same labels/caps + thin-financials backfill)
-- [x] summary_generation_service.py: `get_or_cache_excerpt(..., sections=None)` prefers sections; batch core fetches sections in parallel
-- [x] summary_pipeline.py (SSE): fetch sections in parallel, pass into excerpt builder
-- [x] evals/runner.py: mirror new path in `_get_grounding`; print excerpt char count + source per filing
-- [x] tests/unit/test_section_extraction_guard.py: regression guard for assembler (labels/caps/order/empty)
+## Decisions / guardrails
+- Do not break tested behavior or the auth flow while unattended. Verify every change with pytest.
+- External-credential or frontend-build-risking items are scaffolded/documented, not forced in blind.
 
-## Verify (approved: full bake-off + live run)
-- [x] backend test suite (314 passed) + 6 new regression tests green; ruff clean
-- [x] live extraction NVDA/TSLA/MSFT 10-Ks — precise sections where regex captured 0
-- [x] NVDA edge case (Item 8 incorporated by reference -> 207-char stub) handled by financials backfill (80k -> 210k)
-- [x] eval bake-off before/after (deepseek candidate, 8 filings)
-- [x] commit + push to claude/nice-curie-ugassy
+## In scope (this pass) — backend, pytest-verifiable
+
+- [x] **Login anti-enumeration + timing**: unify inactive-account `403` → generic `401`;
+      run a dummy bcrypt verify when the user is unknown to remove the timing oracle. (`auth.py`)
+- [x] **Wire audit logging**: login success/failure, register, logout, OAuth login/link —
+      helpers already existed but were never called; pass a hashed client IP. (`auth.py` + `audit_service.py`)
+- [x] **Verify Google `id_token`** against Google's JWKS (audience/issuer/signature),
+      replacing the unverified `/userinfo` trust — parity with the existing Apple path. (`auth.py`)
+- [x] **Stop sending user email to PostHog** (`subscription_activated`, `$delete`). (`subscriptions.py`, `users.py`)
+- [x] **NIST password policy**: keep 12-char min, drop forced upper/lower/digit composition,
+      dedupe the two copies of the validator, cap max length; pin bcrypt rounds explicitly. (`auth.py`)
+- [x] **Breached-password check** via HIBP k-anonymity (fail-open) on register + reset. (`pwned_passwords.py`, `auth.py`, `config.py`, `conftest.py`)
+- [x] **Fail closed** on a sqlite `DATABASE_URL` in production. (`config.py`)
+- [x] **Per-account login throttle** (bounds distributed brute-force on one account). (`rate_limiter.py`, `auth.py`)
+- [x] **Entitlements abstraction** (`get_entitlements(user)` → limits/features), stub FREE/PRO from `is_pro`,
+      so monetization is a config change later. (`entitlements.py`, `subscription_service.py`)
+- [x] **Notify-on-link**: email the user when an OAuth identity is linked to an existing account. (`email_service.py`, `auth.py`)
+- [ ] Tests for the new behavior; full suite stays green.
+- [ ] Docs: this tracker, DSAR + breach-notification runbook, `.env.example` updates, lessons.
+
+## Deferred (with rationale) — documented, not implemented this pass
+
+- **Register account-enumeration (P0 in plan):** DEFERRED. `test_duplicate_registration_rejected`
+  asserts register→`400`, and auto-login-on-register is the stated conversion preference (Section E).
+  Full anti-enumeration requires a verify-first signup (no auto-login), which conflicts with both.
+  A genuine product decision, not a cheap fix → left for explicit owner sign-off.
+- **Cloudflare Turnstile (P0):** needs a site/secret key (external) and a frontend widget; documented for when keys exist.
+- **Consent-gating of analytics + privacy policy/ToS (P0/P1):** frontend + legal copy; documented (avoid risking the Next build unattended; UI/legal wants human review).
+- **Cookie-only access token:** tests assert `access_token` in the body and the frontend ignores it; low value vs. breakage risk → deferred.
+- **MFA, passkeys, lifecycle email, distributed (Redis) rate limiting, B2B org layer:** P2/P3, defer per "balanced".
+- **X-Forwarded-For trusted-proxy depth:** environment-specific; documented (the per-account throttle is the higher-value half of that item).
 
 ## Review
-Root cause: regex extractor assumed line-oriented plain-text headers; modern inline-XBRL HTML
-(after get_text(separator='\n')) shreds headers across lines -> 0 targeted chars -> ~260,154-char
-dense-window fallback. Fixed by preferring edgartools' native parser, with the regex+dense-window
-path kept as an automatic fallback behind USE_EDGARTOOLS_SECTIONS (default on, instant rollback).
 
-Bake-off (8 filings, deepseek-chat comparison model), BEFORE (flag off) -> AFTER (flag on):
-- excerpt source: 0/8 precise -> 7/8 edgartools (JPM bank 10-K safely falls back to regex)
-- excerpt size: uniform ~260k slab -> precise 96k-170k (fewer tokens)
-- mean_aggregate 0.5125 -> 0.5312; mean_coverage 0.325 -> 0.40 (+23% rel)
-- numeric accuracy 0.9583 (held); numeric precision 1.0 (held)
-- gate failures 0; errors 0; cost $0.0579 -> $0.0558 (cheaper)
-- financial_depth 0.0 in BOTH runs — a limitation of the weak deepseek-chat comparison model's
-  output (prod uses deepseek-v4-pro), constant across runs, so neutral to the extraction change.
+Implemented the safely-autonomous, pytest-verifiable backend hardening. Full unit+smoke suite:
+**259 → 272 passed** (+13 new tests, 0 regressions). Ruff clean (project `backend/ruff.toml`).
 
-No regression on any axis; coverage + aggregate up, cost down. Safe to ship.
+Shipped in three commits:
+1. `harden authentication, credentials, and entitlements foundation` — login enumeration/timing,
+   per-account throttle, NIST password policy + HIBP breach check, bcrypt rounds pinned, Google
+   id_token verification (parity with Apple), audit-log wiring with hashed IP, OAuth link
+   notifications, DATABASE_URL fail-closed in prod, and the `get_entitlements()` abstraction.
+2. `stop sending user email to PostHog` — dropped the email property from `subscription_activated`
+   and the GDPR `$delete` event (both already keyed by user id).
+3. `docs:` — this tracker, `tasks/security_privacy_runbook.md` (DSAR/breach/retention/processors +
+   exact next steps for deferred items), `.env.example` auth/security section.
+
+Verification:
+- New tests cover: login unified-401 for unknown email and inactive account; per-account lockout
+  → 429; HIBP hit/padding/miss/network-fail-open/disabled; `RateLimiter.is_exhausted` peek
+  semantics; entitlements free/pro mapping. `test_auth_flow` made hermetic against rate-limit
+  cross-test coupling via an autouse limiter reset.
+- Behavior preserved on the happy path: register/login/refresh/logout, Apple flow, and Stripe
+  webhook tests all still green; `check_usage_limit` returns identical results (free=5, pro=∞).
+
+Notable deltas vs. the original P0 list (rationale in the Deferred section above):
+- **Register enumeration** intentionally NOT changed (tested 400-on-duplicate + auto-login-on-
+  register conflict with full anti-enumeration; needs a product decision). The higher-value
+  **login** enumeration + timing oracle were closed instead.
+- **Turnstile / consent-gating / privacy policy** need external keys or frontend+legal work and
+  human review; scaffolding/steps documented rather than forced in blind.
+
+Not done (deferred per "balanced" appetite / external deps): MFA, passkeys, lifecycle email,
+Redis-backed distributed rate limiting, B2B org layer, log scrubbing, retention purge jobs.
+Next-step details for each are in `tasks/security_privacy_runbook.md` §6.
+
+## Review — session 2 (autonomous continuation, PR #299)
+
+Opened PR #299 and continued autonomously to round out P0/P1. Verified every commit with the
+exact CI gates (backend: ruff + `bandit -r app -ll` + pytest; frontend: tsc + eslint + `next build`
++ vitest). Additional commits:
+
+- **CI/review fixes** (`dd86c77`): fixed a real `bandit` B324 failure (SHA-1 in the HIBP path →
+  `usedforsecurity=False`); adopted the Gemini reviewer's valid points — offloaded bcrypt to worker
+  threads (`asyncio.to_thread`) in register/login/reset (event-loop DoS), and peppered the IP hashes
+  with `SECRET_KEY` (a bare SHA-256 of an IPv4 is reversible). **Lesson: run `bandit -r app -ll`
+  locally, not just ruff — it's a CI gate.**
+- **Turnstile** (`9f7983f` backend, `2e738a6` frontend): full bot-defense, dark until both keys set.
+- **Account security + paywall** (`cd87b86`): logout-all, connections list/unlink (last-credential
+  guard), paywall_hit event.
+- **Terms of Service** (`0563a9e`): new `/terms` page + footer link + signup agreement.
+
+Verifying against the actual code prevented wasted/harmful work three times: **analytics
+consent-gating, the Privacy Policy, and the GDPR export/delete UI all already existed** and are
+well-built — so I did not "re-implement" them. Net new P0/P1 gaps closed: Turnstile (both ends) and
+the missing Terms of Service.
+
+Remaining = a product decision (register enumeration), external/legal (DPAs, the two Turnstile keys,
+ToS legal review), and the explicitly-deferred P2/P3 features. Full status in the runbook §6.

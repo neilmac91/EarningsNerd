@@ -41,7 +41,9 @@ def _hash_token(raw_token: str) -> str:
 def _hash_ip(ip: Optional[str]) -> Optional[str]:
     if not ip:
         return None
-    return hashlib.sha256(ip.encode("utf-8")).hexdigest()
+    # Peppered with SECRET_KEY: a bare SHA-256 of an IPv4 is brute-forceable (the ~4.2B address
+    # space is precomputable), so the secret is what makes the stored hash non-reversible.
+    return hashlib.sha256(f"{ip}:{settings.SECRET_KEY}".encode("utf-8")).hexdigest()
 
 
 def create_refresh_token(

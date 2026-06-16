@@ -35,6 +35,7 @@ from app.services.posthog_client import (
     EVENT_GENERATION_SUCCEEDED,
     EVENT_GENERATION_FAILED,
     EVENT_GENERATION_TIMED_OUT,
+    EVENT_PAYWALL_HIT,
     capture_funnel_event,
 )
 from app.services.subscription_service import (
@@ -189,6 +190,14 @@ async def stream_filing_summary(
                 can_generate, current_count, limit = await run_sync_db(check_usage_limit, current_user, session)
                 if not can_generate:
                     logger.warning(f"[stream:{filing_id}] User {user_id} exceeded monthly summary limit ({limit}).")
+                    # Demand/pricing signal: record when a free user hits the wall.
+                    capture_funnel_event(
+                        telemetry_distinct_id,
+                        EVENT_PAYWALL_HIT,
+                        entry_point=telemetry_entry_point,
+                        limit=limit,
+                        summaries_used=current_count,
+                    )
                     message = (
                         "You've reached your monthly limit of "
                         f"{limit} summaries. Upgrade to Pro for unlimited summaries."

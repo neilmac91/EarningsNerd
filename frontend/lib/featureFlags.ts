@@ -76,3 +76,12 @@ export const ENABLE_QUALITY_BADGE =
  */
 export const ENABLE_APPLE_SIGNIN =
   process.env.NEXT_PUBLIC_ENABLE_APPLE_SIGNIN === 'true'
+
+/**
+ * Cloudflare Turnstile (bot defense) site key. When set, the Turnstile widget renders on the
+ * auth / contact / waitlist forms and a token is sent to the backend for verification (the
+ * backend must also have TURNSTILE_SECRET_KEY). When unset, the widget renders nothing and the
+ * forms behave exactly as before — so this is dark until both keys are configured.
+ */
+export const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ''
+export const TURNSTILE_ENABLED = TURNSTILE_SITE_KEY.length > 0

@@ -2,9 +2,11 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 from typing import Optional
 from app.models import User, UserUsage
-
-# Constants
-FREE_TIER_SUMMARY_LIMIT = 5
+# FREE_TIER_SUMMARY_LIMIT now lives in entitlements (single source of truth); re-exported here
+# (redundant alias = intentional re-export) so existing
+# `from app.services.subscription_service import FREE_TIER_SUMMARY_LIMIT` keeps working.
+from app.services.entitlements import get_entitlements
+from app.services.entitlements import FREE_TIER_SUMMARY_LIMIT as FREE_TIER_SUMMARY_LIMIT
 
 def get_current_month() -> str:
     """Get current month in YYYY-MM format"""
@@ -41,13 +43,14 @@ def increment_user_usage(user_id: int, month: str, db: Session):
 
 def check_usage_limit(user: User, db: Session) -> tuple[bool, int, Optional[int]]:
     """Check if user can generate more summaries. Returns (can_generate, current_count, limit)"""
-    if user.is_pro:
-        return True, 0, None  # Pro users have unlimited
-    
+    limit = get_entitlements(user).monthly_summary_limit
+    if limit is None:
+        return True, 0, None  # unlimited (e.g. pro)
+
     month = get_current_month()
     current_count = get_user_usage_count(user.id, month, db)
-    
-    if current_count >= FREE_TIER_SUMMARY_LIMIT:
-        return False, current_count, FREE_TIER_SUMMARY_LIMIT
-    
-    return True, current_count, FREE_TIER_SUMMARY_LIMIT
+
+    if current_count >= limit:
+        return False, current_count, limit
+
+    return True, current_count, limit

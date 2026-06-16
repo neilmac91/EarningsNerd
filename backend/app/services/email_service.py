@@ -191,6 +191,35 @@ async def send_password_reset_email(
     )
 
 
+async def send_oauth_linked_email(
+    *,
+    to_email: str,
+    name: str | None,
+    provider: str,
+) -> None:
+    """Sent when a social identity (Google/Apple) is linked to an existing account.
+
+    A security notification: if the account owner didn't initiate it, it gives them a chance to
+    react (reset password / contact support) rather than silently merging the identities."""
+    greeting = f"Hi {name}," if name else "Hi there,"
+    html_body = f"""
+    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;">A <strong>{provider}</strong> sign-in was just linked to your EarningsNerd account.</p>
+    <p style="margin:0 0 12px;font-size:14px;color:#9ca3af;">If this was you, no action is needed — you can now sign in with {provider}.</p>
+    <p style="margin:0;font-size:14px;color:#fca5a5;">If this <strong>wasn&apos;t</strong> you, please reset your password immediately and contact support.</p>
+    """
+    text_body = (
+        f"{greeting}\n\nA {provider} sign-in was just linked to your EarningsNerd account.\n\n"
+        f"If this was you, no action is needed. If it wasn't, reset your password immediately "
+        f"and contact support."
+    )
+    await send_email(
+        to=[to_email],
+        subject=f"A {provider} sign-in was linked to your EarningsNerd account",
+        html=f"{_wrap_html(html_body)}<pre style=\"display:none\">{text_body}</pre>",
+    )
+
+
 async def send_account_exists_email(
     *,
     to_email: str,
