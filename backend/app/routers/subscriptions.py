@@ -202,6 +202,7 @@ async def stripe_webhook(
                 db.commit()
                 try:
                     metadata = session.get("metadata", {}) or {}
+                    # distinct_id is the user id; do NOT send email (PII) as an event property.
                     capture_event(
                         str(user.id),
                         "subscription_activated",
@@ -210,7 +211,6 @@ async def stripe_webhook(
                             "price_id": metadata.get("price_id"),
                             "billing_cycle": metadata.get("billing_cycle"),
                             "stripe_subscription_id": session.get("subscription"),
-                            "email": user.email,
                         },
                     )
                 except Exception:
