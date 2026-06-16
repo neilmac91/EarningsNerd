@@ -12,6 +12,8 @@ import AuthShell from '@/components/auth/AuthShell'
 import SocialAuthButtons from '@/components/auth/SocialAuthButtons'
 import AuthDivider from '@/components/auth/AuthDivider'
 import PasswordField from '@/components/auth/PasswordField'
+import TurnstileWidget from '@/components/auth/TurnstileWidget'
+import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 
 export default function RegisterPage() {
   const router = useRouter()
@@ -21,6 +23,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showEmail, setShowEmail] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState('')
 
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? ''
 
@@ -31,7 +34,7 @@ export default function RegisterPage() {
     analytics.signupStarted('register_page')
 
     try {
-      await register(email, password, fullName)
+      await register(email, password, fullName, turnstileToken)
       try {
         const user = await getCurrentUser()
         if (user?.id && user?.email) {
@@ -125,12 +128,14 @@ export default function RegisterPage() {
               required
               minLength={12}
               showStrength
-              hint="At least 12 characters, with upper- and lowercase letters and a number."
+              hint="At least 12 characters — a longer passphrase is stronger. Breached passwords are rejected."
             />
+
+            <TurnstileWidget onToken={setTurnstileToken} className="flex justify-center" />
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (TURNSTILE_ENABLED && !turnstileToken)}
               className="w-full rounded-lg bg-mint-500 py-2.5 font-semibold text-slate-950 transition-all hover:bg-mint-400 active:scale-[0.99] disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
             >
               {loading ? (

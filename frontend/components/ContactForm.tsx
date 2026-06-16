@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { submitContactForm } from '@/features/contact/api/contact-api'
+import TurnstileWidget from '@/components/auth/TurnstileWidget'
+import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 
 export default function ContactForm() {
   const [name, setName] = useState('')
@@ -12,6 +14,7 @@ export default function ContactForm() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState('')
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -39,12 +42,15 @@ export default function ContactForm() {
     setIsSubmitting(true)
 
     try {
-      await submitContactForm({
-        name: name.trim(),
-        email: email.trim(),
-        subject: subject.trim() || null,
-        message: message.trim(),
-      })
+      await submitContactForm(
+        {
+          name: name.trim(),
+          email: email.trim(),
+          subject: subject.trim() || null,
+          message: message.trim(),
+        },
+        turnstileToken,
+      )
 
       setSuccess(true)
       // Reset form
@@ -200,10 +206,12 @@ export default function ContactForm() {
           </div>
         )}
 
+        <TurnstileWidget onToken={setTurnstileToken} />
+
         {/* Submit Button */}
         <button
           type="submit"
-          disabled={isSubmitting}
+          disabled={isSubmitting || (TURNSTILE_ENABLED && !turnstileToken)}
           className="w-full rounded-lg bg-mint-500 px-6 py-3 font-medium text-slate-950 transition-colors hover:bg-mint-400 focus:outline-none focus:ring-2 focus:ring-mint-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSubmitting ? (

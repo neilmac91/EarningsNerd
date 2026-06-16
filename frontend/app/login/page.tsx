@@ -12,6 +12,8 @@ import AuthShell from '@/components/auth/AuthShell'
 import SocialAuthButtons from '@/components/auth/SocialAuthButtons'
 import AuthDivider from '@/components/auth/AuthDivider'
 import PasswordField from '@/components/auth/PasswordField'
+import TurnstileWidget from '@/components/auth/TurnstileWidget'
+import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   google_denied: 'Google sign-in was cancelled.',
@@ -35,6 +37,7 @@ function LoginContent() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showEmail, setShowEmail] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState('')
 
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? ''
 
@@ -44,7 +47,7 @@ function LoginContent() {
     setLoading(true)
 
     try {
-      await login(email, password)
+      await login(email, password, turnstileToken)
       try {
         const user = await getCurrentUser()
         if (user?.id && user?.email) {
@@ -142,9 +145,11 @@ function LoginContent() {
               }
             />
 
+            <TurnstileWidget onToken={setTurnstileToken} className="flex justify-center" />
+
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || (TURNSTILE_ENABLED && !turnstileToken)}
               className="w-full rounded-lg bg-mint-500 py-2.5 font-semibold text-slate-950 transition-all hover:bg-mint-400 active:scale-[0.99] disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
             >
               {loading ? (

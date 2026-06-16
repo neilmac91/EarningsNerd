@@ -2,24 +2,35 @@ import api from '@/lib/api/client'
 import { isApiError, getErrorStatus } from '@/lib/api/types'
 import { markSessionActive, clearSessionActive } from '@/lib/api/session'
 
+// Cloudflare Turnstile token is sent as a header the backend reads; omitted when unset so
+// nothing changes until Turnstile is configured on both ends.
+const turnstileConfig = (token?: string) =>
+  token ? { headers: { 'cf-turnstile-response': token } } : undefined
+
 // Auth APIs
-export const register = async (email: string, password: string, fullName?: string) => {
-  const response = await api.post('/api/auth/register', {
-    email,
-    password,
-    full_name: fullName,
-  })
+export const register = async (
+  email: string,
+  password: string,
+  fullName?: string,
+  turnstileToken?: string,
+) => {
+  const response = await api.post(
+    '/api/auth/register',
+    { email, password, full_name: fullName },
+    turnstileConfig(turnstileToken),
+  )
   // Mark the session active so the API client may silently refresh an expired access token
   // for this user. Guests stay unmarked and never attempt a (pointless) refresh.
   markSessionActive()
   return response.data
 }
 
-export const login = async (email: string, password: string) => {
-  const response = await api.post('/api/auth/login', {
-    email,
-    password,
-  })
+export const login = async (email: string, password: string, turnstileToken?: string) => {
+  const response = await api.post(
+    '/api/auth/login',
+    { email, password },
+    turnstileConfig(turnstileToken),
+  )
   markSessionActive()
   return response.data
 }
