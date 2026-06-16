@@ -918,7 +918,7 @@ async def apple_callback(
             provider_email=email,
         ))
 
-    user_obj.last_login_at = now
+    user_obj.last_login_at = datetime.now(timezone.utc)
     redirect = RedirectResponse(url=frontend_url, status_code=302)
     access_token = create_access_token(data={"sub": user_obj.email})
     _set_auth_cookie(redirect, access_token)
