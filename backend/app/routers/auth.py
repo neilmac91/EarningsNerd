@@ -9,6 +9,7 @@ from typing import Optional
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from urllib.parse import urlencode
+import base64
 import hashlib
 import json
 import secrets
@@ -392,7 +393,6 @@ def _get_apple_client_secret() -> str:
     from cryptography.hazmat.primitives import hashes
     from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
     from cryptography.hazmat.backends import default_backend
-    import base64
 
     def _b64url(data: bytes) -> str:
         return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
@@ -411,10 +411,9 @@ def _get_apple_client_secret() -> str:
     p64 = _b64url(json.dumps(payload, separators=(",", ":")).encode())
     message = f"{h64}.{p64}"
 
-    key_pem = settings.APPLE_PRIVATE_KEY.strip()
-    if not key_pem.startswith("-----"):
-        # Secret Manager may store the key with literal \n — normalise
-        key_pem = key_pem.replace("\\n", "\n")
+    # Unconditionally normalise: Secret Manager may store with literal \n even
+    # when the value starts with "-----BEGIN PRIVATE KEY-----".
+    key_pem = settings.APPLE_PRIVATE_KEY.strip().replace("\\n", "\n")
     private_key = load_pem_private_key(key_pem.encode(), password=None, backend=default_backend())
     der_sig = private_key.sign(message.encode(), ec.ECDSA(hashes.SHA256()))
     r, s = decode_dss_signature(der_sig)
@@ -440,12 +439,23 @@ async def _get_apple_jwks() -> dict:
 
 
 async def _verify_apple_id_token(id_token: str, raw_nonce: str) -> dict:
-    """Verify Apple id_token against Apple's JWKS; check nonce."""
+    """Verify Apple id_token against Apple's JWKS; check nonce.
+
+    python-jose does not reliably auto-select a key from a JWKS dict, so we
+    extract the kid from the unverified header and select the matching key
+    explicitly before calling jwt.decode.
+    """
     jwks = await _get_apple_jwks()
     try:
+        kid = jwt.get_unverified_header(id_token).get("kid")
+        public_key = next(
+            (k for k in jwks.get("keys", []) if k.get("kid") == kid), None
+        )
+        if not public_key:
+            raise ValueError("Matching key not found in Apple JWKS")
         claims = jwt.decode(
             id_token,
-            jwks,
+            public_key,
             algorithms=["RS256"],
             audience=settings.APPLE_CLIENT_ID,
             issuer="https://appleid.apple.com",
@@ -927,10 +937,17 @@ async def apple_callback(
             return RedirectResponse(f"{frontend_url}/login?error=apple_missing_claims", status_code=302)
 
         existing = db.query(User).filter(func.lower(User.email) == email).first()
-        if existing and existing.email_verified and email_verified_by_apple:
-            user_obj = existing
-            if full_name and not user_obj.full_name:
-                user_obj.full_name = full_name
+        if existing:
+            if existing.email_verified and email_verified_by_apple:
+                user_obj = existing
+                if full_name and not user_obj.full_name:
+                    user_obj.full_name = full_name
+            else:
+                # Email exists but can't be safely linked (unverified on either side).
+                # Attempting a new insert would hit the UNIQUE constraint.
+                return RedirectResponse(
+                    f"{frontend_url}/login?error=apple_account_conflict", status_code=302
+                )
         else:
             user_obj = User(
                 email=email,

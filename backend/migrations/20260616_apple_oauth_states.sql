@@ -13,6 +13,6 @@ CREATE TABLE IF NOT EXISTS oauth_states (
     expires_at TIMESTAMPTZ NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_oauth_states_state ON oauth_states (state);
+-- Note: UNIQUE on state implicitly creates an index; no separate CREATE INDEX needed.
 
 COMMIT;
