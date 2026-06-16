@@ -24,6 +24,23 @@ def client():
         yield test_client
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limiters():
+    """Clear the module-level auth limiters before each test so register/login pressure from
+    one test (or another file in the same process) can't trip another test's request."""
+    from app.routers import auth as auth_module
+
+    for lim in (
+        auth_module.LOGIN_LIMITER,
+        auth_module.REGISTER_LIMITER,
+        auth_module.ACCOUNT_LOGIN_FAIL_LIMITER,
+        auth_module.RESET_REQUEST_LIMITER,
+        auth_module.RESEND_VERIFY_LIMITER,
+    ):
+        lim._hits.clear()
+    yield
+
+
 def _unique_email() -> str:
     return f"authtest_{uuid.uuid4().hex[:12]}@example.com"
 
@@ -90,6 +107,63 @@ def test_login_wrong_password_rejected(client, registered_user):
         json={"email": registered_user["email"], "password": "Wr0ngPassword123"},
     )
     assert resp.status_code == 401
+
+
+@pytest.mark.requires_db
+def test_login_unknown_email_returns_same_401(client):
+    """An unknown email returns the same generic 401 as a wrong password (no enumeration)."""
+    client.cookies.clear()
+    resp = client.post(
+        "/api/auth/login",
+        json={"email": _unique_email(), "password": VALID_PASSWORD},
+    )
+    assert resp.status_code == 401
+    assert resp.json()["detail"] == "Incorrect email or password"
+
+
+@pytest.mark.requires_db
+def test_login_inactive_account_returns_401_not_403(client):
+    """A deactivated account is indistinguishable from a bad credential (generic 401, not 403)."""
+    email = _unique_email()
+    reg = client.post("/api/auth/register", json={"email": email, "password": VALID_PASSWORD})
+    assert reg.status_code == 200, reg.text
+    client.cookies.clear()
+
+    from app.database import SessionLocal
+    from app.models import User
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.email == email).first()
+        user.is_active = False
+        db.commit()
+    finally:
+        db.close()
+
+    resp = client.post("/api/auth/login", json={"email": email, "password": VALID_PASSWORD})
+    assert resp.status_code == 401
+    assert resp.json()["detail"] == "Incorrect email or password"
+    client.cookies.clear()
+
+
+@pytest.mark.requires_db
+def test_repeated_failures_lock_the_account(client):
+    """After enough failed attempts a single account is throttled (429), bounding brute-force.
+
+    The per-IP limiter is cleared between attempts so this exercises the *per-account* throttle
+    specifically rather than the per-IP one (both share the same default limit)."""
+    from app.routers import auth as auth_module
+
+    email = _unique_email()
+    for _ in range(auth_module.ACCOUNT_LOGIN_FAIL_LIMITER.limit):
+        auth_module.LOGIN_LIMITER._hits.clear()  # isolate the account throttle from the IP one
+        resp = client.post("/api/auth/login", json={"email": email, "password": VALID_PASSWORD})
+        assert resp.status_code == 401
+
+    auth_module.LOGIN_LIMITER._hits.clear()
+    resp = client.post("/api/auth/login", json={"email": email, "password": VALID_PASSWORD})
+    assert resp.status_code == 429
+    client.cookies.clear()
 
 
 @pytest.mark.requires_db

@@ -29,6 +29,22 @@ class RateLimiter:
             window.append(now)
             return True
 
+    def is_exhausted(self, key: str) -> bool:
+        """True if ``key`` is currently at or over its limit.
+
+        A read-only peek: unlike :meth:`allow` it does not record a hit, so callers can gate a
+        request on prior activity (e.g. failed logins) without charging the current attempt.
+        """
+        now = time.monotonic()
+        with self._lock:
+            window = self._hits.get(key)
+            if not window:
+                return False
+            cutoff = now - self.window_seconds
+            while window and window[0] < cutoff:
+                window.popleft()
+            return len(window) >= self.limit
+
     def retry_after(self, key: str) -> Optional[int]:
         now = time.monotonic()
         with self._lock:

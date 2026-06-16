@@ -65,6 +65,9 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     REFRESH_COOKIE_NAME: str = "earningsnerd_refresh_token"
     PASSWORD_MIN_LENGTH: int = 12
+    # Screen new/reset passwords against the HaveIBeenPwned breach corpus (k-anonymity).
+    # Fails open on any error so a third-party outage never blocks sign-ups. Disabled in tests.
+    PWNED_PASSWORD_CHECK_ENABLED: bool = True
     JWT_ISSUER: str = "earningsnerd"
     JWT_AUDIENCE: str = "earningsnerd-users"
     JWT_LEEWAY_SECONDS: int = 10
@@ -202,6 +205,13 @@ class Settings(BaseSettings):
             self.OPENAI_API_KEY = env_key.strip()
         if "COOKIE_SECURE" not in os.environ:
             self.COOKIE_SECURE = self.ENVIRONMENT == "production"
+        # Fail closed: production must never silently use the local SQLite default (an empty,
+        # ephemeral, unencrypted DB on a fresh container). Force an explicit production DATABASE_URL.
+        if self.ENVIRONMENT == "production" and self.DATABASE_URL.strip().lower().startswith("sqlite"):
+            raise ValueError(
+                "DATABASE_URL must point at a production database in production; refusing to start "
+                "on the sqlite default. Set DATABASE_URL to your Postgres/Cloud SQL connection string."
+            )
     
     def validate_openai_config(self) -> tuple[bool, list[str]]:
         """Validate OpenAI-compatible configuration and return (is_valid, warnings)"""

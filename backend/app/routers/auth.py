@@ -23,6 +23,8 @@ from app.database import get_db
 from app.models import User, OAuthAccount, OAuthState
 from app.config import settings
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
+from app.services.pwned_passwords import is_password_pwned
+from app.services import audit_service
 from app.services.refresh_token_service import (
     create_refresh_token,
     rotate_refresh_token,
@@ -39,16 +41,49 @@ LOGIN_LIMITER = RateLimiter(limit=10, window_seconds=60)
 REGISTER_LIMITER = RateLimiter(limit=5, window_seconds=60)
 RESET_REQUEST_LIMITER = RateLimiter(limit=3, window_seconds=3600)   # 3/hr per email
 RESEND_VERIFY_LIMITER = RateLimiter(limit=3, window_seconds=3600)   # 3/hr per email
+# Per-account failed-login throttle: bounds distributed brute-force/password-spray against a
+# single account (the per-IP LOGIN_LIMITER only bounds one source). Keyed by email and charged
+# only on failure. Generous threshold so legitimate users effectively never hit it; recoverable
+# by waiting out the window or using password reset. Trade-off: a determined attacker can briefly
+# lock a known account — acceptable pre-launch and time-bounded.
+ACCOUNT_LOGIN_FAIL_LIMITER = RateLimiter(limit=10, window_seconds=900)  # 10 failures / 15 min
 
 EMAIL_VERIFY_EXPIRY_HOURS = 24
 PASSWORD_RESET_EXPIRY_HOURS = 1
 
+# bcrypt work factor — pinned explicitly rather than relying on the library default so the cost
+# is visible and stable across bcrypt upgrades.
+BCRYPT_ROUNDS = 12
+# Generous upper bound (NIST 800-63B: accept long passphrases). Note: bcrypt only considers the
+# first 72 bytes of the password; longer inputs are silently truncated by the algorithm.
+PASSWORD_MAX_LENGTH = 128
+
+
+def validate_password_strength(value: str) -> str:
+    """Validate a password against policy.
+
+    NIST 800-63B-aligned: enforce length, not arbitrary composition rules (no forced
+    upper/lower/digit). Breach screening (HaveIBeenPwned) is done in the endpoints because a
+    synchronous Pydantic validator cannot perform the async network call.
+    """
+    if len(value) < settings.PASSWORD_MIN_LENGTH:
+        raise ValueError(f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters.")
+    if len(value) > PASSWORD_MAX_LENGTH:
+        raise ValueError(f"Password must be at most {PASSWORD_MAX_LENGTH} characters.")
+    return value
+
 # Google OAuth (OIDC) endpoints
 _GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 _GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
-_GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
+# Identity is taken from the cryptographically-verified id_token (below), not the userinfo
+# endpoint, so a forged/replayed access token cannot impersonate a user.
+_GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs"
+_GOOGLE_ISSUERS = {"https://accounts.google.com", "accounts.google.com"}
 _OAUTH_STATE_COOKIE = "oauth_state"
 _OAUTH_STATE_MAX_AGE = 600  # 10 minutes
+
+_google_jwks_cache: dict | None = None
+_google_jwks_cache_expires: float = 0.0
 
 # Apple Sign In constants and module-level caches.
 # Authentication uses the id_token delivered directly in Apple's form_post
@@ -76,15 +111,7 @@ class UserCreate(BaseModel):
     @field_validator("password")
     @classmethod
     def validate_password(cls, value: str) -> str:
-        if len(value) < settings.PASSWORD_MIN_LENGTH:
-            raise ValueError(f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters.")
-        if not any(char.islower() for char in value):
-            raise ValueError("Password must include at least one lowercase letter.")
-        if not any(char.isupper() for char in value):
-            raise ValueError("Password must include at least one uppercase letter.")
-        if not any(char.isdigit() for char in value):
-            raise ValueError("Password must include at least one number.")
-        return value
+        return validate_password_strength(value)
 
 
 class UserLogin(BaseModel):
@@ -136,15 +163,7 @@ class ResetPasswordRequest(BaseModel):
     @field_validator("new_password")
     @classmethod
     def validate_password(cls, value: str) -> str:
-        if len(value) < settings.PASSWORD_MIN_LENGTH:
-            raise ValueError(f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters.")
-        if not any(char.islower() for char in value):
-            raise ValueError("Password must include at least one lowercase letter.")
-        if not any(char.isupper() for char in value):
-            raise ValueError("Password must include at least one uppercase letter.")
-        if not any(char.isdigit() for char in value):
-            raise ValueError("Password must include at least one number.")
-        return value
+        return validate_password_strength(value)
 
 
 # ─── Password helpers (bcrypt) ──────────────────────────────────────────────────
@@ -165,10 +184,16 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def get_password_hash(password: str) -> str:
-    """Hash password using bcrypt"""
-    salt = bcrypt.gensalt()
+    """Hash password using bcrypt with an explicitly-pinned work factor."""
+    salt = bcrypt.gensalt(rounds=BCRYPT_ROUNDS)
     hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
     return hashed.decode('utf-8')
+
+
+# A fixed bcrypt hash of a random value. On login for an unknown email we verify the supplied
+# password against this so the request does the same expensive bcrypt work as a known-email
+# request — removing the timing side-channel that would otherwise reveal whether an email exists.
+_DUMMY_PASSWORD_HASH = get_password_hash(secrets.token_urlsafe(32))
 
 
 # ─── Token helpers ──────────────────────────────────────────────────────────────
@@ -252,6 +277,14 @@ def _clear_refresh_cookie(response: Response) -> None:
 
 def _client_ip(request: Request) -> Optional[str]:
     return request.client.host if request.client else None
+
+
+def _hashed_client_ip(request: Request) -> Optional[str]:
+    """SHA-256 of the client IP for privacy-preserving audit logs (never store raw IPs)."""
+    ip = _client_ip(request)
+    if not ip:
+        return None
+    return hashlib.sha256(ip.encode("utf-8")).hexdigest()
 
 
 def _issue_refresh_token(db: Session, user: User, request: Request, response: Response) -> None:
@@ -373,6 +406,20 @@ async def _send_verification_email_safe(db: Session, user: User) -> None:
         logger.warning(f"Verification email not sent ({e.__class__.__name__}); link: {link}")
 
 
+async def _send_oauth_linked_email_safe(user: User, provider: str) -> None:
+    """Notify a user that a social identity was linked to their existing account.
+
+    Best-effort: a federated identity attaching to a pre-existing account is exactly the event
+    a victim would want to hear about if it wasn't them, so we surface it — but email failures
+    must never break the login itself.
+    """
+    try:
+        from app.services.email_service import send_oauth_linked_email
+        await send_oauth_linked_email(to_email=user.email, name=user.full_name, provider=provider)
+    except Exception as e:
+        logger.warning(f"OAuth-linked notification not sent ({e.__class__.__name__})")
+
+
 async def _get_apple_jwks() -> dict:
     """Fetch (or return 1-hour-cached) Apple JWKS for id_token verification."""
     global _apple_jwks_cache, _apple_jwks_cache_expires
@@ -423,6 +470,53 @@ async def _verify_apple_id_token(id_token: str, raw_nonce: str) -> dict:
     return claims
 
 
+async def _get_google_jwks() -> dict:
+    """Fetch (or return 1-hour-cached) Google JWKS for id_token verification."""
+    global _google_jwks_cache, _google_jwks_cache_expires
+    now = time.time()
+    if _google_jwks_cache and now < _google_jwks_cache_expires:
+        return _google_jwks_cache
+    async with httpx.AsyncClient(timeout=10.0) as hx:
+        resp = await hx.get(_GOOGLE_JWKS_URL)
+        resp.raise_for_status()
+        _google_jwks_cache = resp.json()
+        _google_jwks_cache_expires = now + 3600
+    return _google_jwks_cache
+
+
+async def _verify_google_id_token(id_token: str) -> dict:
+    """Verify a Google OIDC id_token and return its claims.
+
+    Checks the RS256 signature against Google's JWKS, that the audience is our client_id, that
+    the token is unexpired, and that the issuer is Google. This replaces trusting the /userinfo
+    response, which only proves possession of an access token, not that it was minted for us.
+    """
+    jwks = await _get_google_jwks()
+    try:
+        kid = jwt.get_unverified_header(id_token).get("kid")
+        public_key = next(
+            (k for k in jwks.get("keys", []) if k.get("kid") == kid), None
+        )
+        if not public_key:
+            raise ValueError("Matching key not found in Google JWKS")
+        # Google issues id_tokens with iss "https://accounts.google.com" or "accounts.google.com";
+        # validate the issuer manually against both rather than via jose's single-string check.
+        claims = jwt.decode(
+            id_token,
+            public_key,
+            algorithms=["RS256"],
+            audience=settings.GOOGLE_CLIENT_ID,
+            options={"require": ["exp", "aud", "sub", "iss"]},
+        )
+    except JWTError as exc:
+        raise ValueError(f"Google id_token invalid: {exc}")
+
+    if claims.get("iss") not in _GOOGLE_ISSUERS:
+        raise ValueError("Google id_token has unexpected issuer")
+
+    return claims
+
+
 # ─── Endpoints ──────────────────────────────────────────────────────────────────
 
 @router.post("/register", response_model=Token)
@@ -446,6 +540,14 @@ async def register(
             detail="Email already registered"
         )
 
+    # Reject passwords known to be in public breach corpora (HaveIBeenPwned, k-anonymity).
+    # Fails open if the service is unreachable so signups are never blocked by a third party.
+    if await is_password_pwned(user_data.password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This password has appeared in a known data breach. Please choose a different password.",
+        )
+
     hashed_password = get_password_hash(user_data.password)
     user = User(
         email=user_data.email,
@@ -465,6 +567,7 @@ async def register(
         )
 
     await _send_verification_email_safe(db, user)
+    audit_service.log_register(db, user.id, user.email, ip_address=_hashed_client_ip(request))
 
     access_token = create_access_token(data={"sub": user.email})
     _set_auth_cookie(response, access_token)
@@ -486,17 +589,36 @@ async def login(
         "login",
         error_detail="Too many login attempts. Please try again in a minute.",
     )
-    user = db.query(User).filter(User.email == user_data.email).first()
+    # Per-account throttle: bounds brute-force/spray against one account across many IPs.
+    # Peek here (no charge); a failure below records a hit.
+    account_key = f"account:{user_data.email}"
+    if ACCOUNT_LOGIN_FAIL_LIMITER.is_exhausted(account_key):
+        retry_after = ACCOUNT_LOGIN_FAIL_LIMITER.retry_after(account_key)
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many failed login attempts for this account. Please try again later.",
+            headers={"Retry-After": str(retry_after)} if retry_after else None,
+        )
 
-    if not user or not verify_password(user_data.password, user.hashed_password):
+    user = db.query(User).filter(User.email == user_data.email).first()
+    hashed_ip = _hashed_client_ip(request)
+
+    # Always run bcrypt — against the real hash if we have one, else a fixed dummy — so the
+    # response timing is the same whether or not the email exists (no timing oracle).
+    password_ok = verify_password(
+        user_data.password,
+        user.hashed_password if (user and user.hashed_password) else _DUMMY_PASSWORD_HASH,
+    )
+
+    # Collapse every failure mode (unknown email, wrong password, social-only account, inactive
+    # account) into one generic 401 so the response never reveals whether an account exists or
+    # is disabled — closing the account-enumeration channel that a distinct 403 opened.
+    if not user or not user.hashed_password or not password_ok or not user.is_active:
+        ACCOUNT_LOGIN_FAIL_LIMITER.allow(account_key)  # charge one failure against the account
+        audit_service.log_failed_login(db, user_data.email, ip_address=hashed_ip)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
-        )
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="User account is inactive",
         )
 
     user.last_login_at = datetime.now(timezone.utc)
@@ -504,6 +626,7 @@ async def login(
     access_token = create_access_token(data={"sub": user.email})
     _set_auth_cookie(response, access_token)
     _issue_refresh_token(db, user, request, response)
+    audit_service.log_login_success(db, user.id, user.email, ip_address=hashed_ip)
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -644,6 +767,12 @@ async def reset_password(
     if user.password_reset_expires and user.password_reset_expires < now:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Reset link has expired. Request a new one.")
 
+    if await is_password_pwned(payload.new_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This password has appeared in a known data breach. Please choose a different password.",
+        )
+
     user.hashed_password = get_password_hash(payload.new_password)
     user.password_reset_token = None
     user.password_reset_expires = None
@@ -698,7 +827,9 @@ async def google_callback(
     if not stored_state or not secrets.compare_digest(stored_state, state):
         return RedirectResponse(f"{frontend_url}/login?error=oauth_state_mismatch", status_code=302)
 
-    # Exchange the authorization code for tokens.
+    # Exchange the authorization code for tokens, then cryptographically verify the id_token
+    # (signature + audience + issuer) rather than trusting an access-token-authenticated
+    # /userinfo response.
     try:
         async with httpx.AsyncClient(timeout=10.0) as hx:
             token_resp = await hx.post(
@@ -712,24 +843,18 @@ async def google_callback(
                 },
             )
             token_resp.raise_for_status()
-            access_token_google = token_resp.json().get("access_token")
-            if not access_token_google:
-                raise ValueError("no access_token in Google response")
-
-            userinfo_resp = await hx.get(
-                _GOOGLE_USERINFO_URL,
-                headers={"Authorization": f"Bearer {access_token_google}"},
-            )
-            userinfo_resp.raise_for_status()
-            userinfo = userinfo_resp.json()
+            google_id_token = token_resp.json().get("id_token")
+            if not google_id_token:
+                raise ValueError("no id_token in Google token response")
+        claims = await _verify_google_id_token(google_id_token)
     except Exception as exc:
-        logger.warning("Google OAuth exchange failed: %s", exc.__class__.__name__)
+        logger.warning("Google OAuth exchange/verification failed: %s", exc.__class__.__name__)
         return RedirectResponse(f"{frontend_url}/login?error=google_token_failed", status_code=302)
 
-    google_sub = userinfo.get("sub")
-    email = (userinfo.get("email") or "").strip().lower() or None
-    email_verified_by_google = bool(userinfo.get("email_verified", False))
-    full_name = userinfo.get("name")
+    google_sub = claims.get("sub")
+    email = (claims.get("email") or "").strip().lower() or None
+    email_verified_by_google = bool(claims.get("email_verified", False))
+    full_name = claims.get("name")
 
     if not google_sub or not email:
         return RedirectResponse(f"{frontend_url}/login?error=google_missing_claims", status_code=302)
@@ -740,6 +865,7 @@ async def google_callback(
         .first()
     )
 
+    linked_existing = False
     if oauth_row:
         user = oauth_row.user
     else:
@@ -747,6 +873,7 @@ async def google_callback(
         existing = db.query(User).filter(func.lower(User.email) == email).first()
         if existing and existing.email_verified and email_verified_by_google:
             user = existing
+            linked_existing = True
         else:
             user = User(
                 email=email,
@@ -779,6 +906,13 @@ async def google_callback(
         logger.warning("Google OAuth IntegrityError for sub=%s", google_sub)
         return RedirectResponse(f"{frontend_url}/login?error=google_account_conflict", status_code=302)
     _set_refresh_cookie(redirect, raw_refresh)
+
+    hashed_ip = _hashed_client_ip(request)
+    audit_service.log_oauth_login(db, user.id, user.email, provider="google", ip_address=hashed_ip)
+    if linked_existing:
+        # Security-relevant: a federated identity was just attached to a pre-existing account.
+        audit_service.log_oauth_linked(db, user.id, user.email, provider="google", ip_address=hashed_ip)
+        await _send_oauth_linked_email_safe(user, "Google")
     return redirect
 
 
@@ -880,6 +1014,7 @@ async def apple_callback(
         provider="apple", provider_account_id=apple_sub
     ).first()
 
+    linked_existing = False
     if oauth_row:
         user_obj = oauth_row.user
         if full_name and not user_obj.full_name:
@@ -893,6 +1028,7 @@ async def apple_callback(
         if existing:
             if existing.email_verified and email_verified_by_apple:
                 user_obj = existing
+                linked_existing = True
                 if full_name and not user_obj.full_name:
                     user_obj.full_name = full_name
             else:
@@ -934,6 +1070,12 @@ async def apple_callback(
         logger.warning("Apple OAuth IntegrityError for sub=%s", apple_sub)
         return RedirectResponse(f"{frontend_url}/login?error=apple_account_conflict", status_code=302)
     _set_refresh_cookie(redirect, raw_refresh)
+
+    hashed_ip = _hashed_client_ip(request)
+    audit_service.log_oauth_login(db, user_obj.id, user_obj.email, provider="apple", ip_address=hashed_ip)
+    if linked_existing:
+        audit_service.log_oauth_linked(db, user_obj.id, user_obj.email, provider="apple", ip_address=hashed_ip)
+        await _send_oauth_linked_email_safe(user_obj, "Apple")
     return redirect
 
 
@@ -954,6 +1096,7 @@ async def logout(
     request: Request,
     response: Response,
     db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ):
     """Revoke the refresh token (if present) and clear both auth cookies."""
     raw_token = request.cookies.get(settings.REFRESH_COOKIE_NAME)
@@ -961,4 +1104,6 @@ async def logout(
         db.commit()
     _clear_auth_cookie(response)
     _clear_refresh_cookie(response)
+    if current_user:
+        audit_service.log_logout(db, current_user.id, current_user.email, ip_address=_hashed_client_ip(request))
     return {"status": "success"}
