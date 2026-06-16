@@ -9,7 +9,6 @@ from typing import Optional
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from urllib.parse import urlencode
-import base64
 import hashlib
 import json
 import secrets
@@ -51,13 +50,13 @@ _GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
 _OAUTH_STATE_COOKIE = "oauth_state"
 _OAUTH_STATE_MAX_AGE = 600  # 10 minutes
 
-# Apple Sign In constants and module-level caches
+# Apple Sign In constants and module-level caches.
+# Authentication uses the id_token delivered directly in Apple's form_post
+# callback (response_type="code id_token"), so no authorization-code exchange
+# and no ES256 client secret are required — only the JWKS for signature checks.
 _APPLE_AUTH_URL = "https://appleid.apple.com/auth/authorize"
-_APPLE_TOKEN_URL = "https://appleid.apple.com/auth/token"
 _APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
-_APPLE_CLIENT_SECRET_TTL = 3000  # 50 min — well under Apple's 6-month max
 
-_apple_client_secret_cache: tuple[str, float] | None = None  # (token, expiry_unix)
 _apple_jwks_cache: dict | None = None
 _apple_jwks_cache_expires: float = 0.0
 
@@ -374,56 +373,6 @@ async def _send_verification_email_safe(db: Session, user: User) -> None:
         logger.warning(f"Verification email not sent ({e.__class__.__name__}); link: {link}")
 
 
-def _get_apple_client_secret() -> str:
-    """Generate (or return cached) Apple ES256 client secret JWT.
-    Apple requires a JWT signed with the .p8 key as the client secret."""
-    global _apple_client_secret_cache
-    now = time.time()
-    if _apple_client_secret_cache:
-        secret, expires_at = _apple_client_secret_cache
-        if now < expires_at - 60:
-            return secret
-
-    if not (settings.APPLE_PRIVATE_KEY and settings.APPLE_TEAM_ID
-            and settings.APPLE_CLIENT_ID and settings.APPLE_KEY_ID):
-        raise RuntimeError("Apple Sign In credentials not configured.")
-
-    from cryptography.hazmat.primitives.serialization import load_pem_private_key
-    from cryptography.hazmat.primitives.asymmetric import ec
-    from cryptography.hazmat.primitives import hashes
-    from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
-    from cryptography.hazmat.backends import default_backend
-
-    def _b64url(data: bytes) -> str:
-        return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
-
-    now_int = int(now)
-    header = {"alg": "ES256", "kid": settings.APPLE_KEY_ID}
-    payload = {
-        "iss": settings.APPLE_TEAM_ID,
-        "iat": now_int,
-        "exp": now_int + _APPLE_CLIENT_SECRET_TTL,
-        "aud": "https://appleid.apple.com",
-        "sub": settings.APPLE_CLIENT_ID,
-    }
-
-    h64 = _b64url(json.dumps(header, separators=(",", ":")).encode())
-    p64 = _b64url(json.dumps(payload, separators=(",", ":")).encode())
-    message = f"{h64}.{p64}"
-
-    # Unconditionally normalise: Secret Manager may store with literal \n even
-    # when the value starts with "-----BEGIN PRIVATE KEY-----".
-    key_pem = settings.APPLE_PRIVATE_KEY.strip().replace("\\n", "\n")
-    private_key = load_pem_private_key(key_pem.encode(), password=None, backend=default_backend())
-    der_sig = private_key.sign(message.encode(), ec.ECDSA(hashes.SHA256()))
-    r, s = decode_dss_signature(der_sig)
-    raw_sig = r.to_bytes(32, "big") + s.to_bytes(32, "big")
-
-    token = f"{message}.{_b64url(raw_sig)}"
-    _apple_client_secret_cache = (token, now + _APPLE_CLIENT_SECRET_TTL)
-    return token
-
-
 async def _get_apple_jwks() -> dict:
     """Fetch (or return 1-hour-cached) Apple JWKS for id_token verification."""
     global _apple_jwks_cache, _apple_jwks_cache_expires
@@ -463,11 +412,13 @@ async def _verify_apple_id_token(id_token: str, raw_nonce: str) -> dict:
     except JWTError as exc:
         raise ValueError(f"Apple id_token invalid: {exc}")
 
+    # Nonce binding is mandatory: we always send sha256(raw_nonce), so a
+    # compliant id_token always echoes it back. A missing or mismatched nonce
+    # means the token isn't bound to this auth request (replay/injection) — reject.
     token_nonce = claims.get("nonce")
-    if token_nonce:
-        expected = hashlib.sha256(raw_nonce.encode()).hexdigest()
-        if not secrets.compare_digest(token_nonce, expected):
-            raise ValueError("Apple id_token nonce mismatch")
+    expected = hashlib.sha256(raw_nonce.encode()).hexdigest()
+    if not token_nonce or not secrets.compare_digest(token_nonce, expected):
+        raise ValueError("Apple id_token nonce missing or mismatched")
 
     return claims
 
@@ -839,8 +790,10 @@ async def apple_login(db: Session = Depends(get_db)):
     if not settings.APPLE_CLIENT_ID:
         raise HTTPException(status_code=503, detail="Apple Sign In is not configured.")
 
-    # Lazy GC: remove expired state rows
-    now = datetime.now(timezone.utc)
+    # Lazy GC: remove expired state rows.
+    # Naive UTC (matches refresh_token_service) so the TTL comparison works
+    # whether expires_at is read back tz-aware (Postgres) or naive (SQLite).
+    now = datetime.utcnow()
     db.query(OAuthState).filter(OAuthState.expires_at < now).delete(synchronize_session=False)
 
     state = secrets.token_urlsafe(32)
@@ -883,8 +836,9 @@ async def apple_callback(
     if not state or not id_token:
         return RedirectResponse(f"{frontend_url}/login?error=apple_invalid", status_code=302)
 
-    # Validate state from DB (form_post drops SameSite=Lax cookies)
-    now = datetime.now(timezone.utc)
+    # Validate state from DB (form_post drops SameSite=Lax cookies).
+    # Naive UTC (see apple_login) so expires_at comparison is backend-agnostic.
+    now = datetime.utcnow()
     state_row = db.query(OAuthState).filter_by(state=state).first()
     if not state_row or state_row.expires_at < now:
         if state_row:

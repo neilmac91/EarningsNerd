@@ -74,11 +74,10 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str = ""
     GOOGLE_REDIRECT_URI: str = "https://api.earningsnerd.io/api/auth/google/callback"
 
-    # OAuth — Apple Sign In
-    APPLE_TEAM_ID: str = ""
+    # OAuth — Apple Sign In. The form_post id_token is verified directly against
+    # Apple's JWKS, so only the Services ID (audience) and redirect URI are needed —
+    # no team/key IDs or .p8 private key (those are only for client-secret/code exchange).
     APPLE_CLIENT_ID: str = ""   # Services ID, e.g. "io.earningsnerd.web"
-    APPLE_KEY_ID: str = ""
-    APPLE_PRIVATE_KEY: str = "" # PEM content of the .p8 file
     APPLE_REDIRECT_URI: str = "https://api.earningsnerd.io/api/auth/apple/callback"
 
     @field_validator('SECRET_KEY', mode='before')

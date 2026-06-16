@@ -65,7 +65,8 @@ class OAuthState(Base):
     __tablename__ = "oauth_states"
 
     id = Column(Integer, primary_key=True)
-    state = Column(String(64), unique=True, nullable=False, index=True)
+    # unique=True already creates the index; no separate index=True needed.
+    state = Column(String(64), unique=True, nullable=False)
     nonce = Column(String(64), nullable=False)
     expires_at = Column(DateTime(timezone=True), nullable=False)
 
