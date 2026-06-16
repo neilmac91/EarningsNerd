@@ -151,7 +151,19 @@ export default function RegisterPage() {
         )}
       </div>
 
-      <p className="mt-8 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+      <p className="mt-6 text-center text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
+        By creating an account you agree to our{' '}
+        <Link href="/terms" className="underline hover:text-mint-600 dark:hover:text-mint-400">
+          Terms
+        </Link>{' '}
+        and{' '}
+        <Link href="/privacy" className="underline hover:text-mint-600 dark:hover:text-mint-400">
+          Privacy Policy
+        </Link>
+        .
+      </p>
+
+      <p className="mt-6 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
         Already have an account?{' '}
         <Link href="/login" className="font-medium text-mint-600 hover:underline dark:text-mint-400">
           Sign in
