@@ -9,6 +9,7 @@ from typing import Optional
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from urllib.parse import urlencode
+import asyncio
 import hashlib
 import json
 import secrets
@@ -280,11 +281,15 @@ def _client_ip(request: Request) -> Optional[str]:
 
 
 def _hashed_client_ip(request: Request) -> Optional[str]:
-    """SHA-256 of the client IP for privacy-preserving audit logs (never store raw IPs)."""
+    """Keyed SHA-256 of the client IP for privacy-preserving audit logs (never store raw IPs).
+
+    Peppered with SECRET_KEY: a bare SHA-256 of an IPv4 is trivially reversible (the whole ~4.2B
+    address space is precomputable), so the secret pepper is what actually makes it non-reversible.
+    """
     ip = _client_ip(request)
     if not ip:
         return None
-    return hashlib.sha256(ip.encode("utf-8")).hexdigest()
+    return hashlib.sha256(f"{ip}:{settings.SECRET_KEY}".encode("utf-8")).hexdigest()
 
 
 def _issue_refresh_token(db: Session, user: User, request: Request, response: Response) -> None:
@@ -548,7 +553,8 @@ async def register(
             detail="This password has appeared in a known data breach. Please choose a different password.",
         )
 
-    hashed_password = get_password_hash(user_data.password)
+    # Offload CPU-bound bcrypt (~250ms) to a worker thread so it doesn't block the event loop.
+    hashed_password = await asyncio.to_thread(get_password_hash, user_data.password)
     user = User(
         email=user_data.email,
         hashed_password=hashed_password,
@@ -604,8 +610,10 @@ async def login(
     hashed_ip = _hashed_client_ip(request)
 
     # Always run bcrypt — against the real hash if we have one, else a fixed dummy — so the
-    # response timing is the same whether or not the email exists (no timing oracle).
-    password_ok = verify_password(
+    # response timing is the same whether or not the email exists (no timing oracle). Offloaded
+    # to a worker thread so the ~250ms hash doesn't block the event loop under login load.
+    password_ok = await asyncio.to_thread(
+        verify_password,
         user_data.password,
         user.hashed_password if (user and user.hashed_password) else _DUMMY_PASSWORD_HASH,
     )
@@ -773,7 +781,7 @@ async def reset_password(
             detail="This password has appeared in a known data breach. Please choose a different password.",
         )
 
-    user.hashed_password = get_password_hash(payload.new_password)
+    user.hashed_password = await asyncio.to_thread(get_password_hash, payload.new_password)
     user.password_reset_token = None
     user.password_reset_expires = None
     # The user proved control of their inbox, so confirm the email too.

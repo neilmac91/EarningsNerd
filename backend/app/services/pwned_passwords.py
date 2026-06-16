@@ -31,7 +31,11 @@ async def is_password_pwned(password: str) -> bool:
     if not settings.PWNED_PASSWORD_CHECK_ENABLED or not password:
         return False
 
-    sha1 = hashlib.sha1(password.encode("utf-8")).hexdigest().upper()
+    # SHA-1 is mandated by the HIBP range API (the k-anonymity protocol hashes with SHA-1); it is
+    # NOT used as a security primitive here — the protection comes from matching against the breach
+    # corpus, not from SHA-1's collision resistance. usedforsecurity=False documents that intent and
+    # satisfies bandit B324.
+    sha1 = hashlib.sha1(password.encode("utf-8"), usedforsecurity=False).hexdigest().upper()
     prefix, suffix = sha1[:5], sha1[5:]
 
     try:
