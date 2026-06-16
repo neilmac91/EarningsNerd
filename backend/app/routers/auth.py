@@ -791,9 +791,7 @@ async def apple_login(db: Session = Depends(get_db)):
         raise HTTPException(status_code=503, detail="Apple Sign In is not configured.")
 
     # Lazy GC: remove expired state rows.
-    # Naive UTC (matches refresh_token_service) so the TTL comparison works
-    # whether expires_at is read back tz-aware (Postgres) or naive (SQLite).
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     db.query(OAuthState).filter(OAuthState.expires_at < now).delete(synchronize_session=False)
 
     state = secrets.token_urlsafe(32)
@@ -837,10 +835,9 @@ async def apple_callback(
         return RedirectResponse(f"{frontend_url}/login?error=apple_invalid", status_code=302)
 
     # Validate state from DB (form_post drops SameSite=Lax cookies).
-    # Naive UTC (see apple_login) so expires_at comparison is backend-agnostic.
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     state_row = db.query(OAuthState).filter_by(state=state).first()
-    if not state_row or state_row.expires_at < now:
+    if not state_row or state_row.expires_at.replace(tzinfo=timezone.utc) < now:
         if state_row:
             db.delete(state_row)
             db.commit()
