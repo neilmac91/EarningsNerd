@@ -76,3 +76,27 @@ Notable deltas vs. the original P0 list (rationale in the Deferred section above
 Not done (deferred per "balanced" appetite / external deps): MFA, passkeys, lifecycle email,
 Redis-backed distributed rate limiting, B2B org layer, log scrubbing, retention purge jobs.
 Next-step details for each are in `tasks/security_privacy_runbook.md` §6.
+
+## Review — session 2 (autonomous continuation, PR #299)
+
+Opened PR #299 and continued autonomously to round out P0/P1. Verified every commit with the
+exact CI gates (backend: ruff + `bandit -r app -ll` + pytest; frontend: tsc + eslint + `next build`
++ vitest). Additional commits:
+
+- **CI/review fixes** (`dd86c77`): fixed a real `bandit` B324 failure (SHA-1 in the HIBP path →
+  `usedforsecurity=False`); adopted the Gemini reviewer's valid points — offloaded bcrypt to worker
+  threads (`asyncio.to_thread`) in register/login/reset (event-loop DoS), and peppered the IP hashes
+  with `SECRET_KEY` (a bare SHA-256 of an IPv4 is reversible). **Lesson: run `bandit -r app -ll`
+  locally, not just ruff — it's a CI gate.**
+- **Turnstile** (`9f7983f` backend, `2e738a6` frontend): full bot-defense, dark until both keys set.
+- **Account security + paywall** (`cd87b86`): logout-all, connections list/unlink (last-credential
+  guard), paywall_hit event.
+- **Terms of Service** (`0563a9e`): new `/terms` page + footer link + signup agreement.
+
+Verifying against the actual code prevented wasted/harmful work three times: **analytics
+consent-gating, the Privacy Policy, and the GDPR export/delete UI all already existed** and are
+well-built — so I did not "re-implement" them. Net new P0/P1 gaps closed: Turnstile (both ends) and
+the missing Terms of Service.
+
+Remaining = a product decision (register enumeration), external/legal (DPAs, the two Turnstile keys,
+ToS legal review), and the explicitly-deferred P2/P3 features. Full status in the runbook §6.

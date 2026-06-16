@@ -81,22 +81,39 @@ Confirmed: **no user PII reaches the LLM** (only filing text + financial metrics
 
 ---
 
-## 6. Deferred items — exact next steps
+## 6. Status of remaining items
 
-- **Cloudflare Turnstile (bot defense, P0):** create a Turnstile widget; set
-  `TURNSTILE_SECRET_KEY`; add a backend verify call at the top of register/login/contact/waitlist
-  (fail-open when unset); render the widget on those forms. Free tier.
-- **Consent-gating + privacy policy/ToS (P0/P1):** gate PostHog/Sentry load behind the existing
-  `CookieConsent` component for EU/CH (reject-all as easy as accept-all, no pre-ticked boxes);
-  publish a Privacy Policy + ToS (Termly/iubenda to start, lawyer review before monetizing).
-- **Register account-enumeration (P0, product decision):** the register endpoint returns 400 on
-  a duplicate email (tested behavior) and auto-logs-in new users (stated conversion preference).
-  True non-enumeration requires verify-first signup (no auto-login). Decide instant-access vs.
-  non-enumeration before changing; the login path is already hardened.
+**Done in this work (beyond the initial hardening pass):**
+- **Cloudflare Turnstile (P0):** backend verification wired into register/login/contact/waitlist
+  (`app/services/turnstile.py`) + a frontend `TurnstileWidget` on all four forms. Dark until BOTH
+  `TURNSTILE_SECRET_KEY` (backend) and `NEXT_PUBLIC_TURNSTILE_SITE_KEY` (frontend) are set — then
+  it activates together. **Action for you: create a free Cloudflare Turnstile widget and set both keys.**
+- **Terms of Service (P0):** new `/terms` page with the not-investment-advice + AI-accuracy
+  disclaimers, linked from the footer and surfaced at signup. **Confirm the company legal name and
+  governing-law jurisdiction with counsel before launch.**
+- **Account-security endpoints (P1):** `logout-all`, plus `connections` list/unlink with a
+  last-credential lockout guard (backs a future account-security UI).
+- **paywall_hit telemetry (P1):** emitted when a free user hits the summary limit.
+
+**Already in the codebase (verified — no work needed):**
+- **Analytics consent-gating:** `posthog-provider.tsx` already waits for consent, opts out when
+  analytics are rejected, masks inputs, and reacts to consent changes; the cookie banner already
+  has reject-all == accept-all and respects DNT. (Sentry loads unconditionally as error-monitoring
+  under legitimate interest — defensible; revisit if you add session replay.)
+- **Privacy Policy** (`/privacy`) and **DSAR UI** (export + delete with type-to-confirm in
+  `/dashboard/settings`) already exist.
+
+**Still deferred:**
+- **Register account-enumeration (P0, product decision):** register returns 400 on a duplicate
+  email (tested) and auto-logs-in new users (your stated conversion preference). True
+  non-enumeration requires verify-first signup (no auto-login). Decide instant-access vs.
+  non-enumeration; the login path is already hardened. **Needs your call.**
+- **Processor DPAs (P1, external/legal):** sign the click-through DPAs (Google, Stripe, Resend,
+  PostHog, Vercel, Sentry, Cloudflare).
 - **MFA (P2):** optional TOTP via `pyotp` + hashed recovery codes, opt-in.
-- **Distributed rate limiting (P2):** the in-memory limiters don't share across instances; move
-  to Redis/Memorystore when scaling past one Cloud Run instance.
+- **Distributed rate limiting (P2):** in-memory limiters don't share across instances; move to
+  Redis/Memorystore when scaling past one Cloud Run instance.
 - **X-Forwarded-For trust (P2):** `_get_client_ip` trusts the left-most (spoofable) XFF value;
-  set a trusted-proxy depth for the actual Cloud Run topology.
+  set a trusted-proxy depth for the Cloud Run topology.
 - **Retention purge jobs (P2):** scheduled cleanup of expired refresh tokens and aged audit logs.
 - **Log scrubbing (P3):** plaintext email/IP still appear in some application logs (e.g. contact).
