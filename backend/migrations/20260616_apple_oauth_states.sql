@@ -6,11 +6,13 @@
 
 BEGIN;
 
+-- expires_at is naive UTC (TIMESTAMP, not TIMESTAMPTZ) to match the OAuthState model and
+-- the datetime.utcnow() comparison in auth.py — see the OAuthState docstring for why.
 CREATE TABLE IF NOT EXISTS oauth_states (
     id         SERIAL      PRIMARY KEY,
     state      VARCHAR(64) UNIQUE NOT NULL,
     nonce      VARCHAR(64) NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL
+    expires_at TIMESTAMP   NOT NULL
 );
 
 -- Note: UNIQUE on state implicitly creates an index; no separate CREATE INDEX needed.

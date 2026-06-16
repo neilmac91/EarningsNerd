@@ -15,7 +15,7 @@ rest of the auth suite.
 
 import hashlib
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -46,7 +46,8 @@ def _seed_state(nonce: str = RAW_NONCE, ttl_minutes: int = 5) -> str:
         db.add(OAuthState(
             state=state,
             nonce=nonce,
-            expires_at=datetime.now(timezone.utc) + timedelta(minutes=ttl_minutes),
+            # Naive UTC to match the OAuthState model + the auth.py comparison.
+            expires_at=datetime.utcnow() + timedelta(minutes=ttl_minutes),
         ))
         db.commit()
     finally:

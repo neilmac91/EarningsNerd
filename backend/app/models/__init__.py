@@ -61,14 +61,21 @@ class OAuthAccount(Base):
 
 
 class OAuthState(Base):
-    """Short-lived state+nonce for OAuth flows that can't use SameSite cookies (Apple form_post)."""
+    """Short-lived state+nonce for OAuth flows that can't use SameSite cookies (Apple form_post).
+
+    ``expires_at`` is stored as naive UTC to match the ``datetime.utcnow()`` convention used by
+    RefreshToken — a tz-aware column compared against a naive value (or vice versa) raises
+    ``TypeError: can't compare offset-naive and offset-aware datetimes`` because Postgres returns
+    ``DateTime(timezone=True)`` tz-aware while SQLite returns it naive. Keeping both the column and
+    the comparison naive UTC avoids that pitfall on every backend.
+    """
     __tablename__ = "oauth_states"
 
     id = Column(Integer, primary_key=True)
     # unique=True already creates the index; no separate index=True needed.
     state = Column(String(64), unique=True, nullable=False)
     nonce = Column(String(64), nullable=False)
-    expires_at = Column(DateTime(timezone=True), nullable=False)
+    expires_at = Column(DateTime, nullable=False)
 
 
 class Company(Base):
