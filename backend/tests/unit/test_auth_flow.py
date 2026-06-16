@@ -277,3 +277,79 @@ def test_logout_revokes_refresh_token(client, registered_user):
     resp = client.post("/api/auth/refresh", json={"refresh_token": refresh_before_logout})
     assert resp.status_code == 401
     client.cookies.clear()
+
+
+# --- Account-security endpoints ---------------------------------------------------------
+
+@pytest.mark.requires_db
+def test_logout_all_revokes_every_session(client, registered_user):
+    """logout-all revokes the user's whole refresh-token chain (sign out everywhere)."""
+    client.cookies.clear()
+    refresh = _login(client, registered_user)
+    assert client.post("/api/auth/logout-all").status_code == 200
+    client.cookies.clear()
+    resp = client.post("/api/auth/refresh", json={"refresh_token": refresh})
+    assert resp.status_code == 401
+    client.cookies.clear()
+
+
+@pytest.mark.requires_db
+def test_connections_lists_password_account(client, registered_user):
+    """A password account reports has_password=True and no linked OAuth providers."""
+    client.cookies.clear()
+    _login(client, registered_user)
+    resp = client.get("/api/auth/connections")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["has_password"] is True
+    assert body["providers"] == []
+    client.cookies.clear()
+
+
+@pytest.mark.requires_db
+def test_unlink_unknown_provider_rejected(client, registered_user):
+    client.cookies.clear()
+    _login(client, registered_user)
+    assert client.delete("/api/auth/connections/myspace").status_code == 400
+    client.cookies.clear()
+
+
+@pytest.mark.requires_db
+def test_unlink_provider_not_linked_returns_404(client, registered_user):
+    client.cookies.clear()
+    _login(client, registered_user)
+    assert client.delete("/api/auth/connections/google").status_code == 404
+    client.cookies.clear()
+
+
+@pytest.mark.requires_db
+def test_cannot_unlink_only_sign_in_method(client):
+    """A social-only account (no password, single provider) can't unlink its last credential."""
+    from app.database import SessionLocal
+    from app.models import User, OAuthAccount
+    from app.routers.auth import create_access_token
+
+    email = _unique_email()
+    db = SessionLocal()
+    try:
+        user = User(email=email, hashed_password=None, email_verified=True, full_name="Social Only")
+        db.add(user)
+        db.flush()
+        db.add(OAuthAccount(
+            user_id=user.id,
+            provider="google",
+            provider_account_id=f"sub-{uuid.uuid4().hex}",
+            provider_email=email,
+        ))
+        db.commit()
+    finally:
+        db.close()
+
+    token = create_access_token(data={"sub": email})
+    client.cookies.clear()
+    resp = client.delete(
+        "/api/auth/connections/google", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert resp.status_code == 400
+    assert "only sign-in method" in resp.json()["detail"]
+    client.cookies.clear()

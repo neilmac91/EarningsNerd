@@ -24,6 +24,9 @@ EVENT_GENERATION_SUCCEEDED = "generation_succeeded"
 EVENT_GENERATION_FAILED = "generation_failed"
 EVENT_GENERATION_TIMED_OUT = "generation_timed_out"
 EVENT_SUMMARY_VIEWED = "summary_viewed"
+# Fired when a free user is blocked by the monthly summary limit — the single best
+# demand/pricing signal for future monetization (how often free users hit the wall).
+EVENT_PAYWALL_HIT = "paywall_hit"
 
 
 def get_posthog_client() -> Optional["Posthog"]:

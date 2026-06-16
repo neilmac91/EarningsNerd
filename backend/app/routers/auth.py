@@ -31,6 +31,7 @@ from app.services.refresh_token_service import (
     create_refresh_token,
     rotate_refresh_token,
     revoke_refresh_token,
+    revoke_all_for_user,
     RefreshTokenError,
     RefreshTokenReuseError,
 )
@@ -1118,3 +1119,81 @@ async def logout(
     if current_user:
         audit_service.log_logout(db, current_user.id, current_user.email, ip_address=_hashed_client_ip(request))
     return {"status": "success"}
+
+
+@router.post("/logout-all")
+async def logout_all(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Revoke every refresh token for the user (sign out all devices) and clear this session."""
+    revoked = revoke_all_for_user(db, current_user.id)
+    db.commit()
+    _clear_auth_cookie(response)
+    _clear_refresh_cookie(response)
+    audit_service.log_logout(db, current_user.id, current_user.email, ip_address=_hashed_client_ip(request))
+    return {"status": "success", "sessions_revoked": revoked}
+
+
+@router.get("/connections")
+async def list_connections(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """List the user's sign-in methods: whether a password is set + any linked OAuth providers."""
+    rows = db.query(OAuthAccount).filter(OAuthAccount.user_id == current_user.id).all()
+    return {
+        "has_password": bool(current_user.hashed_password),
+        "providers": [
+            {
+                "provider": r.provider,
+                "provider_email": r.provider_email,
+                "linked_at": r.created_at.isoformat() if r.created_at else None,
+            }
+            for r in rows
+        ],
+    }
+
+
+@router.delete("/connections/{provider}")
+async def unlink_connection(
+    provider: str,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Unlink an OAuth provider — but never remove the user's only remaining sign-in method."""
+    provider = provider.lower().strip()
+    if provider not in {"google", "apple"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unknown provider.")
+
+    rows = db.query(OAuthAccount).filter(OAuthAccount.user_id == current_user.id).all()
+    target = next((r for r in rows if r.provider == provider), None)
+    if not target:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="That provider is not linked to your account."
+        )
+
+    # Lockout guard: after removing this provider the user must keep at least one credential
+    # (a password or another linked provider).
+    remaining = (1 if current_user.hashed_password else 0) + (len(rows) - 1)
+    if remaining < 1:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You can't remove your only sign-in method. Set a password first, then unlink.",
+        )
+
+    db.delete(target)
+    db.commit()
+    audit_service.create_audit_log(
+        db,
+        action="oauth_unlinked",
+        user_id=current_user.id,
+        user_email=current_user.email,
+        entity_type="user",
+        ip_address=_hashed_client_ip(request),
+        details={"provider": provider},
+    )
+    return {"status": "success", "unlinked": provider}
