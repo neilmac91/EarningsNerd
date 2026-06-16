@@ -4,6 +4,17 @@
 > `app/services/summary_pipeline.py`). Retained as the design record for backlog item **M7**;
 > this captures the rationale and proposed approach that preceded implementation.
 
+> **Implementation notes — where the shipped code diverged from this proposal.** The body below
+> is the original RFC; the function in `backend/app/services/summary_pipeline.py` differs in two
+> ways. Treat the source file as authoritative.
+> - **Name.** The RFC called it `run_summary_pipeline()`; it shipped as **`stream_filing_summary()`**.
+> - **Event type.** The RFC yielded typed `PipelineEvent` dataclasses
+>   (`Progress | Chunk | Partial | Complete | Failed`); the shipped generator returns
+>   **`AsyncIterator[dict]`** — plain event dicts whose `type` field carries that same taxonomy —
+>   and the router maps each dict through `to_sse()`. The signature also takes
+>   `current_user: Optional[User]` (the ORM object) plus explicit telemetry parameters
+>   (`telemetry_distinct_id`, `telemetry_entry_point`, `telemetry_ctx`).
+
 ## 1. Problem
 
 The user-facing SSE path and the batch/cron path generate summaries through two **separately

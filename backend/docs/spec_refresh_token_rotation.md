@@ -5,6 +5,18 @@
 > record; this captures the rationale and proposed sequencing that preceded implementation
 > (**this change touched the frontend**, so sequencing mattered — see §6).
 
+> **Implementation notes — where the shipped code diverged from this proposal.** The body below
+> is the original RFC; the schema in `backend/app/models/refresh_token.py` differs in three ways.
+> Treat the model file as authoritative.
+> - **Rotation chain.** The RFC grouped a lineage with a `family_id` (uuid4) column. The shipped
+>   model has **no `family_id`**; the chain is a self-referential FK — `replaced_by_id`
+>   (`ForeignKey("refresh_tokens.id", ondelete="SET NULL")`) — and reuse detection revokes the
+>   lineage by walking that chain in `refresh_token_service.rotate_refresh_token`.
+> - **Successor pointer.** `replaced_by` (hash of the successor) shipped as **`replaced_by_id`**
+>   (FK to the successor row, not a hash).
+> - **Audit IP.** `ip_address` (`String(45)`) shipped as **`ip_hash`** (`String(64)`) — the IP is
+>   hashed, not stored raw.
+
 ## 1. Problem / current state
 
 Auth today (`app/routers/auth.py`) issues a **single long-lived access token** and has no refresh
