@@ -60,6 +60,16 @@ class OAuthAccount(Base):
     user = relationship("User", back_populates="oauth_accounts")
 
 
+class OAuthState(Base):
+    """Short-lived state+nonce for OAuth flows that can't use SameSite cookies (Apple form_post)."""
+    __tablename__ = "oauth_states"
+
+    id = Column(Integer, primary_key=True)
+    state = Column(String(64), unique=True, nullable=False, index=True)
+    nonce = Column(String(64), nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+
+
 class Company(Base):
     __tablename__ = "companies"
 
@@ -209,6 +219,7 @@ __all__ = [
     "Filing",
     "FilingContentCache",
     "OAuthAccount",
+    "OAuthState",
     "SavedSummary",
     "Summary",
     "SummaryGenerationProgress",

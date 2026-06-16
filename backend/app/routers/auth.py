@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends, status, Request, Response, Query
+from fastapi import APIRouter, HTTPException, Depends, status, Request, Response, Query, Form
 from fastapi.responses import RedirectResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
@@ -10,15 +10,17 @@ from datetime import datetime, timedelta, timezone
 from uuid import uuid4
 from urllib.parse import urlencode
 import hashlib
+import json
 import secrets
 import logging
+import time
 
 import httpx
 import bcrypt
 from jose import JWTError, jwt
 
 from app.database import get_db
-from app.models import User, OAuthAccount
+from app.models import User, OAuthAccount, OAuthState
 from app.config import settings
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.refresh_token_service import (
@@ -47,6 +49,16 @@ _GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 _GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo"
 _OAUTH_STATE_COOKIE = "oauth_state"
 _OAUTH_STATE_MAX_AGE = 600  # 10 minutes
+
+# Apple Sign In constants and module-level caches
+_APPLE_AUTH_URL = "https://appleid.apple.com/auth/authorize"
+_APPLE_TOKEN_URL = "https://appleid.apple.com/auth/token"
+_APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
+_APPLE_CLIENT_SECRET_TTL = 3000  # 50 min — well under Apple's 6-month max
+
+_apple_client_secret_cache: tuple[str, float] | None = None  # (token, expiry_unix)
+_apple_jwks_cache: dict | None = None
+_apple_jwks_cache_expires: float = 0.0
 
 
 # ─── Pydantic schemas ─────────────────────────────────────────────────────────
@@ -359,6 +371,95 @@ async def _send_verification_email_safe(db: Session, user: User) -> None:
         await send_verification_email(to_email=user.email, name=user.full_name, verification_link=link)
     except Exception as e:
         logger.warning(f"Verification email not sent ({e.__class__.__name__}); link: {link}")
+
+
+def _get_apple_client_secret() -> str:
+    """Generate (or return cached) Apple ES256 client secret JWT.
+    Apple requires a JWT signed with the .p8 key as the client secret."""
+    global _apple_client_secret_cache
+    now = time.time()
+    if _apple_client_secret_cache:
+        secret, expires_at = _apple_client_secret_cache
+        if now < expires_at - 60:
+            return secret
+
+    if not (settings.APPLE_PRIVATE_KEY and settings.APPLE_TEAM_ID
+            and settings.APPLE_CLIENT_ID and settings.APPLE_KEY_ID):
+        raise RuntimeError("Apple Sign In credentials not configured.")
+
+    from cryptography.hazmat.primitives.serialization import load_pem_private_key
+    from cryptography.hazmat.primitives.asymmetric import ec
+    from cryptography.hazmat.primitives import hashes
+    from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
+    from cryptography.hazmat.backends import default_backend
+    import base64
+
+    def _b64url(data: bytes) -> str:
+        return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+    now_int = int(now)
+    header = {"alg": "ES256", "kid": settings.APPLE_KEY_ID}
+    payload = {
+        "iss": settings.APPLE_TEAM_ID,
+        "iat": now_int,
+        "exp": now_int + _APPLE_CLIENT_SECRET_TTL,
+        "aud": "https://appleid.apple.com",
+        "sub": settings.APPLE_CLIENT_ID,
+    }
+
+    h64 = _b64url(json.dumps(header, separators=(",", ":")).encode())
+    p64 = _b64url(json.dumps(payload, separators=(",", ":")).encode())
+    message = f"{h64}.{p64}"
+
+    key_pem = settings.APPLE_PRIVATE_KEY.strip()
+    if not key_pem.startswith("-----"):
+        # Secret Manager may store the key with literal \n — normalise
+        key_pem = key_pem.replace("\\n", "\n")
+    private_key = load_pem_private_key(key_pem.encode(), password=None, backend=default_backend())
+    der_sig = private_key.sign(message.encode(), ec.ECDSA(hashes.SHA256()))
+    r, s = decode_dss_signature(der_sig)
+    raw_sig = r.to_bytes(32, "big") + s.to_bytes(32, "big")
+
+    token = f"{message}.{_b64url(raw_sig)}"
+    _apple_client_secret_cache = (token, now + _APPLE_CLIENT_SECRET_TTL)
+    return token
+
+
+async def _get_apple_jwks() -> dict:
+    """Fetch (or return 1-hour-cached) Apple JWKS for id_token verification."""
+    global _apple_jwks_cache, _apple_jwks_cache_expires
+    now = time.time()
+    if _apple_jwks_cache and now < _apple_jwks_cache_expires:
+        return _apple_jwks_cache
+    async with httpx.AsyncClient(timeout=10.0) as hx:
+        resp = await hx.get(_APPLE_JWKS_URL)
+        resp.raise_for_status()
+        _apple_jwks_cache = resp.json()
+        _apple_jwks_cache_expires = now + 3600
+    return _apple_jwks_cache
+
+
+async def _verify_apple_id_token(id_token: str, raw_nonce: str) -> dict:
+    """Verify Apple id_token against Apple's JWKS; check nonce."""
+    jwks = await _get_apple_jwks()
+    try:
+        claims = jwt.decode(
+            id_token,
+            jwks,
+            algorithms=["RS256"],
+            audience=settings.APPLE_CLIENT_ID,
+            issuer="https://appleid.apple.com",
+        )
+    except JWTError as exc:
+        raise ValueError(f"Apple id_token invalid: {exc}")
+
+    token_nonce = claims.get("nonce")
+    if token_nonce:
+        expected = hashlib.sha256(raw_nonce.encode()).hexdigest()
+        if not secrets.compare_digest(token_nonce, expected):
+            raise ValueError("Apple id_token nonce mismatch")
+
+    return claims
 
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────────
@@ -716,6 +817,152 @@ async def google_callback(
         db.rollback()
         logger.warning("Google OAuth IntegrityError for sub=%s", google_sub)
         return RedirectResponse(f"{frontend_url}/login?error=google_account_conflict", status_code=302)
+    _set_refresh_cookie(redirect, raw_refresh)
+    return redirect
+
+
+# ─── Apple Sign In (ES256 client secret, form_post callback, JWKS verification) ──
+
+@router.get("/apple")
+async def apple_login(db: Session = Depends(get_db)):
+    """Redirect the browser to Apple's consent screen."""
+    if not settings.APPLE_CLIENT_ID:
+        raise HTTPException(status_code=503, detail="Apple Sign In is not configured.")
+
+    # Lazy GC: remove expired state rows
+    now = datetime.now(timezone.utc)
+    db.query(OAuthState).filter(OAuthState.expires_at < now).delete(synchronize_session=False)
+
+    state = secrets.token_urlsafe(32)
+    raw_nonce = secrets.token_urlsafe(32)
+    db.add(OAuthState(
+        state=state,
+        nonce=raw_nonce,
+        expires_at=now + timedelta(minutes=10),
+    ))
+    db.commit()
+
+    # Send sha256(raw_nonce) so Apple stores it in id_token; we verify on callback.
+    params = {
+        "client_id": settings.APPLE_CLIENT_ID,
+        "redirect_uri": settings.APPLE_REDIRECT_URI,
+        "response_type": "code id_token",
+        "scope": "name email",
+        "response_mode": "form_post",
+        "state": state,
+        "nonce": hashlib.sha256(raw_nonce.encode()).hexdigest(),
+    }
+    return RedirectResponse(url=f"{_APPLE_AUTH_URL}?{urlencode(params)}", status_code=302)
+
+
+@router.post("/apple/callback")
+async def apple_callback(
+    request: Request,
+    db: Session = Depends(get_db),
+    code: Optional[str] = Form(None),
+    state: Optional[str] = Form(None),
+    id_token: Optional[str] = Form(None),
+    user: Optional[str] = Form(None),
+    error: Optional[str] = Form(None),
+):
+    """Handle Apple's form_post callback: verify id_token, upsert user, issue session."""
+    frontend_url = settings.FRONTEND_URL
+
+    if error:
+        return RedirectResponse(f"{frontend_url}/login?error=apple_denied", status_code=302)
+    if not state or not id_token:
+        return RedirectResponse(f"{frontend_url}/login?error=apple_invalid", status_code=302)
+
+    # Validate state from DB (form_post drops SameSite=Lax cookies)
+    now = datetime.now(timezone.utc)
+    state_row = db.query(OAuthState).filter_by(state=state).first()
+    if not state_row or state_row.expires_at < now:
+        if state_row:
+            db.delete(state_row)
+            db.commit()
+        return RedirectResponse(f"{frontend_url}/login?error=oauth_state_mismatch", status_code=302)
+
+    raw_nonce = state_row.nonce
+    db.delete(state_row)
+    db.commit()
+
+    # Verify Apple's id_token
+    try:
+        claims = await _verify_apple_id_token(id_token, raw_nonce)
+    except Exception as exc:
+        logger.warning("Apple id_token verification failed: %s", exc)
+        return RedirectResponse(f"{frontend_url}/login?error=apple_invalid", status_code=302)
+
+    apple_sub = claims.get("sub")
+    if not apple_sub:
+        return RedirectResponse(f"{frontend_url}/login?error=apple_missing_claims", status_code=302)
+
+    email = (claims.get("email") or "").strip().lower() or None
+    email_verified_by_apple = str(claims.get("email_verified", "false")).lower() == "true"
+
+    # Parse name from user JSON (Apple only sends this on first authorization)
+    full_name: Optional[str] = None
+    if user:
+        try:
+            user_data = json.loads(user)
+            name_obj = user_data.get("name", {}) or {}
+            first = (name_obj.get("firstName") or "").strip()
+            last = (name_obj.get("lastName") or "").strip()
+            full_name = " ".join(filter(None, [first, last])) or None
+        except (ValueError, AttributeError, KeyError):
+            pass
+
+    # Resolve user: existing oauth link → existing verified account → new account
+    oauth_row = db.query(OAuthAccount).filter_by(
+        provider="apple", provider_account_id=apple_sub
+    ).first()
+
+    if oauth_row:
+        user_obj = oauth_row.user
+        if full_name and not user_obj.full_name:
+            user_obj.full_name = full_name
+    else:
+        if not email:
+            # No email and no existing link — can't create an account
+            return RedirectResponse(f"{frontend_url}/login?error=apple_missing_claims", status_code=302)
+
+        existing = db.query(User).filter(func.lower(User.email) == email).first()
+        if existing and existing.email_verified and email_verified_by_apple:
+            user_obj = existing
+            if full_name and not user_obj.full_name:
+                user_obj.full_name = full_name
+        else:
+            user_obj = User(
+                email=email,
+                full_name=full_name,
+                hashed_password=None,
+                email_verified=email_verified_by_apple,
+            )
+            db.add(user_obj)
+            db.flush()
+
+        db.add(OAuthAccount(
+            user_id=user_obj.id,
+            provider="apple",
+            provider_account_id=apple_sub,
+            provider_email=email,
+        ))
+
+    user_obj.last_login_at = now
+    redirect = RedirectResponse(url=frontend_url, status_code=302)
+    access_token = create_access_token(data={"sub": user_obj.email})
+    _set_auth_cookie(redirect, access_token)
+    try:
+        _, raw_refresh = create_refresh_token(
+            db, user_obj,
+            user_agent=request.headers.get("user-agent"),
+            ip=_client_ip(request),
+        )
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        logger.warning("Apple OAuth IntegrityError for sub=%s", apple_sub)
+        return RedirectResponse(f"{frontend_url}/login?error=apple_account_conflict", status_code=302)
     _set_refresh_cookie(redirect, raw_refresh)
     return redirect
 
