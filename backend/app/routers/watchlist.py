@@ -12,6 +12,7 @@ from app.routers.auth import get_current_user
 from app.services.summary_generation_service import get_generation_progress_snapshot
 from app.config import settings
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
+from app.services.turnstile import enforce_turnstile
 from app.services.waitlist_service import (
     REFERRAL_BONUS,
     build_referral_link,
@@ -360,6 +361,7 @@ async def join_waitlist(
         "waitlist_join",
         error_detail="Too many waitlist requests. Please try again later.",
     )
+    await enforce_turnstile(request)  # no-op unless Turnstile is configured
 
     if payload.honeypot:
         raise HTTPException(

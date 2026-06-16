@@ -83,6 +83,11 @@ class Settings(BaseSettings):
     APPLE_CLIENT_ID: str = ""   # Services ID, e.g. "io.earningsnerd.web"
     APPLE_REDIRECT_URI: str = "https://api.earningsnerd.io/api/auth/apple/callback"
 
+    # Cloudflare Turnstile bot defense. When unset, verification is a no-op (dark) so the
+    # feature only activates once BOTH this secret and the frontend NEXT_PUBLIC_TURNSTILE_SITE_KEY
+    # are configured. Verifies the widget token on register/login/contact/waitlist.
+    TURNSTILE_SECRET_KEY: str = ""
+
     @field_validator('SECRET_KEY', mode='before')
     @classmethod
     def check_secret_key(cls, v, values):

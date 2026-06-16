@@ -25,6 +25,7 @@ from app.models import User, OAuthAccount, OAuthState
 from app.config import settings
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.pwned_passwords import is_password_pwned
+from app.services.turnstile import enforce_turnstile
 from app.services import audit_service
 from app.services.refresh_token_service import (
     create_refresh_token,
@@ -538,6 +539,7 @@ async def register(
         "register",
         error_detail="Too many registration attempts. Please try again in a minute.",
     )
+    await enforce_turnstile(request)  # no-op unless Turnstile is configured
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
         raise HTTPException(
@@ -595,6 +597,7 @@ async def login(
         "login",
         error_detail="Too many login attempts. Please try again in a minute.",
     )
+    await enforce_turnstile(request)  # no-op unless Turnstile is configured
     # Per-account throttle: bounds brute-force/spray against one account across many IPs.
     # Peek here (no charge); a failure below records a hit.
     account_key = f"account:{user_data.email}"
