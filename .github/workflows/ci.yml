@@ -101,6 +101,7 @@ jobs:
 
   e2e-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
       - name: Set up Node.js
@@ -123,7 +124,17 @@ jobs:
           grep -rlE 'packages\.microsoft\.com' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null \
             | sudo xargs -r rm -f || true
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        # `--with-deps` runs apt, which on GitHub-hosted runners intermittently STALLS (mirror
+        # hangs), leaving this step — and the whole e2e job, which gates deploy-backend — hung for
+        # many minutes. Bound each attempt and retry so a transient apt stall self-heals on a fresh
+        # attempt instead of blocking the deploy.
+        run: |
+          for attempt in 1 2 3; do
+            echo "Playwright install attempt $attempt…"
+            timeout 360 npx playwright install --with-deps && exit 0
+            echo "::warning::playwright install attempt $attempt stalled/failed; retrying"
+          done
+          echo "::error::playwright install failed after 3 attempts"; exit 1
         working-directory: frontend
       - name: Build frontend
         run: npm run build
