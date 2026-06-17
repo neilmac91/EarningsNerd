@@ -414,7 +414,9 @@ async def _send_verification_email_safe(db: Session, user: User) -> None:
         from app.services.email_service import send_verification_email
         await send_verification_email(to_email=user.email, name=user.full_name, verification_link=link)
     except Exception as e:
-        logger.warning(f"Verification email not sent ({e.__class__.__name__}); link: {link}")
+        # Only log the token-bearing link in local dev (log access -> account takeover otherwise).
+        link_note = f"; link: {link}" if settings.ENVIRONMENT == "development" else ""
+        logger.error(f"Verification email NOT sent to {user.email}: {e.__class__.__name__}: {e}{link_note}")
 
 
 async def _send_account_exists_email_safe(user: User) -> None:
@@ -432,7 +434,7 @@ async def _send_account_exists_email_safe(user: User) -> None:
             reset_link=f"{settings.FRONTEND_URL}/forgot-password",
         )
     except Exception as e:
-        logger.warning(f"Account-exists email not sent ({e.__class__.__name__})")
+        logger.warning(f"Account-exists email not sent: {e.__class__.__name__}: {e}")
 
 
 async def _send_oauth_linked_email_safe(user: User, provider: str) -> None:
@@ -446,7 +448,7 @@ async def _send_oauth_linked_email_safe(user: User, provider: str) -> None:
         from app.services.email_service import send_oauth_linked_email
         await send_oauth_linked_email(to_email=user.email, name=user.full_name, provider=provider)
     except Exception as e:
-        logger.warning(f"OAuth-linked notification not sent ({e.__class__.__name__})")
+        logger.warning(f"OAuth-linked notification not sent: {e.__class__.__name__}: {e}")
 
 
 async def _get_apple_jwks() -> dict:
@@ -792,7 +794,9 @@ async def forgot_password(
         from app.services.email_service import send_password_reset_email
         await send_password_reset_email(to_email=user.email, name=user.full_name, reset_link=reset_link)
     except Exception as e:
-        logger.warning(f"Reset email not sent to {user.email} ({e.__class__.__name__}); link: {reset_link}")
+        # Only log the token-bearing link in local dev (a logged reset link = account takeover).
+        link_note = f"; link: {reset_link}" if settings.ENVIRONMENT == "development" else ""
+        logger.error(f"Reset email NOT sent to {user.email}: {e.__class__.__name__}: {e}{link_note}")
 
     return opaque
 

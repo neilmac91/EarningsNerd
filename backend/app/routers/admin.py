@@ -4,14 +4,19 @@ These endpoints require authentication and are intended for administrative use o
 They allow clearing cached summaries and XBRL data to fix issues with stale data.
 """
 from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from pydantic import BaseModel, EmailStr
+from typing import Optional
 import logging
 
+from app.config import settings
 from app.database import get_db
 from app.models import Filing, Summary, User, SummaryGenerationProgress, FilingContentCache
 from app.routers.auth import get_current_user
 # EdgarTools migration: Using new edgar module
 from app.services.edgar import clear_xbrl_cache, get_xbrl_cache_stats
+from app.services.resend_service import send_email, ResendError
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -31,6 +36,57 @@ def _require_admin(user: User) -> None:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required"
+        )
+
+
+class EmailTestRequest(BaseModel):
+    to: Optional[EmailStr] = None  # defaults to the requesting admin's own email
+
+
+@router.post("/email/test")
+async def send_test_email(
+    payload: Optional[EmailTestRequest] = None,
+    current_user: User = Depends(get_current_user),
+):
+    """Admin-only: send a test email through the real Resend path and return the result.
+
+    Surfaces the exact provider response — including a 4xx/422 error body and the From
+    address actually in use — so email misconfiguration can be diagnosed and a fix
+    verified without reading logs. Defaults to sending to the admin's own email.
+    """
+    _require_admin(current_user)
+    to_addr = (payload.to if payload and payload.to else current_user.email)
+
+    try:
+        await send_email(
+            to=[to_addr],
+            subject="EarningsNerd email test",
+            html=(
+                "<p>This is a test email from EarningsNerd. If you received it, outbound "
+                "email is working.</p>"
+            ),
+        )
+        return {
+            "success": True,
+            "to": to_addr,
+            "from": settings.RESEND_FROM_EMAIL,
+            "message": f"Resend accepted the email for delivery to {to_addr}.",
+        }
+    except ResendError as e:
+        # e carries Resend's status + response body, e.g. "Resend API error (422): {...}"
+        return JSONResponse(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            content={"success": False, "to": to_addr, "from": settings.RESEND_FROM_EMAIL, "error": str(e)},
+        )
+    except Exception as e:  # network/timeout/etc.
+        return JSONResponse(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            content={
+                "success": False,
+                "to": to_addr,
+                "from": settings.RESEND_FROM_EMAIL,
+                "error": f"{e.__class__.__name__}: {e}",
+            },
         )
 
 
