@@ -48,7 +48,10 @@ class Settings(BaseSettings):
     # Resend
     RESEND_API_KEY: str = ""
     RESEND_BASE_URL: str = "https://api.resend.com"
-    RESEND_FROM_EMAIL: str = "EarningsNerd <onboarding@resend.dev>"
+    # Must be an address on a Resend-verified domain. The resend.dev default only delivers to your
+    # own Resend account, so leaving it unset would silently drop verification/reset emails to real
+    # users. Matches the prod RESEND_FROM_EMAIL secret (overridden by it in prod regardless).
+    RESEND_FROM_EMAIL: str = "EarningsNerd <hello@inbound.earningsnerd.io>"
     RESEND_WEBHOOK_SECRET: str = ""  # Webhook signing secret from Resend dashboard
     FRONTEND_URL: str = "https://earningsnerd.io"
 
@@ -283,6 +286,31 @@ class Settings(BaseSettings):
             # but warn strongly
 
         return is_valid, warnings
+
+    def validate_resend_config(self) -> tuple[bool, list[str]]:
+        """Validate outbound email (Resend) config and return (is_valid, warnings).
+
+        Email is on the signup path (verify-first), so a misconfigured sender silently breaks
+        registration for real users. The most common failure is leaving the From at the
+        ``resend.dev`` test sender, which only delivers to your own Resend account.
+        """
+        warnings: list[str] = []
+        from_email = (self.RESEND_FROM_EMAIL or "").strip()
+
+        if not self.RESEND_API_KEY:
+            warnings.append(
+                "RESEND_API_KEY is not set — outbound email (verification, password reset) will fail."
+            )
+        if not from_email:
+            warnings.append("RESEND_FROM_EMAIL is empty — set it to an address on a verified domain.")
+        elif "resend.dev" in from_email.lower():
+            warnings.append(
+                f"RESEND_FROM_EMAIL is '{from_email}', which uses Resend's test sender that ONLY "
+                "delivers to your own account. Real users will NOT receive verification/reset emails. "
+                "Set it to an address on a Resend-verified domain (e.g. hello@inbound.earningsnerd.io)."
+            )
+
+        return (not warnings), warnings
 
 settings = Settings()
 

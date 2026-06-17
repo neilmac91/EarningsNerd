@@ -123,6 +123,21 @@ async def lifespan(app: FastAPI):
     else:
         logger.error("Stripe configuration is invalid. Subscription features will be disabled.")
 
+    # Validate outbound email (Resend) — email is on the verify-first signup path, so a wrong
+    # sender silently breaks registration. Log the effective From so it's verifiable from the logs.
+    resend_valid, resend_warnings = settings.validate_resend_config()
+    if resend_warnings:
+        logger.warning("Email (Resend) configuration warnings:")
+        for warning in resend_warnings:
+            logger.warning(f"  - {warning}")
+    if resend_valid:
+        logger.info(f"Email configured: sending from {settings.RESEND_FROM_EMAIL}")
+    else:
+        logger.error(
+            "Email (Resend) configuration is invalid. Outbound email (verification, "
+            "password reset) will fail."
+        )
+
     # Initialize Redis connection pool (with timeout to prevent hanging in CI/test)
     from app.services.redis_service import get_redis_pool, check_redis_health, close_redis
 
