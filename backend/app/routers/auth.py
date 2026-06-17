@@ -414,7 +414,9 @@ async def _send_verification_email_safe(db: Session, user: User) -> None:
         from app.services.email_service import send_verification_email
         await send_verification_email(to_email=user.email, name=user.full_name, verification_link=link)
     except Exception as e:
-        logger.error(f"Verification email NOT sent to {user.email}: {e.__class__.__name__}: {e}; link: {link}")
+        # Only log the token-bearing link in local dev (log access -> account takeover otherwise).
+        link_note = f"; link: {link}" if settings.ENVIRONMENT == "development" else ""
+        logger.error(f"Verification email NOT sent to {user.email}: {e.__class__.__name__}: {e}{link_note}")
 
 
 async def _send_account_exists_email_safe(user: User) -> None:
@@ -792,7 +794,9 @@ async def forgot_password(
         from app.services.email_service import send_password_reset_email
         await send_password_reset_email(to_email=user.email, name=user.full_name, reset_link=reset_link)
     except Exception as e:
-        logger.error(f"Reset email NOT sent to {user.email}: {e.__class__.__name__}: {e}; link: {reset_link}")
+        # Only log the token-bearing link in local dev (a logged reset link = account takeover).
+        link_note = f"; link: {reset_link}" if settings.ENVIRONMENT == "development" else ""
+        logger.error(f"Reset email NOT sent to {user.email}: {e.__class__.__name__}: {e}{link_note}")
 
     return opaque
 

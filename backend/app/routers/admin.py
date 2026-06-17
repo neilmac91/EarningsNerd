@@ -16,6 +16,7 @@ from app.models import Filing, Summary, User, SummaryGenerationProgress, FilingC
 from app.routers.auth import get_current_user
 # EdgarTools migration: Using new edgar module
 from app.services.edgar import clear_xbrl_cache, get_xbrl_cache_stats
+from app.services.resend_service import send_email, ResendError
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -55,8 +56,6 @@ async def send_test_email(
     """
     _require_admin(current_user)
     to_addr = (payload.to if payload and payload.to else current_user.email)
-
-    from app.services.resend_service import send_email, ResendError
 
     try:
         await send_email(
