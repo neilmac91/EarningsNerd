@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import html
+
 from app.config import settings
 from app.services.resend_service import send_email
 
@@ -280,12 +282,16 @@ def render_new_filing_alert(
     filing_id: int | None = None,
     filing_url: str | None = None,
 ) -> tuple[str, str]:
-    greeting = f"Hi {name}," if name else "Hi there,"
+    greeting = f"Hi {html.escape(name)}," if name else "Hi there,"
     url = _filing_url(filing_id, filing_url)
+    # SEC EDGAR fields are external data — escape before interpolating into HTML.
+    e_company, e_ticker, e_type, e_date = (
+        html.escape(company_name), html.escape(ticker), html.escape(filing_type), html.escape(filing_date)
+    )
     html_body = f"""
     <p style="margin:0 0 16px;">{greeting}</p>
-    <p style="margin:0 0 16px;"><strong>{company_name} ({ticker})</strong> just filed a
-      <strong>{filing_type}</strong> with the SEC ({filing_date}).</p>
+    <p style="margin:0 0 16px;"><strong>{e_company} ({e_ticker})</strong> just filed a
+      <strong>{e_type}</strong> with the SEC ({e_date}).</p>
     <p style="margin:0 0 24px;">
       <a href="{url}" style="display:inline-block;background:#34d399;color:#0b0f14;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px;text-decoration:none;">Read the AI summary</a>
     </p>
@@ -304,13 +310,14 @@ def render_daily_digest(
     items: list[dict],
 ) -> tuple[str, str]:
     """`items`: dicts with company_name, ticker, filing_type, filing_date, and filing_id or filing_url."""
-    greeting = f"Hi {name}," if name else "Hi there,"
+    greeting = f"Hi {html.escape(name)}," if name else "Hi there,"
+    # Escape external SEC EDGAR fields before interpolating into HTML.
     rows_html = "".join(
         f"""
         <tr>
           <td style="padding:10px 0;border-bottom:1px solid #1f2937;">
-            <strong>{it['company_name']} ({it['ticker']})</strong> — {it['filing_type']}
-            <span style="color:#9ca3af;">· {it['filing_date']}</span><br>
+            <strong>{html.escape(it['company_name'])} ({html.escape(it['ticker'])})</strong> — {html.escape(it['filing_type'])}
+            <span style="color:#9ca3af;">· {html.escape(it['filing_date'])}</span><br>
             <a href="{_filing_url(it.get('filing_id'), it.get('filing_url'))}" style="color:#34d399;">Read the summary →</a>
           </td>
         </tr>"""

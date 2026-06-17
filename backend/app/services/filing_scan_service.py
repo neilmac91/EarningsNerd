@@ -125,13 +125,14 @@ def _already_logged(db: Session, user_id: int, filing_id: int, channel: str) -> 
 
 
 def _write_log(db: Session, user_id: int, filing_id: int, channel: str, status: str) -> bool:
-    """Insert a log row; the unique constraint backstops concurrent double-sends. Returns success."""
-    db.add(NotificationLog(user_id=user_id, filing_id=filing_id, channel=channel, status=status))
+    """Insert a log row inside a SAVEPOINT so a duplicate (unique-constraint) hit rolls back only
+    this insert — never the surrounding transaction's pending watermark / last-check updates. The
+    caller is responsible for the outer commit. Returns whether the row was newly inserted."""
     try:
-        db.commit()
+        with db.begin_nested():
+            db.add(NotificationLog(user_id=user_id, filing_id=filing_id, channel=channel, status=status))
         return True
     except IntegrityError:
-        db.rollback()
         return False
 
 
@@ -178,7 +179,7 @@ async def run_filing_scan(
     Non-real-time-eligible filings (Free users, or Pro with real-time off) are left for
     :func:`run_daily_digest`.
     """
-    now = now or datetime.now(timezone.utc)
+    now = _as_utc(now or datetime.now(timezone.utc))  # tolerate a naive `now` from callers/tests
     send_alert = send_alert or email_service.send_new_filing_alert
     if fetch_filings is None:
         from app.services.edgar.compat import sec_edgar_service
@@ -257,11 +258,20 @@ async def run_daily_digest(
     Real-time alerts already sent by :func:`run_filing_scan` carry a NotificationLog row and are
     therefore excluded here — so Free users get the digest and Pro/real-time users don't get dupes.
     """
-    now = now or datetime.now(timezone.utc)
+    now = _as_utc(now or datetime.now(timezone.utc))  # tolerate a naive `now` from callers/tests
     send_digest = send_digest or email_service.send_daily_digest
     window_start = now - timedelta(hours=window_hours)
 
     stats = {"digests_sent": 0, "digests_failed": 0, "filings_included": 0}
+
+    # Pre-fetch filings for all watched companies in ONE query and group in memory, so the
+    # per-user/per-watch loop below issues no further filing queries (avoids the N+1). We filter to
+    # the window in Python (via _as_utc) rather than in SQL, to stay tz-safe across Postgres + SQLite.
+    watched_company_ids = [row[0] for row in db.query(Watchlist.company_id).distinct().all()]
+    filings_by_company: dict[int, list[Filing]] = {}
+    if watched_company_ids:
+        for f in db.query(Filing).filter(Filing.company_id.in_(watched_company_ids)).all():
+            filings_by_company.setdefault(f.company_id, []).append(f)
 
     user_ids = [row[0] for row in db.query(Watchlist.user_id).distinct().all()]
     for uid in user_ids:
@@ -278,13 +288,7 @@ async def run_daily_digest(
             if company is None:
                 continue
             baseline = _baseline_for(watch)
-            recent = (
-                db.query(Filing)
-                .filter(Filing.company_id == watch.company_id)
-                .order_by(Filing.filing_date.desc())
-                .limit(50)
-                .all()
-            )
+            recent = filings_by_company.get(watch.company_id, [])
             for filing in _candidate_filings(recent, baseline):
                 fdate = _as_utc(filing.filing_date)
                 if fdate is None or fdate < window_start:

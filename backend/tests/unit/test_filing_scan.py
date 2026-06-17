@@ -236,6 +236,49 @@ async def test_form_type_preference_suppresses_alert():
         assert _log_count(uid) == 0
 
 
+@pytest.mark.requires_db
+def test_write_log_savepoint_isolates_duplicate_from_pending_changes():
+    """A duplicate log insert must roll back ONLY that insert (SAVEPOINT), not other pending
+    changes in the same transaction — the bug fixed per PR review."""
+    from datetime import datetime, timezone
+
+    from app.database import SessionLocal
+    from app.models import Filing, Watchlist
+    from app.services.filing_scan_service import _write_log
+
+    with _scenario(is_pro=True) as (cid, ticker, [uid]):
+        db = SessionLocal()
+        filing = Filing(
+            company_id=cid,
+            accession_number=f"acc-sp-{uuid.uuid4().hex[:6]}",
+            filing_type="10-Q",
+            filing_date=datetime(2026, 6, 16, tzinfo=timezone.utc),
+            document_url="https://sec.example/doc.htm",
+            sec_url="https://sec.example/",
+        )
+        db.add(filing)
+        db.commit()
+        db.refresh(filing)
+        fid = filing.id
+
+        assert _write_log(db, uid, fid, "email", "sent") is True
+
+        # An unrelated, uncommitted change in the same transaction.
+        watch = db.query(Watchlist).filter(Watchlist.user_id == uid).first()
+        watch.last_alerted_accession = "WATERMARK"
+
+        # Duplicate insert → savepoint rollback; the watch change must survive.
+        assert _write_log(db, uid, fid, "email", "sent") is False
+        db.commit()
+        db.close()
+
+        db2 = SessionLocal()
+        persisted = db2.query(Watchlist).filter(Watchlist.user_id == uid).first().last_alerted_accession
+        db2.close()
+        assert persisted == "WATERMARK"  # not discarded by the duplicate rollback
+        assert _log_count(uid) == 1
+
+
 @pytest.mark.asyncio
 @pytest.mark.requires_db
 async def test_each_eligible_watcher_gets_exactly_one_alert():
