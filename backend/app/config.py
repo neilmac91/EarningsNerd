@@ -104,6 +104,20 @@ class Settings(BaseSettings):
             raise ValueError("SECRET_KEY must be set.")
         return v
 
+    @field_validator('RESEND_FROM_EMAIL', mode='before')
+    @classmethod
+    def _normalize_from_email(cls, v):
+        """Tolerate a value accidentally wrapped in quotes — a very common Secret Manager / .env
+        mistake (e.g. '"EarningsNerd <hello@x>"'), which Resend rejects with a 422 "Invalid `from`
+        field". Only unwrap when the WHOLE value is wrapped in matching quotes, so a legitimately
+        quoted display name ('"Earnings, Nerd" <hello@x>') is left intact.
+        """
+        if isinstance(v, str):
+            v = v.strip()
+            if len(v) >= 2 and v[0] == v[-1] and v[0] in ('"', "'"):
+                v = v[1:-1].strip()
+        return v
+
     # App Settings
     ENVIRONMENT: str = "development"
     COOKIE_NAME: str = "earningsnerd_access_token"
