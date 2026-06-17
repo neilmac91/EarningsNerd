@@ -9,6 +9,7 @@ from app.models.contact import ContactSubmission
 from app.models.audit_log import AuditLog
 from app.models.refresh_token import RefreshToken
 from app.models.subscription import Subscription, StripeEvent, ACTIVE_STATUSES
+from app.models.notifications import NotificationPreferences, NotificationLog
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +47,13 @@ class User(Base):
     # 1:1 billing state. The webhook keeps both this row and the `is_pro` mirror in sync.
     subscription = relationship(
         "Subscription", back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
+    # New-filing alert preferences (1:1) + send/dedup log. Cascade so GDPR delete removes them.
+    notification_preferences = relationship(
+        "NotificationPreferences", back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
+    notification_logs = relationship(
+        "NotificationLog", back_populates="user", cascade="all, delete-orphan"
     )
 
 
@@ -93,9 +101,11 @@ class Company(Base):
     exchange = Column(String, nullable=True)
     sic = Column(String, nullable=True)
     industry = Column(String, nullable=True)
+    # When the new-filing scanner last checked this company (used to honour the scan cadence).
+    last_filings_check_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    
+
     filings = relationship("Filing", back_populates="company")
 
 
@@ -105,8 +115,12 @@ class Watchlist(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False, index=True)
+    # Per-(user, company) alert high-water mark: the newest filing we've notified this user about.
+    # Prevents re-alerting and bounds the "what's new since you started watching" window.
+    last_alerted_accession = Column(String, nullable=True)
+    last_alerted_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    
+
     user = relationship("User", back_populates="watchlist")
     company = relationship("Company")
 
@@ -231,6 +245,8 @@ __all__ = [
     "ContactSubmission",
     "Filing",
     "FilingContentCache",
+    "NotificationLog",
+    "NotificationPreferences",
     "OAuthAccount",
     "OAuthState",
     "SavedSummary",
