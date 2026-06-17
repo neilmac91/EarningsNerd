@@ -29,5 +29,12 @@ Decisions taken (recommended defaults; flagged for confirmation):
 - Infra: Cloud Run job + Scheduler wiring in ci.yml; optional token-gated POST /internal/jobs/filing-scan
 
 ## Verify
-- [ ] backend `pytest` + ruff + bandit green
-- [ ] commit + push + open Phase 2 PR
+- [x] backend `pytest` (403 passed) + ruff + bandit green (fresh-DB run)
+- [x] commit + push + open Phase 2 PR (#304, draft)
+- [ ] CI green on #304 (running) → then ready for review/merge
+
+## Status
+First cut complete and pushed as PR #304 (draft). All 7 first-cut tasks done:
+models+migration, notification_service, filing_scan_service, email templates, prefs API,
+job entrypoint, tests. Next increments: frontend (NotificationPreferencesForm + WatchlistAddSearch),
+then infra (Cloud Run job + scheduler in ci.yml).
