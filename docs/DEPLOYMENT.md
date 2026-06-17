@@ -142,6 +142,42 @@ A Cloud Run Job `earningsnerd-pregenerate` + Cloud Scheduler (`0 6 * * 1`, Monda
 `scripts/pregenerate_examples.py`. The CD pipeline keeps this job's image in sync; see the
 `deploy-backend` job for the exact commands.
 
+### 10. New-filing alert scan (Phase 2)
+A Cloud Run Job `earningsnerd-filing-scan` runs `scripts/filing_scan.py` to detect new SEC filings
+for watched companies and send alerts (real-time for Pro, daily digest for Free). The CD pipeline
+keeps the job image in sync **once the job exists** (the step skips gracefully otherwise). Create it
+once, with two Cloud Scheduler triggers — hourly scan + once-daily digest:
+
+```bash
+# One-time job creation (needs DB + Resend secrets, same connector as the service)
+gcloud run jobs create earningsnerd-filing-scan --region=us-west1 \
+  --image=us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:latest \
+  --command=python --args=scripts/filing_scan.py \
+  --set-secrets=DATABASE_URL=DATABASE_URL:latest,RESEND_API_KEY=RESEND_API_KEY:latest \
+  --set-cloudsql-instances=<CONNECTION_NAME>
+
+# Hourly real-time scan
+gcloud scheduler jobs create http filing-scan-hourly --location=us-west1 --schedule="0 * * * *" \
+  --uri="https://<run-jobs-execute-endpoint>/earningsnerd-filing-scan:run" --http-method=POST \
+  --oauth-service-account-email=<SCHEDULER_SA>
+
+# Daily digest (08:00 UTC) — override the job args to --digest
+gcloud scheduler jobs create http filing-digest-daily --location=us-west1 --schedule="0 8 * * *" \
+  --uri="https://<run-jobs-execute-endpoint>/earningsnerd-filing-scan:run" --http-method=POST \
+  --oauth-service-account-email=<SCHEDULER_SA>
+```
+
+**Alternative (no extra job):** the backend also exposes token-gated triggers
+`POST /internal/jobs/filing-scan` and `POST /internal/jobs/filing-digest` (header
+`X-Internal-Token: $INTERNAL_JOB_TOKEN`). Point Cloud Scheduler at those instead. Set
+`INTERNAL_JOB_TOKEN` in Secret Manager to enable them (unset ⇒ the endpoints return 503).
+
+> **Migrations for Phase 2:** the alert tables auto-create, but the new **columns** on `watchlist`
+> and `companies` do not (`create_all` never alters existing tables). Apply
+> `backend/migrations/20260618_phase2_alerts.sql` against the prod DB **before/with** the deploy that
+> ships the Phase 2 models, or ORM reads of `Company`/`Watchlist` will fail. Same applies to any
+> future column migration.
+
 ---
 
 ## Troubleshooting

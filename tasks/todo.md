@@ -30,9 +30,18 @@ Decisions taken (recommended defaults; flagged for confirmation):
 - [x] WatchlistAddSearch on the watchlist page (debounced autocomplete → addToWatchlist) + empty-state CTA
 - [x] Frontend lint + typecheck + 45 vitest + build green
 
-## Deferred to follow-up increment
-- Infra: Cloud Run `earningsnerd-filing-scan` job + Scheduler wiring in ci.yml; optional
-  token-gated POST /internal/jobs/filing-scan (one-time `gcloud run jobs create` + scheduler).
+## Infra increment (DONE — new PR)
+- [x] CI: `Update filing-scan job image` step in deploy-backend (existence-guarded so CD never fails)
+- [x] Token-gated `POST /internal/jobs/filing-scan` + `/filing-digest` (`app/routers/internal.py`,
+      `INTERNAL_JOB_TOKEN` config) + tests (503 unset / 401 wrong / 202 + triggers)
+- [x] DEPLOYMENT.md: one-time job + scheduler setup, internal-endpoint alternative, **Phase 2
+      column-migration requirement** called out
+- [x] Backend 408 pytest + ruff + bandit green
+
+## Ops still required (manual, prod)
+- Apply `backend/migrations/20260618_phase2_alerts.sql` to prod (new columns; create_all won't add them)
+- One-time `gcloud run jobs create earningsnerd-filing-scan` + Cloud Scheduler triggers (or set
+  `INTERNAL_JOB_TOKEN` + point Scheduler at the internal endpoints)
 
 ## Review fixes applied (Gemini, all 6 resolved)
 - _write_log SAVEPOINT (isolate dup rollback) + regression test

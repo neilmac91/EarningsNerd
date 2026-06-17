@@ -228,6 +228,18 @@ jobs:
             --update-secrets=OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
             --update-env-vars=OPENAI_BASE_URL=https://api.deepseek.com/v1,AI_DEFAULT_MODEL=deepseek-v4-pro \
             --quiet
+      - name: Update filing-scan job image
+        if: steps.changes.outputs.backend == 'true'
+        # The job + its Cloud Scheduler triggers are created once out-of-band (see DEPLOYMENT.md);
+        # CI only bumps the image. Skip gracefully if it hasn't been created yet so CD never fails.
+        run: |
+          if gcloud run jobs describe earningsnerd-filing-scan --region=us-west1 >/dev/null 2>&1; then
+            gcloud run jobs update earningsnerd-filing-scan --region=us-west1 \
+              --image="$IMAGE:${GITHUB_SHA::7}" \
+              --quiet
+          else
+            echo "earningsnerd-filing-scan job not found — create it once per DEPLOYMENT.md. Skipping."
+          fi
       - name: Verify health
         if: steps.changes.outputs.backend == 'true'
         run: |
