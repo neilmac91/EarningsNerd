@@ -17,7 +17,8 @@ import posthog from 'posthog-js'
 function PricingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly')
+  // Default to annual — it's the better value (2 months free) and the plan's preferred cycle.
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('yearly')
   const [isLoadingCheckout, setIsLoadingCheckout] = useState<string | null>(null)
   const pricingVariant = useFeatureFlagVariantKey('pricing-experiment')
   const hasTrackedPricingView = useRef(false)
@@ -105,9 +106,9 @@ function PricingContent() {
     }
   }
 
-  const priceConfig = pricingVariant === 'variant-a'
-    ? { monthly: 29, yearly: 249, monthlyDisplay: '$29', yearlyDisplay: '$249' }
-    : { monthly: 19, yearly: 190, monthlyDisplay: '$19', yearlyDisplay: '$190' }
+  // Confirmed pricing: $14/mo · $140/yr (annual = 2 months free). The legacy $19/$29 A/B is retired;
+  // `pricingVariant` is still read below purely for exposure analytics continuity.
+  const priceConfig = { monthly: 14, yearly: 140, monthlyDisplay: '$14', yearlyDisplay: '$140' }
 
   const plans = [
     {
@@ -133,11 +134,12 @@ function PricingContent() {
       description: 'For professionals who need unlimited access',
       features: [
         'Unlimited summaries',
+        'Real-time filing alerts',
+        '8-K coverage',
         'Multi-year comparisons',
         'PDF & CSV exports',
-        'Shareable links',
+        'Premium AI model & deeper analysis',
         'Priority support',
-        'Advanced analytics',
       ],
       cta: subscription?.is_pro ? 'Current Plan' : 'Upgrade to Pro',
       disabled: subscription?.is_pro || false,
@@ -224,7 +226,7 @@ function PricingContent() {
                 />
               </button>
               <span className={`text-sm font-medium ${billingCycle === 'yearly' ? 'text-gray-900' : 'text-gray-500'}`}>
-                Yearly <span className="text-green-600">(Save 17%)</span>
+                Yearly <span className="text-green-600">(2 months free)</span>
               </span>
             </div>
           )}

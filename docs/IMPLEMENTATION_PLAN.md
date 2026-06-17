@@ -53,6 +53,15 @@ Full detail in `docs/AUTH_INVESTIGATION.md`. Summary:
 
 ## Phase 1 — Billing to production + entitlement system (foundation)
 
+> **Status (2026-06-17):** code **IMPLEMENTED** on branch `claude/zen-newton-upsnh9` (PR #303) —
+> `subscriptions` + `stripe_events` tables, entitlement refactor (subscription-derived, `is_pro`
+> mirror fallback), `require_pro`/`require_entitlement` dependencies, idempotent webhook covering
+> the full lifecycle, checkout price-id fix, extended subscription status, reverse-trial scaffolding
+> (flag-gated, default off), live-mode config/deploy guards, pricing → $14/$140, paywall primitives.
+> Tested: backend 383 pytest + ruff + bandit; frontend lint/typecheck/45 vitest/build. **Remaining
+> is runtime ops only:** create Stripe live Products/Prices, set live secrets, flip test→live after
+> staging-webhook acceptance, and choose when to enable `REVERSE_TRIAL_ENABLED`.
+
 **Goal:** Stripe works in production, entitlements are first-class and N-tier-ready, server-side gating is centralised, and a reverse trial exists.
 
 ### 1A. Data model

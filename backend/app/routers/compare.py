@@ -4,7 +4,7 @@ from typing import List
 from pydantic import BaseModel
 from app.database import get_db
 from app.models import Summary, Filing, Company, User
-from app.routers.auth import get_current_user
+from app.dependencies import require_entitlement
 
 router = APIRouter()
 
@@ -18,17 +18,10 @@ class ComparisonResponse(BaseModel):
 @router.post("/", response_model=ComparisonResponse)
 async def compare_filings(
     request: ComparisonRequest,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_entitlement("can_compare_filings", "Multi-year comparison")),
     db: Session = Depends(get_db)
 ):
     """Compare multiple filings side-by-side (Pro feature)"""
-    # Check if user is Pro
-    if not current_user.is_pro:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Multi-year comparison is a Pro feature. Upgrade to Pro to access this feature."
-        )
-    
     if len(request.filing_ids) < 2 or len(request.filing_ids) > 5:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

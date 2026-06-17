@@ -12,6 +12,11 @@ export interface SubscriptionStatus {
   stripe_customer_id: string | null
   stripe_subscription_id: string | null
   subscription_status: string | null
+  plan: string
+  status: string | null
+  trial_end: string | null
+  current_period_end: string | null
+  cancel_at_period_end: boolean
 }
 
 // Subscription APIs

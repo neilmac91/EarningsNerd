@@ -648,6 +648,17 @@ async def register(
         db.rollback()
         return _REGISTER_OPAQUE
 
+    # Reverse trial: optionally grant full Pro for a few days, no card required. Behind a flag
+    # (default off) and best-effort — a trial-grant failure must never break account creation.
+    if settings.REVERSE_TRIAL_ENABLED:
+        try:
+            from app.services.subscription_sync import start_reverse_trial
+            start_reverse_trial(db, user, settings.REVERSE_TRIAL_DAYS)
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.warning("Failed to start reverse trial for user %s", user.id, exc_info=True)
+
     await _send_verification_email_safe(db, user)
     audit_service.log_register(db, user.id, user.email, ip_address=_hashed_client_ip(request))
     return _REGISTER_OPAQUE

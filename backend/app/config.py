@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     STRIPE_PRICE_MONTHLY_ID: str = ""
     STRIPE_PRICE_YEARLY_ID: str = ""
 
+    # Reverse trial: grant full Pro for N days, no card, on signup. Defaults OFF (rollout strategy
+    # enables features per-environment via flags). When on, registration starts a `trialing` sub.
+    REVERSE_TRIAL_ENABLED: bool = False
+    REVERSE_TRIAL_DAYS: int = 7
+
     # PostHog (server-side tracking)
     POSTHOG_API_KEY: str = ""
     POSTHOG_HOST: str = "https://us.i.posthog.com"
@@ -310,6 +315,35 @@ class Settings(BaseSettings):
             )
             # Don't mark as invalid since Stripe can work without webhooks (manual subscription management)
             # but warn strongly
+
+        # Live-mode guard: a test key in production (or live key in dev) means real money / wrong
+        # account. Stripe test keys are `sk_test_*` / `pk_test_*`, live are `sk_live_*` / `pk_live_*`.
+        if self.STRIPE_SECRET_KEY:
+            is_test_key = self.STRIPE_SECRET_KEY.startswith("sk_test_")
+            is_live_key = self.STRIPE_SECRET_KEY.startswith("sk_live_")
+            if self.ENVIRONMENT == "production" and is_test_key:
+                warnings.append(
+                    "STRIPE_SECRET_KEY is a TEST key (sk_test_) but ENVIRONMENT=production. "
+                    "Real subscriptions will not be charged. Use your live key (sk_live_)."
+                )
+                is_valid = False
+            elif self.ENVIRONMENT != "production" and is_live_key:
+                warnings.append(
+                    "STRIPE_SECRET_KEY is a LIVE key (sk_live_) outside production "
+                    f"(ENVIRONMENT={self.ENVIRONMENT}). Risk of charging real cards in dev/test. "
+                    "Use a test key (sk_test_)."
+                )
+                is_valid = False
+            if self.STRIPE_PUBLISHABLE_KEY:
+                pub_test = self.STRIPE_PUBLISHABLE_KEY.startswith("pk_test_")
+                pub_live = self.STRIPE_PUBLISHABLE_KEY.startswith("pk_live_")
+                # Publishable + secret keys must agree on mode, or checkout breaks subtly.
+                if (is_live_key and pub_test) or (is_test_key and pub_live):
+                    warnings.append(
+                        "STRIPE_SECRET_KEY and STRIPE_PUBLISHABLE_KEY are in different modes "
+                        "(one live, one test). They must match."
+                    )
+                    is_valid = False
 
         return is_valid, warnings
 

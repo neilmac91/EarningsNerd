@@ -46,6 +46,18 @@ def check_environment_variables():
             "valid": bool(settings.STRIPE_WEBHOOK_SECRET),
             "message": "CRITICAL: Required if using Stripe webhooks"
         },
+        "STRIPE_PRICE_MONTHLY_ID": {
+            "required": bool(settings.STRIPE_SECRET_KEY),  # Required if Stripe is enabled
+            "set": bool(settings.STRIPE_PRICE_MONTHLY_ID),
+            "valid": settings.STRIPE_PRICE_MONTHLY_ID.startswith("price_") if settings.STRIPE_PRICE_MONTHLY_ID else False,
+            "message": "Monthly Pro price id (Stripe Dashboard > Products); checkout fails without it"
+        },
+        "STRIPE_PRICE_YEARLY_ID": {
+            "required": bool(settings.STRIPE_SECRET_KEY),  # Required if Stripe is enabled
+            "set": bool(settings.STRIPE_PRICE_YEARLY_ID),
+            "valid": settings.STRIPE_PRICE_YEARLY_ID.startswith("price_") if settings.STRIPE_PRICE_YEARLY_ID else False,
+            "message": "Yearly Pro price id (Stripe Dashboard > Products); checkout fails without it"
+        },
         "SECRET_KEY": {
             "required": True,
             "set": bool(settings.SECRET_KEY),
@@ -142,7 +154,8 @@ def check_database():
             expected_tables = [
                 "users", "companies", "filings", "summaries",
                 "user_searches", "saved_summaries", "user_usage",
-                "watchlist", "summary_generation_progress", "filing_content_cache"
+                "watchlist", "summary_generation_progress", "filing_content_cache",
+                "subscriptions", "stripe_events"
             ]
             
             print(f"\nFound {len(tables)} tables in database")
