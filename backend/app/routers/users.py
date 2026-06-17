@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 import logging
 import os
@@ -11,6 +11,11 @@ from app.database import get_db
 from app.models import User, UserSearch, SavedSummary, UserUsage, Watchlist
 from app.routers.auth import get_current_user
 from app.services.audit_service import log_user_deletion, log_data_export
+from app.services.entitlements import get_entitlements
+from app.services.notification_service import (
+    coerce_to_entitlement,
+    get_or_create_preferences,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -64,6 +69,84 @@ async def get_profile(current_user: User = Depends(get_current_user)):
         "is_pro": current_user.is_pro,
         "created_at": current_user.created_at
     }
+
+
+class NotificationPreferencesResponse(BaseModel):
+    notify_10k: bool
+    notify_10q: bool
+    notify_8k: bool
+    channel: str
+    digest: str
+    realtime: bool
+    # Effective gating so the UI can render Pro-only toggles as locked rather than guessing.
+    realtime_available: bool
+    eightk_available: bool
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationPreferencesUpdate(BaseModel):
+    notify_10k: Optional[bool] = None
+    notify_10q: Optional[bool] = None
+    notify_8k: Optional[bool] = None
+    channel: Optional[str] = None
+    digest: Optional[str] = None
+    realtime: Optional[bool] = None
+
+
+def _prefs_response(prefs, ent) -> NotificationPreferencesResponse:
+    return NotificationPreferencesResponse(
+        notify_10k=prefs.notify_10k,
+        notify_10q=prefs.notify_10q,
+        notify_8k=prefs.notify_8k,
+        channel=prefs.channel,
+        digest=prefs.digest,
+        realtime=prefs.realtime,
+        realtime_available=ent.realtime_alerts,
+        eightk_available=ent.eightk_coverage,
+    )
+
+
+@router.get("/me/notification-preferences", response_model=NotificationPreferencesResponse)
+async def get_notification_preferences(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Get the current user's new-filing alert preferences (creating defaults if none exist)."""
+    prefs = get_or_create_preferences(db, current_user.id)
+    return _prefs_response(prefs, get_entitlements(current_user))
+
+
+@router.put("/me/notification-preferences", response_model=NotificationPreferencesResponse)
+async def update_notification_preferences(
+    update: NotificationPreferencesUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update alert preferences.
+
+    Pro-gated toggles (``realtime``, ``notify_8k``) are accepted but **coerced off** for non-Pro
+    users (rather than erroring), so the frontend can show them as locked Pro upsells.
+    """
+    prefs = get_or_create_preferences(db, current_user.id, commit=False)
+
+    VALID_CHANNELS = {"email", "in_app"}
+    VALID_DIGESTS = {"immediate", "daily", "weekly"}
+    data = update.model_dump(exclude_unset=True)
+    if "channel" in data and data["channel"] not in VALID_CHANNELS:
+        raise HTTPException(status_code=400, detail=f"channel must be one of {sorted(VALID_CHANNELS)}")
+    if "digest" in data and data["digest"] not in VALID_DIGESTS:
+        raise HTTPException(status_code=400, detail=f"digest must be one of {sorted(VALID_DIGESTS)}")
+
+    for field, value in data.items():
+        setattr(prefs, field, value)
+
+    ent = get_entitlements(current_user)
+    coerce_to_entitlement(prefs, ent)  # force Pro-only toggles off if not entitled
+    db.commit()
+    db.refresh(prefs)
+    return _prefs_response(prefs, ent)
 
 
 @router.get("/export")

@@ -1,9 +1,18 @@
 from __future__ import annotations
 
+from app.config import settings
 from app.services.resend_service import send_email
 
+_DEFAULT_FOOTER = "You are receiving this email because you joined the EarningsNerd waitlist."
+# Alert/digest emails are transactional opt-ins, not the waitlist — point recipients at prefs.
+_ALERT_FOOTER = (
+    "You are receiving this because you track companies on EarningsNerd. "
+    f'Manage alerts in your <a href="{settings.FRONTEND_URL}/dashboard/settings" '
+    'style="color:#a7f3d0;">notification settings</a>.'
+)
 
-def _wrap_html(body: str) -> str:
+
+def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
     return f"""
     <html>
       <body style="margin:0;padding:0;background:#0b0f14;font-family:Inter,Arial,sans-serif;">
@@ -21,7 +30,7 @@ def _wrap_html(body: str) -> str:
                 </tr>
                 <tr>
                   <td style="padding-top:32px;font-size:12px;color:#9ca3af;">
-                    You are receiving this email because you joined the EarningsNerd waitlist.
+                    {footer}
                   </td>
                 </tr>
               </table>
@@ -247,4 +256,118 @@ async def send_account_exists_email(
         to=[to_email],
         subject="Someone tried to sign up with your EarningsNerd email",
         html=f"{_wrap_html(html_body)}<pre style=\"display:none\">{text_body}</pre>",
+    )
+
+
+# --------------------------------------------------------------------------- new-filing alerts
+# Content below is PUBLIC EDGAR data only (company, ticker, form type, date, filing URL). The
+# recipient's email is the only PII and lives solely in the `to` field — never in the body or logs.
+
+def _filing_url(filing_id: int | None, filing_url: str | None) -> str:
+    """Prefer our own filing page (drives the user back into the product); fall back to SEC."""
+    if filing_id is not None:
+        return f"{settings.FRONTEND_URL}/filing/{filing_id}"
+    return filing_url or settings.FRONTEND_URL
+
+
+def render_new_filing_alert(
+    *,
+    name: str | None,
+    company_name: str,
+    ticker: str,
+    filing_type: str,
+    filing_date: str,
+    filing_id: int | None = None,
+    filing_url: str | None = None,
+) -> tuple[str, str]:
+    greeting = f"Hi {name}," if name else "Hi there,"
+    url = _filing_url(filing_id, filing_url)
+    html_body = f"""
+    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;"><strong>{company_name} ({ticker})</strong> just filed a
+      <strong>{filing_type}</strong> with the SEC ({filing_date}).</p>
+    <p style="margin:0 0 24px;">
+      <a href="{url}" style="display:inline-block;background:#34d399;color:#0b0f14;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px;text-decoration:none;">Read the AI summary</a>
+    </p>
+    <p style="margin:0;font-size:13px;color:#9ca3af;">We summarise what changed so you don&apos;t have to read the whole filing.</p>
+    """
+    text_body = (
+        f"{greeting}\n\n{company_name} ({ticker}) just filed a {filing_type} with the SEC "
+        f"({filing_date}).\n\nRead the AI summary: {url}"
+    )
+    return _wrap_html(html_body, footer=_ALERT_FOOTER), text_body
+
+
+def render_daily_digest(
+    *,
+    name: str | None,
+    items: list[dict],
+) -> tuple[str, str]:
+    """`items`: dicts with company_name, ticker, filing_type, filing_date, and filing_id or filing_url."""
+    greeting = f"Hi {name}," if name else "Hi there,"
+    rows_html = "".join(
+        f"""
+        <tr>
+          <td style="padding:10px 0;border-bottom:1px solid #1f2937;">
+            <strong>{it['company_name']} ({it['ticker']})</strong> — {it['filing_type']}
+            <span style="color:#9ca3af;">· {it['filing_date']}</span><br>
+            <a href="{_filing_url(it.get('filing_id'), it.get('filing_url'))}" style="color:#34d399;">Read the summary →</a>
+          </td>
+        </tr>"""
+        for it in items
+    )
+    html_body = f"""
+    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;">New filings from companies you track:</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{rows_html}</table>
+    """
+    text_lines = "\n".join(
+        f"- {it['company_name']} ({it['ticker']}) — {it['filing_type']} ({it['filing_date']}): "
+        f"{_filing_url(it.get('filing_id'), it.get('filing_url'))}"
+        for it in items
+    )
+    text_body = f"{greeting}\n\nNew filings from companies you track:\n{text_lines}"
+    return _wrap_html(html_body, footer=_ALERT_FOOTER), text_body
+
+
+async def send_new_filing_alert(
+    *,
+    to_email: str,
+    name: str | None,
+    company_name: str,
+    ticker: str,
+    filing_type: str,
+    filing_date: str,
+    filing_id: int | None = None,
+    filing_url: str | None = None,
+) -> None:
+    html, text = render_new_filing_alert(
+        name=name,
+        company_name=company_name,
+        ticker=ticker,
+        filing_type=filing_type,
+        filing_date=filing_date,
+        filing_id=filing_id,
+        filing_url=filing_url,
+    )
+    await send_email(
+        to=[to_email],
+        subject=f"{ticker} filed a {filing_type}",
+        html=f"{html}<pre style=\"display:none\">{text}</pre>",
+    )
+
+
+async def send_daily_digest(
+    *,
+    to_email: str,
+    name: str | None,
+    items: list[dict],
+) -> None:
+    html, text = render_daily_digest(name=name, items=items)
+    count = len(items)
+    subject = f"{count} new filing{'s' if count != 1 else ''} from your watchlist"
+    await send_email(
+        to=[to_email],
+        subject=subject,
+        html=f"{html}<pre style=\"display:none\">{text}</pre>",
     )
