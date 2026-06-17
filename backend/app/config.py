@@ -43,6 +43,10 @@ class Settings(BaseSettings):
     REVERSE_TRIAL_ENABLED: bool = False
     REVERSE_TRIAL_DAYS: int = 7
 
+    # Shared secret for token-gated internal job endpoints (e.g. Cloud Scheduler → /internal/jobs/*).
+    # Unset disables those endpoints (they 503). Set to a long random string in prod.
+    INTERNAL_JOB_TOKEN: str = ""
+
     # PostHog (server-side tracking)
     POSTHOG_API_KEY: str = ""
     POSTHOG_HOST: str = "https://us.i.posthog.com"
