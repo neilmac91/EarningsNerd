@@ -8,6 +8,7 @@ import { Download, Trash2, AlertCircle, CheckCircle2, Loader2, ArrowLeft } from 
 import Link from 'next/link'
 import analytics from '@/lib/analytics'
 import ConnectedAccounts from '@/components/settings/ConnectedAccounts'
+import NotificationPreferencesForm from '@/components/settings/NotificationPreferencesForm'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -113,6 +114,9 @@ export default function SettingsPage() {
 
         {/* Connected accounts & sessions */}
         <ConnectedAccounts />
+
+        {/* New-filing alert preferences */}
+        <NotificationPreferencesForm />
 
         {/* Data Export */}
         <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-6">

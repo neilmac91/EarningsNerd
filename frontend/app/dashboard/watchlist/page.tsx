@@ -17,6 +17,7 @@ import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getWatchlistInsights, WatchlistInsight } from '@/features/watchlist/api/watchlist-api'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import StateCard from '@/components/StateCard'
+import WatchlistAddSearch from '@/components/watchlist/WatchlistAddSearch'
 
 function useAuthGate() {
   const router = useRouter()
@@ -114,6 +115,9 @@ export default function WatchlistDashboardPage() {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+        {/* Add-from-search: track a company without visiting its page first. */}
+        <WatchlistAddSearch />
+
         {isError && (
           <StateCard
             variant="error"
@@ -125,15 +129,7 @@ export default function WatchlistDashboardPage() {
         {insights.length === 0 ? (
           <StateCard
             title="No watchlist companies yet"
-            message="Track a company from any company page to see its filing freshness and summary status here."
-            action={
-              <Link
-                href="/company/AAPL"
-                className="inline-flex items-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 transition-colors"
-              >
-                Explore companies
-              </Link>
-            }
+            message="Use the search above to track your first company — you'll get an alert here (and by email) whenever it files with the SEC."
           />
         ) : (
           <div className="grid gap-6">
