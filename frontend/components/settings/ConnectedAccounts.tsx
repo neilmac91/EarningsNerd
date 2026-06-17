@@ -23,7 +23,7 @@ export default function ConnectedAccounts() {
   const queryClient = useQueryClient()
   const [error, setError] = useState('')
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, error: queryError } = useQuery({
     queryKey: ['auth-connections'],
     queryFn: getConnections,
     retry: false,
@@ -48,6 +48,11 @@ export default function ConnectedAccounts() {
       queryClient.clear()
       router.push('/login')
     },
+    onError: (err: unknown) => {
+      setError(
+        isApiError(err) ? getErrorMessage(err) : 'Could not sign out of all devices.',
+      )
+    },
   })
 
   const providers: AuthConnection[] = data?.providers ?? []
@@ -70,6 +75,11 @@ export default function ConnectedAccounts() {
       {isLoading ? (
         <div className="flex items-center text-slate-500 dark:text-slate-400">
           <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Loading…
+        </div>
+      ) : isError ? (
+        <div className="flex items-center text-sm text-red-600 dark:text-red-400">
+          <AlertCircle className="h-4 w-4 mr-2" />
+          {isApiError(queryError) ? getErrorMessage(queryError) : 'Failed to load connected accounts.'}
         </div>
       ) : (
         <div className="space-y-3">
