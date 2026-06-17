@@ -14,6 +14,10 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import StateCard from '@/components/StateCard'
 import TrialBanner from '@/components/TrialBanner'
+import CompanySearch from '@/components/CompanySearch'
+import FilingFeed from '@/components/dashboard/FilingFeed'
+import EarningsCalendar from '@/components/dashboard/EarningsCalendar'
+import { ENABLE_CALENDAR } from '@/lib/featureFlags'
 import analytics from '@/lib/analytics'
 
 export default function DashboardPage() {
@@ -176,6 +180,17 @@ export default function DashboardPage() {
 
         {/* Reverse-trial countdown (renders only while a Pro trial is active) */}
         <TrialBanner status={subscription?.status} trialEnd={subscription?.trial_end} className="mb-8" />
+
+        {/* Phase 3 hero: quick search + personalised "what changed" feed + (optional) calendar.
+            The plan/usage cards below become a compact secondary strip. */}
+        <div className="mb-10 space-y-6">
+          <div className="rounded-2xl bg-slate-900 p-5 shadow-sm">
+            <p className="mb-2 text-sm font-medium text-slate-300">Jump to any company</p>
+            <CompanySearch />
+          </div>
+          <FilingFeed />
+          {ENABLE_CALENDAR && <EarningsCalendar />}
+        </div>
 
         {/* Subscription Status */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
