@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     STRIPE_PRICE_MONTHLY_ID: str = ""
     STRIPE_PRICE_YEARLY_ID: str = ""
 
+    # Reverse trial: grant full Pro for N days, no card, on signup. Defaults OFF (rollout strategy
+    # enables features per-environment via flags). When on, registration starts a `trialing` sub.
+    REVERSE_TRIAL_ENABLED: bool = False
+    REVERSE_TRIAL_DAYS: int = 7
+
     # PostHog (server-side tracking)
     POSTHOG_API_KEY: str = ""
     POSTHOG_HOST: str = "https://us.i.posthog.com"
@@ -234,6 +239,18 @@ class Settings(BaseSettings):
                 "DATABASE_URL must point at a production database in production; refusing to start "
                 "on the sqlite default. Set DATABASE_URL to your Postgres/Cloud SQL connection string."
             )
+        # Warn (don't fail) if the session cookie isn't scoped to the parent domain in production.
+        # When the frontend (earningsnerd.io / www) and API (api.earningsnerd.io) are different hosts
+        # of the same site, an unset COOKIE_DOMAIN makes the auth cookie host-only on the API host —
+        # invisible to the Next.js middleware on the frontend, which then redirect-loops every
+        # protected route back to /login. A single-host deployment is legitimately fine unset.
+        if self.ENVIRONMENT == "production" and not self.COOKIE_DOMAIN:
+            import logging
+            logging.getLogger("uvicorn.error").warning(
+                "COOKIE_DOMAIN is unset in production. If the frontend and API are on different "
+                "hosts of the same site, session cookies will be host-only and protected routes "
+                "will redirect-loop. Set COOKIE_DOMAIN=.earningsnerd.io."
+            )
     
     def validate_openai_config(self) -> tuple[bool, list[str]]:
         """Validate OpenAI-compatible configuration and return (is_valid, warnings)"""
@@ -298,6 +315,35 @@ class Settings(BaseSettings):
             )
             # Don't mark as invalid since Stripe can work without webhooks (manual subscription management)
             # but warn strongly
+
+        # Live-mode guard: a test key in production (or live key in dev) means real money / wrong
+        # account. Stripe test keys are `sk_test_*` / `pk_test_*`, live are `sk_live_*` / `pk_live_*`.
+        if self.STRIPE_SECRET_KEY:
+            is_test_key = self.STRIPE_SECRET_KEY.startswith("sk_test_")
+            is_live_key = self.STRIPE_SECRET_KEY.startswith("sk_live_")
+            if self.ENVIRONMENT == "production" and is_test_key:
+                warnings.append(
+                    "STRIPE_SECRET_KEY is a TEST key (sk_test_) but ENVIRONMENT=production. "
+                    "Real subscriptions will not be charged. Use your live key (sk_live_)."
+                )
+                is_valid = False
+            elif self.ENVIRONMENT != "production" and is_live_key:
+                warnings.append(
+                    "STRIPE_SECRET_KEY is a LIVE key (sk_live_) outside production "
+                    f"(ENVIRONMENT={self.ENVIRONMENT}). Risk of charging real cards in dev/test. "
+                    "Use a test key (sk_test_)."
+                )
+                is_valid = False
+            if self.STRIPE_PUBLISHABLE_KEY:
+                pub_test = self.STRIPE_PUBLISHABLE_KEY.startswith("pk_test_")
+                pub_live = self.STRIPE_PUBLISHABLE_KEY.startswith("pk_live_")
+                # Publishable + secret keys must agree on mode, or checkout breaks subtly.
+                if (is_live_key and pub_test) or (is_test_key and pub_live):
+                    warnings.append(
+                        "STRIPE_SECRET_KEY and STRIPE_PUBLISHABLE_KEY are in different modes "
+                        "(one live, one test). They must match."
+                    )
+                    is_valid = False
 
         return is_valid, warnings
 

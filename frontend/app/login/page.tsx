@@ -56,7 +56,15 @@ function LoginContent() {
       } catch {
         // Ignore analytics errors to avoid blocking login
       }
-      router.push('/')
+      // Return the user to where they were headed before the auth gate. Only honour internal,
+      // single-slash-rooted paths: reject protocol-relative ("//evil") and backslash-prefixed
+      // ("/\\evil") values, which some browsers normalise into open redirects to external sites.
+      const dest = searchParams.get('redirect')
+      const safe =
+        dest && dest.startsWith('/') && !dest.startsWith('//') && !dest.startsWith('/\\')
+          ? dest
+          : '/'
+      router.push(safe)
       router.refresh()
     } catch (err: unknown) {
       const errorMessage = isApiError(err)

@@ -13,6 +13,7 @@ import { format } from 'date-fns'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import StateCard from '@/components/StateCard'
+import TrialBanner from '@/components/TrialBanner'
 import analytics from '@/lib/analytics'
 
 export default function DashboardPage() {
@@ -172,6 +173,9 @@ export default function DashboardPage() {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+
+        {/* Reverse-trial countdown (renders only while a Pro trial is active) */}
+        <TrialBanner status={subscription?.status} trialEnd={subscription?.trial_end} className="mb-8" />
 
         {/* Subscription Status */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">

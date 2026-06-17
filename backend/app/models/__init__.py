@@ -8,6 +8,7 @@ from app.models.waitlist import WaitlistSignup
 from app.models.contact import ContactSubmission
 from app.models.audit_log import AuditLog
 from app.models.refresh_token import RefreshToken
+from app.models.subscription import Subscription, StripeEvent, ACTIVE_STATUSES
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +43,10 @@ class User(Base):
     watchlist = relationship("Watchlist", back_populates="user", cascade="all, delete-orphan")
     refresh_tokens = relationship("RefreshToken", back_populates="user", cascade="all, delete-orphan")
     oauth_accounts = relationship("OAuthAccount", back_populates="user", cascade="all, delete-orphan")
+    # 1:1 billing state. The webhook keeps both this row and the `is_pro` mirror in sync.
+    subscription = relationship(
+        "Subscription", back_populates="user", uselist=False, cascade="all, delete-orphan"
+    )
 
 
 class OAuthAccount(Base):
@@ -229,6 +234,8 @@ __all__ = [
     "OAuthAccount",
     "OAuthState",
     "SavedSummary",
+    "StripeEvent",
+    "Subscription",
     "Summary",
     "SummaryGenerationProgress",
     "User",

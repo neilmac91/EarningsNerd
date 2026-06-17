@@ -14,6 +14,7 @@ from app.models import (
     SummaryGenerationProgress,
 )
 from app.routers.auth import get_current_user_optional
+from app.services.entitlements import get_entitlements
 from app.services.export_service import export_service
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.summary_generation_service import (
@@ -247,8 +248,8 @@ async def export_summary_pdf(
             detail="Authentication required"
         )
 
-    # Check if user is Pro
-    if not current_user.is_pro:
+    # Gate on the centralised entitlement (Subscription-derived, is_pro mirror as fallback).
+    if not get_entitlements(current_user).can_export:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="PDF export is a Pro feature. Upgrade to Pro to access this feature."
@@ -293,8 +294,8 @@ async def export_summary_csv(
             detail="Authentication required"
         )
 
-    # Check if user is Pro
-    if not current_user.is_pro:
+    # Gate on the centralised entitlement (Subscription-derived, is_pro mirror as fallback).
+    if not get_entitlements(current_user).can_export:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="CSV export is a Pro feature. Upgrade to Pro to access this feature."
