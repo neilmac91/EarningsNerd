@@ -15,10 +15,10 @@ When nothing usable remains the headline is ``None`` and the card falls back to 
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import Any, Optional
 
 from sqlalchemy import desc
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, defer, joinedload
 
 from app.models import Filing, Summary, Watchlist
 from app.services.edgar.models import MetricChange
@@ -103,16 +103,25 @@ def compute_what_changed(current_xbrl: Optional[dict], prior_xbrl: Optional[dict
 
     data_quality = "ok"
 
-    # Invariant 1: revenue must be ≥ 0.
-    if "revenue" in data and data["revenue"][0] < 0:
-        del data["revenue"]
-        data_quality = "partial"
+    # Invariant 1: revenue must be ≥ 0 — in BOTH periods (a negative prior corrupts the delta too).
+    if "revenue" in data:
+        cur_rev, prior_rev = data["revenue"]
+        if cur_rev < 0 or (prior_rev is not None and prior_rev < 0):
+            del data["revenue"]
+            data_quality = "partial"
 
-    # Invariant 2: sign(EPS) must match sign(net income). Disagreement ⇒ distrust both.
+    # Invariant 2: sign(EPS) must match sign(net income) — checked for current AND prior periods.
+    # Disagreement in either period ⇒ distrust both metrics.
     if "earnings_per_share" in data and "net_income" in data:
-        eps = data["earnings_per_share"][0]
-        net_income = data["net_income"][0]
-        if eps != 0 and net_income != 0 and (eps > 0) != (net_income > 0):
+        eps, prior_eps = data["earnings_per_share"]
+        net_income, prior_net_income = data["net_income"]
+        mismatch_current = eps != 0 and net_income != 0 and (eps > 0) != (net_income > 0)
+        mismatch_prior = (
+            prior_eps is not None and prior_net_income is not None
+            and prior_eps != 0 and prior_net_income != 0
+            and (prior_eps > 0) != (prior_net_income > 0)
+        )
+        if mismatch_current or mismatch_prior:
             del data["earnings_per_share"]
             del data["net_income"]
             data_quality = "partial"
@@ -197,15 +206,29 @@ def compose_feed(db: Session, user_id: int, limit: int = 20) -> list[dict]:
     if not filings:
         return []
 
-    # Batch the prior-filing lookup: one query for all watched companies' feed filings.
+    # Find each feed filing's prior same-form filing WITHOUT loading XBRL blobs for the whole
+    # history: scan ids/dates/types (xbrl deferred, restricted to the companies actually in this
+    # page), then batch-load XBRL for only the prior filings we'll actually compare against.
+    feed_company_ids = {f.company_id for f in filings}
     by_company: dict[int, list[Filing]] = {}
     for f in (
         db.query(Filing)
-        .filter(Filing.company_id.in_(company_ids), Filing.filing_type.in_(FEED_FORM_TYPES))
+        .options(defer(Filing.xbrl_data))
+        .filter(Filing.company_id.in_(feed_company_ids), Filing.filing_type.in_(FEED_FORM_TYPES))
         .order_by(Filing.company_id, desc(Filing.filing_date))
         .all()
     ):
         by_company.setdefault(f.company_id, []).append(f)
+
+    prior_by_filing: dict[int, Optional[Filing]] = {
+        f.id: _prior_same_form(by_company.get(f.company_id, []), f) for f in filings
+    }
+    prior_ids = {p.id for p in prior_by_filing.values() if p is not None}
+    prior_xbrl_by_id: dict[int, Any] = {}
+    if prior_ids:
+        prior_xbrl_by_id = dict(
+            db.query(Filing.id, Filing.xbrl_data).filter(Filing.id.in_(prior_ids)).all()
+        )
 
     # Batch summary existence/status (newest per filing).
     filing_ids = [f.id for f in filings]
@@ -223,8 +246,9 @@ def compose_feed(db: Session, user_id: int, limit: int = 20) -> list[dict]:
         company = f.company
         if company is None:
             continue
-        prior = _prior_same_form(by_company.get(f.company_id, []), f)
-        what_changed = compute_what_changed(f.xbrl_data, prior.xbrl_data if prior else None)
+        prior = prior_by_filing.get(f.id)
+        prior_xbrl = prior_xbrl_by_id.get(prior.id) if prior else None
+        what_changed = compute_what_changed(f.xbrl_data, prior_xbrl)
         status = _summary_status(summary_by_filing.get(f.id), f.id)
         items.append({
             "filing_id": f.id,

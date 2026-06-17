@@ -188,8 +188,8 @@ export default function DashboardPage() {
             <p className="mb-2 text-sm font-medium text-slate-300">Jump to any company</p>
             <CompanySearch />
           </div>
-          <FilingFeed />
-          {ENABLE_CALENDAR && <EarningsCalendar />}
+          <FilingFeed enabled={!!user} />
+          {ENABLE_CALENDAR && <EarningsCalendar enabled={!!user} />}
         </div>
 
         {/* Subscription Status */}

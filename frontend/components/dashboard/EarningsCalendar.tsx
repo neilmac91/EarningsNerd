@@ -1,23 +1,18 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { format } from 'date-fns'
 import { CalendarDays } from 'lucide-react'
 import { getUpcomingCalendar } from '@/features/dashboard/api/dashboard-api'
-
-function formatDate(value: string | null) {
-  if (!value) return 'TBD'
-  const d = new Date(value)
-  return Number.isNaN(d.getTime()) ? 'TBD' : format(d, 'EEE, MMM d')
-}
+import { formatLocalDate } from '@/lib/format'
 
 const TIME_LABEL: Record<string, string> = { bmo: 'Before open', amc: 'After close' }
 
-export default function EarningsCalendar() {
+export default function EarningsCalendar({ enabled = true }: { enabled?: boolean }) {
   const { data, isLoading } = useQuery({
     queryKey: ['dashboard-calendar'],
     queryFn: () => getUpcomingCalendar(14),
     retry: false,
+    enabled,
   })
 
   // Stay invisible when there's nothing to show (e.g. FMP not yet configured) — no empty clutter.
@@ -41,7 +36,7 @@ export default function EarningsCalendar() {
               </span>
             </div>
             <div className="flex-shrink-0 text-right text-sm">
-              <div className="text-text-primary-light dark:text-text-primary-dark">{formatDate(ev.earnings_date)}</div>
+              <div className="text-text-primary-light dark:text-text-primary-dark">{formatLocalDate(ev.earnings_date, 'EEE, MMM d', 'TBD')}</div>
               {ev.time && TIME_LABEL[ev.time] && (
                 <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
                   {TIME_LABEL[ev.time]}

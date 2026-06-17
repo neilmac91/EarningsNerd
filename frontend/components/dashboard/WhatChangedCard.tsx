@@ -1,9 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { format } from 'date-fns'
 import { ArrowRight, Minus, TrendingDown, TrendingUp } from 'lucide-react'
 import { FeedItem, WhatChangedItem } from '@/features/dashboard/api/dashboard-api'
+import { formatLocalDate } from '@/lib/format'
 import analytics from '@/lib/analytics'
 
 const DIRECTION = {
@@ -11,12 +11,6 @@ const DIRECTION = {
   down: { Icon: TrendingDown, cls: 'text-red-600 dark:text-red-400 bg-red-500/10' },
   flat: { Icon: Minus, cls: 'text-slate-500 bg-slate-500/10' },
 } as const
-
-function formatDate(value: string | null) {
-  if (!value) return ''
-  const d = new Date(value)
-  return Number.isNaN(d.getTime()) ? '' : format(d, 'MMM d, yyyy')
-}
 
 function ctaLabel(status: string): string {
   if (status === 'ready') return 'Read summary'
@@ -58,7 +52,7 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
           </div>
         </div>
         <div className="flex-shrink-0 text-right text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          {item.filing_type} · {formatDate(item.filing_date)}
+          {item.filing_type} · {formatLocalDate(item.filing_date, 'MMM d, yyyy')}
         </div>
       </div>
 

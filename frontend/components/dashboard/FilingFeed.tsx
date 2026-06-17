@@ -6,11 +6,12 @@ import { getDashboardFeed } from '@/features/dashboard/api/dashboard-api'
 import StateCard from '@/components/StateCard'
 import WhatChangedCard from './WhatChangedCard'
 
-export default function FilingFeed() {
+export default function FilingFeed({ enabled = true }: { enabled?: boolean }) {
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ['dashboard-feed'],
     queryFn: () => getDashboardFeed(20),
     retry: false,
+    enabled,
   })
 
   return (

@@ -57,6 +57,32 @@ def test_eps_netincome_sign_mismatch_drops_both():
     assert "revenue" in present  # revenue survives
 
 
+def test_negative_prior_revenue_is_dropped_partial():
+    # A corrupt (negative) prior revenue must also invalidate the metric.
+    current = {"revenue": _series(("2024-03-31", 100.0)), "net_income": _series(("2024-03-31", 20.0))}
+    prior = {"revenue": _series(("2023-03-31", -80.0)), "net_income": _series(("2023-03-31", 10.0))}
+    out = compute_what_changed(current, prior)
+    assert out["data_quality"] == "partial"
+    assert all(i["metric"] != "revenue" for i in out["items"])
+
+
+def test_prior_eps_netincome_sign_mismatch_drops_both():
+    # Prior period has positive EPS but a net loss → distrust both, even if current is consistent.
+    current = {
+        "net_income": _series(("2024-03-31", 10.0)),
+        "earnings_per_share": _series(("2024-03-31", 0.5)),
+    }
+    prior = {
+        "net_income": _series(("2023-03-31", -5.0)),
+        "earnings_per_share": _series(("2023-03-31", 1.0)),
+    }
+    out = compute_what_changed(current, prior)
+    assert out is None or out["data_quality"] == "partial"
+    if out is not None:
+        present = {i["metric"] for i in out["items"]}
+        assert "earnings_per_share" not in present and "net_income" not in present
+
+
 def test_matching_negative_signs_are_kept():
     # Net loss with negative EPS is internally consistent → kept.
     current = {"net_income": _series(("2024-03-31", -10.0)), "earnings_per_share": _series(("2024-03-31", -0.5))}
