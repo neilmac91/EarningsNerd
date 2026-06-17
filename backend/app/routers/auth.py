@@ -132,6 +132,10 @@ class Token(BaseModel):
     token_type: str
 
 
+class MessageResponse(BaseModel):
+    message: str
+
+
 class RefreshRequest(BaseModel):
     # Optional body fallback for non-browser clients; browsers use the HttpOnly cookie.
     refresh_token: Optional[str] = None
@@ -413,6 +417,24 @@ async def _send_verification_email_safe(db: Session, user: User) -> None:
         logger.warning(f"Verification email not sent ({e.__class__.__name__}); link: {link}")
 
 
+async def _send_account_exists_email_safe(user: User) -> None:
+    """Tell the real account owner that someone tried to register with their email.
+
+    This is how the existing-email branch of register stays opaque: the HTTP response is
+    identical to a new signup, and only the inbox owner learns the account already exists.
+    Best-effort — email failures must not change the (opaque) response."""
+    try:
+        from app.services.email_service import send_account_exists_email
+        await send_account_exists_email(
+            to_email=user.email,
+            name=user.full_name,
+            login_link=f"{settings.FRONTEND_URL}/login",
+            reset_link=f"{settings.FRONTEND_URL}/forgot-password",
+        )
+    except Exception as e:
+        logger.warning(f"Account-exists email not sent ({e.__class__.__name__})")
+
+
 async def _send_oauth_linked_email_safe(user: User, provider: str) -> None:
     """Notify a user that a social identity was linked to their existing account.
 
@@ -526,14 +548,29 @@ async def _verify_google_id_token(id_token: str) -> dict:
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────────
 
-@router.post("/register", response_model=Token)
+# Identical opaque response for every registration attempt — new email, existing email, or a
+# concurrent-create race — so the endpoint never reveals whether an account exists
+# (anti-enumeration). Differentiation happens only out-of-band, in the recipient's inbox.
+_REGISTER_OPAQUE = {
+    "message": "Thanks! Check your email for a link to finish setting up your account."
+}
+
+
+@router.post("/register", response_model=MessageResponse)
 async def register(
     user_data: UserCreate,
     request: Request,
-    response: Response,
     db: Session = Depends(get_db),
 ):
-    """Register a new user, issue a session, and send an email-verification link."""
+    """Register a new user (verify-first, anti-enumeration).
+
+    Always returns the same opaque message and never sets a session here:
+    - New email → create the (unverified) account and email a verification link.
+    - Existing email → email the owner that someone tried to sign up (no account created).
+    The HTTP response is byte-identical in both cases, so probing /register cannot enumerate
+    accounts. The user finishes via the email link, or by signing in with the password they
+    just chose (login does not require verification).
+    """
     enforce_rate_limit(
         request,
         REGISTER_LIMITER,
@@ -541,23 +578,25 @@ async def register(
         error_detail="Too many registration attempts. Please try again in a minute.",
     )
     await enforce_turnstile(request)  # no-op unless Turnstile is configured
-    existing_user = db.query(User).filter(User.email == user_data.email).first()
-    if existing_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
 
-    # Reject passwords known to be in public breach corpora (HaveIBeenPwned, k-anonymity).
-    # Fails open if the service is unreachable so signups are never blocked by a third party.
+    # Reject breached passwords (HaveIBeenPwned, k-anonymity). Independent of email existence so
+    # it isn't an enumeration vector; fails open if HIBP is unreachable.
     if await is_password_pwned(user_data.password):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="This password has appeared in a known data breach. Please choose a different password.",
         )
 
-    # Offload CPU-bound bcrypt (~250ms) to a worker thread so it doesn't block the event loop.
+    # Always pay the bcrypt cost, even for an existing email, so response timing doesn't reveal
+    # whether the account is new (hash + insert) vs. existing (no insert) — closes the timing oracle.
     hashed_password = await asyncio.to_thread(get_password_hash, user_data.password)
+
+    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    if existing_user:
+        # Don't reveal existence in the response; alert the real owner out-of-band instead.
+        await _send_account_exists_email_safe(existing_user)
+        return _REGISTER_OPAQUE
+
     user = User(
         email=user_data.email,
         hashed_password=hashed_password,
@@ -569,19 +608,13 @@ async def register(
         db.commit()
         db.refresh(user)
     except IntegrityError:
+        # Lost a concurrent-create race for the same email — stay opaque (treat as existing).
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Email already registered"
-        )
+        return _REGISTER_OPAQUE
 
     await _send_verification_email_safe(db, user)
     audit_service.log_register(db, user.id, user.email, ip_address=_hashed_client_ip(request))
-
-    access_token = create_access_token(data={"sub": user.email})
-    _set_auth_cookie(response, access_token)
-    _issue_refresh_token(db, user, request, response)
-    return {"access_token": access_token, "token_type": "bearer"}
+    return _REGISTER_OPAQUE
 
 
 @router.post("/login", response_model=Token)

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { getCurrentUser, register } from '@/features/auth/api/auth-api'
+import { register } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
 import { Loader2, Mail } from 'lucide-react'
@@ -34,15 +34,11 @@ export default function RegisterPage() {
     analytics.signupStarted('register_page')
 
     try {
+      // Verify-first signup: register returns an opaque message and sets no session (so we
+      // can't reveal whether the email already existed). The user finishes via the email link
+      // or by signing in. Always route to the same "check your email" page.
       await register(email, password, fullName, turnstileToken)
-      try {
-        const user = await getCurrentUser()
-        if (user?.id && user?.email) {
-          analytics.signupCompleted(String(user.id), user.email)
-        }
-      } catch {
-        // Ignore analytics errors to avoid blocking signup
-      }
+      analytics.signupSubmitted()
       router.push(`/check-email?email=${encodeURIComponent(email)}`)
     } catch (err: unknown) {
       const errorMessage = isApiError(err) ? getErrorMessage(err) : 'Registration failed'

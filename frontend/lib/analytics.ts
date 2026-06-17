@@ -43,6 +43,13 @@ export const analytics = {
     safeCapture('signup_completed')
   },
 
+  // Verify-first signup: register no longer auto-logs-in, so there's no user id to identify
+  // yet. Capture an anonymous "submitted" step; identify happens later at login/verify and
+  // PostHog stitches the anonymous events to the person.
+  signupSubmitted: () => {
+    safeCapture('signup_submitted')
+  },
+
   loginCompleted: (userId: string, email: string) => {
     safeIdentify(userId, { email })
     safeCapture('login_completed')
