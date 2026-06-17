@@ -57,6 +57,36 @@ export const getCurrentUserSafe = async () => {
   }
 }
 
+export interface AuthConnection {
+  provider: string
+  provider_email: string | null
+  linked_at: string | null
+}
+
+export interface AuthConnections {
+  has_password: boolean
+  providers: AuthConnection[]
+}
+
+export const getConnections = async (): Promise<AuthConnections> => {
+  const response = await api.get('/api/auth/connections')
+  return response.data
+}
+
+export const unlinkProvider = async (provider: string) => {
+  const response = await api.delete(`/api/auth/connections/${provider}`)
+  return response.data
+}
+
+export const logoutAllSessions = async () => {
+  try {
+    const response = await api.post('/api/auth/logout-all')
+    return response.data
+  } finally {
+    clearSessionActive()
+  }
+}
+
 export const logout = async () => {
   try {
     const response = await api.post('/api/auth/logout')

@@ -58,8 +58,9 @@ def registered_user(client):
 
 
 @pytest.mark.requires_db
-def test_register_issues_token_and_sets_cookie(client):
-    """Registration returns a bearer token and sets the HttpOnly auth cookie."""
+def test_register_returns_opaque_message_and_no_session(client):
+    """Verify-first signup: register returns a generic message and issues NO session (no
+    access/refresh cookie, no token in the body) — it doesn't auto-log-in."""
     email = _unique_email()
     resp = client.post(
         "/api/auth/register",
@@ -67,13 +68,26 @@ def test_register_issues_token_and_sets_cookie(client):
     )
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body["token_type"] == "bearer"
-    assert body["access_token"]
-    # Cookie is set and HttpOnly.
+    assert "message" in body
+    assert "access_token" not in body
     set_cookie = resp.headers.get("set-cookie", "")
-    assert "earningsnerd_access_token=" in set_cookie
-    assert "HttpOnly" in set_cookie
-    # Clean up cookie jar so it doesn't leak into other tests.
+    assert "earningsnerd_access_token=" not in set_cookie
+    assert "earningsnerd_refresh_token=" not in set_cookie
+    client.cookies.clear()
+
+
+@pytest.mark.requires_db
+def test_register_creates_account_usable_for_login(client):
+    """Even without a session, register creates the account so the chosen password works at login."""
+    client.cookies.clear()
+    email = _unique_email()
+    reg = client.post("/api/auth/register", json={"email": email, "password": VALID_PASSWORD})
+    assert reg.status_code == 200, reg.text
+    assert "earningsnerd_refresh_token=" not in reg.headers.get("set-cookie", "")
+
+    login = client.post("/api/auth/login", json={"email": email, "password": VALID_PASSWORD})
+    assert login.status_code == 200, login.text
+    assert login.json()["access_token"]
     client.cookies.clear()
 
 
@@ -167,13 +181,23 @@ def test_repeated_failures_lock_the_account(client):
 
 
 @pytest.mark.requires_db
-def test_duplicate_registration_rejected(client, registered_user):
-    """Registering an existing email returns 400."""
-    resp = client.post(
+def test_register_is_opaque_for_new_and_existing_email(client, registered_user):
+    """Anti-enumeration: registering a brand-new email and an already-registered one return
+    identical responses (same status, same body, no session cookie) — so probing /register
+    cannot reveal which emails have accounts."""
+    new_resp = client.post(
+        "/api/auth/register",
+        json={"email": _unique_email(), "password": VALID_PASSWORD},
+    )
+    client.cookies.clear()
+    existing_resp = client.post(
         "/api/auth/register",
         json={"email": registered_user["email"], "password": VALID_PASSWORD},
     )
-    assert resp.status_code == 400
+    client.cookies.clear()
+    assert new_resp.status_code == existing_resp.status_code == 200
+    assert new_resp.json() == existing_resp.json()
+    assert "earningsnerd_access_token=" not in existing_resp.headers.get("set-cookie", "")
 
 
 def test_me_requires_auth(client):
@@ -195,12 +219,12 @@ def test_weak_password_rejected(client):
 # --- Refresh token flow -----------------------------------------------------------------
 
 @pytest.mark.requires_db
-def test_register_sets_refresh_cookie(client):
-    """Registration sets an HttpOnly, auth-path-scoped refresh cookie alongside the access cookie."""
+def test_login_sets_refresh_cookie(client, registered_user):
+    """Login sets an HttpOnly, auth-path-scoped refresh cookie (register no longer issues one)."""
     client.cookies.clear()
     resp = client.post(
-        "/api/auth/register",
-        json={"email": _unique_email(), "password": VALID_PASSWORD},
+        "/api/auth/login",
+        json={"email": registered_user["email"], "password": registered_user["password"]},
     )
     assert resp.status_code == 200, resp.text
     set_cookie = resp.headers.get("set-cookie", "")
