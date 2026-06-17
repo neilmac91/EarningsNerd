@@ -132,6 +132,11 @@ async def lifespan(app: FastAPI):
             logger.warning(f"  - {warning}")
     if resend_valid:
         logger.info(f"Email configured: sending from {settings.RESEND_FROM_EMAIL}")
+    else:
+        logger.error(
+            "Email (Resend) configuration is invalid. Outbound email (verification, "
+            "password reset) will fail."
+        )
 
     # Initialize Redis connection pool (with timeout to prevent hanging in CI/test)
     from app.services.redis_service import get_redis_pool, check_redis_health, close_redis
