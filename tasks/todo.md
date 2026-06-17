@@ -24,9 +24,21 @@ Decisions taken (recommended defaults; flagged for confirmation):
 - [ ] Tests: dedup (one alert/eligible watcher, never twice), gating (Pro realtime vs Free digest,
       8-K Pro-only, form-type prefs), no-historical-spam, prefs API coercion, email render no-PII
 
-## Deferred to follow-up increments
-- Frontend: NotificationPreferencesForm (settings) + WatchlistAddSearch + Pro toggles (PeekLocked)
-- Infra: Cloud Run job + Scheduler wiring in ci.yml; optional token-gated POST /internal/jobs/filing-scan
+## Frontend (DONE — added to #304)
+- [x] notifications-api client (get/update preferences)
+- [x] NotificationPreferencesForm in settings (10-K/10-Q/8-K/realtime/digest, auto-save, Pro-locked toggles)
+- [x] WatchlistAddSearch on the watchlist page (debounced autocomplete → addToWatchlist) + empty-state CTA
+- [x] Frontend lint + typecheck + 45 vitest + build green
+
+## Deferred to follow-up increment
+- Infra: Cloud Run `earningsnerd-filing-scan` job + Scheduler wiring in ci.yml; optional
+  token-gated POST /internal/jobs/filing-scan (one-time `gcloud run jobs create` + scheduler).
+
+## Review fixes applied (Gemini, all 6 resolved)
+- _write_log SAVEPOINT (isolate dup rollback) + regression test
+- tz-safe `now` normalisation in scan + digest
+- digest N+1 removed (one bulk query, tz-safe Python window filter)
+- HTML-escape EDGAR fields in alert/digest emails
 
 ## Verify
 - [x] backend `pytest` (403 passed) + ruff + bandit green (fresh-DB run)
