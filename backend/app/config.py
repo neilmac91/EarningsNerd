@@ -234,6 +234,18 @@ class Settings(BaseSettings):
                 "DATABASE_URL must point at a production database in production; refusing to start "
                 "on the sqlite default. Set DATABASE_URL to your Postgres/Cloud SQL connection string."
             )
+        # Warn (don't fail) if the session cookie isn't scoped to the parent domain in production.
+        # When the frontend (earningsnerd.io / www) and API (api.earningsnerd.io) are different hosts
+        # of the same site, an unset COOKIE_DOMAIN makes the auth cookie host-only on the API host —
+        # invisible to the Next.js middleware on the frontend, which then redirect-loops every
+        # protected route back to /login. A single-host deployment is legitimately fine unset.
+        if self.ENVIRONMENT == "production" and not self.COOKIE_DOMAIN:
+            import logging
+            logging.getLogger("uvicorn.error").warning(
+                "COOKIE_DOMAIN is unset in production. If the frontend and API are on different "
+                "hosts of the same site, session cookies will be host-only and protected routes "
+                "will redirect-loop. Set COOKIE_DOMAIN=.earningsnerd.io."
+            )
     
     def validate_openai_config(self) -> tuple[bool, list[str]]:
         """Validate OpenAI-compatible configuration and return (is_valid, warnings)"""

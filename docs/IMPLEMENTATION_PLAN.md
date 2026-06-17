@@ -3,6 +3,8 @@
 **Date:** 2026-06-17 · **Owner:** (you) · **Status:** Draft for review — *no feature code written yet.*
 **Companion docs:** `docs/AUTH_INVESTIGATION.md` (Phase 0), `docs/RESEARCH_SYNTHESIS.md` (value thesis & Free/Pro philosophy).
 
+> **Decisions locked (2026-06-17):** (1) **Phase 0 auth fix applied** in full on this branch (PR #303). (2) Build order after auth+billing: **Watchlist + alerts first** (retention engine). (3) Pricing: **Pro $14/mo · $140/yr** with a **7-day no-card reverse trial**. (4) Alerts v1: **email-first — 10-K/10-Q delayed for Free, real-time + 8-K for Pro.** These resolve open questions Q1–Q4 and Q7 in §7.
+>
 > **Reality check that reshapes this plan:** Dashboard, Watchlist, and Settings are **NOT empty scaffolds.** They are substantially built and wired (React Query + real APIs). So this is **"complete, deepen, and monetise,"** not green-field. Likewise the backend already has an `entitlements.py` abstraction, a Stripe router (checkout + portal + signature-verified webhook), watchlist CRUD + insights, and usage metering. The work is to **finish billing for production, formalise entitlements, add the new-filing alert loop, and deepen the three sections** — not to rebuild.
 
 ---
@@ -134,7 +136,7 @@ Full detail in `docs/AUTH_INVESTIGATION.md`. Summary:
 ### 3B. Backend
 - `GET /api/dashboard/feed?limit=` — composes watched companies' latest filings + summary-existence + a short diff headline (cache-friendly; reuse `/watchlist/insights` logic + compare engine). Paginated.
 - `GET /api/calendar/upcoming` — earnings/filing dates for watched companies.
-- (The "what changed" headline can start as a cheap, deterministic XBRL delta — revenue/EPS up/down — and only call the LLM for a richer diff on click. Cost-aware.)
+- (The "what changed" headline can start as a cheap, deterministic XBRL delta — revenue/EPS up/down — and only call the LLM for a richer diff on click. Cost-aware. When extracting this financial ground truth, enforce **hard invariants** — e.g. revenue ≥ 0 and `sign(EPS) == sign(net income)` — and drop/flag rows that violate them, so corrupt or misaligned XBRL never poisons the feed or any eval set. *(per PR review.)*)
 
 ### 3C. Frontend
 - `FilingFeed` + `WhatChangedCard`, `EarningsCalendar`, prominent `QuickSearch`. Reuse `StateCard`, `SecondaryHeader`, mint tokens, skeleton loaders.
@@ -225,15 +227,15 @@ Full detail in `docs/AUTH_INVESTIGATION.md`. Summary:
 
 **Assumptions (proceeding unless corrected):** Pro = $14/mo, $140/yr; 7-day no-card reverse trial; free watchlist stays unlimited; free summary cap stays ~5/mo; alerts are email-first; real-time alerts + 8-K + premium-model summaries are Pro; sections are "complete & deepen," not rebuild; custom auth stays (no migration to NextAuth/Clerk).
 
-**Load-bearing questions (also in the chat report):**
-- **Q1 — Auth/provider:** confirm we keep the custom JWT+OIDC stack (vs adopting an auth library) before Phase 0 ships.
-- **Q2 — v1 must-have section / sequencing:** keep the recommended Watchlist-first order, or Dashboard-first?
-- **Q3 — Trial trigger:** reverse trial on **signup** (max reveal, some abuse risk) vs **on first checkout intent**?
-- **Q4 — Alert channels & 8-K:** email-only for v1? In-app bell in v1 or later? Is 8-K coverage wanted in v1 (Pro)?
-- **Q5 — Auto-generation on alert:** for Pro watchers, pre-generate the summary (premium model, cost) so the alert is "ready to read," or always on-demand?
-- **Q6 — Data freshness:** scan cadence (hourly assumed) and any EDGAR/XBRL constraints to respect.
-- **Q7 — Pricing lock:** confirm $14/$140 and reverse-trial before the Free/Pro matrix is final.
-- **Q8 — Design constraints:** confirm new UI matches the existing `mint` Tailwind system (no new component library).
+**Load-bearing questions:**
+- **Q1 — Auth/provider:** ✅ RESOLVED — keep custom JWT+OIDC; Phase 0 applied.
+- **Q2 — v1 sequencing:** ✅ RESOLVED — **Watchlist + alerts first.**
+- **Q3 — Trial trigger:** ✅ RESOLVED (pricing) — 7-day **no-card reverse trial**. *Sub-question still open:* fire it on **signup** (max reveal) vs **first checkout intent** (less abuse) — assuming **signup** unless you say otherwise.
+- **Q4 — Alert channels & 8-K:** ✅ RESOLVED — **email-first; 8-K = Pro; real-time = Pro.** *Sub-question:* in-app bell deferred past v1 unless you want it now.
+- **Q5 — Auto-generation on alert:** OPEN — for Pro watchers, pre-generate the summary (premium model, cost) so the alert is "ready to read," or always on-demand? (Assuming on-demand; pre-gen behind a flag.)
+- **Q6 — Data freshness:** OPEN — scan cadence (hourly assumed) and any EDGAR/XBRL constraints to respect.
+- **Q7 — Pricing lock:** ✅ RESOLVED — **$14/mo · $140/yr**, reverse trial.
+- **Q8 — Design constraints:** OPEN — assuming new UI matches the existing `mint` Tailwind system (no new component library); confirm.
 
 ---
 

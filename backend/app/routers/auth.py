@@ -235,6 +235,36 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     return encoded_jwt
 
 
+# Durable, non-credential marker that a session exists, read by the Next.js edge middleware
+# (frontend/middleware.ts) to gate protected routes. Scoped to the parent domain + "/" and given
+# the refresh-token lifetime, so the route guard does NOT bounce a logged-in user every time the
+# short-lived (30-min) access token rotates. Carries no credential value — real authentication is
+# still the HttpOnly access/refresh tokens validated on every request. Keep this name in sync with
+# the literal in frontend/middleware.ts (pinned by a regression test on both sides).
+SESSION_PRESENCE_COOKIE = "en_session"
+
+
+def _set_session_presence_cookie(response: Response) -> None:
+    response.set_cookie(
+        key=SESSION_PRESENCE_COOKIE,
+        value="1",
+        max_age=settings.REFRESH_TOKEN_EXPIRE_DAYS * 24 * 60 * 60,
+        httponly=True,
+        secure=settings.COOKIE_SECURE,
+        samesite=settings.COOKIE_SAMESITE,
+        domain=settings.COOKIE_DOMAIN,
+        path="/",
+    )
+
+
+def _clear_session_presence_cookie(response: Response) -> None:
+    response.delete_cookie(
+        key=SESSION_PRESENCE_COOKIE,
+        domain=settings.COOKIE_DOMAIN,
+        path="/",
+    )
+
+
 def _set_auth_cookie(response: Response, token: str) -> None:
     response.set_cookie(
         key=settings.COOKIE_NAME,
@@ -246,6 +276,9 @@ def _set_auth_cookie(response: Response, token: str) -> None:
         domain=settings.COOKIE_DOMAIN,
         path="/",
     )
+    # (Re)issue the durable session-presence marker alongside every access token, so the edge
+    # middleware sees the session for its full lifetime — not just the 30-min access window.
+    _set_session_presence_cookie(response)
 
 
 def _clear_auth_cookie(response: Response) -> None:
@@ -254,6 +287,7 @@ def _clear_auth_cookie(response: Response) -> None:
         domain=settings.COOKIE_DOMAIN,
         path="/",
     )
+    _clear_session_presence_cookie(response)
 
 
 # Refresh cookie is scoped to the auth path so it is only ever sent to /api/auth/* —

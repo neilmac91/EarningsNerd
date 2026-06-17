@@ -1,17 +1,17 @@
 # Auth Redirect-Loop Investigation
 
-**Status:** Root cause confirmed. Fix prepared, **NOT applied** — awaiting go-ahead.
+**Status:** Root cause confirmed. Phase 0 fix **APPLIED** on branch `claude/zen-newton-upsnh9` (PR #303) — code + CI/runbook config + regression tests. The one remaining runtime step is the `COOKIE_DOMAIN` env var reaching the running service (ships with the next backend deploy, or set it in ~60s manually — see Fix 1).
 **Author:** Claude (Opus) · **Date:** 2026-06-17 · **Branch:** `claude/zen-newton-upsnh9`
 
 ---
 
-## ⚠️ Critical-path fix, awaiting go-ahead
+## ✅ Critical-path fix — applied (awaiting deploy of the env var)
 
-> This blocks everything else — you cannot verify Dashboard / Watchlist / Settings behind broken auth.
+> This blocked everything else — you couldn't verify Dashboard / Watchlist / Settings behind broken auth.
 >
 > **One-line cause:** In production the session cookie is **host-only on `api.earningsnerd.io`** because `COOKIE_DOMAIN` is never set, so the Next.js middleware running on `earningsnerd.io` never sees it and bounces every protected route back to `/login`.
 >
-> **One-line fix (immediate unblock):** Set `COOKIE_DOMAIN=.earningsnerd.io` on the Cloud Run backend. No code change is required to stop the loop. (The PR below also adds a durable-session cookie + regression tests so the bug class can't return.)
+> **What's applied:** `COOKIE_DOMAIN=.earningsnerd.io` baked into CI + the runbook; a durable `en_session` presence cookie that the middleware gates on; the `?redirect=` param is honoured; backend + Vitest regression tests. **Action still needed:** the env var only takes effect when the backend redeploys (this PR changes `backend/`, so a merge to `main` triggers it) — or run the one-liner in Fix 1 now for an instant unblock.
 
 ---
 
@@ -158,11 +158,11 @@ Add a non-credential `en_session` cookie whose lifetime matches the **refresh** 
 +def _clear_session_presence_cookie(response: Response) -> None:
 +    response.delete_cookie(SESSION_PRESENCE_COOKIE, domain=settings.COOKIE_DOMAIN, path="/")
 ```
-Call `_set_session_presence_cookie(response)` immediately after each `_set_auth_cookie(...)` /
-`_set_auth_cookie(redirect, ...)` — i.e. in **login** (`:674`), **refresh** (`:721`),
-**google_callback** (`:947`), **apple_callback** (`:1109`). Call `_clear_session_presence_cookie(response)`
-alongside the `_clear_auth_cookie` calls in **logout** (`:1154`), **logout-all** (`:1171`), and the two
-refresh-failure branches (`:702-703`, `:711-712`).
+**As applied (more surgical than the per-call-site sketch):** the two helpers are invoked from
+**inside** `_set_auth_cookie` and `_clear_auth_cookie` — the functions that *every* session
+start (login, refresh, Google, Apple) and end (logout, logout-all, refresh-failure) already calls.
+So the presence cookie is issued/cleared in lockstep with the access cookie with **zero** changes
+to the 8 call sites, and is refreshed to a full 30-day lifetime on every silent token refresh.
 
 ```diff
 # frontend/middleware.ts:36
@@ -181,8 +181,13 @@ refresh-failure branches (`:702-703`, `:711-712`).
 -      router.push('/')
 -      router.refresh()
 +      const dest = searchParams.get('redirect')
-+      // Only allow internal, single-segment-rooted paths (no protocol-relative "//evil").
-+      const safe = dest && dest.startsWith('/') && !dest.startsWith('//') ? dest : '/'
++      // Only allow internal, slash-rooted paths. Reject protocol-relative ("//evil") and
++      // backslash-prefixed ("/\\evil") values — some browsers normalise "\" to "/", which would
++      // otherwise let those through as open redirects to an external host. (Per PR review.)
++      const safe =
++        dest && dest.startsWith('/') && !dest.startsWith('//') && !dest.startsWith('/\\')
++          ? dest
++          : '/'
 +      router.push(safe)
 +      router.refresh()
 ```

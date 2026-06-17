@@ -32,8 +32,12 @@ export function middleware(request: NextRequest) {
   // Note: This is a basic check. The backend will do the actual token validation.
   const isProtectedRoute = PROTECTED_ROUTES.some(route => pathname.startsWith(route))
   if (isProtectedRoute) {
-    // Check for session cookie
-    const hasSessionCookie = request.cookies.has('earningsnerd_access_token')
+    // Durable, non-credential session marker set by the backend for the whole refresh-token
+    // lifetime (see SESSION_PRESENCE_COOKIE in backend/app/routers/auth.py — keep names in sync).
+    // We gate on this rather than the 30-min access token so a logged-in user isn't bounced to
+    // /login whenever the access token rotates. Real auth is still enforced by the API on every
+    // request (and the client silently refreshes); this only tells the edge guard a session exists.
+    const hasSessionCookie = request.cookies.has('en_session')
 
     if (!hasSessionCookie) {
       const loginUrl = request.nextUrl.clone()
