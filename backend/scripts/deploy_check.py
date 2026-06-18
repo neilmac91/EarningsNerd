@@ -210,6 +210,71 @@ def check_dependencies():
     return True
 
 
+def check_phase2_alerts():
+    """Phase 2 new-filing alerts readiness.
+
+    The alert tables auto-create, but the new COLUMNS on watchlist/companies do NOT
+    (`create_all` never alters existing tables) — a missing column makes every ORM read of
+    those tables fail in prod. This catches that, plus the alert-email and trial config.
+    """
+    print("\n" + "=" * 60)
+    print("PHASE 2 ALERTS READINESS")
+    print("=" * 60)
+
+    ok = True
+    warnings = []
+
+    # Columns added by backend/migrations/20260618_phase2_alerts.sql (not auto-created).
+    required_columns = {
+        "watchlist": {"last_alerted_accession", "last_alerted_at"},
+        "companies": {"last_filings_check_at"},
+    }
+    try:
+        from app.database import engine
+        from sqlalchemy import inspect
+
+        inspector = inspect(engine)
+        tables = set(inspector.get_table_names())
+
+        for table, cols in required_columns.items():
+            if table not in tables:
+                # Fresh DB: create_all will make the table WITH these columns on startup.
+                print(f"⚠️  {table} not present yet — created (with alert columns) on startup")
+                continue
+            existing = {c["name"] for c in inspector.get_columns(table)}
+            missing = cols - existing
+            if missing:
+                print(f"✗ {table} missing column(s): {', '.join(sorted(missing))}")
+                print("   Apply backend/migrations/20260618_phase2_alerts.sql before deploying.")
+                ok = False
+            else:
+                print(f"✓ {table} has alert columns")
+    except Exception as e:
+        print(f"⚠️  Could not inspect DB for Phase 2 columns: {e}")
+        warnings.append("phase2_db_inspect_failed")
+
+    # Alerts/digests send from settings.RESEND_FROM_EMAIL via Resend — both must be set.
+    if settings.RESEND_API_KEY and settings.RESEND_FROM_EMAIL:
+        print("✓ Alert email sender configured (RESEND_API_KEY + RESEND_FROM_EMAIL)")
+    else:
+        print("⚠️  RESEND_API_KEY / RESEND_FROM_EMAIL not fully set — alert emails will not send")
+        warnings.append("alert_email_unconfigured")
+
+    # Reverse trial: a positive day count if enabled.
+    if settings.REVERSE_TRIAL_ENABLED and settings.REVERSE_TRIAL_DAYS <= 0:
+        print("✗ REVERSE_TRIAL_ENABLED but REVERSE_TRIAL_DAYS <= 0")
+        ok = False
+    else:
+        state = (
+            f"on ({settings.REVERSE_TRIAL_DAYS}d, starts at signup)"
+            if settings.REVERSE_TRIAL_ENABLED
+            else "off"
+        )
+        print(f"✓ Reverse trial: {state}")
+
+    return ok, warnings
+
+
 def main():
     """Run all pre-deployment checks"""
     print("\n" + "=" * 60)
@@ -221,24 +286,30 @@ def main():
         "env_vars": False,
         "config": False,
         "database": False,
-        "dependencies": False
+        "dependencies": False,
+        "phase2_alerts": False
     }
-    
+
     # Check environment variables
     env_passed, critical_failures, warnings = check_environment_variables()
     results["env_vars"] = env_passed
-    
+
     # Check configuration validation
     config_passed, config_warnings = check_configuration_validation()
     results["config"] = config_passed
-    
+
     # Check database
     db_passed = check_database()
     results["database"] = db_passed
-    
+
     # Check dependencies
     deps_passed = check_dependencies()
     results["dependencies"] = deps_passed
+
+    # Check Phase 2 new-filing alert readiness (migration columns, alert email, trial config)
+    phase2_passed, phase2_warnings = check_phase2_alerts()
+    results["phase2_alerts"] = phase2_passed
+    warnings = warnings + phase2_warnings
     
     # Summary
     print("\n" + "=" * 60)
