@@ -375,7 +375,9 @@ export const getSummaryProgress = async (filingId: number): Promise<SummaryProgr
 
 // Saved Summaries APIs
 export const saveSummary = async (summaryId: number, notes?: string): Promise<SavedSummary> => {
-  const response = await api.post('/api/saved-summaries', {
+  // Trailing slash required — see getWatchlist: the slashless form 307-redirects to an
+  // http:// Location behind the Cloud Run proxy, which the browser blocks as mixed content.
+  const response = await api.post('/api/saved-summaries/', {
     summary_id: summaryId,
     notes,
   })
@@ -383,7 +385,7 @@ export const saveSummary = async (summaryId: number, notes?: string): Promise<Sa
 }
 
 export const getSavedSummaries = async (): Promise<SavedSummary[]> => {
-  const response = await api.get('/api/saved-summaries')
+  const response = await api.get('/api/saved-summaries/')
   return response.data
 }
 

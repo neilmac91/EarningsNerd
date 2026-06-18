@@ -45,4 +45,11 @@ ENV DB_CONNECT_TIMEOUT=10
 # Start the server. Schema is created at startup via Base.metadata.create_all()
 # in main.py's lifespan handler (this project has no Alembic config).
 # Note: Cloud Run uses a single worker by default which is fine for scale-to-zero
-CMD uvicorn main:app --host 0.0.0.0 --port ${PORT}
+#
+# --proxy-headers + --forwarded-allow-ips="*": Cloud Run terminates TLS at its proxy and
+# forwards to the container over plain HTTP. Without trusting the proxy's X-Forwarded-Proto
+# header (uvicorn's forwarded-allow-ips defaults to 127.0.0.1, which never matches the
+# Cloud Run front-end), Starlette builds redirect URLs (e.g. the trailing-slash 307) with
+# scheme http://, which browsers refuse to follow from an https page (mixed content).
+# Trusting "*" is safe here because only Google's front-end can reach the container.
+CMD uvicorn main:app --host 0.0.0.0 --port ${PORT} --proxy-headers --forwarded-allow-ips="*"

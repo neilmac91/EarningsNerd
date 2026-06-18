@@ -45,7 +45,10 @@ export const addToWatchlist = async (ticker: string): Promise<WatchlistItem> => 
 }
 
 export const getWatchlist = async (): Promise<WatchlistItem[]> => {
-  const response = await api.get('/api/watchlist')
+  // Trailing slash is required: the route is registered at "/" and a slashless request
+  // triggers a 307 redirect whose Location is built with the proxy-stripped http:// scheme,
+  // which the browser blocks as mixed content (surfaces as a bare "Network Error").
+  const response = await api.get('/api/watchlist/')
   return response.data
 }
 
