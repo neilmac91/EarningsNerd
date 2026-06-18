@@ -124,17 +124,15 @@ jobs:
           grep -rlE 'packages\.microsoft\.com' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null \
             | sudo xargs -r rm -f || true
       - name: Install Playwright browsers
-        # `--with-deps` runs apt, which on GitHub-hosted runners intermittently STALLS (mirror
-        # hangs), leaving this step — and the whole e2e job, which gates deploy-backend — hung for
-        # many minutes. Bound each attempt and retry so a transient apt stall self-heals on a fresh
-        # attempt instead of blocking the deploy.
+        # `--with-deps` runs apt, which on GitHub-hosted runners intermittently STALLS/errors
+        # (mirror outage) — it has hung this job ~9 min and failed it across several runs, blocking
+        # deploy-backend (which gates on e2e). Try the full install once, bounded; on failure fall
+        # back to a browsers-only Chromium install (Playwright CDN, no apt). The runner image ships
+        # the libs Chromium needs, and these tests use Chromium only (no `projects` configured).
         run: |
-          for attempt in 1 2 3; do
-            echo "Playwright install attempt $attempt…"
-            timeout 360 npx playwright install --with-deps && exit 0
-            echo "::warning::playwright install attempt $attempt stalled/failed; retrying"
-          done
-          echo "::error::playwright install failed after 3 attempts"; exit 1
+          timeout 300 npx playwright install --with-deps chromium && exit 0
+          echo "::warning::playwright --with-deps failed/stalled (apt); falling back to browsers-only Chromium"
+          npx playwright install chromium
         working-directory: frontend
       - name: Build frontend
         run: npm run build
