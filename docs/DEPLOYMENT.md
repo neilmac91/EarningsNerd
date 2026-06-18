@@ -158,7 +158,7 @@ SA="$(gcloud projects describe earnings-nerd --format='value(projectNumber)')-co
 
 # NOTE: app/config.py requires SECRET_KEY and OPENAI_API_KEY at import — the job crashes on startup
 # without them, even though the scan itself makes no AI calls. RESEND_API_KEY is needed to send mail.
-SECRETS=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,RESEND_API_KEY=RESEND_API_KEY:latest
+SECRETS=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest
 ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@SEC_EDGAR_BASE_URL=https://data.sec.gov"
 
 # Real-time scan job
