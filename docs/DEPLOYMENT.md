@@ -175,7 +175,9 @@ gcloud run jobs create earningsnerd-filing-digest --region=us-west1 \
   --set-cloudsql-instances="$CONN" --set-secrets="$SECRETS" --set-env-vars="$ENVV" \
   --command=python --args=scripts/filing_scan.py,--digest
 
-# Let the scheduler SA invoke Cloud Run jobs.
+# roles/run.invoker is sufficient: it includes both run.routes.invoke (services)
+# and run.jobs.run (jobs). roles/run.developer would also work but is overly
+# permissive (adds create/update/delete on services and jobs).
 gcloud projects add-iam-policy-binding earnings-nerd \
   --member="serviceAccount:${SA}" --role="roles/run.invoker"
 
