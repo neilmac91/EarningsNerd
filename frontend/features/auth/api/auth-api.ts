@@ -123,6 +123,21 @@ export const deleteUserAccount = async () => {
   return response.data
 }
 
+// Profile + password management
+export const updateProfile = async (fullName: string | null) => {
+  const response = await api.patch('/api/users/me', { full_name: fullName })
+  return response.data
+}
+
+export const changePassword = async (currentPassword: string | null, newPassword: string) => {
+  // current_password is omitted for OAuth-only users setting a password for the first time.
+  const response = await api.post('/api/auth/change-password', {
+    current_password: currentPassword || undefined,
+    new_password: newPassword,
+  })
+  return response.data
+}
+
 export const verifyEmail = async (token: string) => {
   const response = await api.post('/api/auth/verify-email', { token })
   return response.data

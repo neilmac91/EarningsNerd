@@ -173,6 +173,18 @@ class ResetPasswordRequest(BaseModel):
         return validate_password_strength(value)
 
 
+class ChangePasswordRequest(BaseModel):
+    # `current_password` is required to CHANGE an existing password; it may be omitted by
+    # OAuth-only users SETTING a password for the first time (they're already authenticated).
+    current_password: Optional[str] = None
+    new_password: str
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password(cls, value: str) -> str:
+        return validate_password_strength(value)
+
+
 # ─── Password helpers (bcrypt) ──────────────────────────────────────────────────
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -874,6 +886,40 @@ async def reset_password(
     user.email_verified = True
     db.commit()
     return {"message": "Password updated. You can now log in with your new password."}
+
+
+@router.post("/change-password")
+async def change_password(
+    payload: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Set or change the signed-in user's password.
+
+    - A user who already has a password must supply the correct ``current_password``.
+    - An OAuth-only user (no password yet) may set one without a current password — this unlocks
+      email/password sign-in alongside their Google/Apple logins.
+
+    Applies the same strength + breached-password (HIBP) checks as registration/reset.
+    """
+    if current_user.hashed_password:
+        ok = await asyncio.to_thread(
+            verify_password, payload.current_password or "", current_user.hashed_password
+        )
+        if not ok:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Current password is incorrect."
+            )
+
+    if await is_password_pwned(payload.new_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This password has appeared in a known data breach. Please choose a different password.",
+        )
+
+    current_user.hashed_password = await asyncio.to_thread(get_password_hash, payload.new_password)
+    db.commit()
+    return {"message": "Password updated."}
 
 
 # ─── Google OAuth (OIDC via httpx — no extra dependency) ───────────────────────

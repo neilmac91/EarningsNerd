@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 import logging
@@ -68,6 +68,40 @@ async def get_profile(current_user: User = Depends(get_current_user)):
         "full_name": current_user.full_name,
         "is_pro": current_user.is_pro,
         "created_at": current_user.created_at
+    }
+
+
+class ProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+
+    @field_validator("full_name")
+    @classmethod
+    def clean_name(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        value = value.strip()
+        if len(value) > 100:
+            raise ValueError("Name must be at most 100 characters.")
+        return value or None  # empty string clears the name
+
+
+@router.patch("/me")
+async def update_profile(
+    payload: ProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update editable profile fields (currently the display name)."""
+    data = payload.model_dump(exclude_unset=True)
+    if "full_name" in data:
+        current_user.full_name = data["full_name"]
+    db.commit()
+    db.refresh(current_user)
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "full_name": current_user.full_name,
+        "is_pro": current_user.is_pro,
     }
 
 
