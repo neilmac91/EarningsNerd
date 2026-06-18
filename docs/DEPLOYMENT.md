@@ -175,11 +175,11 @@ gcloud run jobs create earningsnerd-filing-digest --region=us-west1 \
   --set-cloudsql-instances="$CONN" --set-secrets="$SECRETS" --set-env-vars="$ENVV" \
   --command=python --args=scripts/filing_scan.py,--digest
 
-# roles/run.developer (not run.invoker) is required: run.invoker only covers
-# Cloud Run services; executing jobs via the Admin API needs run.jobs.run,
-# which is included in run.developer.
+# roles/run.invoker is sufficient: it includes both run.routes.invoke (services)
+# and run.jobs.run (jobs). roles/run.developer would also work but is overly
+# permissive (adds create/update/delete on services and jobs).
 gcloud projects add-iam-policy-binding earnings-nerd \
-  --member="serviceAccount:${SA}" --role="roles/run.developer"
+  --member="serviceAccount:${SA}" --role="roles/run.invoker"
 
 # Hourly real-time scan
 gcloud scheduler jobs create http filing-scan-hourly --location=us-west1 --schedule="0 * * * *" \
