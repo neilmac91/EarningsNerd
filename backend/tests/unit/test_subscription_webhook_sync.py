@@ -4,11 +4,13 @@ Verifies that a verified Stripe event creates/updates the `subscriptions` row, m
 and that a duplicate delivery (same event id) is a no-op. construct_event is mocked so we don't
 need a real signing secret beyond the conftest mock.
 """
+import json
 import uuid
 from contextlib import contextmanager
 from unittest.mock import patch
 
 import pytest
+from stripe import StripeObject
 from fastapi.testclient import TestClient
 
 from main import app
@@ -49,13 +51,16 @@ def _temp_user(**overrides):
 
 
 def _post_event(client, event):
+    # The handler processes the verified raw payload (stripe v15 StripeObject isn't dict-like),
+    # so the event must be sent as the body; construct_event only verifies the signature here.
+    payload = json.dumps(event).encode()
     with patch(
         "app.routers.subscriptions.stripe.Webhook.construct_event",
-        return_value=event,
+        return_value=StripeObject.construct_from(event, "sk_test"),
     ):
         return client.post(
             "/api/subscriptions/webhook",
-            content=b"{}",
+            content=payload,
             headers={"stripe-signature": "t=1,v1=deadbeef"},
         )
 

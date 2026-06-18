@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
+import json
 import logging
 import stripe
 from app.database import get_db
@@ -219,7 +220,12 @@ async def stripe_webhook(
             raise HTTPException(status_code=400, detail="Invalid payload")
         except stripe.error.SignatureVerificationError:
             raise HTTPException(status_code=400, detail="Invalid signature")
-        
+
+        # stripe-python v15's StripeObject is NOT dict-like — `.get()` raises AttributeError, which
+        # broke every webhook (HTTP 500). construct_event has already verified the signature above;
+        # process the verified raw payload as plain dicts so `.get()` works throughout.
+        event = json.loads(payload)
+
         # Idempotency: Stripe delivers at-least-once and retries. If we've already processed this
         # event id, acknowledge without re-applying (prevents double-charge / wrong-entitlement).
         event_id = event.get("id")
