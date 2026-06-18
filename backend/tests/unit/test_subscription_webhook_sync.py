@@ -14,6 +14,23 @@ from stripe import StripeObject
 from fastapi.testclient import TestClient
 
 from main import app
+from app.services.subscription_sync import _current_period_end_from_sub
+
+
+def test_current_period_end_prefers_item_level():
+    """Stripe API 2025-10-29 moved current_period_end onto items; read it there."""
+    sub = {"current_period_end": None, "items": {"data": [{"current_period_end": 1784414367}]}}
+    assert _current_period_end_from_sub(sub) == 1784414367
+
+
+def test_current_period_end_falls_back_to_top_level():
+    """Older API versions still put it at the top level."""
+    sub = {"current_period_end": 1700000000, "items": {"data": [{}]}}
+    assert _current_period_end_from_sub(sub) == 1700000000
+
+
+def test_current_period_end_missing_returns_none():
+    assert _current_period_end_from_sub({"items": {"data": []}}) is None
 
 
 @pytest.fixture(scope="module")

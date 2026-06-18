@@ -56,6 +56,16 @@ def _price_id_from_sub(sub: dict) -> Optional[str]:
         return None
 
 
+def _current_period_end_from_sub(sub: dict) -> Any:
+    """Stripe API 2025-10-29 moved ``current_period_end`` off the subscription onto its items.
+    Prefer the item-level value; fall back to the legacy top-level field for older API versions."""
+    try:
+        item_cpe = sub["items"]["data"][0].get("current_period_end")
+    except (KeyError, IndexError, TypeError, AttributeError):
+        item_cpe = None
+    return item_cpe or sub.get("current_period_end")
+
+
 def _get_or_create_subscription(db: Session, user: User) -> Subscription:
     sub = db.query(Subscription).filter(Subscription.user_id == user.id).first()
     if sub is None:
@@ -118,7 +128,7 @@ def apply_subscription_upsert(db: Session, sub_obj: dict) -> Optional[User]:
     sub.stripe_subscription_id = stripe_sub_id or sub.stripe_subscription_id
     sub.stripe_customer_id = stripe_customer_id or sub.stripe_customer_id
     sub.stripe_price_id = _price_id_from_sub(sub_obj) or sub.stripe_price_id
-    sub.current_period_end = _ts_to_dt(sub_obj.get("current_period_end")) or sub.current_period_end
+    sub.current_period_end = _ts_to_dt(_current_period_end_from_sub(sub_obj)) or sub.current_period_end
     sub.trial_end = _ts_to_dt(sub_obj.get("trial_end"))
     sub.cancel_at_period_end = bool(sub_obj.get("cancel_at_period_end", False))
 
