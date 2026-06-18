@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Dict, List, Optional, Set, TypeVar
 
 from sqlalchemy import desc, func
@@ -15,6 +15,18 @@ logger = logging.getLogger(__name__)
 
 
 KeyT = TypeVar("KeyT")
+
+
+def _to_naive_utc(dt: datetime) -> datetime:
+    """Drop tz info as UTC so values can be compared against naive datetime.utcnow().
+
+    filing_date is DateTime(timezone=True), so Postgres returns tz-aware values while
+    this module works in naive UTC. Subtracting the two directly raises
+    "can't subtract offset-naive and offset-aware datetimes".
+    """
+    if dt.tzinfo is None:
+        return dt
+    return dt.astimezone(timezone.utc).replace(tzinfo=None)
 
 
 def _normalize(values: Dict[KeyT, float]) -> Dict[KeyT, float]:
@@ -208,7 +220,7 @@ class HotFilingsService:
                 news_sentiments.get(ticker) if ticker else None
             )
 
-            age_hours = (now - filing.filing_date).total_seconds() / 3600
+            age_hours = (now - _to_naive_utc(filing.filing_date)).total_seconds() / 3600
             recency_weight = max(0.0, 1 - min(age_hours / 72.0, 1.0))
             recency_score = recency_weight * 5.0
 
