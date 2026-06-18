@@ -39,6 +39,7 @@
     "react-markdown": "^10.1.0",
     "recharts": "^3.8.1",
     "remark-gfm": "^4.0.1",
+    "sonner": "^1.7.4",
     "tailwindcss": "^3.4.19"
   },
   "devDependencies": {

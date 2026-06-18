@@ -64,7 +64,9 @@ export const getRecentFilings = async (limit: number = 10): Promise<Filing[]> =>
 }
 
 export const compareFilings = async (filingIds: number[]): Promise<ComparisonData> => {
-  const response = await api.post('/api/compare', {
+  // Trailing slash required — see getWatchlist: the slashless form 307-redirects to an
+  // http:// Location behind the Cloud Run proxy, which the browser blocks as mixed content.
+  const response = await api.post('/api/compare/', {
     filing_ids: filingIds,
   })
   return response.data

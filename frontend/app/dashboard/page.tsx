@@ -10,6 +10,7 @@ import { useEffect } from 'react'
 import { CheckCircle2, AlertCircle, Sparkles, BarChart3, FileText, Loader2, Trash2, X } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
+import { toast } from 'sonner'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import StateCard from '@/components/StateCard'
@@ -63,6 +64,10 @@ export default function DashboardPage() {
     mutationFn: deleteSavedSummary,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['saved-summaries'] })
+      toast.success('Saved summary removed')
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Couldn't delete that summary. Please try again.")
     },
   })
 
@@ -71,6 +76,10 @@ export default function DashboardPage() {
     onSuccess: (_data, ticker) => {
       queryClient.invalidateQueries({ queryKey: ['watchlist'] })
       analytics.watchlistRemoved(ticker)
+      toast.success(`${ticker} removed from your watchlist`)
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Couldn't update your watchlist. Please try again.")
     },
   })
 
@@ -79,7 +88,14 @@ export default function DashboardPage() {
     onSuccess: (data) => {
       if (data.url) {
         window.location.href = data.url
+      } else {
+        // 200 with no URL means the billing portal couldn't be created — don't leave a dead click.
+        toast.error('Could not open the billing portal. Please try again.')
       }
+    },
+    onError: (error) => {
+      // Surfaces the backend detail (e.g. "No subscription found") instead of failing silently.
+      toast.error(error instanceof Error ? error.message : 'Could not open the billing portal. Please try again.')
     },
   })
 

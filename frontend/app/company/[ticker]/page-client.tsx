@@ -8,6 +8,7 @@ import { getCompanyFilings, Filing } from '@/features/filings/api/filings-api'
 import { addToWatchlist, removeFromWatchlist, getWatchlist, WatchlistItem } from '@/features/watchlist/api/watchlist-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { FileText, ExternalLink, Loader2, ChevronDown, Filter, Star, Sparkles, ArrowRight } from 'lucide-react'
+import { toast } from 'sonner'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
@@ -54,25 +55,59 @@ export default function CompanyPageClient() {
 
   const queryClient = useQueryClient()
 
+  // The desired action (`shouldAdd`) is decided at click time from the rendered state, not
+  // re-derived inside the mutation — onMutate flips the cache optimistically, so reading it
+  // back in mutationFn would invert the decision.
   const watchlistMutation = useMutation({
-    mutationFn: async (tickerToToggle: string) => {
-      const inWatchlist = watchlist?.some((w: WatchlistItem) => w.company.ticker === tickerToToggle)
-      if (inWatchlist) {
-        await removeFromWatchlist(tickerToToggle)
-        return { action: 'removed' as const, ticker: tickerToToggle }
-      } else {
+    mutationFn: async ({ ticker: tickerToToggle, shouldAdd }: { ticker: string; shouldAdd: boolean }) => {
+      if (shouldAdd) {
         await addToWatchlist(tickerToToggle)
         return { action: 'added' as const, ticker: tickerToToggle }
       }
+      await removeFromWatchlist(tickerToToggle)
+      return { action: 'removed' as const, ticker: tickerToToggle }
+    },
+    // Optimistic toggle: flip the star instantly, then reconcile with the server.
+    onMutate: async ({ ticker: tickerToToggle, shouldAdd }) => {
+      await queryClient.cancelQueries({ queryKey: ['watchlist'] })
+      const previous = queryClient.getQueryData<WatchlistItem[]>(['watchlist'])
+      queryClient.setQueryData<WatchlistItem[]>(['watchlist'], (old) => {
+        const list = old ?? []
+        if (shouldAdd) {
+          if (!company || list.some((w) => w.company.ticker === tickerToToggle)) return list
+          return [
+            ...list,
+            {
+              id: -Date.now(), // temporary id; replaced by the real row on refetch (onSettled)
+              company_id: company.id,
+              created_at: new Date().toISOString(),
+              company: { id: company.id, ticker: company.ticker, name: company.name },
+            },
+          ]
+        }
+        return list.filter((w) => w.company.ticker !== tickerToToggle)
+      })
+      return { previous }
+    },
+    onError: (_error, _variables, context) => {
+      // Roll back to the pre-click snapshot and explain why the star didn't stick.
+      if (context?.previous !== undefined) {
+        queryClient.setQueryData(['watchlist'], context.previous)
+      }
+      toast.error("Couldn't update your watchlist. Please try again.")
     },
     onSuccess: (result) => {
-      queryClient.invalidateQueries({ queryKey: ['watchlist'] })
-      if (result?.action === 'added') {
+      if (result.action === 'added') {
         analytics.watchlistAdded(result.ticker)
-      }
-      if (result?.action === 'removed') {
+        toast.success(`${company?.ticker ?? result.ticker} added to your watchlist`)
+      } else {
         analytics.watchlistRemoved(result.ticker)
+        toast.success(`${company?.ticker ?? result.ticker} removed from your watchlist`)
       }
+    },
+    // Always refetch so the temporary optimistic row is replaced by the canonical server row.
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['watchlist'] })
     },
   })
 
@@ -217,7 +252,7 @@ export default function CompanyPageClient() {
                   <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{companyData.name}</h1>
                   {currentUser && (
                     <button
-                      onClick={() => watchlistMutation.mutate(normalizedTicker)}
+                      onClick={() => watchlistMutation.mutate({ ticker: normalizedTicker, shouldAdd: !isInWatchlist })}
                       disabled={watchlistMutation.isPending}
                       aria-label={isInWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
                       aria-pressed={Boolean(isInWatchlist)}
