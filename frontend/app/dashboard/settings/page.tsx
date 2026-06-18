@@ -9,6 +9,9 @@ import Link from 'next/link'
 import analytics from '@/lib/analytics'
 import ConnectedAccounts from '@/components/settings/ConnectedAccounts'
 import NotificationPreferencesForm from '@/components/settings/NotificationPreferencesForm'
+import ProfileForm from '@/components/settings/ProfileForm'
+import BillingPanel from '@/components/settings/BillingPanel'
+import ChangePasswordForm from '@/components/settings/ChangePasswordForm'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -87,33 +90,17 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        {/* Account Info */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-6">
-          <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-4">
-            Account Information
-          </h2>
-          <div className="space-y-3">
-            <div>
-              <label className="text-sm text-slate-600 dark:text-slate-400">Email</label>
-              <p className="text-slate-900 dark:text-white font-medium">{user?.email}</p>
-            </div>
-            {user?.full_name && (
-              <div>
-                <label className="text-sm text-slate-600 dark:text-slate-400">Name</label>
-                <p className="text-slate-900 dark:text-white font-medium">{user.full_name}</p>
-              </div>
-            )}
-            <div>
-              <label className="text-sm text-slate-600 dark:text-slate-400">Plan</label>
-              <p className="text-slate-900 dark:text-white font-medium">
-                {user?.is_pro ? 'Pro' : 'Free'}
-              </p>
-            </div>
-          </div>
-        </div>
+        {/* Profile — email (read-only) + editable display name */}
+        <ProfileForm />
+
+        {/* Billing — plan, usage, trial countdown, renew/cancel, manage portal */}
+        <BillingPanel />
 
         {/* Connected accounts & sessions */}
         <ConnectedAccounts />
+
+        {/* Set / change password (OAuth-only users can set one here) */}
+        <ChangePasswordForm />
 
         {/* New-filing alert preferences */}
         <NotificationPreferencesForm />
