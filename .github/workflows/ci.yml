@@ -101,6 +101,7 @@ jobs:
 
   e2e-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v6
       - name: Set up Node.js
@@ -123,7 +124,15 @@ jobs:
           grep -rlE 'packages\.microsoft\.com' /etc/apt/sources.list /etc/apt/sources.list.d/ 2>/dev/null \
             | sudo xargs -r rm -f || true
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps
+        # `--with-deps` runs apt, which on GitHub-hosted runners intermittently STALLS/errors
+        # (mirror outage) — it has hung this job ~9 min and failed it across several runs, blocking
+        # deploy-backend (which gates on e2e). Try the full install once, bounded; on failure fall
+        # back to a browsers-only Chromium install (Playwright CDN, no apt). The runner image ships
+        # the libs Chromium needs, and these tests use Chromium only (no `projects` configured).
+        run: |
+          timeout 300 npx playwright install --with-deps chromium && exit 0
+          echo "::warning::playwright --with-deps failed/stalled (apt); falling back to browsers-only Chromium"
+          npx playwright install chromium
         working-directory: frontend
       - name: Build frontend
         run: npm run build

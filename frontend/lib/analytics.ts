@@ -132,6 +132,15 @@ export const analytics = {
     safeCapture('watchlist_removed', { ticker })
   },
 
+  // Dashboard "what changed" feed: a filing card was clicked through to its summary.
+  dashboardFeedClicked: (filingId: number, ticker: string | null, filingType: string) => {
+    safeCapture('dashboard_feed_clicked', {
+      filing_id: filingId,
+      ticker,
+      filing_type: filingType,
+    })
+  },
+
   pricingViewed: (billingCycle: 'monthly' | 'yearly') => {
     safeCapture('pricing_viewed', { billing_cycle: billingCycle })
   },

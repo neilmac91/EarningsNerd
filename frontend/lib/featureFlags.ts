@@ -85,3 +85,11 @@ export const ENABLE_APPLE_SIGNIN =
  */
 export const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ''
 export const TURNSTILE_ENABLED = TURNSTILE_SITE_KEY.length > 0
+
+/**
+ * Show the dashboard earnings calendar (upcoming earnings for watched companies).
+ * Ships off by default — the backend `/api/dashboard/calendar/upcoming` returns empty until an
+ * FMP_API_KEY is provisioned, so the widget stays dark until both are ready.
+ * Flip NEXT_PUBLIC_ENABLE_CALENDAR='true' once FMP is configured.
+ */
+export const ENABLE_CALENDAR = process.env.NEXT_PUBLIC_ENABLE_CALENDAR === 'true'

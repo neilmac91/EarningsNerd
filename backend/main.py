@@ -66,6 +66,7 @@ from app.routers import (
     webhooks,
     admin,
     internal,
+    dashboard,
 )
 from app.config import settings, APP_VERSION
 
@@ -290,6 +291,7 @@ app.include_router(contact.router, prefix="/api/contact", tags=["Contact"])
 app.include_router(webhooks.router, prefix="/api", tags=["Webhooks"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(internal.router, prefix="/internal", tags=["Internal"])
+app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
 
 
 # SEC EDGAR circuit-breaker handler: when the breaker is open we are deliberately

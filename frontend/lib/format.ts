@@ -1,3 +1,5 @@
+import { format } from 'date-fns'
+
 type NumericInput = number | string | null | undefined
 
 const MISSING_TOKENS = new Set([
@@ -189,3 +191,22 @@ export const sanitizeFilename = (name: string | null | undefined, fallback = 'fi
 }
 
 
+
+/**
+ * Format a date string for display in the user's LOCAL calendar, without the UTC-shift bug.
+ *
+ * `new Date('2026-03-31')` parses as UTC midnight, so `date-fns` then renders the prior day for
+ * users west of UTC. We take the date part (handles both 'YYYY-MM-DD' and full ISO datetimes like
+ * '2026-03-31T00:00:00+00:00') and build a LOCAL date, so the calendar day is always shown as-is.
+ */
+export const formatLocalDate = (
+  value: string | null | undefined,
+  pattern: string,
+  fallback = '',
+): string => {
+  if (!value) return fallback
+  const [year, month, day] = value.slice(0, 10).split('-').map(Number)
+  if (!year || !month || !day) return fallback
+  const date = new Date(year, month - 1, day)
+  return Number.isNaN(date.getTime()) ? fallback : format(date, pattern)
+}
