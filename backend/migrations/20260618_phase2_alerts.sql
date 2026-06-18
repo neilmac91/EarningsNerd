@@ -41,8 +41,10 @@ CREATE INDEX IF NOT EXISTS idx_notification_log_user_id ON notification_log (use
 CREATE INDEX IF NOT EXISTS idx_notification_log_filing_id ON notification_log (filing_id);
 
 -- Backfill default preferences for existing users (lazy get-or-create handles the rest at runtime).
-INSERT INTO notification_preferences (user_id)
-SELECT u.id FROM users u
+-- Explicit column list required: table may have been created by SQLAlchemy create_all() without
+-- DB-level DEFAULT clauses, so relying on implicit defaults causes NOT NULL violations.
+INSERT INTO notification_preferences (user_id, notify_10k, notify_10q, notify_8k, channel, digest, realtime)
+SELECT u.id, TRUE, TRUE, FALSE, 'email', 'daily', FALSE FROM users u
 ON CONFLICT (user_id) DO NOTHING;
 
 COMMIT;
