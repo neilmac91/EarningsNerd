@@ -143,28 +143,57 @@ A Cloud Run Job `earningsnerd-pregenerate` + Cloud Scheduler (`0 6 * * 1`, Monda
 `deploy-backend` job for the exact commands.
 
 ### 10. New-filing alert scan (Phase 2)
-A Cloud Run Job `earningsnerd-filing-scan` runs `scripts/filing_scan.py` to detect new SEC filings
-for watched companies and send alerts (real-time for Pro, daily digest for Free). The CD pipeline
-keeps the job image in sync **once the job exists** (the step skips gracefully otherwise). Create it
-once, with two Cloud Scheduler triggers — hourly scan + once-daily digest:
+Two Cloud Run Jobs run `scripts/filing_scan.py` to detect new SEC filings for watched companies and
+send alerts (real-time for Pro, daily digest for Free): `earningsnerd-filing-scan` (real-time pass)
+and `earningsnerd-filing-digest` (the `--digest` pass). They are **separate jobs** on purpose — a
+plain Cloud Run Jobs `:run` POST cannot override `--args`, so baking `--digest` into its own job is
+the simplest robust way to schedule the digest. The CD pipeline keeps both job images in sync **once
+they exist** (each step skips gracefully otherwise). Create them once, with one Cloud Scheduler
+trigger each (hourly scan + once-daily digest):
 
 ```bash
-# One-time job creation (needs DB + Resend secrets, same connector as the service)
+# Same connector + scheduler SA the rest of this runbook uses.
+CONN=earnings-nerd:us-west1:earningsnerd-db
+SA="$(gcloud projects describe earnings-nerd --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
+
+# NOTE: app/config.py requires SECRET_KEY and OPENAI_API_KEY at import — the job crashes on startup
+# without them, even though the scan itself makes no AI calls. RESEND_API_KEY is needed to send mail.
+SECRETS=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest
+ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@SEC_EDGAR_BASE_URL=https://data.sec.gov"
+
+# Real-time scan job
 gcloud run jobs create earningsnerd-filing-scan --region=us-west1 \
   --image=us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:latest \
-  --command=python --args=scripts/filing_scan.py \
-  --set-secrets=DATABASE_URL=DATABASE_URL:latest,RESEND_API_KEY=RESEND_API_KEY:latest \
-  --set-cloudsql-instances=<CONNECTION_NAME>
+  --cpu=1 --memory=1Gi --task-timeout=1800 \
+  --set-cloudsql-instances="$CONN" --set-secrets="$SECRETS" --set-env-vars="$ENVV" \
+  --command=python --args=scripts/filing_scan.py
+
+# Daily digest job (same script, --digest baked in)
+gcloud run jobs create earningsnerd-filing-digest --region=us-west1 \
+  --image=us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:latest \
+  --cpu=1 --memory=1Gi --task-timeout=1800 \
+  --set-cloudsql-instances="$CONN" --set-secrets="$SECRETS" --set-env-vars="$ENVV" \
+  --command=python --args=scripts/filing_scan.py,--digest
+
+# Let the scheduler SA invoke Cloud Run jobs.
+gcloud projects add-iam-policy-binding earnings-nerd \
+  --member="serviceAccount:${SA}" --role="roles/run.invoker"
 
 # Hourly real-time scan
 gcloud scheduler jobs create http filing-scan-hourly --location=us-west1 --schedule="0 * * * *" \
-  --uri="https://<run-jobs-execute-endpoint>/earningsnerd-filing-scan:run" --http-method=POST \
-  --oauth-service-account-email=<SCHEDULER_SA>
+  --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-filing-scan:run" \
+  --http-method=POST --oauth-service-account-email="${SA}"
 
-# Daily digest (08:00 UTC) — override the job args to --digest
+# Daily digest at 08:00 UTC
 gcloud scheduler jobs create http filing-digest-daily --location=us-west1 --schedule="0 8 * * *" \
-  --uri="https://<run-jobs-execute-endpoint>/earningsnerd-filing-scan:run" --http-method=POST \
-  --oauth-service-account-email=<SCHEDULER_SA>
+  --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-filing-digest:run" \
+  --http-method=POST --oauth-service-account-email="${SA}"
+```
+
+Smoke-test each before trusting the schedule:
+```bash
+gcloud run jobs execute earningsnerd-filing-scan   --region=us-west1
+gcloud run jobs execute earningsnerd-filing-digest --region=us-west1
 ```
 
 **Alternative (no extra job):** the backend also exposes token-gated triggers
