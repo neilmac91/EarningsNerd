@@ -891,6 +891,7 @@ async def reset_password(
 @router.post("/change-password")
 async def change_password(
     payload: ChangePasswordRequest,
+    request: Request,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -902,6 +903,13 @@ async def change_password(
 
     Applies the same strength + breached-password (HIBP) checks as registration/reset.
     """
+    # Keyed per-user so a logged-in attacker can't brute-force the current password.
+    enforce_rate_limit(
+        request,
+        LOGIN_LIMITER,
+        f"change-password:{current_user.id}",
+        error_detail="Too many password change attempts. Please try again later.",
+    )
     if current_user.hashed_password:
         ok = await asyncio.to_thread(
             verify_password, payload.current_password or "", current_user.hashed_password

@@ -7,7 +7,7 @@ from fastapi import Depends
 from fastapi.testclient import TestClient
 
 from main import app
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.models import User
 from app.routers.auth import get_current_user, get_password_hash, verify_password
 
@@ -22,8 +22,6 @@ def client():
 def _auth_as(*, has_password: bool):
     """Create a user and authenticate as them. The override fetches the user via the request's own
     get_db session, so endpoint mutations + commit persist (a plain detached stand-in would not)."""
-    from app.database import SessionLocal
-
     db = SessionLocal()
     user = User(
         email=f"p4-{uuid.uuid4().hex}@example.com",
@@ -53,7 +51,6 @@ def _auth_as(*, has_password: bool):
 
 
 def _reload_hash(uid):
-    from app.database import SessionLocal
     db = SessionLocal()
     try:
         return db.query(User).filter(User.id == uid).first().hashed_password
@@ -62,7 +59,6 @@ def _reload_hash(uid):
 
 
 def _reload_name(uid):
-    from app.database import SessionLocal
     db = SessionLocal()
     try:
         return db.query(User).filter(User.id == uid).first().full_name

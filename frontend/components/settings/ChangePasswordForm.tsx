@@ -12,7 +12,7 @@ export default function ChangePasswordForm() {
   const queryClient = useQueryClient()
   // Shares the cache with ConnectedAccounts (same key) — one fetch, and invalidating it after a
   // successful set flips that component's "Password: Not set" → "Set".
-  const { data: connections } = useQuery({
+  const { data: connections, isLoading: connectionsLoading } = useQuery({
     queryKey: ['auth-connections'],
     queryFn: getConnections,
     retry: false,
@@ -50,6 +50,16 @@ export default function ChangePasswordForm() {
 
   const inputCls =
     'w-full max-w-md px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent'
+
+  // Wait for connections so we know whether to show the "Current password" field — otherwise it
+  // would flash in for OAuth-only users (who default to hasPassword=true) before disappearing.
+  if (connectionsLoading) {
+    return (
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-6 flex items-center justify-center min-h-[200px]">
+        <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+      </div>
+    )
+  }
 
   return (
     <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-6">

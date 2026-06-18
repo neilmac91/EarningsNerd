@@ -18,7 +18,7 @@ function daysUntil(value: string | null): number | null {
 }
 
 export default function BillingPanel() {
-  const { data: sub, isLoading } = useQuery({
+  const { data: sub, isLoading, isError } = useQuery({
     queryKey: ['subscription'],
     queryFn: getSubscriptionStatus,
     retry: false,
@@ -31,6 +31,22 @@ export default function BillingPanel() {
       if (data.url) window.location.href = data.url
     },
   })
+
+  // Surface the failure rather than silently falling back to "Free" — that would mislead a Pro
+  // subscriber on a transient network error.
+  if (isError) {
+    return (
+      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-6">
+        <div className="flex items-center gap-3 mb-4">
+          <CreditCard className="h-5 w-5 text-blue-600" />
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Billing</h2>
+        </div>
+        <p className="text-sm text-red-600 dark:text-red-400">
+          Failed to load billing information. Please refresh the page or try again later.
+        </p>
+      </div>
+    )
+  }
 
   const isTrialing = sub?.status === 'trialing'
   const isPro = Boolean(sub?.is_pro)
