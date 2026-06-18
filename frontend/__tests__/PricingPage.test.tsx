@@ -101,8 +101,13 @@ describe('PricingPage', () => {
     )
     // A paid subscriber has nothing to buy — no enabled upgrade/subscribe CTA anywhere.
     expect(screen.queryByRole('button', { name: /subscribe to pro|upgrade to pro/i })).not.toBeInTheDocument()
+    // "Current Plan" appears exactly once (the Pro card) — never on the Free card too.
     const currentPlanButtons = screen.getAllByRole('button', { name: /current plan/i })
-    currentPlanButtons.forEach((button) => expect(button).toBeDisabled())
+    expect(currentPlanButtons).toHaveLength(1)
+    expect(currentPlanButtons[0]).toBeDisabled()
+    // The Free card is not the user's plan, so it stays the disabled "Get Started Free".
+    const freeButton = screen.getByRole('button', { name: /get started free/i })
+    expect(freeButton).toBeDisabled()
   })
 
   it('never leaves the Free card stuck on "Processing…"', async () => {

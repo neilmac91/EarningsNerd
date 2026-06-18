@@ -129,7 +129,9 @@ function PricingContent() {
         'Company search',
         'Historical filing access',
       ],
-      cta: isAuthenticated ? 'Current Plan' : 'Get Started Free',
+      // Only the genuinely-free user is "on" the Free plan. A Pro user (paid or trialing) would
+      // otherwise see "Current Plan" on BOTH cards, which reads as a contradiction.
+      cta: isAuthenticated && !subscription?.is_pro ? 'Current Plan' : 'Get Started Free',
       disabled: isAuthenticated,
       priceId: null,
     },
@@ -308,7 +310,7 @@ function PricingContent() {
 
               <button
                 onClick={() => (plan.priceId ? handleUpgrade(plan.priceId) : router.push('/register'))}
-                disabled={plan.disabled || (isAuthenticated && !plan.priceId) || (!!plan.priceId && isLoadingCheckout === plan.priceId)}
+                disabled={plan.disabled || (isAuthenticated && !plan.priceId) || (plan.priceId !== null && isLoadingCheckout === plan.priceId)}
                 className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
                   plan.disabled
                     ? 'bg-gray-100 text-gray-600 cursor-not-allowed'
