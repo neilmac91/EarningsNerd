@@ -118,9 +118,12 @@ export default function BillingPanel() {
             </p>
           )}
 
-          {/* Action */}
+          {/* Action — the Stripe Customer Portal only works for users with a real Stripe customer.
+              A no-card reverse-trial user is `is_pro` but has no `stripe_customer_id`, so gating on
+              `isPro` here used to render a "Manage billing" button that always 400s. Gate strictly on
+              the customer id, and send everyone else to /pricing to subscribe. */}
           <div className="pt-1">
-            {isPro || sub?.stripe_customer_id ? (
+            {sub?.stripe_customer_id ? (
               <button
                 type="button"
                 onClick={() => portal.mutate()}
@@ -135,7 +138,7 @@ export default function BillingPanel() {
                 href="/pricing"
                 className="inline-flex items-center px-4 py-2 bg-mint-500 hover:bg-mint-400 text-slate-950 rounded-lg font-medium transition-colors"
               >
-                Upgrade to Pro
+                {isTrialing ? 'Subscribe to Pro' : 'Upgrade to Pro'}
               </Link>
             )}
             {portal.isError && (

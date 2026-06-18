@@ -110,6 +110,12 @@ function PricingContent() {
   // `pricingVariant` is still read below purely for exposure analytics continuity.
   const priceConfig = { monthly: 14, yearly: 140, monthlyDisplay: '$14', yearlyDisplay: '$140' }
 
+  // A reverse-trial user is `is_pro` but hasn't paid yet, so they must still be able to pick a
+  // billing cycle and convert. Only a *paid* (active, non-trial) subscriber has nothing to buy —
+  // treating every `is_pro` user as "Current Plan" dead-ends trial users on the upgrade button.
+  const isTrialing = subscription?.status === 'trialing'
+  const isPaidPro = Boolean(subscription?.is_pro) && !isTrialing
+
   const plans = [
     {
       name: 'Free',
@@ -141,8 +147,8 @@ function PricingContent() {
         'Premium AI model & deeper analysis',
         'Priority support',
       ],
-      cta: subscription?.is_pro ? 'Current Plan' : 'Upgrade to Pro',
-      disabled: subscription?.is_pro || false,
+      cta: isPaidPro ? 'Current Plan' : isTrialing ? 'Subscribe to Pro' : 'Upgrade to Pro',
+      disabled: isPaidPro,
       priceId: billingCycle === 'monthly' ? 'price_pro_monthly' : 'price_pro_yearly',
       popular: true,
     },
@@ -201,8 +207,8 @@ function PricingContent() {
             </div>
           )}
 
-          {/* Billing Toggle */}
-          {!subscription?.is_pro && (
+          {/* Billing Toggle — shown to free and trialing users (both can still choose a cycle). */}
+          {!isPaidPro && (
             <div className="mt-8 flex items-center justify-center space-x-4">
               <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-gray-900' : 'text-gray-500'}`}>
                 Monthly
@@ -302,7 +308,7 @@ function PricingContent() {
 
               <button
                 onClick={() => (plan.priceId ? handleUpgrade(plan.priceId) : router.push('/register'))}
-                disabled={plan.disabled || (isAuthenticated && !plan.priceId) || isLoadingCheckout === plan.priceId}
+                disabled={plan.disabled || (isAuthenticated && !plan.priceId) || (!!plan.priceId && isLoadingCheckout === plan.priceId)}
                 className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
                   plan.disabled
                     ? 'bg-gray-100 text-gray-600 cursor-not-allowed'
@@ -311,7 +317,7 @@ function PricingContent() {
                     : 'bg-gray-900 text-white hover:bg-gray-800'
                 }`}
               >
-                {isLoadingCheckout === plan.priceId ? (
+                {plan.priceId && isLoadingCheckout === plan.priceId ? (
                   <span className="flex items-center justify-center">
                     <Loader2 className="h-5 w-5 animate-spin mr-2" />
                     Processing...
