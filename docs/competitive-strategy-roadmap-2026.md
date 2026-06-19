@@ -210,7 +210,7 @@ Seven learnings survive the brand filter. Each is tagged **[ADOPT]**, **[ADAPT]*
    Stocktwits' eToro routing and Fiscal AI's MCP/ChatGPT distribution are *late-stage* distribution
    plays. For a pre-launch product they're a distraction — but the MCP/"EarningsNerd in your AI tools"
    bet is strategically aligned with where both competitors moved and should be a *named Later bet*,
-   not a Now build. → Plan A "Later", Plan B #5.
+   not a Now build. → Plan A "Later" (A8).
 
 **The unifying principle:** copy Fiscal AI's *substance* (grounded, cited depth) and Stocktwits'
 *social ergonomics* (symbol-centric organization, sentiment as a primitive), but render both through
