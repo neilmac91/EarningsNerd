@@ -2,12 +2,13 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { formatDistanceToNowStrict } from 'date-fns'
-import { Flame, ArrowUpRight, AlertTriangle, Calendar } from 'lucide-react'
+import { Activity, ArrowUpRight, AlertTriangle, Calendar } from 'lucide-react'
 import clsx from 'clsx'
 import Link from 'next/link'
 import posthog from 'posthog-js'
 
 import { getApiUrl } from '@/lib/api/client'
+import { FilingPulse, type Pulse } from '@/components/FilingPulse'
 
 const API_BASE_URL = getApiUrl().replace(/\/$/, '')
 
@@ -21,24 +22,8 @@ const SOURCE_LABELS: Record<string, string> = {
   finnhub_sentiment: 'Sentiment',
 }
 
-// Human-readable labels for buzz components
-const COMPONENT_LABELS: Record<string, string> = {
-  recency: 'Recency',
-  search_activity: 'Search Activity',
-  filing_velocity: 'Filing Velocity',
-  filing_type_bonus: 'Filing Type',
-  earnings_calendar: 'Earnings Calendar',
-  news_buzz: 'News Buzz',
-  news_headlines: 'Headlines',
-  news_sentiment: 'Sentiment',
-}
-
 function formatSourceLabel(source: string): string {
   return SOURCE_LABELS[source] ?? source.replace(/_/g, ' ')
-}
-
-function formatComponentLabel(key: string): string {
-  return COMPONENT_LABELS[key] ?? key.replace(/_/g, ' ')
 }
 
 export type HotFiling = {
@@ -50,6 +35,7 @@ export type HotFiling = {
   buzz_score: number
   sources: string[]
   buzz_components?: Record<string, number>
+  pulse?: Pulse
 }
 
 export type HotFilingsResponse = {
@@ -68,20 +54,6 @@ async function fetchHotFilings(limit: number): Promise<HotFilingsResponse> {
   }
 
   return response.json() as Promise<HotFilingsResponse>
-}
-
-function getBuzzColor(score: number): string {
-  if (score >= 8) return 'bg-gradient-to-r from-orange-500 to-red-500'
-  if (score >= 5) return 'bg-gradient-to-r from-amber-400 to-orange-500'
-  if (score >= 3) return 'bg-gradient-to-r from-yellow-400 to-amber-500'
-  return 'bg-gradient-to-r from-slate-500 to-slate-600'
-}
-
-function getBuzzLabel(score: number): string {
-  if (score >= 8) return 'On Fire'
-  if (score >= 5) return 'Heating Up'
-  if (score >= 3) return 'Warming'
-  return 'Cooling'
 }
 
 const skeletonCards = new Array(6).fill(null)
@@ -154,9 +126,6 @@ export default function HotFilings({
       {data.filings.map((filing) => {
         const filingDate = new Date(filing.filing_date)
         const relative = formatDistanceToNowStrict(filingDate, { addSuffix: true })
-        const isFresh = Date.now() - filingDate.getTime() < 1000 * 60 * 60 // 1 hour
-        const buzzColor = getBuzzColor(filing.buzz_score)
-        const buzzLabel = getBuzzLabel(filing.buzz_score)
 
         return (
           <div
@@ -167,13 +136,10 @@ export default function HotFilings({
               <div>
                 <div className="flex items-center space-x-2">
                   <div
-                    className={clsx(
-                      'flex h-8 w-8 items-center justify-center rounded-full bg-orange-500/20 text-orange-300',
-                      isFresh && 'animate-pulse'
-                    )}
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-mint-500/15 text-mint-300"
                     aria-hidden
                   >
-                    <Flame className="h-4 w-4" />
+                    <Activity className="h-4 w-4" />
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-slate-100">
@@ -207,34 +173,7 @@ export default function HotFilings({
               </div>
 
               <div className="flex flex-col items-end">
-                <div className="flex items-center space-x-2">
-                  <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">
-                    Buzz
-                  </span>
-                  <span className="text-lg font-bold tabular-nums text-orange-300">{filing.buzz_score.toFixed(1)}</span>
-                </div>
-                <div className="mt-2 flex w-36 items-center space-x-2">
-                  <div className="h-2 w-full rounded-full bg-slate-700">
-                    <div
-                      className={clsx('h-2 rounded-full', buzzColor)}
-                      style={{ width: `${Math.min(filing.buzz_score, 10) * 10}%` }}
-                    />
-                  </div>
-                  <span className="text-[10px] font-medium uppercase text-slate-300">{buzzLabel}</span>
-                </div>
-                {filing.buzz_components ? (
-                  <div className="mt-3 text-[10px] text-slate-400">
-                    {Object.entries(filing.buzz_components)
-                      .sort((a, b) => b[1] - a[1])
-                      .slice(0, 2)
-                      .map(([key, value]) => (
-                        <div key={key} className="flex items-center justify-between gap-3">
-                          <span>{formatComponentLabel(key)}</span>
-                          <span className="font-semibold text-slate-200">{value.toFixed(1)}</span>
-                        </div>
-                      ))}
-                  </div>
-                ) : null}
+                <FilingPulse pulse={filing.pulse} score={filing.buzz_score} />
                 <Link
                   href={filing.filing_id ? `/filing/${filing.filing_id}` : '#'}
                   onClick={() => posthog.capture('hot_filing_summary_clicked', {
@@ -242,7 +181,7 @@ export default function HotFilings({
                     symbol: filing.symbol,
                     buzz_score: filing.buzz_score
                   })}
-                  className="mt-4 inline-flex items-center rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:border-orange-400 hover:text-orange-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+                  className="mt-4 inline-flex items-center rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:border-mint-400 hover:text-mint-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
                 >
                   View AI Summary
                   <ArrowUpRight className="ml-1 h-3 w-3" />
@@ -259,7 +198,7 @@ export default function HotFilings({
           type="button"
           onClick={() => refetch()}
           disabled={isRefetching}
-          className="inline-flex items-center rounded-md border border-white/10 px-2 py-1 text-[10px] font-semibold text-slate-200 transition hover:border-orange-400 hover:text-orange-200 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+          className="inline-flex items-center rounded-md border border-white/10 px-2 py-1 text-[10px] font-semibold text-slate-200 transition hover:border-mint-400 hover:text-mint-200 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
         >
           {isRefetching ? 'Refreshing…' : 'Refresh'}
         </button>

@@ -1,0 +1,73 @@
+import React from 'react'
+import clsx from 'clsx'
+
+export interface PulseComponent {
+  key: string
+  label: string
+  description: string
+  source: string
+  value: number
+  share: number
+}
+
+export interface Pulse {
+  score: number
+  tier: string
+  has_signal: boolean
+  components: PulseComponent[]
+}
+
+// Muted, dark-first palette — deliberately NOT red/green "casino" coloring. Higher attention reads
+// as a calmer, fuller mint; quiet reads as neutral slate.
+const TIER_STYLE: Record<string, { fill: string; text: string }> = {
+  Elevated: { fill: 'bg-mint-500', text: 'text-mint-300' },
+  Active: { fill: 'bg-mint-500/70', text: 'text-mint-300' },
+  'On the radar': { fill: 'bg-slate-400', text: 'text-slate-300' },
+  Quiet: { fill: 'bg-slate-600', text: 'text-slate-400' },
+}
+
+// The pulse is a relative attention gauge, not a precise score — fill it against a soft ceiling.
+const SOFT_MAX = 15
+
+export function FilingPulse({ pulse, score }: { pulse?: Pulse | null; score?: number }) {
+  const tier = pulse?.tier ?? 'Quiet'
+  const value = pulse?.score ?? score ?? 0
+  const style = TIER_STYLE[tier] ?? TIER_STYLE.Quiet
+  const width = Math.max(4, Math.min(100, Math.round((value / SOFT_MAX) * 100)))
+  const top = (pulse?.components ?? []).slice(0, 3)
+
+  return (
+    <div className="flex w-40 flex-col items-end">
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          Pulse
+        </span>
+        <span className={clsx('text-xs font-semibold', style.text)}>{tier}</span>
+      </div>
+      <div
+        className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-700/60"
+        role="img"
+        aria-label={`Filing pulse: ${tier}`}
+      >
+        <div
+          className={clsx('h-1.5 rounded-full transition-all duration-500', style.fill)}
+          style={{ width: `${width}%` }}
+        />
+      </div>
+      {top.length > 0 && (
+        <ul className="mt-2 w-full space-y-0.5 text-[10px] text-slate-400">
+          {top.map((c) => (
+            <li
+              key={c.key}
+              className="flex items-center justify-between gap-3"
+              title={`${c.description} · source: ${c.source}`}
+            >
+              <span className="truncate">{c.label}</span>
+              <span className="font-medium tabular-nums text-slate-300">{c.share}%</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
