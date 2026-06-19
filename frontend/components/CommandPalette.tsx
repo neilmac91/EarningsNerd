@@ -43,12 +43,14 @@ export default function CommandPalette() {
   const lastTracked = useRef<string>('')
 
   // Cmd/Ctrl+K toggles; the header button opens via a custom event; Escape closes.
+  // Bound once (empty deps): the toggle uses a functional update and Escape's
+  // setOpen(false) is a no-op bailout when already closed, so `open` isn't needed.
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault()
         setOpen((o) => !o)
-      } else if (e.key === 'Escape' && open) {
+      } else if (e.key === 'Escape') {
         setOpen(false)
       }
     }
@@ -59,11 +61,15 @@ export default function CommandPalette() {
       document.removeEventListener('keydown', onKeyDown)
       window.removeEventListener(OPEN_COMMAND_PALETTE_EVENT, onOpen)
     }
-  }, [open])
+  }, [])
 
-  // Lock background scroll and focus the input while open.
+  // Lock background scroll and focus the input while open. On close, reset the
+  // analytics dedupe so reopening and repeating a search is tracked as new.
   useEffect(() => {
-    if (!open) return
+    if (!open) {
+      lastTracked.current = ''
+      return
+    }
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
     const t = setTimeout(() => {
@@ -129,14 +135,15 @@ export default function CommandPalette() {
 
   const close = () => setOpen(false)
 
-  const goToHit = (hit: SearchHit | undefined) => {
+  const goToHit = (hit: SearchHit | undefined, forceExternal = false) => {
     if (!hit) return
     close()
-    if (hit.ticker) {
+    if (hit.ticker && !forceExternal) {
       // Keep the user in-app, where they can open the filing and generate a summary.
       router.push(`/company/${hit.ticker}`)
     } else if (hit.document_url && typeof window !== 'undefined') {
-      // No ticker (e.g. some funds/individuals) — open the matched filing on EDGAR.
+      // No ticker (e.g. some funds/individuals), or an explicit "open on SEC"
+      // (Cmd/Ctrl+Enter) — open the matched filing on EDGAR.
       window.open(hit.document_url, '_blank', 'noopener,noreferrer')
     }
   }
@@ -152,7 +159,8 @@ export default function CommandPalette() {
       setHighlightIndex((i) => (i <= 0 ? hits.length - 1 : i - 1))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      goToHit(hits[highlightIndex] ?? hits[0])
+      // Cmd/Ctrl+Enter opens the filing on SEC directly; plain Enter goes in-app.
+      goToHit(hits[highlightIndex] ?? hits[0], e.metaKey || e.ctrlKey)
     }
   }
 

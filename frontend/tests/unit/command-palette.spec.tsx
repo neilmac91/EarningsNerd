@@ -78,6 +78,26 @@ describe('CommandPalette', () => {
     expect(push).toHaveBeenCalledWith('/company/AAPL')
   })
 
+  it('opens the SEC document on Cmd+Enter instead of navigating in-app', async () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null)
+    searchFullText.mockResolvedValue({ query: 'apple', total: 1, count: 1, hits: [hit] })
+    renderPalette()
+    fireEvent.keyDown(document, { key: 'k', metaKey: true })
+    const input = screen.getByRole('combobox')
+    fireEvent.change(input, { target: { value: 'apple' } })
+    await screen.findByText('Apple Inc.')
+
+    fireEvent.keyDown(input, { key: 'Enter', metaKey: true })
+
+    expect(openSpy).toHaveBeenCalledWith(
+      'https://www.sec.gov/x/aapl.htm',
+      '_blank',
+      'noopener,noreferrer',
+    )
+    expect(push).not.toHaveBeenCalled()
+    openSpy.mockRestore()
+  })
+
   it('shows an empty state when there are no matches', async () => {
     searchFullText.mockResolvedValue({ query: 'zzzzz', total: 0, count: 0, hits: [] })
     renderPalette()
