@@ -3,7 +3,8 @@
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getFiling, getCompanyFilings, Filing } from '@/features/filings/api/filings-api'
-import { getSummary, generateSummaryStream, Summary, saveSummary, getSavedSummaries, getSummaryProgress, SummaryProgressData, SavedSummary } from '@/features/summaries/api/summaries-api'
+import { getSummary, generateSummaryStream, Summary, saveSummary, getSavedSummaries, getSummaryProgress, getWhatChanged, SummaryProgressData, SavedSummary } from '@/features/summaries/api/summaries-api'
+import { WhatChanged } from '@/features/filings/components/WhatChanged'
 import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
 import { getCompany, Company } from '@/features/companies/api/companies-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
@@ -1014,6 +1015,14 @@ function SummaryDisplay({
   const quality = rawSummary?.quality as { tier?: string; reasons?: string[] } | undefined
   const isPartialQuality = ENABLE_QUALITY_BADGE && quality?.tier === 'partial'
 
+  // A5 "What Changed": deterministic period-over-period diff (metric deltas, risk changes, key
+  // changes). DB-only/cheap on the backend; only renders when there's something material to report.
+  const { data: changeReport } = useQuery({
+    queryKey: ['what-changed', filing.id],
+    queryFn: () => getWhatChanged(filing.id),
+    staleTime: 10 * 60 * 1000,
+  })
+
   const fallbackMessage = 'Summary temporarily unavailable — please retry.'
   const writerError = rawSummary?.writer_error
   const writerFallback = rawSummary?.writer?.fallback_used === true
@@ -1210,6 +1219,9 @@ function SummaryDisplay({
               </div>
             </section>
           )}
+
+          {/* A5: What Changed vs the prior comparable filing */}
+          {changeReport?.has_changes && <WhatChanged report={changeReport} />}
 
           {/* Financial Metrics Table */}
           {metadata?.financial_highlights?.table && Array.isArray(metadata.financial_highlights.table) && (

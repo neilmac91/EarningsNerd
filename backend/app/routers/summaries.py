@@ -23,6 +23,7 @@ from app.services.summary_generation_service import (
 )
 from app.services.summary_pipeline import stream_filing_summary, to_sse
 from app.services.provenance_service import enrich_summary_provenance
+from app.services.change_report_service import build_change_report
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -259,6 +260,20 @@ async def get_summary(filing_id: int, db: Session = Depends(get_db)):
             )
 
     return enrich_summary_provenance(summary, filing, xbrl_standardized)
+
+@router.get("/filing/{filing_id}/what-changed")
+async def get_what_changed(filing_id: int, db: Session = Depends(get_db)):
+    """Deterministic period-over-period change report for a filing vs its prior same-form filing.
+
+    Reports financial-metric deltas, new/resolved risk factors, and management's key-changes
+    narrative. DB-only, no LLM — cheap to serve. Returns ``has_changes: false`` when there's no
+    prior filing to compare against.
+    """
+    filing = db.query(Filing).filter(Filing.id == filing_id).first()
+    if not filing:
+        raise HTTPException(status_code=404, detail="Filing not found")
+    return build_change_report(db, filing)
+
 
 @router.get("/filing/{filing_id}/export/pdf")
 async def export_summary_pdf(
