@@ -51,11 +51,22 @@ async def get_hot_filings(
             for filing in fallback_filings
         ]
 
-    # Compose the calm "Filing Pulse" view from the already-computed buzz components (no new
-    # data fetched). Covers both the ranked and the fallback paths.
-    for filing in data.get("filings", []):
-        filing["pulse"] = compose_pulse(filing.get("buzz_components"), filing.get("buzz_score"))
-    return data
+    # Compose the calm "Filing Pulse" from the already-computed buzz components (no new data
+    # fetched). Build NEW dicts rather than mutating in place — `data` may be the shared in-memory
+    # cache entry returned by hot_filings_service, so mutating it would pollute the cache and race
+    # across concurrent requests.
+    enriched_filings = [
+        {**filing, "pulse": compose_pulse(filing.get("buzz_components"), filing.get("buzz_score"))}
+        for filing in data.get("filings", [])
+    ]
+
+    # last_updated is a naive UTC isoformat string; without a 'Z' the browser's new Date() parses it
+    # as local time, skewing the "Updated N ago" label. Normalize to UTC.
+    last_updated = data.get("last_updated")
+    if isinstance(last_updated, str) and last_updated and not last_updated.endswith("Z"):
+        last_updated += "Z"
+
+    return {**data, "filings": enriched_filings, "last_updated": last_updated}
 
 
 @router.post("/hot_filings/refresh", status_code=status.HTTP_202_ACCEPTED)
