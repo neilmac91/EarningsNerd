@@ -1,0 +1,177 @@
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
+import { useQuery, keepPreviousData } from '@tanstack/react-query'
+import { Search, Loader2, ExternalLink, AlertTriangle } from 'lucide-react'
+import { searchFullText, type FullTextSearchHit } from '@/features/search/api/search-api'
+
+const FORM_FILTERS = ['10-K', '10-Q', '8-K', '4'] as const
+
+/**
+ * Pure presentational list of full-text search hits. Each row links out to the matched document on
+ * SEC EDGAR (the authoritative source). Exported separately so it can be unit-tested without hooks.
+ */
+export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
+  return (
+    <ul className="divide-y divide-white/[0.06] overflow-hidden rounded-xl border border-white/10 bg-slate-900/60">
+      {hits.map((hit) => {
+        const href = hit.document_url || hit.sec_url || undefined
+        const rowClass = 'flex items-start justify-between gap-4 px-4 py-3'
+        const inner = (
+          <>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                {hit.ticker && (
+                  <span className="font-mono text-sm font-semibold text-mint-400">{hit.ticker}</span>
+                )}
+                <span className="truncate text-sm text-slate-200">{hit.company ?? 'Unknown filer'}</span>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+                {hit.form && (
+                  <span className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 uppercase tracking-wide">
+                    {hit.form}
+                  </span>
+                )}
+                {hit.filed_date && <span>Filed {hit.filed_date}</span>}
+                {hit.period_ending && <span>· Period {hit.period_ending}</span>}
+              </div>
+            </div>
+            {/* Only the linkable rows get the external-link affordance. */}
+            {href && <ExternalLink className="mt-1 h-4 w-4 shrink-0 text-slate-500" aria-hidden />}
+          </>
+        )
+        return (
+          <li key={`${hit.accession_no}:${hit.document ?? ''}`}>
+            {/* Render a real link only when a URL exists; otherwise a plain row (no empty <a>). */}
+            {href ? (
+              <a
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                className={`${rowClass} transition-colors hover:bg-white/5`}
+              >
+                {inner}
+              </a>
+            ) : (
+              <div className={rowClass}>{inner}</div>
+            )}
+          </li>
+        )
+      })}
+    </ul>
+  )
+}
+
+export default function FullTextSearch() {
+  const [input, setInput] = useState('')
+  const [query, setQuery] = useState('')
+  const [forms, setForms] = useState<string[]>([])
+
+  // Debounce the raw input into the query that actually drives the request.
+  useEffect(() => {
+    const timer = setTimeout(() => setQuery(input.trim()), 350)
+    return () => clearTimeout(timer)
+  }, [input])
+
+  const formsParam = useMemo(() => (forms.length ? forms.join(',') : undefined), [forms])
+
+  const { data, isError, error, refetch, isFetching } = useQuery({
+    queryKey: ['full-text-search', query, formsParam],
+    queryFn: () => searchFullText({ q: query, forms: formsParam }),
+    enabled: query.length > 0,
+    placeholderData: keepPreviousData, // keep prior results visible while refining (no flash)
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const toggleForm = (form: string) =>
+    setForms((prev) => (prev.includes(form) ? prev.filter((f) => f !== form) : [...prev, form]))
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-semibold text-white">Search filings</h1>
+        <p className="mt-1 text-sm text-slate-400">
+          Full-text search across SEC filings and their exhibits since 2001 — e.g.{' '}
+          <span className="text-slate-300">&ldquo;going concern&rdquo;</span>,{' '}
+          <span className="text-slate-300">&ldquo;material weakness&rdquo;</span>, or a product name.
+        </p>
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" aria-hidden />
+        <input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Search the full text of filings…"
+          aria-label="Search the full text of SEC filings"
+          className="w-full rounded-xl border border-white/10 bg-slate-900/80 py-4 pl-12 pr-4 text-lg text-white placeholder:text-slate-500 backdrop-blur-sm focus:border-mint-500/40 focus:outline-none"
+        />
+        {isFetching && (
+          <Loader2 className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-mint-400" />
+        )}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {FORM_FILTERS.map((form) => {
+          const active = forms.includes(form)
+          return (
+            <button
+              key={form}
+              type="button"
+              onClick={() => toggleForm(form)}
+              aria-pressed={active}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                active
+                  ? 'border-mint-500/40 bg-mint-500/15 text-mint-200'
+                  : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+              }`}
+            >
+              {form}
+            </button>
+          )
+        })}
+      </div>
+
+      {isError && (
+        <div
+          role="alert"
+          className="flex items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-red-950/60 p-4 text-sm text-red-200"
+        >
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4" aria-hidden />
+            {error instanceof Error ? error.message : 'Search is temporarily unavailable.'}
+          </span>
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="rounded-md border border-red-500/30 px-3 py-1 text-xs font-medium transition-colors hover:bg-red-500/10"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {query.length === 0 && (
+        <p className="rounded-xl border border-white/10 bg-slate-900/40 p-4 text-sm text-slate-500">
+          Type a query to search the full text of SEC filings.
+        </p>
+      )}
+
+      {query.length > 0 && !isError && data && (
+        data.hits.length > 0 ? (
+          <div className="space-y-2">
+            <p className="text-xs text-slate-500">
+              {data.total.toLocaleString()} filing{data.total === 1 ? '' : 's'} match — showing{' '}
+              {data.count}
+            </p>
+            <FullTextSearchResults hits={data.hits} />
+          </div>
+        ) : (
+          <p className="rounded-xl border border-white/10 bg-slate-900/60 p-4 text-sm text-slate-400">
+            No filings match &ldquo;{query}&rdquo;.
+          </p>
+        )
+      )}
+    </div>
+  )
+}

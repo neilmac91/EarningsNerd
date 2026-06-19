@@ -3,6 +3,7 @@ import EarningsNerdLogo from '@/components/EarningsNerdLogo'
 
 const FOOTER_LINKS = {
   Product: [
+    { label: 'Search Filings', href: '/search' },
     { label: 'Pricing', href: '/pricing' },
     { label: 'Hot Filings', href: '/#hot-filings' },
     { label: 'Trending', href: '/#trending' },
