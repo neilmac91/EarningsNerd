@@ -5,6 +5,7 @@ import { Providers } from './providers'
 import { SiteHeader, SiteFooter } from '@/components/SiteChrome'
 import VerificationBanner from '@/components/VerificationBanner'
 import EmailVerificationModal from '@/components/EmailVerificationModal'
+import CommandPalette from '@/components/CommandPalette'
 import CookieConsent from '@/components/CookieConsent'
 import { Analytics } from '@vercel/analytics/next'
 
@@ -57,6 +58,7 @@ export default function RootLayout({
           <VerificationBanner />
           {children}
           <SiteFooter />
+          <CommandPalette />
           <EmailVerificationModal />
           <CookieConsent />
           <Analytics />

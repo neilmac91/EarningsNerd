@@ -4,10 +4,11 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Menu, X, ArrowRight, LogOut } from 'lucide-react'
+import { Menu, X, ArrowRight, LogOut, Search } from 'lucide-react'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
 import UserMenu from '@/components/UserMenu'
 import { getCurrentUserSafe, logout } from '@/features/auth/api/auth-api'
+import { openCommandPalette } from '@/lib/commandPalette'
 
 const NAV_LINKS = [
   { href: '/pricing', label: 'Pricing' },
@@ -76,6 +77,18 @@ export default function Header() {
 
         {/* Right: CTAs / user menu (desktop) */}
         <div className="hidden items-center gap-3 md:flex">
+          <button
+            type="button"
+            onClick={openCommandPalette}
+            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-400 transition-colors hover:border-white/20 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+            aria-label="Search SEC filings"
+          >
+            <Search className="h-4 w-4" />
+            <span>Search filings</span>
+            <kbd className="ml-1 rounded border border-white/15 bg-white/5 px-1.5 py-0.5 font-mono text-[10px] text-slate-500">
+              ⌘K
+            </kbd>
+          </button>
           {isLoading ? (
             <div className="h-9 w-9 animate-pulse rounded-full bg-white/10" aria-hidden="true" />
           ) : user ? (
@@ -99,16 +112,26 @@ export default function Header() {
           )}
         </div>
 
-        {/* Mobile menu button */}
-        <button
-          type="button"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="inline-flex items-center justify-center rounded-lg p-2 text-slate-400 hover:text-white md:hidden"
-          aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
-          aria-expanded={mobileMenuOpen}
-        >
-          {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        {/* Mobile controls: search + menu */}
+        <div className="flex items-center gap-1 md:hidden">
+          <button
+            type="button"
+            onClick={openCommandPalette}
+            className="inline-flex items-center justify-center rounded-lg p-2 text-slate-400 hover:text-white"
+            aria-label="Search SEC filings"
+          >
+            <Search className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="inline-flex items-center justify-center rounded-lg p-2 text-slate-400 hover:text-white"
+            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileMenuOpen}
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile menu */}

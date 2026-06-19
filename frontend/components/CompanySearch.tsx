@@ -36,13 +36,14 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
     }
   }, [autoFocusDesktop])
 
-  // "/" or Cmd/Ctrl+K focuses search from anywhere on the page.
+  // "/" focuses the hero search from anywhere on the page. Cmd/Ctrl+K is reserved
+  // for the global command palette (CommandPalette), so it's intentionally not
+  // bound here to avoid a double trigger on the homepage.
   useEffect(() => {
     if (!autoFocusDesktop) return
     const onKeyDown = (e: KeyboardEvent) => {
       const slash = e.key === '/' && !e.metaKey && !e.ctrlKey && !e.altKey
-      const cmdK = e.key.toLowerCase() === 'k' && (e.metaKey || e.ctrlKey)
-      if ((slash && !isTypingTarget(e.target)) || cmdK) {
+      if (slash && !isTypingTarget(e.target)) {
         e.preventDefault()
         inputRef.current?.focus()
       }

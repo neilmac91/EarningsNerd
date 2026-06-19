@@ -67,6 +67,14 @@ export const analytics = {
     })
   },
 
+  // EDGAR full-text search via the ⌘K command palette.
+  filingsSearched: (query: string, resultsCount: number) => {
+    safeCapture('filings_searched', {
+      query,
+      results_count: resultsCount,
+    })
+  },
+
   companyViewed: (ticker: string, name: string) => {
     safeCapture('company_viewed', { ticker, name })
   },
