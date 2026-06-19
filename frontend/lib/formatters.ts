@@ -108,10 +108,22 @@ export const normalizeRisk = (risk: unknown): RiskFactor | null => {
     return null
   }
 
+  const sourceUrl =
+    typeof riskObj.source_url === 'string' && riskObj.source_url.trim()
+      ? riskObj.source_url.trim()
+      : null
+  const sourceSectionRef =
+    typeof riskObj.source_section_ref === 'string' && riskObj.source_section_ref.trim()
+      ? riskObj.source_section_ref.trim()
+      : null
+
   return {
     summary: summaryCandidate,
     supporting_evidence: supportingEvidence,
     title: title || null,
     description: description || null,
+    source_url: sourceUrl,
+    source_verified: typeof riskObj.source_verified === 'boolean' ? riskObj.source_verified : null,
+    source_section_ref: sourceSectionRef,
   }
 }

@@ -22,6 +22,7 @@ from app.services.summary_generation_service import (
     progress_as_dict,
 )
 from app.services.summary_pipeline import stream_filing_summary, to_sse
+from app.services.provenance_service import enrich_summary_provenance
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -215,7 +216,12 @@ async def generate_summary_stream(
 
 @router.get("/filing/{filing_id}", response_model=SummaryResponse)
 async def get_summary(filing_id: int, db: Session = Depends(get_db)):
-    """Get summary for a filing"""
+    """Get summary for a filing.
+
+    Risk factors are enriched with Trace-to-Source provenance (a deep link to the original SEC
+    filing plus an honest verified/cited label) at serialization time, so every existing summary
+    gains provenance without a migration or regeneration.
+    """
     summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
 
     if not summary:
@@ -231,7 +237,14 @@ async def get_summary(filing_id: int, db: Session = Depends(get_db)):
             "raw_summary": None
         }
 
-    return summary
+    # Load the filing (with its cached content) to verify excerpts and build EDGAR deep links.
+    filing = (
+        db.query(Filing)
+        .options(joinedload(Filing.content_cache))
+        .filter(Filing.id == filing_id)
+        .first()
+    )
+    return enrich_summary_provenance(summary, filing)
 
 @router.get("/filing/{filing_id}/export/pdf")
 async def export_summary_pdf(
