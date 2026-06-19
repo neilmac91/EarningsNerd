@@ -1,5 +1,6 @@
 """Unit tests for Trace-to-Source provenance enrichment."""
 
+import copy
 from types import SimpleNamespace
 from urllib.parse import unquote
 
@@ -160,38 +161,42 @@ class TestEnrichRawSummary:
 
 class TestEnrichSummaryProvenance:
     def test_shapes_response_and_enriches_both_paths(self):
+        risk = {
+            "summary": "r",
+            "supporting_evidence": 'Item 1A: "Supply chain constraints persisted through Q3"',
+            "source_section_ref": "Item 1A. Risk Factors",
+        }
+        fh = {
+            "source_section_ref": "Item 8. Financial Statements",
+            "table": [{"metric": "Total Revenue", "current_period": "$391.0B"}],
+        }
         summary = SimpleNamespace(
             id=7,
             filing_id=42,
             business_overview="bo",
-            financial_highlights={"table": []},
-            risk_factors=[
-                {
-                    "summary": "r",
-                    "supporting_evidence": 'Item 1A: "Supply chain constraints persisted through Q3"',
-                    "source_section_ref": "Item 1A. Risk Factors",
-                }
-            ],
+            financial_highlights=copy.deepcopy(fh),
+            risk_factors=[copy.deepcopy(risk)],
             management_discussion="md",
             key_changes="kc",
             raw_summary={
                 "sections": {
-                    "risk_factors": [
-                        {
-                            "summary": "r",
-                            "supporting_evidence": 'Item 1A: "Supply chain constraints persisted through Q3"',
-                            "source_section_ref": "Item 1A. Risk Factors",
-                        }
-                    ]
+                    "risk_factors": [copy.deepcopy(risk)],
+                    "financial_highlights": copy.deepcopy(fh),
                 }
             },
         )
         filing = _filing(critical_excerpt="Supply chain constraints persisted through Q3 of 2024.")
-        out = prov.enrich_summary_provenance(summary, filing)
+        xbrl = {"revenue": {"current": {"value": 391035000000.0}}}
+        out = prov.enrich_summary_provenance(summary, filing, xbrl)
 
         assert out["id"] == 7 and out["filing_id"] == 42
+        # Risk-factor provenance (verified against cached text).
         assert out["risk_factors"][0]["source_verified"] is True
         assert out["raw_summary"]["sections"]["risk_factors"][0]["source_verified"] is True
+        # Metric provenance (verified against SEC XBRL) on both surfaces.
+        assert out["financial_highlights"]["table"][0]["source_verified"] is True
+        assert out["financial_highlights"]["table"][0]["xbrl_concept"] == "Revenue"
+        assert out["raw_summary"]["sections"]["financial_highlights"]["table"][0]["source_verified"] is True
 
     def test_no_filing_is_safe(self):
         summary = SimpleNamespace(
@@ -200,3 +205,93 @@ class TestEnrichSummaryProvenance:
         )
         out = prov.enrich_summary_provenance(summary, None)
         assert out["risk_factors"] is None and out["raw_summary"] is None
+        assert out["financial_highlights"] is None
+
+
+class TestMapMetricToXbrlKey:
+    def test_maps_common_names(self):
+        assert prov.map_metric_to_xbrl_key("Total Revenue")[0] == "revenue"
+        assert prov.map_metric_to_xbrl_key("Net sales")[0] == "revenue"
+        assert prov.map_metric_to_xbrl_key("Total assets")[0] == "total_assets"
+        assert prov.map_metric_to_xbrl_key("Free cash flow")[0] == "free_cash_flow"
+        assert prov.map_metric_to_xbrl_key("Cash and cash equivalents")[0] == "cash_and_equivalents"
+
+    def test_net_income_not_confused_with_revenue(self):
+        assert prov.map_metric_to_xbrl_key("Net income")[0] == "net_income"
+        assert prov.map_metric_to_xbrl_key("Net earnings")[0] == "net_income"
+
+    def test_excludes_eps_and_margins(self):
+        # Small/derived numbers are not value-verifiable, so they are intentionally unmapped.
+        assert prov.map_metric_to_xbrl_key("Diluted EPS") is None
+        assert prov.map_metric_to_xbrl_key("Gross margin") is None
+        assert prov.map_metric_to_xbrl_key("Operating margin") is None
+
+    def test_unmapped_and_non_string(self):
+        assert prov.map_metric_to_xbrl_key("Backlog") is None
+        assert prov.map_metric_to_xbrl_key(None) is None
+        assert prov.map_metric_to_xbrl_key(123) is None
+
+
+class TestBuildMetricSource:
+    XBRL = {
+        "revenue": {"current": {"period": "2024-09-28", "value": 391035000000.0, "form": "10-K"}},
+        "net_income": {"current": {"value": 93736000000.0}},
+        "total_assets": {"current": {"value": 364980000000.0}},
+    }
+
+    def test_verified_when_xbrl_value_appears(self):
+        row = {"metric": "Total Revenue", "current_period": "$391.0B", "prior_period": "$383.3B"}
+        out = prov.build_metric_source(row, _filing(), self.XBRL, "Item 8. Financial Statements")
+        assert out["source_verified"] is True
+        assert out["xbrl_concept"] == "Revenue"
+        assert out["source_section_ref"] == "Item 8. Financial Statements"
+        assert out["source_url"].endswith("aapl.htm")
+
+    def test_unverified_when_value_does_not_match(self):
+        row = {"metric": "Revenue", "current_period": "$999.9B"}
+        out = prov.build_metric_source(row, _filing(), self.XBRL, None)
+        assert out["source_verified"] is False
+        assert out["xbrl_concept"] is None
+        assert out["source_url"].endswith("aapl.htm")  # still linked, just not "verified"
+
+    def test_unmapped_metric_gets_link_only(self):
+        row = {"metric": "Diluted EPS", "current_period": "$6.13"}
+        out = prov.build_metric_source(row, _filing(), self.XBRL, None)
+        assert out["source_verified"] is False
+        assert out["source_url"].endswith("aapl.htm")
+
+    def test_no_xbrl_data(self):
+        row = {"metric": "Total Revenue", "current_period": "$391.0B"}
+        out = prov.build_metric_source(row, _filing(), None, None)
+        assert out["source_verified"] is False
+
+    def test_small_value_not_verified(self):
+        # Below the million threshold the rendering match is ambiguous -> never claimed verified.
+        xbrl = {"net_income": {"current": {"value": 1234.0}}}
+        row = {"metric": "Net income", "current_period": "1,234"}
+        out = prov.build_metric_source(row, _filing(), xbrl, None)
+        assert out["source_verified"] is False
+
+
+class TestEnrichFinancialHighlights:
+    XBRL = {"revenue": {"current": {"value": 391035000000.0}}}
+
+    def test_enriches_rows_and_propagates_section_ref_without_mutating(self):
+        fh = {
+            "source_section_ref": "Item 8. Financial Statements",
+            "table": [
+                {"metric": "Total Revenue", "current_period": "$391.0B"},
+                {"metric": "Backlog", "current_period": "n/a"},
+            ],
+        }
+        out = prov.enrich_financial_highlights(fh, _filing(), self.XBRL)
+        assert out["table"][0]["source_verified"] is True
+        assert out["table"][0]["source_section_ref"] == "Item 8. Financial Statements"
+        assert out["table"][1]["source_verified"] is False  # unmapped metric, link only
+        assert out["table"][1]["source_url"].endswith("aapl.htm")
+        # Original input untouched.
+        assert "source_verified" not in fh["table"][0]
+
+    def test_tolerates_missing_table(self):
+        assert prov.enrich_financial_highlights({"notes": "x"}, _filing(), self.XBRL) == {"notes": "x"}
+        assert prov.enrich_financial_highlights(None, _filing(), self.XBRL) is None

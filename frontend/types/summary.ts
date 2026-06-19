@@ -31,6 +31,11 @@ export interface MetricItem {
   current_period: string
   prior_period: string
   commentary?: string
+  // Trace-to-Source provenance (added by the backend at serialization time).
+  source_url?: string | null
+  source_verified?: boolean | null
+  source_section_ref?: string | null
+  xbrl_concept?: string | null
 }
 
 export interface FinancialHighlights {

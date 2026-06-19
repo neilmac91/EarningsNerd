@@ -53,3 +53,17 @@ All items above implemented and verified. Highlights:
   cached filing text (with a `#:~:text=` deep link to the passage); otherwise "Cited — open section".
 - **Scope held**: risk factors only. Per-metric XBRL provenance is the deliberate follow-up PR.
 - Backend logic is pure/isolated in `provenance_service.py` (stdlib-only, 20 unit tests).
+
+## Follow-up shipped: financial-metric provenance (completes A1)
+Extends Trace-to-Source to `financial_highlights.table` rows — the second half of A1.
+- **XBRL-grounded verification**: a metric is marked `source_verified` only when its name maps to a
+  standardized XBRL concept (`extract_standardized_metrics`) **and** the SEC-verified value (a
+  large dollar figure) appears in the displayed `current_period`. EPS/margins and sub-$1M values are
+  deliberately excluded — the value-in-text match isn't reliable for small numbers, so we never make
+  a false "verified" claim (honest labeling preserved).
+- Enriches both the top-level `financial_highlights` and `raw_summary.sections.financial_highlights`;
+  the XBRL standardization is computed once in the router (best-effort, never breaks the response).
+- Frontend: shared `MetricSourceLink` renders "✓ <concept> · SEC XBRL" (verified) or "↗ Source",
+  wired into `FinancialMetricsTable` and `SummaryFinancials`.
+- Verified: backend **32** provenance tests pass + ruff clean; frontend **10** trace specs pass +
+  eslint/tsc clean.

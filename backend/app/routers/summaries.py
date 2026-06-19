@@ -244,7 +244,21 @@ async def get_summary(filing_id: int, db: Session = Depends(get_db)):
         .filter(Filing.id == filing_id)
         .first()
     )
-    return enrich_summary_provenance(summary, filing)
+
+    # SEC-verified XBRL values, used to mark financial metrics as "verified". Best-effort: any
+    # extraction issue must never break the summary response.
+    xbrl_standardized = None
+    if filing is not None and getattr(filing, "xbrl_data", None):
+        try:
+            from app.services.edgar.compat import xbrl_service
+            xbrl_standardized = xbrl_service.extract_standardized_metrics(filing.xbrl_data)
+        except Exception:
+            logger.warning(
+                f"[summary:{filing_id}] XBRL standardization for provenance failed; continuing",
+                exc_info=True,
+            )
+
+    return enrich_summary_provenance(summary, filing, xbrl_standardized)
 
 @router.get("/filing/{filing_id}/export/pdf")
 async def export_summary_pdf(
