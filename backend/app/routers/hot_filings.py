@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.services.hot_filings import hot_filings_service
+from app.services.pulse_service import compose_pulse
 
 router = APIRouter()
 
@@ -49,6 +50,11 @@ async def get_hot_filings(
             }
             for filing in fallback_filings
         ]
+
+    # Compose the calm "Filing Pulse" view from the already-computed buzz components (no new
+    # data fetched). Covers both the ranked and the fallback paths.
+    for filing in data.get("filings", []):
+        filing["pulse"] = compose_pulse(filing.get("buzz_components"), filing.get("buzz_score"))
     return data
 
 
