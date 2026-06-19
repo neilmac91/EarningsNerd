@@ -399,3 +399,48 @@ export const updateSavedSummary = async (savedSummaryId: number, notes: string):
   })
   return response.data
 }
+
+// --- A5: "What Changed" period-over-period change report ---
+
+export interface WhatChangedMetricItem {
+  metric: string
+  label: string
+  direction: 'up' | 'down' | 'flat'
+  pct: number | null
+  current: number
+  prior: number | null
+}
+
+export interface WhatChangedMetrics {
+  headline: string
+  items: WhatChangedMetricItem[]
+  data_quality: 'ok' | 'partial'
+}
+
+export interface RiskDiff {
+  new: string[]
+  resolved: string[]
+  carried_count: number
+}
+
+export interface PriorFilingRef {
+  filing_id: number
+  filing_type: string
+  filing_date: string | null
+  period_end_date: string | null
+}
+
+export interface ChangeReport {
+  has_prior: boolean
+  comparison_basis: string | null
+  prior_filing: PriorFilingRef | null
+  metrics: WhatChangedMetrics | null
+  risks: RiskDiff | null
+  key_changes: string | null
+  has_changes: boolean
+}
+
+export const getWhatChanged = async (filingId: number): Promise<ChangeReport> => {
+  const response = await api.get(`/api/summaries/filing/${filingId}/what-changed`)
+  return response.data
+}
