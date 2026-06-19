@@ -38,6 +38,13 @@ describe('FullTextSearchResults', () => {
     expect(screen.getByRole('link').getAttribute('href')).toBe(partial.sec_url)
   })
 
+  it('renders a non-link row when no URL is available (no empty anchor)', () => {
+    const noUrl: FullTextSearchHit = { ...hit, document_url: null, sec_url: null }
+    const { container } = render(<FullTextSearchResults hits={[noUrl]} />)
+    expect(screen.queryByRole('link')).toBeNull()
+    expect(container.textContent).toContain('Apple Inc.')
+  })
+
   it('renders one row per hit', () => {
     render(<FullTextSearchResults hits={[hit, { ...hit, accession_no: '0000320193-23-000077', document: 'aapl2.htm' }]} />)
     expect(screen.getAllByRole('link')).toHaveLength(2)

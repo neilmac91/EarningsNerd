@@ -16,33 +16,45 @@ export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
     <ul className="divide-y divide-white/[0.06] overflow-hidden rounded-xl border border-white/10 bg-slate-900/60">
       {hits.map((hit) => {
         const href = hit.document_url || hit.sec_url || undefined
+        const rowClass = 'flex items-start justify-between gap-4 px-4 py-3'
+        const inner = (
+          <>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                {hit.ticker && (
+                  <span className="font-mono text-sm font-semibold text-mint-400">{hit.ticker}</span>
+                )}
+                <span className="truncate text-sm text-slate-200">{hit.company ?? 'Unknown filer'}</span>
+              </div>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+                {hit.form && (
+                  <span className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 uppercase tracking-wide">
+                    {hit.form}
+                  </span>
+                )}
+                {hit.filed_date && <span>Filed {hit.filed_date}</span>}
+                {hit.period_ending && <span>· Period {hit.period_ending}</span>}
+              </div>
+            </div>
+            {/* Only the linkable rows get the external-link affordance. */}
+            {href && <ExternalLink className="mt-1 h-4 w-4 shrink-0 text-slate-500" aria-hidden />}
+          </>
+        )
         return (
           <li key={`${hit.accession_no}:${hit.document ?? ''}`}>
-            <a
-              href={href}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-start justify-between gap-4 px-4 py-3 transition-colors hover:bg-white/5"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  {hit.ticker && (
-                    <span className="font-mono text-sm font-semibold text-mint-400">{hit.ticker}</span>
-                  )}
-                  <span className="truncate text-sm text-slate-200">{hit.company ?? 'Unknown filer'}</span>
-                </div>
-                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
-                  {hit.form && (
-                    <span className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 uppercase tracking-wide">
-                      {hit.form}
-                    </span>
-                  )}
-                  {hit.filed_date && <span>Filed {hit.filed_date}</span>}
-                  {hit.period_ending && <span>· Period {hit.period_ending}</span>}
-                </div>
-              </div>
-              <ExternalLink className="mt-1 h-4 w-4 shrink-0 text-slate-500" aria-hidden />
-            </a>
+            {/* Render a real link only when a URL exists; otherwise a plain row (no empty <a>). */}
+            {href ? (
+              <a
+                href={href}
+                target="_blank"
+                rel="noreferrer"
+                className={`${rowClass} transition-colors hover:bg-white/5`}
+              >
+                {inner}
+              </a>
+            ) : (
+              <div className={rowClass}>{inner}</div>
+            )}
           </li>
         )
       })}
