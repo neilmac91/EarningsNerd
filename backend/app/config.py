@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     SEC_RATE_LIMIT_PER_SECOND: int = 10
     SEC_MAX_RETRIES: int = 5
     SEC_BASE_BACKOFF_SECONDS: float = 1.0
+    # EDGAR full-text search (EFTS) — searches filing/exhibit text since 2001, keyless.
+    SEC_EFTS_BASE_URL: str = "https://efts.sec.gov/LATEST/search-index"
+    SEC_EFTS_TIMEOUT_SECONDS: float = 8.0
     
     # OpenAI-compatible API (Google AI Studio recommended)
     # Check environment variable first, then .env file
