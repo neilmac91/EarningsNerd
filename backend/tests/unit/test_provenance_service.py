@@ -39,19 +39,26 @@ class TestExtractQuotedSpan:
 class TestVerifyExcerptInText:
     SOURCE = "ITEM 1A. RISK FACTORS\nSupply chain constraints persisted through Q3 of fiscal 2024."
 
+    def _norm(self):
+        return prov.normalize_for_match(self.SOURCE)
+
     def test_verifies_quoted_excerpt_case_and_whitespace_insensitive(self):
         evidence = 'Item 1A: "Supply   chain constraints persisted through Q3"'
-        assert prov.verify_excerpt_in_text(evidence, self.SOURCE) is True
+        assert prov.verify_excerpt_in_text(evidence, self._norm()) is True
 
     def test_unverified_when_not_present(self):
-        assert prov.verify_excerpt_in_text('"A totally fabricated sentence not in the filing"', self.SOURCE) is False
+        assert prov.verify_excerpt_in_text('"A totally fabricated sentence not in the filing"', self._norm()) is False
 
     def test_unverified_when_too_short(self):
         # Below the min-length gate -> never claimed as verified even if technically a substring.
-        assert prov.verify_excerpt_in_text('"Q3"', self.SOURCE) is False
+        assert prov.verify_excerpt_in_text('"Q3"', self._norm()) is False
 
     def test_unverified_without_source_text(self):
         assert prov.verify_excerpt_in_text('"Supply chain constraints persisted through Q3"', None) is False
+
+    def test_non_string_evidence_is_safe(self):
+        # Legacy/malformed records may carry a non-string excerpt; must not raise.
+        assert prov.verify_excerpt_in_text(["not", "a", "string"], self._norm()) is False
 
 
 class TestBuildTextFragmentUrl:
@@ -82,7 +89,7 @@ class TestBuildRiskSource:
             "supporting_evidence": 'Item 1A: "Supply chain constraints persisted through Q3"',
             "source_section_ref": "Item 1A. Risk Factors",
         }
-        out = prov.build_risk_source(risk, _filing(), self.SOURCE)
+        out = prov.build_risk_source(risk, _filing(), prov.normalize_for_match(self.SOURCE))
         assert out["source_verified"] is True
         assert "#:~:text=" in out["source_url"]
         assert out["source_section_ref"] == "Item 1A. Risk Factors"
@@ -93,7 +100,7 @@ class TestBuildRiskSource:
             "supporting_evidence": '"This sentence is not anywhere in the filing text at all"',
             "source_section_ref": "Item 1A. Risk Factors",
         }
-        out = prov.build_risk_source(risk, _filing(), self.SOURCE)
+        out = prov.build_risk_source(risk, _filing(), prov.normalize_for_match(self.SOURCE))
         assert out["source_verified"] is False
         assert "#:~:text=" not in out["source_url"]
         assert out["source_url"].endswith("aapl.htm")

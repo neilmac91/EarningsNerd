@@ -35,19 +35,19 @@ _WS_RE = re.compile(r"\s+")
 _QUOTED_RE = re.compile(r"[\"“”]([^\"“”]{8,})[\"“”]")
 
 
-def normalize_for_match(text: str) -> str:
+def normalize_for_match(text: Optional[str]) -> str:
     """Lowercase and collapse all whitespace, for whitespace/case-insensitive substring matching."""
     return _WS_RE.sub(" ", (text or "").strip().lower())
 
 
-def extract_quoted_span(evidence: str) -> str:
+def extract_quoted_span(evidence: Any) -> str:
     """Return the most quotable span of an evidence string.
 
     AI evidence often looks like ``Item 1A: "Supply chain constraints persisted through Q3."`` — the
     quoted span is the part that actually appears verbatim in the filing, so we prefer it. If there is
     no quoted span, fall back to the whole string.
     """
-    if not evidence:
+    if not isinstance(evidence, str) or not evidence:
         return ""
     match = _QUOTED_RE.search(evidence)
     if match:
@@ -55,14 +55,19 @@ def extract_quoted_span(evidence: str) -> str:
     return evidence.strip()
 
 
-def verify_excerpt_in_text(excerpt: str, source_text: Optional[str]) -> bool:
-    """True when ``excerpt`` can be located in ``source_text`` (whitespace/case-insensitive)."""
-    if not excerpt or not source_text:
+def verify_excerpt_in_text(excerpt: str, normalized_source: Optional[str]) -> bool:
+    """True when ``excerpt`` can be located in ``normalized_source``.
+
+    ``normalized_source`` must already be normalized via :func:`normalize_for_match`. Callers
+    normalize the (potentially multi-megabyte) filing text **once** per request rather than once per
+    risk factor, so the large-string lowercasing/regex pass stays off the hot path.
+    """
+    if not excerpt or not normalized_source:
         return False
     needle = normalize_for_match(extract_quoted_span(excerpt))
     if len(needle) < _MIN_VERIFIABLE_LEN:
         return False
-    return needle in normalize_for_match(source_text)
+    return needle in normalized_source
 
 
 def build_text_fragment_url(base_url: str, excerpt: str) -> str:
@@ -84,12 +89,13 @@ def build_text_fragment_url(base_url: str, excerpt: str) -> str:
 def build_risk_source(
     risk: dict[str, Any],
     filing: Any,
-    source_text: Optional[str],
+    normalized_source: Optional[str],
 ) -> dict[str, Any]:
     """Compute provenance metadata for a single risk factor.
 
     Returns ``{source_section_ref, source_url, source_verified}``. ``source_url`` is a text-fragment
     deep link when the evidence is verified, otherwise the plain filing document URL.
+    ``normalized_source`` is the filing text pre-normalized by :func:`normalize_for_match`.
     """
     section_ref = risk.get("source_section_ref") or risk.get("sourceSectionRef")
     evidence = (
@@ -100,7 +106,7 @@ def build_risk_source(
     )
     base_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or ""
 
-    verified = verify_excerpt_in_text(evidence, source_text)
+    verified = verify_excerpt_in_text(evidence, normalized_source)
     if not base_url:
         url = None
     elif verified:
@@ -126,7 +132,7 @@ def _select_source_text(filing: Any) -> Optional[str]:
 def enrich_risk_list(
     risks: Optional[list],
     filing: Any,
-    source_text: Optional[str],
+    normalized_source: Optional[str],
 ) -> Optional[list]:
     """Return a deep-copied risk list with provenance fields added to each dict entry."""
     if not isinstance(risks, list):
@@ -135,7 +141,7 @@ def enrich_risk_list(
     for risk in risks:
         if isinstance(risk, dict):
             item = copy.deepcopy(risk)
-            item.update(build_risk_source(item, filing, source_text))
+            item.update(build_risk_source(item, filing, normalized_source))
             enriched.append(item)
         else:
             enriched.append(risk)
@@ -145,12 +151,13 @@ def enrich_risk_list(
 def enrich_raw_summary(
     raw_summary: Optional[dict],
     filing: Any,
-    source_text: Optional[str] = None,
+    normalized_source: Optional[str] = None,
 ) -> Optional[dict]:
     """Non-mutating enrichment of ``raw_summary.sections.risk_factors`` with provenance.
 
     Tolerant of missing ``sections`` / ``risk_factors``; returns the input unchanged if there is
-    nothing to enrich. ``source_text`` may be passed in to avoid recomputing it.
+    nothing to enrich. ``normalized_source`` (pre-normalized filing text) may be passed in to avoid
+    recomputing it; when omitted it is selected from the filing and normalized once here.
     """
     if not isinstance(raw_summary, dict):
         return raw_summary
@@ -158,11 +165,12 @@ def enrich_raw_summary(
     if not isinstance(sections, dict) or not isinstance(sections.get("risk_factors"), list):
         return raw_summary
 
-    if source_text is None:
-        source_text = _select_source_text(filing)
+    if normalized_source is None:
+        raw_source = _select_source_text(filing) if filing is not None else None
+        normalized_source = normalize_for_match(raw_source)
     result = copy.deepcopy(raw_summary)
     result["sections"]["risk_factors"] = enrich_risk_list(
-        sections.get("risk_factors"), filing, source_text
+        sections.get("risk_factors"), filing, normalized_source
     )
     return result
 
@@ -171,16 +179,18 @@ def enrich_summary_provenance(summary: Any, filing: Any) -> dict[str, Any]:
     """Build a ``SummaryResponse``-shaped dict from a ``Summary`` row with provenance added.
 
     Enriches both ``raw_summary.sections.risk_factors`` (the UI's canonical source) and the top-level
-    ``risk_factors`` list (used by exports), verifying excerpts against the cached filing text once.
+    ``risk_factors`` list (used by exports). The filing text is selected and normalized **once** here
+    and threaded into both enrichment passes, so a multi-MB filing is never re-normalized per risk.
     """
-    source_text = _select_source_text(filing) if filing is not None else None
+    raw_source = _select_source_text(filing) if filing is not None else None
+    normalized_source = normalize_for_match(raw_source)
     return {
         "id": summary.id,
         "filing_id": summary.filing_id,
         "business_overview": summary.business_overview,
         "financial_highlights": summary.financial_highlights,
-        "risk_factors": enrich_risk_list(summary.risk_factors, filing, source_text),
+        "risk_factors": enrich_risk_list(summary.risk_factors, filing, normalized_source),
         "management_discussion": summary.management_discussion,
         "key_changes": summary.key_changes,
-        "raw_summary": enrich_raw_summary(summary.raw_summary, filing, source_text),
+        "raw_summary": enrich_raw_summary(summary.raw_summary, filing, normalized_source),
     }
