@@ -94,21 +94,26 @@ def diff_risk_factors(
     cur_tokens = [_tokenize(_risk_text(r)) for r in cur]
     pri_tokens = [_tokenize(_risk_text(r)) for r in pri]
 
-    matched_prior: set[int] = set()
-    new: list[str] = []
-    for risk, tokens in zip(cur, cur_tokens):
-        best_j, best_score = -1, 0.0
+    # Global best-first matching: rank ALL candidate pairs (>= threshold) by similarity and assign
+    # the strongest first. This is order-independent — a reworded risk won't be mismatched just
+    # because an earlier-listed risk greedily grabbed its counterpart.
+    candidates: list[tuple[float, int, int]] = []
+    for i, tokens in enumerate(cur_tokens):
         for j, ptokens in enumerate(pri_tokens):
-            if j in matched_prior:
-                continue
             score = _jaccard(tokens, ptokens)
-            if score > best_score:
-                best_score, best_j = score, j
-        if best_j >= 0 and best_score >= threshold:
-            matched_prior.add(best_j)
-        else:
-            new.append(_risk_label(risk))
+            if score >= threshold:
+                candidates.append((score, i, j))
+    candidates.sort(key=lambda c: c[0], reverse=True)
 
+    matched_cur: set[int] = set()
+    matched_prior: set[int] = set()
+    for _score, i, j in candidates:
+        if i in matched_cur or j in matched_prior:
+            continue
+        matched_cur.add(i)
+        matched_prior.add(j)
+
+    new = [_risk_label(cur[i]) for i in range(len(cur)) if i not in matched_cur]
     resolved = [_risk_label(pri[j]) for j in range(len(pri)) if j not in matched_prior]
     return {"new": new, "resolved": resolved, "carried_count": len(matched_prior)}
 

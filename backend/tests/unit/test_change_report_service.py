@@ -34,6 +34,20 @@ class TestDiffRiskFactors:
         assert out["resolved"] == []
         assert out["carried_count"] == 1
 
+    def test_global_best_first_beats_list_order_greedy(self):
+        # cur[0] matches the prior at ~0.6; cur[1] matches it at 1.0. A naive list-order greedy would
+        # let cur[0] consume the prior and mark the stronger cur[1] "new". Global best-first must pair
+        # the prior with cur[1] and leave the weaker cur[0] as the "new" one.
+        current = [
+            {"title": "Supply chain constraints overview"},
+            {"title": "Supply chain constraints and logistics"},
+        ]
+        prior = [{"title": "Supply chain constraints and logistics"}]
+        out = svc.diff_risk_factors(current, prior)
+        assert out["carried_count"] == 1
+        assert out["resolved"] == []
+        assert out["new"] == ["Supply chain constraints overview"]
+
     def test_falls_back_to_summary_text_when_no_title(self):
         current = [{"summary": "New climate transition and carbon pricing exposure"}]
         prior = []
