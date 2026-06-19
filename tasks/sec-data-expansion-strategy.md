@@ -181,10 +181,18 @@ financial_fact
   accession       String  (indexed)
   source          String  -- 'edgar_xbrl' | 'companyfacts' | 'frames' | 'fsds'
   reconciled      Boolean -- passed the cross-check gate (§3.5)
+  is_latest       Boolean -- the current reported value for (company, concept, period) — see restatement note
   created_at      DateTime
-  UNIQUE(company_id, concept, period_end, fiscal_period, unit)
-  INDEX(concept, period_end)   -- peer queries
-  INDEX(company_id, concept, period_end)  -- time-series
+  -- Restatement-safe key: when a company restates a prior period, the corrected value
+  -- arrives under a NEW accession but the SAME (company, concept, period_end, fiscal_period,
+  -- unit). A unique key WITHOUT accession would blind-overwrite the original and destroy the
+  -- audit trail (or hard-conflict). Including `accession` lets the original and restated rows
+  -- coexist; a single `is_latest=true` row per (company, concept, period) keeps peer/series
+  -- reads a one-row indexed lookup. The facts writer flips the prior row's is_latest to false
+  -- in the same transaction it inserts the restatement.
+  UNIQUE(company_id, concept, period_end, fiscal_period, unit, accession)
+  INDEX(concept, period_end) WHERE is_latest          -- peer queries (current values only)
+  INDEX(company_id, concept, period_end) WHERE is_latest  -- time-series (current values only)
 ```
 
 - **Migration:** add SQL to `backend/migrations/` (manual convention — no Alembic). Schema also auto-creates via `Base.metadata.create_all()` at startup, so the model addition is sufficient for new envs; the migration is for existing prod.
@@ -223,7 +231,11 @@ All follow existing conventions: `/api/` prefix, Pydantic response models in `ap
 ### 3.4 Security & rate-limiting protocol
 
 - **Single rate-limit authority.** Today we have *two* limiters (ours + EdgarTools' internal 9/s). Reconcile: keep `sec_rate_limiter.py` as the authority for our *direct* `httpx` calls (EFTS/Frames/Atom); leave EdgarTools' internal limiter for *its* calls. Document that both are **per-instance**.
-- **Cross-instance ceiling.** With N Cloud Run instances the aggregate SEC rate is N × limit. Either (a) cap `EDGAR_RATE_LIMIT_PER_SEC` and our limiter to `floor(10/expected_instances)`, or (b) front all SEC traffic through the single weekly-cron worker for bulk/poll workloads (preferred for backfill/alerts). Live request-path calls stay rare and cached.
+- **Cross-instance ceiling.** With N Cloud Run instances the aggregate SEC rate is N × limit, and autoscaling makes N fluctuate — static per-instance division is fragile (it over-throttles when only one instance is live, *and* breaches the cap during a sudden scale-up). Options, in order of robustness:
+  - **(a) Centralized distributed token bucket** shared across instances — the correct answer under autoscaling. The natural home is Redis (a Redis-backed token bucket, or an `INCR`+expiry / Lua sliding-window). **Caveat to resolve first:** although Redis exists in the codebase as the L2 cache, it is *disabled in production* (`SKIP_REDIS_INIT=true`; the two-tier cache runs L1-only per the deploy config). This option therefore requires standing up Memorystore (or re-enabling Redis) before it is viable — adopt once SEC traffic justifies the infra.
+  - **(b) Funnel all bulk/poll SEC traffic through the single weekly-cron worker** (one instance ⇒ one limiter) — the recommended interim with zero new infra; fits backfill and the alert poller, which is where almost all SEC volume lives.
+  - **(c) Static per-instance cap** `floor(10 / max_instances)` — simplest, but only safe when `min == max` instances; brittle under autoscaling.
+  Live request-path SEC calls stay rare and cached, so they contribute little to the ceiling regardless.
 - **User-Agent** is mandatory and centralized (`EDGAR_IDENTITY`) — already enforced; extend to the new direct-`httpx` client.
 - **Set all `EDGAR_*` env vars before importing `edgar`** — config is read at import time.
 - **Admin/cron endpoints** reuse the `X-Admin-Token` / `HOT_FILINGS_REFRESH_TOKEN` pattern.
@@ -232,7 +244,7 @@ All follow existing conventions: `/api/` prefix, Pydantic response models in `ap
 ### 3.5 Reconciliation gate (the trust layer)
 
 Because EdgarTools can return silent wrong values, `facts_service.py` enforces, before `reconciled=True`:
-1. **Sign/scale sanity:** revenue ≥ 0; assets ≥ liabilities is *not* assumed but flagged; EPS within plausible bounds; magnitude vs. prior period within an order of magnitude (catches the ABNB/XOM scale bugs).
+1. **Sign / scale / consistency invariants:** revenue ≥ 0 (negative revenue is a *hard reject* — it is impossible; a legitimate $0 occurs for pre-revenue/SPAC/shell filers, so a **standalone** zero is allowed, but a zero where the prior period was non-zero is flagged as a likely parse miss rather than silently stored); **`sign(EPS) == sign(net_income)`** (positive EPS alongside a net loss is a parse error — catches the MU "−$284M shown as +$2M" class, #814); **diluted EPS ≤ basic EPS**; EPS within plausible bounds; magnitude vs. prior period within an order of magnitude (catches the ABNB/XOM scale bugs). The balance-sheet identity (assets ≈ liabilities + equity) is checked and flagged, never assumed.
 2. **Cross-source check for headline figures:** compare EdgarTools-parsed revenue/net income/assets against `data.sec.gov` `companyconcept` for the same accession; mismatch beyond tolerance → mark `reconciled=False`, prefer the authoritative API value, log a structured `fact_reconciliation_mismatch` event.
 3. **Period correctness:** verify `period_end` aligns with `period_of_report` for the form (catches the MU/ADI period bugs).
 Unreconciled facts are excluded from peer comparisons and flagged in the UI quality badge.
@@ -287,13 +299,14 @@ How subsequent build sessions will be decomposed across specialized subagents to
 | **EdgarTools silent wrong value** (scale/sign/period/standardization) | High (recurs per-filer) | High (wrong numbers shown as fact) | **Reconciliation gate (§3.5)**; prefer authoritative `companyconcept`/`companyfacts` for headline figures; quality badge on unreconciled data; never trust stitched/standardized layer blindly. |
 | **EdgarTools single-maintainer / abandonment** | Low-Med | High | Pin exact version; vendor-lock isolated behind our `edgar/` facade (already done) so a swap touches one module; raw SEC JSON APIs are a documented fallback for every critical read; sponsor the project. |
 | **SEC EDGAR layout/endpoint change** (e.g., the 2024-12-20 index rewrite) | Med | High | Favor stable JSON APIs over HTML scraping; circuit breaker already isolates failures; fall back to cached DB filings (existing pattern); monitor EdgarTools releases for fixes (historically ~1 week). |
-| **Aggregate rate-limit breach across Cloud Run instances → IP block** | Med | High | Route bulk/poll traffic through the single cron worker; cap per-instance limits to `floor(10/instances)`; honor `Retry-After`; circuit breaker on 429. |
+| **Aggregate rate-limit breach across Cloud Run instances → IP block** (worsened by autoscaling) | Med | High | Interim: funnel bulk/poll traffic through the single cron worker. Long-term: centralized Redis/Memorystore token bucket (Redis is off in prod today — §3.4). Honor `Retry-After`; circuit breaker on 429. |
 | **EdgarTools major-version breaking change** (4.0/5.0-class rewrites) | Med | Med | Pin exactly; gate upgrades behind the regression suite + golden-file fixtures; budget migration time. |
 | **Cloud Run ephemeral storage → cold-start latency** | High | Low-Med | `EDGAR_LOCAL_DATA_DIR` on a persistent path or startup warm-up of reference data. |
 | **Memory accumulation in long-lived workers (#705)** | Med | Med | Bound in-process `Company` cache; generator-based sequential processing; delete references after use. |
 | **Licensing contamination (GPL/AGPL)** | Low (if disciplined) | High (legal) | Hard policy: no GPL/AGPL in runtime closure; EdgarTools (MIT) + raw SEC endpoints only; Arelle (Apache) out-of-band if needed. |
 | **Yahoo ToS exposure (if yfinance used commercially)** | — | Med-High (legal) | Keep Finnhub/FMP primary; yfinance fallback-only, off-request, counsel review before any commercial reliance. |
 | **Section misclassification feeding the LLM bad text (#821)** | Med | Med | Validate extracted section length/labels against expected form structure; the existing `QualityGate` can reject implausible inputs. |
+| **Restatement silently overwrites originally-reported values** | Med | Med | Restatement-safe schema: `accession` in the unique key + `is_latest` flag (§3.1); the facts writer flips the prior row's `is_latest` in the same transaction rather than blind-upserting on (company, concept, period). |
 
 **Resilience principles to encode:** (1) every external read has a cached fallback; (2) every displayed number is reconciled or visibly flagged; (3) the SEC integration is swappable behind one facade; (4) bulk/scheduled traffic is centralized to respect the global rate ceiling; (5) silent failure is the enemy — prefer loud structured logs and honest empty-states.
 
