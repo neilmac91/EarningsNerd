@@ -1,6 +1,7 @@
 import React from 'react'
 import { SummaryBlock } from '@/components/SummaryBlock'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { MetricSourceLink } from '@/components/MetricSourceLink'
 import type { MetricItem } from '@/types/summary'
 
 interface SummaryFinancialsProps {
@@ -51,6 +52,15 @@ export function SummaryFinancials({ notes, metrics }: SummaryFinancialsProps) {
                       <span className="text-slate-400 mx-1">vs</span>
                       {m.prior_period}
                     </>
+                  )}
+                  {m.source_url && (
+                    <span className="ml-2">
+                      <MetricSourceLink
+                        url={m.source_url}
+                        verified={m.source_verified}
+                        concept={m.xbrl_concept}
+                      />
+                    </span>
                   )}
                 </li>
               )

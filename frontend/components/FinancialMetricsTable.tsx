@@ -2,12 +2,16 @@
 
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { fmtCurrency, fmtPercent, fmtScale, parseNumeric } from '@/lib/format'
+import { MetricSourceLink } from '@/components/MetricSourceLink'
 
 interface FinancialMetric {
   metric: string
   current_period: string
   prior_period: string
   commentary?: string
+  source_url?: string | null
+  source_verified?: boolean | null
+  xbrl_concept?: string | null
 }
 
 interface FinancialMetricsTableProps {
@@ -96,7 +100,14 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
               return (
                 <tr key={index} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {metric.metric}
+                    <div className="flex flex-col">
+                      <span>{metric.metric}</span>
+                      <MetricSourceLink
+                        url={metric.source_url}
+                        verified={metric.source_verified}
+                        concept={metric.xbrl_concept}
+                      />
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
                     {formatMetricValue(metric.current_period)}
