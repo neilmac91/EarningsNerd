@@ -3,8 +3,6 @@
 from types import SimpleNamespace
 from urllib.parse import unquote
 
-import pytest
-
 from app.services import provenance_service as prov
 
 
