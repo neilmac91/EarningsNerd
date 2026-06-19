@@ -2,6 +2,7 @@
 
 import logging
 from dataclasses import asdict
+from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -27,12 +28,12 @@ async def full_text_search(
         None,
         description="Comma-separated SEC form types to filter by, e.g. '10-K,10-Q,8-K'.",
     ),
-    start_date: Optional[str] = Query(
+    start_date: Optional[date] = Query(
         None,
         alias="startdt",
         description="Earliest filing date, YYYY-MM-DD (EDGAR indexes text from 2001 onward).",
     ),
-    end_date: Optional[str] = Query(
+    end_date: Optional[date] = Query(
         None,
         alias="enddt",
         description="Latest filing date, YYYY-MM-DD.",
@@ -60,8 +61,8 @@ async def full_text_search(
         result = await sec_full_text_search_client.search(
             query=q,
             forms=forms,
-            start_date=start_date,
-            end_date=end_date,
+            start_date=start_date.isoformat() if start_date else None,
+            end_date=end_date.isoformat() if end_date else None,
             ciks=ciks,
             from_offset=from_offset,
         )

@@ -25,8 +25,13 @@ from app.services.sec_rate_limiter import sec_rate_limiter
 
 logger = logging.getLogger(__name__)
 
-# Display names come back as "Company Name (TICKER) (CIK 0000000000)".
-_PAREN_TOKEN_RE = re.compile(r"\(([^)]*)\)")
+# Display names come back as "Company Name (TICKER) (CIK 0000000000)" or
+# "Company Name (CIK 0000000000)". Anchoring on the trailing CIK group means a
+# parenthesised share class in the name (e.g. "Alphabet Inc. (Class A)") is kept
+# with the company rather than mistaken for the ticker.
+_DISPLAY_NAME_RE = re.compile(
+    r"^(?P<company>.*?)(?:\s+\((?P<ticker>[^)]+)\))?\s+\(CIK\s+\d+\)\s*$"
+)
 _TICKER_RE = re.compile(r"[A-Za-z0-9.\-]{1,6}")
 
 
@@ -49,23 +54,34 @@ def _first_str(items: object) -> Optional[str]:
 def _parse_display_name(name: Optional[str]) -> Tuple[Optional[str], Optional[str]]:
     """Split an EFTS display name into (company, ticker).
 
-    Example: ``"Apple Inc. (AAPL) (CIK 0000320193)"`` -> ``("Apple Inc.", "AAPL")``.
-    The ticker is the first parenthesised token that is not the ``CIK ...`` group.
+    Examples::
+
+        "Apple Inc. (AAPL) (CIK 0000320193)"            -> ("Apple Inc.", "AAPL")
+        "Alphabet Inc. (Class A) (GOOGL) (CIK 1652044)" -> ("Alphabet Inc. (Class A)", "GOOGL")
+        "SOME TRUST (CIK 0001234567)"                   -> ("SOME TRUST", None)
+
+    The token before the trailing ``(CIK ...)`` group is treated as the ticker
+    only if it looks like one; otherwise (e.g. a share-class phrase) it is kept
+    as part of the company name.
     """
 
     if not name:
         return None, None
 
-    company = name.split(" (")[0].strip() or None
+    match = _DISPLAY_NAME_RE.match(name)
+    if not match:
+        return name.strip() or None, None
 
-    ticker: Optional[str] = None
-    for token in _PAREN_TOKEN_RE.findall(name):
-        token = token.strip()
-        if not token or token.upper().startswith("CIK"):
-            continue
-        if _TICKER_RE.fullmatch(token):
-            ticker = token.upper()
-            break
+    company = (match.group("company") or "").strip() or None
+    ticker = match.group("ticker")
+    if ticker:
+        ticker = ticker.strip()
+        if _TICKER_RE.fullmatch(ticker):
+            ticker = ticker.upper()
+        else:
+            # Not a real ticker (e.g. "Class A") — fold it back into the name.
+            company = f"{company} ({ticker})" if company else f"({ticker})"
+            ticker = None
 
     return company, ticker
 

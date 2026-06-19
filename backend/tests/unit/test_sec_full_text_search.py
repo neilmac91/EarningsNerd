@@ -127,6 +127,20 @@ class TestDisplayNameParsing:
             "BRK.A",
         )
 
+    def test_share_class_parentheses_not_truncated(self):
+        # A parenthesised share class in the name must be preserved, not eaten.
+        assert _parse_display_name("Alphabet Inc. (Class A) (GOOGL) (CIK 0001652044)") == (
+            "Alphabet Inc. (Class A)",
+            "GOOGL",
+        )
+
+    def test_non_ticker_token_folded_into_name(self):
+        # A trailing parenthesised phrase that isn't ticker-shaped stays in the name.
+        assert _parse_display_name("Foo Trust (Series 2020) (CIK 0001234567)") == (
+            "Foo Trust (Series 2020)",
+            None,
+        )
+
     def test_without_ticker_only_cik(self):
         # Funds / individuals often have only the CIK group, no ticker.
         assert _parse_display_name("SOME TRUST (CIK 0001234567)") == ("SOME TRUST", None)
