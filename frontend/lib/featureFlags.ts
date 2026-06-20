@@ -93,3 +93,12 @@ export const TURNSTILE_ENABLED = TURNSTILE_SITE_KEY.length > 0
  * Flip NEXT_PUBLIC_ENABLE_CALENDAR='true' once FMP is configured.
  */
 export const ENABLE_CALENDAR = process.env.NEXT_PUBLIC_ENABLE_CALENDAR === 'true'
+
+/**
+ * Show the insider-activity (Form 4) panel on the company page. The backend endpoint does a LIVE
+ * SEC EDGAR fan-out across recent Form 4 filings (up to a ~75s ceiling), so this ships off by
+ * default and should be enabled deliberately once validated against SEC rate limits.
+ * Flip NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY='true' to enable.
+ */
+export const ENABLE_INSIDER_ACTIVITY =
+  process.env.NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY === 'true'
