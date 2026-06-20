@@ -10,6 +10,7 @@ from app.models.audit_log import AuditLog
 from app.models.refresh_token import RefreshToken
 from app.models.subscription import Subscription, StripeEvent, ACTIVE_STATUSES
 from app.models.notifications import NotificationPreferences, NotificationLog
+from app.models.financial_fact import FinancialFact
 
 logger = logging.getLogger(__name__)
 
