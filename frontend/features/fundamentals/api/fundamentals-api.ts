@@ -10,6 +10,8 @@ export interface FundamentalPoint {
   unit: string
   form: string | null
   accession: string
+  // false when the backend's reconciliation gate flagged this value (shown with a badge).
+  reconciled: boolean
 }
 
 export interface FundamentalSeries {

@@ -8,6 +8,7 @@ import { Loader2 } from 'lucide-react'
 import { getPeers, PeerComparisonResponse } from '@/features/peers/api/peers-api'
 import { ApiError } from '@/lib/api/client'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
+import UnverifiedBadge from '@/components/UnverifiedBadge'
 
 type FmtKind = 'usd' | 'eps' | 'pct'
 
@@ -75,8 +76,12 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
       ticker: p.ticker,
       value: p.value as number,
       isSubject: p.is_subject,
+      reconciled: p.reconciled,
     }))
   }, [data])
+
+  // Any flagged value among the shown bars → surface the honesty badge.
+  const hasUnverified = chartData.some((d) => d.reconciled === false)
 
   // Hide entirely until we know there are peers for at least one metric. Once the
   // panel has shown peers, keep it mounted and surface errors/sparsity inline.
@@ -89,7 +94,10 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
     <section className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-slate-900">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Sector Peers</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Sector Peers</h2>
+            {hasUnverified && <UnverifiedBadge />}
+          </div>
           {meaningful && subject?.rank != null && (
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
               Ranks <span className="font-semibold text-mint-600 dark:text-mint-400">#{subject.rank}</span>{' '}

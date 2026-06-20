@@ -3,11 +3,11 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { Loader2 } from 'lucide-react'
 
 import { getFundamentals, FundamentalsResponse } from '@/features/fundamentals/api/fundamentals-api'
 import { ApiError } from '@/lib/api/client'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
+import UnverifiedBadge from '@/components/UnverifiedBadge'
 
 type FmtKind = 'usd' | 'eps' | 'pct'
 
@@ -72,15 +72,25 @@ export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
       }))
   }, [data, activeKey])
 
-  // Supplementary section: stay quiet on error, and disappear when there are no facts
-  // (e.g. before the backfill runs) rather than showing an empty card.
-  if (isError) return null
-  if (!isLoading && available.length === 0) return null
+  // Any flagged value in the active series → show the honesty badge.
+  const hasUnverified = useMemo(() => {
+    if (!data || !activeKey) return false
+    const series = data.concepts.find((c) => c.concept === activeKey)
+    return !!series?.points.some((p) => p.reconciled === false)
+  }, [data, activeKey])
+
+  // Supplementary section. Stay unmounted while loading and disappear when there are no facts
+  // (e.g. before the backfill runs) — never render a card that then collapses (zero layout shift).
+  if (isLoading) return null
+  if (isError || available.length === 0) return null
 
   return (
     <section className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-slate-900">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Financial Trends</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Financial Trends</h2>
+          {hasUnverified && <UnverifiedBadge />}
+        </div>
         {available.length > 0 && (
           <div className="flex flex-wrap gap-2" role="group" aria-label="Select metric">
             {available.map((f) => (
@@ -102,11 +112,7 @@ export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
         )}
       </div>
 
-      {isLoading ? (
-        <div className="flex h-72 items-center justify-center" aria-label="Loading financial trends">
-          <Loader2 className="h-6 w-6 animate-spin text-mint-500" />
-        </div>
-      ) : chartData.length === 0 ? (
+      {chartData.length === 0 ? (
         <p className="py-12 text-center text-sm text-gray-500 dark:text-gray-400">
           No multi-year data available for this metric.
         </p>
