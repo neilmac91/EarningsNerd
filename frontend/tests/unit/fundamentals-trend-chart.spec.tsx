@@ -29,7 +29,7 @@ function renderChart(ticker = 'AAPL') {
   )
 }
 
-const point = (fy: number, value: number, unit: string) => ({
+const point = (fy: number, value: number, unit: string, reconciled = true) => ({
   period_end: `${fy}-12-31`,
   fiscal_year: fy,
   fiscal_period: 'FY',
@@ -37,6 +37,7 @@ const point = (fy: number, value: number, unit: string) => ({
   unit,
   form: '10-K',
   accession: `acc-${fy}`,
+  reconciled,
 })
 
 const RESP = {
@@ -63,6 +64,21 @@ describe('FundamentalsTrendChart', () => {
     expect(screen.getByRole('button', { name: 'Net Margin' })).toBeInTheDocument()
     expect(screen.queryByText('some_unfeatured_concept')).not.toBeInTheDocument()
     expect(screen.getByTestId('fundamentals-chart')).toBeInTheDocument()
+    // Clean data → no honesty badge.
+    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+  })
+
+  it('shows the Unverified badge when the active series has a flagged value', async () => {
+    getFundamentals.mockResolvedValue({
+      ticker: 'AAPL',
+      company_name: 'Apple Inc.',
+      concepts: [
+        { concept: 'revenue', unit: 'USD', points: [point(2022, 100, 'USD'), point(2023, 0, 'USD', false)] },
+      ],
+    })
+    renderChart()
+
+    expect(await screen.findByText('Unverified')).toBeInTheDocument()
   })
 
   it('switches the active metric on click', async () => {

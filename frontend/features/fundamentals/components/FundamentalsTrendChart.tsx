@@ -8,6 +8,7 @@ import { Loader2 } from 'lucide-react'
 import { getFundamentals, FundamentalsResponse } from '@/features/fundamentals/api/fundamentals-api'
 import { ApiError } from '@/lib/api/client'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
+import UnverifiedBadge from '@/components/UnverifiedBadge'
 
 type FmtKind = 'usd' | 'eps' | 'pct'
 
@@ -72,15 +73,26 @@ export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
       }))
   }, [data, activeKey])
 
+  // Any flagged value in the active series → show the honesty badge.
+  const hasUnverified = useMemo(() => {
+    if (!data || !activeKey) return false
+    const series = data.concepts.find((c) => c.concept === activeKey)
+    return !!series?.points.some((p) => p.reconciled === false)
+  }, [data, activeKey])
+
   // Supplementary section: stay quiet on error, and disappear when there are no facts
-  // (e.g. before the backfill runs) rather than showing an empty card.
-  if (isError) return null
-  if (!isLoading && available.length === 0) return null
+  // (e.g. before the backfill runs) rather than showing an empty card. Keep the card (with a
+  // spinner sized to the chart) mounted *while loading* so the common "has data" case doesn't
+  // shift content when the query resolves — only collapse once we know there are no facts.
+  if (isError || (!isLoading && available.length === 0)) return null
 
   return (
     <section className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-slate-900">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Financial Trends</h2>
+        <div className="flex items-center gap-2">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Financial Trends</h2>
+          {hasUnverified && <UnverifiedBadge />}
+        </div>
         {available.length > 0 && (
           <div className="flex flex-wrap gap-2" role="group" aria-label="Select metric">
             {available.map((f) => (

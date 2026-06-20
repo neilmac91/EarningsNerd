@@ -29,7 +29,14 @@ function renderPanel(ticker = 'AAPL') {
   )
 }
 
-const peer = (ticker: string, value: number, is_subject = false, rank = 1, percentile = 50) => ({
+const peer = (
+  ticker: string,
+  value: number,
+  is_subject = false,
+  rank = 1,
+  percentile = 50,
+  reconciled = true,
+) => ({
   ticker,
   company_name: `${ticker} Inc.`,
   value,
@@ -38,6 +45,7 @@ const peer = (ticker: string, value: number, is_subject = false, rank = 1, perce
   is_subject,
   rank,
   percentile,
+  reconciled,
 })
 
 const RESP = {
@@ -62,6 +70,22 @@ describe('PeerComparisonPanel', () => {
     expect(screen.getByText(/#3/)).toBeInTheDocument()
     expect(screen.getByText(/of 3 on Revenue/)).toBeInTheDocument()
     expect(screen.getByTestId('peers-chart')).toBeInTheDocument()
+    // Clean data → no honesty badge.
+    expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+  })
+
+  it('shows the Unverified badge when a shown value is flagged', async () => {
+    getPeers.mockResolvedValue({
+      ...RESP,
+      peers: [
+        peer('BIGCO', 300, false, 1, 100),
+        peer('MIDCO', 200, false, 2, 50, false), // flagged
+        peer('AAPL', 100, true, 3, 0),
+      ],
+    })
+    renderPanel()
+
+    expect(await screen.findByText('Unverified')).toBeInTheDocument()
   })
 
   it('renders nothing when there are no meaningful peers', async () => {
