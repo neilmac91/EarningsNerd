@@ -138,6 +138,9 @@ class Filing(Base):
     document_url = Column(String, nullable=False)
     sec_url = Column(String, nullable=False)
     xbrl_data = Column(JSON, nullable=True)  # Store XBRL extracted data
+    # When this filing's XBRL was last normalized into financial_fact (null = never). Lets the
+    # scheduled backfill run incrementally over just the newly-arrived filings.
+    processed_facts_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     company = relationship("Company", back_populates="filings")

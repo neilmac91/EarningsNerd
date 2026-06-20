@@ -13,7 +13,7 @@ and cross-source backfill (companyfacts / FSDS / Frames) remain later waves.
 from __future__ import annotations
 
 import logging
-from datetime import date
+from datetime import date, datetime, timezone
 from typing import Any, Optional
 
 from sqlalchemy.orm import Session
@@ -79,43 +79,53 @@ def normalize_standardized_to_facts(
     form: Optional[str],
     standardized: Optional[dict],
 ) -> list[dict[str, Any]]:
-    """Turn standardized metrics into fact dicts for the filing's currently-reported period.
+    """Turn standardized metrics into fact dicts — one row per concept *per reported period*.
 
-    One row per concept (the ``current`` entry), attributed to this filing's accession. Tolerant of
+    A 10-K's XBRL carries the current year plus comparative prior years, so each concept's
+    ``series`` (from ``extract_standardized_metrics``) yields several periods. We emit a row for
+    every period point, attributed to this filing's accession; the identity key includes
+    ``period_end`` so they're distinct, and the restatement-safe ``is_latest`` logic in
+    ``upsert_facts`` keeps the newest filing's value current when periods overlap across filings.
+    Falls back to the single ``current`` entry when no ``series`` is present. Tolerant of
     missing/malformed entries (skipped, never raised).
     """
     if not accession or not isinstance(standardized, dict):
         return []
-    fiscal_period = _fiscal_period(form)
     facts: list[dict[str, Any]] = []
     for concept, entry in standardized.items():
         if not isinstance(entry, dict):
             continue
-        current = entry.get("current")
-        if not isinstance(current, dict):
-            continue
-        value = current.get("value")
-        # Exclude bool (a subclass of int) and non-numeric values.
-        if not isinstance(value, (int, float)) or isinstance(value, bool):
-            continue
-        period_end = _parse_date(current.get("period"))
-        if period_end is None:
-            continue
-        facts.append(
-            {
-                "company_id": company_id,
-                "filing_id": filing_id,
-                "concept": concept,
-                "unit": _CONCEPT_UNITS.get(concept, "USD"),
-                "period_end": period_end,
-                "fiscal_year": period_end.year,
-                "fiscal_period": fiscal_period,
-                "value": float(value),
-                "form": form,
-                "accession": accession,
-                "source": "edgar_xbrl",
-            }
-        )
+        points = entry.get("series")
+        if not isinstance(points, list) or not points:
+            current = entry.get("current")
+            points = [current] if isinstance(current, dict) else []
+        for point in points:
+            if not isinstance(point, dict):
+                continue
+            value = point.get("value")
+            # Exclude bool (a subclass of int) and non-numeric values.
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                continue
+            period_end = _parse_date(point.get("period"))
+            if period_end is None:
+                continue
+            # Each point may carry the form that reported it; fall back to the filing's form.
+            point_form = point.get("form") or form
+            facts.append(
+                {
+                    "company_id": company_id,
+                    "filing_id": filing_id,
+                    "concept": concept,
+                    "unit": _CONCEPT_UNITS.get(concept, "USD"),
+                    "period_end": period_end,
+                    "fiscal_year": period_end.year,
+                    "fiscal_period": _fiscal_period(point_form),
+                    "value": float(value),
+                    "form": point_form,
+                    "accession": accession,
+                    "source": "edgar_xbrl",
+                }
+            )
     return facts
 
 
@@ -324,23 +334,33 @@ def upsert_facts(
     return {"inserted": inserted, "skipped": skipped, "rejected": rejected}
 
 
-def backfill_facts(db: Session, extract=None, limit: Optional[int] = None) -> dict[str, int]:
+def backfill_facts(
+    db: Session,
+    extract=None,
+    limit: Optional[int] = None,
+    *,
+    only_unprocessed: bool = False,
+) -> dict[str, int]:
     """Populate ``financial_fact`` from filings that already carry ``xbrl_data``.
 
     Reuses the standardized-metrics extractor + the pure normalizer + the writer. Idempotent
     (``upsert_facts`` skips rows that already exist). Filings are processed oldest-first so the
-    newest reported value wins ``is_latest``. ``extract`` is injectable for tests.
+    newest reported value wins ``is_latest``, and each is stamped with ``processed_facts_at`` so we
+    can tell which filings have been normalized. ``extract`` is injectable for tests.
+
+    ``only_unprocessed=True`` skips filings already stamped — the incremental mode for the scheduled
+    cron (process just the newly-arrived filings). The default reprocesses everything (a full,
+    idempotent pass), which is what a manual re-run wants.
     """
     if extract is None:
         from app.services.edgar.compat import xbrl_service
 
         extract = xbrl_service.extract_standardized_metrics
 
-    query = (
-        db.query(Filing)
-        .filter(Filing.xbrl_data.isnot(None))
-        .order_by(Filing.filing_date.asc())
-    )
+    query = db.query(Filing).filter(Filing.xbrl_data.isnot(None))
+    if only_unprocessed:
+        query = query.filter(Filing.processed_facts_at.is_(None))
+    query = query.order_by(Filing.filing_date.asc())
     if limit:
         query = query.limit(limit)
 
@@ -364,6 +384,9 @@ def backfill_facts(db: Session, extract=None, limit: Optional[int] = None) -> di
         result = upsert_facts(
             db, facts, period_of_report=getattr(filing, "period_of_report", None)
         )
+        # Stamp the filing as normalized (tracking column; also drives `only_unprocessed`).
+        filing.processed_facts_at = datetime.now(timezone.utc)
+        db.commit()
         inserted += result["inserted"]
         skipped += result["skipped"]
         rejected += result.get("rejected", 0)
