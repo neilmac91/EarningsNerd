@@ -156,6 +156,50 @@ class TestReconcileGate:
         )
         assert accepted[0]["reconciled"] is True
 
+    # --- multi-period batches (PR-C feeds these; checks must be period-aware) -------------
+
+    def test_cross_concept_checks_are_per_period(self):
+        # 2023 is a clean profit; 2024 is a loss with a positive EPS (sign mismatch). The
+        # mismatch must flag only 2024's EPS — not 2023's, which shares the batch.
+        facts = [
+            _gatefact("net_income", 50.0, date(2023, 9, 30)),
+            _gatefact("earnings_per_share", 1.0, date(2023, 9, 30)),
+            _gatefact("net_income", -50.0, date(2024, 9, 28)),
+            _gatefact("earnings_per_share", 1.0, date(2024, 9, 28)),
+        ]
+        accepted, _ = svc.reconcile_facts(facts)
+        by = {(f["concept"], f["period_end"]): f for f in accepted}
+        assert by[("earnings_per_share", date(2023, 9, 30))]["reconciled"] is True
+        assert by[("earnings_per_share", date(2024, 9, 28))]["reconciled"] is False
+
+    def test_prior_chains_within_multi_period_batch(self):
+        # Each year is compared to the year before it from WITHIN the batch (not to a single
+        # earliest-period cutoff): 2024's 50x jump vs 2023 is flagged; 2023 vs 2022 is fine.
+        facts = [
+            _gatefact("revenue", 100.0, date(2022, 9, 30)),
+            _gatefact("revenue", 120.0, date(2023, 9, 30)),
+            _gatefact("revenue", 6000.0, date(2024, 9, 28)),
+        ]
+        accepted, _ = svc.reconcile_facts(facts)
+        by = {f["period_end"]: f for f in accepted}
+        assert by[date(2022, 9, 30)]["reconciled"] is True  # no prior
+        assert by[date(2023, 9, 30)]["reconciled"] is True  # 120 vs 100
+        assert by[date(2024, 9, 28)]["reconciled"] is False  # 6000 vs 120 (chained prior)
+
+    def test_period_check_flags_only_latest_period(self):
+        facts = [
+            _gatefact("revenue", 90.0, date(2023, 9, 30)),  # comparative prior period
+            _gatefact("revenue", 100.0, date(2024, 9, 28)),  # current period
+        ]
+        # Filing reports the 2024 period — both fine; the comparative 2023 row is not flagged.
+        ok, _ = svc.reconcile_facts(facts, period_of_report=date(2024, 9, 28))
+        assert all(f["reconciled"] for f in ok)
+        # Filing's reported period disagrees with the latest fact → flag the latest period only.
+        flagged, _ = svc.reconcile_facts(facts, period_of_report=date(2024, 6, 30))
+        by = {f["period_end"]: f for f in flagged}
+        assert by[date(2023, 9, 30)]["reconciled"] is True  # comparative, never flagged
+        assert by[date(2024, 9, 28)]["reconciled"] is False  # latest != period_of_report
+
 
 @pytest.fixture(scope="module", autouse=True)
 def _tables():

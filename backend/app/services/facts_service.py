@@ -136,67 +136,96 @@ def reconcile_facts(
       can show them with a quality badge ("reconciled or visibly flagged"), never silently trusted.
 
     Soft checks: zero where the prior period was non-zero; >1 order-of-magnitude swing vs prior
-    (scale bug); sign(EPS) != sign(net_income) (the MU class); diluted EPS > basic EPS; and, when a
-    reported period is known, ``period_end`` != ``period_of_report`` (the ADI class).
+    (scale bug); sign(EPS) != sign(net_income) (the MU class); diluted EPS > basic EPS; and
+    ``period_end`` != ``period_of_report`` for the current period (the ADI class).
+
+    **Period-aware.** Facts are grouped by ``period_end`` and processed oldest→newest so that
+    cross-concept checks (EPS vs net income) only ever compare like-period values, and each period's
+    "prior" is its immediate predecessor — seeded from the DB value before the earliest period
+    (``prior_values``) then chained across in-batch periods (so a multi-period backfill compares a
+    year against the year before it, even when both arrive in the same batch). A single-filing v1
+    batch is one group, so this reduces to the obvious behaviour. The period-correctness check
+    applies only to the latest (current) period; comparative prior periods legitimately differ.
     """
-    prior_values = prior_values or {}
 
     def _num(v: Any) -> Optional[float]:
         return float(v) if isinstance(v, (int, float)) and not isinstance(v, bool) else None
 
-    by_concept = {f["concept"]: _num(f.get("value")) for f in facts}
-    net_income = by_concept.get("net_income")
-    eps_basic = by_concept.get("earnings_per_share")
-    eps_diluted = by_concept.get("eps_diluted")
-    eps_sign_mismatch = (
-        net_income not in (None, 0)
-        and eps_basic not in (None, 0)
-        and (net_income > 0) != (eps_basic > 0)
-    )
-    diluted_exceeds_basic = (
-        eps_basic is not None and eps_diluted is not None and eps_diluted > eps_basic + 1e-9
-    )
+    # Group by reporting period, oldest first (None-period facts last — they carry no position).
+    groups: dict[Any, list[dict[str, Any]]] = {}
+    for fact in facts:
+        groups.setdefault(fact.get("period_end"), []).append(fact)
+    ordered_periods = sorted(groups, key=lambda pe: (pe is None, pe))
+    dated = [pe for pe in ordered_periods if pe is not None]
+    latest_period = dated[-1] if dated else None
 
+    running_prior: dict[str, Optional[float]] = dict(prior_values or {})
     accepted: list[dict[str, Any]] = []
     rejected: list[dict[str, Any]] = []
-    for fact in facts:
-        concept = fact["concept"]
-        value = _num(fact.get("value"))
 
-        if concept in NON_NEGATIVE_CONCEPTS and value is not None and value < 0:
-            rejected.append(fact)
-            logger.warning(
-                "fact_reconciliation_reject concept=%s value=%s reason=negative",
-                concept,
-                fact.get("value"),
-            )
-            continue
+    for pe in ordered_periods:
+        group = groups[pe]
+        by_concept = {f["concept"]: _num(f.get("value")) for f in group}
+        net_income = by_concept.get("net_income")
+        eps_basic = by_concept.get("earnings_per_share")
+        eps_diluted = by_concept.get("eps_diluted")
+        eps_sign_mismatch = (
+            net_income not in (None, 0)
+            and eps_basic not in (None, 0)
+            and (net_income > 0) != (eps_basic > 0)
+        )
+        diluted_exceeds_basic = (
+            eps_basic is not None and eps_diluted is not None and eps_diluted > eps_basic + 1e-9
+        )
 
-        prior = _num(prior_values.get(concept))
-        reasons: list[str] = []
+        period_values: dict[str, float] = {}
+        for fact in group:
+            concept = fact["concept"]
+            value = _num(fact.get("value"))
 
-        if value == 0 and prior not in (None, 0):
-            reasons.append("zero_where_prior_nonzero")
-        if value not in (None, 0) and prior not in (None, 0):
-            ratio = abs(value) / abs(prior)
-            if ratio > _MAGNITUDE_TOLERANCE or ratio < 1.0 / _MAGNITUDE_TOLERANCE:
-                reasons.append("magnitude_vs_prior")
-        if concept in ("earnings_per_share", "eps_diluted") and eps_sign_mismatch:
-            reasons.append("eps_sign_vs_net_income")
-        if concept == "eps_diluted" and diluted_exceeds_basic:
-            reasons.append("diluted_gt_basic")
-        period_end = fact.get("period_end")
-        if period_of_report is not None and period_end is not None and period_end != period_of_report:
-            reasons.append("period_mismatch")
+            if concept in NON_NEGATIVE_CONCEPTS and value is not None and value < 0:
+                rejected.append(fact)
+                logger.warning(
+                    "fact_reconciliation_reject concept=%s value=%s reason=negative",
+                    concept,
+                    fact.get("value"),
+                )
+                continue
 
-        if reasons:
-            logger.info(
-                "fact_reconciliation_flag concept=%s value=%s reasons=%s",
-                concept,
-                fact.get("value"),
-                ",".join(reasons),
-            )
-        accepted.append({**fact, "reconciled": not reasons})
+            prior = _num(running_prior.get(concept))
+            reasons: list[str] = []
+
+            if value == 0 and prior not in (None, 0):
+                reasons.append("zero_where_prior_nonzero")
+            if value not in (None, 0) and prior not in (None, 0):
+                ratio = abs(value) / abs(prior)
+                if ratio > _MAGNITUDE_TOLERANCE or ratio < 1.0 / _MAGNITUDE_TOLERANCE:
+                    reasons.append("magnitude_vs_prior")
+            if concept in ("earnings_per_share", "eps_diluted") and eps_sign_mismatch:
+                reasons.append("eps_sign_vs_net_income")
+            if concept == "eps_diluted" and diluted_exceeds_basic:
+                reasons.append("diluted_gt_basic")
+            if (
+                period_of_report is not None
+                and pe is not None
+                and pe == latest_period
+                and pe != period_of_report
+            ):
+                reasons.append("period_mismatch")
+
+            if reasons:
+                logger.info(
+                    "fact_reconciliation_flag concept=%s value=%s reasons=%s",
+                    concept,
+                    fact.get("value"),
+                    ",".join(reasons),
+                )
+            accepted.append({**fact, "reconciled": not reasons})
+            if value is not None:
+                period_values[concept] = value
+
+        # This period's values become the prior for the next (newer) period in the batch.
+        running_prior.update(period_values)
 
     return accepted, rejected
 
@@ -249,6 +278,9 @@ def upsert_facts(
         company_id = facts[0]["company_id"]
         concepts = {f["concept"] for f in facts}
         period_ends = [f["period_end"] for f in facts if f.get("period_end")]
+        # Seed the gate with each concept's value from before the EARLIEST batch period;
+        # reconcile_facts groups by period and chains in-batch priors forward from there, so a
+        # multi-period batch compares each year against the one before it (DB or in-batch).
         prior = _prior_values(db, company_id, concepts, min(period_ends) if period_ends else None)
         facts, dropped = reconcile_facts(
             facts, prior_values=prior, period_of_report=period_of_report
