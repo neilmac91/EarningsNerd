@@ -14,6 +14,7 @@ parsed result (the raw payload can be several MB).
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from dataclasses import dataclass
@@ -142,8 +143,12 @@ def _annual_points(
             continue
         if not str(item.get("form") or "").startswith("10-K"):
             continue
-        fy, end, val = item.get("fy"), item.get("end"), item.get("val")
-        if fy is None or end is None or val is None:
+        fy_raw, end, val = item.get("fy"), item.get("end"), item.get("val")
+        if fy_raw is None or end is None or val is None:
+            continue
+        try:
+            fy = int(fy_raw)  # normalize early: companyfacts `fy` may be int/str/float
+        except (ValueError, TypeError):
             continue
         if kind == "duration":
             start = item.get("start")
@@ -277,7 +282,8 @@ async def _fetch_company_facts(
             url, headers={"User-Agent": settings.SEC_USER_AGENT, "Accept": "application/json"}
         )
         response.raise_for_status()
-        return response.json()
+        # The raw payload is multi-MB; parse off the event loop.
+        return await asyncio.to_thread(response.json)
 
 
 async def get_fundamentals_timeline(
@@ -302,12 +308,14 @@ async def get_fundamentals_timeline(
         company_resolver = edgar_client.get_company
 
     company = await company_resolver(ticker)
-    cik = company.cik
+    # SEC company-facts requires a 10-digit zero-padded CIK; normalize defensively
+    # (EdgarTools already pads, but a different resolver might not).
+    cik = str(company.cik).zfill(10)
 
     parsed = _cache_get(cik)
     if parsed is None:
         facts = await _fetch_company_facts(cik, transport=transport)
-        parsed = parse_company_facts(facts)
+        parsed = await asyncio.to_thread(parse_company_facts, facts)
         _cache_set(cik, parsed)
 
     return _build_timeline(ticker, cik, company.name, parsed)
