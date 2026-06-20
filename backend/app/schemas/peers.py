@@ -14,6 +14,8 @@ class PeerEntry(BaseModel):
     is_subject: bool
     rank: Optional[int] = None
     percentile: Optional[float] = None
+    # False when the reconciliation gate flagged this value (UI shows a quality badge).
+    reconciled: bool = True
 
 
 class PeerComparisonResponse(BaseModel):
