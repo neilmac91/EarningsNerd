@@ -175,6 +175,15 @@ gcloud run jobs create earningsnerd-filing-digest --region=us-west1 \
   --set-cloudsql-instances="$CONN" --set-secrets="$SECRETS" --set-env-vars="$ENVV" \
   --command=python --args=scripts/filing_scan.py,--digest
 
+# Facts backfill job — normalize filings' XBRL into financial_fact (peers F3 + fundamentals F5).
+# --only-new makes the scheduled run incremental (just newly-arrived filings); drop it for a full
+# idempotent re-pass. RESEND_* aren't needed here but reusing $SECRETS is harmless.
+gcloud run jobs create earningsnerd-backfill-facts --region=us-west1 \
+  --image=us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:latest \
+  --cpu=1 --memory=1Gi --task-timeout=3600 \
+  --set-cloudsql-instances="$CONN" --set-secrets="$SECRETS" --set-env-vars="$ENVV" \
+  --command=python --args=scripts/backfill_facts.py,--only-new
+
 # roles/run.invoker is sufficient: it includes both run.routes.invoke (services)
 # and run.jobs.run (jobs). roles/run.developer would also work but is overly
 # permissive (adds create/update/delete on services and jobs).
@@ -190,18 +199,26 @@ gcloud scheduler jobs create http filing-scan-hourly --location=us-west1 --sched
 gcloud scheduler jobs create http filing-digest-daily --location=us-west1 --schedule="0 8 * * *" \
   --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-filing-digest:run" \
   --http-method=POST --oauth-service-account-email="${SA}"
+
+# Facts backfill weekly (Mondays 07:00 UTC — after the scan has ingested the week's filings)
+gcloud scheduler jobs create http backfill-facts-weekly --location=us-west1 --schedule="0 7 * * 1" \
+  --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-backfill-facts:run" \
+  --http-method=POST --oauth-service-account-email="${SA}"
 ```
 
 Smoke-test each before trusting the schedule:
 ```bash
-gcloud run jobs execute earningsnerd-filing-scan   --region=us-west1
-gcloud run jobs execute earningsnerd-filing-digest --region=us-west1
+gcloud run jobs execute earningsnerd-filing-scan    --region=us-west1
+gcloud run jobs execute earningsnerd-filing-digest  --region=us-west1
+gcloud run jobs execute earningsnerd-backfill-facts --region=us-west1
 ```
 
 **Alternative (no extra job):** the backend also exposes token-gated triggers
-`POST /internal/jobs/filing-scan` and `POST /internal/jobs/filing-digest` (header
-`X-Internal-Token: $INTERNAL_JOB_TOKEN`). Point Cloud Scheduler at those instead. Set
-`INTERNAL_JOB_TOKEN` in Secret Manager to enable them (unset ⇒ the endpoints return 503).
+`POST /internal/jobs/filing-scan`, `POST /internal/jobs/filing-digest`, and
+`POST /internal/jobs/backfill-facts` (header `X-Internal-Token: $INTERNAL_JOB_TOKEN`). Point Cloud
+Scheduler at those instead. Set `INTERNAL_JOB_TOKEN` in Secret Manager to enable them (unset ⇒ the
+endpoints return 503). Note the backfill can be long-running; the dedicated Cloud Run job above is
+preferred over the in-process endpoint for a large first pass.
 
 > **Migrations for Phase 2:** the alert tables auto-create, but the new **columns** on `watchlist`
 > and `companies` do not (`create_all` never alters existing tables). Apply

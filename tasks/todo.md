@@ -8,32 +8,30 @@ Each item below is a focused PR off `main`, driven to green CI + merge before th
 
 ---
 
-## PR-A — P0: bump edgartools 5.36 → 5.37 (isolated)
-- [ ] `backend/requirements.txt`: `edgartools==5.36.0` → `5.37.0`
-- [ ] Verify via CI backend-tests (sandbox lacks edgartools/network; CI is the regression signal)
-- [ ] Note: live Form-4 shape recheck = `scripts/verify_insider_extraction.py` post-deploy
-- [ ] (cheap P0 rider) silence the noisy `edgar` logger in `logging_service.py`
+## PR-A — P0: bump edgartools 5.36 → 5.37 (isolated) — MERGED #331
+- [x] `backend/requirements.txt`: `edgartools==5.36.0` → `5.37.0`
+- [x] Verified via CI backend-tests (green with 5.37 installed)
+- [x] Live Form-4 shape recheck = `scripts/verify_insider_extraction.py` post-deploy (documented)
+- [x] Silenced the noisy `edgar` logger in `logging_service.py`
 
-## PR-B — Reconciliation gate (local invariants) + honesty surfacing  ← core deliverable
-Backend — `facts_service.py`:
-- [ ] Pure gate fn over a per-filing fact batch + prior-value lookup; returns reconciled + reason
-  - revenue ≥ 0 (hard reject negative); zero-where-prior-nonzero → flag
-  - sign(EPS) == sign(net_income)
-  - diluted EPS ≤ basic EPS
-  - magnitude vs prior within ~1 order of magnitude (scale-bug catch)
-  - period_end aligns with filing period_of_report (period correctness)
-- [ ] Set `reconciled` on write per gate outcome (replace hard-coded False)
-- [ ] Expose `reconciled` (+ coverage/quality summary) through peers + fundamentals schemas
-- [ ] Unit tests for the gate (pure, sandbox-verifiable) covering each invariant + edge cases
-Frontend — honesty + UX:
-- [ ] Quality badge on peers + fundamentals (extend `ENABLE_QUALITY_BADGE`) when data is unreconciled
-- [ ] Fix `FundamentalsTrendChart` post-load collapse → no layout shift
+## PR-B1 — Reconciliation gate (local invariants) backend — MERGED #332
+- [x] `reconcile_facts()` pure gate, period-aware (groups by period_end, chains in-batch priors):
+      revenue≥0 hard-reject; zero-where-prior-nonzero; magnitude vs prior; sign(EPS)=sign(NI);
+      diluted≤basic; period_end vs period_of_report (latest period only)
+- [x] `upsert_facts` persists computed `reconciled` (was hard-coded False) + drops rejects
+- [x] Expose `reconciled` through peers + fundamentals schemas/services
+- [x] 13 gate + DB tests (incl. multi-period, added in review)
 
-## PR-C — Facts population: schedule + deepen
-- [ ] Extend normalizer to consume the full multi-period `series` (not just `current`)
-- [ ] Wire `backfill-facts` to the weekly cron / Cloud Scheduler (currently manual-trigger only)
-- [ ] Add `Filing.processed_facts_at` tracking column (§3.1) + set it on normalize
-- [ ] Tests for multi-period normalization
+## PR-B2 — Honesty surfacing frontend — MERGED #333
+- [x] `UnverifiedBadge` on peers + fundamentals when a shown value is flagged
+- [x] Kept reserve-skeleton loading (reverted the null-while-loading change per review → no CLS)
+
+## PR-C — Facts population: schedule + deepen — THIS PR
+- [x] Normalizer consumes the full multi-period `series` (one fact per reported period)
+- [x] `scripts/backfill_facts.py` + `earningsnerd-backfill-facts` Cloud Run job (ci.yml image bump
+      + DEPLOYMENT.md create/scheduler/smoke); weekly Cloud Scheduler trigger
+- [x] `Filing.processed_facts_at` column + migration; set on normalize; `only_unprocessed` incremental
+- [x] Tests: multi-period normalize, point-form override, processed stamp + incremental skip
 
 ---
 
@@ -46,4 +44,15 @@ Frontend — honesty + UX:
 - `EDGAR_LOCAL_DATA_DIR`, Retry-After on 429 (remaining P0 hygiene)
 
 ## Review log
-- (filled in as PRs land)
+- **#331** (P0): edgartools 5.37 + edgar logger silence. CI green with 5.37.
+- **#332** (gate): Gemini flagged the gate wasn't period-aware (cross-concept + prior cutoff over
+  multi-period batches) — fixed by grouping per period and chaining in-batch priors (handles a case
+  the reviewer's per-group suggestion missed). All 3 review comments resolved.
+- **#333** (badge): Gemini flagged my `null`-while-loading change as a guaranteed CLS on success;
+  reverted to the strategy's reserve-skeleton, kept the badge.
+- **#NNN** (PR-C): multi-period depth + scheduled/incremental backfill + processed_facts_at.
+- Net result: peers/fundamentals now write+serve a real `reconciled` flag (was always False),
+  flag rather than hide untrusted values, the table populates on a weekly cron with multi-year
+  history, and the just-merged P4 insider parsing runs on the edgartools 5.37 it was designed for.
+  Still deferred (logged above): live companyconcept cross-check, Frames breadth, FSDS bulk, 13F,
+  P1 search polish, remaining P0 hygiene.

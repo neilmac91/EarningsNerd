@@ -27,6 +27,33 @@ class TestNormalize:
         assert by["revenue"]["value"] == 391035000000.0
         assert by["revenue"]["source"] == "edgar_xbrl"
 
+    def test_multi_period_series_emits_one_fact_per_period(self):
+        standardized = {
+            "revenue": {
+                "current": {"period": "2024-09-28", "value": 391.0},
+                "series": [
+                    {"period": "2024-09-28", "value": 391.0, "form": "10-K"},
+                    {"period": "2023-09-30", "value": 383.0, "form": "10-K"},
+                    {"period": "2022-09-24", "value": 394.0, "form": "10-K"},
+                ],
+            },
+        }
+        facts = svc.normalize_standardized_to_facts(1, 10, "acc", "10-K", standardized)
+        assert [f["period_end"] for f in facts] == [
+            date(2024, 9, 28), date(2023, 9, 30), date(2022, 9, 24)
+        ]
+        assert [f["value"] for f in facts] == [391.0, 383.0, 394.0]
+        assert all(f["concept"] == "revenue" and f["fiscal_period"] == "FY" for f in facts)
+
+    def test_series_point_form_overrides_filing_form(self):
+        # A point's own form drives its fiscal_period (e.g. a 10-Q period inside a mixed series).
+        standardized = {
+            "revenue": {"series": [{"period": "2024-03-31", "value": 90.0, "form": "10-Q"}]},
+        }
+        facts = svc.normalize_standardized_to_facts(1, 10, "acc", "10-K", standardized)
+        assert facts[0]["fiscal_period"] is None  # 10-Q point → no FY
+        assert facts[0]["form"] == "10-Q"
+
     def test_10q_has_no_fiscal_period(self):
         facts = svc.normalize_standardized_to_facts(
             1, 10, "acc", "10-Q", {"revenue": {"current": {"period": "2024-03-31", "value": 90.0}}}
@@ -369,6 +396,37 @@ class TestBackfill:
         stats2 = svc.backfill_facts(db, extract=_fake_extract)
         assert stats2["facts_inserted"] == 0
         assert stats2["facts_skipped"] >= 2
+        db.close()
+
+    def test_stamps_processed_and_incremental_skips(self):
+        from datetime import datetime
+
+        from app.database import SessionLocal
+        from app.models import Filing
+
+        db = SessionLocal()
+        cid = _new_company(db)
+        filing = Filing(
+            company_id=cid,
+            accession_number=f"ACC-inc-{uuid.uuid4().hex[:8]}",
+            filing_type="10-K",
+            filing_date=datetime(2024, 11, 1),
+            document_url="https://sec.example/x.htm",
+            sec_url="https://sec.example/",
+            xbrl_data={"mark": "X"},
+        )
+        db.add(filing)
+        db.commit()
+
+        svc.backfill_facts(db, extract=_fake_extract)
+        db.refresh(filing)
+        assert filing.processed_facts_at is not None  # stamped after normalization
+        stamped_at = filing.processed_facts_at
+
+        # An incremental pass skips already-stamped filings (timestamp unchanged).
+        svc.backfill_facts(db, extract=_fake_extract, only_unprocessed=True)
+        db.refresh(filing)
+        assert filing.processed_facts_at == stamped_at
         db.close()
 
 
