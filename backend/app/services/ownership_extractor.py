@@ -139,26 +139,42 @@ def _iso_date(value: Any) -> Optional[str]:
     return None
 
 
+def _safe_getattr(obj: Any, name: str) -> Any:
+    """Attribute access tolerant of edgartools method-vs-property drift.
+
+    Some edgartools fields are plain properties in one release and zero-arg
+    methods in another (the same reason ``xbrl_service`` resolves ``Section.text``
+    via ``callable``). Resolve either form and never raise.
+    """
+    try:
+        val = getattr(obj, name, None)
+        if callable(val):
+            return val()
+        return val
+    except Exception:  # pragma: no cover - defensive
+        return None
+
+
 def _owner_fields(form4: Any) -> dict:
     """Insider identity from the Form 4 object (reporting owner #1)."""
-    name = _clean_str(getattr(form4, "insider_name", None))
-    title = _clean_str(getattr(form4, "position", None))
+    name = _clean_str(_safe_getattr(form4, "insider_name"))
+    title = _clean_str(_safe_getattr(form4, "position"))
     is_director = is_officer = is_ten_pct = None
 
-    owners = getattr(form4, "reporting_owners", None)
+    owners = _safe_getattr(form4, "reporting_owners")
     first = None
     try:
         first = owners[0] if owners else None
     except (TypeError, KeyError, IndexError):  # pragma: no cover - defensive
         first = None
     if first is not None:
-        is_director = getattr(first, "is_director", None)
-        is_officer = getattr(first, "is_officer", None)
+        is_director = _safe_getattr(first, "is_director")
+        is_officer = _safe_getattr(first, "is_officer")
         # NOTE: edgartools uses `is_ten_pct_owner` (not `is_ten_percent_owner`).
-        is_ten_pct = getattr(first, "is_ten_pct_owner", None)
-        name = name or _clean_str(getattr(first, "name", None))
-        title = title or _clean_str(getattr(first, "position", None)) or _clean_str(
-            getattr(first, "officer_title", None)
+        is_ten_pct = _safe_getattr(first, "is_ten_pct_owner")
+        name = name or _clean_str(_safe_getattr(first, "name"))
+        title = title or _clean_str(_safe_getattr(first, "position")) or _clean_str(
+            _safe_getattr(first, "officer_title")
         )
 
     return {
@@ -172,17 +188,12 @@ def _owner_fields(form4: Any) -> dict:
 
 def _filing_10b5_1(form4: Any) -> Optional[bool]:
     """Filing-level Rule 10b5-1 flag (the reliable signal on 5.36.x)."""
-    getter = getattr(form4, "get_ownership_summary", None)
-    if callable(getter):
-        try:
-            summary = getter()
-        except Exception:  # pragma: no cover - defensive
-            summary = None
-        if summary is not None:
-            val = getattr(summary, "has_10b5_1_plan", None)
-            if val is not None:
-                return bool(val)
-    val = getattr(form4, "aff10b5_one", None)
+    summary = _safe_getattr(form4, "get_ownership_summary")
+    if summary is not None:
+        val = _safe_getattr(summary, "has_10b5_1_plan")
+        if val is not None:
+            return bool(val)
+    val = _safe_getattr(form4, "aff10b5_one")
     return bool(val) if val is not None else None
 
 
@@ -198,11 +209,11 @@ def extract_form4_transactions(
 
     try:
         owner = _owner_fields(form4)
-        issuer = getattr(form4, "issuer", None)
-        ticker = _clean_str(getattr(issuer, "ticker", None)) if issuer is not None else None
+        issuer = _safe_getattr(form4, "issuer")
+        ticker = _clean_str(_safe_getattr(issuer, "ticker")) if issuer is not None else None
         is_plan = _filing_10b5_1(form4)
 
-        rows = _to_records(getattr(form4, "market_trades", None))
+        rows = _to_records(_safe_getattr(form4, "market_trades"))
         out: list[dict] = []
         for row in rows:
             code = _clean_str(_ci(row, "Code", "transaction_code", "code"))

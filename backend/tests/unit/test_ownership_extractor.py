@@ -14,6 +14,7 @@ from app.services.ownership_extractor import (
     _ci,
     _iso_date,
     _num,
+    _safe_getattr,
     _to_records,
     extract_form4_transactions,
     summarize_insider_activity,
@@ -188,6 +189,91 @@ def test_extract_ten_pct_owner_flag():
         owners=[FakeOwner(name="Whale", is_ten_pct=True)],
     )
     assert extract_form4_transactions(form4)[0]["is_ten_pct_owner"] is True
+
+
+# --- _safe_getattr (version-agnostic attribute access) ---------------------
+
+
+def test_safe_getattr_plain_property():
+    class Obj:
+        value = 42
+
+    assert _safe_getattr(Obj(), "value") == 42
+    assert _safe_getattr(Obj(), "missing") is None
+
+
+def test_safe_getattr_calls_zero_arg_method():
+    class Obj:
+        def value(self):
+            return "called"
+
+    # edgartools sometimes exposes the same field as a method, not a property.
+    assert _safe_getattr(Obj(), "value") == "called"
+
+
+def test_safe_getattr_swallows_raising_property():
+    class Obj:
+        @property
+        def value(self):
+            raise RuntimeError("boom")
+
+    assert _safe_getattr(Obj(), "value") is None
+
+
+def test_extract_handles_method_style_form4():
+    """Same data as test_extract_basic_sale, but every field is a method —
+    proving the extractor is agnostic to property-vs-method drift."""
+
+    class MethodOwner:
+        def name(self):
+            return "Jane Doe"
+
+        def is_officer(self):
+            return True
+
+        def is_director(self):
+            return False
+
+        def is_ten_pct_owner(self):
+            return None
+
+        def officer_title(self):
+            return "CFO"
+
+    class MethodIssuer:
+        def ticker(self):
+            return "AAPL"
+
+    class MethodForm4:
+        def insider_name(self):
+            return None
+
+        def position(self):
+            return None
+
+        def reporting_owners(self):
+            return [MethodOwner()]
+
+        def issuer(self):
+            return MethodIssuer()
+
+        def market_trades(self):
+            return [
+                {"Date": "2024-05-01", "Code": "S", "Shares": 1000, "Price": 10.0, "AcquiredDisposed": "D"}
+            ]
+
+        def get_ownership_summary(self):
+            return FakeSummary(True)
+
+    t = extract_form4_transactions(MethodForm4(), accession="acc")[0]
+    assert t["insider_name"] == "Jane Doe"
+    assert t["insider_title"] == "CFO"
+    assert t["is_officer"] is True
+    assert t["ticker"] == "AAPL"
+    assert t["transaction_code"] == "S"
+    assert t["shares"] == 1000.0
+    assert t["value"] == 10000.0
+    assert t["is_10b5_1"] is True
 
 
 # --- summarize_insider_activity -------------------------------------------

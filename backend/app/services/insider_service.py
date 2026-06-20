@@ -29,6 +29,7 @@ from typing import Any, Awaitable, Callable, Optional
 
 from app.services.ownership_extractor import (
     _iso_date,
+    _safe_getattr,
     extract_form4_transactions,
     summarize_insider_activity,
 )
@@ -40,8 +41,11 @@ logger = logging.getLogger(__name__)
 DEFAULT_LIMIT_FILINGS = 60
 # How many individual transactions to return in the response (most recent first).
 DEFAULT_RECENT_LIMIT = 30
-# Generous timeout: each filing is a separate fetch+parse inside the thread pool.
-INSIDER_FETCH_TIMEOUT_SECONDS = 90.0
+# Each filing is a separate fetch+parse inside the thread pool. Kept in line with
+# the /api/filings/ budget (60s) and below the endpoint's request-timeout ceiling
+# (see REQUEST_TIMEOUT_SUFFIXES in main.py) so this inner timeout wins, surfacing
+# a clean 502 rather than a generic 504.
+INSIDER_FETCH_TIMEOUT_SECONDS = 60.0
 # In-process cache TTL. Insider feeds change at most a few times a day.
 CACHE_TTL_SECONDS = 30 * 60
 
@@ -78,11 +82,10 @@ def clear_cache() -> None:
 
 
 def _safe_attr(obj: Any, *names: str) -> Any:
+    """First non-None attribute among ``names``, tolerant of edgartools
+    method-vs-property drift (delegates to ``_safe_getattr``)."""
     for name in names:
-        try:
-            val = getattr(obj, name, None)
-        except Exception:  # pragma: no cover - defensive
-            val = None
+        val = _safe_getattr(obj, name)
         if val is not None:
             return val
     return None

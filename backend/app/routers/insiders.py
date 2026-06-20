@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Query
 
 from app.schemas.insiders import InsiderActivityResponse
 from app.services import insider_service
+from app.services.edgar.circuit_breaker import CircuitOpenError
 from app.services.edgar.exceptions import CompanyNotFoundError, EdgarError
 
 logger = logging.getLogger(__name__)
@@ -33,6 +34,9 @@ async def get_company_insiders(
         return await insider_service.get_insider_activity(ticker, window_days=window_days)
     except CompanyNotFoundError:
         raise HTTPException(status_code=404, detail="Company not found")
+    except CircuitOpenError:
+        logger.warning("Insider activity unavailable (SEC circuit open) for %s", ticker)
+        raise HTTPException(status_code=503, detail="Insider data temporarily unavailable")
     except EdgarError as exc:
         logger.warning("Insider activity fetch failed for %s: %s", ticker, exc)
         raise HTTPException(status_code=502, detail="Could not retrieve insider data")
