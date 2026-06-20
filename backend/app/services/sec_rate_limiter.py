@@ -203,9 +203,13 @@ class SECRateLimiter:
             return None
         header = header.strip()
 
-        # delta-seconds form (the common case).
+        # delta-seconds form (the common case). Guard NaN: float("nan") parses but would
+        # bypass the min/max clamps and crash asyncio.sleep(nan). (inf is fine — the cap in
+        # execute_with_backoff bounds it.)
         try:
-            return max(0.0, float(header))
+            val = float(header)
+            if val == val:  # False only for NaN
+                return max(0.0, val)
         except ValueError:
             pass
 
