@@ -76,8 +76,14 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
     gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
   })
 
-  const handleCompanyClick = (company: Company) => {
-    router.push(`/company/${company.ticker}`)
+  // Navigate to a result and record the search→click so search→company conversion is causal.
+  const goToResult = (ticker: string, position: number) => {
+    analytics.companySearchResultClicked(debouncedQuery || query, ticker, position)
+    router.push(`/company/${ticker}`)
+  }
+
+  const handleCompanyClick = (company: Company, index: number) => {
+    goToResult(company.ticker, index)
   }
 
   // Instant local matches from the top-tickers seed while the network query
@@ -113,9 +119,10 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
       setHighlightIndex((i) => (i <= 0 ? navigableTickers.length - 1 : i - 1))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      const ticker = navigableTickers[highlightIndex === -1 ? 0 : highlightIndex]
+      const position = highlightIndex === -1 ? 0 : highlightIndex
+      const ticker = navigableTickers[position]
       if (ticker) {
-        router.push(`/company/${ticker}`)
+        goToResult(ticker, position)
       } else {
         // No results yet (query in flight): if the input is ticker-shaped,
         // navigate directly — power users shouldn't wait for autocomplete.
@@ -229,7 +236,7 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
               id={`company-search-option-${index}`}
               role="option"
               aria-selected={index === highlightIndex}
-              onClick={() => router.push(`/company/${match.ticker}`)}
+              onClick={() => goToResult(match.ticker, index)}
               className={`flex w-full items-baseline gap-3 border-b border-white/[0.06] px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-white/5 ${
                 index === highlightIndex ? 'bg-white/10' : ''
               }`}
@@ -258,7 +265,7 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
               id={`company-search-option-${index}`}
               role="option"
               aria-selected={index === highlightIndex}
-              onClick={() => handleCompanyClick(company)}
+              onClick={() => handleCompanyClick(company, index)}
               className={`w-full border-b border-white/[0.06] px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-white/5 ${
                 index === highlightIndex ? 'bg-white/10' : ''
               }`}

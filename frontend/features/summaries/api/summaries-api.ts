@@ -84,12 +84,17 @@ export interface ProgressData {
   percent?: number
 }
 
+// The free/guest summary quota was reached (the backend surfaces this as the stream error).
+export const isPaywallStreamError = (message: string): boolean => {
+  const m = (message || '').toLowerCase()
+  return m.includes('monthly limit') || m.includes('upgrade to pro')
+}
+
 // Errors that must NOT be auto-retried: retrying can't help and would waste the user's time.
 const isNonRetryableStreamError = (message: string): boolean => {
   const m = (message || '').toLowerCase()
   return (
-    m.includes('monthly limit') ||
-    m.includes('upgrade to pro') ||
+    isPaywallStreamError(message) ||
     m.includes('permission') ||
     m.includes('sign in') ||
     m.includes('authentication')

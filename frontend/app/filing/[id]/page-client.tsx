@@ -3,7 +3,7 @@
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { getFiling, getCompanyFilings, Filing } from '@/features/filings/api/filings-api'
-import { getSummary, generateSummaryStream, Summary, saveSummary, getSavedSummaries, getSummaryProgress, getWhatChanged, SummaryProgressData, SavedSummary } from '@/features/summaries/api/summaries-api'
+import { getSummary, generateSummaryStream, isPaywallStreamError, Summary, saveSummary, getSavedSummaries, getSummaryProgress, getWhatChanged, SummaryProgressData, SavedSummary } from '@/features/summaries/api/summaries-api'
 import { WhatChanged } from '@/features/filings/components/WhatChanged'
 import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
 import { getCompany, Company } from '@/features/companies/api/companies-api'
@@ -23,6 +23,7 @@ import { isAxiosError } from 'axios'
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
 import { ENABLE_QUALITY_BADGE } from '@/lib/featureFlags'
 import analytics from '@/lib/analytics'
+import { getEntryPoint } from '@/lib/entryPoint'
 import { ENABLE_FINANCIAL_CHARTS } from '@/lib/featureFlags'
 import { sanitizeFilename } from '@/lib/format'
 
@@ -79,30 +80,6 @@ const getFriendlyErrorMessage = (error: unknown): string | null => {
   if (typeof error === 'string') return error
 
   return 'Unexpected error occurred while loading the summary.'
-}
-
-// Activation funnel: where did the session that led here enter the app?
-// An explicit ?entry= param (set by CTAs) wins; otherwise the document referrer
-// identifies the session's acquisition path. Note that document.referrer is fixed
-// per document load, so client-side navigations report the session's original
-// entry — which is the segmentation the activation funnel cares about.
-const getEntryPoint = (): string => {
-  if (typeof window === 'undefined') return 'unknown'
-  const explicit = new URLSearchParams(window.location.search).get('entry')
-  if (explicit) return explicit.slice(0, 64)
-  const referrer = document.referrer
-  if (!referrer) return 'direct'
-  try {
-    const ref = new URL(referrer)
-    if (ref.origin !== window.location.origin) return 'external'
-    if (ref.pathname === '/') return 'homepage'
-    if (ref.pathname === '/waitlist') return 'waitlist'
-    if (ref.pathname.startsWith('/company/')) return 'company_page'
-    if (ref.pathname.startsWith('/compare')) return 'compare'
-    return 'internal'
-  } catch {
-    return 'unknown'
-  }
 }
 
 // --- Components ---
@@ -399,6 +376,15 @@ function FilingDetailView({ filingId }: { filingId: number }) {
           setIsStreaming(false)
           // Reset progress state on error
           setStreamingText('')
+          // Activation funnel: record the client-confirmed moment the upgrade wall is shown.
+          if (isPaywallStreamError(errorMessage) && filing) {
+            analytics.paywallPromptShown({
+              filingId: filing.id,
+              ticker: filing.company?.ticker ?? null,
+              filingType: filing.filing_type,
+              entryPoint,
+            })
+          }
         },
         { force: options?.force, entryPoint }
       )
@@ -413,7 +399,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
     } finally {
       setIsStreaming(false)
     }
-  }, [filingId, refetch, queryClient, isAuthenticated, entryPoint])
+  }, [filingId, filing, refetch, queryClient, isAuthenticated, entryPoint])
 
   // Wrapper for regeneration with force=true
   const handleRegenerateSummary = useCallback(() => {
@@ -451,11 +437,12 @@ function FilingDetailView({ filingId }: { filingId: number }) {
       analytics.filingViewed(
         filing.id,
         filing.company?.ticker ?? null,
-        filing.filing_type
+        filing.filing_type,
+        entryPoint
       )
       hasTrackedFilingView.current = true
     }
-  }, [filing])
+  }, [filing, entryPoint])
 
   useEffect(() => {
     if (!hasTrackedSummaryGenerated.current && hasSummaryContent && filing) {
