@@ -51,17 +51,16 @@ def get_peers(
 
     concept = (concept or DEFAULT_CONCEPT).strip() or DEFAULT_CONCEPT
 
-    # Peer set: same SIC. Falls back to just the subject when SIC is unknown.
-    if company.sic:
-        peers = db.query(Company).filter(Company.sic == company.sic).all()
-    else:
-        peers = [company]
-    company_by_id = {c.id: c for c in peers}
-
-    rows = (
-        db.query(FinancialFact)
+    # Same-SIC companies that have a fact for this concept, in one JOIN — avoids a
+    # large IN list and never loads companies without facts. A subject with no fact
+    # is still surfaced by the fallback below, since `company` is already fetched.
+    # (When SIC is unknown, scope to the subject alone — `sic == NULL` matches nothing.)
+    sic_filter = Company.sic == company.sic if company.sic else Company.id == company.id
+    results = (
+        db.query(Company, FinancialFact)
+        .join(FinancialFact, FinancialFact.company_id == Company.id)
         .filter(
-            FinancialFact.company_id.in_(list(company_by_id.keys())),
+            sic_filter,
             FinancialFact.concept == concept,
             FinancialFact.is_latest.is_(True),
         )
@@ -70,15 +69,15 @@ def get_peers(
     )
 
     # Most recent fact per company (rows are period_end-desc within each company).
-    latest: dict[int, FinancialFact] = {}
-    for row in rows:
-        latest.setdefault(row.company_id, row)
+    latest: dict[int, tuple[Company, FinancialFact]] = {}
+    for peer, fact in results:
+        latest.setdefault(peer.id, (peer, fact))
 
     unit: Optional[str] = None
     entries: list[dict[str, Any]] = []
-    for cid, fact in latest.items():
+    for peer, fact in latest.values():
         unit = unit or fact.unit
-        entries.append(_entry(company_by_id[cid], fact, is_subject=cid == company.id))
+        entries.append(_entry(peer, fact, is_subject=peer.id == company.id))
 
     # Rank by value descending (companies without a value sort last).
     ranked = sorted(
