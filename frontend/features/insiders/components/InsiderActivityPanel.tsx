@@ -1,0 +1,233 @@
+'use client'
+
+import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { Loader2, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+
+import {
+  getInsiderActivity,
+  InsiderActivityResponse,
+  InsiderTransaction,
+} from '@/features/insiders/api/insiders-api'
+import { ApiError } from '@/lib/api/client'
+import { fmtCurrency, fmtScale } from '@/lib/format'
+
+const WINDOWS: { days: number; label: string }[] = [
+  { days: 90, label: '90D' },
+  { days: 180, label: '180D' },
+  { days: 365, label: '1Y' },
+]
+
+const MAX_ROWS = 8
+
+const fmtShares = (n: number | null | undefined): string =>
+  n === null || n === undefined ? '—' : fmtScale(Math.abs(n), { digits: 1 })
+
+const fmtMoney = (n: number | null | undefined): string =>
+  n === null || n === undefined ? '—' : fmtCurrency(Math.abs(n), { compact: true })
+
+function roleOf(t: InsiderTransaction): string {
+  if (t.insider_title) return t.insider_title
+  const roles: string[] = []
+  if (t.is_officer) roles.push('Officer')
+  if (t.is_director) roles.push('Director')
+  if (t.is_ten_pct_owner) roles.push('10% Owner')
+  return roles.join(', ') || '—'
+}
+
+// 'A' (acquired) is a buy, 'D' (disposed) a sell; fall back to the label text.
+function isBuy(t: InsiderTransaction): boolean {
+  if (t.acquired_disposed) return t.acquired_disposed.toUpperCase() === 'A'
+  return (t.transaction_label ?? '').toLowerCase().includes('buy')
+}
+
+export default function InsiderActivityPanel({ ticker }: { ticker: string }) {
+  const [windowDays, setWindowDays] = useState(90)
+  const { data, isLoading, isError } = useQuery<InsiderActivityResponse>({
+    queryKey: ['insiders', ticker, windowDays],
+    queryFn: () => getInsiderActivity(ticker, windowDays),
+    enabled: !!ticker,
+    retry: (failureCount, err) =>
+      err instanceof ApiError && err.isRetryable ? failureCount < 2 : false,
+    staleTime: 60 * 60 * 1000, // Form 4 data changes slowly; the endpoint is a live SEC read
+    gcTime: 2 * 60 * 60 * 1000,
+  })
+
+  // Keep the panel mounted once it has shown trades, so switching to a quiet window shows an
+  // inline message instead of making the panel vanish.
+  const everHadData = useRef(false)
+  useEffect(() => {
+    if (data && data.total_transactions > 0) everHadData.current = true
+  }, [data])
+
+  if (isError && !everHadData.current) return null
+  if (!everHadData.current && (isLoading || !data || data.total_transactions === 0)) return null
+
+  const summary = data?.summary
+  const hasTrades = !!data && data.total_transactions > 0
+  // Lead with net value when known, else net shares. The sign is the buy/sell signal.
+  const signalValue = summary ? (summary.net_value ?? summary.net_shares) : 0
+  const signalIsValue = !!summary && summary.net_value !== null
+  const direction = signalValue > 0 ? 'buy' : signalValue < 0 ? 'sell' : 'flat'
+  const planSells = summary?.plan_10b5_1_sell_shares ?? 0
+
+  const SignalIcon = direction === 'buy' ? TrendingUp : direction === 'sell' ? TrendingDown : Minus
+  const signalColor =
+    direction === 'buy'
+      ? 'text-mint-600 dark:text-mint-400'
+      : direction === 'sell'
+        ? 'text-red-600 dark:text-red-400'
+        : 'text-gray-500 dark:text-gray-400'
+  const signalText =
+    direction === 'buy'
+      ? 'Net insider buying'
+      : direction === 'sell'
+        ? 'Net insider selling'
+        : 'Balanced insider activity'
+  const signalMagnitude = signalIsValue ? fmtMoney(signalValue) : `${fmtShares(signalValue)} shares`
+
+  return (
+    <section className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-slate-900">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Insider Activity</h2>
+        <div className="flex flex-wrap gap-2" role="group" aria-label="Select window">
+          {WINDOWS.map((w) => (
+            <button
+              key={w.days}
+              type="button"
+              onClick={() => setWindowDays(w.days)}
+              aria-pressed={w.days === windowDays}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                w.days === windowDays
+                  ? 'bg-mint-500 text-slate-950'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+              }`}
+            >
+              {w.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {isLoading && !hasTrades ? (
+        <div className="flex h-48 items-center justify-center" aria-label="Loading insider activity">
+          <Loader2 className="h-6 w-6 animate-spin text-mint-500" />
+        </div>
+      ) : !hasTrades || !summary ? (
+        <p className="py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+          No open-market insider trades in the last {windowDays} days.
+        </p>
+      ) : (
+        <>
+          {/* Signal headline */}
+          <div className="mb-5 flex items-center gap-3">
+            <SignalIcon className={`h-7 w-7 shrink-0 ${signalColor}`} aria-hidden="true" />
+            <div>
+              <p className={`text-lg font-semibold ${signalColor}`}>
+                {signalText}
+                {direction !== 'flat' && <> · {signalMagnitude}</>}
+              </p>
+              {planSells > 0 && (
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Excludes {fmtShares(planSells)} shares sold under pre-scheduled 10b5-1 plans
+                  {summary.discretionary_net_shares !== summary.net_shares && (
+                    <> · discretionary net {fmtShares(summary.discretionary_net_shares)} shares</>
+                  )}
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Buy / Sell / Net stats */}
+          <div className="mb-5 grid grid-cols-3 gap-3">
+            <div className="rounded-lg bg-mint-50 p-3 dark:bg-mint-500/10">
+              <p className="text-xs font-medium text-mint-700 dark:text-mint-400">
+                Buys ({summary.buy_count})
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-gray-900 dark:text-white">
+                {fmtMoney(summary.buy_value) !== '—' ? fmtMoney(summary.buy_value) : `${fmtShares(summary.buy_shares)} sh`}
+              </p>
+            </div>
+            <div className="rounded-lg bg-red-50 p-3 dark:bg-red-500/10">
+              <p className="text-xs font-medium text-red-700 dark:text-red-400">
+                Sells ({summary.sell_count})
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-gray-900 dark:text-white">
+                {fmtMoney(summary.sell_value) !== '—' ? fmtMoney(summary.sell_value) : `${fmtShares(summary.sell_shares)} sh`}
+              </p>
+            </div>
+            <div className="rounded-lg bg-gray-50 p-3 dark:bg-gray-800/50">
+              <p className="text-xs font-medium text-gray-600 dark:text-gray-400">Net</p>
+              <p className={`mt-0.5 text-sm font-semibold ${signalColor}`}>
+                {direction === 'sell' ? '−' : direction === 'buy' ? '+' : ''}
+                {signalMagnitude}
+              </p>
+            </div>
+          </div>
+
+          {/* Recent transactions */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                  <th className="py-2 pr-3 font-medium">Insider</th>
+                  <th className="py-2 pr-3 font-medium">Type</th>
+                  <th className="py-2 pr-3 text-right font-medium">Shares</th>
+                  <th className="py-2 pr-3 text-right font-medium">Value</th>
+                  <th className="py-2 text-right font-medium">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data!.transactions.slice(0, MAX_ROWS).map((t, i) => {
+                  const buy = isBuy(t)
+                  return (
+                    <tr
+                      key={`${t.accession ?? ''}-${i}`}
+                      className="border-b border-gray-100 last:border-0 dark:border-gray-800/60"
+                    >
+                      <td className="py-2 pr-3">
+                        <span className="font-medium text-gray-900 dark:text-white">
+                          {t.insider_name ?? '—'}
+                        </span>
+                        <span className="block text-xs text-gray-500 dark:text-gray-400">{roleOf(t)}</span>
+                      </td>
+                      <td className="py-2 pr-3">
+                        <span
+                          className={
+                            buy
+                              ? 'font-medium text-mint-600 dark:text-mint-400'
+                              : 'font-medium text-red-600 dark:text-red-400'
+                          }
+                        >
+                          {t.transaction_label ?? (buy ? 'Buy' : 'Sell')}
+                        </span>
+                        {t.is_10b5_1 && (
+                          <span className="ml-1.5 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-500 dark:bg-gray-800 dark:text-gray-400">
+                            10b5-1
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 pr-3 text-right tabular-nums text-gray-700 dark:text-gray-300">
+                        {fmtShares(t.shares)}
+                      </td>
+                      <td className="py-2 pr-3 text-right tabular-nums text-gray-700 dark:text-gray-300">
+                        {fmtMoney(t.value)}
+                      </td>
+                      <td className="py-2 text-right tabular-nums text-gray-500 dark:text-gray-400">
+                        {t.transaction_date ?? '—'}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
+        Open-market Form 4 trades from SEC EDGAR. 10b5-1 marks pre-scheduled trades (weaker signal).
+      </p>
+    </section>
+  )
+}

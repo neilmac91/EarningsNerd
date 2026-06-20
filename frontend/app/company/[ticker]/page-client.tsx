@@ -13,9 +13,10 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import analytics from '@/lib/analytics'
-import { ENABLE_RECOMMENDED_FILING, ENABLE_FINANCIAL_CHARTS } from '@/lib/featureFlags'
+import { ENABLE_RECOMMENDED_FILING, ENABLE_FINANCIAL_CHARTS, ENABLE_INSIDER_ACTIVITY } from '@/lib/featureFlags'
 import FundamentalsTrendChart from '@/features/fundamentals/components/FundamentalsTrendChart'
 import PeerComparisonPanel from '@/features/peers/components/PeerComparisonPanel'
+import InsiderActivityPanel from '@/features/insiders/components/InsiderActivityPanel'
 
 export default function CompanyPageClient() {
   const params = useParams()
@@ -304,6 +305,8 @@ export default function CompanyPageClient() {
         {/* Multi-year fundamentals trend (self-fetches; renders nothing until facts exist) */}
         {ENABLE_FINANCIAL_CHARTS && <FundamentalsTrendChart ticker={normalizedTicker} />}
         {ENABLE_FINANCIAL_CHARTS && <PeerComparisonPanel ticker={normalizedTicker} />}
+        {/* Insider (Form 4) activity — self-fetches; live SEC read, off by default */}
+        {ENABLE_INSIDER_ACTIVITY && <InsiderActivityPanel ticker={normalizedTicker} />}
 
         {/* Filings Section */}
         <section className="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-6">
