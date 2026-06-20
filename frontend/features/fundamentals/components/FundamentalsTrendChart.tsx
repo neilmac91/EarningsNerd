@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { Loader2 } from 'lucide-react'
 
 import { getFundamentals, FundamentalsResponse } from '@/features/fundamentals/api/fundamentals-api'
 import { ApiError } from '@/lib/api/client'
@@ -79,10 +80,11 @@ export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
     return !!series?.points.some((p) => p.reconciled === false)
   }, [data, activeKey])
 
-  // Supplementary section. Stay unmounted while loading and disappear when there are no facts
-  // (e.g. before the backfill runs) — never render a card that then collapses (zero layout shift).
-  if (isLoading) return null
-  if (isError || available.length === 0) return null
+  // Supplementary section: stay quiet on error, and disappear when there are no facts
+  // (e.g. before the backfill runs) rather than showing an empty card. Keep the card (with a
+  // spinner sized to the chart) mounted *while loading* so the common "has data" case doesn't
+  // shift content when the query resolves — only collapse once we know there are no facts.
+  if (isError || (!isLoading && available.length === 0)) return null
 
   return (
     <section className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-slate-900">
@@ -112,7 +114,11 @@ export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
         )}
       </div>
 
-      {chartData.length === 0 ? (
+      {isLoading ? (
+        <div className="flex h-72 items-center justify-center" aria-label="Loading financial trends">
+          <Loader2 className="h-6 w-6 animate-spin text-mint-500" />
+        </div>
+      ) : chartData.length === 0 ? (
         <p className="py-12 text-center text-sm text-gray-500 dark:text-gray-400">
           No multi-year data available for this metric.
         </p>
