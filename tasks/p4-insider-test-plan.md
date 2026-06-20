@@ -150,6 +150,16 @@ curl -s -o /dev/null -w "%{http_code}\n" \
 ```
 **Expect:** `422` for both (allowed range is 1–730).
 
+### TC-5b — Error-code reference (for interpreting failures)
+| Code | Meaning |
+|------|---------|
+| `200` | OK (including `total_transactions: 0` — a valid empty answer). |
+| `404` | Unknown ticker. |
+| `422` | `window_days` outside 1–730. |
+| `502` | SEC/EdgarTools fetch failed (incl. the 60s fetch timeout). |
+| `503` | SEC EDGAR circuit breaker open (transient — retry shortly). |
+| `504` | Request exceeded the 75s endpoint ceiling (should be rare; the 60s fetch timeout normally fires first → 502). |
+
 ### TC-6 — Company with no open-market insider trades
 Pick a small/quiet company or an ETF-like ticker.
 ```bash
