@@ -68,6 +68,7 @@ from app.routers import (
     internal,
     dashboard,
     search,
+    peers,
 )
 from app.config import settings, APP_VERSION
 
@@ -276,6 +277,7 @@ async def request_timeout_middleware(request: Request, call_next):
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(companies.router, prefix="/api/companies", tags=["Companies"])
+app.include_router(peers.router, prefix="/api/companies", tags=["Peers"])
 app.include_router(filings.router, prefix="/api/filings", tags=["Filings"])
 app.include_router(summaries.router, prefix="/api/summaries", tags=["Summaries"])
 app.include_router(users.router, prefix="/api/users", tags=["Users"])
