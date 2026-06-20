@@ -18,6 +18,10 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
+# Cap on how long we'll honor a server-sent Retry-After, so a misbehaving or hostile
+# header can't park a worker indefinitely.
+MAX_RETRY_AFTER_SECONDS = 120.0
+
 
 class SECRateLimitError(Exception):
     """Raised when SEC rate limit is exceeded after all retries"""
@@ -145,9 +149,16 @@ class SECRateLimiter:
                     jitter = backoff * 0.1 * (time.monotonic() % 1)
                     total_wait = backoff + jitter
 
+                    # Honor SEC's Retry-After header when present (capped) — it is the
+                    # authoritative cool-off and overrides our computed backoff when longer.
+                    retry_after = self._retry_after_seconds(e)
+                    if retry_after is not None:
+                        total_wait = max(total_wait, min(retry_after, MAX_RETRY_AFTER_SECONDS))
+
                     logger.warning(
                         f"SEC rate limit hit (attempt {attempt + 1}/{self.max_retries}), "
                         f"backing off for {total_wait:.2f}s"
+                        + (f" (Retry-After={retry_after:.0f}s)" if retry_after is not None else "")
                     )
                     await asyncio.sleep(total_wait)
 
@@ -174,6 +185,43 @@ class SECRateLimiter:
             "429",
             "throttl",
         ])
+
+    @staticmethod
+    def _retry_after_seconds(exception: Exception) -> Optional[float]:
+        """Parse a ``Retry-After`` header off a 429, in seconds (numeric or HTTP-date).
+
+        Returns ``None`` when the exception isn't an HTTP error, has no header, or the
+        header can't be parsed. Negative/expired dates clamp to 0.
+        """
+        import httpx
+
+        if not isinstance(exception, httpx.HTTPStatusError):
+            return None
+        header = exception.response.headers.get("Retry-After")
+        if not header:
+            return None
+        header = header.strip()
+
+        # delta-seconds form (the common case).
+        try:
+            seconds = float(header)
+            return seconds if seconds >= 0 else None
+        except ValueError:
+            pass
+
+        # HTTP-date form.
+        try:
+            from datetime import datetime, timezone
+            from email.utils import parsedate_to_datetime
+
+            when = parsedate_to_datetime(header)
+            if when is None:
+                return None
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=timezone.utc)
+            return max(0.0, (when - datetime.now(timezone.utc)).total_seconds())
+        except (TypeError, ValueError):
+            return None
 
     def get_stats(self) -> dict:
         """Get rate limiter statistics"""
