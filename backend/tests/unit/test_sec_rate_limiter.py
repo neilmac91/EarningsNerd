@@ -21,6 +21,9 @@ class TestRetryAfterParsing:
     def test_numeric_seconds(self):
         assert SECRateLimiter._retry_after_seconds(_http_429("30")) == 30.0
 
+    def test_negative_seconds_clamps_to_zero(self):
+        assert SECRateLimiter._retry_after_seconds(_http_429("-5")) == 0.0
+
     def test_missing_header(self):
         assert SECRateLimiter._retry_after_seconds(_http_429(None)) is None
 
