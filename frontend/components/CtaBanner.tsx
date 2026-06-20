@@ -34,7 +34,7 @@ function CtaBanner() {
               href="/register"
               className="inline-flex items-center gap-1 text-sm font-medium text-slate-400 underline underline-offset-4 decoration-slate-600 transition-colors hover:text-white hover:decoration-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
             >
-              or create a free account
+              or create a free account — 5 summaries a month
             </Link>
           </div>
         </div>
