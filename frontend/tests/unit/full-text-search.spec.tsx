@@ -1,7 +1,11 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
-import { FullTextSearchResults } from '@/features/search/components/FullTextSearch'
-import type { FullTextSearchHit } from '@/features/search/api/search-api'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+
+vi.mock('@/features/search/api/search-api', () => ({ searchFullText: vi.fn() }))
+
+import FullTextSearch, { FullTextSearchResults } from '@/features/search/components/FullTextSearch'
+import { searchFullText, type FullTextSearchHit } from '@/features/search/api/search-api'
 
 const hit: FullTextSearchHit = {
   accession_no: '0000320193-24-000123',
@@ -48,5 +52,31 @@ describe('FullTextSearchResults', () => {
   it('renders one row per hit', () => {
     render(<FullTextSearchResults hits={[hit, { ...hit, accession_no: '0000320193-23-000077', document: 'aapl2.htm' }]} />)
     expect(screen.getAllByRole('link')).toHaveLength(2)
+  })
+})
+
+describe('FullTextSearch date filters', () => {
+  beforeEach(() => vi.mocked(searchFullText).mockReset())
+
+  it('passes the selected date range to the search request', async () => {
+    vi.mocked(searchFullText).mockResolvedValue({ query: '', total: 0, count: 0, hits: [] })
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={qc}>
+        <FullTextSearch />
+      </QueryClientProvider>,
+    )
+
+    fireEvent.change(screen.getByLabelText('Filed on or after'), { target: { value: '2023-01-01' } })
+    fireEvent.change(screen.getByLabelText('Filed on or before'), { target: { value: '2023-12-31' } })
+    fireEvent.change(screen.getByLabelText(/Search the full text/i), {
+      target: { value: 'going concern' },
+    })
+
+    await waitFor(() =>
+      expect(vi.mocked(searchFullText)).toHaveBeenCalledWith(
+        expect.objectContaining({ q: 'going concern', startdt: '2023-01-01', enddt: '2023-12-31' }),
+      ),
+    )
   })
 })

@@ -66,6 +66,8 @@ export default function FullTextSearch() {
   const [input, setInput] = useState('')
   const [query, setQuery] = useState('')
   const [forms, setForms] = useState<string[]>([])
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
 
   // Debounce the raw input into the query that actually drives the request.
   useEffect(() => {
@@ -76,8 +78,14 @@ export default function FullTextSearch() {
   const formsParam = useMemo(() => (forms.length ? forms.join(',') : undefined), [forms])
 
   const { data, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ['full-text-search', query, formsParam],
-    queryFn: () => searchFullText({ q: query, forms: formsParam }),
+    queryKey: ['full-text-search', query, formsParam, startDate, endDate],
+    queryFn: () =>
+      searchFullText({
+        q: query,
+        forms: formsParam,
+        startdt: startDate || undefined,
+        enddt: endDate || undefined,
+      }),
     enabled: query.length > 0,
     placeholderData: keepPreviousData, // keep prior results visible while refining (no flash)
     staleTime: 5 * 60 * 1000,
@@ -130,6 +138,39 @@ export default function FullTextSearch() {
             </button>
           )
         })}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+        <span>Filed between</span>
+        <input
+          type="date"
+          value={startDate}
+          max={endDate || undefined}
+          onChange={(e) => setStartDate(e.target.value)}
+          aria-label="Filed on or after"
+          className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-slate-200 [color-scheme:dark] focus:border-mint-500/40 focus:outline-none"
+        />
+        <span>and</span>
+        <input
+          type="date"
+          value={endDate}
+          min={startDate || undefined}
+          onChange={(e) => setEndDate(e.target.value)}
+          aria-label="Filed on or before"
+          className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-slate-200 [color-scheme:dark] focus:border-mint-500/40 focus:outline-none"
+        />
+        {(startDate || endDate) && (
+          <button
+            type="button"
+            onClick={() => {
+              setStartDate('')
+              setEndDate('')
+            }}
+            className="text-slate-500 underline-offset-2 transition-colors hover:text-slate-300 hover:underline"
+          >
+            Clear dates
+          </button>
+        )}
       </div>
 
       {isError && (
