@@ -225,6 +225,12 @@ preferred over the in-process endpoint for a large first pass.
 > `backend/migrations/20260618_phase2_alerts.sql` against the prod DB **before/with** the deploy that
 > ships the Phase 2 models, or ORM reads of `Company`/`Watchlist` will fail. Same applies to any
 > future column migration.
+>
+> The **in-app notification bell** (the `/api/users/me/notifications` endpoints + Header bell) adds a
+> `users.notifications_seen_at` column for unread tracking — apply
+> `backend/migrations/20260620_users_notifications_seen_at.sql` the same way. The bell reads the same
+> `notification_log` rows the scan writes, so it needs no extra cron; it lights up once the scan
+> jobs above are running.
 
 ---
 

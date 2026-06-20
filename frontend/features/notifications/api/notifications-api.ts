@@ -27,3 +27,32 @@ export const updateNotificationPreferences = async (
   const response = await api.put('/api/users/me/notification-preferences', update)
   return response.data
 }
+
+// In-app notification bell ------------------------------------------------------
+
+export interface NotificationItem {
+  id: number
+  filing_id: number
+  ticker: string
+  company_name: string
+  filing_type: string
+  filing_date: string | null
+  created_at: string | null
+  read: boolean
+}
+
+export interface NotificationList {
+  items: NotificationItem[]
+  unread_count: number
+}
+
+export const getNotifications = async (): Promise<NotificationList> => {
+  const response = await api.get('/api/users/me/notifications')
+  return response.data
+}
+
+/** Mark the bell as opened (resets the unread count). Returns the now-read recent list. */
+export const markNotificationsSeen = async (): Promise<NotificationList> => {
+  const response = await api.post('/api/users/me/notifications/seen')
+  return response.data
+}
