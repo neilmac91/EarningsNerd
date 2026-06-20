@@ -1,61 +1,49 @@
-# Phase 2 — Watchlist + new-filing alerts (retention engine)
+# SEC Data Expansion — Remediation Pass (data trust & honesty)
 
-Branch: `claude/zen-newton-upsnh9` (synced to merged main @ 41fa724)
-Goal: detect new filings for watched companies and alert watchers — Free=daily digest,
-Pro=real-time + 8-K. This produces the north-star metric. See IMPLEMENTATION_PLAN §Phase 2.
+Driven by the audit of parallel-built P1/P3/P4 work against `tasks/sec-data-expansion-strategy.md`.
+User decisions (2026-06-20): focus = **data trust & honesty**; recon depth = **local invariants + UI flag**;
+population = **schedule + deepen current backfill**; 5.37 bump = **yes, isolated PR + tests**.
 
-Decisions taken (recommended defaults; flagged for confirmation):
-- Pro-gated prefs (realtime, 8-K) for a Free user are **coerced to false + effective value returned**
-  (not 403) so the UI can show a PeekLocked toggle.
-- Hourly scan + once-daily digest. Alerts **link** to on-demand generation (no auto-LLM for free).
-- Default prefs: backfill existing users + lazy get-or-create.
-- Skipped the watchlist (user,company) unique-constraint change (avoid migration risk on live dupes).
+Each item below is a focused PR off `main`, driven to green CI + merge before the next.
 
-## First cut (this PR) — backend alert engine + prefs API + tests (CI-testable, mocked EDGAR/email)
-- [ ] Models: `NotificationPreferences`, `NotificationLog` (`app/models/notifications.py`);
-      `Watchlist.last_alerted_accession/at`, `Company.last_filings_check_at`; cascade rels; exports
-- [ ] Migration: `migrations/20260618_phase2_alerts.sql` (additive, idempotent, + prefs backfill)
-- [ ] `notification_service.py`: get_or_create_preferences, evaluate_delivery, entitlement coercion
-- [ ] `filing_scan_service.py`: upsert_filings helper, run_filing_scan (detector + realtime + dedup),
-      run_daily_digest; EDGAR + email injected for testing; baseline high-water mark (no historical spam)
-- [ ] Email: `render/send_new_filing_alert`, `render/send_daily_digest`; parameterised footer
-- [ ] Prefs API: `GET/PUT /api/users/me/notification-preferences` (coercion via entitlements)
-- [ ] Thin job entrypoint: `scripts/filing_scan.py` (mirrors pregenerate_examples.py)
-- [ ] Tests: dedup (one alert/eligible watcher, never twice), gating (Pro realtime vs Free digest,
-      8-K Pro-only, form-type prefs), no-historical-spam, prefs API coercion, email render no-PII
+---
 
-## Frontend (DONE — added to #304)
-- [x] notifications-api client (get/update preferences)
-- [x] NotificationPreferencesForm in settings (10-K/10-Q/8-K/realtime/digest, auto-save, Pro-locked toggles)
-- [x] WatchlistAddSearch on the watchlist page (debounced autocomplete → addToWatchlist) + empty-state CTA
-- [x] Frontend lint + typecheck + 45 vitest + build green
+## PR-A — P0: bump edgartools 5.36 → 5.37 (isolated)
+- [ ] `backend/requirements.txt`: `edgartools==5.36.0` → `5.37.0`
+- [ ] Verify via CI backend-tests (sandbox lacks edgartools/network; CI is the regression signal)
+- [ ] Note: live Form-4 shape recheck = `scripts/verify_insider_extraction.py` post-deploy
+- [ ] (cheap P0 rider) silence the noisy `edgar` logger in `logging_service.py`
 
-## Infra increment (DONE — new PR)
-- [x] CI: `Update filing-scan job image` step in deploy-backend (existence-guarded so CD never fails)
-- [x] Token-gated `POST /internal/jobs/filing-scan` + `/filing-digest` (`app/routers/internal.py`,
-      `INTERNAL_JOB_TOKEN` config) + tests (503 unset / 401 wrong / 202 + triggers)
-- [x] DEPLOYMENT.md: one-time job + scheduler setup, internal-endpoint alternative, **Phase 2
-      column-migration requirement** called out
-- [x] Backend 408 pytest + ruff + bandit green
+## PR-B — Reconciliation gate (local invariants) + honesty surfacing  ← core deliverable
+Backend — `facts_service.py`:
+- [ ] Pure gate fn over a per-filing fact batch + prior-value lookup; returns reconciled + reason
+  - revenue ≥ 0 (hard reject negative); zero-where-prior-nonzero → flag
+  - sign(EPS) == sign(net_income)
+  - diluted EPS ≤ basic EPS
+  - magnitude vs prior within ~1 order of magnitude (scale-bug catch)
+  - period_end aligns with filing period_of_report (period correctness)
+- [ ] Set `reconciled` on write per gate outcome (replace hard-coded False)
+- [ ] Expose `reconciled` (+ coverage/quality summary) through peers + fundamentals schemas
+- [ ] Unit tests for the gate (pure, sandbox-verifiable) covering each invariant + edge cases
+Frontend — honesty + UX:
+- [ ] Quality badge on peers + fundamentals (extend `ENABLE_QUALITY_BADGE`) when data is unreconciled
+- [ ] Fix `FundamentalsTrendChart` post-load collapse → no layout shift
 
-## Ops still required (manual, prod)
-- Apply `backend/migrations/20260618_phase2_alerts.sql` to prod (new columns; create_all won't add them)
-- One-time `gcloud run jobs create earningsnerd-filing-scan` + Cloud Scheduler triggers (or set
-  `INTERNAL_JOB_TOKEN` + point Scheduler at the internal endpoints)
+## PR-C — Facts population: schedule + deepen
+- [ ] Extend normalizer to consume the full multi-period `series` (not just `current`)
+- [ ] Wire `backfill-facts` to the weekly cron / Cloud Scheduler (currently manual-trigger only)
+- [ ] Add `Filing.processed_facts_at` tracking column (§3.1) + set it on normalize
+- [ ] Tests for multi-period normalization
 
-## Review fixes applied (Gemini, all 6 resolved)
-- _write_log SAVEPOINT (isolate dup rollback) + regression test
-- tz-safe `now` normalisation in scan + digest
-- digest N+1 removed (one bulk query, tz-safe Python window filter)
-- HTML-escape EDGAR fields in alert/digest emails
+---
 
-## Verify
-- [x] backend `pytest` (403 passed) + ruff + bandit green (fresh-DB run)
-- [x] commit + push + open Phase 2 PR (#304, draft)
-- [ ] CI green on #304 (running) → then ready for review/merge
+## Explicitly deferred (not in this pass; logged for later)
+- Full §3.5 live cross-check vs `data.sec.gov/companyconcept` (chose invariants-only for v1)
+- Frames API cross-company primitive for peer breadth (peers stay corpus-bounded for now)
+- FSDS bulk backfill loader (broad coverage) — bigger effort
+- P1 search: ⌘K trigger, highlighted snippets (needs backend EftsHit change), date-range filter UI
+- 13F / institutional signals (never built)
+- `EDGAR_LOCAL_DATA_DIR`, Retry-After on 429 (remaining P0 hygiene)
 
-## Status
-First cut complete and pushed as PR #304 (draft). All 7 first-cut tasks done:
-models+migration, notification_service, filing_scan_service, email templates, prefs API,
-job entrypoint, tests. Next increments: frontend (NotificationPreferencesForm + WatchlistAddSearch),
-then infra (Cloud Run job + scheduler in ci.yml).
+## Review log
+- (filled in as PRs land)
