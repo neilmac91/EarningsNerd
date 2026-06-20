@@ -6,7 +6,7 @@ we can exercise the unread-count / read-flag logic without running a scan.
 """
 import uuid
 from contextlib import contextmanager
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 import pytest
