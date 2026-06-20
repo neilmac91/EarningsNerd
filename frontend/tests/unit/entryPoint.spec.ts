@@ -41,7 +41,13 @@ describe('getEntryPoint', () => {
     expect(getEntryPoint()).toBe('company_page')
   })
 
-  it('maps the compare route (exact + subpath) to "compare"', () => {
+  it('maps the exact /compare route to "compare"', () => {
+    setLocation('')
+    setReferrer('https://www.earningsnerd.io/compare')
+    expect(getEntryPoint()).toBe('compare')
+  })
+
+  it('maps a /compare/ subpath to "compare"', () => {
     setLocation('')
     setReferrer('https://www.earningsnerd.io/compare/result')
     expect(getEntryPoint()).toBe('compare')
