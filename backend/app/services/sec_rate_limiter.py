@@ -11,7 +11,12 @@ This module provides a robust rate limiter with:
 import asyncio
 import logging
 import time
+from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from typing import Callable, Optional, TypeVar, Awaitable
+
+import httpx
+
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -172,8 +177,6 @@ class SECRateLimiter:
     @staticmethod
     def _is_rate_limit_error(exception: Exception) -> bool:
         """Check if exception indicates a rate limit error"""
-        import httpx
-
         if isinstance(exception, httpx.HTTPStatusError):
             # SEC returns 429 for rate limiting
             return exception.response.status_code == 429
@@ -191,10 +194,8 @@ class SECRateLimiter:
         """Parse a ``Retry-After`` header off a 429, in seconds (numeric or HTTP-date).
 
         Returns ``None`` when the exception isn't an HTTP error, has no header, or the
-        header can't be parsed. Negative/expired dates clamp to 0.
+        header can't be parsed. Negative/expired values clamp to 0.0.
         """
-        import httpx
-
         if not isinstance(exception, httpx.HTTPStatusError):
             return None
         header = exception.response.headers.get("Retry-After")
@@ -202,25 +203,24 @@ class SECRateLimiter:
             return None
         header = header.strip()
 
-        # delta-seconds form (the common case).
+        # delta-seconds form (the common case). Guard NaN: float("nan") parses but would
+        # bypass the min/max clamps and crash asyncio.sleep(nan). (inf is fine — the cap in
+        # execute_with_backoff bounds it.)
         try:
-            seconds = float(header)
-            return seconds if seconds >= 0 else None
+            val = float(header)
+            if val == val:  # False only for NaN
+                return max(0.0, val)
         except ValueError:
             pass
 
-        # HTTP-date form.
+        # HTTP-date form. parsedate_to_datetime raises (not returns None) on bad input;
+        # catch broadly so a malformed header can never crash the rate limiter.
         try:
-            from datetime import datetime, timezone
-            from email.utils import parsedate_to_datetime
-
             when = parsedate_to_datetime(header)
-            if when is None:
-                return None
             if when.tzinfo is None:
                 when = when.replace(tzinfo=timezone.utc)
             return max(0.0, (when - datetime.now(timezone.utc)).total_seconds())
-        except (TypeError, ValueError):
+        except Exception:
             return None
 
     def get_stats(self) -> dict:

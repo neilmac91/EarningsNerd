@@ -21,6 +21,13 @@ class TestRetryAfterParsing:
     def test_numeric_seconds(self):
         assert SECRateLimiter._retry_after_seconds(_http_429("30")) == 30.0
 
+    def test_negative_seconds_clamps_to_zero(self):
+        assert SECRateLimiter._retry_after_seconds(_http_429("-5")) == 0.0
+
+    def test_nan_returns_none(self):
+        # float("nan") parses but must not propagate to asyncio.sleep(nan).
+        assert SECRateLimiter._retry_after_seconds(_http_429("nan")) is None
+
     def test_missing_header(self):
         assert SECRateLimiter._retry_after_seconds(_http_429(None)) is None
 
