@@ -388,12 +388,12 @@ class TestBackfill:
         db.add(filing)
         db.commit()
 
-        stats = svc.backfill_facts(db, extract=_fake_extract)
+        stats = svc.backfill_facts(db, extract=_fake_extract, cross_check=False)
         assert stats["facts_inserted"] == 2  # revenue + net_income from our filing
         assert db.query(FinancialFact).filter_by(company_id=cid).count() == 2
 
         # Re-running is a no-op (idempotent on the identity key).
-        stats2 = svc.backfill_facts(db, extract=_fake_extract)
+        stats2 = svc.backfill_facts(db, extract=_fake_extract, cross_check=False)
         assert stats2["facts_inserted"] == 0
         assert stats2["facts_skipped"] >= 2
         db.close()
@@ -418,15 +418,134 @@ class TestBackfill:
         db.add(filing)
         db.commit()
 
-        svc.backfill_facts(db, extract=_fake_extract)
+        svc.backfill_facts(db, extract=_fake_extract, cross_check=False)
         db.refresh(filing)
         assert filing.processed_facts_at is not None  # stamped after normalization
         stamped_at = filing.processed_facts_at
 
         # An incremental pass skips already-stamped filings (timestamp unchanged).
-        svc.backfill_facts(db, extract=_fake_extract, only_unprocessed=True)
+        svc.backfill_facts(db, extract=_fake_extract, only_unprocessed=True, cross_check=False)
         db.refresh(filing)
         assert filing.processed_facts_at == stamped_at
+        db.close()
+
+
+_COMPANYFACTS = {
+    "facts": {
+        "us-gaap": {
+            "Revenues": {
+                "units": {
+                    "USD": [
+                        {"start": "2024-01-01", "end": "2024-12-31", "val": 1000.0, "form": "10-K"},
+                        {"start": "2024-10-01", "end": "2024-12-31", "val": 250.0, "form": "10-K"},  # Q4 → skip
+                        {"start": "2023-01-01", "end": "2023-12-31", "val": 900.0, "form": "10-K"},
+                    ]
+                }
+            },
+            "NetIncomeLoss": {"units": {"USD": [
+                {"start": "2024-01-01", "end": "2024-12-31", "val": 100.0},
+            ]}},
+            "Assets": {"units": {"USD": [{"end": "2024-12-31", "val": 5000.0}]}},  # instant
+        }
+    }
+}
+
+
+class TestExtractAuthoritative:
+    def test_picks_annual_durations_and_instants(self):
+        auth = svc.extract_authoritative_values(_COMPANYFACTS)
+        assert auth[("revenue", date(2024, 12, 31))] == 1000.0  # annual, not the Q4 250
+        assert auth[("revenue", date(2023, 12, 31))] == 900.0
+        assert auth[("net_income", date(2024, 12, 31))] == 100.0
+        assert auth[("total_assets", date(2024, 12, 31))] == 5000.0
+
+    def test_malformed_returns_empty(self):
+        assert svc.extract_authoritative_values(None) == {}
+        assert svc.extract_authoritative_values({"facts": {}}) == {}
+
+
+def _cfact(concept, value, reconciled=True, period_end=date(2024, 12, 31)):
+    return {
+        "concept": concept,
+        "period_end": period_end,
+        "value": value,
+        "reconciled": reconciled,
+        "source": "edgar_xbrl",
+    }
+
+
+class TestCrossCheckFacts:
+    def setup_method(self):
+        self.auth = svc.extract_authoritative_values(_COMPANYFACTS)
+
+    def test_within_tolerance_confirms_value(self):
+        out = svc.cross_check_facts([_cfact("revenue", 1005.0)], self.auth)  # 0.5% off
+        assert out[0]["value"] == 1005.0  # unchanged
+        assert out[0]["reconciled"] is True
+        assert out[0]["source"] == "edgar_xbrl"
+
+    def test_mismatch_replaces_with_authoritative(self):
+        out = svc.cross_check_facts([_cfact("revenue", 1.0)], self.auth)  # scale bug
+        assert out[0]["value"] == 1000.0
+        assert out[0]["source"] == "companyfacts"
+        assert out[0]["reconciled"] is True
+
+    def test_confirmation_clears_invariant_flag(self):
+        out = svc.cross_check_facts([_cfact("revenue", 1000.0, reconciled=False)], self.auth)
+        assert out[0]["reconciled"] is True  # authoritative confirms → flag cleared
+
+    def test_no_authoritative_for_period_unchanged(self):
+        f = _cfact("revenue", 42.0, reconciled=False, period_end=date(2022, 12, 31))
+        out = svc.cross_check_facts([f], self.auth)
+        assert out[0]["value"] == 42.0 and out[0]["reconciled"] is False
+
+    def test_non_headline_concept_unchanged(self):
+        f = _cfact("gross_profit", 7.0, reconciled=False)
+        out = svc.cross_check_facts([f], self.auth)
+        assert out[0]["value"] == 7.0 and out[0]["reconciled"] is False
+
+    def test_empty_authoritative_is_noop(self):
+        f = _cfact("revenue", 1.0)
+        assert svc.cross_check_facts([f], {}) == [f]
+
+
+@pytest.mark.requires_db
+class TestBackfillCrossCheck:
+    def test_backfill_corrects_headline_via_companyfacts(self):
+        from datetime import datetime
+
+        from app.database import SessionLocal
+        from app.models import Filing, FinancialFact
+
+        db = SessionLocal()
+        cid = _new_company(db)
+        filing = Filing(
+            company_id=cid,
+            accession_number=f"ACC-cc-{uuid.uuid4().hex[:8]}",
+            filing_type="10-K",
+            filing_date=datetime(2025, 2, 1),
+            document_url="https://sec.example/x.htm",
+            sec_url="https://sec.example/",
+            xbrl_data={"mark": "CC"},
+        )
+        db.add(filing)
+        db.commit()
+
+        def _extract(xbrl):  # parsed revenue is scale-bugged for FY2024
+            if isinstance(xbrl, dict) and xbrl.get("mark") == "CC":
+                return {"revenue": {"current": {"period": "2024-12-31", "value": 1.0}}}
+            return {}
+
+        def _fetcher(_cik):
+            return _COMPANYFACTS
+
+        svc.backfill_facts(db, extract=_extract, companyfacts_fetcher=_fetcher)
+
+        row = db.query(FinancialFact).filter_by(company_id=cid, concept="revenue").first()
+        assert row is not None
+        assert float(row.value) == 1000.0  # corrected to the authoritative companyfacts value
+        assert row.source == "companyfacts"
+        assert row.reconciled is True
         db.close()
 
 
