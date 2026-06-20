@@ -16,7 +16,7 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
-from app.models.financial_fact import FinancialFact
+from app.models import Company, Filing, FinancialFact
 
 logger = logging.getLogger(__name__)
 
@@ -147,3 +147,91 @@ def upsert_facts(db: Session, facts: list[dict[str, Any]]) -> dict[str, int]:
 
     db.commit()
     return {"inserted": inserted, "skipped": skipped}
+
+
+def backfill_facts(db: Session, extract=None, limit: Optional[int] = None) -> dict[str, int]:
+    """Populate ``financial_fact`` from filings that already carry ``xbrl_data``.
+
+    Reuses the standardized-metrics extractor + the pure normalizer + the writer. Idempotent
+    (``upsert_facts`` skips rows that already exist). Filings are processed oldest-first so the
+    newest reported value wins ``is_latest``. ``extract`` is injectable for tests.
+    """
+    if extract is None:
+        from app.services.edgar.compat import xbrl_service
+
+        extract = xbrl_service.extract_standardized_metrics
+
+    query = (
+        db.query(Filing)
+        .filter(Filing.xbrl_data.isnot(None))
+        .order_by(Filing.filing_date.asc())
+    )
+    if limit:
+        query = query.limit(limit)
+
+    processed = 0
+    inserted = 0
+    skipped = 0
+    errors = 0
+    for filing in query.all():
+        try:
+            standardized = extract(filing.xbrl_data)
+        except Exception:
+            logger.exception("facts backfill: extract failed for filing %s", filing.id)
+            errors += 1
+            continue
+        facts = normalize_standardized_to_facts(
+            filing.company_id, filing.id, filing.accession_number, filing.filing_type, standardized
+        )
+        result = upsert_facts(db, facts)
+        inserted += result["inserted"]
+        skipped += result["skipped"]
+        processed += 1
+
+    return {
+        "filings_processed": processed,
+        "facts_inserted": inserted,
+        "facts_skipped": skipped,
+        "extract_errors": errors,
+    }
+
+
+def get_fundamentals(db: Session, ticker: str) -> Optional[dict[str, Any]]:
+    """Current (``is_latest``) facts for a ticker, grouped into per-concept time-series.
+
+    Returns ``None`` when the ticker isn't a known company. Each concept's points are ordered oldest
+    → newest so a chart can render the trend directly.
+    """
+    company = db.query(Company).filter(Company.ticker == (ticker or "").upper()).first()
+    if company is None:
+        return None
+
+    rows = (
+        db.query(FinancialFact)
+        .filter(FinancialFact.company_id == company.id, FinancialFact.is_latest.is_(True))
+        .order_by(FinancialFact.concept.asc(), FinancialFact.period_end.asc())
+        .all()
+    )
+
+    series: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        series.setdefault(row.concept, []).append(
+            {
+                "period_end": row.period_end.isoformat() if row.period_end else None,
+                "fiscal_year": row.fiscal_year,
+                "fiscal_period": row.fiscal_period,
+                "value": float(row.value) if row.value is not None else None,
+                "unit": row.unit,
+                "form": row.form,
+                "accession": row.accession,
+            }
+        )
+
+    return {
+        "ticker": company.ticker,
+        "company_name": company.name,
+        "concepts": [
+            {"concept": concept, "unit": points[0]["unit"], "points": points}
+            for concept, points in series.items()
+        ],
+    }

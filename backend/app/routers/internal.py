@@ -71,3 +71,24 @@ async def trigger_filing_scan(background: BackgroundTasks):
 async def trigger_filing_digest(background: BackgroundTasks):
     background.add_task(_run_daily_digest)
     return {"status": "accepted", "job": "filing-digest"}
+
+
+def _run_backfill_facts() -> None:
+    # Sync (CPU/DB-bound) → FastAPI runs it in a threadpool, off the event loop.
+    from app.database import SessionLocal
+    from app.services import facts_service
+
+    db = SessionLocal()
+    try:
+        stats = facts_service.backfill_facts(db)
+        logger.info("Facts backfill (internal trigger) complete: %s", stats)
+    except Exception:
+        logger.exception("Facts backfill (internal trigger) failed")
+    finally:
+        db.close()
+
+
+@router.post("/jobs/backfill-facts", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
+async def trigger_backfill_facts(background: BackgroundTasks):
+    background.add_task(_run_backfill_facts)
+    return {"status": "accepted", "job": "backfill-facts"}

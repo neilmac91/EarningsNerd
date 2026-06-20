@@ -137,3 +137,88 @@ class TestUpsert:
         assert rows["ACC2"].is_latest  # restatement is current
         assert float(rows["ACC2"].value) == 110.0
         db.close()
+
+
+_BACKFILL_STD = {
+    "revenue": {"current": {"period": "2024-09-28", "value": 100.0}},
+    "net_income": {"current": {"period": "2024-09-28", "value": 20.0}},
+}
+
+
+def _fake_extract(xbrl):
+    # Only our marked filing yields metrics, so the test is isolated from any other filings that
+    # may carry xbrl_data in the shared test DB.
+    if isinstance(xbrl, dict) and xbrl.get("mark") == "X":
+        return _BACKFILL_STD
+    return {}
+
+
+@pytest.mark.requires_db
+class TestBackfill:
+    def test_backfill_populates_facts_and_is_idempotent(self):
+        from datetime import datetime
+
+        from app.database import SessionLocal
+        from app.models import Filing, FinancialFact
+
+        db = SessionLocal()
+        cid = _new_company(db)
+        filing = Filing(
+            company_id=cid,
+            accession_number=f"ACC-bf-{uuid.uuid4().hex[:8]}",
+            filing_type="10-K",
+            filing_date=datetime(2024, 11, 1),
+            document_url="https://sec.example/x.htm",
+            sec_url="https://sec.example/",
+            xbrl_data={"mark": "X"},
+        )
+        db.add(filing)
+        db.commit()
+
+        stats = svc.backfill_facts(db, extract=_fake_extract)
+        assert stats["facts_inserted"] == 2  # revenue + net_income from our filing
+        assert db.query(FinancialFact).filter_by(company_id=cid).count() == 2
+
+        # Re-running is a no-op (idempotent on the identity key).
+        stats2 = svc.backfill_facts(db, extract=_fake_extract)
+        assert stats2["facts_inserted"] == 0
+        assert stats2["facts_skipped"] >= 2
+        db.close()
+
+
+@pytest.mark.requires_db
+class TestGetFundamentals:
+    def test_returns_per_concept_series_oldest_first(self):
+        from app.database import SessionLocal
+        from app.models import Company
+
+        db = SessionLocal()
+        suffix = uuid.uuid4().hex[:8]
+        company = Company(cik=suffix, ticker=("F" + suffix[:4]).upper(), name=f"Fund {suffix}")
+        db.add(company)
+        db.commit()
+        db.refresh(company)
+
+        common = {"concept": "revenue", "unit": "USD", "fiscal_period": "FY", "form": "10-K",
+                  "company_id": company.id, "filing_id": None, "source": "edgar_xbrl"}
+        svc.upsert_facts(db, [
+            {**common, "period_end": date(2023, 9, 30), "fiscal_year": 2023, "value": 80.0, "accession": "A23"},
+        ])
+        svc.upsert_facts(db, [
+            {**common, "period_end": date(2024, 9, 28), "fiscal_year": 2024, "value": 100.0, "accession": "A24"},
+        ])
+
+        out = svc.get_fundamentals(db, company.ticker.lower())  # case-insensitive
+        assert out["ticker"] == company.ticker
+        revenue = next(c for c in out["concepts"] if c["concept"] == "revenue")
+        assert revenue["unit"] == "USD"
+        assert [p["value"] for p in revenue["points"]] == [80.0, 100.0]  # oldest → newest
+        assert [p["fiscal_year"] for p in revenue["points"]] == [2023, 2024]
+        db.close()
+
+    def test_unknown_ticker_returns_none(self):
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        assert svc.get_fundamentals(db, "NOPE-NOT-A-TICKER") is None
+        db.close()
