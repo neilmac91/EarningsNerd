@@ -35,13 +35,24 @@ Each item below is a focused PR off `main`, driven to green CI + merge before th
 
 ---
 
-## Explicitly deferred (not in this pass; logged for later)
-- Full §3.5 live cross-check vs `data.sec.gov/companyconcept` (chose invariants-only for v1)
-- Frames API cross-company primitive for peer breadth (peers stay corpus-bounded for now)
-- FSDS bulk backfill loader (broad coverage) — bigger effort
-- P1 search: ⌘K trigger, highlighted snippets (needs backend EftsHit change), date-range filter UI
-- 13F / institutional signals (never built)
-- `EDGAR_LOCAL_DATA_DIR`, Retry-After on 429 (remaining P0 hygiene)
+## Deferred-items pass (2026-06-20) — picked up after the remediation pass
+- [x] **Retry-After on 429** (#336) + polish/NaN-guard (#337)
+- [x] **Live companyfacts cross-check** (#338) — authoritative §3.5 step 2 (corrects headline scale/sign bugs)
+- [x] **P1 search date-range filter UI** (#339)
+
+## Still deferred — needs infra / a product call / live validation (not buildable-or-verifiable here)
+- **FSDS bulk backfill loader** — multi-GB quarterly TSV ingestion + `COPY`; infra-heavy, can't verify in sandbox.
+- **13F / institutional holders of a company** — an inverse lookup; needs full 13F ingestion + a
+  CUSIP→ticker index (same class of work as FSDS). Not a clean live-endpoint like P4 insider.
+- **Frames API peer breadth** — re-evaluated as marginal: Frames gives values for the whole filer
+  universe but NOT their SIC, so same-SIC filtering still depends on our own corpus' SIC knowledge
+  unless we build a CIK→SIC index (infra). Facts backfill already broadens coverage; revisit if a
+  CIK→SIC source is added.
+- **⌘K command palette for full-text search** — a UX/product call (conflicts with the existing ⌘K
+  bound to company search); needs a deliberate decision, not a unilateral change.
+- **Highlighted snippets** in search results — needs a backend `EftsHit` change AND live
+  confirmation EFTS returns highlight data (a verify-script task; unverifiable in the sandbox).
+- **`EDGAR_LOCAL_DATA_DIR`** — only helps with a persistent volume (Cloud Run fs is ephemeral); infra.
 
 ## Review log
 - **#331** (P0): edgartools 5.37 + edgar logger silence. CI green with 5.37.
@@ -50,9 +61,14 @@ Each item below is a focused PR off `main`, driven to green CI + merge before th
   the reviewer's per-group suggestion missed). All 3 review comments resolved.
 - **#333** (badge): Gemini flagged my `null`-while-loading change as a guaranteed CLS on success;
   reverted to the strategy's reserve-skeleton, kept the badge.
-- **#NNN** (PR-C): multi-period depth + scheduled/incremental backfill + processed_facts_at.
-- Net result: peers/fundamentals now write+serve a real `reconciled` flag (was always False),
-  flag rather than hide untrusted values, the table populates on a weekly cron with multi-year
-  history, and the just-merged P4 insider parsing runs on the edgartools 5.37 it was designed for.
-  Still deferred (logged above): live companyconcept cross-check, Frames breadth, FSDS bulk, 13F,
-  P1 search polish, remaining P0 hygiene.
+- **#334** (PR-C): multi-period depth + scheduled/incremental backfill + processed_facts_at.
+- **#336/#337** (Retry-After): honor SEC Retry-After on 429 (capped); review caught + fixed a NaN
+  crash path (`float("nan")` → `asyncio.sleep(nan)`).
+- **#338** (cross-check): companyfacts authoritative tier; review tightened the annual-duration band
+  (120→30d, excludes 9-month YTD), fixed an N+1 (joinedload), restatement tie-break (`<=`).
+- **#339** (search dates): date-range UI; review caught + fixed firing a request on an inverted range.
+- Net result: peers/fundamentals write+serve a real `reconciled` flag (was always False), headline
+  figures are corrected against SEC companyfacts, untrusted values are flagged not hidden, the facts
+  table populates weekly with multi-year history, full-text search has form + date filters, the SEC
+  rate limiter honors Retry-After, and P4 insider parsing runs on the edgartools 5.37 it targets.
+  Remaining deferred items all need infra / a product call / live validation (see section above).
