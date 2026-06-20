@@ -11,7 +11,7 @@ import {
   YAxis,
 } from 'recharts'
 
-import type { FundamentalSeries, FundamentalsData, FundamentalPoint } from '@/features/companies/api/companies-api'
+import type { FundamentalsData, FundamentalPoint } from '@/features/companies/api/companies-api'
 import { fmtCurrency } from '@/lib/format'
 
 // Human labels + canonical display order for the concepts the backend emits.
@@ -83,9 +83,9 @@ export default function FundamentalsChart({ data }: Props) {
     () => (concepts.find((c) => c.concept === 'revenue') ?? concepts[0])?.concept ?? '',
   )
 
-  if (concepts.length === 0) return null
+  const active = concepts.find((c) => c.concept === selected) ?? concepts[0]
+  if (!active) return null // no concept has points yet (facts not backfilled)
 
-  const active: FundamentalSeries = concepts.find((c) => c.concept === selected) ?? concepts[0]
   const chartData = active.points.map((p) => ({ label: periodLabel(p), value: p.value }))
   const latest = active.points[active.points.length - 1]
 
@@ -133,13 +133,23 @@ export default function FundamentalsChart({ data }: Props) {
               tickFormatter={(v) => formatTick(v as number, active.unit)}
             />
             <Tooltip
-              cursor={{ fill: '#f8fafc' }}
-              contentStyle={{
-                borderRadius: '8px',
-                border: '1px solid #e2e8f0',
-                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)',
+              cursor={{ fill: '#64748b', fillOpacity: 0.12 }}
+              content={({ active: isActive, payload, label }) => {
+                if (!isActive || !payload || payload.length === 0) return null
+                const raw = payload[0]?.value
+                const value = typeof raw === 'number' ? raw : null
+                return (
+                  <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-md dark:border-slate-800 dark:bg-slate-950">
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{label}</p>
+                    <p className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white">
+                      {conceptLabel(active.concept)}:{' '}
+                      <span className="text-emerald-600 dark:text-emerald-400">
+                        {formatValue(value, active.unit)}
+                      </span>
+                    </p>
+                  </div>
+                )
               }}
-              formatter={(v) => [formatValue(v as number, active.unit), conceptLabel(active.concept)]}
             />
             <Bar dataKey="value" name={conceptLabel(active.concept)} fill="#10b981" radius={[4, 4, 0, 0]} maxBarSize={56} />
           </BarChart>
