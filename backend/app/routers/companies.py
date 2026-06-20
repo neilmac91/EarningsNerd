@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 from typing import Dict, List, Optional, Tuple
 from app.database import get_db
 from app.models import Company
+from app.schemas.fundamentals import FundamentalsResponse
+from app.services import facts_service
 # EdgarTools migration: Using new edgar module for SEC services
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.exceptions import EdgarError as SECEdgarServiceError
@@ -401,4 +403,17 @@ async def get_company(ticker: str, db: Session = Depends(get_db)) -> CompanyResp
     }
     
     return CompanyResponse(**company_dict)
+
+
+@router.get("/{ticker}/fundamentals", response_model=FundamentalsResponse)
+async def get_company_fundamentals(ticker: str, db: Session = Depends(get_db)) -> FundamentalsResponse:
+    """Multi-year fundamentals time-series (current/`is_latest` facts) for a company, by concept.
+
+    Reads the normalized `financial_fact` table (P3) — a single indexed query, no live SEC calls.
+    Returns empty `concepts` for a known company with no facts yet (e.g. before the backfill runs).
+    """
+    data = facts_service.get_fundamentals(db, ticker)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Company not found")
+    return data
 
