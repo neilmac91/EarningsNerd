@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Menu, X, ArrowRight, LogOut } from 'lucide-react'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
 import UserMenu from '@/components/UserMenu'
+import NotificationBell from '@/components/NotificationBell'
 import { getCurrentUserSafe, logout } from '@/features/auth/api/auth-api'
 
 const NAV_LINKS = [
@@ -79,7 +80,10 @@ export default function Header() {
           {isLoading ? (
             <div className="h-9 w-9 animate-pulse rounded-full bg-white/10" aria-hidden="true" />
           ) : user ? (
-            <UserMenu user={user} />
+            <>
+              <NotificationBell />
+              <UserMenu user={user} />
+            </>
           ) : (
             <>
               <Link

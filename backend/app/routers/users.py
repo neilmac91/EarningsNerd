@@ -1,14 +1,24 @@
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.responses import JSONResponse
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, field_validator
 from typing import List, Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import logging
 import os
 
 from app.database import get_db
-from app.models import User, UserSearch, SavedSummary, UserUsage, Watchlist
+from app.models import (
+    Company,
+    Filing,
+    NotificationLog,
+    SavedSummary,
+    User,
+    UserSearch,
+    UserUsage,
+    Watchlist,
+)
 from app.routers.auth import get_current_user
 from app.services.audit_service import log_user_deletion, log_data_export
 from app.services.entitlements import get_entitlements
@@ -181,6 +191,122 @@ async def update_notification_preferences(
     db.commit()
     db.refresh(prefs)
     return _prefs_response(prefs, ent)
+
+
+# --------------------------------------------------------------------------- in-app notifications
+
+class NotificationItem(BaseModel):
+    """One filing alert the user received, for the in-app bell. Sourced from notification_log."""
+    id: int                     # notification_log row id
+    filing_id: int
+    ticker: str
+    company_name: str
+    filing_type: str
+    filing_date: Optional[datetime] = None
+    created_at: Optional[datetime] = None   # when the alert was logged
+    read: bool                  # logged at/before the user last opened the bell
+
+    class Config:
+        from_attributes = True
+
+
+class NotificationListResponse(BaseModel):
+    items: List[NotificationItem]
+    unread_count: int
+
+
+def _as_utc(dt: Optional[datetime]) -> Optional[datetime]:
+    """Treat naive datetimes (SQLite) as UTC so aware/naive comparisons never raise."""
+    if dt is None:
+        return None
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
+
+
+def _unread_count(db: Session, user: User) -> int:
+    """Count of successfully-sent alerts logged since the user last opened the bell.
+
+    The seen/created_at comparison is done in Python (via ``_as_utc``), not SQL, to stay tz-safe
+    across Postgres (aware) and SQLite (naive) — matching the convention in ``filing_scan_service``.
+    """
+    seen = _as_utc(user.notifications_seen_at)
+    if seen is None:
+        return (
+            db.query(func.count(NotificationLog.id))
+            .filter(NotificationLog.user_id == user.id, NotificationLog.status == "sent")
+            .scalar()
+            or 0
+        )
+    rows = (
+        db.query(NotificationLog.created_at)
+        .filter(NotificationLog.user_id == user.id, NotificationLog.status == "sent")
+        .all()
+    )
+    return sum(1 for (created_at,) in rows if (c := _as_utc(created_at)) and c > seen)
+
+
+def _notifications_payload(db: Session, user: User, limit: int) -> NotificationListResponse:
+    """Recent filing alerts (newest first) + unread count for the in-app bell.
+
+    Reads the same ``notification_log`` rows the alert scanner writes (channel-agnostic), so no
+    extra delivery path is needed — opening the bell surfaces whatever alerts were recorded.
+    """
+    seen = _as_utc(user.notifications_seen_at)
+    rows = (
+        db.query(NotificationLog, Filing, Company)
+        .join(Filing, NotificationLog.filing_id == Filing.id)
+        .join(Company, Filing.company_id == Company.id)
+        .filter(
+            NotificationLog.user_id == user.id,
+            NotificationLog.status == "sent",
+        )
+        .order_by(NotificationLog.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+    items = [
+        NotificationItem(
+            id=log.id,
+            filing_id=filing.id,
+            ticker=company.ticker,
+            company_name=company.name,
+            filing_type=filing.filing_type,
+            filing_date=filing.filing_date,
+            created_at=log.created_at,
+            read=bool(seen and (c := _as_utc(log.created_at)) and c <= seen),
+        )
+        for log, filing, company in rows
+    ]
+    return NotificationListResponse(items=items, unread_count=_unread_count(db, user))
+
+
+@router.get("/me/notifications", response_model=NotificationListResponse)
+async def list_notifications(
+    limit: int = Query(20, ge=1, le=50),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Recent filing alerts for the in-app bell, newest first, plus the unread count."""
+    return _notifications_payload(db, current_user, limit)
+
+
+@router.post("/me/notifications/seen", response_model=NotificationListResponse)
+async def mark_notifications_seen(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Mark the bell as opened (resets the unread count). Returns the now-read recent list.
+
+    Fetch the real row via ``db.get`` and mutate it directly (rather than a bulk UPDATE) so the
+    response is built from a fresh, in-session user — robust regardless of ``expire_on_commit`` — and
+    so it works for the test stand-in (a non-session user) too.
+    """
+    user = db.get(User, current_user.id)
+    if user is not None:
+        user.notifications_seen_at = datetime.now(timezone.utc)
+        db.commit()
+    else:
+        user = current_user
+    return _notifications_payload(db, user, 20)
 
 
 @router.get("/export")
