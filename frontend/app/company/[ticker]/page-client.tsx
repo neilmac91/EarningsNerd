@@ -15,6 +15,7 @@ import { fmtCurrency, fmtPercent } from '@/lib/format'
 import analytics from '@/lib/analytics'
 import { ENABLE_RECOMMENDED_FILING, ENABLE_FINANCIAL_CHARTS } from '@/lib/featureFlags'
 import FundamentalsTrendChart from '@/features/fundamentals/components/FundamentalsTrendChart'
+import PeerComparisonPanel from '@/features/peers/components/PeerComparisonPanel'
 
 export default function CompanyPageClient() {
   const params = useParams()
@@ -302,6 +303,7 @@ export default function CompanyPageClient() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Multi-year fundamentals trend (self-fetches; renders nothing until facts exist) */}
         {ENABLE_FINANCIAL_CHARTS && <FundamentalsTrendChart ticker={normalizedTicker} />}
+        {ENABLE_FINANCIAL_CHARTS && <PeerComparisonPanel ticker={normalizedTicker} />}
 
         {/* Filings Section */}
         <section className="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-6">
