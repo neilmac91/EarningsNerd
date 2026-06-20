@@ -79,4 +79,24 @@ describe('FullTextSearch date filters', () => {
       ),
     )
   })
+
+  it('does not fire a request when the date range is inverted', async () => {
+    vi.mocked(searchFullText).mockResolvedValue({ query: '', total: 0, count: 0, hits: [] })
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={qc}>
+        <FullTextSearch />
+      </QueryClientProvider>,
+    )
+
+    fireEvent.change(screen.getByLabelText('Filed on or after'), { target: { value: '2024-12-31' } })
+    fireEvent.change(screen.getByLabelText('Filed on or before'), { target: { value: '2024-01-01' } })
+    fireEvent.change(screen.getByLabelText(/Search the full text/i), {
+      target: { value: 'going concern' },
+    })
+
+    expect(await screen.findByText(/start date must be on or before end date/i)).toBeInTheDocument()
+    await new Promise((resolve) => setTimeout(resolve, 400)) // past the 350ms debounce
+    expect(vi.mocked(searchFullText)).not.toHaveBeenCalled()
+  })
 })

@@ -77,6 +77,10 @@ export default function FullTextSearch() {
 
   const formsParam = useMemo(() => (forms.length ? forms.join(',') : undefined), [forms])
 
+  // ISO date strings sort lexicographically == chronologically. While the user is mid-edit the
+  // range can be inverted (start > end); don't fire a request that the upstream would 400/502 on.
+  const validRange = !startDate || !endDate || startDate <= endDate
+
   const { data, isError, error, refetch, isFetching } = useQuery({
     queryKey: ['full-text-search', query, formsParam, startDate, endDate],
     queryFn: () =>
@@ -86,7 +90,7 @@ export default function FullTextSearch() {
         startdt: startDate || undefined,
         enddt: endDate || undefined,
       }),
-    enabled: query.length > 0,
+    enabled: query.length > 0 && validRange,
     placeholderData: keepPreviousData, // keep prior results visible while refining (no flash)
     staleTime: 5 * 60 * 1000,
   })
@@ -171,6 +175,7 @@ export default function FullTextSearch() {
             Clear dates
           </button>
         )}
+        {!validRange && <span className="text-amber-400">Start date must be on or before end date.</span>}
       </div>
 
       {isError && (
