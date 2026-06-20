@@ -41,6 +41,24 @@ describe('getEntryPoint', () => {
     expect(getEntryPoint()).toBe('company_page')
   })
 
+  it('maps the exact /compare route to "compare"', () => {
+    setLocation('')
+    setReferrer('https://www.earningsnerd.io/compare')
+    expect(getEntryPoint()).toBe('compare')
+  })
+
+  it('maps a /compare/ subpath to "compare"', () => {
+    setLocation('')
+    setReferrer('https://www.earningsnerd.io/compare/result')
+    expect(getEntryPoint()).toBe('compare')
+  })
+
+  it('does not false-match a /compare-prefixed route to "compare"', () => {
+    setLocation('')
+    setReferrer('https://www.earningsnerd.io/compare-plans')
+    expect(getEntryPoint()).toBe('internal')
+  })
+
   it('reports "external" for an off-origin referrer', () => {
     setLocation('')
     setReferrer('https://www.google.com/')
