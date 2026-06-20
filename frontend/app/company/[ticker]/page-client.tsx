@@ -13,6 +13,7 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import analytics from '@/lib/analytics'
+import { getEntryPoint } from '@/lib/entryPoint'
 import { ENABLE_RECOMMENDED_FILING, ENABLE_FINANCIAL_CHARTS, ENABLE_INSIDER_ACTIVITY } from '@/lib/featureFlags'
 import FundamentalsTrendChart from '@/features/fundamentals/components/FundamentalsTrendChart'
 import PeerComparisonPanel from '@/features/peers/components/PeerComparisonPanel'
@@ -118,7 +119,7 @@ export default function CompanyPageClient() {
 
   useEffect(() => {
     if (!hasTrackedCompanyView.current && company) {
-      analytics.companyViewed(company.ticker, company.name)
+      analytics.companyViewed(company.ticker, company.name, getEntryPoint())
       hasTrackedCompanyView.current = true
     }
   }, [company])

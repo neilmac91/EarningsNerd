@@ -67,8 +67,18 @@ export const analytics = {
     })
   },
 
-  companyViewed: (ticker: string, name: string) => {
-    safeCapture('company_viewed', { ticker, name })
+  // Closes the search→navigation loop: fired when a user actually selects a result, so
+  // search → company_viewed conversion is causal (not just inferred from a later page view).
+  companySearchResultClicked: (query: string, ticker: string, position: number) => {
+    safeCapture('company_search_result_clicked', {
+      query,
+      ticker,
+      position,
+    })
+  },
+
+  companyViewed: (ticker: string, name: string, entryPoint?: string) => {
+    safeCapture('company_viewed', { ticker, name, entry_point: entryPoint })
   },
 
   // Activation funnel: zero-effort entry — a visitor clicks through to the
@@ -77,11 +87,17 @@ export const analytics = {
     safeCapture('example_cta_clicked', { placement, target })
   },
 
-  filingViewed: (filingId: number, ticker: string | null, filingType: string) => {
+  filingViewed: (
+    filingId: number,
+    ticker: string | null,
+    filingType: string,
+    entryPoint?: string,
+  ) => {
     safeCapture('filing_viewed', {
       filing_id: filingId,
       ticker,
       filing_type: filingType,
+      entry_point: entryPoint,
     })
   },
 
@@ -114,6 +130,23 @@ export const analytics = {
       result_type: props.resultType,
       quality_verdict: props.qualityVerdict,
       duration_ms: props.durationMs,
+    })
+  },
+
+  // Activation funnel: the visitor was actually shown the upgrade wall (free/guest limit
+  // reached). Distinct from the server-side `paywall_hit` (which records the limit check
+  // failing) — this is the client-confirmed UX moment, so the two must not be conflated.
+  paywallPromptShown: (props: {
+    filingId: number
+    ticker: string | null
+    filingType: string
+    entryPoint: string
+  }) => {
+    safeCapture('paywall_prompt_shown', {
+      filing_id: props.filingId,
+      ticker: props.ticker,
+      filing_type: props.filingType,
+      entry_point: props.entryPoint,
     })
   },
 
