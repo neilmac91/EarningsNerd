@@ -97,19 +97,25 @@ def get_peers(
         ),
     )
     n = len(ranked)
-    # Competition ranking: tied values share a rank (1 + #strictly-greater) and percentile
-    # (#strictly-below / (m-1)), so equal companies are treated identically instead of being
-    # split into adjacent ranks by their arbitrary index.
+    # Competition ranking: tied values share a rank and percentile, so equal companies are
+    # treated identically instead of being split into adjacent ranks by their arbitrary index.
+    # `values` is already value-descending, so a value's first index == the count strictly
+    # above it (its rank-1) and #strictly-below == m - first_index - frequency. Precomputing
+    # both in one pass keeps this O(n) rather than rescanning `values` per entry.
     values = [e["value"] for e in ranked if e["value"] is not None]
     m = len(values)
+    first_index: dict[float, int] = {}
+    frequency: dict[float, int] = {}
+    for idx, val in enumerate(values):
+        first_index.setdefault(val, idx)
+        frequency[val] = frequency.get(val, 0) + 1
     subject: Optional[dict[str, Any]] = None
     for entry in ranked:
         v = entry["value"]
         if v is not None:
-            entry["rank"] = sum(1 for o in values if o > v) + 1
-            entry["percentile"] = (
-                round(sum(1 for o in values if o < v) / (m - 1) * 100, 1) if m > 1 else 100.0
-            )
+            entry["rank"] = first_index[v] + 1
+            below = m - first_index[v] - frequency[v]
+            entry["percentile"] = round(below / (m - 1) * 100, 1) if m > 1 else 100.0
         if entry["is_subject"]:
             subject = entry
 
