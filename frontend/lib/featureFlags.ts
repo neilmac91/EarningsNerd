@@ -25,6 +25,15 @@ export const ENABLE_FINANCIAL_CHARTS =
   process.env.NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS === 'true'
 
 /**
+ * Multi-year "Fundamentals" time-series chart on the company page, backed by the normalized
+ * financial_fact table (`GET /api/companies/{ticker}/fundamentals`). The chart renders nothing
+ * until that company has facts (i.e. after the facts backfill runs), so it's safe on by default.
+ * Set NEXT_PUBLIC_ENABLE_FUNDAMENTALS_CHART='false' to hide it.
+ */
+export const ENABLE_FUNDAMENTALS_CHART =
+  process.env.NEXT_PUBLIC_ENABLE_FUNDAMENTALS_CHART !== 'false'
+
+/**
  * Highlight a "Recommended" filing (latest 10-K, else latest filing) on the company page
  * with a one-click summary CTA, so first-time visitors don't have to decide between filing
  * types/dates before activating. The full year-grouped list stays below.

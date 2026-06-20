@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getCompany, Company } from '@/features/companies/api/companies-api'
+import { getCompany, Company, getCompanyFundamentals, FundamentalsData } from '@/features/companies/api/companies-api'
 import { getCompanyFilings, Filing } from '@/features/filings/api/filings-api'
 import { addToWatchlist, removeFromWatchlist, getWatchlist, WatchlistItem } from '@/features/watchlist/api/watchlist-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
@@ -13,7 +13,9 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import analytics from '@/lib/analytics'
-import { ENABLE_RECOMMENDED_FILING } from '@/lib/featureFlags'
+import { ENABLE_RECOMMENDED_FILING, ENABLE_FUNDAMENTALS_CHART } from '@/lib/featureFlags'
+import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
+import FundamentalsChart from '@/components/FundamentalsChart'
 
 export default function CompanyPageClient() {
   const params = useParams()
@@ -37,6 +39,13 @@ export default function CompanyPageClient() {
     queryKey: ['filings', normalizedTicker],
     queryFn: () => getCompanyFilings(normalizedTicker),
     enabled: !!company && !!normalizedTicker,
+    retry: 1,
+  })
+
+  const { data: fundamentals } = useQuery<FundamentalsData>({
+    queryKey: ['fundamentals', normalizedTicker],
+    queryFn: () => getCompanyFundamentals(normalizedTicker),
+    enabled: !!company && !!normalizedTicker && ENABLE_FUNDAMENTALS_CHART,
     retry: 1,
   })
 
@@ -486,6 +495,14 @@ export default function CompanyPageClient() {
             </div>
           )}
         </section>
+
+        {ENABLE_FUNDAMENTALS_CHART && fundamentals && (
+          <div className="mt-8">
+            <ChartErrorBoundary>
+              <FundamentalsChart data={fundamentals} />
+            </ChartErrorBoundary>
+          </div>
+        )}
       </main>
     </div>
   )

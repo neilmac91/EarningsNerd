@@ -67,6 +67,34 @@ export const getCompany = async (ticker: string): Promise<Company> => {
   return response.data
 }
 
+// Normalized fundamentals time-series (backed by the financial_fact table).
+export interface FundamentalPoint {
+  period_end: string
+  fiscal_year: number | null
+  fiscal_period: string | null
+  value: number | null
+  unit: string
+  form: string | null
+  accession: string
+}
+
+export interface FundamentalSeries {
+  concept: string
+  unit: string // 'USD' | 'USD/shares' | 'pure'
+  points: FundamentalPoint[]
+}
+
+export interface FundamentalsData {
+  ticker: string
+  company_name: string
+  concepts: FundamentalSeries[]
+}
+
+export const getCompanyFundamentals = async (ticker: string): Promise<FundamentalsData> => {
+  const response = await api.get(`/api/companies/${ticker}/fundamentals`)
+  return response.data
+}
+
 export const getTrendingCompanies = async (limit: number = 10): Promise<Company[]> => {
   const response = await api.get('/api/companies/trending', {
     params: { limit },
