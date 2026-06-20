@@ -54,7 +54,7 @@ export default function RegisterPage() {
         Create your account
       </h1>
       <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        Start your free trial and unlock AI summaries.
+        5 free AI summaries a month — no credit card required.
       </p>
 
       {error && (
