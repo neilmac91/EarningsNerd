@@ -16,7 +16,7 @@ import logging
 from datetime import date, datetime, timezone
 from typing import Any, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models import Company, Filing, FinancialFact
 
@@ -328,10 +328,14 @@ def extract_authoritative_values(companyfacts: Any) -> dict[tuple[str, date], fl
                     if start is None:
                         continue
                     penalty = abs((period_end - start).days - 365)
-                    if penalty > 120:  # not an annual duration (e.g. a quarter) — skip
+                    # Tight band: 52/53-week fiscal years stay within ~15 days of 365, but a
+                    # 9-month YTD (~273d, penalty ~92) or 6-month (~181d) must NOT pass as annual.
+                    if penalty > 30:
                         continue
                 prev = best.get(period_end)
-                if prev is None or penalty < prev[0]:
+                # companyfacts lists facts in filing order, so a later item with an equal penalty
+                # is a newer restatement — let it win the tie (<=, not <).
+                if prev is None or penalty <= prev[0]:
                     best[period_end] = (penalty, float(value))
             for period_end, (_penalty, value) in best.items():
                 out.setdefault((concept, period_end), value)  # first tag with data wins
@@ -509,7 +513,12 @@ def backfill_facts(
     fetch_companyfacts = companyfacts_fetcher or _fetch_companyfacts_sync
     auth_by_company: dict[int, dict[tuple[str, date], float]] = {}
 
-    query = db.query(Filing).filter(Filing.xbrl_data.isnot(None))
+    # Eager-load company so the per-filing cik lookup for the cross-check isn't an N+1.
+    query = (
+        db.query(Filing)
+        .options(joinedload(Filing.company))
+        .filter(Filing.xbrl_data.isnot(None))
+    )
     if only_unprocessed:
         query = query.filter(Filing.processed_facts_at.is_(None))
     query = query.order_by(Filing.filing_date.asc())

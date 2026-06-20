@@ -463,6 +463,13 @@ class TestExtractAuthoritative:
         assert svc.extract_authoritative_values(None) == {}
         assert svc.extract_authoritative_values({"facts": {}}) == {}
 
+    def test_excludes_nine_month_ytd(self):
+        # A 9-month YTD (~273 days) must not be mistaken for an annual figure.
+        cf = {"facts": {"us-gaap": {"Revenues": {"units": {"USD": [
+            {"start": "2024-01-01", "end": "2024-09-30", "val": 750.0, "form": "10-Q"},
+        ]}}}}}
+        assert ("revenue", date(2024, 9, 30)) not in svc.extract_authoritative_values(cf)
+
 
 def _cfact(concept, value, reconciled=True, period_end=date(2024, 12, 31)):
     return {
