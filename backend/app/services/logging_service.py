@@ -183,6 +183,8 @@ def configure_logging(
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("httpcore").setLevel(logging.WARNING)
     logging.getLogger("urllib3").setLevel(logging.WARNING)
+    # edgartools is chatty at INFO (per-filing fetch/parse lines); keep it at WARNING.
+    logging.getLogger("edgar").setLevel(logging.WARNING)
 
 
 def get_logger(name: str) -> logging.Logger:
