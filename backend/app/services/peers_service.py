@@ -63,6 +63,12 @@ def get_peers(
         .filter(
             sic_filter,
             FinancialFact.concept == concept,
+            # Annual only. A 10-Q value (fiscal_period NULL) must never be ranked against a
+            # peer's 10-K annual value. `is_latest` is keyed per period_end, so a filer can
+            # hold both an annual and a *later* quarterly is_latest row — without this filter
+            # the period_end-desc pick below would surface the quarterly figure for filers
+            # that have one and the annual for those that don't (apples-to-oranges).
+            FinancialFact.fiscal_period == "FY",
             FinancialFact.is_latest.is_(True),
         )
         .order_by(FinancialFact.company_id.asc(), FinancialFact.period_end.desc())
@@ -80,17 +86,30 @@ def get_peers(
         unit = unit or fact.unit
         entries.append(_entry(peer, fact, is_subject=peer.id == company.id))
 
-    # Rank by value descending (companies without a value sort last).
+    # Deterministic order: companies with a value first, value descending, then ticker as a
+    # stable tie-break so dict-iteration order can never leak into the ranking.
     ranked = sorted(
         entries,
-        key=lambda e: (e["value"] is not None, e["value"] if e["value"] is not None else 0.0),
-        reverse=True,
+        key=lambda e: (
+            e["value"] is None,
+            -e["value"] if e["value"] is not None else 0.0,
+            e["ticker"] or "",
+        ),
     )
     n = len(ranked)
+    # Competition ranking: tied values share a rank (1 + #strictly-greater) and percentile
+    # (#strictly-below / (m-1)), so equal companies are treated identically instead of being
+    # split into adjacent ranks by their arbitrary index.
+    values = [e["value"] for e in ranked if e["value"] is not None]
+    m = len(values)
     subject: Optional[dict[str, Any]] = None
-    for i, entry in enumerate(ranked):
-        entry["rank"] = i + 1
-        entry["percentile"] = round((n - (i + 1)) / (n - 1) * 100, 1) if n > 1 else 100.0
+    for entry in ranked:
+        v = entry["value"]
+        if v is not None:
+            entry["rank"] = sum(1 for o in values if o > v) + 1
+            entry["percentile"] = (
+                round(sum(1 for o in values if o < v) / (m - 1) * 100, 1) if m > 1 else 100.0
+            )
         if entry["is_subject"]:
             subject = entry
 

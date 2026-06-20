@@ -5,7 +5,7 @@ fakes and plain list-of-dict transaction tables — the shapes
 ``backend/scripts/verify_insider_extraction.py`` validates against live SEC.
 """
 
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
@@ -329,3 +329,86 @@ def test_summarize_empty():
     assert s["net_shares"] == 0
     assert s["buy_value"] is None
     assert s["last_transaction_date"] is None
+
+
+def test_summarize_net_zero_value_is_zero_not_none():
+    # Equal priced buys and sells net to $0 — that's real data, not "no data" (None).
+    today = date(2024, 6, 1)
+    txns = [
+        _txn("P", "A", 100, 10, "2024-05-10"),  # +$1,000
+        _txn("S", "D", 100, 10, "2024-05-12"),  # -$1,000
+    ]
+    s = summarize_insider_activity(txns, window_days=90, now=today)
+    assert s["buy_value"] == 1000
+    assert s["sell_value"] == 1000
+    assert s["net_value"] == 0.0  # not None
+
+
+def test_summarize_value_none_when_no_priced_trades():
+    # Shares but no price → we report the share count but no dollar figure.
+    today = date(2024, 6, 1)
+    txns = [{
+        "transaction_code": "P", "acquired_disposed": "A",
+        "shares": 100, "price": None, "value": None,
+        "transaction_date": "2024-05-10", "is_10b5_1": False,
+    }]
+    s = summarize_insider_activity(txns, window_days=90, now=today)
+    assert s["buy_count"] == 1
+    assert s["buy_shares"] == 100
+    assert s["buy_value"] is None
+    assert s["net_value"] is None
+
+
+def test_summarize_classification_is_code_authoritative():
+    # A contradictory P+D row (code=purchase, flag=disposed) counts once, as a buy — never both.
+    today = date(2024, 6, 1)
+    txns = [{
+        "transaction_code": "P", "acquired_disposed": "D",
+        "shares": 50, "price": 2, "value": 100,
+        "transaction_date": "2024-05-10", "is_10b5_1": False,
+    }]
+    s = summarize_insider_activity(txns, window_days=90, now=today)
+    assert s["buy_count"] == 1
+    assert s["sell_count"] == 0
+
+
+def test_summarize_ignores_non_open_market_codes():
+    # A grant (code 'A') is neither an open-market buy nor sell, even though acquired == 'A'.
+    today = date(2024, 6, 1)
+    txns = [{
+        "transaction_code": "A", "acquired_disposed": "A",
+        "shares": 999, "price": 1, "value": 999,
+        "transaction_date": "2024-05-10", "is_10b5_1": False,
+    }]
+    s = summarize_insider_activity(txns, window_days=90, now=today)
+    assert s["buy_count"] == 0
+    assert s["sell_count"] == 0
+
+
+def test_summarize_falls_back_to_acquired_disposed_without_code():
+    today = date(2024, 6, 1)
+    txns = [
+        {"transaction_code": None, "acquired_disposed": "A", "shares": 10, "price": 1,
+         "value": 10, "transaction_date": "2024-05-10", "is_10b5_1": False},
+        {"transaction_code": None, "acquired_disposed": "D", "shares": 4, "price": 1,
+         "value": 4, "transaction_date": "2024-05-11", "is_10b5_1": False},
+    ]
+    s = summarize_insider_activity(txns, window_days=90, now=today)
+    assert s["buy_count"] == 1
+    assert s["sell_count"] == 1
+
+
+def test_num_rejects_infinity():
+    assert _num(float("inf")) is None
+    assert _num(float("-inf")) is None
+    assert _num("inf") is None
+
+
+def test_iso_date_non_zero_padded():
+    assert _iso_date("2024-5-1") == "2024-05-01"
+
+
+def test_iso_date_tz_aware_normalized_to_utc():
+    # 2024-05-01 23:30 at -05:00 is 2024-05-02 UTC — must bucket to the UTC day, not local.
+    dt = datetime(2024, 5, 1, 23, 30, tzinfo=timezone(timedelta(hours=-5)))
+    assert _iso_date(dt) == "2024-05-02"

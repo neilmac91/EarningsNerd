@@ -17,6 +17,7 @@ objects and plain row dicts.
 from __future__ import annotations
 
 import logging
+import math
 from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
@@ -94,17 +95,16 @@ def _num(value: Any) -> Optional[float]:
         return None
     try:
         f = float(value)
-        if f != f:  # NaN
-            return None
-        return f
     except (TypeError, ValueError):
         s = _clean_str(value)
         if s is None:
             return None
         try:
-            return float(s.replace(",", "").replace("$", ""))
+            f = float(s.replace(",", "").replace("$", ""))
         except (TypeError, ValueError):
             return None
+    # Reject NaN and infinities — a stray inf would silently poison every downstream sum.
+    return f if math.isfinite(f) else None
 
 
 def _iso_date(value: Any) -> Optional[str]:
@@ -117,6 +117,10 @@ def _iso_date(value: Any) -> Optional[str]:
         pass
     if isinstance(value, datetime):
         try:
+            # Normalize tz-aware timestamps to UTC before taking the date, so e.g.
+            # 2024-05-01T23:30-05:00 (= 2024-05-02 UTC) doesn't bucket to the prior day.
+            if value.tzinfo is not None:
+                value = value.astimezone(timezone.utc)
             return value.date().isoformat()
         except Exception:  # pragma: no cover - e.g. NaT
             return None
@@ -131,7 +135,8 @@ def _iso_date(value: Any) -> Optional[str]:
             return s[:10]
         except ValueError:
             pass
-    for fmt in ("%m/%d/%Y", "%Y/%m/%d", "%d-%b-%Y"):
+    # "%Y-%m-%d" also catches non-zero-padded ISO (e.g. "2024-5-1") the fast path skips.
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%Y/%m/%d", "%d-%b-%Y"):
         try:
             return datetime.strptime(s, fmt).date().isoformat()
         except ValueError:
@@ -246,29 +251,38 @@ def extract_form4_transactions(
 
 
 def _is_buy(txn: dict) -> bool:
-    return txn.get("acquired_disposed") == "A" or txn.get("transaction_code") == "P"
+    # The transaction code is authoritative for open-market trades (P = purchase, S = sale);
+    # the acquired/disposed flag is only a fallback for rows with no code. This keeps buy/sell
+    # mutually exclusive (a contradictory P+D row counts once, as a buy) and ignores
+    # non-open-market codes (A grant, M exercise, F tax, G gift, ...) even if a caller passes
+    # rows that bypassed `market_trades`.
+    code = txn.get("transaction_code")
+    if code:
+        return code == "P"
+    return txn.get("acquired_disposed") == "A"
 
 
 def _is_sell(txn: dict) -> bool:
-    return txn.get("acquired_disposed") == "D" or txn.get("transaction_code") == "S"
+    code = txn.get("transaction_code")
+    if code:
+        return code == "S"
+    return txn.get("acquired_disposed") == "D"
 
 
 def _sum(txns: list[dict], key: str) -> float:
     return float(sum(t[key] for t in txns if isinstance(t.get(key), (int, float)) and not isinstance(t.get(key), bool)))
 
 
-def summarize_insider_activity(
-    transactions: list[dict], window_days: int = 90, *, now: Optional[date] = None
-) -> dict:
-    """Aggregate buy/sell activity over a trailing window, with a 10b5-1 split.
+def transactions_in_window(
+    transactions: list[dict], window_days: int, *, now: Optional[date] = None
+) -> list[dict]:
+    """Trailing-window slice: transactions on/after ``today - window_days``.
 
-    Buys = acquired ('A' / code 'P'); sells = disposed ('D' / code 'S').
-    ``market_trades`` is already open-market only, so this is the discretionary-vs-plan
-    insider signal, not grants/option mechanics.
+    Uses the transaction date (falling back to filed date); rows with no parseable date are
+    excluded. Shared by ``summarize_insider_activity`` and the orchestration layer so the
+    windowed summary and the returned transaction list/count always describe the same set.
     """
-
-    today = now or datetime.now(timezone.utc).date()
-    cutoff = today - timedelta(days=window_days)
+    cutoff = (now or datetime.now(timezone.utc).date()) - timedelta(days=window_days)
 
     def in_window(txn: dict) -> bool:
         iso = _iso_date(txn.get("transaction_date")) or _iso_date(txn.get("filed_date"))
@@ -279,15 +293,36 @@ def summarize_insider_activity(
         except ValueError:
             return False
 
-    window = [t for t in transactions if in_window(t)]
+    return [t for t in transactions if in_window(t)]
+
+
+def summarize_insider_activity(
+    transactions: list[dict], window_days: int = 90, *, now: Optional[date] = None
+) -> dict:
+    """Aggregate buy/sell activity over a trailing window, with a 10b5-1 split.
+
+    Buys = code 'P' (purchase); sells = code 'S' (sale); see ``_is_buy``/``_is_sell``.
+    ``market_trades`` is already open-market only, so this is the discretionary-vs-plan
+    insider signal, not grants/option mechanics.
+    """
+
+    window = transactions_in_window(transactions, window_days, now=now)
     buys = [t for t in window if _is_buy(t)]
     sells = [t for t in window if _is_sell(t)]
-    discretionary = [t for t in window if not t.get("is_10b5_1")]
-    disc_buys = [t for t in discretionary if _is_buy(t)]
-    disc_sells = [t for t in discretionary if _is_sell(t)]
+    disc_buys = [t for t in buys if not t.get("is_10b5_1")]
+    disc_sells = [t for t in sells if not t.get("is_10b5_1")]
 
     buy_shares, sell_shares = _sum(buys, "shares"), _sum(sells, "shares")
-    buy_value, sell_value = _sum(buys, "value"), _sum(sells, "value")
+    # A *_value is None only when there are no priced trades ("no data"), kept distinct from a
+    # genuine 0.0 — `buy_value or None` would wrongly collapse a real net-zero dollar flow to
+    # None whenever buys and sells net out.
+    buy_priced = any(t.get("value") is not None for t in buys)
+    sell_priced = any(t.get("value") is not None for t in sells)
+    buy_value = _sum(buys, "value") if buy_priced else None
+    sell_value = _sum(sells, "value") if sell_priced else None
+    net_value = (
+        (buy_value or 0.0) - (sell_value or 0.0) if (buy_priced or sell_priced) else None
+    )
     dates = [d for d in (_iso_date(t.get("transaction_date")) for t in window) if d]
 
     return {
@@ -296,10 +331,10 @@ def summarize_insider_activity(
         "sell_count": len(sells),
         "buy_shares": buy_shares,
         "sell_shares": sell_shares,
-        "buy_value": buy_value or None,
-        "sell_value": sell_value or None,
+        "buy_value": buy_value,
+        "sell_value": sell_value,
         "net_shares": buy_shares - sell_shares,
-        "net_value": (buy_value - sell_value) if (buy_value or sell_value) else None,
+        "net_value": net_value,
         "discretionary_net_shares": _sum(disc_buys, "shares") - _sum(disc_sells, "shares"),
         "plan_10b5_1_sell_shares": _sum(
             [t for t in sells if t.get("is_10b5_1")], "shares"
