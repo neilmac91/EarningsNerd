@@ -223,14 +223,25 @@ def _as_utc(dt: Optional[datetime]) -> Optional[datetime]:
 
 
 def _unread_count(db: Session, user: User) -> int:
-    """Count of successfully-sent alerts logged since the user last opened the bell."""
-    q = db.query(func.count(NotificationLog.id)).filter(
-        NotificationLog.user_id == user.id,
-        NotificationLog.status == "sent",
+    """Count of successfully-sent alerts logged since the user last opened the bell.
+
+    The seen/created_at comparison is done in Python (via ``_as_utc``), not SQL, to stay tz-safe
+    across Postgres (aware) and SQLite (naive) — matching the convention in ``filing_scan_service``.
+    """
+    seen = _as_utc(user.notifications_seen_at)
+    if seen is None:
+        return (
+            db.query(func.count(NotificationLog.id))
+            .filter(NotificationLog.user_id == user.id, NotificationLog.status == "sent")
+            .scalar()
+            or 0
+        )
+    rows = (
+        db.query(NotificationLog.created_at)
+        .filter(NotificationLog.user_id == user.id, NotificationLog.status == "sent")
+        .all()
     )
-    if user.notifications_seen_at is not None:
-        q = q.filter(NotificationLog.created_at > user.notifications_seen_at)
-    return q.scalar() or 0
+    return sum(1 for (created_at,) in rows if (c := _as_utc(created_at)) and c > seen)
 
 
 def _notifications_payload(db: Session, user: User, limit: int) -> NotificationListResponse:
@@ -283,14 +294,19 @@ async def mark_notifications_seen(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Mark the bell as opened (resets the unread count). Returns the now-read recent list."""
-    db.query(User).filter(User.id == current_user.id).update(
-        {User.notifications_seen_at: datetime.now(timezone.utc)},
-        synchronize_session=False,
-    )
-    db.commit()
+    """Mark the bell as opened (resets the unread count). Returns the now-read recent list.
+
+    Fetch the real row via ``db.get`` and mutate it directly (rather than a bulk UPDATE) so the
+    response is built from a fresh, in-session user — robust regardless of ``expire_on_commit`` — and
+    so it works for the test stand-in (a non-session user) too.
+    """
     user = db.get(User, current_user.id)
-    return _notifications_payload(db, user or current_user, 20)
+    if user is not None:
+        user.notifications_seen_at = datetime.now(timezone.utc)
+        db.commit()
+    else:
+        user = current_user
+    return _notifications_payload(db, user, 20)
 
 
 @router.get("/export")
