@@ -16,7 +16,7 @@ import logging
 from datetime import date, datetime, timezone
 from typing import Any, Optional
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models import Company, Filing, FinancialFact
 
@@ -267,21 +267,166 @@ def _prior_values(
     return out
 
 
+# --- Authoritative cross-check (strategy §3.5 step 2) ---------------------------------------
+# Compare headline figures against SEC's own structured companyfacts API and prefer it on
+# mismatch. Runs in the backfill (not the request path); best-effort — if companyfacts is
+# unavailable, the invariant-gate result stands.
+
+# Standardized concept -> candidate us-gaap tags (tried in priority order, filled per period).
+HEADLINE_GAAP_TAGS: dict[str, tuple[str, ...]] = {
+    "revenue": (
+        "RevenueFromContractWithCustomerExcludingAssessedTax",
+        "Revenues",
+        "RevenueFromContractWithCustomerIncludingAssessedTax",
+        "SalesRevenueNet",
+    ),
+    "net_income": ("NetIncomeLoss", "ProfitLoss"),
+    "total_assets": ("Assets",),
+}
+_INSTANT_HEADLINE = frozenset({"total_assets"})  # balance-sheet (instant) vs duration concepts
+# Relative gap above which the parsed value is treated as wrong and replaced by companyfacts.
+CROSS_CHECK_TOLERANCE = 0.01
+
+
+def extract_authoritative_values(companyfacts: Any) -> dict[tuple[str, date], float]:
+    """Map ``(headline concept, period_end) -> authoritative annual USD value`` from companyfacts.
+
+    Reads ``facts."us-gaap".<tag>.units.USD[]``. For duration concepts (revenue, net income)
+    only the ~annual duration is kept (the FY value our facts carry); for the instant concept
+    (total assets) the period-end value is taken. Pure/defensive — ``{}`` for anything malformed.
+    """
+    out: dict[tuple[str, date], float] = {}
+    if not isinstance(companyfacts, dict):
+        return out
+    facts_root = companyfacts.get("facts")
+    usgaap = facts_root.get("us-gaap") if isinstance(facts_root, dict) else None
+    if not isinstance(usgaap, dict):
+        return out
+
+    for concept, tags in HEADLINE_GAAP_TAGS.items():
+        instant = concept in _INSTANT_HEADLINE
+        for tag in tags:
+            node = usgaap.get(tag)
+            units = node.get("units") if isinstance(node, dict) else None
+            items = units.get("USD") if isinstance(units, dict) else None
+            if not isinstance(items, list):
+                continue
+            best: dict[date, tuple[int, float]] = {}  # period_end -> (duration penalty, value)
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                value = item.get("val")
+                if not isinstance(value, (int, float)) or isinstance(value, bool):
+                    continue
+                period_end = _parse_date(item.get("end"))
+                if period_end is None:
+                    continue
+                if instant:
+                    penalty = 0
+                else:
+                    start = _parse_date(item.get("start"))
+                    if start is None:
+                        continue
+                    penalty = abs((period_end - start).days - 365)
+                    # Tight band: 52/53-week fiscal years stay within ~15 days of 365, but a
+                    # 9-month YTD (~273d, penalty ~92) or 6-month (~181d) must NOT pass as annual.
+                    if penalty > 30:
+                        continue
+                prev = best.get(period_end)
+                # companyfacts lists facts in filing order, so a later item with an equal penalty
+                # is a newer restatement — let it win the tie (<=, not <).
+                if prev is None or penalty <= prev[0]:
+                    best[period_end] = (penalty, float(value))
+            for period_end, (_penalty, value) in best.items():
+                out.setdefault((concept, period_end), value)  # first tag with data wins
+    return out
+
+
+def cross_check_facts(
+    facts: list[dict[str, Any]], authoritative: dict[tuple[str, date], float]
+) -> list[dict[str, Any]]:
+    """Reconcile headline facts against authoritative companyfacts values.
+
+    For a headline fact with an authoritative value for its period: within tolerance → confirm
+    (``reconciled=True``, clearing any heuristic flag); beyond tolerance → replace the value with
+    the authoritative one (``source='companyfacts'``, ``reconciled=True``) and log a mismatch.
+    Non-headline facts and those without an authoritative reference are returned unchanged.
+    """
+    if not authoritative:
+        return facts
+    out: list[dict[str, Any]] = []
+    for fact in facts:
+        concept = fact.get("concept")
+        period_end = fact.get("period_end")
+        auth = authoritative.get((concept, period_end)) if concept in HEADLINE_GAAP_TAGS else None
+        if auth is None:
+            out.append(fact)
+            continue
+        fact = dict(fact)
+        value = fact.get("value")
+        numeric = value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+        if numeric is not None and abs(numeric - auth) / (abs(auth) or 1.0) <= CROSS_CHECK_TOLERANCE:
+            fact["reconciled"] = True  # authoritative confirms → clear any heuristic flag
+        else:
+            if numeric is not None:
+                logger.info(
+                    "fact_reconciliation_mismatch concept=%s period=%s parsed=%s authoritative=%s",
+                    concept, period_end, value, auth,
+                )
+            fact["value"] = auth
+            fact["source"] = "companyfacts"
+            fact["reconciled"] = True
+        out.append(fact)
+    return out
+
+
+def _fetch_companyfacts_sync(cik: str) -> Optional[dict]:
+    """Best-effort sync fetch of the companyfacts JSON for a CIK (used by the backfill job).
+
+    Returns ``None`` on any failure — the cross-check is optional and must never break the
+    backfill. A short sleep keeps this under SEC's limit when the backfill walks many companies
+    (it runs as the single cron worker; see strategy §3.4).
+    """
+    import time as _time
+
+    import httpx
+
+    from app.config import settings
+
+    cik_padded = str(cik).lstrip("0").zfill(10)
+    url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik_padded}.json"
+    headers = {"User-Agent": settings.SEC_USER_AGENT, "Accept": "application/json"}
+    try:
+        with httpx.Client(timeout=20.0) as client:
+            response = client.get(url, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+        return data if isinstance(data, dict) else None
+    except Exception as exc:  # noqa: BLE001 - best-effort, never break the backfill
+        logger.warning("companyfacts fetch failed for CIK %s: %s", cik, exc)
+        return None
+    finally:
+        _time.sleep(0.2)  # gentle self-throttle for the multi-company walk
+
+
 def upsert_facts(
     db: Session,
     facts: list[dict[str, Any]],
     *,
     period_of_report: Optional[date] = None,
     reconcile: bool = True,
+    authoritative: Optional[dict[tuple[str, date], float]] = None,
 ) -> dict[str, int]:
     """Insert fact rows, maintaining ``is_latest`` and the reconciliation flag.
 
     Runs the local-invariant gate (``reconcile`` on by default) over the batch first: impossible
-    facts are dropped, the rest are written with their computed ``reconciled`` value. Idempotent on
-    the full identity key — if a row with the same (company, concept, period_end, fiscal_period,
-    unit, accession) already exists it is skipped; otherwise any current ``is_latest`` row for the
-    same (company, concept, period_end, fiscal_period, unit) is demoted and this one inserted as
-    latest. Callers should upsert in chronological order so the newest reported / restated value wins.
+    facts are dropped, the rest are written with their computed ``reconciled`` value. When an
+    ``authoritative`` map (from ``extract_authoritative_values``) is supplied, headline figures are
+    then cross-checked against it (§3.5 step 2) — confirmed or corrected to the SEC value.
+    Idempotent on the full identity key — if a row with the same (company, concept, period_end,
+    fiscal_period, unit, accession) already exists it is skipped; otherwise any current ``is_latest``
+    row for the same (company, concept, period_end, fiscal_period, unit) is demoted and this one
+    inserted as latest. Callers should upsert in chronological order so the newest value wins.
     """
     rejected = 0
     if reconcile and facts:
@@ -296,6 +441,8 @@ def upsert_facts(
             facts, prior_values=prior, period_of_report=period_of_report
         )
         rejected = len(dropped)
+        if authoritative:
+            facts = cross_check_facts(facts, authoritative)
 
     inserted = 0
     skipped = 0
@@ -340,6 +487,8 @@ def backfill_facts(
     limit: Optional[int] = None,
     *,
     only_unprocessed: bool = False,
+    cross_check: bool = True,
+    companyfacts_fetcher=None,
 ) -> dict[str, int]:
     """Populate ``financial_fact`` from filings that already carry ``xbrl_data``.
 
@@ -351,13 +500,25 @@ def backfill_facts(
     ``only_unprocessed=True`` skips filings already stamped — the incremental mode for the scheduled
     cron (process just the newly-arrived filings). The default reprocesses everything (a full,
     idempotent pass), which is what a manual re-run wants.
+
+    When ``cross_check`` is on, headline figures are reconciled against SEC's companyfacts API
+    (§3.5 step 2): one fetch per company (cached for the run), best-effort. ``companyfacts_fetcher``
+    is injectable for tests; pass ``cross_check=False`` (or run with no network) to skip.
     """
     if extract is None:
         from app.services.edgar.compat import xbrl_service
 
         extract = xbrl_service.extract_standardized_metrics
 
-    query = db.query(Filing).filter(Filing.xbrl_data.isnot(None))
+    fetch_companyfacts = companyfacts_fetcher or _fetch_companyfacts_sync
+    auth_by_company: dict[int, dict[tuple[str, date], float]] = {}
+
+    # Eager-load company so the per-filing cik lookup for the cross-check isn't an N+1.
+    query = (
+        db.query(Filing)
+        .options(joinedload(Filing.company))
+        .filter(Filing.xbrl_data.isnot(None))
+    )
     if only_unprocessed:
         query = query.filter(Filing.processed_facts_at.is_(None))
     query = query.order_by(Filing.filing_date.asc())
@@ -379,10 +540,25 @@ def backfill_facts(
         facts = normalize_standardized_to_facts(
             filing.company_id, filing.id, filing.accession_number, filing.filing_type, standardized
         )
+
+        # Cross-check headline figures against companyfacts (one fetch per company, cached).
+        authoritative: Optional[dict[tuple[str, date], float]] = None
+        if cross_check and facts:
+            if filing.company_id not in auth_by_company:
+                cik = getattr(filing.company, "cik", None)
+                fetched = fetch_companyfacts(cik) if cik else None
+                auth_by_company[filing.company_id] = (
+                    extract_authoritative_values(fetched) if fetched else {}
+                )
+            authoritative = auth_by_company[filing.company_id]
+
         # `period_of_report` isn't a Filing column today; read defensively so the period-correctness
         # check auto-activates if one is added later.
         result = upsert_facts(
-            db, facts, period_of_report=getattr(filing, "period_of_report", None)
+            db,
+            facts,
+            period_of_report=getattr(filing, "period_of_report", None),
+            authoritative=authoritative,
         )
         # Stamp the filing as normalized (tracking column; also drives `only_unprocessed`).
         filing.processed_facts_at = datetime.now(timezone.utc)
