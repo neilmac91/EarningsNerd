@@ -10,6 +10,7 @@ This module provides a robust rate limiter with:
 
 import asyncio
 import logging
+import random
 import time
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -150,8 +151,9 @@ class SECRateLimiter:
                 if attempt < self.max_retries - 1:
                     # Calculate backoff with jitter
                     backoff = self.base_backoff_seconds * (2 ** attempt)
-                    # Add small random jitter (0-10% of backoff)
-                    jitter = backoff * 0.1 * (time.monotonic() % 1)
+                    # Add small random jitter (0-10% of backoff) to decorrelate concurrent
+                    # retries — `time.monotonic() % 1` is not random and clusters under load.
+                    jitter = backoff * 0.1 * random.random()
                     total_wait = backoff + jitter
 
                     # Honor SEC's Retry-After header when present (capped) — it is the
@@ -203,13 +205,12 @@ class SECRateLimiter:
             return None
         header = header.strip()
 
-        # delta-seconds form (the common case). Guard NaN: float("nan") parses but would
-        # bypass the min/max clamps and crash asyncio.sleep(nan). (inf is fine — the cap in
-        # execute_with_backoff bounds it.)
+        # delta-seconds form (the common case). Parse as int per RFC 7231 (delta-seconds is
+        # 1*DIGIT): this honors "30" and clamps negatives to 0, but rejects "nan"/"inf"/"1e9"
+        # — which float() would accept and (after the 120s cap) turn into a bogus 2-minute
+        # stall instead of falling through to the normal exponential backoff.
         try:
-            val = float(header)
-            if val == val:  # False only for NaN
-                return max(0.0, val)
+            return max(0.0, float(int(header)))
         except ValueError:
             pass
 

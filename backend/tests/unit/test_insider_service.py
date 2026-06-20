@@ -135,3 +135,23 @@ async def test_empty_transactions_yield_zero_summary():
     assert res["total_transactions"] == 0
     assert res["summary"]["buy_count"] == 0
     assert res["transactions"] == []
+
+
+@pytest.mark.asyncio
+async def test_total_and_list_are_windowed():
+    # A trade far outside the window must not appear in the list or the count, so they agree
+    # with the (windowed) summary instead of reporting stale activity.
+    txns = [
+        _txn("P", "A", 100, 10, _days_ago(5)),    # inside the 30d window
+        _txn("S", "D", 50, 10, _days_ago(400)),   # ~13 months ago — outside
+    ]
+
+    async def fetcher(ticker, limit):
+        return _bundle(txns)
+
+    res = await insider_service.get_insider_activity("AAPL", window_days=30, fetcher=fetcher)
+    assert res["total_transactions"] == 1
+    assert len(res["transactions"]) == 1
+    assert res["transactions"][0]["transaction_date"] == _days_ago(5)
+    assert res["summary"]["buy_count"] == 1
+    assert res["summary"]["sell_count"] == 0

@@ -125,6 +125,56 @@ class TestGetPeers:
         assert result["peers"] == []
         db.close()
 
+    def test_ranks_on_annual_not_later_quarterly(self):
+        """A filer's later 10-Q value must not be ranked against peers' 10-K annuals."""
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        sic = f"SIC{uuid.uuid4().hex[:6]}"
+        a = _company(db, sic=sic)
+        # Annual FY2023 — the value peers should rank on ...
+        _fact(db, a.id, concept="revenue", value=100.0, period_end=date(2023, 12, 31), fy=2023)
+        # ... plus a *later* 10-Q with a smaller, quarterly figure (fiscal_period NULL). Both
+        # rows are is_latest=True (different period_ends), so without the annual-only filter the
+        # period_end-desc pick would surface the 25.0 quarterly value.
+        db.add(
+            FinancialFact(
+                company_id=a.id, concept="revenue", unit="USD",
+                period_end=date(2024, 3, 31), fiscal_year=2024, fiscal_period=None,
+                value=25.0, form="10-Q", accession=uuid.uuid4().hex,
+                source="edgar_xbrl", is_latest=True,
+            )
+        )
+        db.commit()
+
+        result = svc.get_peers(db, a.ticker, "revenue")
+        assert result["subject"]["value"] == 100.0  # annual, not the 25.0 quarterly
+        assert result["subject"]["fiscal_year"] == 2023
+        db.close()
+
+    def test_tied_values_share_rank_and_percentile(self):
+        """Equal values get the same rank + percentile (competition ranking), not adjacent
+        ranks split by arbitrary order."""
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        sic = f"SIC{uuid.uuid4().hex[:6]}"
+        top = _company(db, sic=sic)
+        tie_a = _company(db, sic=sic)
+        tie_b = _company(db, sic=sic)
+        _fact(db, top.id, concept="revenue", value=300.0, period_end=date(2023, 12, 31), fy=2023)
+        _fact(db, tie_a.id, concept="revenue", value=200.0, period_end=date(2023, 12, 31), fy=2023)
+        _fact(db, tie_b.id, concept="revenue", value=200.0, period_end=date(2023, 12, 31), fy=2023)
+
+        result = svc.get_peers(db, top.ticker, "revenue")
+        by_ticker = {p["ticker"]: p for p in result["peers"]}
+        assert by_ticker[top.ticker]["rank"] == 1
+        assert by_ticker[tie_a.ticker]["rank"] == 2
+        assert by_ticker[tie_b.ticker]["rank"] == 2  # shares rank 2, not pushed to 3
+        assert by_ticker[tie_a.ticker]["percentile"] == by_ticker[tie_b.ticker]["percentile"]
+        db.close()
+
     def test_unknown_ticker_returns_none(self):
         from app.database import SessionLocal
 

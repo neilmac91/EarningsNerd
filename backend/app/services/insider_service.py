@@ -32,6 +32,7 @@ from app.services.ownership_extractor import (
     _safe_getattr,
     extract_form4_transactions,
     summarize_insider_activity,
+    transactions_in_window,
 )
 
 logger = logging.getLogger(__name__)
@@ -194,8 +195,12 @@ async def get_insider_activity(
         _cache_set(cache_key, bundle)
 
     all_txns = bundle.get("transactions") or []
+    # Window the returned list + count to match the (windowed) summary, so a response for
+    # window_days=30 never lists trades from outside that window or reports a total that
+    # disagrees with the signal. `summary` windows internally; reuse the same slice here.
+    windowed = transactions_in_window(all_txns, window_days)
     summary = summarize_insider_activity(all_txns, window_days=window_days)
-    recent = _sort_recent(all_txns)[:recent_limit]
+    recent = _sort_recent(windowed)[:recent_limit]
 
     return {
         "ticker": bundle.get("ticker") or ticker_norm,
@@ -204,5 +209,5 @@ async def get_insider_activity(
         "window_days": window_days,
         "summary": summary,
         "transactions": recent,
-        "total_transactions": len(all_txns),
+        "total_transactions": len(windowed),
     }

@@ -48,6 +48,14 @@ class TestRetryAfterParsing:
         )
         assert past == 0.0
 
+    def test_float_like_values_rejected(self):
+        # "1e9"/"inf"/"30.5" are not RFC 7231 delta-seconds (1*DIGIT). They must fall through
+        # to None (→ normal exponential backoff) rather than being honored as a (120s-capped)
+        # multi-second stall, which float() parsing would have allowed.
+        assert SECRateLimiter._retry_after_seconds(_http_429("1e9")) is None
+        assert SECRateLimiter._retry_after_seconds(_http_429("inf")) is None
+        assert SECRateLimiter._retry_after_seconds(_http_429("30.5")) is None
+
 
 @pytest.mark.asyncio
 class TestRetryAfterHonored:
