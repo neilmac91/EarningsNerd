@@ -33,6 +33,7 @@ def _entry(company: Company, fact: FinancialFact, *, is_subject: bool) -> dict[s
         "is_subject": is_subject,
         "rank": None,
         "percentile": None,
+        "reconciled": bool(fact.reconciled),
     }
 
 
@@ -104,6 +105,7 @@ def get_peers(
             "is_subject": True,
             "rank": None,
             "percentile": None,
+            "reconciled": True,  # no value to flag
         }
 
     return {

@@ -58,6 +58,149 @@ class TestNormalize:
         assert svc.normalize_standardized_to_facts(1, 10, "acc", "10-K", "nope") == []
 
 
+def _gatefact(concept, value, period_end=date(2024, 9, 28)):
+    return {
+        "company_id": 1,
+        "filing_id": None,
+        "concept": concept,
+        "unit": "USD",
+        "period_end": period_end,
+        "fiscal_year": 2024,
+        "fiscal_period": "FY",
+        "value": value,
+        "form": "10-K",
+        "accession": "ACC",
+        "source": "edgar_xbrl",
+    }
+
+
+class TestReconcileGate:
+    """Pure, no-DB tests for the local-invariant reconciliation gate (§3.5)."""
+
+    def test_clean_facts_all_reconciled(self):
+        accepted, rejected = svc.reconcile_facts(
+            [_gatefact("revenue", 100.0), _gatefact("net_income", 20.0)]
+        )
+        assert rejected == []
+        assert all(f["reconciled"] for f in accepted)
+
+    def test_negative_revenue_hard_rejected_but_loss_kept(self):
+        # Negative revenue is impossible (drop); a negative net_income is a legitimate loss (keep).
+        accepted, rejected = svc.reconcile_facts(
+            [_gatefact("revenue", -5.0), _gatefact("net_income", -2.0)]
+        )
+        assert [f["concept"] for f in rejected] == ["revenue"]
+        assert [f["concept"] for f in accepted] == ["net_income"]
+        assert accepted[0]["reconciled"] is True
+
+    def test_zero_where_prior_nonzero_flagged(self):
+        accepted, _ = svc.reconcile_facts(
+            [_gatefact("revenue", 0.0)], prior_values={"revenue": 100.0}
+        )
+        assert accepted[0]["reconciled"] is False
+
+    def test_standalone_zero_revenue_ok(self):
+        accepted, rejected = svc.reconcile_facts([_gatefact("revenue", 0.0)])
+        assert rejected == []
+        assert accepted[0]["reconciled"] is True
+
+    def test_eps_sign_mismatch_flags_eps_only(self):
+        # Net loss but positive EPS -> parse error (the MU class). Flag the EPS rows, not net_income.
+        accepted, _ = svc.reconcile_facts(
+            [
+                _gatefact("net_income", -50.0),
+                _gatefact("earnings_per_share", 1.2),
+                _gatefact("eps_diluted", 1.1),
+            ]
+        )
+        by = {f["concept"]: f for f in accepted}
+        assert by["earnings_per_share"]["reconciled"] is False
+        assert by["eps_diluted"]["reconciled"] is False
+        assert by["net_income"]["reconciled"] is True
+
+    def test_diluted_exceeds_basic_flagged(self):
+        accepted, _ = svc.reconcile_facts(
+            [
+                _gatefact("net_income", 100.0),
+                _gatefact("earnings_per_share", 2.0),
+                _gatefact("eps_diluted", 2.5),  # diluted should never exceed basic
+            ]
+        )
+        by = {f["concept"]: f for f in accepted}
+        assert by["eps_diluted"]["reconciled"] is False
+        assert by["earnings_per_share"]["reconciled"] is True
+
+    def test_magnitude_swing_flagged(self):
+        accepted, _ = svc.reconcile_facts(
+            [_gatefact("revenue", 10000.0)], prior_values={"revenue": 100.0}
+        )
+        assert accepted[0]["reconciled"] is False  # 100x jump = likely scale bug
+
+    def test_within_one_order_of_magnitude_ok(self):
+        accepted, _ = svc.reconcile_facts(
+            [_gatefact("revenue", 150.0)], prior_values={"revenue": 100.0}
+        )
+        assert accepted[0]["reconciled"] is True
+
+    def test_period_mismatch_flagged(self):
+        accepted, _ = svc.reconcile_facts(
+            [_gatefact("revenue", 100.0, period_end=date(2024, 9, 28))],
+            period_of_report=date(2024, 6, 30),
+        )
+        assert accepted[0]["reconciled"] is False
+
+    def test_period_match_ok(self):
+        accepted, _ = svc.reconcile_facts(
+            [_gatefact("revenue", 100.0, period_end=date(2024, 9, 28))],
+            period_of_report=date(2024, 9, 28),
+        )
+        assert accepted[0]["reconciled"] is True
+
+    # --- multi-period batches (PR-C feeds these; checks must be period-aware) -------------
+
+    def test_cross_concept_checks_are_per_period(self):
+        # 2023 is a clean profit; 2024 is a loss with a positive EPS (sign mismatch). The
+        # mismatch must flag only 2024's EPS — not 2023's, which shares the batch.
+        facts = [
+            _gatefact("net_income", 50.0, date(2023, 9, 30)),
+            _gatefact("earnings_per_share", 1.0, date(2023, 9, 30)),
+            _gatefact("net_income", -50.0, date(2024, 9, 28)),
+            _gatefact("earnings_per_share", 1.0, date(2024, 9, 28)),
+        ]
+        accepted, _ = svc.reconcile_facts(facts)
+        by = {(f["concept"], f["period_end"]): f for f in accepted}
+        assert by[("earnings_per_share", date(2023, 9, 30))]["reconciled"] is True
+        assert by[("earnings_per_share", date(2024, 9, 28))]["reconciled"] is False
+
+    def test_prior_chains_within_multi_period_batch(self):
+        # Each year is compared to the year before it from WITHIN the batch (not to a single
+        # earliest-period cutoff): 2024's 50x jump vs 2023 is flagged; 2023 vs 2022 is fine.
+        facts = [
+            _gatefact("revenue", 100.0, date(2022, 9, 30)),
+            _gatefact("revenue", 120.0, date(2023, 9, 30)),
+            _gatefact("revenue", 6000.0, date(2024, 9, 28)),
+        ]
+        accepted, _ = svc.reconcile_facts(facts)
+        by = {f["period_end"]: f for f in accepted}
+        assert by[date(2022, 9, 30)]["reconciled"] is True  # no prior
+        assert by[date(2023, 9, 30)]["reconciled"] is True  # 120 vs 100
+        assert by[date(2024, 9, 28)]["reconciled"] is False  # 6000 vs 120 (chained prior)
+
+    def test_period_check_flags_only_latest_period(self):
+        facts = [
+            _gatefact("revenue", 90.0, date(2023, 9, 30)),  # comparative prior period
+            _gatefact("revenue", 100.0, date(2024, 9, 28)),  # current period
+        ]
+        # Filing reports the 2024 period — both fine; the comparative 2023 row is not flagged.
+        ok, _ = svc.reconcile_facts(facts, period_of_report=date(2024, 9, 28))
+        assert all(f["reconciled"] for f in ok)
+        # Filing's reported period disagrees with the latest fact → flag the latest period only.
+        flagged, _ = svc.reconcile_facts(facts, period_of_report=date(2024, 6, 30))
+        by = {f["period_end"]: f for f in flagged}
+        assert by[date(2023, 9, 30)]["reconciled"] is True  # comparative, never flagged
+        assert by[date(2024, 9, 28)]["reconciled"] is False  # latest != period_of_report
+
+
 @pytest.fixture(scope="module", autouse=True)
 def _tables():
     from app.database import engine
@@ -96,14 +239,15 @@ class TestUpsert:
                 "net_income": {"current": {"period": "2024-09-28", "value": 20.0}},
             },
         )
-        assert svc.upsert_facts(db, facts) == {"inserted": 2, "skipped": 0}
+        assert svc.upsert_facts(db, facts) == {"inserted": 2, "skipped": 0, "rejected": 0}
 
         rows = db.query(FinancialFact).filter_by(company_id=cid).all()
         assert len(rows) == 2
         assert all(r.is_latest for r in rows)
+        assert all(r.reconciled for r in rows)  # clean facts pass the gate
 
         # Re-upserting the identical facts is a no-op (idempotent on the identity key).
-        assert svc.upsert_facts(db, facts) == {"inserted": 0, "skipped": 2}
+        assert svc.upsert_facts(db, facts) == {"inserted": 0, "skipped": 2, "rejected": 0}
         assert db.query(FinancialFact).filter_by(company_id=cid).count() == 2
         db.close()
 
@@ -136,6 +280,48 @@ class TestUpsert:
         assert not rows["ACC1"].is_latest  # original demoted
         assert rows["ACC2"].is_latest  # restatement is current
         assert float(rows["ACC2"].value) == 110.0
+        db.close()
+
+
+@pytest.mark.requires_db
+class TestUpsertReconciliation:
+    def test_upsert_persists_flag_and_drops_impossible(self):
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        cid = _new_company(db)
+        base = {
+            "company_id": cid,
+            "filing_id": None,
+            "unit": "USD",
+            "fiscal_period": "FY",
+            "form": "10-K",
+            "source": "edgar_xbrl",
+        }
+        # Prior year: clean revenue of 100.
+        svc.upsert_facts(db, [
+            {**base, "concept": "revenue", "period_end": date(2023, 9, 30),
+             "fiscal_year": 2023, "value": 100.0, "accession": "R23"},
+        ])
+        # Current year: revenue collapses to 0 (parse miss vs prior → flagged) and an
+        # impossible negative total_assets (→ hard-rejected, not stored).
+        res = svc.upsert_facts(db, [
+            {**base, "concept": "revenue", "period_end": date(2024, 9, 28),
+             "fiscal_year": 2024, "value": 0.0, "accession": "R24"},
+            {**base, "concept": "total_assets", "period_end": date(2024, 9, 28),
+             "fiscal_year": 2024, "value": -5.0, "accession": "R24"},
+        ])
+        assert res["inserted"] == 1
+        assert res["rejected"] == 1
+
+        rev24 = db.query(FinancialFact).filter_by(
+            company_id=cid, concept="revenue", accession="R24"
+        ).first()
+        assert rev24 is not None and rev24.reconciled is False  # stored but flagged
+        assert db.query(FinancialFact).filter_by(
+            company_id=cid, concept="total_assets"
+        ).count() == 0  # impossible value never stored
         db.close()
 
 

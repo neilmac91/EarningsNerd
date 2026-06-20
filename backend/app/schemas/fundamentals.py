@@ -13,6 +13,9 @@ class FundamentalPoint(BaseModel):
     unit: str
     form: Optional[str] = None
     accession: str
+    # False when the local-invariant reconciliation gate flagged this value (shown with a
+    # quality badge rather than hidden). Defaults True for back-compat / pre-gate rows.
+    reconciled: bool = True
 
 
 class FundamentalSeries(BaseModel):
