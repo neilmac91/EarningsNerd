@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { Loader2 } from 'lucide-react'
@@ -52,7 +52,11 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
   // Keep the panel mounted once any metric has shown peers, so switching to a
   // sparse metric shows an inline message instead of making the panel vanish.
   const everHadPeers = useRef(false)
-  if (data && data.peer_count >= 2) everHadPeers.current = true
+  useEffect(() => {
+    if (data && data.peer_count >= 2) {
+      everHadPeers.current = true
+    }
+  }, [data])
 
   const meaningful = !!data && data.peer_count >= 2
   const label = METRICS.find((m) => m.key === metric)?.label ?? metric
@@ -74,8 +78,9 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
     }))
   }, [data])
 
-  // Hide entirely until we know there are peers for at least one metric.
-  if (isError) return null
+  // Hide entirely until we know there are peers for at least one metric. Once the
+  // panel has shown peers, keep it mounted and surface errors/sparsity inline.
+  if (isError && !everHadPeers.current) return null
   if (!everHadPeers.current && (isLoading || !data || data.peer_count < 2)) return null
 
   const subject = data?.subject
@@ -116,6 +121,10 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
         <div className="flex h-72 items-center justify-center" aria-label="Loading peer comparison">
           <Loader2 className="h-6 w-6 animate-spin text-mint-500" />
         </div>
+      ) : isError ? (
+        <p className="py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+          Couldn&rsquo;t load peer data for {label}. Try another metric.
+        </p>
       ) : !meaningful ? (
         <p className="py-12 text-center text-sm text-gray-500 dark:text-gray-400">
           Not enough sector peers with {label} data yet.
