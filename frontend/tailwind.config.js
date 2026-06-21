@@ -19,6 +19,12 @@ module.exports = {
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
+    // Domain modules (the "Ask this Filing" Copilot, etc.) live here. Without this glob, Tailwind
+    // never scans them, so any class used ONLY in features/ (e.g. the launcher's `bottom-5 right-5`,
+    // the FilingWorkspace grid template) is purged from the production CSS and the component renders
+    // unstyled/invisible. jsdom unit tests don't apply CSS, so this can't be caught there.
+    './features/**/*.{js,ts,jsx,tsx,mdx}',
+    './hooks/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   darkMode: 'class',
   theme: {
