@@ -461,12 +461,16 @@ async def answer_filing_question(
 
         full_answer = "".join(answer_parts).strip()
         # The citations buffer may carry a trailing ===FOLLOWUPS=== block; split it off before parsing
-        # the citation JSON so suggested next-questions can be surfaced as tappable chips.
+        # the citation JSON so suggested next-questions can be surfaced as tappable chips. The match is
+        # case/dash/space-tolerant: if a mis-cased sentinel slipped through, the followups JSON would
+        # otherwise be left in the buffer and corrupt the citation parse (zero citations) — so this is
+        # deliberately forgiving.
         citation_raw = "".join(citation_buffer)
         followups: list[str] = []
-        if _FOLLOWUPS_SENTINEL in citation_raw:
-            citation_raw, _, followups_raw = citation_raw.partition(_FOLLOWUPS_SENTINEL)
-            followups = _parse_followups(followups_raw)
+        followups_match = re.search(r"===\s*FOLLOW-?UPS\s*===", citation_raw, re.IGNORECASE)
+        if followups_match:
+            followups = _parse_followups(citation_raw[followups_match.end():])
+            citation_raw = citation_raw[: followups_match.start()]
         citations = _parse_citations(citation_raw)
         verified_citations, grounded = _verify_citations(citations, filing, normalized_source)
 

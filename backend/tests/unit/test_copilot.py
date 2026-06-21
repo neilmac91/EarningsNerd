@@ -478,6 +478,29 @@ async def test_service_parses_followups(monkeypatch):
 
 
 @pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_followups_sentinel_case_tolerant(monkeypatch):
+    """A mis-cased/dashed followups sentinel ([===Follow-ups===]) still splits cleanly, so the
+    citations JSON before it is NOT corrupted (the high-severity failure mode)."""
+    chunks = [
+        "Revenue grew [1]. ===CITATIONS===\n"
+        + '[{"n":1,"excerpt":"' + _KNOWN_SENTENCE + '","section":"Item 7"}]'
+        + "\n===Follow-ups===\n"
+        + '["What about margins?"]'
+    ]
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
+    )
+
+    events = await _collect(_fake_filing(), "How did revenue do?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    assert complete["followups"] == ["What about margins?"]
+    assert complete["grounded"] == 1  # citations intact despite the mis-cased sentinel
+    assert len(complete["citations"]) == 1
+
+
+@pytest.mark.unit
 def test_parse_followups_tolerant():
     assert copilot_service._parse_followups('["a", "b"]') == ["a", "b"]
     assert copilot_service._parse_followups("") == []
