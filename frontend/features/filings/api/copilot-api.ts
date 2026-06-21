@@ -112,6 +112,55 @@ export const askFilingStream = async (
     }
   }
 
+  // Coalesce token deliveries to at most one per animation frame. A fast stream can emit dozens of
+  // tokens per frame; delivering each one separately forced a React re-render — and, in the message
+  // view, a full markdown re-parse — per token, which was O(n²) jank on long answers. We buffer
+  // incoming token text and flush it once per frame. Terminal events (complete/not_disclosed/error)
+  // replace the whole answer, so their handlers discard any unflushed buffer; a graceful stream-end
+  // flushes the tail so a malformed stream (tokens, no `complete`) never drops its final words.
+  let tokenBuffer = ''
+  let rafId: number | null = null
+  const canRaf = typeof requestAnimationFrame === 'function'
+
+  const deliverBuffer = () => {
+    rafId = null
+    if (!tokenBuffer) return
+    const text = tokenBuffer
+    tokenBuffer = ''
+    try {
+      handlers.onToken(text)
+    } catch (error) {
+      // deliverBuffer runs inside a requestAnimationFrame callback, outside this function's
+      // try/catch — a throw here would be an unhandled exception and leave the reader loop
+      // running. Abort the stream (the loop's pending read rejects with AbortError and exits
+      // quietly) and surface the failure once.
+      controller.abort()
+      handlers.onError(error instanceof Error ? error.message : 'Something went wrong displaying the answer.')
+    }
+  }
+  const enqueueToken = (text: string) => {
+    if (!canRaf) {
+      handlers.onToken(text)
+      return
+    }
+    tokenBuffer += text
+    if (rafId === null) rafId = requestAnimationFrame(deliverBuffer)
+  }
+  const cancelScheduledFlush = () => {
+    if (rafId !== null) {
+      cancelAnimationFrame(rafId)
+      rafId = null
+    }
+  }
+  const flushTokensNow = () => {
+    cancelScheduledFlush()
+    deliverBuffer()
+  }
+  const discardBufferedTokens = () => {
+    cancelScheduledFlush()
+    tokenBuffer = ''
+  }
+
   try {
     const response = await fetch(url, {
       method: 'POST',
@@ -182,12 +231,16 @@ export const askFilingStream = async (
             })
             break
           case 'token':
-            if (typeof data.text === 'string') handlers.onToken(data.text)
+            if (typeof data.text === 'string') enqueueToken(data.text)
             break
           case 'not_disclosed':
+            // Replaces the whole answer — drop any buffered tokens it would overwrite.
+            discardBufferedTokens()
             handlers.onNotDisclosed(typeof data.answer === 'string' ? data.answer : '')
             break
           case 'complete':
+            // The completion carries the authoritative answer; buffered tokens are superseded.
+            discardBufferedTokens()
             handlers.onComplete({
               answer: typeof data.answer === 'string' ? data.answer : '',
               citations: Array.isArray(data.citations) ? (data.citations as CopilotCitation[]) : [],
@@ -199,6 +252,7 @@ export const askFilingStream = async (
             })
             break
           case 'error':
+            discardBufferedTokens()
             handlers.onError(typeof data.message === 'string' ? data.message : 'Something went wrong.')
             break
           default:
@@ -206,6 +260,11 @@ export const askFilingStream = async (
         }
       }
     }
+
+    // Graceful end-of-stream: deliver any tail the rAF batch hasn't flushed yet. In the normal
+    // case a `complete` event already discarded the buffer, so this is a no-op; it only matters
+    // for a stream that ends after tokens without a terminal event.
+    flushTokensNow()
   } catch (error: unknown) {
     const errObj = error as { name?: string; message?: string }
     if (errObj?.name === 'AbortError') {
@@ -216,6 +275,8 @@ export const askFilingStream = async (
     handlers.onError(errObj?.message || 'Network error. Please check your connection and try again.')
   } finally {
     clearTimeoutSafely()
+    // Drop any frame scheduled for token delivery so an abort/throw can't fire it after teardown.
+    cancelScheduledFlush()
     // Drop the bridge listener on normal completion (the {once:true} only auto-removes if it fired).
     signal?.removeEventListener('abort', onAbort)
   }
