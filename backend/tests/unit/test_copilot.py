@@ -451,3 +451,130 @@ async def test_stream_chat_with_tools_assembles_tool_call_deltas():
     assert "".join(out) == "Revenue was $391B."
     # Two create() calls: round 1 (tool call) + round 2 (answer).
     assert len(calls) == 2
+
+
+# --- Audit fixes: stream-error handling, metering-on-success, history bounding ------------------
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_stream_error_becomes_error_event(monkeypatch):
+    """An upstream/model failure (sentinel-prefixed chunk) yields an ``error`` event — never a
+    ``complete`` and never a prose token. A model outage must not look like a confident answer."""
+    from app.services.openai_service import STREAM_ERROR_SENTINEL
+
+    chunks = [f"{STREAM_ERROR_SENTINEL}upstream 503 from model"]
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
+    )
+
+    events = await _collect(_fake_filing(), "How did revenue do?")
+    types = [e["type"] for e in events]
+
+    assert "error" in types
+    assert "complete" not in types
+    assert all(e["type"] != "token" for e in events)  # nothing leaked as prose
+    err = next(e for e in events if e["type"] == "error")
+    assert "upstream 503" in err["message"]
+    assert STREAM_ERROR_SENTINEL not in err["message"]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_stream_error_after_prose_becomes_error_event(monkeypatch):
+    """If the failure arrives mid-answer, prose already streamed but the stream still ends in an
+    ``error`` event (not a ``complete``), so the client surfaces the failure rather than a partial
+    answer dressed up as final."""
+    from app.services.openai_service import STREAM_ERROR_SENTINEL
+
+    chunks = ["Apple's revenue was strong ", f"{STREAM_ERROR_SENTINEL}connection reset"]
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
+    )
+
+    events = await _collect(_fake_filing(), "How did revenue do?")
+    types = [e["type"] for e in events]
+
+    assert types[-1] == "error"
+    assert "complete" not in types
+    token_text = "".join(e["text"] for e in events if e["type"] == "token")
+    assert "[Error" not in token_text  # the old bracketed marker never reaches the user
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_stream_chat_with_tools_yields_error_sentinel_on_failure():
+    """The wrapper signals failure with a single sentinel-prefixed chunk rather than raising or
+    emitting plain ``[Error: ...]`` prose."""
+    import unittest.mock as mock
+
+    from app.services.openai_service import STREAM_ERROR_SENTINEL, openai_service
+
+    async def _boom(**_kwargs):
+        raise RuntimeError("model exploded")
+
+    with mock.patch.object(openai_service.client.chat.completions, "create", _boom):
+        out = []
+        async for piece in openai_service.stream_chat_with_tools(
+            [{"role": "user", "content": "hi"}], tools=[], run_tool=lambda n, a: {}
+        ):
+            out.append(piece)
+
+    assert len(out) == 1
+    assert out[0].startswith(STREAM_ERROR_SENTINEL)
+    assert "model exploded" in out[0]
+
+
+@pytest.mark.requires_db
+def test_endpoint_does_not_increment_qa_on_error(client, monkeypatch):
+    """A generation that fails (only an ``error`` event, no ``complete``) must NOT consume quota."""
+    async def _fake_answer(*, filing, question, history=None):
+        yield {"type": "progress", "stage": "reading"}
+        yield {"type": "error", "message": "model down"}
+
+    import app.routers.summaries as summaries_router
+    from app.database import SessionLocal
+    from app.services.subscription_service import get_current_month, get_user_qa_count
+
+    monkeypatch.setattr(summaries_router, "answer_filing_question", _fake_answer)
+
+    with _as_user(is_pro=True) as uid, _seed_filing() as fid:
+        resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
+        assert resp.status_code == 200
+        db = SessionLocal()
+        try:
+            assert get_user_qa_count(uid, get_current_month(), db) == 0
+        finally:
+            db.close()
+
+
+@pytest.mark.unit
+def test_ask_request_caps_history():
+    """AskRequest trims the history array length and truncates oversized per-turn content so a
+    malicious client can't stuff the prompt (the ``question`` field is already capped)."""
+    from app.config import settings
+    from app.routers.summaries import AskRequest
+
+    big = "x" * (settings.COPILOT_HISTORY_ITEM_CHAR_CAP + 5000)
+    huge = [{"role": "user", "content": big}] * (settings.COPILOT_HISTORY_MAX_ITEMS + 20)
+
+    req = AskRequest(question="hi", history=huge)
+
+    assert len(req.history) == settings.COPILOT_HISTORY_MAX_ITEMS
+    assert all(len(t["content"]) <= settings.COPILOT_HISTORY_ITEM_CHAR_CAP for t in req.history)
+
+
+@pytest.mark.unit
+def test_build_messages_truncates_oversized_history_content():
+    """Defense in depth: even if an oversized turn reaches the generator, _build_messages truncates
+    each turn's content to the per-item cap before it lands in the prompt."""
+    from app.config import settings
+
+    cap = settings.COPILOT_HISTORY_ITEM_CHAR_CAP
+    big = "Z" * (cap + 1000)  # contiguous run of a marker that won't appear elsewhere in the prompt
+    history = [{"role": "user", "content": big}, {"role": "assistant", "content": "ok"}]
+
+    msgs = copilot_service._build_messages(_fake_filing(), _FAKE_SOURCE, "q", history)
+    joined = "".join(m["content"] for m in msgs)
+
+    assert big not in joined           # the oversized turn was not stuffed in verbatim
+    assert ("Z" * cap) in joined       # ... it was truncated to exactly the per-item cap

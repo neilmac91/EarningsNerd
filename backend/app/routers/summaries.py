@@ -2,11 +2,12 @@ from fastapi import APIRouter, HTTPException, Depends, status, Request
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 import json
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 import logging
 from fastapi.responses import Response, StreamingResponse
 
-from app.database import get_db
+from app.config import settings
+from app.database import get_db, SessionLocal
 from app.models import (
     Filing,
     Summary,
@@ -44,6 +45,30 @@ class AskRequest(BaseModel):
     """Body for the "Ask this Filing" Copilot endpoint."""
     question: str = Field(..., min_length=1, max_length=2000)
     history: Optional[list[dict]] = None
+
+    @field_validator("history")
+    @classmethod
+    def _bound_history(cls, v: Optional[list[dict]]) -> Optional[list[dict]]:
+        """Cap history size so a malicious client can't stuff the prompt.
+
+        ``question`` is already length-bounded, but ``history`` is free-form: without this a single
+        multi-MB turn (or a huge array) would be accepted and fed toward the model context. We keep
+        only the most recent ``COPILOT_HISTORY_MAX_ITEMS`` turns and truncate each turn's ``content``
+        to ``COPILOT_HISTORY_ITEM_CHAR_CAP`` chars. (The generator also re-truncates as defense in
+        depth; see ``copilot_service._build_messages``.)
+        """
+        if not v:
+            return v
+        cap = settings.COPILOT_HISTORY_ITEM_CHAR_CAP
+        trimmed = v[-settings.COPILOT_HISTORY_MAX_ITEMS:]
+        out: list[dict] = []
+        for turn in trimmed:
+            if isinstance(turn, dict):
+                content = turn.get("content")
+                if isinstance(content, str) and len(content) > cap:
+                    turn = {**turn, "content": content[:cap]}
+            out.append(turn)
+        return out
 
 class SummaryResponse(BaseModel):
     id: int
@@ -232,6 +257,22 @@ async def generate_summary_stream(
     )
 
 
+def _meter_qa_best_effort(user_id: int) -> None:
+    """Increment a user's Copilot QA count in a fresh DB session (best-effort).
+
+    Called from inside the SSE generator, which runs after the request's DB session may already be
+    gone (see ``snapshot_filing``), so it opens its own short-lived session. A metering failure must
+    never break the answer stream, so errors are swallowed (and logged).
+    """
+    db = SessionLocal()
+    try:
+        increment_user_qa(user_id, get_current_month(), db)
+    except Exception:  # noqa: BLE001 — metering must not break the answer stream
+        logger.warning("Failed to meter Copilot QA for user %s", user_id, exc_info=True)
+    finally:
+        db.close()
+
+
 @router.post("/filing/{filing_id}/ask-stream")
 async def ask_filing_stream(
     filing_id: int,
@@ -271,18 +312,25 @@ async def ask_filing_stream(
                 "It resets at the start of next month."
             ),
         )
-    # Snapshot the filing into detached plain objects BEFORE metering's commit expires the ORM
-    # instances. The SSE generator below runs after this request's session may be gone, so it must
-    # never touch the ORM (mirrors generate_summary_stream's eager value capture).
+    # Snapshot the filing into detached plain objects up front. The SSE generator below runs after
+    # this request's session may be gone, so it must never touch the ORM (mirrors
+    # generate_summary_stream's eager value capture).
     filing_ctx = snapshot_filing(filing)
-    increment_user_qa(current_user.id, get_current_month(), db)
+    user_id = current_user.id
 
     async def event_stream():
+        # Meter on the first successful completion only: a failed/aborted generation (an ``error``
+        # event, or a client disconnect before completion) must NOT burn the user's fair-use quota.
+        # The not-disclosed path still emits ``complete`` (the model did its job), so it counts.
+        metered = False
         async for event in answer_filing_question(
             filing=filing_ctx,
             question=body.question,
             history=body.history,
         ):
+            if not metered and event.get("type") == "complete":
+                _meter_qa_best_effort(user_id)
+                metered = True
             yield to_sse(event)
 
     return StreamingResponse(
