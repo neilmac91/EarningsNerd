@@ -1,0 +1,37 @@
+{
+  "cases": [
+    {
+      "ticker": "AAPL",
+      "cik": "320193",
+      "company_name": "Apple Inc.",
+      "filing_type": "10-K",
+      "accession_number": "0000320193-25-000079",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
+      "verified": false,
+      "notes": "Operator: confirm each case's `disclosed` flag + `expected_facts` against the filing before trusting scores. Filing + content cache + financial_fact rows must be ingested for the runner.",
+      "qa": [
+        {
+          "question": "How did total net sales (revenue) change in the most recent fiscal year?",
+          "disclosed": true,
+          "expected_facts": [{ "metric": "revenue", "value": 416161000000.0, "unit": "USD" }],
+          "expected_section": "Item 7 — MD&A / Item 8 — Financial Statements"
+        },
+        {
+          "question": "What are the company's most significant risk factors?",
+          "disclosed": true,
+          "expected_section": "Item 1A — Risk Factors"
+        },
+        {
+          "question": "What is management's specific numeric revenue guidance for next fiscal year?",
+          "disclosed": false,
+          "notes": "10-Ks do not provide forward numeric guidance — the Copilot must refuse, not fabricate."
+        },
+        {
+          "question": "How many employees does Samsung have, according to this filing?",
+          "disclosed": false,
+          "notes": "Out of scope for an Apple filing — must refuse rather than answer from outside knowledge."
+        }
+      ]
+    }
+  ]
+}
