@@ -420,6 +420,38 @@ async def test_service_drops_uncited_xbrl_fact(monkeypatch):
 
 @pytest.mark.unit
 @pytest.mark.asyncio
+async def test_service_matches_fact_marker_case_and_space_insensitive(monkeypatch):
+    """A minor LLM marker variation ([f 1]) still grounds the fact — matching the frontend matcher."""
+    revenue_fact = {
+        "concept": "revenue",
+        "value": 391035000000.0,
+        "unit": "USD",
+        "period_end": "2024-09-28",
+        "fiscal_year": 2024,
+        "fiscal_period": "FY",
+        "raw_tag": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+        "accession": "0000320193-24-000123",
+    }
+
+    def _fake_stream(messages, tools, run_tool, **_kwargs):
+        async def _gen():
+            run_tool("get_financial_fact", {"concept": "revenue"})
+            yield "Revenue was strong [f 1]. ===CITATIONS===\n[]"
+        return _gen()
+
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", _fake_stream)
+    monkeypatch.setattr(copilot_service.copilot_tools, "run_tool",
+                        lambda name, args, company_id: dict(revenue_fact))
+
+    events = await _collect(_fake_filing(), "How much revenue?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    assert complete["grounded"] == 1
+    assert complete["citations"][0]["n"] == "F1"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
 async def test_stream_chat_with_tools_assembles_tool_call_deltas():
     """stream_chat_with_tools concatenates tool-call argument fragments split across chunks, runs the
     tool with the assembled args, then streams the next round's content."""

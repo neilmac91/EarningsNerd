@@ -72,19 +72,21 @@ function MarkdownProse({ children }: { children: string }) {
 // text (e.g. the model emitted a bracket that isn't a real citation). Recurses into arrays and
 // into element children so chips render inside <strong>, <em>, <li>, <td>, etc.
 function injectCitations(children: ReactNode, citations: CopilotCitation[]): ReactNode {
-  // Key by string so both numeric excerpt markers ([1]) and "F#" tool-figure markers ([F1]) match.
-  const byN = new Map(citations.map((c) => [String(c.n), c]))
+  // Key by uppercased string so both numeric excerpt markers ([1]) and "F#" tool-figure markers
+  // ([F1]) match. Normalization here MUST mirror the backend's cited-marker matcher.
+  const byN = new Map(citations.map((c) => [String(c.n).toUpperCase(), c]))
 
   const walk = (node: ReactNode, keyPrefix: string): ReactNode => {
     if (typeof node === 'string') {
       // Split keeping the captured marker; even indices are literal text, odd are `[n]`/`[F n]` ids.
-      const parts = node.split(/\[(F?\d+)\]/g)
+      // Case-insensitive + whitespace-tolerant so a minor LLM variation ([f1], [F 1]) still renders.
+      const parts = node.split(/\[(F?\s*\d+)\]/gi)
       if (parts.length === 1) return node
       const out: ReactNode[] = []
       for (let i = 0; i < parts.length; i++) {
         const part = parts[i]
         if (i % 2 === 1) {
-          const citation = byN.get(part)
+          const citation = byN.get(part.replace(/\s+/g, '').toUpperCase())
           if (citation) {
             out.push(<CitationChip key={`${keyPrefix}-cite-${i}`} citation={citation} />)
           } else {

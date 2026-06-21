@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from types import SimpleNamespace
 from typing import Any, AsyncGenerator, Optional
 
@@ -428,10 +429,17 @@ async def answer_filing_question(
         # Append the XBRL facts the model actually cited inline (via their ``[F#]`` marker) as verified
         # citations, so they render as inline chips — not just Sources rows. A fact the model fetched
         # but never cited is dropped: it must not inflate ``grounded`` or show as a stray source.
+        # Markers are normalized (case-insensitive, whitespace-tolerant: ``[f1]`` / ``[F 1]`` →
+        # ``F1``) so a minor LLM formatting variation doesn't silently drop a legitimate citation.
+        # This MUST mirror the frontend's chip-injection matcher (CopilotMessage.injectCitations).
+        cited_markers = {
+            re.sub(r"\s+", "", m.group(1)).upper()
+            for m in re.finditer(r"\[(f\s*\d+)\]", full_answer, re.IGNORECASE)
+        }
         filing_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or None
         for fact in used_facts:
             marker = fact.get("_marker")
-            if not marker or f"[{marker}]" not in full_answer:
+            if not marker or marker not in cited_markers:
                 continue
             cite = copilot_tools.fact_to_citation(fact)
             cite["n"] = marker
