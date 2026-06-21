@@ -64,6 +64,21 @@ describe('CopilotMessage citation chips', () => {
     expect(screen.queryByText('Verified in filing')).not.toBeInTheDocument()
   })
 
+  it('renders an inline chip for a tool-figure [F1] marker', () => {
+    const factCitation: CopilotCitation = {
+      n: 'F1',
+      excerpt: 'Revenue = $391.04B USD (FY2024)',
+      section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
+      verified: true,
+      fragment_url: 'https://www.sec.gov/filing',
+    }
+    const msg = doneMessage({ content: 'Revenue was $391.0B [F1].', citations: [factCitation] })
+    render(<CopilotMessage message={msg} />)
+    const chip = screen.getByRole('link', { name: /citation f1/i })
+    expect(chip).toHaveTextContent('[F1]')
+    expect(chip).toHaveAttribute('href', 'https://www.sec.gov/filing')
+  })
+
   it('leaves an unmatched [2] as plain text (no chip / no anchor)', () => {
     const msg = doneMessage({ content: 'A claim with no citation [2].' })
     render(<CopilotMessage message={msg} />)

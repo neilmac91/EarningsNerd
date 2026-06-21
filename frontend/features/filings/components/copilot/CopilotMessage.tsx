@@ -72,18 +72,19 @@ function MarkdownProse({ children }: { children: string }) {
 // text (e.g. the model emitted a bracket that isn't a real citation). Recurses into arrays and
 // into element children so chips render inside <strong>, <em>, <li>, <td>, etc.
 function injectCitations(children: ReactNode, citations: CopilotCitation[]): ReactNode {
-  const byN = new Map(citations.map((c) => [c.n, c]))
+  // Key by string so both numeric excerpt markers ([1]) and "F#" tool-figure markers ([F1]) match.
+  const byN = new Map(citations.map((c) => [String(c.n), c]))
 
   const walk = (node: ReactNode, keyPrefix: string): ReactNode => {
     if (typeof node === 'string') {
-      // Split keeping the captured number; even indices are literal text, odd are `[n]` numbers.
-      const parts = node.split(/\[(\d+)\]/g)
+      // Split keeping the captured marker; even indices are literal text, odd are `[n]`/`[F n]` ids.
+      const parts = node.split(/\[(F?\d+)\]/g)
       if (parts.length === 1) return node
       const out: ReactNode[] = []
       for (let i = 0; i < parts.length; i++) {
         const part = parts[i]
         if (i % 2 === 1) {
-          const citation = byN.get(Number(part))
+          const citation = byN.get(part)
           if (citation) {
             out.push(<CitationChip key={`${keyPrefix}-cite-${i}`} citation={citation} />)
           } else {

@@ -356,19 +356,19 @@ async def test_service_surfaces_xbrl_fact_as_verified_citation(monkeypatch):
         "accession": "0000320193-24-000123",
     }
 
-    # Fake stream: (a) call the passed run_tool for get_financial_fact, then (b) yield an answer with
-    # a [1] marker + the citations sentinel + an (empty) text-citation array.
+    # Fake stream: (a) call the passed run_tool for get_financial_fact, then (b) yield an answer that
+    # cites the figure inline with its assigned [F1] marker + the citations sentinel + empty text array.
     def _fake_stream(messages, tools, run_tool, **_kwargs):
         async def _gen():
             run_tool("get_financial_fact", {"concept": "revenue"})
-            yield "Apple's revenue was strong [1]. ===CITATIONS===\n[]"
+            yield "Apple's revenue was strong [F1]. ===CITATIONS===\n[]"
         return _gen()
 
     monkeypatch.setattr(
         copilot_service.openai_service, "stream_chat_with_tools", _fake_stream
     )
     monkeypatch.setattr(copilot_service.copilot_tools, "run_tool",
-                        lambda name, args, company_id: revenue_fact)
+                        lambda name, args, company_id: dict(revenue_fact))
 
     events = await _collect(_fake_filing(), "How much revenue?")
     complete = next(e for e in events if e["type"] == "complete")
@@ -381,8 +381,41 @@ async def test_service_surfaces_xbrl_fact_as_verified_citation(monkeypatch):
     assert cite["verified"] is True
     assert cite["section_ref"].startswith("XBRL ·")
     assert "Revenue" in cite["excerpt"]
-    assert cite["n"] == 1
+    assert cite["n"] == "F1"  # cited inline via its [F1] marker → renders an inline chip
     assert cite["fragment_url"] == _fake_filing().document_url
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_drops_uncited_xbrl_fact(monkeypatch):
+    """A fact the model fetched but never cited inline ([F1] absent) is dropped — no stray source,
+    no grounded inflation (audit finding #4)."""
+    revenue_fact = {
+        "concept": "revenue",
+        "value": 391035000000.0,
+        "unit": "USD",
+        "period_end": "2024-09-28",
+        "fiscal_year": 2024,
+        "fiscal_period": "FY",
+        "raw_tag": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+        "accession": "0000320193-24-000123",
+    }
+
+    def _fake_stream(messages, tools, run_tool, **_kwargs):
+        async def _gen():
+            run_tool("get_financial_fact", {"concept": "revenue"})
+            yield "Revenue held up, but I won't cite the figure. ===CITATIONS===\n[]"
+        return _gen()
+
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", _fake_stream)
+    monkeypatch.setattr(copilot_service.copilot_tools, "run_tool",
+                        lambda name, args, company_id: dict(revenue_fact))
+
+    events = await _collect(_fake_filing(), "How much revenue?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    assert complete["grounded"] == 0
+    assert complete["citations"] == []
 
 
 @pytest.mark.unit
