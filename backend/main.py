@@ -4,6 +4,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from contextlib import asynccontextmanager
 import asyncio
 import os
+import re
 from dotenv import load_dotenv
 
 # Load environment variables early for Sentry initialization
@@ -220,6 +221,32 @@ if settings.ENVIRONMENT != "production":
 
 app.add_middleware(CORSMiddleware, **_cors_config)
 
+
+def _error_response_cors_headers(request: Request) -> dict[str, str]:
+    """CORS headers for hand-built error responses (exception handlers).
+
+    Starlette runs the generic-``Exception`` handler inside ServerErrorMiddleware, which sits
+    OUTSIDE CORSMiddleware — so a 500 it produces never gets ``Access-Control-Allow-Origin``.
+    The browser then blocks the cross-origin response and the client sees an opaque network
+    error ("Unable to connect to the server") instead of the real status/detail, masking every
+    server error as connectivity loss. Re-apply the same origin allow-list the middleware uses
+    so error responses stay readable cross-origin.
+    """
+    origin = request.headers.get("origin")
+    if not origin:
+        return {}
+    allowed = origin in settings.CORS_ORIGINS or (
+        settings.ENVIRONMENT != "production"
+        and re.fullmatch(r"http://localhost:\d+", origin) is not None
+    )
+    if not allowed:
+        return {}
+    return {
+        "Access-Control-Allow-Origin": origin,
+        "Access-Control-Allow-Credentials": "true",
+        "Vary": "Origin",
+    }
+
 # Security headers middleware
 @app.middleware("http")
 async def add_security_headers(request: Request, call_next):
@@ -335,7 +362,7 @@ async def circuit_open_exception_handler(request: Request, exc: CircuitOpenError
     )
     return JSONResponse(
         status_code=503,
-        headers={"Retry-After": str(retry_after)},
+        headers={"Retry-After": str(retry_after), **_error_response_cors_headers(request)},
         content={
             "detail": "SEC EDGAR is temporarily unavailable. Please retry shortly.",
             "retry_after_seconds": retry_after,
@@ -372,7 +399,8 @@ async def global_exception_handler(request: Request, exc: Exception):
         content={
             "detail": error_detail,
             "type": "internal_server_error",
-        }
+        },
+        headers=_error_response_cors_headers(request),
     )
 
 
