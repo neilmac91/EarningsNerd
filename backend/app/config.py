@@ -224,10 +224,14 @@ class Settings(BaseSettings):
     #   COPILOT_MAX_TOKENS           — max completion tokens for an answer (answer + citations JSON).
     #   COPILOT_CONTEXT_CHAR_CAP     — hard cap on filing excerpt chars stuffed into context.
     #   COPILOT_HISTORY_TURNS        — number of prior conversation turns kept for follow-ups.
+    #   COPILOT_HISTORY_MAX_ITEMS    — hard cap on accepted history array length (prompt-stuffing/abuse guard).
+    #   COPILOT_HISTORY_ITEM_CHAR_CAP— per-turn content char cap (the question field is already capped).
     COPILOT_MONTHLY_QUESTION_CAP: int = 1000
     COPILOT_MAX_TOKENS: int = 1200
     COPILOT_CONTEXT_CHAR_CAP: int = 120000
     COPILOT_HISTORY_TURNS: int = 6
+    COPILOT_HISTORY_MAX_ITEMS: int = 50
+    COPILOT_HISTORY_ITEM_CHAR_CAP: int = 8000
 
     # Stream Settings
     STREAM_HEARTBEAT_INTERVAL: int = 3  # Send updates every 3 seconds (reduced from 5s for better UX)

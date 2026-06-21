@@ -20,6 +20,14 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+# Distinct failure signal for the transport-agnostic streaming wrappers (``stream_chat`` /
+# ``stream_chat_with_tools``). On an upstream/model error they yield a single chunk prefixed with
+# this sentinel instead of raising, so the SSE contract stays intact. The null-byte delimiters can
+# never appear in normal model output, so a consumer can unambiguously distinguish a real failure
+# from answer prose (a plain ``[Error: ...]`` string is indistinguishable from a model that happens
+# to quote one, and would otherwise be streamed to the user as the answer body).
+STREAM_ERROR_SENTINEL = "\x00\x00__OPENAI_STREAM_ERROR__\x00\x00"
+
 _PLACEHOLDER_STRINGS = {
     "",
     "n/a",
@@ -2770,7 +2778,8 @@ Do not include any additional keys or text outside the JSON object."""
 
         ``model`` defaults to ``self.model``. DeepSeek's reasoning ("thinking") mode is disabled so
         the stream is the answer text, not chain-of-thought. Tolerant try/except mirrors the existing
-        streaming method: on failure it yields a bracketed ``[Error: ...]`` marker rather than
+        streaming method: on failure it yields a single chunk prefixed with ``STREAM_ERROR_SENTINEL``
+        (so a consumer can surface a real error rather than stream it as the answer) rather than
         raising, so the generator never breaks the SSE contract.
         """
         model_name = model or self.model
@@ -2795,7 +2804,7 @@ Do not include any additional keys or text outside the JSON object."""
         except Exception as e:  # noqa: BLE001 — tolerant: never raise out of the stream
             error_msg = str(e)
             logger.warning(f"stream_chat failed for {model_name}: {error_msg[:200]}")
-            yield f"\n\n[Error: {error_msg[:200]}]"
+            yield f"{STREAM_ERROR_SENTINEL}{error_msg[:200]}"
 
     async def stream_chat_with_tools(
         self,
@@ -2833,8 +2842,9 @@ Do not include any additional keys or text outside the JSON object."""
             max_rounds: Hard cap on tool-call rounds to bound latency/loops.
 
         Yields:
-            Assistant answer ``delta.content`` strings in order. On any failure yields a bracketed
-            ``[Error: ...]`` marker rather than raising, so the SSE contract is never broken.
+            Assistant answer ``delta.content`` strings in order. On any failure yields a single chunk
+            prefixed with ``STREAM_ERROR_SENTINEL`` (so the consumer can surface a real error instead
+            of streaming it as the answer) rather than raising, so the SSE contract is never broken.
         """
         model_name = model or self.model
         is_deepseek = ("deepseek" in model_name.lower()
@@ -2915,7 +2925,7 @@ Do not include any additional keys or text outside the JSON object."""
         except Exception as e:  # noqa: BLE001 — tolerant: never raise out of the stream
             error_msg = str(e)
             logger.warning(f"stream_chat_with_tools failed for {model_name}: {error_msg[:200]}")
-            yield f"\n\n[Error: {error_msg[:200]}]"
+            yield f"{STREAM_ERROR_SENTINEL}{error_msg[:200]}"
 
     async def summarize_filing(
         self,

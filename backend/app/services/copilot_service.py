@@ -26,7 +26,7 @@ from typing import Any, AsyncGenerator, Optional
 
 from app.config import settings
 from app.services import copilot_tools
-from app.services.openai_service import openai_service
+from app.services.openai_service import STREAM_ERROR_SENTINEL, openai_service
 from app.services.provenance_service import (
     build_text_fragment_url,
     normalize_for_match,
@@ -199,7 +199,9 @@ def _build_messages(filing: Any, source_text: str, question: str, history: Optio
             role = turn.get("role")
             content = turn.get("content")
             if role in ("user", "assistant") and isinstance(content, str) and content.strip():
-                messages.append({"role": role, "content": content})
+                # Cap per-turn content so a malicious/oversized history entry can't stuff the prompt
+                # (defense-in-depth — the API layer also bounds this; see AskRequest).
+                messages.append({"role": role, "content": content[: settings.COPILOT_HISTORY_ITEM_CHAR_CAP]})
     messages.append({"role": "user", "content": question})
     # Collapse same-role runs (context+question, context+first-user-turn, malformed history) so
     # providers that require strict user/assistant alternation don't 400.
@@ -315,6 +317,15 @@ async def answer_filing_question(
         ):
             if not delta:
                 continue
+
+            # The model stream wrapper signals an upstream/model failure with a sentinel-prefixed
+            # chunk (rather than raising). Surface it as a real error event instead of letting the
+            # bracketed text stream out as the answer body — a model outage must not look like a
+            # confident, zero-grounded answer.
+            if delta.startswith(STREAM_ERROR_SENTINEL):
+                message = delta[len(STREAM_ERROR_SENTINEL):].strip() or "model stream failed"
+                yield {"type": "error", "message": message[:300]}
+                return
 
             if mode == "citations":
                 citation_buffer.append(delta)
