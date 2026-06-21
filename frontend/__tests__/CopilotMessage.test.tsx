@@ -111,6 +111,31 @@ describe('CopilotMessage citation chips', () => {
   })
 })
 
+describe('CopilotMessage not-disclosed redirect', () => {
+  const notDisclosed = (overrides: Partial<CopilotMessageData> = {}): CopilotMessageData => ({
+    id: 'nd1',
+    role: 'assistant',
+    content: 'The filing does not disclose the CEO’s total compensation.',
+    kind: 'not_disclosed',
+    status: 'done',
+    ...overrides,
+  })
+
+  it('points to the right filing type + the company’s filings for a 10-Q', () => {
+    render(<CopilotMessage message={notDisclosed()} ticker="AAPL" filingType="10-Q" />)
+    // 10-Q → nudge toward the 10-K for annual-only details.
+    expect(screen.getByText(/usually live in the company’s 10-K/i)).toBeInTheDocument()
+    const link = screen.getByRole('link', { name: /browse AAPL’s other filings/i })
+    expect(link).toHaveAttribute('href', '/company/AAPL')
+  })
+
+  it('omits the redirect link when the ticker is unknown', () => {
+    render(<CopilotMessage message={notDisclosed()} ticker={null} filingType="10-K" />)
+    expect(screen.getByText(/most recent 10-Q/i)).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /other filings/i })).not.toBeInTheDocument()
+  })
+})
+
 describe('CopilotMessage XBRL fact sources', () => {
   const fact: CopilotCitation = {
     n: 'F1',
