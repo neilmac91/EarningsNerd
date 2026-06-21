@@ -26,7 +26,11 @@ from typing import Any, AsyncGenerator, Optional
 
 from app.config import settings
 from app.services import copilot_tools
-from app.services.openai_service import STREAM_ERROR_SENTINEL, openai_service
+from app.services.openai_service import (
+    STREAM_ACTIVITY_SENTINEL,
+    STREAM_ERROR_SENTINEL,
+    openai_service,
+)
 from app.services.provenance_service import (
     build_text_fragment_url,
     normalize_for_match,
@@ -270,6 +274,7 @@ async def answer_filing_question(
 
     Yields (in order):
     * ``{"type": "progress", "stage": "reading"}`` before the model call.
+    * ``{"type": "activity", "label", "phase", "ok"}`` as numeric tools run (live "show the work").
     * ``{"type": "token", "text": ...}`` for answer prose only (never the citation JSON / sentinels).
     * ``{"type": "not_disclosed", "answer": ...}`` if the model emits the not-disclosed sentinel.
     * ``{"type": "complete", "answer", "citations", "grounded", "kind"}`` at the end.
@@ -326,6 +331,21 @@ async def answer_filing_question(
                 message = delta[len(STREAM_ERROR_SENTINEL):].strip() or "model stream failed"
                 yield {"type": "error", "message": message[:300]}
                 return
+
+            # Tool-activity signal from the wrapper → a live "show the work" event. Translate the raw
+            # tool name/args into a human label here (the wrapper stays provider-generic).
+            if delta.startswith(STREAM_ACTIVITY_SENTINEL):
+                try:
+                    info = json.loads(delta[len(STREAM_ACTIVITY_SENTINEL):])
+                except (ValueError, TypeError):
+                    info = {}
+                yield {
+                    "type": "activity",
+                    "label": copilot_tools.describe_tool_call(info.get("name", ""), info.get("args")),
+                    "phase": info.get("phase", "start"),
+                    "ok": bool(info.get("ok", True)),
+                }
+                continue
 
             if mode == "citations":
                 citation_buffer.append(delta)

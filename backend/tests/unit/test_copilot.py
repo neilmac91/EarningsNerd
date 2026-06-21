@@ -390,7 +390,7 @@ async def test_service_surfaces_xbrl_fact_as_verified_citation(monkeypatch):
 async def test_stream_chat_with_tools_assembles_tool_call_deltas():
     """stream_chat_with_tools concatenates tool-call argument fragments split across chunks, runs the
     tool with the assembled args, then streams the next round's content."""
-    from app.services.openai_service import openai_service
+    from app.services.openai_service import STREAM_ACTIVITY_SENTINEL, openai_service
 
     def _delta(content=None, tool_calls=None, finish_reason=None):
         return SimpleNamespace(
@@ -447,8 +447,12 @@ async def test_stream_chat_with_tools_assembles_tool_call_deltas():
     # The split argument fragments were reassembled into valid JSON and passed to run_tool.
     assert captured["name"] == "get_financial_fact"
     assert captured["args"] == {"concept": "revenue"}
-    # The second round's content was streamed out.
-    assert "".join(out) == "Revenue was $391B."
+    # The second round's content was streamed out (filtering the activity-signal chunks).
+    content = "".join(p for p in out if not p.startswith(STREAM_ACTIVITY_SENTINEL))
+    assert content == "Revenue was $391B."
+    # Activity start + done were emitted around the single tool call.
+    activity = [p for p in out if p.startswith(STREAM_ACTIVITY_SENTINEL)]
+    assert len(activity) == 2
     # Two create() calls: round 1 (tool call) + round 2 (answer).
     assert len(calls) == 2
 
@@ -578,3 +582,55 @@ def test_build_messages_truncates_oversized_history_content():
 
     assert big not in joined           # the oversized turn was not stuffed in verbatim
     assert ("Z" * cap) in joined       # ... it was truncated to exactly the per-item cap
+
+
+# --- P6a: live "show the work" activity ticker -------------------------------------------------
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_emits_activity_events(monkeypatch):
+    """Tool-activity sentinel chunks from the wrapper become `activity` events with human labels,
+    and never leak into the answer prose."""
+    import json as _json
+
+    from app.services.openai_service import STREAM_ACTIVITY_SENTINEL
+
+    start = STREAM_ACTIVITY_SENTINEL + _json.dumps(
+        {"name": "get_financial_fact", "args": {"concept": "revenue"}, "phase": "start"}
+    )
+    done = STREAM_ACTIVITY_SENTINEL + _json.dumps(
+        {"name": "get_financial_fact", "args": {"concept": "revenue"}, "phase": "done", "ok": True}
+    )
+    chunks = [start, done, "Revenue was strong [1]. ===CITATIONS===\n[]"]
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
+    )
+
+    events = await _collect(_fake_filing(), "How much revenue?")
+
+    activities = [e for e in events if e["type"] == "activity"]
+    assert [a["phase"] for a in activities] == ["start", "done"]
+    assert "revenue" in activities[0]["label"].lower()
+    assert activities[1]["ok"] is True
+
+    token_text = "".join(e["text"] for e in events if e["type"] == "token")
+    assert STREAM_ACTIVITY_SENTINEL not in token_text  # never leaked as prose
+    assert "complete" in [e["type"] for e in events]
+
+
+@pytest.mark.unit
+def test_describe_tool_call_labels():
+    """The activity labeler produces readable, tool-specific phrases (and a safe fallback)."""
+    from app.services import copilot_tools
+
+    assert copilot_tools.describe_tool_call(
+        "get_financial_fact", {"concept": "revenue"}
+    ).lower() == "looking up revenue"
+    assert "margin" in copilot_tools.describe_tool_call(
+        "compute_metric", {"kind": "margin", "concept": "gross_profit"}
+    ).lower()
+    assert "yoy" in copilot_tools.describe_tool_call(
+        "compute_metric", {"kind": "yoy_growth", "concept": "net_income"}
+    ).lower()
+    assert copilot_tools.describe_tool_call("list_available_concepts", {})  # non-empty
+    assert copilot_tools.describe_tool_call("mystery_tool", None)  # safe fallback, no raise

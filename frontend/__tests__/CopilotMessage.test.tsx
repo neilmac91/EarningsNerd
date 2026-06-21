@@ -81,3 +81,33 @@ describe('CopilotMessage citation chips', () => {
     expect(screen.queryByRole('link', { name: /citation 1/i })).not.toBeInTheDocument()
   })
 })
+
+describe('CopilotMessage activity ticker', () => {
+  it('shows in-progress and completed steps while reading', () => {
+    const reading = doneMessage({
+      status: 'reading',
+      content: '',
+      citations: undefined,
+      grounded: undefined,
+      kind: undefined,
+      steps: [
+        { label: 'Looking up revenue', done: true, ok: true },
+        { label: 'Computing gross margin', done: false, ok: true },
+      ],
+    })
+    render(<CopilotMessage message={reading} />)
+    expect(screen.getByText('Looking up revenue')).toBeInTheDocument()
+    // In-progress step shows an ellipsis affordance.
+    expect(screen.getByText(/Computing gross margin/)).toBeInTheDocument()
+    // The generic "Reading the filing…" line is replaced by the work ticker.
+    expect(screen.queryByText(/Reading the filing/)).not.toBeInTheDocument()
+  })
+
+  it('hides the ticker once the answer is done', () => {
+    const done = doneMessage({
+      steps: [{ label: 'Looking up revenue', done: true, ok: true }],
+    })
+    render(<CopilotMessage message={done} />)
+    expect(screen.queryByText('Looking up revenue')).not.toBeInTheDocument()
+  })
+})

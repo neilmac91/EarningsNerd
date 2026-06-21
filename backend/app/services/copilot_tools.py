@@ -147,6 +147,31 @@ def _concept_label(concept: str) -> str:
     return _CONCEPT_LABELS.get(concept, concept.replace("_", " ").title())
 
 
+def describe_tool_call(name: str, args: Optional[dict] = None) -> str:
+    """A short, present-tense label for a tool call, for the live "show the work" ticker.
+
+    e.g. ``("get_financial_fact", {"concept": "revenue"})`` → ``"Looking up revenue"``. Never raises;
+    falls back to a generic label for unknown tools / missing args.
+    """
+    args = args or {}
+    concept = args.get("concept")
+    concept_label = _concept_label(concept).lower() if isinstance(concept, str) and concept else None
+
+    if name == "list_available_concepts":
+        return "Scanning available financials"
+    if name == "get_financial_fact":
+        return f"Looking up {concept_label}" if concept_label else "Looking up a financial figure"
+    if name == "compute_metric":
+        target = concept_label or "a metric"
+        kind = args.get("kind")
+        if kind == "yoy_growth":
+            return f"Computing {target} YoY growth"
+        if kind == "margin":
+            return f"Computing {target} margin"
+        return f"Computing {target}"
+    return f"Running {name}"
+
+
 def _format_value(value: float, unit: str) -> str:
     """Format a numeric value for display in a citation excerpt.
 
