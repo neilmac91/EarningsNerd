@@ -233,7 +233,7 @@ def _error_response_cors_headers(request: Request) -> dict[str, str]:
     so error responses stay readable cross-origin.
     """
     origin = request.headers.get("origin")
-    if not origin:
+    if not isinstance(origin, str):
         return {}
     allowed = origin in settings.CORS_ORIGINS or (
         settings.ENVIRONMENT != "production"
