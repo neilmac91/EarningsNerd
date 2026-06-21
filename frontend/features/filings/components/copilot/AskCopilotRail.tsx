@@ -118,9 +118,15 @@ export default function AskCopilotRail({
       const slashCombo = e.key === '/' && !e.metaKey && !e.ctrlKey && !typing
       if (openCombo || slashCombo) {
         e.preventDefault()
-        if (!open) onOpenChange(true)
-        requestAnimationFrame(() => composerRef.current?.focus())
-      } else if (e.key === 'Escape' && open) {
+        if (open) {
+          // Already open → the focus-on-open effect won't re-fire, so focus directly.
+          composerRef.current?.focus()
+        } else {
+          // Opening → the focus-on-open effect handles focus once the composer mounts.
+          onOpenChange(true)
+        }
+      } else if (e.key === 'Escape' && open && !e.defaultPrevented) {
+        // Don't steal Escape from a nested element that already handled it (popover, IME, …).
         onOpenChange(false)
       }
     }
