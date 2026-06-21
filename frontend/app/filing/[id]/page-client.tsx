@@ -5,6 +5,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { getFiling, getCompanyFilings, Filing } from '@/features/filings/api/filings-api'
 import { getSummary, generateSummaryStream, isPaywallStreamError, Summary, saveSummary, getSavedSummaries, getSummaryProgress, getWhatChanged, SummaryProgressData, SavedSummary } from '@/features/summaries/api/summaries-api'
 import { WhatChanged } from '@/features/filings/components/WhatChanged'
+import AskCopilotRail from '@/features/filings/components/copilot/AskCopilotRail'
 import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
 import { getCompany, Company } from '@/features/companies/api/companies-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
@@ -228,6 +229,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   const [elapsedSeconds, setElapsedSeconds] = useState(0)
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false)
+  const [copilotOpen, setCopilotOpen] = useState(false)
   const hasTrackedFilingView = useRef(false)
   const hasTrackedSummaryGenerated = useRef(false)
   const hasTrackedSummaryViewed = useRef(false)
@@ -495,7 +497,11 @@ function FilingDetailView({ filingId }: { filingId: number }) {
 
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div
+      className={`min-h-screen bg-gray-50 transition-[padding] duration-300 dark:bg-gray-900 ${
+        copilotOpen ? 'lg:pr-[420px]' : ''
+      }`}
+    >
       {/* Header */}
       <header className="bg-gradient-to-r from-white via-gray-50 to-white dark:from-gray-800 dark:via-gray-900 dark:to-gray-800 shadow-lg border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -594,6 +600,18 @@ function FilingDetailView({ filingId }: { filingId: number }) {
           />
         )}
       </main>
+
+      <AskCopilotRail
+        filingId={filing.id}
+        filingType={filing.filing_type}
+        ticker={filing.company?.ticker ?? null}
+        companyName={filing.company?.name ?? null}
+        summaryAvailable={hasSummaryContent}
+        isPro={subscription?.is_pro || false}
+        isAuthenticated={isAuthenticated}
+        open={copilotOpen}
+        onOpenChange={setCopilotOpen}
+      />
     </div>
   )
 }
