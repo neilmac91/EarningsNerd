@@ -42,7 +42,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
   const popover = (
     <span
       role="tooltip"
-      className="pointer-events-none invisible absolute bottom-full left-1/2 z-50 mb-1.5 w-64 -translate-x-1/2 rounded-lg border border-white/10 bg-slate-900 p-3 text-left opacity-0 shadow-xl transition-opacity duration-100 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
+      className="pointer-events-none invisible absolute bottom-full left-1/2 z-50 mb-1.5 w-64 -translate-x-1/2 rounded-lg border border-white/10 bg-slate-900 p-3 text-left opacity-0 shadow-xl transition-opacity duration-100 group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:visible group-focus-within:opacity-100 group-focus-within:pointer-events-auto"
     >
       <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-400 break-words">
         {header}
@@ -66,7 +66,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
           href={fragment_url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-2 flex items-center gap-1 text-[11px] font-medium text-slate-400 transition-colors hover:text-mint-300"
+          className="pointer-events-auto mt-2 flex items-center gap-1 text-[11px] font-medium text-slate-400 transition-colors hover:text-mint-300"
         >
           <ExternalLink className="h-3 w-3 shrink-0" />
           Open original

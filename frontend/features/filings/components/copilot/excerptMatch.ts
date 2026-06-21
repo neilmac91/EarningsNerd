@@ -30,15 +30,23 @@ interface Normalized {
   map: number[]
 }
 
-const ALNUM = /[a-z0-9]/
-
+// Keep only [a-z0-9] (lowercased), tracking each kept char's index in the ORIGINAL text. Uses
+// charCode comparisons (no regex, no per-char toLowerCase allocation) so it stays fast on
+// multi-megabyte filings, and lowercases A→a in-place to preserve exact original-index alignment
+// (a whole-string toLowerCase() can shift indices for rare code points and corrupt the map).
 function normalizeWithMap(text: string): Normalized {
+  const len = text.length
   let norm = ''
   const map: number[] = []
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i].toLowerCase()
-    if (ALNUM.test(ch)) {
-      norm += ch
+  for (let i = 0; i < len; i++) {
+    const code = text.charCodeAt(i)
+    if ((code >= 97 && code <= 122) || (code >= 48 && code <= 57)) {
+      // a-z or 0-9
+      norm += text[i]
+      map.push(i)
+    } else if (code >= 65 && code <= 90) {
+      // A-Z → lowercase
+      norm += String.fromCharCode(code + 32)
       map.push(i)
     }
   }

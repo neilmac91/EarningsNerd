@@ -56,7 +56,8 @@ export default function FilingViewer({ filingId, filingLabel, secUrl }: FilingVi
     handledNonce.current = request.nonce
     setOpen(true)
     setPassageMissing(false)
-    if (statusRef.current === 'idle') void load()
+    // Retry on 'error' too, so a transient fetch failure isn't permanent (a fresh click re-loads).
+    if (statusRef.current === 'idle' || statusRef.current === 'error') void load()
   }, [request, load])
 
   // Once content is rendered and a citation is pending, locate + highlight the passage.
