@@ -23,7 +23,7 @@ from app.services.subscription_service import (
     get_current_month,
     increment_user_qa,
 )
-from app.services.copilot_service import answer_filing_question
+from app.services.copilot_service import answer_filing_question, snapshot_filing
 from app.services.summary_generation_service import (
     mark_stale_progress_as_error,
     progress_as_dict,
@@ -271,11 +271,15 @@ async def ask_filing_stream(
                 "It resets at the start of next month."
             ),
         )
+    # Snapshot the filing into detached plain objects BEFORE metering's commit expires the ORM
+    # instances. The SSE generator below runs after this request's session may be gone, so it must
+    # never touch the ORM (mirrors generate_summary_stream's eager value capture).
+    filing_ctx = snapshot_filing(filing)
     increment_user_qa(current_user.id, get_current_month(), db)
 
     async def event_stream():
         async for event in answer_filing_question(
-            filing=filing,
+            filing=filing_ctx,
             question=body.question,
             history=body.history,
         ):

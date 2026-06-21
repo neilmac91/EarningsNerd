@@ -294,3 +294,41 @@ def test_endpoint_over_cap_returns_429(client, monkeypatch):
     with _as_user(is_pro=True), _seed_filing() as fid:
         resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
         assert resp.status_code == 429
+
+
+# --- Message assembly + snapshot ---------------------------------------------------------------
+
+@pytest.mark.unit
+def test_build_messages_no_history_merges_context_and_question():
+    """No history → the filing-context user msg and the question collapse into one user message
+    (no consecutive user roles, which some providers reject)."""
+    msgs = copilot_service._build_messages(_fake_filing(), _FAKE_SOURCE, "What is revenue?", None)
+    assert [m["role"] for m in msgs] == ["system", "user"]
+    assert "FILING CONTENT" in msgs[1]["content"]
+    assert "What is revenue?" in msgs[1]["content"]
+
+
+@pytest.mark.unit
+def test_build_messages_alternates_with_history():
+    """With history, roles strictly alternate and context folds into the first user turn."""
+    history = [
+        {"role": "user", "content": "earlier question"},
+        {"role": "assistant", "content": "earlier answer"},
+    ]
+    msgs = copilot_service._build_messages(_fake_filing(), _FAKE_SOURCE, "new question", history)
+    roles = [m["role"] for m in msgs]
+    assert roles[0] == "system"
+    assert all(roles[i] != roles[i + 1] for i in range(len(roles) - 1))  # no same-role run
+    assert "FILING CONTENT" in msgs[1]["content"] and "earlier question" in msgs[1]["content"]
+    assert msgs[-1]["content"] == "new question"
+
+
+@pytest.mark.unit
+def test_snapshot_filing_detaches_fields():
+    """snapshot_filing copies the fields the generator needs into plain objects, and the generator
+    runs off it unchanged."""
+    snap = copilot_service.snapshot_filing(_fake_filing())
+    assert snap.content_cache.critical_excerpt == _FAKE_SOURCE
+    assert snap.company.ticker == "AAPL"
+    assert snap.filing_type == "10-K"
+    assert snap.document_url.startswith("https://www.sec.gov/")

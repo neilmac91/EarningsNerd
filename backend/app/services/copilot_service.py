@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import json
 import logging
+from types import SimpleNamespace
 from typing import Any, AsyncGenerator, Optional
 
 from app.config import settings
@@ -80,6 +81,37 @@ def _select_source_text(filing: Any) -> Optional[str]:
     return getattr(cache, "critical_excerpt", None) or getattr(cache, "markdown_content", None)
 
 
+def snapshot_filing(filing: Any) -> SimpleNamespace:
+    """Detach a plain, in-memory snapshot of just the fields the SSE generator reads.
+
+    The streaming generator runs *after* the endpoint returns — once metering's ``db.commit()`` has
+    expired the ORM instances (``expire_on_commit`` default) and, per the ``generate_summary_stream``
+    pattern, the request session may already be gone. Touching ORM attributes there would trigger
+    lazy-loads or ``DetachedInstanceError``. So the endpoint captures everything eagerly into this
+    detached snapshot (mirroring the summary stream's eager value capture) and the generator only
+    ever reads plain Python objects. ``db.expunge(filing)`` alone is insufficient: the default
+    cascade doesn't expunge the joinedloaded ``content_cache``/``company``, so those would still be
+    expired.
+    """
+    cache = getattr(filing, "content_cache", None)
+    company = getattr(filing, "company", None)
+    return SimpleNamespace(
+        filing_type=getattr(filing, "filing_type", None),
+        filing_date=getattr(filing, "filing_date", None),
+        document_url=getattr(filing, "document_url", None),
+        sec_url=getattr(filing, "sec_url", None),
+        xbrl_data=getattr(filing, "xbrl_data", None),
+        content_cache=SimpleNamespace(
+            critical_excerpt=getattr(cache, "critical_excerpt", None),
+            markdown_content=getattr(cache, "markdown_content", None),
+        ) if cache is not None else None,
+        company=SimpleNamespace(
+            name=getattr(company, "name", None),
+            ticker=getattr(company, "ticker", None),
+        ) if company is not None else None,
+    )
+
+
 def _compact_xbrl_block(xbrl_data: Any) -> str:
     """Render the filing's XBRL JSON compactly for context, or "" when absent/oversized.
 
@@ -123,8 +155,28 @@ def _build_context_message(filing: Any, source_text: str) -> str:
     return "\n".join(parts)
 
 
+def _merge_consecutive_roles(messages: list[dict]) -> list[dict]:
+    """Concatenate adjacent same-role messages so the sequence strictly alternates.
+
+    Some providers (DeepSeek's reasoner lineage, Anthropic, strict OpenAI) reject consecutive
+    same-role messages with a 400. This collapses any same-role run (e.g. the filing-context user
+    message immediately followed by the first user turn / the question, or a malformed history) into
+    one message, guaranteeing valid alternation regardless of the history shape we're handed.
+    """
+    merged: list[dict] = []
+    for msg in messages:
+        if merged and merged[-1]["role"] == msg["role"]:
+            merged[-1] = {
+                "role": msg["role"],
+                "content": f"{merged[-1]['content']}\n\n{msg['content']}",
+            }
+        else:
+            merged.append({"role": msg["role"], "content": msg["content"]})
+    return merged
+
+
 def _build_messages(filing: Any, source_text: str, question: str, history: Optional[list[dict]]) -> list[dict]:
-    """system + context + last N history turns + the user question."""
+    """system + context + last N history turns + the user question (with role alternation enforced)."""
     messages: list[dict] = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": _build_context_message(filing, source_text)},
@@ -140,7 +192,9 @@ def _build_messages(filing: Any, source_text: str, question: str, history: Optio
             if role in ("user", "assistant") and isinstance(content, str) and content.strip():
                 messages.append({"role": role, "content": content})
     messages.append({"role": "user", "content": question})
-    return messages
+    # Collapse same-role runs (context+question, context+first-user-turn, malformed history) so
+    # providers that require strict user/assistant alternation don't 400.
+    return _merge_consecutive_roles(messages)
 
 
 def _parse_citations(raw: str) -> list[dict]:
