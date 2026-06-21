@@ -1,0 +1,83 @@
+import { describe, it, expect } from 'vitest'
+import { render, screen } from '@testing-library/react'
+
+// Mirror the existing AskCopilotRail test's mock for next/link (CopilotMessage uses it in the
+// error/paywall branch).
+import React from 'react'
+import { vi } from 'vitest'
+
+vi.mock('next/link', () => ({
+  default: ({ children, href, ...props }: { children: React.ReactNode; href: string }) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
+}))
+
+import CopilotMessage, {
+  type CopilotMessageData,
+} from '@/features/filings/components/copilot/CopilotMessage'
+import type { CopilotCitation } from '@/features/filings/api/copilot-api'
+
+const verifiedCitation: CopilotCitation = {
+  n: 1,
+  excerpt: 'Revenue increased to $94.0B',
+  section_ref: 'Item 7 — MD&A',
+  verified: true,
+  fragment_url: 'https://www.sec.gov/x#:~:text=Revenue',
+}
+
+function doneMessage(overrides: Partial<CopilotMessageData> = {}): CopilotMessageData {
+  return {
+    id: 'm1',
+    role: 'assistant',
+    content: 'Revenue grew strongly [1].',
+    citations: [verifiedCitation],
+    grounded: 1,
+    kind: 'answer',
+    status: 'done',
+    ...overrides,
+  }
+}
+
+describe('CopilotMessage citation chips', () => {
+  it('renders a chip for [1] as an anchor to the fragment_url', () => {
+    render(<CopilotMessage message={doneMessage()} />)
+    // The inline chip is the anchor whose accessible name is "Citation 1: ...".
+    const chip = screen.getByRole('link', { name: /citation 1: item 7 — md&a/i })
+    expect(chip).toHaveAttribute('href', 'https://www.sec.gov/x#:~:text=Revenue')
+    expect(chip).toHaveAttribute('target', '_blank')
+    expect(chip).toHaveTextContent('[1]')
+  })
+
+  it('shows the verbatim excerpt text', () => {
+    render(<CopilotMessage message={doneMessage()} />)
+    // Appears in both the chip popover and the Sources list.
+    expect(screen.getAllByText('Revenue increased to $94.0B').length).toBeGreaterThan(0)
+  })
+
+  it('shows the "Cited" label (not "Verified") for an unverified citation', () => {
+    const unverified: CopilotCitation = { ...verifiedCitation, verified: false }
+    render(<CopilotMessage message={doneMessage({ citations: [unverified] })} />)
+    expect(screen.getAllByText('Cited').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Verified')).not.toBeInTheDocument()
+    expect(screen.queryByText('Verified in filing')).not.toBeInTheDocument()
+  })
+
+  it('leaves an unmatched [2] as plain text (no chip / no anchor)', () => {
+    const msg = doneMessage({ content: 'A claim with no citation [2].' })
+    render(<CopilotMessage message={msg} />)
+    // The literal marker survives somewhere in the prose.
+    expect(screen.getByText(/\[2\]/)).toBeInTheDocument()
+    // And there is no citation chip / anchor for [2].
+    expect(screen.queryByRole('link', { name: /citation 2/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /citation 2/i })).not.toBeInTheDocument()
+  })
+
+  it('does not inject chips while streaming (markers stay plain text)', () => {
+    const streaming = doneMessage({ status: 'streaming', content: 'Revenue grew [1]', citations: undefined })
+    render(<CopilotMessage message={streaming} />)
+    expect(screen.getByText(/\[1\]/)).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /citation 1/i })).not.toBeInTheDocument()
+  })
+})
