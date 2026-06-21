@@ -353,8 +353,8 @@ export default function CopilotMessage({
             {hint && <p className="text-xs text-slate-400">{hint}</p>}
             {ticker && (
               <Link
-                href={`/company/${ticker}`}
-                className="mt-1.5 inline-flex items-center gap-1 text-xs font-medium text-mint-300 hover:underline"
+                href={`/company/${encodeURIComponent(ticker)}`}
+                className={`${hint ? 'mt-1.5 ' : ''}inline-flex items-center gap-1 text-xs font-medium text-mint-300 hover:underline`}
               >
                 Browse {ticker}’s other filings
                 <ArrowRight className="h-3 w-3" />
