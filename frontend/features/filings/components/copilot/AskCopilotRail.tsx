@@ -181,8 +181,8 @@ export default function AskCopilotRail({
             kind: c.kind,
             grounded: c.grounded,
             citations: c.citations.length,
-            usedXbrl: c.citations.some((cit) =>
-              String(cit.section_ref ?? '').toUpperCase().startsWith('XBRL'),
+            usedXbrl: c.citations.some(
+              (cit) => cit?.section_ref?.toUpperCase().startsWith('XBRL') ?? false,
             ),
           })
           setIsStreaming(false)
