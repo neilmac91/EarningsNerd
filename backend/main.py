@@ -204,6 +204,12 @@ _cors_config = {
         "Origin",
         "X-Requested-With",
         "X-Correlation-ID",
+        # Cloudflare Turnstile token headers the auth/contact/waitlist forms attach
+        # (see app/services/turnstile.py:_TOKEN_HEADERS). Without these the browser
+        # preflight is rejected with "Disallowed CORS headers" the moment Turnstile is
+        # enabled, surfacing as "Unable to connect to the server" on the client.
+        "cf-turnstile-response",
+        "x-turnstile-token",
     ],
     "expose_headers": ["X-Correlation-ID"],
 }
