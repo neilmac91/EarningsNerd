@@ -1,5 +1,6 @@
 'use client'
 
+import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import { Sparkles, X } from 'lucide-react'
 
@@ -19,7 +20,7 @@ interface UpgradeModalProps {
  */
 export default function UpgradeModal({ open, onClose, feature, title, message }: UpgradeModalProps) {
   const router = useRouter()
-  if (!open) return null
+  if (!open || typeof document === 'undefined') return null
 
   const heading = title ?? 'Upgrade to Pro'
   const body =
@@ -28,7 +29,9 @@ export default function UpgradeModal({ open, onClose, feature, title, message }:
       ? `${feature} is a Pro feature. Upgrade for unlimited access, real-time alerts, 8-K coverage, comparisons and exports.`
       : 'Unlock unlimited summaries, real-time filing alerts, 8-K coverage, multi-year comparisons and exports.')
 
-  return (
+  // Portal to <body> so the fixed overlay is never clipped or mis-stacked by an ancestor's stacking
+  // context (e.g. when opened from the embedded Copilot rail inside FilingWorkspace).
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       role="dialog"
@@ -73,6 +76,7 @@ export default function UpgradeModal({ open, onClose, feature, title, message }:
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
