@@ -23,6 +23,8 @@ interface AskCopilotRailProps {
   isAuthenticated: boolean
   open: boolean
   onOpenChange: (open: boolean) => void
+  // Set by a "Ask about this" text selection to pre-fill the composer. `nonce` re-triggers on repeat.
+  prefill?: { text: string; nonce: number } | null
 }
 
 // Number of prior turns sent back as `history` so the model has conversational context
@@ -62,6 +64,7 @@ export default function AskCopilotRail({
   isAuthenticated,
   open,
   onOpenChange,
+  prefill,
 }: AskCopilotRailProps) {
   const [messages, setMessages] = useState<CopilotMessageData[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
@@ -105,6 +108,16 @@ export default function AskCopilotRail({
     const raf = requestAnimationFrame(() => composerRef.current?.focus())
     return () => cancelAnimationFrame(raf)
   }, [open, isPro])
+
+  // Pre-fill the composer from an "Ask about this" text selection (page sets `prefill` + opens us).
+  const lastPrefillNonce = useRef(0)
+  useEffect(() => {
+    if (!prefill || !isPro || prefill.nonce === lastPrefillNonce.current) return
+    lastPrefillNonce.current = prefill.nonce
+    // Defer so the composer has mounted (the rail was opened in the same tick).
+    const raf = requestAnimationFrame(() => composerRef.current?.prefill(prefill.text))
+    return () => cancelAnimationFrame(raf)
+  }, [prefill, isPro])
 
   // Keyboard: ⌘K / Ctrl+K (and "/" when not already typing) open + focus the rail; Escape closes it.
   useEffect(() => {
