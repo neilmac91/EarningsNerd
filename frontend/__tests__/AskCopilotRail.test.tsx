@@ -16,7 +16,12 @@ vi.mock('@/features/filings/api/copilot-api', () => ({
   isCopilotPaywallError: (msg: string) => /pro feature|upgrade to pro|monthly limit/i.test(msg),
 }))
 
+vi.mock('@/lib/analytics', () => ({
+  analytics: { paywallPromptShown: vi.fn() },
+}))
+
 import { askFilingStream, type CopilotHandlers } from '@/features/filings/api/copilot-api'
+import { analytics } from '@/lib/analytics'
 import AskCopilotRail from '@/features/filings/components/copilot/AskCopilotRail'
 
 const baseProps = {
@@ -52,12 +57,16 @@ describe('AskCopilotRail', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('shows the locked upgrade state for non-Pro users and never calls the API', () => {
+  it('shows the locked teaser for non-Pro users, fires paywall analytics, never calls the API', () => {
     renderRail({ open: true, isPro: false })
-    expect(screen.getByText(/ask this filing is a pro feature/i)).toBeInTheDocument()
+    // Richer teaser: value prop + upsell CTA (no streaming).
+    expect(screen.getByText(/cited to the exact filing text/i)).toBeInTheDocument()
     const upgrade = screen.getByRole('link', { name: /upgrade to pro/i })
     expect(upgrade).toHaveAttribute('href', '/pricing')
     expect(askFilingStream).not.toHaveBeenCalled()
+    expect(analytics.paywallPromptShown).toHaveBeenCalledWith(
+      expect.objectContaining({ filingId: 42, entryPoint: 'copilot_rail' }),
+    )
   })
 
   it('shows starter chips in the empty state for Pro users', () => {

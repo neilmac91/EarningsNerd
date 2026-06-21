@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import Link from 'next/link'
-import { Lock, Sparkles, X } from 'lucide-react'
+import { Sparkles, X } from 'lucide-react'
 import {
   askFilingStream,
   isCopilotPaywallError,
@@ -11,6 +10,7 @@ import {
 } from '@/features/filings/api/copilot-api'
 import CopilotComposer from './CopilotComposer'
 import CopilotMessage, { type CopilotMessageData } from './CopilotMessage'
+import CopilotTeaser from './CopilotTeaser'
 
 interface AskCopilotRailProps {
   filingId: number
@@ -251,34 +251,15 @@ export default function AskCopilotRail({
         </button>
       </div>
 
-      {/* Pro gate (minimal — full teaser is P6) */}
+      {/* FREE locked teaser (blurred sample + value props + upsell + paywall analytics). */}
       {!isPro ? (
-        <div className="flex flex-1 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-mint-500/10 ring-1 ring-mint-500/20">
-            <Lock className="h-5 w-5 text-mint-300" />
-          </div>
-          <div>
-            <p className="text-base font-semibold text-white">Ask this Filing is a Pro feature</p>
-            <p className="mt-1 text-sm text-slate-400">
-              Upgrade to ask grounded questions about this {filingType} and get answers cited to the filing.
-            </p>
-          </div>
-          <Link
-            href="/pricing"
-            className="inline-flex items-center gap-2 rounded-lg bg-mint-500 px-4 py-2 text-sm font-semibold text-slate-950 transition-colors hover:bg-mint-400"
-          >
-            <Sparkles className="h-4 w-4" />
-            Upgrade to Pro
-          </Link>
-          {!isAuthenticated && (
-            <p className="text-xs text-slate-500">
-              Already Pro?{' '}
-              <Link href="/login" className="text-mint-300 hover:underline">
-                Sign in
-              </Link>
-            </p>
-          )}
-        </div>
+        <CopilotTeaser
+          filingId={filingId}
+          filingType={filingType}
+          ticker={ticker}
+          companyName={companyName}
+          isAuthenticated={isAuthenticated}
+        />
       ) : (
         <>
           {/* Messages / empty state */}
