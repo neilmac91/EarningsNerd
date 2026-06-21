@@ -32,14 +32,13 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
         setValue(text)
         const el = textareaRef.current
         if (!el) return
+        // Set the DOM value synchronously so scrollHeight + caret are accurate immediately (React
+        // state catches up on the next render) — avoids an rAF race / layout flicker.
+        el.value = text
+        el.style.height = 'auto'
+        el.style.height = `${Math.min(el.scrollHeight, 120)}px`
         el.focus()
-        // Defer until React applies the new value, then auto-grow + caret to end.
-        requestAnimationFrame(() => {
-          el.style.height = 'auto'
-          el.style.height = `${Math.min(el.scrollHeight, 120)}px`
-          const end = el.value.length
-          el.setSelectionRange(end, end)
-        })
+        el.setSelectionRange(text.length, text.length)
       },
     }),
     [],

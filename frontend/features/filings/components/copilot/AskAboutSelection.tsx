@@ -67,9 +67,16 @@ export default function AskAboutSelection({ containerRef, enabled, onAsk }: AskA
       setFloating(null)
       return
     }
-    const onMouseUp = () => window.setTimeout(evaluateSelection, 0)
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const onMouseUp = () => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(evaluateSelection, 0)
+    }
     document.addEventListener('mouseup', onMouseUp)
-    return () => document.removeEventListener('mouseup', onMouseUp)
+    return () => {
+      if (timer) clearTimeout(timer)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
   }, [enabled, evaluateSelection])
 
   // Dismiss when the anchor would go stale or the user signals dismissal.
