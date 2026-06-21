@@ -1,9 +1,10 @@
 'use client'
 
 import { Children, cloneElement, Fragment, isValidElement, type ReactElement, type ReactNode } from 'react'
+import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Ban, CheckCircle2, ExternalLink, Loader2, Minus, RotateCw, Sparkles } from 'lucide-react'
+import { ArrowRight, Ban, CheckCircle2, ExternalLink, Loader2, Minus, RotateCw, Sparkles } from 'lucide-react'
 import { isXbrlCitation, xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import CitationChip, { isHttpUrl } from './CitationChip'
 
@@ -60,9 +61,22 @@ interface CopilotMessageProps {
   isPaywallError?: boolean
   // Opens the contextual upgrade modal (used by the paywall error bubble instead of a raw link).
   onUpgrade?: () => void
+  // Issuer ticker + filing type — used by the "not disclosed" card to point to the right filing.
+  ticker?: string | null
+  filingType?: string
   // Tapping a suggested follow-up asks it. Only shown for the latest completed answer.
   onFollowup?: (question: string) => void
   showFollowups?: boolean
+}
+
+// When an answer isn't in THIS filing, nudge toward where it usually lives (annual vs. quarterly).
+function notDisclosedHint(filingType?: string): string | null {
+  if (!filingType) return null
+  if (/10-?q/i.test(filingType))
+    return 'Annual-only details — full risk factors, executive compensation, the business overview — usually live in the company’s 10-K.'
+  if (/10-?k/i.test(filingType))
+    return 'Quarter-specific updates usually appear in the company’s most recent 10-Q.'
+  return null
 }
 
 // Tappable "ask next" chips generated per answer.
@@ -275,6 +289,8 @@ export default function CopilotMessage({
   onRetry,
   isPaywallError,
   onUpgrade,
+  ticker,
+  filingType,
   onFollowup,
   showFollowups,
 }: CopilotMessageProps) {
@@ -324,6 +340,7 @@ export default function CopilotMessage({
 
   // --- Assistant: "not disclosed" card (visually distinct: slate, no mint) ---
   if (message.kind === 'not_disclosed') {
+    const hint = notDisclosedHint(filingType)
     return (
       <div className="rounded-2xl rounded-bl-sm border border-white/10 bg-slate-800/60 px-3.5 py-3 text-sm">
         <div className="mb-1.5 flex items-center gap-2 text-slate-400">
@@ -331,6 +348,20 @@ export default function CopilotMessage({
           <span className="text-xs font-semibold uppercase tracking-wide">Not disclosed in this filing</span>
         </div>
         <p className="text-slate-300">{message.content}</p>
+        {(hint || ticker) && (
+          <div className="mt-2.5 border-t border-white/10 pt-2.5">
+            {hint && <p className="text-xs text-slate-400">{hint}</p>}
+            {ticker && (
+              <Link
+                href={`/company/${encodeURIComponent(ticker)}`}
+                className={`${hint ? 'mt-1.5 ' : ''}inline-flex items-center gap-1 text-xs font-medium text-mint-300 hover:underline`}
+              >
+                Browse {ticker}’s other filings
+                <ArrowRight className="h-3 w-3" />
+              </Link>
+            )}
+          </div>
+        )}
       </div>
     )
   }

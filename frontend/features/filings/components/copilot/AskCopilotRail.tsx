@@ -354,6 +354,8 @@ export default function AskCopilotRail({
               onRetry={handleRetry}
               isPaywallError={m.status === 'error' && isCopilotPaywallError(m.error || '')}
               onUpgrade={() => handleUpgrade('copilot_limit')}
+              ticker={ticker}
+              filingType={filingType}
               onFollowup={handleSubmit}
               // Only the latest answer offers follow-ups (and not mid-stream).
               showFollowups={idx === messages.length - 1 && !isStreaming}
