@@ -21,7 +21,12 @@ test.describe('production smoke', () => {
   test.skip(!SMOKE_BASE_URL, 'Set SMOKE_BASE_URL (e.g. https://earningsnerd.io) to run the prod smoke check')
 
   test('a filing page serves a summary and the "Ask this Filing" Copilot launcher', async ({ page }) => {
-    await page.goto(`${SMOKE_BASE_URL}${FILING_PATH}`, { waitUntil: 'domcontentloaded' })
+    // new URL(...) avoids a double slash if SMOKE_BASE_URL has a trailing one; the explicit timeout
+    // matches the assertion timeout below so navigation doesn't fail early at Playwright's 30s default.
+    await page.goto(new URL(FILING_PATH, SMOKE_BASE_URL).toString(), {
+      waitUntil: 'domcontentloaded',
+      timeout: 45000,
+    })
 
     // 1) The filing summary must load (rules out a broken page / wrong id before we blame the deploy).
     await expect(page.getByRole('heading', { name: /summary/i }).first()).toBeVisible({ timeout: 45000 })
