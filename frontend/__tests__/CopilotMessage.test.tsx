@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 
 // Mirror the existing AskCopilotRail test's mock for next/link (CopilotMessage uses it in the
 // error/paywall branch).
@@ -138,5 +138,23 @@ describe('CopilotMessage activity ticker', () => {
     })
     render(<CopilotMessage message={done} />)
     expect(screen.queryByText('Looking up revenue')).not.toBeInTheDocument()
+  })
+})
+
+describe('CopilotMessage follow-up chips', () => {
+  it('renders follow-ups and calls onFollowup when one is tapped', () => {
+    const onFollowup = vi.fn()
+    const msg = doneMessage({ followups: ['How did margins trend?', 'What are the top risks?'] })
+    render(<CopilotMessage message={msg} showFollowups onFollowup={onFollowup} />)
+
+    expect(screen.getByText('Ask next')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /how did margins trend/i }))
+    expect(onFollowup).toHaveBeenCalledWith('How did margins trend?')
+  })
+
+  it('does not render follow-ups unless showFollowups is set', () => {
+    const msg = doneMessage({ followups: ['Q?'] })
+    render(<CopilotMessage message={msg} showFollowups={false} onFollowup={() => {}} />)
+    expect(screen.queryByText('Ask next')).not.toBeInTheDocument()
   })
 })

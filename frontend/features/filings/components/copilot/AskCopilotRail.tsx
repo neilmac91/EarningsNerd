@@ -169,6 +169,7 @@ export default function AskCopilotRail({
             citations: c.citations,
             grounded: c.grounded,
             kind: c.kind,
+            followups: c.followups,
             status: 'done',
           })
           setIsStreaming(false)
@@ -305,12 +306,15 @@ export default function AskCopilotRail({
                 </div>
               </div>
             ) : (
-              messages.map((m) => (
+              messages.map((m, idx) => (
                 <CopilotMessage
                   key={m.id}
                   message={m}
                   onRetry={handleRetry}
                   isPaywallError={m.status === 'error' && isCopilotPaywallError(m.error || '')}
+                  onFollowup={handleSubmit}
+                  // Only the latest answer offers follow-ups (and not mid-stream).
+                  showFollowups={idx === messages.length - 1 && !isStreaming}
                 />
               ))
             )}

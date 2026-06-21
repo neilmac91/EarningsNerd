@@ -53,6 +53,9 @@ logger = logging.getLogger(__name__)
 _CITATIONS_SENTINEL = "===CITATIONS==="
 _NOT_DISCLOSED_SENTINEL = "===NOT_DISCLOSED==="
 _SENTINEL_TAIL = max(len(_CITATIONS_SENTINEL), len(_NOT_DISCLOSED_SENTINEL))
+# Optional trailer after the citations JSON carrying 2-3 suggested follow-up questions. It only ever
+# appears inside the (buffered) citations phase, so it's parsed post-hoc — no cross-chunk tail needed.
+_FOLLOWUPS_SENTINEL = "===FOLLOWUPS==="
 
 SYSTEM_PROMPT = f"""You are EarningsNerd's "Ask this Filing" assistant. You answer questions about a \
 SINGLE SEC filing using ONLY the filing content provided in this conversation. You are scoped to \
@@ -79,6 +82,10 @@ support: [1], [2] for filing-text excerpts, and [F1], [F2] for tool-provided fig
 [{{"n": 1, "excerpt": "<verbatim quote copied exactly from the filing>", "section": "Item 7 — MD&A"}}]
    - "excerpt" MUST be copied verbatim from the filing content (so it can be verified).
    - "section" is the filing section it came from (e.g. "Item 1A — Risk Factors").
+4. Finally, output a line containing exactly:
+{_FOLLOWUPS_SENTINEL}
+   then a JSON array of 2-3 short, specific follow-up questions the user is likely to ask next about \
+THIS filing (each under 12 words), e.g. ["How did operating margin trend?", "What are the top risks?"].
 
 IF THE FILING DOES NOT DISCLOSE THE ANSWER, do NOT write prose or citations. Instead output exactly:
 {_NOT_DISCLOSED_SENTINEL}
@@ -241,6 +248,36 @@ def _parse_citations(raw: str) -> list[dict]:
     return [item for item in data if isinstance(item, dict)]
 
 
+def _parse_followups(raw: str) -> list[str]:
+    """Parse the optional follow-up-questions trailer (a JSON array of short strings); max 3."""
+    text = (raw or "").strip()
+    if not text:
+        return []
+    start = text.find("[")
+    end = text.rfind("]")
+    if start != -1 and end != -1 and end > start:
+        text = text[start : end + 1]
+    try:
+        data = json.loads(text)
+    except (ValueError, TypeError):
+        if _HAS_JSON_REPAIR and _repair_json is not None:
+            try:
+                data = json.loads(_repair_json(text))
+            except (ValueError, TypeError):
+                return []
+        else:
+            return []
+    if not isinstance(data, list):
+        return []
+    out: list[str] = []
+    for item in data:
+        if isinstance(item, str) and item.strip():
+            out.append(item.strip()[:140])
+        if len(out) >= 3:
+            break
+    return out
+
+
 def _verify_citations(citations: list[dict], filing: Any, normalized_source: str) -> tuple[list[dict], int]:
     """Verify each citation excerpt against the normalized source; return (citations, grounded)."""
     base_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or ""
@@ -281,7 +318,7 @@ async def answer_filing_question(
     * ``{"type": "activity", "label", "phase", "ok"}`` as numeric tools run (live "show the work").
     * ``{"type": "token", "text": ...}`` for answer prose only (never the citation JSON / sentinels).
     * ``{"type": "not_disclosed", "answer": ...}`` if the model emits the not-disclosed sentinel.
-    * ``{"type": "complete", "answer", "citations", "grounded", "kind"}`` at the end.
+    * ``{"type": "complete", "answer", "citations", "grounded", "kind", "followups"}`` at the end.
     * ``{"type": "error", "message": ...}`` on any failure.
 
     The generator never raises — all exceptions become an ``error`` event so the SSE stream stays
@@ -423,7 +460,14 @@ async def answer_filing_question(
             return
 
         full_answer = "".join(answer_parts).strip()
-        citations = _parse_citations("".join(citation_buffer))
+        # The citations buffer may carry a trailing ===FOLLOWUPS=== block; split it off before parsing
+        # the citation JSON so suggested next-questions can be surfaced as tappable chips.
+        citation_raw = "".join(citation_buffer)
+        followups: list[str] = []
+        if _FOLLOWUPS_SENTINEL in citation_raw:
+            citation_raw, _, followups_raw = citation_raw.partition(_FOLLOWUPS_SENTINEL)
+            followups = _parse_followups(followups_raw)
+        citations = _parse_citations(citation_raw)
         verified_citations, grounded = _verify_citations(citations, filing, normalized_source)
 
         # Append the XBRL facts the model actually cited inline (via their ``[F#]`` marker) as verified
@@ -453,6 +497,7 @@ async def answer_filing_question(
             "citations": verified_citations,
             "grounded": grounded,
             "kind": "answer",
+            "followups": followups,
         }
     except Exception as e:  # noqa: BLE001 — never raise out of the SSE generator
         logger.exception("Copilot answer_filing_question failed")
