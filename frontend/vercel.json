@@ -8,6 +8,8 @@
   ],
   "env": {
     "NEXT_PUBLIC_API_BASE_URL": "https://api.earningsnerd.io",
-    "WAITLIST_MODE": "false"
+    "WAITLIST_MODE": "false",
+    "NEXT_PUBLIC_ENABLE_SECTION_TABS": "true",
+    "NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS": "true"
   }
 }
