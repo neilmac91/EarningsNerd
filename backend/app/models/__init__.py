@@ -210,6 +210,8 @@ class UserUsage(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     month = Column(String, nullable=False, index=True)  # Format: "YYYY-MM"
     summary_count = Column(Integer, default=0, nullable=False)
+    # "Ask this Filing" Copilot (A2) monthly question count, metered separately from summaries.
+    qa_count = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     

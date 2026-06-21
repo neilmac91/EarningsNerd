@@ -7,6 +7,7 @@ from app.models import User, UserUsage
 # `from app.services.subscription_service import FREE_TIER_SUMMARY_LIMIT` keeps working.
 from app.services.entitlements import get_entitlements
 from app.services.entitlements import FREE_TIER_SUMMARY_LIMIT as FREE_TIER_SUMMARY_LIMIT
+from app.config import settings
 
 def get_current_month() -> str:
     """Get current month in YYYY-MM format"""
@@ -54,3 +55,48 @@ def check_usage_limit(user: User, db: Session) -> tuple[bool, int, Optional[int]
         return False, current_count, limit
 
     return True, current_count, limit
+
+
+def get_user_qa_count(user_id: int, month: str, db: Session) -> int:
+    """Get user's Copilot Q&A question count for the given month."""
+    usage = db.query(UserUsage).filter(
+        UserUsage.user_id == user_id,
+        UserUsage.month == month
+    ).first()
+
+    return (usage.qa_count or 0) if usage else 0
+
+
+def increment_user_qa(user_id: int, month: str, db: Session) -> None:
+    """Increment user's Copilot Q&A question count for the given month."""
+    usage = db.query(UserUsage).filter(
+        UserUsage.user_id == user_id,
+        UserUsage.month == month
+    ).first()
+
+    if usage:
+        usage.qa_count = (usage.qa_count or 0) + 1
+        usage.updated_at = datetime.now(timezone.utc)
+    else:
+        usage = UserUsage(
+            user_id=user_id,
+            month=month,
+            summary_count=0,
+            qa_count=1,
+        )
+        db.add(usage)
+
+    db.commit()
+
+
+def check_qa_limit(user: User, db: Session) -> tuple[bool, int, int]:
+    """Check if a Pro user is under the Copilot monthly question cap.
+
+    Returns ``(allowed, current_count, cap)``. The cap is a fair-use soft limit
+    (``COPILOT_MONTHLY_QUESTION_CAP``) rather than a billing boundary — entitlement gating already
+    restricts the feature to Pro, so this only protects against runaway/abusive volume.
+    """
+    cap = settings.COPILOT_MONTHLY_QUESTION_CAP
+    month = get_current_month()
+    current_count = get_user_qa_count(user.id, month, db)
+    return current_count < cap, current_count, cap

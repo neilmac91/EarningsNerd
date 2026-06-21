@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from openai import AsyncOpenAI
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, AsyncGenerator, Dict, List, Optional, Tuple
 from app.config import settings
 from app.services.prompt_loader import get_prompt, get_structured_prompt
 import json
@@ -2751,6 +2751,50 @@ Do not include any additional keys or text outside the JSON object."""
                         raise
         except Exception as e:
             error_msg = str(e)
+            yield f"\n\n[Error: {error_msg[:200]}]"
+
+    async def stream_chat(
+        self,
+        messages: List[Dict[str, str]],
+        *,
+        model: Optional[str] = None,
+        max_tokens: int = 1200,
+        temperature: float = 0.2,
+    ) -> AsyncGenerator[str, None]:
+        """Stream raw assistant delta content for an arbitrary chat completion.
+
+        A thin, transport-agnostic wrapper used by the "Ask this Filing" Copilot (A2). Unlike
+        ``summarize_filing_stream`` this does not own any prompt/JSON contract — callers pass the
+        full ``messages`` and parse the streamed text themselves. Yields only ``delta.content``
+        strings in order.
+
+        ``model`` defaults to ``self.model``. DeepSeek's reasoning ("thinking") mode is disabled so
+        the stream is the answer text, not chain-of-thought. Tolerant try/except mirrors the existing
+        streaming method: on failure it yields a bracketed ``[Error: ...]`` marker rather than
+        raising, so the generator never breaks the SSE contract.
+        """
+        model_name = model or self.model
+        try:
+            create_kwargs: Dict[str, Any] = {
+                "model": model_name,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "stream": True,
+            }
+            is_deepseek = ("deepseek" in model_name.lower()
+                           or "deepseek" in (settings.OPENAI_BASE_URL or "").lower())
+            if is_deepseek:
+                create_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
+            stream = await self.client.chat.completions.create(**create_kwargs)
+            async for chunk in stream:
+                if chunk.choices and len(chunk.choices) > 0:
+                    delta = chunk.choices[0].delta
+                    if delta and delta.content:
+                        yield delta.content
+        except Exception as e:  # noqa: BLE001 — tolerant: never raise out of the stream
+            error_msg = str(e)
+            logger.warning(f"stream_chat failed for {model_name}: {error_msg[:200]}")
             yield f"\n\n[Error: {error_msg[:200]}]"
 
     async def summarize_filing(
