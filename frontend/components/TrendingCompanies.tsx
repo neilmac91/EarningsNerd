@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { getTrendingCompanies, Company } from '@/features/companies/api/companies-api'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
+import { directionText, directionOf } from '@/lib/financialTone'
 import { TrendingUp } from 'lucide-react'
 
 export default function TrendingCompanies() {
@@ -71,9 +72,7 @@ export default function TrendingCompanies() {
                       {fmtCurrency(company.stock_quote.price, { digits: 2, compact: false })}
                     </div>
                     {company.stock_quote.change_percent !== undefined && company.stock_quote.change_percent !== null && (
-                      <div className={`text-sm font-semibold mt-1 ${
-                        company.stock_quote.change_percent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                      }`}>
+                      <div className={`text-sm font-semibold mt-1 ${directionText[directionOf(company.stock_quote.change_percent)]}`}>
                         {fmtPercent(company.stock_quote.change_percent, { digits: 2, signed: true })}
                       </div>
                     )}

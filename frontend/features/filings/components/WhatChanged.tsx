@@ -2,13 +2,10 @@ import React from 'react'
 import Link from 'next/link'
 import { TrendingUp, TrendingDown, Minus, GitCompare } from 'lucide-react'
 import type { ChangeReport } from '@/features/summaries/api/summaries-api'
+import { directionText } from '@/lib/financialTone'
 
 const DIR_ICON = { up: TrendingUp, down: TrendingDown, flat: Minus } as const
-const DIR_TONE = {
-  up: 'text-emerald-600 dark:text-emerald-400',
-  down: 'text-rose-600 dark:text-rose-400',
-  flat: 'text-slate-500 dark:text-slate-400',
-} as const
+const DIR_TONE = directionText
 
 function formatDelta(pct: number | null, direction: 'up' | 'down' | 'flat'): string {
   if (pct === null || direction === 'flat') return 'flat'
@@ -79,13 +76,13 @@ export function WhatChanged({ report }: { report: ChangeReport }) {
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           {risks.new.length > 0 && (
             <div>
-              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-rose-600 dark:text-rose-400">
+              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 New risk factors
               </h3>
               <ul className="space-y-1 text-sm text-gray-700 dark:text-text-secondary-dark">
                 {risks.new.map((risk, i) => (
                   <li key={i} className="flex gap-2">
-                    <span aria-hidden className="text-rose-400">+</span>
+                    <span aria-hidden className="text-slate-400">+</span>
                     <span>{risk}</span>
                   </li>
                 ))}
@@ -94,13 +91,13 @@ export function WhatChanged({ report }: { report: ChangeReport }) {
           )}
           {risks.resolved.length > 0 && (
             <div>
-              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+              <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-mint-600 dark:text-mint-400">
                 No longer cited
               </h3>
               <ul className="space-y-1 text-sm text-gray-700 dark:text-text-secondary-dark">
                 {risks.resolved.map((risk, i) => (
                   <li key={i} className="flex gap-2">
-                    <span aria-hidden className="text-emerald-500">−</span>
+                    <span aria-hidden className="text-mint-500">−</span>
                     <span>{risk}</span>
                   </li>
                 ))}

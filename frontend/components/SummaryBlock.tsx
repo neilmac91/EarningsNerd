@@ -12,18 +12,18 @@ interface SummaryBlockProps {
 export function SummaryBlock({ type = 'neutral', title, children }: SummaryBlockProps) {
   const styles = {
     bullish: {
-      border: 'border-emerald-500',
+      border: 'border-mint-500',
       bg: 'bg-white',
       icon: TrendingUp,
-      iconColor: 'text-emerald-500',
-      titleColor: 'text-emerald-900'
+      iconColor: 'text-mint-500',
+      titleColor: 'text-mint-800'
     },
     bearish: {
-      border: 'border-rose-500',
+      border: 'border-slate-400',
       bg: 'bg-white',
       icon: TrendingDown,
-      iconColor: 'text-rose-500',
-      titleColor: 'text-rose-900'
+      iconColor: 'text-slate-500',
+      titleColor: 'text-slate-700'
     },
     neutral: {
       border: 'border-slate-300',

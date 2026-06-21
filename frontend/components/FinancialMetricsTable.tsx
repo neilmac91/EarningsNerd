@@ -3,6 +3,7 @@
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
 import { fmtCurrency, fmtPercent, fmtScale, parseNumeric } from '@/lib/format'
 import { MetricSourceLink } from '@/components/MetricSourceLink'
+import { directionText } from '@/lib/financialTone'
 
 interface FinancialMetric {
   metric: string
@@ -122,7 +123,7 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
                       {change !== null && percent !== null ? (
                         <div
                           className={`inline-flex items-center space-x-1 ${
-                            isPositive ? 'text-green-600' : isNegative ? 'text-red-600' : 'text-gray-600'
+                            isPositive ? directionText.up : isNegative ? directionText.down : directionText.flat
                           }`}
                         >
                           {isPositive ? (

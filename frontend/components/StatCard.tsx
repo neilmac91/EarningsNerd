@@ -3,6 +3,7 @@
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { useCountUp } from '../hooks/useCountUp'
+import { directionOf, directionChip } from '../lib/financialTone'
 
 const StatCardSparkline = dynamic(
   () => import('./charts/StatCardSparkline'),
@@ -54,27 +55,9 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
     return <StatCard.Skeleton />
   }
 
-  // Only show positive/negative indicators if we have valid data
-  const isPositive = hasValidChange && change > 0
-  const isNegative = hasValidChange && change < 0
-
-  // Bloomberg-Lite Colors
-  const deltaColors = {
-    positive: 'text-emerald-600 bg-emerald-50 border-emerald-100',
-    negative: 'text-rose-600 bg-rose-50 border-rose-100',
-    neutral: 'text-slate-500 bg-slate-50 border-slate-100'
-  }
-
-  const currentDeltaColor = isPositive
-    ? deltaColors.positive
-    : isNegative
-      ? deltaColors.negative
-      : deltaColors.neutral
-
-  const ChangeIcon = isPositive ? ArrowUpRight : isNegative ? ArrowDownRight : Minus
-
-  // Pulse effect for significant gains (>10%)
-  const showPulse = isPositive && hasValidChange && change > 10
+  // Calm directional tone (mint up / muted slate down) — never a casino red/green delta.
+  const dir = hasValidChange ? directionOf(change) : 'flat'
+  const ChangeIcon = dir === 'up' ? ArrowUpRight : dir === 'down' ? ArrowDownRight : Minus
 
   const sparklineData = trendData?.map((val, i) => ({ i, val })) || []
 
@@ -93,7 +76,7 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
         {/* Sparkline */}
         {sparklineData.length > 1 && (
           <div className="h-10 w-24 opacity-50">
-            <StatCardSparkline data={sparklineData} isNegative={!!isNegative} />
+            <StatCardSparkline data={sparklineData} direction={dir} />
           </div>
         )}
       </div>
@@ -103,15 +86,8 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
         <div className="mt-3 flex items-center gap-2">
           <div className={`
             flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium
-            ${currentDeltaColor}
-            ${showPulse ? 'relative' : ''}
+            ${directionChip[dir]}
           `}>
-            {showPulse && (
-              <span className="absolute -right-1 -top-1 flex h-3 w-3">
-                <span className="animate-radar-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500"></span>
-              </span>
-            )}
             <ChangeIcon className="h-3 w-3" />
             <span>{hasValidChange ? `${Math.abs(change).toFixed(1)}%` : 'N/A'}</span>
           </div>

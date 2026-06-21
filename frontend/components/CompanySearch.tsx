@@ -7,6 +7,7 @@ import { searchCompanies, Company } from '@/features/companies/api/companies-api
 import { ApiError } from '@/lib/api/client'
 import { useRouter } from 'next/navigation'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
+import { directionText, directionOf } from '@/lib/financialTone'
 import { matchTopTickers } from '@/lib/topTickers'
 import analytics from '@/lib/analytics'
 
@@ -282,11 +283,7 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
                       </span>
                       {company.stock_quote.change !== undefined && company.stock_quote.change_percent !== undefined && (
                         <span
-                          className={`font-medium ${
-                            company.stock_quote.change >= 0
-                              ? 'text-green-600'
-                              : 'text-red-600'
-                          }`}
+                          className={`font-medium ${directionText[directionOf(company.stock_quote.change)]}`}
                         >
                           {fmtCurrency(company.stock_quote.change, { digits: 2, compact: false })}{' '}
                           ({fmtPercent(company.stock_quote.change_percent, { digits: 2, signed: true })})
@@ -311,11 +308,7 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
                         </span>
                         {company.stock_quote.pre_market_change !== undefined && company.stock_quote.pre_market_change_percent !== undefined && (
                           <span
-                            className={`font-medium ${
-                              company.stock_quote.pre_market_change >= 0
-                                ? 'text-green-600'
-                                : 'text-red-600'
-                            }`}
+                            className={`font-medium ${directionText[directionOf(company.stock_quote.pre_market_change)]}`}
                           >
                             {fmtCurrency(company.stock_quote.pre_market_change, { digits: 2, compact: false })}{' '}
                             ({fmtPercent(company.stock_quote.pre_market_change_percent, { digits: 2, signed: true })})
@@ -331,11 +324,7 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
                         </span>
                         {company.stock_quote.post_market_change !== undefined && company.stock_quote.post_market_change_percent !== undefined && (
                           <span
-                            className={`font-medium ${
-                              company.stock_quote.post_market_change >= 0
-                                ? 'text-green-600'
-                                : 'text-red-600'
-                            }`}
+                            className={`font-medium ${directionText[directionOf(company.stock_quote.post_market_change)]}`}
                           >
                             {fmtCurrency(company.stock_quote.post_market_change, { digits: 2, compact: false })}{' '}
                             ({fmtPercent(company.stock_quote.post_market_change_percent, { digits: 2, signed: true })})
