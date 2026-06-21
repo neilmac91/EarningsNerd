@@ -150,6 +150,22 @@ export const analytics = {
     })
   },
 
+  // The visitor clicked an upgrade CTA on a Copilot paywall surface (the FREE teaser or a monthly-
+  // limit error). Pairs with `paywall_prompt_shown` to measure shown → clicked conversion intent.
+  paywallCtaClicked: (props: {
+    filingId: number
+    ticker: string | null
+    filingType: string
+    entryPoint: string
+  }) => {
+    safeCapture('paywall_cta_clicked', {
+      filing_id: props.filingId,
+      ticker: props.ticker,
+      filing_type: props.filingType,
+      entry_point: props.entryPoint,
+    })
+  },
+
   // "Ask this Filing" Copilot funnel + answer quality. `copilot_question_asked` opens the funnel;
   // `copilot_answer_completed` carries the quality signals (grounded count, not-disclosed rate,
   // XBRL tool-use) so we can monitor honesty/accuracy in aggregate. Pairs with `paywall_prompt_shown`

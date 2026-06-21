@@ -10,6 +10,11 @@ vi.mock('next/link', () => ({
   ),
 }))
 
+// UpgradeModal (rendered by the rail) uses useRouter; provide a stub app router.
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn() }),
+}))
+
 vi.mock('@/features/filings/api/copilot-api', async () => {
   const actual = await vi.importActual<typeof import('@/features/filings/api/copilot-api')>(
     '@/features/filings/api/copilot-api',
@@ -25,6 +30,7 @@ vi.mock('@/features/filings/api/copilot-api', async () => {
 vi.mock('@/lib/analytics', () => ({
   analytics: {
     paywallPromptShown: vi.fn(),
+    paywallCtaClicked: vi.fn(),
     copilotQuestionAsked: vi.fn(),
     copilotAnswerCompleted: vi.fn(),
     copilotAnswerErrored: vi.fn(),
@@ -70,10 +76,15 @@ describe('AskCopilotRail', () => {
 
   it('shows the locked teaser for non-Pro users, fires paywall analytics, never calls the API', () => {
     renderRail({ open: true, isPro: false })
-    // Richer teaser: value prop + upsell CTA (no streaming).
+    // Richer teaser: value prop + upsell CTA (no streaming). The CTA opens the contextual upgrade
+    // modal and records the click, rather than navigating to a raw /pricing link.
     expect(screen.getByText(/cited to the exact filing text/i)).toBeInTheDocument()
-    const upgrade = screen.getByRole('link', { name: /upgrade to pro/i })
-    expect(upgrade).toHaveAttribute('href', '/pricing')
+    fireEvent.click(screen.getByRole('button', { name: /upgrade to pro/i }))
+    expect(analytics.paywallCtaClicked).toHaveBeenCalledWith(
+      expect.objectContaining({ filingId: 42, entryPoint: 'copilot_rail' }),
+    )
+    // Modal appears (its primary action).
+    expect(screen.getByRole('button', { name: /see plans/i })).toBeInTheDocument()
     expect(askFilingStream).not.toHaveBeenCalled()
     expect(analytics.paywallPromptShown).toHaveBeenCalledWith(
       expect.objectContaining({ filingId: 42, entryPoint: 'copilot_rail' }),
@@ -185,7 +196,7 @@ describe('AskCopilotRail', () => {
     expect(screen.queryByText(/grounded in/i)).not.toBeInTheDocument()
   })
 
-  it('shows an upgrade link inside the bubble on a paywall error', async () => {
+  it('shows an upgrade CTA inside the bubble on a paywall error (opens the modal + tracks it)', async () => {
     let captured: CopilotHandlers | null = null
     vi.mocked(askFilingStream).mockImplementation(async (_id, _q, _h, handlers) => {
       captured = handlers
@@ -200,7 +211,12 @@ describe('AskCopilotRail', () => {
     captured!.onError('This is a Pro feature.')
 
     const errorBubble = await screen.findByText('This is a Pro feature.')
-    const upgradeLink = within(errorBubble.closest('div')!).getByRole('link', { name: /upgrade to pro/i })
-    expect(upgradeLink).toHaveAttribute('href', '/pricing')
+    const upgrade = within(errorBubble.closest('div')!).getByRole('button', { name: /upgrade to pro/i })
+    fireEvent.click(upgrade)
+
+    expect(analytics.paywallCtaClicked).toHaveBeenCalledWith(
+      expect.objectContaining({ filingId: 42, entryPoint: 'copilot_limit' }),
+    )
+    expect(screen.getByRole('button', { name: /see plans/i })).toBeInTheDocument()
   })
 })

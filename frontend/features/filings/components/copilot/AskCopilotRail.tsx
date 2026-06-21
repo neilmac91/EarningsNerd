@@ -12,6 +12,7 @@ import CopilotComposer, { type CopilotComposerHandle } from './CopilotComposer'
 import CopilotMessage, { type CopilotMessageData } from './CopilotMessage'
 import CopilotTeaser from './CopilotTeaser'
 import { useFilingViewer } from './FilingViewerContext'
+import UpgradeModal from '@/components/UpgradeModal'
 import { analytics } from '@/lib/analytics'
 
 interface AskCopilotRailProps {
@@ -89,6 +90,8 @@ export default function AskCopilotRail({
 }: AskCopilotRailProps) {
   const [messages, setMessages] = useState<CopilotMessageData[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
+  // Contextual upgrade modal, opened from a paywall surface (FREE teaser CTA or a monthly-limit error).
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   // Keep the last asked question so the Retry button can re-run it.
@@ -295,6 +298,12 @@ export default function AskCopilotRail({
     runQuestion(last, trimmed)
   }
 
+  // Record the CTA click (shown → clicked funnel) and open the contextual upgrade modal.
+  const handleUpgrade = (entryPoint: string) => {
+    analytics.paywallCtaClicked({ filingId, ticker, filingType, entryPoint })
+    setUpgradeOpen(true)
+  }
+
   // Need a summary to cite against — don't render the rail at all without one.
   if (!summaryAvailable) return null
 
@@ -309,6 +318,7 @@ export default function AskCopilotRail({
       ticker={ticker}
       companyName={companyName}
       isAuthenticated={isAuthenticated}
+      onUpgrade={() => handleUpgrade('copilot_rail')}
     />
   ) : (
     <>
@@ -343,6 +353,7 @@ export default function AskCopilotRail({
               message={m}
               onRetry={handleRetry}
               isPaywallError={m.status === 'error' && isCopilotPaywallError(m.error || '')}
+              onUpgrade={() => handleUpgrade('copilot_limit')}
               onFollowup={handleSubmit}
               // Only the latest answer offers follow-ups (and not mid-stream).
               showFollowups={idx === messages.length - 1 && !isStreaming}
@@ -356,10 +367,23 @@ export default function AskCopilotRail({
     </>
   )
 
+  const upgradeModal = (
+    <UpgradeModal
+      open={upgradeOpen}
+      onClose={() => setUpgradeOpen(false)}
+      feature="The filing Copilot"
+    />
+  )
+
   // --- Embedded: body only; FilingWorkspace owns the shell, tabs, header and close. The component
   // stays mounted (workspace toggles visibility) so the stream/conversation survives view switches.
   if (embedded) {
-    return <div className="flex min-h-0 flex-1 flex-col">{body}</div>
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        {body}
+        {upgradeModal}
+      </div>
+    )
   }
 
   // --- Launcher (closed) ---
@@ -408,6 +432,7 @@ export default function AskCopilotRail({
       </div>
 
       {body}
+      {upgradeModal}
     </div>
   )
 }

@@ -1,7 +1,6 @@
 'use client'
 
 import { Children, cloneElement, Fragment, isValidElement, type ReactElement, type ReactNode } from 'react'
-import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Ban, CheckCircle2, ExternalLink, Loader2, Minus, RotateCw, Sparkles } from 'lucide-react'
@@ -59,6 +58,8 @@ interface CopilotMessageProps {
   message: CopilotMessageData
   onRetry?: () => void
   isPaywallError?: boolean
+  // Opens the contextual upgrade modal (used by the paywall error bubble instead of a raw link).
+  onUpgrade?: () => void
   // Tapping a suggested follow-up asks it. Only shown for the latest completed answer.
   onFollowup?: (question: string) => void
   showFollowups?: boolean
@@ -273,6 +274,7 @@ export default function CopilotMessage({
   message,
   onRetry,
   isPaywallError,
+  onUpgrade,
   onFollowup,
   showFollowups,
 }: CopilotMessageProps) {
@@ -293,13 +295,16 @@ export default function CopilotMessage({
         <p className="text-rose-200">{message.error || 'Something went wrong.'}</p>
         <div className="mt-2.5">
           {isPaywallError ? (
-            <Link
-              href="/pricing"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-mint-500 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-mint-400"
-            >
-              <Sparkles className="h-3.5 w-3.5" />
-              Upgrade to Pro
-            </Link>
+            onUpgrade && (
+              <button
+                type="button"
+                onClick={onUpgrade}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-mint-500 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-colors hover:bg-mint-400"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                Upgrade to Pro
+              </button>
+            )
           ) : (
             onRetry && (
               <button

@@ -11,6 +11,8 @@ interface CopilotTeaserProps {
   ticker: string | null
   companyName: string | null
   isAuthenticated: boolean
+  // Opens the contextual upgrade modal (and records the CTA click) instead of a raw /pricing link.
+  onUpgrade: () => void
 }
 
 const VALUE_PROPS = [
@@ -30,6 +32,7 @@ export default function CopilotTeaser({
   ticker,
   companyName,
   isAuthenticated,
+  onUpgrade,
 }: CopilotTeaserProps) {
   useEffect(() => {
     analytics.paywallPromptShown({ filingId, ticker, filingType, entryPoint: 'copilot_rail' })
@@ -78,14 +81,15 @@ export default function CopilotTeaser({
         ))}
       </ul>
 
-      {/* Upsell CTA */}
-      <Link
-        href="/pricing"
+      {/* Upsell CTA — opens the contextual upgrade modal and records the click. */}
+      <button
+        type="button"
+        onClick={onUpgrade}
         className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-mint-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-mint-400"
       >
         <Sparkles className="h-4 w-4" />
         Upgrade to Pro
-      </Link>
+      </button>
       {!isAuthenticated && (
         <p className="mt-3 text-center text-xs text-slate-500">
           Already Pro?{' '}

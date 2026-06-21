@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import React from 'react'
 
 vi.mock('next/link', () => ({
@@ -21,6 +21,7 @@ const baseProps = {
   ticker: 'AAPL',
   companyName: 'Apple Inc.',
   isAuthenticated: true,
+  onUpgrade: vi.fn(),
 }
 
 describe('CopilotTeaser', () => {
@@ -29,10 +30,14 @@ describe('CopilotTeaser', () => {
   })
 
   it('renders value props + upgrade CTA and fires the paywall event once', () => {
-    render(<CopilotTeaser {...baseProps} />)
+    const onUpgrade = vi.fn()
+    render(<CopilotTeaser {...baseProps} onUpgrade={onUpgrade} />)
 
     expect(screen.getByText(/never guessed/i)).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: /upgrade to pro/i })).toHaveAttribute('href', '/pricing')
+    // The CTA is a button that opens the contextual upgrade modal (not a raw /pricing link).
+    const cta = screen.getByRole('button', { name: /upgrade to pro/i })
+    fireEvent.click(cta)
+    expect(onUpgrade).toHaveBeenCalledTimes(1)
     expect(analytics.paywallPromptShown).toHaveBeenCalledTimes(1)
     expect(analytics.paywallPromptShown).toHaveBeenCalledWith(
       expect.objectContaining({
