@@ -112,3 +112,32 @@ Generator never raises — all exceptions become an `error` event.
 ### Done criteria
 - `cd backend && ruff check .` clean.
 - `cd backend && python -m pytest tests/unit/test_copilot.py -q` green.
+
+---
+
+## Revised remaining plan (post-P5, 2026-06-21) — reshaped after a deep sanity-check
+
+**Shipped & merged:** P1 (QA backend) · P2+P3 (rail + SSE streaming) · P4 (interactive citations) · P5 (numeric XBRL tool-use). Foundation is strong: honest grounding (quote-verify + "not disclosed"), exact XBRL-cited numbers, interactive chips, Pro-gated/metered/streaming.
+
+**New decisions (user, 2026-06-21):** build the **in-app filing viewer**; fold in **all** of: live "show the work" ticker, inline chips for numeric facts, dynamic follow-up suggestions, and the **eval harness + analytics** (treated as launch-gating rigor). A fresh-eyes audit of the merged code is folded in as fixes.
+
+The original P6/P7 split is replaced by three sharper phases (each its own PR, green CI before next):
+
+### P6 — Trust & engagement UX (mostly frontend + light backend)
+- **Live "show the work" ticker:** backend emits new SSE activity events from the tool loop — e.g. `{"type":"activity","label":"Looking up revenue (XBRL)"}` and a `done` variant — surfaced as a live status line during streaming (Brightwave/Hebbia signal). Needs `copilot_service`/`stream_chat_with_tools` to yield tool start/finish, and the rail to render them.
+- **Inline chips for numeric facts:** give XBRL facts inline `[n]` chips in the prose (today they only hit the Sources list). Approach: assign the model the fact citation numbers via the tool-result content (e.g. each fact result carries `ref: n`) so it can cite `[n]` inline; chips render via the existing `injectCitations`.
+- **Dynamic follow-up suggestions:** after each answer, 2–3 contextual next questions (model emits a `===FOLLOWUPS===` block, or a cheap fast-model pass), rendered as tappable chips.
+- **Richer FREE locked-teaser:** blurred sample Q&A + value prop + upsell (reuse `UpgradeModal` + `isPaywallStreamError` → `analytics.paywallPromptShown`). Refined not-disclosed / out-of-scope cards.
+
+### P7 — In-app filing viewer (the headline UX elevation)
+- Render the cached filing (`FilingContentCache.markdown_content`) in an on-page reader (split-view we already set up / a panel), so a citation click **scrolls to + flash-highlights the exact passage in place** instead of a new-tab SEC jump. Reuse the excerpt-normalisation/matching from `provenance_service`; add the `flash-highlight` keyframe; SEC deep-link stays as the "open original filing" affordance. Mobile: sheet/peek with "↑ back to answer".
+- Spike first: confirm the cached markdown highlights cleanly against the verbatim excerpts.
+
+### P8 — Rigor: evals + analytics + polish (launch-gating)
+- **Eval harness** (extend `backend/evals/`): per-filing golden Q&A incl. deliberately **unanswerable** questions (measure refusal calibration), **citation-faithfulness** scorer (quote-verify as a metric), **numeric-accuracy** vs `financial_fact`. Deterministic gates; LLM/RAGAS judge as corroboration only.
+- **Copilot analytics:** events for question asked, grounded-rate, not-disclosed-rate, tool-use, paywall-shown, Pro-conversion.
+- **Polish:** `⌘K`/`/` to ask, select-text → "Ask about this", citation-popover **portal** (fix scroll-container clipping), accessibility pass.
+
+### Audit fold-in
+Any correctness/robustness bugs the fresh-eyes audit flags in the shipped P1–P5 code are fixed first (either a small pre-P6 PR or rolled into the relevant phase).
+
