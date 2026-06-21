@@ -36,13 +36,14 @@ _Synthesised from 3 research agents (cost/brains, OSS/techniques, UI/UX + compet
 - Wow: `⌘K`/`/` to ask; select-text → "Ask about this ✦"; flash-highlight; grounding ticker.
 
 ## Build phases (each its own PR, green CI before next)
-- [ ] **P1 — Backend QA endpoint:** `ask-stream` SSE, prompt assembly (section excerpt + XBRL), DeepSeek streaming + caching, structured claims output, reuse `provenance_service` for verify + fragment URLs, "not disclosed" path, Pro-only entitlement gate + metering. Tests.  ← _current_
-- [ ] **P2 — Frontend shell:** `FilingWorkspace` split layout + `AskCopilotRail` (dark), collapse + persistence, mobile bottom sheet.
-- [ ] **P3 — Stream consumption:** `askFilingStream` (copy of `runStreamAttempt`) + streaming bubble + caret + heartbeat.
-- [ ] **P4 — Citations:** chip render, hover popover, click→`useCitationHighlight` flash, Sources list, Verified/Cited vocabulary, `flash-highlight` keyframe.
-- [ ] **P5 — Numeric tool-use:** `get_financial_fact`/`compute_metric`/`list_available_concepts` + XBRL-cited rendering.
-- [ ] **P6 — Integrity + monetization UX:** not-disclosed/out-of-scope cards, grounding ticker, suggested questions, FREE locked teaser + upsell + analytics.
-- [ ] **P7 — Eval + polish:** evals harness extension (golden Q&A + unanswerable + faithfulness scorer); `⌘K`, select-to-ask, animations.
+> **Delta (2026-06-21):** P1–P5 are shipped & merged. The original P6/P7 below are **superseded** by the reshaped **["Revised remaining plan (post-P5)"](#revised-remaining-plan-post-p5-2026-06-21--reshaped-after-a-deep-sanity-check)** at the bottom of this doc (now P6 trust/engagement UX · P7 in-app filing viewer · P8 evals + analytics + polish). This section is kept for historical context.
+- [x] **P1 — Backend QA endpoint:** `ask-stream` SSE, prompt assembly (section excerpt + XBRL), DeepSeek streaming + caching, structured claims output, reuse `provenance_service` for verify + fragment URLs, "not disclosed" path, Pro-only entitlement gate + metering. Tests. — _shipped (#349)_
+- [x] **P2 — Frontend shell:** `FilingWorkspace` split layout + `AskCopilotRail` (dark), collapse + persistence, mobile bottom sheet. — _shipped (#350)_
+- [x] **P3 — Stream consumption:** `askFilingStream` (copy of `runStreamAttempt`) + streaming bubble + caret + heartbeat. — _shipped (#350)_
+- [x] **P4 — Citations:** chip render, hover popover, click→`useCitationHighlight` flash, Sources list, Verified/Cited vocabulary, `flash-highlight` keyframe. — _shipped (#351)_
+- [x] **P5 — Numeric tool-use:** `get_financial_fact`/`compute_metric`/`list_available_concepts` + XBRL-cited rendering. — _shipped (#352)_
+- [ ] ~~**P6 — Integrity + monetization UX**~~ — _superseded; folded into the revised P6 below._
+- [ ] ~~**P7 — Eval + polish**~~ — _superseded; folded into the revised P8 below._
 
 ## Risks / watch-items
 - DeepSeek caching semantics + actual v4-pro pricing — verify before launch.
