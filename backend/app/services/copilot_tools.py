@@ -317,13 +317,17 @@ def _run_compute_metric(db: Any, company_id: int, args: dict) -> dict[str, Any]:
         numerator = _query_fact(db, company_id, concept, fiscal_year, fiscal_period)
         if numerator is None:
             return {"error": "not_disclosed", "available_concepts": _available_concepts(db, company_id)}
-        # Match the denominator to the numerator's exact period so the ratio is internally consistent.
-        denominator = _query_fact(
-            db,
-            company_id,
-            denominator_concept,
-            fiscal_year=numerator.fiscal_year,
-            fiscal_period=numerator.fiscal_period,
+        # Match the denominator to the numerator's EXACT period_end (a non-nullable Date) so the
+        # ratio is internally consistent even when fiscal_year/fiscal_period are null on a fact.
+        denominator = (
+            db.query(FinancialFact)
+            .filter(
+                FinancialFact.company_id == company_id,
+                FinancialFact.concept == denominator_concept,
+                FinancialFact.period_end == numerator.period_end,
+                FinancialFact.is_latest.is_(True),
+            )
+            .first()
         )
         if denominator is None:
             return {"error": "denominator_not_disclosed", "denominator_concept": denominator_concept}

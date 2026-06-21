@@ -2838,7 +2838,7 @@ Do not include any additional keys or text outside the JSON object."""
         """
         model_name = model or self.model
         is_deepseek = ("deepseek" in model_name.lower()
-                       or "deepseek" in (settings.OPENAI_BASE_URL or "").lower())
+                       or "deepseek" in (getattr(settings, "OPENAI_BASE_URL", None) or "").lower())
         try:
             for _ in range(max_rounds):
                 create_kwargs: Dict[str, Any] = {
