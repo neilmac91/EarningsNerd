@@ -25,6 +25,7 @@ from types import SimpleNamespace
 from typing import Any, AsyncGenerator, Optional
 
 from app.config import settings
+from app.services import copilot_tools
 from app.services.openai_service import openai_service
 from app.services.provenance_service import (
     build_text_fragment_url,
@@ -57,6 +58,9 @@ RULES:
 - Every factual claim MUST be supported by a verbatim excerpt quoted directly from the filing.
 - Be precise, decisive, and concise. Use the filing's own numbers and language.
 - If the filing does not disclose what is asked, say so honestly — do NOT guess or fabricate.
+- For any specific financial figure (revenue, margins, EPS, YoY, etc.), you MUST call the provided \
+tools to get the exact value — never state a number from memory or compute it yourself. \
+Tool-provided numbers are authoritative.
 
 OUTPUT FORMAT (follow exactly):
 1. Write the answer as prose. Place inline citation markers like [1], [2] immediately after each \
@@ -101,6 +105,11 @@ def snapshot_filing(filing: Any) -> SimpleNamespace:
         document_url=getattr(filing, "document_url", None),
         sec_url=getattr(filing, "sec_url", None),
         xbrl_data=getattr(filing, "xbrl_data", None),
+        # company_id + cik power the P5 numeric tools, which open their own DB session (the request
+        # session is gone by the time the SSE generator runs), so the company id is captured eagerly
+        # here rather than dereferenced off a detached ORM instance later.
+        company_id=getattr(filing, "company_id", None),
+        cik=getattr(company, "cik", None),
         content_cache=SimpleNamespace(
             critical_excerpt=getattr(cache, "critical_excerpt", None),
             markdown_content=getattr(cache, "markdown_content", None),
@@ -272,6 +281,22 @@ async def answer_filing_question(
         normalized_source = normalize_for_match(source_text)
         messages = _build_messages(filing, source_text, question, history)
 
+        # P5 numeric tool-use: bind the tools to this filing's company. ``run_tool`` opens its own DB
+        # session per call (the request session is gone by now), and every successful fact result is
+        # collected — deduped by (raw_tag, accession, period_end) — to surface as verified citations.
+        company_id = getattr(filing, "company_id", None)
+        used_facts: list[dict] = []
+        _seen_facts: set[tuple] = set()
+
+        def _run_tool(name: str, args: dict) -> dict:
+            result = copilot_tools.run_tool(name, args, company_id)
+            if isinstance(result, dict) and "error" not in result and "value" in result:
+                key = (result.get("raw_tag"), result.get("accession"), result.get("period_end"))
+                if key not in _seen_facts:
+                    _seen_facts.add(key)
+                    used_facts.append(result)
+            return result
+
         yield {"type": "progress", "stage": "reading"}
 
         answer_parts: list[str] = []          # emitted prose (before any sentinel)
@@ -280,8 +305,10 @@ async def answer_filing_question(
         pending = ""                          # carry-over tail for cross-chunk sentinel detection
         mode = "answer"                        # answer | citations | not_disclosed
 
-        async for delta in openai_service.stream_chat(
+        async for delta in openai_service.stream_chat_with_tools(
             messages,
+            copilot_tools.TOOLS,
+            _run_tool,
             model=openai_service.model,
             max_tokens=settings.COPILOT_MAX_TOKENS,
             temperature=0.2,
@@ -349,6 +376,20 @@ async def answer_filing_question(
         full_answer = "".join(answer_parts).strip()
         citations = _parse_citations("".join(citation_buffer))
         verified_citations, grounded = _verify_citations(citations, filing, normalized_source)
+
+        # Append the XBRL facts the tools returned as verified citations (existing citation shape, so
+        # the frontend renders them in the Sources list / chips with a Verified badge — no frontend
+        # change). Numbering continues after the text citations; their count adds to ``grounded``.
+        filing_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or None
+        next_n = len(verified_citations) + 1
+        for fact in used_facts:
+            cite = copilot_tools.fact_to_citation(fact)
+            cite["n"] = next_n
+            cite["fragment_url"] = filing_url
+            verified_citations.append(cite)
+            grounded += 1
+            next_n += 1
+
         yield {
             "type": "complete",
             "answer": full_answer,

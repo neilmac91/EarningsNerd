@@ -41,6 +41,7 @@ def _fake_filing():
     company = SimpleNamespace(name="Apple Inc.", ticker="AAPL", cik="320193")
     return SimpleNamespace(
         id=1,
+        company_id=1,
         filing_type="10-K",
         filing_date=None,
         document_url="https://www.sec.gov/Archives/edgar/data/320193/000.../aapl-10k.htm",
@@ -85,7 +86,7 @@ async def test_service_grounds_verified_citation(monkeypatch):
         "TIONS===\n" + citations_json,    # ... and this one
     ]
     monkeypatch.setattr(
-        copilot_service.openai_service, "stream_chat", _chunks_to_async_gen(chunks)
+        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
     )
 
     events = await _collect(_fake_filing(), "How did revenue do?")
@@ -118,7 +119,7 @@ async def test_service_marks_unverifiable_citation_false(monkeypatch):
     citations_json = '[{"n":1,"excerpt":"' + fabricated + '","section":"Item 7 — MD&A"}]'
     chunks = ["A dividend was announced [1]. ===CITATIONS===\n" + citations_json]
     monkeypatch.setattr(
-        copilot_service.openai_service, "stream_chat", _chunks_to_async_gen(chunks)
+        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
     )
 
     events = await _collect(_fake_filing(), "Any dividend?")
@@ -140,7 +141,7 @@ async def test_service_not_disclosed_path(monkeypatch):
         "CLOSED===\nThis 10-K does not disclose forward revenue guidance.",
     ]
     monkeypatch.setattr(
-        copilot_service.openai_service, "stream_chat", _chunks_to_async_gen(chunks)
+        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
     )
 
     events = await _collect(_fake_filing(), "What is next year's guidance?")
@@ -332,3 +333,121 @@ def test_snapshot_filing_detaches_fields():
     assert snap.company.ticker == "AAPL"
     assert snap.filing_type == "10-K"
     assert snap.document_url.startswith("https://www.sec.gov/")
+    # P5: company_id + cik are captured eagerly so the numeric tools can query without the request DB.
+    assert snap.company_id == 1
+    assert snap.cik == "320193"
+
+
+# --- P5: numeric XBRL tool-use -----------------------------------------------------------------
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_surfaces_xbrl_fact_as_verified_citation(monkeypatch):
+    """When the model calls get_financial_fact, the resulting XBRL fact is appended to the complete
+    event as a verified citation with a ``XBRL ·`` section_ref — without any frontend change."""
+    revenue_fact = {
+        "concept": "revenue",
+        "value": 391035000000.0,
+        "unit": "USD",
+        "period_end": "2024-09-28",
+        "fiscal_year": 2024,
+        "fiscal_period": "FY",
+        "raw_tag": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+        "accession": "0000320193-24-000123",
+    }
+
+    # Fake stream: (a) call the passed run_tool for get_financial_fact, then (b) yield an answer with
+    # a [1] marker + the citations sentinel + an (empty) text-citation array.
+    def _fake_stream(messages, tools, run_tool, **_kwargs):
+        async def _gen():
+            run_tool("get_financial_fact", {"concept": "revenue"})
+            yield "Apple's revenue was strong [1]. ===CITATIONS===\n[]"
+        return _gen()
+
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _fake_stream
+    )
+    monkeypatch.setattr(copilot_service.copilot_tools, "run_tool",
+                        lambda name, args, company_id: revenue_fact)
+
+    events = await _collect(_fake_filing(), "How much revenue?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    assert complete["kind"] == "answer"
+    # One XBRL citation (no text citations were emitted) and it counts toward grounded.
+    assert complete["grounded"] == 1
+    assert len(complete["citations"]) == 1
+    cite = complete["citations"][0]
+    assert cite["verified"] is True
+    assert cite["section_ref"].startswith("XBRL ·")
+    assert "Revenue" in cite["excerpt"]
+    assert cite["n"] == 1
+    assert cite["fragment_url"] == _fake_filing().document_url
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_stream_chat_with_tools_assembles_tool_call_deltas():
+    """stream_chat_with_tools concatenates tool-call argument fragments split across chunks, runs the
+    tool with the assembled args, then streams the next round's content."""
+    from app.services.openai_service import openai_service
+
+    def _delta(content=None, tool_calls=None, finish_reason=None):
+        return SimpleNamespace(
+            choices=[SimpleNamespace(
+                delta=SimpleNamespace(content=content, tool_calls=tool_calls),
+                finish_reason=finish_reason,
+            )]
+        )
+
+    def _tc(index, *, call_id=None, name=None, arguments=None):
+        return SimpleNamespace(
+            index=index,
+            id=call_id,
+            function=SimpleNamespace(name=name, arguments=arguments),
+        )
+
+    # Round 1: a single tool call whose JSON arguments are split across two chunks.
+    round1 = [
+        _delta(tool_calls=[_tc(0, call_id="call_1", name="get_financial_fact", arguments='{"conc')]),
+        _delta(tool_calls=[_tc(0, arguments='ept":"revenue"}')], finish_reason="tool_calls"),
+    ]
+    # Round 2: the streamed final answer.
+    round2 = [_delta(content="Revenue was "), _delta(content="$391B.", finish_reason="stop")]
+
+    calls = []
+
+    async def _fake_create(**kwargs):
+        # First create() returns round1, second returns round2 (the loop advances after tools run).
+        chunks = round1 if len(calls) == 0 else round2
+
+        async def _aiter():
+            for c in chunks:
+                yield c
+        calls.append(kwargs)
+        return _aiter()
+
+    captured = {}
+
+    def _run_tool(name, args):
+        captured["name"] = name
+        captured["args"] = args
+        return {"concept": "revenue", "value": 391035000000.0}
+
+    import unittest.mock as mock
+    with mock.patch.object(openai_service.client.chat.completions, "create", _fake_create):
+        out = []
+        async for piece in openai_service.stream_chat_with_tools(
+            [{"role": "user", "content": "revenue?"}],
+            tools=[{"type": "function", "function": {"name": "get_financial_fact"}}],
+            run_tool=_run_tool,
+        ):
+            out.append(piece)
+
+    # The split argument fragments were reassembled into valid JSON and passed to run_tool.
+    assert captured["name"] == "get_financial_fact"
+    assert captured["args"] == {"concept": "revenue"}
+    # The second round's content was streamed out.
+    assert "".join(out) == "Revenue was $391B."
+    # Two create() calls: round 1 (tool call) + round 2 (answer).
+    assert len(calls) == 2

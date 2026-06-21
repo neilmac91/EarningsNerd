@@ -2797,6 +2797,126 @@ Do not include any additional keys or text outside the JSON object."""
             logger.warning(f"stream_chat failed for {model_name}: {error_msg[:200]}")
             yield f"\n\n[Error: {error_msg[:200]}]"
 
+    async def stream_chat_with_tools(
+        self,
+        messages: List[Dict[str, Any]],
+        tools: List[Dict[str, Any]],
+        run_tool: Any,
+        *,
+        model: Optional[str] = None,
+        max_tokens: int = 1200,
+        temperature: float = 0.2,
+        max_rounds: int = 4,
+    ) -> AsyncGenerator[str, None]:
+        """Stream a chat completion that may call tools, executing them server-side between rounds.
+
+        A function-calling sibling of :meth:`stream_chat` used by the "Ask this Filing" Copilot's
+        numeric path (P5). The model is offered ``tools`` with ``tool_choice="auto"``; when it asks
+        for one, this method runs it via ``run_tool(name, args)`` and feeds the result back, then lets
+        the model continue. Plain answer text is yielded live (token-by-token) exactly like
+        ``stream_chat``, so the caller's sentinel-split prose handling is unchanged.
+
+        The tricky part is **stream-assembling tool calls**: a single tool call's
+        ``function.arguments`` arrives as a sequence of string fragments across many chunks, keyed by
+        ``tc.index``. We accumulate ``id``/``name`` and concatenate the argument fragments per index,
+        then at the round's end append the assistant ``tool_calls`` message + one ``tool`` result
+        message per call and loop again (the next round streams the answer). Rounds that only call
+        tools normally carry empty ``content``, so yielding their content live is harmless.
+
+        Args:
+            messages: The conversation so far (mutated in place across rounds with tool turns).
+            tools: OpenAI-format tool schemas to offer the model.
+            run_tool: ``Callable[[str, dict], dict]`` executing a tool by name + decoded args.
+            model: Model id (defaults to ``self.model``).
+            max_tokens: Max completion tokens per round.
+            temperature: Sampling temperature.
+            max_rounds: Hard cap on tool-call rounds to bound latency/loops.
+
+        Yields:
+            Assistant answer ``delta.content`` strings in order. On any failure yields a bracketed
+            ``[Error: ...]`` marker rather than raising, so the SSE contract is never broken.
+        """
+        model_name = model or self.model
+        is_deepseek = ("deepseek" in model_name.lower()
+                       or "deepseek" in (getattr(settings, "OPENAI_BASE_URL", None) or "").lower())
+        try:
+            for _ in range(max_rounds):
+                create_kwargs: Dict[str, Any] = {
+                    "model": model_name,
+                    "messages": messages,
+                    "tools": tools,
+                    "tool_choice": "auto",
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "stream": True,
+                }
+                if is_deepseek:
+                    create_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
+
+                stream = await self.client.chat.completions.create(**create_kwargs)
+
+                # Assemble tool calls across chunks, keyed by their delta index. Each entry holds the
+                # call id, function name, and the concatenated arguments-string fragments. Whether any
+                # tool calls were assembled (not finish_reason) drives the round's branch below.
+                tool_calls: Dict[int, Dict[str, str]] = {}
+                content_parts: List[str] = []
+
+                async for chunk in stream:
+                    if not chunk.choices:
+                        continue
+                    choice = chunk.choices[0]
+                    delta = choice.delta
+                    if delta is None:
+                        continue
+                    if delta.content:
+                        content_parts.append(delta.content)
+                        yield delta.content
+                    for tc in (delta.tool_calls or []):
+                        slot = tool_calls.setdefault(tc.index, {"id": "", "name": "", "arguments": ""})
+                        if tc.id:
+                            slot["id"] = tc.id
+                        if tc.function:
+                            if tc.function.name:
+                                slot["name"] = tc.function.name
+                            if tc.function.arguments:
+                                slot["arguments"] += tc.function.arguments
+
+                # No tool calls → the streamed content was the final answer; we're done.
+                if not tool_calls:
+                    return
+
+                # Append the assistant tool-call turn, then run each call and append its result, so
+                # the next round can stream the grounded answer.
+                assembled = [tool_calls[idx] for idx in sorted(tool_calls)]
+                messages.append({
+                    "role": "assistant",
+                    "content": "".join(content_parts),
+                    "tool_calls": [
+                        {
+                            "id": call["id"],
+                            "type": "function",
+                            "function": {"name": call["name"], "arguments": call["arguments"]},
+                        }
+                        for call in assembled
+                    ],
+                })
+                for call in assembled:
+                    try:
+                        parsed_args = json.loads(call["arguments"] or "{}")
+                    except (ValueError, TypeError):
+                        parsed_args = {}
+                    result = run_tool(call["name"], parsed_args)
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": call["id"],
+                        "content": json.dumps(result, default=str),
+                    })
+                # Loop continues for the next round (which should stream the answer).
+        except Exception as e:  # noqa: BLE001 — tolerant: never raise out of the stream
+            error_msg = str(e)
+            logger.warning(f"stream_chat_with_tools failed for {model_name}: {error_msg[:200]}")
+            yield f"\n\n[Error: {error_msg[:200]}]"
+
     async def summarize_filing(
         self,
         filing_text: str,
