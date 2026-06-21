@@ -100,6 +100,19 @@ function MarkdownProse({ children }: { children: string }) {
   )
 }
 
+// While tokens are still arriving we render the raw text (whitespace-preserving) instead of
+// re-parsing the growing markdown on every frame — markdown (with citation chips) is rendered once
+// the `complete` event lands. Re-parsing a markdown string that grows by a token each frame is the
+// O(n²) cost the streaming view used to pay; a plain text node is a near-free update. `pre-wrap`
+// keeps paragraph breaks readable mid-stream; the formatted answer snaps in when the stream ends.
+function StreamingText({ children }: { children: string }) {
+  return (
+    <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-200">
+      {children}
+    </div>
+  )
+}
+
 // Walk a react-markdown subtree and replace inline `[n]` markers with interactive CitationChips.
 // Only `[n]` whose number matches a known citation becomes a chip; any other `[n]` stays literal
 // text (e.g. the model emitted a bracket that isn't a real citation). Recurses into arrays and
@@ -348,6 +361,8 @@ export default function CopilotMessage({
                 <MarkdownProseWithCitations citations={citations!}>
                   {message.content}
                 </MarkdownProseWithCitations>
+              ) : isStreaming ? (
+                <StreamingText>{message.content}</StreamingText>
               ) : (
                 <MarkdownProse>{message.content}</MarkdownProse>
               )}
