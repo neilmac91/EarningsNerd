@@ -44,6 +44,15 @@ describe('CopilotTeaser', () => {
     )
   })
 
+  it('uses the issuer in the heading, falling back cleanly when unknown', () => {
+    const { rerender } = render(<CopilotTeaser {...baseProps} ticker="AAPL" />)
+    expect(screen.getByText("Ask AAPL’s 10-K anything")).toBeInTheDocument()
+
+    // No ticker and no company → "Ask this 10-K anything" (not "Ask this filing’s 10-K anything").
+    rerender(<CopilotTeaser {...baseProps} ticker={null} companyName={null} />)
+    expect(screen.getByText('Ask this 10-K anything')).toBeInTheDocument()
+  })
+
   it('shows a sign-in link only for unauthenticated visitors', () => {
     const { rerender } = render(<CopilotTeaser {...baseProps} isAuthenticated={false} />)
     expect(screen.getByRole('link', { name: /sign in/i })).toBeInTheDocument()

@@ -35,7 +35,12 @@ export default function CopilotTeaser({
     analytics.paywallPromptShown({ filingId, ticker, filingType, entryPoint: 'copilot_rail' })
   }, [filingId, ticker, filingType])
 
-  const subject = ticker || companyName || 'this filing'
+  // "Ask AAPL’s 10-K anything" when we know the issuer; otherwise the cleaner "Ask this 10-K
+  // anything" (avoids the awkward possessive "this filing’s 10-K").
+  const subjectName = ticker || companyName
+  const heading = subjectName
+    ? `Ask ${subjectName}’s ${filingType} anything`
+    : `Ask this ${filingType} anything`
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4">
@@ -63,9 +68,7 @@ export default function CopilotTeaser({
       </div>
 
       {/* Value props */}
-      <p className="mt-4 text-sm font-semibold text-white">
-        Ask {subject}’s {filingType} anything
-      </p>
+      <p className="mt-4 text-sm font-semibold text-white">{heading}</p>
       <ul className="mt-2 space-y-1.5">
         {VALUE_PROPS.map((prop) => (
           <li key={prop} className="flex items-start gap-2 text-xs text-slate-300">
