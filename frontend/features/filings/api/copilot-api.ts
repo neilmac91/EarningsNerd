@@ -78,12 +78,13 @@ export const askFilingStream = async (
   const url = `${apiUrl}/api/summaries/filing/${filingId}/ask-stream`
 
   const controller = new AbortController()
+  const onAbort = () => controller.abort()
   // Bridge an externally-provided signal (component unmount / panel close) to our controller.
   if (signal) {
     if (signal.aborted) {
       controller.abort()
     } else {
-      signal.addEventListener('abort', () => controller.abort(), { once: true })
+      signal.addEventListener('abort', onAbort, { once: true })
     }
   }
 
@@ -193,5 +194,7 @@ export const askFilingStream = async (
     handlers.onError(errObj?.message || 'Network error. Please check your connection and try again.')
   } finally {
     clearTimeoutSafely()
+    // Drop the bridge listener on normal completion (the {once:true} only auto-removes if it fired).
+    signal?.removeEventListener('abort', onAbort)
   }
 }

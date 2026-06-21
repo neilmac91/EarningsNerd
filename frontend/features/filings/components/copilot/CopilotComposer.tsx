@@ -28,7 +28,8 @@ export default function CopilotComposer({ onSubmit, disabled }: CopilotComposerP
   }
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // Don't submit while an IME is composing (CJK input): Enter confirms the candidate, not send.
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       submit()
     }

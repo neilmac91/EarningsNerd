@@ -602,6 +602,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
       </main>
 
       <AskCopilotRail
+        key={filing.id}
         filingId={filing.id}
         filingType={filing.filing_type}
         ticker={filing.company?.ticker ?? null}

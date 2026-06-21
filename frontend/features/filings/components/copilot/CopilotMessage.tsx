@@ -32,6 +32,12 @@ function MarkdownProse({ children }: { children: string }) {
   )
 }
 
+// Only render a citation as an active link when it's an http(s) URL. Defense-in-depth against a
+// malicious/unexpected scheme (e.g. javascript:) reaching the href — the backend builds these from
+// SEC URLs, but the excerpt portion is model-influenced, so we validate before linking.
+const isHttpUrl = (url: string | null): url is string =>
+  !!url && (url.startsWith('https://') || url.startsWith('http://'))
+
 function SourcesList({ citations }: { citations: CopilotCitation[] }) {
   if (!citations.length) return null
   return (
@@ -50,7 +56,7 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
           )
           return (
             <li key={c.n}>
-              {c.fragment_url ? (
+              {isHttpUrl(c.fragment_url) ? (
                 <a
                   href={c.fragment_url}
                   target="_blank"
