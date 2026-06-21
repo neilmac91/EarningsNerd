@@ -38,7 +38,8 @@ describe('CitationChip with an in-app filing viewer', () => {
     fireEvent.click(chip)
     expect(screen.getByTestId('probe')).toHaveTextContent('req:1')
 
-    // The SEC original is still reachable as a secondary popover link.
+    // The popover (portaled) opens on hover and offers the SEC original as a secondary link.
+    fireEvent.mouseEnter(chip)
     expect(screen.getByRole('link', { name: /open original/i })).toHaveAttribute(
       'href',
       citation.fragment_url,
