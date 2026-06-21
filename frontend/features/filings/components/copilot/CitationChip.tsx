@@ -79,6 +79,19 @@ export default function CitationChip({ citation }: CitationChipProps) {
   // Clean up a pending close timer on unmount.
   useEffect(() => () => clearCloseTimer(), [])
 
+  // A fixed popover would detach from its chip on scroll/resize → just close it. Scroll doesn't
+  // bubble, so capture to catch scrolling in any ancestor (e.g. the rail's scroll container).
+  useEffect(() => {
+    if (!pos) return
+    const dismiss = () => setPos(null)
+    window.addEventListener('scroll', dismiss, { capture: true, passive: true })
+    window.addEventListener('resize', dismiss, { passive: true })
+    return () => {
+      window.removeEventListener('scroll', dismiss, { capture: true })
+      window.removeEventListener('resize', dismiss)
+    }
+  }, [pos])
+
   const chipClass =
     'inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded bg-mint-500/15 px-1 text-[11px] font-semibold leading-none text-mint-300 align-baseline transition-colors hover:bg-mint-500/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-mint-400'
 
@@ -124,6 +137,8 @@ export default function CitationChip({ citation }: CitationChipProps) {
             role="tooltip"
             onMouseEnter={clearCloseTimer}
             onMouseLeave={scheduleClose}
+            onFocus={clearCloseTimer}
+            onBlur={scheduleClose}
             style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, transform: 'translateX(-50%)' }}
             className="z-[60] block w-64 rounded-lg border border-white/10 bg-slate-900 p-3 text-left shadow-xl"
           >
