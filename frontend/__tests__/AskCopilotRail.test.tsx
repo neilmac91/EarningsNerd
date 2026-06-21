@@ -10,8 +10,10 @@ vi.mock('next/link', () => ({
   ),
 }))
 
-vi.mock('@/features/filings/api/copilot-api', async (importActual) => {
-  const actual = await importActual<typeof import('@/features/filings/api/copilot-api')>()
+vi.mock('@/features/filings/api/copilot-api', async () => {
+  const actual = await vi.importActual<typeof import('@/features/filings/api/copilot-api')>(
+    '@/features/filings/api/copilot-api',
+  )
   // Partial mock: stub the network call but keep the real pure helpers (paywall heuristic,
   // isXbrlCitation/xbrlTag) so the rendered message exercises the genuine code paths.
   return {
