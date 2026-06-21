@@ -133,6 +133,23 @@ export default function AskCopilotRail({
         onProgress: () => {
           updateAssistant(assistantId, (m) => (m.status === 'reading' ? { status: 'reading' } : {}))
         },
+        onActivity: (a) => {
+          updateAssistant(assistantId, (m) => {
+            const steps = m.steps ? [...m.steps] : []
+            if (a.phase === 'start') {
+              steps.push({ label: a.label, done: false, ok: true })
+            } else {
+              // Mark the most recent in-progress step as finished (tools run sequentially).
+              for (let i = steps.length - 1; i >= 0; i--) {
+                if (!steps[i].done) {
+                  steps[i] = { ...steps[i], done: true, ok: a.ok }
+                  break
+                }
+              }
+            }
+            return { steps }
+          })
+        },
         onToken: (text) => {
           updateAssistant(assistantId, (m) => ({
             content: m.content + text,

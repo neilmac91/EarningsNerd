@@ -4,9 +4,16 @@ import { Children, cloneElement, Fragment, isValidElement, type ReactElement, ty
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { Ban, CheckCircle2, ExternalLink, RotateCw, Sparkles } from 'lucide-react'
+import { Ban, CheckCircle2, ExternalLink, Loader2, Minus, RotateCw, Sparkles } from 'lucide-react'
 import type { CopilotCitation } from '@/features/filings/api/copilot-api'
 import CitationChip, { isHttpUrl } from './CitationChip'
+
+// A single "show the work" step (a numeric/XBRL tool call) shown live while the answer is forming.
+export interface CopilotStep {
+  label: string
+  done: boolean
+  ok: boolean
+}
 
 export interface CopilotMessageData {
   id: string
@@ -18,6 +25,32 @@ export interface CopilotMessageData {
   // 'reading' (pre-token), 'streaming' (tokens arriving), 'done', 'error'
   status?: 'reading' | 'streaming' | 'done' | 'error'
   error?: string
+  // Live tool-activity steps ("Looking up revenue… ✓"), surfaced while reading/streaming.
+  steps?: CopilotStep[]
+}
+
+// Live "show the work" ticker: the numeric tools the assistant is calling as it grounds its answer.
+function ActivityTicker({ steps }: { steps: CopilotStep[] }) {
+  return (
+    <ul className="mb-2 space-y-1" aria-label="Working">
+      {steps.map((s, i) => (
+        <li key={`${s.label}-${i}`} className="flex items-center gap-2 text-[12px]">
+          {!s.done ? (
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-mint-400" aria-hidden="true" />
+          ) : s.ok ? (
+            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-mint-400" aria-hidden="true" />
+          ) : (
+            <Minus className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />
+          )}
+          <span className={s.done ? 'text-slate-400' : 'text-slate-300'}>
+            {s.label}
+            {s.done ? '' : '…'}
+            <span className="sr-only">{s.done ? (s.ok ? ' (completed)' : ' (failed)') : ' (in progress)'}</span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  )
 }
 
 interface CopilotMessageProps {
@@ -231,14 +264,20 @@ export default function CopilotMessage({ message, onRetry, isPaywallError }: Cop
   // (The not_disclosed branch already returned above, so this is always an `answer`.)
   const citations = message.citations
   const showChips = isDone && !!citations && citations.length > 0
+  const steps = message.steps ?? []
+  // Show the live work ticker while the answer is forming (reading or streaming), not once done.
+  const showTicker = (isReading || isStreaming) && steps.length > 0
 
   return (
     <div className="rounded-2xl rounded-bl-sm border border-white/10 bg-slate-800/40 px-3.5 py-3 text-sm">
+      {showTicker && <ActivityTicker steps={steps} />}
       {isReading ? (
-        <p className="flex items-center gap-2 text-slate-400">
-          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-mint-400" />
-          Reading the filing…
-        </p>
+        steps.length > 0 ? null : (
+          <p className="flex items-center gap-2 text-slate-400">
+            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-mint-400" />
+            Reading the filing…
+          </p>
+        )
       ) : (
         <>
           <div className="flex items-start">

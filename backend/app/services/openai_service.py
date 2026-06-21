@@ -28,6 +28,14 @@ logger = logging.getLogger(__name__)
 # to quote one, and would otherwise be streamed to the user as the answer body).
 STREAM_ERROR_SENTINEL = "\x00\x00__OPENAI_STREAM_ERROR__\x00\x00"
 
+# Tool-activity signal for ``stream_chat_with_tools``. Before and after running each tool call the
+# wrapper yields a single chunk prefixed with this sentinel whose remainder is a JSON object
+# ``{"name","args","phase":"start"|"done","ok"?}``. A consumer can surface a live "show the work"
+# ticker ("Looking up revenue… ✓") while keeping the wrapper provider-generic — it emits the raw
+# tool name/args and leaves human labelling to the caller. Null-byte delimiters can't appear in
+# model output, so this is unambiguous vs. answer prose.
+STREAM_ACTIVITY_SENTINEL = "\x00\x00__OPENAI_STREAM_ACTIVITY__\x00\x00"
+
 _PLACEHOLDER_STRINGS = {
     "",
     "n/a",
@@ -2915,7 +2923,16 @@ Do not include any additional keys or text outside the JSON object."""
                         parsed_args = json.loads(call["arguments"] or "{}")
                     except (ValueError, TypeError):
                         parsed_args = {}
+                    # Live "show the work" signal: announce the tool call, run it, then report the
+                    # outcome. Labelling is left to the (copilot-specific) consumer.
+                    yield STREAM_ACTIVITY_SENTINEL + json.dumps(
+                        {"name": call["name"], "args": parsed_args, "phase": "start"}
+                    )
                     result = run_tool(call["name"], parsed_args)
+                    ok = not (isinstance(result, dict) and "error" in result)
+                    yield STREAM_ACTIVITY_SENTINEL + json.dumps(
+                        {"name": call["name"], "args": parsed_args, "phase": "done", "ok": ok}
+                    )
                     messages.append({
                         "role": "tool",
                         "tool_call_id": call["id"],

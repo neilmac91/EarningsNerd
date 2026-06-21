@@ -26,8 +26,17 @@ export interface CopilotTurn {
   content: string
 }
 
+// A live "show the work" signal emitted as numeric (XBRL) tools run, e.g.
+// { label: 'Looking up revenue', phase: 'start' } … { phase: 'done', ok: true }.
+export interface CopilotActivity {
+  label: string
+  phase: 'start' | 'done'
+  ok: boolean
+}
+
 export interface CopilotHandlers {
   onProgress?: (stage: string) => void
+  onActivity?: (activity: CopilotActivity) => void
   onToken: (text: string) => void
   onNotDisclosed: (answer: string) => void
   onComplete: (completion: CopilotCompletion) => void
@@ -161,6 +170,13 @@ export const askFilingStream = async (
         switch (data.type) {
           case 'progress':
             handlers.onProgress?.(typeof data.stage === 'string' ? data.stage : 'reading')
+            break
+          case 'activity':
+            handlers.onActivity?.({
+              label: typeof data.label === 'string' ? data.label : '',
+              phase: data.phase === 'done' ? 'done' : 'start',
+              ok: data.ok !== false,
+            })
             break
           case 'token':
             if (typeof data.text === 'string') handlers.onToken(data.text)
