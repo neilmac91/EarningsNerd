@@ -4,6 +4,7 @@ from typing import Optional
 import json
 from pydantic import BaseModel, Field, field_validator
 import logging
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response, StreamingResponse
 
 from app.config import settings
@@ -329,7 +330,9 @@ async def ask_filing_stream(
             history=body.history,
         ):
             if not metered and event.get("type") == "complete":
-                _meter_qa_best_effort(user_id)
+                # Offload the synchronous DB write to a worker thread so it never blocks the event
+                # loop mid-stream (it opens its own fresh SessionLocal, so it's thread-safe).
+                await run_in_threadpool(_meter_qa_best_effort, user_id)
                 metered = True
             yield to_sse(event)
 
