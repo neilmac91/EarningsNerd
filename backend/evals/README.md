@@ -107,3 +107,25 @@ every future prompt change.
 > The baseline maps the current pipeline into the canonical shape but does **not** enforce the
 > canonical schema, so it typically scores schema-invalid here. That gap is precisely what S1
 > aims to close and is the honest baseline to beat.
+
+---
+
+## Copilot eval ("Ask this Filing", P8)
+
+The summary harness above grades one structured summary per filing. The Copilot is a per-question
+grounded Q&A loop, so it has a sibling eval with its own deterministic gates:
+
+- **Golden set:** `copilot_golden_set.json` — per-filing question cases, each marked `disclosed`
+  (answerable) or not. Deliberately-undisclosed questions calibrate **refusal** (the model must say
+  "not disclosed", not fabricate).
+- **Scorers (`copilot_scorers.py`, deterministic, no network):**
+  - *Citation faithfulness* — every text citation's excerpt must verify **verbatim** in the filing
+    (re-run independently of the answer's own `verified` flag; XBRL/tool citations exempt). Hard gate.
+  - *Refusal calibration* — refuse iff the filing does not disclose the answer. Hard gate.
+  - *Numeric accuracy* — for targeted numeric questions, the expected figure must appear (reuses the
+    summary harness's value-rendering matcher). Hard gate.
+- **CI rigor:** `tests/unit/test_copilot_evals.py` exercises the scorers on synthetic answers — runs
+  on every change, no model/network.
+- **Operator bake-off:** `python -m evals.copilot_runner --limit 1` runs the live Copilot over the
+  golden set (needs the model API + the filings/`financial_fact` ingested) and writes
+  `reports/copilot_eval_<ts>.{json,md}`. Like the summary runner, this is a manual task, not CI.
