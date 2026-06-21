@@ -45,6 +45,7 @@ function ActivityTicker({ steps }: { steps: CopilotStep[] }) {
           <span className={s.done ? 'text-slate-400' : 'text-slate-300'}>
             {s.label}
             {s.done ? '' : '…'}
+            <span className="sr-only">{s.done ? (s.ok ? ' (completed)' : ' (failed)') : ' (in progress)'}</span>
           </span>
         </li>
       ))}

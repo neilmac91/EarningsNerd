@@ -153,7 +153,7 @@ def describe_tool_call(name: str, args: Optional[dict] = None) -> str:
     e.g. ``("get_financial_fact", {"concept": "revenue"})`` → ``"Looking up revenue"``. Never raises;
     falls back to a generic label for unknown tools / missing args.
     """
-    args = args or {}
+    args = args if isinstance(args, dict) else {}
     concept = args.get("concept")
     concept_label = _concept_label(concept).lower() if isinstance(concept, str) and concept else None
 

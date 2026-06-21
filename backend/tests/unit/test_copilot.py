@@ -634,3 +634,5 @@ def test_describe_tool_call_labels():
     ).lower()
     assert copilot_tools.describe_tool_call("list_available_concepts", {})  # non-empty
     assert copilot_tools.describe_tool_call("mystery_tool", None)  # safe fallback, no raise
+    # Non-dict args must not raise (a malformed tool-args payload is coerced to {}).
+    assert copilot_tools.describe_tool_call("get_financial_fact", ["not", "a", "dict"])

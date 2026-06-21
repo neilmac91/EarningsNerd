@@ -337,6 +337,8 @@ async def answer_filing_question(
             if delta.startswith(STREAM_ACTIVITY_SENTINEL):
                 try:
                     info = json.loads(delta[len(STREAM_ACTIVITY_SENTINEL):])
+                    if not isinstance(info, dict):
+                        info = {}
                 except (ValueError, TypeError):
                     info = {}
                 yield {
