@@ -224,3 +224,12 @@
   animation: citation-flash 1.5s ease-out;
   border-radius: 0.25rem;
 }
+
+/* Respect reduced-motion: skip the pulse but keep a brief static highlight so the jump-to is still
+   visible (it's cleared with the class when the citation is dismissed). */
+@media (prefers-reduced-motion: reduce) {
+  .citation-flash {
+    animation: none;
+    background-color: rgba(45, 212, 191, 0.18);
+  }
+}

@@ -44,6 +44,11 @@ describe('CitationChip with an in-app filing viewer', () => {
       'href',
       citation.fragment_url,
     )
+
+    // It's a labelled group (it contains that interactive link), never a tooltip — a tooltip must
+    // not hold focusable content.
+    expect(screen.getByRole('group', { name: /citation 1: item 7 — md&a/i })).toBeInTheDocument()
+    expect(screen.queryByRole('tooltip')).toBeNull()
   })
 
   it('falls back to a SEC-jump link when no viewer is mounted', () => {
