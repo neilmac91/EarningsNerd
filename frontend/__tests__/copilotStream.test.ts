@@ -82,6 +82,23 @@ describe('askFilingStream token coalescing', () => {
     expect(h.onToken).not.toHaveBeenCalled()
   })
 
+  it('reports onError (and does not throw) when a token handler throws during delivery', async () => {
+    const chunks = [sse({ type: 'token', text: 'Rev' }), sse({ type: 'token', text: 'enue' })]
+    global.fetch = vi.fn(async () => ({ ok: true, body: bodyFrom(chunks) })) as unknown as typeof fetch
+
+    const onToken = vi.fn(() => {
+      throw new Error('render blew up')
+    })
+    const onError = vi.fn()
+
+    // deliverBuffer runs the handler outside the main try/catch (it can fire from a rAF). A throw
+    // must be contained: surfaced via onError, never an unhandled rejection.
+    await askFilingStream(1, 'q', [], handlers({ onToken, onError }))
+    vi.runAllTimers()
+
+    expect(onError).toHaveBeenCalledWith('render blew up')
+  })
+
   it('discards buffered tokens on a not_disclosed completion', async () => {
     const chunks = [
       sse({ type: 'token', text: 'looking…' }),

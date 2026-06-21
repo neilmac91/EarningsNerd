@@ -127,7 +127,16 @@ export const askFilingStream = async (
     if (!tokenBuffer) return
     const text = tokenBuffer
     tokenBuffer = ''
-    handlers.onToken(text)
+    try {
+      handlers.onToken(text)
+    } catch (error) {
+      // deliverBuffer runs inside a requestAnimationFrame callback, outside this function's
+      // try/catch — a throw here would be an unhandled exception and leave the reader loop
+      // running. Abort the stream (the loop's pending read rejects with AbortError and exits
+      // quietly) and surface the failure once.
+      controller.abort()
+      handlers.onError(error instanceof Error ? error.message : 'Something went wrong displaying the answer.')
+    }
   }
   const enqueueToken = (text: string) => {
     if (!canRaf) {
