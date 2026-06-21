@@ -9,6 +9,7 @@ import { format } from 'date-fns'
 import type { RiskFactor } from '../../../types/summary'
 import { evaluateComparisonQuality } from '@/lib/QualityGate'
 import { fmtPercent, fmtScale, fmtCurrency, parseNumeric } from '@/lib/format'
+import { directionText } from '@/lib/financialTone'
 import SecondaryHeader from '@/components/SecondaryHeader'
 
 const ComparisonMetricChart = dynamic(
@@ -316,9 +317,9 @@ export default function CompareResultPage() {
                                 <span
                                   className={`inline-flex items-center text-xs font-semibold mt-1 ${
                                     positive
-                                      ? 'text-mint-600'
+                                      ? directionText.up
                                       : negative
-                                      ? 'text-slate-500'
+                                      ? directionText.down
                                       : 'text-gray-500'
                                   }`}
                                 >
@@ -364,7 +365,7 @@ export default function CompareResultPage() {
                         Value: <span className="font-medium text-gray-700">{item.display || '—'}</span>
                       </p>
                     </div>
-                    <div className={`flex items-center text-sm font-semibold ${positive ? 'text-mint-600' : 'text-slate-500'}`}>
+                    <div className={`flex items-center text-sm font-semibold ${positive ? directionText.up : directionText.down}`}>
                       {positive ? <TrendingUp className="h-4 w-4 mr-1" /> : <TrendingDown className="h-4 w-4 mr-1" />}
                       {percentLabel}
                     </div>

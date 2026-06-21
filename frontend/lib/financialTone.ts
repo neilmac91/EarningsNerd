@@ -16,11 +16,23 @@ export function directionOf(n: number | null | undefined): Direction {
   return n > 0 ? 'up' : 'down'
 }
 
-/** Text-only tone — inline figures, deltas, signal headlines. */
+/** Text-only tone — inline figures, deltas, signal headlines. Theme-aware. */
 export const directionText: Record<Direction, string> = {
   up: 'text-mint-600 dark:text-mint-400',
   down: 'text-slate-500 dark:text-slate-400',
   flat: 'text-slate-400 dark:text-slate-500',
+}
+
+/**
+ * Text tone for components that sit on a *permanently dark* surface regardless of the global
+ * theme (e.g. the hero, the "market movers" rail, the search dropdown). These use the light
+ * (400) shades unconditionally — `directionText`'s light-mode values (mint-600/slate-500) would
+ * have poor contrast on a dark background when the global `.dark` class is absent.
+ */
+export const directionTextOnDark: Record<Direction, string> = {
+  up: 'text-mint-400',
+  down: 'text-slate-400',
+  flat: 'text-slate-400',
 }
 
 /** Full pill/chip tone — text + a subtle tinted background + border. */
