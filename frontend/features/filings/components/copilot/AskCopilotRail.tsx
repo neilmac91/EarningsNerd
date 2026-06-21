@@ -8,9 +8,10 @@ import {
   type CopilotCompletion,
   type CopilotTurn,
 } from '@/features/filings/api/copilot-api'
-import CopilotComposer from './CopilotComposer'
+import CopilotComposer, { type CopilotComposerHandle } from './CopilotComposer'
 import CopilotMessage, { type CopilotMessageData } from './CopilotMessage'
 import CopilotTeaser from './CopilotTeaser'
+import { analytics } from '@/lib/analytics'
 
 interface AskCopilotRailProps {
   filingId: number
@@ -97,6 +98,42 @@ export default function AskCopilotRail({
     if (el) el.scrollTop = el.scrollHeight
   }, [messages])
 
+  // Focus the composer whenever the panel opens (launcher tap, ⌘K, or a citation flow).
+  const composerRef = useRef<CopilotComposerHandle>(null)
+  useEffect(() => {
+    if (!open || !isPro) return
+    const raf = requestAnimationFrame(() => composerRef.current?.focus())
+    return () => cancelAnimationFrame(raf)
+  }, [open, isPro])
+
+  // Keyboard: ⌘K / Ctrl+K (and "/" when not already typing) open + focus the rail; Escape closes it.
+  useEffect(() => {
+    if (!summaryAvailable) return
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      const typing =
+        !!target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+      const openCombo = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k'
+      const slashCombo = e.key === '/' && !e.metaKey && !e.ctrlKey && !typing
+      if (openCombo || slashCombo) {
+        e.preventDefault()
+        if (open) {
+          // Already open → the focus-on-open effect won't re-fire, so focus directly.
+          composerRef.current?.focus()
+        } else {
+          // Opening → the focus-on-open effect handles focus once the composer mounts.
+          onOpenChange(true)
+        }
+      } else if (e.key === 'Escape' && open && !e.defaultPrevented) {
+        // Don't steal Escape from a nested element that already handled it (popover, IME, …).
+        onOpenChange(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onOpenChange, summaryAvailable])
+
   const updateAssistant = (
     id: string,
     patch: Partial<CopilotMessageData> | ((prev: CopilotMessageData) => Partial<CopilotMessageData>)
@@ -121,6 +158,7 @@ export default function AskCopilotRail({
       { id: assistantId, role: 'assistant', content: '', status: 'reading' },
     ])
     setIsStreaming(true)
+    analytics.copilotQuestionAsked({ filingId, ticker, filingType })
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -172,11 +210,23 @@ export default function AskCopilotRail({
             followups: c.followups,
             status: 'done',
           })
+          analytics.copilotAnswerCompleted({
+            filingId,
+            ticker,
+            filingType,
+            kind: c.kind,
+            grounded: c.grounded,
+            citations: c.citations.length,
+            usedXbrl: c.citations.some(
+              (cit) => cit?.section_ref?.toUpperCase().startsWith('XBRL') ?? false,
+            ),
+          })
           setIsStreaming(false)
           abortRef.current = null
         },
         onError: (msg) => {
           updateAssistant(assistantId, { status: 'error', error: msg })
+          analytics.copilotAnswerErrored({ filingId, message: msg })
           setIsStreaming(false)
           abortRef.current = null
         },
@@ -218,6 +268,9 @@ export default function AskCopilotRail({
       >
         <Sparkles className="h-4 w-4" />
         Ask this Filing
+        <kbd className="ml-1 hidden rounded border border-slate-950/25 bg-slate-950/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none sm:inline-block">
+          ⌘K
+        </kbd>
       </button>
     )
   }
@@ -302,7 +355,7 @@ export default function AskCopilotRail({
           </div>
 
           {/* Composer */}
-          <CopilotComposer onSubmit={handleSubmit} disabled={isStreaming} />
+          <CopilotComposer ref={composerRef} onSubmit={handleSubmit} disabled={isStreaming} />
         </>
       )}
     </div>

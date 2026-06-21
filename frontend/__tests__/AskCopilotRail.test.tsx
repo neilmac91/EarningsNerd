@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('next/link', () => ({
@@ -17,7 +17,12 @@ vi.mock('@/features/filings/api/copilot-api', () => ({
 }))
 
 vi.mock('@/lib/analytics', () => ({
-  analytics: { paywallPromptShown: vi.fn() },
+  analytics: {
+    paywallPromptShown: vi.fn(),
+    copilotQuestionAsked: vi.fn(),
+    copilotAnswerCompleted: vi.fn(),
+    copilotAnswerErrored: vi.fn(),
+  },
 }))
 
 import { askFilingStream, type CopilotHandlers } from '@/features/filings/api/copilot-api'
@@ -125,6 +130,31 @@ describe('AskCopilotRail', () => {
     const sourceLink = screen.getByRole('link', { name: /MD&A — Results of Operations/i })
     expect(sourceLink).toHaveAttribute('href', 'https://sec.gov/frag#1')
     expect(sourceLink).toHaveAttribute('target', '_blank')
+
+    // Analytics: the question opened the funnel and the completion logged the quality signals.
+    expect(analytics.copilotQuestionAsked).toHaveBeenCalledWith(
+      expect.objectContaining({ filingId: 42, ticker: 'AAPL', filingType: '10-Q' }),
+    )
+    expect(analytics.copilotAnswerCompleted).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'answer', grounded: 1, citations: 1, usedXbrl: false }),
+    )
+  })
+
+  it('opens the rail on ⌘K and on "/" (when not typing)', () => {
+    const cmd = renderRail({ open: false })
+    fireEvent.keyDown(document.body, { key: 'k', metaKey: true })
+    expect(cmd.onOpenChange).toHaveBeenCalledWith(true)
+
+    cmd.unmount()
+    const slash = renderRail({ open: false })
+    fireEvent.keyDown(document.body, { key: '/' })
+    expect(slash.onOpenChange).toHaveBeenCalledWith(true)
+  })
+
+  it('closes the rail on Escape when open', () => {
+    const { onOpenChange } = renderRail({ open: true })
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
   it('renders the distinct "Not disclosed" card on a not_disclosed completion', async () => {
