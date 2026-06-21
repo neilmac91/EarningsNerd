@@ -33,19 +33,24 @@ def _load_cases(path: Path) -> List[CopilotGoldenCase]:
     return [CopilotGoldenCase.from_dict(c) for c in data.get("cases", [])]
 
 
-def _find_filing(case: CopilotGoldenCase):
-    """Look up the ingested Filing (+ content cache + company) for a golden case, or None."""
+def _snapshot_for_case(case: CopilotGoldenCase):
+    """Look up the ingested Filing for a golden case and return a detached snapshot (or None).
+
+    Snapshots *inside* the open session — the same constraint the product endpoint follows — so the
+    SSE generator never reads from a detached ORM instance (which would DetachedInstanceError on any
+    deferred/lazy attribute once the session is closed)."""
     from sqlalchemy.orm import joinedload
 
     db = SessionLocal()
     try:
-        return (
+        filing = (
             db.query(Filing)
             .options(joinedload(Filing.content_cache), joinedload(Filing.company))
             .join(Company, Filing.company_id == Company.id)
             .filter(Company.cik == case.cik, Filing.accession_number == case.accession_number)
             .first()
         )
+        return snapshot_filing(filing) if filing else None
     finally:
         db.close()
 
@@ -85,11 +90,10 @@ async def run(limit: Optional[int] = None) -> Dict[str, Any]:
     passed = 0
 
     for case in cases:
-        filing = _find_filing(case)
-        if filing is None:
+        snap = _snapshot_for_case(case)
+        if snap is None:
             results.append({"ticker": case.ticker, "skipped": "filing not ingested in DB"})
             continue
-        snap = snapshot_filing(filing)
         source = _source_text(snap)
         for qa in case.qa:
             ans, cites, kind = await _answer(snap, qa.question)
