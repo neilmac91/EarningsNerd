@@ -112,3 +112,22 @@ Generator never raises — all exceptions become an `error` event.
 ### Done criteria
 - `cd backend && ruff check .` clean.
 - `cd backend && python -m pytest tests/unit/test_copilot.py -q` green.
+
+---
+
+## Shipped status (2026-06-21)
+
+**P1–P6 shipped & merged to `main`.**
+- P1 grounded QA backend · P2+P3 rail + SSE streaming · P4 interactive citations · P5 numeric XBRL tool-use.
+- Pre-P6 audit fixes (#354): stream-failure → `error` event (not answer prose), meter-on-success, bounded `history`.
+- P6a (#355) live "show the work" ticker · P6b (#356) inline `[F#]` chips for numeric facts (+ grounded-count fix) · P6c (#357) dynamic follow-up suggestions · P6d (#358) richer FREE locked teaser + paywall analytics.
+
+## P7 — In-app filing viewer (in progress)
+
+Goal: render the cached filing on-page; a citation click **scrolls to + flash-highlights the exact passage in place**, with the SEC `#:~:text=` deep link kept as a secondary "open original" affordance.
+
+- **P7a (spike + endpoint):** `GET /api/filings/{id}/content` serves `FilingContentCache.markdown_content` (public SEC data, ungated; 404 / `has_content:false` handled). Frontend `excerptMatch.findExcerptMatch(haystack, excerpt)` locates an excerpt tolerant of markdown stripping (`**`,`#`,`|`), whitespace, quoted spans, and a leading-prefix fallback — returning original-text offsets to map back to a DOM Range. Spike proven by unit tests.
+- **P7b (viewer + wiring):** `FilingViewer` drawer (lazy-fetches content, renders via ReactMarkdown), a `FilingViewerContext` so a `CitationChip` click requests an in-app highlight (builds a flat-text+node map from the rendered DOM, runs `findExcerptMatch`, scrolls to + flash-highlights the Range; `flash-highlight` keyframe in `globals.css`). Falls back to the SEC link when content is unavailable. Mounted in the filing page.
+
+## P8 — Rigor (next)
+Eval harness (golden Q&A incl. deliberately unanswerable → refusal calibration; citation-faithfulness + numeric-accuracy scoring), Copilot analytics dashboards, polish (⌘K, select-to-ask, popover portal fix, a11y).

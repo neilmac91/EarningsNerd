@@ -241,6 +241,43 @@ async def get_filing(filing_id: int, db: Session = Depends(get_db)):
     
     return FilingResponse.from_orm(filing)
 
+
+class FilingContentResponse(BaseModel):
+    filing_id: int
+    has_content: bool
+    markdown_content: Optional[str] = None
+
+
+@router.get("/{filing_id}/content", response_model=FilingContentResponse)
+async def get_filing_content(filing_id: int, db: Session = Depends(get_db)):
+    """Return the cached full-text markdown for a filing (powers the in-app filing viewer).
+
+    Serves ``FilingContentCache.markdown_content`` so the frontend can render the filing on-page and
+    scroll/flash-highlight a cited passage in place. This is public SEC data (same content the
+    summary cites), so it is not entitlement-gated. Returns 404 when the filing does not exist, or
+    200 with ``has_content=false`` when it exists but has no cached markdown yet (caller falls back
+    to the SEC deep link).
+    """
+    from sqlalchemy.orm import joinedload
+
+    filing = (
+        db.query(Filing)
+        .options(joinedload(Filing.content_cache))
+        .filter(Filing.id == filing_id)
+        .first()
+    )
+    if not filing:
+        raise HTTPException(status_code=404, detail="Filing not found")
+
+    cache = filing.content_cache
+    markdown = getattr(cache, "markdown_content", None) if cache else None
+    return FilingContentResponse(
+        filing_id=filing_id,
+        has_content=bool(markdown),
+        markdown_content=markdown or None,
+    )
+
+
 @router.get("/recent/latest", response_model=List[FilingResponse])
 async def get_recent_filings(
     limit: int = Query(10, ge=1, le=50),
