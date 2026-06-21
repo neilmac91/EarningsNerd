@@ -5,7 +5,7 @@ import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Ban, CheckCircle2, ExternalLink, Loader2, Minus, RotateCw, Sparkles } from 'lucide-react'
-import type { CopilotCitation } from '@/features/filings/api/copilot-api'
+import { isXbrlCitation, xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import CitationChip, { isHttpUrl } from './CitationChip'
 
 // A single "show the work" step (a numeric/XBRL tool call) shown live while the answer is forming.
@@ -201,7 +201,27 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
               Cited
             </span>
           )
-          const content = (
+          const isFact = isXbrlCitation(c)
+          const tag = isFact ? xbrlTag(c) : null
+          // XBRL facts are figures, not quotes — render them as a dense data row: the value in
+          // monospace tabular figures (so digits align) with the source tag beneath, rather than
+          // the prose excerpt treatment used for filing-text citations.
+          const content = isFact ? (
+            <>
+              <span className="mt-px font-mono text-[11px] font-semibold text-mint-300">[{c.n}]</span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate font-mono text-[12px] tabular-nums text-slate-100">
+                    {c.excerpt}
+                  </span>
+                  {badge}
+                </span>
+                {tag && (
+                  <span className="mt-0.5 block truncate font-mono text-[10px] text-slate-500">{tag}</span>
+                )}
+              </span>
+            </>
+          ) : (
             <>
               <span className="mt-px font-mono text-[11px] font-semibold text-mint-300">[{c.n}]</span>
               <span className="min-w-0 flex-1">

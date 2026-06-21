@@ -10,11 +10,15 @@ vi.mock('next/link', () => ({
   ),
 }))
 
-vi.mock('@/features/filings/api/copilot-api', () => ({
-  askFilingStream: vi.fn(),
-  // Keep the real paywall heuristic so the error-state branch is exercised honestly.
-  isCopilotPaywallError: (msg: string) => /pro feature|upgrade to pro|monthly limit/i.test(msg),
-}))
+vi.mock('@/features/filings/api/copilot-api', async (importActual) => {
+  const actual = await importActual<typeof import('@/features/filings/api/copilot-api')>()
+  // Partial mock: stub the network call but keep the real pure helpers (paywall heuristic,
+  // isXbrlCitation/xbrlTag) so the rendered message exercises the genuine code paths.
+  return {
+    ...actual,
+    askFilingStream: vi.fn(),
+  }
+})
 
 vi.mock('@/lib/analytics', () => ({
   analytics: {
