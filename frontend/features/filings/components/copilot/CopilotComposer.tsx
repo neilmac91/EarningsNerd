@@ -10,19 +10,39 @@ interface CopilotComposerProps {
 
 export interface CopilotComposerHandle {
   focus: () => void
+  /** Replace the input with `text`, focus, grow to fit, and put the caret at the end. */
+  prefill: (text: string) => void
 }
 
 /**
  * Bottom-pinned input for the Copilot rail. Enter submits, Shift+Enter inserts a newline.
- * Send is disabled while a stream is in flight or the input is empty. Exposes a `focus()` handle so
- * the rail can focus it on open / on the ⌘K shortcut.
+ * Send is disabled while a stream is in flight or the input is empty. Exposes `focus()` / `prefill()`
+ * handles so the rail can focus it on open (⌘K) or pre-fill it from a "Ask about this" text selection.
  */
 const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
   function CopilotComposer({ onSubmit, disabled }, ref) {
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
-  useImperativeHandle(ref, () => ({ focus: () => textareaRef.current?.focus() }), [])
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => textareaRef.current?.focus(),
+      prefill: (text: string) => {
+        setValue(text)
+        const el = textareaRef.current
+        if (!el) return
+        // Set the DOM value synchronously so scrollHeight + caret are accurate immediately (React
+        // state catches up on the next render) — avoids an rAF race / layout flicker.
+        el.value = text
+        el.style.height = 'auto'
+        el.style.height = `${Math.min(el.scrollHeight, 120)}px`
+        el.focus()
+        el.setSelectionRange(text.length, text.length)
+      },
+    }),
+    [],
+  )
 
   const trimmed = value.trim()
   const canSend = !disabled && trimmed.length > 0

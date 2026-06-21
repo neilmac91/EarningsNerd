@@ -8,6 +8,7 @@ import { WhatChanged } from '@/features/filings/components/WhatChanged'
 import AskCopilotRail from '@/features/filings/components/copilot/AskCopilotRail'
 import FilingViewer from '@/features/filings/components/copilot/FilingViewer'
 import { FilingViewerProvider } from '@/features/filings/components/copilot/FilingViewerContext'
+import AskAboutSelection from '@/features/filings/components/copilot/AskAboutSelection'
 import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
 import { getCompany, Company } from '@/features/companies/api/companies-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
@@ -232,6 +233,15 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false)
   const [copilotOpen, setCopilotOpen] = useState(false)
+  // "Ask about this" text selection → open the rail + pre-fill the composer.
+  const [copilotPrefill, setCopilotPrefill] = useState<{ text: string; nonce: number } | null>(null)
+  const summaryContentRef = useRef<HTMLElement>(null)
+  const handleAskAboutSelection = useCallback((text: string) => {
+    // Cap so the templated question stays under the backend's 2000-char question limit.
+    const snippet = text.length > 1500 ? `${text.slice(0, 1500)}…` : text
+    setCopilotOpen(true)
+    setCopilotPrefill({ text: `Explain this excerpt: "${snippet}"`, nonce: Date.now() })
+  }, [])
   const hasTrackedFilingView = useRef(false)
   const hasTrackedSummaryGenerated = useRef(false)
   const hasTrackedSummaryViewed = useRef(false)
@@ -569,7 +579,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main ref={summaryContentRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {isStreaming || (hasStartedGeneration && !hasSummaryContent) ? (
           <StreamingSummaryDisplay
             streamingText={streamingText}
@@ -615,6 +625,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
         isAuthenticated={isAuthenticated}
         open={copilotOpen}
         onOpenChange={setCopilotOpen}
+        prefill={copilotPrefill}
       />
     </div>
       <FilingViewer
@@ -622,6 +633,11 @@ function FilingDetailView({ filingId }: { filingId: number }) {
         filingId={filing.id}
         filingLabel={`${filing.company?.ticker ?? filing.company?.name ?? 'Filing'} ${filing.filing_type}`}
         secUrl={filing.sec_url ?? filing.document_url ?? null}
+      />
+      <AskAboutSelection
+        containerRef={summaryContentRef}
+        enabled={(subscription?.is_pro ?? false) && hasSummaryContent}
+        onAsk={handleAskAboutSelection}
       />
     </FilingViewerProvider>
   )
