@@ -134,7 +134,10 @@ export default function CitationChip({ citation }: CitationChipProps) {
     pos && typeof document !== 'undefined'
       ? createPortal(
           <span
-            role="tooltip"
+            // A labelled group, not role="tooltip": the popover contains an interactive "Open
+            // original" link, and a tooltip must not hold focusable/interactive content (ARIA).
+            role="group"
+            aria-label={ariaLabel}
             onMouseEnter={clearCloseTimer}
             onMouseLeave={scheduleClose}
             onFocus={clearCloseTimer}

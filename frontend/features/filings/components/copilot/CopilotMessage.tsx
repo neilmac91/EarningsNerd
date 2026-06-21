@@ -74,7 +74,7 @@ function FollowupChips({
 }) {
   return (
     <div className="mt-3 border-t border-white/10 pt-2.5">
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ask next</p>
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Ask next</p>
       <div className="flex flex-col gap-1.5">
         {followups.map((q, i) => (
           <button
@@ -197,7 +197,7 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
   if (!citations.length) return null
   return (
     <div className="mt-3 border-t border-white/10 pt-2.5">
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Sources</p>
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Sources</p>
       <ul className="space-y-1">
         {citations.map((c) => {
           const label = c.section_ref || `Excerpt ${c.n}`
@@ -209,7 +209,7 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
               Verified
             </span>
           ) : (
-            <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-medium text-slate-500">
+            <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-medium text-slate-400">
               <ExternalLink className="h-3 w-3" />
               Cited
             </span>
@@ -230,7 +230,7 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
                   {badge}
                 </span>
                 {tag && (
-                  <span className="mt-0.5 block truncate font-mono text-[10px] text-slate-500">{tag}</span>
+                  <span className="mt-0.5 block truncate font-mono text-[10px] text-slate-400">{tag}</span>
                 )}
               </span>
             </>
@@ -377,7 +377,7 @@ export default function CopilotMessage({
           {message.status === 'done' && (
             <>
               {typeof message.grounded === 'number' && message.grounded > 0 && (
-                <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-slate-500">
+                <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-slate-400">
                   <CheckCircle2 className="h-3.5 w-3.5 text-mint-500/70" />
                   Grounded in {message.grounded} excerpt{message.grounded === 1 ? '' : 's'}
                 </p>
