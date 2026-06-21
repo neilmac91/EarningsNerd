@@ -6,6 +6,8 @@ import { getFiling, getCompanyFilings, Filing } from '@/features/filings/api/fil
 import { getSummary, generateSummaryStream, isPaywallStreamError, Summary, saveSummary, getSavedSummaries, getSummaryProgress, getWhatChanged, SummaryProgressData, SavedSummary } from '@/features/summaries/api/summaries-api'
 import { WhatChanged } from '@/features/filings/components/WhatChanged'
 import AskCopilotRail from '@/features/filings/components/copilot/AskCopilotRail'
+import FilingViewer from '@/features/filings/components/copilot/FilingViewer'
+import { FilingViewerProvider } from '@/features/filings/components/copilot/FilingViewerContext'
 import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
 import { getCompany, Company } from '@/features/companies/api/companies-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
@@ -497,6 +499,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
 
 
   return (
+    <FilingViewerProvider>
     <div
       className={`min-h-screen bg-gray-50 transition-[padding] duration-300 dark:bg-gray-900 ${
         copilotOpen ? 'lg:pr-[420px]' : ''
@@ -614,6 +617,13 @@ function FilingDetailView({ filingId }: { filingId: number }) {
         onOpenChange={setCopilotOpen}
       />
     </div>
+      <FilingViewer
+        key={filing.id}
+        filingId={filing.id}
+        filingLabel={`${filing.company?.ticker ?? filing.company?.name ?? 'Filing'} ${filing.filing_type}`}
+        secUrl={filing.sec_url ?? filing.document_url ?? null}
+      />
+    </FilingViewerProvider>
   )
 }
 

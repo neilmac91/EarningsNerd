@@ -201,3 +201,26 @@
 .markdown-body blockquote {
   @apply border-l-4 border-emerald-500 pl-4 italic text-slate-600;
 }
+
+/* In-app filing viewer (P7): citation highlight + flash.
+   ::highlight paints the exact matched span via the CSS Custom Highlight API (when supported);
+   .citation-flash pulses the enclosing block so the jump is visible everywhere (incl. browsers
+   without the Highlight API). mint-400 == rgb(45, 212, 191). */
+::highlight(copilot-citation) {
+  background-color: rgba(45, 212, 191, 0.32);
+  color: inherit;
+}
+
+@keyframes citation-flash {
+  0% {
+    background-color: rgba(45, 212, 191, 0.28);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.citation-flash {
+  animation: citation-flash 1.5s ease-out;
+  border-radius: 0.25rem;
+}

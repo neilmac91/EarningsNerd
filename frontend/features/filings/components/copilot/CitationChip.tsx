@@ -2,6 +2,7 @@
 
 import { CheckCircle2, ExternalLink } from 'lucide-react'
 import type { CopilotCitation } from '@/features/filings/api/copilot-api'
+import { useFilingViewer } from './FilingViewerContext'
 
 // Only render a citation as an active link when it's an http(s) URL. Defense-in-depth against a
 // malicious/unexpected scheme (e.g. javascript:) reaching the href — the backend builds these from
@@ -24,6 +25,10 @@ interface CitationChipProps {
  */
 export default function CitationChip({ citation }: CitationChipProps) {
   const { n, excerpt, section_ref, verified, fragment_url } = citation
+  // When an in-app filing viewer is mounted (filing page), clicking the chip highlights the passage
+  // in place; the SEC link becomes a secondary "open original" in the popover. Without a viewer
+  // (e.g. component tests), the chip degrades to the original SEC-jump anchor.
+  const viewer = useFilingViewer()
   const header = section_ref || `Excerpt ${n}`
   const ariaLabel = `Citation ${n}: ${header}`
 
@@ -37,7 +42,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
   const popover = (
     <span
       role="tooltip"
-      className="pointer-events-none invisible absolute bottom-full left-1/2 z-50 mb-1.5 w-64 -translate-x-1/2 rounded-lg border border-white/10 bg-slate-900 p-3 text-left opacity-0 shadow-xl transition-opacity duration-100 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
+      className="pointer-events-none invisible absolute bottom-full left-1/2 z-50 mb-1.5 w-64 -translate-x-1/2 rounded-lg border border-white/10 bg-slate-900 p-3 text-left opacity-0 shadow-xl transition-opacity duration-100 group-hover:visible group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:visible group-focus-within:opacity-100 group-focus-within:pointer-events-auto"
     >
       <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-400 break-words">
         {header}
@@ -56,12 +61,40 @@ export default function CitationChip({ citation }: CitationChipProps) {
           Cited
         </span>
       )}
+      {viewer && isHttpUrl(fragment_url) && (
+        <a
+          href={fragment_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="pointer-events-auto mt-2 flex items-center gap-1 text-[11px] font-medium text-slate-400 transition-colors hover:text-mint-300"
+        >
+          <ExternalLink className="h-3 w-3 shrink-0" />
+          Open original
+        </a>
+      )}
     </span>
   )
 
   // `group` + `relative` on the wrapper so the absolutely-positioned popover anchors to the chip
   // and reacts to hover/focus anywhere inside the group.
   const wrapperClass = 'group relative inline-block align-baseline'
+
+  // In-app highlight is the primary action when the filing viewer is mounted.
+  if (viewer) {
+    return (
+      <span className={wrapperClass}>
+        <button
+          type="button"
+          aria-label={ariaLabel}
+          className={chipClass}
+          onClick={() => viewer.requestHighlight(citation)}
+        >
+          {marker}
+        </button>
+        {popover}
+      </span>
+    )
+  }
 
   if (isHttpUrl(fragment_url)) {
     return (
