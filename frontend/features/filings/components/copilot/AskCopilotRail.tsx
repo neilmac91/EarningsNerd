@@ -11,6 +11,7 @@ import {
 import CopilotComposer from './CopilotComposer'
 import CopilotMessage, { type CopilotMessageData } from './CopilotMessage'
 import CopilotTeaser from './CopilotTeaser'
+import { analytics } from '@/lib/analytics'
 
 interface AskCopilotRailProps {
   filingId: number
@@ -121,6 +122,7 @@ export default function AskCopilotRail({
       { id: assistantId, role: 'assistant', content: '', status: 'reading' },
     ])
     setIsStreaming(true)
+    analytics.copilotQuestionAsked({ filingId, ticker, filingType })
 
     const controller = new AbortController()
     abortRef.current = controller
@@ -172,11 +174,23 @@ export default function AskCopilotRail({
             followups: c.followups,
             status: 'done',
           })
+          analytics.copilotAnswerCompleted({
+            filingId,
+            ticker,
+            filingType,
+            kind: c.kind,
+            grounded: c.grounded,
+            citations: c.citations.length,
+            usedXbrl: c.citations.some((cit) =>
+              String(cit.section_ref ?? '').toUpperCase().startsWith('XBRL'),
+            ),
+          })
           setIsStreaming(false)
           abortRef.current = null
         },
         onError: (msg) => {
           updateAssistant(assistantId, { status: 'error', error: msg })
+          analytics.copilotAnswerErrored({ filingId, message: msg })
           setIsStreaming(false)
           abortRef.current = null
         },

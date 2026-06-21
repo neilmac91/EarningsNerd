@@ -150,6 +150,46 @@ export const analytics = {
     })
   },
 
+  // "Ask this Filing" Copilot funnel + answer quality. `copilot_question_asked` opens the funnel;
+  // `copilot_answer_completed` carries the quality signals (grounded count, not-disclosed rate,
+  // XBRL tool-use) so we can monitor honesty/accuracy in aggregate. Pairs with `paywall_prompt_shown`
+  // (entry_point "copilot_rail") for FREE→Pro conversion.
+  copilotQuestionAsked: (props: { filingId: number; ticker: string | null; filingType: string }) => {
+    safeCapture('copilot_question_asked', {
+      filing_id: props.filingId,
+      ticker: props.ticker,
+      filing_type: props.filingType,
+    })
+  },
+
+  copilotAnswerCompleted: (props: {
+    filingId: number
+    ticker: string | null
+    filingType: string
+    kind: 'answer' | 'not_disclosed'
+    grounded: number
+    citations: number
+    usedXbrl: boolean
+  }) => {
+    safeCapture('copilot_answer_completed', {
+      filing_id: props.filingId,
+      ticker: props.ticker,
+      filing_type: props.filingType,
+      kind: props.kind,
+      not_disclosed: props.kind === 'not_disclosed',
+      grounded: props.grounded,
+      citations: props.citations,
+      used_xbrl: props.usedXbrl,
+    })
+  },
+
+  copilotAnswerErrored: (props: { filingId: number; message: string }) => {
+    safeCapture('copilot_answer_errored', {
+      filing_id: props.filingId,
+      message: props.message,
+    })
+  },
+
   summarySaved: (filingId: number, ticker: string | null) => {
     safeCapture('summary_saved', {
       filing_id: filingId,
