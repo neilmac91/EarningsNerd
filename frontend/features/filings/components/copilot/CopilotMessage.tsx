@@ -5,7 +5,7 @@ import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Ban, CheckCircle2, ExternalLink, Loader2, Minus, RotateCw, Sparkles } from 'lucide-react'
-import type { CopilotCitation } from '@/features/filings/api/copilot-api'
+import { isXbrlCitation, xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import CitationChip, { isHttpUrl } from './CitationChip'
 
 // A single "show the work" step (a numeric/XBRL tool call) shown live while the answer is forming.
@@ -96,6 +96,19 @@ function MarkdownProse({ children }: { children: string }) {
   return (
     <div className="prose prose-invert prose-sm max-w-none break-words text-slate-200 prose-p:my-2 prose-headings:text-white prose-strong:text-white prose-a:text-mint-300">
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
+    </div>
+  )
+}
+
+// While tokens are still arriving we render the raw text (whitespace-preserving) instead of
+// re-parsing the growing markdown on every frame — markdown (with citation chips) is rendered once
+// the `complete` event lands. Re-parsing a markdown string that grows by a token each frame is the
+// O(n²) cost the streaming view used to pay; a plain text node is a near-free update. `pre-wrap`
+// keeps paragraph breaks readable mid-stream; the formatted answer snaps in when the stream ends.
+function StreamingText({ children }: { children: string }) {
+  return (
+    <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-200">
+      {children}
     </div>
   )
 }
@@ -201,7 +214,27 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
               Cited
             </span>
           )
-          const content = (
+          const isFact = isXbrlCitation(c)
+          const tag = isFact ? xbrlTag(c) : null
+          // XBRL facts are figures, not quotes — render them as a dense data row: the value in
+          // monospace tabular figures (so digits align) with the source tag beneath, rather than
+          // the prose excerpt treatment used for filing-text citations.
+          const content = isFact ? (
+            <>
+              <span className="mt-px font-mono text-[11px] font-semibold text-mint-300">[{c.n}]</span>
+              <span className="min-w-0 flex-1">
+                <span className="flex items-center gap-2">
+                  <span className="min-w-0 flex-1 truncate font-mono text-[12px] tabular-nums text-slate-100">
+                    {c.excerpt}
+                  </span>
+                  {badge}
+                </span>
+                {tag && (
+                  <span className="mt-0.5 block truncate font-mono text-[10px] text-slate-500">{tag}</span>
+                )}
+              </span>
+            </>
+          ) : (
             <>
               <span className="mt-px font-mono text-[11px] font-semibold text-mint-300">[{c.n}]</span>
               <span className="min-w-0 flex-1">
@@ -328,6 +361,8 @@ export default function CopilotMessage({
                 <MarkdownProseWithCitations citations={citations!}>
                   {message.content}
                 </MarkdownProseWithCitations>
+              ) : isStreaming ? (
+                <StreamingText>{message.content}</StreamingText>
               ) : (
                 <MarkdownProse>{message.content}</MarkdownProse>
               )}
