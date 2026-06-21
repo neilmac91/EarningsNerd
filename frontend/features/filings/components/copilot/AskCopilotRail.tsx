@@ -25,6 +25,20 @@ interface AskCopilotRailProps {
   onOpenChange: (open: boolean) => void
   // Set by a "Ask about this" text selection to pre-fill the composer. `nonce` re-triggers on repeat.
   prefill?: { text: string; nonce: number } | null
+  // 'overlay' (default): the panel floats fixed on the right (and as a bottom-sheet on mobile).
+  // 'pane': on lg+ the panel fills its grid cell inside FilingWorkspace (reflow, not overlay); below
+  // lg it still falls back to the bottom-sheet overlay.
+  variant?: 'overlay' | 'pane'
+}
+
+// Open-panel container classes per layout variant. Mobile (bottom-sheet) is identical; they differ
+// only at lg+: overlay docks fixed on the right, pane fills the FilingWorkspace grid cell.
+const PANEL_BASE =
+  'fixed inset-x-0 bottom-0 z-40 flex max-h-[80vh] flex-col rounded-t-2xl border border-white/10 bg-slate-900 text-slate-100 shadow-2xl'
+const PANEL_VARIANT: Record<'overlay' | 'pane', string> = {
+  overlay:
+    'lg:inset-x-auto lg:bottom-0 lg:right-0 lg:top-16 lg:max-h-none lg:w-[420px] lg:rounded-none lg:border-y-0 lg:border-l',
+  pane: 'lg:static lg:inset-auto lg:z-auto lg:h-full lg:w-full lg:max-h-none lg:rounded-none lg:border-y-0 lg:border-l lg:shadow-none',
 }
 
 // Number of prior turns sent back as `history` so the model has conversational context
@@ -65,6 +79,7 @@ export default function AskCopilotRail({
   open,
   onOpenChange,
   prefill,
+  variant = 'overlay',
 }: AskCopilotRailProps) {
   const [messages, setMessages] = useState<CopilotMessageData[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
@@ -295,7 +310,7 @@ export default function AskCopilotRail({
     <div
       role="dialog"
       aria-label="Ask this Filing"
-      className="fixed inset-x-0 bottom-0 z-40 flex max-h-[80vh] flex-col rounded-t-2xl border border-white/10 bg-slate-900 text-slate-100 shadow-2xl lg:inset-x-auto lg:bottom-0 lg:right-0 lg:top-16 lg:max-h-none lg:w-[420px] lg:rounded-none lg:border-y-0 lg:border-l"
+      className={`${PANEL_BASE} ${PANEL_VARIANT[variant]}`}
     >
       {/* Header */}
       <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3">

@@ -7,6 +7,7 @@ import { getSummary, generateSummaryStream, isPaywallStreamError, Summary, saveS
 import { WhatChanged } from '@/features/filings/components/WhatChanged'
 import AskCopilotRail from '@/features/filings/components/copilot/AskCopilotRail'
 import FilingViewer from '@/features/filings/components/copilot/FilingViewer'
+import FilingWorkspace from '@/features/filings/components/copilot/FilingWorkspace'
 import { FilingViewerProvider } from '@/features/filings/components/copilot/FilingViewerContext'
 import AskAboutSelection from '@/features/filings/components/copilot/AskAboutSelection'
 import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
@@ -510,11 +511,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
 
   return (
     <FilingViewerProvider>
-    <div
-      className={`min-h-screen bg-gray-50 transition-[padding] duration-300 dark:bg-gray-900 ${
-        copilotOpen ? 'lg:pr-[420px]' : ''
-      }`}
-    >
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
       <header className="bg-gradient-to-r from-white via-gray-50 to-white dark:from-gray-800 dark:via-gray-900 dark:to-gray-800 shadow-lg border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
@@ -578,55 +575,61 @@ function FilingDetailView({ filingId }: { filingId: number }) {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main ref={summaryContentRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {isStreaming || (hasStartedGeneration && !hasSummaryContent) ? (
-          <StreamingSummaryDisplay
-            streamingText={streamingText}
-            stage={streamingStage}
-            message={streamingMessage}
-            filing={filing}
-            error={generationError}
-            onRetry={handleRegenerateSummary}
-            elapsedSeconds={elapsedSeconds}
-          />
-        ) : summary && hasSummaryContent && filing ? (
-          <SummaryDisplay
-            summary={summary}
-            filing={filing}
-            isPro={subscription?.is_pro || false}
-            saveMutation={saveMutation}
-            isSaved={!!isSaved}
-            debug={debugSummary}
-            isAuthenticated={isAuthenticated}
-            onRetry={handleRegenerateSummary}
-          />
-        ) : (
-          <StreamingSummaryDisplay
-            streamingText=""
-            stage={activeErrorMessage ? 'error' : 'initializing'}
-            message={activeErrorMessage || 'Initializing AI analysis...'}
-            filing={filing}
-            error={activeErrorMessage}
-            onRetry={handleRegenerateSummary}
-            elapsedSeconds={0}
-          />
-        )}
-      </main>
-
-      <AskCopilotRail
-        key={filing.id}
-        filingId={filing.id}
-        filingType={filing.filing_type}
-        ticker={filing.company?.ticker ?? null}
-        companyName={filing.company?.name ?? null}
-        summaryAvailable={hasSummaryContent}
-        isPro={subscription?.is_pro || false}
-        isAuthenticated={isAuthenticated}
+      {/* Main Content — summary + Copilot as reflowing research-desk panes on lg+ */}
+      <FilingWorkspace
         open={copilotOpen}
-        onOpenChange={setCopilotOpen}
-        prefill={copilotPrefill}
-      />
+        rail={
+          <AskCopilotRail
+            key={filing.id}
+            filingId={filing.id}
+            filingType={filing.filing_type}
+            ticker={filing.company?.ticker ?? null}
+            companyName={filing.company?.name ?? null}
+            summaryAvailable={hasSummaryContent}
+            isPro={subscription?.is_pro || false}
+            isAuthenticated={isAuthenticated}
+            open={copilotOpen}
+            onOpenChange={setCopilotOpen}
+            prefill={copilotPrefill}
+            variant="pane"
+          />
+        }
+      >
+        <main ref={summaryContentRef} className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {isStreaming || (hasStartedGeneration && !hasSummaryContent) ? (
+            <StreamingSummaryDisplay
+              streamingText={streamingText}
+              stage={streamingStage}
+              message={streamingMessage}
+              filing={filing}
+              error={generationError}
+              onRetry={handleRegenerateSummary}
+              elapsedSeconds={elapsedSeconds}
+            />
+          ) : summary && hasSummaryContent && filing ? (
+            <SummaryDisplay
+              summary={summary}
+              filing={filing}
+              isPro={subscription?.is_pro || false}
+              saveMutation={saveMutation}
+              isSaved={!!isSaved}
+              debug={debugSummary}
+              isAuthenticated={isAuthenticated}
+              onRetry={handleRegenerateSummary}
+            />
+          ) : (
+            <StreamingSummaryDisplay
+              streamingText=""
+              stage={activeErrorMessage ? 'error' : 'initializing'}
+              message={activeErrorMessage || 'Initializing AI analysis...'}
+              filing={filing}
+              error={activeErrorMessage}
+              onRetry={handleRegenerateSummary}
+              elapsedSeconds={0}
+            />
+          )}
+        </main>
+      </FilingWorkspace>
     </div>
       <FilingViewer
         key={filing.id}
