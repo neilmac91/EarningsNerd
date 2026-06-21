@@ -107,6 +107,7 @@ describe('AskCopilotRail', () => {
       ],
       grounded: 1,
       kind: 'answer',
+      followups: [],
     })
 
     expect(await screen.findByText(/revenue grew 8%/i)).toBeInTheDocument()

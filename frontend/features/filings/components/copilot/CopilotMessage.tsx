@@ -27,6 +27,8 @@ export interface CopilotMessageData {
   error?: string
   // Live tool-activity steps ("Looking up revenue… ✓"), surfaced while reading/streaming.
   steps?: CopilotStep[]
+  // 2-3 suggested next questions, shown as tappable chips under the latest answer.
+  followups?: string[]
 }
 
 // Live "show the work" ticker: the numeric tools the assistant is calling as it grounds its answer.
@@ -57,6 +59,37 @@ interface CopilotMessageProps {
   message: CopilotMessageData
   onRetry?: () => void
   isPaywallError?: boolean
+  // Tapping a suggested follow-up asks it. Only shown for the latest completed answer.
+  onFollowup?: (question: string) => void
+  showFollowups?: boolean
+}
+
+// Tappable "ask next" chips generated per answer.
+function FollowupChips({
+  followups,
+  onFollowup,
+}: {
+  followups: string[]
+  onFollowup: (question: string) => void
+}) {
+  return (
+    <div className="mt-3 border-t border-white/10 pt-2.5">
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ask next</p>
+      <div className="flex flex-col gap-1.5">
+        {followups.map((q, i) => (
+          <button
+            key={`${q}-${i}`}
+            type="button"
+            onClick={() => onFollowup(q)}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-slate-800/40 px-2.5 py-1.5 text-left text-xs text-slate-200 transition-colors hover:border-mint-500/40 hover:bg-slate-800"
+          >
+            <Sparkles className="h-3 w-3 shrink-0 text-mint-400" aria-hidden="true" />
+            {q}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 function MarkdownProse({ children }: { children: string }) {
@@ -203,7 +236,13 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
   )
 }
 
-export default function CopilotMessage({ message, onRetry, isPaywallError }: CopilotMessageProps) {
+export default function CopilotMessage({
+  message,
+  onRetry,
+  isPaywallError,
+  onFollowup,
+  showFollowups,
+}: CopilotMessageProps) {
   if (message.role === 'user') {
     return (
       <div className="flex justify-end">
@@ -309,6 +348,9 @@ export default function CopilotMessage({ message, onRetry, isPaywallError }: Cop
                 </p>
               )}
               {message.citations && <SourcesList citations={message.citations} />}
+              {showFollowups && onFollowup && message.followups && message.followups.length > 0 && (
+                <FollowupChips followups={message.followups} onFollowup={onFollowup} />
+              )}
             </>
           )}
         </>

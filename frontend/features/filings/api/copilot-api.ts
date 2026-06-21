@@ -20,6 +20,8 @@ export interface CopilotCompletion {
   citations: CopilotCitation[]
   grounded: number
   kind: 'answer' | 'not_disclosed'
+  // 2-3 suggested next questions about this filing, rendered as tappable chips.
+  followups: string[]
 }
 
 export interface CopilotTurn {
@@ -191,6 +193,9 @@ export const askFilingStream = async (
               citations: Array.isArray(data.citations) ? (data.citations as CopilotCitation[]) : [],
               grounded: typeof data.grounded === 'number' ? data.grounded : 0,
               kind: data.kind === 'not_disclosed' ? 'not_disclosed' : 'answer',
+              followups: Array.isArray(data.followups)
+                ? (data.followups as unknown[]).filter((f): f is string => typeof f === 'string')
+                : [],
             })
             break
           case 'error':
