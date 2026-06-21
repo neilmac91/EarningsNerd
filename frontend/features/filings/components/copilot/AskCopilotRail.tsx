@@ -11,6 +11,7 @@ import {
 import CopilotComposer, { type CopilotComposerHandle } from './CopilotComposer'
 import CopilotMessage, { type CopilotMessageData } from './CopilotMessage'
 import CopilotTeaser from './CopilotTeaser'
+import { useFilingViewer } from './FilingViewerContext'
 import { analytics } from '@/lib/analytics'
 
 interface AskCopilotRailProps {
@@ -29,6 +30,10 @@ interface AskCopilotRailProps {
   // 'pane': on lg+ the panel fills its grid cell inside FilingWorkspace (reflow, not overlay); below
   // lg it still falls back to the bottom-sheet overlay.
   variant?: 'overlay' | 'pane'
+  // When true, render body-only (no launcher, no dialog wrapper, no header): FilingWorkspace provides
+  // the secondary-pane shell + the [Answer · Filing] tabs + close. The component stays mounted while
+  // hidden so the conversation/stream survives view switches and close/reopen.
+  embedded?: boolean
 }
 
 // Open-panel container classes per layout variant. Mobile (bottom-sheet) is identical; they differ
@@ -80,6 +85,7 @@ export default function AskCopilotRail({
   onOpenChange,
   prefill,
   variant = 'overlay',
+  embedded = false,
 }: AskCopilotRailProps) {
   const [messages, setMessages] = useState<CopilotMessageData[]>([])
   const [isStreaming, setIsStreaming] = useState(false)
@@ -116,13 +122,20 @@ export default function AskCopilotRail({
     if (el) el.scrollTop = el.scrollHeight
   }, [messages])
 
-  // Focus the composer whenever the panel opens (launcher tap, ⌘K, or a citation flow).
+  // In the embedded layout the Copilot shares the pane with the filing view; only focus the composer
+  // when the Copilot view is actually active (focusing it while the Filing tab is shown would steal
+  // focus, and the hidden container can't take focus anyway). Standalone overlay is always "active".
+  const viewer = useFilingViewer()
+  const isCopilotActive = !embedded || (viewer?.activeView ?? 'copilot') === 'copilot'
+
+  // Focus the composer when the Copilot opens or becomes the active view (launcher tap, ⌘K, a
+  // citation flow that returns to the answer, or switching back via the [Answer · Filing] tabs).
   const composerRef = useRef<CopilotComposerHandle>(null)
   useEffect(() => {
-    if (!open || !isPro) return
+    if (!open || !isPro || !isCopilotActive) return
     const raf = requestAnimationFrame(() => composerRef.current?.focus())
     return () => cancelAnimationFrame(raf)
-  }, [open, isPro])
+  }, [open, isPro, isCopilotActive])
 
   // Pre-fill the composer from an "Ask about this" text selection (page sets `prefill` + opens us).
   const lastPrefillNonce = useRef(0)
@@ -285,6 +298,70 @@ export default function AskCopilotRail({
   // Need a summary to cite against — don't render the rail at all without one.
   if (!summaryAvailable) return null
 
+  const subjectLabel = ticker || companyName || 'this filing'
+
+  // The conversation surface (teaser for FREE, else messages + composer). Shared by the overlay
+  // panel and the embedded (FilingWorkspace shell) layout so both exercise the same code path.
+  const body = !isPro ? (
+    <CopilotTeaser
+      filingId={filingId}
+      filingType={filingType}
+      ticker={ticker}
+      companyName={companyName}
+      isAuthenticated={isAuthenticated}
+    />
+  ) : (
+    <>
+      {/* Messages / empty state */}
+      <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+        {messages.length === 0 ? (
+          <div>
+            <p className="text-sm text-slate-300">
+              Ask anything about {subjectLabel}’s {filingType}. Answers are grounded in the filing and
+              cite the excerpts they came from.
+            </p>
+            <p className="mt-4 mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Try asking
+            </p>
+            <div className="flex flex-col gap-2">
+              {starterQuestions(filingType).map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  onClick={() => handleSubmit(q)}
+                  className="rounded-xl border border-white/10 bg-slate-800/40 px-3 py-2 text-left text-sm text-slate-200 transition-colors hover:border-mint-500/40 hover:bg-slate-800"
+                >
+                  {q}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          messages.map((m, idx) => (
+            <CopilotMessage
+              key={m.id}
+              message={m}
+              onRetry={handleRetry}
+              isPaywallError={m.status === 'error' && isCopilotPaywallError(m.error || '')}
+              onFollowup={handleSubmit}
+              // Only the latest answer offers follow-ups (and not mid-stream).
+              showFollowups={idx === messages.length - 1 && !isStreaming}
+            />
+          ))
+        )}
+      </div>
+
+      {/* Composer */}
+      <CopilotComposer ref={composerRef} onSubmit={handleSubmit} disabled={isStreaming} />
+    </>
+  )
+
+  // --- Embedded: body only; FilingWorkspace owns the shell, tabs, header and close. The component
+  // stays mounted (workspace toggles visibility) so the stream/conversation survives view switches.
+  if (embedded) {
+    return <div className="flex min-h-0 flex-1 flex-col">{body}</div>
+  }
+
   // --- Launcher (closed) ---
   if (!open) {
     return (
@@ -303,9 +380,7 @@ export default function AskCopilotRail({
     )
   }
 
-  const subjectLabel = ticker || companyName || 'this filing'
-
-  // --- Panel (open) ---
+  // --- Panel (open, standalone overlay) ---
   return (
     <div
       role="dialog"
@@ -332,60 +407,7 @@ export default function AskCopilotRail({
         </button>
       </div>
 
-      {/* FREE locked teaser (blurred sample + value props + upsell + paywall analytics). */}
-      {!isPro ? (
-        <CopilotTeaser
-          filingId={filingId}
-          filingType={filingType}
-          ticker={ticker}
-          companyName={companyName}
-          isAuthenticated={isAuthenticated}
-        />
-      ) : (
-        <>
-          {/* Messages / empty state */}
-          <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
-            {messages.length === 0 ? (
-              <div>
-                <p className="text-sm text-slate-300">
-                  Ask anything about {subjectLabel}’s {filingType}. Answers are grounded in the filing and
-                  cite the excerpts they came from.
-                </p>
-                <p className="mt-4 mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                  Try asking
-                </p>
-                <div className="flex flex-col gap-2">
-                  {starterQuestions(filingType).map((q) => (
-                    <button
-                      key={q}
-                      type="button"
-                      onClick={() => handleSubmit(q)}
-                      className="rounded-xl border border-white/10 bg-slate-800/40 px-3 py-2 text-left text-sm text-slate-200 transition-colors hover:border-mint-500/40 hover:bg-slate-800"
-                    >
-                      {q}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              messages.map((m, idx) => (
-                <CopilotMessage
-                  key={m.id}
-                  message={m}
-                  onRetry={handleRetry}
-                  isPaywallError={m.status === 'error' && isCopilotPaywallError(m.error || '')}
-                  onFollowup={handleSubmit}
-                  // Only the latest answer offers follow-ups (and not mid-stream).
-                  showFollowups={idx === messages.length - 1 && !isStreaming}
-                />
-              ))
-            )}
-          </div>
-
-          {/* Composer */}
-          <CopilotComposer ref={composerRef} onSubmit={handleSubmit} disabled={isStreaming} />
-        </>
-      )}
+      {body}
     </div>
   )
 }

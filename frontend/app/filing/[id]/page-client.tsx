@@ -575,10 +575,13 @@ function FilingDetailView({ filingId }: { filingId: number }) {
         </div>
       </header>
 
-      {/* Main Content — summary + Copilot as reflowing research-desk panes on lg+ */}
+      {/* Main Content — summary + a unified Copilot/filing pane as reflowing research-desk panes on lg+ */}
       <FilingWorkspace
         open={copilotOpen}
-        rail={
+        onOpenChange={setCopilotOpen}
+        summaryAvailable={hasSummaryContent}
+        secUrl={filing.sec_url ?? filing.document_url ?? null}
+        copilotBody={
           <AskCopilotRail
             key={filing.id}
             filingId={filing.id}
@@ -591,7 +594,16 @@ function FilingDetailView({ filingId }: { filingId: number }) {
             open={copilotOpen}
             onOpenChange={setCopilotOpen}
             prefill={copilotPrefill}
-            variant="pane"
+            embedded
+          />
+        }
+        filingBody={
+          <FilingViewer
+            key={filing.id}
+            filingId={filing.id}
+            filingLabel={`${filing.company?.ticker ?? filing.company?.name ?? 'Filing'} ${filing.filing_type}`}
+            secUrl={filing.sec_url ?? filing.document_url ?? null}
+            embedded
           />
         }
       >
@@ -631,12 +643,6 @@ function FilingDetailView({ filingId }: { filingId: number }) {
         </main>
       </FilingWorkspace>
     </div>
-      <FilingViewer
-        key={filing.id}
-        filingId={filing.id}
-        filingLabel={`${filing.company?.ticker ?? filing.company?.name ?? 'Filing'} ${filing.filing_type}`}
-        secUrl={filing.sec_url ?? filing.document_url ?? null}
-      />
       <AskAboutSelection
         containerRef={summaryContentRef}
         enabled={(subscription?.is_pro ?? false) && hasSummaryContent}
