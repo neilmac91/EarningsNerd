@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import { Send } from 'lucide-react'
 
 interface CopilotComposerProps {
@@ -8,13 +8,21 @@ interface CopilotComposerProps {
   disabled: boolean
 }
 
+export interface CopilotComposerHandle {
+  focus: () => void
+}
+
 /**
  * Bottom-pinned input for the Copilot rail. Enter submits, Shift+Enter inserts a newline.
- * Send is disabled while a stream is in flight or the input is empty.
+ * Send is disabled while a stream is in flight or the input is empty. Exposes a `focus()` handle so
+ * the rail can focus it on open / on the ⌘K shortcut.
  */
-export default function CopilotComposer({ onSubmit, disabled }: CopilotComposerProps) {
+const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
+  function CopilotComposer({ onSubmit, disabled }, ref) {
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  useImperativeHandle(ref, () => ({ focus: () => textareaRef.current?.focus() }), [])
 
   const trimmed = value.trim()
   const canSend = !disabled && trimmed.length > 0
@@ -71,4 +79,6 @@ export default function CopilotComposer({ onSubmit, disabled }: CopilotComposerP
       </div>
     </form>
   )
-}
+})
+
+export default CopilotComposer

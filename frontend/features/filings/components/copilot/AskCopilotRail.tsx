@@ -8,7 +8,7 @@ import {
   type CopilotCompletion,
   type CopilotTurn,
 } from '@/features/filings/api/copilot-api'
-import CopilotComposer from './CopilotComposer'
+import CopilotComposer, { type CopilotComposerHandle } from './CopilotComposer'
 import CopilotMessage, { type CopilotMessageData } from './CopilotMessage'
 import CopilotTeaser from './CopilotTeaser'
 import { analytics } from '@/lib/analytics'
@@ -97,6 +97,36 @@ export default function AskCopilotRail({
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
   }, [messages])
+
+  // Focus the composer whenever the panel opens (launcher tap, ⌘K, or a citation flow).
+  const composerRef = useRef<CopilotComposerHandle>(null)
+  useEffect(() => {
+    if (!open || !isPro) return
+    const raf = requestAnimationFrame(() => composerRef.current?.focus())
+    return () => cancelAnimationFrame(raf)
+  }, [open, isPro])
+
+  // Keyboard: ⌘K / Ctrl+K (and "/" when not already typing) open + focus the rail; Escape closes it.
+  useEffect(() => {
+    if (!summaryAvailable) return
+    const onKey = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null
+      const typing =
+        !!target &&
+        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+      const openCombo = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k'
+      const slashCombo = e.key === '/' && !e.metaKey && !e.ctrlKey && !typing
+      if (openCombo || slashCombo) {
+        e.preventDefault()
+        if (!open) onOpenChange(true)
+        requestAnimationFrame(() => composerRef.current?.focus())
+      } else if (e.key === 'Escape' && open) {
+        onOpenChange(false)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, onOpenChange, summaryAvailable])
 
   const updateAssistant = (
     id: string,
@@ -232,6 +262,9 @@ export default function AskCopilotRail({
       >
         <Sparkles className="h-4 w-4" />
         Ask this Filing
+        <kbd className="ml-1 hidden rounded border border-slate-950/25 bg-slate-950/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none sm:inline-block">
+          ⌘K
+        </kbd>
       </button>
     )
   }
@@ -316,7 +349,7 @@ export default function AskCopilotRail({
           </div>
 
           {/* Composer */}
-          <CopilotComposer onSubmit={handleSubmit} disabled={isStreaming} />
+          <CopilotComposer ref={composerRef} onSubmit={handleSubmit} disabled={isStreaming} />
         </>
       )}
     </div>

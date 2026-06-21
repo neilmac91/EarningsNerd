@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, within } from '@testing-library/react'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 
 vi.mock('next/link', () => ({
@@ -138,6 +138,23 @@ describe('AskCopilotRail', () => {
     expect(analytics.copilotAnswerCompleted).toHaveBeenCalledWith(
       expect.objectContaining({ kind: 'answer', grounded: 1, citations: 1, usedXbrl: false }),
     )
+  })
+
+  it('opens the rail on ⌘K and on "/" (when not typing)', () => {
+    const cmd = renderRail({ open: false })
+    fireEvent.keyDown(document.body, { key: 'k', metaKey: true })
+    expect(cmd.onOpenChange).toHaveBeenCalledWith(true)
+
+    cmd.unmount()
+    const slash = renderRail({ open: false })
+    fireEvent.keyDown(document.body, { key: '/' })
+    expect(slash.onOpenChange).toHaveBeenCalledWith(true)
+  })
+
+  it('closes the rail on Escape when open', () => {
+    const { onOpenChange } = renderRail({ open: true })
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(onOpenChange).toHaveBeenCalledWith(false)
   })
 
   it('renders the distinct "Not disclosed" card on a not_disclosed completion', async () => {
