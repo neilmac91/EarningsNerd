@@ -24,13 +24,22 @@ export default function PaneResizer({ width, min, max, onResize, className = '' 
   const clamp = useCallback((w: number) => Math.min(max, Math.max(min, w)), [min, max])
   const dragging = useRef(false)
 
-  const onPointerMove = useCallback(
-    (e: PointerEvent) => {
-      if (!dragging.current) return
-      onResize(clamp(window.innerWidth - e.clientX))
-    },
-    [clamp, onResize],
-  )
+  // The drag listeners must stay referentially stable for the whole drag: `onResize` re-renders the
+  // parent (it sets width state), so if the handlers depended on it they'd be recreated mid-drag and
+  // the `useEffect(() => stop, [stop])` cleanup would tear the drag down after the first move. Read
+  // the latest callback/clamp from refs instead so the handlers can have empty deps.
+  const onResizeRef = useRef(onResize)
+  const clampRef = useRef(clamp)
+  useEffect(() => {
+    onResizeRef.current = onResize
+    clampRef.current = clamp
+  }, [onResize, clamp])
+
+  const onPointerMove = useCallback((e: PointerEvent) => {
+    if (!dragging.current) return
+    // Pane is docked on the right: its width is the distance from the pointer to the right edge.
+    onResizeRef.current(clampRef.current(window.innerWidth - e.clientX))
+  }, [])
 
   const stop = useCallback(() => {
     if (!dragging.current) return

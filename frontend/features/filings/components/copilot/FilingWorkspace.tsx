@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import PaneResizer from './PaneResizer'
 
 const DEFAULT_WIDTH = 420
@@ -14,9 +14,14 @@ function clampWidth(w: number): number {
 
 function readStoredWidth(): number {
   if (typeof window === 'undefined') return DEFAULT_WIDTH
-  const raw = window.localStorage.getItem(STORAGE_KEY)
-  const n = raw ? Number(raw) : NaN
-  return Number.isFinite(n) ? clampWidth(n) : DEFAULT_WIDTH
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY)
+    const n = raw ? Number(raw) : NaN
+    return Number.isFinite(n) ? clampWidth(n) : DEFAULT_WIDTH
+  } catch {
+    // localStorage can throw (private mode, blocked third-party storage, SecurityError in an iframe).
+    return DEFAULT_WIDTH
+  }
 }
 
 interface FilingWorkspaceProps {
@@ -45,11 +50,16 @@ export default function FilingWorkspace({ open, rail, children }: FilingWorkspac
     setWidth(readStoredWidth())
   }, [])
 
-  const handleResize = (next: number) => {
+  const handleResize = useCallback((next: number) => {
     const w = clampWidth(next)
     setWidth(w)
-    if (typeof window !== 'undefined') window.localStorage.setItem(STORAGE_KEY, String(w))
-  }
+    if (typeof window === 'undefined') return
+    try {
+      window.localStorage.setItem(STORAGE_KEY, String(w))
+    } catch {
+      // Ignore storage write failures (quota/SecurityError) — the width still applies for the session.
+    }
+  }, [])
 
   // When closed, collapse the second track to 0 so the summary spans the full width.
   const style = { '--copilot-w': open ? `${width}px` : '0px' } as CSSProperties

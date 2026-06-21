@@ -30,4 +30,37 @@ describe('PaneResizer', () => {
     fireEvent.keyDown(sep, { key: 'End' })
     expect(onResize).toHaveBeenLastCalledWith(360)
   })
+
+  it('resizes on pointer drag (pane width = distance from pointer to the right edge)', () => {
+    const onResize = vi.fn()
+    render(<PaneResizer width={420} min={360} max={640} onResize={onResize} />)
+    const sep = screen.getByRole('separator')
+
+    fireEvent(sep, new MouseEvent('pointerdown', { bubbles: true }))
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: window.innerWidth - 500 }))
+    expect(onResize).toHaveBeenLastCalledWith(500)
+
+    window.dispatchEvent(new MouseEvent('pointerup'))
+  })
+
+  it('keeps the drag alive across a parent re-render with a new onResize identity', () => {
+    // Regression guard: an unmemoized onResize used to recreate the drag handlers, whose [stop]
+    // effect cleanup tore the drag down after the first move. The handlers must stay stable.
+    const { rerender } = render(<PaneResizer width={420} min={360} max={640} onResize={vi.fn()} />)
+    const sep = screen.getByRole('separator')
+
+    fireEvent(sep, new MouseEvent('pointerdown', { bubbles: true }))
+    expect(document.body.style.userSelect).toBe('none') // drag active
+
+    // Simulate what FilingWorkspace does on each move: re-render with a brand-new callback identity.
+    const onResize2 = vi.fn()
+    rerender(<PaneResizer width={444} min={360} max={640} onResize={onResize2} />)
+    expect(document.body.style.userSelect).toBe('none') // drag NOT torn down
+
+    window.dispatchEvent(new MouseEvent('pointermove', { clientX: window.innerWidth - 520 }))
+    expect(onResize2).toHaveBeenLastCalledWith(520) // latest callback receives the move
+
+    window.dispatchEvent(new MouseEvent('pointerup'))
+    expect(document.body.style.userSelect).toBe('')
+  })
 })
