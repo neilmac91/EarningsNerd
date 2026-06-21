@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends, status, Request
 from sqlalchemy.orm import Session, joinedload
 from typing import Optional
 import json
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import logging
 from fastapi.responses import Response, StreamingResponse
 
@@ -14,9 +14,16 @@ from app.models import (
     SummaryGenerationProgress,
 )
 from app.routers.auth import get_current_user_optional
+from app.dependencies import require_entitlement
 from app.services.entitlements import get_entitlements
 from app.services.export_service import export_service
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
+from app.services.subscription_service import (
+    check_qa_limit,
+    get_current_month,
+    increment_user_qa,
+)
+from app.services.copilot_service import answer_filing_question, snapshot_filing
 from app.services.summary_generation_service import (
     mark_stale_progress_as_error,
     progress_as_dict,
@@ -28,6 +35,15 @@ from app.services.change_report_service import build_change_report
 router = APIRouter()
 logger = logging.getLogger(__name__)
 SUMMARY_LIMITER = RateLimiter(limit=5, window_seconds=60)
+# Copilot Q&A is cheaper per call than a summary but still hits the model — allow a higher
+# burst than summaries while still throttling abuse (per IP, sliding window).
+ASK_LIMITER = RateLimiter(limit=10, window_seconds=60)
+
+
+class AskRequest(BaseModel):
+    """Body for the "Ask this Filing" Copilot endpoint."""
+    question: str = Field(..., min_length=1, max_length=2000)
+    history: Optional[list[dict]] = None
 
 class SummaryResponse(BaseModel):
     id: int
@@ -202,6 +218,70 @@ async def generate_summary_stream(
             telemetry_distinct_id=telemetry_distinct_id,
             telemetry_entry_point=telemetry_entry_point,
             telemetry_ctx=telemetry_ctx,
+        ):
+            yield to_sse(event)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable buffering for Cloud Run/nginx
+        }
+    )
+
+
+@router.post("/filing/{filing_id}/ask-stream")
+async def ask_filing_stream(
+    filing_id: int,
+    body: AskRequest,
+    request: Request,
+    current_user: User = Depends(require_entitlement("copilot", "Ask this Filing")),
+    db: Session = Depends(get_db),
+):
+    """Grounded single-filing Q&A with a streaming (SSE) response. Pro-only ("copilot" entitlement).
+
+    The model answers using only this filing's cached content; the server verifies each cited excerpt
+    against the filing text (reusing the Trace-to-Source provenance helpers) and emits honest
+    verified/cited labels plus ``#:~:text=`` deep links. Excluded from the timeout middleware by the
+    ``*stream*`` name rule. Metering: counts against the Pro fair-use monthly cap.
+    """
+    enforce_rate_limit(
+        request,
+        ASK_LIMITER,
+        f"ask:{current_user.id}",
+        error_detail="Too many questions. Please try again shortly.",
+    )
+
+    filing = db.query(Filing).options(
+        joinedload(Filing.content_cache),
+        joinedload(Filing.company),
+    ).filter(Filing.id == filing_id).first()
+    if not filing:
+        raise HTTPException(status_code=404, detail="Filing not found")
+
+    # Fair-use soft cap (Pro only reaches here). 429 when over, otherwise meter this question.
+    allowed, count, cap = check_qa_limit(current_user, db)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                f"You've reached this month's fair-use limit of {cap} Copilot questions. "
+                "It resets at the start of next month."
+            ),
+        )
+    # Snapshot the filing into detached plain objects BEFORE metering's commit expires the ORM
+    # instances. The SSE generator below runs after this request's session may be gone, so it must
+    # never touch the ORM (mirrors generate_summary_stream's eager value capture).
+    filing_ctx = snapshot_filing(filing)
+    increment_user_qa(current_user.id, get_current_month(), db)
+
+    async def event_stream():
+        async for event in answer_filing_question(
+            filing=filing_ctx,
+            question=body.question,
+            history=body.history,
         ):
             yield to_sse(event)
 

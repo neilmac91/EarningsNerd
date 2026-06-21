@@ -52,6 +52,8 @@ class Entitlements:
     eightk_coverage: bool = False
     history_retention_days: Optional[int] = None  # None == full history
     priority_model: bool = False
+    # "Ask this Filing" Copilot (A2). Pro-only grounded single-filing Q&A.
+    copilot: bool = False
 
     @property
     def has_unlimited_summaries(self) -> bool:
@@ -71,6 +73,7 @@ _FREE = Entitlements(
     eightk_coverage=False,
     history_retention_days=90,
     priority_model=False,
+    copilot=False,
 )
 
 _PRO = Entitlements(
@@ -84,6 +87,7 @@ _PRO = Entitlements(
     eightk_coverage=True,
     history_retention_days=None,
     priority_model=True,
+    copilot=True,
 )
 
 
