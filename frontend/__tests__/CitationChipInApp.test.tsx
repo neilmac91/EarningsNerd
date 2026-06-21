@@ -57,4 +57,26 @@ describe('CitationChip with an in-app filing viewer', () => {
     expect(link).toHaveAttribute('href', citation.fragment_url)
     expect(link).toHaveAttribute('target', '_blank')
   })
+
+  it('visually distinguishes XBRL figure chips from text-excerpt chips', () => {
+    const textCitation: CopilotCitation = { ...citation }
+    const factCitation: CopilotCitation = {
+      n: 'F1',
+      excerpt: 'Revenue = $391.04B USD (FY2024)',
+      section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
+      verified: true,
+      fragment_url: 'https://www.sec.gov/filing',
+    }
+    const { rerender } = render(<CitationChip citation={textCitation} />)
+    expect(screen.getByRole('link', { name: /citation 1/i })).toHaveAttribute(
+      'data-citation-kind',
+      'text',
+    )
+
+    rerender(<CitationChip citation={factCitation} />)
+    expect(screen.getByRole('link', { name: /citation f1/i })).toHaveAttribute(
+      'data-citation-kind',
+      'xbrl',
+    )
+  })
 })

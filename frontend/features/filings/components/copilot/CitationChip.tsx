@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { CheckCircle2, ExternalLink } from 'lucide-react'
-import type { CopilotCitation } from '@/features/filings/api/copilot-api'
+import { isXbrlCitation, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import { useFilingViewer } from './FilingViewerContext'
 
 // Only render a citation as an active link when it's an http(s) URL. Defense-in-depth against a
@@ -92,14 +92,21 @@ export default function CitationChip({ citation }: CitationChipProps) {
     }
   }, [pos])
 
-  const chipClass =
-    'inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded bg-mint-500/15 px-1 text-[11px] font-semibold leading-none text-mint-300 align-baseline transition-colors hover:bg-mint-500/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-mint-400'
+  // XBRL figure chips ([F1]) read as hard data, distinct from filing-text excerpt chips ([1]): a
+  // ringed, monospace tabular-figure treatment vs. the plain filled chip. Same mint hue (on-brand).
+  const isFact = isXbrlCitation(citation)
+  const chipBase =
+    'inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded px-1 text-[11px] font-semibold leading-none align-baseline transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-mint-400'
+  const chipClass = isFact
+    ? `${chipBase} bg-mint-500/10 font-mono tabular-nums text-mint-200 ring-1 ring-inset ring-mint-400/40 hover:bg-mint-500/20`
+    : `${chipBase} bg-mint-500/15 text-mint-300 hover:bg-mint-500/25`
 
   const triggerHandlers = {
     ref: (el: HTMLElement | null) => {
       triggerRef.current = el
     },
     'aria-label': ariaLabel,
+    'data-citation-kind': isFact ? 'xbrl' : 'text',
     className: chipClass,
     onMouseEnter: openPopover,
     onMouseLeave: scheduleClose,
