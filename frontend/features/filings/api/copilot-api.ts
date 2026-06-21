@@ -7,7 +7,8 @@ const STREAM_TIMEOUT_MS = 120000
 // --- Types (mirror the P1 backend contract) ---
 
 export interface CopilotCitation {
-  n: number
+  // Numeric for filing-text excerpts ([1], [2]); an "F#" string for tool-provided XBRL figures ([F1]).
+  n: number | string
   excerpt: string
   section_ref: string | null
   verified: boolean
