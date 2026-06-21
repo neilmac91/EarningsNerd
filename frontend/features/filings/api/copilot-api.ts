@@ -15,6 +15,23 @@ export interface CopilotCitation {
   fragment_url: string | null
 }
 
+// A citation backed by an XBRL financial fact (server-assigned "F#" marker + an "XBRL · <tag>"
+// section_ref), not a quoted filing-text excerpt. These read as hard data — figures, not prose —
+// so the UI renders them as dense data rows. Detection mirrors the backend marker/section_ref shape.
+export const isXbrlCitation = (c: CopilotCitation): boolean =>
+  (typeof c.n === 'string' && /^f\s*\d+$/i.test(c.n)) ||
+  !!c.section_ref?.toUpperCase().startsWith('XBRL')
+
+// The raw XBRL tag (e.g. "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax") from an
+// XBRL citation's section_ref ("XBRL · <tag>"), or null if it isn't an XBRL citation. Strips the
+// leading "XBRL" label and any separator chars rather than hard-coding the exact delimiter.
+export const xbrlTag = (c: CopilotCitation): string | null => {
+  const ref = c.section_ref
+  if (!ref || !ref.toUpperCase().startsWith('XBRL')) return null
+  const tag = ref.slice(4).replace(/^[\s·:.\-—|]+/, '').trim()
+  return tag || null
+}
+
 export interface CopilotCompletion {
   answer: string
   citations: CopilotCitation[]

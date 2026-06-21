@@ -111,6 +111,30 @@ describe('CopilotMessage citation chips', () => {
   })
 })
 
+describe('CopilotMessage XBRL fact sources', () => {
+  const fact: CopilotCitation = {
+    n: 'F1',
+    excerpt: 'Revenue = $391.04B USD (FY2024)',
+    section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
+    verified: true,
+    fragment_url: null,
+  }
+
+  it('renders an XBRL fact as a dense data row (figure value + source tag)', () => {
+    render(
+      <CopilotMessage
+        message={doneMessage({ content: 'Revenue was $391.0B [F1].', citations: [fact] })}
+      />,
+    )
+    // The figure is surfaced as the row value (not the prose-excerpt treatment)...
+    expect(screen.getByText('Revenue = $391.04B USD (FY2024)')).toBeInTheDocument()
+    // ...and the raw XBRL tag is shown as the source beneath it.
+    expect(
+      screen.getByText('us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax'),
+    ).toBeInTheDocument()
+  })
+})
+
 describe('CopilotMessage activity ticker', () => {
   it('shows in-progress and completed steps while reading', () => {
     const reading = doneMessage({
