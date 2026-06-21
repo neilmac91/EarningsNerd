@@ -1,12 +1,12 @@
 'use client'
 
-import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from 'react'
+import { Children, cloneElement, Fragment, isValidElement, type ReactElement, type ReactNode } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Ban, CheckCircle2, ExternalLink, RotateCw, Sparkles } from 'lucide-react'
 import type { CopilotCitation } from '@/features/filings/api/copilot-api'
-import CitationChip from './CitationChip'
+import CitationChip, { isHttpUrl } from './CitationChip'
 
 export interface CopilotMessageData {
   id: string
@@ -33,13 +33,6 @@ function MarkdownProse({ children }: { children: string }) {
     </div>
   )
 }
-
-// Only render a citation as an active link when it's an http(s) URL. Defense-in-depth against a
-// malicious/unexpected scheme (e.g. javascript:) reaching the href — the backend builds these from
-// SEC URLs, but the excerpt portion is model-influenced, so we validate before linking.
-// Exported as the single source of truth; CitationChip imports it.
-export const isHttpUrl = (url: string | null): url is string =>
-  !!url && (url.startsWith('https://') || url.startsWith('http://'))
 
 // Walk a react-markdown subtree and replace inline `[n]` markers with interactive CitationChips.
 // Only `[n]` whose number matches a known citation becomes a chip; any other `[n]` stays literal
@@ -73,7 +66,7 @@ function injectCitations(children: ReactNode, citations: CopilotCitation[]): Rea
 
     if (Array.isArray(node)) {
       return node.map((child, i) => (
-        <span key={`${keyPrefix}-${i}`}>{walk(child, `${keyPrefix}-${i}`)}</span>
+        <Fragment key={`${keyPrefix}-${i}`}>{walk(child, `${keyPrefix}-${i}`)}</Fragment>
       ))
     }
 
@@ -87,7 +80,7 @@ function injectCitations(children: ReactNode, citations: CopilotCitation[]): Rea
   }
 
   return Children.toArray(children).map((child, i) => (
-    <span key={`cite-root-${i}`}>{walk(child, `root-${i}`)}</span>
+    <Fragment key={`cite-root-${i}`}>{walk(child, `root-${i}`)}</Fragment>
   ))
 }
 

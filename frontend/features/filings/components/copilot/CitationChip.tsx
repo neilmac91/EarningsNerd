@@ -2,7 +2,13 @@
 
 import { CheckCircle2, ExternalLink } from 'lucide-react'
 import type { CopilotCitation } from '@/features/filings/api/copilot-api'
-import { isHttpUrl } from './CopilotMessage'
+
+// Only render a citation as an active link when it's an http(s) URL. Defense-in-depth against a
+// malicious/unexpected scheme (e.g. javascript:) reaching the href — the backend builds these from
+// SEC URLs, but the excerpt portion is model-influenced, so we validate before linking. Defined in
+// this leaf component (and re-imported by CopilotMessage) to avoid a circular import.
+export const isHttpUrl = (url: string | null): url is string =>
+  !!url && (url.startsWith('https://') || url.startsWith('http://'))
 
 interface CitationChipProps {
   citation: CopilotCitation
