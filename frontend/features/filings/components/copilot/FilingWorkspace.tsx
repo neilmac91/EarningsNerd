@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { ExternalLink, Sparkles } from 'lucide-react'
 import PaneResizer from './PaneResizer'
-import SecondaryPaneTabs from './SecondaryPaneTabs'
+import SecondaryPaneTabs, { PANE_PANEL_IDS, PANE_TAB_IDS } from './SecondaryPaneTabs'
 import { isHttpUrl } from './CitationChip'
 import { useFilingViewer } from './FilingViewerContext'
 
@@ -154,10 +154,20 @@ export default function FilingWorkspace({
                 openOriginal={activeView === 'filing' ? openOriginal : null}
               />
               <div className="flex min-h-0 flex-1 flex-col">
-                <div className={activeView === 'copilot' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
+                <div
+                  id={PANE_PANEL_IDS.copilot}
+                  role="tabpanel"
+                  aria-labelledby={PANE_TAB_IDS.copilot}
+                  className={activeView === 'copilot' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}
+                >
                   {copilotBody}
                 </div>
-                <div className={activeView === 'filing' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}>
+                <div
+                  id={PANE_PANEL_IDS.filing}
+                  role="tabpanel"
+                  aria-labelledby={PANE_TAB_IDS.filing}
+                  className={activeView === 'filing' ? 'flex min-h-0 flex-1 flex-col' : 'hidden'}
+                >
                   {filingBody}
                 </div>
               </div>

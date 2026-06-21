@@ -74,4 +74,19 @@ describe('FilingViewer (embedded)', () => {
       expect(highlightExcerptInDom).toHaveBeenCalledWith(expect.anything(), 'Revenue grew strongly'),
     )
   })
+
+  it('offers a Retry that reloads after a transient failure', async () => {
+    vi.mocked(fetchFilingContent).mockRejectedValueOnce(new Error('network'))
+    render(
+      <FilingViewerProvider>
+        <Harness />
+      </FilingViewerProvider>,
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'open-filing' }))
+
+    const retry = await screen.findByRole('button', { name: /try again/i })
+    fireEvent.click(retry)
+
+    expect(await screen.findByText(/Revenue grew strongly this year/)).toBeInTheDocument()
+  })
 })

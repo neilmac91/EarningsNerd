@@ -1,8 +1,19 @@
 'use client'
 
-import { type ReactNode } from 'react'
+import { useRef, type ReactNode } from 'react'
 import { FileText, Sparkles, X } from 'lucide-react'
 import type { CopilotView } from './FilingViewerContext'
+
+// Shared ids so the tabs (here) and the tab panels (in FilingWorkspace) can reference each other
+// via aria-controls / aria-labelledby — the WAI-ARIA tab pattern.
+export const PANE_TAB_IDS: Record<CopilotView, string> = {
+  copilot: 'copilot-pane-tab',
+  filing: 'filing-pane-tab',
+}
+export const PANE_PANEL_IDS: Record<CopilotView, string> = {
+  copilot: 'copilot-pane-panel',
+  filing: 'filing-pane-panel',
+}
 
 interface SecondaryPaneTabsProps {
   activeView: CopilotView
@@ -16,8 +27,8 @@ interface SecondaryPaneTabsProps {
 /**
  * The single chrome row for FilingWorkspace's secondary pane: an [Answer · Filing] segmented
  * control (so the user can switch between the Copilot conversation and the filing text), the
- * "open original" SEC link (filing tab only), and the close button. Replaces the separate headers
- * the rail and viewer used to carry, so there's one header, not two.
+ * "open original" SEC link (filing tab only), and the close button. Implements the WAI-ARIA tab
+ * pattern — roving tabindex, arrow/Home/End navigation, and aria-controls wiring to the panels.
  */
 export default function SecondaryPaneTabs({
   activeView,
@@ -26,6 +37,26 @@ export default function SecondaryPaneTabs({
   onClose,
   openOriginal,
 }: SecondaryPaneTabsProps) {
+  const answerRef = useRef<HTMLButtonElement>(null)
+  const filingRef = useRef<HTMLButtonElement>(null)
+
+  const select = (view: CopilotView) => {
+    if (view === 'copilot') onSelectAnswer()
+    else onSelectFiling()
+    ;(view === 'copilot' ? answerRef : filingRef).current?.focus()
+  }
+
+  // Arrows move (and auto-activate) between the two tabs; Home/End jump to the ends.
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === 'End') {
+      e.preventDefault()
+      select('filing')
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'Home') {
+      e.preventDefault()
+      select('copilot')
+    }
+  }
+
   const tabBase =
     'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-mint-400'
   const activeTab = 'bg-slate-700/70 text-white'
@@ -36,12 +67,17 @@ export default function SecondaryPaneTabs({
       <div
         role="tablist"
         aria-label="Copilot panel views"
+        onKeyDown={onKeyDown}
         className="flex items-center gap-1 rounded-lg bg-slate-950/40 p-0.5"
       >
         <button
+          ref={answerRef}
+          id={PANE_TAB_IDS.copilot}
           type="button"
           role="tab"
           aria-selected={activeView === 'copilot'}
+          aria-controls={PANE_PANEL_IDS.copilot}
+          tabIndex={activeView === 'copilot' ? 0 : -1}
           onClick={onSelectAnswer}
           className={`${tabBase} ${activeView === 'copilot' ? activeTab : idleTab}`}
         >
@@ -49,9 +85,13 @@ export default function SecondaryPaneTabs({
           Answer
         </button>
         <button
+          ref={filingRef}
+          id={PANE_TAB_IDS.filing}
           type="button"
           role="tab"
           aria-selected={activeView === 'filing'}
+          aria-controls={PANE_PANEL_IDS.filing}
+          tabIndex={activeView === 'filing' ? 0 : -1}
           onClick={onSelectFiling}
           className={`${tabBase} ${activeView === 'filing' ? activeTab : idleTab}`}
         >

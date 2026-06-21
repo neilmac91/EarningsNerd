@@ -11,6 +11,7 @@ import {
 import CopilotComposer, { type CopilotComposerHandle } from './CopilotComposer'
 import CopilotMessage, { type CopilotMessageData } from './CopilotMessage'
 import CopilotTeaser from './CopilotTeaser'
+import { useFilingViewer } from './FilingViewerContext'
 import { analytics } from '@/lib/analytics'
 
 interface AskCopilotRailProps {
@@ -121,13 +122,20 @@ export default function AskCopilotRail({
     if (el) el.scrollTop = el.scrollHeight
   }, [messages])
 
-  // Focus the composer whenever the panel opens (launcher tap, ⌘K, or a citation flow).
+  // In the embedded layout the Copilot shares the pane with the filing view; only focus the composer
+  // when the Copilot view is actually active (focusing it while the Filing tab is shown would steal
+  // focus, and the hidden container can't take focus anyway). Standalone overlay is always "active".
+  const viewer = useFilingViewer()
+  const isCopilotActive = !embedded || (viewer?.activeView ?? 'copilot') === 'copilot'
+
+  // Focus the composer when the Copilot opens or becomes the active view (launcher tap, ⌘K, a
+  // citation flow that returns to the answer, or switching back via the [Answer · Filing] tabs).
   const composerRef = useRef<CopilotComposerHandle>(null)
   useEffect(() => {
-    if (!open || !isPro) return
+    if (!open || !isPro || !isCopilotActive) return
     const raf = requestAnimationFrame(() => composerRef.current?.focus())
     return () => cancelAnimationFrame(raf)
-  }, [open, isPro])
+  }, [open, isPro, isCopilotActive])
 
   // Pre-fill the composer from an "Ask about this" text selection (page sets `prefill` + opens us).
   const lastPrefillNonce = useRef(0)

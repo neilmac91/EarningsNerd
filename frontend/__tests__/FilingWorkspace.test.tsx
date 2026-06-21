@@ -80,6 +80,26 @@ describe('FilingWorkspace', () => {
     expect(screen.getByRole('tab', { name: /filing/i })).toHaveAttribute('aria-selected', 'true')
   })
 
+  it('moves between tabs with arrow keys (roving tabindex)', () => {
+    renderWorkspace()
+    const answer = screen.getByRole('tab', { name: /answer/i })
+    expect(answer).toHaveAttribute('tabindex', '0')
+    expect(screen.getByRole('tab', { name: /filing/i })).toHaveAttribute('tabindex', '-1')
+
+    fireEvent.keyDown(answer, { key: 'ArrowRight' })
+    expect(screen.getByRole('tab', { name: /filing/i })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.getByRole('tab', { name: /filing/i })).toHaveAttribute('tabindex', '0')
+  })
+
+  it('wires tabs to their panels (aria-controls / role=tabpanel)', () => {
+    renderWorkspace()
+    const answerTab = screen.getByRole('tab', { name: /answer/i })
+    const panelId = answerTab.getAttribute('aria-controls')!
+    const panel = document.getElementById(panelId)!
+    expect(panel).toHaveAttribute('role', 'tabpanel')
+    expect(panel).toHaveAttribute('aria-labelledby', answerTab.id)
+  })
+
   it('closes via the header close button', () => {
     const onOpenChange = vi.fn()
     renderWorkspace({ onOpenChange })

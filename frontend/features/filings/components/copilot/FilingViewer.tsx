@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { ExternalLink, FileText, Loader2, X } from 'lucide-react'
+import { ExternalLink, FileText, Loader2, RotateCw, X } from 'lucide-react'
 import { fetchFilingContent } from '@/features/filings/api/filing-content-api'
 import { isHttpUrl } from './CitationChip'
 import { useFilingViewer } from './FilingViewerContext'
@@ -123,16 +123,27 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
               ? 'Could not load the filing text.'
               : 'The full filing text is not available to view in-app yet.'}
           </p>
-          {isHttpUrl(secUrl) && (
-            <a
-              href={secUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-lg bg-mint-500 px-3 py-2 text-xs font-semibold text-slate-950 transition-colors hover:bg-mint-400"
-            >
-              Open the original on SEC.gov <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          )}
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {status === 'error' && (
+              <button
+                type="button"
+                onClick={() => void load()}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 transition-colors hover:bg-slate-700"
+              >
+                <RotateCw className="h-3.5 w-3.5" /> Try again
+              </button>
+            )}
+            {isHttpUrl(secUrl) && (
+              <a
+                href={secUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-mint-500 px-3 py-2 text-xs font-semibold text-slate-950 transition-colors hover:bg-mint-400"
+              >
+                Open the original on SEC.gov <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            )}
+          </div>
         </div>
       )}
 
