@@ -1,6 +1,7 @@
 import React from 'react'
 import { SummaryBlock } from '@/components/SummaryBlock'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { SourceTrace } from '@/components/SourceTrace'
 import type { RiskFactor } from '@/types/summary'
 
 interface SummaryRisksProps {
@@ -8,39 +9,20 @@ interface SummaryRisksProps {
 }
 
 /**
- * Trace-to-Source affordance: a quiet link back to the original SEC filing with an honest
- * verified/cited label. "Verified in filing" means the evidence excerpt was located in the filing
- * text (the link jumps to the exact passage); "Cited — open section" means we link to the section
- * but couldn't confirm the verbatim quote.
+ * Trace-to-Source affordance, rendered through the shared SourceTrace so risk provenance reads
+ * identically to financial-metric provenance. "Verified in filing" means the evidence excerpt was
+ * located in the filing text; "Cited" means we link to the section but couldn't confirm the verbatim
+ * quote. The evidence excerpt stays visible inline above; this chip carries the section + EDGAR link.
  */
 function TraceToSource({ risk }: { risk: RiskFactor }) {
-  const sectionRef = risk.source_section_ref?.trim() || null
-  const url = risk.source_url?.trim() || null
-  const verified = risk.source_verified === true
-
-  if (!url && !sectionRef) return null
-
+  if (!risk.source_url?.trim() && !risk.source_section_ref?.trim()) return null
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px]">
-      {sectionRef && (
-        <span className="text-text-tertiary-light dark:text-text-tertiary-dark">{sectionRef}</span>
-      )}
-      {url && (
-        <a
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1 font-medium text-mint-600 hover:underline dark:text-mint-400"
-          aria-label={
-            verified
-              ? 'View the verified source passage in the original SEC filing'
-              : 'Open the cited section in the original SEC filing'
-          }
-        >
-          <span aria-hidden="true">{verified ? '✓' : '↗'}</span>
-          {verified ? 'Verified in filing' : 'Cited — open section'}
-        </a>
-      )}
+    <div className="mt-2">
+      <SourceTrace
+        url={risk.source_url}
+        verified={risk.source_verified === true}
+        sectionRef={risk.source_section_ref}
+      />
     </div>
   )
 }

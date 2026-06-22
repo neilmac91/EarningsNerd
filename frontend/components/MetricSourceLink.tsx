@@ -1,4 +1,5 @@
 import React from 'react'
+import { SourceTrace } from '@/components/SourceTrace'
 
 interface MetricSourceLinkProps {
   url?: string | null
@@ -8,26 +9,20 @@ interface MetricSourceLinkProps {
 }
 
 /**
- * Trace-to-Source affordance for a financial metric. "✓ … SEC XBRL" means the displayed value was
- * matched against the SEC-verified XBRL figure; "↗ Source" links to the filing without that claim.
- * Renders nothing when no source URL is available (backward compatible with un-enriched data).
+ * Trace-to-Source affordance for a financial metric, rendered through the shared SourceTrace so
+ * metric and risk provenance read identically. "✓ … SEC XBRL" means the displayed value was matched
+ * against the SEC-verified XBRL figure; otherwise a plain "Source" trace to the filing. Renders
+ * nothing when no source URL is available (backward compatible with un-enriched data).
  */
 export function MetricSourceLink({ url, verified, concept }: MetricSourceLinkProps) {
   if (!url) return null
-  const label = verified ? `✓ ${concept ? `${concept} · ` : ''}SEC XBRL` : '↗ Source'
+  const isVerified = verified === true
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noreferrer"
-      className="inline-flex items-center gap-1 text-[11px] font-medium text-mint-600 hover:underline dark:text-mint-400"
-      aria-label={
-        verified
-          ? 'View the SEC XBRL-verified value in the original filing'
-          : 'Open the source filing'
-      }
-    >
-      {label}
-    </a>
+    <SourceTrace
+      url={url}
+      verified={isVerified}
+      label={isVerified ? `${concept ? `${concept} · ` : ''}SEC XBRL` : 'Source'}
+      note={isVerified ? 'Matched against the SEC-filed XBRL value' : null}
+    />
   )
 }

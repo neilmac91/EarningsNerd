@@ -69,7 +69,7 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
-          <thead className="bg-gray-50 dark:bg-slate-800/50">
+          <thead className="bg-gray-50 dark:bg-slate-900/50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider">
                 Metric
@@ -99,7 +99,7 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
               const isNegative = change !== null && change < 0
               
               return (
-                <tr key={index} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
+                <tr key={index} className="hover:bg-gray-50 dark:hover:bg-slate-700/50">
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                     <div className="flex flex-col">
                       <span>{metric.metric}</span>
@@ -152,7 +152,7 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
         </table>
       </div>
       {notes && (
-        <div className="px-6 py-4 bg-gray-50 dark:bg-slate-800/50 border-t border-gray-200 dark:border-slate-700">
+        <div className="px-6 py-4 bg-gray-50 dark:bg-slate-900/50 border-t border-gray-200 dark:border-slate-700">
           <p className="text-sm text-gray-600 dark:text-slate-300">{notes}</p>
         </div>
       )}
