@@ -16,12 +16,10 @@ from app.config import settings
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# Get salt for IP hashing (should be set in environment for security)
-IP_HASH_SALT = os.getenv("IP_HASH_SALT", "default-salt-change-in-production")
-if IP_HASH_SALT == "default-salt-change-in-production":
-    logger.warning(
-        "Using default IP_HASH_SALT - set IP_HASH_SALT environment variable for production"
-    )
+# Pepper for one-way IP hashing. Prefer an explicit IP_HASH_SALT; otherwise fall back to the app
+# SECRET_KEY (always set, and validated non-default in production) so there is never a weak,
+# publicly-known default salt. This matches the SECRET_KEY-peppered hashing used elsewhere.
+IP_HASH_SALT = os.getenv("IP_HASH_SALT") or settings.SECRET_KEY
 
 
 def hash_ip_address(ip_address: str) -> str:

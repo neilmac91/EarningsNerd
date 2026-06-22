@@ -19,7 +19,7 @@ from app.models import (
     UserUsage,
     Watchlist,
 )
-from app.routers.auth import get_current_user
+from app.routers.auth import get_current_user, _clear_auth_cookie, _clear_refresh_cookie
 from app.services.audit_service import log_user_deletion, log_data_export
 from app.services.entitlements import get_entitlements
 from app.services.notification_service import (
@@ -506,12 +506,13 @@ async def delete_user_account(
         db.delete(current_user)
         db.commit()
 
-        # Clear authentication cookie
+        # Clear all session cookies (access + session-presence + refresh) using the same helpers
+        # as logout. The previous code cleared a non-existent "auth_token" cookie, leaving the real
+        # access and 30-day refresh cookies in place — a lingering refresh cookie could silently
+        # restore the session of a just-deleted account.
         if response:
-            response.delete_cookie(
-                key="auth_token",  # Match your cookie name from settings
-                path="/",
-            )
+            _clear_auth_cookie(response)
+            _clear_refresh_cookie(response)
 
         logger.info(
             f"USER DELETION COMPLETED: User {user_id} successfully deleted. "
