@@ -63,44 +63,44 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900">Financial Highlights</h3>
+    <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
+      <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-700">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Financial Highlights</h3>
       </div>
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
+        <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+          <thead className="bg-gray-50 dark:bg-slate-800/50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider">
                 Metric
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider">
                 Current Period
               </th>
               {hasComparatives && (
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider">
                   Prior Period
                 </th>
               )}
               {hasComparatives && (
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider">
                   Change
                 </th>
               )}
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider">
                 Investor Takeaway
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
+          <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
             {metrics.map((metric, index) => {
               const { change, percent } = calculateChange(metric.current_period, metric.prior_period)
               const isPositive = change !== null && change > 0
               const isNegative = change !== null && change < 0
               
               return (
-                <tr key={index} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                <tr key={index} className="hover:bg-gray-50 dark:hover:bg-slate-800/50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                     <div className="flex flex-col">
                       <span>{metric.metric}</span>
                       <MetricSourceLink
@@ -110,11 +110,11 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
                       />
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 dark:text-white">
                     {formatMetricValue(metric.current_period)}
                   </td>
                   {hasComparatives && (
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-600">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-600 dark:text-slate-300">
                       {formatMetricValue(metric.prior_period)}
                     </td>
                   )}
@@ -138,11 +138,11 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
                           </span>
                         </div>
                       ) : (
-                        <span className="text-gray-300">—</span>
+                        <span className="text-gray-300 dark:text-slate-500">—</span>
                       )}
                     </td>
                   )}
-                  <td className="px-6 py-4 text-sm text-gray-600">
+                  <td className="px-6 py-4 text-sm text-gray-600 dark:text-slate-300">
                     {metric.commentary || '-'}
                   </td>
                 </tr>
@@ -152,8 +152,8 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
         </table>
       </div>
       {notes && (
-        <div className="px-6 py-4 bg-gray-50 border-t border-gray-200">
-          <p className="text-sm text-gray-600">{notes}</p>
+        <div className="px-6 py-4 bg-gray-50 dark:bg-slate-800/50 border-t border-gray-200 dark:border-slate-700">
+          <p className="text-sm text-gray-600 dark:text-slate-300">{notes}</p>
         </div>
       )}
     </div>
