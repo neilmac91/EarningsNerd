@@ -34,10 +34,10 @@ stated in Section 14 (Platform-Specific Terms).
 - **"App Store"** — Apple's App Store; **"Play Store"** — Google Play.
 - **"Usage Rules"** — the usage rules in Apple's Media Services Terms and Conditions.
 
-## 3. Licence grant and restrictions
+## 3. License grant and restrictions
 
 Subject to this Agreement, the Developer grants you a **limited, personal, non-exclusive,
-non-transferable, revocable licence** to use the App:
+non-transferable, revocable license** to use the App:
 
 - on any Apple-branded products that **you own or control**, as permitted by the **Usage Rules**
   (including the Family Sharing / volume-purchase provisions); and/or
@@ -157,7 +157,8 @@ store's terms, which govern billing and delivery of in-app purchases.
 ## 13. Privacy
 
 The Developer's collection and use of personal data in connection with the App is described in the
-**Privacy Policy at [https://earningsnerd.io/privacy]**, which is incorporated by reference. The
+**Privacy Policy at [https://earningsnerd.io/privacy](https://earningsnerd.io/privacy)**, which is
+incorporated by reference. The
 Privacy Policy addresses your rights under the **EU General Data Protection Regulation (GDPR)** and
 the **Swiss Federal Act on Data Protection (revFADP)**, among others. By using the App you acknowledge
 the Privacy Policy.
@@ -192,7 +193,7 @@ This Section applies if you obtained the App from Google Play:
 
 ## 15. Term and termination
 
-This Agreement applies until terminated. Your licence ends automatically if you breach it. The
+This Agreement applies until terminated. Your license ends automatically if you breach it. The
 Developer may suspend or terminate access for breach or as required by law. Sections that by their
 nature should survive (including 6–11, 14, 16) survive termination. Termination does not by itself
 entitle you to a refund except as provided by the applicable app store or mandatory law.
