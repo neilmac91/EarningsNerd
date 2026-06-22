@@ -23,8 +23,6 @@ interface SourceTraceProps {
   verified?: boolean | null
   /** e.g. "Item 1A · Risk Factors" — shown as the panel header. */
   sectionRef?: string | null
-  /** Optional verbatim filing excerpt (risks carry one; metrics don't). */
-  excerpt?: string | null
   /** Chip text. Defaults to the honest verified/cited vocabulary. */
   label?: string
   /** One-line explanation in the panel (e.g. a metric's XBRL match note). */
@@ -40,7 +38,7 @@ interface PopoverPos {
 const POPOVER_WIDTH = 288 // w-72
 const CLOSE_DELAY_MS = 120
 
-export function SourceTrace({ url, verified, sectionRef, excerpt, label, note }: SourceTraceProps) {
+export function SourceTrace({ url, verified, sectionRef, label, note }: SourceTraceProps) {
   const isVerified = verified === true
   const header = sectionRef?.trim() || null
   const chipLabel = label ?? (isVerified ? 'Verified in filing' : 'Cited')
@@ -48,14 +46,13 @@ export function SourceTrace({ url, verified, sectionRef, excerpt, label, note }:
   const panelId = useId()
 
   // Nothing to trace → render nothing (keeps the affordance honest + backward-compatible).
-  if (!header && !excerpt && !note && !linkable) return null
+  if (!header && !note && !linkable) return null
 
   return (
     <SourceTraceInner
       url={linkable ? url! : null}
       isVerified={isVerified}
       header={header}
-      excerpt={excerpt?.trim() || null}
       note={note?.trim() || null}
       chipLabel={chipLabel}
       panelId={panelId}
@@ -67,7 +64,6 @@ function SourceTraceInner({
   url,
   isVerified,
   header,
-  excerpt,
   note,
   chipLabel,
   panelId,
@@ -75,7 +71,6 @@ function SourceTraceInner({
   url: string | null
   isVerified: boolean
   header: string | null
-  excerpt: string | null
   note: string | null
   chipLabel: string
   panelId: string
@@ -163,8 +158,8 @@ function SourceTraceInner({
     : 'text-text-tertiary-light dark:text-text-tertiary-dark hover:bg-slate-500/10'
 
   const handleTrigger = () => {
-    // On fine pointers the popover is hover/focus-driven; a click falls through to the EDGAR link.
-    if (!isCoarse) return
+    // Toggle the panel on click. On fine pointers WITH a URL the trigger is an <a> (no onClick), so a
+    // click opens EDGAR; this handler only runs on the <button> (no-URL desktop, or any touch).
     if (open) closePanel()
     else openPanel()
   }
@@ -186,11 +181,6 @@ function SourceTraceInner({
       {header && (
         <span className="block text-[11px] font-semibold uppercase tracking-wide text-text-tertiary-light dark:text-slate-400 break-words">
           {header}
-        </span>
-      )}
-      {excerpt && (
-        <span className="mt-1.5 block max-h-40 overflow-y-auto border-l-2 border-mint-500/50 pl-2 text-xs italic text-text-secondary-light dark:text-slate-200 break-words">
-          {excerpt}
         </span>
       )}
       {statusLine}
@@ -238,8 +228,8 @@ function SourceTraceInner({
         type="button"
         {...triggerCommon}
         onClick={handleTrigger}
-        aria-expanded={isCoarse ? open : undefined}
-        aria-controls={isCoarse && open ? panelId : undefined}
+        aria-expanded={open}
+        aria-controls={open ? panelId : undefined}
       >
         {chipInner}
       </button>
