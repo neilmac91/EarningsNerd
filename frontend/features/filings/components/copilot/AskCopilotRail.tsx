@@ -184,7 +184,9 @@ export default function AskCopilotRail({
   const { data: usage } = useQuery({
     queryKey: ['copilot-usage'],
     queryFn: getUsage,
-    enabled: isPro && open,
+    // /usage is auth-gated; an anon user is never PRO, but gate on isAuthenticated too so we never
+    // fire a guaranteed-401 from a public page.
+    enabled: isAuthenticated && isPro && open,
     staleTime: 60_000,
   })
 
