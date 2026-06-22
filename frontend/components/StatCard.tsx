@@ -62,12 +62,12 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
   const sparklineData = trendData?.map((val, i) => ({ i, val })) || []
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-200 hover:shadow-md">
+    <div className="relative overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 shadow-sm transition-all duration-200 hover:shadow-md">
       <div className="flex justify-between items-start">
         <div className="space-y-1">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{label}</p>
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
           <div className="flex items-baseline gap-2">
-            <h3 className="text-2xl font-semibold tracking-tight text-slate-900 font-mono tabular-nums">
+            <h3 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white font-mono tabular-nums">
               {hasValidValue ? formatValue(displayValue, unit) : 'N/A'}
             </h3>
           </div>
@@ -91,11 +91,11 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
             <ChangeIcon className="h-3 w-3" />
             <span>{hasValidChange ? `${Math.abs(change).toFixed(1)}%` : 'N/A'}</span>
           </div>
-          <span className="text-xs text-slate-400">vs prior period</span>
+          <span className="text-xs text-slate-400 dark:text-slate-500">vs prior period</span>
         </div>
       ) : (
         <div className="mt-3">
-          <span className="text-xs text-slate-400">Data not available</span>
+          <span className="text-xs text-slate-400 dark:text-slate-500">Data not available</span>
         </div>
       )}
     </div>
@@ -104,7 +104,7 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
 
 StatCard.Skeleton = function StatCardSkeleton() {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5">
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
       <ShimmeringLoader className="mb-2 h-4 w-1/3" />
       <ShimmeringLoader className="h-8 w-2/3 mb-4" />
       <div className="flex gap-2">

@@ -11,7 +11,7 @@ export function SummaryExecutiveSnapshot({ content }: SummaryExecutiveSnapshotPr
   if (!content) return <EmptyState label="Executive Summary" />
   
   return (
-    <div className="prose max-w-none prose-slate">
+    <div className="prose max-w-none prose-slate dark:prose-invert text-slate-700 dark:text-slate-300">
       <ReactMarkdown remarkPlugins={[remarkGfm]}>
         {content}
       </ReactMarkdown>

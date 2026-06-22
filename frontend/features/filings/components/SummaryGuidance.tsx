@@ -13,7 +13,7 @@ export function SummaryGuidance({ content }: SummaryGuidanceProps) {
 
   return (
     <SummaryBlock type="neutral" title="Forward-Looking Statements">
-      <div className="prose max-w-none prose-sm">
+      <div className="prose max-w-none prose-sm dark:prose-invert">
         <ReactMarkdown remarkPlugins={[remarkGfm]}>
           {content}
         </ReactMarkdown>

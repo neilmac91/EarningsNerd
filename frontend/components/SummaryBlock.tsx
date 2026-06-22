@@ -13,21 +13,21 @@ export function SummaryBlock({ type = 'neutral', title, children }: SummaryBlock
   const styles = {
     bullish: {
       border: 'border-mint-500',
-      bg: 'bg-white',
+      bg: 'bg-white dark:bg-slate-800',
       icon: TrendingUp,
       iconColor: 'text-mint-500',
       titleColor: 'text-mint-800'
     },
     bearish: {
       border: 'border-slate-400',
-      bg: 'bg-white',
+      bg: 'bg-white dark:bg-slate-800',
       icon: TrendingDown,
       iconColor: 'text-slate-500',
       titleColor: 'text-slate-700'
     },
     neutral: {
       border: 'border-slate-300',
-      bg: 'bg-slate-50',
+      bg: 'bg-slate-50 dark:bg-slate-800/50',
       icon: Minus,
       iconColor: 'text-slate-400',
       titleColor: 'text-slate-700'
@@ -52,7 +52,7 @@ export function SummaryBlock({ type = 'neutral', title, children }: SummaryBlock
         )}
       </div>
       
-      <div className="text-slate-700 leading-relaxed text-sm">
+      <div className="text-slate-700 dark:text-slate-300 leading-relaxed text-sm">
         {children}
       </div>
     </div>
