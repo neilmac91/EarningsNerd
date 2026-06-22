@@ -107,4 +107,4 @@ in place. See [`docs/DATA_COMPLIANCE.md`](./docs/DATA_COMPLIANCE.md).
 
 ## License
 
-MIT.
+Proprietary. © 2026 Neil Mac Aogain. All rights reserved.
