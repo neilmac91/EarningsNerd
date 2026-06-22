@@ -46,7 +46,10 @@ describe('WhatChanged (A5)', () => {
     const text = container.textContent || ''
     expect(text).toContain('Revenue accelerated while margins compressed')
     // The narration now leads — it appears before the metric chips, not as a footer.
-    expect(text.indexOf('Revenue accelerated')).toBeLessThan(text.indexOf('Net income'))
+    const keyChangesIndex = text.indexOf('Revenue accelerated')
+    const netIncomeIndex = text.indexOf('Net income')
+    expect(netIncomeIndex).toBeGreaterThan(-1)
+    expect(keyChangesIndex).toBeLessThan(netIncomeIndex)
   })
 
   it('renders nothing when there are no material changes', () => {
