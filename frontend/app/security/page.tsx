@@ -225,8 +225,8 @@ export default function SecurityPage() {
           <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
             <li>
               Email us at{' '}
-              <a href="mailto:security@earningsnerd.com" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
-                security@earningsnerd.com
+              <a href="mailto:security@earningsnerd.io" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
+                security@earningsnerd.io
               </a>
             </li>
             <li>Provide detailed information about the vulnerability, including steps to reproduce</li>
@@ -253,7 +253,7 @@ export default function SecurityPage() {
               <strong>Resend:</strong> Secure email delivery service
             </li>
             <li>
-              <strong>OpenAI:</strong> API access for AI-powered features with enterprise-grade security
+              <strong>DeepSeek:</strong> AI provider (OpenAI-compatible API) powering summaries and Copilot; only public filing text and the questions you type are sent
             </li>
             <li>
               <strong>Sentry:</strong> Error tracking and monitoring with data encryption
@@ -283,8 +283,8 @@ export default function SecurityPage() {
             </li>
             <li>
               Security issues:{' '}
-              <a href="mailto:security@earningsnerd.com" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
-                security@earningsnerd.com
+              <a href="mailto:security@earningsnerd.io" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
+                security@earningsnerd.io
               </a>
             </li>
           </ul>

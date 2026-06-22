@@ -265,8 +265,8 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Right to Restrict Processing:</strong> You can request that we limit how we use your data by contacting us at{' '}
-              <a href="mailto:privacy@earningsnerd.com" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
-                privacy@earningsnerd.com
+              <a href="mailto:privacy@earningsnerd.io" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
+                privacy@earningsnerd.io
               </a>
               .
             </li>
@@ -305,8 +305,8 @@ export default function PrivacyPage() {
             Our services are not directed to individuals under the age of 13 (or 16 in the EEA). We do not knowingly collect personal
             information from children under these ages. If you become aware that a child has provided us with personal
             information without parental consent, please contact us at{' '}
-            <a href="mailto:privacy@earningsnerd.com" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
-              privacy@earningsnerd.com
+            <a href="mailto:privacy@earningsnerd.io" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
+              privacy@earningsnerd.io
             </a>
             , and we will take immediate steps to delete such information.
           </p>
@@ -345,14 +345,14 @@ export default function PrivacyPage() {
           <ul className="list-none space-y-2 text-text-secondary-light dark:text-text-secondary-dark mt-4">
             <li>
               <strong>Privacy Inquiries:</strong>{' '}
-              <a href="mailto:privacy@earningsnerd.com" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
-                privacy@earningsnerd.com
+              <a href="mailto:privacy@earningsnerd.io" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
+                privacy@earningsnerd.io
               </a>
             </li>
             <li>
               <strong>General Support:</strong>{' '}
-              <a href="mailto:hello@earningsnerd.com" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
-                hello@earningsnerd.com
+              <a href="mailto:hello@earningsnerd.io" className="text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300">
+                hello@earningsnerd.io
               </a>
             </li>
             <li>
