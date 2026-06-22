@@ -107,4 +107,8 @@ in place. See [`docs/DATA_COMPLIANCE.md`](./docs/DATA_COMPLIANCE.md).
 
 ## License
 
-Proprietary. © 2026 Neil Mac Aogain. All rights reserved.
+Proprietary — all rights reserved. © 2026 Neil Mac Aogain.
+This software is **not** open source. See [`LICENSE`](./LICENSE). No use, copying, modification, or
+distribution without prior written permission.
+
+End users of the app/subscriptions are governed by the [End-User License Agreement](./docs/EULA.md).
