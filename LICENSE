@@ -1,0 +1,61 @@
+EarningsNerd — Proprietary Software License
+SPDX-License-Identifier: LicenseRef-EarningsNerd-Proprietary
+
+Copyright © 2026 Neil Mac Aogain. All rights reserved.
+
+This is NOT open-source software. It is published in source form for reference
+and operational convenience only. The presence of this code in a public or
+shared repository does not make it free or open-source.
+
+1. Ownership and Reservation of Rights
+   This source code, together with all related documentation, configuration,
+   designs, and assets in this repository (the "Software"), is the proprietary
+   and confidential property of Neil Mac Aogain and his successors and assigns
+   (the "Owner"). All rights are reserved.
+
+2. No License Granted
+   No license, right, or permission of any kind is granted to you, whether by
+   implication, estoppel, or otherwise. Without the Owner's prior written
+   permission, you may NOT use, run, copy, reproduce, modify, adapt, translate,
+   create derivative works from, distribute, publish, transmit, sublicense,
+   lease, sell, or otherwise exploit the Software, nor reverse-engineer,
+   decompile, or disassemble it, in whole or in part.
+
+3. Repository Visibility Is Not a License
+   The Software may have been, or may be, visible in a public or otherwise
+   shared repository. Such visibility does NOT grant any license and does NOT
+   waive any right. Viewing or forking within a hosting platform is governed by
+   that platform's terms and confers no license to the Software itself. The
+   Software remains confidential and proprietary.
+
+4. Trademarks
+   "EarningsNerd", "EarningsNerd.io", the EarningsNerd logo, and related names
+   and marks are trademarks of the Owner. Nothing in this notice grants any
+   right to use them.
+
+5. Disclaimer of Warranty
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING WITHOUT LIMITATION THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT, TO THE MAXIMUM EXTENT
+   PERMITTED BY APPLICABLE LAW.
+
+6. Limitation of Liability
+   TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE OWNER SHALL NOT BE
+   LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, CONSEQUENTIAL, OR
+   EXEMPLARY DAMAGES ARISING OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THIS
+   NOTICE. Nothing in this notice excludes or limits any liability that cannot
+   be excluded or limited under mandatory applicable law (including, under
+   Swiss law, liability for unlawful intent or gross negligence).
+
+7. Governing Law and Venue
+   This notice is governed by the substantive laws of Switzerland, without
+   regard to its conflict-of-law rules. The competent courts at the Owner's
+   domicile in Switzerland shall have exclusive jurisdiction, subject to any
+   mandatory provisions of applicable law.
+
+8. Permissions and Contact
+   To request permission to use the Software, or for any licensing enquiry,
+   contact: legal@earningsnerd.io
+
+This license governs the Owner's own code. Third-party open-source components
+used by the Software remain subject to their own respective licenses.
