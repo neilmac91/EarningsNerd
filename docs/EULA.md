@@ -1,15 +1,9 @@
 # EarningsNerd — End-User License Agreement (EULA)
 
-**Last updated: [DATE] · Version 1.0**
-
-> ⚠️ **Template — not legal advice.** This EULA was drafted to satisfy the Apple App Store
-> minimum-terms requirements, Google Play policy, and EU/EEA + Swiss consumer-law constraints, but it
-> **must be reviewed by a qualified Swiss/EU consumer-law attorney before you publish or rely on it**,
-> and the **`[bracketed]` placeholders must be completed** (legal name, address, contact details,
-> effective date). See the open items at the end.
+**Last updated: 22-JUL-2026 · Version 1.1**
 
 This End-User License Agreement (the "**Agreement**") is a binding agreement between you, the end
-user ("**you**"), and **[Neil Mac Aogain, an individual resident in Switzerland]** (the
+user ("**you**"), and **Neil Mac Aogain** (the
 "**Developer**", "**we**", "**us**"), governing your use of the **EarningsNerd** mobile and web
 application and related services (the "**App**").
 
@@ -74,7 +68,7 @@ Some features require a paid **Subscription**.
 
 The **Developer is solely responsible** for providing any maintenance and support for the App.
 **Apple and Google have no obligation** to furnish any maintenance or support services for the App.
-For support, contact the Developer at **[support@earningsnerd.io]**.
+For support, contact the Developer at **support@earningsnerd.io**.
 
 ## 6. Warranties and disclaimers
 
@@ -157,7 +151,7 @@ store's terms, which govern billing and delivery of in-app purchases.
 ## 13. Privacy
 
 The Developer's collection and use of personal data in connection with the App is described in the
-**Privacy Policy at [https://earningsnerd.io/privacy](https://earningsnerd.io/privacy)**, which is
+**Privacy Policy at (https://earningsnerd.io/privacy)**, which is
 incorporated by reference. The
 Privacy Policy addresses your rights under the **EU General Data Protection Regulation (GDPR)** and
 the **Swiss Federal Act on Data Protection (revFADP)**, among others. By using the App you acknowledge
@@ -221,27 +215,8 @@ you and the Developer regarding the App.
 
 For any question or claim regarding the App or this Agreement, contact:
 
-> **[Neil Mac Aogain]**
-> **[Street address]**
-> **[Postal code, City], Switzerland**
-> Email: **[legal@earningsnerd.io]**
+> **Neil Mac Aogain**,
+> **Mattenweg 2**,
+> **Zuchwil, Solothurn, 4528, Switzerland**
+> Email: **legal@earningsnerd.io**
 
----
-
-### Open items to complete before publishing (require your input / a lawyer)
-
-1. **Fill the placeholders:** effective `[DATE]`, legal name, **full street address** (Apple
-   requires a real name + address + contact — a P.O. box or business address is acceptable), and the
-   support / legal email addresses (confirm the mailboxes exist).
-2. **Entity timing:** once you form a Swiss company (GmbH/AG), update the "Developer" party, address,
-   and the app-store account ownership, and execute a written copyright **assignment** to the company.
-3. **A separate Privacy Policy** (GDPR + revFADP) must exist at the linked URL — Apple §5.1.1 and
-   Google both require it, in-app and in the store listing. Not included here.
-4. **Per-market consumer-law review** (EU/EEA, UK DMCC subscription rules, others) and the
-   **investment-advice disclaimer** (US SEC/FINRA, EU MiFID II, Swiss FinSA) by qualified counsel.
-5. **Re-read Apple's current minimum terms** at
-   `https://www.apple.com/legal/internet-services/itunes/dev/minterms/` before submission — Apple
-   revises wording/numbering periodically.
-6. **Subscription metadata:** the title, length, and price disclosures + functional links to this
-   EULA and the Privacy Policy must also appear **in the app and in the App Store / Play listing**
-   (not only in this document).
