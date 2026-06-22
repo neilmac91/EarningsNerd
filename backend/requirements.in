@@ -4,18 +4,18 @@
 #   pip install pip-tools && pip-compile requirements.in -o requirements.txt
 # (Docker and CI install the pinned requirements.txt for reproducible builds.)
 
-fastapi>=0.137.0,<1.0.0
+fastapi>=0.138.0,<1.0.0
 uvicorn[standard]>=0.27.0,<1.0.0
 python-multipart>=0.0.28
 pydantic>=2.13.4,<3.0.0
-pydantic-settings>=2.4.0,<3.0.0
+pydantic-settings>=2.14.2,<3.0.0
 email-validator>=2.3.0
 httpx>=0.28.1,<1
 python-dotenv==1.2.2
-sqlalchemy>=2.0.36,<3.0.0
+sqlalchemy>=2.0.51,<3.0.0
 psycopg2-binary==2.9.12
 redis==8.0.0
-openai>=1.30.0,<3.0.0
+openai>=2.43.0,<3.0.0
 beautifulsoup4==4.15.0
 # Allow pandas 3.x (validated: edgartools requires only pandas>=2.0.0, numpy 2.x already
 # in use, full backend suite passes on 3.0.x). lxml is held at
@@ -31,11 +31,11 @@ stripe==15.2.1
 weasyprint==69.0
 # EdgarTools - unified SEC filing library (replaced arelle-release and
 # sec-edgar-downloader, both removed after verifying zero imports — issue #244)
-edgartools>=5.12.0
-posthog==7.18.3
-json-repair>=0.30.0
-sentry-sdk[fastapi]>=2.59.0
+edgartools>=5.39.0
+posthog==7.19.2
+json-repair>=0.61.0
+sentry-sdk[fastapi]>=2.63.0
 
 # Testing
-pytest>=9.1.0
+pytest>=9.1.1
 pytest-asyncio>=0.23.0
