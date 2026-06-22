@@ -11,6 +11,8 @@ import NotificationBell from '@/components/NotificationBell'
 import { getCurrentUserSafe, logout } from '@/features/auth/api/auth-api'
 
 const NAV_LINKS = [
+  { href: '/search', label: 'Search' },
+  { href: '/compare', label: 'Compare' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/contact', label: 'Contact' },
 ] as const
