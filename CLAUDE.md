@@ -49,6 +49,7 @@
 - **Simplicity First**: Strive for the simplest possible solution, avoiding over-engineering.
 - **No Laziness**: Find root causes. No temporary fixes. Senior developer standards.
 - **Minimal Impact**: Touch only what's necessary to reduce the risk of unintended side-effects.
+- **Suggest Better Approaches**: I'm always open to ideas on better ways to do things. Please don't hesitate to suggest a better way, or one that has long lasting impact over a tactical change. In this regard, if you see a clearly better approach, say so before implementing. Explain the tradeoff in 2-4 bullets. If the current request is still reasonable, proceed with it — switch to the alternative only when it avoids serious risk or wasted work.
 
 > These reinforce the four behavioral principles in the `karpathy-guidelines` skill
 > (`.claude/skills/meta/karpathy-guidelines/`): Think Before Coding, Simplicity First,
@@ -62,7 +63,7 @@ EarningsNerd is an AI-powered SEC filing analysis platform that transforms dense
 
 **Backend:** FastAPI (Python 3.11), SQLAlchemy 2.0, PostgreSQL 15, Redis 7
 **Frontend:** Next.js 16 (App Router), TypeScript, Tailwind CSS, shadcn/ui, React Query
-**AI:** OpenAI-compatible API (Google AI Studio gemini-3.1-pro-preview)
+**AI:** OpenAI-compatible API (default `deepseek-v4-pro` via `https://api.deepseek.com/v1`; provider + model are env-configurable via `OPENAI_BASE_URL` + `AI_DEFAULT_MODEL`)
 **Payments:** Stripe | **Email:** Resend | **Analytics:** PostHog, Vercel Analytics | **Errors:** Sentry
 
 ## Quick Commands
@@ -102,21 +103,22 @@ docker-compose down                   # Stop databases
 ```
 /backend
 ├── app/
-│   ├── routers/          # API endpoints (auth, companies, filings, summaries, admin, etc.)
-│   ├── services/         # Business logic layer
-│   │   ├── edgar/        # SEC EDGAR integration (circuit_breaker, client, xbrl_service)
+│   ├── routers/          # API endpoints (auth, companies, peers, insiders, filings, summaries, dashboard, search, internal, admin, etc.)
+│   ├── services/         # Business logic layer (40+ services: AI, copilot, facts, entitlements, notifications, insiders, peers, etc.)
+│   │   ├── edgar/        # SEC EDGAR integration (circuit_breaker, client, xbrl_service, instance_extractor, statement_parser)
 │   │   ├── logging_service.py   # Structured logging with correlation IDs
 │   │   ├── metrics_service.py   # Application metrics aggregation
 │   │   ├── redis_service.py     # Connection pooling, cache helpers, health checks
 │   │   └── openai_service.py    # AI summarization logic
-│   ├── models/           # SQLAlchemy ORM models
-│   ├── schemas/          # Pydantic validation schemas
-│   ├── integrations/     # External APIs (finnhub, earnings_whispers, fmp, stocktwits)
+│   ├── models/           # SQLAlchemy ORM models (User/Company/Filing/Summary in __init__.py; FinancialFact, notifications, refresh_token, subscription, waitlist, contact, audit_log in submodules)
+│   ├── schemas/          # Pydantic validation schemas (summary, contact, fundamentals, insiders, peers, search)
+│   ├── integrations/     # External APIs (finnhub, earnings_whispers, fmp, stocktwits, sec_api)
 │   ├── config.py         # Pydantic Settings (env validation)
 │   └── database.py       # DB session management
 ├── pipeline/             # SEC data pipeline (extract, validate, quality, schema, write)
+├── evals/                # AI eval harness (golden sets, judge, copilot scorers) — see evals/RUNBOOK.md
 ├── tests/                # pytest tests (unit/, integration/, performance/, smoke/)
-├── prompts/              # AI system prompts (10k-analyst-agent.md, 10q-analyst-agent.md)
+├── prompts/              # AI system prompts (10k/10q analyst-agent.md + 10k/10q structured-agent.md)
 ├── scripts/              # Verification and debug scripts
 ├── docs/                 # Design docs (plan_sec_pipeline.md)
 ├── migrations/           # One-off SQL migrations (applied manually; no Alembic)
@@ -125,25 +127,30 @@ docker-compose down                   # Stop databases
 /frontend
 ├── app/                  # Next.js App Router pages
 │   ├── login/, register/ # Auth routes (root-level, no route group)
+│   ├── forgot-password/, reset-password/, check-email/, verify-email/  # Password reset + email verification flows
 │   ├── company/[ticker]/ # Company detail pages
 │   ├── filing/[id]/      # Filing summary pages
 │   ├── compare/result/   # Filing comparison pages
-│   ├── dashboard/        # User dashboard (settings, watchlist)
+│   ├── dashboard/        # User dashboard (settings/, watchlist/ subroutes)
+│   ├── search/           # Global filing search page
 │   ├── contact/          # Contact form page
 │   ├── pricing/          # Pricing page
 │   ├── waitlist/         # Waitlist signup page
-│   ├── privacy/, security/  # Legal/info pages
+│   ├── privacy/, security/, terms/  # Legal/info pages
 │   └── layout.tsx        # Root layout with providers
-├── components/           # Reusable React components (40+ components, incl. charts/, ui/)
-├── features/             # Domain modules (auth, companies, filings, subscriptions, summaries, watchlist, contact)
+├── components/           # Reusable React components (50+ files; subdirs: auth/, charts/, dashboard/, settings/, watchlist/, ui/)
+├── features/             # Domain modules (auth, companies, filings, fundamentals, insiders, peers, search, subscriptions, summaries, notifications, watchlist, contact)
 │   ├── */api/            # API client functions per domain
-│   └── filings/components/  # Filing-specific summary section components
+│   └── filings/components/  # Filing summary sections + copilot/ (Ask-this-Filing Q&A)
 ├── lib/
 │   ├── api/client.ts     # Axios instance with auth interceptors
 │   ├── api/types.ts      # TypeScript API types
+│   ├── api/refresh.ts, api/session.ts  # Token refresh + session helpers
+│   ├── serverApi.ts      # Server-side API helper (SSR/RSC)
 │   ├── featureFlags.ts   # Feature flag configuration
 │   ├── guards.ts         # Route guards
 │   ├── formatters.ts, format.ts  # Formatting utilities
+│   ├── topTickers.ts, entryPoint.ts  # Top-ticker list + entry-point config
 │   ├── analytics.ts      # Analytics integration
 │   ├── QualityGate.ts    # Summary quality gating
 │   └── stripInternalNotices.ts  # Strip internal AI notices from output
@@ -175,6 +182,26 @@ docker-compose down                   # Stop databases
 | `backend/app/services/logging_service.py` | Structured logging, correlation IDs, request context |
 | `backend/app/services/metrics_service.py` | Application metrics for monitoring dashboards |
 | `backend/app/services/audit_service.py` | Audit logging for GDPR compliance |
+| `backend/app/services/summary_pipeline.py` | Transport-agnostic summary-generation pipeline yielding plain dict events for SSE streaming |
+| `backend/app/services/copilot_service.py` | "Ask this Filing" — scoped single-filing Q&A with verifiable, deep-linked citations (Pro) |
+| `backend/app/services/copilot_tools.py` | Numeric XBRL tool-use for Copilot — exact values from `financial_fact` for calculations |
+| `backend/app/services/provenance_service.py` | Trace-to-Source provenance: verifies AI excerpts and builds deep-link citations |
+| `backend/app/services/change_report_service.py` | Period-over-period change report (financial deltas + risk-factor diffs) |
+| `backend/app/services/facts_service.py` | Normalizes/upserts standardized XBRL metrics into the queryable `financial_fact` table |
+| `backend/app/services/peers_service.py` | Cross-company peer comparison using `financial_fact` indexed by SIC |
+| `backend/app/services/insider_service.py` | Form 4 insider-activity orchestration (open-market trades, Rule 10b5-1 split) |
+| `backend/app/services/ownership_extractor.py` | Form 4 transaction extraction from EdgarTools (defensive against version variance) |
+| `backend/app/services/dashboard_feed_service.py` | Personalized dashboard feed with deterministic "what changed" headlines |
+| `backend/app/services/calendar_service.py` | Upcoming earnings calendar for watched companies (FMP-backed) |
+| `backend/app/services/filing_scan_service.py` | New-filing detection + real-time/digest alert delivery (with dedup) for watched companies |
+| `backend/app/services/notification_service.py` | Notification-preference helpers (alert eligibility, realtime/digest selection) |
+| `backend/app/services/pulse_service.py` | Filing Pulse — calm, sourced buzz gauge from `buzz_components` |
+| `backend/app/services/entitlements.py` | Single source of truth for plan-based feature gates / subscription state (Free vs Pro) |
+| `backend/app/services/subscription_sync.py` | Syncs Stripe webhook events into the `subscriptions` table (idempotent) |
+| `backend/app/services/refresh_token_service.py` | Refresh-token lifecycle (issue, rotate, revoke) with hashed storage + reuse theft-detection |
+| `backend/app/services/guest_quota.py` | Per-IP daily summary quota for anonymous users (atomic Redis INCR, fail-open) |
+| `backend/app/services/turnstile.py` | Cloudflare Turnstile bot-defense verification (dark rollout, fail-open on infra errors) |
+| `backend/app/services/pwned_passwords.py` | Breached-password screening via HaveIBeenPwned k-anonymity range API |
 
 ### EDGAR Integration (`backend/app/services/edgar/`)
 
@@ -188,6 +215,8 @@ docker-compose down                   # Stop databases
 | `config.py` | EdgarTools configuration (thread pool size, timeouts) |
 | `exceptions.py` | EdgarTools-specific exception definitions |
 | `models.py` | EdgarTools domain models (dataclass wrappers) |
+| `instance_extractor.py` | Accession-aware XBRL instance extraction (selects facts for the filing's own reporting period) |
+| `statement_parser.py` | Pure helpers extracting metric values from EdgarTools statement DataFrames |
 
 ### External Integrations (`backend/app/integrations/`)
 
@@ -197,6 +226,7 @@ docker-compose down                   # Stop databases
 | `earnings_whispers.py` | Earnings surprise signals and company earnings data |
 | `fmp.py` | Financial Modeling Prep: stock symbol validation, price data, earnings calendar |
 | `stocktwits.py` | Stocktwits trending symbols API for social sentiment signals |
+| `sec_api.py` | SEC EDGAR full-text search (EFTS) — keyless filing/exhibit text index since 2001 |
 
 ### SEC Data Pipeline (`backend/pipeline/`)
 
@@ -214,21 +244,26 @@ Modular ETL pipeline for SEC filing data (see `backend/docs/plan_sec_pipeline.md
 
 | File | Prefix | Purpose |
 |------|--------|---------|
-| `summaries.py` | `/api/summaries` | Summary endpoints with SSE streaming |
+| `summaries.py` | `/api/summaries` | Summary generation (SSE streaming), copilot Q&A, change reports |
 | `filings.py` | `/api/filings` | Filing retrieval and management |
 | `companies.py` | `/api/companies` | Company search and details |
-| `auth.py` | `/api/auth` | Authentication (login, register, refresh) |
-| `users.py` | `/api/users` | User profile, export, deletion |
+| `peers.py` | `/api/companies` | Cross-company peer comparison (`GET /{ticker}/peers`) |
+| `insiders.py` | `/api/companies` | Form 4 insider activity (`GET /{ticker}/insiders`) |
+| `auth.py` | `/api/auth` | Authentication (login, register, refresh, OAuth, password reset) |
+| `users.py` | `/api/users` | User profile, preferences, export, deletion |
 | `admin.py` | `/api/admin` | Admin endpoints for data management |
-| `compare.py` | `/api/compare` | Filing comparison endpoints |
-| `contact.py` | `/api/contact` | Contact form submission |
+| `compare.py` | `/api/compare` | Filing comparison endpoints (Pro, entitlement-gated) |
+| `contact.py` | `/api/contact` | Contact form submission (rate-limited, Turnstile) |
 | `email.py` | `/api/email` | Email management endpoints |
-| `hot_filings.py` | `/api` | Hot filings (`GET /hot-filings`, `POST /refresh-hot-filings`) |
-| `trending.py` | `/api` | Trending tickers (`GET /trending-tickers`) |
+| `search.py` | `/api/search` | SEC full-text search via EFTS (`GET /full-text`) |
+| `dashboard.py` | `/api/dashboard` | Personalized dashboard (`GET /feed`, `GET /calendar/upcoming`) |
+| `hot_filings.py` | `/api` | Hot filings (`GET /hot_filings`, `POST /hot_filings/refresh`) |
+| `trending.py` | `/api` | Trending tickers (`GET /trending_tickers`, `GET /trending_tickers/refresh-prices`) |
 | `subscriptions.py` | `/api/subscriptions` | Subscription management + Stripe webhook (`POST /api/subscriptions/webhook`, signature-verified) |
 | `saved_summaries.py` | `/api/saved-summaries` | Save/manage summaries |
 | `watchlist.py` | `/api/watchlist`, `/api/waitlist` | Company watchlist + waitlist signup (`waitlist_router`) |
 | `webhooks.py` | `/api` | Resend webhook handler (`POST /api/webhooks/resend`) |
+| `internal.py` | `/internal` | Token-gated job triggers for Cloud Scheduler (`POST /jobs/filing-scan`, `/jobs/filing-digest`, `/jobs/backfill-facts`) |
 | `sitemap.py` | `/` | XML sitemap generation (`GET /sitemap.xml`) |
 
 ### Other Key Files
@@ -310,18 +345,23 @@ Modular ETL pipeline for SEC filing data (see `backend/docs/plan_sec_pipeline.md
 
 ## Database Models
 
-Core tables in `backend/app/models/`:
+Tables in `backend/app/models/` (core models live in `__init__.py`; the rest in submodules):
 - `User` - Authentication, preferences, `is_admin` flag
-- `Company` - CIK, ticker, name
-- `Filing` - SEC filings (10-K, 10-Q)
+- `OAuthAccount` / `OAuthState` - Social login (Google, Apple) provider links + short-lived state tokens
+- `RefreshToken` - Single-use refresh tokens with rotation chain and audit context (`refresh_token.py`)
+- `Company` - CIK, ticker, name, industry
+- `Filing` - SEC filings (10-K, 10-Q, 8-K, etc.)
 - `Summary` - AI-generated summaries
 - `SavedSummary` - User-saved summaries
-- `Watchlist` - User company watchlists
-- `UserUsage` - Per-month summary generation count for rate limiting
+- `Watchlist` - User company watchlists (with alert tracking)
+- `UserUsage` - Per-month summary/QA generation count for rate limiting
 - `UserSearch` - User search history tracking
-- `WaitlistSignup` - Waitlist signups with referral codes and priority scoring
-- `ContactSubmission` - Contact form submissions with status tracking
-- `AuditLog` - User action audit trail (GDPR compliance)
+- `FinancialFact` - Normalized standardized XBRL metrics for peer/time-series queries (`financial_fact.py`)
+- `NotificationPreferences` / `NotificationLog` - New-filing alert opt-ins + dedup ledger (`notifications.py`)
+- `Subscription` / `StripeEvent` - Billing state (Stripe sync) + webhook idempotency ledger (`subscription.py`)
+- `WaitlistSignup` - Waitlist signups with referral codes and priority scoring (`waitlist.py`)
+- `ContactSubmission` - Contact form submissions with status tracking (`contact.py`)
+- `AuditLog` - User action audit trail, GDPR compliance (`audit_log.py`)
 - `FilingContentCache` - Cached filing content with markdown
 - `SummaryGenerationProgress` - Real-time generation progress tracking
 
@@ -331,6 +371,7 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 
 | Endpoint | Purpose |
 |----------|---------|
+| `POST /email/test` | Send a test email via Resend (diagnoses email config; defaults to admin's own address) |
 | `DELETE /filing/{id}/summary` | Delete summary for a filing |
 | `DELETE /filing/{id}/xbrl` | Clear XBRL cache for a filing |
 | `DELETE /filing/{id}/reset` | Full reset (summary, XBRL, content cache, progress) |
@@ -348,21 +389,53 @@ DATABASE_URL=postgresql://...
 REDIS_URL=redis://...
 SKIP_REDIS_INIT=false             # Set to true in tests to skip Redis (auto-set by conftest.py)
 
-# AI Configuration
+# AI Configuration (OpenAI-compatible; provider configurable)
 OPENAI_API_KEY=...
-OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
-AI_DEFAULT_MODEL=gemini-3.1-pro-preview  # Primary AI model
-RECOVERY_MAX_CONCURRENCY=3        # Max concurrent calls for section recovery
+OPENAI_BASE_URL=https://api.deepseek.com/v1   # DeepSeek default; override for other providers
+AI_DEFAULT_MODEL=deepseek-v4-pro              # Primary AI model
+AI_FAST_MODEL=                                # Optional cheaper model for low-risk tasks (falls back to default)
+AI_SECTION_RECOVERY_MODEL=                    # Optional override for section recovery (falls back to AI_FAST_MODEL)
+RECOVERY_MAX_CONCURRENCY=3                    # Max concurrent calls for section recovery
+USE_STRUCTURED_OUTPUT=false                   # Phase-A structured extraction (JSON response_format)
+USE_EDGARTOOLS_SECTIONS=true                  # Native edgartools section extraction (vs legacy regex)
+AI_QUALITY_GATE=true                          # Partial summaries don't consume user quota
+
+# Copilot ("Ask this Filing" — Pro-only grounded Q&A)
+COPILOT_MONTHLY_QUESTION_CAP=1000
+COPILOT_MAX_TOKENS=1200
+COPILOT_CONTEXT_CHAR_CAP=120000
 
 # Auth & Security
 SECRET_KEY=...                    # JWT signing (recommended: 64+ chars)
+ACCESS_TOKEN_EXPIRE_MINUTES=30    # Short-lived; frontend silently refreshes
+REFRESH_TOKEN_EXPIRE_DAYS=30      # Opaque, rotated, stored hashed
+PASSWORD_MIN_LENGTH=12
+PWNED_PASSWORD_CHECK_ENABLED=true # Screen new passwords against HaveIBeenPwned (fails open)
+TURNSTILE_SECRET_KEY=...          # Cloudflare Turnstile bot defense (no-op/dark when unset)
+INTERNAL_JOB_TOKEN=...            # Shared secret for /internal/jobs/* (endpoints 503 when unset)
+ENABLE_GUEST_DAILY_QUOTA=false    # Per-IP daily summary cap for anonymous users (fails open)
+GUEST_DAILY_SUMMARY_LIMIT=3
+
+# OAuth (Google + Apple Sign In)
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+GOOGLE_REDIRECT_URI=...
+APPLE_CLIENT_ID=...               # Services ID (audience)
+APPLE_REDIRECT_URI=...
 
 # Stripe
 STRIPE_SECRET_KEY=...
 STRIPE_WEBHOOK_SECRET=...
+STRIPE_PRICE_MONTHLY_ID=...       # Required (no default) — fails obviously if misconfigured
+STRIPE_PRICE_YEARLY_ID=...
+REVERSE_TRIAL_ENABLED=false       # Grant full Pro for N days on signup, no card
+REVERSE_TRIAL_DAYS=7
 
 # Email (Resend)
 RESEND_API_KEY=...
+RESEND_FROM_EMAIL=...             # Must be on a Resend-verified domain (else emails silently drop)
+RESEND_WEBHOOK_SECRET=...         # Svix signing secret for the Resend webhook
+FRONTEND_URL=https://earningsnerd.io  # Used in email links (verification, reset)
 
 # Analytics & Monitoring
 POSTHOG_API_KEY=...
@@ -405,8 +478,13 @@ NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=...
 NEXT_PUBLIC_POSTHOG_KEY=...
 NEXT_PUBLIC_SENTRY_DSN=...
+NEXT_PUBLIC_TURNSTILE_SITE_KEY=...                 # Pairs with backend TURNSTILE_SECRET_KEY
 NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS=true|false
 NEXT_PUBLIC_ENABLE_SECTION_TABS=true|false
+NEXT_PUBLIC_ENABLE_CALENDAR=true|false             # Earnings calendar (requires FMP_API_KEY)
+NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY=true|false     # Form 4 insider activity panel
+NEXT_PUBLIC_REQUIRE_AUTH_FOR_SUMMARY=true|false    # Gate summary generation behind auth
+WAITLIST_MODE=...                                  # Server-side waitlist gating (not NEXT_PUBLIC_)
 ```
 
 ## Testing
@@ -429,13 +507,18 @@ Custom pytest markers defined in `backend/tests/conftest.py`:
 **Smoke Tests (`backend/tests/smoke/`):**
 - `test_critical_paths.py` - 18 smoke tests for critical paths
 
-**Unit Tests (`backend/tests/unit/`):**
+**Unit Tests (`backend/tests/unit/`):** (50+ files; representative selection below)
 - `test_circuit_breaker.py` - 14 circuit breaker pattern tests
 - `test_two_tier_cache.py` - LRU eviction, concurrent access, stress tests
 - `test_event_loop_safety.py` - Event loop detection, Redis connection safety
 - `test_json_repair.py` - JSON repair functionality for malformed AI responses
 - `test_openai_service_retry.py` - OpenAI service retry logic and error handling
 - `test_stocktwits_fmp.py` - Stocktwits and FMP integration tests
+- Newer feature coverage: `test_copilot.py`, `test_copilot_tools.py`, `test_entitlements.py`,
+  `test_facts_service.py`, `test_peers_service.py`, `test_insider_service.py`,
+  `test_notification_service.py`, `test_filing_scan.py`, `test_guest_quota.py`,
+  `test_turnstile.py`, `test_stripe_webhook.py`, `test_auth_flow.py`, `test_apple_signin.py`,
+  `test_sec_full_text_search.py`, `test_dashboard_feed.py`, `test_provenance_service.py`
 
 **Integration Tests (`backend/tests/integration/`):**
 - `test_summaries_flow.py` - Summary generation E2E
@@ -471,6 +554,16 @@ Located in `backend/scripts/`:
 - `test_startup.py` - Validates application startup configuration
 - `debug_extraction.py` - Debug regex patterns for extraction
 - `fix_null_sec_urls.py` - Repair filings with NULL sec_url values (see Data Integrity below)
+- `backfill_facts.py` - Backfill the `financial_fact` table from cached/parsed XBRL
+- `filing_scan.py` - Scan for new filings on watched companies (alerts pipeline)
+- `pregenerate_examples.py` - Pre-generate example summaries (weekly refresh cron)
+- `verify_insider_extraction.py` - Verify Form 4 insider extraction against live SEC data
+
+### AI Evals
+
+`backend/evals/` holds the AI eval harness (golden sets, LLM judge, copilot scorers) used to gate
+model/prompt changes before flipping flags like `AI_FAST_MODEL` or `USE_STRUCTURED_OUTPUT`. See
+`backend/evals/RUNBOOK.md`.
 
 ## Data Integrity
 
@@ -712,6 +805,7 @@ This project includes a skill directory at `.claude/skills/` providing specializ
 
 | Category | Skill | Description |
 |----------|-------|-------------|
+| Meta | `karpathy-guidelines` | Four behavioral principles (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution) — see Core Principles |
 | Payments | `stripe-best-practices` | Modern Stripe API patterns |
 | Infrastructure | `cloudflare-agents-sdk` | Building AI agents on Cloudflare Workers |
 | Frontend | `react-best-practices` | 57 React/Next.js optimization rules |
