@@ -253,7 +253,7 @@ export default function SecurityPage() {
               <strong>Resend:</strong> Secure email delivery service
             </li>
             <li>
-              <strong>OpenAI:</strong> API access for AI-powered features with enterprise-grade security
+              <strong>DeepSeek:</strong> AI provider (OpenAI-compatible API) powering summaries and Copilot; only public filing text and the questions you type are sent
             </li>
             <li>
               <strong>Sentry:</strong> Error tracking and monitoring with data encryption

@@ -65,11 +65,12 @@ These don't need a lawyer but affect compliance accuracy and should be fixed:
 
 | # | Item | Priority |
 |---|---|---|
-| F1 | **Account-deletion clears the wrong cookie.** `DELETE /api/users/me` clears a cookie named `auth_token`, but the access cookie is `earningsnerd_access_token` — so it isn't actively cleared on deletion. | 🟠 |
+| F1 | **Account-deletion clears the wrong cookie.** `DELETE /api/users/me` clears a cookie named `auth_token`, but the active cookies are `earningsnerd_access_token` and `earningsnerd_refresh_token` (30-day) — so neither is cleared on deletion, and the lingering refresh cookie could silently restore the session. | 🟠 |
 | F2 | **Contact-form IP hash uses a weak default salt** (`"default-salt-change-in-production"`) and a different scheme than the `SECRET_KEY`-peppered hashing used elsewhere. Set a strong `IP_HASH_SALT` in production (or unify on the peppered scheme). | 🟠 |
 | F3 | **No audit-log retention/purge** — logs appear retained indefinitely. Implement retention per B8. | 🟡 |
 | F4 | **Sentry captures console logs** (`enableLogs: true`), which may incidentally include identifiers in error payloads. Review scrubbing / PII filtering. | 🟡 |
 | F5 | **Rate limiting is per-process**, not shared across Cloud Run instances — don't overstate it as a global control. | 🟡 |
+| F6 | **Public security page named the wrong AI provider.** `frontend/app/security/page.tsx` listed OpenAI; the default provider is DeepSeek. *(Fixed in this PR.)* | 🟡 |
 
 *(I can open a separate engineering PR for F1–F5 if you'd like — just say so.)*
 

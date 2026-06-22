@@ -37,8 +37,8 @@ disclosure + consent. **Get legal review on this specifically.**
       clearly in account settings). Must be **full deletion**, not deactivation.
 - [ ] Ensure guest/auto-created accounts are deletable; avoid undue friction (confirmation/reauth is
       fine). A web link may **supplement** but not replace the in-app flow.
-- [ ] **Fix the deletion cookie bug** (clears `auth_token` instead of `earningsnerd_access_token`) —
-      see the Lawyer brief, item F1.
+- [ ] **Fix the deletion cookie bug** (clears `auth_token` instead of `earningsnerd_access_token`
+      **and** `earningsnerd_refresh_token`) — see the Lawyer brief, item F1.
 
 ### Privacy Policy link — Guideline 5.1.1(i)
 - [ ] Add the Privacy Policy URL in **both** the App Store Connect metadata field **and** in-app.
