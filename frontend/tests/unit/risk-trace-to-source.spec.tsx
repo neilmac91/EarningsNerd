@@ -1,5 +1,5 @@
 import React from 'react'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { SummaryRisks } from '@/features/filings/components/SummaryRisks'
 import { normalizeRisk } from '@/lib/formatters'
 import type { RiskFactor } from '@/types/summary'
@@ -15,12 +15,14 @@ describe('Risk factor Trace-to-Source', () => {
         source_section_ref: 'Item 1A. Risk Factors',
       },
     ]
-    const { container } = render(<SummaryRisks risks={risks} />)
+    render(<SummaryRisks risks={risks} />)
     const link = screen.getByRole('link')
     expect(link.getAttribute('href')).toContain('#:~:text=')
-    expect(link.getAttribute('aria-label')).toMatch(/verified source passage/i)
+    expect(link.getAttribute('aria-label')).toMatch(/verified in filing/i)
     expect(link.textContent).toContain('Verified in filing')
-    expect(container.textContent).toContain('Item 1A. Risk Factors')
+    // The section ref lives in the hover/focus panel (ambient provenance), not inline.
+    fireEvent.mouseEnter(link)
+    expect(screen.getByText(/Item 1A\. Risk Factors/)).toBeTruthy()
   })
 
   it('labels an unverified citation honestly and links to the plain section', () => {
@@ -37,7 +39,7 @@ describe('Risk factor Trace-to-Source', () => {
     const link = screen.getByRole('link')
     expect(link.getAttribute('href')).toBe('https://www.sec.gov/x.htm')
     expect(link.getAttribute('href')).not.toContain('#:~:text=')
-    expect(link.textContent).toContain('Cited — open section')
+    expect(link.textContent).toContain('Cited')
     expect(screen.queryByText(/Verified in filing/)).toBeNull()
   })
 

@@ -11,7 +11,7 @@ describe('Financial metric Trace-to-Source', () => {
     expect(link.getAttribute('href')).toBe('https://sec.gov/x.htm')
     expect(link.textContent).toContain('Revenue')
     expect(link.textContent).toContain('SEC XBRL')
-    expect(link.getAttribute('aria-label')).toMatch(/verified value/i)
+    expect(link.getAttribute('aria-label')).toMatch(/SEC XBRL/i)
   })
 
   it('shows a plain source link when unverified', () => {
