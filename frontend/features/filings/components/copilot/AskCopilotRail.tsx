@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Sparkles, X } from 'lucide-react'
 import {
   askFilingStream,
@@ -12,8 +12,13 @@ import CopilotComposer, { type CopilotComposerHandle } from './CopilotComposer'
 import CopilotMessage, { type CopilotMessageData } from './CopilotMessage'
 import CopilotTeaser from './CopilotTeaser'
 import { useFilingViewer } from './FilingViewerContext'
+import { useSheetFocusTrap } from './useSheetFocusTrap'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import UpgradeModal from '@/components/UpgradeModal'
 import { analytics } from '@/lib/analytics'
+
+// Below lg the standalone overlay is a modal bottom-sheet; at lg+ it docks as a static side pane.
+const MOBILE_MEDIA_QUERY = '(max-width: 1023.98px)'
 
 interface AskCopilotRailProps {
   filingId: number
@@ -94,6 +99,10 @@ export default function AskCopilotRail({
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
+  // The standalone overlay panel container — owns the mobile focus trap (when !embedded).
+  const panelRef = useRef<HTMLDivElement>(null)
+  // The standalone launcher (closed state) — focus returns here when the sheet closes.
+  const launcherRef = useRef<HTMLButtonElement>(null)
   // Keep the last asked question so the Retry button can re-run it.
   const lastQuestionRef = useRef<string | null>(null)
   // Mirror of `messages` so handlers/submit can read the latest list synchronously without
@@ -149,6 +158,22 @@ export default function AskCopilotRail({
     const raf = requestAnimationFrame(() => composerRef.current?.prefill(prefill.text))
     return () => cancelAnimationFrame(raf)
   }, [prefill, isPro])
+
+  // Below lg the standalone overlay acts as a modal (focus trap + scrim). When `embedded`,
+  // FilingWorkspace owns the trap/scrim, so we disable the query entirely (isMobile stays false)
+  // and never add a second one here.
+  const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY, !embedded)
+  const modalActive = open && isMobile && !embedded
+
+  // Mobile modal focus trap for the standalone overlay only. The hook also handles Escape (capture
+  // phase + preventDefault), so the window Escape listener below won't double-fire when active.
+  const handleClose = useCallback(() => onOpenChange(false), [onOpenChange])
+  useSheetFocusTrap({
+    active: modalActive,
+    containerRef: panelRef,
+    onClose: handleClose,
+    restoreFocusRef: launcherRef,
+  })
 
   // Keyboard: ⌘K / Ctrl+K (and "/" when not already typing) open + focus the rail; Escape closes it.
   useEffect(() => {
@@ -392,6 +417,7 @@ export default function AskCopilotRail({
   if (!open) {
     return (
       <button
+        ref={launcherRef}
         type="button"
         onClick={() => onOpenChange(true)}
         className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-mint-500 px-4 py-3 text-sm font-semibold text-slate-950 shadow-glow-mint transition-colors hover:bg-mint-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-300"
@@ -408,33 +434,46 @@ export default function AskCopilotRail({
 
   // --- Panel (open, standalone overlay) ---
   return (
-    <div
-      role="dialog"
-      aria-label="Ask this Filing"
-      className={`${PANEL_BASE} ${PANEL_VARIANT[variant]}`}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <Sparkles className="h-4 w-4 shrink-0 text-mint-400" />
-          <h2 className="truncate text-sm font-semibold text-white">Ask this Filing</h2>
-          <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-mint-500/10 px-2 py-0.5 text-[11px] font-medium text-mint-300 ring-1 ring-mint-500/20 sm:inline-flex">
-            <span className="h-1.5 w-1.5 rounded-full bg-mint-400" aria-hidden="true" />
-            Scoped to this filing
-          </span>
+    <>
+      {/* Mobile-only scrim behind the bottom-sheet (z-30 < panel's z-40). Tapping it closes the
+          sheet. `lg:hidden` keeps it out of the desktop docked/static layout entirely. */}
+      <button
+        type="button"
+        aria-hidden="true"
+        tabIndex={-1}
+        onClick={handleClose}
+        className="lg:hidden fixed inset-0 z-30 bg-black/50"
+      />
+      <div
+        ref={panelRef}
+        role="dialog"
+        aria-label="Ask this Filing"
+        aria-modal={modalActive ? true : undefined}
+        className={`${PANEL_BASE} ${PANEL_VARIANT[variant]}`}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <Sparkles className="h-4 w-4 shrink-0 text-mint-400" />
+            <h2 className="truncate text-sm font-semibold text-white">Ask this Filing</h2>
+            <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-mint-500/10 px-2 py-0.5 text-[11px] font-medium text-mint-300 ring-1 ring-mint-500/20 sm:inline-flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-mint-400" aria-hidden="true" />
+              Scoped to this filing
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            aria-label="Close"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => onOpenChange(false)}
-          aria-label="Close"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
 
-      {body}
-      {upgradeModal}
-    </div>
+        {body}
+        {upgradeModal}
+      </div>
+    </>
   )
 }

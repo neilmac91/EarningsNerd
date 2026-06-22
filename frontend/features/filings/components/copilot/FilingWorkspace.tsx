@@ -1,11 +1,16 @@
 'use client'
 
-import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
 import { ExternalLink, Sparkles } from 'lucide-react'
 import PaneResizer from './PaneResizer'
 import SecondaryPaneTabs, { PANE_PANEL_IDS, PANE_TAB_IDS } from './SecondaryPaneTabs'
 import { isHttpUrl } from './CitationChip'
 import { useFilingViewer } from './FilingViewerContext'
+import { useSheetFocusTrap } from './useSheetFocusTrap'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
+
+// Below lg the secondary pane is a modal bottom-sheet; at lg+ it's a static side pane (no modal).
+const MOBILE_MEDIA_QUERY = '(max-width: 1023.98px)'
 
 const DEFAULT_WIDTH = 420
 const MIN_WIDTH = 360
@@ -73,11 +78,16 @@ export default function FilingWorkspace({
   const [width, setWidth] = useState<number>(DEFAULT_WIDTH)
   const viewer = useFilingViewer()
   const activeView = viewer?.activeView ?? 'copilot'
+  const shellRef = useRef<HTMLDivElement>(null)
+  const launcherRef = useRef<HTMLButtonElement>(null)
 
   // Hydrate the persisted width after mount (keeps SSR markup deterministic, avoids hydration drift).
   useEffect(() => {
     setWidth(readStoredWidth())
   }, [])
+
+  // Below lg the bottom-sheet acts as a modal (focus trap + scrim); at lg+ it's a static side pane.
+  const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY)
 
   const handleResize = useCallback((next: number) => {
     const w = clampWidth(next)
@@ -93,6 +103,12 @@ export default function FilingWorkspace({
   const paneOpen = open && summaryAvailable
   // When closed, collapse the second track to 0 so the summary spans the full width.
   const style = { '--copilot-w': paneOpen ? `${width}px` : '0px' } as CSSProperties
+
+  // Trap focus inside the bottom-sheet only when it's acting as a mobile modal (open + below lg).
+  // FilingWorkspace owns the trap/scrim for the embedded rail; the embedded rail never adds its own.
+  const modalActive = paneOpen && isMobile
+  const handleClose = useCallback(() => onOpenChange(false), [onOpenChange])
+  useSheetFocusTrap({ active: modalActive, containerRef: shellRef, onClose: handleClose, restoreFocusRef: launcherRef })
 
   const openOriginal = isHttpUrl(secUrl) ? (
     <a
@@ -114,6 +130,7 @@ export default function FilingWorkspace({
             {/* Launcher (closed) */}
             {!open && (
               <button
+                ref={launcherRef}
                 type="button"
                 onClick={() => onOpenChange(true)}
                 className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-mint-500 px-4 py-3 text-sm font-semibold text-slate-950 shadow-glow-mint transition-colors hover:bg-mint-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-300"
@@ -138,11 +155,25 @@ export default function FilingWorkspace({
               />
             )}
 
+            {/* Mobile-only scrim behind the bottom-sheet (z-30 < shell's z-40). Tapping it closes
+                the sheet. `lg:hidden` keeps it out of the desktop static-pane layout entirely. */}
+            {paneOpen && (
+              <button
+                type="button"
+                aria-hidden="true"
+                tabIndex={-1}
+                onClick={handleClose}
+                className="lg:hidden fixed inset-0 z-30 bg-black/50"
+              />
+            )}
+
             {/* Unified secondary-pane shell — always mounted (bodies persist across close/reopen),
                 but hidden + removed from the a11y tree when closed. */}
             <div
+              ref={shellRef}
               role="dialog"
               aria-label="Ask this Filing"
+              aria-modal={modalActive ? true : undefined}
               aria-hidden={!paneOpen}
               className={`${SHELL_CLASSES} ${paneOpen ? 'lg:border-l lg:border-white/10' : 'hidden'}`}
             >
