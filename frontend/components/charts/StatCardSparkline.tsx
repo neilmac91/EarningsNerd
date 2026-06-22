@@ -1,15 +1,16 @@
 'use client'
 
 import { Area, AreaChart, ResponsiveContainer } from 'recharts'
+import { directionHex, type Direction } from '../../lib/financialTone'
 
 interface StatCardSparklineProps {
     data: Array<{ i: number; val: number }>
-    isNegative: boolean
+    direction: Direction
 }
 
-export default function StatCardSparkline({ data, isNegative }: StatCardSparklineProps) {
-    const strokeColor = isNegative ? '#e11d48' : '#059669'
-    const fillColor = isNegative ? '#ffe4e6' : '#d1fae5'
+export default function StatCardSparkline({ data, direction }: StatCardSparklineProps) {
+    // Calm, single-tone trend: mint when up, muted slate otherwise — no casino red/green.
+    const color = directionHex[direction]
 
     return (
         <ResponsiveContainer width="100%" height="100%">
@@ -17,8 +18,9 @@ export default function StatCardSparkline({ data, isNegative }: StatCardSparklin
                 <Area
                     type="monotone"
                     dataKey="val"
-                    stroke={strokeColor}
-                    fill={fillColor}
+                    stroke={color}
+                    fill={color}
+                    fillOpacity={0.12}
                     strokeWidth={2}
                     isAnimationActive={false}
                 />

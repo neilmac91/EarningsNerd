@@ -1,6 +1,7 @@
 import { format, parseISO } from 'date-fns'
 import ExampleCtaLink from '@/components/ExampleCtaLink'
 import { exampleFilingHref } from '@/lib/featureFlags'
+import { directionTextOnDark } from '@/lib/financialTone'
 import type { ExampleData, ExampleMetric } from '@/lib/serverApi'
 
 /**
@@ -56,7 +57,7 @@ function MetricCell({ metric, isFallback }: { metric: ExampleMetric; isFallback:
       {delta && (
         <div
           className={`mt-0.5 text-xs font-medium tabular-nums ${
-            (metric.deltaPercent ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+            directionTextOnDark[(metric.deltaPercent ?? 0) >= 0 ? 'up' : 'down']
           }`}
         >
           {delta}

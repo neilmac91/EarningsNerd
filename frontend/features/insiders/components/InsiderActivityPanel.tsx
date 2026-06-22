@@ -11,6 +11,7 @@ import {
 } from '@/features/insiders/api/insiders-api'
 import { ApiError } from '@/lib/api/client'
 import { fmtCurrency, fmtScale } from '@/lib/format'
+import { directionText } from '@/lib/financialTone'
 
 const WINDOWS: { days: number; label: string }[] = [
   { days: 90, label: '90D' },
@@ -72,12 +73,9 @@ export default function InsiderActivityPanel({ ticker }: { ticker: string }) {
   const planSells = summary?.plan_10b5_1_sell_shares ?? 0
 
   const SignalIcon = direction === 'buy' ? TrendingUp : direction === 'sell' ? TrendingDown : Minus
-  const signalColor =
-    direction === 'buy'
-      ? 'text-mint-600 dark:text-mint-400'
-      : direction === 'sell'
-        ? 'text-red-600 dark:text-red-400'
-        : 'text-gray-500 dark:text-gray-400'
+  // Buys carry the mint accent; sells read muted slate (not alarm-red) — the magnitude + arrow
+  // carry the signal. Insider selling is routinely liquidity/tax-driven, so red would over-signal.
+  const signalColor = directionText[direction === 'buy' ? 'up' : direction === 'sell' ? 'down' : 'flat']
   const signalText =
     direction === 'buy'
       ? 'Net insider buying'
@@ -148,8 +146,8 @@ export default function InsiderActivityPanel({ ticker }: { ticker: string }) {
                 {fmtMoney(summary.buy_value) !== '—' ? fmtMoney(summary.buy_value) : `${fmtShares(summary.buy_shares)} sh`}
               </p>
             </div>
-            <div className="rounded-lg bg-red-50 p-3 dark:bg-red-500/10">
-              <p className="text-xs font-medium text-red-700 dark:text-red-400">
+            <div className="rounded-lg bg-slate-100 p-3 dark:bg-slate-800/60">
+              <p className="text-xs font-medium text-slate-600 dark:text-slate-300">
                 Sells ({summary.sell_count})
               </p>
               <p className="mt-0.5 text-sm font-semibold text-gray-900 dark:text-white">
@@ -192,13 +190,7 @@ export default function InsiderActivityPanel({ ticker }: { ticker: string }) {
                         <span className="block text-xs text-gray-500 dark:text-gray-400">{roleOf(t)}</span>
                       </td>
                       <td className="py-2 pr-3">
-                        <span
-                          className={
-                            buy
-                              ? 'font-medium text-mint-600 dark:text-mint-400'
-                              : 'font-medium text-red-600 dark:text-red-400'
-                          }
-                        >
+                        <span className={`font-medium ${directionText[buy ? 'up' : 'down']}`}>
                           {t.transaction_label ?? (buy ? 'Buy' : 'Sell')}
                         </span>
                         {t.is_10b5_1 && (

@@ -6,9 +6,10 @@ import { FeedItem, WhatChangedItem } from '@/features/dashboard/api/dashboard-ap
 import { formatLocalDate } from '@/lib/format'
 import analytics from '@/lib/analytics'
 
+// Calm directional chips: mint for up, muted slate for down — never casino red/green.
 const DIRECTION = {
-  up: { Icon: TrendingUp, cls: 'text-green-600 dark:text-green-400 bg-green-500/10' },
-  down: { Icon: TrendingDown, cls: 'text-red-600 dark:text-red-400 bg-red-500/10' },
+  up: { Icon: TrendingUp, cls: 'text-mint-700 dark:text-mint-300 bg-mint-500/10' },
+  down: { Icon: TrendingDown, cls: 'text-slate-600 dark:text-slate-300 bg-slate-500/10' },
   flat: { Icon: Minus, cls: 'text-slate-500 bg-slate-500/10' },
 } as const
 

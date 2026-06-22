@@ -15,6 +15,7 @@ import {
   TrendingTickerResponse,
   PriceData,
 } from '@/features/companies/api/companies-api'
+import { directionTextOnDark, directionOf } from '@/lib/financialTone'
 
 const FULL_REFRESH_INTERVAL = 10 * 60 * 1000 // 10 minutes for full data
 const PRICE_REFRESH_INTERVAL = 2 * 60 * 1000 // 2 minutes for prices only
@@ -62,9 +63,7 @@ function PriceChangeIndicator({ changePercent }: { changePercent?: number | null
     <span
       className={clsx(
         'inline-flex items-center gap-0.5 text-sm font-medium',
-        isPositive && 'text-emerald-400',
-        isNegative && 'text-rose-400',
-        !isPositive && !isNegative && 'text-slate-400'
+        directionTextOnDark[directionOf(changePercent)]
       )}
     >
       {isPositive && <TrendingUp className={iconClass} />}

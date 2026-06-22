@@ -12,6 +12,7 @@ import { toast } from 'sonner'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
+import { directionText, directionOf } from '@/lib/financialTone'
 import analytics from '@/lib/analytics'
 import { getEntryPoint } from '@/lib/entryPoint'
 import { ENABLE_RECOMMENDED_FILING, ENABLE_FINANCIAL_CHARTS, ENABLE_INSIDER_ACTIVITY } from '@/lib/featureFlags'
@@ -285,9 +286,7 @@ export default function CompanyPageClient() {
                       </span>
                       {companyData.stock_quote.change_percent !== undefined && companyData.stock_quote.change_percent !== null && (
                         <span
-                          className={`font-medium ${
-                            companyData.stock_quote.change_percent >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                          }`}
+                          className={`font-medium ${directionText[directionOf(companyData.stock_quote.change_percent)]}`}
                         >
                           {fmtPercent(companyData.stock_quote.change_percent, { digits: 2, signed: true })}
                         </span>
