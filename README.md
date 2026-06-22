@@ -37,7 +37,7 @@ Recharts · PostHog · Sentry. Deployed on **Vercel**.
 optional Redis). SEC data via **`edgartools`** (XBRL extraction, filing parsing). Deployed on
 **Google Cloud Run** with Cloud SQL.
 
-**AI** — an OpenAI-*compatible* client; default provider **DeepSeek** (`api.deepseek.com`), default
+**AI** — an OpenAI-*compatible* client; default provider **DeepSeek** (platform.deepseek.com), default
 model **`deepseek-v4-pro`**. Both are env-configurable (`OPENAI_BASE_URL` + `AI_DEFAULT_MODEL`), so
 any OpenAI-compatible provider/model works. (The `OPENAI_*` env names are just the compatibility
 shim — this is not OpenAI/GPT-4.)
