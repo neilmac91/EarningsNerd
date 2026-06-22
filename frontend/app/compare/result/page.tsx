@@ -206,7 +206,7 @@ export default function CompareResultPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600">Loading comparison...</p>
+          <p className="text-gray-600 dark:text-slate-300">Loading comparison...</p>
         </div>
       </div>
     )
@@ -257,7 +257,7 @@ export default function CompareResultPage() {
         actions={
           <button
             onClick={() => router.push('/compare')}
-            className="text-sm font-medium text-slate-600 hover:text-slate-900"
+            className="text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
           >
             New comparison
           </button>
@@ -267,13 +267,13 @@ export default function CompareResultPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 
         {/* Filings Header */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 mb-6">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {filings.map((filing) => (
-              <div key={filing.id} className="border border-gray-200 rounded-lg p-4">
-                <div className="font-semibold text-gray-900">{filing.company.ticker}</div>
-                <div className="text-sm text-gray-600">{filing.filing_type}</div>
-                <div className="text-xs text-gray-500 mt-1">
+              <div key={filing.id} className="border border-gray-200 dark:border-slate-700 rounded-lg p-4">
+                <div className="font-semibold text-gray-900 dark:text-white">{filing.company.ticker}</div>
+                <div className="text-sm text-gray-600 dark:text-slate-300">{filing.filing_type}</div>
+                <div className="text-xs text-gray-500 dark:text-slate-400 mt-1">
                   {filing.filing_date && format(new Date(filing.filing_date), 'MMM yyyy')}
                 </div>
               </div>
@@ -283,34 +283,34 @@ export default function CompareResultPage() {
 
         {/* Financial Metrics Comparison */}
         {comparison.financial_metrics.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 mb-6">
             <div className="flex items-center space-x-2 mb-4">
               <BarChart3 className="h-6 w-6 text-primary-600" />
-              <h2 className="text-xl font-semibold text-gray-900">Financial Metrics</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Financial Metrics</h2>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
+                <thead className="bg-gray-50 dark:bg-slate-800/50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Metric</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400 uppercase">Metric</th>
                     {filings.map((filing) => (
-                      <th key={filing.id} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      <th key={filing.id} className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400 uppercase">
                         {filing.company.ticker} ({filing.filing_date && format(new Date(filing.filing_date), 'MMM yyyy')})
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
                   {metricInsights.slice(0, 12).map((insight) => (
                     <tr key={insight.metric}>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{insight.metric}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{insight.metric}</td>
                       {insight.series.map((point, idx) => {
                         const isBaseline = idx === insight.baseIndex
                         const delta = point.delta
                         const positive = typeof delta === 'number' && delta > 0
                         const negative = typeof delta === 'number' && delta < 0
                         return (
-                          <td key={`${insight.metric}-${point.filingId}`} className="px-4 py-3 text-sm text-gray-700">
+                          <td key={`${insight.metric}-${point.filingId}`} className="px-4 py-3 text-sm text-gray-700 dark:text-slate-300">
                             <div className="flex flex-col">
                               <span>{point.display || '—'}</span>
                               {!isBaseline && delta !== null && (
@@ -329,7 +329,7 @@ export default function CompareResultPage() {
                                 </span>
                               )}
                               {isBaseline && (
-                                <span className="inline-flex items-center text-xs font-medium text-gray-400 mt-1">
+                                <span className="inline-flex items-center text-xs font-medium text-gray-400 dark:text-slate-500 mt-1">
                                   Baseline
                                 </span>
                               )}
@@ -347,8 +347,8 @@ export default function CompareResultPage() {
 
         {/* Delta Highlights */}
         {deltaHighlights.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm border border-primary-200 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">Key Movements</h2>
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-primary-200 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Key Movements</h2>
             <div className="grid md:grid-cols-2 gap-4">
               {deltaHighlights.map((item, idx) => {
                 const positive = item.delta > 0
@@ -356,13 +356,13 @@ export default function CompareResultPage() {
                 return (
                   <div
                     key={`${item.metric}-${item.label}-${idx}`}
-                    className="border border-gray-200 rounded-lg p-4 flex items-start justify-between"
+                    className="border border-gray-200 dark:border-slate-700 rounded-lg p-4 flex items-start justify-between"
                   >
                     <div>
-                      <p className="text-sm font-semibold text-gray-900">{item.metric}</p>
-                      <p className="text-sm text-gray-600">{item.label}</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Value: <span className="font-medium text-gray-700">{item.display || '—'}</span>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{item.metric}</p>
+                      <p className="text-sm text-gray-600 dark:text-slate-300">{item.label}</p>
+                      <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+                        Value: <span className="font-medium text-gray-700 dark:text-slate-300">{item.display || '—'}</span>
                       </p>
                     </div>
                     <div className={`flex items-center text-sm font-semibold ${positive ? directionText.up : directionText.down}`}>
@@ -378,14 +378,14 @@ export default function CompareResultPage() {
 
         {/* Trend Charts */}
         {metricsWithTrend.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Trend Overlays</h2>
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Trend Overlays</h2>
             <div className="grid md:grid-cols-2 gap-6">
               {metricsWithTrend.map((insight) => (
-                <div key={insight.metric} className="border border-gray-100 rounded-lg p-4">
+                <div key={insight.metric} className="border border-gray-100 dark:border-slate-800 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-gray-900">{insight.metric}</h3>
-                    <span className="text-xs text-gray-500">
+                    <h3 className="font-semibold text-gray-900 dark:text-white">{insight.metric}</h3>
+                    <span className="text-xs text-gray-500 dark:text-slate-400">
                       Baseline: {insight.series[insight.baseIndex]?.label}
                     </span>
                   </div>
@@ -403,10 +403,10 @@ export default function CompareResultPage() {
 
         {/* Risk Factors Comparison */}
         {comparison.risk_factors.length > 0 && (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6">
             <div className="flex items-center space-x-2 mb-4">
               <AlertCircle className="h-6 w-6 text-red-600" />
-              <h2 className="text-xl font-semibold text-gray-900">Risk Factors</h2>
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Risk Factors</h2>
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4">
               {filings.map((filing) => {
@@ -482,8 +482,8 @@ export default function CompareResultPage() {
                       .filter((risk): risk is RiskFactor => Boolean(risk && risk.supporting_evidence))
                   : []
                 return (
-                  <div key={filing.id} className="border border-gray-200 rounded-lg p-4">
-                    <h3 className="font-semibold text-gray-900 mb-2">
+                  <div key={filing.id} className="border border-gray-200 dark:border-slate-700 rounded-lg p-4">
+                    <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
                       {filing.company.ticker}
                     </h3>
                     {normalizedRisks.length > 0 ? (
@@ -493,9 +493,9 @@ export default function CompareResultPage() {
                             ? `${risk.title}${risk.description ? `: ${risk.description}` : ''}`
                             : risk.summary
                           return (
-                            <li key={`${risk.summary}-${index}`} className="text-sm text-gray-700 space-y-1">
+                            <li key={`${risk.summary}-${index}`} className="text-sm text-gray-700 dark:text-slate-300 space-y-1">
                               <div>{label}</div>
-                              <div className="text-xs text-gray-500">
+                              <div className="text-xs text-gray-500 dark:text-slate-400">
                                 <span className="font-medium">Evidence:</span> {risk.supporting_evidence}
                               </div>
                             </li>
@@ -503,7 +503,7 @@ export default function CompareResultPage() {
                         })}
                       </ul>
                     ) : (
-                      <p className="text-sm text-gray-500">No supported risks identified.</p>
+                      <p className="text-sm text-gray-500 dark:text-slate-400">No supported risks identified.</p>
                     )}
                   </div>
                 )

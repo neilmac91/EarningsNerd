@@ -62,7 +62,7 @@ export default function WatchlistAddSearch() {
   return (
     <div ref={containerRef} className="relative">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+        <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400 dark:text-slate-500" />
         <input
           type="text"
           value={query}
@@ -73,7 +73,7 @@ export default function WatchlistAddSearch() {
           onFocus={() => setOpen(true)}
           placeholder="Add a company to your watchlist (e.g., AAPL, Apple)…"
           aria-label="Search for a company to add to your watchlist"
-          className="w-full rounded-xl border border-slate-300 bg-white py-3 pl-11 pr-4 text-slate-900 placeholder:text-slate-400 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
+          className="w-full rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800 py-3 pl-11 pr-4 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/40"
         />
         {(isLoading || addMutation.isPending) && (
           <Loader2 className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-primary-500" />
@@ -95,7 +95,7 @@ export default function WatchlistAddSearch() {
         <div
           role="listbox"
           aria-label="Company results"
-          className="absolute z-20 mt-2 max-h-80 w-full overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg"
+          className="absolute z-20 mt-2 max-h-80 w-full overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-lg"
         >
           {companies.map((company) => (
             <button
@@ -105,11 +105,11 @@ export default function WatchlistAddSearch() {
               aria-selected={false}
               onClick={() => handleSelect(company)}
               disabled={addMutation.isPending}
-              className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-slate-50 disabled:opacity-50"
+              className="flex w-full items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 disabled:opacity-50"
             >
               <span className="min-w-0">
-                <span className="block truncate font-medium text-slate-900">{company.name}</span>
-                <span className="text-sm text-slate-500">{company.ticker}</span>
+                <span className="block truncate font-medium text-slate-900 dark:text-white">{company.name}</span>
+                <span className="text-sm text-slate-500 dark:text-slate-400">{company.ticker}</span>
               </span>
               <Plus className="h-4 w-4 flex-shrink-0 text-primary-600" />
             </button>
@@ -118,7 +118,7 @@ export default function WatchlistAddSearch() {
       )}
 
       {open && debounced.length > 0 && !isLoading && companies && companies.length === 0 && (
-        <div className="absolute z-20 mt-2 w-full rounded-xl border border-slate-200 bg-white p-4 text-center text-sm text-slate-500 shadow-lg">
+        <div className="absolute z-20 mt-2 w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 text-center text-sm text-slate-500 dark:text-slate-400 shadow-lg">
           No companies found matching &quot;{debounced}&quot;
         </div>
       )}
