@@ -29,7 +29,7 @@ export function SummaryTrends({ threeYearTrend, segmentPerformance }: SummaryTre
       {Boolean(segmentPerformance) && (
         <div className="mt-6">
           <h3 className="text-lg font-semibold text-slate-900 dark:text-white mb-3">Segment Performance</h3>
-          <div className="prose max-w-none prose-slate dark:prose-invert">
+          <div className="prose max-w-none prose-slate dark:prose-invert text-slate-700 dark:text-slate-300">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {renderMarkdownValue(segmentPerformance)}
             </ReactMarkdown>
