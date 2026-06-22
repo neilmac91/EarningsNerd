@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Sparkles, X } from 'lucide-react'
 import {
   askFilingStream,
@@ -14,6 +15,7 @@ import CopilotTeaser from './CopilotTeaser'
 import { useFilingViewer } from './FilingViewerContext'
 import { useSheetFocusTrap } from './useSheetFocusTrap'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { getUsage } from '@/features/subscriptions/api/subscriptions-api'
 import UpgradeModal from '@/components/UpgradeModal'
 import { analytics } from '@/lib/analytics'
 
@@ -175,6 +177,17 @@ export default function AskCopilotRail({
     restoreFocusRef: launcherRef,
   })
 
+  // PRO Copilot question usage → an honest "N of M left" pill. Fetched only for PRO (FREE has no
+  // Copilot access) and only while open; refreshed after each answer (qa_count increments
+  // server-side on completion).
+  const queryClient = useQueryClient()
+  const { data: usage } = useQuery({
+    queryKey: ['copilot-usage'],
+    queryFn: getUsage,
+    enabled: isPro && open,
+    staleTime: 60_000,
+  })
+
   // Keyboard: ⌘K / Ctrl+K (and "/" when not already typing) open + focus the rail; Escape closes it.
   useEffect(() => {
     if (!summaryAvailable) return
@@ -292,6 +305,8 @@ export default function AskCopilotRail({
           })
           setIsStreaming(false)
           abortRef.current = null
+          // A question was metered server-side on completion — refresh the "N of M left" pill.
+          queryClient.invalidateQueries({ queryKey: ['copilot-usage'] })
         },
         onError: (msg) => {
           updateAssistant(assistantId, { status: 'error', error: msg })
@@ -391,6 +406,14 @@ export default function AskCopilotRail({
 
       {/* Composer */}
       <CopilotComposer ref={composerRef} onSubmit={handleSubmit} disabled={isStreaming} />
+
+      {/* Honest PRO usage — a calm count, not a hard sell. Shows the generous monthly allowance. */}
+      {usage && (
+        <p className="px-4 pb-2 text-center text-[11px] text-slate-500">
+          {Math.max(usage.qa_limit - usage.qa_used, 0).toLocaleString()} of{' '}
+          {usage.qa_limit.toLocaleString()} questions left this month
+        </p>
+      )}
     </>
   )
 

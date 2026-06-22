@@ -16,6 +16,7 @@ from app.services.entitlements import get_plan
 from app.services.subscription_service import (
     get_current_month,
     get_user_usage_count,
+    get_user_qa_count,
     FREE_TIER_SUMMARY_LIMIT
 )
 
@@ -44,6 +45,11 @@ class UsageResponse(BaseModel):
     summaries_limit: Optional[int]
     is_pro: bool
     month: str
+    # Copilot ("Ask this Filing") Q&A usage this month. qa_limit is the PRO fair-use soft cap
+    # (COPILOT_MONTHLY_QUESTION_CAP); surfaced so the UI can show an honest "N of M" instead of
+    # only revealing the cap at a 429. FREE users have no Copilot access, so qa_used stays 0.
+    qa_used: int
+    qa_limit: int
 
 class SubscriptionStatus(BaseModel):
     is_pro: bool
@@ -69,7 +75,9 @@ async def get_usage(
         summaries_used=current_count,
         summaries_limit=None if current_user.is_pro else FREE_TIER_SUMMARY_LIMIT,
         is_pro=current_user.is_pro,
-        month=month
+        month=month,
+        qa_used=get_user_qa_count(current_user.id, month, db),
+        qa_limit=settings.COPILOT_MONTHLY_QUESTION_CAP,
     )
 
 @router.get("/subscription", response_model=SubscriptionStatus)

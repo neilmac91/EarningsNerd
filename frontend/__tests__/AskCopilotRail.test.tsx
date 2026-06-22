@@ -37,6 +37,19 @@ vi.mock('@/lib/analytics', () => ({
   },
 }))
 
+// The rail fetches PRO Copilot usage for the "N of M left" pill; stub it so tests don't hit network.
+vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({
+  getUsage: vi.fn().mockResolvedValue({
+    summaries_used: 0,
+    summaries_limit: null,
+    is_pro: true,
+    month: '2026-06',
+    qa_used: 3,
+    qa_limit: 1000,
+  }),
+}))
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { askFilingStream, type CopilotHandlers } from '@/features/filings/api/copilot-api'
 import { analytics } from '@/lib/analytics'
 import AskCopilotRail from '@/features/filings/components/copilot/AskCopilotRail'
@@ -53,8 +66,11 @@ const baseProps = {
 
 function renderRail(overrides: Partial<React.ComponentProps<typeof AskCopilotRail>> = {}) {
   const onOpenChange = vi.fn()
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   const utils = render(
-    <AskCopilotRail {...baseProps} open={false} onOpenChange={onOpenChange} {...overrides} />,
+    <QueryClientProvider client={queryClient}>
+      <AskCopilotRail {...baseProps} open={false} onOpenChange={onOpenChange} {...overrides} />
+    </QueryClientProvider>,
   )
   return { onOpenChange, ...utils }
 }

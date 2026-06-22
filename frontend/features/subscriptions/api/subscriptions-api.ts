@@ -5,6 +5,10 @@ export interface Usage {
   summaries_limit: number | null
   is_pro: boolean
   month: string
+  /** Copilot Q&A questions used this month. */
+  qa_used: number
+  /** PRO fair-use soft cap on Copilot questions per month. */
+  qa_limit: number
 }
 
 export interface SubscriptionStatus {
