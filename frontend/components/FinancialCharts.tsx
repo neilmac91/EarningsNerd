@@ -1,8 +1,10 @@
 'use client'
 
+import { useContext } from 'react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { fmtCurrency, parseNumeric } from '@/lib/format'
 import { StatCard } from './StatCard'
+import { ThemeContext } from './ThemeProvider'
 
 interface FinancialChartsProps {
   metrics?: Array<{
@@ -14,6 +16,13 @@ interface FinancialChartsProps {
 }
 
 export default function FinancialCharts({ metrics }: FinancialChartsProps) {
+  // Recharts colours are props, not classes, so theme them off the resolved theme. Read the context
+  // directly (not useTheme) with a light fallback so bare renders/SSR/tests never throw.
+  const isDark = useContext(ThemeContext)?.theme === 'dark'
+  const chart = isDark
+    ? { grid: '#334155', tick: '#94a3b8', cursor: 'rgba(148,163,184,0.12)', tipBg: '#1e293b', tipBorder: '#334155', tipText: '#e2e8f0' }
+    : { grid: '#f1f5f9', tick: '#64748b', cursor: '#f8fafc', tipBg: '#ffffff', tipBorder: '#e2e8f0', tipText: '#0f172a' }
+
   if (!metrics || metrics.length === 0) {
     return null
   }
@@ -91,12 +100,12 @@ export default function FinancialCharts({ metrics }: FinancialChartsProps) {
 
       {/* 2. Detailed Comparison Chart */}
       {barChartData.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
           <div className="mb-6 flex items-center justify-between">
-            <h3 className="text-lg font-semibold tracking-tight text-slate-900">
+            <h3 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
               Metric Comparison
             </h3>
-            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
+            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider dark:text-slate-400">
               Current vs Prior
             </span>
           </div>
@@ -104,18 +113,18 @@ export default function FinancialCharts({ metrics }: FinancialChartsProps) {
           <div className="h-[300px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={barChartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis 
-                  dataKey="name" 
+                <CartesianGrid strokeDasharray="3 3" stroke={chart.grid} vertical={false} />
+                <XAxis
+                  dataKey="name"
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  tick={{ fontSize: 11, fill: chart.tick }}
                   dy={10}
                 />
-                <YAxis 
+                <YAxis
                   axisLine={false}
                   tickLine={false}
-                  tick={{ fontSize: 11, fill: '#64748b' }}
+                  tick={{ fontSize: 11, fill: chart.tick }}
                   tickFormatter={(value) => {
                     if (value >= 1_000_000_000) return `$${(value / 1e9).toFixed(1)}B`
                     if (value >= 1_000_000) return `$${(value / 1e6).toFixed(0)}M`
@@ -123,12 +132,16 @@ export default function FinancialCharts({ metrics }: FinancialChartsProps) {
                   }}
                 />
                 <Tooltip
-                  cursor={{ fill: '#f8fafc' }}
-                  contentStyle={{ 
-                    borderRadius: '8px', 
-                    border: '1px solid #e2e8f0',
+                  cursor={{ fill: chart.cursor }}
+                  contentStyle={{
+                    borderRadius: '8px',
+                    border: `1px solid ${chart.tipBorder}`,
+                    backgroundColor: chart.tipBg,
+                    color: chart.tipText,
                     boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
                   }}
+                  labelStyle={{ color: chart.tipText }}
+                  itemStyle={{ color: chart.tipText }}
                   formatter={(value) => [
                     fmtCurrency(value as number, { digits: 2, compact: true }),
                     ''
