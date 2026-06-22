@@ -1046,10 +1046,11 @@ function SummaryDisplay({
   onRetry?: () => void
 }) {
   const markdownContent = summary.business_overview || ''
-  // S4 honest degradation: when the quality badge is enabled we stop stripping internal
-  // notices so a degraded summary isn't dressed up as complete (the badge tells the story).
+  // S4 honest degradation, decoupled: ALWAYS strip internal failure notices (they're not
+  // user-facing copy), and let the quality badge + retry CTA carry the "partial" story instead.
+  // This gives honest labeling without leaking raw internal text into the summary body.
   const cleanedMarkdown = useMemo(
-    () => (ENABLE_QUALITY_BADGE ? markdownContent : stripInternalNotices(markdownContent)),
+    () => stripInternalNotices(markdownContent),
     [markdownContent]
   )
   const rawSummary = summary.raw_summary && typeof summary.raw_summary === 'object' ? summary.raw_summary : null
@@ -1231,10 +1232,10 @@ function SummaryDisplay({
                   {ENABLE_QUALITY_BADGE && quality?.tier && (
                     <span
                       title={quality.reasons && quality.reasons.length ? quality.reasons.join('; ') : undefined}
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${
                         quality.tier === 'full'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-amber-100 text-amber-800'
+                          ? 'bg-mint-500/10 text-mint-700 ring-mint-500/20 dark:text-mint-300'
+                          : 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300'
                       }`}
                     >
                       {quality.tier === 'full'
