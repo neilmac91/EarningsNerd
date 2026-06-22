@@ -41,10 +41,15 @@ describe('WhatChanged (A5)', () => {
     expect(container.textContent).toContain('7 risk factors carried over')
   })
 
-  it("surfaces management's note on changes", () => {
+  it('leads with the narrated change summary', () => {
     const { container } = render(<WhatChanged report={baseReport} />)
-    expect(container.textContent).toContain("Management's note on changes")
-    expect(container.textContent).toContain('Revenue accelerated while margins compressed')
+    const text = container.textContent || ''
+    expect(text).toContain('Revenue accelerated while margins compressed')
+    // The narration now leads — it appears before the metric chips, not as a footer.
+    const keyChangesIndex = text.indexOf('Revenue accelerated')
+    const netIncomeIndex = text.indexOf('Net income')
+    expect(netIncomeIndex).toBeGreaterThan(-1)
+    expect(keyChangesIndex).toBeLessThan(netIncomeIndex)
   })
 
   it('renders nothing when there are no material changes', () => {

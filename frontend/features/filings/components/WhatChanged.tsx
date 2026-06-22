@@ -46,6 +46,13 @@ export function WhatChanged({ report }: { report: ChangeReport }) {
         )}
       </div>
 
+      {/* Lead with the narrated diff — the headline "what mattered", not a footnote. */}
+      {keyChanges && (
+        <p className="mb-4 text-sm leading-relaxed text-gray-700 dark:text-text-secondary-dark">
+          {keyChanges}
+        </p>
+      )}
+
       {metrics && metrics.items.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {metrics.items.map((item) => {
@@ -111,15 +118,6 @@ export function WhatChanged({ report }: { report: ChangeReport }) {
         <p className="mt-2 text-xs text-gray-400 dark:text-text-tertiary-dark">
           {risks.carried_count} risk factor{risks.carried_count === 1 ? '' : 's'} carried over.
         </p>
-      )}
-
-      {keyChanges && (
-        <div className="mt-4 border-t border-gray-100 pt-3 dark:border-border-dark">
-          <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-text-tertiary-dark">
-            Management&apos;s note on changes
-          </h3>
-          <p className="text-sm text-gray-700 dark:text-text-secondary-dark">{keyChanges}</p>
-        </div>
       )}
     </section>
   )
