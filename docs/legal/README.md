@@ -12,6 +12,7 @@
 | [`TERMS_OF_SERVICE.md`](./TERMS_OF_SERVICE.md) | Terms for the website and direct (web) subscriptions. |
 | [`APP_STORE_COMPLIANCE.md`](./APP_STORE_COMPLIANCE.md) | Apple App Store + Google Play submission checklist. |
 | [`LAWYER_BRIEF.md`](./LAWYER_BRIEF.md) | Consolidated open-items register to brief an attorney (+ code issues found). |
+| [`DATA_PROCESSING_SETUP.md`](./DATA_PROCESSING_SETUP.md) | Step-by-step setup for sub-processor DPAs/SCCs and EU/UK Art. 27 representatives. |
 
 Related: the source-code **[`LICENSE`](../../LICENSE)** (proprietary) and the app/subscription
 **[End-User License Agreement](../EULA.md)**.
@@ -19,8 +20,9 @@ Related: the source-code **[`LICENSE`](../../LICENSE)** (proprietary) and the ap
 ## Highest-priority items before launch
 1. **DeepSeek (China) data transfer** for Copilot questions — disclosure, lawful mechanism, and
    consider sending no user personal data to the AI call. (Lawyer brief B2)
-2. **Account deletion**: surface the in-app flow (Apple 5.1.1(v)) and build a **public web deletion
-   URL** (Google).
+2. **Account deletion**: in-app flow exists (Apple 5.1.1(v)); the public web deletion page is now at
+   **`/delete-account`** — submit `https://earningsnerd.io/delete-account` in the Play Console Data
+   safety form (Google).
 3. **Sub-processor DPAs + SCCs**, and **EU/UK Art. 27 representatives**.
 4. **Publish + link** the Privacy Policy in both store listings and in-app.
 5. Complete all `[bracketed]` placeholders and get a **qualified-lawyer review**.
