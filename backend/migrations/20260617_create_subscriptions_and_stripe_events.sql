@@ -34,13 +34,17 @@ CREATE TABLE IF NOT EXISTS stripe_events (
 
 -- Backfill: one subscriptions row per existing user, derived from the legacy mirror columns.
 -- Pro users → active/pro; everyone else → active/free. (No trial/period data is known historically.)
-INSERT INTO subscriptions (user_id, plan, status, stripe_customer_id, stripe_subscription_id, created_at)
+-- cancel_at_period_end is set explicitly: when the table pre-exists from
+-- Base.metadata.create_all() the column is NOT NULL with no server default, so the
+-- backfill must supply a value rather than rely on the DEFAULT FALSE above.
+INSERT INTO subscriptions (user_id, plan, status, stripe_customer_id, stripe_subscription_id, cancel_at_period_end, created_at)
 SELECT
     u.id,
     CASE WHEN u.is_pro THEN 'pro' ELSE 'free' END,
     'active',
     u.stripe_customer_id,
     u.stripe_subscription_id,
+    FALSE,
     NOW()
 FROM users u
 ON CONFLICT (user_id) DO NOTHING;
