@@ -263,7 +263,7 @@ Modular ETL pipeline for SEC filing data (see `backend/docs/plan_sec_pipeline.md
 | `saved_summaries.py` | `/api/saved-summaries` | Save/manage summaries |
 | `watchlist.py` | `/api/watchlist`, `/api/waitlist` | Company watchlist + waitlist signup (`waitlist_router`) |
 | `webhooks.py` | `/api` | Resend webhook handler (`POST /api/webhooks/resend`) |
-| `internal.py` | `/internal` | Token-gated job triggers for Cloud Scheduler (`POST /jobs/filing-scan`, `/jobs/filing-digest`, `/jobs/backfill-facts`) |
+| `internal.py` | `/internal` | Token-gated job triggers for Cloud Scheduler (`POST /internal/jobs/filing-scan`, `/internal/jobs/filing-digest`, `/internal/jobs/backfill-facts`) |
 | `sitemap.py` | `/` | XML sitemap generation (`GET /sitemap.xml`) |
 
 ### Other Key Files
