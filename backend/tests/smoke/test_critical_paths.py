@@ -243,6 +243,38 @@ class TestCORS:
         # Should allow localhost:3000
         assert response.status_code == 200
 
+    def test_error_response_carries_cors_headers(self):
+        """A 500 must echo Access-Control-Allow-Origin for an allowed origin.
+
+        Regression guard: FastAPI's generic-``Exception`` handler runs inside
+        ServerErrorMiddleware, which sits OUTSIDE CORSMiddleware — so its 500 response
+        does not get CORS headers automatically. Without the explicit fix in
+        ``main._error_response_cors_headers`` the browser blocks the cross-origin 500 and
+        the client reports an opaque network failure ("Unable to connect to the server")
+        instead of the real server error.
+        """
+        async def _boom():
+            raise RuntimeError("intentional test failure")
+
+        app.add_api_route("/__test_boom__", _boom, methods=["GET"])
+        try:
+            # raise_server_exceptions=False lets the global handler produce the 500 response
+            # (the default re-raises it, bypassing the handler under test).
+            with TestClient(app, raise_server_exceptions=False) as c:
+                allowed = c.get("/__test_boom__", headers={"Origin": "http://localhost:3000"})
+                assert allowed.status_code == 500
+                assert allowed.headers.get("access-control-allow-origin") == "http://localhost:3000"
+
+                # A disallowed origin must NOT be echoed back.
+                denied = c.get("/__test_boom__", headers={"Origin": "https://evil.example.com"})
+                assert denied.status_code == 500
+                assert denied.headers.get("access-control-allow-origin") is None
+        finally:
+            app.router.routes = [
+                r for r in app.router.routes
+                if getattr(r, "path", None) != "/__test_boom__"
+            ]
+
 
 # Marker for smoke tests
 pytestmark = pytest.mark.smoke

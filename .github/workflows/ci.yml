@@ -217,6 +217,48 @@ jobs:
           gcloud auth configure-docker us-west1-docker.pkg.dev --quiet
           docker build -t "$IMAGE:${GITHUB_SHA::7}" -t "$IMAGE:latest" backend
           docker push --all-tags "$IMAGE"
+      - name: Apply database migrations
+        if: steps.changes.outputs.backend == 'true'
+        # Schema is created for fresh DBs by Base.metadata.create_all(), but that never ALTERs an
+        # existing table — so additive column/table migrations in backend/migrations/*.sql must be
+        # applied to the prod Cloud SQL DB explicitly. Run them here, BEFORE the new revision serves
+        # traffic, so a failed migration blocks the deploy and the new code never hits a missing
+        # column. All migration files are idempotent (IF NOT EXISTS / DROP NOT NULL), so re-applying
+        # the full set every deploy is safe.
+        #
+        # Prerequisite (one-time, granted out-of-band): the deployer SA (vars.GCP_DEPLOYER_SA) needs
+        #   roles/cloudsql.client  AND  roles/secretmanager.secretAccessor on the DATABASE_URL secret.
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+          curl -fsSL -o cloud-sql-proxy \
+            https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.0/cloud-sql-proxy.linux.amd64
+          chmod +x cloud-sql-proxy
+
+          # Pull the connection string from Secret Manager and mask it before any use.
+          DB_URL="$(gcloud secrets versions access latest --secret=DATABASE_URL)"
+          echo "::add-mask::$DB_URL"
+          # postgresql://<user>:<pass>@/<dbname>?host=/cloudsql/<PROJECT:REGION:INSTANCE>
+          CONN="${DB_URL##*host=/cloudsql/}"; CONN="${CONN%%&*}"
+          USERPASS="${DB_URL#*://}"; USERPASS="${USERPASS%%@*}"
+          export PGUSER="${USERPASS%%:*}"
+          export PGPASSWORD="${USERPASS#*:}"; echo "::add-mask::$PGPASSWORD"
+          DBPART="${DB_URL#*@/}"; export PGDATABASE="${DBPART%%\?*}"
+          export PGHOST=127.0.0.1 PGPORT=5432
+
+          ./cloud-sql-proxy --port 5432 "$CONN" &
+          PROXY_PID=$!
+          trap 'kill "$PROXY_PID" 2>/dev/null || true' EXIT
+          for _ in $(seq 1 30); do
+            pg_isready -h 127.0.0.1 -p 5432 >/dev/null 2>&1 && break
+            sleep 1
+          done
+
+          for f in backend/migrations/*.sql; do
+            echo "== applying $(basename "$f") =="
+            psql -v ON_ERROR_STOP=1 -f "$f"
+          done
+          echo "All migrations applied."
       - name: Deploy Cloud Run service
         if: steps.changes.outputs.backend == 'true'
         run: |
