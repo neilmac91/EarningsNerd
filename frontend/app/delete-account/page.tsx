@@ -20,17 +20,20 @@ export default function DeleteAccountPage() {
   const queryClient = useQueryClient()
   const [confirmText, setConfirmText] = useState('')
 
-  const { data: user, isLoading } = useQuery({
-    queryKey: ['user'],
-    queryFn: getCurrentUserSafe,
-    retry: false,
-  })
-
   const deleteMutation = useMutation({
     mutationFn: deleteUserAccount,
     onSuccess: () => {
       queryClient.clear()
     },
+  })
+
+  // Once the account is deleted, stop querying the (now-gone) user so clearing the cache doesn't
+  // fire an immediate redundant /api/auth/me request that would just 401.
+  const { data: user, isLoading } = useQuery({
+    queryKey: ['user'],
+    queryFn: getCurrentUserSafe,
+    retry: false,
+    enabled: !deleteMutation.isSuccess,
   })
 
   const canDelete = confirmText.trim().toLowerCase() === CONFIRM_PHRASE && !deleteMutation.isPending
