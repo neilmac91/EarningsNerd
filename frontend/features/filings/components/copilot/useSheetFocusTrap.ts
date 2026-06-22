@@ -30,8 +30,10 @@ const FOCUSABLE_SELECTOR = [
 
 function getFocusable(container: HTMLElement): HTMLElement[] {
   return Array.from(container.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)).filter(
-    // Skip elements that aren't actually rendered (hidden tab panels, display:none, etc.).
-    (el) => el.offsetParent !== null || el === document.activeElement,
+    // "Is rendered" via getClientRects(): robust inside position:fixed containers (the sheet is
+    // fixed), where offsetParent can be null even for visible elements. Excludes display:none /
+    // hidden tab panels. Keep the active element regardless so focus is never lost mid-cycle.
+    (el) => el.getClientRects().length > 0 || el === document.activeElement,
   )
 }
 
