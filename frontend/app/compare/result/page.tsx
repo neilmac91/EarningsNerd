@@ -320,7 +320,7 @@ export default function CompareResultPage() {
                                       ? directionText.up
                                       : negative
                                       ? directionText.down
-                                      : 'text-gray-500'
+                                      : directionText.flat
                                   }`}
                                 >
                                   {positive && <TrendingUp className="h-3 w-3 mr-1" />}
