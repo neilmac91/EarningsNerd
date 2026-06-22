@@ -17,8 +17,14 @@ so investors can understand a company in minutes instead of hours.
 - **Evidence-backed output.** Every bullet must cite a filing excerpt or an XBRL anchor; the AI
   output is held to a strict JSON contract with deterministic repair and a fallback path.
 - **Side-by-side comparison** of 2–5 filings to surface trends and changes (Pro).
+- **Ask this Filing (Pro)** — natural-language Q&A grounded in a single filing, with deep-linked
+  citations back to the exact passage or XBRL figure.
 - **Financial visualization** — interactive charts for revenue, earnings, and key metrics, grounded
   in parsed XBRL data.
+- **Insider activity & peer benchmarking** — Form 4 open-market trades and cross-company metric
+  comparisons, drawn from parsed XBRL.
+- **Personalized dashboard** — a watchlist-driven feed of what changed across your companies, plus
+  an upcoming-earnings calendar.
 - **Watchlists, saved summaries, trending & hot filings, and email alerts.**
 - **Tiered subscriptions** (Free / Pro) via Stripe.
 
@@ -31,9 +37,10 @@ Recharts · PostHog · Sentry. Deployed on **Vercel**.
 optional Redis). SEC data via **`edgartools`** (XBRL extraction, filing parsing). Deployed on
 **Google Cloud Run** with Cloud SQL.
 
-**AI** — an OpenAI-*compatible* client pointed at **Google AI Studio**; default model
-**`gemini-3.1-pro-preview`**. (The `OPENAI_*` env names are just the compatibility shim — this is
-not OpenAI/GPT-4.)
+**AI** — an OpenAI-*compatible* client; default provider **DeepSeek** (`api.deepseek.com`), default
+model **`deepseek-v4-pro`**. Both are env-configurable (`OPENAI_BASE_URL` + `AI_DEFAULT_MODEL`), so
+any OpenAI-compatible provider/model works. (The `OPENAI_*` env names are just the compatibility
+shim — this is not OpenAI/GPT-4.)
 
 **Platform** — Stripe (payments) · Resend (email) · PostHog (analytics) · Sentry (errors).
 
@@ -44,7 +51,7 @@ not OpenAI/GPT-4.)
 
 ```
 Frontend ─▶ FastAPI ─▶ SEC EDGAR (filing text + XBRL) ─▶ section extraction
-        ─▶ Gemini summarization (strict JSON contract, fallback on failure)
+        ─▶ AI summarization (strict JSON contract, fallback on failure)
         ─▶ quality assessment ─▶ persist ─▶ streamed back over SSE
 ```
 
