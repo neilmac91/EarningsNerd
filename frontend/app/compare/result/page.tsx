@@ -290,7 +290,7 @@ export default function CompareResultPage() {
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
-                <thead className="bg-gray-50 dark:bg-slate-800/50">
+                <thead className="bg-gray-50 dark:bg-slate-900/50">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400 uppercase">Metric</th>
                     {filings.map((filing) => (
@@ -347,7 +347,7 @@ export default function CompareResultPage() {
 
         {/* Delta Highlights */}
         {deltaHighlights.length > 0 && (
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-primary-200 p-6 mb-6">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-primary-200 dark:border-primary-800 p-6 mb-6">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Key Movements</h2>
             <div className="grid md:grid-cols-2 gap-4">
               {deltaHighlights.map((item, idx) => {

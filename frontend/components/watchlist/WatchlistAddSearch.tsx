@@ -105,7 +105,7 @@ export default function WatchlistAddSearch() {
               aria-selected={false}
               onClick={() => handleSelect(company)}
               disabled={addMutation.isPending}
-              className="flex w-full items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 disabled:opacity-50"
+              className="flex w-full items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-slate-50 dark:hover:bg-slate-700/50 disabled:opacity-50"
             >
               <span className="min-w-0">
                 <span className="block truncate font-medium text-slate-900 dark:text-white">{company.name}</span>
