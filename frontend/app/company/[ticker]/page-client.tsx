@@ -340,7 +340,7 @@ export default function CompanyPageClient() {
                     onClick={() => setFilterType('10-Q')}
                     className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-md transition-colors ${
                       filterType === '10-Q'
-                        ? 'bg-brand-strong dark:bg-brand-dark text-white'
+                        ? 'bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
                         : 'bg-brand-weak dark:bg-white/5 text-brand-strong dark:text-brand-strong-dark hover:bg-brand-weak/70 dark:hover:bg-white/10'
                     }`}
                   >
