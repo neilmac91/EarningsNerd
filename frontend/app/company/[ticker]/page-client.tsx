@@ -235,7 +235,7 @@ export default function CompanyPageClient() {
           borderColor: 'border-l-border-light dark:border-l-border-dark',
           bgColor: 'bg-background-light dark:bg-background-dark',
           hoverBg: 'hover:bg-background-light dark:hover:bg-background-dark',
-          iconColor: 'text-text-tertiary-light dark:text-text-tertiary-dark',
+          iconColor: 'text-text-tertiary-light dark:text-text-secondary-dark',
           badgeBg: 'bg-background-light dark:bg-white/5',
           badgeText: 'text-text-secondary-light dark:text-text-secondary-dark',
         }
@@ -276,7 +276,7 @@ export default function CompanyPageClient() {
                     </button>
                   )}
                 </div>
-                <div className="mt-1 flex items-center space-x-4 text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+                <div className="mt-1 flex items-center space-x-4 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
                   <span className="font-medium">{companyData.ticker}</span>
                   {companyData.exchange && <span>{companyData.exchange}</span>}
                   {companyData.stock_quote?.price !== undefined && companyData.stock_quote?.price !== null && (
@@ -314,7 +314,7 @@ export default function CompanyPageClient() {
             <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">SEC Filings</h2>
             {filings && filings.length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
-                <Filter className="h-4 w-4 text-text-tertiary-light dark:text-text-tertiary-dark" />
+                <Filter className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => setFilterType(null)}
@@ -330,7 +330,7 @@ export default function CompanyPageClient() {
                     onClick={() => setFilterType('10-K')}
                     className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-md transition-colors ${
                       filterType === '10-K'
-                        ? 'bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark'
+                        ? 'bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
                         : 'bg-brand-weak dark:bg-white/5 text-brand-strong dark:text-brand-strong-dark hover:bg-brand-weak/70 dark:hover:bg-white/10'
                     }`}
                   >
@@ -373,7 +373,7 @@ export default function CompanyPageClient() {
                 </div>
                 <Link
                   href={`/filing/${recommendedFiling.id}`}
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark px-4 py-2 text-sm font-semibold transition-colors"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2 text-sm font-semibold transition-colors"
                 >
                   Summarize this filing
                   <ArrowRight className="h-4 w-4" />
@@ -417,12 +417,12 @@ export default function CompanyPageClient() {
                     >
                       <div className="flex items-center space-x-3">
                         {isExpanded ? (
-                          <ChevronDown className="h-5 w-5 text-text-tertiary-light dark:text-text-tertiary-dark" />
+                          <ChevronDown className="h-5 w-5 text-text-tertiary-light dark:text-text-secondary-dark" />
                         ) : (
-                          <ChevronDown className="h-5 w-5 text-text-tertiary-light dark:text-text-tertiary-dark -rotate-90" />
+                          <ChevronDown className="h-5 w-5 text-text-tertiary-light dark:text-text-secondary-dark -rotate-90" />
                         )}
                         <span className="font-semibold text-text-primary-light dark:text-text-primary-dark text-lg">{year}</span>
-                        <span className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">({filingCount} {filingCount === 1 ? 'filing' : 'filings'})</span>
+                        <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">({filingCount} {filingCount === 1 ? 'filing' : 'filings'})</span>
                       </div>
                     </button>
 
@@ -451,7 +451,7 @@ export default function CompanyPageClient() {
                                             Recommended
                                           </span>
                                         )}
-                                        <span className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+                                        <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
                                           {format(new Date(filing.filing_date), 'MMM d, yyyy')}
                                         </span>
                                       </div>
@@ -473,7 +473,7 @@ export default function CompanyPageClient() {
                                   )}
                                   <Link
                                     href={`/filing/${filing.id}`}
-                                    className="inline-flex items-center px-4 py-2 bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark text-sm font-medium rounded-md transition-colors"
+                                    className="inline-flex items-center px-4 py-2 bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark text-sm font-medium rounded-md transition-colors"
                                   >
                                     Generate Filing Summary
                                   </Link>
@@ -490,8 +490,8 @@ export default function CompanyPageClient() {
             </div>
           ) : (
             <div className="text-center py-12">
-              <FileText className="h-12 w-12 text-text-tertiary-light dark:text-text-tertiary-dark mx-auto mb-4" />
-              <p className="text-text-tertiary-light dark:text-text-tertiary-dark">No filings found for this company.</p>
+              <FileText className="h-12 w-12 text-text-tertiary-light dark:text-text-secondary-dark mx-auto mb-4" />
+              <p className="text-text-tertiary-light dark:text-text-secondary-dark">No filings found for this company.</p>
             </div>
           )}
         </section>

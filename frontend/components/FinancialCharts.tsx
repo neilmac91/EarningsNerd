@@ -105,7 +105,7 @@ export default function FinancialCharts({ metrics }: FinancialChartsProps) {
             <h3 className="text-lg font-semibold tracking-tight text-text-primary-light dark:text-text-primary-dark">
               Metric Comparison
             </h3>
-            <span className="text-xs font-medium text-text-tertiary-light uppercase tracking-wider dark:text-text-tertiary-dark">
+            <span className="text-xs font-medium text-text-tertiary-light uppercase tracking-wider dark:text-text-secondary-dark">
               Current vs Prior
             </span>
           </div>

@@ -71,23 +71,23 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
         <table className="min-w-full divide-y divide-border-light dark:divide-border-dark">
           <thead className="bg-background-light dark:bg-white/5">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-text-tertiary-light dark:text-text-tertiary-dark uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-text-tertiary-light dark:text-text-secondary-dark uppercase tracking-wider">
                 Metric
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-text-tertiary-light dark:text-text-tertiary-dark uppercase tracking-wider">
+              <th className="px-6 py-3 text-right text-xs font-medium text-text-tertiary-light dark:text-text-secondary-dark uppercase tracking-wider">
                 Current Period
               </th>
               {hasComparatives && (
-                <th className="px-6 py-3 text-right text-xs font-medium text-text-tertiary-light dark:text-text-tertiary-dark uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-text-tertiary-light dark:text-text-secondary-dark uppercase tracking-wider">
                   Prior Period
                 </th>
               )}
               {hasComparatives && (
-                <th className="px-6 py-3 text-right text-xs font-medium text-text-tertiary-light dark:text-text-tertiary-dark uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-text-tertiary-light dark:text-text-secondary-dark uppercase tracking-wider">
                   Change
                 </th>
               )}
-              <th className="px-6 py-3 text-left text-xs font-medium text-text-tertiary-light dark:text-text-tertiary-dark uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-text-tertiary-light dark:text-text-secondary-dark uppercase tracking-wider">
                 Investor Takeaway
               </th>
             </tr>
@@ -138,7 +138,7 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
                           </span>
                         </div>
                       ) : (
-                        <span className="text-text-tertiary-light dark:text-text-tertiary-dark">—</span>
+                        <span className="text-text-tertiary-light dark:text-text-secondary-dark">—</span>
                       )}
                     </td>
                   )}

@@ -97,7 +97,7 @@ export default function InsiderActivityPanel({ ticker }: { ticker: string }) {
               aria-pressed={w.days === windowDays}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                 w.days === windowDays
-                  ? 'bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark'
+                  ? 'bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
                   : 'bg-background-light text-text-secondary-light hover:bg-brand-weak dark:bg-white/5 dark:text-text-secondary-dark dark:hover:bg-white/10'
               }`}
             >
@@ -112,7 +112,7 @@ export default function InsiderActivityPanel({ ticker }: { ticker: string }) {
           <Loader2 className="h-6 w-6 animate-spin text-brand-strong dark:text-brand-strong-dark" />
         </div>
       ) : !hasTrades || !summary ? (
-        <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+        <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark">
           No open-market insider trades in the last {windowDays} days.
         </p>
       ) : (
@@ -126,7 +126,7 @@ export default function InsiderActivityPanel({ ticker }: { ticker: string }) {
                 {direction !== 'flat' && <> · {signalMagnitude}</>}
               </p>
               {planSells > 0 && (
-                <p className="text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
+                <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
                   Excludes {fmtShares(planSells)} shares sold under pre-scheduled 10b5-1 plans
                   {summary.discretionary_net_shares !== summary.net_shares && (
                     <> · discretionary net {fmtShares(summary.discretionary_net_shares)} shares</>
@@ -167,7 +167,7 @@ export default function InsiderActivityPanel({ ticker }: { ticker: string }) {
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="border-b border-border-light text-xs uppercase tracking-wide text-text-tertiary-light dark:border-border-dark dark:text-text-tertiary-dark">
+                <tr className="border-b border-border-light text-xs uppercase tracking-wide text-text-tertiary-light dark:border-border-dark dark:text-text-secondary-dark">
                   <th className="py-2 pr-3 font-medium">Insider</th>
                   <th className="py-2 pr-3 font-medium">Type</th>
                   <th className="py-2 pr-3 text-right font-medium">Shares</th>
@@ -187,14 +187,14 @@ export default function InsiderActivityPanel({ ticker }: { ticker: string }) {
                         <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
                           {t.insider_name ?? '—'}
                         </span>
-                        <span className="block text-xs text-text-tertiary-light dark:text-text-tertiary-dark">{roleOf(t)}</span>
+                        <span className="block text-xs text-text-tertiary-light dark:text-text-secondary-dark">{roleOf(t)}</span>
                       </td>
                       <td className="py-2 pr-3">
                         <span className={`font-medium ${directionText[buy ? 'up' : 'down']}`}>
                           {t.transaction_label ?? (buy ? 'Buy' : 'Sell')}
                         </span>
                         {t.is_10b5_1 && (
-                          <span className="ml-1.5 rounded bg-background-light px-1.5 py-0.5 text-[10px] font-medium text-text-tertiary-light dark:bg-white/5 dark:text-text-tertiary-dark">
+                          <span className="ml-1.5 rounded bg-background-light px-1.5 py-0.5 text-[10px] font-medium text-text-tertiary-light dark:bg-white/5 dark:text-text-secondary-dark">
                             10b5-1
                           </span>
                         )}
@@ -205,7 +205,7 @@ export default function InsiderActivityPanel({ ticker }: { ticker: string }) {
                       <td className="py-2 pr-3 text-right tabular-nums text-text-secondary-light dark:text-text-secondary-dark">
                         {fmtMoney(t.value)}
                       </td>
-                      <td className="py-2 text-right tabular-nums text-text-tertiary-light dark:text-text-tertiary-dark">
+                      <td className="py-2 text-right tabular-nums text-text-tertiary-light dark:text-text-secondary-dark">
                         {t.transaction_date ?? '—'}
                       </td>
                     </tr>
@@ -217,7 +217,7 @@ export default function InsiderActivityPanel({ ticker }: { ticker: string }) {
         </>
       )}
 
-      <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
+      <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
         Open-market Form 4 trades from SEC EDGAR. 10b5-1 marks pre-scheduled trades (weaker signal).
       </p>
     </section>

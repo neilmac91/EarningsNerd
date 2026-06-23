@@ -103,7 +103,7 @@ export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
                 aria-pressed={f.key === activeKey}
                 className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                   f.key === activeKey
-                    ? 'bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark'
+                    ? 'bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
                     : 'bg-background-light text-text-secondary-light hover:bg-brand-weak dark:bg-white/5 dark:text-text-secondary-dark dark:hover:bg-white/10'
                 }`}
               >
@@ -119,7 +119,7 @@ export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
           <Loader2 className="h-6 w-6 animate-spin text-brand-strong dark:text-brand-strong-dark" />
         </div>
       ) : chartData.length === 0 ? (
-        <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+        <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark">
           No multi-year data available for this metric.
         </p>
       ) : (
@@ -152,7 +152,7 @@ export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
         </div>
       )}
 
-      <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
+      <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
         Annual figures from SEC filings (XBRL). {active ? active.label : ''} by fiscal year.
       </p>
     </section>

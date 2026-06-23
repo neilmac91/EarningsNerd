@@ -99,7 +99,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
             {hasUnverified && <UnverifiedBadge />}
           </div>
           {meaningful && subject?.rank != null && (
-            <p className="mt-1 text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+            <p className="mt-1 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
               Ranks <span className="font-semibold text-brand-strong dark:text-brand-strong-dark">#{subject.rank}</span>{' '}
               of {data!.peer_count} on {label}
               {subject.percentile != null ? ` · ${Math.round(subject.percentile)}th percentile` : ''}
@@ -115,7 +115,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
               aria-pressed={m.key === metric}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                 m.key === metric
-                  ? 'bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark'
+                  ? 'bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
                   : 'bg-background-light text-text-secondary-light hover:bg-brand-weak dark:bg-white/5 dark:text-text-secondary-dark dark:hover:bg-white/10'
               }`}
             >
@@ -130,11 +130,11 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
           <Loader2 className="h-6 w-6 animate-spin text-brand-strong dark:text-brand-strong-dark" />
         </div>
       ) : isError ? (
-        <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+        <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark">
           Couldn&rsquo;t load peer data for {label}. Try another metric.
         </p>
       ) : !meaningful ? (
-        <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+        <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark">
           Not enough sector peers with {label} data yet.
         </p>
       ) : (
@@ -181,7 +181,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
         </div>
       )}
 
-      <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
+      <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
         Same-SIC peers, most recent annual {label} from SEC filings. Coverage grows over time.
       </p>
     </section>
