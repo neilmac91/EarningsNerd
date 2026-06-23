@@ -46,8 +46,10 @@ Stripe change.
 1. **Stripe Checkout** — `create_checkout_session` (`subscriptions.py:148`):
    - Add `payment_method_collection="if_required"` → **no card collected when total is $0** (the crux
      of "no credit card").
-   - Pre-apply the promo for magic links via `discounts=[{"promotion_code": <promo_id>}]`
-     (and keep `allow_promotion_codes=True` as a manual fallback).
+   - Apply the promo **conditionally** — Stripe rejects both in one request (400 "you cannot specify
+     both allow_promotion_codes and discounts"): the magic-link path sets
+     `discounts=[{"promotion_code": <promo_id>}]`; the manual/self-serve path sets
+     `allow_promotion_codes=True`. Never both in the same session.
    - Stripe Dashboard (test + live): a **Coupon** `percent_off=100, duration=forever` + a
      **Promotion Code** (e.g. `FRIENDS2026`), id stored in config as `STRIPE_BETA_PROMO_CODE_ID`.
 2. **Invite gate** — new `InviteCode` model + migration; `REGISTRATION_MODE=invite_only|public` flag;
@@ -56,8 +58,10 @@ Stripe change.
    magic-link pattern (mirrors email-verification at `auth.py:783-802`).
 3. **Frontend onboarding** — `/register` accepts `?invite=<token>`; retire the `/`→`/waitlist`
    redirect in `middleware.ts`; chain magic-link → email-verify → checkout-with-promo-pre-applied.
-4. **Feedback** — new `Feedback` model + `/api/feedback` endpoint (Turnstile + rate-limit reused from
-   `contact.py`) + a feature-flagged `<FeedbackWidget/>` in the dashboard.
+4. **Feedback** — new `Feedback` model + **authenticated** `/api/feedback` endpoint protected by
+   auth + the per-user/per-IP rate limiter (reused from `contact.py`). **No Turnstile** — the endpoint
+   is logged-in only, so a CAPTCHA adds redundant security and dashboard layout-shift/friction for no
+   gain. A feature-flagged `<FeedbackWidget/>` mounts in the dashboard.
 5. **Monitoring** — PostHog beta-funnel events; Sentry release tag + `set_user()` + beta cohort tag.
 
 ### The friends-&-family experience
@@ -118,8 +122,9 @@ relevant model/migration files (backend).
 #### Week 1 — Stripe 100%-off scaffolding (test mode)
 - [ ] Create Stripe **test-mode** Coupon (`percent_off=100, duration=forever`) + Promotion Code; record ids.
 - [ ] Add config: `STRIPE_BETA_PROMO_CODE_ID`, `REGISTRATION_MODE`, `INVITE_EXPIRY_HOURS`, `FEEDBACK_ENABLED`.
-- [ ] `subscriptions.py`: add `payment_method_collection="if_required"` + `allow_promotion_codes=True`;
-      add optional pre-applied `discounts` param for the magic-link path.
+- [ ] `subscriptions.py`: add `payment_method_collection="if_required"`; set the promo
+      **conditionally** — `discounts=[{"promotion_code": id}]` for the magic-link path **else**
+      `allow_promotion_codes=True` (Stripe 400s if both are sent together).
 - [ ] Confirm (no code change) that a $0 `active` sub → Pro via `entitlements.get_plan`.
 - [ ] Unit tests: checkout params asserted; webhook maps $0 sub → `is_pro=True`.
 - *Owner:* backend-developer. *Verify:* run the **local promo verification checklist** (below).
@@ -154,8 +159,9 @@ relevant model/migration files (backend).
 ### Phase 2 — Feedback loop & monitoring
 
 #### Week 5 — Dedicated feedback pipeline
-- [ ] `Feedback` model + migration; `/api/feedback` endpoint (reuse Turnstile + per-IP/-user rate
-      limiter from `contact.py`); capture authenticated `user_id`, `type` (bug/feature/general), page url.
+- [ ] `Feedback` model + migration; **authenticated** `/api/feedback` endpoint guarded by auth +
+      the per-user/per-IP rate limiter from `contact.py` (**no Turnstile** — logged-in only); capture
+      `user_id`, `type` (bug/feature/general), page url.
 - [ ] `<FeedbackWidget/>` mounted in `providers.tsx`, feature-flagged via `FEEDBACK_ENABLED`,
       visible across the authenticated dashboard; success toast; design-system compliant.
 - [ ] Admin/email notification on new feedback (reuse Resend); emit PostHog `feedback_submitted`.
