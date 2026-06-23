@@ -775,6 +775,27 @@ Streaming endpoints (`*stream*`, `*/progress`) are excluded from timeout middlew
 - **TypeScript:** Strict mode, interfaces for API responses, React hooks patterns
 - **Both:** Comprehensive error handling, no raw SQL (use SQLAlchemy ORM)
 
+## Design System (frontend)
+
+**Canonical reference: `frontend/DESIGN_SYSTEM.md`** — read it before any UI work and link it in
+subagent briefs for UI tasks. Token *definitions* live in `frontend/tailwind.config.js`. Non-negotiables:
+
+- **Brand = sage (light) / slate (dark).** `mint-*`, `emerald-*`, `primary-*` (a back-compat mint alias),
+  and `green/blue/sky/teal/cyan/indigo-*` are **not** brand — never use them as a primary/brand color.
+- **Theme-responsive pairs everywhere** (`bg-x-light dark:bg-x-dark`, etc.) on every shared surface.
+  Muted text on dark = `secondary`, never `tertiary-dark` (fails WCAG AA).
+- **Headings need an explicit color** (`text-text-primary-light dark:text-text-primary-dark`) — there is
+  no global heading color (a global one painted brown ink on the dark hero).
+- **Cards lift, not tint**: `bg-panel-light dark:bg-panel-dark` + border + `shadow-e2 dark:shadow-none`;
+  `brand-weak` is an accent/tint, not a card fill (it is darker than the cream page).
+- **One global `<ThemeToggle/>`** (in `Header`); no page-level toggles. A pre-paint script in
+  `app/layout.tsx` prevents theme FOUC. Logo uses `mode="auto"`.
+- Status (success/warning/error/info) + financial (gain/loss) are separate semantic tokens; charts use
+  the `chart-1..6` palette with theme-aware axes.
+
+A theme/token change is **app-wide by default** (public + authenticated). Done-gate: a repo-wide grep
+for legacy brand colors returns nothing, and the result is verified in **both themes** on the preview.
+
 ## Deployment
 
 - **Backend:** Google Cloud Run (`earningsnerd-backend`, project `earnings-nerd`, region `us-west1`).

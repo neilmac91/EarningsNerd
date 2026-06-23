@@ -31,3 +31,46 @@ The audit/plan flagged them as gaps from a distance; the code said otherwise.
 **Rule:** re-read the relevant files immediately before implementing any plan item, even
 one the plan marked "missing". Confirm the gap is real before writing code — re-implementing
 working code is wasted effort at best and a regression risk at worst.
+
+## 2026-06-23 — A theme/token migration is app-wide, not "the page in the screenshot"
+Adopting the new design system, I converted the landing page + chrome and called it done. The
+user then found the *same* class of issues (legacy mint/emerald/`primary`/blue/sky/teal as brand,
+unthemed surfaces) on Contact, Compare, Pricing, Search — and a codebase sweep surfaced ~37 more
+files (compare/result, the copilot workspace, charts, modals, auth/legal pages). They only came to
+light page-by-page via the user's screenshots.
+
+**Rule:** treat a design-token/theme migration as **app-wide by default** (public *and*
+authenticated). Enumerate the blast radius up front with a repo-wide grep for the legacy tokens and
+make that grep the done-gate — never scope to the page that prompted the change. (Conventions +
+the grep live in `frontend/DESIGN_SYSTEM.md`.)
+
+## 2026-06-23 — Don't set global element-level colors that fight the surface
+A global `h1–h6 { color: var(--heading-color) }` (warm brown in light) painted brown ink on the
+always-dark hero when the site was in light theme — the "brown heading" bug. Element-level global
+colors override the color a heading would otherwise inherit from its (dark) surface.
+
+**Rule:** never set a global element-level *color* that surfaces opt out of. Keep global rules to
+non-conflicting properties (font-family) and give each heading an explicit theme-pair color.
+
+## 2026-06-23 — Theme-paired ≠ readable; check luminance against the actual background
+A CTA/card used `bg-brand-weak` (#ECF2EE) as its fill on the cream page (#F4F3EE) — a ~1.02:1
+surface contrast (brand-weak is actually *darker* than cream), so the card was invisible. It was a
+valid token and a valid dark pair, but unreadable.
+
+**Rule:** for surfaces, verify the **luminance delta vs the background it sits on**, not just that a
+token exists. Lift cards with a *lighter* fill (`panel-light`) + a soft `shadow-e*`; brighten on
+hover, never darken. `brand-weak` is an accent/tint, not a card fill.
+
+## 2026-06-23 — Reserve loud status colors for genuine status
+Mapping `StateCard`'s default `info` variant to the blue `info` token turned every guidance box
+(e.g. "Start a comparison") loud blue — off-brand against the sage/slate identity.
+
+**Rule:** brand sage/slate is for actions/accents; loud status colors (blue/green/red) are for real
+state messages. A default guidance/empty-state container should be subdued or brand-tinted.
+
+## 2026-06-23 — Green CI ≠ correct visuals; eyeball both themes
+Every visual regression this round (brown heading, clashing gradients, invisible cards, blue info
+box) passed typecheck/lint/build/tests and was caught only by the user looking at the preview.
+
+**Rule:** for any visual/theme work, "tests pass" is necessary but not sufficient. Review the
+deployed preview in **both light and dark** (or get a preview review) before declaring done.
