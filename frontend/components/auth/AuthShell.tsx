@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { ArrowLeft, FileText, ShieldCheck } from 'lucide-react'
 import EarningsNerdLogoIcon from '@/components/EarningsNerdLogoIcon'
+import { directionChip } from '@/lib/financialTone'
 
 /**
  * Split-screen auth shell: focused form on the left, a constant branded value
@@ -71,7 +72,7 @@ function AuthBrandPane() {
               <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">Revenue</p>
               <p className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">$383.3B</p>
             </div>
-            <div className="rounded-full bg-gain-soft px-2.5 py-1 text-xs font-semibold text-gain-light dark:bg-gain-soft-dark dark:text-gain-dark">
+            <div className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${directionChip.up}`}>
               +2.8% YoY
             </div>
           </div>
