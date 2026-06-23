@@ -40,6 +40,13 @@ class Settings(BaseSettings):
     # MUST be set via environment variables - no defaults to fail obviously if misconfigured
     STRIPE_PRICE_MONTHLY_ID: str = ""
     STRIPE_PRICE_YEARLY_ID: str = ""
+    # Closed-beta 100%-off access (roadmap Week 1). The id of a Stripe *Promotion Code* (promo_…),
+    # backed by a 100%-off, duration=forever Coupon. When set and a checkout opts in
+    # (apply_beta_promo=true, the magic-link path), it is pre-applied via `discounts` so the amount
+    # due is $0 and — paired with payment_method_collection="if_required" — no card is collected.
+    # Unset by default → normal paid checkout with manual promo-code entry. Create per Stripe mode
+    # (test then live); store the test id in dev, the live id via Secret Manager in prod.
+    STRIPE_BETA_PROMO_CODE_ID: str = ""
 
     # Reverse trial: grant full Pro for N days, no card, on signup. Defaults OFF (rollout strategy
     # enables features per-environment via flags). When on, registration starts a `trialing` sub.

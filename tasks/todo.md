@@ -119,14 +119,17 @@ relevant model/migration files (backend).
 
 ### Phase 0 — Stripe + Invite-Gate foundations
 
-#### Week 1 — Stripe 100%-off scaffolding (test mode)
+#### Week 1 — Stripe 100%-off scaffolding (test mode) — code complete
 - [ ] Create Stripe **test-mode** Coupon (`percent_off=100, duration=forever`) + Promotion Code; record ids.
-- [ ] Add config: `STRIPE_BETA_PROMO_CODE_ID`, `REGISTRATION_MODE`, `INVITE_EXPIRY_HOURS`, `FEEDBACK_ENABLED`.
-- [ ] `subscriptions.py`: add `payment_method_collection="if_required"`; set the promo
-      **conditionally** — `discounts=[{"promotion_code": id}]` for the magic-link path **else**
-      `allow_promotion_codes=True` (Stripe 400s if both are sent together).
-- [ ] Confirm (no code change) that a $0 `active` sub → Pro via `entitlements.get_plan`.
-- [ ] Unit tests: checkout params asserted; webhook maps $0 sub → `is_pro=True`.
+      *(manual Stripe Dashboard step — then set `STRIPE_BETA_PROMO_CODE_ID` to the promo id.)*
+- [x] Add config `STRIPE_BETA_PROMO_CODE_ID`. *(`REGISTRATION_MODE` / `INVITE_EXPIRY_HOURS` /
+      `FEEDBACK_ENABLED` intentionally deferred to the weeks that consume them — W2 / W5 — to avoid dead config.)*
+- [x] `subscriptions.py`: `payment_method_collection="if_required"` + promo applied **conditionally**
+      — `discounts=[{"promotion_code": id}]` on the magic-link path (`apply_beta_promo=true`) **else**
+      `allow_promotion_codes=True` (never both; Stripe 400s if so).
+- [x] Confirm $0 `active` sub → Pro via `entitlements` (status-only, no amount floor) — covered by test.
+- [x] Unit tests: `tests/unit/test_checkout_session.py` asserts `if_required`, the conditional-promo
+      branches, and the $0→Pro entitlement invariant.
 - *Owner:* backend-developer. *Verify:* run the **local promo verification checklist** (below).
 
 #### Week 2 — Invite gate (server-side) + magic-link issuance

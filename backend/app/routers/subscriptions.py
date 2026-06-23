@@ -108,10 +108,16 @@ async def get_subscription_status(
 @router.post("/create-checkout-session")
 async def create_checkout_session(
     price_id: str,
+    apply_beta_promo: bool = False,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Create Stripe Checkout session for subscription"""
+    """Create Stripe Checkout session for subscription.
+
+    ``apply_beta_promo`` (closed-beta magic-link path) pre-applies the configured 100%-off
+    promotion code so the amount due is $0; combined with ``payment_method_collection="if_required"``
+    no card is collected. It is ignored when ``STRIPE_BETA_PROMO_CODE_ID`` is unset.
+    """
     if not current_user.email_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -145,24 +151,37 @@ async def create_checkout_session(
         # Create checkout session
         frontend_url = settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else 'http://localhost:3000'
         billing_cycle = "monthly" if price_id == settings.STRIPE_PRICE_MONTHLY_ID else "yearly"
-        checkout_session = stripe.checkout.Session.create(
-            customer=customer.id,
-            payment_method_types=["card"],
-            line_items=[{
+        session_kwargs = {
+            "customer": customer.id,
+            "payment_method_types": ["card"],
+            "line_items": [{
                 "price": price_id,
                 "quantity": 1,
             }],
-            mode="subscription",
-            success_url=f"{frontend_url}/dashboard?success=true",
-            cancel_url=f"{frontend_url}/pricing?canceled=true",
-            metadata={
+            "mode": "subscription",
+            # Skip card collection when the amount due is $0 (the 100%-off beta path). Stripe still
+            # requires a card for any non-zero subscription, so paying customers are unaffected.
+            "payment_method_collection": "if_required",
+            "success_url": f"{frontend_url}/dashboard?success=true",
+            "cancel_url": f"{frontend_url}/pricing?canceled=true",
+            "metadata": {
                 "user_id": str(current_user.id),
                 "plan": "pro",
                 "price_id": price_id,
                 "billing_cycle": billing_cycle,
             },
-        )
-        
+        }
+        # Apply the promo conditionally — Stripe rejects a session that sets BOTH
+        # `allow_promotion_codes` and `discounts` (400 "you cannot specify both ..."). The magic-link
+        # path pre-applies the beta promotion code; everyone else may enter a code manually.
+        beta_promo_id = settings.STRIPE_BETA_PROMO_CODE_ID
+        if apply_beta_promo and beta_promo_id:
+            session_kwargs["discounts"] = [{"promotion_code": beta_promo_id}]
+        else:
+            session_kwargs["allow_promotion_codes"] = True
+
+        checkout_session = stripe.checkout.Session.create(**session_kwargs)
+
         return {"url": checkout_session.url}
     except stripe.error.StripeError as e:
         raise HTTPException(
