@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircle2, Loader2, User as UserIcon } from 'lucide-react'
 import { getCurrentUser, updateProfile } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 
 export default function ProfileForm() {
   const queryClient = useQueryClient()
@@ -43,27 +45,26 @@ export default function ProfileForm() {
           <label htmlFor="full_name" className="block text-sm text-text-secondary-light dark:text-text-secondary-dark mb-1">
             Display name
           </label>
-          <input
+          <Input
             id="full_name"
             type="text"
             value={name}
             maxLength={100}
             onChange={(e) => setName(e.target.value)}
             placeholder="Your name"
-            className="w-full max-w-md px-3 py-2 rounded-lg border border-border-light dark:border-border-dark bg-panel-light dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:ring-2 focus:ring-brand-light focus:border-transparent"
+            className="max-w-md"
           />
         </div>
 
         <div className="flex items-center gap-3">
-          <button
+          <Button
             type="button"
             onClick={() => mutation.mutate()}
             disabled={!dirty || mutation.isPending}
-            className="inline-flex items-center px-4 py-2 bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {mutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+            {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
             Save changes
-          </button>
+          </Button>
           {mutation.isSuccess && !dirty && (
             <span className="inline-flex items-center text-sm text-success-light dark:text-success-dark">
               <CheckCircle2 className="h-4 w-4 mr-1" /> Saved

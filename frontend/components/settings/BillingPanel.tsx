@@ -9,6 +9,7 @@ import {
   createPortalSession,
 } from '@/features/subscriptions/api/subscriptions-api'
 import { formatLocalDate } from '@/lib/format'
+import { Button, buttonVariants } from '@/components/ui/Button'
 
 function daysUntil(value: string | null): number | null {
   if (!value) return null
@@ -65,32 +66,47 @@ export default function BillingPanel() {
           <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Loading…
         </div>
       ) : (
-        <div className="space-y-4">
-          {/* Plan + status */}
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Plan</span>
-            <span
-              className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium ${
-                isPro
-                  ? 'bg-brand-strong text-white dark:bg-brand-dark dark:text-background-dark'
-                  : 'bg-brand-weak text-text-secondary-light dark:bg-white/5 dark:text-text-secondary-dark'
-              }`}
-            >
-              {isPro && <Sparkles className="h-3.5 w-3.5" />}
-              {planLabel}
-            </span>
-          </div>
+        <div className="space-y-3">
+          {/* Plan, usage & renewal — divided rows keep each label tied to its value */}
+          <div className="divide-y divide-border-light dark:divide-border-dark">
+            {/* Plan + status */}
+            <div className="flex items-center justify-between gap-4 py-2.5">
+              <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Plan</span>
+              <span
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium ${
+                  isPro
+                    ? 'bg-brand-strong text-white dark:bg-brand-dark dark:text-background-dark'
+                    : 'bg-brand-weak text-text-secondary-light dark:bg-white/5 dark:text-text-secondary-dark'
+                }`}
+              >
+                {isPro && <Sparkles className="h-3.5 w-3.5" />}
+                {planLabel}
+              </span>
+            </div>
 
-          {/* Usage */}
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Summaries this month</span>
-            <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
-              {usage
-                ? usage.summaries_limit == null
-                  ? `${usage.summaries_used} · Unlimited`
-                  : `${usage.summaries_used} / ${usage.summaries_limit}`
-                : '—'}
-            </span>
+            {/* Usage */}
+            <div className="flex items-center justify-between gap-4 py-2.5">
+              <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Summaries this month</span>
+              <span className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark">
+                {usage
+                  ? usage.summaries_limit == null
+                    ? `${usage.summaries_used} · Unlimited`
+                    : `${usage.summaries_used} / ${usage.summaries_limit}`
+                  : '—'}
+              </span>
+            </div>
+
+            {/* Renewal / cancellation */}
+            {isPro && !isTrialing && sub?.current_period_end && (
+              <div className="flex items-center justify-between gap-4 py-2.5">
+                <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                  {sub.cancel_at_period_end ? 'Access until' : 'Renews on'}
+                </span>
+                <span className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark">
+                  {formatLocalDate(sub.current_period_end, 'MMM d, yyyy')}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Trial countdown */}
@@ -101,17 +117,6 @@ export default function BillingPanel() {
             </div>
           )}
 
-          {/* Renewal / cancellation */}
-          {isPro && !isTrialing && sub?.current_period_end && (
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                {sub.cancel_at_period_end ? 'Access until' : 'Renews on'}
-              </span>
-              <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
-                {formatLocalDate(sub.current_period_end, 'MMM d, yyyy')}
-              </span>
-            </div>
-          )}
           {sub?.cancel_at_period_end && (
             <p className="text-sm text-warning-light dark:text-warning-dark">
               Your subscription is set to cancel at the end of the current period.
@@ -122,21 +127,20 @@ export default function BillingPanel() {
               A no-card reverse-trial user is `is_pro` but has no `stripe_customer_id`, so gating on
               `isPro` here used to render a "Manage billing" button that always 400s. Gate strictly on
               the customer id, and send everyone else to /pricing to subscribe. */}
-          <div className="pt-1">
+          <div className="border-t border-border-light dark:border-border-dark pt-3">
             {sub?.stripe_customer_id ? (
-              <button
-                type="button"
+              <Button
+                variant="secondary"
                 onClick={() => portal.mutate()}
                 disabled={portal.isPending}
-                className="inline-flex items-center px-4 py-2 bg-brand-weak hover:opacity-90 dark:bg-white/5 text-text-primary-light dark:text-text-primary-dark rounded-lg transition-colors disabled:opacity-50"
               >
-                {portal.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                {portal.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                 Manage billing
-              </button>
+              </Button>
             ) : (
               <Link
                 href="/pricing"
-                className="inline-flex items-center px-4 py-2 bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark rounded-lg font-medium transition-colors"
+                className={buttonVariants({ variant: 'primary' })}
               >
                 {isTrialing ? 'Subscribe to Pro' : 'Upgrade to Pro'}
               </Link>

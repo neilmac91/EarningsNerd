@@ -31,6 +31,7 @@ import analytics from '@/lib/analytics'
 import { getEntryPoint } from '@/lib/entryPoint'
 import { ENABLE_FINANCIAL_CHARTS } from '@/lib/featureFlags'
 import { sanitizeFilename } from '@/lib/format'
+import { Button } from '@/components/ui/Button'
 
 // --- Constants ---
 
@@ -897,7 +898,7 @@ function StreamingSummaryDisplay({
                 return (
                   <div key={step.id} className={`flex items-center gap-3 transition-opacity duration-300 ${status === 'pending' ? 'opacity-40' : 'opacity-100'}`}>
                     <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center border transition-all duration-300 ${status === 'complete'
-                      ? 'bg-success-light border-success-light text-white dark:bg-success-dark dark:border-success-dark'
+                      ? 'bg-brand-strong border-brand-strong text-white dark:bg-brand-dark dark:border-brand-dark'
                       : status === 'active'
                         ? 'bg-panel-light dark:bg-panel-dark border-brand-light text-brand-strong dark:text-brand-strong-dark'
                         : 'bg-background-light dark:bg-background-dark border-border-light dark:border-border-dark'
@@ -1171,46 +1172,39 @@ function SummaryDisplay({
         {isAuthenticated && (
           <div>
             {summary && summary.id && (
-              <button
-                onClick={() => saveMutation.mutate(summary.id)}
-                disabled={saveMutation.isPending || isSaved}
-                className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isSaved
-                  ? 'bg-success-light/10 text-success-light dark:bg-success-dark/10 dark:text-success-dark cursor-not-allowed'
-                  : 'bg-brand-weak dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark hover:opacity-90'
-                  }`}
-              >
-                {isSaved ? (
-                  <>
-                    <BookmarkCheck className="h-4 w-4 mr-2" />
-                    Saved
-                  </>
-                ) : (
-                  <>
-                    <Bookmark className="h-4 w-4 mr-2" />
-                    Save Summary
-                  </>
-                )}
-              </button>
+              isSaved ? (
+                <button
+                  onClick={() => saveMutation.mutate(summary.id)}
+                  disabled={saveMutation.isPending || isSaved}
+                  className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-success-light/10 text-success-light dark:bg-success-dark/10 dark:text-success-dark cursor-not-allowed"
+                >
+                  <BookmarkCheck className="h-4 w-4 mr-2" />
+                  Saved
+                </button>
+              ) : (
+                <Button
+                  variant="secondary"
+                  onClick={() => saveMutation.mutate(summary.id)}
+                  disabled={saveMutation.isPending}
+                >
+                  <Bookmark className="h-4 w-4 mr-2" />
+                  Save Summary
+                </Button>
+              )
             )}
           </div>
         )}
         {/* Export buttons - only show for Pro users */}
         {isPro && (
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={handleExportPDF}
-              className="inline-flex items-center px-4 py-2 border border-border-light dark:border-border-dark rounded-lg text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark bg-panel-light dark:bg-panel-dark hover:bg-background-light dark:hover:bg-background-dark transition-colors"
-            >
+            <Button variant="secondary" onClick={handleExportPDF}>
               <Download className="h-4 w-4 mr-2" />
               Export PDF
-            </button>
-            <button
-              onClick={handleExportCSV}
-              className="inline-flex items-center px-4 py-2 border border-border-light dark:border-border-dark rounded-lg text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark bg-panel-light dark:bg-panel-dark hover:bg-background-light dark:hover:bg-background-dark transition-colors"
-            >
+            </Button>
+            <Button variant="secondary" onClick={handleExportCSV}>
               <FileDown className="h-4 w-4 mr-2" />
               Export CSV
-            </button>
+            </Button>
           </div>
         )}
       </div>
@@ -1246,12 +1240,9 @@ function SummaryDisplay({
                 </div>
                 {/* Retry button - shown for partial results or fallback summaries */}
                 {(isPartial || writerFallback || isPartialQuality) && onRetry && (
-                  <button
-                    onClick={onRetry}
-                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-brand-strong dark:text-brand-strong-dark bg-brand-weak dark:bg-white/5 rounded-lg hover:opacity-90 transition-colors border border-brand-light/30"
-                  >
+                  <Button variant="secondary" onClick={onRetry}>
                     Regenerate Analysis
-                  </button>
+                  </Button>
                 )}
               </div>
               <div className="markdown-body text-text-secondary-light dark:text-text-secondary-dark">

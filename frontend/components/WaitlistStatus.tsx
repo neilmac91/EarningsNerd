@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { getApiUrl } from '@/lib/api/client'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 
 type StatusData = {
   position: number
@@ -52,26 +54,26 @@ export default function WaitlistStatus() {
         Check your waitlist status
       </h3>
       <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-        <input
+        <Input
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="you@company.com"
-          className="w-full rounded-xl border border-border-light bg-background-light px-4 py-3 text-sm text-text-primary-light focus:border-brand-light focus:outline-none dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
+          className="rounded-xl px-4 py-3 text-sm"
         />
         {error && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}
           </div>
         )}
-        <button
+        <Button
           type="submit"
           disabled={loading}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-strong px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-light disabled:cursor-not-allowed disabled:opacity-70 dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light"
+          className="w-full rounded-full px-6 py-3 font-semibold"
         >
           {loading && <Loader2 className="h-4 w-4 animate-spin" />}
           {loading ? 'Checking...' : 'Check status'}
-        </button>
+        </Button>
       </form>
 
       {status && (

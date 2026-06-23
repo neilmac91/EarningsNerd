@@ -5,6 +5,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { Trash2, AlertCircle, CheckCircle2, Loader2, ShieldAlert } from 'lucide-react'
 import { getCurrentUserSafe, deleteUserAccount } from '@/features/auth/api/auth-api'
+import { buttonVariants } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 
 const CONFIRM_PHRASE = 'delete my account'
 
@@ -87,18 +89,18 @@ export default function DeleteAccountPage() {
       ) : user ? (
         /* Signed in — confirm + delete */
         <section className="mt-6 rounded-lg border border-red-200 bg-white p-6 shadow-sm dark:border-red-900 dark:bg-slate-800">
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            Signed in as <strong className="text-slate-900 dark:text-white">{user.email}</strong>.
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            Signed in as <strong className="text-text-primary-light dark:text-text-primary-dark">{user.email}</strong>.
             To confirm, type <strong>{CONFIRM_PHRASE}</strong> below.
           </p>
-          <input
+          <Input
             type="text"
             value={confirmText}
             onChange={(e) => setConfirmText(e.target.value)}
             placeholder={CONFIRM_PHRASE}
             aria-label={`Type "${CONFIRM_PHRASE}" to confirm`}
             autoComplete="off"
-            className="mt-3 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-red-500 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-white"
+            className="mt-3 text-sm"
           />
           <button
             onClick={() => deleteMutation.mutate()}
@@ -134,7 +136,7 @@ export default function DeleteAccountPage() {
               </p>
               <Link
                 href="/login?redirect=/delete-account"
-                className="mt-3 inline-flex items-center rounded-lg bg-brand-strong px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light"
+                className={`${buttonVariants({ variant: 'primary' })} mt-3`}
               >
                 Sign in to continue
               </Link>

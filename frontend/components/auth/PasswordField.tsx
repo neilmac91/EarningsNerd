@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
+import { Input } from '@/components/ui/Input'
 
 type PasswordFieldProps = {
   id: string
@@ -67,7 +68,7 @@ export default function PasswordField({
       </div>
 
       <div className="relative">
-        <input
+        <Input
           type={show ? 'text' : 'password'}
           id={id}
           value={value}
@@ -76,7 +77,7 @@ export default function PasswordField({
           minLength={minLength}
           autoComplete={autoComplete}
           autoFocus={autoFocus}
-          className="w-full rounded-lg border border-border-light bg-background-light px-3 py-2 pr-10 text-text-primary-light placeholder:text-text-tertiary-light focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/50 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
+          className="pr-10"
         />
         <button
           type="button"

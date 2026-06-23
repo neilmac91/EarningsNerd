@@ -11,6 +11,7 @@ import {
   type AuthConnection,
 } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
+import { Button } from '@/components/ui/Button'
 
 const PROVIDER_LABELS: Record<string, string> = { google: 'Google', apple: 'Apple' }
 
@@ -140,18 +141,18 @@ export default function ConnectedAccounts() {
 
           {/* Sign out everywhere */}
           <div className="pt-2">
-            <button
+            <Button
+              variant="secondary"
               onClick={() => logoutAllMutation.mutate()}
               disabled={logoutAllMutation.isPending}
-              className="inline-flex items-center px-4 py-2 bg-brand-weak hover:opacity-90 dark:bg-white/5 text-text-primary-light dark:text-text-primary-dark rounded-lg transition-colors disabled:opacity-50"
             >
               {logoutAllMutation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <LogOut className="h-4 w-4 mr-2" />
+                <LogOut className="h-4 w-4" />
               )}
               Sign out of all devices
-            </button>
+            </Button>
           </div>
         </div>
       )}

@@ -264,7 +264,7 @@ export default function CompanyPageClient() {
                       className={`p-2 rounded-lg transition-colors ${
                         isInWatchlist
                           ? 'bg-warning-light/10 dark:bg-warning-dark/10 text-warning-light dark:text-warning-dark hover:bg-warning-light/20 dark:hover:bg-warning-dark/20'
-                          : 'bg-background-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark hover:bg-brand-weak dark:hover:bg-white/10'
+                          : 'border border-border-light dark:border-white/10 bg-background-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark hover:bg-brand-weak dark:hover:bg-white/10'
                       }`}
                       title={isInWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
                     >

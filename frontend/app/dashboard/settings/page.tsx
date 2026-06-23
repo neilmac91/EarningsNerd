@@ -13,6 +13,8 @@ import ProfileForm from '@/components/settings/ProfileForm'
 import BillingPanel from '@/components/settings/BillingPanel'
 import ChangePasswordForm from '@/components/settings/ChangePasswordForm'
 import { FontSwitcher } from '@/components/FontProvider'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -135,23 +137,22 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <button
+          <Button
             onClick={handleExportData}
             disabled={exportMutation.isPending}
-            className="inline-flex items-center px-4 py-2 bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {exportMutation.isPending ? (
               <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
                 Exporting...
               </>
             ) : (
               <>
-                <Download className="h-4 w-4 mr-2" />
+                <Download className="h-4 w-4" />
                 Download My Data
               </>
             )}
-          </button>
+          </Button>
 
           {exportMutation.isSuccess && (
             <div className="mt-4 flex items-center text-sm text-success-light dark:text-success-dark">
@@ -220,11 +221,11 @@ export default function SettingsPage() {
                 <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
                   Type &quot;delete my account&quot; to confirm:
                 </label>
-                <input
+                <Input
                   type="text"
                   value={deleteConfirmText}
                   onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-border-light dark:border-border-dark bg-panel-light dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:ring-2 focus:ring-error-light focus:border-transparent"
+                  className="focus:border-error-light focus:ring-error-light/40"
                   placeholder="delete my account"
                   disabled={deleteMutation.isPending}
                 />
@@ -252,16 +253,16 @@ export default function SettingsPage() {
                   )}
                 </button>
 
-                <button
+                <Button
+                  variant="secondary"
                   onClick={() => {
                     setShowDeleteConfirm(false)
                     setDeleteConfirmText('')
                   }}
                   disabled={deleteMutation.isPending}
-                  className="px-4 py-2 border border-border-light dark:border-border-dark bg-panel-light hover:bg-brand-weak dark:bg-panel-dark dark:hover:bg-white/5 text-text-primary-light dark:text-text-primary-dark rounded-lg transition-colors disabled:opacity-50"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
 
               {deleteMutation.isError && (

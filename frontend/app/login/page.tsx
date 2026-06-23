@@ -14,6 +14,8 @@ import AuthDivider from '@/components/auth/AuthDivider'
 import PasswordField from '@/components/auth/PasswordField'
 import TurnstileWidget from '@/components/auth/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   google_denied: 'Google sign-in was cancelled.',
@@ -107,14 +109,15 @@ function LoginContent() {
         <AuthDivider />
 
         {!showEmail ? (
-          <button
+          <Button
             type="button"
+            variant="tertiary"
             onClick={() => setShowEmail(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-border-light bg-transparent px-4 py-3 text-sm font-medium text-text-primary-light transition-all hover:bg-panel-light active:scale-[0.99] dark:border-border-dark dark:text-text-primary-dark dark:hover:bg-panel-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+            className="w-full py-3 active:scale-[0.99]"
           >
             <Mail className="h-4 w-4" />
             Continue with email
-          </button>
+          </Button>
         ) : (
           <form onSubmit={handleSubmit} className="animate-fade-up space-y-4">
             <div>
@@ -124,7 +127,7 @@ function LoginContent() {
               >
                 Email
               </label>
-              <input
+              <Input
                 type="email"
                 id="email"
                 value={email}
@@ -132,7 +135,6 @@ function LoginContent() {
                 required
                 autoComplete="email"
                 autoFocus
-                className="w-full rounded-lg border border-border-light bg-background-light px-3 py-2 text-text-primary-light placeholder:text-text-tertiary-light focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/50 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
               />
             </div>
 
@@ -155,10 +157,10 @@ function LoginContent() {
 
             <TurnstileWidget onToken={setTurnstileToken} className="flex justify-center" />
 
-            <button
+            <Button
               type="submit"
               disabled={loading || (TURNSTILE_ENABLED && !turnstileToken)}
-              className="w-full rounded-lg bg-brand-strong py-2.5 font-semibold text-white transition-all hover:bg-brand-light active:scale-[0.99] disabled:opacity-50 dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+              className="w-full py-2.5 font-semibold active:scale-[0.99]"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -168,7 +170,7 @@ function LoginContent() {
               ) : (
                 'Sign in'
               )}
-            </button>
+            </Button>
           </form>
         )}
       </div>
