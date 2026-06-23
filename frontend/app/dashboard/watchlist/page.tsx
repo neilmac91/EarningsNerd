@@ -40,20 +40,20 @@ function getStatusBadge(status: string, needsRegeneration: boolean) {
   const [base, detail] = status.split(':')
   switch (base) {
     case 'ready':
-      return { label: 'Ready', className: 'bg-green-100 text-green-800' }
+      return { label: 'Ready', className: 'bg-gain-soft text-success-light dark:bg-gain-soft-dark dark:text-success-dark' }
     case 'generating':
       return {
         label: detail ? `Generating (${detail})` : 'Generating',
-        className: 'bg-blue-100 text-blue-800',
+        className: 'bg-brand-weak text-brand-strong dark:bg-white/5 dark:text-brand-strong-dark',
       }
     case 'placeholder':
-      return { label: 'Fallback', className: 'bg-amber-100 text-amber-800' }
+      return { label: 'Fallback', className: 'bg-warning-light/10 text-warning-light dark:bg-warning-dark/10 dark:text-warning-dark' }
     case 'error':
-      return { label: 'Error', className: 'bg-red-100 text-red-800' }
+      return { label: 'Error', className: 'bg-loss-soft text-error-light dark:bg-loss-soft-dark dark:text-error-dark' }
     default:
       return {
         label: needsRegeneration ? 'Needs Attention' : 'Pending',
-        className: needsRegeneration ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-700',
+        className: needsRegeneration ? 'bg-loss-soft text-error-light dark:bg-loss-soft-dark dark:text-error-dark' : 'bg-brand-weak text-text-secondary-light dark:bg-white/5 dark:text-text-secondary-dark',
       }
   }
 }
@@ -86,8 +86,8 @@ export default function WatchlistDashboardPage() {
 
   if (!isReady || isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
+        <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
       </div>
     )
   }
@@ -97,7 +97,7 @@ export default function WatchlistDashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-background-light dark:bg-background-dark">
       <SecondaryHeader
         title="Watchlist insights"
         subtitle="Monitor filings and summary freshness for tracked companies."
@@ -106,7 +106,7 @@ export default function WatchlistDashboardPage() {
         actions={
           <Link
             href="/compare"
-            className="inline-flex items-center rounded-lg bg-primary-600 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-700 transition-colors"
+            className="inline-flex items-center rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark px-4 py-2 text-sm font-semibold transition-colors"
           >
             <Sparkles className="h-4 w-4 mr-2" />
             Compare filings
@@ -144,15 +144,15 @@ export default function WatchlistDashboardPage() {
               return (
                 <div
                   key={insight.company.id}
-                  className="bg-white border border-gray-200 rounded-xl shadow-sm p-6 transition hover:border-primary-200"
+                  className="bg-panel-light dark:bg-panel-dark border border-border-light dark:border-border-dark rounded-xl shadow-sm p-6 transition hover:border-brand-light/30"
                 >
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
                       <div className="flex items-center space-x-3">
-                        <h2 className="text-2xl font-semibold text-gray-900">
+                        <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
                           {insight.company.name}
                         </h2>
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-slate-100 text-slate-700">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-weak text-text-secondary-light dark:bg-white/5 dark:text-text-secondary-dark">
                           {insight.company.ticker}
                         </span>
                         {badge && (
@@ -163,7 +163,7 @@ export default function WatchlistDashboardPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-slate-500 mt-1">
+                      <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
                         {insight.total_filings} filing{insight.total_filings === 1 ? '' : 's'} on
                         record
                       </p>
@@ -172,7 +172,7 @@ export default function WatchlistDashboardPage() {
                       {latest && (
                         <Link
                           href={`/filing/${latest.id}`}
-                          className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+                          className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border border-border-light dark:border-border-dark text-text-secondary-light dark:text-text-secondary-dark hover:bg-brand-weak dark:hover:bg-white/5 transition-colors"
                         >
                           <CalendarDays className="h-4 w-4 mr-2" />
                           View filing
@@ -180,7 +180,7 @@ export default function WatchlistDashboardPage() {
                       )}
                       <Link
                         href={`/company/${insight.company.ticker}`}
-                        className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg bg-primary-600 text-white hover:bg-primary-700 transition-colors"
+                        className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark transition-colors"
                       >
                         <RefreshCcw className="h-4 w-4 mr-2" />
                         Manage coverage
@@ -189,74 +189,74 @@ export default function WatchlistDashboardPage() {
                   </div>
 
                   <div className="mt-6 grid gap-4 md:grid-cols-3">
-                    <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
-                      <div className="text-sm font-medium text-slate-600 mb-1">Latest filing</div>
+                    <div className="bg-background-light dark:bg-background-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
+                      <div className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">Latest filing</div>
                       {latest ? (
                         <>
-                          <div className="text-lg font-semibold text-slate-900">
+                          <div className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                             {latest.filing_type}
                           </div>
-                          <div className="flex items-center space-x-2 text-sm text-slate-500 mt-1">
+                          <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
                             <CalendarDays className="h-4 w-4" />
                             <span>{formatDate(latest.filing_date)}</span>
                           </div>
-                          <div className="flex items-center space-x-2 text-sm text-slate-500 mt-1">
+                          <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
                             <Clock className="h-4 w-4" />
                             <span>Period end: {formatDate(latest.period_end_date)}</span>
                           </div>
                         </>
                       ) : (
-                        <p className="text-sm text-slate-500">
+                        <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
                           No filings synced yet for this company.
                         </p>
                       )}
                     </div>
 
-                    <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
-                      <div className="text-sm font-medium text-slate-600 mb-1">Summary freshness</div>
+                    <div className="bg-background-light dark:bg-background-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
+                      <div className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">Summary freshness</div>
                       {latest && latest.summary_id ? (
                         <>
-                          <div className="text-lg font-semibold text-slate-900">
+                          <div className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                             Updated {formatRelative(latest.summary_updated_at || latest.summary_created_at)}
                           </div>
-                          <div className="text-sm text-slate-500 mt-1">
+                          <div className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
                             Summary ID #{latest.summary_id}
                           </div>
                         </>
                       ) : latest && progressStage ? (
                         <>
-                          <div className="text-lg font-semibold text-blue-700 capitalize">
+                          <div className="text-lg font-semibold text-brand-strong dark:text-brand-strong-dark capitalize">
                             {progressStage} in progress
                           </div>
                           {typeof elapsedSeconds === 'number' && (
-                            <div className="text-sm text-slate-500 mt-1">
+                            <div className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
                               Elapsed {Math.max(0, Math.round(elapsedSeconds))}s
                             </div>
                           )}
                         </>
                       ) : (
-                        <div className="flex items-center space-x-2 text-sm text-amber-600">
+                        <div className="flex items-center space-x-2 text-sm text-warning-light dark:text-warning-dark">
                           <AlertCircle className="h-4 w-4" />
                           <span>No AI summary generated yet</span>
                         </div>
                       )}
                     </div>
 
-                    <div className="bg-slate-50 rounded-lg p-4 border border-slate-100">
-                      <div className="text-sm font-medium text-slate-600 mb-1">Next steps</div>
+                    <div className="bg-background-light dark:bg-background-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
+                      <div className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">Next steps</div>
                       {latest ? (
                         latest.needs_regeneration ? (
-                          <p className="text-sm text-slate-600">
+                          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                             Flag this filing for regeneration before distributing to clients.
                           </p>
                         ) : (
-                          <p className="text-sm text-slate-600">
+                          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                             Summary is current. Consider exporting a briefing pack for your next
                             meeting.
                           </p>
                         )
                       ) : (
-                        <p className="text-sm text-slate-600">
+                        <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                           Ingest filings for this company to begin tracking.
                         </p>
                       )}

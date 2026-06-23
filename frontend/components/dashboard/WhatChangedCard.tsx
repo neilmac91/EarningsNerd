@@ -6,11 +6,11 @@ import { FeedItem, WhatChangedItem } from '@/features/dashboard/api/dashboard-ap
 import { formatLocalDate } from '@/lib/format'
 import analytics from '@/lib/analytics'
 
-// Calm directional chips: mint for up, muted slate for down — never casino red/green.
+// Calm directional chips: brand accent for up, muted neutral for down — never casino red/green.
 const DIRECTION = {
-  up: { Icon: TrendingUp, cls: 'text-mint-700 dark:text-mint-300 bg-mint-500/10' },
-  down: { Icon: TrendingDown, cls: 'text-slate-600 dark:text-slate-300 bg-slate-500/10' },
-  flat: { Icon: Minus, cls: 'text-slate-500 bg-slate-500/10' },
+  up: { Icon: TrendingUp, cls: 'text-brand-strong dark:text-brand-strong-dark bg-brand-weak dark:bg-white/5' },
+  down: { Icon: TrendingDown, cls: 'text-text-secondary-light dark:text-text-secondary-dark bg-brand-weak dark:bg-white/5' },
+  flat: { Icon: Minus, cls: 'text-text-tertiary-light dark:text-text-tertiary-dark bg-brand-weak dark:bg-white/5' },
 } as const
 
 function ctaLabel(status: string): string {
@@ -39,7 +39,7 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
     <Link
       href={`/filing/${item.filing_id}`}
       onClick={() => analytics.dashboardFeedClicked(item.filing_id, company.ticker, item.filing_type)}
-      className="block rounded-xl border border-border-light bg-background-light p-5 transition hover:border-mint-400 hover:shadow-sm dark:border-border-dark dark:bg-panel-dark"
+      className="block rounded-xl border border-border-light bg-panel-light p-5 transition hover:border-brand-light/30 hover:shadow-sm dark:border-border-dark dark:bg-panel-dark"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
@@ -69,7 +69,7 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
         </p>
       )}
 
-      <div className="mt-3 flex items-center gap-1 text-sm font-medium text-mint-600 dark:text-mint-400">
+      <div className="mt-3 flex items-center gap-1 text-sm font-medium text-brand-strong dark:text-brand-strong-dark">
         {ctaLabel(item.summary_status)}
         <ArrowRight className="h-4 w-4" />
       </div>

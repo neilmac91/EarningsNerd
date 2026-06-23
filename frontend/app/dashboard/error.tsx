@@ -37,9 +37,9 @@ export default function DashboardError({
       <div className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
         <div className="mx-auto max-w-md text-center">
           <div className="mb-8">
-            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20">
+            <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-loss-soft dark:bg-loss-soft-dark">
               <svg
-                className="h-10 w-10 text-red-600 dark:text-red-400"
+                className="h-10 w-10 text-error-light dark:text-error-dark"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -62,7 +62,7 @@ export default function DashboardError({
 
           <button
             onClick={() => router.push('/login')}
-            className="rounded-lg bg-mint-500 px-6 py-3 font-medium text-slate-950 transition-colors hover:bg-mint-400"
+            className="rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark px-6 py-3 font-medium transition-colors"
           >
             Go to Login
           </button>
@@ -76,9 +76,9 @@ export default function DashboardError({
     <div className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
       <div className="mx-auto max-w-md text-center">
         <div className="mb-8">
-          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20">
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-loss-soft dark:bg-loss-soft-dark">
             <svg
-              className="h-10 w-10 text-red-600 dark:text-red-400"
+              className="h-10 w-10 text-error-light dark:text-error-dark"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -102,13 +102,13 @@ export default function DashboardError({
         <div className="flex justify-center gap-4">
           <button
             onClick={reset}
-            className="rounded-lg bg-mint-500 px-6 py-3 font-medium text-slate-950 transition-colors hover:bg-mint-400"
+            className="rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark px-6 py-3 font-medium transition-colors"
           >
             Try Again
           </button>
           <button
             onClick={() => router.push('/')}
-            className="rounded-lg border border-gray-300 px-6 py-3 font-medium text-text-primary-light transition-colors hover:bg-gray-50 dark:border-gray-700 dark:text-text-primary-dark dark:hover:bg-gray-800"
+            className="rounded-lg border border-border-light px-6 py-3 font-medium text-text-primary-light transition-colors hover:bg-brand-weak dark:border-border-dark dark:text-text-primary-dark dark:hover:bg-white/5"
           >
             Go Home
           </button>

@@ -17,7 +17,7 @@ export default function FilingFeed({ enabled = true }: { enabled?: boolean }) {
   return (
     <section>
       <div className="mb-4 flex items-center gap-2">
-        <Newspaper className="h-5 w-5 text-mint-600 dark:text-mint-400" />
+        <Newspaper className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
           What&apos;s new
         </h2>
@@ -42,7 +42,7 @@ export default function FilingFeed({ enabled = true }: { enabled?: boolean }) {
               type="button"
               onClick={() => refetch()}
               disabled={isFetching}
-              className="mt-2 inline-flex items-center rounded-lg bg-mint-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-mint-400 disabled:opacity-60"
+              className="mt-2 inline-flex items-center rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark px-4 py-2 text-sm font-medium transition disabled:opacity-60"
             >
               {isFetching ? 'Retrying…' : 'Retry'}
             </button>

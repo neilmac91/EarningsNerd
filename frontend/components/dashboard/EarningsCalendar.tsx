@@ -21,7 +21,7 @@ export default function EarningsCalendar({ enabled = true }: { enabled?: boolean
   return (
     <section className="rounded-xl border border-border-light bg-background-light p-5 dark:border-border-dark dark:bg-panel-dark">
       <div className="mb-3 flex items-center gap-2">
-        <CalendarDays className="h-5 w-5 text-mint-600 dark:text-mint-400" />
+        <CalendarDays className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
         <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
           Upcoming earnings
         </h2>
