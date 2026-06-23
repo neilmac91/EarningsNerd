@@ -62,7 +62,7 @@ export default function WatchlistAddSearch() {
   return (
     <div ref={containerRef} className="relative">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-tertiary-dark" />
+        <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark" />
         <input
           type="text"
           value={query}
@@ -73,7 +73,7 @@ export default function WatchlistAddSearch() {
           onFocus={() => setOpen(true)}
           placeholder="Add a company to your watchlist (e.g., AAPL, Apple)…"
           aria-label="Search for a company to add to your watchlist"
-          className="w-full rounded-xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark py-3 pl-11 pr-4 text-text-primary-light dark:text-text-primary-dark placeholder:text-text-tertiary-light dark:placeholder:text-text-tertiary-dark shadow-sm focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/40"
+          className="w-full rounded-xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark py-3 pl-11 pr-4 text-text-primary-light dark:text-text-primary-dark placeholder:text-text-tertiary-light dark:placeholder:text-text-secondary-dark shadow-sm focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/40"
         />
         {(isLoading || addMutation.isPending) && (
           <Loader2 className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />
@@ -109,7 +109,7 @@ export default function WatchlistAddSearch() {
             >
               <span className="min-w-0">
                 <span className="block truncate font-medium text-text-primary-light dark:text-text-primary-dark">{company.name}</span>
-                <span className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">{company.ticker}</span>
+                <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">{company.ticker}</span>
               </span>
               <Plus className="h-4 w-4 flex-shrink-0 text-brand-strong dark:text-brand-strong-dark" />
             </button>
@@ -118,7 +118,7 @@ export default function WatchlistAddSearch() {
       )}
 
       {open && debounced.length > 0 && !isLoading && companies && companies.length === 0 && (
-        <div className="absolute z-20 mt-2 w-full rounded-xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark p-4 text-center text-sm text-text-tertiary-light dark:text-text-tertiary-dark shadow-lg">
+        <div className="absolute z-20 mt-2 w-full rounded-xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark p-4 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark shadow-lg">
           No companies found matching &quot;{debounced}&quot;
         </div>
       )}

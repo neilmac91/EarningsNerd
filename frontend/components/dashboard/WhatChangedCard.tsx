@@ -10,7 +10,7 @@ import analytics from '@/lib/analytics'
 const DIRECTION = {
   up: { Icon: TrendingUp, cls: 'text-brand-strong dark:text-brand-strong-dark bg-brand-weak dark:bg-white/5' },
   down: { Icon: TrendingDown, cls: 'text-text-secondary-light dark:text-text-secondary-dark bg-brand-weak dark:bg-white/5' },
-  flat: { Icon: Minus, cls: 'text-text-tertiary-light dark:text-text-tertiary-dark bg-brand-weak dark:bg-white/5' },
+  flat: { Icon: Minus, cls: 'text-text-tertiary-light dark:text-text-secondary-dark bg-brand-weak dark:bg-white/5' },
 } as const
 
 function ctaLabel(status: string): string {

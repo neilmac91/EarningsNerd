@@ -106,7 +106,7 @@ export default function WatchlistDashboardPage() {
         actions={
           <Link
             href="/compare"
-            className="inline-flex items-center rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark px-4 py-2 text-sm font-semibold transition-colors"
+            className="inline-flex items-center rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2 text-sm font-semibold transition-colors"
           >
             <Sparkles className="h-4 w-4 mr-2" />
             Compare filings
@@ -163,7 +163,7 @@ export default function WatchlistDashboardPage() {
                           </span>
                         )}
                       </div>
-                      <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
+                      <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
                         {insight.total_filings} filing{insight.total_filings === 1 ? '' : 's'} on
                         record
                       </p>
@@ -180,7 +180,7 @@ export default function WatchlistDashboardPage() {
                       )}
                       <Link
                         href={`/company/${insight.company.ticker}`}
-                        className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark transition-colors"
+                        className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark transition-colors"
                       >
                         <RefreshCcw className="h-4 w-4 mr-2" />
                         Manage coverage
@@ -196,17 +196,17 @@ export default function WatchlistDashboardPage() {
                           <div className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                             {latest.filing_type}
                           </div>
-                          <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
+                          <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
                             <CalendarDays className="h-4 w-4" />
                             <span>{formatDate(latest.filing_date)}</span>
                           </div>
-                          <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
+                          <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
                             <Clock className="h-4 w-4" />
                             <span>Period end: {formatDate(latest.period_end_date)}</span>
                           </div>
                         </>
                       ) : (
-                        <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+                        <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
                           No filings synced yet for this company.
                         </p>
                       )}
@@ -219,7 +219,7 @@ export default function WatchlistDashboardPage() {
                           <div className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                             Updated {formatRelative(latest.summary_updated_at || latest.summary_created_at)}
                           </div>
-                          <div className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
+                          <div className="text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
                             Summary ID #{latest.summary_id}
                           </div>
                         </>
@@ -229,7 +229,7 @@ export default function WatchlistDashboardPage() {
                             {progressStage} in progress
                           </div>
                           {typeof elapsedSeconds === 'number' && (
-                            <div className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark mt-1">
+                            <div className="text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
                               Elapsed {Math.max(0, Math.round(elapsedSeconds))}s
                             </div>
                           )}

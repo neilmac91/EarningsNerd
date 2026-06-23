@@ -42,7 +42,7 @@ export default function FilingFeed({ enabled = true }: { enabled?: boolean }) {
               type="button"
               onClick={() => refetch()}
               disabled={isFetching}
-              className="mt-2 inline-flex items-center rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark px-4 py-2 text-sm font-medium transition disabled:opacity-60"
+              className="mt-2 inline-flex items-center rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2 text-sm font-medium transition disabled:opacity-60"
             >
               {isFetching ? 'Retrying…' : 'Retry'}
             </button>

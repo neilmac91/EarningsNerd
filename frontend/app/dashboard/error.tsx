@@ -62,7 +62,7 @@ export default function DashboardError({
 
           <button
             onClick={() => router.push('/login')}
-            className="rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark px-6 py-3 font-medium transition-colors"
+            className="rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-6 py-3 font-medium transition-colors"
           >
             Go to Login
           </button>
@@ -102,7 +102,7 @@ export default function DashboardError({
         <div className="flex justify-center gap-4">
           <button
             onClick={reset}
-            className="rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark px-6 py-3 font-medium transition-colors"
+            className="rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-6 py-3 font-medium transition-colors"
           >
             Try Again
           </button>
