@@ -163,7 +163,7 @@ export default function CompanyPageClient() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Invalid ticker</h1>
-          <Link href="/" className="text-primary-600 hover:underline">
+          <Link href="/" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
             Go back home
           </Link>
         </div>
@@ -174,7 +174,7 @@ export default function CompanyPageClient() {
   if (companyLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
       </div>
     )
   }
@@ -184,10 +184,10 @@ export default function CompanyPageClient() {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Company not found</h1>
-          <p className="text-gray-600 mb-4">
+          <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
             {companyError ? `Error: ${companyError instanceof Error ? companyError.message : 'Failed to load company'}` : `Could not find company with ticker "${normalizedTicker}"`}
           </p>
-          <Link href="/" className="text-primary-600 hover:underline">
+          <Link href="/" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
             Go back home
           </Link>
         </div>
@@ -214,12 +214,12 @@ export default function CompanyPageClient() {
     switch (filingType) {
       case '10-K':
         return {
-          borderColor: 'border-l-blue-600 dark:border-l-blue-500',
-          bgColor: 'bg-blue-50/50 dark:bg-blue-900/20',
-          hoverBg: 'hover:bg-blue-50 dark:hover:bg-blue-900/30',
-          iconColor: 'text-blue-600 dark:text-blue-400',
-          badgeBg: 'bg-blue-100 dark:bg-blue-900/40',
-          badgeText: 'text-blue-800 dark:text-blue-300',
+          borderColor: 'border-l-brand-strong dark:border-l-brand-strong-dark',
+          bgColor: 'bg-brand-weak dark:bg-white/5',
+          hoverBg: 'hover:bg-brand-weak dark:hover:bg-white/10',
+          iconColor: 'text-brand-strong dark:text-brand-strong-dark',
+          badgeBg: 'bg-brand-weak dark:bg-white/10',
+          badgeText: 'text-brand-strong dark:text-brand-strong-dark',
         }
       case '10-Q':
         return {
@@ -232,29 +232,29 @@ export default function CompanyPageClient() {
         }
       default:
         return {
-          borderColor: 'border-l-gray-400 dark:border-l-gray-500',
-          bgColor: 'bg-gray-50/50 dark:bg-gray-800/50',
-          hoverBg: 'hover:bg-gray-50 dark:hover:bg-gray-800',
-          iconColor: 'text-gray-400 dark:text-gray-500',
-          badgeBg: 'bg-gray-100 dark:bg-gray-700',
-          badgeText: 'text-gray-800 dark:text-gray-300',
+          borderColor: 'border-l-border-light dark:border-l-border-dark',
+          bgColor: 'bg-background-light dark:bg-background-dark',
+          hoverBg: 'hover:bg-background-light dark:hover:bg-background-dark',
+          iconColor: 'text-text-tertiary-light dark:text-text-secondary-dark',
+          badgeBg: 'bg-background-light dark:bg-white/5',
+          badgeText: 'text-text-secondary-light dark:text-text-secondary-dark',
         }
     }
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-background-light dark:bg-background-dark">
       {/* Header */}
-      <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-800 shadow-sm">
+      <header className="bg-panel-light dark:bg-panel-dark border-b border-border-light dark:border-border-dark shadow-sm">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:space-x-4">
-              <Link href="/" className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 font-medium transition-colors">
+              <Link href="/" className="text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark font-medium transition-colors">
                 ← Back
               </Link>
-              <div className="border-l-0 sm:border-l border-gray-200 dark:border-gray-700 sm:pl-4 flex-1">
+              <div className="border-l-0 sm:border-l border-border-light dark:border-border-dark sm:pl-4 flex-1">
                 <div className="flex items-center space-x-3">
-                  <h1 className="text-2xl font-bold text-gray-900 dark:text-white">{companyData.name}</h1>
+                  <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">{companyData.name}</h1>
                   {currentUser && (
                     <button
                       onClick={() => watchlistMutation.mutate({ ticker: normalizedTicker, shouldAdd: !isInWatchlist })}
@@ -263,8 +263,8 @@ export default function CompanyPageClient() {
                       aria-pressed={Boolean(isInWatchlist)}
                       className={`p-2 rounded-lg transition-colors ${
                         isInWatchlist
-                          ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 hover:bg-yellow-200 dark:hover:bg-yellow-900/50'
-                          : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                          ? 'bg-warning-light/10 dark:bg-warning-dark/10 text-warning-light dark:text-warning-dark hover:bg-warning-light/20 dark:hover:bg-warning-dark/20'
+                          : 'bg-background-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark hover:bg-brand-weak dark:hover:bg-white/10'
                       }`}
                       title={isInWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
                     >
@@ -276,12 +276,12 @@ export default function CompanyPageClient() {
                     </button>
                   )}
                 </div>
-                <div className="mt-1 flex items-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
+                <div className="mt-1 flex items-center space-x-4 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
                   <span className="font-medium">{companyData.ticker}</span>
                   {companyData.exchange && <span>{companyData.exchange}</span>}
                   {companyData.stock_quote?.price !== undefined && companyData.stock_quote?.price !== null && (
                     <div className="flex items-center space-x-2">
-                      <span className="font-semibold text-gray-900 dark:text-white">
+                      <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">
                         {fmtCurrency(companyData.stock_quote.price, { digits: 2, compact: false })}
                       </span>
                       {companyData.stock_quote.change_percent !== undefined && companyData.stock_quote.change_percent !== null && (
@@ -309,19 +309,19 @@ export default function CompanyPageClient() {
         {ENABLE_INSIDER_ACTIVITY && <InsiderActivityPanel ticker={normalizedTicker} />}
 
         {/* Filings Section */}
-        <section className="bg-white dark:bg-slate-900 rounded-lg shadow-sm border border-gray-200 dark:border-gray-800 p-6">
+        <section className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">SEC Filings</h2>
+            <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">SEC Filings</h2>
             {filings && filings.length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
-                <Filter className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                <Filter className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => setFilterType(null)}
                     className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-md transition-colors ${
                       filterType === null
-                        ? 'bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900'
-                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700'
+                        ? 'bg-text-primary-light dark:bg-text-primary-dark text-panel-light dark:text-background-dark'
+                        : 'bg-background-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark hover:bg-brand-weak dark:hover:bg-white/10'
                     }`}
                   >
                     All Types
@@ -330,8 +330,8 @@ export default function CompanyPageClient() {
                     onClick={() => setFilterType('10-K')}
                     className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-md transition-colors ${
                       filterType === '10-K'
-                        ? 'bg-blue-600 dark:bg-blue-500 text-white'
-                        : 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-900/50'
+                        ? 'bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
+                        : 'bg-brand-weak dark:bg-white/5 text-brand-strong dark:text-brand-strong-dark hover:bg-brand-weak/70 dark:hover:bg-white/10'
                     }`}
                   >
                     10-K
@@ -352,20 +352,20 @@ export default function CompanyPageClient() {
           </div>
 
           {ENABLE_RECOMMENDED_FILING && !filingsLoading && !filingsError && recommendedFiling && (
-            <div className="mb-6 rounded-xl border border-primary-200 dark:border-primary-500/40 bg-gradient-to-r from-primary-50 to-white dark:from-primary-900/20 dark:to-slate-900 p-4 sm:p-5">
+            <div className="mb-6 rounded-xl border border-brand-light/30 dark:border-brand-light/30 bg-gradient-to-r from-brand-weak to-panel-light dark:from-white/5 dark:to-panel-dark p-4 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
-                  <Sparkles className="mt-0.5 h-5 w-5 flex-shrink-0 text-primary-600 dark:text-primary-400" />
+                  <Sparkles className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-strong dark:text-brand-strong-dark" />
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center rounded-full bg-primary-600 px-2 py-0.5 text-xs font-semibold text-white">
+                      <span className="inline-flex items-center rounded-full bg-brand-strong dark:bg-brand-dark px-2 py-0.5 text-xs font-semibold text-white dark:text-background-dark">
                         Recommended
                       </span>
-                      <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                      <span className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                         {recommendedFiling.filing_type} · {format(new Date(recommendedFiling.filing_date), 'MMM d, yyyy')}
                       </span>
                     </div>
-                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                    <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                       Not sure where to start? This is {companyData.name}&apos;s most recent{' '}
                       {recommendedFiling.filing_type === '10-K' ? 'annual report' : 'filing'} — get an instant AI summary.
                     </p>
@@ -373,7 +373,7 @@ export default function CompanyPageClient() {
                 </div>
                 <Link
                   href={`/filing/${recommendedFiling.id}`}
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-primary-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-700"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2 text-sm font-semibold transition-colors"
                 >
                   Summarize this filing
                   <ArrowRight className="h-4 w-4" />
@@ -384,19 +384,19 @@ export default function CompanyPageClient() {
 
           {filingsLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+              <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
             </div>
           ) : filingsError ? (
-            <div className="rounded-lg border border-red-200/60 bg-red-50/80 p-6 text-center text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+            <div className="rounded-lg border border-error-light/30 bg-error-light/10 p-6 text-center text-sm text-error-light dark:border-error-dark/40 dark:bg-error-dark/10 dark:text-error-dark">
               <p className="font-semibold">Unable to load filings right now.</p>
-              <p className="mt-1 text-xs text-red-600/80 dark:text-red-200/80">
+              <p className="mt-1 text-xs text-error-light/80 dark:text-error-dark/80">
                 {filingsErrorData instanceof Error ? filingsErrorData.message : 'Please try again shortly.'}
               </p>
               <button
                 type="button"
                 onClick={() => refetchFilings()}
                 disabled={filingsRefetching}
-                className="mt-3 inline-flex items-center rounded-md border border-red-200 bg-white/80 px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-white dark:border-red-400/40 dark:bg-white/10 dark:text-red-100 dark:hover:bg-white/20 disabled:opacity-60"
+                className="mt-3 inline-flex items-center rounded-md border border-error-light/30 bg-panel-light/80 px-3 py-1 text-xs font-medium text-error-light transition hover:bg-panel-light dark:border-error-dark/40 dark:bg-white/10 dark:text-error-dark dark:hover:bg-white/20 disabled:opacity-60"
               >
                 {filingsRefetching ? 'Retrying…' : 'Retry'}
               </button>
@@ -409,32 +409,32 @@ export default function CompanyPageClient() {
                 const filingCount = yearFilings?.length || 0
 
                 return (
-                  <div key={year} className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                  <div key={year} className="border border-border-light dark:border-border-dark rounded-lg overflow-hidden">
                     {/* Year Header */}
                     <button
                       onClick={() => toggleYear(year)}
-                      className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors text-left"
+                      className="w-full flex items-center justify-between px-4 py-3 bg-background-light dark:bg-white/5 hover:bg-brand-weak dark:hover:bg-white/10 transition-colors text-left"
                     >
                       <div className="flex items-center space-x-3">
                         {isExpanded ? (
-                          <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                          <ChevronDown className="h-5 w-5 text-text-tertiary-light dark:text-text-secondary-dark" />
                         ) : (
-                          <ChevronDown className="h-5 w-5 text-gray-500 dark:text-gray-400 -rotate-90" />
+                          <ChevronDown className="h-5 w-5 text-text-tertiary-light dark:text-text-secondary-dark -rotate-90" />
                         )}
-                        <span className="font-semibold text-gray-900 dark:text-white text-lg">{year}</span>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">({filingCount} {filingCount === 1 ? 'filing' : 'filings'})</span>
+                        <span className="font-semibold text-text-primary-light dark:text-text-primary-dark text-lg">{year}</span>
+                        <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">({filingCount} {filingCount === 1 ? 'filing' : 'filings'})</span>
                       </div>
                     </button>
 
                     {/* Year Filings */}
                     {isExpanded && yearFilings && (
-                      <div className="p-4 space-y-3 bg-white dark:bg-slate-900">
+                      <div className="p-4 space-y-3 bg-panel-light dark:bg-panel-dark">
                         {yearFilings.map((filing) => {
                           const styles = getFilingTypeStyles(filing.filing_type)
                           return (
                             <div
                               key={filing.id}
-                              className={`border-l-4 ${styles.borderColor} border-r border-t border-b border-gray-200 dark:border-gray-700 rounded-lg p-4 ${styles.bgColor} ${styles.hoverBg} transition-colors`}
+                              className={`border-l-4 ${styles.borderColor} border-r border-t border-b border-border-light dark:border-border-dark rounded-lg p-4 ${styles.bgColor} ${styles.hoverBg} transition-colors`}
                             >
                               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                 <div className="flex-1">
@@ -446,12 +446,12 @@ export default function CompanyPageClient() {
                                           {filing.filing_type}
                                         </span>
                                         {ENABLE_RECOMMENDED_FILING && recommendedFiling?.id === filing.id && (
-                                          <span className="inline-flex items-center gap-1 rounded-full bg-primary-600 px-2 py-0.5 text-xs font-semibold text-white">
+                                          <span className="inline-flex items-center gap-1 rounded-full bg-brand-strong dark:bg-brand-dark px-2 py-0.5 text-xs font-semibold text-white dark:text-background-dark">
                                             <Sparkles className="h-3 w-3" />
                                             Recommended
                                           </span>
                                         )}
-                                        <span className="text-sm text-gray-500 dark:text-gray-400">
+                                        <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
                                           {format(new Date(filing.filing_date), 'MMM d, yyyy')}
                                         </span>
                                       </div>
@@ -464,7 +464,7 @@ export default function CompanyPageClient() {
                                       href={filing.sec_url}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-500 transition-colors"
+                                      className="inline-flex items-center gap-2 px-4 py-2 border border-border-light dark:border-border-dark text-text-secondary-light dark:text-text-secondary-dark text-sm font-medium rounded-md hover:bg-background-light dark:hover:bg-white/5 hover:border-text-tertiary-light dark:hover:border-text-tertiary-dark transition-colors"
                                       title="Open original filing on SEC EDGAR"
                                     >
                                       <ExternalLink className="h-4 w-4" />
@@ -473,7 +473,7 @@ export default function CompanyPageClient() {
                                   )}
                                   <Link
                                     href={`/filing/${filing.id}`}
-                                    className="inline-flex items-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-md hover:bg-primary-700 transition-colors"
+                                    className="inline-flex items-center px-4 py-2 bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark text-sm font-medium rounded-md transition-colors"
                                   >
                                     Generate Filing Summary
                                   </Link>
@@ -490,8 +490,8 @@ export default function CompanyPageClient() {
             </div>
           ) : (
             <div className="text-center py-12">
-              <FileText className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
-              <p className="text-gray-500 dark:text-gray-400">No filings found for this company.</p>
+              <FileText className="h-12 w-12 text-text-tertiary-light dark:text-text-secondary-dark mx-auto mb-4" />
+              <p className="text-text-tertiary-light dark:text-text-secondary-dark">No filings found for this company.</p>
             </div>
           )}
         </section>

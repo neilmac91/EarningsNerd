@@ -87,10 +87,10 @@ export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
   if (isError || (!isLoading && available.length === 0)) return null
 
   return (
-    <section className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-slate-900">
+    <section className="mb-8 rounded-lg border border-border-light bg-panel-light p-6 shadow-sm dark:border-border-dark dark:bg-panel-dark">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Financial Trends</h2>
+          <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Financial Trends</h2>
           {hasUnverified && <UnverifiedBadge />}
         </div>
         {available.length > 0 && (
@@ -103,8 +103,8 @@ export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
                 aria-pressed={f.key === activeKey}
                 className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                   f.key === activeKey
-                    ? 'bg-mint-500 text-slate-950'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                    ? 'bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
+                    : 'bg-background-light text-text-secondary-light hover:bg-brand-weak dark:bg-white/5 dark:text-text-secondary-dark dark:hover:bg-white/10'
                 }`}
               >
                 {f.label}
@@ -116,10 +116,10 @@ export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
 
       {isLoading ? (
         <div className="flex h-72 items-center justify-center" aria-label="Loading financial trends">
-          <Loader2 className="h-6 w-6 animate-spin text-mint-500" />
+          <Loader2 className="h-6 w-6 animate-spin text-brand-strong dark:text-brand-strong-dark" />
         </div>
       ) : chartData.length === 0 ? (
-        <p className="py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+        <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark">
           No multi-year data available for this metric.
         </p>
       ) : (
@@ -152,7 +152,7 @@ export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
         </div>
       )}
 
-      <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
+      <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
         Annual figures from SEC filings (XBRL). {active ? active.label : ''} by fiscal year.
       </p>
     </section>

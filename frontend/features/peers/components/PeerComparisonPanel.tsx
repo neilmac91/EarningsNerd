@@ -91,16 +91,16 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
   const subject = data?.subject
 
   return (
-    <section className="mb-8 rounded-lg border border-gray-200 bg-white p-6 shadow-sm dark:border-gray-800 dark:bg-slate-900">
+    <section className="mb-8 rounded-lg border border-border-light bg-panel-light p-6 shadow-sm dark:border-border-dark dark:bg-panel-dark">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Sector Peers</h2>
+            <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Sector Peers</h2>
             {hasUnverified && <UnverifiedBadge />}
           </div>
           {meaningful && subject?.rank != null && (
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Ranks <span className="font-semibold text-mint-600 dark:text-mint-400">#{subject.rank}</span>{' '}
+            <p className="mt-1 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
+              Ranks <span className="font-semibold text-brand-strong dark:text-brand-strong-dark">#{subject.rank}</span>{' '}
               of {data!.peer_count} on {label}
               {subject.percentile != null ? ` · ${Math.round(subject.percentile)}th percentile` : ''}
             </p>
@@ -115,8 +115,8 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
               aria-pressed={m.key === metric}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                 m.key === metric
-                  ? 'bg-mint-500 text-slate-950'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700'
+                  ? 'bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
+                  : 'bg-background-light text-text-secondary-light hover:bg-brand-weak dark:bg-white/5 dark:text-text-secondary-dark dark:hover:bg-white/10'
               }`}
             >
               {m.label}
@@ -127,14 +127,14 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
 
       {isLoading ? (
         <div className="flex h-72 items-center justify-center" aria-label="Loading peer comparison">
-          <Loader2 className="h-6 w-6 animate-spin text-mint-500" />
+          <Loader2 className="h-6 w-6 animate-spin text-brand-strong dark:text-brand-strong-dark" />
         </div>
       ) : isError ? (
-        <p className="py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+        <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark">
           Couldn&rsquo;t load peer data for {label}. Try another metric.
         </p>
       ) : !meaningful ? (
-        <p className="py-12 text-center text-sm text-gray-500 dark:text-gray-400">
+        <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark">
           Not enough sector peers with {label} data yet.
         </p>
       ) : (
@@ -181,7 +181,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
         </div>
       )}
 
-      <p className="mt-3 text-xs text-gray-400 dark:text-gray-500">
+      <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
         Same-SIC peers, most recent annual {label} from SEC filings. Coverage grows over time.
       </p>
     </section>

@@ -100,12 +100,12 @@ export default function FinancialCharts({ metrics }: FinancialChartsProps) {
 
       {/* 2. Detailed Comparison Chart */}
       {barChartData.length > 0 && (
-        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <div className="rounded-xl border border-border-light bg-panel-light p-6 shadow-sm dark:border-border-dark dark:bg-panel-dark">
           <div className="mb-6 flex items-center justify-between">
-            <h3 className="text-lg font-semibold tracking-tight text-slate-900 dark:text-white">
+            <h3 className="text-lg font-semibold tracking-tight text-text-primary-light dark:text-text-primary-dark">
               Metric Comparison
             </h3>
-            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider dark:text-slate-400">
+            <span className="text-xs font-medium text-text-tertiary-light uppercase tracking-wider dark:text-text-secondary-dark">
               Current vs Prior
             </span>
           </div>
