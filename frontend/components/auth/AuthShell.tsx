@@ -43,10 +43,8 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
 
 function AuthBrandPane() {
   return (
-    <div className="relative hidden overflow-hidden bg-hero-gradient-light dark:bg-hero-gradient lg:flex lg:flex-col lg:items-center lg:justify-center">
-      <div className="absolute inset-0 bg-hero-glow-light dark:bg-hero-glow" aria-hidden="true" />
-
-      <div className="relative z-10 w-full max-w-md px-12">
+    <div className="hidden overflow-hidden bg-brand-weak dark:bg-panel-dark lg:flex lg:flex-col lg:items-center lg:justify-center">
+      <div className="w-full max-w-md px-12">
         <h2 className="text-3xl font-bold leading-tight text-text-primary-light dark:text-text-primary-dark">
           Decode any filing
           <br />

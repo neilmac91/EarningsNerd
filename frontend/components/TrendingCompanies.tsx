@@ -44,8 +44,8 @@ export default function TrendingCompanies() {
   return (
     <div>
       <div className="flex items-center space-x-3 mb-6">
-        <div className="rounded-xl bg-gradient-to-br from-sky-500 to-indigo-500 p-2.5 shadow-lg shadow-sky-500/30">
-          <TrendingUp className="h-5 w-5 text-white" />
+        <div className="rounded-xl bg-brand-strong/10 p-2.5 dark:bg-brand-dark/15">
+          <TrendingUp className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
         </div>
         <h3 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">Trending Companies</h3>
       </div>

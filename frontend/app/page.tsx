@@ -117,17 +117,14 @@ export default async function Home() {
       {/* ═══════════════════════════════════════════════════════════
           HERO SECTION — Split layout with copy left, mockup right
           ═══════════════════════════════════════════════════════════ */}
-      <section className="relative overflow-hidden bg-hero-gradient-light dark:bg-hero-gradient">
-        {/* Ambient glow overlay */}
-        <div className="absolute inset-0 bg-hero-glow-light dark:bg-hero-glow" aria-hidden="true" />
-
-        <div className="relative mx-auto max-w-7xl px-4 pb-16 pt-16 sm:px-6 md:pb-24 md:pt-20 lg:px-8 lg:pb-28 lg:pt-24">
+      <section className="bg-background-light dark:bg-background-dark">
+        <div className="mx-auto max-w-7xl px-4 pb-16 pt-16 sm:px-6 md:pb-24 md:pt-20 lg:px-8 lg:pb-28 lg:pt-24">
           <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
             {/* Left: Copy + Search */}
             <div>
               <h1 className="text-4xl font-extrabold leading-[1.1] tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-5xl lg:text-6xl">
                 Understand any{' '}
-                <span className="text-gradient-mint">SEC filing</span>{' '}
+                <span className="text-brand-strong dark:text-brand-strong-dark">SEC filing</span>{' '}
                 in minutes
               </h1>
               <p className="mt-6 max-w-lg text-lg leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">

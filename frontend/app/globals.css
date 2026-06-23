@@ -178,21 +178,6 @@ html[data-font='lora']  { --font-active: var(--font-lora); }
               0 0 40px -5px rgba(146, 160, 226, 0.28);
 }
 
-/* Gradient text utility — brand accent, theme-aware (deep sage->slate in light, light slate
-   in dark). Class name kept for compatibility with existing markup. */
-.text-gradient-mint {
-  background: linear-gradient(135deg, #3C6650 0%, #4C5FA6 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-.dark .text-gradient-mint {
-  background: linear-gradient(135deg, #92A0E2 0%, #B4BEEE 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
 /* Scroll-triggered animation base */
 .animate-on-scroll {
   opacity: 0;
