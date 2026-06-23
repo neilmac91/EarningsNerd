@@ -489,18 +489,18 @@ function FilingDetailView({ filingId }: { filingId: number }) {
 
   if (filingLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <Loader2 className="h-8 w-8 animate-spin text-primary-600 dark:text-primary-400" />
+      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
+        <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
       </div>
     )
   }
 
   if (!filing) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-white">Filing not found</h1>
-          <Link href="/" className="text-primary-600 hover:underline dark:text-primary-400 dark:hover:text-primary-300">
+          <h1 className="text-2xl font-bold mb-4 text-text-primary-light dark:text-text-primary-dark">Filing not found</h1>
+          <Link href="/" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
             Go back home
           </Link>
         </div>
@@ -511,14 +511,14 @@ function FilingDetailView({ filingId }: { filingId: number }) {
 
   return (
     <FilingViewerProvider>
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-background-light dark:bg-background-dark">
       {/* Header */}
-      <header className="bg-gradient-to-r from-white via-gray-50 to-white dark:from-gray-800 dark:via-gray-900 dark:to-gray-800 shadow-lg border-b border-gray-200 dark:border-gray-700">
+      <header className="bg-panel-light dark:bg-panel-dark shadow-lg border-b border-border-light dark:border-border-dark">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
             <button
               onClick={handleBack}
-              className="text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300 inline-flex items-center space-x-1 transition-colors group"
+              className="text-brand-strong dark:text-brand-strong-dark hover:underline inline-flex items-center space-x-1 transition-colors group"
             >
               <span className="group-hover:-translate-x-1 transition-transform">←</span>
               <span>Back</span>
@@ -531,16 +531,16 @@ function FilingDetailView({ filingId }: { filingId: number }) {
                 <>
                   <div className="flex flex-wrap items-center gap-3 mb-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+                      <h1 className="text-3xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">
                         {filing.company.name}
                       </h1>
-                      <span className="px-3 py-1 bg-gradient-to-r from-primary-600 to-blue-600 text-white text-sm font-bold rounded-lg shadow-sm">
+                      <span className="px-3 py-1 bg-brand-strong text-white dark:bg-brand-dark dark:text-background-dark text-sm font-bold rounded-lg shadow-sm">
                         {filing.company.ticker}
                       </span>
                     </div>
                   </div>
-                  <div className="flex flex-wrap items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
-                    <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 rounded-md font-semibold text-gray-700 dark:text-gray-300">
+                  <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                    <span className="px-3 py-1 bg-brand-weak dark:bg-white/5 rounded-md font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                       {filing.filing_type}
                     </span>
                     <span className="flex items-center space-x-1">
@@ -548,7 +548,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
                       <span className="font-medium">{format(new Date(filing.filing_date), 'MMMM dd, yyyy')}</span>
                     </span>
                     {filing.company.exchange && (
-                      <span className="text-gray-500 dark:text-gray-400">
+                      <span className="text-text-tertiary-light dark:text-text-secondary-dark">
                         {filing.company.exchange}
                       </span>
                     )}
@@ -556,10 +556,10 @@ function FilingDetailView({ filingId }: { filingId: number }) {
                 </>
               ) : (
                 <>
-                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight mb-2">
+                  <h1 className="text-3xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight mb-2">
                     {filing.filing_type} Summary
                   </h1>
-                  <p className="text-gray-600 dark:text-gray-400">
+                  <p className="text-text-secondary-light dark:text-text-secondary-dark">
                     Filed: {format(new Date(filing.filing_date), 'MMMM dd, yyyy')}
                   </p>
                 </>
@@ -567,9 +567,9 @@ function FilingDetailView({ filingId }: { filingId: number }) {
             </div>
 
             {/* Tech badge */}
-            <div className="hidden md:flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-primary-50 to-blue-50 dark:from-primary-900/20 dark:to-blue-900/20 rounded-lg border border-primary-200 dark:border-primary-800">
-              <div className="w-2 h-2 bg-primary-600 dark:bg-primary-400 rounded-full animate-pulse"></div>
-              <span className="text-xs font-semibold text-primary-700 dark:text-primary-300">AI Analysis</span>
+            <div className="hidden md:flex items-center space-x-2 px-4 py-2 bg-brand-weak dark:bg-white/5 rounded-lg border border-brand-light/30">
+              <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-pulse"></div>
+              <span className="text-xs font-semibold text-brand-strong dark:text-brand-strong-dark">AI Analysis</span>
             </div>
           </div>
         </div>
@@ -767,13 +767,13 @@ function StreamingSummaryDisplay({
   if (!isClient) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
-        <div className="bg-white rounded-xl shadow-xl border border-gray-200/50 p-8">
+        <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-xl border border-border-light dark:border-border-dark p-8">
           <div className="animate-pulse space-y-6">
-            <div className="h-6 bg-primary-100/70 rounded w-1/3"></div>
-            <div className="h-4 bg-primary-100/50 rounded w-full"></div>
-            <div className="h-4 bg-primary-100/40 rounded w-5/6"></div>
-            <div className="h-4 bg-primary-100/40 rounded w-2/3"></div>
-            <div className="h-32 bg-primary-50 rounded-lg"></div>
+            <div className="h-6 bg-brand-weak rounded w-1/3"></div>
+            <div className="h-4 bg-brand-weak rounded w-full"></div>
+            <div className="h-4 bg-brand-weak rounded w-5/6"></div>
+            <div className="h-4 bg-brand-weak rounded w-2/3"></div>
+            <div className="h-32 bg-brand-weak rounded-lg"></div>
           </div>
         </div>
       </div>
@@ -791,7 +791,7 @@ function StreamingSummaryDisplay({
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Progress Header */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 relative overflow-hidden">
+      <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark p-8 relative overflow-hidden">
         {/* Shimmer overlay for active generation */}
         {isGenerating && (
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
@@ -799,7 +799,7 @@ function StreamingSummaryDisplay({
 
         <div className="flex flex-col md:flex-row gap-8 relative z-10">
           {/* Left: Heartbeat Indicator */}
-          <div className="flex flex-col items-center justify-center space-y-4 md:w-1/3 border-b md:border-b-0 md:border-r border-gray-100 dark:border-gray-700 pb-6 md:pb-0 md:pr-6">
+          <div className="flex flex-col items-center justify-center space-y-4 md:w-1/3 border-b md:border-b-0 md:border-r border-border-light dark:border-border-dark pb-6 md:pb-0 md:pr-6">
             <div className="relative w-32 h-32 flex-shrink-0">
               {/* Outer Ring */}
               <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 128 128">
@@ -810,7 +810,7 @@ function StreamingSummaryDisplay({
                   fill="none"
                   stroke="currentColor"
                   strokeWidth="6"
-                  className="text-gray-100 dark:text-gray-800"
+                  className="text-border-light dark:text-border-dark"
                 />
                 <circle
                   cx="64"
@@ -822,38 +822,38 @@ function StreamingSummaryDisplay({
                   strokeDasharray={`${2 * Math.PI * 60}`}
                   strokeDashoffset={`${2 * Math.PI * 60 * (1 - optimisticProgress / 100)}`}
                   strokeLinecap="round"
-                  className={`transition-all duration-700 ease-out ${isError ? 'text-rose-500' : 'text-primary-600 dark:text-primary-400'}`}
+                  className={`transition-all duration-700 ease-out ${isError ? 'text-error-light dark:text-error-dark' : 'text-brand-strong dark:text-brand-strong-dark'}`}
                 />
               </svg>
 
               {/* Center Heartbeat Orb */}
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className={`relative w-16 h-16 rounded-full flex items-center justify-center transition-colors duration-500 ${isError
-                  ? 'bg-rose-100 dark:bg-rose-900/30'
-                  : 'bg-primary-50 dark:bg-primary-900/20'
+                  ? 'bg-error-light/10 dark:bg-error-dark/10'
+                  : 'bg-brand-weak dark:bg-white/5'
                   }`}>
                   <div className={`w-8 h-8 rounded-full ${isError
-                    ? 'bg-rose-500'
-                    : 'bg-primary-600 dark:bg-primary-400'
-                    } ${isGenerating && !isError ? 'animate-pulse' : ''} shadow-lg shadow-primary-500/20`} />
+                    ? 'bg-error-light dark:bg-error-dark'
+                    : 'bg-brand-strong dark:bg-brand-strong-dark'
+                    } ${isGenerating && !isError ? 'animate-pulse' : ''} shadow-lg shadow-brand-strong/20`} />
 
                   {/* Ripple effect */}
                   {isGenerating && !isError && (
-                    <div className="absolute inset-0 rounded-full border border-primary-500/30 animate-ping" />
+                    <div className="absolute inset-0 rounded-full border border-brand-light/30 animate-ping" />
                   )}
                 </div>
               </div>
             </div>
 
             <div className="text-center">
-              <h3 className={`text-lg font-semibold ${isError ? 'text-rose-600' : 'text-gray-900 dark:text-white'}`}>
+              <h3 className={`text-lg font-semibold ${isError ? 'text-error-light dark:text-error-dark' : 'text-text-primary-light dark:text-text-primary-dark'}`}>
                 {Math.round(optimisticProgress)}% Complete
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
                 {filing.filing_type} • {isError ? 'Failed' : isGenerating ? 'Processing...' : 'Ready'}
               </p>
               {isGenerating && !isError && (
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark mt-1">
                   This usually takes 30–60 seconds
                 </p>
               )}
@@ -863,13 +863,13 @@ function StreamingSummaryDisplay({
           {/* Right: Live Log & Whimsy */}
           <div className="flex-1 flex flex-col justify-center min-w-0">
             {/* Whimsy Message Area */}
-            <div className="mb-6 bg-gradient-to-r from-gray-50 to-white dark:from-gray-800/50 dark:to-gray-800 rounded-lg p-4 border border-gray-100 dark:border-gray-700/50">
+            <div className="mb-6 bg-background-light dark:bg-background-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
               <div className="flex items-start gap-3">
                 <div className="mt-1">
                   <span className="text-xl">✨</span>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-gray-700 dark:text-gray-200 animate-[fadeIn_0.5s_ease-out]">
+                  <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark animate-[fadeIn_0.5s_ease-out]">
                     {isError
                       ? "We hit a snag, but don't worry."
                       : isStalled
@@ -877,7 +877,7 @@ function StreamingSummaryDisplay({
                         : (showWhimsy ? whimsyMessage : "Initializing...")
                     }
                   </p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">
+                  <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
                     {isStalled ? "Complex filing detected" : "AI Analyst System"}
                   </p>
                 </div>
@@ -886,7 +886,7 @@ function StreamingSummaryDisplay({
 
             {/* Vertical Live Log */}
             <div className="flex flex-col space-y-4 relative">
-              <div className="absolute left-3 top-2 bottom-2 w-0.5 bg-gray-100 dark:bg-gray-700 lg:block hidden" />
+              <div className="absolute left-3 top-2 bottom-2 w-0.5 bg-border-light dark:bg-border-dark lg:block hidden" />
 
               {/* Dynamically generate log steps based on progress */}
               {LOADING_STEPS.map((step) => {
@@ -897,10 +897,10 @@ function StreamingSummaryDisplay({
                 return (
                   <div key={step.id} className={`flex items-center gap-3 transition-opacity duration-300 ${status === 'pending' ? 'opacity-40' : 'opacity-100'}`}>
                     <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center border transition-all duration-300 ${status === 'complete'
-                      ? 'bg-emerald-500 border-emerald-500 text-white'
+                      ? 'bg-success-light border-success-light text-white dark:bg-success-dark dark:border-success-dark'
                       : status === 'active'
-                        ? 'bg-white dark:bg-gray-800 border-primary-500 text-primary-600'
-                        : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                        ? 'bg-panel-light dark:bg-panel-dark border-brand-light text-brand-strong dark:text-brand-strong-dark'
+                        : 'bg-background-light dark:bg-background-dark border-border-light dark:border-border-dark'
                       }`}>
                       {status === 'complete' && (
                         <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -908,10 +908,10 @@ function StreamingSummaryDisplay({
                         </svg>
                       )}
                       {status === 'active' && (
-                        <div className="w-2 h-2 rounded-full bg-primary-600 dark:bg-primary-400 animate-pulse" />
+                        <div className="w-2 h-2 rounded-full bg-brand-strong dark:bg-brand-strong-dark animate-pulse" />
                       )}
                     </div>
-                    <span className={`text-sm ${status === 'active' ? 'font-medium text-gray-900 dark:text-white' : 'text-gray-600 dark:text-gray-400'}`}>
+                    <span className={`text-sm ${status === 'active' ? 'font-medium text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
                       {step.label}
                     </span>
                   </div>
@@ -924,21 +924,21 @@ function StreamingSummaryDisplay({
 
       {/* Streaming Content */}
       {isError && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 shadow-sm">
+        <div className="bg-error-light/10 dark:bg-error-dark/10 border border-error-light/30 rounded-xl p-6 shadow-sm">
           <div className="flex items-start space-x-3">
-            <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400 mt-1 flex-shrink-0" />
+            <AlertCircle className="h-6 w-6 text-error-light dark:text-error-dark mt-1 flex-shrink-0" />
             <div className="flex-1">
-              <h2 className="text-lg font-semibold text-red-700 dark:text-red-400 mb-2">
+              <h2 className="text-lg font-semibold text-error-light dark:text-error-dark mb-2">
                 Generation interrupted
               </h2>
-              <p className="text-sm text-red-600 dark:text-red-300 mb-4">
+              <p className="text-sm text-error-light dark:text-error-dark mb-4">
                 {error || message || 'Generation timed out. Please retry to continue.'}
               </p>
               <div className="flex items-center gap-3 flex-wrap">
                 {onRetry && (
                   <button
                     onClick={onRetry}
-                    className="inline-flex items-center px-4 py-2 bg-primary-600 dark:bg-primary-500 text-white rounded-lg text-sm font-medium hover:bg-primary-700 dark:hover:bg-primary-600 transition-colors"
+                    className="inline-flex items-center px-4 py-2 bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark rounded-lg text-sm font-medium transition-colors"
                   >
                     Retry generation
                   </button>
@@ -950,18 +950,18 @@ function StreamingSummaryDisplay({
       )}
 
       {displayText && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-8">
-          <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-gray-200 dark:border-gray-700">
-            <div className="w-2 h-2 bg-primary-600 dark:bg-primary-400 rounded-full"></div>
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">AI-Generated Summary</h2>
+        <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark p-8">
+          <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-border-light dark:border-border-dark">
+            <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full"></div>
+            <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">AI-Generated Summary</h2>
             {isGenerating && (
-              <span className="px-2.5 py-1 text-xs font-semibold text-primary-700 dark:text-primary-300 bg-primary-100 dark:bg-primary-900/50 rounded-full">
+              <span className="px-2.5 py-1 text-xs font-semibold text-brand-strong dark:text-brand-strong-dark bg-brand-weak dark:bg-white/5 rounded-full">
                 Live
               </span>
             )}
           </div>
           <div className="prose prose-lg dark:prose-invert max-w-none">
-            <div className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed font-sans">
+            <div className="text-text-secondary-light dark:text-text-secondary-dark whitespace-pre-wrap leading-relaxed font-sans">
               <ReactMarkdown
                 remarkPlugins={[remarkGfm]}
                 components={{
@@ -984,7 +984,7 @@ function StreamingSummaryDisplay({
                 {displayText}
               </ReactMarkdown>
               {isGenerating && (
-                <span className="inline-block w-0.5 h-5 bg-primary-600 dark:bg-primary-400 ml-1 align-middle animate-pulse"></span>
+                <span className="inline-block w-0.5 h-5 bg-brand-strong dark:bg-brand-strong-dark ml-1 align-middle animate-pulse"></span>
               )}
             </div>
           </div>
@@ -992,16 +992,16 @@ function StreamingSummaryDisplay({
       )}
 
       {!displayText && !isError && (
-        <div className="bg-white dark:bg-gray-800 rounded-xl p-8 border border-gray-200 dark:border-gray-700 shadow-lg">
+        <div className="bg-panel-light dark:bg-panel-dark rounded-xl p-8 border border-border-light dark:border-border-dark shadow-lg">
           <div className="flex items-start space-x-4">
             <div className="flex-shrink-0">
-              <Loader2 className="h-8 w-8 text-primary-600 dark:text-primary-400 animate-spin" />
+              <Loader2 className="h-8 w-8 text-brand-strong dark:text-brand-strong-dark animate-spin" />
             </div>
             <div className="flex-1">
-              <p className="text-gray-900 dark:text-white font-semibold text-lg mb-1">
+              <p className="text-text-primary-light dark:text-text-primary-dark font-semibold text-lg mb-1">
                 {activeMessage}
               </p>
-              <p className="text-gray-600 dark:text-gray-400 text-sm">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm">
                 Analyzing critical sections (Item 1A & Item 7) for investment insights...
               </p>
             </div>
@@ -1009,11 +1009,11 @@ function StreamingSummaryDisplay({
 
           {/* Clean skeleton loader */}
           <div className="mt-6 space-y-3">
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 animate-pulse"></div>
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full animate-pulse delay-75"></div>
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-5/6 animate-pulse delay-150"></div>
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-4/5 mt-4 animate-pulse delay-200"></div>
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-full animate-pulse delay-300"></div>
+            <div className="h-4 bg-border-light dark:bg-border-dark rounded w-3/4 animate-pulse"></div>
+            <div className="h-4 bg-border-light dark:bg-border-dark rounded w-full animate-pulse delay-75"></div>
+            <div className="h-4 bg-border-light dark:bg-border-dark rounded w-5/6 animate-pulse delay-150"></div>
+            <div className="h-4 bg-border-light dark:bg-border-dark rounded w-4/5 mt-4 animate-pulse delay-200"></div>
+            <div className="h-4 bg-border-light dark:bg-border-dark rounded w-full animate-pulse delay-300"></div>
           </div>
         </div>
       )}
@@ -1175,8 +1175,8 @@ function SummaryDisplay({
                 onClick={() => saveMutation.mutate(summary.id)}
                 disabled={saveMutation.isPending || isSaved}
                 className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors ${isSaved
-                  ? 'bg-green-100 text-green-700 cursor-not-allowed'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  ? 'bg-success-light/10 text-success-light dark:bg-success-dark/10 dark:text-success-dark cursor-not-allowed'
+                  : 'bg-brand-weak dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark hover:opacity-90'
                   }`}
               >
                 {isSaved ? (
@@ -1199,14 +1199,14 @@ function SummaryDisplay({
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={handleExportPDF}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+              className="inline-flex items-center px-4 py-2 border border-border-light dark:border-border-dark rounded-lg text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark bg-panel-light dark:bg-panel-dark hover:bg-background-light dark:hover:bg-background-dark transition-colors"
             >
               <Download className="h-4 w-4 mr-2" />
               Export PDF
             </button>
             <button
               onClick={handleExportCSV}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+              className="inline-flex items-center px-4 py-2 border border-border-light dark:border-border-dark rounded-lg text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark bg-panel-light dark:bg-panel-dark hover:bg-background-light dark:hover:bg-background-dark transition-colors"
             >
               <FileDown className="h-4 w-4 mr-2" />
               Export CSV
@@ -1216,26 +1216,26 @@ function SummaryDisplay({
       </div>
 
       {isError ? (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-          <AlertCircle className="h-6 w-6 text-yellow-600 mb-2" />
-          <p className="text-yellow-800">{fallbackMessage}</p>
+        <div className="bg-warning-light/10 dark:bg-warning-dark/10 border border-warning-light/30 rounded-lg p-6">
+          <AlertCircle className="h-6 w-6 text-warning-light dark:text-warning-dark mb-2" />
+          <p className="text-warning-light dark:text-warning-dark">{fallbackMessage}</p>
         </div>
       ) : (
         <>
           {hasPolishedMarkdown && (
-            <section className="bg-white rounded-lg shadow-md p-6">
+            <section className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-2">
-                  <FileText className="h-6 w-6 text-primary-600" />
-                  <h2 className="text-xl font-semibold text-gray-900">Summary</h2>
+                  <FileText className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
+                  <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Summary</h2>
                   {/* S4 quality badge: honest signal of full vs partial output */}
                   {ENABLE_QUALITY_BADGE && quality?.tier && (
                     <span
                       title={quality.reasons && quality.reasons.length ? quality.reasons.join('; ') : undefined}
                       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${
                         quality.tier === 'full'
-                          ? 'bg-mint-500/10 text-mint-700 ring-mint-500/20 dark:text-mint-300'
-                          : 'bg-amber-500/10 text-amber-700 ring-amber-500/20 dark:text-amber-300'
+                          ? 'bg-brand-weak dark:bg-white/5 text-brand-strong dark:text-brand-strong-dark ring-brand-light/30'
+                          : 'bg-warning-light/10 dark:bg-warning-dark/10 text-warning-light dark:text-warning-dark ring-warning-light/30'
                       }`}
                     >
                       {quality.tier === 'full'
@@ -1248,13 +1248,13 @@ function SummaryDisplay({
                 {(isPartial || writerFallback || isPartialQuality) && onRetry && (
                   <button
                     onClick={onRetry}
-                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-primary-700 bg-primary-50 rounded-lg hover:bg-primary-100 transition-colors border border-primary-200"
+                    className="inline-flex items-center px-4 py-2 text-sm font-medium text-brand-strong dark:text-brand-strong-dark bg-brand-weak dark:bg-white/5 rounded-lg hover:opacity-90 transition-colors border border-brand-light/30"
                   >
                     Regenerate Analysis
                   </button>
                 )}
               </div>
-              <div className="markdown-body text-gray-800">
+              <div className="markdown-body text-text-secondary-light dark:text-text-secondary-dark">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {cleanedMarkdown}
                 </ReactMarkdown>
@@ -1290,9 +1290,9 @@ function SummaryDisplay({
       )}
 
       {metadata?.action_items && Array.isArray(metadata.action_items) && metadata.action_items.length > 0 && (
-        <section className="bg-white rounded-lg shadow border border-blue-100 p-6">
-          <h3 className="text-lg font-semibold text-blue-900 mb-3">Suggested Follow-Ups</h3>
-          <ul className="list-disc list-inside text-sm text-blue-800 space-y-2">
+        <section className="bg-panel-light dark:bg-panel-dark rounded-lg shadow border border-brand-light/30 p-6">
+          <h3 className="text-lg font-semibold text-brand-strong dark:text-brand-strong-dark mb-3">Suggested Follow-Ups</h3>
+          <ul className="list-disc list-inside text-sm text-text-secondary-light dark:text-text-secondary-dark space-y-2">
             {metadata.action_items.map((item: string, index: number) => (
               <li key={index}>{item}</li>
             ))}
@@ -1314,21 +1314,21 @@ function SummaryDisplay({
 
 function ChartsSkeleton() {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 animate-pulse">
-      <div className="h-5 w-48 bg-gray-200 rounded mb-4" />
-      <div className="h-64 bg-gray-100 rounded" />
+    <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 animate-pulse">
+      <div className="h-5 w-48 bg-border-light dark:bg-border-dark rounded mb-4" />
+      <div className="h-64 bg-background-light dark:bg-background-dark rounded" />
     </div>
   )
 }
 
 function SummarySectionsSkeleton() {
   return (
-    <div className="bg-white rounded-lg shadow-md border border-gray-200 p-6 animate-pulse space-y-4">
-      <div className="h-4 w-32 bg-gray-200 rounded" />
+    <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-md border border-border-light dark:border-border-dark p-6 animate-pulse space-y-4">
+      <div className="h-4 w-32 bg-border-light dark:bg-border-dark rounded" />
       <div className="space-y-2">
-        <div className="h-3 bg-gray-100 rounded" />
-        <div className="h-3 bg-gray-100 rounded w-5/6" />
-        <div className="h-3 bg-gray-100 rounded w-2/3" />
+        <div className="h-3 bg-background-light dark:bg-background-dark rounded" />
+        <div className="h-3 bg-background-light dark:bg-background-dark rounded w-5/6" />
+        <div className="h-3 bg-background-light dark:bg-background-dark rounded w-2/3" />
       </div>
     </div>
   )

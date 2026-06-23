@@ -36,7 +36,7 @@ export function SummaryFinancials({ notes, metrics }: SummaryFinancialsProps) {
         </SummaryBlock>
       )}
       {validMetrics.length > 0 && (
-        <div className="text-sm text-slate-600 dark:text-slate-300">
+        <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
           <p>Key highlights from the reporting period:</p>
           <ul className="list-disc list-inside mt-2 space-y-1">
             {validMetrics.slice(0, 5).map((m: MetricItem, i: number) => {
@@ -49,7 +49,7 @@ export function SummaryFinancials({ notes, metrics }: SummaryFinancialsProps) {
                   {hasCurrent ? m.current_period : 'Data pending'}
                   {hasPrior && (
                     <>
-                      <span className="text-slate-400 dark:text-slate-500 mx-1">vs</span>
+                      <span className="text-text-tertiary-light dark:text-text-secondary-dark mx-1">vs</span>
                       {m.prior_period}
                     </>
                   )}

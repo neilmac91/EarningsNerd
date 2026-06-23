@@ -12,25 +12,25 @@ interface SummaryBlockProps {
 export function SummaryBlock({ type = 'neutral', title, children }: SummaryBlockProps) {
   const styles = {
     bullish: {
-      border: 'border-mint-500',
-      bg: 'bg-white dark:bg-slate-800',
+      border: 'border-brand-light',
+      bg: 'bg-panel-light dark:bg-panel-dark',
       icon: TrendingUp,
-      iconColor: 'text-mint-500',
-      titleColor: 'text-mint-800'
+      iconColor: 'text-brand-strong dark:text-brand-strong-dark',
+      titleColor: 'text-brand-strong dark:text-brand-strong-dark'
     },
     bearish: {
-      border: 'border-slate-400',
-      bg: 'bg-white dark:bg-slate-800',
+      border: 'border-border-light dark:border-border-dark',
+      bg: 'bg-panel-light dark:bg-panel-dark',
       icon: TrendingDown,
-      iconColor: 'text-slate-500',
-      titleColor: 'text-slate-700'
+      iconColor: 'text-text-tertiary-light dark:text-text-secondary-dark',
+      titleColor: 'text-text-secondary-light dark:text-text-secondary-dark'
     },
     neutral: {
-      border: 'border-slate-300',
-      bg: 'bg-slate-50 dark:bg-slate-800/50',
+      border: 'border-border-light dark:border-border-dark',
+      bg: 'bg-background-light dark:bg-background-dark',
       icon: Minus,
-      iconColor: 'text-slate-400',
-      titleColor: 'text-slate-700'
+      iconColor: 'text-text-tertiary-light dark:text-text-secondary-dark',
+      titleColor: 'text-text-secondary-light dark:text-text-secondary-dark'
     }
   }
 
@@ -52,7 +52,7 @@ export function SummaryBlock({ type = 'neutral', title, children }: SummaryBlock
         )}
       </div>
       
-      <div className="text-slate-700 dark:text-slate-300 leading-relaxed text-sm">
+      <div className="text-text-secondary-light dark:text-text-secondary-dark leading-relaxed text-sm">
         {children}
       </div>
     </div>

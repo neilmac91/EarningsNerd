@@ -154,8 +154,8 @@ function SourceTraceInner({
 
   const Icon = isVerified ? CheckCircle2 : ExternalLink
   const chipClass = isVerified
-    ? 'text-mint-600 dark:text-mint-400 hover:bg-mint-500/10'
-    : 'text-text-tertiary-light dark:text-text-tertiary-dark hover:bg-slate-500/10'
+    ? 'text-brand-strong dark:text-brand-strong-dark hover:bg-brand-weak dark:hover:bg-white/5'
+    : 'text-text-tertiary-light dark:text-text-secondary-dark hover:bg-border-light/40 dark:hover:bg-white/5'
 
   const handleTrigger = () => {
     // Toggle the panel on click. On fine pointers WITH a URL the trigger is an <a> (no onClick), so a
@@ -165,12 +165,12 @@ function SourceTraceInner({
   }
 
   const statusLine = isVerified ? (
-    <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-mint-600 dark:text-mint-300">
+    <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-brand-strong dark:text-brand-strong-dark">
       <CheckCircle2 className="h-3 w-3 shrink-0" />
       {note || 'Verified against the original SEC filing'}
     </span>
   ) : (
-    <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-tertiary-light dark:text-slate-400">
+    <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-tertiary-light dark:text-text-secondary-dark">
       <ExternalLink className="h-3 w-3 shrink-0" />
       {note || 'Cited — open the section to confirm'}
     </span>
@@ -179,7 +179,7 @@ function SourceTraceInner({
   const panelBody = (
     <>
       {header && (
-        <span className="block text-[11px] font-semibold uppercase tracking-wide text-text-tertiary-light dark:text-slate-400 break-words">
+        <span className="block text-[11px] font-semibold uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark break-words">
           {header}
         </span>
       )}
@@ -189,7 +189,7 @@ function SourceTraceInner({
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-tertiary-light transition-colors hover:text-mint-600 dark:text-slate-400 dark:hover:text-mint-300"
+          className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-tertiary-light transition-colors hover:text-brand-strong dark:text-text-secondary-dark dark:hover:text-brand-strong-dark"
         >
           <ExternalLink className="h-3 w-3 shrink-0" />
           Open in SEC EDGAR
@@ -204,7 +204,7 @@ function SourceTraceInner({
   const triggerCommon = {
     ref: triggerRef as React.RefObject<HTMLButtonElement> & React.RefObject<HTMLAnchorElement>,
     'aria-label': `Source: ${chipLabel}`,
-    className: `inline-flex items-center gap-1 rounded px-1 py-0.5 text-[11px] font-medium leading-none align-baseline transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-mint-400 ${chipClass}`,
+    className: `inline-flex items-center gap-1 rounded px-1 py-0.5 text-[11px] font-medium leading-none align-baseline transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-light ${chipClass}`,
     onMouseEnter: isCoarse ? undefined : openPanel,
     onMouseLeave: isCoarse ? undefined : scheduleClose,
     onFocus: isCoarse ? undefined : openPanel,
@@ -248,14 +248,14 @@ function SourceTraceInner({
           />
           <div
             id={panelId}
-            className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-border-light bg-background-light p-4 pb-6 shadow-2xl dark:border-slate-700 dark:bg-slate-800"
+            className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-border-light bg-background-light p-4 pb-6 shadow-2xl dark:border-border-dark dark:bg-panel-dark"
           >
-            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-300 dark:bg-slate-600" />
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border-light dark:bg-border-dark" />
             <button
               type="button"
               onClick={closePanel}
               aria-label="Close source detail"
-              className="absolute right-3 top-3 rounded p-1 text-text-tertiary-light hover:bg-slate-500/10 dark:text-slate-400"
+              className="absolute right-3 top-3 rounded p-1 text-text-tertiary-light hover:bg-border-light/40 dark:text-text-secondary-dark dark:hover:bg-white/5"
             >
               <X className="h-4 w-4" />
             </button>
@@ -273,7 +273,7 @@ function SourceTraceInner({
           onMouseEnter={clearCloseTimer}
           onMouseLeave={scheduleClose}
           style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, transform: 'translateX(-50%)' }}
-          className="z-[60] block w-72 rounded-lg border border-border-light bg-background-light p-3 text-left shadow-xl dark:border-slate-700 dark:bg-slate-800"
+          className="z-[60] block w-72 rounded-lg border border-border-light bg-background-light p-3 text-left shadow-xl dark:border-border-dark dark:bg-panel-dark"
         >
           {panelBody}
         </span>,
