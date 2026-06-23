@@ -108,15 +108,15 @@ async def get_subscription_status(
 @router.post("/create-checkout-session")
 async def create_checkout_session(
     price_id: str,
-    apply_beta_promo: bool = False,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Create Stripe Checkout session for subscription.
 
-    ``apply_beta_promo`` (closed-beta magic-link path) pre-applies the configured 100%-off
-    promotion code so the amount due is $0; combined with ``payment_method_collection="if_required"``
-    no card is collected. It is ignored when ``STRIPE_BETA_PROMO_CODE_ID`` is unset.
+    Sets ``payment_method_collection="if_required"`` so the future 100%-off beta path collects no
+    card when the amount due is $0. Applying that promo is deliberately NOT exposed here: it is done
+    server-side in the Week 2 invite flow and gated on the user's beta eligibility, so a client can
+    never self-grant the discount by flipping a request parameter.
     """
     if not current_user.email_verified:
         raise HTTPException(
@@ -159,8 +159,8 @@ async def create_checkout_session(
                 "quantity": 1,
             }],
             "mode": "subscription",
-            # Skip card collection when the amount due is $0 (the 100%-off beta path). Stripe still
-            # requires a card for any non-zero subscription, so paying customers are unaffected.
+            # Skip card collection when the amount due is $0 (the future 100%-off beta path). Stripe
+            # still requires a card for any non-zero subscription, so paying customers are unaffected.
             "payment_method_collection": "if_required",
             "success_url": f"{frontend_url}/dashboard?success=true",
             "cancel_url": f"{frontend_url}/pricing?canceled=true",
@@ -171,14 +171,9 @@ async def create_checkout_session(
                 "billing_cycle": billing_cycle,
             },
         }
-        # Apply the promo conditionally — Stripe rejects a session that sets BOTH
-        # `allow_promotion_codes` and `discounts` (400 "you cannot specify both ..."). The magic-link
-        # path pre-applies the beta promotion code; everyone else may enter a code manually.
-        beta_promo_id = settings.STRIPE_BETA_PROMO_CODE_ID
-        if apply_beta_promo and beta_promo_id:
-            session_kwargs["discounts"] = [{"promotion_code": beta_promo_id}]
-        else:
-            session_kwargs["allow_promotion_codes"] = True
+        # The 100%-off beta promo (discounts=[{"promotion_code": STRIPE_BETA_PROMO_CODE_ID}]) is
+        # applied in the Week 2 invite flow, gated on the user's beta eligibility server-side — never
+        # from a client parameter — so no authenticated user can self-grant free Pro here.
 
         checkout_session = stripe.checkout.Session.create(**session_kwargs)
 

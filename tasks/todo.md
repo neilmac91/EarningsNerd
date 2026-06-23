@@ -122,14 +122,15 @@ relevant model/migration files (backend).
 #### Week 1 — Stripe 100%-off scaffolding (test mode) — code complete
 - [ ] Create Stripe **test-mode** Coupon (`percent_off=100, duration=forever`) + Promotion Code; record ids.
       *(manual Stripe Dashboard step — then set `STRIPE_BETA_PROMO_CODE_ID` to the promo id.)*
-- [x] Add config `STRIPE_BETA_PROMO_CODE_ID`. *(`REGISTRATION_MODE` / `INVITE_EXPIRY_HOURS` /
-      `FEEDBACK_ENABLED` intentionally deferred to the weeks that consume them — W2 / W5 — to avoid dead config.)*
-- [x] `subscriptions.py`: `payment_method_collection="if_required"` + promo applied **conditionally**
-      — `discounts=[{"promotion_code": id}]` on the magic-link path (`apply_beta_promo=true`) **else**
-      `allow_promotion_codes=True` (never both; Stripe 400s if so).
+- [x] Add config `STRIPE_BETA_PROMO_CODE_ID` + a Pydantic validator (must be a `promo_…` Promotion
+      Code id, not a `co_…` coupon id). *(`REGISTRATION_MODE` / `INVITE_EXPIRY_HOURS` / `FEEDBACK_ENABLED`
+      deferred to W2 / W5 to avoid dead config.)*
+- [x] `subscriptions.py`: add `payment_method_collection="if_required"` (no-card lever; no change for
+      paid checkouts). **Promo application deferred to Week 2**, gated on the user's invite/beta
+      eligibility server-side — never a client param (closes a self-grant hole flagged in review).
 - [x] Confirm $0 `active` sub → Pro via `entitlements` (status-only, no amount floor) — covered by test.
-- [x] Unit tests: `tests/unit/test_checkout_session.py` asserts `if_required`, the conditional-promo
-      branches, and the $0→Pro entitlement invariant.
+- [x] Unit tests: `tests/unit/test_checkout_session.py` asserts `if_required`, that no promo params
+      are applied yet, the $0→Pro entitlement invariant, and the `promo_…` id validator.
 - *Owner:* backend-developer. *Verify:* run the **local promo verification checklist** (below).
 
 #### Week 2 — Invite gate (server-side) + magic-link issuance
@@ -138,6 +139,9 @@ relevant model/migration files (backend).
       unused invite token (bound email optional); preserve the existing opaque-response anti-enumeration.
 - [ ] `send_invite_email()` (Resend) + hashed-JWT invite token (mirror email-verify pattern).
 - [ ] Admin endpoints: `POST /api/admin/invites` (mint, returns magic link), `GET`/`revoke`.
+- [ ] Apply the 100%-off promo at checkout (`discounts=[{"promotion_code": STRIPE_BETA_PROMO_CODE_ID}]`),
+      gated on the user's invite/beta eligibility **server-side** (never a client param); pairs with the
+      W1 `if_required` lever → $0, no card. Mutually exclusive with `allow_promotion_codes`.
 - [ ] Unit + integration tests: gate blocks public, accepts valid invite, rejects expired/used.
 - *Owner:* database-specialist + backend-developer. *Support:* api-architect, security-auditor (review).
 

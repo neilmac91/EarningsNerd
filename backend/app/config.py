@@ -123,6 +123,23 @@ class Settings(BaseSettings):
             raise ValueError("SECRET_KEY must be set.")
         return v
 
+    @field_validator('STRIPE_BETA_PROMO_CODE_ID', mode='before')
+    @classmethod
+    def _check_beta_promo_id(cls, v):
+        """Fail fast on the easy misconfiguration of pasting a Coupon id ('co_…') or the
+        human-readable promotion *code* in place of the Promotion Code *id* ('promo_…'). Stripe's
+        checkout ``discounts`` param requires the ``promo_`` id and 400s otherwise. Empty disables
+        the beta promo (the default)."""
+        if isinstance(v, str):
+            v = v.strip()
+            if v and not v.startswith("promo_"):
+                raise ValueError(
+                    "STRIPE_BETA_PROMO_CODE_ID must be a Stripe Promotion Code id starting with "
+                    "'promo_' (not a coupon id 'co_…' nor the human-readable code). Leave it empty "
+                    "to disable the beta promo."
+                )
+        return v
+
     @field_validator('RESEND_FROM_EMAIL', mode='before')
     @classmethod
     def _normalize_from_email(cls, v):

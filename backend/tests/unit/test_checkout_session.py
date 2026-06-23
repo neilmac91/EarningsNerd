@@ -1,27 +1,29 @@
 """
 Unit tests for POST /api/subscriptions/create-checkout-session (closed-beta, roadmap Week 1).
 
-Two guarantees underpin the no-credit-card beta flow:
-- ``payment_method_collection="if_required"`` is ALWAYS set, so a promo that zeroes the amount
-  due collects no card (a paying customer with a non-zero total still gets a card field).
-- The promo is applied CONDITIONALLY. Stripe rejects a session that sets both
-  ``allow_promotion_codes`` and ``discounts`` ("you cannot specify both ..."). The magic-link path
-  (``apply_beta_promo=true`` + a configured promo) pre-applies ``discounts``; otherwise
-  ``allow_promotion_codes`` lets the customer enter a code manually.
+Week 1 ships only the no-card *lever*:
+- ``payment_method_collection="if_required"`` is always set, so when the Week 2 invite flow applies
+  a 100%-off promo and the amount due is $0, Checkout collects no card. A paying customer with a
+  non-zero total still gets a card field.
+- The promo itself is NOT applied here. Doing so from a client parameter would let any authenticated
+  user self-grant free Pro; it is deferred to the Week 2 invite flow where it is gated on the user's
+  beta eligibility server-side. So the session must carry NEITHER ``discounts`` nor
+  ``allow_promotion_codes`` yet.
 
 The endpoint is mocked at the Stripe boundary; we assert on the kwargs passed to
-``stripe.checkout.Session.create`` — no network, no DB (the test user already has a Stripe
-customer id, so the Customer.create + db.commit branch is skipped).
+``stripe.checkout.Session.create`` — no network, no DB (the test user already has a Stripe customer
+id, so the Customer.create + db.commit branch is skipped).
 """
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+from pydantic import ValidationError
 from fastapi.testclient import TestClient
 
 from main import app
-from app.config import settings
+from app.config import Settings, settings
 from app.database import get_db
 from app.routers.auth import get_current_user
 from app.services.entitlements import Plan, get_entitlements, is_pro_user
@@ -67,40 +69,29 @@ def _create_and_capture(client, **params):
     return create.call_args.kwargs
 
 
-def test_payment_method_collection_is_if_required(client, monkeypatch):
-    """The no-card lever is set on every session, regardless of path."""
-    monkeypatch.setattr(settings, "STRIPE_BETA_PROMO_CODE_ID", "promo_beta_123")
+def test_payment_method_collection_is_if_required(client):
+    """The no-card lever is set on every subscription session."""
     kwargs = _create_and_capture(client, price_id="price_monthly_test")
     assert kwargs["payment_method_collection"] == "if_required"
     assert kwargs["mode"] == "subscription"
 
 
-def test_manual_path_allows_promotion_codes(client, monkeypatch):
-    """Default checkout lets the customer enter a code; never both parameters together."""
-    monkeypatch.setattr(settings, "STRIPE_BETA_PROMO_CODE_ID", "promo_beta_123")
+def test_no_promo_is_applied_in_week1(client):
+    """Promo application is deferred to the Week 2 eligibility-gated path, so neither promo param is
+    present yet — there is no way for a client to trigger the discount."""
     kwargs = _create_and_capture(client, price_id="price_monthly_test")
-    assert kwargs.get("allow_promotion_codes") is True
     assert "discounts" not in kwargs
+    assert "allow_promotion_codes" not in kwargs
 
 
-def test_magic_link_path_preapplies_discount(client, monkeypatch):
-    """apply_beta_promo pre-applies the configured promo and never sets allow_promotion_codes."""
-    monkeypatch.setattr(settings, "STRIPE_BETA_PROMO_CODE_ID", "promo_beta_123")
+def test_apply_beta_promo_param_is_not_honored(client):
+    """A stray ``apply_beta_promo=true`` (the removed param) must NOT apply any discount — it is an
+    unknown query param now and is ignored, leaving the session promo-free."""
     kwargs = _create_and_capture(
         client, price_id="price_monthly_test", apply_beta_promo=True
     )
-    assert kwargs["discounts"] == [{"promotion_code": "promo_beta_123"}]
-    assert "allow_promotion_codes" not in kwargs  # Stripe 400s if both are present
-
-
-def test_magic_link_without_configured_promo_falls_back_to_manual(client, monkeypatch):
-    """Requesting the promo with none configured degrades safely to manual entry."""
-    monkeypatch.setattr(settings, "STRIPE_BETA_PROMO_CODE_ID", "")
-    kwargs = _create_and_capture(
-        client, price_id="price_monthly_test", apply_beta_promo=True
-    )
-    assert kwargs.get("allow_promotion_codes") is True
     assert "discounts" not in kwargs
+    assert "allow_promotion_codes" not in kwargs
 
 
 def test_zero_dollar_active_subscription_resolves_to_pro():
@@ -115,3 +106,15 @@ def test_zero_dollar_active_subscription_resolves_to_pro():
     assert ent.monthly_summary_limit is None  # unlimited summaries
     assert ent.copilot is True
     assert is_pro_user(user) is True
+
+
+def test_beta_promo_id_rejects_coupon_id():
+    """A coupon id ('co_…') or raw code is the common misconfig — reject it at config load."""
+    with pytest.raises(ValidationError):
+        Settings(STRIPE_BETA_PROMO_CODE_ID="co_123abc")
+
+
+def test_beta_promo_id_accepts_promo_id_and_empty():
+    """A 'promo_…' Promotion Code id is valid; empty (feature off) is valid."""
+    assert Settings(STRIPE_BETA_PROMO_CODE_ID="promo_123").STRIPE_BETA_PROMO_CODE_ID == "promo_123"
+    assert Settings(STRIPE_BETA_PROMO_CODE_ID="").STRIPE_BETA_PROMO_CODE_ID == ""
