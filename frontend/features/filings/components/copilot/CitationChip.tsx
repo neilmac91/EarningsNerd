@@ -152,10 +152,10 @@ export default function CitationChip({ citation }: CitationChipProps) {
             style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, transform: 'translateX(-50%)' }}
             className="z-[60] block w-64 rounded-lg border border-white/10 bg-slate-900 p-3 text-left shadow-xl"
           >
-            <span className="block text-[11px] font-semibold uppercase tracking-wide text-slate-400 break-words">
+            <span className="block text-[11px] font-semibold uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark break-words">
               {header}
             </span>
-            <span className="mt-1.5 block max-h-40 overflow-y-auto border-l-2 border-mint-500/50 pl-2 text-xs italic text-slate-200 break-words">
+            <span className="mt-1.5 block max-h-40 overflow-y-auto border-l-2 border-mint-500/50 pl-2 text-xs italic text-text-secondary-light dark:text-text-secondary-dark break-words">
               {excerpt}
             </span>
             {verified ? (
@@ -164,7 +164,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
                 Verified in filing
               </span>
             ) : (
-              <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-slate-400">
+              <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-tertiary-light dark:text-text-secondary-dark">
                 <ExternalLink className="h-3 w-3 shrink-0" />
                 Cited
               </span>
@@ -174,7 +174,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
                 href={fragment_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 flex items-center gap-1 text-[11px] font-medium text-slate-400 transition-colors hover:text-mint-300"
+                className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-tertiary-light dark:text-text-secondary-dark transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark"
               >
                 <ExternalLink className="h-3 w-3 shrink-0" />
                 Open original

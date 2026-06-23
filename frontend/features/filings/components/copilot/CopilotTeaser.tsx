@@ -51,31 +51,31 @@ export default function CopilotTeaser({
       <div className="relative overflow-hidden rounded-xl border border-white/10 bg-slate-800/40 p-3">
         <div aria-hidden="true" className="pointer-events-none select-none space-y-2 blur-[3px]">
           <div className="flex justify-end">
-            <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-mint-500/15 px-3 py-1.5 text-xs text-slate-100">
+            <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-brand-weak dark:bg-white/5 px-3 py-1.5 text-xs text-text-primary-light dark:text-text-primary-dark">
               How did revenue and margins trend?
             </div>
           </div>
-          <div className="rounded-2xl rounded-bl-sm border border-white/10 bg-slate-800/60 px-3 py-2 text-xs text-slate-200">
+          <div className="rounded-2xl rounded-bl-sm border border-white/10 bg-slate-800/60 px-3 py-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
             Revenue rose 8% to $94.0B [1], with gross margin expanding to 46.2% [F1] on a richer
             product mix [2].
-            <div className="mt-2 flex items-center gap-1.5 text-[10px] text-slate-500">
-              <CheckCircle2 className="h-3 w-3 text-mint-500/70" /> Grounded in 3 excerpts
+            <div className="mt-2 flex items-center gap-1.5 text-[10px] text-text-tertiary-light dark:text-text-secondary-dark">
+              <CheckCircle2 className="h-3 w-3 text-brand-strong/70 dark:text-brand-strong-dark/70" /> Grounded in 3 excerpts
             </div>
           </div>
         </div>
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/80 ring-1 ring-mint-500/30">
-            <Lock className="h-4 w-4 text-mint-300" />
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-900/80 ring-1 ring-brand-light/30">
+            <Lock className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
           </span>
         </div>
       </div>
 
       {/* Value props */}
-      <p className="mt-4 text-sm font-semibold text-white">{heading}</p>
+      <p className="mt-4 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{heading}</p>
       <ul className="mt-2 space-y-1.5">
         {VALUE_PROPS.map((prop) => (
-          <li key={prop} className="flex items-start gap-2 text-xs text-slate-300">
-            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-mint-400" aria-hidden="true" />
+          <li key={prop} className="flex items-start gap-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
             {prop}
           </li>
         ))}
@@ -85,15 +85,15 @@ export default function CopilotTeaser({
       <button
         type="button"
         onClick={onUpgrade}
-        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-mint-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-mint-400"
+        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2.5 text-sm font-semibold transition-colors"
       >
         <Sparkles className="h-4 w-4" />
         Upgrade to Pro
       </button>
       {!isAuthenticated && (
-        <p className="mt-3 text-center text-xs text-slate-500">
+        <p className="mt-3 text-center text-xs text-text-tertiary-light dark:text-text-secondary-dark">
           Already Pro?{' '}
-          <Link href="/login" className="text-mint-300 hover:underline">
+          <Link href="/login" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
             Sign in
           </Link>
         </p>
