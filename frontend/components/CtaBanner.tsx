@@ -7,7 +7,7 @@ import { exampleFilingHref } from '@/lib/featureFlags'
 function CtaBanner() {
   return (
     <section className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-      <div className="overflow-hidden rounded-3xl border border-border-light bg-brand-weak p-10 dark:border-white/10 dark:bg-panel-dark sm:p-14">
+      <div className="overflow-hidden rounded-3xl border border-border-light bg-panel-light shadow-e3 p-10 dark:border-white/10 dark:bg-panel-dark sm:p-14">
         <div className="text-center">
           <h2 className="text-3xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-4xl">
             Ready to decode your next filing?

@@ -16,7 +16,7 @@ export default function TrendingCompanies() {
 
   if (isLoading) {
     return (
-      <div className="rounded-2xl bg-brand-weak dark:bg-white/5 p-8 text-center border border-border-light dark:border-white/10">
+      <div className="rounded-2xl bg-panel-light dark:bg-white/5 shadow-e1 dark:shadow-none p-8 text-center border border-border-light dark:border-white/10">
         <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm">Loading trending companies...</p>
       </div>
     )
@@ -55,7 +55,7 @@ export default function TrendingCompanies() {
             <Link
               key={company.id}
               href={`/company/${company.ticker}`}
-              className="group block p-5 rounded-2xl bg-panel-light dark:bg-white/5 hover:bg-gradient-to-br hover:from-panel-light hover:to-background-light dark:hover:from-white/10 dark:hover:to-white/5 transition-all duration-300 border border-border-light dark:border-white/10 hover:border-border-light dark:hover:border-white/20 hover:shadow-lg hover:shadow-gray-900/5 dark:hover:shadow-black/20"
+              className="group block p-5 rounded-2xl bg-panel-light dark:bg-white/5 shadow-e1 dark:shadow-none hover:bg-gradient-to-br hover:from-panel-light hover:to-background-light dark:hover:from-white/10 dark:hover:to-white/5 transition-all duration-300 border border-border-light dark:border-white/10 hover:border-border-light dark:hover:border-white/20 hover:shadow-lg hover:shadow-gray-900/5 dark:hover:shadow-black/20"
             >
               <div className="flex items-center justify-between">
                 <div>
@@ -83,7 +83,7 @@ export default function TrendingCompanies() {
           ))}
         </div>
       ) : (
-        <div className="rounded-2xl bg-brand-weak dark:bg-white/5 p-8 text-center border border-border-light dark:border-white/10">
+        <div className="rounded-2xl bg-panel-light dark:bg-white/5 shadow-e1 dark:shadow-none p-8 text-center border border-border-light dark:border-white/10">
           <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm">Trending companies will load once the API responds.</p>
         </div>
       )}

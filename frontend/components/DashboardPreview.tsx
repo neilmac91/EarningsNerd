@@ -19,7 +19,7 @@ const FAKE_DATA = {
 
 function ChartPlaceholder() {
   return (
-    <div className="h-60 rounded-lg border border-border-light bg-panel-light p-4 dark:border-border-dark dark:bg-panel-dark">
+    <div className="h-60 rounded-lg border border-border-light bg-panel-light shadow-e1 dark:shadow-none p-4 dark:border-border-dark dark:bg-panel-dark">
       <div className="h-full w-full rounded-md bg-background-light dark:bg-background-dark flex items-center justify-center">
         <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">[ Chart Placeholder ]</p>
       </div>

@@ -102,7 +102,7 @@ function TrendingTickerCard({
     <Link
       href={`/company/${ticker.symbol}`}
       onClick={handleClick}
-      className="flex min-w-[240px] flex-col gap-2 rounded-2xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 p-4 shadow-lg transition-all duration-200 hover:-translate-y-1 hover:bg-brand-strong/10 dark:hover:bg-white/10 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-slate-900"
+      className="flex min-w-[240px] flex-col gap-2 rounded-2xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 p-4 shadow-e2 dark:shadow-none transition-all duration-200 hover:-translate-y-1 hover:bg-white dark:hover:bg-white/10 hover:shadow-e2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-slate-900"
     >
       {/* Header: Symbol + Price */}
       <div className="flex items-start justify-between gap-2">
@@ -212,7 +212,7 @@ export default function TrendingTickers({
           {Array.from({ length: 5 }).map((_, index) => (
             <div
               key={index}
-              className="flex min-w-[240px] flex-col gap-3 rounded-2xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 p-4"
+              className="flex min-w-[240px] flex-col gap-3 rounded-2xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 p-4 shadow-e2 dark:shadow-none"
             >
               <div className="flex justify-between">
                 <div className="space-y-2">
@@ -249,7 +249,7 @@ export default function TrendingTickers({
     )
   }
 
-  let infoTone = 'border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark'
+  let infoTone = 'border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 shadow-e1 dark:shadow-none text-text-secondary-light dark:text-text-secondary-dark'
   if (data?.status === 'stale') {
     infoTone = 'border-warning-light/40 dark:border-warning-dark/40 bg-warning-light/10 dark:bg-warning-dark/10 text-warning-light dark:text-warning-dark'
   } else if (data?.status === 'unavailable') {
@@ -279,7 +279,7 @@ export default function TrendingTickers({
           )}
           <button
             onClick={() => refetch()}
-            className="inline-flex items-center gap-2 rounded-full border border-border-light dark:border-white/20 bg-brand-weak dark:bg-white/5 px-3 py-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition hover:border-brand-strong/40 dark:hover:border-white/40 hover:bg-brand-strong/10 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-slate-900"
+            className="inline-flex items-center gap-2 rounded-full border border-border-light dark:border-white/20 bg-panel-light dark:bg-white/5 px-3 py-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark shadow-e1 dark:shadow-none transition hover:border-brand-strong/40 dark:hover:border-white/40 hover:bg-white dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-slate-900"
             disabled={isFetching}
             type="button"
           >
@@ -330,7 +330,7 @@ export default function TrendingTickers({
           </div>
         </>
       ) : (
-        <div className="rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 p-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+        <div className="rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 p-4 text-sm text-text-secondary-light dark:text-text-secondary-dark shadow-e1 dark:shadow-none">
           {emptyStateMessage}
         </div>
       )}

@@ -192,9 +192,13 @@ html[data-font='lora']  { --font-active: var(--font-lora); }
 
 /* Glass card effect — theme-aware (translucent white in light, dark glass in dark). */
 .glass-card {
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(16, 24, 40, 0.08);
+  border: 1px solid rgba(16, 24, 40, 0.12);
+  /* Resting soft elevation (= shadow-e2) so the card lifts off the warm cream bg
+     instead of relying on a near-equal-luminance tint. */
+  box-shadow: 0 1px 3px 0 rgba(16, 24, 40, 0.10),
+              0 1px 2px -1px rgba(16, 24, 40, 0.10);
 }
 .glass-card:hover {
   border-color: rgba(60, 102, 80, 0.30);
@@ -203,6 +207,7 @@ html[data-font='lora']  { --font-active: var(--font-lora); }
 .dark .glass-card {
   background: rgba(15, 23, 42, 0.6);
   border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: none; /* dark separates via fill contrast; keep no resting shadow */
 }
 .dark .glass-card:hover {
   border-color: rgba(146, 160, 226, 0.25);

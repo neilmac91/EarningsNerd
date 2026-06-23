@@ -49,7 +49,7 @@ function MetricCell({ metric, isFallback }: { metric: ExampleMetric; isFallback:
   const delta = formatDelta(metric.deltaPercent)
   return (
     <div
-      className="rounded-lg border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 p-3"
+      className="rounded-lg border border-border-light dark:border-white/10 bg-white dark:bg-white/5 p-3"
       title={isFallback ? FALLBACK_CONCEPTS[metric.label] : 'Reported in the filing’s XBRL data'}
     >
       <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{metric.label}</div>
@@ -94,7 +94,7 @@ function HeroExample({ example }: { example: ExampleData | null }) {
             <span className="h-3 w-3 rounded-full bg-green-500/70" />
           </div>
           <div className="mx-auto flex-1 max-w-xs">
-            <div className="rounded-md bg-brand-weak dark:bg-white/5 px-3 py-1 text-center font-mono text-xs text-text-secondary-light dark:text-text-secondary-dark">
+            <div className="rounded-md border border-border-light dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1 text-center font-mono text-xs text-text-secondary-light dark:text-text-secondary-dark">
               earningsnerd.io — example summary
             </div>
           </div>
@@ -110,7 +110,7 @@ function HeroExample({ example }: { example: ExampleData | null }) {
                 aria-hidden="true"
               />
               <span className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{data.companyName}</span>
-              <span className="flex-shrink-0 rounded-full bg-brand-weak dark:bg-white/10 px-2 py-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+              <span className="flex-shrink-0 rounded-full border border-border-light dark:border-white/10 bg-white dark:bg-white/10 px-2 py-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                 {data.filingType}
               </span>
               {data.qualityTier === 'full' && (
@@ -132,7 +132,7 @@ function HeroExample({ example }: { example: ExampleData | null }) {
           </div>
 
           {/* Executive snapshot — real summary text */}
-          <div className="rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 p-4">
+          <div className="rounded-xl border border-border-light dark:border-white/10 bg-white dark:bg-white/5 p-4">
             <div className="mb-2 flex items-center gap-2">
               <div className="h-1.5 w-1.5 rounded-full bg-brand-strong dark:bg-brand-dark" aria-hidden="true" />
               <span className="text-xs font-semibold uppercase tracking-wider text-brand-strong dark:text-brand-strong-dark">

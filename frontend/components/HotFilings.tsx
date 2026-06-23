@@ -82,7 +82,7 @@ export default function HotFilings({
         {skeletonCards.map((_, index) => (
           <div
             key={index}
-            className="flex animate-pulse items-center justify-between rounded-lg border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 px-4 py-4"
+            className="flex animate-pulse items-center justify-between rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 shadow-e1 dark:shadow-none px-4 py-4"
           >
             <div className="flex flex-col space-y-2">
               <div className="h-4 w-40 rounded bg-brand-weak dark:bg-white/10" />
@@ -115,7 +115,7 @@ export default function HotFilings({
 
   if (!data.filings || data.filings.length === 0) {
     return (
-      <p className="rounded-lg border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 p-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+      <p className="rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 shadow-e1 dark:shadow-none p-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
         No major filings in the last 24 hours.
       </p>
     )
@@ -161,7 +161,7 @@ export default function HotFilings({
                           'inline-flex items-center gap-1 rounded-full border px-2 py-0.5',
                           source === 'earnings_calendar'
                             ? 'border-warning-light/30 dark:border-warning-dark/30 bg-warning-light/10 dark:bg-warning-dark/10 text-warning-light dark:text-warning-dark'
-                            : 'border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5'
+                            : 'border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5'
                         )}
                       >
                         {source === 'earnings_calendar' && <Calendar className="h-3 w-3" />}
