@@ -31,18 +31,18 @@ function Toggle({
     <div className="flex items-start justify-between gap-4 py-3">
       <div className="flex-1">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-slate-900 dark:text-white">{label}</span>
+          <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">{label}</span>
           {locked && (
             <Link
               href="/pricing"
-              className="inline-flex items-center gap-1 rounded-full bg-mint-100 px-2 py-0.5 text-[11px] font-semibold text-mint-800 dark:bg-mint-900/30 dark:text-mint-300"
+              className="inline-flex items-center gap-1 rounded-full bg-brand-strong px-2 py-0.5 text-[11px] font-semibold text-white dark:bg-brand-dark dark:text-background-dark"
             >
               <Lock className="h-3 w-3" />
               Pro
             </Link>
           )}
         </div>
-        <p className="text-sm text-slate-500 dark:text-slate-400">{description}</p>
+        <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">{description}</p>
       </div>
       <button
         type="button"
@@ -52,7 +52,7 @@ function Toggle({
         disabled={disabled}
         onClick={() => onChange(!checked)}
         className={`relative mt-1 inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-          checked ? 'bg-mint-500' : 'bg-slate-300 dark:bg-slate-600'
+          checked ? 'bg-brand-strong dark:bg-brand-dark' : 'bg-border-light dark:bg-border-dark'
         }`}
       >
         <span
@@ -86,24 +86,24 @@ export default function NotificationPreferencesForm() {
   const setBool = (field: BoolPref) => (next: boolean) => save({ [field]: next })
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-6">
+    <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">
       <div className="flex items-center justify-between mb-2">
-        <h2 className="flex items-center gap-2 text-xl font-semibold text-slate-900 dark:text-white">
-          <Bell className="h-5 w-5 text-mint-600 dark:text-mint-400" />
+        <h2 className="flex items-center gap-2 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+          <Bell className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
           Filing Alerts
         </h2>
-        {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
+        {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin text-text-tertiary-light dark:text-text-tertiary-dark" />}
       </div>
-      <p className="text-slate-600 dark:text-slate-400 mb-4">
+      <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
         Get notified when companies on your watchlist file with the SEC.
       </p>
 
       {isLoading ? (
         <div className="flex justify-center py-6">
-          <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
+          <Loader2 className="h-6 w-6 animate-spin text-text-tertiary-light dark:text-text-tertiary-dark" />
         </div>
       ) : isError || !prefs ? (
-        <p className="text-sm text-red-600 dark:text-red-400">
+        <p className="text-sm text-error-light dark:text-error-dark">
           Couldn&apos;t load your alert preferences. Please refresh.
         </p>
       ) : (
@@ -111,7 +111,7 @@ export default function NotificationPreferencesForm() {
       )}
 
       {mutation.isError && (
-        <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+        <p className="mt-3 text-sm text-error-light dark:text-error-dark">
           Couldn&apos;t save that change. Please try again.
         </p>
       )}
@@ -131,7 +131,7 @@ function PreferenceRows({
   disabled: boolean
 }) {
   return (
-    <div className="divide-y divide-slate-100 dark:divide-slate-700">
+    <div className="divide-y divide-border-light dark:divide-border-dark">
       <Toggle
         label="Annual reports (10-K)"
         description="Yearly comprehensive filings."
@@ -165,8 +165,8 @@ function PreferenceRows({
 
       <div className="flex items-center justify-between gap-4 py-3">
         <div className="flex-1">
-          <span className="text-sm font-medium text-slate-900 dark:text-white">Digest frequency</span>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
+          <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">Digest frequency</span>
+          <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
             How often to batch non-real-time alerts.
           </p>
         </div>
@@ -174,7 +174,7 @@ function PreferenceRows({
           value={prefs.digest}
           disabled={disabled}
           onChange={(e) => save({ digest: e.target.value })}
-          className="rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-3 py-1.5 text-sm text-slate-900 dark:text-white focus:ring-2 focus:ring-mint-500 focus:border-transparent disabled:opacity-50"
+          className="rounded-lg border border-border-light dark:border-border-dark bg-panel-light dark:bg-background-dark px-3 py-1.5 text-sm text-text-primary-light dark:text-text-primary-dark focus:ring-2 focus:ring-brand-light focus:border-transparent disabled:opacity-50"
         >
           <option value="immediate">Immediate</option>
           <option value="daily">Daily</option>

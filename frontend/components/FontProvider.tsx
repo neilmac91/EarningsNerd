@@ -47,8 +47,12 @@ export function FontProvider({ children }: { children: ReactNode }) {
   const [font, setFontState] = useState<FontId>(DEFAULT_FONT)
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (isFontId(stored)) setFontState(stored)
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (isFontId(stored)) setFontState(stored)
+    } catch {
+      /* private mode / storage disabled — keep the default font for this session */
+    }
   }, [])
 
   const setFont = useCallback((id: FontId) => {
