@@ -26,9 +26,9 @@ export function SummaryLiquidity({ liquidityContent, footnotesContent }: Summary
         </SummaryBlock>
       )}
       {footnotesContent && (
-         <div className="mt-4 border-t border-slate-200 dark:border-slate-800 pt-4">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-2 uppercase tracking-wide">Notable Footnotes</h3>
-          <div className="prose max-w-none prose-sm dark:prose-invert text-slate-600 dark:text-slate-300">
+         <div className="mt-4 border-t border-border-light dark:border-border-dark pt-4">
+          <h3 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark mb-2 uppercase tracking-wide">Notable Footnotes</h3>
+          <div className="prose max-w-none prose-sm dark:prose-invert text-text-secondary-light dark:text-text-secondary-dark">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
               {footnotesContent}
             </ReactMarkdown>

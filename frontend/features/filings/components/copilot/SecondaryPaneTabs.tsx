@@ -58,9 +58,9 @@ export default function SecondaryPaneTabs({
   }
 
   const tabBase =
-    'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-mint-400'
-  const activeTab = 'bg-slate-700/70 text-white'
-  const idleTab = 'text-slate-400 hover:text-slate-200'
+    'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-light'
+  const activeTab = 'bg-slate-700/70 text-text-primary-dark'
+  const idleTab = 'text-text-secondary-dark hover:text-text-secondary-dark'
 
   return (
     <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
@@ -106,7 +106,7 @@ export default function SecondaryPaneTabs({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-dark"
         >
           <X className="h-4 w-4" />
         </button>

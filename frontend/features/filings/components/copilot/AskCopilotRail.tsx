@@ -47,7 +47,7 @@ interface AskCopilotRailProps {
 // Open-panel container classes per layout variant. Mobile (bottom-sheet) is identical; they differ
 // only at lg+: overlay docks fixed on the right, pane fills the FilingWorkspace grid cell.
 const PANEL_BASE =
-  'fixed inset-x-0 bottom-0 z-40 flex max-h-[80vh] flex-col rounded-t-2xl border border-white/10 bg-slate-900 text-slate-100 shadow-2xl'
+  'fixed inset-x-0 bottom-0 z-40 flex max-h-[80vh] flex-col rounded-t-2xl border border-white/10 bg-slate-900 text-text-primary-dark shadow-2xl'
 const PANEL_VARIANT: Record<'overlay' | 'pane', string> = {
   overlay:
     'lg:inset-x-auto lg:bottom-0 lg:right-0 lg:top-16 lg:max-h-none lg:w-[420px] lg:rounded-none lg:border-y-0 lg:border-l',
@@ -368,11 +368,11 @@ export default function AskCopilotRail({
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
         {messages.length === 0 ? (
           <div>
-            <p className="text-sm text-slate-300">
+            <p className="text-sm text-text-secondary-dark">
               Ask anything about {subjectLabel}’s {filingType}. Answers are grounded in the filing and
               cite the excerpts they came from.
             </p>
-            <p className="mt-4 mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <p className="mt-4 mb-2 text-[11px] font-semibold uppercase tracking-wide text-text-secondary-dark">
               Try asking
             </p>
             <div className="flex flex-col gap-2">
@@ -381,7 +381,7 @@ export default function AskCopilotRail({
                   key={q}
                   type="button"
                   onClick={() => handleSubmit(q)}
-                  className="rounded-xl border border-white/10 bg-slate-800/40 px-3 py-2 text-left text-sm text-slate-200 transition-colors hover:border-mint-500/40 hover:bg-slate-800"
+                  className="rounded-xl border border-white/10 bg-slate-800/40 px-3 py-2 text-left text-sm text-text-secondary-dark transition-colors hover:border-brand-light/30 hover:bg-slate-800"
                 >
                   {q}
                 </button>
@@ -411,7 +411,7 @@ export default function AskCopilotRail({
 
       {/* Honest PRO usage — a calm count, not a hard sell. Shows the generous monthly allowance. */}
       {usage && (
-        <p className="px-4 pb-2 text-center text-[11px] text-slate-500">
+        <p className="px-4 pb-2 text-center text-[11px] text-text-secondary-dark">
           {Math.max(usage.qa_limit - usage.qa_used, 0).toLocaleString()} of{' '}
           {usage.qa_limit.toLocaleString()} questions left this month
         </p>
@@ -445,7 +445,7 @@ export default function AskCopilotRail({
         ref={launcherRef}
         type="button"
         onClick={() => onOpenChange(true)}
-        className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-mint-500 px-4 py-3 text-sm font-semibold text-slate-950 shadow-glow-mint transition-colors hover:bg-mint-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-300"
+        className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-brand-dark text-background-dark hover:bg-brand-strong-dark px-4 py-3 text-sm font-semibold shadow-glow-mint transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
         aria-label="Ask this Filing"
       >
         <Sparkles className="h-4 w-4" />
@@ -479,10 +479,10 @@ export default function AskCopilotRail({
         {/* Header */}
         <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2">
-            <Sparkles className="h-4 w-4 shrink-0 text-mint-400" />
-            <h2 className="truncate text-sm font-semibold text-white">Ask this Filing</h2>
-            <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-mint-500/10 px-2 py-0.5 text-[11px] font-medium text-mint-300 ring-1 ring-mint-500/20 sm:inline-flex">
-              <span className="h-1.5 w-1.5 rounded-full bg-mint-400" aria-hidden="true" />
+            <Sparkles className="h-4 w-4 shrink-0 text-brand-strong-dark" />
+            <h2 className="truncate text-sm font-semibold text-text-primary-dark">Ask this Filing</h2>
+            <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-white/5 px-2 py-0.5 text-[11px] font-medium text-brand-strong-dark ring-1 ring-brand-light/30 sm:inline-flex">
+              <span className="h-1.5 w-1.5 rounded-full bg-brand-strong dark:bg-brand-strong-dark" aria-hidden="true" />
               Scoped to this filing
             </span>
           </div>
@@ -490,7 +490,7 @@ export default function AskCopilotRail({
             type="button"
             onClick={() => onOpenChange(false)}
             aria-label="Close"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-white/5 hover:text-white"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-dark"
           >
             <X className="h-4 w-4" />
           </button>

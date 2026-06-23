@@ -12,7 +12,7 @@ export function SummaryMDA({ content }: SummaryMDAProps) {
   if (!content) return <EmptyState label="Management Discussion" />
 
   return (
-    <div className="prose max-w-none prose-slate dark:prose-invert text-slate-700 dark:text-slate-300">
+    <div className="prose max-w-none prose-slate dark:prose-invert text-text-secondary-light dark:text-text-secondary-dark">
       <ReactMarkdown remarkPlugins={[remarkGfm]}>
         {renderMarkdownValue(content)}
       </ReactMarkdown>

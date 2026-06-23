@@ -197,21 +197,21 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
               <SummaryExecutiveSnapshot content={overviewContent} />
             ) : (
               <div className="text-center py-8">
-                <p className="text-slate-500">
+                <p className="text-text-tertiary-light dark:text-text-secondary-dark">
                   Executive summary is being processed. Please retry for full analysis.
                 </p>
               </div>
             )}
             {/* Per execution plan: Executive Summary must note unavailable sections */}
             {unavailableSections.length > 0 && (
-              <div className="mt-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg border border-slate-200 dark:border-slate-700">
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400 mb-2">
+              <div className="mt-6 p-4 bg-background-light dark:bg-background-dark rounded-lg border border-border-light dark:border-border-dark">
+                <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
                   Not included in this filing:
                 </p>
-                <ul className="text-sm text-slate-500 dark:text-slate-500 space-y-1">
+                <ul className="text-sm text-text-tertiary-light dark:text-text-secondary-dark space-y-1">
                   {unavailableSections.map((section) => (
                     <li key={section} className="flex items-center space-x-2">
-                      <span className="w-1.5 h-1.5 bg-slate-400 rounded-full"></span>
+                      <span className="w-1.5 h-1.5 bg-text-tertiary-light dark:bg-text-tertiary-dark rounded-full"></span>
                       <span>{section} — not found in this filing</span>
                     </li>
                   ))}
@@ -274,10 +274,10 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
     const summaryContent = getSimplifiedSummaryContent()
 
     return (
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
-        <div className="border-b border-slate-200 dark:border-slate-700 px-6 py-4">
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-white flex items-center gap-2">
-            <FileText className="h-5 w-5 text-emerald-600" />
+      <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden">
+        <div className="border-b border-border-light dark:border-border-dark px-6 py-4">
+          <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark flex items-center gap-2">
+            <FileText className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
             Key Takeaways
           </h2>
         </div>
@@ -285,24 +285,24 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
           <div className="prose prose-slate dark:prose-invert prose-sm max-w-none">
             <ReactMarkdown
               components={{
-                h1: ({ children }) => <h1 className="text-xl font-bold text-slate-900 dark:text-white mt-6 mb-3">{children}</h1>,
-                h2: ({ children }) => <h2 className="text-lg font-semibold text-slate-800 dark:text-white mt-5 mb-2">{children}</h2>,
-                h3: ({ children }) => <h3 className="text-base font-medium text-slate-700 dark:text-slate-300 mt-4 mb-2">{children}</h3>,
-                p: ({ children }) => <p className="text-slate-600 dark:text-slate-300 mb-3 leading-relaxed">{children}</p>,
+                h1: ({ children }) => <h1 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark mt-6 mb-3">{children}</h1>,
+                h2: ({ children }) => <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mt-5 mb-2">{children}</h2>,
+                h3: ({ children }) => <h3 className="text-base font-medium text-text-secondary-light dark:text-text-secondary-dark mt-4 mb-2">{children}</h3>,
+                p: ({ children }) => <p className="text-text-secondary-light dark:text-text-secondary-dark mb-3 leading-relaxed">{children}</p>,
                 ul: ({ children }) => <ul className="list-disc pl-5 mb-3 space-y-1">{children}</ul>,
                 ol: ({ children }) => <ol className="list-decimal pl-5 mb-3 space-y-1">{children}</ol>,
-                li: ({ children }) => <li className="text-slate-600 dark:text-slate-300">{children}</li>,
-                strong: ({ children }) => <strong className="font-semibold text-slate-800 dark:text-white">{children}</strong>,
+                li: ({ children }) => <li className="text-text-secondary-light dark:text-text-secondary-dark">{children}</li>,
+                strong: ({ children }) => <strong className="font-semibold text-text-primary-light dark:text-text-primary-dark">{children}</strong>,
                 table: ({ children }) => (
                   <div className="overflow-x-auto my-4">
-                    <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700 border border-slate-200 dark:border-slate-700 rounded-lg">
+                    <table className="min-w-full divide-y divide-border-light dark:divide-border-dark border border-border-light dark:border-border-dark rounded-lg">
                       {children}
                     </table>
                   </div>
                 ),
-                thead: ({ children }) => <thead className="bg-slate-50 dark:bg-slate-800/50">{children}</thead>,
-                th: ({ children }) => <th className="px-4 py-2 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider">{children}</th>,
-                td: ({ children }) => <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-300 border-t border-slate-100 dark:border-slate-800">{children}</td>,
+                thead: ({ children }) => <thead className="bg-background-light dark:bg-background-dark">{children}</thead>,
+                th: ({ children }) => <th className="px-4 py-2 text-left text-xs font-medium text-text-tertiary-light dark:text-text-secondary-dark uppercase tracking-wider">{children}</th>,
+                td: ({ children }) => <td className="px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark border-t border-border-light dark:border-border-dark">{children}</td>,
               }}
             >
               {summaryContent}
@@ -315,9 +315,9 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
 
   // LEGACY TABBED VIEW: Original multi-section UI (when ENABLE_SECTION_TABS is true)
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden">
+    <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden">
       {/* Scrollable Tabs Container */}
-      <div className="border-b border-slate-200 dark:border-slate-700 overflow-x-auto">
+      <div className="border-b border-border-light dark:border-border-dark overflow-x-auto">
         <nav className="flex min-w-max px-2" aria-label="Tabs">
           {tabs.map((tab) => {
             const Icon = tab.icon
@@ -330,12 +330,12 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
                 className={`
                   group flex items-center space-x-2 px-4 py-4 text-sm font-medium border-b-2 transition-all duration-200 outline-none
                   ${isActive
-                    ? 'border-emerald-500 text-emerald-700 bg-emerald-50/50 dark:text-emerald-300 dark:bg-emerald-500/10'
-                    : 'border-transparent text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                    ? 'border-brand-light text-brand-strong bg-brand-weak dark:text-brand-strong-dark dark:bg-white/5'
+                    : 'border-transparent text-text-tertiary-light dark:text-text-secondary-dark hover:text-text-secondary-light dark:hover:text-text-secondary-dark hover:bg-background-light dark:hover:bg-white/5'
                   }
                 `}
               >
-                <Icon className={`h-4 w-4 ${isActive ? 'text-emerald-600' : 'text-slate-400'}`} />
+                <Icon className={`h-4 w-4 ${isActive ? 'text-brand-strong dark:text-brand-strong-dark' : 'text-text-tertiary-light dark:text-text-secondary-dark'}`} />
                 <span>{tab.label}</span>
               </button>
             )
