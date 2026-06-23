@@ -24,8 +24,8 @@ const STRENGTH_COLORS = [
   'bg-red-500',
   'bg-orange-500',
   'bg-yellow-500',
-  'bg-mint-400',
-  'bg-mint-500',
+  'bg-brand-strong',
+  'bg-brand-light',
 ]
 
 function scorePassword(pw: string): number {
@@ -76,13 +76,13 @@ export default function PasswordField({
           minLength={minLength}
           autoComplete={autoComplete}
           autoFocus={autoFocus}
-          className="w-full rounded-lg border border-border-light bg-background-light px-3 py-2 pr-10 text-text-primary-light placeholder:text-text-tertiary-light focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/50 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
+          className="w-full rounded-lg border border-border-light bg-background-light px-3 py-2 pr-10 text-text-primary-light placeholder:text-text-tertiary-light focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/50 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
         />
         <button
           type="button"
           onClick={() => setShow((s) => !s)}
           aria-label={show ? 'Hide password' : 'Show password'}
-          className="absolute inset-y-0 right-0 flex items-center pr-3 text-text-tertiary-light transition-colors hover:text-text-secondary-light dark:text-text-tertiary-dark dark:hover:text-text-secondary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+          className="absolute inset-y-0 right-0 flex items-center pr-3 text-text-tertiary-light transition-colors hover:text-text-secondary-light dark:text-text-tertiary-dark dark:hover:text-text-secondary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
         >
           {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>

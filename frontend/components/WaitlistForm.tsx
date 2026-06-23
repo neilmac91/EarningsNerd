@@ -138,8 +138,8 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
 
   if (success) {
     return (
-      <div className="rounded-2xl border border-mint-200/70 bg-white/80 p-6 shadow-lg backdrop-blur-sm transition-all duration-300 dark:border-mint-500/30 dark:bg-slate-900/60">
-        <div className="flex items-center gap-2 text-mint-600 dark:text-mint-300">
+      <div className="rounded-2xl border border-brand-light/40 bg-white/80 p-6 shadow-lg backdrop-blur-sm transition-all duration-300 dark:border-brand-dark/40 dark:bg-slate-900/60">
+        <div className="flex items-center gap-2 text-brand-strong dark:text-brand-strong-dark">
           <Check className="h-5 w-5" />
           <span className="text-sm font-semibold uppercase tracking-wide">You&apos;re in</span>
         </div>
@@ -161,7 +161,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
             <button
               type="button"
               onClick={handleCopy}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-mint-200 bg-white px-4 py-2 text-sm font-semibold text-mint-700 transition hover:border-mint-300 hover:text-mint-800 dark:border-mint-500/40 dark:bg-slate-900 dark:text-mint-200"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-brand-light/40 bg-white px-4 py-2 text-sm font-semibold text-brand-strong transition hover:border-brand-light/60 hover:text-brand-light dark:border-brand-dark/40 dark:bg-slate-900 dark:text-brand-strong-dark"
             >
               {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               {copied ? 'Copied' : 'Copy'}
@@ -179,7 +179,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
               href={shareLinks.twitter}
               target="_blank"
               rel="noreferrer"
-              className="rounded-full border border-border-light bg-background-light px-4 py-2 text-sm font-medium text-text-primary-light transition hover:border-mint-200 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
+              className="rounded-full border border-border-light bg-background-light px-4 py-2 text-sm font-medium text-text-primary-light transition hover:border-brand-light/40 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
             >
               Share on Twitter
             </a>
@@ -187,7 +187,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
               href={shareLinks.linkedIn}
               target="_blank"
               rel="noreferrer"
-              className="rounded-full border border-border-light bg-background-light px-4 py-2 text-sm font-medium text-text-primary-light transition hover:border-mint-200 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
+              className="rounded-full border border-border-light bg-background-light px-4 py-2 text-sm font-medium text-text-primary-light transition hover:border-brand-light/40 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
             >
               Share on LinkedIn
             </a>
@@ -195,7 +195,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
               href={shareLinks.whatsapp}
               target="_blank"
               rel="noreferrer"
-              className="rounded-full border border-border-light bg-background-light px-4 py-2 text-sm font-medium text-text-primary-light transition hover:border-mint-200 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
+              className="rounded-full border border-border-light bg-background-light px-4 py-2 text-sm font-medium text-text-primary-light transition hover:border-brand-light/40 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
             >
               Share on WhatsApp
             </a>
@@ -225,7 +225,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="you@company.com"
-            className="mt-2 w-full rounded-xl border border-border-light bg-background-light px-4 py-3 text-sm text-text-primary-light focus:border-mint-300 focus:outline-none dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
+            className="mt-2 w-full rounded-xl border border-border-light bg-background-light px-4 py-3 text-sm text-text-primary-light focus:border-brand-light focus:outline-none dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
           />
         </div>
 
@@ -242,7 +242,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Jane Doe"
-            className="mt-2 w-full rounded-xl border border-border-light bg-background-light px-4 py-3 text-sm text-text-primary-light focus:border-mint-300 focus:outline-none dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
+            className="mt-2 w-full rounded-xl border border-border-light bg-background-light px-4 py-3 text-sm text-text-primary-light focus:border-brand-light focus:outline-none dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
           />
         </div>
 
@@ -267,7 +267,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
         <button
           type="submit"
           disabled={isSubmitting || (TURNSTILE_ENABLED && !turnstileToken)}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-mint-500 px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-mint-400 disabled:cursor-not-allowed disabled:opacity-70"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-strong px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-light disabled:cursor-not-allowed disabled:opacity-70 dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light"
         >
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
           {isSubmitting ? 'Joining waitlist...' : 'Join the waitlist'}

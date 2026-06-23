@@ -38,13 +38,13 @@ function ActivityTicker({ steps }: { steps: CopilotStep[] }) {
       {steps.map((s, i) => (
         <li key={`${s.label}-${i}`} className="flex items-center gap-2 text-[12px]">
           {!s.done ? (
-            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-brand-strong-dark" aria-hidden="true" />
+            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
           ) : s.ok ? (
-            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-brand-strong-dark" aria-hidden="true" />
+            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
           ) : (
-            <Minus className="h-3.5 w-3.5 shrink-0 text-text-secondary-dark" aria-hidden="true" />
+            <Minus className="h-3.5 w-3.5 shrink-0 text-text-secondary-light dark:text-text-secondary-dark" aria-hidden="true" />
           )}
-          <span className={s.done ? 'text-text-secondary-dark' : 'text-text-secondary-dark'}>
+          <span className={s.done ? 'text-text-secondary-light dark:text-text-secondary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}>
             {s.label}
             {s.done ? '' : '…'}
             <span className="sr-only">{s.done ? (s.ok ? ' (completed)' : ' (failed)') : ' (in progress)'}</span>
@@ -88,17 +88,17 @@ function FollowupChips({
   onFollowup: (question: string) => void
 }) {
   return (
-    <div className="mt-3 border-t border-white/10 pt-2.5">
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-secondary-dark">Ask next</p>
+    <div className="mt-3 border-t border-border-light dark:border-white/10 pt-2.5">
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">Ask next</p>
       <div className="flex flex-col gap-1.5">
         {followups.map((q, i) => (
           <button
             key={`${q}-${i}`}
             type="button"
             onClick={() => onFollowup(q)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-slate-800/40 px-2.5 py-1.5 text-left text-xs text-text-secondary-dark transition-colors hover:border-brand-light/30 hover:bg-slate-800"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border-light dark:border-white/10 bg-brand-weak dark:bg-slate-800/40 px-2.5 py-1.5 text-left text-xs text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-light/30 hover:bg-brand-weak/70 dark:hover:bg-slate-800"
           >
-            <Sparkles className="h-3 w-3 shrink-0 text-brand-strong-dark" aria-hidden="true" />
+            <Sparkles className="h-3 w-3 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
             {q}
           </button>
         ))}
@@ -109,7 +109,7 @@ function FollowupChips({
 
 function MarkdownProse({ children }: { children: string }) {
   return (
-    <div className="prose prose-invert prose-sm max-w-none break-words text-text-secondary-dark prose-p:my-2 prose-headings:text-text-primary-dark prose-strong:text-text-primary-dark prose-a:text-brand-strong-dark">
+    <div className="prose dark:prose-invert prose-sm max-w-none break-words text-text-secondary-light dark:text-text-secondary-dark prose-p:my-2 prose-headings:text-text-primary-light dark:prose-headings:text-text-primary-dark prose-strong:text-text-primary-light dark:prose-strong:text-text-primary-dark prose-a:text-brand-strong dark:prose-a:text-brand-strong-dark">
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
     </div>
   )
@@ -122,7 +122,7 @@ function MarkdownProse({ children }: { children: string }) {
 // keeps paragraph breaks readable mid-stream; the formatted answer snaps in when the stream ends.
 function StreamingText({ children }: { children: string }) {
   return (
-    <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-text-secondary-dark">
+    <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
       {children}
     </div>
   )
@@ -191,7 +191,7 @@ function MarkdownProseWithCitations({
   citations: CopilotCitation[]
 }) {
   return (
-    <div className="prose prose-invert prose-sm max-w-none break-words text-text-secondary-dark prose-p:my-2 prose-headings:text-text-primary-dark prose-strong:text-text-primary-dark prose-a:text-brand-strong-dark">
+    <div className="prose dark:prose-invert prose-sm max-w-none break-words text-text-secondary-light dark:text-text-secondary-dark prose-p:my-2 prose-headings:text-text-primary-light dark:prose-headings:text-text-primary-dark prose-strong:text-text-primary-light dark:prose-strong:text-text-primary-dark prose-a:text-brand-strong dark:prose-a:text-brand-strong-dark">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -211,20 +211,20 @@ function MarkdownProseWithCitations({
 function SourcesList({ citations }: { citations: CopilotCitation[] }) {
   if (!citations.length) return null
   return (
-    <div className="mt-3 border-t border-white/10 pt-2.5">
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-secondary-dark">Sources</p>
+    <div className="mt-3 border-t border-border-light dark:border-white/10 pt-2.5">
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">Sources</p>
       <ul className="space-y-1">
         {citations.map((c) => {
           const label = c.section_ref || `Excerpt ${c.n}`
           const rowClass =
-            'flex items-start gap-2 rounded-md px-1.5 py-1 text-xs text-text-secondary-dark'
+            'flex items-start gap-2 rounded-md px-1.5 py-1 text-xs text-text-secondary-light dark:text-text-secondary-dark'
           const badge = c.verified ? (
-            <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-medium text-mint-300">
+            <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-medium text-brand-strong dark:text-brand-strong-dark">
               <CheckCircle2 className="h-3 w-3" />
               Verified
             </span>
           ) : (
-            <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-medium text-text-secondary-dark">
+            <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-medium text-text-secondary-light dark:text-text-secondary-dark">
               <ExternalLink className="h-3 w-3" />
               Cited
             </span>
@@ -236,28 +236,28 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
           // the prose excerpt treatment used for filing-text citations.
           const content = isFact ? (
             <>
-              <span className="mt-px font-mono text-[11px] font-semibold text-mint-300">[{c.n}]</span>
+              <span className="mt-px font-mono text-[11px] font-semibold text-brand-strong dark:text-brand-strong-dark">[{c.n}]</span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate font-mono text-[12px] tabular-nums text-text-primary-dark">
+                  <span className="min-w-0 flex-1 truncate font-mono text-[12px] tabular-nums text-text-primary-light dark:text-text-primary-dark">
                     {c.excerpt}
                   </span>
                   {badge}
                 </span>
                 {tag && (
-                  <span className="mt-0.5 block truncate font-mono text-[10px] text-text-secondary-dark">{tag}</span>
+                  <span className="mt-0.5 block truncate font-mono text-[10px] text-text-secondary-light dark:text-text-secondary-dark">{tag}</span>
                 )}
               </span>
             </>
           ) : (
             <>
-              <span className="mt-px font-mono text-[11px] font-semibold text-mint-300">[{c.n}]</span>
+              <span className="mt-px font-mono text-[11px] font-semibold text-brand-strong dark:text-brand-strong-dark">[{c.n}]</span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
                   <span className="min-w-0 flex-1 truncate">{label}</span>
                   {badge}
                 </span>
-                <span className="mt-0.5 block line-clamp-2 text-[11px] text-text-secondary-dark">{c.excerpt}</span>
+                <span className="mt-0.5 block line-clamp-2 text-[11px] text-text-secondary-light dark:text-text-secondary-dark">{c.excerpt}</span>
               </span>
             </>
           )
@@ -268,10 +268,10 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
                   href={c.fragment_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className={`${rowClass} transition-colors hover:bg-white/5 hover:text-text-primary-dark`}
+                  className={`${rowClass} transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:hover:bg-white/5 dark:hover:text-text-primary-dark`}
                 >
                   {content}
-                  <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-text-secondary-dark" />
+                  <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-text-secondary-light dark:text-text-secondary-dark" />
                 </a>
               ) : (
                 <div className={rowClass}>{content}</div>
@@ -297,7 +297,7 @@ export default function CopilotMessage({
   if (message.role === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-white/5 px-3.5 py-2 text-sm text-text-primary-dark ring-1 ring-brand-light/30">
+        <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-brand-weak dark:bg-white/5 px-3.5 py-2 text-sm text-text-primary-light dark:text-text-primary-dark ring-1 ring-brand-light/30">
           {message.content}
         </div>
       </div>
@@ -308,14 +308,14 @@ export default function CopilotMessage({
   if (message.status === 'error') {
     return (
       <div className="rounded-2xl rounded-bl-sm border border-error-light/30 dark:border-error-dark/30 bg-error-light/10 dark:bg-error-dark/10 px-3.5 py-3 text-sm">
-        <p className="text-error-dark">{message.error || 'Something went wrong.'}</p>
+        <p className="text-error-light dark:text-error-dark">{message.error || 'Something went wrong.'}</p>
         <div className="mt-2.5">
           {isPaywallError ? (
             onUpgrade && (
               <button
                 type="button"
                 onClick={onUpgrade}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-dark text-background-dark hover:bg-brand-strong-dark px-3 py-1.5 text-xs font-semibold transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-3 py-1.5 text-xs font-semibold transition-colors"
               >
                 <Sparkles className="h-3.5 w-3.5" />
                 Upgrade to Pro
@@ -326,7 +326,7 @@ export default function CopilotMessage({
               <button
                 type="button"
                 onClick={onRetry}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-text-secondary-dark transition-colors hover:bg-white/10"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border-light dark:border-white/15 bg-panel-light dark:bg-white/5 px-3 py-1.5 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak dark:hover:bg-white/10"
               >
                 <RotateCw className="h-3.5 w-3.5" />
                 Retry
@@ -342,19 +342,19 @@ export default function CopilotMessage({
   if (message.kind === 'not_disclosed') {
     const hint = notDisclosedHint(filingType)
     return (
-      <div className="rounded-2xl rounded-bl-sm border border-white/10 bg-slate-800/60 px-3.5 py-3 text-sm">
-        <div className="mb-1.5 flex items-center gap-2 text-text-secondary-dark">
+      <div className="rounded-2xl rounded-bl-sm border border-border-light dark:border-white/10 bg-brand-weak dark:bg-slate-800/60 px-3.5 py-3 text-sm">
+        <div className="mb-1.5 flex items-center gap-2 text-text-secondary-light dark:text-text-secondary-dark">
           <Ban className="h-4 w-4" />
           <span className="text-xs font-semibold uppercase tracking-wide">Not disclosed in this filing</span>
         </div>
-        <p className="text-text-secondary-dark">{message.content}</p>
+        <p className="text-text-secondary-light dark:text-text-secondary-dark">{message.content}</p>
         {(hint || ticker) && (
-          <div className="mt-2.5 border-t border-white/10 pt-2.5">
-            {hint && <p className="text-xs text-text-secondary-dark">{hint}</p>}
+          <div className="mt-2.5 border-t border-border-light dark:border-white/10 pt-2.5">
+            {hint && <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{hint}</p>}
             {ticker && (
               <Link
                 href={`/company/${encodeURIComponent(ticker)}`}
-                className={`${hint ? 'mt-1.5 ' : ''}inline-flex items-center gap-1 text-xs font-medium text-brand-strong-dark hover:underline`}
+                className={`${hint ? 'mt-1.5 ' : ''}inline-flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline`}
               >
                 Browse {ticker}’s other filings
                 <ArrowRight className="h-3 w-3" />
@@ -380,11 +380,11 @@ export default function CopilotMessage({
   const showTicker = (isReading || isStreaming) && steps.length > 0
 
   return (
-    <div className="rounded-2xl rounded-bl-sm border border-white/10 bg-slate-800/40 px-3.5 py-3 text-sm">
+    <div className="rounded-2xl rounded-bl-sm border border-border-light dark:border-white/10 bg-brand-weak dark:bg-slate-800/40 px-3.5 py-3 text-sm">
       {showTicker && <ActivityTicker steps={steps} />}
       {isReading ? (
         steps.length > 0 ? null : (
-          <p className="flex items-center gap-2 text-text-secondary-dark">
+          <p className="flex items-center gap-2 text-text-secondary-light dark:text-text-secondary-dark">
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-brand-strong dark:bg-brand-strong-dark" />
             Reading the filing…
           </p>
@@ -404,7 +404,7 @@ export default function CopilotMessage({
               )}
             </div>
             {isStreaming && (
-              <span className="ml-0.5 inline-block animate-pulse text-brand-strong-dark" aria-hidden="true">
+              <span className="ml-0.5 inline-block animate-pulse text-brand-strong dark:text-brand-strong-dark" aria-hidden="true">
                 ▍
               </span>
             )}
@@ -413,7 +413,7 @@ export default function CopilotMessage({
           {message.status === 'done' && (
             <>
               {typeof message.grounded === 'number' && message.grounded > 0 && (
-                <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-text-secondary-dark">
+                <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
                   <CheckCircle2 className="h-3.5 w-3.5 text-brand-strong/70 dark:text-brand-strong-dark/70" />
                   Grounded in {message.grounded} excerpt{message.grounded === 1 ? '' : 's'}
                 </p>

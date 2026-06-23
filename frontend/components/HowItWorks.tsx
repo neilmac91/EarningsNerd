@@ -26,10 +26,10 @@ function HowItWorks() {
   return (
     <section className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
       <div className="text-center">
-        <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+        <h2 className="text-3xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-4xl">
           How it works
         </h2>
-        <p className="mx-auto mt-4 max-w-xl text-lg text-slate-400">
+        <p className="mx-auto mt-4 max-w-xl text-lg text-text-secondary-light dark:text-text-secondary-dark">
           From SEC filing to actionable insight in minutes, not hours.
         </p>
       </div>
@@ -43,18 +43,18 @@ function HowItWorks() {
               className="glass-card group relative rounded-2xl p-6 transition-all duration-300"
             >
               {/* Step number */}
-              <div className="mb-4 text-xs font-bold uppercase tracking-widest text-mint-500">
+              <div className="mb-4 text-xs font-bold uppercase tracking-widest text-brand-strong dark:text-brand-strong-dark">
                 Step {step.number}
               </div>
 
               {/* Icon */}
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-mint-500/10 text-mint-400 transition-colors group-hover:bg-mint-500/20">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-strong/10 text-brand-strong dark:bg-brand-dark/15 dark:text-brand-strong-dark transition-colors group-hover:bg-brand-strong/20 dark:group-hover:bg-brand-dark/20">
                 <Icon className="h-6 w-6" />
               </div>
 
               {/* Content */}
-              <h3 className="text-lg font-semibold text-white">{step.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-400">
+              <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">{step.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
                 {step.description}
               </p>
             </div>

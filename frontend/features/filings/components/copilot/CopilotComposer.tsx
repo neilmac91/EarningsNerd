@@ -69,9 +69,9 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
         e.preventDefault()
         submit()
       }}
-      className="border-t border-white/10 bg-slate-900 p-3"
+      className="border-t border-border-light bg-panel-light dark:border-white/10 dark:bg-slate-900 p-3"
     >
-      <div className="flex items-end gap-2 rounded-xl border border-white/10 bg-slate-950/60 p-2 focus-within:border-brand-light/50">
+      <div className="flex items-end gap-2 rounded-xl border border-border-light bg-panel-light dark:border-white/10 dark:bg-slate-950/60 p-2 focus-within:border-brand-light/50">
         <textarea
           ref={textareaRef}
           value={value}
@@ -86,18 +86,18 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
           rows={1}
           placeholder="Ask about this filing…"
           aria-label="Ask about this filing"
-          className="max-h-[120px] flex-1 resize-none bg-transparent px-1 py-1 text-sm text-text-primary-dark placeholder:text-text-secondary-dark focus:outline-none"
+          className="max-h-[120px] flex-1 resize-none bg-transparent px-1 py-1 text-sm text-text-primary-light dark:text-text-primary-dark placeholder:text-text-secondary-light dark:placeholder:text-text-secondary-dark focus:outline-none"
         />
         <button
           type="submit"
           disabled={!canSend}
           aria-label="Send"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-dark text-background-dark hover:bg-brand-strong-dark transition-colors disabled:cursor-not-allowed disabled:bg-white/10 disabled:text-text-secondary-dark"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark transition-colors disabled:cursor-not-allowed disabled:bg-border-light disabled:text-text-secondary-light dark:disabled:bg-white/10 dark:disabled:text-text-secondary-dark"
         >
           <Send className="h-4 w-4" />
         </button>
       </div>
-      <p className="mt-2 px-1 text-[11px] leading-snug text-text-secondary-dark">
+      <p className="mt-2 px-1 text-[11px] leading-snug text-text-secondary-light dark:text-text-secondary-dark">
         Avoid entering personal or confidential information — your question is sent to our AI
         provider to generate an answer.
       </p>

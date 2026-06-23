@@ -61,14 +61,14 @@ export default function ForgotPasswordPage() {
                 required
                 autoComplete="email"
                 autoFocus
-                className="w-full rounded-lg border border-border-light bg-background-light px-3 py-2 text-text-primary-light placeholder:text-text-tertiary-light focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/50 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
+                className="w-full rounded-lg border border-border-light bg-background-light px-3 py-2 text-text-primary-light placeholder:text-text-tertiary-light focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/50 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-mint-500 py-2.5 font-semibold text-slate-950 transition-all hover:bg-mint-400 active:scale-[0.99] disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+              className="w-full rounded-lg bg-brand-strong py-2.5 font-semibold text-white transition-all hover:bg-brand-light active:scale-[0.99] disabled:opacity-50 dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -84,8 +84,8 @@ export default function ForgotPasswordPage() {
       ) : (
         <div className="text-center">
           <div className="mb-4 flex justify-center">
-            <div className="animate-check-pop rounded-full bg-mint-500/10 p-4">
-              <MailCheck className="h-8 w-8 text-mint-500" />
+            <div className="animate-check-pop rounded-full bg-brand-strong/10 p-4 dark:bg-brand-dark/15">
+              <MailCheck className="h-8 w-8 text-brand-strong dark:text-brand-strong-dark" />
             </div>
           </div>
           <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">

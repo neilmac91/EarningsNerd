@@ -30,10 +30,10 @@ function AccuracySection() {
   return (
     <section className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
       <div className="text-center">
-        <h2 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+        <h2 className="text-3xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-4xl">
           Where the numbers come from
         </h2>
-        <p className="mx-auto mt-4 max-w-xl text-lg text-slate-400">
+        <p className="mx-auto mt-4 max-w-xl text-lg text-text-secondary-light dark:text-text-secondary-dark">
           AI summaries are only useful if you can trust them. Ours are anchored
           to the source.
         </p>
@@ -44,11 +44,11 @@ function AccuracySection() {
           const Icon = pillar.icon
           return (
             <div key={pillar.title} className="glass-card rounded-2xl p-6">
-              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-mint-500/10 text-mint-400">
+              <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-strong/10 text-brand-strong dark:bg-brand-dark/15 dark:text-brand-strong-dark">
                 <Icon className="h-6 w-6" aria-hidden="true" />
               </div>
-              <h3 className="text-lg font-semibold text-white">{pillar.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-slate-400">
+              <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">{pillar.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
                 {pillar.description}
               </p>
             </div>

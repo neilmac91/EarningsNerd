@@ -50,7 +50,7 @@ function ResetPasswordContent() {
       <AuthShell>
         <div className="text-center">
           <div className="mb-4 flex justify-center">
-            <CheckCircle className="animate-check-pop h-12 w-12 text-mint-500" />
+            <CheckCircle className="animate-check-pop h-12 w-12 text-brand-strong dark:text-brand-strong-dark" />
           </div>
           <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
             Password updated!
@@ -58,7 +58,7 @@ function ResetPasswordContent() {
           <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
             Redirecting you to login…
           </p>
-          <Link href="/login" className="mt-6 inline-block text-sm font-medium text-mint-600 hover:underline dark:text-mint-400">
+          <Link href="/login" className="mt-6 inline-block text-sm font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
             Go to login
           </Link>
         </div>
@@ -117,7 +117,7 @@ function ResetPasswordContent() {
         <button
           type="submit"
           disabled={loading || !token}
-          className="w-full rounded-lg bg-mint-500 py-2.5 font-semibold text-slate-950 transition-all hover:bg-mint-400 active:scale-[0.99] disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+          className="w-full rounded-lg bg-brand-strong py-2.5 font-semibold text-white transition-all hover:bg-brand-light active:scale-[0.99] disabled:opacity-50 dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
         >
           {loading ? (
             <span className="flex items-center justify-center gap-2">
@@ -132,7 +132,7 @@ function ResetPasswordContent() {
 
       <p className="mt-8 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
         Need a new link?{' '}
-        <Link href="/forgot-password" className="font-medium text-mint-600 hover:underline dark:text-mint-400">
+        <Link href="/forgot-password" className="font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
           Request reset
         </Link>
       </p>

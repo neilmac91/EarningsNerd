@@ -47,7 +47,7 @@ function VerifyEmailContent() {
       <div className="text-center">
         {status === 'loading' && (
           <>
-            <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-mint-500" />
+            <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-brand-strong dark:text-brand-strong-dark" />
             <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
               Verifying your email…
             </h1>
@@ -57,7 +57,7 @@ function VerifyEmailContent() {
         {status === 'success' && (
           <>
             <div className="mb-4 flex justify-center">
-              <CheckCircle className="animate-check-pop h-12 w-12 text-mint-500" />
+              <CheckCircle className="animate-check-pop h-12 w-12 text-brand-strong dark:text-brand-strong-dark" />
             </div>
             <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
               Email verified!
@@ -65,7 +65,7 @@ function VerifyEmailContent() {
             <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
               Your account is active. Redirecting you now…
             </p>
-            <Link href="/" className="mt-6 inline-block text-sm font-medium text-mint-600 hover:underline dark:text-mint-400">
+            <Link href="/" className="mt-6 inline-block text-sm font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
               Continue to EarningsNerd
             </Link>
           </>
@@ -84,13 +84,13 @@ function VerifyEmailContent() {
             </p>
             <div className="mt-6 space-y-2 text-sm">
               <p>
-                <Link href="/check-email" className="font-medium text-mint-600 hover:underline dark:text-mint-400">
+                <Link href="/check-email" className="font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
                   Resend verification email
                 </Link>
               </p>
               <p className="text-text-tertiary-light dark:text-text-tertiary-dark">
                 or{' '}
-                <Link href="/login" className="text-mint-600 hover:underline dark:text-mint-400">
+                <Link href="/login" className="text-brand-strong hover:underline dark:text-brand-strong-dark">
                   back to login
                 </Link>
               </p>

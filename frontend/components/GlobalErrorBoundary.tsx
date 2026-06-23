@@ -83,7 +83,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
                 onClick={this.handleRetry}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light font-medium rounded-lg transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
                 Try Again
@@ -100,7 +100,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
 
             <p className="mt-6 text-xs text-slate-500 dark:text-slate-400">
               If this problem persists, please contact{' '}
-              <a href="mailto:support@earningsnerd.io" className="text-blue-600 hover:underline">
+              <a href="mailto:support@earningsnerd.io" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
                 support@earningsnerd.io
               </a>
             </p>

@@ -8,6 +8,7 @@ import { Menu, X, ArrowRight, LogOut } from 'lucide-react'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
 import UserMenu from '@/components/UserMenu'
 import NotificationBell from '@/components/NotificationBell'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { getCurrentUserSafe, logout } from '@/features/auth/api/auth-api'
 
 const NAV_LINKS = [
@@ -49,16 +50,16 @@ export default function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-slate-950/80 backdrop-blur-xl">
+    <header className="sticky top-0 z-50 border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
       {/* Subtle gradient accent line at top */}
-      <div className="h-px bg-gradient-to-r from-transparent via-mint-500/50 to-transparent" aria-hidden="true" />
+      <div className="h-px bg-gradient-to-r from-transparent via-brand-strong/40 to-transparent dark:via-brand-dark/50" aria-hidden="true" />
 
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         {/* Left: Logo */}
         <div className="flex items-center">
           <Link href="/" className="flex items-center gap-2.5">
-            <EarningsNerdLogo variant="icon-only" iconClassName="h-8 w-8" mode="dark" />
-            <span className="text-lg font-bold text-white">
+            <EarningsNerdLogo variant="icon-only" iconClassName="h-8 w-8" mode="auto" />
+            <span className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
               EarningsNerd
             </span>
           </Link>
@@ -70,7 +71,7 @@ export default function Header() {
             <Link
               key={link.href}
               href={link.href}
-              className="text-sm font-medium text-slate-300 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+              className="text-sm font-medium text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
             >
               {link.label}
             </Link>
@@ -79,8 +80,9 @@ export default function Header() {
 
         {/* Right: CTAs / user menu (desktop) */}
         <div className="hidden items-center gap-3 md:flex">
+          <ThemeToggle />
           {isLoading ? (
-            <div className="h-9 w-9 animate-pulse rounded-full bg-white/10" aria-hidden="true" />
+            <div className="h-9 w-9 animate-pulse rounded-full bg-border-light dark:bg-white/10" aria-hidden="true" />
           ) : user ? (
             <>
               <NotificationBell />
@@ -90,13 +92,13 @@ export default function Header() {
             <>
               <Link
                 href="/login"
-                className="rounded-full px-5 py-2 text-sm font-medium text-slate-300 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+                className="rounded-full px-5 py-2 text-sm font-medium text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
               >
                 Log In
               </Link>
               <Link
                 href="/register"
-                className="inline-flex items-center gap-1.5 rounded-full bg-mint-500 px-5 py-2 text-sm font-semibold text-slate-950 shadow-glow-mint-sm transition-all hover:bg-mint-400 hover:shadow-glow-mint focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+                className="inline-flex items-center gap-1.5 rounded-full bg-brand-strong px-5 py-2 text-sm font-semibold text-white shadow-e2 transition-all hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
               >
                 Get Started
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -105,46 +107,49 @@ export default function Header() {
           )}
         </div>
 
-        {/* Mobile menu button */}
-        <button
-          type="button"
-          onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="inline-flex items-center justify-center rounded-lg p-2 text-slate-400 hover:text-white md:hidden"
-          aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
-          aria-expanded={mobileMenuOpen}
-        >
-          {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
+        {/* Mobile actions */}
+        <div className="flex items-center gap-1 md:hidden">
+          <ThemeToggle />
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="inline-flex items-center justify-center rounded-lg p-2 text-text-tertiary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
+            aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileMenuOpen}
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div className="border-t border-white/[0.06] bg-slate-950 md:hidden">
+        <div className="border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark md:hidden">
           <nav className="mx-auto max-w-7xl space-y-1 px-4 pb-4 pt-2" aria-label="Mobile navigation">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileMenuOpen(false)}
-                className="block rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                className="block rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
               >
                 {link.label}
               </Link>
             ))}
-            <div className="mt-3 flex flex-col gap-2 border-t border-white/[0.06] pt-3">
+            <div className="mt-3 flex flex-col gap-2 border-t border-border-light pt-3 dark:border-white/[0.06]">
               {user ? (
                 <>
                   <div className="px-3 pb-1">
-                    <p className="truncate text-sm font-semibold text-white">
+                    <p className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                       {user.full_name || 'Your account'}
                     </p>
-                    <p className="truncate text-xs text-slate-400">{user.email}</p>
+                    <p className="truncate text-xs text-text-tertiary-light dark:text-text-secondary-dark">{user.email}</p>
                   </div>
                   {user.email_verified === false && (
                     <Link
                       href={`/check-email?email=${encodeURIComponent(user.email)}`}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block rounded-lg bg-amber-400/10 px-3 py-2.5 text-sm font-medium text-amber-300 transition-colors hover:bg-amber-400/20"
+                      className="block rounded-lg bg-warning-light/10 px-3 py-2.5 text-sm font-medium text-warning-light transition-colors hover:bg-warning-light/20 dark:bg-warning-dark/10 dark:text-warning-dark dark:hover:bg-warning-dark/20"
                     >
                       Verify your email
                     </Link>
@@ -154,7 +159,7 @@ export default function Header() {
                       key={link.href}
                       href={link.href}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                      className="block rounded-lg px-3 py-2.5 text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
                     >
                       {link.label}
                     </Link>
@@ -162,9 +167,9 @@ export default function Header() {
                   <button
                     type="button"
                     onClick={handleMobileLogout}
-                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                    className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
                   >
-                    <LogOut className="h-4 w-4 text-slate-400" />
+                    <LogOut className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
                     Log out
                   </button>
                 </>
@@ -173,14 +178,14 @@ export default function Header() {
                   <Link
                     href="/login"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="block rounded-lg px-3 py-2.5 text-center text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                    className="block rounded-lg px-3 py-2.5 text-center text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
                   >
                     Log In
                   </Link>
                   <Link
                     href="/register"
                     onClick={() => setMobileMenuOpen(false)}
-                    className="block rounded-lg bg-mint-500 px-3 py-2.5 text-center text-sm font-semibold text-slate-950 transition-colors hover:bg-mint-400"
+                    className="block rounded-lg bg-brand-strong px-3 py-2.5 text-center text-sm font-semibold text-white transition-colors hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark"
                   >
                     Get Started
                   </Link>

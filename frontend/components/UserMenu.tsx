@@ -74,9 +74,9 @@ export default function UserMenu({ user }: { user: MenuUser }) {
         aria-haspopup="true"
         aria-expanded={open}
         aria-label="Account menu"
-        className="flex items-center gap-1.5 rounded-full transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+        className="flex items-center gap-1.5 rounded-full transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
       >
-        <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-full bg-mint-500/15 text-sm font-semibold text-mint-300 ring-1 ring-mint-500/30">
+        <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-full bg-brand-strong/15 text-sm font-semibold text-brand-strong ring-1 ring-brand-light/30 dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:ring-brand-dark/30">
           {getInitials(user.full_name, user.email)}
           {unverified && (
             <span
@@ -85,20 +85,20 @@ export default function UserMenu({ user }: { user: MenuUser }) {
             />
           )}
         </span>
-        <ChevronDown className="h-4 w-4 text-slate-400" />
+        <ChevronDown className="h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
       </button>
 
       {open && (
         <div
           role="menu"
           aria-label="Account"
-          className="absolute right-0 z-50 mt-2 w-60 origin-top-right rounded-xl border border-white/10 bg-slate-900 p-1 shadow-xl"
+          className="absolute right-0 z-50 mt-2 w-60 origin-top-right rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900 p-1 shadow-e2 dark:shadow-none"
         >
           <div className="px-3 py-2.5">
-            <p className="truncate text-sm font-semibold text-white">
+            <p className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
               {user.full_name || 'Your account'}
             </p>
-            <p className="truncate text-xs text-slate-400">{user.email}</p>
+            <p className="truncate text-xs text-text-secondary-light dark:text-text-secondary-dark">{user.email}</p>
           </div>
 
           {unverified && (
@@ -113,29 +113,29 @@ export default function UserMenu({ user }: { user: MenuUser }) {
             </Link>
           )}
 
-          <div className="border-t border-white/10 pt-1">
+          <div className="border-t border-border-light dark:border-white/10 pt-1">
             {MENU_LINKS.map(({ href, label, icon: Icon }) => (
               <Link
                 key={href}
                 href={href}
                 role="menuitem"
                 onClick={() => setOpen(false)}
-                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark"
               >
-                <Icon className="h-4 w-4 text-slate-400" />
+                <Icon className="h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
                 {label}
               </Link>
             ))}
           </div>
 
-          <div className="mt-1 border-t border-white/10 pt-1">
+          <div className="mt-1 border-t border-border-light dark:border-white/10 pt-1">
             <button
               type="button"
               role="menuitem"
               onClick={handleLogout}
-              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark"
             >
-              <LogOut className="h-4 w-4 text-slate-400" />
+              <LogOut className="h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
               Log out
             </button>
           </div>

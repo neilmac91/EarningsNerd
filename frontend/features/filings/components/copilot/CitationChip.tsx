@@ -96,10 +96,10 @@ export default function CitationChip({ citation }: CitationChipProps) {
   // ringed, monospace tabular-figure treatment vs. the plain filled chip. Same mint hue (on-brand).
   const isFact = isXbrlCitation(citation)
   const chipBase =
-    'inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded px-1 text-[11px] font-semibold leading-none align-baseline transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-mint-400'
+    'inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded px-1 text-[11px] font-semibold leading-none align-baseline transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-light'
   const chipClass = isFact
-    ? `${chipBase} bg-mint-500/10 font-mono tabular-nums text-mint-200 ring-1 ring-inset ring-mint-400/40 hover:bg-mint-500/20`
-    : `${chipBase} bg-mint-500/15 text-mint-300 hover:bg-mint-500/25`
+    ? `${chipBase} bg-brand-strong/10 font-mono tabular-nums text-brand-strong ring-1 ring-inset ring-brand-light/40 hover:bg-brand-strong/20 dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:ring-brand-dark/40 dark:hover:bg-brand-dark/25`
+    : `${chipBase} bg-brand-strong/10 text-brand-strong hover:bg-brand-strong/20 dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:hover:bg-brand-dark/25`
 
   const triggerHandlers = {
     ref: (el: HTMLElement | null) => {
@@ -150,21 +150,21 @@ export default function CitationChip({ citation }: CitationChipProps) {
             onFocus={clearCloseTimer}
             onBlur={scheduleClose}
             style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, transform: 'translateX(-50%)' }}
-            className="z-[60] block w-64 rounded-lg border border-white/10 bg-slate-900 p-3 text-left shadow-xl"
+            className="z-[60] block w-64 rounded-lg border border-border-light bg-panel-light p-3 text-left shadow-xl dark:border-white/10 dark:bg-slate-900"
           >
-            <span className="block text-[11px] font-semibold uppercase tracking-wide text-text-secondary-dark break-words">
+            <span className="block text-[11px] font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark break-words">
               {header}
             </span>
-            <span className="mt-1.5 block max-h-40 overflow-y-auto border-l-2 border-mint-500/50 pl-2 text-xs italic text-text-secondary-dark break-words">
+            <span className="mt-1.5 block max-h-40 overflow-y-auto border-l-2 border-brand-strong/50 dark:border-brand-dark/50 pl-2 text-xs italic text-text-secondary-light dark:text-text-secondary-dark break-words">
               {excerpt}
             </span>
             {verified ? (
-              <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-mint-300">
+              <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-brand-strong dark:text-brand-strong-dark">
                 <CheckCircle2 className="h-3 w-3 shrink-0" />
                 Verified in filing
               </span>
             ) : (
-              <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-secondary-dark">
+              <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-secondary-light dark:text-text-secondary-dark">
                 <ExternalLink className="h-3 w-3 shrink-0" />
                 Cited
               </span>
@@ -174,7 +174,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
                 href={fragment_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-secondary-dark transition-colors hover:text-brand-strong-dark"
+                className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark"
               >
                 <ExternalLink className="h-3 w-3 shrink-0" />
                 Open original

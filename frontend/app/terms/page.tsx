@@ -32,7 +32,7 @@ export default function TermsPage() {
             These Terms of Service (&quot;Terms&quot;) govern your access to and use of EarningsNerd
             (the &quot;Service&quot;). By creating an account, joining the waitlist, or otherwise using the
             Service, you agree to be bound by these Terms and by our{' '}
-            <Link href="/privacy" className="text-mint-600 hover:underline dark:text-mint-400">
+            <Link href="/privacy" className="text-brand-strong hover:underline dark:text-brand-strong-dark">
               Privacy Policy
             </Link>
             . If you do not agree, do not use the Service.
@@ -79,7 +79,7 @@ export default function TermsPage() {
               href="https://www.sec.gov/edgar"
               target="_blank"
               rel="noreferrer"
-              className="text-mint-600 hover:underline dark:text-mint-400"
+              className="text-brand-strong hover:underline dark:text-brand-strong-dark"
             >
               SEC EDGAR
             </a>{' '}
@@ -190,7 +190,7 @@ export default function TermsPage() {
             You may stop using the Service and delete your account at any time from your{' '}
             <Link
               href="/dashboard/settings"
-              className="text-mint-600 hover:underline dark:text-mint-400"
+              className="text-brand-strong hover:underline dark:text-brand-strong-dark"
             >
               account settings
             </Link>
@@ -226,7 +226,7 @@ export default function TermsPage() {
           </h2>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
             Questions about these Terms? Reach us through our{' '}
-            <Link href="/contact" className="text-mint-600 hover:underline dark:text-mint-400">
+            <Link href="/contact" className="text-brand-strong hover:underline dark:text-brand-strong-dark">
               contact page
             </Link>
             .

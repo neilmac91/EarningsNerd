@@ -223,12 +223,12 @@ export default function CompanyPageClient() {
         }
       case '10-Q':
         return {
-          borderColor: 'border-l-teal-600 dark:border-l-teal-500',
-          bgColor: 'bg-teal-50/50 dark:bg-teal-900/20',
-          hoverBg: 'hover:bg-teal-50 dark:hover:bg-teal-900/30',
-          iconColor: 'text-teal-600 dark:text-teal-400',
-          badgeBg: 'bg-teal-100 dark:bg-teal-900/40',
-          badgeText: 'text-teal-800 dark:text-teal-300',
+          borderColor: 'border-l-info-light dark:border-l-info-dark',
+          bgColor: 'bg-info-light/10 dark:bg-info-dark/10',
+          hoverBg: 'hover:bg-info-light/15 dark:hover:bg-info-dark/15',
+          iconColor: 'text-info-light dark:text-info-dark',
+          badgeBg: 'bg-info-light/10 dark:bg-info-dark/15',
+          badgeText: 'text-info-light dark:text-info-dark',
         }
       default:
         return {
@@ -340,8 +340,8 @@ export default function CompanyPageClient() {
                     onClick={() => setFilterType('10-Q')}
                     className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-md transition-colors ${
                       filterType === '10-Q'
-                        ? 'bg-teal-600 dark:bg-teal-500 text-white'
-                        : 'bg-teal-100 dark:bg-teal-900/30 text-teal-800 dark:text-teal-300 hover:bg-teal-200 dark:hover:bg-teal-900/50'
+                        ? 'bg-brand-strong dark:bg-brand-dark text-white'
+                        : 'bg-brand-weak dark:bg-white/5 text-brand-strong dark:text-brand-strong-dark hover:bg-brand-weak/70 dark:hover:bg-white/10'
                     }`}
                   >
                     10-Q

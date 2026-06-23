@@ -116,7 +116,7 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
           </div>
           <div className="w-full bg-gray-200 dark:bg-slate-800/50 rounded-full h-2.5">
             <div
-              className="bg-gradient-to-r from-primary-500 to-primary-600 h-2.5 rounded-full transition-all duration-300 ease-out"
+              className="bg-gradient-to-r from-brand-strong to-brand-light dark:from-brand-dark dark:to-brand-strong-dark h-2.5 rounded-full transition-all duration-300 ease-out"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -134,17 +134,17 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
                 key={stage.id}
                 className={`flex items-start space-x-4 p-4 rounded-lg transition-all duration-300 ${
                   isActive
-                    ? 'bg-primary-50 border-2 border-primary-200'
+                    ? 'bg-brand-strong/10 dark:bg-brand-dark/15 border-2 border-brand-light/30 dark:border-brand-dark/30'
                     : isComplete
-                    ? 'bg-green-50 border-2 border-green-200'
+                    ? 'bg-success-light/10 dark:bg-success-dark/10 border-2 border-success-light/30 dark:border-success-dark/30'
                     : 'bg-gray-50 dark:bg-slate-800/50 border-2 border-gray-200 dark:border-slate-700'
                 }`}
               >
                 <div className={`flex-shrink-0 mt-0.5 ${
                   isComplete
-                    ? 'text-green-600'
+                    ? 'text-success-light dark:text-success-dark'
                     : isActive
-                    ? 'text-primary-600'
+                    ? 'text-brand-strong dark:text-brand-strong-dark'
                     : 'text-gray-400 dark:text-slate-500'
                 }`}>
                   {isComplete ? (
@@ -156,27 +156,27 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
                 <div className="flex-1">
                   <div className={`font-medium ${
                     isActive
-                      ? 'text-primary-900'
+                      ? 'text-brand-strong dark:text-brand-strong-dark'
                       : isComplete
-                      ? 'text-green-900'
+                      ? 'text-success-light dark:text-success-dark'
                       : 'text-gray-500 dark:text-slate-400'
                   }`}>
                     {stage.label}
                   </div>
                   <div className={`text-sm mt-1 ${
                     isActive
-                      ? 'text-primary-700'
+                      ? 'text-brand-strong dark:text-brand-strong-dark'
                       : isComplete
-                      ? 'text-green-700'
+                      ? 'text-success-light dark:text-success-dark'
                       : 'text-gray-400 dark:text-slate-500'
                   }`}>
                     {stage.description}
                   </div>
                   {isActive && (
                     <div className="mt-2 flex space-x-1">
-                      <div className="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <div className="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <div className="w-2 h-2 bg-primary-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                     </div>
                   )}
                 </div>
@@ -194,7 +194,7 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
             This typically takes 30-60 seconds for large filings. Please don&apos;t close this page.
           </p>
           <div className="mt-3 flex items-center justify-center space-x-2 text-xs text-gray-400 dark:text-slate-500">
-            <div className="w-2 h-2 bg-primary-400 rounded-full animate-pulse" />
+            <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-pulse" />
             <span>Processing securely</span>
           </div>
         </div>

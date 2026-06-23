@@ -70,7 +70,7 @@ function HotFilingsSkeleton() {
       {Array.from({ length: 4 }).map((_, i) => (
         <div
           key={i}
-          className="h-28 animate-pulse rounded-xl border border-white/[0.06] bg-white/[0.03]"
+          className="h-28 animate-pulse rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5"
         />
       ))}
     </div>
@@ -81,14 +81,14 @@ function TrendingTickersSkeleton() {
   return (
     <div role="status" aria-live="polite" aria-label="Loading market movers">
       <div className="mb-4 flex items-center gap-2">
-        <div className="h-5 w-5 animate-pulse rounded bg-white/10" />
-        <div className="h-6 w-32 animate-pulse rounded bg-white/10" />
+        <div className="h-5 w-5 animate-pulse rounded bg-brand-weak dark:bg-white/5" />
+        <div className="h-6 w-32 animate-pulse rounded bg-brand-weak dark:bg-white/5" />
       </div>
       <div className="flex gap-4 overflow-x-auto pb-2">
         {Array.from({ length: 4 }).map((_, i) => (
           <div
             key={i}
-            className="h-28 w-52 flex-shrink-0 animate-pulse rounded-2xl border border-white/[0.06] bg-white/[0.03]"
+            className="h-28 w-52 flex-shrink-0 animate-pulse rounded-2xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5"
           />
         ))}
       </div>
@@ -109,7 +109,7 @@ export default async function Home() {
   ])
 
   return (
-    <div className="bg-slate-950 text-white">
+    <div className="bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(JSON_LD) }}
@@ -117,20 +117,17 @@ export default async function Home() {
       {/* ═══════════════════════════════════════════════════════════
           HERO SECTION — Split layout with copy left, mockup right
           ═══════════════════════════════════════════════════════════ */}
-      <section className="relative overflow-hidden bg-hero-gradient">
-        {/* Ambient glow overlay */}
-        <div className="absolute inset-0 bg-hero-glow" aria-hidden="true" />
-
-        <div className="relative mx-auto max-w-7xl px-4 pb-16 pt-16 sm:px-6 md:pb-24 md:pt-20 lg:px-8 lg:pb-28 lg:pt-24">
+      <section className="bg-background-light dark:bg-background-dark">
+        <div className="mx-auto max-w-7xl px-4 pb-16 pt-16 sm:px-6 md:pb-24 md:pt-20 lg:px-8 lg:pb-28 lg:pt-24">
           <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
             {/* Left: Copy + Search */}
             <div>
-              <h1 className="text-4xl font-extrabold leading-[1.1] tracking-tight sm:text-5xl lg:text-6xl">
+              <h1 className="text-4xl font-extrabold leading-[1.1] tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-5xl lg:text-6xl">
                 Understand any{' '}
-                <span className="text-gradient-mint">SEC filing</span>{' '}
+                <span className="text-brand-strong dark:text-brand-strong-dark">SEC filing</span>{' '}
                 in minutes
               </h1>
-              <p className="mt-6 max-w-lg text-lg leading-relaxed text-slate-400">
+              <p className="mt-6 max-w-lg text-lg leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
                 AI-powered summaries that turn 100-page 10-Ks and 10-Qs into
                 clear, decision-ready insights. Financials, risks, and trends —
                 all in one place.
@@ -146,11 +143,11 @@ export default async function Home() {
                 <ExampleCtaLink
                   href={exampleFilingHref('hero_example')}
                   placement="hero"
-                  className="inline-flex items-center gap-1 font-medium text-mint-400 underline underline-offset-4 decoration-mint-400/40 transition-colors hover:text-mint-300 hover:decoration-mint-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+                  className="inline-flex items-center gap-1 font-medium text-brand-strong dark:text-brand-strong-dark underline underline-offset-4 decoration-brand-strong/40 transition-colors hover:decoration-brand-strong dark:decoration-brand-dark/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
                 >
                   See a live example →
                 </ExampleCtaLink>
-                <span className="text-slate-500">
+                <span className="text-text-tertiary-light dark:text-text-secondary-dark">
                   Your first summary is free — no signup needed.
                 </span>
               </div>
@@ -185,7 +182,7 @@ export default async function Home() {
       <section id="hot-filings" className="py-20 sm:py-24">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <div className="mb-8 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-white">
+            <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark">
               <span aria-hidden="true">🔥</span> Trending Filings
             </h2>
           </div>

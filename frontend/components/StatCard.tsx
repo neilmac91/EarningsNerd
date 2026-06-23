@@ -62,7 +62,7 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
   const sparklineData = trendData?.map((val, i) => ({ i, val })) || []
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5 shadow-sm transition-all duration-200 hover:shadow-md">
+    <div className="relative overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark p-5 shadow-e2 dark:shadow-none transition-all duration-200 hover:shadow-md">
       <div className="flex justify-between items-start">
         <div className="space-y-1">
           <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
@@ -104,7 +104,7 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
 
 StatCard.Skeleton = function StatCardSkeleton() {
   return (
-    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-5">
+    <div className="rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark p-5">
       <ShimmeringLoader className="mb-2 h-4 w-1/3" />
       <ShimmeringLoader className="h-8 w-2/3 mb-4" />
       <div className="flex gap-2">

@@ -184,11 +184,8 @@ module.exports = {
         gutter: '1.5rem',
       },
 
-      backgroundImage: {
-        'hero-gradient': 'linear-gradient(to bottom right, #0B1120, #111827, #1a1147)',
-        'hero-glow': 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(16, 185, 129, 0.12), transparent)',
-        'cta-gradient': 'linear-gradient(135deg, #064E3B, #0f172a, #1e1b4b)',
-      },
+      // Decorative marketing gradients were removed in favor of flat, on-brand solid
+      // surfaces (warm cream / deep navy) + a single brand accent — see globals.css.
 
       boxShadow: {
         // Elevation scale (light-mode tuned; pair with ring/border in dark)

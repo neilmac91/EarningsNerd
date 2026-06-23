@@ -7,7 +7,6 @@ import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { Check, Loader2 } from 'lucide-react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ThemeToggle } from '@/components/ThemeToggle'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import StateCard from '@/components/StateCard'
 import analytics from '@/lib/analytics'
@@ -163,13 +162,12 @@ function PricingContent() {
         subtitle="Choose the plan that fits your workflow"
         backHref="/"
         backLabel="Back to home"
-        actions={<ThemeToggle />}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">Pricing</h2>
-          <p className="text-lg text-gray-600 dark:text-slate-300 max-w-2xl mx-auto">
+          <h2 className="text-4xl font-bold text-text-heading-light dark:text-text-heading-dark mb-4">Pricing</h2>
+          <p className="text-lg text-text-secondary-light dark:text-text-secondary-dark max-w-2xl mx-auto">
             Choose the plan that works for you. Upgrade or downgrade at any time.
           </p>
 
@@ -191,7 +189,7 @@ function PricingContent() {
                       type="button"
                       onClick={() => refetchSubscription()}
                       disabled={subscriptionFetching}
-                      className="inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60"
+                      className="inline-flex items-center rounded-md border border-error-light/40 bg-panel-light px-3 py-1 text-xs font-medium text-error-light transition hover:bg-error-light/10 dark:border-error-dark/40 dark:bg-panel-dark dark:text-error-dark dark:hover:bg-error-dark/15 disabled:opacity-60"
                     >
                       {subscriptionFetching ? 'Retrying…' : 'Retry subscription'}
                     </button>
@@ -199,7 +197,7 @@ function PricingContent() {
                       type="button"
                       onClick={() => refetchUsage()}
                       disabled={usageFetching}
-                      className="inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60"
+                      className="inline-flex items-center rounded-md border border-error-light/40 bg-panel-light px-3 py-1 text-xs font-medium text-error-light transition hover:bg-error-light/10 dark:border-error-dark/40 dark:bg-panel-dark dark:text-error-dark dark:hover:bg-error-dark/15 disabled:opacity-60"
                     >
                       {usageFetching ? 'Retrying…' : 'Retry usage'}
                     </button>
@@ -212,7 +210,7 @@ function PricingContent() {
           {/* Billing Toggle — shown to free and trialing users (both can still choose a cycle). */}
           {!isPaidPro && (
             <div className="mt-8 flex items-center justify-center space-x-4">
-              <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-gray-900' : 'text-gray-500'}`}>
+              <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
                 Monthly
               </span>
               <button
@@ -225,7 +223,7 @@ function PricingContent() {
                   analytics.billingCycleToggled(billingCycle, nextCycle)
                   setBillingCycle(nextCycle)
                 }}
-                className="relative inline-flex h-6 w-11 items-center rounded-full bg-primary-600 transition-colors focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2"
+                className="relative inline-flex h-6 w-11 items-center rounded-full bg-brand-strong dark:bg-brand-dark transition-colors focus:outline-none focus:ring-2 focus:ring-brand-light focus:ring-offset-2"
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -233,8 +231,8 @@ function PricingContent() {
                   }`}
                 />
               </button>
-              <span className={`text-sm font-medium ${billingCycle === 'yearly' ? 'text-gray-900' : 'text-gray-500'}`}>
-                Yearly <span className="text-green-600">(2 months free)</span>
+              <span className={`text-sm font-medium ${billingCycle === 'yearly' ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
+                Yearly <span className="text-success-light dark:text-success-dark">(2 months free)</span>
               </span>
             </div>
           )}
@@ -242,17 +240,17 @@ function PricingContent() {
 
         {/* Usage Stats */}
         {usage && !usageError && (
-          <div className="mb-8 bg-blue-50 border border-blue-200 rounded-lg p-4 max-w-2xl mx-auto">
+          <div className="mb-8 bg-info-light/10 border border-info-light/40 rounded-lg p-4 max-w-2xl mx-auto dark:bg-info-dark/15 dark:border-info-dark/40">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-blue-900">Current Usage</p>
-                <p className="text-sm text-blue-700">
+                <p className="text-sm font-medium text-info-light dark:text-info-dark">Current Usage</p>
+                <p className="text-sm text-info-light dark:text-info-dark">
                   {usage.summaries_used} / {usage.summaries_limit || '∞'} summaries used this month
                 </p>
               </div>
               {!usage.is_pro && usage.summaries_limit && (
                 <div
-                  className="w-32 bg-blue-200 rounded-full h-2"
+                  className="w-32 bg-info-light/20 rounded-full h-2 dark:bg-info-dark/20"
                   role="progressbar"
                   aria-label={`${usage.summaries_used} of ${usage.summaries_limit} summaries used this month`}
                   aria-valuenow={usage.summaries_used}
@@ -260,7 +258,7 @@ function PricingContent() {
                   aria-valuemax={usage.summaries_limit}
                 >
                   <div
-                    className="bg-blue-600 h-2 rounded-full transition-all"
+                    className="bg-info-light dark:bg-info-dark h-2 rounded-full transition-all"
                     style={{ width: `${(usage.summaries_used / usage.summaries_limit) * 100}%` }}
                   />
                 </div>
@@ -276,34 +274,34 @@ function PricingContent() {
               key={plan.name}
               className={`relative rounded-2xl border-2 p-8 ${
                 plan.popular
-                  ? 'border-primary-500 bg-white shadow-lg'
-                  : 'border-gray-200 bg-white'
+                  ? 'border-brand-strong dark:border-brand-dark bg-panel-light dark:bg-panel-dark shadow-e3 dark:shadow-none'
+                  : 'border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none'
               }`}
             >
               {plan.popular && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                  <span className="bg-primary-500 text-slate-950 px-4 py-1 rounded-full text-sm font-medium">
+                  <span className="bg-brand-strong text-white dark:bg-brand-dark dark:text-background-dark px-4 py-1 rounded-full text-sm font-medium">
                     Most Popular
                   </span>
                 </div>
               )}
 
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">{plan.name}</h3>
+                <h3 className="text-2xl font-bold text-text-heading-light dark:text-text-heading-dark mb-2">{plan.name}</h3>
                 <div className="flex items-baseline justify-center">
-                  <span className="text-5xl font-bold text-gray-900">{plan.price}</span>
+                  <span className="text-5xl font-bold text-text-primary-light dark:text-text-primary-dark">{plan.price}</span>
                   {plan.period !== 'forever' && (
-                    <span className="text-gray-600 ml-2">/{plan.period}</span>
+                    <span className="text-text-secondary-light dark:text-text-secondary-dark ml-2">/{plan.period}</span>
                   )}
                 </div>
-                <p className="text-gray-600 mt-2">{plan.description}</p>
+                <p className="text-text-secondary-light dark:text-text-secondary-dark mt-2">{plan.description}</p>
               </div>
 
               <ul className="space-y-4 mb-8">
                 {plan.features.map((feature, index) => (
                   <li key={index} className="flex items-start">
-                    <Check className="h-5 w-5 text-green-500 mr-3 flex-shrink-0 mt-0.5" />
-                    <span className="text-gray-700">{feature}</span>
+                    <Check className="h-5 w-5 text-success-light dark:text-success-dark mr-3 flex-shrink-0 mt-0.5" />
+                    <span className="text-text-secondary-light dark:text-text-secondary-dark">{feature}</span>
                   </li>
                 ))}
               </ul>
@@ -313,10 +311,10 @@ function PricingContent() {
                 disabled={plan.disabled || (isAuthenticated && !plan.priceId) || (plan.priceId !== null && isLoadingCheckout === plan.priceId)}
                 className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
                   plan.disabled
-                    ? 'bg-gray-100 text-gray-600 cursor-not-allowed'
+                    ? 'bg-border-light text-text-secondary-light dark:bg-white/10 dark:text-text-secondary-dark cursor-not-allowed'
                     : plan.popular
-                    ? 'bg-primary-500 text-slate-950 hover:bg-primary-400'
-                    : 'bg-gray-900 text-white hover:bg-gray-800'
+                    ? 'bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light'
+                    : 'bg-text-primary-light text-background-light dark:bg-white/10 dark:text-text-primary-dark hover:opacity-90'
                 }`}
               >
                 {plan.priceId && isLoadingCheckout === plan.priceId ? (
@@ -334,29 +332,29 @@ function PricingContent() {
 
         {/* FAQ */}
         <div className="mt-16 max-w-3xl mx-auto">
-          <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Frequently Asked Questions</h2>
+          <h2 className="text-2xl font-bold text-text-heading-light dark:text-text-heading-dark mb-8 text-center">Frequently Asked Questions</h2>
           <div className="space-y-6">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">
                 Can I change plans later?
               </h3>
-              <p className="text-gray-600">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark">
                 Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately.
               </p>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">
                 What happens if I exceed my free limit?
               </h3>
-              <p className="text-gray-600">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark">
                 You&apos;ll need to upgrade to Pro to generate more summaries. Your existing summaries remain accessible.
               </p>
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">
                 Do you offer refunds?
               </h3>
-              <p className="text-gray-600">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark">
                 We offer a 30-day money-back guarantee for Pro subscriptions. Contact us if you&apos;re not satisfied.
               </p>
             </div>
@@ -371,7 +369,7 @@ export default function PricingPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-dark" />
       </div>
     }>
       <PricingContent />

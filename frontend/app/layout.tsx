@@ -28,6 +28,17 @@ const FONT_BOOTSTRAP = `(function(){try{
   document.documentElement.setAttribute('data-font','figtree');
 }})();`
 
+// Pre-paint theme script — mirrors ThemeProvider (saved 'theme' else system preference) and
+// sets the .dark class before first paint, so the (now theme-responsive) pages don't flash
+// the wrong theme on load. ThemeProvider re-syncs to the same value after hydration.
+const THEME_BOOTSTRAP = `(function(){try{
+  var t = localStorage.getItem('theme');
+  if (t !== 'light' && t !== 'dark') {
+    t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  if (t === 'dark') document.documentElement.classList.add('dark');
+}catch(e){}})();`
+
 export const metadata: Metadata = {
   title: 'EarningsNerd - AI-Powered SEC Filing Analysis',
   description: 'Transform dense SEC filings into clear, actionable insights using AI. Search any public company, access its 10-K and 10-Q summaries, and instantly understand performance, risks, and trends.',
@@ -68,6 +79,7 @@ export default function RootLayout({
     // .dark class) on <html> before hydration.
     <html lang="en" data-font="figtree" className={`${figtree.variable} font-sans`} suppressHydrationWarning>
       <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP }} />
         <script dangerouslySetInnerHTML={{ __html: FONT_BOOTSTRAP }} />
       </head>
       <body>

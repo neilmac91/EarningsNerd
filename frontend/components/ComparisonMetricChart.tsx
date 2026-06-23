@@ -1,5 +1,6 @@
 'use client'
 
+import { useContext } from 'react'
 import {
   LineChart,
   Line,
@@ -9,6 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
+import { ThemeContext } from '@/components/ThemeProvider'
 
 interface DataPoint {
   label: string
@@ -24,6 +26,15 @@ export default function ComparisonMetricChart({
   data,
   color = '#2563eb',
 }: ComparisonMetricChartProps) {
+  // Recharts colours are props, not classes. Read theme off the context (not useTheme) with a
+  // light fallback so provider-less renders/SSR/tests never throw.
+  const dark = useContext(ThemeContext)?.theme === 'dark'
+  const axisText = dark ? '#9CA3AF' : '#6B7280'
+  const gridStroke = dark ? '#374151' : '#E5E7EB'
+  const tooltipBg = dark ? '#1F2937' : '#FBFAF6'
+  const tooltipBorder = dark ? 'rgba(255,255,255,0.1)' : '#E5E7EB'
+  const tooltipText = dark ? '#D7DADC' : '#1A1A17'
+
   const cleaned: DataPoint[] = data
     .filter((point): point is { label: string; value: number } => point.value !== null)
     .map((point) => ({
@@ -38,21 +49,23 @@ export default function ComparisonMetricChart({
   return (
     <ResponsiveContainer width="100%" height={240}>
       <LineChart data={cleaned} margin={{ top: 10, right: 20, left: 0, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+        <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
         <XAxis
           dataKey="label"
-          tick={{ fontSize: 12, fill: '#6b7280' }}
+          tick={{ fontSize: 12, fill: axisText }}
           axisLine={false}
           tickLine={false}
         />
         <YAxis
-          tick={{ fontSize: 12, fill: '#6b7280' }}
+          tick={{ fontSize: 12, fill: axisText }}
           axisLine={false}
           tickLine={false}
           width={48}
         />
         <Tooltip
-          contentStyle={{ borderRadius: 8, borderColor: '#e5e7eb' }}
+          contentStyle={{ borderRadius: 8, border: `1px solid ${tooltipBorder}`, backgroundColor: tooltipBg, color: tooltipText }}
+          labelStyle={{ color: tooltipText }}
+          itemStyle={{ color: tooltipText }}
           formatter={(value) => typeof value === 'number' ? value.toLocaleString() : ''}
         />
         <Line

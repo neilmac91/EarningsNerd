@@ -59,16 +59,16 @@ export default function SecondaryPaneTabs({
 
   const tabBase =
     'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-light'
-  const activeTab = 'bg-slate-700/70 text-text-primary-dark'
-  const idleTab = 'text-text-secondary-dark hover:text-text-secondary-dark'
+  const activeTab = 'bg-panel-light dark:bg-slate-700/70 text-text-primary-light dark:text-text-primary-dark'
+  const idleTab = 'text-text-secondary-light dark:text-text-secondary-dark hover:text-text-secondary-light dark:hover:text-text-secondary-dark'
 
   return (
-    <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
+    <div className="flex items-center justify-between gap-2 border-b border-border-light dark:border-white/10 px-3 py-2">
       <div
         role="tablist"
         aria-label="Copilot panel views"
         onKeyDown={onKeyDown}
-        className="flex items-center gap-1 rounded-lg bg-slate-950/40 p-0.5"
+        className="flex items-center gap-1 rounded-lg bg-brand-weak dark:bg-slate-950/40 p-0.5"
       >
         <button
           ref={answerRef}
@@ -106,7 +106,7 @@ export default function SecondaryPaneTabs({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="flex h-8 w-8 items-center justify-center rounded-full text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-dark"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
         >
           <X className="h-4 w-4" />
         </button>

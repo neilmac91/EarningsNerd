@@ -25,7 +25,7 @@ export default function WaitlistPage() {
           <div className="text-center lg:text-left">
             <h1 className="text-4xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-5xl md:text-6xl">
               Read a 10-K in{' '}
-              <span className="text-mint-600 dark:text-mint-400">5 minutes</span>, not 5 hours.
+              <span className="text-brand-strong dark:text-brand-strong-dark">5 minutes</span>, not 5 hours.
             </h1>
             <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark sm:mt-6">
               EarningsNerd turns dense SEC filings into clear, decision-ready insights on business performance,
@@ -57,7 +57,7 @@ export default function WaitlistPage() {
               <ExampleCtaLink
                 href={exampleFilingHref('waitlist_example')}
                 placement="waitlist"
-                className="inline-flex items-center gap-1 font-semibold text-mint-700 underline underline-offset-4 transition-colors hover:text-mint-600 dark:text-mint-400 dark:hover:text-mint-300"
+                className="inline-flex items-center gap-1 font-semibold text-brand-strong underline underline-offset-4 transition-colors hover:text-brand-light dark:text-brand-strong-dark dark:hover:text-brand-strong-dark"
               >
                 Try a live example summary
                 <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
@@ -105,12 +105,12 @@ export default function WaitlistPage() {
                     </ul>
                   </div>
                 </div>
-                <div className="rounded-2xl border border-mint-200/70 bg-mint-50 px-4 py-3 text-sm text-mint-900 dark:border-mint-500/40 dark:bg-mint-500/10 dark:text-mint-100">
+                <div className="rounded-2xl border border-brand-light/40 bg-brand-weak px-4 py-3 text-sm text-brand-strong dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark">
                   See key metrics, risks, and highlights in one concise report.
                 </div>
               </div>
             </div>
-            <div className="absolute -bottom-6 -right-6 hidden h-24 w-24 rounded-full bg-mint-200/50 blur-2xl dark:bg-mint-500/30 lg:block" />
+            <div className="absolute -bottom-6 -right-6 hidden h-24 w-24 rounded-full bg-brand-light/30 blur-2xl dark:bg-brand-dark/30 lg:block" />
           </div>
         </div>
       </section>
@@ -157,7 +157,7 @@ export default function WaitlistPage() {
             </div>
             <a
               href="#waitlist"
-              className="inline-flex items-center justify-center rounded-full border border-mint-200 bg-mint-50 px-4 py-2 text-sm font-semibold text-mint-800 transition hover:border-mint-300 dark:border-mint-500/40 dark:bg-mint-500/10 dark:text-mint-100"
+              className="inline-flex items-center justify-center rounded-full border border-brand-light/40 bg-brand-weak px-4 py-2 text-sm font-semibold text-brand-strong transition hover:border-brand-light/60 dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark"
             >
               Join the waitlist
             </a>
@@ -189,7 +189,7 @@ export default function WaitlistPage() {
                 key={item.step}
                 className="rounded-2xl border border-border-light bg-background-light px-5 py-4 dark:border-border-dark dark:bg-background-dark"
               >
-                <div className="text-xs font-semibold uppercase tracking-widest text-mint-600 dark:text-mint-400">
+                <div className="text-xs font-semibold uppercase tracking-widest text-brand-strong dark:text-brand-strong-dark">
                   {item.step}
                 </div>
                 <h3 className="mt-2 text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">

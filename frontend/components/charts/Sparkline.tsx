@@ -1,13 +1,16 @@
 'use client'
 
+import { useContext } from 'react'
 import { Area, AreaChart, ResponsiveContainer, Tooltip } from 'recharts'
+import { ThemeContext } from '@/components/ThemeProvider'
 
 interface SparklineProps {
   data: Array<{ label: string; value: number }>
   unit?: 'USD' | 'PCT' | 'EPS'
 }
 
-const areaColor = '#1f2937'
+// Series colour from the design-system chart palette (chart.1, teal).
+const areaColor = '#3E8E84'
 
 const fmtValue = (value: number, unit: 'USD' | 'PCT' | 'EPS') => {
   if (unit === 'USD') {
@@ -23,6 +26,14 @@ const fmtValue = (value: number, unit: 'USD' | 'PCT' | 'EPS') => {
 }
 
 export const Sparkline = ({ data, unit = 'USD' }: SparklineProps) => {
+  // Recharts colours are props, not classes. Read theme off the context (not useTheme) with a
+  // light fallback so provider-less renders/SSR/tests never throw.
+  const dark = useContext(ThemeContext)?.theme === 'dark'
+  const cursorStroke = dark ? '#9CA3AF' : '#6B7280'
+  const tooltipBg = dark ? '#1F2937' : '#FBFAF6'
+  const tooltipBorder = dark ? 'rgba(255,255,255,0.1)' : '#E5E7EB'
+  const tooltipText = dark ? '#D7DADC' : '#1A1A17'
+
   if (!data || data.length === 0) return null
   return (
     <div className="h-24 w-full">
@@ -35,10 +46,11 @@ export const Sparkline = ({ data, unit = 'USD' }: SparklineProps) => {
             </linearGradient>
           </defs>
           <Tooltip
-            cursor={{ stroke: '#1f2937', strokeWidth: 1, strokeDasharray: '3 3' }}
-            contentStyle={{ borderRadius: 8, border: '1px solid #e5e7eb', boxShadow: '0 4px 12px rgba(15,23,42,0.08)' }}
+            cursor={{ stroke: cursorStroke, strokeWidth: 1, strokeDasharray: '3 3' }}
+            contentStyle={{ borderRadius: 8, border: `1px solid ${tooltipBorder}`, backgroundColor: tooltipBg, color: tooltipText, boxShadow: '0 4px 12px rgba(15,23,42,0.08)' }}
+            itemStyle={{ color: tooltipText }}
             formatter={(value) => typeof value === 'number' ? fmtValue(value, unit) : ''}
-            labelStyle={{ color: '#111827', fontWeight: 500 }}
+            labelStyle={{ color: tooltipText, fontWeight: 500 }}
           />
           <Area type="monotone" dataKey="value" stroke={areaColor} strokeWidth={2} fill="url(#sparklineFill)" />
         </AreaChart>

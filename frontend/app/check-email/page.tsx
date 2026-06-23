@@ -44,8 +44,8 @@ function CheckEmailContent() {
   return (
     <AuthShell>
       <div className="flex justify-center">
-        <div className="animate-float rounded-full bg-mint-500/10 p-4">
-          <Mail className="h-8 w-8 text-mint-500" />
+        <div className="animate-float rounded-full bg-brand-strong/10 p-4 dark:bg-brand-dark/15">
+          <Mail className="h-8 w-8 text-brand-strong dark:text-brand-strong-dark" />
         </div>
       </div>
 
@@ -80,7 +80,7 @@ function CheckEmailContent() {
         <button
           onClick={handleResend}
           disabled={resendLoading || cooldown > 0 || !email}
-          className="inline-flex items-center gap-1 font-medium text-mint-600 hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline dark:text-mint-400"
+          className="inline-flex items-center gap-1 font-medium text-brand-strong hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline dark:text-brand-strong-dark"
         >
           {resendLoading && <Loader2 className="h-3 w-3 animate-spin" />}
           {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend email'}

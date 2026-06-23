@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import { Loader2 } from 'lucide-react'
@@ -9,6 +9,7 @@ import { getPeers, PeerComparisonResponse } from '@/features/peers/api/peers-api
 import { ApiError } from '@/lib/api/client'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import UnverifiedBadge from '@/components/UnverifiedBadge'
+import { ThemeContext } from '@/components/ThemeProvider'
 
 type FmtKind = 'usd' | 'eps' | 'pct'
 
@@ -26,8 +27,7 @@ const METRICS: { key: string; label: string }[] = [
 ]
 
 const MAX_BARS = 10
-const MINT = '#10B981'
-const GRAY = '#9CA3AF'
+const SUBJECT_FILL = '#3E8E84' // chart.1 (teal)
 
 const fmtKindFor = (unit: string | null | undefined): FmtKind =>
   unit === 'pure' ? 'pct' : unit === 'USD/shares' ? 'eps' : 'usd'
@@ -39,6 +39,16 @@ const formatValue = (value: number, kind: FmtKind): string => {
 }
 
 export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
+  // Recharts colours are props, not classes. Read theme off the context (not useTheme) with a
+  // light fallback so provider-less renders/SSR/tests never throw.
+  const dark = useContext(ThemeContext)?.theme === 'dark'
+  const axisText = dark ? '#9CA3AF' : '#6B7280'
+  const peerFill = dark ? '#475569' : '#94A3B8'
+  const tooltipBg = dark ? '#1F2937' : '#FBFAF6'
+  const tooltipBorder = dark ? 'rgba(255,255,255,0.1)' : '#E5E7EB'
+  const tooltipText = dark ? '#D7DADC' : '#1A1A17'
+  const cursorFill = dark ? 'rgba(62,142,132,0.16)' : 'rgba(62,142,132,0.08)'
+
   const [metric, setMetric] = useState('revenue')
   const { data, isLoading, isError } = useQuery<PeerComparisonResponse>({
     queryKey: ['peers', ticker, metric],
@@ -147,7 +157,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
             >
               <XAxis
                 type="number"
-                tick={{ fontSize: 12, fill: GRAY }}
+                tick={{ fontSize: 12, fill: axisText }}
                 tickLine={false}
                 axisLine={false}
                 tickFormatter={(v: number) => formatValue(v, kind)}
@@ -155,25 +165,27 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
               <YAxis
                 type="category"
                 dataKey="ticker"
-                tick={{ fontSize: 12, fill: GRAY }}
+                tick={{ fontSize: 12, fill: axisText }}
                 tickLine={false}
                 axisLine={false}
                 width={64}
               />
               <Tooltip
-                cursor={{ fill: 'rgba(16,185,129,0.08)' }}
+                cursor={{ fill: cursorFill }}
                 formatter={(v) => [formatValue(Number(v), kind), label]}
                 contentStyle={{
-                  background: '#1F2937',
-                  border: '1px solid #374151',
+                  background: tooltipBg,
+                  border: `1px solid ${tooltipBorder}`,
                   borderRadius: 8,
-                  color: '#fff',
+                  color: tooltipText,
                   fontSize: 12,
                 }}
+                labelStyle={{ color: tooltipText }}
+                itemStyle={{ color: tooltipText }}
               />
               <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={28}>
                 {chartData.map((entry) => (
-                  <Cell key={entry.ticker} fill={entry.isSubject ? MINT : GRAY} fillOpacity={entry.isSubject ? 1 : 0.45} />
+                  <Cell key={entry.ticker} fill={entry.isSubject ? SUBJECT_FILL : peerFill} fillOpacity={entry.isSubject ? 1 : 0.45} />
                 ))}
               </Bar>
             </BarChart>

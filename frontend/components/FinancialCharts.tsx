@@ -19,9 +19,12 @@ export default function FinancialCharts({ metrics }: FinancialChartsProps) {
   // Recharts colours are props, not classes, so theme them off the resolved theme. Read the context
   // directly (not useTheme) with a light fallback so bare renders/SSR/tests never throw.
   const isDark = useContext(ThemeContext)?.theme === 'dark'
+  // Series colours come from the design-system chart palette (tailwind colors.chart);
+  // axis/grid/tooltip branch on the resolved theme.
+  const SERIES_PRIMARY = '#3E8E84' // chart.1 (teal)
   const chart = isDark
-    ? { grid: '#334155', tick: '#94a3b8', cursor: 'rgba(148,163,184,0.12)', tipBg: '#1e293b', tipBorder: '#334155', tipText: '#e2e8f0' }
-    : { grid: '#f1f5f9', tick: '#64748b', cursor: '#f8fafc', tipBg: '#ffffff', tipBorder: '#e2e8f0', tipText: '#0f172a' }
+    ? { grid: '#374151', tick: '#9CA3AF', cursor: 'rgba(148,163,184,0.12)', tipBg: '#1F2937', tipBorder: 'rgba(255,255,255,0.1)', tipText: '#D7DADC', priorSeries: '#475569' }
+    : { grid: '#E5E7EB', tick: '#6B7280', cursor: '#f8fafc', tipBg: '#FBFAF6', tipBorder: '#E5E7EB', tipText: '#1A1A17', priorSeries: '#94A3B8' }
 
   if (!metrics || metrics.length === 0) {
     return null
@@ -148,19 +151,19 @@ export default function FinancialCharts({ metrics }: FinancialChartsProps) {
                   ]}
                 />
                 <Legend iconType="circle" wrapperStyle={{ paddingTop: '20px' }} />
-                <Bar 
-                  dataKey="current" 
-                  name="Current Period" 
-                  fill="#10b981" // emerald-500
-                  radius={[4, 4, 0, 0]} 
+                <Bar
+                  dataKey="current"
+                  name="Current Period"
+                  fill={SERIES_PRIMARY} // chart.1 (teal)
+                  radius={[4, 4, 0, 0]}
                   barSize={32}
                 />
                 {showPriorSeries && (
-                  <Bar 
-                    dataKey="prior" 
-                    name="Prior Period" 
-                    fill="#94a3b8" // slate-400
-                    radius={[4, 4, 0, 0]} 
+                  <Bar
+                    dataKey="prior"
+                    name="Prior Period"
+                    fill={chart.priorSeries} // neutral, theme-aware
+                    radius={[4, 4, 0, 0]}
                     barSize={32}
                   />
                 )}

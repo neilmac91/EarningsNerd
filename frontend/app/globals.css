@@ -28,14 +28,9 @@
   /* Body = Figtree (loaded by next/font as --font-figtree), with system fallbacks. */
   --font-body: var(--font-figtree, 'Figtree'), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
 
-  /* Heading ink: warm dark-brown in light (softer than pure black), off-white in dark. */
-  --heading-color: #3A2E26;
-
   /* Default body font = Figtree (friendly, approachable). The body switcher overrides this. */
   --font-active: var(--font-body);
 }
-
-.dark { --heading-color: #D7DADC; }
 
 html[data-font='figtree']   { --font-active: var(--font-body); }
 html[data-font='system']    { --font-active: var(--font-system); }
@@ -65,10 +60,12 @@ html[data-font='lora']  { --font-active: var(--font-lora); }
     @apply bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark;
   }
 
-  /* Headings always use the grotesque heading role (Helvetica / Arial) + warm brown ink. */
+  /* Headings use the grotesque heading role (Helvetica / Arial). Color is intentionally NOT
+     set globally — headings inherit their surface's text color (theme token-pairs on themed
+     surfaces; explicit light text on permanently-dark surfaces). A global heading color would
+     paint dark ink on always-dark surfaces (e.g. the hero) when the theme is light. */
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
-    color: var(--heading-color);
   }
 
   /* Technical / data output — filing summaries + Ask-this-Filing answers render mono. */
@@ -162,24 +159,23 @@ html[data-font='lora']  { --font-active: var(--font-lora); }
   animation: gradient-shift 3s ease infinite;
 }
 
-/* Hero section styles */
+/* Hero search glow — brand accent, theme-aware (sage in light, slate in dark). */
 .hero-search-glow {
-  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.2),
-              0 0 30px -5px rgba(16, 185, 129, 0.15);
+  box-shadow: 0 0 0 1px rgba(79, 122, 99, 0.22),
+              0 0 30px -5px rgba(79, 122, 99, 0.15);
   transition: box-shadow 0.3s ease;
 }
-
 .hero-search-glow:focus-within {
-  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.4),
-              0 0 40px -5px rgba(16, 185, 129, 0.25);
+  box-shadow: 0 0 0 2px rgba(79, 122, 99, 0.40),
+              0 0 40px -5px rgba(79, 122, 99, 0.25);
 }
-
-/* Gradient text utility */
-.text-gradient-mint {
-  background: linear-gradient(135deg, #10B981 0%, #06b6d4 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+.dark .hero-search-glow {
+  box-shadow: 0 0 0 1px rgba(146, 160, 226, 0.22),
+              0 0 30px -5px rgba(146, 160, 226, 0.18);
+}
+.dark .hero-search-glow:focus-within {
+  box-shadow: 0 0 0 2px rgba(146, 160, 226, 0.45),
+              0 0 40px -5px rgba(146, 160, 226, 0.28);
 }
 
 /* Scroll-triggered animation base */
@@ -194,29 +190,48 @@ html[data-font='lora']  { --font-active: var(--font-lora); }
   transform: translateY(0);
 }
 
-/* Glass card effect */
+/* Glass card effect — theme-aware (translucent white in light, dark glass in dark). */
 .glass-card {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(16, 24, 40, 0.12);
+  /* Resting soft elevation (= shadow-e2) so the card lifts off the warm cream bg
+     instead of relying on a near-equal-luminance tint. */
+  box-shadow: 0 1px 3px 0 rgba(16, 24, 40, 0.10),
+              0 1px 2px -1px rgba(16, 24, 40, 0.10);
 }
-
 .glass-card:hover {
-  border-color: rgba(16, 185, 129, 0.2);
-  box-shadow: 0 0 30px -10px rgba(16, 185, 129, 0.15);
+  border-color: rgba(60, 102, 80, 0.30);
+  box-shadow: 0 8px 30px -12px rgba(16, 24, 40, 0.18);
+}
+.dark .glass-card {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: none; /* dark separates via fill contrast; keep no resting shadow */
+}
+.dark .glass-card:hover {
+  border-color: rgba(146, 160, 226, 0.25);
+  box-shadow: 0 0 30px -10px rgba(146, 160, 226, 0.15);
 }
 
-/* Mockup browser frame */
+/* Mockup browser frame — theme-aware (warm off-white in light, dark in dark). */
 .mockup-frame {
-  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: linear-gradient(180deg, #FBFAF6 0%, #F4F3EE 100%);
+  border: 1px solid rgba(16, 24, 40, 0.10);
   border-radius: 12px;
   overflow: hidden;
 }
-
 .mockup-frame-titlebar {
+  background: rgba(16, 24, 40, 0.04);
+  border-bottom: 1px solid rgba(16, 24, 40, 0.06);
+}
+.dark .mockup-frame {
+  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.dark .mockup-frame-titlebar {
   background: rgba(255, 255, 255, 0.05);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom-color: rgba(255, 255, 255, 0.06);
 }
 
 .markdown-body {
@@ -256,7 +271,7 @@ html[data-font='lora']  { --font-active: var(--font-lora); }
 }
 
 .markdown-body blockquote {
-  @apply border-l-4 border-emerald-500 pl-4 italic text-slate-600;
+  @apply border-l-4 border-brand-strong pl-4 italic text-slate-600;
 }
 
 /* In-app filing viewer (P7): citation highlight + flash.
