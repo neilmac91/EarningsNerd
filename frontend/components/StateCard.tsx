@@ -15,8 +15,8 @@ const VARIANT_STYLES = {
     icon: 'text-error-light dark:text-error-dark',
   },
   info: {
-    wrapper: 'border-info-light/30 bg-info-light/10 text-info-light dark:border-info-dark/40 dark:bg-info-dark/10 dark:text-info-dark',
-    icon: 'text-info-light dark:text-info-dark',
+    wrapper: 'border-brand-light/30 bg-brand-weak text-brand-strong dark:border-brand-dark/30 dark:bg-brand-dark/10 dark:text-brand-strong-dark',
+    icon: 'text-brand-strong dark:text-brand-strong-dark',
   },
   success: {
     wrapper: 'border-success-light/30 bg-success-light/10 text-success-light dark:border-success-dark/40 dark:bg-success-dark/10 dark:text-success-dark',
