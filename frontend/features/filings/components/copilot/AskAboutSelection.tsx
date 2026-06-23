@@ -109,7 +109,7 @@ export default function AskAboutSelection({ containerRef, enabled, onAsk }: AskA
         setFloating(null)
       }}
       style={{ position: 'fixed', top: floating.top, left: floating.left, transform: 'translate(-50%, -100%)' }}
-      className="z-[60] inline-flex items-center gap-1.5 rounded-full bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-3 py-1.5 text-xs font-semibold shadow-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+      className="z-[60] inline-flex items-center gap-1.5 rounded-full bg-brand-dark text-background-dark hover:bg-brand-strong-dark px-3 py-1.5 text-xs font-semibold shadow-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
     >
       <Sparkles className="h-3.5 w-3.5" />
       Ask about this

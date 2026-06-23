@@ -37,7 +37,7 @@ function readStoredWidth(): number {
 // the grid cell; PaneResizer + the sticky cell wrapper provide width/height). One element, two CSS
 // personalities — so each body mounts exactly once across breakpoints.
 const SHELL_CLASSES =
-  'fixed inset-x-0 bottom-0 z-40 flex max-h-[85vh] flex-col rounded-t-2xl border border-white/10 bg-slate-900 text-text-primary-light dark:text-text-primary-dark shadow-2xl lg:static lg:inset-auto lg:z-auto lg:h-full lg:max-h-none lg:w-full lg:rounded-none lg:border-y-0 lg:shadow-none'
+  'fixed inset-x-0 bottom-0 z-40 flex max-h-[85vh] flex-col rounded-t-2xl border border-white/10 bg-slate-900 text-text-primary-dark shadow-2xl lg:static lg:inset-auto lg:z-auto lg:h-full lg:max-h-none lg:w-full lg:rounded-none lg:border-y-0 lg:shadow-none'
 
 interface FilingWorkspaceProps {
   /** Whether the Copilot pane is open (drives the two-column desktop layout + launcher). */
@@ -115,7 +115,7 @@ export default function FilingWorkspace({
       href={secUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline"
+      className="inline-flex items-center gap-1 text-xs font-medium text-brand-strong-dark hover:underline"
     >
       Open original <ExternalLink className="h-3 w-3" />
     </a>
@@ -133,7 +133,7 @@ export default function FilingWorkspace({
                 ref={launcherRef}
                 type="button"
                 onClick={() => onOpenChange(true)}
-                className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-3 text-sm font-semibold shadow-glow-mint transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+                className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-brand-dark text-background-dark hover:bg-brand-strong-dark px-4 py-3 text-sm font-semibold shadow-glow-mint transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
                 aria-label="Ask this Filing"
               >
                 <Sparkles className="h-4 w-4" />

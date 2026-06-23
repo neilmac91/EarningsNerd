@@ -101,7 +101,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
       href={secUrl}
       target="_blank"
       rel="noopener noreferrer"
-      className="inline-flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline"
+      className="inline-flex items-center gap-1 text-xs font-medium text-brand-strong-dark hover:underline"
     >
       Open original <ExternalLink className="h-3 w-3" />
     </a>
@@ -111,14 +111,14 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
   const inner = (
     <>
       {(status === 'idle' || status === 'loading') && (
-        <p className="flex flex-1 items-center justify-center gap-2 px-6 py-12 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-          <Loader2 className="h-4 w-4 animate-spin text-brand-strong dark:text-brand-strong-dark" /> Loading the filing…
+        <p className="flex flex-1 items-center justify-center gap-2 px-6 py-12 text-sm text-text-secondary-dark">
+          <Loader2 className="h-4 w-4 animate-spin text-brand-strong-dark" /> Loading the filing…
         </p>
       )}
 
       {(status === 'empty' || status === 'error') && (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 py-12 text-center">
-          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+          <p className="text-sm text-text-secondary-dark">
             {status === 'error'
               ? 'Could not load the filing text.'
               : 'The full filing text is not available to view in-app yet.'}
@@ -128,7 +128,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
               <button
                 type="button"
                 onClick={() => void load()}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-slate-700"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-slate-800 px-3 py-2 text-xs font-semibold text-text-secondary-dark transition-colors hover:bg-slate-700"
               >
                 <RotateCw className="h-3.5 w-3.5" /> Try again
               </button>
@@ -138,7 +138,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
                 href={secUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-3 py-2 text-xs font-semibold transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-dark text-background-dark hover:bg-brand-strong-dark px-3 py-2 text-xs font-semibold transition-colors"
               >
                 Open the original on SEC.gov <ExternalLink className="h-3.5 w-3.5" />
               </a>
@@ -150,7 +150,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
       {status === 'ready' && (
         <div className="flex min-h-0 flex-1 flex-col">
           {passageMissing && (
-            <p className="border-b border-warning-light/20 dark:border-warning-dark/20 bg-warning-light/10 dark:bg-warning-dark/10 px-4 py-2 text-[11px] text-warning-light dark:text-warning-dark">
+            <p className="border-b border-warning-light/20 dark:border-warning-dark/20 bg-warning-light/10 dark:bg-warning-dark/10 px-4 py-2 text-[11px] text-warning-dark">
               Couldn’t pinpoint the exact passage — showing the full filing.{' '}
               {isHttpUrl(secUrl) && (
                 <a href={secUrl} target="_blank" rel="noopener noreferrer" className="font-medium underline">
@@ -161,7 +161,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
           )}
           <div
             ref={contentRef}
-            className="prose prose-invert prose-sm min-h-0 max-w-none flex-1 overflow-y-auto break-words px-4 py-4 prose-headings:text-text-primary-light dark:prose-headings:text-text-primary-dark prose-p:text-text-secondary-light dark:prose-p:text-text-secondary-dark prose-li:text-text-secondary-light dark:prose-li:text-text-secondary-dark prose-a:text-brand-strong dark:prose-a:text-brand-strong-dark"
+            className="prose prose-invert prose-sm min-h-0 max-w-none flex-1 overflow-y-auto break-words px-4 py-4 prose-headings:text-text-primary-dark prose-p:text-text-secondary-dark prose-li:text-text-secondary-dark prose-a:text-brand-strong-dark"
           >
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{content || ''}</ReactMarkdown>
           </div>
@@ -182,12 +182,12 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
     <div
       role="dialog"
       aria-label={`${filingLabel} — filing text`}
-      className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] flex-col rounded-t-2xl border border-white/10 bg-slate-900 text-text-primary-light dark:text-text-primary-dark shadow-2xl lg:inset-x-auto lg:bottom-0 lg:left-0 lg:top-16 lg:max-h-none lg:w-[480px] lg:rounded-none lg:border-y-0 lg:border-r"
+      className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] flex-col rounded-t-2xl border border-white/10 bg-slate-900 text-text-primary-dark shadow-2xl lg:inset-x-auto lg:bottom-0 lg:left-0 lg:top-16 lg:max-h-none lg:w-[480px] lg:rounded-none lg:border-y-0 lg:border-r"
     >
       <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
-          <FileText className="h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" />
-          <h2 className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{filingLabel} — filing text</h2>
+          <FileText className="h-4 w-4 shrink-0 text-brand-strong-dark" />
+          <h2 className="truncate text-sm font-semibold text-text-primary-dark">{filingLabel} — filing text</h2>
         </div>
         <div className="flex shrink-0 items-center gap-3">
           {openOriginal}
@@ -195,7 +195,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
             type="button"
             onClick={close}
             aria-label="Close filing viewer"
-            className="flex h-8 w-8 items-center justify-center rounded-full text-text-tertiary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark"
+            className="flex h-8 w-8 items-center justify-center rounded-full text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-dark"
           >
             <X className="h-4 w-4" />
           </button>
