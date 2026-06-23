@@ -1,17 +1,32 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Figtree } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
+import { FontProvider } from '@/components/FontProvider'
 import { SiteHeader, SiteFooter } from '@/components/SiteChrome'
 import VerificationBanner from '@/components/VerificationBanner'
 import EmailVerificationModal from '@/components/EmailVerificationModal'
 import CookieConsent from '@/components/CookieConsent'
 import { Analytics } from '@vercel/analytics/next'
 
-const inter = Inter({
+// Body & UI role — self-hosted via next/font (no Google Fonts <link>, no FOUC).
+// Exposed as the CSS variable globals.css reads for --font-body.
+const figtree = Figtree({
   subsets: ['latin'],
-  variable: '--font-inter',
+  variable: '--font-figtree',
+  display: 'swap',
 })
+
+// Inline pre-hydration script — runs synchronously in <head>, before paint, so the
+// persisted body font is applied on the first frame (no flash-of-wrong-font). It only
+// mutates an attribute (not server-rendered text), so React hydration stays consistent.
+const FONT_BOOTSTRAP = `(function(){try{
+  var f = localStorage.getItem('en-font');
+  var allowed = ['figtree','grotesque','data'];
+  document.documentElement.setAttribute('data-font', allowed.indexOf(f) > -1 ? f : 'figtree');
+}catch(e){
+  document.documentElement.setAttribute('data-font','figtree');
+}})();`
 
 export const metadata: Metadata = {
   title: 'EarningsNerd - AI-Powered SEC Filing Analysis',
@@ -49,18 +64,24 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={`${inter.variable} font-sans`} suppressHydrationWarning>
-      <head />
+    // suppressHydrationWarning: the bootstrap script sets data-font (and ThemeProvider the
+    // .dark class) on <html> before hydration.
+    <html lang="en" data-font="figtree" className={`${figtree.variable} font-sans`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: FONT_BOOTSTRAP }} />
+      </head>
       <body>
-        <Providers>
-          <SiteHeader />
-          <VerificationBanner />
-          {children}
-          <SiteFooter />
-          <EmailVerificationModal />
-          <CookieConsent />
-          <Analytics />
-        </Providers>
+        <FontProvider>
+          <Providers>
+            <SiteHeader />
+            <VerificationBanner />
+            {children}
+            <SiteFooter />
+            <EmailVerificationModal />
+            <CookieConsent />
+            <Analytics />
+          </Providers>
+        </FontProvider>
       </body>
     </html>
   )

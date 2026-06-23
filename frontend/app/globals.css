@@ -2,13 +2,86 @@
 @tailwind components;
 @tailwind utilities;
 
+/* =============================================================================
+   EarningsNerd — font-switcher CSS variables
+   -----------------------------------------------------------------------------
+   The four stacks are all OS-native (no network request). --font-active is the
+   live body font; FontProvider rewrites it by setting [data-font] on <html>. The
+   inline pre-hydration script in app/layout.tsx sets [data-font] BEFORE first
+   paint, so there is no flash-of-wrong-font.
+
+   --font-data is permanent: tables, tickers, XBRL figures, and anything that
+   must align in columns always render monospace regardless of the body choice.
+
+   The default body role is Figtree, self-hosted via next/font (app/layout.tsx),
+   which exposes it as --font-figtree — no Google Fonts <link>, no FOUC.
+============================================================================= */
+:root {
+  --font-system: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-grotesque: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+  --font-editorial: Georgia, 'Times New Roman', Times, serif;
+  --font-data: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  /* Three type roles. Headings are FIXED to a neutral grotesque regardless of the
+     switchable body font; technical/data output is always monospace. */
+  --font-heading: Helvetica, 'Helvetica Neue', Arial, sans-serif;
+  /* Body = Figtree (loaded by next/font as --font-figtree), with system fallbacks. */
+  --font-body: var(--font-figtree, 'Figtree'), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+
+  /* Heading ink: warm dark-brown in light (softer than pure black), off-white in dark. */
+  --heading-color: #3A2E26;
+
+  /* Default body font = Figtree (friendly, approachable). The body switcher overrides this. */
+  --font-active: var(--font-body);
+}
+
+.dark { --heading-color: #D7DADC; }
+
+html[data-font='figtree']   { --font-active: var(--font-body); }
+html[data-font='system']    { --font-active: var(--font-system); }
+html[data-font='grotesque'] { --font-active: var(--font-grotesque); }
+html[data-font='editorial'] { --font-active: var(--font-editorial); }
+html[data-font='data']      { --font-active: var(--font-data); }
+
+/* --- Optional: extra body-font directions (Inter, Lora) ---
+   Figtree (the body default) is self-hosted via next/font in app/layout.tsx — no
+   <link> needed. Inter/Lora below are NOT loaded by default; to enable, load them
+   (next/font or a webfont <link>) and add 'inter' | 'lora' to FONT_OPTIONS in
+   FontProvider.tsx. */
+:root {
+  --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  --font-lora:  'Lora', Georgia, 'Times New Roman', Times, serif;
+}
+html[data-font='inter'] { --font-active: var(--font-inter); }
+html[data-font='lora']  { --font-active: var(--font-lora); }
+
 @layer base {
   html {
     scroll-behavior: smooth;
   }
-  
+
   body {
+    font-family: var(--font-active);
     @apply bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark;
+  }
+
+  /* Headings always use the grotesque heading role (Helvetica / Arial) + warm brown ink. */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    color: var(--heading-color);
+  }
+
+  /* Technical / data output — filing summaries + Ask-this-Filing answers render mono. */
+  .filing-summary, .copilot-answer {
+    font-family: var(--font-data);
+  }
+
+  /* Numeric alignment helper — apply to any element showing money/percentages.
+     `tabular-nums` keeps digits the same width so columns don't jitter on update. */
+  .tabular {
+    font-family: var(--font-data);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
   }
 }
 
@@ -18,6 +91,7 @@
   }
 }
 
+/* ===== existing animations / effects (unchanged) ===== */
 @keyframes fadeIn {
   from {
     opacity: 0;

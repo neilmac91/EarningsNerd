@@ -12,6 +12,7 @@ import NotificationPreferencesForm from '@/components/settings/NotificationPrefe
 import ProfileForm from '@/components/settings/ProfileForm'
 import BillingPanel from '@/components/settings/BillingPanel'
 import ChangePasswordForm from '@/components/settings/ChangePasswordForm'
+import { FontSwitcher } from '@/components/FontProvider'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -104,6 +105,18 @@ export default function SettingsPage() {
 
         {/* New-filing alert preferences */}
         <NotificationPreferencesForm />
+
+        {/* Appearance — interface (body) font. Headings and data tables keep their fixed roles. */}
+        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-6">
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
+            Appearance
+          </h2>
+          <p className="text-slate-600 dark:text-slate-400 mb-4">
+            Choose the interface font. This changes body &amp; UI text only — headings stay
+            Helvetica and data tables stay monospace so figures keep aligning.
+          </p>
+          <FontSwitcher />
+        </div>
 
         {/* Data Export */}
         <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-6">
