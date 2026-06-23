@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
-import { Search, Loader2, ExternalLink, AlertTriangle } from 'lucide-react'
+import { ArrowSquareOutIcon, CircleNotchIcon, MagnifyingGlassIcon, WarningIcon } from '@/lib/icons'
 import { searchFullText, type FullTextSearchHit } from '@/features/search/api/search-api'
 
 const FORM_FILTERS = ['10-K', '10-Q', '8-K', '4'] as const
@@ -37,7 +37,7 @@ export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
               </div>
             </div>
             {/* Only the linkable rows get the external-link affordance. */}
-            {href && <ExternalLink className="mt-1 h-4 w-4 shrink-0 text-text-secondary-light dark:text-text-secondary-dark" aria-hidden />}
+            {href && <ArrowSquareOutIcon className="mt-1 h-4 w-4 shrink-0 text-text-secondary-light dark:text-text-secondary-dark" aria-hidden />}
           </>
         )
         return (
@@ -110,7 +110,7 @@ export default function FullTextSearch() {
       </div>
 
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark" aria-hidden />
+        <MagnifyingGlassIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark" aria-hidden />
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
@@ -119,7 +119,7 @@ export default function FullTextSearch() {
           className="w-full rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/60 py-4 pl-12 pr-4 text-lg text-text-primary-light dark:text-text-primary-dark placeholder:text-text-tertiary-light dark:placeholder:text-text-secondary-dark backdrop-blur-sm focus:border-brand-light focus:outline-none"
         />
         {isFetching && (
-          <Loader2 className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+          <CircleNotchIcon className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />
         )}
       </div>
 
@@ -184,7 +184,7 @@ export default function FullTextSearch() {
           className="flex items-center justify-between gap-3 rounded-xl border border-error-light/40 dark:border-error-dark/40 bg-error-light/10 dark:bg-error-dark/15 p-4 text-sm text-error-light dark:text-error-dark"
         >
           <span className="flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4" aria-hidden />
+            <WarningIcon className="h-4 w-4" aria-hidden />
             {error instanceof Error ? error.message : 'Search is temporarily unavailable.'}
           </span>
           <button

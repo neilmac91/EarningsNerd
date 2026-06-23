@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { getCompanyFilings, Filing, compareFilings } from '@/features/filings/api/filings-api'
-import { Loader2 } from 'lucide-react'
+import { CircleNotchIcon } from '@/lib/icons'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import SubscriptionGate from '@/components/SubscriptionGate'
@@ -98,7 +98,7 @@ export default function ComparePage() {
                 >
                   {isSearching ? (
                     <span className="flex items-center justify-center">
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      <CircleNotchIcon className="h-4 w-4 animate-spin mr-2" />
                       Searching...
                     </span>
                   ) : (
@@ -176,7 +176,7 @@ export default function ComparePage() {
                   >
                     {compareMutation.isPending ? (
                       <span className="flex items-center justify-center">
-                        <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                        <CircleNotchIcon className="h-5 w-5 animate-spin mr-2" />
                         Comparing...
                       </span>
                     ) : (

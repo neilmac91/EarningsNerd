@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Search, Loader2 } from 'lucide-react'
+import { CircleNotchIcon, MagnifyingGlassIcon } from '@/lib/icons'
 import { useQuery } from '@tanstack/react-query'
 import { searchCompanies, Company } from '@/features/companies/api/companies-api'
 import { ApiError } from '@/lib/api/client'
@@ -153,7 +153,7 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
   return (
     <div className="relative">
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark" />
+        <MagnifyingGlassIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark" />
         <input
           ref={inputRef}
           id="company-search"
@@ -174,7 +174,7 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
           className="hero-search-glow w-full rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/80 py-4 pl-12 pr-4 text-lg text-text-primary-light dark:text-text-primary-dark placeholder:text-text-tertiary-light dark:placeholder:text-text-secondary-dark backdrop-blur-sm focus:border-brand-strong/40 dark:focus:border-brand-dark/40 focus:outline-none"
         />
         {isLoading && (
-          <Loader2 className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+          <CircleNotchIcon className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />
         )}
         {!isLoading && !query && (
           <kbd

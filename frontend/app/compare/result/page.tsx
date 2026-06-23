@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import { ComparisonData } from '@/features/filings/api/filings-api'
-import { TrendingUp, TrendingDown, AlertCircle, BarChart3 } from 'lucide-react'
+import { ChartBarIcon, TrendDownIcon, TrendUpIcon, WarningCircleIcon } from '@/lib/icons'
 import { format } from 'date-fns'
 import type { RiskFactor } from '../../../types/summary'
 import { evaluateComparisonQuality } from '@/lib/QualityGate'
@@ -218,7 +218,7 @@ export default function CompareResultPage() {
         <div className="max-w-lg bg-panel-light dark:bg-panel-dark border border-error-light/30 dark:border-error-dark/40 shadow-e2 dark:shadow-none rounded-xl p-8 space-y-4">
           <div className="flex items-center space-x-3">
             <div className="h-10 w-10 rounded-full bg-error-light/10 dark:bg-error-dark/10 flex items-center justify-center">
-              <AlertCircle className="h-6 w-6 text-error-light dark:text-error-dark" />
+              <WarningCircleIcon className="h-6 w-6 text-error-light dark:text-error-dark" />
             </div>
             <h1 className="text-xl font-semibold text-error-light dark:text-error-dark">Quality Gate Failed</h1>
           </div>
@@ -285,7 +285,7 @@ export default function CompareResultPage() {
         {comparison.financial_metrics.length > 0 && (
           <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-e2 dark:shadow-none border border-border-light dark:border-white/10 p-6 mb-6">
             <div className="flex items-center space-x-2 mb-4">
-              <BarChart3 className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
+              <ChartBarIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
               <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Financial Metrics</h2>
             </div>
             <div className="overflow-x-auto">
@@ -323,8 +323,8 @@ export default function CompareResultPage() {
                                       : directionText.flat
                                   }`}
                                 >
-                                  {positive && <TrendingUp className="h-3 w-3 mr-1" />}
-                                  {negative && <TrendingDown className="h-3 w-3 mr-1" />}
+                                  {positive && <TrendUpIcon className="h-3 w-3 mr-1" />}
+                                  {negative && <TrendDownIcon className="h-3 w-3 mr-1" />}
                                   {`${delta > 0 ? '+' : ''}${(delta * 100).toFixed(1)}% vs baseline`}
                                 </span>
                               )}
@@ -366,7 +366,7 @@ export default function CompareResultPage() {
                       </p>
                     </div>
                     <div className={`flex items-center text-sm font-semibold ${positive ? directionText.up : directionText.down}`}>
-                      {positive ? <TrendingUp className="h-4 w-4 mr-1" /> : <TrendingDown className="h-4 w-4 mr-1" />}
+                      {positive ? <TrendUpIcon className="h-4 w-4 mr-1" /> : <TrendDownIcon className="h-4 w-4 mr-1" />}
                       {percentLabel}
                     </div>
                   </div>
@@ -405,7 +405,7 @@ export default function CompareResultPage() {
         {comparison.risk_factors.length > 0 && (
           <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-e2 dark:shadow-none border border-border-light dark:border-white/10 p-6">
             <div className="flex items-center space-x-2 mb-4">
-              <AlertCircle className="h-6 w-6 text-error-light dark:text-error-dark" />
+              <WarningCircleIcon className="h-6 w-6 text-error-light dark:text-error-dark" />
               <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Risk Factors</h2>
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4">

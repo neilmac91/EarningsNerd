@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { Newspaper } from 'lucide-react'
+import { NewspaperIcon } from '@/lib/icons'
 import { getDashboardFeed } from '@/features/dashboard/api/dashboard-api'
 import StateCard from '@/components/StateCard'
 import WhatChangedCard from './WhatChangedCard'
@@ -17,7 +17,7 @@ export default function FilingFeed({ enabled = true }: { enabled?: boolean }) {
   return (
     <section>
       <div className="mb-4 flex items-center gap-2">
-        <Newspaper className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
+        <NewspaperIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
           What&apos;s new
         </h2>

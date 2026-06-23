@@ -3,7 +3,7 @@
 import { useContext, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { Loader2 } from 'lucide-react'
+import { CircleNotchIcon } from '@/lib/icons'
 
 import { getFundamentals, FundamentalsResponse } from '@/features/fundamentals/api/fundamentals-api'
 import { ApiError } from '@/lib/api/client'
@@ -127,7 +127,7 @@ export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
 
       {isLoading ? (
         <div className="flex h-72 items-center justify-center" aria-label="Loading financial trends">
-          <Loader2 className="h-6 w-6 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+          <CircleNotchIcon className="h-6 w-6 animate-spin text-brand-strong dark:text-brand-strong-dark" />
         </div>
       ) : chartData.length === 0 ? (
         <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark">

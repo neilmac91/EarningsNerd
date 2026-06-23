@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { CircleNotchIcon, MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 
 import {
   getInsiderActivity,
@@ -72,7 +72,7 @@ export default function InsiderActivityPanel({ ticker }: { ticker: string }) {
   const direction = signalValue > 0 ? 'buy' : signalValue < 0 ? 'sell' : 'flat'
   const planSells = summary?.plan_10b5_1_sell_shares ?? 0
 
-  const SignalIcon = direction === 'buy' ? TrendingUp : direction === 'sell' ? TrendingDown : Minus
+  const SignalIcon = direction === 'buy' ? TrendUpIcon : direction === 'sell' ? TrendDownIcon : MinusIcon
   // Design-system gain/loss semantics: buys = gain (green), sells = loss (red), balanced = flat.
   // The magnitude + arrow glyph carry the signal alongside colour (colour is never the sole cue).
   const signalColor = directionText[direction === 'buy' ? 'up' : direction === 'sell' ? 'down' : 'flat']
@@ -109,7 +109,7 @@ export default function InsiderActivityPanel({ ticker }: { ticker: string }) {
 
       {isLoading && !hasTrades ? (
         <div className="flex h-48 items-center justify-center" aria-label="Loading insider activity">
-          <Loader2 className="h-6 w-6 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+          <CircleNotchIcon className="h-6 w-6 animate-spin text-brand-strong dark:text-brand-strong-dark" />
         </div>
       ) : !hasTrades || !summary ? (
         <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark">

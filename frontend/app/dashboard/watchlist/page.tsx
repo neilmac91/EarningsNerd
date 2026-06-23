@@ -5,14 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { format, formatDistanceToNowStrict } from 'date-fns'
-import {
-  AlertCircle,
-  CalendarDays,
-  Clock,
-  Loader2,
-  RefreshCcw,
-  Sparkles,
-} from 'lucide-react'
+import { ArrowsCounterClockwiseIcon, CalendarDotsIcon, CircleNotchIcon, ClockIcon, SparkleIcon, WarningCircleIcon } from '@/lib/icons'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getWatchlistInsights, WatchlistInsight } from '@/features/watchlist/api/watchlist-api'
 import SecondaryHeader from '@/components/SecondaryHeader'
@@ -87,7 +80,7 @@ export default function WatchlistDashboardPage() {
   if (!isReady || isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+        <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
       </div>
     )
   }
@@ -108,7 +101,7 @@ export default function WatchlistDashboardPage() {
             href="/compare"
             className="inline-flex items-center rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2 text-sm font-semibold transition-colors"
           >
-            <Sparkles className="h-4 w-4 mr-2" />
+            <SparkleIcon className="h-4 w-4 mr-2" />
             Compare filings
           </Link>
         }
@@ -174,7 +167,7 @@ export default function WatchlistDashboardPage() {
                           href={`/filing/${latest.id}`}
                           className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border border-border-light dark:border-border-dark text-text-secondary-light dark:text-text-secondary-dark hover:bg-brand-weak dark:hover:bg-white/5 transition-colors"
                         >
-                          <CalendarDays className="h-4 w-4 mr-2" />
+                          <CalendarDotsIcon className="h-4 w-4 mr-2" />
                           View filing
                         </Link>
                       )}
@@ -182,7 +175,7 @@ export default function WatchlistDashboardPage() {
                         href={`/company/${insight.company.ticker}`}
                         className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark transition-colors"
                       >
-                        <RefreshCcw className="h-4 w-4 mr-2" />
+                        <ArrowsCounterClockwiseIcon className="h-4 w-4 mr-2" />
                         Manage coverage
                       </Link>
                     </div>
@@ -197,11 +190,11 @@ export default function WatchlistDashboardPage() {
                             {latest.filing_type}
                           </div>
                           <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
-                            <CalendarDays className="h-4 w-4" />
+                            <CalendarDotsIcon className="h-4 w-4" />
                             <span>{formatDate(latest.filing_date)}</span>
                           </div>
                           <div className="flex items-center space-x-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
-                            <Clock className="h-4 w-4" />
+                            <ClockIcon className="h-4 w-4" />
                             <span>Period end: {formatDate(latest.period_end_date)}</span>
                           </div>
                         </>
@@ -236,7 +229,7 @@ export default function WatchlistDashboardPage() {
                         </>
                       ) : (
                         <div className="flex items-center space-x-2 text-sm text-warning-light dark:text-warning-dark">
-                          <AlertCircle className="h-4 w-4" />
+                          <WarningCircleIcon className="h-4 w-4" />
                           <span>No AI summary generated yet</span>
                         </div>
                       )}
