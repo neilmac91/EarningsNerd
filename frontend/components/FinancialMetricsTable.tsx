@@ -63,44 +63,44 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
   }
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-200 dark:border-slate-700">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Financial Highlights</h3>
+    <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark overflow-hidden">
+      <div className="px-6 py-4 border-b border-border-light dark:border-border-dark">
+        <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Financial Highlights</h3>
       </div>
       <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
-          <thead className="bg-gray-50 dark:bg-slate-900/50">
+        <table className="min-w-full divide-y divide-border-light dark:divide-border-dark">
+          <thead className="bg-background-light dark:bg-white/5">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-text-tertiary-light dark:text-text-tertiary-dark uppercase tracking-wider">
                 Metric
               </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider">
+              <th className="px-6 py-3 text-right text-xs font-medium text-text-tertiary-light dark:text-text-tertiary-dark uppercase tracking-wider">
                 Current Period
               </th>
               {hasComparatives && (
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-text-tertiary-light dark:text-text-tertiary-dark uppercase tracking-wider">
                   Prior Period
                 </th>
               )}
               {hasComparatives && (
-                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider">
+                <th className="px-6 py-3 text-right text-xs font-medium text-text-tertiary-light dark:text-text-tertiary-dark uppercase tracking-wider">
                   Change
                 </th>
               )}
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400 uppercase tracking-wider">
+              <th className="px-6 py-3 text-left text-xs font-medium text-text-tertiary-light dark:text-text-tertiary-dark uppercase tracking-wider">
                 Investor Takeaway
               </th>
             </tr>
           </thead>
-          <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
+          <tbody className="bg-panel-light dark:bg-panel-dark divide-y divide-border-light dark:divide-border-dark">
             {metrics.map((metric, index) => {
               const { change, percent } = calculateChange(metric.current_period, metric.prior_period)
               const isPositive = change !== null && change > 0
               const isNegative = change !== null && change < 0
               
               return (
-                <tr key={index} className="hover:bg-gray-50 dark:hover:bg-slate-700/50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
+                <tr key={index} className="hover:bg-background-light dark:hover:bg-white/5">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
                     <div className="flex flex-col">
                       <span>{metric.metric}</span>
                       <MetricSourceLink
@@ -110,11 +110,11 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
                       />
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-900 dark:text-white">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-text-primary-light dark:text-text-primary-dark">
                     {formatMetricValue(metric.current_period)}
                   </td>
                   {hasComparatives && (
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-gray-600 dark:text-slate-300">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-text-secondary-light dark:text-text-secondary-dark">
                       {formatMetricValue(metric.prior_period)}
                     </td>
                   )}
@@ -138,11 +138,11 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
                           </span>
                         </div>
                       ) : (
-                        <span className="text-gray-300 dark:text-slate-500">—</span>
+                        <span className="text-text-tertiary-light dark:text-text-tertiary-dark">—</span>
                       )}
                     </td>
                   )}
-                  <td className="px-6 py-4 text-sm text-gray-600 dark:text-slate-300">
+                  <td className="px-6 py-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     {metric.commentary || '-'}
                   </td>
                 </tr>
@@ -152,8 +152,8 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
         </table>
       </div>
       {notes && (
-        <div className="px-6 py-4 bg-gray-50 dark:bg-slate-900/50 border-t border-gray-200 dark:border-slate-700">
-          <p className="text-sm text-gray-600 dark:text-slate-300">{notes}</p>
+        <div className="px-6 py-4 bg-background-light dark:bg-white/5 border-t border-border-light dark:border-border-dark">
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{notes}</p>
         </div>
       )}
     </div>

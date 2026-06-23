@@ -1,12 +1,14 @@
 /**
- * Calm directional tones for financial values.
+ * Directional tones for financial values — design-system gain/loss semantics.
  *
- * The brand reserves saturated red/green — it's the "casino" anti-pattern (Plan D3,
- * "calm signal, never casino"), and a colour-only signal is also an accessibility failure
- * (red/green-colourblind users can't tell direction). So positives use the mint accent and
- * negatives a muted slate, and every caller MUST also render a direction glyph (an arrow,
- * ▲/▼, or a signed +/−) so meaning never rides on colour alone. Saturated red stays
- * reserved for genuine error states, which are not directional signals.
+ * Positive moves use the `gain` token (green), negatives use `loss` (red), and flat uses the
+ * neutral `flat` token. These are the design system's dedicated financial-data colours, kept
+ * separate from the brand accent so direction never reads as brand identity.
+ *
+ * ACCESSIBILITY: colour alone is not enough (red/green-colourblind users can't distinguish
+ * direction), so every caller MUST also render a direction glyph (an arrow, ▲/▼, or a signed
+ * +/−) — meaning never rides on colour alone. `gain`/`loss` here signal financial DIRECTION;
+ * `success`/`error` remain reserved for UI operation status, which is not a directional signal.
  */
 export type Direction = 'up' | 'down' | 'flat'
 
@@ -18,33 +20,33 @@ export function directionOf(n: number | null | undefined): Direction {
 
 /** Text-only tone — inline figures, deltas, signal headlines. Theme-aware. */
 export const directionText: Record<Direction, string> = {
-  up: 'text-mint-600 dark:text-mint-400',
-  down: 'text-slate-500 dark:text-slate-400',
-  flat: 'text-slate-400 dark:text-slate-500',
+  up: 'text-gain-light dark:text-gain-dark',
+  down: 'text-loss-light dark:text-loss-dark',
+  flat: 'text-flat-light dark:text-flat-dark',
 }
 
 /**
  * Text tone for components that sit on a *permanently dark* surface regardless of the global
- * theme (e.g. the hero, the "market movers" rail, the search dropdown). These use the light
- * (400) shades unconditionally — `directionText`'s light-mode values (mint-600/slate-500) would
- * have poor contrast on a dark background when the global `.dark` class is absent.
+ * theme (e.g. the hero, the "market movers" rail, the search dropdown). These use the
+ * dark-tuned gain/loss shades unconditionally — `directionText`'s light-mode values would have
+ * poor contrast on a dark background when the global `.dark` class is absent.
  */
 export const directionTextOnDark: Record<Direction, string> = {
-  up: 'text-mint-400',
-  down: 'text-slate-400',
-  flat: 'text-slate-400',
+  up: 'text-gain-dark',
+  down: 'text-loss-dark',
+  flat: 'text-flat-dark',
 }
 
 /** Full pill/chip tone — text + a subtle tinted background + border. */
 export const directionChip: Record<Direction, string> = {
-  up: 'text-mint-700 bg-mint-500/10 border-mint-500/20 dark:text-mint-300 dark:border-mint-400/20',
-  down: 'text-slate-600 bg-slate-500/10 border-slate-400/20 dark:text-slate-300 dark:border-slate-400/20',
-  flat: 'text-slate-500 bg-slate-500/5 border-slate-300/30 dark:text-slate-400 dark:border-slate-600/30',
+  up: 'text-gain-light bg-gain-soft border-gain-light/20 dark:text-gain-dark dark:bg-gain-soft-dark dark:border-gain-dark/20',
+  down: 'text-loss-light bg-loss-soft border-loss-light/20 dark:text-loss-dark dark:bg-loss-soft-dark dark:border-loss-dark/20',
+  flat: 'text-flat-light bg-flat-light/10 border-flat-light/20 dark:text-flat-dark dark:bg-flat-dark/10 dark:border-flat-dark/20',
 }
 
 /** Hex tones for chart contexts (Recharts needs concrete colours, not classes). */
 export const directionHex: Record<Direction, string> = {
-  up: '#10B981', // mint-500 — the brand accent
-  down: '#64748B', // slate-500 — muted, never alarm-red
-  flat: '#94A3B8', // slate-400
+  up: '#16A34A', // gain (green-600) — positive / up
+  down: '#DC2626', // loss (red-600) — negative / down
+  flat: '#6B7280', // flat (gray-500) — neutral
 }
