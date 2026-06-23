@@ -898,7 +898,7 @@ function StreamingSummaryDisplay({
                 return (
                   <div key={step.id} className={`flex items-center gap-3 transition-opacity duration-300 ${status === 'pending' ? 'opacity-40' : 'opacity-100'}`}>
                     <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center border transition-all duration-300 ${status === 'complete'
-                      ? 'bg-brand-strong border-brand-strong text-white dark:bg-brand-dark dark:border-brand-dark'
+                      ? 'bg-brand-strong border-brand-strong text-white dark:bg-brand-dark dark:border-brand-dark dark:text-background-dark'
                       : status === 'active'
                         ? 'bg-panel-light dark:bg-panel-dark border-brand-light text-brand-strong dark:text-brand-strong-dark'
                         : 'bg-background-light dark:bg-background-dark border-border-light dark:border-border-dark'
@@ -1187,7 +1187,7 @@ function SummaryDisplay({
                   onClick={() => saveMutation.mutate(summary.id)}
                   disabled={saveMutation.isPending}
                 >
-                  <Bookmark className="h-4 w-4 mr-2" />
+                  <Bookmark className="h-4 w-4" />
                   Save Summary
                 </Button>
               )
@@ -1198,11 +1198,11 @@ function SummaryDisplay({
         {isPro && (
           <div className="flex flex-wrap items-center gap-3">
             <Button variant="secondary" onClick={handleExportPDF}>
-              <Download className="h-4 w-4 mr-2" />
+              <Download className="h-4 w-4" />
               Export PDF
             </Button>
             <Button variant="secondary" onClick={handleExportCSV}>
-              <FileDown className="h-4 w-4 mr-2" />
+              <FileDown className="h-4 w-4" />
               Export CSV
             </Button>
           </div>
