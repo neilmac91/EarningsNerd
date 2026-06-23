@@ -132,7 +132,7 @@ export default function EmailVerificationModal() {
           <button
             type="button"
             onClick={handleRefresh}
-            className="flex-1 rounded-lg bg-mint-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition-all hover:bg-mint-400 active:scale-[0.99]"
+            className="flex-1 rounded-lg bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.99]"
           >
             I&apos;ve verified — refresh
           </button>

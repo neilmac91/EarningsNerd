@@ -59,7 +59,7 @@ export default function TrendingCompanies() {
             >
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="font-semibold text-text-primary-light dark:text-text-primary-dark group-hover:text-sky-600 dark:group-hover:text-sky-400 transition-colors">
+                  <div className="font-semibold text-text-primary-light dark:text-text-primary-dark group-hover:text-brand-strong dark:group-hover:text-brand-strong-dark transition-colors">
                     {company.name}
                   </div>
                   <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark font-medium mt-1">

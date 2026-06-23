@@ -271,7 +271,7 @@ html[data-font='lora']  { --font-active: var(--font-lora); }
 }
 
 .markdown-body blockquote {
-  @apply border-l-4 border-emerald-500 pl-4 italic text-slate-600;
+  @apply border-l-4 border-brand-strong pl-4 italic text-slate-600;
 }
 
 /* In-app filing viewer (P7): citation highlight + flash.

@@ -13,7 +13,7 @@ const FORM_FILTERS = ['10-K', '10-Q', '8-K', '4'] as const
  */
 export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
   return (
-    <ul className="divide-y divide-white/[0.06] overflow-hidden rounded-xl border border-white/10 bg-slate-900/60">
+    <ul className="divide-y divide-border-light dark:divide-white/[0.06] overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none">
       {hits.map((hit) => {
         const href = hit.document_url || hit.sec_url || undefined
         const rowClass = 'flex items-start justify-between gap-4 px-4 py-3'
@@ -22,13 +22,13 @@ export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 {hit.ticker && (
-                  <span className="font-mono text-sm font-semibold text-mint-400">{hit.ticker}</span>
+                  <span className="font-mono text-sm font-semibold text-brand-strong dark:text-brand-strong-dark">{hit.ticker}</span>
                 )}
-                <span className="truncate text-sm text-slate-200">{hit.company ?? 'Unknown filer'}</span>
+                <span className="truncate text-sm text-text-primary-light dark:text-text-secondary-dark">{hit.company ?? 'Unknown filer'}</span>
               </div>
-              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-400">
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                 {hit.form && (
-                  <span className="rounded border border-white/10 bg-white/5 px-1.5 py-0.5 uppercase tracking-wide">
+                  <span className="rounded border border-border-light dark:border-white/10 bg-black/[0.03] dark:bg-white/5 px-1.5 py-0.5 uppercase tracking-wide">
                     {hit.form}
                   </span>
                 )}
@@ -37,7 +37,7 @@ export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
               </div>
             </div>
             {/* Only the linkable rows get the external-link affordance. */}
-            {href && <ExternalLink className="mt-1 h-4 w-4 shrink-0 text-slate-500" aria-hidden />}
+            {href && <ExternalLink className="mt-1 h-4 w-4 shrink-0 text-text-secondary-light dark:text-text-secondary-dark" aria-hidden />}
           </>
         )
         return (
@@ -48,7 +48,7 @@ export function FullTextSearchResults({ hits }: { hits: FullTextSearchHit[] }) {
                 href={href}
                 target="_blank"
                 rel="noreferrer"
-                className={`${rowClass} transition-colors hover:bg-white/5`}
+                className={`${rowClass} transition-colors hover:bg-black/[0.03] dark:hover:bg-white/5`}
               >
                 {inner}
               </a>
@@ -101,25 +101,25 @@ export default function FullTextSearch() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold text-white">Search filings</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <h1 className="text-2xl font-semibold text-text-heading-light dark:text-text-heading-dark">Search filings</h1>
+        <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
           Full-text search across SEC filings and their exhibits since 2001 — e.g.{' '}
-          <span className="text-slate-300">&ldquo;going concern&rdquo;</span>,{' '}
-          <span className="text-slate-300">&ldquo;material weakness&rdquo;</span>, or a product name.
+          <span className="text-text-primary-light dark:text-text-primary-dark">&ldquo;going concern&rdquo;</span>,{' '}
+          <span className="text-text-primary-light dark:text-text-primary-dark">&ldquo;material weakness&rdquo;</span>, or a product name.
         </p>
       </div>
 
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" aria-hidden />
+        <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark" aria-hidden />
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Search the full text of filings…"
           aria-label="Search the full text of SEC filings"
-          className="w-full rounded-xl border border-white/10 bg-slate-900/80 py-4 pl-12 pr-4 text-lg text-white placeholder:text-slate-500 backdrop-blur-sm focus:border-mint-500/40 focus:outline-none"
+          className="w-full rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/60 py-4 pl-12 pr-4 text-lg text-text-primary-light dark:text-text-primary-dark placeholder:text-text-tertiary-light dark:placeholder:text-text-secondary-dark backdrop-blur-sm focus:border-brand-light focus:outline-none"
         />
         {isFetching && (
-          <Loader2 className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-mint-400" />
+          <Loader2 className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />
         )}
       </div>
 
@@ -134,8 +134,8 @@ export default function FullTextSearch() {
               aria-pressed={active}
               className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                 active
-                  ? 'border-mint-500/40 bg-mint-500/15 text-mint-200'
-                  : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10'
+                  ? 'border-brand-light/40 dark:border-brand-dark/40 bg-brand-weak dark:bg-brand-dark/15 text-brand-strong dark:text-brand-strong-dark'
+                  : 'border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark hover:bg-black/[0.03] dark:hover:bg-white/10'
               }`}
             >
               {form}
@@ -144,7 +144,7 @@ export default function FullTextSearch() {
         })}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
         <span>Filed between</span>
         <input
           type="date"
@@ -152,7 +152,7 @@ export default function FullTextSearch() {
           max={endDate || undefined}
           onChange={(e) => setStartDate(e.target.value)}
           aria-label="Filed on or after"
-          className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-slate-200 [color-scheme:dark] focus:border-mint-500/40 focus:outline-none"
+          className="rounded-md border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/60 px-2 py-1 text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand-light focus:outline-none"
         />
         <span>and</span>
         <input
@@ -161,7 +161,7 @@ export default function FullTextSearch() {
           min={startDate || undefined}
           onChange={(e) => setEndDate(e.target.value)}
           aria-label="Filed on or before"
-          className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-slate-200 [color-scheme:dark] focus:border-mint-500/40 focus:outline-none"
+          className="rounded-md border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/60 px-2 py-1 text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand-light focus:outline-none"
         />
         {(startDate || endDate) && (
           <button
@@ -170,18 +170,18 @@ export default function FullTextSearch() {
               setStartDate('')
               setEndDate('')
             }}
-            className="text-slate-500 underline-offset-2 transition-colors hover:text-slate-300 hover:underline"
+            className="text-text-secondary-light dark:text-text-secondary-dark underline-offset-2 transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark hover:underline"
           >
             Clear dates
           </button>
         )}
-        {!validRange && <span className="text-amber-400">Start date must be on or before end date.</span>}
+        {!validRange && <span className="text-warning-light dark:text-warning-dark">Start date must be on or before end date.</span>}
       </div>
 
       {isError && (
         <div
           role="alert"
-          className="flex items-center justify-between gap-3 rounded-xl border border-red-500/30 bg-red-950/60 p-4 text-sm text-red-200"
+          className="flex items-center justify-between gap-3 rounded-xl border border-error-light/40 dark:border-error-dark/40 bg-error-light/10 dark:bg-error-dark/15 p-4 text-sm text-error-light dark:text-error-dark"
         >
           <span className="flex items-center gap-2">
             <AlertTriangle className="h-4 w-4" aria-hidden />
@@ -190,7 +190,7 @@ export default function FullTextSearch() {
           <button
             type="button"
             onClick={() => refetch()}
-            className="rounded-md border border-red-500/30 px-3 py-1 text-xs font-medium transition-colors hover:bg-red-500/10"
+            className="rounded-md border border-error-light/40 dark:border-error-dark/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-error-light/10 dark:hover:bg-error-dark/15"
           >
             Retry
           </button>
@@ -198,7 +198,7 @@ export default function FullTextSearch() {
       )}
 
       {query.length === 0 && (
-        <p className="rounded-xl border border-white/10 bg-slate-900/40 p-4 text-sm text-slate-500">
+        <p className="rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none p-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
           Type a query to search the full text of SEC filings.
         </p>
       )}
@@ -206,14 +206,14 @@ export default function FullTextSearch() {
       {query.length > 0 && !isError && data && (
         data.hits.length > 0 ? (
           <div className="space-y-2">
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
               {data.total.toLocaleString()} filing{data.total === 1 ? '' : 's'} match — showing{' '}
               {data.count}
             </p>
             <FullTextSearchResults hits={data.hits} />
           </div>
         ) : (
-          <p className="rounded-xl border border-white/10 bg-slate-900/60 p-4 text-sm text-slate-400">
+          <p className="rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none p-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
             No filings match &ldquo;{query}&rdquo;.
           </p>
         )

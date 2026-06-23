@@ -72,11 +72,11 @@ export default function ContactForm() {
 
   if (success) {
     return (
-      <div className="rounded-2xl border border-border-light bg-white p-8 shadow-lg dark:border-border-dark dark:bg-slate-900/70">
+      <div className="rounded-2xl border border-border-light bg-panel-light p-8 shadow-e3 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
         <div className="text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-mint-100 dark:bg-mint-900/30">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-success-light/10 dark:bg-success-dark/15">
             <svg
-              className="h-6 w-6 text-mint-600 dark:text-mint-400"
+              className="h-6 w-6 text-success-light dark:text-success-dark"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -98,7 +98,7 @@ export default function ContactForm() {
           </p>
           <button
             onClick={() => setSuccess(false)}
-            className="mt-6 text-sm font-medium text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300"
+            className="mt-6 text-sm font-medium text-brand-strong hover:opacity-80 dark:text-brand-strong-dark"
           >
             Send another message
           </button>
@@ -110,7 +110,7 @@ export default function ContactForm() {
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-2xl border border-border-light bg-white p-8 shadow-lg dark:border-border-dark dark:bg-slate-900/70"
+      className="rounded-2xl border border-border-light bg-panel-light p-8 shadow-e3 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
     >
       <div className="space-y-6">
         {/* Name Field */}
@@ -119,7 +119,7 @@ export default function ContactForm() {
             htmlFor="name"
             className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark"
           >
-            Name <span className="text-red-500">*</span>
+            Name <span className="text-error-light dark:text-error-dark">*</span>
           </label>
           <input
             id="name"
@@ -129,7 +129,7 @@ export default function ContactForm() {
             onChange={(e) => setName(e.target.value)}
             required
             disabled={isSubmitting}
-            className="mt-2 w-full rounded-lg border border-border-light bg-white px-4 py-3 text-text-primary-light placeholder-gray-400 transition-colors focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-border-dark dark:bg-slate-800 dark:text-text-primary-dark dark:placeholder-gray-500"
+            className="mt-2 w-full rounded-lg border border-border-light bg-panel-light px-4 py-3 text-text-primary-light placeholder:text-text-tertiary-light transition-colors focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-slate-900/60 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark"
             placeholder="Your name"
           />
         </div>
@@ -140,7 +140,7 @@ export default function ContactForm() {
             htmlFor="email"
             className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark"
           >
-            Email <span className="text-red-500">*</span>
+            Email <span className="text-error-light dark:text-error-dark">*</span>
           </label>
           <input
             id="email"
@@ -150,7 +150,7 @@ export default function ContactForm() {
             onChange={(e) => setEmail(e.target.value)}
             required
             disabled={isSubmitting}
-            className="mt-2 w-full rounded-lg border border-border-light bg-white px-4 py-3 text-text-primary-light placeholder-gray-400 transition-colors focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-border-dark dark:bg-slate-800 dark:text-text-primary-dark dark:placeholder-gray-500"
+            className="mt-2 w-full rounded-lg border border-border-light bg-panel-light px-4 py-3 text-text-primary-light placeholder:text-text-tertiary-light transition-colors focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-slate-900/60 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark"
             placeholder="you@company.com"
           />
         </div>
@@ -170,7 +170,7 @@ export default function ContactForm() {
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             disabled={isSubmitting}
-            className="mt-2 w-full rounded-lg border border-border-light bg-white px-4 py-3 text-text-primary-light placeholder-gray-400 transition-colors focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-border-dark dark:bg-slate-800 dark:text-text-primary-dark dark:placeholder-gray-500"
+            className="mt-2 w-full rounded-lg border border-border-light bg-panel-light px-4 py-3 text-text-primary-light placeholder:text-text-tertiary-light transition-colors focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-slate-900/60 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark"
             placeholder="How can we help?"
           />
         </div>
@@ -181,7 +181,7 @@ export default function ContactForm() {
             htmlFor="message"
             className="block text-sm font-medium text-text-primary-light dark:text-text-primary-dark"
           >
-            Message <span className="text-red-500">*</span>
+            Message <span className="text-error-light dark:text-error-dark">*</span>
           </label>
           <textarea
             id="message"
@@ -191,18 +191,18 @@ export default function ContactForm() {
             required
             disabled={isSubmitting}
             rows={6}
-            className="mt-2 w-full rounded-lg border border-border-light bg-white px-4 py-3 text-text-primary-light placeholder-gray-400 transition-colors focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-border-dark dark:bg-slate-800 dark:text-text-primary-dark dark:placeholder-gray-500"
+            className="mt-2 w-full rounded-lg border border-border-light bg-panel-light px-4 py-3 text-text-primary-light placeholder:text-text-tertiary-light transition-colors focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-slate-900/60 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark"
             placeholder="Tell us more about your inquiry..."
           />
-          <p className="mt-2 text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+          <p className="mt-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
             Minimum 10 characters
           </p>
         </div>
 
         {/* Error Message */}
         {error && (
-          <div className="rounded-lg bg-red-50 p-4 dark:bg-red-900/20">
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+          <div className="rounded-lg bg-error-light/10 p-4 dark:bg-error-dark/15">
+            <p className="text-sm text-error-light dark:text-error-dark">{error}</p>
           </div>
         )}
 
@@ -212,7 +212,7 @@ export default function ContactForm() {
         <button
           type="submit"
           disabled={isSubmitting || (TURNSTILE_ENABLED && !turnstileToken)}
-          className="w-full rounded-lg bg-mint-500 px-6 py-3 font-medium text-slate-950 transition-colors hover:bg-mint-400 focus:outline-none focus:ring-2 focus:ring-mint-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full rounded-lg bg-brand-strong px-6 py-3 font-medium text-white transition-colors hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {isSubmitting ? (
             <span className="flex items-center justify-center">

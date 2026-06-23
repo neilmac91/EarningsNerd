@@ -65,7 +65,7 @@ export default function WaitlistCounter() {
   }, [display, target])
 
   return (
-    <div className="inline-flex items-center justify-center rounded-full border border-mint-200 bg-mint-50 px-4 py-2 text-sm font-medium text-mint-800 shadow-sm dark:border-mint-500/30 dark:bg-mint-500/10 dark:text-mint-200">
+    <div className="inline-flex items-center justify-center rounded-full border border-brand-light/40 bg-brand-weak px-4 py-2 text-sm font-medium text-brand-strong shadow-sm dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark">
       {label}
     </div>
   )

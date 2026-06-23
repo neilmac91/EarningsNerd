@@ -8,7 +8,6 @@ import { Loader2 } from 'lucide-react'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import SubscriptionGate from '@/components/SubscriptionGate'
-import { ThemeToggle } from '@/components/ThemeToggle'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import StateCard from '@/components/StateCard'
 
@@ -65,19 +64,18 @@ export default function ComparePage() {
   }
 
   return (
-    <div className="min-h-screen bg-panel-light dark:bg-background-dark">
+    <div className="min-h-screen bg-background-light dark:bg-background-dark">
       <SecondaryHeader
         title="Compare Filings"
         subtitle="Select 2-5 filings to compare side-by-side"
         backHref="/"
         backLabel="Back to home"
-        actions={<ThemeToggle />}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 
         <SubscriptionGate requirePro={true}>
-          <div className="bg-background-light rounded-lg shadow-sm border border-border-light p-6 mb-6 dark:bg-panel-dark dark:border-border-dark">
+          <div className="bg-panel-light rounded-lg shadow-e2 border border-border-light p-6 mb-6 dark:bg-panel-dark dark:border-white/10 dark:shadow-none">
             <div className="mb-4">
               <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
                 Search Company
@@ -89,12 +87,12 @@ export default function ComparePage() {
                   onChange={(e) => setSelectedTicker(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                   placeholder="Enter ticker (e.g., AAPL)"
-                  className="flex-1 px-4 py-2 border border-border-light rounded-lg bg-background-light text-text-primary-light placeholder:text-text-tertiary-light focus:outline-none focus:ring-2 focus:ring-mint-500/50 focus:border-mint-500 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
+                  className="flex-1 px-4 py-2 border border-border-light rounded-lg bg-panel-light text-text-primary-light placeholder:text-text-tertiary-light focus:outline-none focus:ring-2 focus:ring-brand-light/50 focus:border-brand-light dark:border-white/10 dark:bg-slate-900/60 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark"
                 />
                 <button
                   onClick={handleSearch}
                   disabled={isSearching}
-                  className="px-6 py-2 bg-mint-500 text-slate-950 rounded-lg hover:bg-mint-400 transition-colors disabled:opacity-60 font-semibold"
+                  className="px-6 py-2 bg-brand-strong text-white rounded-lg hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light transition-colors disabled:opacity-60 font-semibold"
                 >
                   {isSearching ? (
                     <span className="flex items-center justify-center">
@@ -143,8 +141,8 @@ export default function ComparePage() {
                       onClick={() => toggleFiling(filing.id!)}
                       className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
                         selectedFilings.includes(filing.id!)
-                          ? 'border-mint-500 bg-mint-50 dark:bg-mint-900/20'
-                          : 'border-border-light hover:border-mint-200 dark:border-border-dark dark:hover:border-mint-800 bg-background-light dark:bg-background-dark'
+                          ? 'border-brand-light dark:border-brand-dark bg-brand-weak dark:bg-brand-dark/15'
+                          : 'border-border-light hover:border-brand-light/40 dark:border-white/10 dark:hover:border-brand-dark/40 bg-panel-light dark:bg-background-dark'
                       }`}
                     >
                       <div className="flex items-center justify-between">
@@ -159,8 +157,8 @@ export default function ComparePage() {
                           )}
                         </div>
                         {selectedFilings.includes(filing.id!) && (
-                          <div className="w-6 h-6 bg-mint-500 rounded-full flex items-center justify-center">
-                            <span className="text-white text-sm font-bold">✓</span>
+                          <div className="w-6 h-6 bg-brand-strong dark:bg-brand-dark rounded-full flex items-center justify-center">
+                            <span className="text-white dark:text-background-dark text-sm font-bold">✓</span>
                           </div>
                         )}
                       </div>
@@ -172,7 +170,7 @@ export default function ComparePage() {
                   <button
                     onClick={handleCompare}
                     disabled={compareMutation.isPending}
-                    className="mt-6 w-full px-6 py-3 bg-mint-500 text-slate-950 rounded-lg hover:bg-mint-400 transition-colors font-semibold disabled:opacity-50"
+                    className="mt-6 w-full px-6 py-3 bg-brand-strong text-white rounded-lg hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light transition-colors font-semibold disabled:opacity-50"
                   >
                     {compareMutation.isPending ? (
                       <span className="flex items-center justify-center">
@@ -195,7 +193,7 @@ export default function ComparePage() {
                   action={
                     <Link
                       href="/company/AAPL"
-                      className="inline-flex items-center rounded-lg bg-mint-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-mint-400 transition"
+                      className="inline-flex items-center rounded-lg bg-brand-strong px-4 py-2 text-sm font-semibold text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light transition"
                     >
                       Explore companies
                     </Link>

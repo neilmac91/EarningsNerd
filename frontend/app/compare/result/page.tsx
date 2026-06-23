@@ -206,7 +206,7 @@ export default function CompareResultPage() {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-600 dark:text-slate-300">Loading comparison...</p>
+          <p className="text-text-secondary-light dark:text-text-secondary-dark">Loading comparison...</p>
         </div>
       </div>
     )
@@ -215,20 +215,20 @@ export default function CompareResultPage() {
   if (qualityError) {
     return (
       <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center px-4">
-        <div className="max-w-lg bg-white border border-red-200 shadow-lg rounded-xl p-8 space-y-4">
+        <div className="max-w-lg bg-panel-light dark:bg-panel-dark border border-error-light/30 dark:border-error-dark/40 shadow-e2 dark:shadow-none rounded-xl p-8 space-y-4">
           <div className="flex items-center space-x-3">
-            <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
-              <AlertCircle className="h-6 w-6 text-red-600" />
+            <div className="h-10 w-10 rounded-full bg-error-light/10 dark:bg-error-dark/10 flex items-center justify-center">
+              <AlertCircle className="h-6 w-6 text-error-light dark:text-error-dark" />
             </div>
-            <h1 className="text-xl font-semibold text-red-700">Quality Gate Failed</h1>
+            <h1 className="text-xl font-semibold text-error-light dark:text-error-dark">Quality Gate Failed</h1>
           </div>
-          <p className="text-sm text-red-600 leading-relaxed">
+          <p className="text-sm text-error-light dark:text-error-dark leading-relaxed">
             {qualityError}
           </p>
           <div className="flex items-center space-x-3">
             <button
               onClick={() => router.push('/compare')}
-              className="inline-flex items-center px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors"
+              className="inline-flex items-center px-4 py-2 bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light text-sm font-medium rounded-lg transition-colors"
             >
               Start a new comparison
             </button>
@@ -237,7 +237,7 @@ export default function CompareResultPage() {
                 sessionStorage.removeItem('comparisonData')
                 router.push('/compare')
               }}
-              className="text-sm text-gray-500 hover:text-gray-700"
+              className="text-sm text-text-tertiary-light dark:text-text-secondary-dark hover:text-text-secondary-light dark:hover:text-text-primary-dark"
             >
               Clear cached data
             </button>
@@ -257,7 +257,7 @@ export default function CompareResultPage() {
         actions={
           <button
             onClick={() => router.push('/compare')}
-            className="text-sm font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
+            className="text-sm font-medium text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
           >
             New comparison
           </button>
@@ -267,13 +267,13 @@ export default function CompareResultPage() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
 
         {/* Filings Header */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 mb-6">
+        <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-e2 dark:shadow-none border border-border-light dark:border-white/10 p-6 mb-6">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {filings.map((filing) => (
-              <div key={filing.id} className="border border-gray-200 dark:border-slate-700 rounded-lg p-4">
-                <div className="font-semibold text-gray-900 dark:text-white">{filing.company.ticker}</div>
-                <div className="text-sm text-gray-600 dark:text-slate-300">{filing.filing_type}</div>
-                <div className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+              <div key={filing.id} className="border border-border-light dark:border-white/10 rounded-lg p-4">
+                <div className="font-semibold text-text-primary-light dark:text-text-primary-dark">{filing.company.ticker}</div>
+                <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{filing.filing_type}</div>
+                <div className="text-xs text-text-tertiary-light dark:text-text-secondary-dark mt-1">
                   {filing.filing_date && format(new Date(filing.filing_date), 'MMM yyyy')}
                 </div>
               </div>
@@ -283,34 +283,34 @@ export default function CompareResultPage() {
 
         {/* Financial Metrics Comparison */}
         {comparison.financial_metrics.length > 0 && (
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 mb-6">
+          <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-e2 dark:shadow-none border border-border-light dark:border-white/10 p-6 mb-6">
             <div className="flex items-center space-x-2 mb-4">
-              <BarChart3 className="h-6 w-6 text-primary-600" />
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Financial Metrics</h2>
+              <BarChart3 className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
+              <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Financial Metrics</h2>
             </div>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200 dark:divide-slate-700">
-                <thead className="bg-gray-50 dark:bg-slate-900/50">
+              <table className="min-w-full divide-y divide-border-light dark:divide-white/10">
+                <thead className="bg-panel-light dark:bg-white/5">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400 uppercase">Metric</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-text-tertiary-light dark:text-text-secondary-dark uppercase">Metric</th>
                     {filings.map((filing) => (
-                      <th key={filing.id} className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-slate-400 uppercase">
+                      <th key={filing.id} className="px-4 py-3 text-left text-xs font-medium text-text-tertiary-light dark:text-text-secondary-dark uppercase">
                         {filing.company.ticker} ({filing.filing_date && format(new Date(filing.filing_date), 'MMM yyyy')})
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="bg-white dark:bg-slate-800 divide-y divide-gray-200 dark:divide-slate-700">
+                <tbody className="bg-panel-light dark:bg-panel-dark divide-y divide-border-light dark:divide-white/10">
                   {metricInsights.slice(0, 12).map((insight) => (
                     <tr key={insight.metric}>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{insight.metric}</td>
+                      <td className="px-4 py-3 text-sm font-medium text-text-primary-light dark:text-text-primary-dark">{insight.metric}</td>
                       {insight.series.map((point, idx) => {
                         const isBaseline = idx === insight.baseIndex
                         const delta = point.delta
                         const positive = typeof delta === 'number' && delta > 0
                         const negative = typeof delta === 'number' && delta < 0
                         return (
-                          <td key={`${insight.metric}-${point.filingId}`} className="px-4 py-3 text-sm text-gray-700 dark:text-slate-300">
+                          <td key={`${insight.metric}-${point.filingId}`} className="px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                             <div className="flex flex-col">
                               <span>{point.display || '—'}</span>
                               {!isBaseline && delta !== null && (
@@ -329,7 +329,7 @@ export default function CompareResultPage() {
                                 </span>
                               )}
                               {isBaseline && (
-                                <span className="inline-flex items-center text-xs font-medium text-gray-400 dark:text-slate-500 mt-1">
+                                <span className="inline-flex items-center text-xs font-medium text-text-tertiary-light dark:text-text-secondary-dark mt-1">
                                   Baseline
                                 </span>
                               )}
@@ -347,8 +347,8 @@ export default function CompareResultPage() {
 
         {/* Delta Highlights */}
         {deltaHighlights.length > 0 && (
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-primary-200 dark:border-primary-800 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Key Movements</h2>
+          <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-e2 dark:shadow-none border border-brand-light/40 dark:border-brand-dark/40 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-3">Key Movements</h2>
             <div className="grid md:grid-cols-2 gap-4">
               {deltaHighlights.map((item, idx) => {
                 const positive = item.delta > 0
@@ -356,13 +356,13 @@ export default function CompareResultPage() {
                 return (
                   <div
                     key={`${item.metric}-${item.label}-${idx}`}
-                    className="border border-gray-200 dark:border-slate-700 rounded-lg p-4 flex items-start justify-between"
+                    className="border border-border-light dark:border-white/10 rounded-lg p-4 flex items-start justify-between"
                   >
                     <div>
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{item.metric}</p>
-                      <p className="text-sm text-gray-600 dark:text-slate-300">{item.label}</p>
-                      <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
-                        Value: <span className="font-medium text-gray-700 dark:text-slate-300">{item.display || '—'}</span>
+                      <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{item.metric}</p>
+                      <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{item.label}</p>
+                      <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark mt-1">
+                        Value: <span className="font-medium text-text-secondary-light dark:text-text-secondary-dark">{item.display || '—'}</span>
                       </p>
                     </div>
                     <div className={`flex items-center text-sm font-semibold ${positive ? directionText.up : directionText.down}`}>
@@ -378,14 +378,14 @@ export default function CompareResultPage() {
 
         {/* Trend Charts */}
         {metricsWithTrend.length > 0 && (
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6 mb-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Trend Overlays</h2>
+          <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-e2 dark:shadow-none border border-border-light dark:border-white/10 p-6 mb-6">
+            <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">Trend Overlays</h2>
             <div className="grid md:grid-cols-2 gap-6">
               {metricsWithTrend.map((insight) => (
-                <div key={insight.metric} className="border border-gray-100 dark:border-slate-800 rounded-lg p-4">
+                <div key={insight.metric} className="border border-border-light dark:border-white/10 rounded-lg p-4">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">{insight.metric}</h3>
-                    <span className="text-xs text-gray-500 dark:text-slate-400">
+                    <h3 className="font-semibold text-text-primary-light dark:text-text-primary-dark">{insight.metric}</h3>
+                    <span className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
                       Baseline: {insight.series[insight.baseIndex]?.label}
                     </span>
                   </div>
@@ -403,10 +403,10 @@ export default function CompareResultPage() {
 
         {/* Risk Factors Comparison */}
         {comparison.risk_factors.length > 0 && (
-          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-gray-200 dark:border-slate-700 p-6">
+          <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-e2 dark:shadow-none border border-border-light dark:border-white/10 p-6">
             <div className="flex items-center space-x-2 mb-4">
-              <AlertCircle className="h-6 w-6 text-red-600" />
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Risk Factors</h2>
+              <AlertCircle className="h-6 w-6 text-error-light dark:text-error-dark" />
+              <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Risk Factors</h2>
             </div>
             <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4">
               {filings.map((filing) => {
@@ -482,8 +482,8 @@ export default function CompareResultPage() {
                       .filter((risk): risk is RiskFactor => Boolean(risk && risk.supporting_evidence))
                   : []
                 return (
-                  <div key={filing.id} className="border border-gray-200 dark:border-slate-700 rounded-lg p-4">
-                    <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+                  <div key={filing.id} className="border border-border-light dark:border-white/10 rounded-lg p-4">
+                    <h3 className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
                       {filing.company.ticker}
                     </h3>
                     {normalizedRisks.length > 0 ? (
@@ -493,9 +493,9 @@ export default function CompareResultPage() {
                             ? `${risk.title}${risk.description ? `: ${risk.description}` : ''}`
                             : risk.summary
                           return (
-                            <li key={`${risk.summary}-${index}`} className="text-sm text-gray-700 dark:text-slate-300 space-y-1">
+                            <li key={`${risk.summary}-${index}`} className="text-sm text-text-secondary-light dark:text-text-secondary-dark space-y-1">
                               <div>{label}</div>
-                              <div className="text-xs text-gray-500 dark:text-slate-400">
+                              <div className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
                                 <span className="font-medium">Evidence:</span> {risk.supporting_evidence}
                               </div>
                             </li>
@@ -503,7 +503,7 @@ export default function CompareResultPage() {
                         })}
                       </ul>
                     ) : (
-                      <p className="text-sm text-gray-500 dark:text-slate-400">No supported risks identified.</p>
+                      <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">No supported risks identified.</p>
                     )}
                   </div>
                 )

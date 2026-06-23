@@ -57,7 +57,7 @@ export default function WaitlistStatus() {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="you@company.com"
-          className="w-full rounded-xl border border-border-light bg-background-light px-4 py-3 text-sm text-text-primary-light focus:border-mint-300 focus:outline-none dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
+          className="w-full rounded-xl border border-border-light bg-background-light px-4 py-3 text-sm text-text-primary-light focus:border-brand-light focus:outline-none dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
         />
         {error && (
           <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -67,7 +67,7 @@ export default function WaitlistStatus() {
         <button
           type="submit"
           disabled={loading}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-mint-500 px-6 py-3 text-sm font-semibold text-slate-900 transition hover:bg-mint-400 disabled:cursor-not-allowed disabled:opacity-70"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-strong px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-light disabled:cursor-not-allowed disabled:opacity-70 dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light"
         >
           {loading && <Loader2 className="h-4 w-4 animate-spin" />}
           {loading ? 'Checking...' : 'Check status'}

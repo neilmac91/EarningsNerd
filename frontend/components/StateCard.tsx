@@ -11,16 +11,16 @@ type StateCardProps = {
 
 const VARIANT_STYLES = {
   error: {
-    wrapper: 'border-red-200 bg-red-50 text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200',
-    icon: 'text-red-600 dark:text-red-300',
+    wrapper: 'border-error-light/30 bg-error-light/10 text-error-light dark:border-error-dark/40 dark:bg-error-dark/10 dark:text-error-dark',
+    icon: 'text-error-light dark:text-error-dark',
   },
   info: {
-    wrapper: 'border-gray-200 bg-white text-slate-700 dark:border-white/10 dark:bg-slate-900 dark:text-slate-200',
-    icon: 'text-slate-500 dark:text-slate-300',
+    wrapper: 'border-info-light/30 bg-info-light/10 text-info-light dark:border-info-dark/40 dark:bg-info-dark/10 dark:text-info-dark',
+    icon: 'text-info-light dark:text-info-dark',
   },
   success: {
-    wrapper: 'border-mint-200 bg-mint-50 text-mint-800 dark:border-mint-500/40 dark:bg-mint-500/10 dark:text-mint-200',
-    icon: 'text-mint-600 dark:text-mint-300',
+    wrapper: 'border-success-light/30 bg-success-light/10 text-success-light dark:border-success-dark/40 dark:bg-success-dark/10 dark:text-success-dark',
+    icon: 'text-success-light dark:text-success-dark',
   },
 }
 

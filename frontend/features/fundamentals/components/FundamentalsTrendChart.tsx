@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useContext, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { Loader2 } from 'lucide-react'
@@ -9,6 +9,7 @@ import { getFundamentals, FundamentalsResponse } from '@/features/fundamentals/a
 import { ApiError } from '@/lib/api/client'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import UnverifiedBadge from '@/components/UnverifiedBadge'
+import { ThemeContext } from '@/components/ThemeProvider'
 
 type FmtKind = 'usd' | 'eps' | 'pct'
 
@@ -30,7 +31,7 @@ const FEATURED: { key: string; label: string; fmt: FmtKind }[] = [
   { key: 'shareholders_equity', label: "Shareholders' Equity", fmt: 'usd' },
 ]
 
-const MINT = '#10B981'
+const SERIES_PRIMARY = '#3E8E84' // chart.1 (teal)
 
 const formatValue = (value: number, fmt: FmtKind): string => {
   if (fmt === 'pct') return fmtPercent(value, { digits: 1 })
@@ -39,6 +40,16 @@ const formatValue = (value: number, fmt: FmtKind): string => {
 }
 
 export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
+  // Recharts colours are props, not classes. Read theme off the context (not useTheme) with a
+  // light fallback so provider-less renders/SSR/tests never throw.
+  const dark = useContext(ThemeContext)?.theme === 'dark'
+  const axisText = dark ? '#9CA3AF' : '#6B7280'
+  const gridStroke = dark ? '#374151' : '#E5E7EB'
+  const tooltipBg = dark ? '#1F2937' : '#FBFAF6'
+  const tooltipBorder = dark ? 'rgba(255,255,255,0.1)' : '#E5E7EB'
+  const tooltipText = dark ? '#D7DADC' : '#1A1A17'
+  const cursorFill = dark ? 'rgba(62,142,132,0.16)' : 'rgba(62,142,132,0.08)'
+
   const { data, isLoading, isError } = useQuery<FundamentalsResponse>({
     queryKey: ['fundamentals', ticker],
     queryFn: () => getFundamentals(ticker),
@@ -126,27 +137,29 @@ export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
         <div className="h-72 w-full" data-testid="fundamentals-chart">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#9CA3AF" strokeOpacity={0.2} vertical={false} />
-              <XAxis dataKey="year" tick={{ fontSize: 12, fill: '#9CA3AF' }} tickLine={false} axisLine={false} />
+              <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} strokeOpacity={dark ? 0.6 : 1} vertical={false} />
+              <XAxis dataKey="year" tick={{ fontSize: 12, fill: axisText }} tickLine={false} axisLine={false} />
               <YAxis
-                tick={{ fontSize: 12, fill: '#9CA3AF' }}
+                tick={{ fontSize: 12, fill: axisText }}
                 tickLine={false}
                 axisLine={false}
                 width={70}
                 tickFormatter={(v: number) => formatValue(v, active?.fmt ?? 'usd')}
               />
               <Tooltip
-                cursor={{ fill: 'rgba(16,185,129,0.08)' }}
+                cursor={{ fill: cursorFill }}
                 formatter={(v) => [formatValue(Number(v), active?.fmt ?? 'usd'), active?.label ?? '']}
                 contentStyle={{
-                  background: '#1F2937',
-                  border: '1px solid #374151',
+                  background: tooltipBg,
+                  border: `1px solid ${tooltipBorder}`,
                   borderRadius: 8,
-                  color: '#fff',
+                  color: tooltipText,
                   fontSize: 12,
                 }}
+                labelStyle={{ color: tooltipText }}
+                itemStyle={{ color: tooltipText }}
               />
-              <Bar dataKey="value" fill={MINT} radius={[4, 4, 0, 0]} maxBarSize={56} />
+              <Bar dataKey="value" fill={SERIES_PRIMARY} radius={[4, 4, 0, 0]} maxBarSize={56} />
             </BarChart>
           </ResponsiveContainer>
         </div>

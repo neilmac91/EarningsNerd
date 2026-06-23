@@ -20,10 +20,10 @@ export interface Pulse {
 // Muted, dark-first palette — deliberately NOT red/green "casino" coloring. Higher attention reads
 // as a calmer, fuller mint; quiet reads as neutral slate.
 const TIER_STYLE: Record<string, { fill: string; text: string }> = {
-  Elevated: { fill: 'bg-mint-500', text: 'text-mint-300' },
-  Active: { fill: 'bg-mint-500/70', text: 'text-mint-300' },
-  'On the radar': { fill: 'bg-slate-400', text: 'text-slate-300' },
-  Quiet: { fill: 'bg-slate-600', text: 'text-slate-400' },
+  Elevated: { fill: 'bg-brand-strong dark:bg-brand-dark', text: 'text-brand-strong dark:text-brand-strong-dark' },
+  Active: { fill: 'bg-brand-strong/70 dark:bg-brand-dark/70', text: 'text-brand-strong dark:text-brand-strong-dark' },
+  'On the radar': { fill: 'bg-text-secondary-light dark:bg-text-secondary-dark', text: 'text-text-secondary-light dark:text-text-secondary-dark' },
+  Quiet: { fill: 'bg-text-secondary-light dark:bg-text-secondary-dark', text: 'text-text-secondary-light dark:text-text-secondary-dark' },
 }
 
 // The pulse is a relative attention gauge, not a precise score — fill it against a soft ceiling.
@@ -39,13 +39,13 @@ export function FilingPulse({ pulse, score }: { pulse?: Pulse | null; score?: nu
   return (
     <div className="flex w-40 flex-col items-end">
       <div className="flex items-center gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">
           Pulse
         </span>
         <span className={clsx('text-xs font-semibold', style.text)}>{tier}</span>
       </div>
       <div
-        className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-700/60"
+        className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border-light dark:bg-slate-700/60"
         role="img"
         aria-label={`Filing pulse: ${tier}`}
       >
@@ -55,7 +55,7 @@ export function FilingPulse({ pulse, score }: { pulse?: Pulse | null; score?: nu
         />
       </div>
       {top.length > 0 && (
-        <ul className="mt-2 w-full space-y-0.5 text-[10px] text-slate-400">
+        <ul className="mt-2 w-full space-y-0.5 text-[10px] text-text-secondary-light dark:text-text-secondary-dark">
           {top.map((c) => (
             <li
               key={c.key}
@@ -63,7 +63,7 @@ export function FilingPulse({ pulse, score }: { pulse?: Pulse | null; score?: nu
               title={`${c.description} · source: ${c.source}`}
             >
               <span className="truncate">{c.label}</span>
-              <span className="font-medium tabular-nums text-slate-300">{c.share}%</span>
+              <span className="font-medium tabular-nums text-text-secondary-light dark:text-text-secondary-dark">{c.share}%</span>
             </li>
           ))}
         </ul>

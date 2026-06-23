@@ -140,7 +140,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
 
   if (!showBanner && !showSettings) {
     return saved ? (
-      <div className="fixed bottom-4 right-4 z-50 bg-green-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-slide-up">
+      <div className="fixed bottom-4 right-4 z-50 bg-success-light dark:bg-success-dark text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-slide-up">
         <CheckCircle2 className="h-5 w-5" />
         <span>Cookie preferences saved</span>
       </div>
@@ -154,7 +154,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
           <div className="p-6">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
-                <Cookie className="h-6 w-6 text-blue-600" />
+                <Cookie className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
                   Cookie Preferences
                 </h2>
@@ -190,7 +190,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                       type="checkbox"
                       checked={true}
                       disabled
-                      className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500 opacity-50 cursor-not-allowed"
+                      className="h-5 w-5 rounded border-slate-300 text-brand-strong focus:ring-brand-light opacity-50 cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -216,7 +216,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                       onChange={(e) =>
                         setPreferences({ ...preferences, analytics: e.target.checked })
                       }
-                      className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      className="h-5 w-5 rounded border-slate-300 text-brand-strong focus:ring-brand-light"
                     />
                   </div>
                 </div>
@@ -242,7 +242,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                       onChange={(e) =>
                         setPreferences({ ...preferences, sessionRecording: e.target.checked })
                       }
-                      className="h-5 w-5 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      className="h-5 w-5 rounded border-slate-300 text-brand-strong focus:ring-brand-light"
                     />
                   </div>
                 </div>
@@ -252,7 +252,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
             <div className="mt-6 flex gap-3">
               <button
                 onClick={handleSavePreferences}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                className="flex-1 bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light font-medium py-2 px-4 rounded-lg transition-colors"
               >
                 Save Preferences
               </button>
@@ -266,7 +266,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
 
             <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
               For more information, see our{' '}
-              <Link href="/privacy" className="text-blue-600 hover:underline">
+              <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
                 Privacy Policy
               </Link>
               .
@@ -282,7 +282,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
       <div className="max-w-7xl mx-auto p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div className="flex items-start gap-3 flex-1">
-            <Cookie className="h-6 w-6 text-blue-600 flex-shrink-0 mt-0.5" />
+            <Cookie className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark flex-shrink-0 mt-0.5" />
             <div>
               <h3 className="font-semibold text-slate-900 dark:text-white mb-1">
                 We value your privacy
@@ -290,7 +290,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
               <p className="text-sm text-slate-600 dark:text-slate-400">
                 We use cookies to enhance your experience and analyze site usage. You can choose
                 which cookies to accept.{' '}
-                <Link href="/privacy" className="text-blue-600 hover:underline">
+                <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
                   Learn more
                 </Link>
               </p>
@@ -312,7 +312,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
             </button>
             <button
               onClick={handleAcceptAll}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
+              className="px-4 py-2 bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light rounded-lg transition-colors font-medium"
             >
               Accept All
             </button>

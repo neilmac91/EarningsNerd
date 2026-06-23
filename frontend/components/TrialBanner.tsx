@@ -28,16 +28,16 @@ export default function TrialBanner({ status, trialEnd, className = '' }: TrialB
   if (days === null || days <= 0) return null
 
   return (
-    <div className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-mint-500/30 bg-mint-500/10 px-4 py-3 ${className}`}>
+    <div className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-light/40 dark:border-brand-dark/40 bg-brand-strong/10 dark:bg-brand-dark/15 px-4 py-3 ${className}`}>
       <div className="flex items-center gap-2 text-sm text-text-primary-light dark:text-text-primary-dark">
-        <Sparkles className="h-4 w-4 text-mint-600 dark:text-mint-400" />
+        <Sparkles className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
         <span>
           <strong>{days} {days === 1 ? 'day' : 'days'} left</strong> in your Pro trial.
         </span>
       </div>
       <Link
         href="/pricing"
-        className="rounded-lg bg-mint-500 px-3 py-1.5 text-xs font-semibold text-slate-950 transition-all hover:bg-mint-400"
+        className="rounded-lg bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light px-3 py-1.5 text-xs font-semibold transition-all"
       >
         Keep Pro
       </Link>

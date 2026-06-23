@@ -17,7 +17,7 @@ export default function AppleSignInButton({
   return (
     <a
       href={`${apiBase}/api/auth/apple`}
-      className="flex w-full items-center justify-center gap-3 rounded-lg bg-black px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-black/90 active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500 dark:bg-white dark:text-black dark:hover:bg-white/90"
+      className="flex w-full items-center justify-center gap-3 rounded-lg bg-black px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-black/90 active:scale-[0.99] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light dark:bg-white dark:text-black dark:hover:bg-white/90"
     >
       <AppleLogo />
       {label}

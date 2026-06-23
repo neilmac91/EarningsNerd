@@ -26,7 +26,7 @@ export default function ContactPage() {
         </div>
 
         {/* Contact Information */}
-        <div className="mt-12 rounded-lg border border-border-light bg-background-light p-6 dark:border-border-dark dark:bg-slate-900/50">
+        <div className="mt-12 rounded-lg border border-border-light bg-panel-light p-6 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
           <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
             What to Expect
           </h2>
@@ -45,18 +45,18 @@ export default function ContactPage() {
 
         {/* FAQ Hint */}
         <div className="mt-8 text-center">
-          <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+          <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
             Looking for quick answers? Check out our{' '}
             <a
               href="/privacy"
-              className="font-medium text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300"
+              className="font-medium text-brand-strong hover:opacity-80 dark:text-brand-strong-dark"
             >
               Privacy Policy
             </a>{' '}
             or{' '}
             <a
               href="/security"
-              className="font-medium text-mint-600 hover:text-mint-700 dark:text-mint-400 dark:hover:text-mint-300"
+              className="font-medium text-brand-strong hover:opacity-80 dark:text-brand-strong-dark"
             >
               Security
             </a>{' '}

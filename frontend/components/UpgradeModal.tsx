@@ -52,7 +52,7 @@ export default function UpgradeModal({ open, onClose, feature, title, message }:
           <X className="h-5 w-5" />
         </button>
 
-        <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-mint-500/15 text-mint-600 dark:text-mint-400">
+        <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand-strong/10 dark:bg-brand-dark/15 text-brand-strong dark:text-brand-strong-dark">
           <Sparkles className="h-5 w-5" />
         </div>
 
@@ -63,7 +63,7 @@ export default function UpgradeModal({ open, onClose, feature, title, message }:
           <button
             type="button"
             onClick={() => router.push('/pricing')}
-            className="flex-1 rounded-lg bg-mint-500 px-4 py-2.5 text-sm font-semibold text-slate-950 transition-all hover:bg-mint-400 active:scale-[0.99]"
+            className="flex-1 rounded-lg bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.99]"
           >
             See plans
           </button>

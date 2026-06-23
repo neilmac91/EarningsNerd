@@ -11,7 +11,6 @@ import { CheckCircle2, AlertCircle, Sparkles, BarChart3, FileText, Loader2, Tras
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
-import { ThemeToggle } from '@/components/ThemeToggle'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import StateCard from '@/components/StateCard'
 import TrialBanner from '@/components/TrialBanner'
@@ -181,7 +180,6 @@ export default function DashboardPage() {
         backLabel="Back to home"
         actions={
           <>
-            <ThemeToggle />
             <button
               onClick={() => logoutMutation.mutate()}
               className="text-sm font-medium text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"

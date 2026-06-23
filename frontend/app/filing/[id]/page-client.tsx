@@ -116,9 +116,9 @@ function TickerFilingsView({ ticker }: { ticker: string }) {
 
   if (companyLoading) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100">
+      <div className="min-h-screen bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark">
         <div className="flex h-full min-h-screen items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-sky-400" />
+          <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
         </div>
       </div>
     )
@@ -126,18 +126,18 @@ function TickerFilingsView({ ticker }: { ticker: string }) {
 
   if (!company || companyError) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100">
+      <div className="min-h-screen bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark">
         <div className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center px-6 text-center">
-          <h1 className="text-3xl font-semibold text-white">Filings unavailable</h1>
-          <p className="mt-4 text-sm text-slate-300">
-            We couldn&apos;t load filings for <span className="font-semibold text-white">{normalizedTicker}</span> right now. Please try again later.
+          <h1 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">Filings unavailable</h1>
+          <p className="mt-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            We couldn&apos;t load filings for <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">{normalizedTicker}</span> right now. Please try again later.
           </p>
           {companyError instanceof Error && (
-            <p className="mt-3 text-xs text-slate-400/80">{companyError.message}</p>
+            <p className="mt-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">{companyError.message}</p>
           )}
           <Link
             href="/"
-            className="mt-6 inline-flex items-center rounded-full bg-white px-5 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
+            className="mt-6 inline-flex items-center rounded-full bg-brand-strong px-5 py-2 text-sm font-semibold text-white transition hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark"
           >
             Back to home
           </Link>
@@ -147,26 +147,26 @@ function TickerFilingsView({ ticker }: { ticker: string }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
+    <div className="min-h-screen bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark">
       <div className="mx-auto max-w-5xl px-4 py-12">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold text-white">{company.name}</h1>
-            <p className="text-sm text-slate-300">
+            <h1 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">{company.name}</h1>
+            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
               {company.ticker} • Latest SEC filings
             </p>
           </div>
           <Link
             href={`/company/${company.ticker}`}
-            className="inline-flex items-center rounded-full border border-white/20 bg-white/5 px-4 py-2 text-sm font-medium text-slate-100 transition hover:border-white/40 hover:bg-white/10"
+            className="inline-flex items-center rounded-full border border-border-light dark:border-white/20 bg-panel-light dark:bg-white/5 px-4 py-2 text-sm font-medium text-text-primary-light dark:text-text-primary-dark transition hover:border-brand-light/60 hover:bg-brand-weak dark:hover:border-white/40 dark:hover:bg-white/10"
           >
             View company dashboard
           </Link>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_20px_50px_rgba(15,23,42,0.45)]">
-          <h2 className="text-lg font-semibold text-white">Recent Filings</h2>
-          <p className="mt-1 text-sm text-slate-300">
+        <div className="rounded-3xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 p-6 shadow-e3 dark:shadow-[0_20px_50px_rgba(15,23,42,0.45)]">
+          <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Recent Filings</h2>
+          <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
             Select a filing below to open it and generate an AI summary instantly.
           </p>
 
@@ -174,19 +174,19 @@ function TickerFilingsView({ ticker }: { ticker: string }) {
             {filingsLoading && (
               <div className="space-y-3">
                 {Array.from({ length: 4 }).map((_, index) => (
-                  <div key={index} className="h-20 animate-pulse rounded-2xl border border-white/10 bg-white/10" />
+                  <div key={index} className="h-20 animate-pulse rounded-2xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/10" />
                 ))}
               </div>
             )}
 
             {filingsError instanceof Error && (
-              <div className="rounded-xl border border-rose-500/40 bg-rose-500/10 p-4 text-sm text-rose-200">
+              <div className="rounded-xl border border-error-light/30 dark:border-error-dark/40 bg-error-light/10 dark:bg-error-dark/10 p-4 text-sm text-error-light dark:text-error-dark">
                 Unable to load filings right now. {filingsError.message}
               </div>
             )}
 
             {!filingsLoading && !filingsError && filings && filings.length === 0 && (
-              <div className="rounded-xl border border-white/10 bg-white/10 p-6 text-center text-sm text-slate-300">
+              <div className="rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/10 p-6 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
                 No filings available yet for {company.ticker}. Check back soon.
               </div>
             )}
@@ -197,20 +197,20 @@ function TickerFilingsView({ ticker }: { ticker: string }) {
                   <Link
                     key={filing.id}
                     href={`/filing/${filing.id}`}
-                    className="group flex flex-col gap-3 rounded-2xl border border-white/10 bg-slate-900/50 p-5 transition hover:border-sky-400/60 hover:bg-slate-900/80"
+                    className="group flex flex-col gap-3 rounded-2xl border border-border-light dark:border-white/10 bg-panel-light hover:bg-brand-weak dark:bg-slate-900/50 dark:hover:bg-slate-900/80 p-5 transition hover:border-brand-light/60 dark:hover:border-brand-dark/60"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-4">
                       <div>
-                        <p className="text-base font-semibold text-white">{filing.filing_type}</p>
-                        <p className="text-sm text-slate-300">
+                        <p className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark">{filing.filing_type}</p>
+                        <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                           {filing.filing_date ? format(new Date(filing.filing_date), 'MMM dd, yyyy') : 'Date TBD'}
                         </p>
                       </div>
-                      <span className="rounded-full bg-sky-500/10 px-3 py-1 text-xs font-medium text-sky-300">
+                      <span className="rounded-full bg-brand-strong/10 px-3 py-1 text-xs font-medium text-brand-strong dark:bg-brand-dark/15 dark:text-brand-strong-dark">
                         Generate AI summary
                       </span>
                     </div>
-                    <div className="text-xs text-slate-400">Accession: {filing.accession_number}</div>
+                    <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark">Accession: {filing.accession_number}</div>
                   </Link>
                 ))}
               </div>

@@ -72,7 +72,7 @@ export default function RegisterPage() {
           <button
             type="button"
             onClick={() => setShowEmail(true)}
-            className="flex w-full items-center justify-center gap-2 rounded-lg border border-border-light bg-transparent px-4 py-3 text-sm font-medium text-text-primary-light transition-all hover:bg-panel-light active:scale-[0.99] dark:border-border-dark dark:text-text-primary-dark dark:hover:bg-panel-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-border-light bg-transparent px-4 py-3 text-sm font-medium text-text-primary-light transition-all hover:bg-panel-light active:scale-[0.99] dark:border-border-dark dark:text-text-primary-dark dark:hover:bg-panel-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
           >
             <Mail className="h-4 w-4" />
             Sign up with email
@@ -93,7 +93,7 @@ export default function RegisterPage() {
                 onChange={(e) => setFullName(e.target.value)}
                 autoComplete="name"
                 autoFocus
-                className="w-full rounded-lg border border-border-light bg-background-light px-3 py-2 text-text-primary-light placeholder:text-text-tertiary-light focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/50 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
+                className="w-full rounded-lg border border-border-light bg-background-light px-3 py-2 text-text-primary-light placeholder:text-text-tertiary-light focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/50 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
               />
             </div>
 
@@ -111,7 +111,7 @@ export default function RegisterPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
-                className="w-full rounded-lg border border-border-light bg-background-light px-3 py-2 text-text-primary-light placeholder:text-text-tertiary-light focus:border-mint-500 focus:outline-none focus:ring-2 focus:ring-mint-500/50 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
+                className="w-full rounded-lg border border-border-light bg-background-light px-3 py-2 text-text-primary-light placeholder:text-text-tertiary-light focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/50 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
               />
             </div>
 
@@ -132,7 +132,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading || (TURNSTILE_ENABLED && !turnstileToken)}
-              className="w-full rounded-lg bg-mint-500 py-2.5 font-semibold text-slate-950 transition-all hover:bg-mint-400 active:scale-[0.99] disabled:opacity-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+              className="w-full rounded-lg bg-brand-strong py-2.5 font-semibold text-white transition-all hover:bg-brand-light active:scale-[0.99] disabled:opacity-50 dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -149,11 +149,11 @@ export default function RegisterPage() {
 
       <p className="mt-6 text-center text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
         By creating an account you agree to our{' '}
-        <Link href="/terms" className="underline hover:text-mint-600 dark:hover:text-mint-400">
+        <Link href="/terms" className="underline hover:text-brand-strong dark:hover:text-brand-strong-dark">
           Terms
         </Link>{' '}
         and{' '}
-        <Link href="/privacy" className="underline hover:text-mint-600 dark:hover:text-mint-400">
+        <Link href="/privacy" className="underline hover:text-brand-strong dark:hover:text-brand-strong-dark">
           Privacy Policy
         </Link>
         .
@@ -161,7 +161,7 @@ export default function RegisterPage() {
 
       <p className="mt-6 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
         Already have an account?{' '}
-        <Link href="/login" className="font-medium text-mint-600 hover:underline dark:text-mint-400">
+        <Link href="/login" className="font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
           Sign in
         </Link>
       </p>
