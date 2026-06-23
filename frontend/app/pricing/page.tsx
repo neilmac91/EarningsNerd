@@ -5,7 +5,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { createCheckoutSession, getSubscriptionStatus, getUsage } from '@/features/subscriptions/api/subscriptions-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
-import { Check, Loader2 } from 'lucide-react'
+import { CheckIcon, CircleNotchIcon } from '@/lib/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import StateCard from '@/components/StateCard'
@@ -300,7 +300,7 @@ function PricingContent() {
               <ul className="space-y-4 mb-8">
                 {plan.features.map((feature, index) => (
                   <li key={index} className="flex items-start">
-                    <Check className="h-5 w-5 text-success-light dark:text-success-dark mr-3 flex-shrink-0 mt-0.5" />
+                    <CheckIcon className="h-5 w-5 text-success-light dark:text-success-dark mr-3 flex-shrink-0 mt-0.5" />
                     <span className="text-text-secondary-light dark:text-text-secondary-dark">{feature}</span>
                   </li>
                 ))}
@@ -319,7 +319,7 @@ function PricingContent() {
               >
                 {plan.priceId && isLoadingCheckout === plan.priceId ? (
                   <span className="flex items-center justify-center">
-                    <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                    <CircleNotchIcon className="h-5 w-5 animate-spin mr-2" />
                     Processing...
                   </span>
                 ) : (
@@ -369,7 +369,7 @@ export default function PricingPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-dark" />
+        <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-dark" />
       </div>
     }>
       <PricingContent />

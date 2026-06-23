@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { CircleNotchIcon } from '@/lib/icons'
 import { getApiUrl } from '@/lib/api/client'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -71,7 +71,7 @@ export default function WaitlistStatus() {
           disabled={loading}
           className="w-full rounded-full px-6 py-3 font-semibold"
         >
-          {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+          {loading && <CircleNotchIcon className="h-4 w-4 animate-spin" />}
           {loading ? 'Checking...' : 'Check status'}
         </Button>
       </form>

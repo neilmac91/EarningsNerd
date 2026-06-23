@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { clsx } from 'clsx'
-import { Loader2 } from 'lucide-react'
+import { CircleNotchIcon } from '@/lib/icons'
 import { submitContactForm } from '@/features/contact/api/contact-api'
 import TurnstileWidget from '@/components/auth/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
@@ -219,7 +219,7 @@ export default function ContactForm() {
         >
           {isSubmitting ? (
             <span className="flex items-center justify-center">
-              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              <CircleNotchIcon className="mr-2 h-5 w-5 animate-spin" />
               Sending...
             </span>
           ) : (

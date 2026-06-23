@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertCircle, CheckCircle2, Info } from 'lucide-react'
+import { CheckCircleIcon, InfoIcon, WarningCircleIcon } from '@/lib/icons'
 
 type StateCardProps = {
   variant?: 'error' | 'info' | 'success'
@@ -25,9 +25,9 @@ const VARIANT_STYLES = {
 }
 
 const VARIANT_ICONS = {
-  error: AlertCircle,
-  info: Info,
-  success: CheckCircle2,
+  error: WarningCircleIcon,
+  info: InfoIcon,
+  success: CheckCircleIcon,
 }
 
 export default function StateCard({ variant = 'info', title, message, action }: StateCardProps) {

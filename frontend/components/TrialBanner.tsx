@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Sparkles } from 'lucide-react'
+import { SparkleIcon } from '@/lib/icons'
 
 interface TrialBannerProps {
   /** Subscription status from GET /api/subscriptions/subscription. */
@@ -30,7 +30,7 @@ export default function TrialBanner({ status, trialEnd, className = '' }: TrialB
   return (
     <div className={`flex flex-wrap items-center justify-between gap-3 rounded-xl border border-brand-light/40 dark:border-brand-dark/40 bg-brand-strong/10 dark:bg-brand-dark/15 px-4 py-3 ${className}`}>
       <div className="flex items-center gap-2 text-sm text-text-primary-light dark:text-text-primary-dark">
-        <Sparkles className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
+        <SparkleIcon className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
         <span>
           <strong>{days} {days === 1 ? 'day' : 'days'} left</strong> in your Pro trial.
         </span>

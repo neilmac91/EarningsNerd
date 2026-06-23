@@ -1,4 +1,4 @@
-import { ArrowRight } from 'lucide-react'
+import { ArrowRightIcon } from '@/lib/icons'
 import ExampleCtaLink from '@/components/ExampleCtaLink'
 import { exampleFilingHref } from '@/lib/featureFlags'
 import type { ExampleData } from '@/lib/serverApi'
@@ -58,7 +58,7 @@ function ExampleSummaryCard({ example }: { example: ExampleData | null }) {
 
       <div className="mt-3 flex items-center gap-1 text-sm font-medium text-brand-strong dark:text-brand-strong-dark">
         Read the full summary
-        <ArrowRight
+        <ArrowRightIcon
           className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5"
           aria-hidden="true"
         />

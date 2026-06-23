@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
 import Link from 'next/link'
-import { Lock, Sparkles } from 'lucide-react'
+import { LockSimpleIcon, SparkleIcon } from '@/lib/icons'
 
 interface SubscriptionGateProps {
   children: ReactNode
@@ -53,7 +53,7 @@ export default function SubscriptionGate({
       <div className="rounded-lg border border-warning-light/40 bg-warning-light/10 p-6 dark:border-warning-dark/40 dark:bg-warning-dark/15">
         <div className="flex items-start space-x-4">
           <div className="flex-shrink-0">
-            <Lock className="h-6 w-6 text-warning-light dark:text-warning-dark" />
+            <LockSimpleIcon className="h-6 w-6 text-warning-light dark:text-warning-dark" />
           </div>
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-warning-light dark:text-warning-dark mb-2">
@@ -67,7 +67,7 @@ export default function SubscriptionGate({
               href="/pricing"
               className="inline-flex items-center px-4 py-2 bg-brand-strong text-white rounded-lg hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light transition-colors font-medium"
             >
-              <Sparkles className="h-4 w-4 mr-2" />
+              <SparkleIcon className="h-4 w-4 mr-2" />
               Upgrade to Pro
             </Link>
           </div>

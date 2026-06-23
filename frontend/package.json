@@ -31,7 +31,6 @@
     "clsx": "^2.1.0",
     "date-fns": "^4.4.0",
     "lodash": "^4.18.1",
-    "lucide-react": "^1.21.0",
     "next": "16.2.9",
     "postcss": "^8.5.15",
     "posthog-js": "^1.392.0",

@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react'
+import { ArrowDownRightIcon, ArrowUpRightIcon, MinusIcon } from '@/lib/icons'
 import dynamic from 'next/dynamic'
 import { useCountUp } from '../hooks/useCountUp'
 import { directionOf, directionChip } from '../lib/financialTone'
@@ -57,7 +57,7 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
 
   // Calm directional tone (mint up / muted slate down) — never a casino red/green delta.
   const dir = hasValidChange ? directionOf(change) : 'flat'
-  const ChangeIcon = dir === 'up' ? ArrowUpRight : dir === 'down' ? ArrowDownRight : Minus
+  const ChangeIcon = dir === 'up' ? ArrowUpRightIcon : dir === 'down' ? ArrowDownRightIcon : MinusIcon
 
   const sparklineData = trendData?.map((val, i) => ({ i, val })) || []
 

@@ -1,24 +1,24 @@
 import { memo } from 'react'
-import { Search, FileText, Zap } from 'lucide-react'
+import { FileTextIcon, LightningIcon, MagnifyingGlassIcon } from '@/lib/icons'
 
 const STEPS = [
   {
     number: '01',
     title: 'Search any company',
     description: 'Find any public company by name or ticker symbol. We cover 500+ companies on SEC EDGAR.',
-    icon: Search,
+    icon: MagnifyingGlassIcon,
   },
   {
     number: '02',
     title: 'Pick a filing',
     description: 'Select a 10-K (annual) or 10-Q (quarterly) report. We pull it directly from SEC EDGAR.',
-    icon: FileText,
+    icon: FileTextIcon,
   },
   {
     number: '03',
     title: 'Get instant insights',
     description: 'Our AI reads the full filing and delivers a structured summary — financials, risks, and trends.',
-    icon: Zap,
+    icon: LightningIcon,
   },
 ] as const
 

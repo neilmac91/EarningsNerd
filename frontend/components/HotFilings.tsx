@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { formatDistanceToNowStrict } from 'date-fns'
-import { Activity, ArrowUpRight, AlertTriangle, Calendar } from 'lucide-react'
+import { ArrowUpRightIcon, CalendarBlankIcon, PulseIcon, WarningIcon } from '@/lib/icons'
 import clsx from 'clsx'
 import Link from 'next/link'
 import posthog from 'posthog-js'
@@ -99,7 +99,7 @@ export default function HotFilings({
     return (
       <div className="rounded-lg border border-error-light/40 dark:border-error-dark/40 bg-error-light/10 dark:bg-error-dark/10 p-4 text-sm text-error-light dark:text-error-dark">
         <div className="flex items-center space-x-2">
-          <AlertTriangle className="h-4 w-4" />
+          <WarningIcon className="h-4 w-4" />
           <p>Unable to load hot filings. Please try again soon.</p>
         </div>
         <button
@@ -139,7 +139,7 @@ export default function HotFilings({
                     className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-strong/10 dark:bg-brand-dark/15 text-brand-strong dark:text-brand-strong-dark"
                     aria-hidden
                   >
-                    <Activity className="h-4 w-4" />
+                    <PulseIcon className="h-4 w-4" />
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -164,7 +164,7 @@ export default function HotFilings({
                             : 'border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5'
                         )}
                       >
-                        {source === 'earnings_calendar' && <Calendar className="h-3 w-3" />}
+                        {source === 'earnings_calendar' && <CalendarBlankIcon className="h-3 w-3" />}
                         {formatSourceLabel(source)}
                       </span>
                     ))}
@@ -184,7 +184,7 @@ export default function HotFilings({
                   className="mt-4 inline-flex items-center rounded-lg border border-border-light dark:border-white/10 px-3 py-1.5 text-xs font-semibold text-text-primary-light dark:text-text-primary-dark transition hover:border-brand-strong dark:hover:border-brand-dark hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-slate-900"
                 >
                   View AI Summary
-                  <ArrowUpRight className="ml-1 h-3 w-3" />
+                  <ArrowUpRightIcon className="ml-1 h-3 w-3" />
                 </Link>
               </div>
             </div>

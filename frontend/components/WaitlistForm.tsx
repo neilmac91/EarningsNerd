@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { Check, Copy, Loader2 } from 'lucide-react'
+import { CheckIcon, CircleNotchIcon, CopyIcon } from '@/lib/icons'
 import { getApiUrl } from '@/lib/api/client'
 import TurnstileWidget from '@/components/auth/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
@@ -142,7 +142,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
     return (
       <div className="rounded-2xl border border-brand-light/40 bg-white/80 p-6 shadow-lg backdrop-blur-sm transition-all duration-300 dark:border-brand-dark/40 dark:bg-slate-900/60">
         <div className="flex items-center gap-2 text-brand-strong dark:text-brand-strong-dark">
-          <Check className="h-5 w-5" />
+          <CheckIcon className="h-5 w-5" />
           <span className="text-sm font-semibold uppercase tracking-wide">You&apos;re in</span>
         </div>
         <h3 className="mt-3 text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -165,7 +165,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
               onClick={handleCopy}
               className="inline-flex items-center justify-center gap-2 rounded-full border border-brand-light/40 bg-white px-4 py-2 text-sm font-semibold text-brand-strong transition hover:border-brand-light/60 hover:text-brand-light dark:border-brand-dark/40 dark:bg-slate-900 dark:text-brand-strong-dark"
             >
-              {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              {copied ? <CheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
               {copied ? 'Copied' : 'Copy'}
             </button>
           </div>
@@ -271,7 +271,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
           disabled={isSubmitting || (TURNSTILE_ENABLED && !turnstileToken)}
           className="w-full rounded-full px-6 py-3 font-semibold"
         >
-          {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+          {isSubmitting && <CircleNotchIcon className="h-4 w-4 animate-spin" />}
           {isSubmitting ? 'Joining waitlist...' : 'Join the waitlist'}
         </Button>
       </div>
