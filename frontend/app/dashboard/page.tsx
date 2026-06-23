@@ -127,7 +127,7 @@ export default function DashboardPage() {
   if (userLoading || usageLoading || subscriptionLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-panel-light dark:bg-background-dark">
-        <Loader2 className="h-8 w-8 animate-spin text-mint-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
       </div>
     )
   }
@@ -152,7 +152,7 @@ export default function DashboardPage() {
                 </button>
                 <Link
                   href="/login"
-                  className="inline-flex items-center rounded-lg bg-mint-500 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-mint-400"
+                  className="inline-flex items-center rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2 text-sm font-medium transition"
                 >
                   Go to login
                 </Link>
@@ -200,8 +200,8 @@ export default function DashboardPage() {
         {/* Phase 3 hero: quick search + personalised "what changed" feed + (optional) calendar.
             The plan/usage cards below become a compact secondary strip. */}
         <div className="mb-10 space-y-6">
-          <div className="rounded-2xl bg-slate-900 p-5 shadow-sm">
-            <p className="mb-2 text-sm font-medium text-slate-300">Jump to any company</p>
+          <div className="rounded-2xl bg-panel-dark p-5 shadow-sm">
+            <p className="mb-2 text-sm font-medium text-text-secondary-dark">Jump to any company</p>
             <CompanySearch />
           </div>
           <FilingFeed enabled={!!user} />
@@ -210,11 +210,11 @@ export default function DashboardPage() {
 
         {/* Subscription Status */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <div className="bg-background-light rounded-lg shadow-sm border border-border-light p-6 dark:bg-panel-dark dark:border-border-dark">
+          <div className="bg-panel-light rounded-lg shadow-sm border border-border-light p-6 dark:bg-panel-dark dark:border-border-dark">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Subscription</h2>
               {subscription?.is_pro ? (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-mint-100 text-mint-800 dark:bg-mint-900/30 dark:text-mint-400">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-brand-weak text-brand-strong dark:bg-white/5 dark:text-brand-strong-dark">
                   <Sparkles className="h-4 w-4 mr-1" />
                   Pro
                 </span>
@@ -234,7 +234,7 @@ export default function DashboardPage() {
                     type="button"
                     onClick={() => refetchSubscription()}
                     disabled={subscriptionFetching}
-                    className="mt-2 inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/30"
+                    className="mt-2 inline-flex items-center rounded-md border border-loss-light/30 bg-loss-soft px-3 py-1 text-xs font-medium text-error-light transition hover:opacity-90 disabled:opacity-60 dark:bg-loss-soft-dark dark:border-loss-dark/30 dark:text-error-dark"
                   >
                     {subscriptionFetching ? 'Retrying…' : 'Retry'}
                   </button>
@@ -248,7 +248,7 @@ export default function DashboardPage() {
                 <button
                   onClick={() => portalMutation.mutate()}
                   disabled={portalMutation.isPending}
-                  className="w-full px-4 py-2 bg-panel-light text-text-primary-light border border-border-light rounded-lg hover:bg-gray-100 transition-colors font-medium dark:bg-background-dark dark:text-text-primary-dark dark:border-border-dark dark:hover:bg-gray-800"
+                  className="w-full px-4 py-2 bg-panel-light text-text-primary-light border border-border-light rounded-lg hover:bg-brand-weak transition-colors font-medium dark:bg-background-dark dark:text-text-primary-dark dark:border-border-dark dark:hover:bg-white/5"
                 >
                   {portalMutation.isPending ? (
                     <span className="flex items-center justify-center">
@@ -267,7 +267,7 @@ export default function DashboardPage() {
                 </p>
                 <Link
                   href="/pricing"
-                  className="block w-full text-center px-4 py-2 bg-mint-500 text-slate-950 rounded-lg hover:bg-mint-400 transition-colors font-medium"
+                  className="block w-full text-center px-4 py-2 bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark rounded-lg transition-colors font-medium"
                 >
                   Upgrade to Pro
                 </Link>
@@ -276,7 +276,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Usage Stats */}
-          <div className="bg-background-light rounded-lg shadow-sm border border-border-light p-6 dark:bg-panel-dark dark:border-border-dark">
+          <div className="bg-panel-light rounded-lg shadow-sm border border-border-light p-6 dark:bg-panel-dark dark:border-border-dark">
             <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">Usage This Month</h2>
             {usageError ? (
               <StateCard
@@ -288,7 +288,7 @@ export default function DashboardPage() {
                     type="button"
                     onClick={() => refetchUsage()}
                     disabled={usageFetching}
-                    className="mt-2 inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/30"
+                    className="mt-2 inline-flex items-center rounded-md border border-loss-light/30 bg-loss-soft px-3 py-1 text-xs font-medium text-error-light transition hover:opacity-90 disabled:opacity-60 dark:bg-loss-soft-dark dark:border-loss-dark/30 dark:text-error-dark"
                   >
                     {usageFetching ? 'Retrying…' : 'Retry'}
                   </button>
@@ -296,7 +296,7 @@ export default function DashboardPage() {
               />
             ) : usage?.is_pro ? (
               <div className="flex items-center space-x-2">
-                <CheckCircle2 className="h-5 w-5 text-mint-500" />
+                <CheckCircle2 className="h-5 w-5 text-success-light dark:text-success-dark" />
                 <span className="text-text-secondary-light dark:text-text-secondary-dark">Unlimited summaries</span>
               </div>
             ) : (
@@ -316,22 +316,22 @@ export default function DashboardPage() {
                   <div
                     className={`h-full rounded-full transition-all ${
                       usagePercentage >= 100
-                        ? 'bg-red-500'
+                        ? 'bg-error-light dark:bg-error-dark'
                         : usagePercentage >= 80
-                        ? 'bg-yellow-500'
-                        : 'bg-mint-500'
+                        ? 'bg-warning-light dark:bg-warning-dark'
+                        : 'bg-brand-strong dark:bg-brand-dark'
                     }`}
                     style={{ width: `${Math.min(100, usagePercentage)}%` }}
                   />
                 </div>
                 {usagePercentage >= 80 && !subscription?.is_pro && (
-                  <div className="flex items-start space-x-2 p-3 bg-amber-50 border border-amber-200 rounded-lg dark:bg-amber-900/20 dark:border-amber-800">
-                    <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
+                  <div className="flex items-start space-x-2 p-3 bg-warning-light/10 border border-warning-light/30 rounded-lg dark:bg-warning-dark/10 dark:border-warning-dark/30">
+                    <AlertCircle className="h-5 w-5 text-warning-light dark:text-warning-dark flex-shrink-0 mt-0.5" />
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
+                      <p className="text-sm font-medium text-warning-light dark:text-warning-dark">
                         {usagePercentage >= 100 ? 'Limit Reached' : 'Almost at Limit'}
                       </p>
-                      <p className="text-sm text-amber-800 mt-1 dark:text-amber-300">
+                      <p className="text-sm text-warning-light mt-1 dark:text-warning-dark">
                         {usagePercentage >= 100
                           ? 'Upgrade to Pro for unlimited summaries'
                           : 'Upgrade to Pro to continue generating summaries'}
@@ -348,11 +348,11 @@ export default function DashboardPage() {
         <div className="grid md:grid-cols-3 gap-6">
           <Link
             href="/"
-            className="bg-background-light rounded-lg shadow-sm border border-border-light p-6 hover:shadow-md transition-shadow dark:bg-panel-dark dark:border-border-dark"
+            className="bg-panel-light rounded-lg shadow-sm border border-border-light p-6 hover:shadow-md transition-shadow dark:bg-panel-dark dark:border-border-dark"
           >
             <div className="flex items-center space-x-3 mb-3">
-              <div className="p-2 bg-blue-100 rounded-lg dark:bg-blue-900/30">
-                <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              <div className="p-2 bg-brand-weak rounded-lg dark:bg-white/5">
+                <FileText className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
               </div>
               <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Search Companies</h3>
             </div>
@@ -363,11 +363,11 @@ export default function DashboardPage() {
 
           <Link
             href="/pricing"
-            className="bg-background-light rounded-lg shadow-sm border border-border-light p-6 hover:shadow-md transition-shadow dark:bg-panel-dark dark:border-border-dark"
+            className="bg-panel-light rounded-lg shadow-sm border border-border-light p-6 hover:shadow-md transition-shadow dark:bg-panel-dark dark:border-border-dark"
           >
             <div className="flex items-center space-x-3 mb-3">
-              <div className="p-2 bg-purple-100 rounded-lg dark:bg-purple-900/30">
-                <Sparkles className="h-6 w-6 text-purple-600 dark:text-purple-400" />
+              <div className="p-2 bg-brand-weak rounded-lg dark:bg-white/5">
+                <Sparkles className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
               </div>
               <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">View Plans</h3>
             </div>
@@ -378,11 +378,11 @@ export default function DashboardPage() {
 
           <Link
             href="/dashboard/watchlist"
-            className="bg-background-light rounded-lg shadow-sm border border-border-light p-6 hover:shadow-md transition-shadow dark:bg-panel-dark dark:border-border-dark"
+            className="bg-panel-light rounded-lg shadow-sm border border-border-light p-6 hover:shadow-md transition-shadow dark:bg-panel-dark dark:border-border-dark"
           >
             <div className="flex items-center space-x-3 mb-3">
-              <div className="p-2 bg-mint-100 rounded-lg dark:bg-mint-900/30">
-                <BarChart3 className="h-6 w-6 text-mint-600 dark:text-mint-400" />
+              <div className="p-2 bg-brand-weak rounded-lg dark:bg-white/5">
+                <BarChart3 className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
               </div>
               <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Watchlist Insights</h3>
             </div>
@@ -397,7 +397,7 @@ export default function DashboardPage() {
           <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">Saved Summaries</h2>
           {savedLoading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-mint-600" />
+              <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
             </div>
           ) : savedError ? (
             <StateCard
@@ -409,7 +409,7 @@ export default function DashboardPage() {
                   type="button"
                   onClick={() => refetchSavedSummaries()}
                   disabled={savedFetching}
-                  className="mt-2 inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/30"
+                  className="mt-2 inline-flex items-center rounded-md border border-loss-light/30 bg-loss-soft px-3 py-1 text-xs font-medium text-error-light transition hover:opacity-90 disabled:opacity-60 dark:bg-loss-soft-dark dark:border-loss-dark/30 dark:text-error-dark"
                 >
                   {savedFetching ? 'Retrying…' : 'Retry'}
                 </button>
@@ -418,12 +418,12 @@ export default function DashboardPage() {
           ) : savedSummaries && savedSummaries.length > 0 ? (
             <div className="grid md:grid-cols-2 gap-4">
               {savedSummaries.map((item: SavedSummary) => (
-                <div key={item.id} className="bg-background-light rounded-lg shadow-sm border border-border-light p-4 dark:bg-panel-dark dark:border-border-dark">
+                <div key={item.id} className="bg-panel-light rounded-lg shadow-sm border border-border-light p-4 dark:bg-panel-dark dark:border-border-dark">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <Link
                         href={`/filing/${item.summary.filing_id}`}
-                        className="text-lg font-semibold text-text-primary-light hover:text-mint-600 transition-colors dark:text-text-primary-dark dark:hover:text-mint-400"
+                        className="text-lg font-semibold text-text-primary-light hover:text-brand-strong transition-colors dark:text-text-primary-dark dark:hover:text-brand-strong-dark"
                       >
                         {item.company.name} - {item.filing.filing_type}
                       </Link>
@@ -438,7 +438,7 @@ export default function DashboardPage() {
                     </div>
                     <button
                       onClick={() => deleteSummaryMutation.mutate(item.id)}
-                      className="text-red-600 hover:text-red-700 p-2 dark:text-red-400 dark:hover:text-red-300"
+                      className="text-error-light hover:opacity-90 p-2 dark:text-error-dark"
                       title="Delete"
                       aria-label={`Delete summary for ${item.company.name}`}
                     >
@@ -462,7 +462,7 @@ export default function DashboardPage() {
           <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">Watchlist</h2>
           {watchlistLoading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-mint-600" />
+              <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
             </div>
           ) : watchlistError ? (
             <StateCard
@@ -474,7 +474,7 @@ export default function DashboardPage() {
                   type="button"
                   onClick={() => refetchWatchlist()}
                   disabled={watchlistFetching}
-                  className="mt-2 inline-flex items-center rounded-md border border-red-200 bg-white px-3 py-1 text-xs font-medium text-red-700 transition hover:bg-red-50 disabled:opacity-60 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-900/30"
+                  className="mt-2 inline-flex items-center rounded-md border border-loss-light/30 bg-loss-soft px-3 py-1 text-xs font-medium text-error-light transition hover:opacity-90 disabled:opacity-60 dark:bg-loss-soft-dark dark:border-loss-dark/30 dark:text-error-dark"
                 >
                   {watchlistFetching ? 'Retrying…' : 'Retry'}
                 </button>
@@ -483,20 +483,20 @@ export default function DashboardPage() {
           ) : watchlist && watchlist.length > 0 ? (
             <div className="grid md:grid-cols-3 gap-4">
               {watchlist.map((item: WatchlistItem) => (
-                <div key={item.id} className="bg-background-light rounded-lg shadow-sm border border-border-light p-4 dark:bg-panel-dark dark:border-border-dark">
+                <div key={item.id} className="bg-panel-light rounded-lg shadow-sm border border-border-light p-4 dark:bg-panel-dark dark:border-border-dark">
                   <div className="flex items-center justify-between">
                     <Link
                       href={`/company/${item.company.ticker}`}
                       className="flex-1"
                     >
-                      <div className="font-semibold text-text-primary-light hover:text-mint-600 transition-colors dark:text-text-primary-dark dark:hover:text-mint-400">
+                      <div className="font-semibold text-text-primary-light hover:text-brand-strong transition-colors dark:text-text-primary-dark dark:hover:text-brand-strong-dark">
                         {item.company.name}
                       </div>
                       <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{item.company.ticker}</div>
                     </Link>
                     <button
                       onClick={() => removeWatchlistMutation.mutate(item.company.ticker)}
-                      className="text-red-600 hover:text-red-700 p-2 dark:text-red-400 dark:hover:text-red-300"
+                      className="text-error-light hover:opacity-90 p-2 dark:text-error-dark"
                       title="Remove from watchlist"
                       aria-label={`Remove ${item.company.name} from watchlist`}
                     >
