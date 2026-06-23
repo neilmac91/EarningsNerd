@@ -10,6 +10,8 @@ import { format } from 'date-fns'
 import SubscriptionGate from '@/components/SubscriptionGate'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import StateCard from '@/components/StateCard'
+import { Button, buttonVariants } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 
 export default function ComparePage() {
   const router = useRouter()
@@ -81,18 +83,18 @@ export default function ComparePage() {
                 Search Company
               </label>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <input
+                <Input
                   type="text"
                   value={selectedTicker}
                   onChange={(e) => setSelectedTicker(e.target.value)}
                   onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                   placeholder="Enter ticker (e.g., AAPL)"
-                  className="flex-1 px-4 py-2 border border-border-light rounded-lg bg-panel-light text-text-primary-light placeholder:text-text-tertiary-light focus:outline-none focus:ring-2 focus:ring-brand-light/50 focus:border-brand-light dark:border-white/10 dark:bg-slate-900/60 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark"
+                  className="flex-1"
                 />
-                <button
+                <Button
                   onClick={handleSearch}
                   disabled={isSearching}
-                  className="px-6 py-2 bg-brand-strong text-white rounded-lg hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light transition-colors disabled:opacity-60 font-semibold"
+                  className="px-6 font-semibold"
                 >
                   {isSearching ? (
                     <span className="flex items-center justify-center">
@@ -102,7 +104,7 @@ export default function ComparePage() {
                   ) : (
                     'Search'
                   )}
-                </button>
+                </Button>
               </div>
               {searchError && (
                 <div className="mt-3">
@@ -167,10 +169,10 @@ export default function ComparePage() {
                 </div>
 
                 {selectedFilings.length >= 2 && (
-                  <button
+                  <Button
                     onClick={handleCompare}
                     disabled={compareMutation.isPending}
-                    className="mt-6 w-full px-6 py-3 bg-brand-strong text-white rounded-lg hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light transition-colors font-semibold disabled:opacity-50"
+                    className="mt-6 w-full px-6 py-3 font-semibold"
                   >
                     {compareMutation.isPending ? (
                       <span className="flex items-center justify-center">
@@ -180,7 +182,7 @@ export default function ComparePage() {
                     ) : (
                       'Compare Filings'
                     )}
-                  </button>
+                  </Button>
                 )}
               </div>
             )}
@@ -193,7 +195,7 @@ export default function ComparePage() {
                   action={
                     <Link
                       href="/company/AAPL"
-                      className="inline-flex items-center rounded-lg bg-brand-strong px-4 py-2 text-sm font-semibold text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light transition"
+                      className={`${buttonVariants({ variant: 'primary' })} font-semibold`}
                     >
                       Explore companies
                     </Link>

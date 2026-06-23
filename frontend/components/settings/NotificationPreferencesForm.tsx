@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { clsx } from 'clsx'
 import Link from 'next/link'
 import { Bell, Loader2, Lock } from 'lucide-react'
 import {
@@ -9,6 +10,7 @@ import {
   NotificationPreferences,
   NotificationPreferencesUpdate,
 } from '@/features/notifications/api/notifications-api'
+import { inputClasses } from '@/components/ui/Input'
 
 type BoolPref = 'notify_10k' | 'notify_10q' | 'notify_8k' | 'realtime'
 
@@ -174,7 +176,7 @@ function PreferenceRows({
           value={prefs.digest}
           disabled={disabled}
           onChange={(e) => save({ digest: e.target.value })}
-          className="rounded-lg border border-border-light dark:border-border-dark bg-panel-light dark:bg-background-dark px-3 py-1.5 text-sm text-text-primary-light dark:text-text-primary-dark focus:ring-2 focus:ring-brand-light focus:border-transparent disabled:opacity-50"
+          className={clsx(inputClasses, 'w-auto py-1.5 text-sm')}
         >
           <option value="immediate">Immediate</option>
           <option value="daily">Daily</option>

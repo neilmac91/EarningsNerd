@@ -104,17 +104,17 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
   }, [isGenerating, backendStage, elapsedSeconds])
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-lg shadow-md p-8">
+    <div className="bg-panel-light dark:bg-panel-dark border border-border-light dark:border-white/10 rounded-lg shadow-e2 dark:shadow-none p-8">
       <div className="max-w-2xl mx-auto">
         {/* Progress Bar */}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700 dark:text-slate-300">
+            <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
               {stages[currentStage]?.label || 'Preparing...'}
             </span>
-            <span className="text-sm text-gray-500 dark:text-slate-400">{Math.round(progress)}%</span>
+            <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{Math.round(progress)}%</span>
           </div>
-          <div className="w-full bg-gray-200 dark:bg-slate-800/50 rounded-full h-2.5">
+          <div className="w-full bg-border-light dark:bg-white/10 rounded-full h-2.5">
             <div
               className="bg-gradient-to-r from-brand-strong to-brand-light dark:from-brand-dark dark:to-brand-strong-dark h-2.5 rounded-full transition-all duration-300 ease-out"
               style={{ width: `${progress}%` }}
@@ -136,16 +136,16 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
                   isActive
                     ? 'bg-brand-strong/10 dark:bg-brand-dark/15 border-2 border-brand-light/30 dark:border-brand-dark/30'
                     : isComplete
-                    ? 'bg-success-light/10 dark:bg-success-dark/10 border-2 border-success-light/30 dark:border-success-dark/30'
-                    : 'bg-gray-50 dark:bg-slate-800/50 border-2 border-gray-200 dark:border-slate-700'
+                    ? 'bg-brand-weak dark:bg-brand-dark/10 border-2 border-brand-light/30 dark:border-brand-dark/30'
+                    : 'bg-background-light dark:bg-white/5 border-2 border-border-light dark:border-white/10'
                 }`}
               >
                 <div className={`flex-shrink-0 mt-0.5 ${
                   isComplete
-                    ? 'text-success-light dark:text-success-dark'
+                    ? 'text-brand-strong dark:text-brand-strong-dark'
                     : isActive
                     ? 'text-brand-strong dark:text-brand-strong-dark'
-                    : 'text-gray-400 dark:text-slate-500'
+                    : 'text-text-tertiary-light dark:text-text-secondary-dark'
                 }`}>
                   {isComplete ? (
                     <CheckCircle2 className="h-6 w-6" />
@@ -158,8 +158,8 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
                     isActive
                       ? 'text-brand-strong dark:text-brand-strong-dark'
                       : isComplete
-                      ? 'text-success-light dark:text-success-dark'
-                      : 'text-gray-500 dark:text-slate-400'
+                      ? 'text-brand-strong dark:text-brand-strong-dark'
+                      : 'text-text-secondary-light dark:text-text-secondary-dark'
                   }`}>
                     {stage.label}
                   </div>
@@ -167,8 +167,8 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
                     isActive
                       ? 'text-brand-strong dark:text-brand-strong-dark'
                       : isComplete
-                      ? 'text-success-light dark:text-success-dark'
-                      : 'text-gray-400 dark:text-slate-500'
+                      ? 'text-brand-strong dark:text-brand-strong-dark'
+                      : 'text-text-tertiary-light dark:text-text-secondary-dark'
                   }`}>
                     {stage.description}
                   </div>
@@ -187,13 +187,13 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
 
         {/* Estimated Time */}
         <div className="mt-6 text-center">
-          <p className="text-sm text-gray-600 dark:text-slate-300 font-medium">
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark font-medium">
             Generating your summary...
           </p>
-          <p className="text-xs text-gray-500 dark:text-slate-400 mt-1">
+          <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark mt-1">
             This typically takes 30-60 seconds for large filings. Please don&apos;t close this page.
           </p>
-          <div className="mt-3 flex items-center justify-center space-x-2 text-xs text-gray-400 dark:text-slate-500">
+          <div className="mt-3 flex items-center justify-center space-x-2 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
             <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-pulse" />
             <span>Processing securely</span>
           </div>

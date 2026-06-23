@@ -6,6 +6,8 @@ import { Check, Copy, Loader2 } from 'lucide-react'
 import { getApiUrl } from '@/lib/api/client'
 import TurnstileWidget from '@/components/auth/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 
 type WaitlistSuccess = {
   message?: string
@@ -218,14 +220,14 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
           >
             Email address
           </label>
-          <input
+          <Input
             id="waitlist-email"
             type="email"
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="you@company.com"
-            className="mt-2 w-full rounded-xl border border-border-light bg-background-light px-4 py-3 text-sm text-text-primary-light focus:border-brand-light focus:outline-none dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
+            className="mt-2 rounded-xl px-4 py-3 text-sm"
           />
         </div>
 
@@ -236,13 +238,13 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
           >
             Full name (optional)
           </label>
-          <input
+          <Input
             id="waitlist-name"
             type="text"
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Jane Doe"
-            className="mt-2 w-full rounded-xl border border-border-light bg-background-light px-4 py-3 text-sm text-text-primary-light focus:border-brand-light focus:outline-none dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
+            className="mt-2 rounded-xl px-4 py-3 text-sm"
           />
         </div>
 
@@ -264,14 +266,14 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
 
         <TurnstileWidget onToken={setTurnstileToken} />
 
-        <button
+        <Button
           type="submit"
           disabled={isSubmitting || (TURNSTILE_ENABLED && !turnstileToken)}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-brand-strong px-6 py-3 text-sm font-semibold text-white transition hover:bg-brand-light disabled:cursor-not-allowed disabled:opacity-70 dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light"
+          className="w-full rounded-full px-6 py-3 font-semibold"
         >
           {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
           {isSubmitting ? 'Joining waitlist...' : 'Join the waitlist'}
-        </button>
+        </Button>
       </div>
     </form>
   )

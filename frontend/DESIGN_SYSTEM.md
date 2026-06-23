@@ -40,25 +40,40 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
 
 ## 3. Canonical component patterns
 
+**Use the shared components, don't hand-roll** — `components/ui/Button.tsx` (`<Button variant>` +
+`buttonVariants()` for `<Link>`/`<a>`) and `components/ui/Input.tsx` (`<Input>` + `inputClasses` for
+`<textarea>`/`<select>`). They centralize the patterns below so buttons/fields can't drift again
+(before they existed there were 5 ad-hoc "secondary" button recipes).
+
 ```
-Primary button   bg-brand-strong text-white hover:bg-brand-light
-                 dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark
-                 focus-visible:outline-brand-light          (no text-slate-950, no glow)
+Primary button   <Button>  ·  bg-brand-strong text-white hover:bg-brand-light
+                 dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark   (no text-slate-950, no glow)
+
+Secondary button <Button variant="secondary">  — panel fill + hairline + soft lift; BRIGHTENS on hover
+                 bg-panel-light border border-border-light shadow-e1 hover:bg-brand-weak hover:shadow-e2
+                 dark:bg-panel-dark dark:border-white/10 dark:shadow-none dark:hover:bg-white/5   (never hover:opacity-90)
+
+Tertiary button  <Button variant="tertiary">  — ghost: transparent + border, hover bg-brand-weak
 
 Accent text/link text-brand-strong dark:text-brand-strong-dark
 Focus ring       outline-brand-light  /  ring-brand-light  /  focus:border-brand-light
 
-Card / panel     bg-panel-light dark:bg-panel-dark
-                 border border-border-light dark:border-white/10
+Card / panel     bg-panel-light dark:bg-panel-dark + border-border-light dark:border-white/10
                  shadow-e2 dark:shadow-none            (e1 chips · e2 cards · e3 hero/featured)
 
-Input            bg-panel-light dark:bg-slate-900/60 border-border-light dark:border-white/10
+Input            <Input>  — fill is the BRIGHTEST surface so the field reads on BOTH the cream page
+                 AND an off-white card (never reuse the card's own fill — the field would vanish):
+                 bg-white dark:bg-slate-900/60 border-border-light dark:border-white/10
                  text-text-primary-light dark:text-text-primary-dark
-                 placeholder:text-text-tertiary-light dark:placeholder:text-text-secondary-dark
-                 + brand focus
+                 placeholder:text-text-tertiary-light dark:placeholder:text-text-secondary-dark + brand focus
 
-Soft accent fill bg-brand-strong/10 dark:bg-brand-dark/15      Accent border: border-brand-light/40 dark:border-brand-dark/40
+Soft accent fill bg-brand-strong/10 dark:bg-brand-dark/15   ·   Accent border border-brand-light/40 dark:border-brand-dark/40
 ```
+
+- **One** secondary-button style (above). Don't invent `brand-weak`-fill or bare `panel-light` buttons,
+  and never `hover:opacity-90` (it darkens; secondary buttons brighten toward `brand-weak`).
+- Inputs must **delineate** from their surface — the bright `<Input>` fill is what makes a field
+  visible on a same-tone card (the password fields previously vanished into their panel).
 
 ## 4. Headings
 
@@ -97,6 +112,10 @@ Light hero/CTA = `bg-background-light` / a `bg-panel-light`/`bg-brand-weak` pane
   semantic — keep them; only convert *brand/primary* uses off the legacy palette. Reserve loud
   status colors for genuine state — a default guidance/info container should be subdued/brand-tinted,
   not loud blue (see `StateCard` `info` variant).
+- **Progress / step / completion indicators use the BRAND accent (sage), not success-green.** Green
+  is for a genuine terminal *confirmation* state ("Saved", "Just added"); in-progress step ticks and
+  the completed steps of a running operation are brand activity, so they match the sage progress ring
+  (`SummaryProgress` + the streaming-summary stepper).
 
 ## 9. Charts (recharts)
 

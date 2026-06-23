@@ -9,6 +9,7 @@ import { Loader2, CheckCircle } from 'lucide-react'
 import StateCard from '@/components/StateCard'
 import AuthShell from '@/components/auth/AuthShell'
 import PasswordField from '@/components/auth/PasswordField'
+import { Button } from '@/components/ui/Button'
 
 function ResetPasswordContent() {
   const searchParams = useSearchParams()
@@ -114,10 +115,10 @@ function ResetPasswordContent() {
           minLength={12}
         />
 
-        <button
+        <Button
           type="submit"
           disabled={loading || !token}
-          className="w-full rounded-lg bg-brand-strong py-2.5 font-semibold text-white transition-all hover:bg-brand-light active:scale-[0.99] disabled:opacity-50 dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+          className="w-full py-2.5 font-semibold active:scale-[0.99]"
         >
           {loading ? (
             <span className="flex items-center justify-center gap-2">
@@ -127,7 +128,7 @@ function ResetPasswordContent() {
           ) : (
             'Reset password'
           )}
-        </button>
+        </Button>
       </form>
 
       <p className="mt-8 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">

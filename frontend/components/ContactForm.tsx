@@ -1,10 +1,13 @@
 'use client'
 
 import { useState } from 'react'
+import { clsx } from 'clsx'
 import { Loader2 } from 'lucide-react'
 import { submitContactForm } from '@/features/contact/api/contact-api'
 import TurnstileWidget from '@/components/auth/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
+import { Button } from '@/components/ui/Button'
+import { Input, inputClasses } from '@/components/ui/Input'
 
 export default function ContactForm() {
   const [name, setName] = useState('')
@@ -121,7 +124,7 @@ export default function ContactForm() {
           >
             Name <span className="text-error-light dark:text-error-dark">*</span>
           </label>
-          <input
+          <Input
             id="name"
             name="name"
             type="text"
@@ -129,7 +132,7 @@ export default function ContactForm() {
             onChange={(e) => setName(e.target.value)}
             required
             disabled={isSubmitting}
-            className="mt-2 w-full rounded-lg border border-border-light bg-panel-light px-4 py-3 text-text-primary-light placeholder:text-text-tertiary-light transition-colors focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-slate-900/60 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark"
+            className="mt-2"
             placeholder="Your name"
           />
         </div>
@@ -142,7 +145,7 @@ export default function ContactForm() {
           >
             Email <span className="text-error-light dark:text-error-dark">*</span>
           </label>
-          <input
+          <Input
             id="email"
             name="email"
             type="email"
@@ -150,7 +153,7 @@ export default function ContactForm() {
             onChange={(e) => setEmail(e.target.value)}
             required
             disabled={isSubmitting}
-            className="mt-2 w-full rounded-lg border border-border-light bg-panel-light px-4 py-3 text-text-primary-light placeholder:text-text-tertiary-light transition-colors focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-slate-900/60 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark"
+            className="mt-2"
             placeholder="you@company.com"
           />
         </div>
@@ -163,14 +166,14 @@ export default function ContactForm() {
           >
             Subject
           </label>
-          <input
+          <Input
             id="subject"
             name="subject"
             type="text"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             disabled={isSubmitting}
-            className="mt-2 w-full rounded-lg border border-border-light bg-panel-light px-4 py-3 text-text-primary-light placeholder:text-text-tertiary-light transition-colors focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-slate-900/60 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark"
+            className="mt-2"
             placeholder="How can we help?"
           />
         </div>
@@ -191,7 +194,7 @@ export default function ContactForm() {
             required
             disabled={isSubmitting}
             rows={6}
-            className="mt-2 w-full rounded-lg border border-border-light bg-panel-light px-4 py-3 text-text-primary-light placeholder:text-text-tertiary-light transition-colors focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/20 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-slate-900/60 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark"
+            className={clsx(inputClasses, 'mt-2')}
             placeholder="Tell us more about your inquiry..."
           />
           <p className="mt-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
@@ -209,10 +212,10 @@ export default function ContactForm() {
         <TurnstileWidget onToken={setTurnstileToken} />
 
         {/* Submit Button */}
-        <button
+        <Button
           type="submit"
           disabled={isSubmitting || (TURNSTILE_ENABLED && !turnstileToken)}
-          className="w-full rounded-lg bg-brand-strong px-6 py-3 font-medium text-white transition-colors hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+          className="w-full"
         >
           {isSubmitting ? (
             <span className="flex items-center justify-center">
@@ -222,7 +225,7 @@ export default function ContactForm() {
           ) : (
             'Send Message'
           )}
-        </button>
+        </Button>
       </div>
     </form>
   )

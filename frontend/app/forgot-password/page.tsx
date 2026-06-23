@@ -7,6 +7,8 @@ import Link from 'next/link'
 import { Loader2, MailCheck } from 'lucide-react'
 import StateCard from '@/components/StateCard'
 import AuthShell from '@/components/auth/AuthShell'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -53,7 +55,7 @@ export default function ForgotPasswordPage() {
               >
                 Email
               </label>
-              <input
+              <Input
                 type="email"
                 id="email"
                 value={email}
@@ -61,14 +63,13 @@ export default function ForgotPasswordPage() {
                 required
                 autoComplete="email"
                 autoFocus
-                className="w-full rounded-lg border border-border-light bg-background-light px-3 py-2 text-text-primary-light placeholder:text-text-tertiary-light focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/50 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
               />
             </div>
 
-            <button
+            <Button
               type="submit"
               disabled={loading}
-              className="w-full rounded-lg bg-brand-strong py-2.5 font-semibold text-white transition-all hover:bg-brand-light active:scale-[0.99] disabled:opacity-50 dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+              className="w-full py-2.5 font-semibold active:scale-[0.99]"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -78,7 +79,7 @@ export default function ForgotPasswordPage() {
               ) : (
                 'Send reset link'
               )}
-            </button>
+            </Button>
           </form>
         </>
       ) : (
