@@ -15,7 +15,7 @@ import {
   TrendingTickerResponse,
   PriceData,
 } from '@/features/companies/api/companies-api'
-import { directionTextOnDark, directionOf } from '@/lib/financialTone'
+import { directionText, directionOf } from '@/lib/financialTone'
 
 const FULL_REFRESH_INTERVAL = 10 * 60 * 1000 // 10 minutes for full data
 const PRICE_REFRESH_INTERVAL = 2 * 60 * 1000 // 2 minutes for prices only
@@ -63,7 +63,7 @@ function PriceChangeIndicator({ changePercent }: { changePercent?: number | null
     <span
       className={clsx(
         'inline-flex items-center gap-0.5 text-sm font-medium',
-        directionTextOnDark[directionOf(changePercent)]
+        directionText[directionOf(changePercent)]
       )}
     >
       {isPositive && <TrendingUp className={iconClass} />}
@@ -102,19 +102,19 @@ function TrendingTickerCard({
     <Link
       href={`/company/${ticker.symbol}`}
       onClick={handleClick}
-      className="flex min-w-[240px] flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 p-4 shadow-lg transition-all duration-200 hover:-translate-y-1 hover:bg-white/10 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+      className="flex min-w-[240px] flex-col gap-2 rounded-2xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 p-4 shadow-lg transition-all duration-200 hover:-translate-y-1 hover:bg-brand-strong/10 dark:hover:bg-white/10 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-slate-900"
     >
       {/* Header: Symbol + Price */}
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <div className="text-lg font-semibold text-white">{ticker.symbol}</div>
-          <div className="truncate text-sm text-slate-300">
+          <div className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">{ticker.symbol}</div>
+          <div className="truncate text-sm text-text-secondary-light dark:text-text-secondary-dark">
             {ticker.name ?? 'Loading...'}
           </div>
         </div>
         {priceFormatted && (
           <div className="text-right">
-            <div className="text-lg font-semibold tabular-nums text-white">{priceFormatted}</div>
+            <div className="text-lg font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">{priceFormatted}</div>
             <PriceChangeIndicator changePercent={changePercent} />
           </div>
         )}
@@ -122,7 +122,7 @@ function TrendingTickerCard({
 
       {/* Footer: Watchlist count */}
       {watchlistFormatted && (
-        <div className="flex items-center gap-1.5 text-xs text-slate-400">
+        <div className="flex items-center gap-1.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
           <Eye className="h-3.5 w-3.5" />
           <span>{watchlistFormatted} watching</span>
         </div>
@@ -202,29 +202,29 @@ export default function TrendingTickers({
   if (isLoading) {
     return (
       <section className="mt-12">
-        <header className="mb-4 flex items-center justify-between gap-3 text-white">
+        <header className="mb-4 flex items-center justify-between gap-3 text-text-primary-light dark:text-text-primary-dark">
           <div className="flex items-center gap-2">
             <Flame className="h-5 w-5 text-orange-300" />
-            <h2 className="text-lg font-semibold">Market Movers</h2>
+            <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Market Movers</h2>
           </div>
         </header>
         <div className="flex gap-4 overflow-x-auto pb-2">
           {Array.from({ length: 5 }).map((_, index) => (
             <div
               key={index}
-              className="flex min-w-[240px] flex-col gap-3 rounded-2xl border border-white/5 bg-white/5 p-4"
+              className="flex min-w-[240px] flex-col gap-3 rounded-2xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 p-4"
             >
               <div className="flex justify-between">
                 <div className="space-y-2">
-                  <div className="h-6 w-16 animate-pulse rounded bg-white/10" />
-                  <div className="h-4 w-28 animate-pulse rounded bg-white/10" />
+                  <div className="h-6 w-16 animate-pulse rounded bg-brand-weak dark:bg-white/10" />
+                  <div className="h-4 w-28 animate-pulse rounded bg-brand-weak dark:bg-white/10" />
                 </div>
                 <div className="space-y-2 text-right">
-                  <div className="h-6 w-20 animate-pulse rounded bg-white/10" />
-                  <div className="h-4 w-14 animate-pulse rounded bg-white/10" />
+                  <div className="h-6 w-20 animate-pulse rounded bg-brand-weak dark:bg-white/10" />
+                  <div className="h-4 w-14 animate-pulse rounded bg-brand-weak dark:bg-white/10" />
                 </div>
               </div>
-              <div className="h-4 w-24 animate-pulse rounded bg-white/10" />
+              <div className="h-4 w-24 animate-pulse rounded bg-brand-weak dark:bg-white/10" />
             </div>
           ))}
         </div>
@@ -235,51 +235,51 @@ export default function TrendingTickers({
   if (isError) {
     return (
       <section className="mt-12">
-        <header className="mb-3 flex items-center gap-2 text-white">
+        <header className="mb-3 flex items-center gap-2 text-text-primary-light dark:text-text-primary-dark">
           <Flame className="h-5 w-5 text-orange-300" />
-          <h2 className="text-lg font-semibold">Market Movers</h2>
+          <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Market Movers</h2>
         </header>
-        <div className="rounded-xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-200">
+        <div className="rounded-xl border border-error-light/30 dark:border-error-dark/30 bg-error-light/10 dark:bg-error-dark/10 p-4 text-sm text-error-light dark:text-error-dark">
           Unable to load trending data. Please try again soon.
           {error instanceof Error && (
-            <span className="mt-2 block text-xs text-rose-300/80">{error.message}</span>
+            <span className="mt-2 block text-xs text-error-light/80 dark:text-error-dark/80">{error.message}</span>
           )}
         </div>
       </section>
     )
   }
 
-  let infoTone = 'border-slate-500/40 bg-slate-500/10 text-slate-200'
+  let infoTone = 'border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark'
   if (data?.status === 'stale') {
-    infoTone = 'border-amber-400/40 bg-amber-500/10 text-amber-100'
+    infoTone = 'border-warning-light/40 dark:border-warning-dark/40 bg-warning-light/10 dark:bg-warning-dark/10 text-warning-light dark:text-warning-dark'
   } else if (data?.status === 'unavailable') {
-    infoTone = 'border-rose-400/40 bg-rose-500/10 text-rose-200'
+    infoTone = 'border-error-light/40 dark:border-error-dark/40 bg-error-light/10 dark:bg-error-dark/10 text-error-light dark:text-error-dark'
   }
   const showInfoMessage = Boolean(data?.message)
   const emptyStateMessage = data?.message ?? DEFAULT_EMPTY_MESSAGE
 
   return (
     <section className="mt-12">
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-3 text-white">
+      <header className="mb-4 flex flex-wrap items-center justify-between gap-3 text-text-primary-light dark:text-text-primary-dark">
         <div className="flex items-center gap-2">
           <Flame className="h-5 w-5 text-orange-300" />
           <div>
-            <h2 className="text-lg font-semibold">Market Movers</h2>
-            <p className="text-xs text-slate-400">
+            <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Market Movers</h2>
+            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
               What&apos;s moving in the market today
-              {updatedAgo && <span className="text-slate-300/80"> • Updated {updatedAgo}</span>}
+              {updatedAgo && <span className="text-text-tertiary-light dark:text-text-secondary-dark"> • Updated {updatedAgo}</span>}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
           {data?.source && (
-            <span className="text-xs uppercase tracking-wide text-slate-300/70">
+            <span className="text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
               Source: {data.source}
             </span>
           )}
           <button
             onClick={() => refetch()}
-            className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-1 text-xs font-medium text-slate-100 transition hover:border-white/40 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+            className="inline-flex items-center gap-2 rounded-full border border-border-light dark:border-white/20 bg-brand-weak dark:bg-white/5 px-3 py-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition hover:border-brand-strong/40 dark:hover:border-white/40 hover:bg-brand-strong/10 dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-slate-900"
             disabled={isFetching}
             type="button"
           >
@@ -308,13 +308,13 @@ export default function TrendingTickers({
           </div>
 
           {/* Subtle footer attribution */}
-          <div className="mt-4 flex items-center justify-center gap-2 text-xs text-slate-500">
+          <div className="mt-4 flex items-center justify-center gap-2 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
             <span>Data from</span>
             <a
               href="https://stocktwits.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-slate-400 hover:text-slate-300"
+              className="text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
             >
               Stocktwits
             </a>
@@ -323,14 +323,14 @@ export default function TrendingTickers({
               href="https://financialmodelingprep.com"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-slate-400 hover:text-slate-300"
+              className="text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
             >
               FMP
             </a>
           </div>
         </>
       ) : (
-        <div className="rounded-xl border border-slate-500/40 bg-slate-500/10 p-4 text-sm text-slate-200">
+        <div className="rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 p-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
           {emptyStateMessage}
         </div>
       )}

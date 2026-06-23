@@ -22,13 +22,13 @@ const CURRENT_YEAR = new Date().getFullYear()
 
 export default function Footer() {
   return (
-    <footer className="border-t border-white/[0.06] bg-slate-950">
+    <footer className="border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid gap-10 md:grid-cols-[1.5fr_1fr_1fr_1fr]">
           {/* Brand column */}
           <div>
-            <EarningsNerdLogo variant="icon-only" iconClassName="h-8 w-8" mode="dark" />
-            <p className="mt-4 max-w-xs text-sm leading-relaxed text-slate-400">
+            <EarningsNerdLogo variant="icon-only" iconClassName="h-8 w-8" mode="auto" />
+            <p className="mt-4 max-w-xs text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
               AI-powered SEC filing analysis. Turn dense 10-Ks and 10-Qs into clear, decision-ready insights.
             </p>
           </div>
@@ -36,7 +36,7 @@ export default function Footer() {
           {/* Link columns */}
           {Object.entries(FOOTER_LINKS).map(([category, links]) => (
             <div key={category}>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark">
                 {category}
               </h3>
               <ul className="mt-4 space-y-3">
@@ -44,7 +44,7 @@ export default function Footer() {
                   <li key={link.href}>
                     <Link
                       href={link.href}
-                      className="text-sm text-slate-500 transition-colors hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-mint-500"
+                      className="text-sm text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
                     >
                       {link.label}
                     </Link>
@@ -56,11 +56,11 @@ export default function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-white/[0.06] pt-8 sm:flex-row">
-          <p className="text-xs text-slate-500">
+        <div className="mt-12 flex flex-col items-center justify-between gap-4 border-t border-border-light pt-8 dark:border-white/[0.06] sm:flex-row">
+          <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
             &copy; {CURRENT_YEAR} EarningsNerd. All rights reserved.
           </p>
-          <p className="text-xs text-slate-600">
+          <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
             Data sourced from SEC EDGAR. Not investment advice.
           </p>
         </div>

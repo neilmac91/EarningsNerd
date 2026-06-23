@@ -185,9 +185,14 @@ module.exports = {
       },
 
       backgroundImage: {
+        // Dark-theme marketing gradients (deep navy / purple).
         'hero-gradient': 'linear-gradient(to bottom right, #0B1120, #111827, #1a1147)',
-        'hero-glow': 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(16, 185, 129, 0.12), transparent)',
+        'hero-glow': 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(146, 160, 226, 0.14), transparent)',
         'cta-gradient': 'linear-gradient(135deg, #064E3B, #0f172a, #1e1b4b)',
+        // Light-theme variants — warm cream with subtle sage/slate tint (pair via `dark:`).
+        'hero-gradient-light': 'linear-gradient(to bottom right, #F4F3EE, #ECF2EE, #EEF0F9)',
+        'hero-glow-light': 'radial-gradient(ellipse 80% 50% at 50% -20%, rgba(79, 122, 99, 0.10), transparent)',
+        'cta-gradient-light': 'linear-gradient(135deg, #ECF2EE, #F4F3EE, #EEF0F9)',
       },
 
       boxShadow: {

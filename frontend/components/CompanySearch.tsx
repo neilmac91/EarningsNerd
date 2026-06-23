@@ -7,7 +7,7 @@ import { searchCompanies, Company } from '@/features/companies/api/companies-api
 import { ApiError } from '@/lib/api/client'
 import { useRouter } from 'next/navigation'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
-import { directionTextOnDark, directionOf } from '@/lib/financialTone'
+import { directionText, directionOf } from '@/lib/financialTone'
 import { matchTopTickers } from '@/lib/topTickers'
 import analytics from '@/lib/analytics'
 
@@ -153,7 +153,7 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
   return (
     <div className="relative">
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
+        <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark" />
         <input
           ref={inputRef}
           id="company-search"
@@ -171,14 +171,14 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
           aria-label="Search for a company"
           aria-describedby={isError ? "company-search-error" : undefined}
           aria-autocomplete="list"
-          className="hero-search-glow w-full rounded-xl border border-white/10 bg-slate-900/80 py-4 pl-12 pr-4 text-lg text-white placeholder:text-slate-500 backdrop-blur-sm focus:border-mint-500/40 focus:outline-none"
+          className="hero-search-glow w-full rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/80 py-4 pl-12 pr-4 text-lg text-text-primary-light dark:text-text-primary-dark placeholder:text-text-tertiary-light dark:placeholder:text-text-secondary-dark backdrop-blur-sm focus:border-brand-strong/40 dark:focus:border-brand-dark/40 focus:outline-none"
         />
         {isLoading && (
-          <Loader2 className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-mint-400" />
+          <Loader2 className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />
         )}
         {!isLoading && !query && (
           <kbd
-            className="absolute right-4 top-1/2 hidden -translate-y-1/2 rounded-md border border-white/15 bg-white/5 px-2 py-0.5 font-mono text-xs text-slate-500 sm:block"
+            className="absolute right-4 top-1/2 hidden -translate-y-1/2 rounded-md border border-border-light dark:border-white/15 bg-brand-weak dark:bg-white/5 px-2 py-0.5 font-mono text-xs text-text-tertiary-light dark:text-text-secondary-dark sm:block"
             aria-hidden="true"
           >
             /
@@ -192,12 +192,12 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
           id="company-search-error"
           role="alert"
           aria-live="polite"
-          className="absolute z-10 mt-2 w-full rounded-xl border border-red-500/30 bg-red-950/80 p-4 shadow-lg backdrop-blur-sm"
+          className="absolute z-10 mt-2 w-full rounded-xl border border-error-light/30 dark:border-error-dark/30 bg-panel-light dark:bg-error-dark/10 p-4 shadow-lg backdrop-blur-sm"
         >
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <div className="mb-1 font-semibold text-red-200">Error searching companies</div>
-              <div className="text-sm text-red-300">
+              <div className="mb-1 font-semibold text-error-light dark:text-error-dark">Error searching companies</div>
+              <div className="text-sm text-error-light dark:text-error-dark">
                 {error instanceof ApiError
                   ? error.detail
                   : error instanceof Error
@@ -207,7 +207,7 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
             </div>
             <button
               onClick={() => refetch()}
-              className="ml-4 rounded-md border border-red-500/30 bg-red-500/10 px-3 py-1.5 text-sm font-medium text-red-200 transition-colors hover:bg-red-500/20"
+              className="ml-4 rounded-md border border-error-light/30 dark:border-error-dark/30 bg-error-light/10 dark:bg-error-dark/10 px-3 py-1.5 text-sm font-medium text-error-light dark:text-error-dark transition-colors hover:bg-error-light/15 dark:hover:bg-error-dark/20"
               aria-label="Retry search"
             >
               Try Again
@@ -218,8 +218,8 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
 
       {/* No Results Message */}
       {!isLoading && !isError && companies && companies.length === 0 && debouncedQuery.length > 0 && (
-        <div className="absolute z-10 mt-2 w-full rounded-xl border border-white/10 bg-slate-900/95 p-4 shadow-lg backdrop-blur-sm">
-          <div className="text-center text-slate-400">No companies found matching &quot;{debouncedQuery}&quot;</div>
+        <div className="absolute z-10 mt-2 w-full rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/95 p-4 shadow-lg backdrop-blur-sm">
+          <div className="text-center text-text-secondary-light dark:text-text-secondary-dark">No companies found matching &quot;{debouncedQuery}&quot;</div>
         </div>
       )}
 
@@ -229,7 +229,7 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
           id="company-search-results"
           role="listbox"
           aria-label="Instant matches"
-          className="absolute z-10 mt-2 w-full overflow-hidden rounded-xl border border-white/10 bg-slate-900/95 shadow-lg backdrop-blur-sm"
+          className="absolute z-10 mt-2 w-full overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/95 shadow-lg backdrop-blur-sm"
         >
           {localMatches.map((match, index) => (
             <button
@@ -238,13 +238,13 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
               role="option"
               aria-selected={index === highlightIndex}
               onClick={() => goToResult(match.ticker, index)}
-              className={`flex w-full items-baseline gap-3 border-b border-white/[0.06] px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-white/5 ${
-                index === highlightIndex ? 'bg-white/10' : ''
+              className={`flex w-full items-baseline gap-3 border-b border-border-light dark:border-white/10 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-brand-weak dark:hover:bg-white/5 ${
+                index === highlightIndex ? 'bg-brand-weak dark:bg-white/10' : ''
               }`}
             >
-              <span className="font-mono text-sm font-semibold text-mint-400">{match.ticker}</span>
-              <span className="truncate text-sm text-slate-300">{match.name}</span>
-              <span className="ml-auto font-mono text-[10px] uppercase tracking-wide text-slate-600">
+              <span className="font-mono text-sm font-semibold text-brand-strong dark:text-brand-strong-dark">{match.ticker}</span>
+              <span className="truncate text-sm text-text-secondary-light dark:text-text-secondary-dark">{match.name}</span>
+              <span className="ml-auto font-mono text-[10px] uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
                 instant
               </span>
             </button>
@@ -258,7 +258,7 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
           id="company-search-results"
           role="listbox"
           aria-label="Company results"
-          className="absolute z-10 mt-2 max-h-96 w-full overflow-y-auto rounded-xl border border-white/10 bg-slate-900/95 shadow-lg backdrop-blur-sm"
+          className="absolute z-10 mt-2 max-h-96 w-full overflow-y-auto rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/95 shadow-lg backdrop-blur-sm"
         >
           {companies.map((company, index) => (
             <button
@@ -267,23 +267,23 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
               role="option"
               aria-selected={index === highlightIndex}
               onClick={() => handleCompanyClick(company, index)}
-              className={`w-full border-b border-white/[0.06] px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-white/5 ${
-                index === highlightIndex ? 'bg-white/10' : ''
+              className={`w-full border-b border-border-light dark:border-white/10 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-brand-weak dark:hover:bg-white/5 ${
+                index === highlightIndex ? 'bg-brand-weak dark:bg-white/10' : ''
               }`}
             >
-              <div className="font-semibold text-white">{company.name}</div>
+              <div className="font-semibold text-text-primary-light dark:text-text-primary-dark">{company.name}</div>
               <div className="flex flex-col space-y-1 text-sm">
                 <div className="flex items-center space-x-2">
-                  <span className="text-slate-400">{company.ticker}</span>
+                  <span className="text-text-secondary-light dark:text-text-secondary-dark">{company.ticker}</span>
                   {company.stock_quote?.price ? (
                     <>
-                      <span className="text-slate-600">•</span>
-                      <span className="font-semibold text-white">
+                      <span className="text-text-tertiary-light dark:text-text-secondary-dark">•</span>
+                      <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">
                         {fmtCurrency(company.stock_quote.price, { digits: 2, compact: false })}
                       </span>
                       {company.stock_quote.change !== undefined && company.stock_quote.change_percent !== undefined && (
                         <span
-                          className={`font-medium ${directionTextOnDark[directionOf(company.stock_quote.change)]}`}
+                          className={`font-medium ${directionText[directionOf(company.stock_quote.change)]}`}
                         >
                           {fmtCurrency(company.stock_quote.change, { digits: 2, compact: false })}{' '}
                           ({fmtPercent(company.stock_quote.change_percent, { digits: 2, signed: true })})
@@ -292,8 +292,8 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
                     </>
                   ) : (
                     <>
-                      <span className="text-slate-600">•</span>
-                      <span className="text-slate-500">Loading price...</span>
+                      <span className="text-text-tertiary-light dark:text-text-secondary-dark">•</span>
+                      <span className="text-text-tertiary-light dark:text-text-secondary-dark">Loading price...</span>
                     </>
                   )}
                 </div>
@@ -302,13 +302,13 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
                   <div className="flex items-center space-x-3 text-xs pl-1">
                     {company.stock_quote.pre_market_price && (
                       <div className="flex items-center space-x-1">
-                        <span className="text-slate-500">Pre:</span>
-                        <span className="font-semibold text-slate-200">
+                        <span className="text-text-tertiary-light dark:text-text-secondary-dark">Pre:</span>
+                        <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">
                           {fmtCurrency(company.stock_quote.pre_market_price, { digits: 2, compact: false })}
                         </span>
                         {company.stock_quote.pre_market_change !== undefined && company.stock_quote.pre_market_change_percent !== undefined && (
                           <span
-                            className={`font-medium ${directionTextOnDark[directionOf(company.stock_quote.pre_market_change)]}`}
+                            className={`font-medium ${directionText[directionOf(company.stock_quote.pre_market_change)]}`}
                           >
                             {fmtCurrency(company.stock_quote.pre_market_change, { digits: 2, compact: false })}{' '}
                             ({fmtPercent(company.stock_quote.pre_market_change_percent, { digits: 2, signed: true })})
@@ -318,13 +318,13 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
                     )}
                     {company.stock_quote.post_market_price && (
                       <div className="flex items-center space-x-1">
-                        <span className="text-slate-500">After:</span>
-                        <span className="font-semibold text-slate-200">
+                        <span className="text-text-tertiary-light dark:text-text-secondary-dark">After:</span>
+                        <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">
                           {fmtCurrency(company.stock_quote.post_market_price, { digits: 2, compact: false })}
                         </span>
                         {company.stock_quote.post_market_change !== undefined && company.stock_quote.post_market_change_percent !== undefined && (
                           <span
-                            className={`font-medium ${directionTextOnDark[directionOf(company.stock_quote.post_market_change)]}`}
+                            className={`font-medium ${directionText[directionOf(company.stock_quote.post_market_change)]}`}
                           >
                             {fmtCurrency(company.stock_quote.post_market_change, { digits: 2, compact: false })}{' '}
                             ({fmtPercent(company.stock_quote.post_market_change_percent, { digits: 2, signed: true })})

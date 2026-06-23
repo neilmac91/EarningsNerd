@@ -82,13 +82,13 @@ export default function HotFilings({
         {skeletonCards.map((_, index) => (
           <div
             key={index}
-            className="flex animate-pulse items-center justify-between rounded-lg border border-white/10 bg-white/5 px-4 py-4"
+            className="flex animate-pulse items-center justify-between rounded-lg border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 px-4 py-4"
           >
             <div className="flex flex-col space-y-2">
-              <div className="h-4 w-40 rounded bg-white/10" />
-              <div className="h-3 w-24 rounded bg-white/10" />
+              <div className="h-4 w-40 rounded bg-brand-weak dark:bg-white/10" />
+              <div className="h-3 w-24 rounded bg-brand-weak dark:bg-white/10" />
             </div>
-            <div className="h-6 w-16 rounded bg-white/10" />
+            <div className="h-6 w-16 rounded bg-brand-weak dark:bg-white/10" />
           </div>
         ))}
       </div>
@@ -97,7 +97,7 @@ export default function HotFilings({
 
   if (error || !data) {
     return (
-      <div className="rounded-lg border border-red-500/40 bg-red-500/10 p-4 text-sm text-red-200">
+      <div className="rounded-lg border border-error-light/40 dark:border-error-dark/40 bg-error-light/10 dark:bg-error-dark/10 p-4 text-sm text-error-light dark:text-error-dark">
         <div className="flex items-center space-x-2">
           <AlertTriangle className="h-4 w-4" />
           <p>Unable to load hot filings. Please try again soon.</p>
@@ -105,7 +105,7 @@ export default function HotFilings({
         <button
           type="button"
           onClick={() => refetch()}
-          className="mt-3 inline-flex items-center rounded-md border border-white/20 px-3 py-1 text-xs font-medium text-white transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+          className="mt-3 inline-flex items-center rounded-md border border-border-light dark:border-white/20 px-3 py-1 text-xs font-medium text-text-primary-light dark:text-text-primary-dark transition hover:bg-brand-weak dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-slate-900"
         >
           Retry
         </button>
@@ -115,7 +115,7 @@ export default function HotFilings({
 
   if (!data.filings || data.filings.length === 0) {
     return (
-      <p className="rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+      <p className="rounded-lg border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 p-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
         No major filings in the last 24 hours.
       </p>
     )
@@ -136,32 +136,32 @@ export default function HotFilings({
               <div>
                 <div className="flex items-center space-x-2">
                   <div
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-mint-500/15 text-mint-300"
+                    className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-strong/10 dark:bg-brand-dark/15 text-brand-strong dark:text-brand-strong-dark"
                     aria-hidden
                   >
                     <Activity className="h-4 w-4" />
                   </div>
                   <div>
-                    <div className="text-sm font-semibold text-slate-100">
+                    <div className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                       {filing.company_name ?? 'Unknown Company'}
                     </div>
-                    <div className="text-xs uppercase tracking-wide text-slate-400">
+                    <div className="text-xs uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">
                       {filing.symbol ?? 'N/A'} • {filing.filing_type}
                     </div>
                   </div>
                 </div>
-                <p className="mt-3 text-xs text-slate-400">Filed {relative}</p>
+                <p className="mt-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">Filed {relative}</p>
 
                 {filing.sources?.length ? (
-                  <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-wide text-slate-300">
+                  <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">
                     {filing.sources.map((source) => (
                       <span
                         key={source}
                         className={clsx(
                           'inline-flex items-center gap-1 rounded-full border px-2 py-0.5',
                           source === 'earnings_calendar'
-                            ? 'border-amber-400/30 bg-amber-500/10 text-amber-200'
-                            : 'border-white/10 bg-white/5'
+                            ? 'border-warning-light/30 dark:border-warning-dark/30 bg-warning-light/10 dark:bg-warning-dark/10 text-warning-light dark:text-warning-dark'
+                            : 'border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5'
                         )}
                       >
                         {source === 'earnings_calendar' && <Calendar className="h-3 w-3" />}
@@ -181,7 +181,7 @@ export default function HotFilings({
                     symbol: filing.symbol,
                     buzz_score: filing.buzz_score
                   })}
-                  className="mt-4 inline-flex items-center rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-white transition hover:border-mint-400 hover:text-mint-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+                  className="mt-4 inline-flex items-center rounded-lg border border-border-light dark:border-white/10 px-3 py-1.5 text-xs font-semibold text-text-primary-light dark:text-text-primary-dark transition hover:border-brand-strong dark:hover:border-brand-dark hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-slate-900"
                 >
                   View AI Summary
                   <ArrowUpRight className="ml-1 h-3 w-3" />
@@ -192,13 +192,13 @@ export default function HotFilings({
         )
       })}
 
-      <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-slate-400">
+      <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">
         <span>Updated {formatDistanceToNowStrict(new Date(data.last_updated), { addSuffix: true })}</span>
         <button
           type="button"
           onClick={() => refetch()}
           disabled={isRefetching}
-          className="inline-flex items-center rounded-md border border-white/10 px-2 py-1 text-[10px] font-semibold text-slate-200 transition hover:border-mint-400 hover:text-mint-200 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mint-400 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+          className="inline-flex items-center rounded-md border border-border-light dark:border-white/10 px-2 py-1 text-[10px] font-semibold text-text-secondary-light dark:text-text-secondary-dark transition hover:border-brand-strong dark:hover:border-brand-dark hover:text-brand-strong dark:hover:text-brand-strong-dark disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-slate-900"
         >
           {isRefetching ? 'Refreshing…' : 'Refresh'}
         </button>
