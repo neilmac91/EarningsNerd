@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeft, FileText, ShieldCheck } from 'lucide-react'
+import { ArrowLeftIcon, FileTextIcon, ShieldCheckIcon } from '@/lib/icons'
 import EarningsNerdLogoIcon from '@/components/EarningsNerdLogoIcon'
 import { directionChip } from '@/lib/financialTone'
 
@@ -25,7 +25,7 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
             href="/"
             className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
           >
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeftIcon className="h-4 w-4" />
             Back to home
           </Link>
         </div>
@@ -57,7 +57,7 @@ function AuthBrandPane() {
         {/* Showcase card */}
         <div className="glass-card animate-float mt-10 rounded-2xl p-5">
           <div className="flex items-center gap-2 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
-            <FileText className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
+            <FileTextIcon className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
             AAPL · 10-K
           </div>
           <div className="mt-3 space-y-2" aria-hidden="true">
@@ -79,11 +79,11 @@ function AuthBrandPane() {
         {/* Trust signals */}
         <div className="mt-10 flex items-center gap-6 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
           <span className="inline-flex items-center gap-1.5">
-            <ShieldCheck className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
+            <ShieldCheckIcon className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
             SEC EDGAR
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <FileText className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
+            <FileTextIcon className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
             XBRL-verified
           </span>
         </div>

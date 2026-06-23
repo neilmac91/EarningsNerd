@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { CreditCard, Loader2, Sparkles } from 'lucide-react'
+import { CircleNotchIcon, CreditCardIcon, SparkleIcon } from '@/lib/icons'
 import {
   getSubscriptionStatus,
   getUsage,
@@ -39,7 +39,7 @@ export default function BillingPanel() {
     return (
       <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">
         <div className="flex items-center gap-3 mb-4">
-          <CreditCard className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
+          <CreditCardIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
           <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Billing</h2>
         </div>
         <p className="text-sm text-error-light dark:text-error-dark">
@@ -57,13 +57,13 @@ export default function BillingPanel() {
   return (
     <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">
       <div className="flex items-center gap-3 mb-4">
-        <CreditCard className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
+        <CreditCardIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Billing</h2>
       </div>
 
       {isLoading ? (
         <div className="flex items-center text-text-tertiary-light dark:text-text-tertiary-dark">
-          <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Loading…
+          <CircleNotchIcon className="h-4 w-4 mr-2 animate-spin" /> Loading…
         </div>
       ) : (
         <div className="space-y-3">
@@ -79,7 +79,7 @@ export default function BillingPanel() {
                     : 'bg-brand-weak text-text-secondary-light dark:bg-white/5 dark:text-text-secondary-dark'
                 }`}
               >
-                {isPro && <Sparkles className="h-3.5 w-3.5" />}
+                {isPro && <SparkleIcon className="h-3.5 w-3.5" />}
                 {planLabel}
               </span>
             </div>
@@ -134,7 +134,7 @@ export default function BillingPanel() {
                 onClick={() => portal.mutate()}
                 disabled={portal.isPending}
               >
-                {portal.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                {portal.isPending ? <CircleNotchIcon className="h-4 w-4 animate-spin" /> : null}
                 Manage billing
               </Button>
             ) : (

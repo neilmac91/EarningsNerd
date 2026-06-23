@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Eye, EyeOff } from 'lucide-react'
+import { EyeIcon, EyeSlashIcon } from '@/lib/icons'
 import { Input } from '@/components/ui/Input'
 
 type PasswordFieldProps = {
@@ -85,7 +85,7 @@ export default function PasswordField({
           aria-label={show ? 'Hide password' : 'Show password'}
           className="absolute inset-y-0 right-0 flex items-center pr-3 text-text-tertiary-light transition-colors hover:text-text-secondary-light dark:text-text-tertiary-dark dark:hover:text-text-secondary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
         >
-          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          {show ? <EyeSlashIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
         </button>
       </div>
 

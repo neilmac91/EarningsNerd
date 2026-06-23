@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { forgotPassword } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
-import { Loader2, MailCheck } from 'lucide-react'
+import { CircleNotchIcon, EnvelopeSimpleOpenIcon } from '@/lib/icons'
 import StateCard from '@/components/StateCard'
 import AuthShell from '@/components/auth/AuthShell'
 import { Button } from '@/components/ui/Button'
@@ -73,7 +73,7 @@ export default function ForgotPasswordPage() {
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <CircleNotchIcon className="h-4 w-4 animate-spin" />
                   Sending…
                 </span>
               ) : (
@@ -86,7 +86,7 @@ export default function ForgotPasswordPage() {
         <div className="text-center">
           <div className="mb-4 flex justify-center">
             <div className="animate-check-pop rounded-full bg-brand-strong/10 p-4 dark:bg-brand-dark/15">
-              <MailCheck className="h-8 w-8 text-brand-strong dark:text-brand-strong-dark" />
+              <EnvelopeSimpleOpenIcon className="h-8 w-8 text-brand-strong dark:text-brand-strong-dark" />
             </div>
           </div>
           <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">

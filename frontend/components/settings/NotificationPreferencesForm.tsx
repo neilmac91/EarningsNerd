@@ -3,7 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { clsx } from 'clsx'
 import Link from 'next/link'
-import { Bell, Loader2, Lock } from 'lucide-react'
+import { BellIcon, CircleNotchIcon, LockSimpleIcon } from '@/lib/icons'
 import {
   getNotificationPreferences,
   updateNotificationPreferences,
@@ -39,7 +39,7 @@ function Toggle({
               href="/pricing"
               className="inline-flex items-center gap-1 rounded-full bg-brand-strong px-2 py-0.5 text-[11px] font-semibold text-white dark:bg-brand-dark dark:text-background-dark"
             >
-              <Lock className="h-3 w-3" />
+              <LockSimpleIcon className="h-3 w-3" />
               Pro
             </Link>
           )}
@@ -91,10 +91,10 @@ export default function NotificationPreferencesForm() {
     <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">
       <div className="flex items-center justify-between mb-2">
         <h2 className="flex items-center gap-2 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-          <Bell className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
+          <BellIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
           Filing Alerts
         </h2>
-        {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin text-text-tertiary-light dark:text-text-tertiary-dark" />}
+        {mutation.isPending && <CircleNotchIcon className="h-4 w-4 animate-spin text-text-tertiary-light dark:text-text-tertiary-dark" />}
       </div>
       <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
         Get notified when companies on your watchlist file with the SEC.
@@ -102,7 +102,7 @@ export default function NotificationPreferencesForm() {
 
       {isLoading ? (
         <div className="flex justify-center py-6">
-          <Loader2 className="h-6 w-6 animate-spin text-text-tertiary-light dark:text-text-tertiary-dark" />
+          <CircleNotchIcon className="h-6 w-6 animate-spin text-text-tertiary-light dark:text-text-tertiary-dark" />
         </div>
       ) : isError || !prefs ? (
         <p className="text-sm text-error-light dark:text-error-dark">
