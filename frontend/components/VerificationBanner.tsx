@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, MailWarning, X } from 'lucide-react'
+import { CircleNotchIcon, WarningCircleIcon, XIcon } from '@/lib/icons'
 import { getCurrentUserSafe, resendVerification } from '@/features/auth/api/auth-api'
 import { isAuthRoute } from '@/components/SiteChrome'
 
@@ -54,7 +54,7 @@ export default function VerificationBanner() {
   return (
     <div className="border-b border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
       <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2.5 text-sm sm:px-6 lg:px-8">
-        <MailWarning className="h-4 w-4 shrink-0" />
+        <WarningCircleIcon className="h-4 w-4 shrink-0" />
         <p className="flex-1">
           {resent ? (
             <>Verification email sent — check your inbox.</>
@@ -69,7 +69,7 @@ export default function VerificationBanner() {
             disabled={loading}
             className="inline-flex shrink-0 items-center gap-1.5 font-semibold underline-offset-2 hover:underline disabled:opacity-50"
           >
-            {loading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {loading && <CircleNotchIcon className="h-3.5 w-3.5 animate-spin" />}
             Resend link
           </button>
         )}
@@ -79,7 +79,7 @@ export default function VerificationBanner() {
           aria-label="Dismiss"
           className="shrink-0 rounded p-1 transition-colors hover:bg-amber-500/15"
         >
-          <X className="h-4 w-4" />
+          <XIcon className="h-4 w-4" />
         </button>
       </div>
     </div>

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
-import { Bell } from 'lucide-react'
+import { BellIcon } from '@/lib/icons'
 import {
   getNotifications,
   markNotificationsSeen,
@@ -84,7 +84,7 @@ export default function NotificationBell() {
         aria-label={unread > 0 ? `Notifications (${unread} unread)` : 'Notifications'}
         className="relative flex h-9 w-9 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
       >
-        <Bell className="h-5 w-5" />
+        <BellIcon className="h-5 w-5" />
         {unread > 0 && (
           <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-strong text-white dark:bg-brand-dark dark:text-background-dark px-1 text-[10px] font-bold ring-2 ring-background-light dark:ring-background-dark">
             {unread > 9 ? '9+' : unread}

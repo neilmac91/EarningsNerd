@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Menu, X, ArrowRight, LogOut } from 'lucide-react'
+import { ArrowRightIcon, ListIcon, SignOutIcon, XIcon } from '@/lib/icons'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
 import UserMenu from '@/components/UserMenu'
 import NotificationBell from '@/components/NotificationBell'
@@ -101,7 +101,7 @@ export default function Header() {
                 className="inline-flex items-center gap-1.5 rounded-full bg-brand-strong px-5 py-2 text-sm font-semibold text-white shadow-e2 transition-all hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
               >
                 Get Started
-                <ArrowRight className="h-3.5 w-3.5" />
+                <ArrowRightIcon className="h-3.5 w-3.5" />
               </Link>
             </>
           )}
@@ -117,7 +117,7 @@ export default function Header() {
             aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
             aria-expanded={mobileMenuOpen}
           >
-            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+            {mobileMenuOpen ? <XIcon className="h-5 w-5" /> : <ListIcon className="h-5 w-5" />}
           </button>
         </div>
       </div>
@@ -169,7 +169,7 @@ export default function Header() {
                     onClick={handleMobileLogout}
                     className="flex items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-text-secondary-light transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
                   >
-                    <LogOut className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
+                    <SignOutIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
                     Log out
                   </button>
                 </>
