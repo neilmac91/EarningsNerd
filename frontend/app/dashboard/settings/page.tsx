@@ -12,6 +12,7 @@ import NotificationPreferencesForm from '@/components/settings/NotificationPrefe
 import ProfileForm from '@/components/settings/ProfileForm'
 import BillingPanel from '@/components/settings/BillingPanel'
 import ChangePasswordForm from '@/components/settings/ChangePasswordForm'
+import { FontSwitcher } from '@/components/FontProvider'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -64,28 +65,28 @@ export default function SettingsPage() {
 
   if (userLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+      <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900">
+    <div className="min-h-screen bg-background-light dark:bg-background-dark">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="mb-8">
           <Link
             href="/dashboard"
-            className="inline-flex items-center text-sm text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 mb-4"
+            className="inline-flex items-center text-sm text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark mb-4"
           >
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back to Dashboard
           </Link>
-          <h1 className="text-3xl font-bold text-slate-900 dark:text-white">
+          <h1 className="text-3xl font-bold text-text-primary-light dark:text-text-primary-dark">
             Account Settings
           </h1>
-          <p className="text-slate-600 dark:text-slate-400 mt-2">
+          <p className="text-text-secondary-light dark:text-text-secondary-dark mt-2">
             Manage your account and data
           </p>
         </div>
@@ -105,18 +106,30 @@ export default function SettingsPage() {
         {/* New-filing alert preferences */}
         <NotificationPreferencesForm />
 
+        {/* Appearance — interface (body) font. Headings and data tables keep their fixed roles. */}
+        <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">
+          <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
+            Appearance
+          </h2>
+          <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
+            Choose the interface font. This changes body &amp; UI text only — headings stay
+            Helvetica and data tables stay monospace so figures keep aligning.
+          </p>
+          <FontSwitcher />
+        </div>
+
         {/* Data Export */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-6">
+        <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">
           <div className="flex items-start justify-between">
             <div className="flex-1">
-              <h2 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">
+              <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
                 Export Your Data
               </h2>
-              <p className="text-slate-600 dark:text-slate-400 mb-4">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
                 Download a complete copy of your data including your profile, search history,
                 saved summaries, watchlist, and usage statistics in JSON format.
               </p>
-              <p className="text-sm text-slate-500 dark:text-slate-500 mb-4">
+              <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark mb-4">
                 This is your right under GDPR Article 20 (Data Portability).
               </p>
             </div>
@@ -125,7 +138,7 @@ export default function SettingsPage() {
           <button
             onClick={handleExportData}
             disabled={exportMutation.isPending}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center px-4 py-2 bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {exportMutation.isPending ? (
               <>
@@ -141,14 +154,14 @@ export default function SettingsPage() {
           </button>
 
           {exportMutation.isSuccess && (
-            <div className="mt-4 flex items-center text-sm text-green-600 dark:text-green-400">
+            <div className="mt-4 flex items-center text-sm text-success-light dark:text-success-dark">
               <CheckCircle2 className="h-4 w-4 mr-2" />
               Your data has been downloaded successfully
             </div>
           )}
 
           {exportMutation.isError && (
-            <div className="mt-4 flex items-center text-sm text-red-600 dark:text-red-400">
+            <div className="mt-4 flex items-center text-sm text-error-light dark:text-error-dark">
               <AlertCircle className="h-4 w-4 mr-2" />
               Failed to export data. Please try again or contact support.
             </div>
@@ -156,13 +169,13 @@ export default function SettingsPage() {
         </div>
 
         {/* Delete Account */}
-        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-red-200 dark:border-red-900 p-6">
+        <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-loss-light/40 dark:border-loss-dark/30 p-6">
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
-              <h2 className="text-xl font-semibold text-red-600 dark:text-red-400 mb-2">
+              <h2 className="text-xl font-semibold text-error-light dark:text-error-dark mb-2">
                 Delete Account
               </h2>
-              <p className="text-slate-600 dark:text-slate-400 mb-4">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
                 Permanently delete your account and all associated data. This action cannot be undone.
               </p>
             </div>
@@ -171,24 +184,24 @@ export default function SettingsPage() {
           {!showDeleteConfirm ? (
             <button
               onClick={() => setShowDeleteConfirm(true)}
-              className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors"
+              className="inline-flex items-center px-4 py-2 bg-error-light hover:opacity-90 text-white dark:bg-error-dark dark:text-background-dark rounded-lg transition-colors"
             >
               <Trash2 className="h-4 w-4 mr-2" />
               Delete My Account
             </button>
           ) : (
             <div className="space-y-4">
-              <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-4">
+              <div className="bg-loss-soft dark:bg-loss-soft-dark border border-loss-light/30 dark:border-loss-dark/30 rounded-lg p-4">
                 <div className="flex items-start">
-                  <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mr-3 flex-shrink-0 mt-0.5" />
+                  <AlertCircle className="h-5 w-5 text-error-light dark:text-error-dark mr-3 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <h3 className="font-semibold text-red-900 dark:text-red-300 mb-2">
+                    <h3 className="font-semibold text-error-light dark:text-error-dark mb-2">
                       Warning: This action is permanent
                     </h3>
-                    <p className="text-sm text-red-800 dark:text-red-400 mb-2">
+                    <p className="text-sm text-error-light dark:text-error-dark mb-2">
                       Deleting your account will:
                     </p>
-                    <ul className="text-sm text-red-800 dark:text-red-400 list-disc list-inside space-y-1 mb-4">
+                    <ul className="text-sm text-error-light dark:text-error-dark list-disc list-inside space-y-1 mb-4">
                       <li>Permanently delete your profile and account</li>
                       <li>Delete all your search history</li>
                       <li>Delete all your saved summaries and notes</li>
@@ -196,7 +209,7 @@ export default function SettingsPage() {
                       <li>Cancel any active subscriptions</li>
                       <li>Remove all your usage data</li>
                     </ul>
-                    <p className="text-sm text-red-800 dark:text-red-400 font-medium">
+                    <p className="text-sm text-error-light dark:text-error-dark font-medium">
                       This action cannot be undone and your data cannot be recovered.
                     </p>
                   </div>
@@ -204,14 +217,14 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
                   Type &quot;delete my account&quot; to confirm:
                 </label>
                 <input
                   type="text"
                   value={deleteConfirmText}
                   onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-slate-900 dark:text-white focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  className="w-full px-4 py-2 rounded-lg border border-border-light dark:border-border-dark bg-panel-light dark:bg-background-dark text-text-primary-light dark:text-text-primary-dark focus:ring-2 focus:ring-error-light focus:border-transparent"
                   placeholder="delete my account"
                   disabled={deleteMutation.isPending}
                 />
@@ -224,7 +237,7 @@ export default function SettingsPage() {
                     deleteMutation.isPending ||
                     deleteConfirmText.toLowerCase() !== 'delete my account'
                   }
-                  className="inline-flex items-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center px-4 py-2 bg-error-light hover:opacity-90 text-white dark:bg-error-dark dark:text-background-dark rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {deleteMutation.isPending ? (
                     <>
@@ -245,14 +258,14 @@ export default function SettingsPage() {
                     setDeleteConfirmText('')
                   }}
                   disabled={deleteMutation.isPending}
-                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg transition-colors disabled:opacity-50"
+                  className="px-4 py-2 border border-border-light dark:border-border-dark bg-panel-light hover:bg-brand-weak dark:bg-panel-dark dark:hover:bg-white/5 text-text-primary-light dark:text-text-primary-dark rounded-lg transition-colors disabled:opacity-50"
                 >
                   Cancel
                 </button>
               </div>
 
               {deleteMutation.isError && (
-                <div className="flex items-center text-sm text-red-600 dark:text-red-400">
+                <div className="flex items-center text-sm text-error-light dark:text-error-dark">
                   <AlertCircle className="h-4 w-4 mr-2" />
                   Failed to delete account. Please contact support.
                 </div>
@@ -262,10 +275,10 @@ export default function SettingsPage() {
         </div>
 
         {/* Privacy Notice */}
-        <div className="mt-8 text-sm text-slate-500 dark:text-slate-400 text-center">
+        <div className="mt-8 text-sm text-text-tertiary-light dark:text-text-tertiary-dark text-center">
           <p>
             For more information about how we handle your data, please read our{' '}
-            <Link href="/privacy" className="text-blue-600 hover:text-blue-700 dark:text-blue-400">
+            <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
               Privacy Policy
             </Link>
             .

@@ -36,12 +36,12 @@ export default function BillingPanel() {
   // subscriber on a transient network error.
   if (isError) {
     return (
-      <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-6">
+      <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">
         <div className="flex items-center gap-3 mb-4">
-          <CreditCard className="h-5 w-5 text-blue-600" />
-          <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Billing</h2>
+          <CreditCard className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
+          <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Billing</h2>
         </div>
-        <p className="text-sm text-red-600 dark:text-red-400">
+        <p className="text-sm text-error-light dark:text-error-dark">
           Failed to load billing information. Please refresh the page or try again later.
         </p>
       </div>
@@ -54,26 +54,26 @@ export default function BillingPanel() {
   const planLabel = isTrialing ? 'Pro (trial)' : isPro ? 'Pro' : 'Free'
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-6">
+    <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">
       <div className="flex items-center gap-3 mb-4">
-        <CreditCard className="h-5 w-5 text-blue-600" />
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Billing</h2>
+        <CreditCard className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
+        <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Billing</h2>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center text-slate-500 dark:text-slate-400">
+        <div className="flex items-center text-text-tertiary-light dark:text-text-tertiary-dark">
           <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Loading…
         </div>
       ) : (
         <div className="space-y-4">
           {/* Plan + status */}
           <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-600 dark:text-slate-400">Plan</span>
+            <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Plan</span>
             <span
               className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium ${
                 isPro
-                  ? 'bg-mint-100 text-mint-800 dark:bg-mint-900/30 dark:text-mint-300'
-                  : 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300'
+                  ? 'bg-brand-strong text-white dark:bg-brand-dark dark:text-background-dark'
+                  : 'bg-brand-weak text-text-secondary-light dark:bg-white/5 dark:text-text-secondary-dark'
               }`}
             >
               {isPro && <Sparkles className="h-3.5 w-3.5" />}
@@ -83,8 +83,8 @@ export default function BillingPanel() {
 
           {/* Usage */}
           <div className="flex items-center justify-between">
-            <span className="text-sm text-slate-600 dark:text-slate-400">Summaries this month</span>
-            <span className="text-sm font-medium text-slate-900 dark:text-white">
+            <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Summaries this month</span>
+            <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
               {usage
                 ? usage.summaries_limit == null
                   ? `${usage.summaries_used} · Unlimited`
@@ -95,7 +95,7 @@ export default function BillingPanel() {
 
           {/* Trial countdown */}
           {isTrialing && trialDays !== null && (
-            <div className="rounded-lg border border-mint-500/30 bg-mint-500/10 px-4 py-3 text-sm text-slate-800 dark:text-slate-200">
+            <div className="rounded-lg border border-brand-light/30 bg-brand-weak dark:bg-white/5 px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
               <strong>{trialDays} {trialDays === 1 ? 'day' : 'days'} left</strong> in your Pro trial
               {sub?.trial_end ? ` · ends ${formatLocalDate(sub.trial_end, 'MMM d, yyyy')}` : ''}.
             </div>
@@ -104,16 +104,16 @@ export default function BillingPanel() {
           {/* Renewal / cancellation */}
           {isPro && !isTrialing && sub?.current_period_end && (
             <div className="flex items-center justify-between">
-              <span className="text-sm text-slate-600 dark:text-slate-400">
+              <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                 {sub.cancel_at_period_end ? 'Access until' : 'Renews on'}
               </span>
-              <span className="text-sm font-medium text-slate-900 dark:text-white">
+              <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
                 {formatLocalDate(sub.current_period_end, 'MMM d, yyyy')}
               </span>
             </div>
           )}
           {sub?.cancel_at_period_end && (
-            <p className="text-sm text-amber-600 dark:text-amber-400">
+            <p className="text-sm text-warning-light dark:text-warning-dark">
               Your subscription is set to cancel at the end of the current period.
             </p>
           )}
@@ -128,7 +128,7 @@ export default function BillingPanel() {
                 type="button"
                 onClick={() => portal.mutate()}
                 disabled={portal.isPending}
-                className="inline-flex items-center px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg transition-colors disabled:opacity-50"
+                className="inline-flex items-center px-4 py-2 bg-brand-weak hover:opacity-90 dark:bg-white/5 text-text-primary-light dark:text-text-primary-dark rounded-lg transition-colors disabled:opacity-50"
               >
                 {portal.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                 Manage billing
@@ -136,13 +136,13 @@ export default function BillingPanel() {
             ) : (
               <Link
                 href="/pricing"
-                className="inline-flex items-center px-4 py-2 bg-mint-500 hover:bg-mint-400 text-slate-950 rounded-lg font-medium transition-colors"
+                className="inline-flex items-center px-4 py-2 bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark rounded-lg font-medium transition-colors"
               >
                 {isTrialing ? 'Subscribe to Pro' : 'Upgrade to Pro'}
               </Link>
             )}
             {portal.isError && (
-              <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+              <p className="mt-2 text-sm text-error-light dark:text-error-dark">
                 Could not open the billing portal. Please try again.
               </p>
             )}

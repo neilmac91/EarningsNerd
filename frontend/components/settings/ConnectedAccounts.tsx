@@ -61,35 +61,35 @@ export default function ConnectedAccounts() {
   const credentialCount = (data?.has_password ? 1 : 0) + providers.length
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-lg shadow-sm border border-slate-200 dark:border-slate-700 p-6 mb-6">
+    <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">
       <div className="flex items-center gap-3 mb-2">
-        <Link2 className="h-5 w-5 text-blue-600" />
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
+        <Link2 className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
+        <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
           Connected accounts &amp; sessions
         </h2>
       </div>
-      <p className="text-slate-600 dark:text-slate-400 mb-4">
+      <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
         Manage how you sign in. You can&apos;t remove your only sign-in method.
       </p>
 
       {isLoading ? (
-        <div className="flex items-center text-slate-500 dark:text-slate-400">
+        <div className="flex items-center text-text-tertiary-light dark:text-text-tertiary-dark">
           <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Loading…
         </div>
       ) : isError ? (
-        <div className="flex items-center text-sm text-red-600 dark:text-red-400">
+        <div className="flex items-center text-sm text-error-light dark:text-error-dark">
           <AlertCircle className="h-4 w-4 mr-2" />
           {isApiError(queryError) ? getErrorMessage(queryError) : 'Failed to load connected accounts.'}
         </div>
       ) : (
         <div className="space-y-3">
           {/* Password row */}
-          <div className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3">
+          <div className="flex items-center justify-between rounded-lg border border-border-light dark:border-border-dark px-4 py-3">
             <div className="flex items-center gap-3">
-              <KeyRound className="h-4 w-4 text-slate-500" />
-              <span className="text-sm text-slate-900 dark:text-white">Password</span>
+              <KeyRound className="h-4 w-4 text-text-tertiary-light dark:text-text-tertiary-dark" />
+              <span className="text-sm text-text-primary-light dark:text-text-primary-dark">Password</span>
             </div>
-            <span className="text-sm text-slate-500 dark:text-slate-400">
+            <span className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
               {data?.has_password ? 'Set' : 'Not set'}
             </span>
           </div>
@@ -101,14 +101,14 @@ export default function ConnectedAccounts() {
             return (
               <div
                 key={p.provider}
-                className="flex items-center justify-between rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3"
+                className="flex items-center justify-between rounded-lg border border-border-light dark:border-border-dark px-4 py-3"
               >
                 <div>
-                  <span className="text-sm font-medium text-slate-900 dark:text-white">
+                  <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
                     {providerLabel(p.provider)}
                   </span>
                   {p.provider_email && (
-                    <span className="block text-xs text-slate-500 dark:text-slate-400">
+                    <span className="block text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
                       {p.provider_email}
                     </span>
                   )}
@@ -117,7 +117,7 @@ export default function ConnectedAccounts() {
                   onClick={() => unlinkMutation.mutate(p.provider)}
                   disabled={isLast || pending}
                   title={isLast ? 'Set a password first so you keep a way to sign in' : undefined}
-                  className="text-sm font-medium text-red-600 hover:text-red-700 dark:text-red-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="text-sm font-medium text-error-light hover:opacity-80 dark:text-error-dark disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {pending ? 'Unlinking…' : 'Unlink'}
                 </button>
@@ -126,13 +126,13 @@ export default function ConnectedAccounts() {
           })}
 
           {providers.length === 0 && (
-            <p className="text-sm text-slate-500 dark:text-slate-400">
+            <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
               No social sign-ins linked.
             </p>
           )}
 
           {error && (
-            <div className="flex items-center text-sm text-red-600 dark:text-red-400">
+            <div className="flex items-center text-sm text-error-light dark:text-error-dark">
               <AlertCircle className="h-4 w-4 mr-2" />
               {error}
             </div>
@@ -143,7 +143,7 @@ export default function ConnectedAccounts() {
             <button
               onClick={() => logoutAllMutation.mutate()}
               disabled={logoutAllMutation.isPending}
-              className="inline-flex items-center px-4 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-900 dark:text-white rounded-lg transition-colors disabled:opacity-50"
+              className="inline-flex items-center px-4 py-2 bg-brand-weak hover:opacity-90 dark:bg-white/5 text-text-primary-light dark:text-text-primary-dark rounded-lg transition-colors disabled:opacity-50"
             >
               {logoutAllMutation.isPending ? (
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
