@@ -14,7 +14,7 @@ import { getSubscriptionStatus } from '@/features/subscriptions/api/subscription
 import { getCompany, Company } from '@/features/companies/api/companies-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getApiUrl } from '@/lib/api/client'
-import { Loader2, AlertCircle, FileText, Download, FileDown, Bookmark, BookmarkCheck } from 'lucide-react'
+import { BookmarkSimpleIcon, CircleNotchIcon, DownloadSimpleIcon, FileArrowDownIcon, FileTextIcon, WarningCircleIcon } from '@/lib/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
@@ -119,7 +119,7 @@ function TickerFilingsView({ ticker }: { ticker: string }) {
     return (
       <div className="min-h-screen bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark">
         <div className="flex h-full min-h-screen items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+          <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
         </div>
       </div>
     )
@@ -491,7 +491,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   if (filingLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+        <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
       </div>
     )
   }
@@ -927,7 +927,7 @@ function StreamingSummaryDisplay({
       {isError && (
         <div className="bg-error-light/10 dark:bg-error-dark/10 border border-error-light/30 rounded-xl p-6 shadow-sm">
           <div className="flex items-start space-x-3">
-            <AlertCircle className="h-6 w-6 text-error-light dark:text-error-dark mt-1 flex-shrink-0" />
+            <WarningCircleIcon className="h-6 w-6 text-error-light dark:text-error-dark mt-1 flex-shrink-0" />
             <div className="flex-1">
               <h2 className="text-lg font-semibold text-error-light dark:text-error-dark mb-2">
                 Generation interrupted
@@ -996,7 +996,7 @@ function StreamingSummaryDisplay({
         <div className="bg-panel-light dark:bg-panel-dark rounded-xl p-8 border border-border-light dark:border-border-dark shadow-lg">
           <div className="flex items-start space-x-4">
             <div className="flex-shrink-0">
-              <Loader2 className="h-8 w-8 text-brand-strong dark:text-brand-strong-dark animate-spin" />
+              <CircleNotchIcon className="h-8 w-8 text-brand-strong dark:text-brand-strong-dark animate-spin" />
             </div>
             <div className="flex-1">
               <p className="text-text-primary-light dark:text-text-primary-dark font-semibold text-lg mb-1">
@@ -1178,7 +1178,7 @@ function SummaryDisplay({
                   disabled={saveMutation.isPending || isSaved}
                   className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-success-light/10 text-success-light dark:bg-success-dark/10 dark:text-success-dark cursor-not-allowed"
                 >
-                  <BookmarkCheck className="h-4 w-4 mr-2" />
+                  <BookmarkSimpleIcon className="h-4 w-4 mr-2" />
                   Saved
                 </button>
               ) : (
@@ -1187,7 +1187,7 @@ function SummaryDisplay({
                   onClick={() => saveMutation.mutate(summary.id)}
                   disabled={saveMutation.isPending}
                 >
-                  <Bookmark className="h-4 w-4" />
+                  <BookmarkSimpleIcon className="h-4 w-4" />
                   Save Summary
                 </Button>
               )
@@ -1198,11 +1198,11 @@ function SummaryDisplay({
         {isPro && (
           <div className="flex flex-wrap items-center gap-3">
             <Button variant="secondary" onClick={handleExportPDF}>
-              <Download className="h-4 w-4" />
+              <DownloadSimpleIcon className="h-4 w-4" />
               Export PDF
             </Button>
             <Button variant="secondary" onClick={handleExportCSV}>
-              <FileDown className="h-4 w-4" />
+              <FileArrowDownIcon className="h-4 w-4" />
               Export CSV
             </Button>
           </div>
@@ -1211,7 +1211,7 @@ function SummaryDisplay({
 
       {isError ? (
         <div className="bg-warning-light/10 dark:bg-warning-dark/10 border border-warning-light/30 rounded-lg p-6">
-          <AlertCircle className="h-6 w-6 text-warning-light dark:text-warning-dark mb-2" />
+          <WarningCircleIcon className="h-6 w-6 text-warning-light dark:text-warning-dark mb-2" />
           <p className="text-warning-light dark:text-warning-dark">{fallbackMessage}</p>
         </div>
       ) : (
@@ -1220,7 +1220,7 @@ function SummaryDisplay({
             <section className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-md p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-2">
-                  <FileText className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
+                  <FileTextIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
                   <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Summary</h2>
                   {/* S4 quality badge: honest signal of full vs partial output */}
                   {ENABLE_QUALITY_BADGE && quality?.tier && (

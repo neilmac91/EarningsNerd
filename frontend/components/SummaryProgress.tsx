@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { FileText, Sparkles, BarChart3, TrendingUp, CheckCircle2 } from 'lucide-react'
+import { ChartBarIcon, CheckCircleIcon, FileTextIcon, SparkleIcon, TrendUpIcon } from '@/lib/icons'
 
 interface SummaryProgressProps {
   isGenerating?: boolean
@@ -14,28 +14,28 @@ const stages = [
     id: 'fetching', 
     label: 'Fetching filing document', 
     description: 'Downloading the SEC filing from EDGAR',
-    icon: FileText,
+    icon: FileTextIcon,
     duration: 2000
   },
   { 
     id: 'parsing', 
     label: 'Parsing document structure', 
     description: 'Extracting tables, financial data, and sections',
-    icon: BarChart3,
+    icon: ChartBarIcon,
     duration: 3000
   },
   { 
     id: 'analyzing', 
     label: 'Analyzing content', 
     description: 'Processing with AI to identify key metrics and trends',
-    icon: Sparkles,
+    icon: SparkleIcon,
     duration: 4000
   },
   { 
     id: 'summarizing', 
     label: 'Generating insights', 
     description: 'Creating executive summary and financial highlights',
-    icon: TrendingUp,
+    icon: TrendUpIcon,
     duration: 5000
   },
 ]
@@ -148,7 +148,7 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
                     : 'text-text-tertiary-light dark:text-text-secondary-dark'
                 }`}>
                   {isComplete ? (
-                    <CheckCircle2 className="h-6 w-6" />
+                    <CheckCircleIcon className="h-6 w-6" />
                   ) : (
                     <Icon className={`h-6 w-6 ${isActive ? 'animate-pulse' : ''}`} />
                   )}

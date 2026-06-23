@@ -4,7 +4,7 @@ import { Children, cloneElement, Fragment, isValidElement, type ReactElement, ty
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { ArrowRight, Ban, CheckCircle2, ExternalLink, Loader2, Minus, RotateCw, Sparkles } from 'lucide-react'
+import { ArrowClockwiseIcon, ArrowRightIcon, ArrowSquareOutIcon, CheckCircleIcon, CircleNotchIcon, MinusIcon, ProhibitIcon, SparkleIcon } from '@/lib/icons'
 import { isXbrlCitation, xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import CitationChip, { isHttpUrl } from './CitationChip'
 
@@ -38,11 +38,11 @@ function ActivityTicker({ steps }: { steps: CopilotStep[] }) {
       {steps.map((s, i) => (
         <li key={`${s.label}-${i}`} className="flex items-center gap-2 text-[12px]">
           {!s.done ? (
-            <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
+            <CircleNotchIcon className="h-3.5 w-3.5 shrink-0 animate-spin text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
           ) : s.ok ? (
-            <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
+            <CheckCircleIcon className="h-3.5 w-3.5 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
           ) : (
-            <Minus className="h-3.5 w-3.5 shrink-0 text-text-secondary-light dark:text-text-secondary-dark" aria-hidden="true" />
+            <MinusIcon className="h-3.5 w-3.5 shrink-0 text-text-secondary-light dark:text-text-secondary-dark" aria-hidden="true" />
           )}
           <span className={s.done ? 'text-text-secondary-light dark:text-text-secondary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}>
             {s.label}
@@ -98,7 +98,7 @@ function FollowupChips({
             onClick={() => onFollowup(q)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border-light dark:border-white/10 bg-brand-weak dark:bg-slate-800/40 px-2.5 py-1.5 text-left text-xs text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-light/30 hover:bg-brand-weak/70 dark:hover:bg-slate-800"
           >
-            <Sparkles className="h-3 w-3 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
+            <SparkleIcon className="h-3 w-3 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
             {q}
           </button>
         ))}
@@ -220,12 +220,12 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
             'flex items-start gap-2 rounded-md px-1.5 py-1 text-xs text-text-secondary-light dark:text-text-secondary-dark'
           const badge = c.verified ? (
             <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-medium text-brand-strong dark:text-brand-strong-dark">
-              <CheckCircle2 className="h-3 w-3" />
+              <CheckCircleIcon className="h-3 w-3" />
               Verified
             </span>
           ) : (
             <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-medium text-text-secondary-light dark:text-text-secondary-dark">
-              <ExternalLink className="h-3 w-3" />
+              <ArrowSquareOutIcon className="h-3 w-3" />
               Cited
             </span>
           )
@@ -271,7 +271,7 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
                   className={`${rowClass} transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:hover:bg-white/5 dark:hover:text-text-primary-dark`}
                 >
                   {content}
-                  <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-text-secondary-light dark:text-text-secondary-dark" />
+                  <ArrowSquareOutIcon className="mt-0.5 h-3 w-3 shrink-0 text-text-secondary-light dark:text-text-secondary-dark" />
                 </a>
               ) : (
                 <div className={rowClass}>{content}</div>
@@ -317,7 +317,7 @@ export default function CopilotMessage({
                 onClick={onUpgrade}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-3 py-1.5 text-xs font-semibold transition-colors"
               >
-                <Sparkles className="h-3.5 w-3.5" />
+                <SparkleIcon className="h-3.5 w-3.5" />
                 Upgrade to Pro
               </button>
             )
@@ -328,7 +328,7 @@ export default function CopilotMessage({
                 onClick={onRetry}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-border-light dark:border-white/15 bg-panel-light dark:bg-white/5 px-3 py-1.5 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak dark:hover:bg-white/10"
               >
-                <RotateCw className="h-3.5 w-3.5" />
+                <ArrowClockwiseIcon className="h-3.5 w-3.5" />
                 Retry
               </button>
             )
@@ -344,7 +344,7 @@ export default function CopilotMessage({
     return (
       <div className="rounded-2xl rounded-bl-sm border border-border-light dark:border-white/10 bg-brand-weak dark:bg-slate-800/60 px-3.5 py-3 text-sm">
         <div className="mb-1.5 flex items-center gap-2 text-text-secondary-light dark:text-text-secondary-dark">
-          <Ban className="h-4 w-4" />
+          <ProhibitIcon className="h-4 w-4" />
           <span className="text-xs font-semibold uppercase tracking-wide">Not disclosed in this filing</span>
         </div>
         <p className="text-text-secondary-light dark:text-text-secondary-dark">{message.content}</p>
@@ -357,7 +357,7 @@ export default function CopilotMessage({
                 className={`${hint ? 'mt-1.5 ' : ''}inline-flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline`}
               >
                 Browse {ticker}’s other filings
-                <ArrowRight className="h-3 w-3" />
+                <ArrowRightIcon className="h-3 w-3" />
               </Link>
             )}
           </div>
@@ -414,7 +414,7 @@ export default function CopilotMessage({
             <>
               {typeof message.grounded === 'number' && message.grounded > 0 && (
                 <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-brand-strong/70 dark:text-brand-strong-dark/70" />
+                  <CheckCircleIcon className="h-3.5 w-3.5 text-brand-strong/70 dark:text-brand-strong-dark/70" />
                   Grounded in {message.grounded} excerpt{message.grounded === 1 ? '' : 's'}
                 </p>
               )}

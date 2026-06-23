@@ -1,10 +1,10 @@
 import React from 'react'
 import Link from 'next/link'
-import { TrendingUp, TrendingDown, Minus, GitCompare } from 'lucide-react'
+import { GitDiffIcon, MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 import type { ChangeReport } from '@/features/summaries/api/summaries-api'
 import { directionText } from '@/lib/financialTone'
 
-const DIR_ICON = { up: TrendingUp, down: TrendingDown, flat: Minus } as const
+const DIR_ICON = { up: TrendUpIcon, down: TrendDownIcon, flat: MinusIcon } as const
 const DIR_TONE = directionText
 
 function formatDelta(pct: number | null, direction: 'up' | 'down' | 'flat'): string {
@@ -25,7 +25,7 @@ export function WhatChanged({ report }: { report: ChangeReport }) {
     <section className="rounded-lg border border-border-light bg-panel-light p-6 shadow-sm dark:border-border-dark dark:bg-panel-dark">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
-          <GitCompare className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" aria-hidden />
+          <GitDiffIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" aria-hidden />
           <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
             What changed
           </h2>

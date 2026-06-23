@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { CheckCircle2, ExternalLink } from 'lucide-react'
+import { ArrowSquareOutIcon, CheckCircleIcon } from '@/lib/icons'
 import { isXbrlCitation, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import { useFilingViewer } from './FilingViewerContext'
 
@@ -160,12 +160,12 @@ export default function CitationChip({ citation }: CitationChipProps) {
             </span>
             {verified ? (
               <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-brand-strong dark:text-brand-strong-dark">
-                <CheckCircle2 className="h-3 w-3 shrink-0" />
+                <CheckCircleIcon className="h-3 w-3 shrink-0" />
                 Verified in filing
               </span>
             ) : (
               <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-secondary-light dark:text-text-secondary-dark">
-                <ExternalLink className="h-3 w-3 shrink-0" />
+                <ArrowSquareOutIcon className="h-3 w-3 shrink-0" />
                 Cited
               </span>
             )}
@@ -176,7 +176,7 @@ export default function CitationChip({ citation }: CitationChipProps) {
                 rel="noopener noreferrer"
                 className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:text-brand-strong dark:hover:text-brand-strong-dark"
               >
-                <ExternalLink className="h-3 w-3 shrink-0" />
+                <ArrowSquareOutIcon className="h-3 w-3 shrink-0" />
                 Open original
               </a>
             )}

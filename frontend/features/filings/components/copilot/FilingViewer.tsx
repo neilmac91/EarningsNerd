@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { ExternalLink, FileText, Loader2, RotateCw, X } from 'lucide-react'
+import { ArrowClockwiseIcon, ArrowSquareOutIcon, CircleNotchIcon, FileTextIcon, XIcon } from '@/lib/icons'
 import { fetchFilingContent } from '@/features/filings/api/filing-content-api'
 import { isHttpUrl } from './CitationChip'
 import { useFilingViewer } from './FilingViewerContext'
@@ -103,7 +103,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
       rel="noopener noreferrer"
       className="inline-flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline"
     >
-      Open original <ExternalLink className="h-3 w-3" />
+      Open original <ArrowSquareOutIcon className="h-3 w-3" />
     </a>
   ) : null
 
@@ -112,7 +112,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
     <>
       {(status === 'idle' || status === 'loading') && (
         <p className="flex flex-1 items-center justify-center gap-2 px-6 py-12 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          <Loader2 className="h-4 w-4 animate-spin text-brand-strong dark:text-brand-strong-dark" /> Loading the filing…
+          <CircleNotchIcon className="h-4 w-4 animate-spin text-brand-strong dark:text-brand-strong-dark" /> Loading the filing…
         </p>
       )}
 
@@ -130,7 +130,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
                 onClick={() => void load()}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-800 px-3 py-2 text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak dark:hover:bg-slate-700"
               >
-                <RotateCw className="h-3.5 w-3.5" /> Try again
+                <ArrowClockwiseIcon className="h-3.5 w-3.5" /> Try again
               </button>
             )}
             {isHttpUrl(secUrl) && (
@@ -140,7 +140,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-1.5 rounded-lg bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-3 py-2 text-xs font-semibold transition-colors"
               >
-                Open the original on SEC.gov <ExternalLink className="h-3.5 w-3.5" />
+                Open the original on SEC.gov <ArrowSquareOutIcon className="h-3.5 w-3.5" />
               </a>
             )}
           </div>
@@ -186,7 +186,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
     >
       <div className="flex items-center justify-between gap-2 border-b border-border-light dark:border-white/10 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
-          <FileText className="h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" />
+          <FileTextIcon className="h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" />
           <h2 className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{filingLabel} — filing text</h2>
         </div>
         <div className="flex shrink-0 items-center gap-3">
@@ -197,7 +197,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
             aria-label="Close filing viewer"
             className="flex h-8 w-8 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
           >
-            <X className="h-4 w-4" />
+            <XIcon className="h-4 w-4" />
           </button>
         </div>
       </div>
