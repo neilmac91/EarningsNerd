@@ -28,6 +28,16 @@ EVENT_SUMMARY_VIEWED = "summary_viewed"
 # demand/pricing signal for future monetization (how often free users hit the wall).
 EVENT_PAYWALL_HIT = "paywall_hit"
 
+# Closed-beta activation funnel. All emitted server-side keyed on str(user.id) — which is the same
+# canonical id the frontend identifies on (String(user.id)) — so server + client events stitch onto
+# one person without a separate alias step. The funnel's "activated" step reuses the existing
+# generation_succeeded event (PostHog funnels dedupe to first-per-user), so there is deliberately no
+# separate "first_summary_generated" event — a Summary belongs to a Filing (shared), not a user, so
+# "first per user" can't be computed cheaply in the SSE hot path.
+EVENT_INVITE_REDEEMED = "invite_redeemed"
+EVENT_SIGNUP_COMPLETED = "signup_completed"
+EVENT_TRIAL_STARTED = "trial_started"
+
 
 def get_posthog_client() -> Optional["Posthog"]:
     global _client

@@ -283,6 +283,19 @@ async def stripe_webhook(
 
         elif event_type in ("customer.subscription.created", "customer.subscription.updated"):
             subscription_sync.apply_subscription_upsert(db, obj)
+            # Stripe-native trial start (the reverse-trial path emits this from /register instead).
+            # Only on `created` + `trialing` so an `updated` event never re-fires the funnel step.
+            if event_type == "customer.subscription.created" and obj.get("status") == "trialing":
+                try:
+                    user = subscription_sync._find_user(db, obj.get("id"), obj.get("customer"))
+                    if user:
+                        capture_event(
+                            str(user.id),
+                            "trial_started",
+                            {"source": "stripe", "trial_end": obj.get("trial_end")},
+                        )
+                except Exception:
+                    pass
 
         elif event_type == "customer.subscription.deleted":
             subscription_sync.apply_subscription_deleted(db, obj)

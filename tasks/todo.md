@@ -196,14 +196,29 @@ relevant model/migration files (backend).
       612 backend unit+smoke, ruff, bandit; frontend typecheck + lint + 173 vitest + `next build`.
 - *Owner:* backend-developer + frontend-developer. *Support:* feedback-synthesizer.
 
-#### Week 6 — PostHog beta funnel + Sentry attribution
-- [ ] Add missing events: `signup_completed` (backend), `invite_redeemed`, `first_summary_generated`,
-      `trial_started`, `feedback_submitted`; verify distinct-id stitching across signup→activation.
-- [ ] PostHog **beta funnel dashboard**: invite_sent → invite_redeemed → signup_completed →
-      first_summary_generated → copilot_question → feedback_submitted.
-- [ ] Sentry: **release tagging** (git SHA), `set_user()` on auth, **beta cohort tag**, document
-      `ENVIRONMENT`/release env vars in deploy config.
+#### Week 6 — PostHog beta funnel + Sentry attribution — code complete
+- [x] Added missing backend events, all keyed on `str(user.id)`: `signup_completed` + `invite_redeemed`
+      (`auth.register`), `trial_started` (reverse-trial in `auth.register` + Stripe-native trial in the
+      subscription webhook). `feedback_submitted` shipped in W5. Best-effort — telemetry never breaks
+      signup/webhooks.
+- [x] Verified distinct-id stitching: frontend identifies on `String(user.id)` (login + dashboard),
+      matching the backend's `str(user.id)`, so server + client events join on one person.
+- [~] PostHog **beta funnel** defined in `tasks/beta-monitoring.md` (invite_redeemed → signup_completed
+      → generation_succeeded → copilot_question_asked → feedback_submitted). **Decision:** no separate
+      `first_summary_generated` event — a `Summary` is per-`Filing` (shared), so "first per user" can't
+      be computed cheaply in the SSE hot path; PostHog funnels dedupe `generation_succeeded` to
+      first-per-user, which is the activation step. The dashboard itself is built in the PostHog UI from
+      these events (UI config, not code).
+- [x] Sentry: **release tagging** (git SHA) — backend `SENTRY_RELEASE` (CI sets `$GITHUB_SHA` on Cloud
+      Run) + frontend `NEXT_PUBLIC_SENTRY_RELEASE` (from Vercel `VERCEL_GIT_COMMIT_SHA`); `set_user()`
+      on auth (backend `get_current_user`, frontend `analytics.identify`/`reset`); **beta cohort tag**
+      (`beta:true|false`); env vars documented in `tasks/beta-monitoring.md`.
+- [x] Tests: `tests/unit/test_beta_funnel_events.py` (events fire with the right distinct_id + props, no
+      PII). Local gate green: **614 backend unit+smoke**, ruff, bandit `-ll`; frontend typecheck + lint
+      + **173 vitest**.
 - *Owner:* devops-automator. *Support:* infrastructure-maintainer.
+- *Verify (manual, post-deploy):* trigger a Sentry test error as a beta user → issue shows user id,
+      `beta:true`, and a `release` = deployed SHA; PostHog funnel populates as testers move through it.
 
 ### Phase 3 — Hardening & QA
 

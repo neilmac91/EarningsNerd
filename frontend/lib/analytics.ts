@@ -1,4 +1,5 @@
 import posthog from 'posthog-js'
+import * as Sentry from '@sentry/nextjs'
 
 const safeCapture = (event: string, properties?: Record<string, unknown>) => {
   if (typeof window === 'undefined') {
@@ -12,6 +13,13 @@ const safeIdentify = (userId: string, traits?: Record<string, unknown>) => {
     return
   }
   posthog.identify(userId, traits)
+  // Mirror the identity into Sentry so client errors are attributable to the same user id the
+  // backend tags (str(user.id)). Id only — no PII beyond the internal id. Never let it throw.
+  try {
+    Sentry.setUser({ id: userId })
+  } catch {
+    /* monitoring must never break the app */
+  }
 }
 
 const safeReset = () => {
@@ -19,6 +27,11 @@ const safeReset = () => {
     return
   }
   posthog.reset()
+  try {
+    Sentry.setUser(null)
+  } catch {
+    /* monitoring must never break the app */
+  }
 }
 
 export const analytics = {
