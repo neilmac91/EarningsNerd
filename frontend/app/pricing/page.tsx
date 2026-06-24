@@ -13,6 +13,14 @@ import analytics from '@/lib/analytics'
 import { useFeatureFlagVariantKey } from 'posthog-js/react'
 import posthog from 'posthog-js'
 
+interface CurrentUser {
+  id: number
+  email: string
+  is_pro?: boolean
+  is_beta?: boolean
+  email_verified?: boolean
+}
+
 function PricingContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -25,7 +33,7 @@ function PricingContent() {
 
   // The pricing page is publicly reachable; only fetch account-scoped data for
   // signed-in users so guests see the plain guest/free-tier view, not a 401 error card.
-  const { data: currentUser } = useQuery({
+  const { data: currentUser } = useQuery<CurrentUser | null>({
     queryKey: ['current-user'],
     queryFn: getCurrentUserSafe,
     retry: false,
@@ -115,6 +123,10 @@ function PricingContent() {
   const isTrialing = subscription?.status === 'trialing'
   const isPaidPro = Boolean(subscription?.is_pro) && !isTrialing
 
+  // Beta members get Pro free via the 100%-off forever promo (applied server-side at checkout).
+  // Reframe the Pro card so they don't bounce off the $140 sticker — they pay $0 with no card.
+  const showBetaOffer = Boolean(currentUser?.is_beta) && !isPaidPro
+
   const plans = [
     {
       name: 'Free',
@@ -133,11 +145,13 @@ function PricingContent() {
       cta: isAuthenticated && !subscription?.is_pro ? 'Current Plan' : 'Get Started Free',
       disabled: isAuthenticated,
       priceId: null,
+      betaOriginal: null,
     },
     {
       name: 'Pro',
-      price: billingCycle === 'monthly' ? priceConfig.monthlyDisplay : priceConfig.yearlyDisplay,
+      price: showBetaOffer ? '$0' : (billingCycle === 'monthly' ? priceConfig.monthlyDisplay : priceConfig.yearlyDisplay),
       period: billingCycle === 'monthly' ? 'per month' : 'per year',
+      betaOriginal: showBetaOffer ? (billingCycle === 'monthly' ? priceConfig.monthlyDisplay : priceConfig.yearlyDisplay) : null,
       description: 'For professionals who need unlimited access',
       features: [
         'Unlimited summaries',
@@ -148,7 +162,7 @@ function PricingContent() {
         'Premium AI model & deeper analysis',
         'Priority support',
       ],
-      cta: isPaidPro ? 'Current Plan' : isTrialing ? 'Subscribe to Pro' : 'Upgrade to Pro',
+      cta: isPaidPro ? 'Current Plan' : showBetaOffer ? 'Claim Pro — Free' : isTrialing ? 'Subscribe to Pro' : 'Upgrade to Pro',
       disabled: isPaidPro,
       priceId: billingCycle === 'monthly' ? 'price_pro_monthly' : 'price_pro_yearly',
       popular: true,
@@ -267,6 +281,22 @@ function PricingContent() {
           </div>
         )}
 
+        {/* Beta member: Pro is free via the 100%-off forever promo. Make that unmistakable so a
+            beta user doesn't bounce off the $140 sticker and settle for Free. */}
+        {showBetaOffer && (
+          <div className="mb-8 mx-auto max-w-2xl rounded-2xl border border-brand-strong/40 bg-brand-strong/10 p-5 text-center dark:border-brand-strong-dark/40 dark:bg-brand-strong-dark/15">
+            <p className="text-base font-semibold text-text-heading-light dark:text-text-heading-dark">
+              🎉 You&apos;re a beta member — Pro is on us.
+            </p>
+            <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              Click <span className="font-semibold text-brand-strong dark:text-brand-strong-dark">Claim Pro — Free</span> below.
+              The beta discount applies automatically, so your total is{' '}
+              <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">$0</span> and{' '}
+              <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">no credit card</span> is required.
+            </p>
+          </div>
+        )}
+
         {/* Pricing Cards */}
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           {plans.map((plan) => (
@@ -288,12 +318,19 @@ function PricingContent() {
 
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-bold text-text-heading-light dark:text-text-heading-dark mb-2">{plan.name}</h3>
-                <div className="flex items-baseline justify-center">
+                <div className="flex items-baseline justify-center gap-2">
                   <span className="text-5xl font-bold text-text-primary-light dark:text-text-primary-dark">{plan.price}</span>
-                  {plan.period !== 'forever' && (
-                    <span className="text-text-secondary-light dark:text-text-secondary-dark ml-2">/{plan.period}</span>
+                  {plan.betaOriginal ? (
+                    <span className="text-2xl font-medium text-text-secondary-light line-through dark:text-text-secondary-dark">{plan.betaOriginal}</span>
+                  ) : (
+                    plan.period !== 'forever' && (
+                      <span className="text-text-secondary-light dark:text-text-secondary-dark ml-2">/{plan.period}</span>
+                    )
                   )}
                 </div>
+                {plan.betaOriginal && (
+                  <p className="mt-1 text-sm font-semibold text-brand-strong dark:text-brand-strong-dark">Free for beta members · no card required</p>
+                )}
                 <p className="text-text-secondary-light dark:text-text-secondary-dark mt-2">{plan.description}</p>
               </div>
 
