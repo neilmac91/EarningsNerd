@@ -1317,7 +1317,6 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
         "full_name": current_user.full_name,
         "is_pro": current_user.is_pro,
         "is_beta": current_user.is_beta,
-        "is_admin": current_user.is_admin,
         "email_verified": current_user.email_verified,
     }
 
