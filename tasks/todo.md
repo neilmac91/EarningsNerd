@@ -169,9 +169,10 @@ relevant model/migration files (backend).
       typecheck + lint + 173 unit tests + `next build` all green. Visual both-theme check on the Vercel
       preview is the final gate.
 - *Owner:* frontend-developer. *Support:* ui-designer, accessibility-champion, brand-guardian.
-- *Follow-up (backend gap):* in `invite_only` mode the gate is on `/api/auth/register` only — **OAuth
-      (Google/Apple) signup bypasses it**, letting the public create free-tier accounts (no `is_beta`,
-      so no free Pro). Decide: block new-account OAuth signup in `invite_only`, or accept it for beta.
+- *Decision (2026-06-24):* the gate is on `/api/auth/register` only — OAuth (Google/Apple) signup
+      bypasses it, so the public can create *free-tier* accounts in `invite_only` mode (never free Pro —
+      that needs a redeemed invite). **Accepted for the friends-&-family beta; revisit before any
+      broader/public launch** (then block new-account OAuth signup in `invite_only`).
 
 #### Week 4 — Full path integration + verification
 - [ ] Wire magic-link → invite-gate → email-verify → $0 Checkout → webhook → Pro, end to end.
