@@ -25,7 +25,7 @@ vitest + e2e (CI).
 | H2 | High | Frontend `analytics.identify()` sent the user's **email** to PostHog as a person property | ✅ **Fixed** — `identify`/`signupCompleted`/`loginCompleted` + dashboard/login call sites now send id-only (+ non-PII `plan`) |
 | M1 | Med | JWT minted with `nbf=now` but decoded with **no leeway**; `JWT_LEEWAY_SECONDS=10` was dead config → tokens rejected "not yet valid" under multi-instance clock skew | ✅ **Fixed** — leeway wired into both `jwt.decode` paths |
 | M2 | Med | No DB `UNIQUE(provider, provider_account_id)` on `OAuthAccount` → concurrent callbacks could dup-link | ✅ **Fixed** — `UniqueConstraint` on the model + idempotent migration |
-| M3 | Med | Rate-limit / IP-hash keys trusted spoofable left-most `X-Forwarded-For` | ⚙️ **Mechanism shipped** — `TRUSTED_PROXY_HOPS` (right-most-Nth) in a shared `get_client_ip` used by rate_limiter/contact/feedback. **Default 0 = legacy behavior; needs you to set it (see Action items).** |
+| M3 | Med | Rate-limit / IP-hash keys trusted spoofable left-most `X-Forwarded-For` | ✅ **Fixed** — shared trusted-proxy `get_client_ip` + `TRUSTED_PROXY_HOPS=**1**` wired in CI. Topology confirmed direct Cloud Run (no external LB) from a prod request log: `remoteIp` = the Google-verified connecting peer, `serverIp` = a Google front-end. `1` is also the security-safe choice (rightmost XFF is always Google-controlled → unspoofable; worst case if a hop were added is over-throttling, not under-protection). |
 | L1 | Low | Raw client **IP** written to request logs at INFO | ✅ **Fixed** — dropped from request log context (hashed IPs in audit/feedback/contact remain) |
 | L2 | Low | Raw **email** logged at INFO on the contact path | ✅ **Fixed** — removed from both INFO lines |
 | L3 | Low | Apple ID-token decode didn't `require` claim presence | ✅ **Fixed** — `options={"require": [...]}` added (sig was already the real gate) |
@@ -46,10 +46,10 @@ Backend: `config.py` (REGISTRATION_MODE validator + `TRUSTED_PROXY_HOPS`), `serv
 
 ## Action items for the operator (not code)
 
-1. **Set `TRUSTED_PROXY_HOPS`** to match the prod ingress so per-IP throttling/IP-hashing is
-   trustworthy. For **direct Cloud Run** ingress this is `1`. If an external HTTPS LB sits in front,
-   add its hop too. (Default `0` keeps today's spoofable-but-unchanged behavior, so this is the one
-   knob to turn before opening the beta widely.) — *needs your confirmation of the topology.*
+1. ~~Set `TRUSTED_PROXY_HOPS`~~ — **Done.** Confirmed direct Cloud Run ingress from a prod request
+   log and wired `TRUSTED_PROXY_HOPS=1` into the CI deploy env. (Note: corporate testers behind shared
+   egress proxies like Zscaler/CGNAT share a per-IP bucket — expected; IP throttling is defense-in-depth,
+   the email-keyed login lockout is the real takeover guard.)
 2. **Triage the 39 Dependabot alerts** (17 high) before go-live.
 3. **Before ever flipping `REVERSE_TRIAL_ENABLED=true`**, add a persistent trial ledger (I1).
 
