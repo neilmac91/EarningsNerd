@@ -54,10 +54,10 @@ class FeedbackAdminItem(BaseModel):
     id: int
     user_id: Optional[int]
     user_email: Optional[str]
-    type: str
+    type: FeedbackType
     message: str
     page_url: Optional[str]
-    status: str
+    status: FeedbackStatus
     created_at: datetime
 
 

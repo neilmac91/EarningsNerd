@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import {
   ChatTextIcon,
@@ -44,10 +44,17 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
   const unbound = isUnboundInvite(email)
 
   // Native share is offered only when the platform supports it AND will accept this payload.
-  const canNativeShare =
-    typeof navigator !== 'undefined' &&
-    typeof navigator.share === 'function' &&
-    (typeof navigator.canShare === 'function' ? navigator.canShare({ url: link }) : true)
+  // Detected after mount (navigator is undefined during SSR) to avoid a hydration mismatch.
+  const [canNativeShare, setCanNativeShare] = useState(false)
+  useEffect(() => {
+    if (
+      typeof navigator !== 'undefined' &&
+      typeof navigator.share === 'function' &&
+      (typeof navigator.canShare === 'function' ? navigator.canShare({ url: link }) : true)
+    ) {
+      setCanNativeShare(true)
+    }
+  }, [link])
 
   const handleNativeShare = async () => {
     try {

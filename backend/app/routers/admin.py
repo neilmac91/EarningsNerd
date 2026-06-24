@@ -16,7 +16,7 @@ from app.database import get_db
 from app.models import Filing, Summary, User, SummaryGenerationProgress, FilingContentCache, InviteCode
 from app.models.feedback import Feedback
 from app.routers.auth import get_current_user
-from app.schemas.feedback import FeedbackAdminItem, FeedbackStatusUpdate
+from app.schemas.feedback import FeedbackAdminItem, FeedbackStatusUpdate, FeedbackStatus, FeedbackType
 # EdgarTools migration: Using new edgar module
 from app.services.edgar import clear_xbrl_cache, get_xbrl_cache_stats
 from app.services.resend_service import send_email, ResendError
@@ -327,8 +327,8 @@ def _feedback_item(row: Feedback, user_email: Optional[str]) -> dict:
 async def list_feedback(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
-    status: Optional[str] = None,
-    type: Optional[str] = None,
+    status: Optional[FeedbackStatus] = None,
+    type: Optional[FeedbackType] = None,
 ):
     """Admin-only: list recent beta feedback (newest first, capped at 200).
 

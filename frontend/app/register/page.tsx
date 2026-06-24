@@ -28,11 +28,15 @@ function RegisterContent() {
   const [inviteToken] = useState(() => searchParams.get('invite') ?? '')
   const isInvited = inviteToken.length > 0
 
-  // Scrub ?invite=<token> from the address bar once it's captured in state.
+  // Scrub only ?invite=<token> from the address bar once it's captured in state, preserving any
+  // other query params (utm_*, ref, etc.).
   useEffect(() => {
     if (typeof window === 'undefined') return
-    if (!window.location.search.includes('invite=')) return
-    window.history.replaceState({}, '', window.location.pathname)
+    const params = new URLSearchParams(window.location.search)
+    if (!params.has('invite')) return
+    params.delete('invite')
+    const search = params.toString()
+    window.history.replaceState({}, '', window.location.pathname + (search ? `?${search}` : ''))
   }, [])
 
   const [email, setEmail] = useState('')
