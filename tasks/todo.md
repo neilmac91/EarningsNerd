@@ -184,13 +184,16 @@ relevant model/migration files (backend).
 
 ### Phase 2 — Feedback loop & monitoring
 
-#### Week 5 — Dedicated feedback pipeline
-- [ ] `Feedback` model + migration; **authenticated** `/api/feedback` endpoint guarded by auth +
-      the per-user/per-IP rate limiter from `contact.py` (**no Turnstile** — logged-in only); capture
-      `user_id`, `type` (bug/feature/general), page url.
-- [ ] `<FeedbackWidget/>` mounted in `providers.tsx`, feature-flagged via `FEEDBACK_ENABLED`,
-      visible across the authenticated dashboard; success toast; design-system compliant.
-- [ ] Admin/email notification on new feedback (reuse Resend); emit PostHog `feedback_submitted`.
+#### Week 5 — Dedicated feedback pipeline — code complete
+- [x] `Feedback` model (new table → `create_all` handles deploy, no `ALTER`) + idempotent migration;
+      **authenticated** `POST /api/feedback/` guarded by auth + a per-user rate limiter (**no
+      Turnstile** — logged-in only); captures `user_id`, `type` (bug/feature/general), page url, hashed IP.
+- [x] `<FeedbackWidget/>` mounted in `providers.tsx`, feature-flagged via
+      `NEXT_PUBLIC_ENABLE_FEEDBACK_WIDGET` (default on), shown only to logged-in users
+      (client `hasActiveSession`); success toast; design-system tokens (sage/slate, both themes).
+- [x] Admin email notification on new feedback (reuse Resend, best-effort); emits PostHog `feedback_submitted`.
+- [x] Tests: `tests/unit/test_feedback.py` (persist, default type, validation, rate limit). Verified:
+      612 backend unit+smoke, ruff, bandit; frontend typecheck + lint + 173 vitest + `next build`.
 - *Owner:* backend-developer + frontend-developer. *Support:* feedback-synthesizer.
 
 #### Week 6 — PostHog beta funnel + Sentry attribution

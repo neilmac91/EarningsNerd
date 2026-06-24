@@ -7,6 +7,7 @@ import { IconContext, type IconProps } from '@phosphor-icons/react'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { PostHogProvider } from './posthog-provider'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
+import FeedbackWidget from '@/components/FeedbackWidget'
 
 // App-wide Phosphor icon defaults. size:24 matches Lucide's former 24px default so any icon
 // without an explicit Tailwind h-/w- class keeps its size (Phosphor would otherwise fall back
@@ -31,6 +32,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <QueryClientProvider client={queryClient}>
             <ThemeProvider>
               {children}
+              {/* Beta feedback launcher — renders only for logged-in users (client-side session check). */}
+              <FeedbackWidget />
               {/* Transient action feedback. theme="system" follows the .dark class set by
                   ThemeProvider; richColors gives semantic success/error styling. */}
               <Toaster theme="system" richColors closeButton position="top-center" />
