@@ -133,39 +133,67 @@ export default function ComparePage() {
 
             {companyFilings.length > 0 && (
               <div className="mt-6">
-                <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">
+                <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-1">
                   Select Filings ({selectedFilings.length}/5 selected)
                 </h3>
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-4">
+                  Only filings with a generated summary can be compared.
+                </p>
                 <div className="space-y-2 max-h-96 overflow-y-auto pr-2 custom-scrollbar">
-                  {companyFilings.map((filing) => (
-                    <div
-                      key={filing.id}
-                      onClick={() => toggleFiling(filing.id!)}
-                      className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
-                        selectedFilings.includes(filing.id!)
-                          ? 'border-brand-light dark:border-brand-dark bg-brand-weak dark:bg-brand-dark/15'
-                          : 'border-border-light hover:border-brand-light/40 dark:border-white/10 dark:hover:border-brand-dark/40 bg-panel-light dark:bg-background-dark'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium text-text-primary-light dark:text-text-primary-dark">
-                            {filing.filing_type} - {filing.filing_date && format(new Date(filing.filing_date), 'MMM dd, yyyy')}
-                          </div>
-                          {filing.report_date && (
-                            <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                              Period: {format(new Date(filing.report_date), 'MMM dd, yyyy')}
+                  {companyFilings.map((filing) => {
+                    const selected = selectedFilings.includes(filing.id!)
+                    // Block selecting filings without a summary (compare reads existing summaries only).
+                    // Fail open if the field is absent (older API) so we never over-block.
+                    const noSummary = filing.has_summary === false
+                    return (
+                      <div
+                        key={filing.id}
+                        onClick={() => { if (!noSummary) toggleFiling(filing.id!) }}
+                        aria-disabled={noSummary}
+                        className={`p-4 border-2 rounded-lg transition-colors ${
+                          noSummary
+                            ? 'cursor-not-allowed opacity-70 border-border-light dark:border-white/10 bg-panel-light dark:bg-background-dark'
+                            : selected
+                            ? 'cursor-pointer border-brand-light dark:border-brand-dark bg-brand-weak dark:bg-brand-dark/15'
+                            : 'cursor-pointer border-border-light hover:border-brand-light/40 dark:border-white/10 dark:hover:border-brand-dark/40 bg-panel-light dark:bg-background-dark'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <div className="font-medium text-text-primary-light dark:text-text-primary-dark">
+                              {filing.filing_type} - {filing.filing_date && format(new Date(filing.filing_date), 'MMM dd, yyyy')}
                             </div>
-                          )}
-                        </div>
-                        {selectedFilings.includes(filing.id!) && (
-                          <div className="w-6 h-6 bg-brand-strong dark:bg-brand-dark rounded-full flex items-center justify-center">
-                            <span className="text-white dark:text-background-dark text-sm font-bold">✓</span>
+                            {filing.report_date && (
+                              <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                                Period: {format(new Date(filing.report_date), 'MMM dd, yyyy')}
+                              </div>
+                            )}
                           </div>
-                        )}
+                          <div className="flex items-center gap-3 shrink-0">
+                            {filing.has_summary === true && !selected && (
+                              <span className="text-xs font-medium text-success-light dark:text-success-dark whitespace-nowrap">
+                                Summary ready
+                              </span>
+                            )}
+                            {noSummary && (
+                              <Link
+                                href={`/filing/${filing.id}`}
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-xs font-medium text-brand-strong dark:text-brand-strong-dark underline whitespace-nowrap"
+                              >
+                                Generate summary →
+                              </Link>
+                            )}
+                            {selected && (
+                              <div className="w-6 h-6 bg-brand-strong dark:bg-brand-dark rounded-full flex items-center justify-center">
+                                <span className="text-white dark:text-background-dark text-sm font-bold">✓</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
 
                 {selectedFilings.length >= 2 && (

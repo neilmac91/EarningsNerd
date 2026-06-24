@@ -8,6 +8,9 @@ export interface Filing {
   accession_number: string
   document_url: string
   sec_url: string
+  // Populated by the company-filings list: whether a Summary already exists. The /compare picker
+  // uses it to block selecting un-summarized filings (compare reads existing summaries only).
+  has_summary?: boolean
   company?: {
     id: number
     ticker: string

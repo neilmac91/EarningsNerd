@@ -180,6 +180,14 @@ export default function DashboardPage() {
         backLabel="Back to home"
         actions={
           <>
+            {user.is_admin && (
+              <Link
+                href="/dashboard/admin/invites"
+                className="text-sm font-medium text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
+              >
+                Invites
+              </Link>
+            )}
             <button
               onClick={() => logoutMutation.mutate()}
               className="text-sm font-medium text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"

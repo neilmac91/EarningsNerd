@@ -6,7 +6,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Company, Filing
+from app.models import Company, Filing, Summary
 # EdgarTools migration: Using new edgar module for SEC services
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.exceptions import EdgarError as SECEdgarServiceError
@@ -36,9 +36,13 @@ class FilingResponse(BaseModel):
     document_url: str
     sec_url: str
     company: Optional[CompanyInfo] = None
-    
+    # Whether this filing already has a generated Summary. Powers the /compare picker so users can't
+    # select an un-summarized filing (compare reads existing summaries only). Defaults False; only the
+    # company-filings list populates it (the single-filing/recent endpoints leave it False, harmlessly).
+    has_summary: bool = False
+
     @classmethod
-    def from_orm(cls, filing):
+    def from_orm(cls, filing, has_summary: bool = False):
         """Convert Filing model to FilingResponse"""
         company_info = None
         if hasattr(filing, 'company') and filing.company:
@@ -48,7 +52,7 @@ class FilingResponse(BaseModel):
                 name=filing.company.name,
                 exchange=filing.company.exchange
             )
-        
+
         return cls(
             id=filing.id,
             filing_type=filing.filing_type,
@@ -57,11 +61,23 @@ class FilingResponse(BaseModel):
             accession_number=filing.accession_number,
             document_url=filing.document_url,
             sec_url=filing.sec_url,
-            company=company_info
+            company=company_info,
+            has_summary=has_summary,
         )
-    
+
     class Config:
         from_attributes = True
+
+
+def _summarized_filing_ids(db: Session, filings: List[Filing]) -> set:
+    """Return the subset of `filings` ids that already have a Summary row — in a single query."""
+    ids = [f.id for f in filings if getattr(f, "id", None)]
+    if not ids:
+        return set()
+    return {
+        row[0]
+        for row in db.query(Summary.filing_id).filter(Summary.filing_id.in_(ids)).distinct().all()
+    }
 
 @router.get("/company/{ticker}", response_model=List[FilingResponse])
 async def get_company_filings(
@@ -111,7 +127,8 @@ async def get_company_filings(
             Filing.company_id == company.id,
             Filing.filing_type.in_(types_list)
         ).order_by(Filing.filing_date.desc()).limit(CACHED_FILINGS_LIMIT).all()
-        return [FilingResponse.from_orm(f) for f in cached]
+        summarized = _summarized_filing_ids(db, cached)
+        return [FilingResponse.from_orm(f, has_summary=f.id in summarized) for f in cached]
 
     try:
         # Try to fetch from SEC with a timeout to ensure we respond within frontend's limit
@@ -197,7 +214,8 @@ async def get_company_filings(
                 db.refresh(filing)
 
         # Convert to response models after commit
-        return [FilingResponse.from_orm(f) for f in filings]
+        summarized = _summarized_filing_ids(db, filings)
+        return [FilingResponse.from_orm(f, has_summary=f.id in summarized) for f in filings]
 
     except asyncio.TimeoutError:
         # SEC EDGAR is slow, fall back to cached data
