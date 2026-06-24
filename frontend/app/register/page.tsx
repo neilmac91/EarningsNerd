@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { register } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
@@ -22,9 +22,18 @@ function RegisterContent() {
   const searchParams = useSearchParams()
   // Closed-beta magic link: /register?invite=<token>. Present → route the user straight to the
   // email flow (the invite is redeemed only by the email/password register endpoint; social signup
-  // would bypass the gate), and pass the token through to the backend, which enforces it.
-  const inviteToken = searchParams.get('invite') ?? ''
+  // would bypass the gate), and pass the token through to the backend, which enforces it. We capture
+  // it into state on mount so we can immediately strip it from the URL (keeping it out of history,
+  // shoulder-surfing, and copy-pasted addresses) without losing it for the submit.
+  const [inviteToken] = useState(() => searchParams.get('invite') ?? '')
   const isInvited = inviteToken.length > 0
+
+  // Scrub ?invite=<token> from the address bar once it's captured in state.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!window.location.search.includes('invite=')) return
+    window.history.replaceState({}, '', window.location.pathname)
+  }, [])
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

@@ -16,11 +16,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    // Check localStorage for saved theme preference
+    // Check localStorage for saved theme preference; default to light when none is stored.
+    // Must match the pre-paint THEME_BOOTSTRAP in layout.tsx (also light-by-default, no
+    // system-preference detection) so there's no hydration theme flip.
     const savedTheme = localStorage.getItem('theme') as Theme | null
-    // Check system preference if no saved theme
-    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
-    const initialTheme = savedTheme || systemTheme
+    const initialTheme = savedTheme ?? 'light'
     setTheme(initialTheme)
     updateTheme(initialTheme)
   }, [])

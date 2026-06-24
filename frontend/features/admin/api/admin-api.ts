@@ -78,3 +78,41 @@ export const revokeInvite = async (id: number): Promise<RevokeResult> => {
   const response = await api.post(`/api/admin/invites/${id}/revoke`)
   return response.data
 }
+
+// ── Feedback ───────────────────────────────────────────────────────────────────
+
+export type FeedbackType = 'bug' | 'feature' | 'general'
+export type FeedbackStatus = 'new' | 'triaged' | 'resolved'
+
+export interface FeedbackRecord {
+  id: number
+  user_id: number | null
+  user_email: string | null
+  type: FeedbackType
+  message: string
+  page_url: string | null
+  status: FeedbackStatus
+  created_at: string
+}
+
+export const listFeedback = async (filters?: {
+  status?: string
+  type?: string
+}): Promise<FeedbackRecord[]> => {
+  // Only forward filters the caller actually set (and not the sentinel 'all') so the backend
+  // returns everything by default.
+  const params: Record<string, string> = {}
+  if (filters?.status && filters.status !== 'all') params.status = filters.status
+  if (filters?.type && filters.type !== 'all') params.type = filters.type
+
+  const response = await api.get('/api/admin/feedback', { params })
+  return response.data.feedback
+}
+
+export const updateFeedbackStatus = async (
+  id: number,
+  status: FeedbackStatus,
+): Promise<FeedbackRecord> => {
+  const response = await api.patch(`/api/admin/feedback/${id}`, { status })
+  return response.data
+}

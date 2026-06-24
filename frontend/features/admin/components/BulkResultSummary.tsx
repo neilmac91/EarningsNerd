@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { CheckCircleIcon, CopyIcon, WarningCircleIcon, XCircleIcon } from '@/lib/icons'
+import { CheckCircleIcon, WarningCircleIcon, XCircleIcon } from '@/lib/icons'
+import CopyLinkButton from '@/features/admin/components/CopyLinkButton'
+import ShareInvite from '@/features/admin/components/ShareInvite'
 
 export interface BulkInviteOutcome {
   email: string
@@ -13,38 +14,6 @@ export interface BulkInviteOutcome {
 interface BulkResultSummaryProps {
   outcomes: BulkInviteOutcome[]
   skipped: string[]
-}
-
-function CopyLinkButton({ link }: { link: string }) {
-  const [copied, setCopied] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Clear the "Copied" flash timer on unmount so we never setState on an unmounted node.
-  useEffect(() => () => {
-    if (timerRef.current) clearTimeout(timerRef.current)
-  }, [])
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(link)
-      setCopied(true)
-      if (timerRef.current) clearTimeout(timerRef.current)
-      timerRef.current = setTimeout(() => setCopied(false), 1500)
-    } catch {
-      setCopied(false)
-    }
-  }
-
-  return (
-    <button
-      type="button"
-      onClick={handleCopy}
-      className="inline-flex items-center gap-1 rounded-md border border-border-light bg-panel-light px-2 py-1 text-xs font-medium text-text-secondary-light transition-colors hover:bg-brand-weak dark:border-white/10 dark:bg-panel-dark dark:text-text-secondary-dark dark:hover:bg-white/5"
-    >
-      <CopyIcon className="h-3.5 w-3.5" />
-      {copied ? 'Copied' : 'Copy link'}
-    </button>
-  )
 }
 
 /**
@@ -78,7 +47,12 @@ export default function BulkResultSummary({ outcomes, skipped }: BulkResultSumma
                 <span className="truncate text-sm text-text-primary-light dark:text-text-primary-dark">
                   {o.email}
                 </span>
-                {o.link && <CopyLinkButton link={o.link} />}
+                {o.link && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <CopyLinkButton link={o.link} />
+                    <ShareInvite link={o.link} email={o.email} />
+                  </div>
+                )}
               </li>
             ))}
           </ul>

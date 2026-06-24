@@ -9,6 +9,7 @@ import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { resendInvite, revokeInvite, type InviteRecord } from '@/features/admin/api/admin-api'
 import InviteStatusBadge from '@/features/admin/components/InviteStatusBadge'
 import RevokeConfirmModal from '@/features/admin/components/RevokeConfirmModal'
+import ResendShareModal from '@/features/admin/components/ResendShareModal'
 
 const RESEND_COOLDOWN_SECONDS = 30
 
@@ -27,6 +28,10 @@ export default function InviteRow({ invite }: InviteRowProps) {
   const queryClient = useQueryClient()
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [cooldown, setCooldown] = useState(0)
+  // Holds the freshly-minted link after a resend so we can offer it for sharing.
+  const [resendShare, setResendShare] = useState<{ link: string; email: string | null } | null>(
+    null,
+  )
 
   // Client-side cooldown countdown after a resend, so an admin can't hammer the endpoint and
   // mint a pile of fresh links in a few seconds.
@@ -41,6 +46,8 @@ export default function InviteRow({ invite }: InviteRowProps) {
     onSuccess: (result) => {
       setCooldown(RESEND_COOLDOWN_SECONDS)
       toast.success(result.emailed ? `Invite re-sent to ${result.email}` : 'Fresh invite link minted')
+      // Surface the fresh link in a dialog so the admin can copy/share it right away.
+      setResendShare({ link: result.invite_link, email: result.email })
       queryClient.invalidateQueries({ queryKey: ['admin-invites'] })
     },
     onError: (err: unknown) => {
@@ -130,6 +137,14 @@ export default function InviteRow({ invite }: InviteRowProps) {
           isPending={revokeMutation.isPending}
           onConfirm={() => revokeMutation.mutate()}
           onClose={() => setConfirmOpen(false)}
+        />
+      )}
+
+      {resendShare && (
+        <ResendShareModal
+          link={resendShare.link}
+          email={resendShare.email}
+          onClose={() => setResendShare(null)}
         />
       )}
     </tr>
