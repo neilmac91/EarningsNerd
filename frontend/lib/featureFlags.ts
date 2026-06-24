@@ -110,3 +110,14 @@ export const ENABLE_INSIDER_ACTIVITY =
  */
 export const ENABLE_FEEDBACK_WIDGET =
   process.env.NEXT_PUBLIC_ENABLE_FEEDBACK_WIDGET !== 'false'
+
+/**
+ * Show the multi-filing Compare feature — the "Compare" nav entry, the watchlist CTA, and the
+ * /compare + /compare/result routes (the routes 404 when this is off, so direct URLs are hidden too).
+ * Ships OFF: the picker can't yet tell which filings have summaries, so comparing a freshly-fetched
+ * filing dead-ends on a backend 404 ("Summary for filing N not found"). Hidden until that flow is
+ * reworked. Flip NEXT_PUBLIC_ENABLE_COMPARE='true' to re-enable.
+ * Default: disabled.
+ */
+export const ENABLE_COMPARE =
+  process.env.NEXT_PUBLIC_ENABLE_COMPARE === 'true'
