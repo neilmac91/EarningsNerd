@@ -1,6 +1,6 @@
 'use client'
 
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 import { fmtCurrency, fmtPercent, fmtScale, parseNumeric } from '@/lib/format'
 import { MetricSourceLink } from '@/components/MetricSourceLink'
 import { directionText } from '@/lib/financialTone'
@@ -127,11 +127,11 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
                           }`}
                         >
                           {isPositive ? (
-                            <TrendingUp className="h-4 w-4" />
+                            <TrendUpIcon className="h-4 w-4" />
                           ) : isNegative ? (
-                            <TrendingDown className="h-4 w-4" />
+                            <TrendDownIcon className="h-4 w-4" />
                           ) : (
-                            <Minus className="h-4 w-4" />
+                            <MinusIcon className="h-4 w-4" />
                           )}
                           <span className="font-medium">
                             {fmtPercent(percent, { digits: 1, signed: true })}

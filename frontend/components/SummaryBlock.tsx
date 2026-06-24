@@ -1,5 +1,5 @@
 import { ReactNode } from 'react'
-import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 
 type Sentiment = 'bullish' | 'bearish' | 'neutral'
 
@@ -14,21 +14,21 @@ export function SummaryBlock({ type = 'neutral', title, children }: SummaryBlock
     bullish: {
       border: 'border-brand-light',
       bg: 'bg-panel-light dark:bg-panel-dark',
-      icon: TrendingUp,
+      icon: TrendUpIcon,
       iconColor: 'text-brand-strong dark:text-brand-strong-dark',
       titleColor: 'text-brand-strong dark:text-brand-strong-dark'
     },
     bearish: {
       border: 'border-border-light dark:border-border-dark',
       bg: 'bg-panel-light dark:bg-panel-dark',
-      icon: TrendingDown,
+      icon: TrendDownIcon,
       iconColor: 'text-text-tertiary-light dark:text-text-secondary-dark',
       titleColor: 'text-text-secondary-light dark:text-text-secondary-dark'
     },
     neutral: {
       border: 'border-border-light dark:border-border-dark',
       bg: 'bg-background-light dark:bg-background-dark',
-      icon: Minus,
+      icon: MinusIcon,
       iconColor: 'text-text-tertiary-light dark:text-text-secondary-dark',
       titleColor: 'text-text-secondary-light dark:text-text-secondary-dark'
     }

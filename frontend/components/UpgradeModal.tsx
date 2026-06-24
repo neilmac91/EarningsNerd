@@ -2,7 +2,7 @@
 
 import { createPortal } from 'react-dom'
 import { useRouter } from 'next/navigation'
-import { Sparkles, X } from 'lucide-react'
+import { SparkleIcon, XIcon } from '@/lib/icons'
 
 interface UpgradeModalProps {
   open: boolean
@@ -49,11 +49,11 @@ export default function UpgradeModal({ open, onClose, feature, title, message }:
           aria-label="Close"
           className="absolute right-4 top-4 text-text-tertiary-light transition hover:text-text-primary-light dark:text-text-tertiary-dark dark:hover:text-text-primary-dark"
         >
-          <X className="h-5 w-5" />
+          <XIcon className="h-5 w-5" />
         </button>
 
         <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-brand-strong/10 dark:bg-brand-dark/15 text-brand-strong dark:text-brand-strong-dark">
-          <Sparkles className="h-5 w-5" />
+          <SparkleIcon className="h-5 w-5" />
         </div>
 
         <h2 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">{heading}</h2>

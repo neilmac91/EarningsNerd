@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { resetPassword } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
-import { Loader2, CheckCircle } from 'lucide-react'
+import { CheckCircleIcon, CircleNotchIcon } from '@/lib/icons'
 import StateCard from '@/components/StateCard'
 import AuthShell from '@/components/auth/AuthShell'
 import PasswordField from '@/components/auth/PasswordField'
@@ -51,7 +51,7 @@ function ResetPasswordContent() {
       <AuthShell>
         <div className="text-center">
           <div className="mb-4 flex justify-center">
-            <CheckCircle className="animate-check-pop h-12 w-12 text-brand-strong dark:text-brand-strong-dark" />
+            <CheckCircleIcon className="animate-check-pop h-12 w-12 text-brand-strong dark:text-brand-strong-dark" />
           </div>
           <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
             Password updated!
@@ -122,7 +122,7 @@ function ResetPasswordContent() {
         >
           {loading ? (
             <span className="flex items-center justify-center gap-2">
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <CircleNotchIcon className="h-4 w-4 animate-spin" />
               Resetting…
             </span>
           ) : (

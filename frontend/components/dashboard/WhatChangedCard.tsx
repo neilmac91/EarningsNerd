@@ -1,16 +1,16 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowRight, Minus, TrendingDown, TrendingUp } from 'lucide-react'
+import { ArrowRightIcon, MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 import { FeedItem, WhatChangedItem } from '@/features/dashboard/api/dashboard-api'
 import { formatLocalDate } from '@/lib/format'
 import analytics from '@/lib/analytics'
 
 // Calm directional chips: brand accent for up, muted neutral for down — never casino red/green.
 const DIRECTION = {
-  up: { Icon: TrendingUp, cls: 'text-brand-strong dark:text-brand-strong-dark bg-brand-weak dark:bg-white/5' },
-  down: { Icon: TrendingDown, cls: 'text-text-secondary-light dark:text-text-secondary-dark bg-brand-weak dark:bg-white/5' },
-  flat: { Icon: Minus, cls: 'text-text-tertiary-light dark:text-text-secondary-dark bg-brand-weak dark:bg-white/5' },
+  up: { Icon: TrendUpIcon, cls: 'text-brand-strong dark:text-brand-strong-dark bg-brand-weak dark:bg-white/5' },
+  down: { Icon: TrendDownIcon, cls: 'text-text-secondary-light dark:text-text-secondary-dark bg-brand-weak dark:bg-white/5' },
+  flat: { Icon: MinusIcon, cls: 'text-text-tertiary-light dark:text-text-secondary-dark bg-brand-weak dark:bg-white/5' },
 } as const
 
 function ctaLabel(status: string): string {
@@ -71,7 +71,7 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
 
       <div className="mt-3 flex items-center gap-1 text-sm font-medium text-brand-strong dark:text-brand-strong-dark">
         {ctaLabel(item.summary_status)}
-        <ArrowRight className="h-4 w-4" />
+        <ArrowRightIcon className="h-4 w-4" />
       </div>
     </Link>
   )

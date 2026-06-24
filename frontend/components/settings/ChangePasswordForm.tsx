@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, KeyRound, Loader2 } from 'lucide-react'
+import { CheckCircleIcon, CircleNotchIcon, KeyIcon } from '@/lib/icons'
 import { changePassword, getConnections } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { Button } from '@/components/ui/Button'
@@ -55,7 +55,7 @@ export default function ChangePasswordForm() {
   if (connectionsLoading) {
     return (
       <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6 flex items-center justify-center min-h-[200px]">
-        <Loader2 className="h-6 w-6 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+        <CircleNotchIcon className="h-6 w-6 animate-spin text-brand-strong dark:text-brand-strong-dark" />
       </div>
     )
   }
@@ -63,7 +63,7 @@ export default function ChangePasswordForm() {
   return (
     <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">
       <div className="flex items-center gap-3 mb-2">
-        <KeyRound className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
+        <KeyIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
           {hasPassword ? 'Change password' : 'Set a password'}
         </h2>
@@ -130,12 +130,12 @@ export default function ChangePasswordForm() {
             type="submit"
             disabled={mutation.isPending || !next || !confirm || (hasPassword && !current)}
           >
-            {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {mutation.isPending ? <CircleNotchIcon className="h-4 w-4 animate-spin" /> : null}
             {hasPassword ? 'Update password' : 'Set password'}
           </Button>
           {mutation.isSuccess && (
             <span className="inline-flex items-center text-sm text-success-light dark:text-success-dark">
-              <CheckCircle2 className="h-4 w-4 mr-1" /> Password saved
+              <CheckCircleIcon className="h-4 w-4 mr-1" /> Password saved
             </span>
           )}
         </div>

@@ -5,7 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import { verifyEmail } from '@/features/auth/api/auth-api'
 import Link from 'next/link'
-import { Loader2, CheckCircle, XCircle } from 'lucide-react'
+import { CheckCircleIcon, CircleNotchIcon, XCircleIcon } from '@/lib/icons'
 import AuthShell from '@/components/auth/AuthShell'
 
 function VerifyEmailContent() {
@@ -47,7 +47,7 @@ function VerifyEmailContent() {
       <div className="text-center">
         {status === 'loading' && (
           <>
-            <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+            <CircleNotchIcon className="mx-auto mb-4 h-10 w-10 animate-spin text-brand-strong dark:text-brand-strong-dark" />
             <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
               Verifying your email…
             </h1>
@@ -57,7 +57,7 @@ function VerifyEmailContent() {
         {status === 'success' && (
           <>
             <div className="mb-4 flex justify-center">
-              <CheckCircle className="animate-check-pop h-12 w-12 text-brand-strong dark:text-brand-strong-dark" />
+              <CheckCircleIcon className="animate-check-pop h-12 w-12 text-brand-strong dark:text-brand-strong-dark" />
             </div>
             <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
               Email verified!
@@ -74,7 +74,7 @@ function VerifyEmailContent() {
         {status === 'error' && (
           <>
             <div className="mb-4 flex justify-center">
-              <XCircle className="h-12 w-12 text-red-500" />
+              <XCircleIcon className="h-12 w-12 text-red-500" />
             </div>
             <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
               Verification failed

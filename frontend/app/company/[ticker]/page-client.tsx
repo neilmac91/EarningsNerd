@@ -7,7 +7,7 @@ import { getCompany, Company } from '@/features/companies/api/companies-api'
 import { getCompanyFilings, Filing } from '@/features/filings/api/filings-api'
 import { addToWatchlist, removeFromWatchlist, getWatchlist, WatchlistItem } from '@/features/watchlist/api/watchlist-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
-import { FileText, ExternalLink, Loader2, ChevronDown, Filter, Star, Sparkles, ArrowRight } from 'lucide-react'
+import { ArrowRightIcon, ArrowSquareOutIcon, CaretDownIcon, CircleNotchIcon, FileTextIcon, FunnelIcon, SparkleIcon, StarIcon } from '@/lib/icons'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { format } from 'date-fns'
@@ -174,7 +174,7 @@ export default function CompanyPageClient() {
   if (companyLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+        <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
       </div>
     )
   }
@@ -269,9 +269,9 @@ export default function CompanyPageClient() {
                       title={isInWatchlist ? 'Remove from watchlist' : 'Add to watchlist'}
                     >
                       {isInWatchlist ? (
-                        <Star className="h-5 w-5 fill-current" />
+                        <StarIcon className="h-5 w-5 fill-current" />
                       ) : (
-                        <Star className="h-5 w-5" />
+                        <StarIcon className="h-5 w-5" />
                       )}
                     </button>
                   )}
@@ -314,7 +314,7 @@ export default function CompanyPageClient() {
             <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">SEC Filings</h2>
             {filings && filings.length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
-                <Filter className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
+                <FunnelIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => setFilterType(null)}
@@ -355,7 +355,7 @@ export default function CompanyPageClient() {
             <div className="mb-6 rounded-xl border border-brand-light/30 dark:border-brand-light/30 bg-gradient-to-r from-brand-weak to-panel-light dark:from-white/5 dark:to-panel-dark p-4 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
-                  <Sparkles className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-strong dark:text-brand-strong-dark" />
+                  <SparkleIcon className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-strong dark:text-brand-strong-dark" />
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="inline-flex items-center rounded-full bg-brand-strong dark:bg-brand-dark px-2 py-0.5 text-xs font-semibold text-white dark:text-background-dark">
@@ -376,7 +376,7 @@ export default function CompanyPageClient() {
                   className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2 text-sm font-semibold transition-colors"
                 >
                   Summarize this filing
-                  <ArrowRight className="h-4 w-4" />
+                  <ArrowRightIcon className="h-4 w-4" />
                 </Link>
               </div>
             </div>
@@ -384,7 +384,7 @@ export default function CompanyPageClient() {
 
           {filingsLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+              <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
             </div>
           ) : filingsError ? (
             <div className="rounded-lg border border-error-light/30 bg-error-light/10 p-6 text-center text-sm text-error-light dark:border-error-dark/40 dark:bg-error-dark/10 dark:text-error-dark">
@@ -417,9 +417,9 @@ export default function CompanyPageClient() {
                     >
                       <div className="flex items-center space-x-3">
                         {isExpanded ? (
-                          <ChevronDown className="h-5 w-5 text-text-tertiary-light dark:text-text-secondary-dark" />
+                          <CaretDownIcon className="h-5 w-5 text-text-tertiary-light dark:text-text-secondary-dark" />
                         ) : (
-                          <ChevronDown className="h-5 w-5 text-text-tertiary-light dark:text-text-secondary-dark -rotate-90" />
+                          <CaretDownIcon className="h-5 w-5 text-text-tertiary-light dark:text-text-secondary-dark -rotate-90" />
                         )}
                         <span className="font-semibold text-text-primary-light dark:text-text-primary-dark text-lg">{year}</span>
                         <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">({filingCount} {filingCount === 1 ? 'filing' : 'filings'})</span>
@@ -439,7 +439,7 @@ export default function CompanyPageClient() {
                               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                 <div className="flex-1">
                                   <div className="flex items-center space-x-3">
-                                    <FileText className={`h-5 w-5 ${styles.iconColor}`} />
+                                    <FileTextIcon className={`h-5 w-5 ${styles.iconColor}`} />
                                     <div>
                                       <div className="flex items-center space-x-2">
                                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${styles.badgeBg} ${styles.badgeText}`}>
@@ -447,7 +447,7 @@ export default function CompanyPageClient() {
                                         </span>
                                         {ENABLE_RECOMMENDED_FILING && recommendedFiling?.id === filing.id && (
                                           <span className="inline-flex items-center gap-1 rounded-full bg-brand-strong dark:bg-brand-dark px-2 py-0.5 text-xs font-semibold text-white dark:text-background-dark">
-                                            <Sparkles className="h-3 w-3" />
+                                            <SparkleIcon className="h-3 w-3" />
                                             Recommended
                                           </span>
                                         )}
@@ -467,7 +467,7 @@ export default function CompanyPageClient() {
                                       className="inline-flex items-center gap-2 px-4 py-2 border border-border-light dark:border-border-dark text-text-secondary-light dark:text-text-secondary-dark text-sm font-medium rounded-md hover:bg-background-light dark:hover:bg-white/5 hover:border-text-tertiary-light dark:hover:border-text-tertiary-dark transition-colors"
                                       title="Open original filing on SEC EDGAR"
                                     >
-                                      <ExternalLink className="h-4 w-4" />
+                                      <ArrowSquareOutIcon className="h-4 w-4" />
                                       <span>View on SEC EDGAR</span>
                                     </a>
                                   )}
@@ -490,7 +490,7 @@ export default function CompanyPageClient() {
             </div>
           ) : (
             <div className="text-center py-12">
-              <FileText className="h-12 w-12 text-text-tertiary-light dark:text-text-secondary-dark mx-auto mb-4" />
+              <FileTextIcon className="h-12 w-12 text-text-tertiary-light dark:text-text-secondary-dark mx-auto mb-4" />
               <p className="text-text-tertiary-light dark:text-text-secondary-dark">No filings found for this company.</p>
             </div>
           )}

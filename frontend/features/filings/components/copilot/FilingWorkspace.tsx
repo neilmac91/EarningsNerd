@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react'
-import { ExternalLink, Sparkles } from 'lucide-react'
+import { ArrowSquareOutIcon, SparkleIcon } from '@/lib/icons'
 import PaneResizer from './PaneResizer'
 import SecondaryPaneTabs, { PANE_PANEL_IDS, PANE_TAB_IDS } from './SecondaryPaneTabs'
 import { isHttpUrl } from './CitationChip'
@@ -117,7 +117,7 @@ export default function FilingWorkspace({
       rel="noopener noreferrer"
       className="inline-flex items-center gap-1 text-xs font-medium text-brand-strong dark:text-brand-strong-dark hover:underline"
     >
-      Open original <ExternalLink className="h-3 w-3" />
+      Open original <ArrowSquareOutIcon className="h-3 w-3" />
     </a>
   ) : null
 
@@ -136,7 +136,7 @@ export default function FilingWorkspace({
                 className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-3 text-sm font-semibold shadow-e3 dark:shadow-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
                 aria-label="Ask this Filing"
               >
-                <Sparkles className="h-4 w-4" />
+                <SparkleIcon className="h-4 w-4" />
                 Ask this Filing
                 <kbd className="ml-1 hidden rounded border border-slate-950/25 bg-slate-950/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none sm:inline-block">
                   ⌘K

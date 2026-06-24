@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CheckCircle2, Loader2, User as UserIcon } from 'lucide-react'
+import { CheckCircleIcon, CircleNotchIcon, UserIcon } from '@/lib/icons'
 import { getCurrentUser, updateProfile } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { Button } from '@/components/ui/Button'
@@ -62,12 +62,12 @@ export default function ProfileForm() {
             onClick={() => mutation.mutate()}
             disabled={!dirty || mutation.isPending}
           >
-            {mutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            {mutation.isPending ? <CircleNotchIcon className="h-4 w-4 animate-spin" /> : null}
             Save changes
           </Button>
           {mutation.isSuccess && !dirty && (
             <span className="inline-flex items-center text-sm text-success-light dark:text-success-dark">
-              <CheckCircle2 className="h-4 w-4 mr-1" /> Saved
+              <CheckCircleIcon className="h-4 w-4 mr-1" /> Saved
             </span>
           )}
         </div>

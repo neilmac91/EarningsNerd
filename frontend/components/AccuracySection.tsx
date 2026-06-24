@@ -1,23 +1,23 @@
-import { FileCheck, Database, BadgeCheck } from 'lucide-react'
+import { DatabaseIcon, FileTextIcon, SealCheckIcon } from '@/lib/icons'
 
 const PILLARS = [
   {
     title: 'Straight from SEC EDGAR',
     description:
       'Every summary is generated from the official filing a company submits to the SEC — not third-party rewrites or news coverage.',
-    icon: FileCheck,
+    icon: FileTextIcon,
   },
   {
     title: 'Grounded in XBRL',
     description:
       'Financial metrics are drawn from the structured XBRL data filed alongside each report, the same machine-readable figures the SEC receives.',
-    icon: Database,
+    icon: DatabaseIcon,
   },
   {
     title: 'Honest about quality',
     description:
       'Each summary gets a deterministic quality check. If a section is thin or financial data could not be verified, we say so — and you can regenerate.',
-    icon: BadgeCheck,
+    icon: SealCheckIcon,
   },
 ] as const
 

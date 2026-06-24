@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, type ReactNode } from 'react'
-import { Lock } from 'lucide-react'
+import { LockSimpleIcon } from '@/lib/icons'
 import UpgradeModal from './UpgradeModal'
 
 interface PeekLockedProps {
@@ -34,7 +34,7 @@ export default function PeekLocked({ children, feature, pill = 'Pro', onUpgradeC
 
       <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-background-light/40 dark:bg-background-dark/40">
         <span className="inline-flex items-center gap-1 rounded-full bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light px-3 py-1 text-xs font-semibold">
-          <Lock className="h-3 w-3" />
+          <LockSimpleIcon className="h-3 w-3" />
           {pill}
         </span>
         <button

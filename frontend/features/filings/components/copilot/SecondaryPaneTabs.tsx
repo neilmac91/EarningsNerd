@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, type ReactNode } from 'react'
-import { FileText, Sparkles, X } from 'lucide-react'
+import { FileTextIcon, SparkleIcon, XIcon } from '@/lib/icons'
 import type { CopilotView } from './FilingViewerContext'
 
 // Shared ids so the tabs (here) and the tab panels (in FilingWorkspace) can reference each other
@@ -81,7 +81,7 @@ export default function SecondaryPaneTabs({
           onClick={onSelectAnswer}
           className={`${tabBase} ${activeView === 'copilot' ? activeTab : idleTab}`}
         >
-          <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+          <SparkleIcon className="h-3.5 w-3.5" aria-hidden="true" />
           Answer
         </button>
         <button
@@ -95,7 +95,7 @@ export default function SecondaryPaneTabs({
           onClick={onSelectFiling}
           className={`${tabBase} ${activeView === 'filing' ? activeTab : idleTab}`}
         >
-          <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+          <FileTextIcon className="h-3.5 w-3.5" aria-hidden="true" />
           Filing
         </button>
       </div>
@@ -108,7 +108,7 @@ export default function SecondaryPaneTabs({
           aria-label="Close"
           className="flex h-8 w-8 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
         >
-          <X className="h-4 w-4" />
+          <XIcon className="h-4 w-4" />
         </button>
       </div>
     </div>

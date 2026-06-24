@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
-import { AlertCircle, KeyRound, Link2, Loader2, LogOut } from 'lucide-react'
+import { CircleNotchIcon, KeyIcon, LinkIcon, SignOutIcon, WarningCircleIcon } from '@/lib/icons'
 import {
   getConnections,
   unlinkProvider,
@@ -64,7 +64,7 @@ export default function ConnectedAccounts() {
   return (
     <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">
       <div className="flex items-center gap-3 mb-2">
-        <Link2 className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
+        <LinkIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
           Connected accounts &amp; sessions
         </h2>
@@ -75,11 +75,11 @@ export default function ConnectedAccounts() {
 
       {isLoading ? (
         <div className="flex items-center text-text-tertiary-light dark:text-text-tertiary-dark">
-          <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Loading…
+          <CircleNotchIcon className="h-4 w-4 mr-2 animate-spin" /> Loading…
         </div>
       ) : isError ? (
         <div className="flex items-center text-sm text-error-light dark:text-error-dark">
-          <AlertCircle className="h-4 w-4 mr-2" />
+          <WarningCircleIcon className="h-4 w-4 mr-2" />
           {isApiError(queryError) ? getErrorMessage(queryError) : 'Failed to load connected accounts.'}
         </div>
       ) : (
@@ -87,7 +87,7 @@ export default function ConnectedAccounts() {
           {/* Password row */}
           <div className="flex items-center justify-between rounded-lg border border-border-light dark:border-border-dark px-4 py-3">
             <div className="flex items-center gap-3">
-              <KeyRound className="h-4 w-4 text-text-tertiary-light dark:text-text-tertiary-dark" />
+              <KeyIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-tertiary-dark" />
               <span className="text-sm text-text-primary-light dark:text-text-primary-dark">Password</span>
             </div>
             <span className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
@@ -134,7 +134,7 @@ export default function ConnectedAccounts() {
 
           {error && (
             <div className="flex items-center text-sm text-error-light dark:text-error-dark">
-              <AlertCircle className="h-4 w-4 mr-2" />
+              <WarningCircleIcon className="h-4 w-4 mr-2" />
               {error}
             </div>
           )}
@@ -147,9 +147,9 @@ export default function ConnectedAccounts() {
               disabled={logoutAllMutation.isPending}
             >
               {logoutAllMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <CircleNotchIcon className="h-4 w-4 animate-spin" />
               ) : (
-                <LogOut className="h-4 w-4" />
+                <SignOutIcon className="h-4 w-4" />
               )}
               Sign out of all devices
             </Button>

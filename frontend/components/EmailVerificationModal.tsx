@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Loader2, MailWarning, X } from 'lucide-react'
+import { CircleNotchIcon, WarningCircleIcon, XIcon } from '@/lib/icons'
 import { getCurrentUserSafe, resendVerification } from '@/features/auth/api/auth-api'
 import { EMAIL_VERIFICATION_REQUIRED_EVENT } from '@/lib/api/client'
 
@@ -81,7 +81,7 @@ export default function EmailVerificationModal() {
       >
         <div className="flex items-start justify-between">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-400/15">
-            <MailWarning className="h-5 w-5 text-amber-500" />
+            <WarningCircleIcon className="h-5 w-5 text-amber-500" />
           </div>
           <button
             type="button"
@@ -89,7 +89,7 @@ export default function EmailVerificationModal() {
             aria-label="Close"
             className="rounded p-1 text-text-tertiary-light transition-colors hover:bg-black/5 dark:text-text-tertiary-dark dark:hover:bg-white/5"
           >
-            <X className="h-5 w-5" />
+            <XIcon className="h-5 w-5" />
           </button>
         </div>
 
@@ -126,7 +126,7 @@ export default function EmailVerificationModal() {
             disabled={loading || resent}
             className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-border-light bg-transparent px-4 py-2.5 text-sm font-medium text-text-primary-light transition-all hover:bg-black/5 disabled:opacity-50 dark:border-border-dark dark:text-text-primary-dark dark:hover:bg-white/5"
           >
-            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+            {loading && <CircleNotchIcon className="h-4 w-4 animate-spin" />}
             {resent ? 'Link sent' : 'Resend link'}
           </button>
           <button

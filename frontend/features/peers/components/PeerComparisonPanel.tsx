@@ -3,7 +3,7 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import { Loader2 } from 'lucide-react'
+import { CircleNotchIcon } from '@/lib/icons'
 
 import { getPeers, PeerComparisonResponse } from '@/features/peers/api/peers-api'
 import { ApiError } from '@/lib/api/client'
@@ -137,7 +137,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
 
       {isLoading ? (
         <div className="flex h-72 items-center justify-center" aria-label="Loading peer comparison">
-          <Loader2 className="h-6 w-6 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+          <CircleNotchIcon className="h-6 w-6 animate-spin text-brand-strong dark:text-brand-strong-dark" />
         </div>
       ) : isError ? (
         <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark">

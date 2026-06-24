@@ -7,7 +7,7 @@ import { getSavedSummaries, deleteSavedSummary, SavedSummary } from '@/features/
 import { getWatchlist, removeFromWatchlist, WatchlistItem } from '@/features/watchlist/api/watchlist-api'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-import { CheckCircle2, AlertCircle, Sparkles, BarChart3, FileText, Loader2, Trash2, X } from 'lucide-react'
+import { ChartBarIcon, CheckCircleIcon, CircleNotchIcon, FileTextIcon, SparkleIcon, TrashIcon, WarningCircleIcon, XIcon } from '@/lib/icons'
 import Link from 'next/link'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
@@ -126,7 +126,7 @@ export default function DashboardPage() {
   if (userLoading || usageLoading || subscriptionLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-panel-light dark:bg-background-dark">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+        <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
       </div>
     )
   }
@@ -213,7 +213,7 @@ export default function DashboardPage() {
               <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Subscription</h2>
               {subscription?.is_pro ? (
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-brand-weak text-brand-strong dark:bg-white/5 dark:text-brand-strong-dark">
-                  <Sparkles className="h-4 w-4 mr-1" />
+                  <SparkleIcon className="h-4 w-4 mr-1" />
                   Pro
                 </span>
               ) : (
@@ -250,7 +250,7 @@ export default function DashboardPage() {
                 >
                   {portalMutation.isPending ? (
                     <span className="flex items-center justify-center">
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      <CircleNotchIcon className="h-4 w-4 animate-spin mr-2" />
                       Loading...
                     </span>
                   ) : (
@@ -294,7 +294,7 @@ export default function DashboardPage() {
               />
             ) : usage?.is_pro ? (
               <div className="flex items-center space-x-2">
-                <CheckCircle2 className="h-5 w-5 text-success-light dark:text-success-dark" />
+                <CheckCircleIcon className="h-5 w-5 text-success-light dark:text-success-dark" />
                 <span className="text-text-secondary-light dark:text-text-secondary-dark">Unlimited summaries</span>
               </div>
             ) : (
@@ -324,7 +324,7 @@ export default function DashboardPage() {
                 </div>
                 {usagePercentage >= 80 && !subscription?.is_pro && (
                   <div className="flex items-start space-x-2 p-3 bg-warning-light/10 border border-warning-light/30 rounded-lg dark:bg-warning-dark/10 dark:border-warning-dark/30">
-                    <AlertCircle className="h-5 w-5 text-warning-light dark:text-warning-dark flex-shrink-0 mt-0.5" />
+                    <WarningCircleIcon className="h-5 w-5 text-warning-light dark:text-warning-dark flex-shrink-0 mt-0.5" />
                     <div className="flex-1">
                       <p className="text-sm font-medium text-warning-light dark:text-warning-dark">
                         {usagePercentage >= 100 ? 'Limit Reached' : 'Almost at Limit'}
@@ -350,7 +350,7 @@ export default function DashboardPage() {
           >
             <div className="flex items-center space-x-3 mb-3">
               <div className="p-2 bg-brand-weak rounded-lg dark:bg-white/5">
-                <FileText className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
+                <FileTextIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
               </div>
               <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Search Companies</h3>
             </div>
@@ -365,7 +365,7 @@ export default function DashboardPage() {
           >
             <div className="flex items-center space-x-3 mb-3">
               <div className="p-2 bg-brand-weak rounded-lg dark:bg-white/5">
-                <Sparkles className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
+                <SparkleIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
               </div>
               <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">View Plans</h3>
             </div>
@@ -380,7 +380,7 @@ export default function DashboardPage() {
           >
             <div className="flex items-center space-x-3 mb-3">
               <div className="p-2 bg-brand-weak rounded-lg dark:bg-white/5">
-                <BarChart3 className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
+                <ChartBarIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
               </div>
               <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Watchlist Insights</h3>
             </div>
@@ -395,7 +395,7 @@ export default function DashboardPage() {
           <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">Saved Summaries</h2>
           {savedLoading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+              <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
             </div>
           ) : savedError ? (
             <StateCard
@@ -440,7 +440,7 @@ export default function DashboardPage() {
                       title="Delete"
                       aria-label={`Delete summary for ${item.company.name}`}
                     >
-                      <Trash2 className="h-5 w-5" />
+                      <TrashIcon className="h-5 w-5" />
                     </button>
                   </div>
                 </div>
@@ -460,7 +460,7 @@ export default function DashboardPage() {
           <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">Watchlist</h2>
           {watchlistLoading ? (
             <div className="flex justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+              <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
             </div>
           ) : watchlistError ? (
             <StateCard
@@ -498,7 +498,7 @@ export default function DashboardPage() {
                       title="Remove from watchlist"
                       aria-label={`Remove ${item.company.name} from watchlist`}
                     >
-                      <X className="h-5 w-5" />
+                      <XIcon className="h-5 w-5" />
                     </button>
                   </div>
                 </div>

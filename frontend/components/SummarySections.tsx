@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
-import { FileText, TrendingUp, AlertTriangle, Building2, BarChart3 } from 'lucide-react'
+import { BuildingOfficeIcon, ChartBarIcon, FileTextIcon, TrendUpIcon, WarningIcon } from '@/lib/icons'
 import type { RiskFactor, MetricItem } from '../types/summary'
 import { renderMarkdownValue, getAccordionContent, normalizeRisk } from '../lib/formatters'
 import { SummaryExecutiveSnapshot } from '@/features/filings/components/SummaryExecutiveSnapshot'
@@ -163,13 +163,13 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
   // Only show tabs that have content (dynamic section hiding)
   // Note: Executive Summary is ALWAYS shown to display unavailable sections disclosure
   const allTabs = [
-    { id: 'overview', label: 'Executive Summary', icon: FileText, hasContent: true },  // Always show
-    { id: 'financials', label: 'Financials', icon: BarChart3, hasContent: hasFinancials },
-    { id: 'risks', label: 'Risks', icon: AlertTriangle, hasContent: hasRisks },
-    { id: 'management', label: 'MD&A', icon: Building2, hasContent: hasManagement },
-    { id: 'guidance', label: 'Guidance', icon: TrendingUp, hasContent: hasGuidance },
-    { id: 'liquidity', label: 'Liquidity', icon: Building2, hasContent: hasLiquidity },
-    { id: 'trends', label: 'Trends', icon: TrendingUp, hasContent: hasTrends },
+    { id: 'overview', label: 'Executive Summary', icon: FileTextIcon, hasContent: true },  // Always show
+    { id: 'financials', label: 'Financials', icon: ChartBarIcon, hasContent: hasFinancials },
+    { id: 'risks', label: 'Risks', icon: WarningIcon, hasContent: hasRisks },
+    { id: 'management', label: 'MD&A', icon: BuildingOfficeIcon, hasContent: hasManagement },
+    { id: 'guidance', label: 'Guidance', icon: TrendUpIcon, hasContent: hasGuidance },
+    { id: 'liquidity', label: 'Liquidity', icon: BuildingOfficeIcon, hasContent: hasLiquidity },
+    { id: 'trends', label: 'Trends', icon: TrendUpIcon, hasContent: hasTrends },
   ]
 
   // Filter to only show tabs with content (hide empty sections per execution plan)
@@ -277,7 +277,7 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
       <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden">
         <div className="border-b border-border-light dark:border-border-dark px-6 py-4">
           <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark flex items-center gap-2">
-            <FileText className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
+            <FileTextIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
             Key Takeaways
           </h2>
         </div>

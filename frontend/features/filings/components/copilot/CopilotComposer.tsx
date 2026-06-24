@@ -1,7 +1,7 @@
 'use client'
 
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
-import { Send } from 'lucide-react'
+import { PaperPlaneTiltIcon } from '@/lib/icons'
 
 interface CopilotComposerProps {
   onSubmit: (question: string) => void
@@ -94,7 +94,7 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
           aria-label="Send"
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark transition-colors disabled:cursor-not-allowed disabled:bg-border-light disabled:text-text-secondary-light dark:disabled:bg-white/10 dark:disabled:text-text-secondary-dark"
         >
-          <Send className="h-4 w-4" />
+          <PaperPlaneTiltIcon className="h-4 w-4" />
         </button>
       </div>
       <p className="mt-2 px-1 text-[11px] leading-snug text-text-secondary-light dark:text-text-secondary-dark">

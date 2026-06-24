@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { resendVerification } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
-import { Loader2, Mail } from 'lucide-react'
+import { CircleNotchIcon, EnvelopeSimpleIcon } from '@/lib/icons'
 import StateCard from '@/components/StateCard'
 import AuthShell from '@/components/auth/AuthShell'
 
@@ -45,7 +45,7 @@ function CheckEmailContent() {
     <AuthShell>
       <div className="flex justify-center">
         <div className="animate-float rounded-full bg-brand-strong/10 p-4 dark:bg-brand-dark/15">
-          <Mail className="h-8 w-8 text-brand-strong dark:text-brand-strong-dark" />
+          <EnvelopeSimpleIcon className="h-8 w-8 text-brand-strong dark:text-brand-strong-dark" />
         </div>
       </div>
 
@@ -82,7 +82,7 @@ function CheckEmailContent() {
           disabled={resendLoading || cooldown > 0 || !email}
           className="inline-flex items-center gap-1 font-medium text-brand-strong hover:underline disabled:cursor-not-allowed disabled:opacity-50 disabled:no-underline dark:text-brand-strong-dark"
         >
-          {resendLoading && <Loader2 className="h-3 w-3 animate-spin" />}
+          {resendLoading && <CircleNotchIcon className="h-3 w-3 animate-spin" />}
           {cooldown > 0 ? `Resend in ${cooldown}s` : 'Resend email'}
         </button>
       </p>

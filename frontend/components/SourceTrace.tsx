@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { CheckCircle2, ExternalLink, X } from 'lucide-react'
+import { ArrowSquareOutIcon, CheckCircleIcon, XIcon } from '@/lib/icons'
 
 /**
  * Shared "Trace to Source" provenance affordance — the ambient, on-brand way every metric and risk
@@ -152,7 +152,7 @@ function SourceTraceInner({
     return () => window.removeEventListener('keydown', onKey)
   }, [open])
 
-  const Icon = isVerified ? CheckCircle2 : ExternalLink
+  const Icon = isVerified ? CheckCircleIcon : ArrowSquareOutIcon
   const chipClass = isVerified
     ? 'text-brand-strong dark:text-brand-strong-dark hover:bg-brand-weak dark:hover:bg-white/5'
     : 'text-text-tertiary-light dark:text-text-secondary-dark hover:bg-border-light/40 dark:hover:bg-white/5'
@@ -166,12 +166,12 @@ function SourceTraceInner({
 
   const statusLine = isVerified ? (
     <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-brand-strong dark:text-brand-strong-dark">
-      <CheckCircle2 className="h-3 w-3 shrink-0" />
+      <CheckCircleIcon className="h-3 w-3 shrink-0" />
       {note || 'Verified against the original SEC filing'}
     </span>
   ) : (
     <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-tertiary-light dark:text-text-secondary-dark">
-      <ExternalLink className="h-3 w-3 shrink-0" />
+      <ArrowSquareOutIcon className="h-3 w-3 shrink-0" />
       {note || 'Cited — open the section to confirm'}
     </span>
   )
@@ -191,7 +191,7 @@ function SourceTraceInner({
           rel="noopener noreferrer"
           className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-tertiary-light transition-colors hover:text-brand-strong dark:text-text-secondary-dark dark:hover:text-brand-strong-dark"
         >
-          <ExternalLink className="h-3 w-3 shrink-0" />
+          <ArrowSquareOutIcon className="h-3 w-3 shrink-0" />
           Open in SEC EDGAR
         </a>
       )}
@@ -257,7 +257,7 @@ function SourceTraceInner({
               aria-label="Close source detail"
               className="absolute right-3 top-3 rounded p-1 text-text-tertiary-light hover:bg-border-light/40 dark:text-text-secondary-dark dark:hover:bg-white/5"
             >
-              <X className="h-4 w-4" />
+              <XIcon className="h-4 w-4" />
             </button>
             {panelBody}
           </div>

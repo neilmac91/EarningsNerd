@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ChevronLeft } from 'lucide-react'
+import { CaretLeftIcon } from '@/lib/icons'
 import EarningsNerdLogoIcon from './EarningsNerdLogoIcon'
 
 type SecondaryHeaderProps = {
@@ -28,7 +28,7 @@ export default function SecondaryHeader({
               href={backHref}
               className="inline-flex items-center text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark transition hover:text-text-primary-light dark:hover:text-text-primary-dark"
             >
-              <ChevronLeft className="mr-1 h-4 w-4" />
+              <CaretLeftIcon className="mr-1 h-4 w-4" />
               {backLabel}
             </Link>
           )}

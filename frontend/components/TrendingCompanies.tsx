@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { getTrendingCompanies, Company } from '@/features/companies/api/companies-api'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { directionText, directionOf } from '@/lib/financialTone'
-import { TrendingUp } from 'lucide-react'
+import { TrendUpIcon } from '@/lib/icons'
 
 export default function TrendingCompanies() {
   const { data: trendingCompanies, isLoading, isError, error, refetch, isFetching } = useQuery({
@@ -45,7 +45,7 @@ export default function TrendingCompanies() {
     <div>
       <div className="flex items-center space-x-3 mb-6">
         <div className="rounded-xl bg-brand-strong/10 p-2.5 dark:bg-brand-dark/15">
-          <TrendingUp className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
+          <TrendUpIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
         </div>
         <h3 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">Trending Companies</h3>
       </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, Cookie, CheckCircle2 } from 'lucide-react'
+import { CheckCircleIcon, CookieIcon, XIcon } from '@/lib/icons'
 import Link from 'next/link'
 
 export interface CookiePreferences {
@@ -141,7 +141,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
   if (!showBanner && !showSettings) {
     return saved ? (
       <div className="fixed bottom-4 right-4 z-50 bg-success-light dark:bg-success-dark text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-slide-up">
-        <CheckCircle2 className="h-5 w-5" />
+        <CheckCircleIcon className="h-5 w-5" />
         <span>Cookie preferences saved</span>
       </div>
     ) : null
@@ -154,7 +154,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
           <div className="p-6">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
-                <Cookie className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
+                <CookieIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
                 <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
                   Cookie Preferences
                 </h2>
@@ -163,7 +163,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                 onClick={() => setShowSettings(false)}
                 className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
               >
-                <X className="h-6 w-6" />
+                <XIcon className="h-6 w-6" />
               </button>
             </div>
 
@@ -282,7 +282,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
       <div className="max-w-7xl mx-auto p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div className="flex items-start gap-3 flex-1">
-            <Cookie className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark flex-shrink-0 mt-0.5" />
+            <CookieIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark flex-shrink-0 mt-0.5" />
             <div>
               <h3 className="font-semibold text-slate-900 dark:text-white mb-1">
                 We value your privacy

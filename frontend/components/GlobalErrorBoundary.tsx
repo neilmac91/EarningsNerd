@@ -1,7 +1,7 @@
 'use client'
 
 import React, { Component, ErrorInfo, ReactNode } from 'react'
-import { AlertTriangle, RefreshCw, Home } from 'lucide-react'
+import { ArrowsClockwiseIcon, HouseIcon, WarningIcon } from '@/lib/icons'
 
 interface Props {
   children: ReactNode
@@ -61,7 +61,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
         <div className="min-h-screen bg-slate-50 dark:bg-slate-900 flex items-center justify-center p-4">
           <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-xl shadow-lg p-8 text-center">
             <div className="mx-auto w-16 h-16 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-6">
-              <AlertTriangle className="w-8 h-8 text-red-600 dark:text-red-400" />
+              <WarningIcon className="w-8 h-8 text-red-600 dark:text-red-400" />
             </div>
 
             <h1 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
@@ -85,7 +85,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
                 onClick={this.handleRetry}
                 className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light font-medium rounded-lg transition-colors"
               >
-                <RefreshCw className="w-4 h-4" />
+                <ArrowsClockwiseIcon className="w-4 h-4" />
                 Try Again
               </button>
 
@@ -93,7 +93,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
                 onClick={this.handleGoHome}
                 className="inline-flex items-center justify-center gap-2 px-4 py-2 border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 font-medium rounded-lg transition-colors"
               >
-                <Home className="w-4 h-4" />
+                <HouseIcon className="w-4 h-4" />
                 Go Home
               </button>
             </div>

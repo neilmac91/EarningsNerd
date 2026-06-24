@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Sparkles, X } from 'lucide-react'
+import { SparkleIcon, XIcon } from '@/lib/icons'
 import {
   askFilingStream,
   isCopilotPaywallError,
@@ -448,7 +448,7 @@ export default function AskCopilotRail({
         className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-3 text-sm font-semibold shadow-e3 dark:shadow-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
         aria-label="Ask this Filing"
       >
-        <Sparkles className="h-4 w-4" />
+        <SparkleIcon className="h-4 w-4" />
         Ask this Filing
         <kbd className="ml-1 hidden rounded border border-slate-950/25 bg-slate-950/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none sm:inline-block">
           ⌘K
@@ -479,7 +479,7 @@ export default function AskCopilotRail({
         {/* Header */}
         <div className="flex items-center justify-between gap-2 border-b border-border-light dark:border-white/10 px-4 py-3">
           <div className="flex min-w-0 items-center gap-2">
-            <Sparkles className="h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" />
+            <SparkleIcon className="h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" />
             <h2 className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Ask this Filing</h2>
             <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-brand-weak dark:bg-white/5 px-2 py-0.5 text-[11px] font-medium text-brand-strong dark:text-brand-strong-dark ring-1 ring-brand-light/30 sm:inline-flex">
               <span className="h-1.5 w-1.5 rounded-full bg-brand-strong dark:bg-brand-strong-dark" aria-hidden="true" />
@@ -492,7 +492,7 @@ export default function AskCopilotRail({
             aria-label="Close"
             className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
           >
-            <X className="h-4 w-4" />
+            <XIcon className="h-4 w-4" />
           </button>
         </div>
 

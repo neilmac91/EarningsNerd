@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { LayoutDashboard, Star, Settings, LogOut, ChevronDown, MailWarning } from 'lucide-react'
+import { CaretDownIcon, GearIcon, SignOutIcon, SquaresFourIcon, StarIcon, WarningCircleIcon } from '@/lib/icons'
 import { logout } from '@/features/auth/api/auth-api'
 
 export type MenuUser = {
@@ -22,9 +22,9 @@ function getInitials(name?: string | null, email?: string): string {
 }
 
 const MENU_LINKS = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/watchlist', label: 'Watchlist', icon: Star },
-  { href: '/dashboard/settings', label: 'Settings', icon: Settings },
+  { href: '/dashboard', label: 'Dashboard', icon: SquaresFourIcon },
+  { href: '/dashboard/watchlist', label: 'Watchlist', icon: StarIcon },
+  { href: '/dashboard/settings', label: 'Settings', icon: GearIcon },
 ] as const
 
 export default function UserMenu({ user }: { user: MenuUser }) {
@@ -85,7 +85,7 @@ export default function UserMenu({ user }: { user: MenuUser }) {
             />
           )}
         </span>
-        <ChevronDown className="h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
+        <CaretDownIcon className="h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
       </button>
 
       {open && (
@@ -108,7 +108,7 @@ export default function UserMenu({ user }: { user: MenuUser }) {
               onClick={() => setOpen(false)}
               className="mx-1 mb-1 flex items-center gap-2 rounded-lg bg-amber-400/10 px-2.5 py-2 text-sm font-medium text-amber-300 transition-colors hover:bg-amber-400/20"
             >
-              <MailWarning className="h-4 w-4" />
+              <WarningCircleIcon className="h-4 w-4" />
               Verify your email
             </Link>
           )}
@@ -135,7 +135,7 @@ export default function UserMenu({ user }: { user: MenuUser }) {
               onClick={handleLogout}
               className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark"
             >
-              <LogOut className="h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
+              <SignOutIcon className="h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
               Log out
             </button>
           </div>

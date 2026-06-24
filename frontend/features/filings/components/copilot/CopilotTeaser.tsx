@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import Link from 'next/link'
-import { CheckCircle2, Lock, Sparkles } from 'lucide-react'
+import { CheckCircleIcon, LockSimpleIcon, SparkleIcon } from '@/lib/icons'
 import { analytics } from '@/lib/analytics'
 
 interface CopilotTeaserProps {
@@ -59,13 +59,13 @@ export default function CopilotTeaser({
             Revenue rose 8% to $94.0B [1], with gross margin expanding to 46.2% [F1] on a richer
             product mix [2].
             <div className="mt-2 flex items-center gap-1.5 text-[10px] text-text-secondary-light dark:text-text-secondary-dark">
-              <CheckCircle2 className="h-3 w-3 text-brand-strong/70 dark:text-brand-strong-dark/70" /> Grounded in 3 excerpts
+              <CheckCircleIcon className="h-3 w-3 text-brand-strong/70 dark:text-brand-strong-dark/70" /> Grounded in 3 excerpts
             </div>
           </div>
         </div>
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <span className="flex h-9 w-9 items-center justify-center rounded-full bg-panel-light dark:bg-slate-900/80 ring-1 ring-brand-light/30">
-            <Lock className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
+            <LockSimpleIcon className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
           </span>
         </div>
       </div>
@@ -75,7 +75,7 @@ export default function CopilotTeaser({
       <ul className="mt-2 space-y-1.5">
         {VALUE_PROPS.map((prop) => (
           <li key={prop} className="flex items-start gap-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-            <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
+            <CheckCircleIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
             {prop}
           </li>
         ))}
@@ -87,7 +87,7 @@ export default function CopilotTeaser({
         onClick={onUpgrade}
         className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2.5 text-sm font-semibold transition-colors"
       >
-        <Sparkles className="h-4 w-4" />
+        <SparkleIcon className="h-4 w-4" />
         Upgrade to Pro
       </button>
       {!isAuthenticated && (

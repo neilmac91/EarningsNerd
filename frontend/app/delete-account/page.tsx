@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
-import { Trash2, AlertCircle, CheckCircle2, Loader2, ShieldAlert } from 'lucide-react'
+import { CheckCircleIcon, CircleNotchIcon, ShieldWarningIcon, TrashIcon, WarningCircleIcon } from '@/lib/icons'
 import { getCurrentUserSafe, deleteUserAccount } from '@/features/auth/api/auth-api'
 import { buttonVariants } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -68,7 +68,7 @@ export default function DeleteAccountPage() {
       {deleteMutation.isSuccess ? (
         <section className="mt-6 rounded-lg border border-green-200 bg-green-50 p-6 dark:border-green-900 dark:bg-green-950/30">
           <div className="flex items-start gap-3">
-            <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-green-600 dark:text-green-400" />
+            <CheckCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-green-600 dark:text-green-400" />
             <div>
               <h2 className="font-semibold text-green-800 dark:text-green-300">
                 Your account has been deleted
@@ -84,7 +84,7 @@ export default function DeleteAccountPage() {
         </section>
       ) : isLoading ? (
         <div className="mt-6 flex items-center gap-2 text-sm text-slate-500">
-          <Loader2 className="h-4 w-4 animate-spin" /> Checking your sign-in status…
+          <CircleNotchIcon className="h-4 w-4 animate-spin" /> Checking your sign-in status…
         </div>
       ) : user ? (
         /* Signed in — confirm + delete */
@@ -109,17 +109,17 @@ export default function DeleteAccountPage() {
           >
             {deleteMutation.isPending ? (
               <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting…
+                <CircleNotchIcon className="mr-2 h-4 w-4 animate-spin" /> Deleting…
               </>
             ) : (
               <>
-                <Trash2 className="mr-2 h-4 w-4" /> Permanently delete my account
+                <TrashIcon className="mr-2 h-4 w-4" /> Permanently delete my account
               </>
             )}
           </button>
           {deleteMutation.isError && (
             <div className="mt-4 flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
-              <AlertCircle className="h-4 w-4" /> Deletion failed. Please try again or email{' '}
+              <WarningCircleIcon className="h-4 w-4" /> Deletion failed. Please try again or email{' '}
               <a href="mailto:privacy@earningsnerd.io" className="underline">privacy@earningsnerd.io</a>.
             </div>
           )}
@@ -128,7 +128,7 @@ export default function DeleteAccountPage() {
         /* Not signed in — sign-in CTA + email fallback */
         <section className="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
           <div className="flex items-start gap-3">
-            <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+            <ShieldWarningIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
             <div>
               <h2 className="font-semibold text-slate-900 dark:text-white">Sign in to delete your account</h2>
               <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">

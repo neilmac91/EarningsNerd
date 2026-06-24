@@ -1,26 +1,26 @@
 import { memo } from 'react'
-import { Brain, BarChart3, Shield, Columns3 } from 'lucide-react'
+import { BrainIcon, ChartBarIcon, ColumnsIcon, ShieldIcon } from '@/lib/icons'
 
 const FEATURES = [
   {
     title: 'AI-Powered Summaries',
     description: 'Turn 100-page filings into structured 5-minute reads. Business overview, financials, risks, and outlook — all in one place.',
-    icon: Brain,
+    icon: BrainIcon,
   },
   {
     title: 'XBRL-Verified Financials',
     description: 'Financial metrics drawn from the standardized XBRL data filed with the SEC. Revenue, margins, EPS, and more — traced to the source.',
-    icon: BarChart3,
+    icon: ChartBarIcon,
   },
   {
     title: 'Risk Factor Analysis',
     description: 'Track new, changed, and evolving risk disclosures. Spot material changes before the market reacts.',
-    icon: Shield,
+    icon: ShieldIcon,
   },
   {
     title: 'Filing Comparison',
     description: 'Compare filings side-by-side across periods. See what changed quarter over quarter at a glance.',
-    icon: Columns3,
+    icon: ColumnsIcon,
   },
 ] as const
 

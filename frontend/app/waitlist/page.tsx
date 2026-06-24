@@ -1,6 +1,6 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRightIcon } from '@/lib/icons'
 import WaitlistForm from '@/components/WaitlistForm'
 import WaitlistCounter from '@/components/WaitlistCounter'
 import ExampleCtaLink from '@/components/ExampleCtaLink'
@@ -60,7 +60,7 @@ export default function WaitlistPage() {
                 className="inline-flex items-center gap-1 font-semibold text-brand-strong underline underline-offset-4 transition-colors hover:text-brand-light dark:text-brand-strong-dark dark:hover:text-brand-strong-dark"
               >
                 Try a live example summary
-                <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden="true" />
               </ExampleCtaLink>
             </p>
           </div>

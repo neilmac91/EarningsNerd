@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import Link from 'next/link'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRightIcon } from '@/lib/icons'
 import ExampleCtaLink from '@/components/ExampleCtaLink'
 import { exampleFilingHref } from '@/lib/featureFlags'
 
@@ -22,7 +22,7 @@ function CtaBanner() {
               className="inline-flex items-center gap-2 rounded-full bg-brand-strong px-8 py-3.5 text-base font-semibold text-white shadow-e2 transition-all hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
             >
               Run your first summary
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+              <ArrowRightIcon className="h-4 w-4" aria-hidden="true" />
             </ExampleCtaLink>
             <Link
               href="/register"

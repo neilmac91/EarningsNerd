@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { register } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
-import { Loader2, Mail } from 'lucide-react'
+import { CircleNotchIcon, EnvelopeSimpleIcon } from '@/lib/icons'
 import StateCard from '@/components/StateCard'
 import analytics from '@/lib/analytics'
 import AuthShell from '@/components/auth/AuthShell'
@@ -102,7 +102,7 @@ function RegisterContent() {
             onClick={() => setShowEmail(true)}
             className="w-full py-3 active:scale-[0.99]"
           >
-            <Mail className="h-4 w-4" />
+            <EnvelopeSimpleIcon className="h-4 w-4" />
             Sign up with email
           </Button>
         ) : (
@@ -162,7 +162,7 @@ function RegisterContent() {
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <CircleNotchIcon className="h-4 w-4 animate-spin" />
                   Creating account…
                 </span>
               ) : (

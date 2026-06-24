@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCurrentUser, exportUserData, deleteUserAccount } from '@/features/auth/api/auth-api'
 import { useRouter } from 'next/navigation'
-import { Download, Trash2, AlertCircle, CheckCircle2, Loader2, ArrowLeft } from 'lucide-react'
+import { ArrowLeftIcon, CheckCircleIcon, CircleNotchIcon, DownloadSimpleIcon, TrashIcon, WarningCircleIcon } from '@/lib/icons'
 import Link from 'next/link'
 import analytics from '@/lib/analytics'
 import ConnectedAccounts from '@/components/settings/ConnectedAccounts'
@@ -68,7 +68,7 @@ export default function SettingsPage() {
   if (userLoading) {
     return (
       <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+        <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
       </div>
     )
   }
@@ -82,7 +82,7 @@ export default function SettingsPage() {
             href="/dashboard"
             className="inline-flex items-center text-sm text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark mb-4"
           >
-            <ArrowLeft className="h-4 w-4 mr-1" />
+            <ArrowLeftIcon className="h-4 w-4 mr-1" />
             Back to Dashboard
           </Link>
           <h1 className="text-3xl font-bold text-text-primary-light dark:text-text-primary-dark">
@@ -143,12 +143,12 @@ export default function SettingsPage() {
           >
             {exportMutation.isPending ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <CircleNotchIcon className="h-4 w-4 animate-spin" />
                 Exporting...
               </>
             ) : (
               <>
-                <Download className="h-4 w-4" />
+                <DownloadSimpleIcon className="h-4 w-4" />
                 Download My Data
               </>
             )}
@@ -156,14 +156,14 @@ export default function SettingsPage() {
 
           {exportMutation.isSuccess && (
             <div className="mt-4 flex items-center text-sm text-success-light dark:text-success-dark">
-              <CheckCircle2 className="h-4 w-4 mr-2" />
+              <CheckCircleIcon className="h-4 w-4 mr-2" />
               Your data has been downloaded successfully
             </div>
           )}
 
           {exportMutation.isError && (
             <div className="mt-4 flex items-center text-sm text-error-light dark:text-error-dark">
-              <AlertCircle className="h-4 w-4 mr-2" />
+              <WarningCircleIcon className="h-4 w-4 mr-2" />
               Failed to export data. Please try again or contact support.
             </div>
           )}
@@ -187,14 +187,14 @@ export default function SettingsPage() {
               onClick={() => setShowDeleteConfirm(true)}
               className="inline-flex items-center px-4 py-2 bg-error-light hover:opacity-90 text-white dark:bg-error-dark dark:text-background-dark rounded-lg transition-colors"
             >
-              <Trash2 className="h-4 w-4 mr-2" />
+              <TrashIcon className="h-4 w-4 mr-2" />
               Delete My Account
             </button>
           ) : (
             <div className="space-y-4">
               <div className="bg-loss-soft dark:bg-loss-soft-dark border border-loss-light/30 dark:border-loss-dark/30 rounded-lg p-4">
                 <div className="flex items-start">
-                  <AlertCircle className="h-5 w-5 text-error-light dark:text-error-dark mr-3 flex-shrink-0 mt-0.5" />
+                  <WarningCircleIcon className="h-5 w-5 text-error-light dark:text-error-dark mr-3 flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
                     <h3 className="font-semibold text-error-light dark:text-error-dark mb-2">
                       Warning: This action is permanent
@@ -242,12 +242,12 @@ export default function SettingsPage() {
                 >
                   {deleteMutation.isPending ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      <CircleNotchIcon className="h-4 w-4 mr-2 animate-spin" />
                       Deleting...
                     </>
                   ) : (
                     <>
-                      <Trash2 className="h-4 w-4 mr-2" />
+                      <TrashIcon className="h-4 w-4 mr-2" />
                       Confirm Deletion
                     </>
                   )}
@@ -267,7 +267,7 @@ export default function SettingsPage() {
 
               {deleteMutation.isError && (
                 <div className="flex items-center text-sm text-error-light dark:text-error-dark">
-                  <AlertCircle className="h-4 w-4 mr-2" />
+                  <WarningCircleIcon className="h-4 w-4 mr-2" />
                   Failed to delete account. Please contact support.
                 </div>
               )}

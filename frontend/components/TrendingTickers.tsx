@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Flame, RefreshCw, TrendingUp, TrendingDown, Minus, Eye } from 'lucide-react'
+import { ArrowsClockwiseIcon, EyeIcon, FlameIcon, MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 import clsx from 'clsx'
 import { formatDistanceToNowStrict } from 'date-fns'
 import posthog from 'posthog-js'
@@ -66,9 +66,9 @@ function PriceChangeIndicator({ changePercent }: { changePercent?: number | null
         directionText[directionOf(changePercent)]
       )}
     >
-      {isPositive && <TrendingUp className={iconClass} />}
-      {isNegative && <TrendingDown className={iconClass} />}
-      {!isPositive && !isNegative && <Minus className={iconClass} />}
+      {isPositive && <TrendUpIcon className={iconClass} />}
+      {isNegative && <TrendDownIcon className={iconClass} />}
+      {!isPositive && !isNegative && <MinusIcon className={iconClass} />}
       <span className="tabular-nums">{formatChangePercent(changePercent)}</span>
     </span>
   )
@@ -123,7 +123,7 @@ function TrendingTickerCard({
       {/* Footer: Watchlist count */}
       {watchlistFormatted && (
         <div className="flex items-center gap-1.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-          <Eye className="h-3.5 w-3.5" />
+          <EyeIcon className="h-3.5 w-3.5" />
           <span>{watchlistFormatted} watching</span>
         </div>
       )}
@@ -204,7 +204,7 @@ export default function TrendingTickers({
       <section className="mt-12">
         <header className="mb-4 flex items-center justify-between gap-3 text-text-primary-light dark:text-text-primary-dark">
           <div className="flex items-center gap-2">
-            <Flame className="h-5 w-5 text-orange-300" />
+            <FlameIcon className="h-5 w-5 text-orange-300" />
             <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Market Movers</h2>
           </div>
         </header>
@@ -236,7 +236,7 @@ export default function TrendingTickers({
     return (
       <section className="mt-12">
         <header className="mb-3 flex items-center gap-2 text-text-primary-light dark:text-text-primary-dark">
-          <Flame className="h-5 w-5 text-orange-300" />
+          <FlameIcon className="h-5 w-5 text-orange-300" />
           <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Market Movers</h2>
         </header>
         <div className="rounded-xl border border-error-light/30 dark:border-error-dark/30 bg-error-light/10 dark:bg-error-dark/10 p-4 text-sm text-error-light dark:text-error-dark">
@@ -262,7 +262,7 @@ export default function TrendingTickers({
     <section className="mt-12">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3 text-text-primary-light dark:text-text-primary-dark">
         <div className="flex items-center gap-2">
-          <Flame className="h-5 w-5 text-orange-300" />
+          <FlameIcon className="h-5 w-5 text-orange-300" />
           <div>
             <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Market Movers</h2>
             <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
@@ -283,7 +283,7 @@ export default function TrendingTickers({
             disabled={isFetching}
             type="button"
           >
-            <RefreshCw className={clsx('h-4 w-4', isFetching && 'animate-spin')} />
+            <ArrowsClockwiseIcon className={clsx('h-4 w-4', isFetching && 'animate-spin')} />
             Refresh
           </button>
         </div>

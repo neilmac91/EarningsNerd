@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Search, Loader2, Plus, Check } from 'lucide-react'
+import { CheckIcon, CircleNotchIcon, MagnifyingGlassIcon, PlusIcon } from '@/lib/icons'
 import { searchCompanies, Company } from '@/features/companies/api/companies-api'
 import { addToWatchlist } from '@/features/watchlist/api/watchlist-api'
 import analytics from '@/lib/analytics'
@@ -62,7 +62,7 @@ export default function WatchlistAddSearch() {
   return (
     <div ref={containerRef} className="relative">
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark" />
+        <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark" />
         <input
           type="text"
           value={query}
@@ -76,13 +76,13 @@ export default function WatchlistAddSearch() {
           className="w-full rounded-xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark py-3 pl-11 pr-4 text-text-primary-light dark:text-text-primary-dark placeholder:text-text-tertiary-light dark:placeholder:text-text-secondary-dark shadow-sm focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/40"
         />
         {(isLoading || addMutation.isPending) && (
-          <Loader2 className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+          <CircleNotchIcon className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />
         )}
       </div>
 
       {justAdded && (
         <p className="mt-2 flex items-center gap-1.5 text-sm text-success-light dark:text-success-dark">
-          <Check className="h-4 w-4" />
+          <CheckIcon className="h-4 w-4" />
           Added <span className="font-semibold">{justAdded}</span> to your watchlist.
         </p>
       )}
@@ -111,7 +111,7 @@ export default function WatchlistAddSearch() {
                 <span className="block truncate font-medium text-text-primary-light dark:text-text-primary-dark">{company.name}</span>
                 <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">{company.ticker}</span>
               </span>
-              <Plus className="h-4 w-4 flex-shrink-0 text-brand-strong dark:text-brand-strong-dark" />
+              <PlusIcon className="h-4 w-4 flex-shrink-0 text-brand-strong dark:text-brand-strong-dark" />
             </button>
           ))}
         </div>
