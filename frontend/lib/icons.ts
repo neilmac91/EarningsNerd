@@ -22,6 +22,7 @@ export {
   CaretDownIcon,
   CaretLeftIcon,
   ChartBarIcon,
+  ChatCircleDotsIcon,
   CheckCircleIcon,
   CheckIcon,
   CircleNotchIcon,

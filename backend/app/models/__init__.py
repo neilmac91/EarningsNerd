@@ -12,6 +12,7 @@ from app.models.subscription import Subscription, StripeEvent, ACTIVE_STATUSES
 from app.models.notifications import NotificationPreferences, NotificationLog
 from app.models.financial_fact import FinancialFact
 from app.models.invite import InviteCode
+from app.models.feedback import Feedback
 
 logger = logging.getLogger(__name__)
 

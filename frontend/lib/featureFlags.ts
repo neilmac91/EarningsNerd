@@ -102,3 +102,11 @@ export const ENABLE_CALENDAR = process.env.NEXT_PUBLIC_ENABLE_CALENDAR === 'true
  */
 export const ENABLE_INSIDER_ACTIVITY =
   process.env.NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY === 'true'
+
+/**
+ * Show the in-dashboard beta feedback widget (floating "Feedback" launcher for logged-in users).
+ * On by default so beta testers can report bugs/ideas from anywhere; set
+ * NEXT_PUBLIC_ENABLE_FEEDBACK_WIDGET='false' to hide it (e.g. post-beta).
+ */
+export const ENABLE_FEEDBACK_WIDGET =
+  process.env.NEXT_PUBLIC_ENABLE_FEEDBACK_WIDGET !== 'false'
