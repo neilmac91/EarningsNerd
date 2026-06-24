@@ -101,6 +101,7 @@ export default function FeedbackWidget() {
             </div>
 
             <textarea
+              aria-label="Feedback message"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               required
