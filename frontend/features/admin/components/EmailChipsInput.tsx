@@ -4,7 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { clsx } from 'clsx'
 import { WarningCircleIcon, XIcon } from '@/lib/icons'
 import { inputClasses } from '@/components/ui/Input'
-import { parseEmails } from '@/features/admin/lib/parseEmails'
+import { parseEmails, classifyEmail } from '@/features/admin/lib/parseEmails'
 
 export interface EmailChipsBreakdown {
   /** Valid emails that are NOT already invited — the ones the parent should actually send. */
@@ -54,9 +54,9 @@ export default function EmailChipsInput({
   const chips: Chip[] = useMemo(
     () =>
       emails.map((email) => {
-        const parsed = parseEmails(email)
-        const isValid = parsed.valid.length === 1
-        if (!isValid) return { email, kind: 'invalid' as const }
+        // `emails` holds already-tokenized single addresses, so a direct regex check is enough
+        // (no need to re-split via parseEmails).
+        if (!classifyEmail(email)) return { email, kind: 'invalid' as const }
         if (invitedSet.has(email)) return { email, kind: 'invited' as const }
         return { email, kind: 'valid' as const }
       }),
@@ -73,8 +73,7 @@ export default function EmailChipsInput({
     const invalid: string[] = []
     const alreadyInvitedOut: string[] = []
     for (const email of emails) {
-      const parsed = parseEmails(email)
-      if (parsed.valid.length !== 1) invalid.push(email)
+      if (!classifyEmail(email)) invalid.push(email)
       else if (invitedSet.has(email)) alreadyInvitedOut.push(email)
       else toInvite.push(email)
     }
