@@ -10,7 +10,7 @@ from app.database import get_db
 from app.models import User, Subscription
 from app.routers.auth import get_current_user
 from app.config import settings
-from app.services.posthog_client import capture_event
+from app.services.posthog_client import EVENT_TRIAL_STARTED, capture_event
 from app.services import subscription_sync
 from app.services.entitlements import get_plan
 from app.services.subscription_service import (
@@ -291,7 +291,7 @@ async def stripe_webhook(
                     if user:
                         capture_event(
                             str(user.id),
-                            "trial_started",
+                            EVENT_TRIAL_STARTED,
                             {"source": "stripe", "trial_end": obj.get("trial_end")},
                         )
                 except Exception:

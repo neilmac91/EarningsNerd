@@ -35,6 +35,17 @@ from app.services.refresh_token_service import (
     RefreshTokenError,
     RefreshTokenReuseError,
 )
+from app.services.posthog_client import (
+    EVENT_INVITE_REDEEMED,
+    EVENT_SIGNUP_COMPLETED,
+    EVENT_TRIAL_STARTED,
+    capture_event,
+)
+
+try:  # Sentry is an optional dependency (mirrors main.py / users.py); fall back to a no-op.
+    import sentry_sdk
+except ImportError:  # pragma: no cover
+    sentry_sdk = None  # type: ignore[assignment]
 
 router = APIRouter()
 security = HTTPBearer(auto_error=False)
@@ -406,14 +417,13 @@ async def get_current_user(
         )
 
     # Attribute Sentry errors on this request to the authenticated user + beta cohort. Id only —
-    # no email/PII, so send_default_pii=False is respected. No-op if Sentry isn't initialized.
-    try:
-        import sentry_sdk
-
-        sentry_sdk.set_user({"id": str(user.id)})
-        sentry_sdk.set_tag("beta", bool(getattr(user, "is_beta", False)))
-    except Exception:  # pragma: no cover - defensive: monitoring never breaks auth
-        pass
+    # no email/PII, so send_default_pii=False is respected. No-op if Sentry isn't installed/configured.
+    if sentry_sdk is not None:
+        try:
+            sentry_sdk.set_user({"id": str(user.id)})
+            sentry_sdk.set_tag("beta", bool(getattr(user, "is_beta", False)))
+        except Exception:  # pragma: no cover - defensive: monitoring never breaks auth
+            pass
 
     return user
 
@@ -722,13 +732,6 @@ async def register(
     # str(user.id) so it stitches with the frontend, which identifies on String(user.id). No PII
     # (e.g. email) is sent as a property.
     try:
-        from app.services.posthog_client import (
-            EVENT_INVITE_REDEEMED,
-            EVENT_SIGNUP_COMPLETED,
-            EVENT_TRIAL_STARTED,
-            capture_event,
-        )
-
         if redeemed:
             capture_event(
                 str(user.id), EVENT_INVITE_REDEEMED, {"email_bound": invite.email is not None}

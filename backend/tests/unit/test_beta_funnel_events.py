@@ -41,14 +41,15 @@ def invite_only(monkeypatch):
 
 @pytest.fixture
 def captured_events(monkeypatch):
-    """Spy on posthog_client.capture_event. register() does a local import of capture_event, so it
-    resolves the patched module attribute at call time."""
+    """Spy on capture_event. auth.py imports capture_event at module level, so patch the name bound
+    in app.routers.auth (patching app.services.posthog_client would not affect the already-bound
+    reference)."""
     events: list[tuple[str, str, dict]] = []
 
     def _spy(distinct_id, event, properties=None):
         events.append((distinct_id, event, properties or {}))
 
-    monkeypatch.setattr("app.services.posthog_client.capture_event", _spy)
+    monkeypatch.setattr("app.routers.auth.capture_event", _spy)
     return events
 
 
