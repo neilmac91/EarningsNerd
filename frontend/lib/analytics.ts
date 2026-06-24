@@ -47,9 +47,9 @@ export const analytics = {
     safeCapture('signup_started', { source: source || 'direct' })
   },
 
-  signupCompleted: (userId: string, email: string) => {
+  signupCompleted: (userId: string) => {
+    // Identify on the internal id only — no email/PII into PostHog person properties.
     safeIdentify(userId, {
-      email,
       plan: 'free',
       signup_date: new Date().toISOString(),
     })
@@ -63,8 +63,9 @@ export const analytics = {
     safeCapture('signup_submitted')
   },
 
-  loginCompleted: (userId: string, email: string) => {
-    safeIdentify(userId, { email })
+  loginCompleted: (userId: string) => {
+    // Identify on the internal id only — no email/PII into PostHog person properties.
+    safeIdentify(userId)
     safeCapture('login_completed')
   },
 

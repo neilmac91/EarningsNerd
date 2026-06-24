@@ -399,7 +399,7 @@ async def get_current_user(
             algorithms=[settings.ALGORITHM],
             audience=settings.JWT_AUDIENCE,
             issuer=settings.JWT_ISSUER,
-            options={"require": ["exp", "sub", "iat", "iss", "aud"]},
+            options={"require": ["exp", "sub", "iat", "iss", "aud"], "leeway": settings.JWT_LEEWAY_SECONDS},
         )
         email: str = payload.get("sub")
         if email is None:
@@ -448,7 +448,7 @@ async def get_current_user_optional(
             algorithms=[settings.ALGORITHM],
             audience=settings.JWT_AUDIENCE,
             issuer=settings.JWT_ISSUER,
-            options={"require": ["exp", "sub", "iat", "iss", "aud"]},
+            options={"require": ["exp", "sub", "iat", "iss", "aud"], "leeway": settings.JWT_LEEWAY_SECONDS},
         )
         email: str = payload.get("sub")
         if email is None:
@@ -555,6 +555,10 @@ async def _verify_apple_id_token(id_token: str, raw_nonce: str) -> dict:
             algorithms=["RS256"],
             audience=settings.APPLE_CLIENT_ID,
             issuer="https://appleid.apple.com",
+            # Require the claims we rely on to be present (defense-in-depth; the RS256 signature
+            # against Apple's JWKS is the real gate). nonce is additionally checked below. Leeway
+            # absorbs clock skew between Apple's servers and ours, same as our own token decode.
+            options={"require": ["exp", "aud", "iss", "sub", "nonce"], "leeway": settings.JWT_LEEWAY_SECONDS},
         )
     except JWTError as exc:
         raise ValueError(f"Apple id_token invalid: {exc}")

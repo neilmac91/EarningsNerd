@@ -222,12 +222,20 @@ relevant model/migration files (backend).
 
 ### Phase 3 — Hardening & QA
 
-#### Week 7 — Security + full QA sweep
-- [ ] Security audit: invite-token entropy/expiry/replay, promo-abuse (single-use binding), gate
-      bypass attempts, rate limits, no PII in analytics, webhook signature paths.
-- [ ] QA matrix: unit + integration + smoke + E2E green; `pytest tests/`, `npm run test`, `test:e2e`.
-- [ ] Negative tests: public registration blocked in `invite_only`; revoked invite denied.
-- *Owner:* security-auditor + qa-engineer. *Support:* voltagent Penetration Tester (overflow).
+#### Week 7 — Security + full QA sweep — code complete
+- [x] Security audit (4 parallel adversarial audits: invite gate, billing/entitlements, auth/session/
+      secrets/transport, PII/IDOR/data-exposure). **No Critical; no account-takeover or public-free-Pro
+      path.** Full findings + disposition in `tasks/security-audit-week7.md`.
+- [x] Fixed: H1 `REGISTRATION_MODE` fail-open (fail-closed validator), H2 frontend email→PostHog leak,
+      M1 JWT clock-skew leeway (dead config wired), M2 `OAuthAccount` uniqueness (constraint + migration),
+      L1/L2 raw IP/email at INFO, L3 Apple `require`. M3 (XFF spoofing) — shared trusted-proxy
+      `get_client_ip` + `TRUSTED_PROXY_HOPS` knob (default-safe; operator sets it for prod ingress).
+- [x] QA matrix green: backend `691 passed` (unit+smoke+integration+performance) + ruff + bandit `-ll`;
+      frontend typecheck + lint + 173 vitest. E2E covered by CI (green on #412). Invite-gate negative
+      tests (public/missing/invalid/single-use/revoked) already in `test_invite_gate.py`.
+- [x] New regression tests: `test_security_hardening_week7.py` (fail-closed REGISTRATION_MODE, JWT leeway).
+- *Owner:* security-auditor + qa-engineer. *Carried to operator (Week 8):* set `TRUSTED_PROXY_HOPS`,
+      triage 39 Dependabot alerts, add a trial ledger before enabling `REVERSE_TRIAL_ENABLED`.
 
 #### Week 8 — Production config + go-live readiness
 - [ ] Create Stripe **live-mode** coupon/promo; set secrets in Google Secret Manager (Cloud Run).

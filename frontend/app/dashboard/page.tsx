@@ -115,9 +115,9 @@ export default function DashboardPage() {
   }, [user, userLoading, userError, router])
 
   useEffect(() => {
-    if (user?.id && user?.email) {
+    if (user?.id) {
+      // Identify on the internal id only — no email/PII into PostHog person properties.
       analytics.identify(String(user.id), {
-        email: user.email,
         plan: user.is_pro ? 'pro' : 'free',
       })
     }

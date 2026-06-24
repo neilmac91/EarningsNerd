@@ -116,6 +116,13 @@ class Settings(BaseSettings):
     # are configured. Verifies the widget token on register/login/contact/waitlist.
     TURNSTILE_SECRET_KEY: str = ""
 
+    # Number of trusted reverse-proxy hops in front of the app, counted from the RIGHT of
+    # X-Forwarded-For. The closest proxy appends the real client IP as the right-most entry, so on
+    # Cloud Run's direct ingress `1` selects the genuine client. `0` (default) keeps the legacy
+    # left-most behavior, which is CLIENT-SPOOFABLE — set this to match your ingress (typically 1 for
+    # direct Cloud Run) so per-IP rate limiting / IP hashing can't be defeated with a forged header.
+    TRUSTED_PROXY_HOPS: int = 0
+
     @field_validator('SECRET_KEY', mode='before')
     @classmethod
     def check_secret_key(cls, v, values):
@@ -128,6 +135,27 @@ class Settings(BaseSettings):
         if not v:
             raise ValueError("SECRET_KEY must be set.")
         return v
+
+    @field_validator('REGISTRATION_MODE', mode='before')
+    @classmethod
+    def _normalize_registration_mode(cls, v):
+        """Fail CLOSED on a misconfigured invite gate. The gate triggers only on an exact
+        ``== "invite_only"`` match, so a near-miss (case, a trailing space from Secret Manager, a
+        hyphen) would silently fall through to OPEN public registration — the exact outcome the
+        closed beta exists to prevent. Normalize case/whitespace, and REJECT anything that isn't a
+        known mode so a typo crashes startup (the old, healthy revision keeps serving) instead of
+        quietly exposing signup. An explicitly empty/unset value is the documented ``public``
+        default, not a typo."""
+        if v is None or (isinstance(v, str) and v.strip() == ""):
+            return "public"
+        if isinstance(v, str):
+            normalized = v.strip().lower()
+            if normalized in {"public", "invite_only"}:
+                return normalized
+        raise ValueError(
+            f"REGISTRATION_MODE must be 'public' or 'invite_only', got {v!r}. Refusing to start "
+            "with an ambiguous value because it would silently open public registration."
+        )
 
     @field_validator('STRIPE_BETA_PROMO_CODE_ID', mode='before')
     @classmethod

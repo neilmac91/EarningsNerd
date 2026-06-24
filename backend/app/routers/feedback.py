@@ -22,6 +22,7 @@ from app.models.feedback import Feedback
 from app.routers.auth import get_current_user
 from app.schemas.feedback import FeedbackCreate, FeedbackResponse
 from app.services.posthog_client import capture_event
+from app.services.rate_limiter import get_client_ip
 from app.services.resend_service import send_email
 
 router = APIRouter()
@@ -43,10 +44,7 @@ def _hash_ip(ip: str) -> str:
 
 
 def _client_ip(request: Request) -> str:
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    return get_client_ip(request)
 
 
 def _rate_limited(user_id: int) -> bool:
