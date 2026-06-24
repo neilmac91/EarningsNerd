@@ -133,17 +133,23 @@ relevant model/migration files (backend).
       are applied yet, the $0→Pro entitlement invariant, and the `promo_…` id validator.
 - *Owner:* backend-developer. *Verify:* run the **local promo verification checklist** (below).
 
-#### Week 2 — Invite gate (server-side) + magic-link issuance
-- [ ] `InviteCode` model + manual SQL migration in `migrations/` (matches no-Alembic convention).
-- [ ] `auth.register` gate: when `REGISTRATION_MODE=invite_only`, require a valid, unexpired,
-      unused invite token (bound email optional); preserve the existing opaque-response anti-enumeration.
-- [ ] `send_invite_email()` (Resend) + hashed-JWT invite token (mirror email-verify pattern).
-- [ ] Admin endpoints: `POST /api/admin/invites` (mint, returns magic link), `GET`/`revoke`.
-- [ ] Apply the 100%-off promo at checkout (`discounts=[{"promotion_code": STRIPE_BETA_PROMO_CODE_ID}]`),
-      gated on the user's invite/beta eligibility **server-side** (never a client param); pairs with the
-      W1 `if_required` lever → $0, no card. Mutually exclusive with `allow_promotion_codes`.
-- [ ] Unit + integration tests: gate blocks public, accepts valid invite, rejects expired/used.
+#### Week 2 — Invite gate (server-side) + magic-link issuance — code complete (backend)
+- [x] `InviteCode` model (`models/invite.py`) + two idempotent SQL migrations (create table; add `is_beta`).
+      Config: `REGISTRATION_MODE` (default `public`) + `INVITE_EXPIRY_HOURS`.
+- [x] `auth.register` gate: when `invite_only`, require a valid/unexpired/unused invite (email-optional
+      binding) → explicit `403` otherwise; runs before account work, rejects uniformly (not an
+      enumeration vector); the email-existence opaque response is preserved on the valid-invite path.
+- [x] `send_invite_email()` (Resend) + **hashed-token-in-DB** invite (SHA-256, mirrors email-verify;
+      not JWT — invites are minted before a user exists). `invite_service.py` mint/validate/redeem.
+- [x] Admin endpoints: `POST /api/admin/invites` (mint→link), `GET /api/admin/invites`, `POST
+      /api/admin/invites/{id}/revoke`.
+- [x] Checkout promo now gated on **server-set `User.is_beta`** (set at redemption, never a client
+      param); pairs with the W1 `if_required` lever → $0, no card.
+- [x] Tests: invite service (mint/validate/redeem + expiry/revoked/used/email-bound), invite gate
+      (public/missing/invalid/single-use/email-match), admin endpoints, checkout discount gating.
+      Local gate green: 607 unit+smoke pass, ruff, bandit `-ll`.
 - *Owner:* database-specialist + backend-developer. *Support:* api-architect, security-auditor (review).
+- *Note:* frontend `/register?invite=` wiring + retiring the `/`→`/waitlist` redirect is **Week 3**.
 
 ### Phase 1 — Onboarding flow end-to-end
 

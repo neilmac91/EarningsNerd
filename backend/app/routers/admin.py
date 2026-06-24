@@ -8,15 +8,18 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr
 from typing import Optional
+from datetime import datetime, timezone
 import logging
 
 from app.config import settings
 from app.database import get_db
-from app.models import Filing, Summary, User, SummaryGenerationProgress, FilingContentCache
+from app.models import Filing, Summary, User, SummaryGenerationProgress, FilingContentCache, InviteCode
 from app.routers.auth import get_current_user
 # EdgarTools migration: Using new edgar module
 from app.services.edgar import clear_xbrl_cache, get_xbrl_cache_stats
 from app.services.resend_service import send_email, ResendError
+from app.services import invite_service
+from app.services.email_service import send_invite_email
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -88,6 +91,109 @@ async def send_test_email(
                 "error": f"{e.__class__.__name__}: {e}",
             },
         )
+
+
+class MintInviteRequest(BaseModel):
+    email: Optional[EmailStr] = None        # optional binding; only this address may redeem
+    expires_in_hours: Optional[int] = None  # defaults to settings.INVITE_EXPIRY_HOURS
+    send_email: bool = False                # if True and email is set, also email the magic link
+
+
+class InviteResponse(BaseModel):
+    id: int
+    email: Optional[str]
+    invite_link: str
+    expires_at: datetime
+    emailed: bool
+
+
+def _invite_status(invite: InviteCode) -> str:
+    if invite.is_revoked:
+        return "revoked"
+    if invite.used_at is not None:
+        return "used"
+    exp = invite.expires_at
+    if exp is not None:
+        if exp.tzinfo is None:
+            exp = exp.replace(tzinfo=timezone.utc)
+        if exp < datetime.now(timezone.utc):
+            return "expired"
+    return "pending"
+
+
+@router.post("/invites", response_model=InviteResponse)
+async def mint_invite(
+    payload: MintInviteRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Admin-only: mint a single-use beta invite and return its magic link (shown once).
+
+    The raw token is embedded in ``invite_link`` and never persisted (only its hash is stored).
+    When ``send_email`` is set and an ``email`` is given, the link is also emailed best-effort.
+    """
+    _require_admin(current_user)
+    invite, _raw, link = invite_service.mint_invite(
+        db,
+        created_by=current_user.id,
+        email=payload.email,
+        expires_in_hours=payload.expires_in_hours,
+    )
+    emailed = False
+    if payload.send_email and payload.email:
+        try:
+            await send_invite_email(to_email=payload.email, magic_link=link)
+            emailed = True
+        except Exception:
+            logger.warning("Failed to send invite email to %s", payload.email, exc_info=True)
+    return InviteResponse(
+        id=invite.id,
+        email=invite.email,
+        invite_link=link,
+        expires_at=invite.expires_at,
+        emailed=emailed,
+    )
+
+
+@router.get("/invites")
+async def list_invites(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Admin-only: list recent invites with derived status (pending/used/revoked/expired)."""
+    _require_admin(current_user)
+    rows = db.query(InviteCode).order_by(InviteCode.created_at.desc()).limit(200).all()
+    return {
+        "invites": [
+            {
+                "id": r.id,
+                "email": r.email,
+                "status": _invite_status(r),
+                "expires_at": r.expires_at,
+                "used_at": r.used_at,
+                "user_id": r.user_id,
+                "created_at": r.created_at,
+            }
+            for r in rows
+        ]
+    }
+
+
+@router.post("/invites/{invite_id}/revoke")
+async def revoke_invite(
+    invite_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Admin-only: revoke an unused invite so its link can no longer be redeemed."""
+    _require_admin(current_user)
+    invite = db.query(InviteCode).filter(InviteCode.id == invite_id).first()
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invite not found")
+    invite.is_revoked = True
+    db.commit()
+    logger.info("Admin %s revoked invite %s", current_user.id, invite_id)
+    return {"message": "Invite revoked", "invite_id": invite_id, "status": _invite_status(invite)}
 
 
 @router.delete("/filing/{filing_id}/summary")

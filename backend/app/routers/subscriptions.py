@@ -171,9 +171,13 @@ async def create_checkout_session(
                 "billing_cycle": billing_cycle,
             },
         }
-        # The 100%-off beta promo (discounts=[{"promotion_code": STRIPE_BETA_PROMO_CODE_ID}]) is
-        # applied in the Week 2 invite flow, gated on the user's beta eligibility server-side — never
-        # from a client parameter — so no authenticated user can self-grant free Pro here.
+        # Closed-beta eligibility is set server-side at invite redemption (User.is_beta), never from a
+        # request parameter — so no authenticated user can self-grant Pro. For a beta user, pre-apply
+        # the 100%-off promo: the amount due is $0 and, with payment_method_collection="if_required"
+        # above, no card is collected. Mutually exclusive with allow_promotion_codes (which we don't
+        # set), so Stripe never 400s on conflicting discount params.
+        if getattr(current_user, "is_beta", False) and settings.STRIPE_BETA_PROMO_CODE_ID:
+            session_kwargs["discounts"] = [{"promotion_code": settings.STRIPE_BETA_PROMO_CODE_ID}]
 
         checkout_session = stripe.checkout.Session.create(**session_kwargs)
 

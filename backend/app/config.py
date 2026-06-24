@@ -53,6 +53,12 @@ class Settings(BaseSettings):
     REVERSE_TRIAL_ENABLED: bool = False
     REVERSE_TRIAL_DAYS: int = 7
 
+    # Closed-beta invite gate. When REGISTRATION_MODE="invite_only", /api/auth/register requires a
+    # valid, unexpired, unused InviteCode token; "public" (default) keeps registration open so no
+    # behavior changes until prod flips it. Invite magic links expire after INVITE_EXPIRY_HOURS.
+    REGISTRATION_MODE: str = "public"
+    INVITE_EXPIRY_HOURS: int = 168  # 7 days
+
     # Shared secret for token-gated internal job endpoints (e.g. Cloud Scheduler → /internal/jobs/*).
     # Unset disables those endpoints (they 503). Set to a long random string in prod.
     INTERNAL_JOB_TOKEN: str = ""
