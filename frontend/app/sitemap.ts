@@ -37,6 +37,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   try {
     const res = await fetch(`${getBackendUrl()}/sitemap.xml`, {
       next: { revalidate: 3600 },
+      // Cap the fetch well under Vercel's 60s per-route export limit. A cold backend container can
+      // make /sitemap.xml slow, and a hanging fetch never throws — so without this the production
+      // build (which prerenders this route) blocks for 60s and aborts. On timeout we fall through to
+      // the static core routes below: a degraded sitemap, but a successful deploy (ISR refills it
+      // hourly once the backend is warm).
+      signal: AbortSignal.timeout(20000),
     })
     if (!res.ok) return STATIC_ENTRIES
 
