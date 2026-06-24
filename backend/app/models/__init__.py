@@ -11,6 +11,7 @@ from app.models.refresh_token import RefreshToken
 from app.models.subscription import Subscription, StripeEvent, ACTIVE_STATUSES
 from app.models.notifications import NotificationPreferences, NotificationLog
 from app.models.financial_fact import FinancialFact
+from app.models.invite import InviteCode
 
 logger = logging.getLogger(__name__)
 
@@ -26,6 +27,9 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_pro = Column(Boolean, default=False)
     is_admin = Column(Boolean, default=False)
+    # Closed-beta cohort flag, set server-side when a user registers with a valid invite. Drives the
+    # 100%-off promo at checkout (so eligibility never depends on a client-supplied parameter).
+    is_beta = Column(Boolean, default=False, nullable=False)
     stripe_customer_id = Column(String, nullable=True)
     stripe_subscription_id = Column(String, nullable=True)
     # Email verification (store SHA-256 hash of token, never the raw token)
@@ -254,6 +258,7 @@ __all__ = [
     "ContactSubmission",
     "Filing",
     "FilingContentCache",
+    "InviteCode",
     "NotificationLog",
     "NotificationPreferences",
     "OAuthAccount",

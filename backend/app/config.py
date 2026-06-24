@@ -40,11 +40,24 @@ class Settings(BaseSettings):
     # MUST be set via environment variables - no defaults to fail obviously if misconfigured
     STRIPE_PRICE_MONTHLY_ID: str = ""
     STRIPE_PRICE_YEARLY_ID: str = ""
+    # Closed-beta 100%-off access. The id of a Stripe *Promotion Code* (promo_…), backed by a
+    # 100%-off, duration=forever Coupon. Consumed by the Week 2 invite flow, which applies it via
+    # `discounts` gated on the user's beta eligibility server-side (never a client param); paired with
+    # the checkout's payment_method_collection="if_required" the amount due is $0 and no card is
+    # collected. Unset by default (feature off). Create per Stripe mode (test then live); store the
+    # test id in dev, the live id via Secret Manager in prod.
+    STRIPE_BETA_PROMO_CODE_ID: str = ""
 
     # Reverse trial: grant full Pro for N days, no card, on signup. Defaults OFF (rollout strategy
     # enables features per-environment via flags). When on, registration starts a `trialing` sub.
     REVERSE_TRIAL_ENABLED: bool = False
     REVERSE_TRIAL_DAYS: int = 7
+
+    # Closed-beta invite gate. When REGISTRATION_MODE="invite_only", /api/auth/register requires a
+    # valid, unexpired, unused InviteCode token; "public" (default) keeps registration open so no
+    # behavior changes until prod flips it. Invite magic links expire after INVITE_EXPIRY_HOURS.
+    REGISTRATION_MODE: str = "public"
+    INVITE_EXPIRY_HOURS: int = 168  # 7 days
 
     # Shared secret for token-gated internal job endpoints (e.g. Cloud Scheduler → /internal/jobs/*).
     # Unset disables those endpoints (they 503). Set to a long random string in prod.
@@ -114,6 +127,23 @@ class Settings(BaseSettings):
             )
         if not v:
             raise ValueError("SECRET_KEY must be set.")
+        return v
+
+    @field_validator('STRIPE_BETA_PROMO_CODE_ID', mode='before')
+    @classmethod
+    def _check_beta_promo_id(cls, v):
+        """Fail fast on the easy misconfiguration of pasting a Coupon id ('co_…') or the
+        human-readable promotion *code* in place of the Promotion Code *id* ('promo_…'). Stripe's
+        checkout ``discounts`` param requires the ``promo_`` id and 400s otherwise. Empty disables
+        the beta promo (the default)."""
+        if isinstance(v, str):
+            v = v.strip()
+            if v and not v.startswith("promo_"):
+                raise ValueError(
+                    "STRIPE_BETA_PROMO_CODE_ID must be a Stripe Promotion Code id starting with "
+                    "'promo_' (not a coupon id 'co_…' nor the human-readable code). Leave it empty "
+                    "to disable the beta promo."
+                )
         return v
 
     @field_validator('RESEND_FROM_EMAIL', mode='before')

@@ -175,6 +175,35 @@ async def send_verification_email(
     )
 
 
+async def send_invite_email(
+    *,
+    to_email: str,
+    magic_link: str,
+    name: str | None = None,
+) -> None:
+    """Closed-beta invite: a single-use magic link granting full Pro, no card required."""
+    greeting = f"Hi {name}," if name else "Hi there,"
+    invite_footer = "You're receiving this because you were invited to the EarningsNerd private beta."
+    html_body = f"""
+    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;">You're invited to the EarningsNerd private beta — full Pro access, on us.</p>
+    <p style="margin:0 0 24px;">
+      <a href="{magic_link}" style="display:inline-block;background:#34d399;color:#0b0f14;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px;text-decoration:none;">Accept your invite</a>
+    </p>
+    <p style="margin:0 0 12px;font-size:14px;color:#9ca3af;">This is a single-use invite link. No credit card required.</p>
+    <p style="margin:0;font-size:12px;color:#6b7280;">Can&apos;t click the button? Copy this link:<br>{magic_link}</p>
+    """
+    text_body = (
+        f"{greeting}\n\nYou're invited to the EarningsNerd private beta — full Pro access, on us.\n\n"
+        f"{magic_link}\n\nThis is a single-use invite link. No credit card required."
+    )
+    await send_email(
+        to=[to_email],
+        subject="Your EarningsNerd beta invite",
+        html=f"{_wrap_html(html_body, invite_footer)}<pre style=\"display:none\">{text_body}</pre>",
+    )
+
+
 async def send_password_reset_email(
     *,
     to_email: str,

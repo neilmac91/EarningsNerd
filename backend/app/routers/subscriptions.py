@@ -111,7 +111,13 @@ async def create_checkout_session(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Create Stripe Checkout session for subscription"""
+    """Create Stripe Checkout session for subscription.
+
+    Sets ``payment_method_collection="if_required"`` so the future 100%-off beta path collects no
+    card when the amount due is $0. Applying that promo is deliberately NOT exposed here: it is done
+    server-side in the Week 2 invite flow and gated on the user's beta eligibility, so a client can
+    never self-grant the discount by flipping a request parameter.
+    """
     if not current_user.email_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -145,24 +151,36 @@ async def create_checkout_session(
         # Create checkout session
         frontend_url = settings.CORS_ORIGINS[0] if settings.CORS_ORIGINS else 'http://localhost:3000'
         billing_cycle = "monthly" if price_id == settings.STRIPE_PRICE_MONTHLY_ID else "yearly"
-        checkout_session = stripe.checkout.Session.create(
-            customer=customer.id,
-            payment_method_types=["card"],
-            line_items=[{
+        session_kwargs = {
+            "customer": customer.id,
+            "payment_method_types": ["card"],
+            "line_items": [{
                 "price": price_id,
                 "quantity": 1,
             }],
-            mode="subscription",
-            success_url=f"{frontend_url}/dashboard?success=true",
-            cancel_url=f"{frontend_url}/pricing?canceled=true",
-            metadata={
+            "mode": "subscription",
+            # Skip card collection when the amount due is $0 (the future 100%-off beta path). Stripe
+            # still requires a card for any non-zero subscription, so paying customers are unaffected.
+            "payment_method_collection": "if_required",
+            "success_url": f"{frontend_url}/dashboard?success=true",
+            "cancel_url": f"{frontend_url}/pricing?canceled=true",
+            "metadata": {
                 "user_id": str(current_user.id),
                 "plan": "pro",
                 "price_id": price_id,
                 "billing_cycle": billing_cycle,
             },
-        )
-        
+        }
+        # Closed-beta eligibility is set server-side at invite redemption (User.is_beta), never from a
+        # request parameter — so no authenticated user can self-grant Pro. For a beta user, pre-apply
+        # the 100%-off promo: the amount due is $0 and, with payment_method_collection="if_required"
+        # above, no card is collected. Mutually exclusive with allow_promotion_codes (which we don't
+        # set), so Stripe never 400s on conflicting discount params.
+        if getattr(current_user, "is_beta", False) and settings.STRIPE_BETA_PROMO_CODE_ID:
+            session_kwargs["discounts"] = [{"promotion_code": settings.STRIPE_BETA_PROMO_CODE_ID}]
+
+        checkout_session = stripe.checkout.Session.create(**session_kwargs)
+
         return {"url": checkout_session.url}
     except stripe.error.StripeError as e:
         raise HTTPException(

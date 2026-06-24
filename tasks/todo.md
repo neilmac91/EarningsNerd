@@ -119,34 +119,60 @@ relevant model/migration files (backend).
 
 ### Phase 0 — Stripe + Invite-Gate foundations
 
-#### Week 1 — Stripe 100%-off scaffolding (test mode)
+#### Week 1 — Stripe 100%-off scaffolding (test mode) — code complete
 - [ ] Create Stripe **test-mode** Coupon (`percent_off=100, duration=forever`) + Promotion Code; record ids.
-- [ ] Add config: `STRIPE_BETA_PROMO_CODE_ID`, `REGISTRATION_MODE`, `INVITE_EXPIRY_HOURS`, `FEEDBACK_ENABLED`.
-- [ ] `subscriptions.py`: add `payment_method_collection="if_required"`; set the promo
-      **conditionally** — `discounts=[{"promotion_code": id}]` for the magic-link path **else**
-      `allow_promotion_codes=True` (Stripe 400s if both are sent together).
-- [ ] Confirm (no code change) that a $0 `active` sub → Pro via `entitlements.get_plan`.
-- [ ] Unit tests: checkout params asserted; webhook maps $0 sub → `is_pro=True`.
+      *(manual Stripe Dashboard step — then set `STRIPE_BETA_PROMO_CODE_ID` to the promo id.)*
+- [x] Add config `STRIPE_BETA_PROMO_CODE_ID` + a Pydantic validator (must be a `promo_…` Promotion
+      Code id, not a `co_…` coupon id). *(`REGISTRATION_MODE` / `INVITE_EXPIRY_HOURS` / `FEEDBACK_ENABLED`
+      deferred to W2 / W5 to avoid dead config.)*
+- [x] `subscriptions.py`: add `payment_method_collection="if_required"` (no-card lever; no change for
+      paid checkouts). **Promo application deferred to Week 2**, gated on the user's invite/beta
+      eligibility server-side — never a client param (closes a self-grant hole flagged in review).
+- [x] Confirm $0 `active` sub → Pro via `entitlements` (status-only, no amount floor) — covered by test.
+- [x] Unit tests: `tests/unit/test_checkout_session.py` asserts `if_required`, that no promo params
+      are applied yet, the $0→Pro entitlement invariant, and the `promo_…` id validator.
 - *Owner:* backend-developer. *Verify:* run the **local promo verification checklist** (below).
 
-#### Week 2 — Invite gate (server-side) + magic-link issuance
-- [ ] `InviteCode` model + manual SQL migration in `migrations/` (matches no-Alembic convention).
-- [ ] `auth.register` gate: when `REGISTRATION_MODE=invite_only`, require a valid, unexpired,
-      unused invite token (bound email optional); preserve the existing opaque-response anti-enumeration.
-- [ ] `send_invite_email()` (Resend) + hashed-JWT invite token (mirror email-verify pattern).
-- [ ] Admin endpoints: `POST /api/admin/invites` (mint, returns magic link), `GET`/`revoke`.
-- [ ] Unit + integration tests: gate blocks public, accepts valid invite, rejects expired/used.
+#### Week 2 — Invite gate (server-side) + magic-link issuance — code complete (backend)
+- [x] `InviteCode` model (`models/invite.py`) + two idempotent SQL migrations (create table; add `is_beta`).
+      Config: `REGISTRATION_MODE` (default `public`) + `INVITE_EXPIRY_HOURS`.
+- [x] `auth.register` gate: when `invite_only`, require a valid/unexpired/unused invite (email-optional
+      binding) → explicit `403` otherwise; runs before account work, rejects uniformly (not an
+      enumeration vector); the email-existence opaque response is preserved on the valid-invite path.
+- [x] `send_invite_email()` (Resend) + **hashed-token-in-DB** invite (SHA-256, mirrors email-verify;
+      not JWT — invites are minted before a user exists). `invite_service.py` mint/validate/redeem.
+- [x] Admin endpoints: `POST /api/admin/invites` (mint→link), `GET /api/admin/invites`, `POST
+      /api/admin/invites/{id}/revoke`.
+- [x] Checkout promo now gated on **server-set `User.is_beta`** (set at redemption, never a client
+      param); pairs with the W1 `if_required` lever → $0, no card.
+- [x] Tests: invite service (mint/validate/redeem + expiry/revoked/used/email-bound), invite gate
+      (public/missing/invalid/single-use/email-match), admin endpoints, checkout discount gating.
+      Local gate green: 607 unit+smoke pass, ruff, bandit `-ll`.
 - *Owner:* database-specialist + backend-developer. *Support:* api-architect, security-auditor (review).
+- *Note:* frontend `/register?invite=` wiring + retiring the `/`→`/waitlist` redirect is **Week 3**.
 
 ### Phase 1 — Onboarding flow end-to-end
 
-#### Week 3 — Frontend invite + register UX
-- [ ] `/register` reads `?invite=<token>`, validates, pre-fills, surfaces clear "invite required" states.
-- [ ] Retire `/`→`/waitlist` redirect in `middleware.ts`; public marketing stays public, `/register`
-      requires invite. Keep demo surfaces (`/company`, `/filing`) open.
-- [ ] Post-verify redirect chains into Checkout with promo **pre-applied** (magic-link path).
-- [ ] Design-system compliance (sage/slate, both themes), accessibility pass.
+#### Week 3 — Frontend invite + register UX — code complete (core)
+- [x] `/register` reads `?invite=<token>` (Suspense + `useSearchParams`), routes invited users
+      straight to the email flow and **hides social signup** (which bypasses the invite gate), shows a
+      brand-tinted "you're invited" notice, and passes the token to `register()`. The backend enforces
+      validity, so an invalid invite surfaces a clear error.
+- [~] Retire `/`→`/waitlist` redirect: **no code change** — it's already env-gated
+      (`WAITLIST_MODE !== 'false'`) and `/register` is already allowed, so an invited friend reaches
+      it today. "Retiring" it is the deliberate `WAITLIST_MODE=false` env flip at launch (**Week 8**);
+      doing it in code now would prematurely expose the marketing site.
+- [~] Post-verify → checkout chain: **deferred to launch polish** — the promo auto-applies for
+      `is_beta` at checkout (W2), so the explicit chain is optional. (Needs `is_beta` surfaced to the
+      client; pairs with a "Claim your free Pro" CTA — Week 9.)
+- [x] Design-system compliance: brand-tinted notice, theme-paired tokens, explicit heading colors;
+      typecheck + lint + 173 unit tests + `next build` all green. Visual both-theme check on the Vercel
+      preview is the final gate.
 - *Owner:* frontend-developer. *Support:* ui-designer, accessibility-champion, brand-guardian.
+- *Decision (2026-06-24):* the gate is on `/api/auth/register` only — OAuth (Google/Apple) signup
+      bypasses it, so the public can create *free-tier* accounts in `invite_only` mode (never free Pro —
+      that needs a redeemed invite). **Accepted for the friends-&-family beta; revisit before any
+      broader/public launch** (then block new-account OAuth signup in `invite_only`).
 
 #### Week 4 — Full path integration + verification
 - [ ] Wire magic-link → invite-gate → email-verify → $0 Checkout → webhook → Pro, end to end.

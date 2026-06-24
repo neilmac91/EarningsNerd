@@ -105,6 +105,8 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
     full_name: Optional[str] = None
+    # Closed-beta magic-link token. Required only when REGISTRATION_MODE="invite_only".
+    invite_code: Optional[str] = None
 
     @field_validator("email")
     @classmethod
@@ -627,6 +629,20 @@ async def register(
     )
     await enforce_turnstile(request)  # no-op unless Turnstile is configured
 
+    # Closed-beta gate. When invite-only, require a valid, unexpired, unused invite BEFORE any
+    # account work. It rejects uniformly regardless of email, so it is not an enumeration vector;
+    # the email-existence anti-enumeration (opaque response + bcrypt timing) is preserved below for
+    # the valid-invite path. In "public" mode the invite is ignored and nothing changes.
+    invite = None
+    if settings.REGISTRATION_MODE == "invite_only":
+        from app.services.invite_service import validate_invite
+        invite = validate_invite(db, user_data.invite_code, user_data.email)
+        if invite is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="A valid invite is required to register.",
+            )
+
     # Reject breached passwords (HaveIBeenPwned, k-anonymity). Independent of email existence so
     # it isn't an enumeration vector; fails open if HIBP is unreachable.
     if await is_password_pwned(user_data.password):
@@ -659,6 +675,19 @@ async def register(
         # Lost a concurrent-create race for the same email — stay opaque (treat as existing).
         db.rollback()
         return _REGISTER_OPAQUE
+
+    # Closed beta: consume the (already-validated) single-use invite and tag the user beta-eligible,
+    # so the 100%-off promo applies at checkout. Done after creation so a failed insert never burns
+    # an invite; best-effort on the rare lost race (the account still exists, just not beta).
+    if invite is not None:
+        try:
+            from app.services.invite_service import redeem_invite
+            if redeem_invite(db, invite, user):
+                user.is_beta = True
+                db.commit()
+        except Exception:
+            db.rollback()
+            logger.warning("Invite redemption failed for user %s", user.id, exc_info=True)
 
     # Reverse trial: optionally grant full Pro for a few days, no card required. Behind a flag
     # (default off) and best-effort — a trial-grant failure must never break account creation.
