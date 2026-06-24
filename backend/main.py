@@ -81,12 +81,6 @@ async def lifespan(app: FastAPI):
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, lambda: Base.metadata.create_all(bind=engine))
 
-    # Apply hand-written SQL migrations (Postgres only). create_all() above creates missing TABLES
-    # from the ORM models but never ALTERs existing ones, so column/index changes to existing tables
-    # (e.g. users.is_beta) would otherwise never reach an existing prod DB on deploy. No-op on SQLite.
-    from app.db_migrations import apply_pending_migrations
-    await loop.run_in_executor(None, lambda: apply_pending_migrations(engine))
-
     # Validate database connection at startup
     from sqlalchemy import text
 
