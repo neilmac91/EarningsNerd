@@ -1,6 +1,5 @@
 import { Metadata } from 'next'
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function generateMetadata(_props: { params: { id: string } }): Promise<Metadata> {
   // In a real app, you'd fetch filing data here
   return {
