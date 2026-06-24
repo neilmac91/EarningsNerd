@@ -71,7 +71,7 @@ class FilingResponse(BaseModel):
 
 def _summarized_filing_ids(db: Session, filings: List[Filing]) -> set:
     """Return the subset of `filings` ids that already have a Summary row — in a single query."""
-    ids = [f.id for f in filings if getattr(f, "id", None)]
+    ids = [f.id for f in filings if f.id is not None]
     if not ids:
         return set()
     return {

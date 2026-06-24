@@ -116,6 +116,13 @@ export default function AdminInvitesPage() {
 
   const handleMint = async () => {
     const emails = parseEmails(emailsRaw)
+    // Cap a single batch so an accidental giant paste can't fan out into hundreds of concurrent
+    // requests (browser/server overload, provider rate limits). 50 is ample for a closed beta.
+    const MAX_BATCH = 50
+    if (emails.length > MAX_BATCH) {
+      toast.error(`Mint at most ${MAX_BATCH} invites at once (you entered ${emails.length}).`)
+      return
+    }
     const hours = expiresInHours.trim() ? Number(expiresInHours) : undefined
     // Backend expires_in_hours is an int — reject fractional/zero/negative here so a "1.5" doesn't
     // sail past and come back as an unexplained 422 ("N invites failed to mint").
