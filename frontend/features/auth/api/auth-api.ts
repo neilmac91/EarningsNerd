@@ -13,10 +13,11 @@ export const register = async (
   password: string,
   fullName?: string,
   turnstileToken?: string,
+  inviteCode?: string,
 ) => {
   const response = await api.post(
     '/api/auth/register',
-    { email, password, full_name: fullName },
+    { email, password, full_name: fullName, invite_code: inviteCode || undefined },
     turnstileConfig(turnstileToken),
   )
   // Mark the session active so the API client may silently refresh an expired access token

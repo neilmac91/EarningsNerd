@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { register } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
@@ -17,14 +17,21 @@ import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
-export default function RegisterPage() {
+function RegisterContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  // Closed-beta magic link: /register?invite=<token>. Present → route the user straight to the
+  // email flow (the invite is redeemed only by the email/password register endpoint; social signup
+  // would bypass the gate), and pass the token through to the backend, which enforces it.
+  const inviteToken = searchParams.get('invite') ?? ''
+  const isInvited = inviteToken.length > 0
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [fullName, setFullName] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [showEmail, setShowEmail] = useState(false)
+  const [showEmail, setShowEmail] = useState(isInvited)
   const [turnstileToken, setTurnstileToken] = useState('')
 
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? ''
@@ -33,13 +40,13 @@ export default function RegisterPage() {
     e.preventDefault()
     setError('')
     setLoading(true)
-    analytics.signupStarted('register_page')
+    analytics.signupStarted(isInvited ? 'register_invite' : 'register_page')
 
     try {
       // Verify-first signup: register returns an opaque message and sets no session (so we
       // can't reveal whether the email already existed). The user finishes via the email link
       // or by signing in. Always route to the same "check your email" page.
-      await register(email, password, fullName, turnstileToken)
+      await register(email, password, fullName, turnstileToken, inviteToken)
       analytics.signupSubmitted()
       router.push(`/check-email?email=${encodeURIComponent(email)}`)
     } catch (err: unknown) {
@@ -56,8 +63,21 @@ export default function RegisterPage() {
         Create your account
       </h1>
       <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        5 free AI summaries a month — no credit card required.
+        {isInvited
+          ? 'Finish setting up to unlock full Pro — no credit card required.'
+          : '5 free AI summaries a month — no credit card required.'}
       </p>
+
+      {isInvited && (
+        <div className="mt-6 rounded-xl border border-brand-strong/20 bg-brand-strong/5 p-4 dark:border-brand-strong-dark/25 dark:bg-brand-strong-dark/10">
+          <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
+            🎉 You&apos;re invited to the private beta
+          </p>
+          <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            Your invite unlocks full Pro access. Create your account with the email and password below.
+          </p>
+        </div>
+      )}
 
       {error && (
         <div className="mt-6">
@@ -66,9 +86,14 @@ export default function RegisterPage() {
       )}
 
       <div className="mt-8">
-        <SocialAuthButtons apiBase={apiBase} appleLabel="Sign up with Apple" googleLabel="Sign up with Google" />
-
-        <AuthDivider />
+        {/* Social signup bypasses the invite gate (it doesn't hit /register), so hide it on the
+            invited path and offer only the email flow that redeems the invite. */}
+        {!isInvited && (
+          <>
+            <SocialAuthButtons apiBase={apiBase} appleLabel="Sign up with Apple" googleLabel="Sign up with Google" />
+            <AuthDivider />
+          </>
+        )}
 
         {!showEmail ? (
           <Button
@@ -167,5 +192,13 @@ export default function RegisterPage() {
         </Link>
       </p>
     </AuthShell>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense>
+      <RegisterContent />
+    </Suspense>
   )
 }

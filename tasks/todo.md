@@ -153,13 +153,25 @@ relevant model/migration files (backend).
 
 ### Phase 1 — Onboarding flow end-to-end
 
-#### Week 3 — Frontend invite + register UX
-- [ ] `/register` reads `?invite=<token>`, validates, pre-fills, surfaces clear "invite required" states.
-- [ ] Retire `/`→`/waitlist` redirect in `middleware.ts`; public marketing stays public, `/register`
-      requires invite. Keep demo surfaces (`/company`, `/filing`) open.
-- [ ] Post-verify redirect chains into Checkout with promo **pre-applied** (magic-link path).
-- [ ] Design-system compliance (sage/slate, both themes), accessibility pass.
+#### Week 3 — Frontend invite + register UX — code complete (core)
+- [x] `/register` reads `?invite=<token>` (Suspense + `useSearchParams`), routes invited users
+      straight to the email flow and **hides social signup** (which bypasses the invite gate), shows a
+      brand-tinted "you're invited" notice, and passes the token to `register()`. The backend enforces
+      validity, so an invalid invite surfaces a clear error.
+- [~] Retire `/`→`/waitlist` redirect: **no code change** — it's already env-gated
+      (`WAITLIST_MODE !== 'false'`) and `/register` is already allowed, so an invited friend reaches
+      it today. "Retiring" it is the deliberate `WAITLIST_MODE=false` env flip at launch (**Week 8**);
+      doing it in code now would prematurely expose the marketing site.
+- [~] Post-verify → checkout chain: **deferred to launch polish** — the promo auto-applies for
+      `is_beta` at checkout (W2), so the explicit chain is optional. (Needs `is_beta` surfaced to the
+      client; pairs with a "Claim your free Pro" CTA — Week 9.)
+- [x] Design-system compliance: brand-tinted notice, theme-paired tokens, explicit heading colors;
+      typecheck + lint + 173 unit tests + `next build` all green. Visual both-theme check on the Vercel
+      preview is the final gate.
 - *Owner:* frontend-developer. *Support:* ui-designer, accessibility-champion, brand-guardian.
+- *Follow-up (backend gap):* in `invite_only` mode the gate is on `/api/auth/register` only — **OAuth
+      (Google/Apple) signup bypasses it**, letting the public create free-tier accounts (no `is_beta`,
+      so no free Pro). Decide: block new-account OAuth signup in `invite_only`, or accept it for beta.
 
 #### Week 4 — Full path integration + verification
 - [ ] Wire magic-link → invite-gate → email-verify → $0 Checkout → webhook → Pro, end to end.
