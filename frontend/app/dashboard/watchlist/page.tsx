@@ -11,6 +11,7 @@ import { getWatchlistInsights, WatchlistInsight } from '@/features/watchlist/api
 import SecondaryHeader from '@/components/SecondaryHeader'
 import StateCard from '@/components/StateCard'
 import WatchlistAddSearch from '@/components/watchlist/WatchlistAddSearch'
+import { ENABLE_COMPARE } from '@/lib/featureFlags'
 
 function useAuthGate() {
   const router = useRouter()
@@ -97,13 +98,15 @@ export default function WatchlistDashboardPage() {
         backHref="/dashboard"
         backLabel="Back to dashboard"
         actions={
-          <Link
-            href="/compare"
-            className="inline-flex items-center rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2 text-sm font-semibold transition-colors"
-          >
-            <SparkleIcon className="h-4 w-4 mr-2" />
-            Compare filings
-          </Link>
+          ENABLE_COMPARE ? (
+            <Link
+              href="/compare"
+              className="inline-flex items-center rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2 text-sm font-semibold transition-colors"
+            >
+              <SparkleIcon className="h-4 w-4 mr-2" />
+              Compare filings
+            </Link>
+          ) : undefined
         }
       />
 

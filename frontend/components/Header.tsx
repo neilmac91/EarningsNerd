@@ -10,13 +10,14 @@ import UserMenu from '@/components/UserMenu'
 import NotificationBell from '@/components/NotificationBell'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { getCurrentUserSafe, logout } from '@/features/auth/api/auth-api'
+import { ENABLE_COMPARE } from '@/lib/featureFlags'
 
 const NAV_LINKS = [
   { href: '/search', label: 'Search' },
-  { href: '/compare', label: 'Compare' },
+  ...(ENABLE_COMPARE ? [{ href: '/compare', label: 'Compare' }] : []),
   { href: '/pricing', label: 'Pricing' },
   { href: '/contact', label: 'Contact' },
-] as const
+]
 
 const MOBILE_USER_LINKS = [
   { href: '/dashboard', label: 'Dashboard' },

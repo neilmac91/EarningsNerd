@@ -483,6 +483,7 @@ NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS=true|false
 NEXT_PUBLIC_ENABLE_SECTION_TABS=true|false
 NEXT_PUBLIC_ENABLE_CALENDAR=true|false             # Earnings calendar (requires FMP_API_KEY)
 NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY=true|false     # Form 4 insider activity panel
+NEXT_PUBLIC_ENABLE_COMPARE=true|false              # Multi-filing Compare (off: nav/CTA hidden + /compare routes 404)
 NEXT_PUBLIC_REQUIRE_AUTH_FOR_SUMMARY=true|false    # Gate summary generation behind auth
 WAITLIST_MODE=...                                  # Server-side waitlist gating (not NEXT_PUBLIC_)
 ```
