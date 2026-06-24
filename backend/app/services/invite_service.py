@@ -46,6 +46,7 @@ def mint_invite(
     created_by: Optional[int],
     email: Optional[str] = None,
     expires_in_hours: Optional[int] = None,
+    cohort: Optional[str] = None,
 ) -> tuple[InviteCode, str, str]:
     """Create an invite and return (row, raw_token, magic_link). The raw token is shown once."""
     raw = secrets.token_urlsafe(32)
@@ -53,6 +54,7 @@ def mint_invite(
     invite = InviteCode(
         code_hash=_hash_token(raw),
         email=(email.strip().lower() if email else None),
+        cohort=((cohort.strip() or None) if cohort else None),
         expires_at=_now() + timedelta(hours=hours),
         created_by=created_by,
     )

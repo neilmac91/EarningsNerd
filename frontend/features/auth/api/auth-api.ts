@@ -36,7 +36,18 @@ export const login = async (email: string, password: string, turnstileToken?: st
   return response.data
 }
 
-export const getCurrentUser = async () => {
+/** Shape of GET /api/auth/me. Keep in sync with auth.py get_current_user_info. */
+export interface CurrentUser {
+  id: number
+  email: string
+  full_name: string | null
+  is_pro: boolean
+  is_beta: boolean
+  is_admin: boolean
+  email_verified: boolean
+}
+
+export const getCurrentUser = async (): Promise<CurrentUser> => {
   const response = await api.get('/api/auth/me')
   // A confirmed identity means there's a session — mark it so the client will silently
   // refresh an expired access token. This also covers OAuth redirect logins, where the
@@ -45,7 +56,7 @@ export const getCurrentUser = async () => {
   return response.data
 }
 
-export const getCurrentUserSafe = async () => {
+export const getCurrentUserSafe = async (): Promise<CurrentUser | null> => {
   try {
     return await getCurrentUser()
   } catch (error: unknown) {
