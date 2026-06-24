@@ -52,8 +52,8 @@ function LoginContent() {
       await login(email, password, turnstileToken)
       try {
         const user = await getCurrentUser()
-        if (user?.id && user?.email) {
-          analytics.loginCompleted(String(user.id), user.email)
+        if (user?.id) {
+          analytics.loginCompleted(String(user.id))
         }
       } catch {
         // Ignore analytics errors to avoid blocking login

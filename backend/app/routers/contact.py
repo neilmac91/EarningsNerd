@@ -11,6 +11,7 @@ from app.models import ContactSubmission
 from app.schemas.contact import ContactSubmissionCreate, ContactSubmissionResponse
 from app.services.resend_service import ResendError, send_email
 from app.services.turnstile import enforce_turnstile
+from app.services.rate_limiter import get_client_ip as _trusted_client_ip
 from app.config import settings
 
 router = APIRouter()
@@ -73,11 +74,8 @@ def check_rate_limit(ip_address: str) -> bool:
 
 
 def get_client_ip(request: Request) -> str:
-    """Extract client IP address from request"""
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else "unknown"
+    """Extract client IP address from request (trusted-proxy aware — see rate_limiter)."""
+    return _trusted_client_ip(request)
 
 
 @router.post("/", response_model=ContactSubmissionResponse, status_code=status.HTTP_201_CREATED)
@@ -123,7 +121,7 @@ async def submit_contact_form(
         db.add(db_submission)
         db.commit()
         db.refresh(db_submission)
-        logger.info(f"Contact submission created: ID={db_submission.id}, email={submission.email}")
+        logger.info(f"Contact submission created: ID={db_submission.id}")
     except Exception as e:
         db.rollback()
         logger.error(f"Database error creating contact submission: {str(e)}")
@@ -273,7 +271,7 @@ async def send_contact_notifications(
             subject=user_subject,
             html=user_html,
         )
-        logger.info(f"User confirmation email sent to {submission.email} for submission #{submission_id}")
+        logger.info(f"User confirmation email sent for submission #{submission_id}")
     except ResendError as e:
         logger.error(f"Failed to send user confirmation email: {str(e)}")
         # Don't raise - submission is already saved

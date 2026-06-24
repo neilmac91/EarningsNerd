@@ -220,11 +220,12 @@ class CorrelationIdMiddleware(BaseHTTPMiddleware):
         # Set in context
         set_correlation_id(correlation_id)
 
-        # Set request context for logging
+        # Set request context for logging. NOTE: we deliberately do NOT store the raw client IP
+        # here — it would land in plaintext request logs at INFO. Abuse triage uses the
+        # SECRET_KEY-peppered IP hashes written by the audit/feedback/contact paths instead.
         set_request_context({
             "method": request.method,
             "path": request.url.path,
-            "client_ip": request.client.host if request.client else None,
         })
 
         # Process request

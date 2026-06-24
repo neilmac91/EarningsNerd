@@ -1,5 +1,5 @@
 import logging
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, Float, JSON, event
+from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean, ForeignKey, Float, JSON, event, UniqueConstraint
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -70,6 +70,11 @@ class OAuthAccount(Base):
     """OAuth provider links for a user. One user may link multiple providers
     (Google, Apple), all pointing at the same integer users.id."""
     __tablename__ = "oauth_accounts"
+    __table_args__ = (
+        # One provider identity maps to exactly one app account — enforced at the DB level (not just
+        # in app logic) so concurrent OAuth callbacks for the same provider `sub` can't dup-link.
+        UniqueConstraint("provider", "provider_account_id", name="uq_oauth_provider_account"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
