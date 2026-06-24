@@ -10,7 +10,7 @@ from app.database import get_db
 from app.models import User, Subscription
 from app.routers.auth import get_current_user
 from app.config import settings
-from app.services.posthog_client import capture_event
+from app.services.posthog_client import EVENT_TRIAL_STARTED, capture_event
 from app.services import subscription_sync
 from app.services.entitlements import get_plan
 from app.services.subscription_service import (
@@ -283,6 +283,19 @@ async def stripe_webhook(
 
         elif event_type in ("customer.subscription.created", "customer.subscription.updated"):
             subscription_sync.apply_subscription_upsert(db, obj)
+            # Stripe-native trial start (the reverse-trial path emits this from /register instead).
+            # Only on `created` + `trialing` so an `updated` event never re-fires the funnel step.
+            if event_type == "customer.subscription.created" and obj.get("status") == "trialing":
+                try:
+                    user = subscription_sync._find_user(db, obj.get("id"), obj.get("customer"))
+                    if user:
+                        capture_event(
+                            str(user.id),
+                            EVENT_TRIAL_STARTED,
+                            {"source": "stripe", "trial_end": obj.get("trial_end")},
+                        )
+                except Exception:
+                    pass
 
         elif event_type == "customer.subscription.deleted":
             subscription_sync.apply_subscription_deleted(db, obj)

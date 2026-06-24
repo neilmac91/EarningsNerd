@@ -10,6 +10,13 @@ const nextConfig = {
     // Sentry DSN should be configured via environment variables only (no hardcoded fallback)
     NEXT_PUBLIC_SENTRY_DSN: process.env.NEXT_PUBLIC_SENTRY_DSN || '',
     SENTRY_DSN: process.env.SENTRY_DSN || '',
+    // Sentry release = deployed git SHA, so frontend errors are attributable to an exact build.
+    // Vercel injects VERCEL_GIT_COMMIT_SHA at build time; fall back to an explicit override or ''.
+    NEXT_PUBLIC_SENTRY_RELEASE:
+      process.env.NEXT_PUBLIC_SENTRY_RELEASE || process.env.VERCEL_GIT_COMMIT_SHA || '',
+    // Deploy target (production/preview/development) for Sentry environment tagging.
+    NEXT_PUBLIC_SENTRY_ENVIRONMENT:
+      process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || process.env.VERCEL_ENV || process.env.NODE_ENV || 'development',
     // Feature flags for UI simplification
     // Set to 'true' to enable legacy tabbed UI, 'false' for simplified single-view
     NEXT_PUBLIC_ENABLE_SECTION_TABS: process.env.NEXT_PUBLIC_ENABLE_SECTION_TABS || 'false',

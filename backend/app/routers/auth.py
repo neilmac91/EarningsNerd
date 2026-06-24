@@ -35,6 +35,17 @@ from app.services.refresh_token_service import (
     RefreshTokenError,
     RefreshTokenReuseError,
 )
+from app.services.posthog_client import (
+    EVENT_INVITE_REDEEMED,
+    EVENT_SIGNUP_COMPLETED,
+    EVENT_TRIAL_STARTED,
+    capture_event,
+)
+
+try:  # Sentry is an optional dependency (mirrors main.py / users.py); fall back to a no-op.
+    import sentry_sdk
+except ImportError:  # pragma: no cover
+    sentry_sdk = None  # type: ignore[assignment]
 
 router = APIRouter()
 security = HTTPBearer(auto_error=False)
@@ -404,6 +415,16 @@ async def get_current_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is inactive",
         )
+
+    # Attribute Sentry errors on this request to the authenticated user + beta cohort. Id only —
+    # no email/PII, so send_default_pii=False is respected. No-op if Sentry isn't installed/configured.
+    if sentry_sdk is not None:
+        try:
+            sentry_sdk.set_user({"id": str(user.id)})
+            sentry_sdk.set_tag("beta", bool(getattr(user, "is_beta", False)))
+        except Exception:  # pragma: no cover - defensive: monitoring never breaks auth
+            pass
+
     return user
 
 
@@ -679,29 +700,56 @@ async def register(
     # Closed beta: consume the (already-validated) single-use invite and tag the user beta-eligible,
     # so the 100%-off promo applies at checkout. Done after creation so a failed insert never burns
     # an invite; best-effort on the rare lost race (the account still exists, just not beta).
+    redeemed = False
     if invite is not None:
         try:
             from app.services.invite_service import redeem_invite
             if redeem_invite(db, invite, user):
                 user.is_beta = True
                 db.commit()
+                redeemed = True
         except Exception:
             db.rollback()
             logger.warning("Invite redemption failed for user %s", user.id, exc_info=True)
 
     # Reverse trial: optionally grant full Pro for a few days, no card required. Behind a flag
     # (default off) and best-effort — a trial-grant failure must never break account creation.
+    trialed = False
     if settings.REVERSE_TRIAL_ENABLED:
         try:
             from app.services.subscription_sync import start_reverse_trial
             start_reverse_trial(db, user, settings.REVERSE_TRIAL_DAYS)
             db.commit()
+            trialed = True
         except Exception:
             db.rollback()
             logger.warning("Failed to start reverse trial for user %s", user.id, exc_info=True)
 
     await _send_verification_email_safe(db, user)
     audit_service.log_register(db, user.id, user.email, ip_address=_hashed_client_ip(request))
+
+    # Closed-beta activation funnel (best-effort; telemetry must never break registration). Keyed on
+    # str(user.id) so it stitches with the frontend, which identifies on String(user.id). No PII
+    # (e.g. email) is sent as a property.
+    try:
+        if redeemed:
+            capture_event(
+                str(user.id), EVENT_INVITE_REDEEMED, {"email_bound": invite.email is not None}
+            )
+        capture_event(
+            str(user.id),
+            EVENT_SIGNUP_COMPLETED,
+            {"is_beta": bool(user.is_beta), "invited": invite is not None},
+        )
+        if trialed:
+            capture_event(
+                str(user.id),
+                EVENT_TRIAL_STARTED,
+                {"source": "reverse_trial", "days": settings.REVERSE_TRIAL_DAYS},
+            )
+    except Exception:  # pragma: no cover - defensive: telemetry never blocks signup
+        logger.warning("Signup funnel telemetry failed for user %s", user.id, exc_info=True)
+
     return _REGISTER_OPAQUE
 
 

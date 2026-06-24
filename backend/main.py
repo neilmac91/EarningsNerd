@@ -24,6 +24,9 @@ else:
             sentry_sdk.init(
                 dsn=sentry_dsn,
                 environment=os.getenv("ENVIRONMENT", "development"),
+                # Release = deployed git SHA (CI sets SENTRY_RELEASE=$GITHUB_SHA on Cloud Run), so
+                # errors are attributable to an exact revision. None → Sentry's default detection.
+                release=os.getenv("SENTRY_RELEASE") or None,
                 traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
                 profiles_sample_rate=0.1,  # 10% of sampled transactions for profiling
                 integrations=[
