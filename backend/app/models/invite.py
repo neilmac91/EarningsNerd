@@ -20,6 +20,8 @@ class InviteCode(Base):
     code_hash = Column(String(64), unique=True, nullable=False, index=True)
     # Optional binding: when set, only this address may redeem the invite.
     email = Column(String(255), nullable=True, index=True)
+    # Optional cohort label for grouping invites (e.g. a launch wave or partner batch).
+    cohort = Column(String(64), nullable=True, index=True)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     used_at = Column(DateTime(timezone=True), nullable=True, index=True)
     is_revoked = Column(Boolean, default=False, nullable=False)

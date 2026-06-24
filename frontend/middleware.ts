@@ -23,7 +23,7 @@ const ALLOWED_PATHS = new Set([
 const ALLOWED_PREFIXES = ['/_next', '/api', '/public', '/assets', '/company', '/filing']
 
 // Protected routes that require authentication
-const PROTECTED_ROUTES = ['/dashboard', '/profile', '/settings']
+const PROTECTED_ROUTES = ['/dashboard', '/profile', '/settings', '/admin']
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
