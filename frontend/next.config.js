@@ -23,6 +23,16 @@ const nextConfig = {
     // Set to 'true' to show financial charts, 'false' to hide them
     NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS: process.env.NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS || 'false',
   },
+  async headers() {
+    return [
+      {
+        // Single-use invite links arrive as /register?invite=<token>. Suppress the Referer so
+        // the token can't leak to any third-party assets the page loads.
+        source: '/register',
+        headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
+      },
+    ]
+  },
   webpack: (config, { isServer }) => {
     // TODO: Revisit this webpack configuration when Next.js or recharts has better support for lodash.
     // This is a workaround for a known issue with recharts and lodash compatibility.

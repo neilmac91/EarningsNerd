@@ -14,7 +14,9 @@ import logging
 from app.config import settings
 from app.database import get_db
 from app.models import Filing, Summary, User, SummaryGenerationProgress, FilingContentCache, InviteCode
+from app.models.feedback import Feedback
 from app.routers.auth import get_current_user
+from app.schemas.feedback import FeedbackAdminItem, FeedbackStatusUpdate, FeedbackStatus, FeedbackType
 # EdgarTools migration: Using new edgar module
 from app.services.edgar import clear_xbrl_cache, get_xbrl_cache_stats
 from app.services.resend_service import send_email, ResendError
@@ -305,6 +307,90 @@ async def resend_invite(
         cohort=invite.cohort,
         revoked_invite_id=invite_id,
     )
+
+
+def _feedback_item(row: Feedback, user_email: Optional[str]) -> dict:
+    """Shape a Feedback row (+ joined user email) into the admin API item."""
+    return {
+        "id": row.id,
+        "user_id": row.user_id,
+        "user_email": user_email,
+        "type": row.type,
+        "message": row.message,
+        "page_url": row.page_url,
+        "status": row.status,
+        "created_at": row.created_at,
+    }
+
+
+@router.get("/feedback")
+async def list_feedback(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    status: Optional[FeedbackStatus] = None,
+    type: Optional[FeedbackType] = None,
+):
+    """Admin-only: list recent beta feedback (newest first, capped at 200).
+
+    Joins ``users`` so the submitter's email resolves; the LEFT OUTER JOIN keeps rows whose
+    ``user_id`` is null or whose user was deleted (FK is ON DELETE SET NULL). Optional ``status``
+    and ``type`` query params narrow the result when provided.
+    """
+    _require_admin(current_user)
+    query = (
+        db.query(Feedback, User.email)
+        .outerjoin(User, Feedback.user_id == User.id)
+    )
+    if status is not None:
+        query = query.filter(Feedback.status == status)
+    if type is not None:
+        query = query.filter(Feedback.type == type)
+    rows = query.order_by(Feedback.created_at.desc()).limit(200).all()
+    return {"feedback": [_feedback_item(row, email) for row, email in rows]}
+
+
+@router.patch("/feedback/{feedback_id}", response_model=FeedbackAdminItem)
+async def update_feedback_status(
+    feedback_id: int,
+    payload: FeedbackStatusUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Admin-only: transition a feedback row's triage status (new/triaged/resolved).
+
+    Returns the updated row in the same shape as a list item (with the submitter's email
+    re-resolved). An invalid status is rejected with 422 by the schema before this runs.
+    """
+    _require_admin(current_user)
+    feedback = db.query(Feedback).filter(Feedback.id == feedback_id).first()
+    if not feedback:
+        raise HTTPException(status_code=404, detail="Feedback not found")
+
+    new_status = payload.status
+    feedback.status = new_status
+    db.commit()
+    db.refresh(feedback)
+    logger.info("Admin %s set feedback %s status to %s", current_user.id, feedback_id, new_status)
+
+    try:
+        audit_service.create_audit_log(
+            db,
+            action="feedback_status_changed",
+            user_id=current_user.id,
+            user_email=current_user.email,
+            entity_type="feedback",
+            entity_id=str(feedback_id),
+            details={"status": new_status},
+        )
+    except Exception:
+        logger.warning("Failed to write audit log for feedback_status_changed", exc_info=True)
+
+    # Re-resolve the submitter's email (null-safe when user_id is null/deleted).
+    user_email = None
+    if feedback.user_id is not None:
+        submitter = db.query(User).filter(User.id == feedback.user_id).first()
+        user_email = submitter.email if submitter else None
+    return _feedback_item(feedback, user_email)
 
 
 @router.delete("/filing/{filing_id}/summary")

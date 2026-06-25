@@ -28,14 +28,13 @@ const FONT_BOOTSTRAP = `(function(){try{
   document.documentElement.setAttribute('data-font','figtree');
 }})();`
 
-// Pre-paint theme script — mirrors ThemeProvider (saved 'theme' else system preference) and
-// sets the .dark class before first paint, so the (now theme-responsive) pages don't flash
-// the wrong theme on load. ThemeProvider re-syncs to the same value after hydration.
+// Pre-paint theme script — mirrors ThemeProvider (saved 'theme' else light) and sets the
+// .dark class before first paint, so the (theme-responsive) pages don't flash the wrong theme
+// on load. Default is LIGHT when there's no stored preference (no system-preference detection),
+// so this must stay in lockstep with ThemeProvider's `savedTheme ?? 'light'` to avoid a
+// hydration theme flip. ThemeProvider re-syncs to the same value after hydration.
 const THEME_BOOTSTRAP = `(function(){try{
   var t = localStorage.getItem('theme');
-  if (t !== 'light' && t !== 'dark') {
-    t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  }
   if (t === 'dark') document.documentElement.classList.add('dark');
 }catch(e){}})();`
 

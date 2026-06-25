@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { ArrowLeftIcon, FileTextIcon, ShieldCheckIcon } from '@/lib/icons'
 import EarningsNerdLogoIcon from '@/components/EarningsNerdLogoIcon'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import { directionChip } from '@/lib/financialTone'
 
 /**
@@ -21,13 +22,16 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
               EarningsNerd
             </span>
           </Link>
-          <Link
-            href="/"
-            className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
-          >
-            <ArrowLeftIcon className="h-4 w-4" />
-            Back to home
-          </Link>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+            >
+              <ArrowLeftIcon className="h-4 w-4" />
+              Back to home
+            </Link>
+          </div>
         </div>
 
         <div className="flex flex-1 items-center justify-center px-6 pb-16 sm:px-10">

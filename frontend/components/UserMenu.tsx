@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { CaretDownIcon, GearIcon, ShieldIcon, SignOutIcon, SquaresFourIcon, StarIcon, WarningCircleIcon } from '@/lib/icons'
+import { CaretDownIcon, ChatTextIcon, GearIcon, ShieldIcon, SignOutIcon, SquaresFourIcon, StarIcon, WarningCircleIcon } from '@/lib/icons'
 import { logout } from '@/features/auth/api/auth-api'
 
 export type MenuUser = {
@@ -139,6 +139,15 @@ export default function UserMenu({ user }: { user: MenuUser }) {
               >
                 <ShieldIcon className="h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
                 Admin · Invites
+              </Link>
+              <Link
+                href="/admin/feedback"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark"
+              >
+                <ChatTextIcon className="h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark" />
+                Admin · Feedback
               </Link>
             </div>
           )}
