@@ -1,8 +1,9 @@
 from datetime import datetime
+from html import escape
 from app.models import Summary, Filing
+from app.services.summary_sections import Block, Section, render_sections
 import io
 import csv
-import re
 
 class ExportService:
     def __init__(self):
@@ -11,8 +12,7 @@ class ExportService:
     def generate_pdf_html(self, summary: Summary, filing: Filing) -> str:
         """Generate HTML for PDF export"""
         raw_summary = summary.raw_summary or {}
-        sections = raw_summary.get("sections", {})
-        
+
         html = f"""
         <!DOCTYPE html>
         <html>
@@ -84,120 +84,34 @@ class ExportService:
                 li {{
                     margin: 5px 0;
                 }}
+                blockquote {{
+                    margin: 10px 0;
+                    padding-left: 15px;
+                    border-left: 3px solid #e5e7eb;
+                    color: #374151;
+                    font-style: italic;
+                }}
             </style>
         </head>
         <body>
             <div class="header">
-                <h1>{filing.company.name} - {filing.filing_type} Summary</h1>
+                <h1>{escape(filing.company.name or '')} - {escape(filing.filing_type or '')} Summary</h1>
                 <div class="metadata">
                     <p><strong>Filing Date:</strong> {filing.filing_date.strftime('%B %d, %Y') if filing.filing_date else 'N/A'}</p>
                     <p><strong>Period End:</strong> {filing.period_end_date.strftime('%B %d, %Y') if filing.period_end_date else 'N/A'}</p>
                     <p><strong>Generated:</strong> {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</p>
-                    <p><strong>Source:</strong> SEC EDGAR - {filing.sec_url}</p>
+                    <p><strong>Source:</strong> SEC EDGAR - {escape(filing.sec_url or '')}</p>
                 </div>
             </div>
         """
         
-        # Add executive snapshot
-        if sections.get("executive_snapshot"):
-            html += f"""
-            <h2>Executive Assessment</h2>
-            <div>{self._format_markdown(sections["executive_snapshot"])}</div>
-            """
-        
-        # Add financial highlights table
-        financial_highlights = sections.get("financial_highlights", {})
-        if financial_highlights.get("table"):
-            html += """
-            <h2>Financial Highlights</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Metric</th>
-                        <th>Current Period</th>
-                        <th>Prior Period</th>
-                        <th>Investor Takeaway</th>
-                    </tr>
-                </thead>
-                <tbody>
-            """
-            for row in financial_highlights["table"]:
-                html += f"""
-                    <tr>
-                        <td>{row.get('metric', 'N/A')}</td>
-                        <td>{row.get('current_period', 'N/A')}</td>
-                        <td>{row.get('prior_period', 'N/A')}</td>
-                        <td>{row.get('commentary', 'N/A')}</td>
-                    </tr>
-                """
-            html += """
-                </tbody>
-            </table>
-            """
-        
-        # Add management discussion
-        if sections.get("management_discussion_insights"):
-            html += f"""
-            <h2>Management Strategy & Execution</h2>
-            <div>{self._format_markdown(sections["management_discussion_insights"])}</div>
-            """
-        
-        # Add risk factors
-        risk_factors = sections.get("risk_factors", [])
-        if risk_factors:
-            html += """
-            <h2>Investment Risks & Concerns</h2>
-            <ul>
-            """
-            for risk in risk_factors[:15]:  # Limit to top 15
-                if isinstance(risk, str):
-                    html += f"<li>{risk}</li>"
-                elif isinstance(risk, dict):
-                    title = (risk.get("title") or "").strip()
-                    description = (risk.get("description") or "").strip()
-                    summary = (risk.get("summary") or "").strip()
-                    evidence = risk.get("supporting_evidence") or risk.get("supportingEvidence") or risk.get("evidence")
-                    if isinstance(evidence, (list, tuple, set)):
-                        evidence = "; ".join(str(item).strip() for item in evidence if item)
-                    elif isinstance(evidence, dict):
-                        evidence = "; ".join(str(val).strip() for val in evidence.values() if val)
-                    evidence = (evidence or "").strip()
+        # Render every structured section through the shared renderer so the PDF stays in
+        # lock-step with the CSV export and the on-page UI. This also fixes the crash: section
+        # values are structured dicts/lists, never markdown strings, so they must not be passed
+        # to a string formatter (the old code called .strip() on a dict -> AttributeError -> 500).
+        for section in render_sections(raw_summary):
+            html += self._render_section_html(section)
 
-                    if title and description:
-                        body = f"<strong>{title}</strong>: {description}"
-                    elif title and summary and summary.lower() != title.lower():
-                        body = f"<strong>{title}</strong>: {summary}"
-                    else:
-                        body = summary or title or description
-
-                    html += "<li>"
-                    html += body or "Risk detail not provided"
-                    if evidence:
-                        html += f"<div><em>Evidence:</em> {evidence}</div>"
-                    html += "</li>"
-            html += "</ul>"
-        
-        # Add segment performance
-        if sections.get("segment_performance"):
-            html += f"""
-            <h2>Business Segment Analysis</h2>
-            <div>{self._format_markdown(sections["segment_performance"])}</div>
-            """
-        
-        # Add guidance
-        if sections.get("guidance_outlook"):
-            html += f"""
-            <h2>Forward Outlook & Investment Implications</h2>
-            <div>{self._format_markdown(sections["guidance_outlook"])}</div>
-            """
-        
-        # Add 3-year trend if available
-        if sections.get("three_year_trend"):
-            html += f"""
-            <h2>3-Year Investment Perspective</h2>
-            <div>{self._format_markdown(sections["three_year_trend"])}</div>
-            """
-        
         html += """
             <div class="footer">
                 <p>Generated by EarningsNerd - AI-Powered SEC Filing Analysis</p>
@@ -206,95 +120,95 @@ class ExportService:
         </body>
         </html>
         """
-        
+
         return html
 
-    def _format_markdown(self, text: str) -> str:
-        """Convert basic markdown to HTML"""
-        if not text:
-            return ""
-        
-        text = text.strip()
-        if not text:
-            return ""
+    def _render_section_html(self, section: Section) -> str:
+        parts = [f"<h2>{escape(section.title)}</h2>"]
+        for block in section.blocks:
+            parts.append(self._render_block_html(block))
+        return "".join(parts)
 
-        # Headings
-        text = re.sub(r'(?m)^###\s*(.+)$', r'<h3>\1</h3>', text)
-        text = re.sub(r'(?m)^##\s*(.+)$', r'<h2>\1</h2>', text)
-        
-        # Bold emphasis
-        text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
-
-        blocks = []
-        for block in re.split(r'\n{2,}', text):
-            block = block.strip()
-            if not block:
-                continue
-            if block.startswith("<h2>") or block.startswith("<h3>"):
-                blocks.append(block)
-            else:
-                block_html = block.replace('\n', '<br />')
-                blocks.append(f"<p>{block_html}</p>")
-
-        return "".join(blocks)
+    @staticmethod
+    def _render_block_html(block: Block) -> str:
+        """Render one Block to HTML. Every value is escaped (filing-derived, untrusted text)."""
+        if block.kind in ("paragraph", "subheading"):
+            if not block.text:
+                return ""
+            tag = "h3" if block.kind == "subheading" else "p"
+            return f"<{tag}>{escape(block.text)}</{tag}>"
+        if block.kind == "quote":
+            if not block.text:
+                return ""
+            speaker = f" — {escape(block.speaker)}" if block.speaker else ""
+            return f"<blockquote>“{escape(block.text)}”{speaker}</blockquote>"
+        if block.kind == "bullets":
+            if not block.items:
+                return ""
+            lead = f"<p><strong>{escape(block.text)}</strong></p>" if block.text else ""
+            items = "".join(f"<li>{escape(item)}</li>" for item in block.items)
+            return f"{lead}<ul>{items}</ul>"
+        if block.kind == "table":
+            if not block.rows:
+                return ""
+            thead = ""
+            if block.headers:
+                head_cells = "".join(f"<th>{escape(h)}</th>" for h in block.headers)
+                thead = f"<thead><tr>{head_cells}</tr></thead>"
+            body = "".join(
+                "<tr>" + "".join(f"<td>{escape(cell)}</td>" for cell in row) + "</tr>"
+                for row in block.rows
+            )
+            return f"<table>{thead}<tbody>{body}</tbody></table>"
+        return ""
 
     def generate_csv(self, summary: Summary, filing: Filing) -> str:
-        """Generate CSV export of financial metrics"""
+        """Generate a CSV export of the full structured summary (all sections)."""
         output = io.StringIO()
         writer = csv.writer(output)
-        
+
         # Header
         writer.writerow([f"{filing.company.name} - {filing.filing_type} Summary"])
         writer.writerow([f"Filing Date: {filing.filing_date.strftime('%Y-%m-%d') if filing.filing_date else 'N/A'}"])
         writer.writerow([f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"])
         writer.writerow([])
-        
-        # Financial highlights table
+
+        # Render every structured section through the shared renderer (single source of truth)
+        # so the CSV carries the same content as the PDF and the on-page summary, instead of just
+        # the financial-highlights table + risks the old code emitted.
         raw_summary = summary.raw_summary or {}
-        sections = raw_summary.get("sections", {})
-        financial_highlights = sections.get("financial_highlights", {})
-        
-        if financial_highlights.get("table"):
-            writer.writerow(["Financial Highlights"])
-            writer.writerow(["Metric", "Current Period", "Prior Period", "Investor Takeaway"])
-            
-            for row in financial_highlights["table"]:
-                writer.writerow([
-                    row.get("metric", ""),
-                    row.get("current_period", ""),
-                    row.get("prior_period", ""),
-                    row.get("commentary", "")
-                ])
-            writer.writerow([])
-        
-        # Risk factors
-        risk_factors = sections.get("risk_factors", [])
-        if risk_factors:
-            writer.writerow(["#", "Risk", "Supporting Evidence"])
-            for i, risk in enumerate(risk_factors[:15], 1):
-                if isinstance(risk, str):
-                    writer.writerow([i, risk, ""])
-                elif isinstance(risk, dict):
-                    title = (risk.get("title") or "").strip()
-                    description = (risk.get("description") or "").strip()
-                    summary = (risk.get("summary") or "").strip()
-                    evidence = risk.get("supporting_evidence") or risk.get("supportingEvidence") or risk.get("evidence")
-                    if isinstance(evidence, (list, tuple, set)):
-                        evidence = "; ".join(str(item).strip() for item in evidence if item)
-                    elif isinstance(evidence, dict):
-                        evidence = "; ".join(str(val).strip() for val in evidence.values() if val)
-                    evidence = (evidence or "").strip()
+        for section in render_sections(raw_summary):
+            self._write_section_csv(writer, section)
 
-                    if title and description:
-                        risk_text = f"{title}: {description}"
-                    elif title and summary and summary.lower() != title.lower():
-                        risk_text = f"{title}: {summary}"
-                    else:
-                        risk_text = summary or title or description
-
-                    writer.writerow([i, risk_text, evidence])
-        
         return output.getvalue()
+
+    @staticmethod
+    def _write_section_csv(writer, section: Section) -> None:
+        writer.writerow([section.title])
+        for block in section.blocks:
+            if block.kind in ("paragraph", "subheading"):
+                if block.text:
+                    writer.writerow([block.text])
+            elif block.kind == "quote":
+                if block.text:
+                    line = f'"{block.text}"'
+                    if block.speaker:
+                        line += f" — {block.speaker}"
+                    writer.writerow([line])
+            elif block.kind == "bullets":
+                if block.text:
+                    writer.writerow([block.text])
+                    for item in block.items:
+                        writer.writerow(["", item])
+                else:
+                    for item in block.items:
+                        writer.writerow([item])
+            elif block.kind == "table":
+                if block.headers:
+                    writer.writerow(block.headers)
+                for row in block.rows:
+                    writer.writerow(row)
+        writer.writerow([])
 
     async def export_pdf(self, summary: Summary, filing: Filing) -> bytes:
         """Export summary as PDF"""
