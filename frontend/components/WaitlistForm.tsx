@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { CheckIcon, CircleNotchIcon, CopyIcon } from '@/lib/icons'
 import { getApiUrl } from '@/lib/api/client'
@@ -31,18 +31,16 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
   const [name, setName] = useState('')
   const [honeypot, setHoneypot] = useState('')
   const [turnstileToken, setTurnstileToken] = useState('')
-  const [referralCode, setReferralCode] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<WaitlistSuccess | null>(null)
   const [copied, setCopied] = useState(false)
 
-  useEffect(() => {
-    const ref = searchParams.get('ref')
-    if (ref) {
-      setReferralCode(ref.trim().toLowerCase())
-    }
-  }, [searchParams])
+  // Derived during render from the URL — referralCode is read-only (only ever
+  // submitted, never user-edited), so no state/effect is needed (per PR review).
+  // Guard on the raw param (like the prior effect) so a blank ref stays null.
+  const refParam = searchParams.get('ref')
+  const referralCode = refParam ? refParam.trim().toLowerCase() : null
 
   const referralLink = success?.referral_link
 

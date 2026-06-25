@@ -27,6 +27,7 @@ export default function VerificationBanner() {
   const [resent, setResent] = useState(false)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time sessionStorage read; effect is the SSR-safe way to hydrate the dismissed flag
     setDismissed(sessionStorage.getItem(DISMISS_KEY) === '1')
   }, [])
 

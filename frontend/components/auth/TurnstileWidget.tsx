@@ -61,6 +61,7 @@ export default function TurnstileWidget({ onToken, className }: TurnstileWidgetP
   const containerRef = useRef<HTMLDivElement>(null)
   const widgetIdRef = useRef<string | null>(null)
   const onTokenRef = useRef(onToken)
+  // eslint-disable-next-line react-hooks/refs -- deliberate latch: keep the latest onToken callback for the Turnstile widget's stable render-once effect without re-registering it
   onTokenRef.current = onToken
 
   useEffect(() => {

@@ -30,10 +30,6 @@ export default function PaneResizer({ width, min, max, onResize, className = '' 
   // the latest callback/clamp from refs instead so the handlers can have empty deps.
   const onResizeRef = useRef(onResize)
   const clampRef = useRef(clamp)
-  useEffect(() => {
-    onResizeRef.current = onResize
-    clampRef.current = clamp
-  }, [onResize, clamp])
 
   const onPointerMove = useCallback((e: PointerEvent) => {
     if (!dragging.current) return
@@ -41,13 +37,26 @@ export default function PaneResizer({ width, min, max, onResize, className = '' 
     onResizeRef.current(clampRef.current(window.innerWidth - e.clientX))
   }, [])
 
+  // `stop` removes its own 'pointerup' listener, so it needs a stable reference to itself. Hold it in
+  // a ref so the self-removal reads the same identity that was registered, without referencing the
+  // binding before it's declared. `onPointerMove` is stable (empty deps), so `stop` is stable too and
+  // the listener identities match across the drag — behavior is unchanged.
+  const stopRef = useRef<() => void>(() => {})
   const stop = useCallback(() => {
     if (!dragging.current) return
     dragging.current = false
     document.body.style.userSelect = ''
     window.removeEventListener('pointermove', onPointerMove)
-    window.removeEventListener('pointerup', stop)
+    window.removeEventListener('pointerup', stopRef.current)
   }, [onPointerMove])
+
+  // Keep the latest callbacks/clamp in refs (synced in an effect, not during render) so the drag
+  // handlers can have empty/stable deps and survive the parent re-rendering mid-drag.
+  useEffect(() => {
+    onResizeRef.current = onResize
+    clampRef.current = clamp
+    stopRef.current = stop
+  }, [onResize, clamp, stop])
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent) => {

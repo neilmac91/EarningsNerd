@@ -31,6 +31,7 @@ export default function FeedbackWidget() {
   const [submitting, setSubmitting] = useState(false)
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time hydration latch: session marker lives in localStorage, so we resolve client-only state after mount
     setMounted(true)
     setAuthed(hasActiveSession())
   }, [])

@@ -15,6 +15,7 @@ export default function ProfileForm() {
   const [name, setName] = useState('')
   // Seed the input once the user loads (and whenever the canonical value changes).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- seeds the input from server-loaded user data; deliberate sync of the canonical full_name into editable form state
     setName(user?.full_name ?? '')
   }, [user?.full_name])
 

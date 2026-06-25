@@ -17,30 +17,6 @@ const config = [
     ],
   },
   ...next,
-  // Deferred: eslint-config-next 16 ships eslint-plugin-react-hooks v7, which
-  // newly enables the React Compiler rule set. Adopting them is a separate
-  // code-quality effort (~48 violations across 26 files: refs-during-render,
-  // setState-in-effect, memoization). Turn them off so the dependency upgrade
-  // can land without a broad refactor. The CLASSIC hooks rules
-  // (rules-of-hooks, exhaustive-deps) stay enabled. See follow-up task.
-  {
-    rules: {
-      'react-hooks/static-components': 'off',
-      'react-hooks/use-memo': 'off',
-      'react-hooks/preserve-manual-memoization': 'off',
-      'react-hooks/incompatible-library': 'off',
-      'react-hooks/immutability': 'off',
-      'react-hooks/globals': 'off',
-      'react-hooks/refs': 'off',
-      'react-hooks/set-state-in-effect': 'off',
-      'react-hooks/set-state-in-render': 'off',
-      'react-hooks/error-boundaries': 'off',
-      'react-hooks/purity': 'off',
-      'react-hooks/unsupported-syntax': 'off',
-      'react-hooks/config': 'off',
-      'react-hooks/gating': 'off',
-    },
-  },
   // Tests lean on `any` and ts-expect-error pragmas for fixtures/mocks; keep
   // the same relaxations the legacy override had.
   {

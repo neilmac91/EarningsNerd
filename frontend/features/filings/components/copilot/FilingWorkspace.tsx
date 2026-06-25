@@ -83,6 +83,7 @@ export default function FilingWorkspace({
 
   // Hydrate the persisted width after mount (keeps SSR markup deterministic, avoids hydration drift).
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- post-mount hydration of persisted width from localStorage (kept out of initial render to keep SSR markup deterministic)
     setWidth(readStoredWidth())
   }, [])
 

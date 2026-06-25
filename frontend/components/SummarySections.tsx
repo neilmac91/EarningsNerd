@@ -183,6 +183,7 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
   React.useEffect(() => {
     const currentTabExists = tabs.some(tab => tab.id === activeTab)
     if (!currentTabExists && tabs.length > 0) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- self-correct active tab when the current one becomes hidden as content arrives; guarded to avoid render loops
       setActiveTab(tabs[0].id)
     }
   }, [tabs, activeTab])

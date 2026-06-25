@@ -87,6 +87,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
         onPreferencesChanged?.(dntPreferences)
       } else {
         // Show banner for first-time visitors
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time init: banner visibility depends on localStorage/DNT, only readable client-side after hydration
         setShowBanner(true)
       }
     } else {

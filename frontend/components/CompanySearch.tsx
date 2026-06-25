@@ -101,6 +101,7 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
   }, [companies, showLocalResults, localMatches])
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reset keyboard selection when the query or network results change (external sync), not derivable from render
     setHighlightIndex(-1)
   }, [query, companies])
 

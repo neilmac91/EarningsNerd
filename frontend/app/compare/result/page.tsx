@@ -20,11 +20,11 @@ const ComparisonMetricChart = dynamic(
 export default function CompareResultPage() {
   const router = useRouter()
   const [comparisonData, setComparisonData] = useState<ComparisonData | null>(null)
-  const [qualityError, setQualityError] = useState<string | null>(null)
 
   useEffect(() => {
     const data = sessionStorage.getItem('comparisonData')
     if (data) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reads sessionStorage on mount (SSR-unsafe during render); syncs async client-only data into state
       setComparisonData(JSON.parse(data))
     } else {
       router.push('/compare')
@@ -38,13 +38,9 @@ export default function CompareResultPage() {
     return evaluateComparisonQuality(comparisonData)
   }, [comparisonData])
 
-  useEffect(() => {
-    if (!qualityGate.ok) {
-      setQualityError(qualityGate.message ?? 'Comparison data failed quality checks.')
-    } else {
-      setQualityError(null)
-    }
-  }, [qualityGate])
+  // Derived during render — qualityGate is itself derived from comparisonData,
+  // so no state/effect is needed (per PR review; removes a set-state-in-effect).
+  const qualityError = !qualityGate.ok ? (qualityGate.message ?? 'Comparison data failed quality checks.') : null
 
   // All hooks must be called before conditional returns
   // Memoize filings and comparison to avoid useMemo dependency issues

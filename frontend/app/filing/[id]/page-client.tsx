@@ -247,6 +247,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   const hasTrackedFilingView = useRef(false)
   const hasTrackedSummaryGenerated = useRef(false)
   const hasTrackedSummaryViewed = useRef(false)
+  // eslint-disable-next-line react-hooks/purity -- seeds an analytics dwell-time ref with the first-render timestamp; value is captured once and only read in effects/handlers, never affecting render output
   const viewStartedAt = useRef<number>(Date.now())
   const entryPoint = useMemo(() => getEntryPoint(), [])
 
@@ -438,12 +439,14 @@ function FilingDetailView({ filingId }: { filingId: number }) {
       !generationError &&
       shouldAutoGenerate
     ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional: auto-kicks off async streaming summary generation once the filing loads and no summary exists
       handleGenerateSummary()
     }
   }, [filing, summaryLoading, isStreaming, hasSummaryContent, hasStartedGeneration, generationError, handleGenerateSummary, isAuthenticated])
 
   useEffect(() => {
     if (hasSummaryContent) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- clears stale error state once async-streamed summary content arrives
       setGenerationError(null)
     }
   }, [hasSummaryContent])
@@ -678,12 +681,14 @@ function StreamingSummaryDisplay({
   const isError = stage === 'error' || !!error
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time client detection to gate SSR-unsafe rendering (avoids hydration mismatch)
     setIsClient(true)
   }, [])
 
   // Whimsy rotation effect
   useEffect(() => {
     if (stage === 'completed' || isError) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs whimsy-message visibility to the async streaming generation stage
       setShowWhimsy(false)
       return
     }
@@ -706,6 +711,7 @@ function StreamingSummaryDisplay({
     // Normal generation runs ~30-60s; only flag a genuine stall well past that window
     // so we never signal "failure" during a healthy run (was 15s — inside the normal window).
     if (elapsedSeconds > 45 && stage !== 'completed' && stage !== 'summarizing' && !isError) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- derives a stall flag from async streaming elapsed time + generation stage
       setIsStalled(true)
     } else {
       setIsStalled(false)
@@ -715,6 +721,7 @@ function StreamingSummaryDisplay({
   // Optimistic progress effect - uses real elapsed time from backend but asymptotic approach
   useEffect(() => {
     if (stage === 'completed') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs optimistic progress bar to the async streaming generation stage
       setOptimisticProgress(100)
       return
     }
@@ -761,6 +768,7 @@ function StreamingSummaryDisplay({
   // Clean up progress when complete
   useEffect(() => {
     if (stage === 'completed') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- finalizes progress to 100% when the async streaming generation completes
       setOptimisticProgress(100)
     }
   }, [stage])
