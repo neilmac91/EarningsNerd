@@ -136,12 +136,15 @@ class ExportService:
             if not block.text:
                 return ""
             tag = "h3" if block.kind == "subheading" else "p"
-            return f"<{tag}>{escape(block.text)}</{tag}>"
+            # Preserve intentional line breaks (escape first, then convert newlines).
+            text = escape(block.text).replace("\n", "<br />")
+            return f"<{tag}>{text}</{tag}>"
         if block.kind == "quote":
             if not block.text:
                 return ""
+            text = escape(block.text).replace("\n", "<br />")
             speaker = f" — {escape(block.speaker)}" if block.speaker else ""
-            return f"<blockquote>“{escape(block.text)}”{speaker}</blockquote>"
+            return f"<blockquote>“{text}”{speaker}</blockquote>"
         if block.kind == "bullets":
             if not block.items:
                 return ""
@@ -191,7 +194,8 @@ class ExportService:
                     writer.writerow([block.text])
             elif block.kind == "quote":
                 if block.text:
-                    line = f'"{block.text}"'
+                    # Curly quotes (not straight ") so csv.writer doesn't double-escape into """…""".
+                    line = f"“{block.text}”"
                     if block.speaker:
                         line += f" — {block.speaker}"
                     writer.writerow([line])

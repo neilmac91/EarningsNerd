@@ -142,6 +142,13 @@ class TestPdfHtml:
         assert "&lt;neutral&gt;" in html
         assert "<neutral>" not in html
 
+    def test_preserves_newlines_as_line_breaks(self, service):
+        """Multi-line paragraph text must keep its line breaks in the PDF (not collapse)."""
+        sections = {"executive_snapshot": {"headline": "Line one.\nLine two.", "key_points": []}}
+        summary, filing = _make_summary_and_filing(sections)
+        html = service.generate_pdf_html(summary, filing)
+        assert "Line one.<br />Line two." in html
+
 
 class TestCsv:
     def test_includes_all_sections(self, service):
@@ -174,6 +181,13 @@ class TestCsv:
         assert "Competitive and rapidly changing environment" in csv_out
         assert "Vague risk" not in csv_out  # placeholder evidence dropped
         assert "Unsupported risk" not in csv_out  # no evidence dropped
+
+    def test_quote_uses_curly_quotes_not_triple_escaped(self, service):
+        """A quote must not be wrapped in straight " (which csv.writer doubles into \"\"\")."""
+        summary, filing = _make_summary_and_filing(_full_sections())
+        csv_out = service.generate_csv(summary, filing)
+        assert "“We remain focused on execution.”" in csv_out
+        assert '"""' not in csv_out
 
 
 class TestRenderSections:
