@@ -511,6 +511,87 @@
       ],
       "verified": true,
       "notes": "small-cap, persistent losses, thin/messy XBRL \u2014 adversarial case"
+    },
+    {
+      "ticker": "BABA",
+      "cik": "1577552",
+      "company_name": "Alibaba Group Holding Ltd",
+      "filing_type": "20-F",
+      "accession_number": "0001193125-26-231755",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1577552/000119312526231755/baba-20260331.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 1023670000000.0,
+          "unit": "CNY"
+        },
+        {
+          "metric": "net_income",
+          "value": 103592000000.0,
+          "unit": "CNY"
+        },
+        {
+          "metric": "eps",
+          "value": 5.7,
+          "unit": "CNY_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "FPI flagship \u2014 U.S. GAAP, reports in RMB (CNY) + USD convenience; VIE structure"
+    },
+    {
+      "ticker": "ASML",
+      "cik": "937966",
+      "company_name": "ASML Holding N.V.",
+      "filing_type": "20-F",
+      "accession_number": "0001628280-26-011378",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/937966/000162828026011378/asml-20251231.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 32667300000.0,
+          "unit": "EUR"
+        },
+        {
+          "metric": "net_income",
+          "value": 9609400000.0,
+          "unit": "EUR"
+        },
+        {
+          "metric": "eps",
+          "value": 24.73,
+          "unit": "EUR_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "FPI IFRS filer reporting in EUR (exercises ifrs-full namespace + non-USD currency). Revenue hand-filled: ASML double-tags it (statement \u20ac32.6673B + rounded \u20ac32.7B), so the extractor drops it as ambiguous \u2014 see RUNBOOK."
+    },
+    {
+      "ticker": "TSM",
+      "cik": "1046179",
+      "company_name": "Taiwan Semiconductor Manufacturing Co Ltd",
+      "filing_type": "20-F",
+      "accession_number": "0001628280-26-025362",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1046179/000162828026025362/tsm-20251231.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 3809054300000.0,
+          "unit": "TWD"
+        },
+        {
+          "metric": "net_income",
+          "value": 1695124900000.0,
+          "unit": "TWD"
+        },
+        {
+          "metric": "eps",
+          "value": 65.47,
+          "unit": "TWD_per_share"
+        }
+      ],
+      "verified": true,
+      "notes": "FPI 20-F \u2014 IFRS, reports in TWD; large-cap ADR"
     }
   ]
 }
