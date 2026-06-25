@@ -34,7 +34,9 @@ from .instance_extractor import (
     DURATION_WINDOWS,
     INSTANT_CONCEPTS,
     duration_series,
+    duration_series_with_currency,
     instant_series,
+    instant_series_with_currency,
     normalize_form,
 )
 from .models import MetricChange
@@ -241,16 +243,35 @@ def _extract_from_filing_instance_sync(
         "cash_and_equivalents": [],
         "earnings_per_share": [],
     }
+    # Track the currency of monetary metrics so the filing's reporting currency (e.g. CNY for a
+    # 20-F that also tags a USD convenience translation) can be surfaced and never rendered as USD.
+    currency_votes: Dict[str, int] = {}
+
+    def _record_currency(currency: Optional[str], weight: int) -> None:
+        if currency:
+            currency_votes[currency] = currency_votes.get(currency, 0) + weight
+
     for metric, concepts in DURATION_CONCEPTS.items():
+        series, currency = duration_series_with_currency(xb, concepts, base_form, period_of_report)
         result[metric] = [
-            {"period": end, "value": value, "form": form, "accn": accession_number}
-            for end, value in duration_series(xb, concepts, base_form, period_of_report)
+            {"period": end, "value": value, "form": form, "accn": accession_number, "currency": currency}
+            for end, value in series
         ]
+        # EPS is per-share (currency-per-share), so it shouldn't sway the headline reporting
+        # currency vote; weight revenue/net_income (true monetary totals) instead.
+        if metric not in ("earnings_per_share", "eps_diluted"):
+            _record_currency(currency, len(series))
     for metric, concepts in INSTANT_CONCEPTS.items():
+        series, currency = instant_series_with_currency(xb, concepts, period_of_report)
         result[metric] = [
-            {"period": end, "value": value, "form": form, "accn": accession_number}
-            for end, value in instant_series(xb, concepts, period_of_report)
+            {"period": end, "value": value, "form": form, "accn": accession_number, "currency": currency}
+            for end, value in series
         ]
+        _record_currency(currency, len(series))
+
+    # Filing-level reporting currency = the currency carried by the most monetary facts.
+    if currency_votes:
+        result["reporting_currency"] = max(currency_votes.items(), key=lambda kv: kv[1])[0]
 
     # Anchor requirement: at least one income-statement metric for the
     # filing's own period — otherwise this instance is unusable and the
@@ -906,6 +927,7 @@ class EdgarXBRLService:
                     "period": period,
                     "value": entry.get("value"),
                     "form": entry.get("form"),
+                    "currency": entry.get("currency"),
                 })
             return cleaned
 
@@ -1015,6 +1037,15 @@ class EdgarXBRLService:
                                          "value": (ni_v / denom_v) * 100, "form": ni.get("form")})
                 if r_series:
                     metrics[ratio_key] = build_metric_entry(r_series)
+
+        # Surface the filing's reporting currency (e.g. "CNY") so the UI can label monetary values
+        # in the as-filed currency instead of implying USD. Derived in the instance extractor;
+        # falls back to the currency carried on the revenue series when only that is available.
+        reporting_currency = xbrl_data.get("reporting_currency")
+        if not reporting_currency and revenue_series:
+            reporting_currency = revenue_series[0].get("currency")
+        if reporting_currency:
+            metrics["reporting_currency"] = reporting_currency
 
         return metrics
 

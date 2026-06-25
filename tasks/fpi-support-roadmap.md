@@ -207,4 +207,19 @@ Phase 0 → **Phase 1 (kills the bug, ship behind flag)** → Phase 2 → **Phas
 - `fallback_summary.py` — 20-F MD&A extraction (Item 5).
 - **Live-verified:** `get_filing_sections` on the real BABA 20-F returns risk **410,872** + MD&A **139,430** chars (financials section thin at 761 chars → handled by the existing dense-window backfill). Tests: `tests/unit/test_fpi_summary.py` + existing — **86 passed**.
 
-**Next:** Phase 3 (currency-correct RMB/native financials + IFRS) — this is the gate to flip `ENABLE_FPI_FILINGS=true` in prod. Until then keep it OFF in prod (a 20-F summary today is narrative-correct but cites no XBRL figures, by design, so there's no USD-mislabel risk). The flag can be enabled in **preview** to validate `/company/BABA` end-to-end (listing + a real 20-F summary).
+### Phase 3 — currency-correct financials (RMB native + IFRS): ✅ DONE
+**Live-grounded finding:** BABA's 20-F XBRL tags the SAME line in BOTH `CNY` (all 3 years) AND a `USD` convenience translation (latest year only). The old extractor saw two values for the anchor period, judged it "ambiguous", and **dropped the whole period → BABA got zero XBRL even with the gate open.** Fixed by filtering to the reporting currency.
+
+- `instance_extractor.py`:
+  - `_fact_records` now tries `us-gaap` then `ifrs-full` namespaces; concept candidate lists gained IFRS names (Revenue/ProfitLoss/Equity/etc.) for European filers (BABA itself is U.S.-GAAP).
+  - New `_currency` + `_reporting_currency` (picks the currency covering the most period-ends; ties prefer non-USD since USD is the convenience-translation convention).
+  - `duration_series_with_currency` / `instant_series_with_currency` filter to the reporting currency and return it (back-compat wrappers `duration_series`/`instant_series` retained for the eval builder + unit tests; **currency-absent = exact prior behaviour**).
+  - `DURATION_WINDOWS` gains `20-F`/`40-F` (annual window) — this also opens the instance-extractor's own form gate to 20-F.
+- `xbrl_service.py` — `_extract_from_filing_instance_sync` attaches `currency` per entry + a filing-level `reporting_currency` (currency-weighted vote, EPS excluded); `extract_standardized_metrics` threads `currency` into every series point and surfaces top-level `reporting_currency`.
+- `facts_service.py` — `_unit_for` substitutes the as-filed currency into the stored unit (CNY / CNY/shares; ratios stay `pure`); `_fiscal_period` maps 20-F/40-F → FY; **`cross_check_facts` now skips non-USD facts** so the USD-only companyfacts cross-check can never overwrite a native CNY value with the USD convenience figure (~7× distortion averted).
+- Frontend — `FundamentalsTrendChart` derives the reporting currency from each series' `unit` and formats values in it (no implied `$` on CNY/EUR charts); footnote names the currency. (`FinancialMetricsTable` already passes through the AI's native-currency strings.)
+- **XBRL gate opened to 20-F** in `summary_pipeline.py` + `summary_generation_service.py` — now safe because currency lands *with* the financials.
+- Evals — `scorers.py` per-share matcher generalized (`*_per_share`, not just `USD_per_share`); `build_golden_set.py` reuses the product's currency-aware series (fixing the same ambiguity bug) and stamps the native currency onto golden units.
+- **Live-verified end-to-end:** `get_xbrl_data` on the real BABA 20-F → `reporting_currency=CNY`, revenue **RMB 1,023.67B**, net income **RMB 103.6B**, total assets **RMB 1,909.57B** — all native CNY (never the USD convenience), all 3 comparatives retained. Tests: `tests/unit/test_fpi_currency.py` (new) + existing — **114 passed**.
+
+**Status:** Phases 0–3 complete. **`ENABLE_FPI_FILINGS` can now be flipped on** (preview first, then prod after an eval pass) — BABA lists its 20-F/6-K, generates an item-correct 20-F summary, and shows financials in native RMB. Remaining: Phase 4 (6-K interim, deferred) and Phase 5 (peers/alerts/insiders FPI-awareness + honest "not available" for unsupported foreign names).

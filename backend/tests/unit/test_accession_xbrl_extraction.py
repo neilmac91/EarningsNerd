@@ -229,7 +229,7 @@ def test_sync_extraction_uses_filings_own_instance():
     assert result is not None
     assert result["revenue"][0] == {
         "period": "2026-03-31", "value": 90_000.0,
-        "form": "10-Q", "accn": "0001-26-000001",
+        "form": "10-Q", "accn": "0001-26-000001", "currency": None,
     }
     assert result["revenue"][1]["period"] == "2025-03-31"  # YoY quarter
     assert result["net_income"][0]["value"] == 9_000.0

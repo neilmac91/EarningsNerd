@@ -439,7 +439,9 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                     "include_previous": False,
                     "document_timeout": 15.0,
                     "xbrl_timeout": 12.0,
-                    "fetch_xbrl": filing_type in {"10-K", "10-Q"},
+                    # 20-F XBRL is currency-aware (reporting currency captured, not USD convenience),
+                    # so foreign annual reports fetch it too. See tasks/fpi-support-roadmap.md.
+                    "fetch_xbrl": filing_type in {"10-K", "10-Q", "20-F"},
                 }
 
                 if filing_type == "10-K":

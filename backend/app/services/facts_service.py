@@ -22,8 +22,10 @@ from app.models import Company, Filing, FinancialFact
 
 logger = logging.getLogger(__name__)
 
-# Standardized concept (from xbrl_service.extract_standardized_metrics) → unit. Anything unmapped
-# defaults to USD (the dominant case); margins are ratios ("pure"), per-share metrics are USD/shares.
+# Standardized concept (from xbrl_service.extract_standardized_metrics) → DEFAULT unit, used only
+# when the fact carries no reporting currency (domestic US filers). When a fact carries a currency
+# (e.g. CNY/EUR for a foreign private issuer), `_unit_for` substitutes it so the value is never
+# implied-USD. Margins are ratios ("pure"); per-share metrics are <ccy>/shares.
 _CONCEPT_UNITS: dict[str, str] = {
     "revenue": "USD",
     "net_income": "USD",
@@ -67,9 +69,24 @@ def _parse_date(value: Any) -> Optional[date]:
 
 
 def _fiscal_period(form: Optional[str]) -> Optional[str]:
-    # A 10-K reports the full fiscal year; for a 10-Q the quarter can't be inferred from the period
-    # alone, so leave it unset rather than guess.
-    return "FY" if (form or "").upper().replace("-", "").startswith("10K") else None
+    # Annual reports report the full fiscal year: 10-K (domestic) and 20-F / 40-F (foreign private
+    # issuers). For a 10-Q the quarter can't be inferred from the period alone, and a 6-K is
+    # free-form, so both are left unset rather than guessed.
+    return "FY" if (form or "").upper().replace("-", "").startswith(("10K", "20F", "40F")) else None
+
+
+def _unit_for(concept: str, currency: Optional[str]) -> str:
+    """Resolve the stored unit for a fact, substituting the as-filed reporting currency.
+
+    Domestic filers carry no currency → the USD/USD-shares/pure defaults stand. A foreign issuer's
+    fact carries its reporting currency (e.g. "CNY"), which replaces the USD assumption so a CNY
+    value is never stored/labelled as USD: monetary → "CNY", per-share → "CNY/shares", ratios stay
+    "pure".
+    """
+    base = _CONCEPT_UNITS.get(concept, "USD")
+    if base == "pure" or not currency:
+        return base
+    return f"{currency}/shares" if base.endswith("/shares") else currency
 
 
 def normalize_standardized_to_facts(
@@ -116,7 +133,7 @@ def normalize_standardized_to_facts(
                     "company_id": company_id,
                     "filing_id": filing_id,
                     "concept": concept,
-                    "unit": _CONCEPT_UNITS.get(concept, "USD"),
+                    "unit": _unit_for(concept, point.get("currency")),
                     "period_end": period_end,
                     "fiscal_year": period_end.year,
                     "fiscal_period": _fiscal_period(point_form),
@@ -358,6 +375,13 @@ def cross_check_facts(
     for fact in facts:
         concept = fact.get("concept")
         period_end = fact.get("period_end")
+        # The authoritative companyfacts map is USD-only. Never cross-check (or overwrite) a fact
+        # reported in a non-USD currency against it — that would replace a native CNY/EUR value with
+        # a USD convenience figure (a ~7x distortion for an RMB filer like Alibaba).
+        unit = fact.get("unit")
+        if unit and unit != "USD":
+            out.append(fact)
+            continue
         auth = authoritative.get((concept, period_end)) if concept in HEADLINE_GAAP_TAGS else None
         if auth is None:
             out.append(fact)

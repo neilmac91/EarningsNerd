@@ -39,24 +39,44 @@ METRIC_CONCEPTS: Dict[str, Tuple[str, List[str]]] = {
     # (unlike the companyfacts API), and when both are tagged `Revenues` is the
     # income statement's total top line (e.g. WMT/XOM include membership/other
     # income there) — the figure a summary will quote.
+    # NOTE: these concept lists must stay identical to the product's DURATION_CONCEPTS in
+    # app.services.edgar.instance_extractor (enforced by test_golden_set_concepts_match_product_
+    # extraction). The trailing entries are the IFRS (ifrs-full) candidates for foreign filers.
     "revenue": ("USD", [
         "Revenues",
         "RevenueFromContractWithCustomerExcludingAssessedTax",
         "RevenueFromContractWithCustomerIncludingAssessedTax",
         "SalesRevenueNet",
         "NetSales",
+        "Revenue",
+        "RevenueFromContractsWithCustomers",
     ]),
     "net_income": ("USD", [
         "NetIncomeLoss",
         "ProfitLoss",
         "NetIncomeLossAvailableToCommonStockholdersBasic",
+        "ProfitLossAttributableToOwnersOfParent",
     ]),
     "eps": ("USD_per_share", [
         "EarningsPerShareBasic",
         "EarningsPerShareDiluted",
         "EarningsPerShareBasicAndDiluted",
+        "BasicEarningsLossPerShare",
+        "DilutedEarningsLossPerShare",
     ]),
 }
+
+def _unit_with_currency(default_unit: str, currency: Optional[str]) -> str:
+    """Stamp the as-filed reporting currency onto the ground-truth unit (USD defaults otherwise).
+
+    A foreign filer's value is recorded in its native currency so the golden set isn't implied-USD:
+    monetary "USD" -> "CNY", per-share "USD_per_share" -> "CNY_per_share". The scorer reads the
+    "_per_share" suffix (not the currency) to pick full-precision vs scaled rendering.
+    """
+    if not currency:
+        return default_unit
+    return f"{currency}_per_share" if default_unit.endswith("_per_share") else currency
+
 
 def _duration_ok(start: Optional[str], end: Optional[str], filing_type: str) -> bool:
     # Shared with the product's accession-aware extraction (issue #240): the
@@ -67,33 +87,23 @@ def _duration_ok(start: Optional[str], end: Optional[str], filing_type: str) -> 
     return duration_in_window(start, end, filing_type)
 
 
-def _fact_for_metric(xb, metric: str, period_of_report: str, filing_type: str) -> Tuple[Optional[float], Optional[str]]:
-    """Extract one consolidated fact for the filing's own reporting period."""
+def _fact_for_metric(
+    xb, metric: str, period_of_report: str, filing_type: str
+) -> Tuple[Optional[float], Optional[str], Optional[str]]:
+    """Extract one consolidated fact (+ its reporting currency) for the filing's own period.
+
+    Delegates to the product's currency-aware series selection so the eval ground truth and the
+    product ground on identical period + currency semantics: facts are filtered to the issuer's
+    reporting currency, so a foreign filer that also tags a USD convenience translation (e.g.
+    Alibaba) yields its native value — not an "ambiguous" drop. Returns (value, currency, problem).
+    """
+    from app.services.edgar.instance_extractor import duration_series_with_currency
+
     _, concepts = METRIC_CONCEPTS[metric]
-    for concept in concepts:
-        df = xb.facts.query().by_concept(f"us-gaap:{concept}", exact=True).to_dataframe()
-        if df.empty:
-            continue
-        rows = df[
-            (df["is_dimensioned"] == False)  # noqa: E712 (pandas mask)
-            & (df["period_end"] == period_of_report)
-        ]
-        if rows.empty:
-            continue
-        # An empty boolean list would select columns, not rows — guard above matters.
-        rows = rows[[
-            _duration_ok(s, e, filing_type)
-            for s, e in zip(rows["period_start"], rows["period_end"])
-        ]]
-        if rows.empty:
-            continue
-        values = sorted({round(float(v), 4) for v in rows["numeric_value"] if v == v})
-        if not values:
-            continue
-        if len(values) > 1:
-            return None, f"{metric}: ambiguous values {values} for {concept}"
-        return values[0], None
-    return None, f"{metric}: no consolidated fact for period {period_of_report}"
+    series, currency = duration_series_with_currency(xb, concepts, filing_type, period_of_report)
+    if series and series[0][0] == period_of_report:
+        return series[0][1], currency, None
+    return None, None, f"{metric}: no consolidated fact for period {period_of_report}"
 
 
 def _extract_ground_truth(cik: str, accession_number: str, filing_type: str) -> Tuple[List[Dict[str, Any]], List[str]]:
@@ -119,13 +129,13 @@ def _extract_ground_truth(cik: str, accession_number: str, filing_type: str) -> 
     facts: List[Dict[str, Any]] = []
     problems: List[str] = []
     by_metric: Dict[str, float] = {}
-    for metric, (unit, _) in METRIC_CONCEPTS.items():
-        value, problem = _fact_for_metric(xb, metric, period_of_report, filing_type)
+    for metric, (default_unit, _) in METRIC_CONCEPTS.items():
+        value, currency, problem = _fact_for_metric(xb, metric, period_of_report, filing_type)
         if problem:
             problems.append(problem)
             continue
         by_metric[metric] = value
-        facts.append({"metric": metric, "value": value, "unit": unit})
+        facts.append({"metric": metric, "value": value, "unit": _unit_with_currency(default_unit, currency)})
 
     # Hard invariants — corrupt ground truth poisons every bake-off run.
     if "revenue" in by_metric and by_metric["revenue"] <= 0:

@@ -108,7 +108,10 @@ def _number_renderings(value: float, unit: str) -> List[str]:
                 pass
         return reps
 
-    if unit == "USD_per_share":
+    if unit.endswith("_per_share"):
+        # Per-share figures (USD_per_share, CNY_per_share, …) are small — render at full precision,
+        # never scaled to billions/millions. The currency prefix doesn't change the numeric
+        # rendering, so a foreign EPS like "RMB 6.00" still matches on "6.00".
         out.update(with_decimals(av))
     else:
         if av >= 1e9:

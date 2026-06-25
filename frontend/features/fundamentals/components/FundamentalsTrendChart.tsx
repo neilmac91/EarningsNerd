@@ -33,10 +33,18 @@ const FEATURED: { key: string; label: string; fmt: FmtKind }[] = [
 
 const SERIES_PRIMARY = '#3E8E84' // chart.1 (teal)
 
-const formatValue = (value: number, fmt: FmtKind): string => {
+// Derive an ISO-4217 currency code from a fact's stored unit (e.g. "CNY", "CNY/shares" -> "CNY",
+// "pure" -> USD fallback, never used for percentages). Foreign issuers report in their own
+// currency, so a CNY/EUR value must NOT render with a "$".
+const currencyFromUnit = (unit: string | undefined): string => {
+  const code = (unit || 'USD').split('/')[0].trim().toUpperCase()
+  return /^[A-Z]{3}$/.test(code) ? code : 'USD'
+}
+
+const formatValue = (value: number, fmt: FmtKind, currency = 'USD'): string => {
   if (fmt === 'pct') return fmtPercent(value, { digits: 1 })
-  if (fmt === 'eps') return fmtCurrency(value, { digits: 2, compact: false })
-  return fmtCurrency(value, { compact: true })
+  if (fmt === 'eps') return fmtCurrency(value, { currency, digits: 2, compact: false })
+  return fmtCurrency(value, { currency, compact: true })
 }
 
 export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
@@ -71,6 +79,11 @@ export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
     ? selected
     : available[0]?.key ?? null
   const active = FEATURED.find((f) => f.key === activeKey)
+  // Reporting currency of the active series (CNY for an FPI like Alibaba), so values render in the
+  // as-filed currency rather than an implied USD "$".
+  const activeCurrency = currencyFromUnit(
+    data?.concepts.find((c) => c.concept === activeKey)?.unit
+  )
 
   const chartData = useMemo(() => {
     if (!data || !activeKey) return []
@@ -144,11 +157,11 @@ export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
                 tickLine={false}
                 axisLine={false}
                 width={70}
-                tickFormatter={(v: number) => formatValue(v, active?.fmt ?? 'usd')}
+                tickFormatter={(v: number) => formatValue(v, active?.fmt ?? 'usd', activeCurrency)}
               />
               <Tooltip
                 cursor={{ fill: cursorFill }}
-                formatter={(v) => [formatValue(Number(v), active?.fmt ?? 'usd'), active?.label ?? '']}
+                formatter={(v) => [formatValue(Number(v), active?.fmt ?? 'usd', activeCurrency), active?.label ?? '']}
                 contentStyle={{
                   background: tooltipBg,
                   border: `1px solid ${tooltipBorder}`,
@@ -166,7 +179,8 @@ export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
       )}
 
       <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-        Annual figures from SEC filings (XBRL). {active ? active.label : ''} by fiscal year.
+        Annual figures from SEC filings (XBRL){activeCurrency !== 'USD' ? `, reported in ${activeCurrency}` : ''}.{' '}
+        {active ? active.label : ''} by fiscal year.
       </p>
     </section>
   )
