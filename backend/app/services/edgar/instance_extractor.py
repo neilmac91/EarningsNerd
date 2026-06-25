@@ -181,10 +181,11 @@ def _currency(row: Dict[str, Any]) -> Optional[str]:
     ccy = row.get("currency")
     if ccy is None:
         return None
-    if isinstance(ccy, float) and ccy != ccy:  # NaN
-        return None
+    if isinstance(ccy, float) and ccy != ccy:  # float NaN — keep this guard: str(nan)=="nan",
+        return None                            # which would otherwise pass the 3-alpha check below.
     text = str(ccy).strip().upper()
-    return text or None
+    # ISO-4217 codes are exactly three letters; this also rejects pandas <NA>, "" and other junk.
+    return text if len(text) == 3 and text.isalpha() else None
 
 
 def _reporting_currency(

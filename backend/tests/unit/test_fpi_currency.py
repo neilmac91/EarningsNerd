@@ -88,8 +88,17 @@ def _patch_company(filings):
 def test_currency_normalizes():
     assert _currency({"currency": "cny"}) == "CNY"
     assert _currency({"currency": None}) is None
-    assert _currency({"currency": float("nan")}) is None
+    assert _currency({"currency": float("nan")}) is None  # str(nan)=="nan" must NOT become "NAN"
     assert _currency({}) is None
+
+
+def test_currency_rejects_non_iso_codes():
+    # Strict ISO-4217: exactly three letters. Junk / pandas-<NA> / wrong-length all → None.
+    assert _currency({"currency": "<NA>"}) is None
+    assert _currency({"currency": "US"}) is None
+    assert _currency({"currency": "USDX"}) is None
+    assert _currency({"currency": ""}) is None
+    assert _currency({"currency": "eur"}) == "EUR"
 
 
 def test_reporting_currency_prefers_currency_with_more_periods():
@@ -194,6 +203,20 @@ def test_fiscal_period_covers_foreign_annual_forms():
     assert facts_service._fiscal_period("10-K") == "FY"
     assert facts_service._fiscal_period("10-Q") is None
     assert facts_service._fiscal_period("6-K") is None
+
+
+def test_normalize_derived_metric_falls_back_to_reporting_currency():
+    # free_cash_flow is derived (OCF − capex) and carries no per-point currency; it must inherit
+    # the filing's reporting_currency, not silently default to USD.
+    standardized = {
+        "reporting_currency": "CNY",
+        "free_cash_flow": {"current": {"period": "2026-03-31", "value": 5e10, "form": "20-F"}},
+    }
+    facts = facts_service.normalize_standardized_to_facts(
+        company_id=1, filing_id=2, accession="x", form="20-F", standardized=standardized
+    )
+    fcf = [f for f in facts if f["concept"] == "free_cash_flow"]
+    assert fcf and fcf[0]["unit"] == "CNY"
 
 
 def test_normalize_uses_currency_unit():

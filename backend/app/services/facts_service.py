@@ -133,7 +133,10 @@ def normalize_standardized_to_facts(
                     "company_id": company_id,
                     "filing_id": filing_id,
                     "concept": concept,
-                    "unit": _unit_for(concept, point.get("currency")),
+                    # Derived monetary metrics (e.g. free_cash_flow, computed from OCF − capex)
+                    # don't carry a per-point currency, so fall back to the filing's overall
+                    # reporting currency rather than silently defaulting to USD.
+                    "unit": _unit_for(concept, point.get("currency") or standardized.get("reporting_currency")),
                     "period_end": period_end,
                     "fiscal_year": period_end.year,
                     "fiscal_period": _fiscal_period(point_form),
