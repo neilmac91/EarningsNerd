@@ -439,7 +439,10 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                     "include_previous": False,
                     "document_timeout": 15.0,
                     "xbrl_timeout": 12.0,
-                    "fetch_xbrl": filing_type in {"10-K", "10-Q"},
+                    # 20-F XBRL is currency-aware (reporting currency captured, not USD convenience),
+                    # so foreign annual reports fetch it too. split("/") covers amended forms
+                    # (10-K/A, 20-F/A). filing_type is already upper-cased above.
+                    "fetch_xbrl": filing_type.split("/")[0] in {"10-K", "10-Q", "20-F"},
                 }
 
                 if filing_type == "10-K":
@@ -522,9 +525,9 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                 if (
                     settings.USE_EDGARTOOLS_SECTIONS
                     and company_cik
-                    # 20-F gets section extraction too; its XBRL stays gated (fetch_xbrl above) until
-                    # the currency-aware phase. See tasks/fpi-support-roadmap.md.
-                    and filing_type in {"10-K", "10-Q", "20-F"}
+                    # 20-F gets section extraction too; split("/") covers amended forms (10-K/A,
+                    # 20-F/A). See tasks/fpi-support-roadmap.md.
+                    and filing_type.split("/")[0] in {"10-K", "10-Q", "20-F"}
                 ):
                     async def fetch_sections() -> Optional[Dict[str, str]]:
                         try:

@@ -214,7 +214,10 @@ async def stream_filing_summary(
             # text, so serializing it after the fetch wasted the entire fetch window and left it
             # racing an 8s budget. Running it in parallel gives it the realistic time it needs.
             xbrl_task = None
-            if filing_type and filing_type.upper() in {"10-K", "10-Q"} and company_cik:
+            # 20-F XBRL is now currency-aware end-to-end (the extractor captures the issuer's
+            # reporting currency, e.g. CNY, instead of the USD convenience translation), so it is
+            # safe to fetch it for foreign annual reports. See tasks/fpi-support-roadmap.md (Phase 3).
+            if filing_type and filing_type.upper().split("/")[0] in {"10-K", "10-Q", "20-F"} and company_cik:
                 async def fetch_xbrl():
                     try:
                         data = await xbrl_service.get_xbrl_data(filing_accession_number, company_cik)
@@ -247,10 +250,10 @@ async def stream_filing_summary(
                 and settings.USE_EDGARTOOLS_SECTIONS
                 and company_cik
                 and filing_type
-                # 20-F (foreign annual report) gets edgartools section extraction too; its XBRL
-                # stays gated to 10-K/10-Q above until the currency-aware phase (financials in a
-                # non-USD reporting currency must not render as USD). See tasks/fpi-support-roadmap.md.
-                and filing_type.upper() in {"10-K", "10-Q", "20-F"}
+                # 20-F (foreign annual report) gets edgartools section extraction too. split("/")
+                # so amended forms (10-K/A, 20-F/A) are covered — the lower layers normalize_form
+                # anyway. See tasks/fpi-support-roadmap.md.
+                and filing_type.upper().split("/")[0] in {"10-K", "10-Q", "20-F"}
             ):
                 async def fetch_sections():
                     try:
