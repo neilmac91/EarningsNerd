@@ -64,6 +64,7 @@ export default function AskAboutSelection({ containerRef, enabled, onAsk }: AskA
   // Offer the action after a selection gesture settles.
   useEffect(() => {
     if (!enabled) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- mount/sync reset: clears the floating action when the Copilot is disabled
       setFloating(null)
       return
     }

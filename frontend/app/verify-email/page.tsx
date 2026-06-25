@@ -18,6 +18,7 @@ function VerifyEmailContent() {
 
   useEffect(() => {
     if (!token) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time guard that sets error state before kicking off async email verification
       setStatus('error')
       setErrorMessage('No verification token found. Please use the link from your email.')
       return

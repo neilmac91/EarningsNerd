@@ -14,6 +14,7 @@ export function useCountUp(end: number, duration: number = 800) {
     // WCAG 2.3.3 (Animation from Interactions): if the user prefers reduced motion, snap to
     // the final value with no tween instead of running the count-up animation.
     if (prefersReducedMotion()) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reduced-motion path snaps to the final value (WCAG 2.3.3) instead of tweening; intentional mount-time sync
       setCount(end)
       return
     }

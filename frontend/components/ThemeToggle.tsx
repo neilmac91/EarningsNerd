@@ -11,6 +11,7 @@ export function ThemeToggle() {
   const context = useContext(ThemeContext)
   
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time latch: flips to client-rendered state after hydration to avoid SSR/client mismatch
     setMounted(true)
   }, [])
 

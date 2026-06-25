@@ -36,6 +36,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
   const contentRef = useRef<HTMLDivElement>(null)
   const handledNonce = useRef(0)
   const statusRef = useRef<Status>('idle')
+  // eslint-disable-next-line react-hooks/refs -- deliberate render-time mirror so effects read the latest status without taking it as a dep (avoids re-running load on every status change)
   statusRef.current = status
 
   // Embedded: visibility follows the shared view state. Standalone: local citation-driven open state.
@@ -62,6 +63,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
   useEffect(() => {
     if (!request || request.nonce === handledNonce.current) return
     handledNonce.current = request.nonce
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs the standalone drawer open in response to an external citation request (nonce-gated, runs once per click)
     if (!embedded) setLocalOpen(true)
     setPassageMissing(false)
     // Retry on 'error' too, so a transient fetch failure isn't permanent (a fresh click re-loads).

@@ -25,6 +25,7 @@ export default function CompareResultPage() {
   useEffect(() => {
     const data = sessionStorage.getItem('comparisonData')
     if (data) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reads sessionStorage on mount (SSR-unsafe during render); syncs async client-only data into state
       setComparisonData(JSON.parse(data))
     } else {
       router.push('/compare')
@@ -40,6 +41,7 @@ export default function CompareResultPage() {
 
   useEffect(() => {
     if (!qualityGate.ok) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs derived quality-error state to async-loaded comparison data
       setQualityError(qualityGate.message ?? 'Comparison data failed quality checks.')
     } else {
       setQualityError(null)

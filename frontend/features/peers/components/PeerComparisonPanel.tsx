@@ -95,7 +95,9 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
 
   // Hide entirely until we know there are peers for at least one metric. Once the
   // panel has shown peers, keep it mounted and surface errors/sparsity inline.
+  // eslint-disable-next-line react-hooks/refs -- intentional render-time ref latch: everHadPeers only flips false->true to keep the panel mounted once it has shown peers; reading it in render avoids re-render churn
   if (isError && !everHadPeers.current) return null
+  // eslint-disable-next-line react-hooks/refs -- intentional render-time ref latch: everHadPeers only flips false->true to keep the panel mounted once it has shown peers; reading it in render avoids re-render churn
   if (!everHadPeers.current && (isLoading || !data || data.peer_count < 2)) return null
 
   const subject = data?.subject

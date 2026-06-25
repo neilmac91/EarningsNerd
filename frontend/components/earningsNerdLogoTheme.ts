@@ -60,6 +60,7 @@ export function useResolvedLogoMode(mode: LogoMode): ResolvedLogoMode {
 
   useEffect(() => {
     if (mode !== 'auto') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs resolved mode to an explicit (non-auto) prop; the effect also subscribes to DOM/media-query/storage for the auto case below
       setResolved(mode)
       return
     }

@@ -182,11 +182,13 @@ export default function TrendingTickers({
   // Clear price overrides when main data refreshes
   useEffect(() => {
     if (data?.timestamp) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resets local price overrides when upstream data refreshes (new timestamp); deliberate sync to external query state
       setPriceOverrides({})
     }
   }, [data?.timestamp])
 
   const hasTickers = Boolean(data?.tickers?.length)
+  // eslint-disable-next-line react-hooks/preserve-manual-memoization -- intentional: recompute only when data?.timestamp changes, not on every data identity change
   const updatedAgo = useMemo(() => {
     if (!data?.timestamp) {
       return null

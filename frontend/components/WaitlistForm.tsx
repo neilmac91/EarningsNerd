@@ -40,6 +40,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
   useEffect(() => {
     const ref = searchParams.get('ref')
     if (ref) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- seeds referral code from URL search params (external state) into the form; deliberate one-way sync
       setReferralCode(ref.trim().toLowerCase())
     }
   }, [searchParams])

@@ -14,17 +14,6 @@ export const ThemeContext = createContext<ThemeContextType | undefined>(undefine
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>('light')
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    // Check localStorage for saved theme preference; default to light when none is stored.
-    // Must match the pre-paint THEME_BOOTSTRAP in layout.tsx (also light-by-default, no
-    // system-preference detection) so there's no hydration theme flip.
-    const savedTheme = localStorage.getItem('theme') as Theme | null
-    const initialTheme = savedTheme ?? 'light'
-    setTheme(initialTheme)
-    updateTheme(initialTheme)
-  }, [])
-
   const updateTheme = (newTheme: Theme) => {
     const root = document.documentElement
     if (newTheme === 'dark') {
@@ -33,6 +22,18 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       root.classList.remove('dark')
     }
   }
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    // Check localStorage for saved theme preference; default to light when none is stored.
+    // Must match the pre-paint THEME_BOOTSTRAP in layout.tsx (also light-by-default, no
+    // system-preference detection) so there's no hydration theme flip.
+    const savedTheme = localStorage.getItem('theme') as Theme | null
+    const initialTheme = savedTheme ?? 'light'
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time hydration: sync React theme state to persisted localStorage value (SSR-safe pattern)
+    setTheme(initialTheme)
+    updateTheme(initialTheme)
+  }, [])
 
   const toggleTheme = () => {
     const newTheme = theme === 'light' ? 'dark' : 'light'

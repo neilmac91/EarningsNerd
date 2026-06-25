@@ -46,6 +46,7 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
 
   useEffect(() => {
     if (!isGenerating) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- resets timer-driven progress state when generation stops; effect also drives interval/timeout updates below
       setCurrentStage(0)
       setProgress(0)
       return

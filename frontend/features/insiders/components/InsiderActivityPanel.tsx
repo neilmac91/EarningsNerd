@@ -61,7 +61,9 @@ export default function InsiderActivityPanel({ ticker }: { ticker: string }) {
     if (data && data.total_transactions > 0) everHadData.current = true
   }, [data])
 
+  // eslint-disable-next-line react-hooks/refs -- intentional render-time ref latch: everHadData only flips false->true to keep the panel mounted once it has shown trades; reading it in render avoids re-render churn
   if (isError && !everHadData.current) return null
+  // eslint-disable-next-line react-hooks/refs -- intentional render-time ref latch: everHadData only flips false->true to keep the panel mounted once it has shown trades; reading it in render avoids re-render churn
   if (!everHadData.current && (isLoading || !data || data.total_transactions === 0)) return null
 
   const summary = data?.summary

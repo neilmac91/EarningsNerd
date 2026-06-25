@@ -67,6 +67,7 @@ export default function EmailChipsInput({
   // Doing this in an effect (rather than inside the setState updater) keeps the parent's
   // setState out of the child's render phase, avoiding cross-component update warnings.
   const onChangeRef = useRef(onChange)
+  // eslint-disable-next-line react-hooks/refs -- deliberate latest-ref pattern: keep the ref pointing at the current onChange so the emit effect calls it without re-subscribing
   onChangeRef.current = onChange
   useEffect(() => {
     const toInvite: string[] = []

@@ -52,6 +52,7 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
       typeof navigator.share === 'function' &&
       (typeof navigator.canShare === 'function' ? navigator.canShare({ url: link }) : true)
     ) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- post-mount Web Share capability detection (navigator is undefined during SSR; deferred to avoid hydration mismatch)
       setCanNativeShare(true)
     }
   }, [link])

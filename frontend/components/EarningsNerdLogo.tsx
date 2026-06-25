@@ -11,19 +11,18 @@ interface EarningsNerdLogoProps {
   hideTagline?: boolean
 }
 
-export default function EarningsNerdLogo({
-  className = '',
-  iconClassName = 'h-12 w-12',
-  variant = 'full',
-  mode = 'auto',
-  hideTagline = false,
-}: EarningsNerdLogoProps) {
-  const resolvedMode = useResolvedLogoMode(mode)
-  const palette = earningsNerdColorSchemes[resolvedMode]
-  const baseId = useId()
-  const accentGradientId = `${baseId}-accent`
+type Palette = (typeof earningsNerdColorSchemes)[keyof typeof earningsNerdColorSchemes]
 
-  const Icon = () => (
+interface LogoIconProps {
+  iconClassName: string
+  palette: Palette
+  accentGradientId: string
+}
+
+// Hoisted to module scope (was defined during render) so it isn't recreated each
+// render; the rendered values it needs are passed in as props.
+function LogoIcon({ iconClassName, palette, accentGradientId }: LogoIconProps) {
+  return (
     <svg
       viewBox="0 0 64 64"
       className={iconClassName}
@@ -51,15 +50,28 @@ export default function EarningsNerdLogo({
       <circle cx="46" cy="22" r="3.2" fill={palette.accentBright} />
     </svg>
   )
+}
+
+export default function EarningsNerdLogo({
+  className = '',
+  iconClassName = 'h-12 w-12',
+  variant = 'full',
+  mode = 'auto',
+  hideTagline = false,
+}: EarningsNerdLogoProps) {
+  const resolvedMode = useResolvedLogoMode(mode)
+  const palette = earningsNerdColorSchemes[resolvedMode]
+  const baseId = useId()
+  const accentGradientId = `${baseId}-accent`
 
   if (variant === 'icon-only') {
-    return <Icon />
+    return <LogoIcon iconClassName={iconClassName} palette={palette} accentGradientId={accentGradientId} />
   }
 
   return (
     <div className={`inline-flex items-center gap-6 ${className}`}>
       <div className="relative flex flex-shrink-0 items-center justify-center">
-        <Icon />
+        <LogoIcon iconClassName={iconClassName} palette={palette} accentGradientId={accentGradientId} />
         <span
           className="absolute -bottom-1.5 -right-1.5 inline-flex h-3 w-3 animate-[pulse_2s_ease-in-out_infinite] rounded-full"
           style={{ background: palette.accentBright, boxShadow: `0 0 12px ${palette.accent}` }}

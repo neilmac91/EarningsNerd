@@ -49,6 +49,7 @@ export function FontProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY)
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time hydration: sync React font state to the value the pre-hydration script already applied from localStorage
       if (isFontId(stored)) setFontState(stored)
     } catch {
       /* private mode / storage disabled — keep the default font for this session */
