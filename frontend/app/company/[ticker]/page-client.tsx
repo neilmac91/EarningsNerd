@@ -20,6 +20,12 @@ import FundamentalsTrendChart from '@/features/fundamentals/components/Fundament
 import PeerComparisonPanel from '@/features/peers/components/PeerComparisonPanel'
 import InsiderActivityPanel from '@/features/insiders/components/InsiderActivityPanel'
 
+// Annual reports: 10-K (domestic) plus the foreign-issuer equivalents 20-F / 40-F. Used to pick
+// the "Recommended" filing and to label it as an annual report. See tasks/fpi-support-roadmap.md.
+const ANNUAL_FILING_TYPES = ['10-K', '20-F', '40-F']
+// Display order for the filing-type filter chips; unknown types sort to the end alphabetically.
+const FILING_TYPE_ORDER = ['10-K', '10-Q', '20-F', '6-K', '40-F']
+
 export default function CompanyPageClient() {
   const params = useParams()
   const ticker = (params?.ticker as string | undefined) ?? ''
@@ -28,7 +34,7 @@ export default function CompanyPageClient() {
   // All hooks must be called before any conditional returns
   const currentYear = new Date().getFullYear().toString()
   const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set([currentYear]))
-  const [filterType, setFilterType] = useState<'10-K' | '10-Q' | null>(null)
+  const [filterType, setFilterType] = useState<string | null>(null)
   const hasTrackedCompanyView = useRef(false)
 
   const { data: company, isLoading: companyLoading, error: companyError } = useQuery<Company>({
@@ -127,10 +133,21 @@ export default function CompanyPageClient() {
 
   // Memoize filtered and grouped filings to avoid recalculating on every render.
   // Declared before the early returns below so hook order stays stable across renders.
-  const { groupedFilings, sortedYears, recommendedFiling } = useMemo(() => {
+  const { groupedFilings, sortedYears, recommendedFiling, availableFilingTypes } = useMemo(() => {
     const filtered = filterType
       ? filings?.filter((f) => f.filing_type === filterType)
       : filings
+
+    // Distinct filing types present, in canonical display order — drives the filter chips so the
+    // UI adapts to whatever the company actually files (10-K/10-Q for domestic, 20-F/6-K for FPIs)
+    // instead of hardcoding domestic forms.
+    const availableFilingTypes = Array.from(
+      new Set((filings ?? []).map((f) => f.filing_type)),
+    ).sort((a, b) => {
+      const ia = FILING_TYPE_ORDER.indexOf(a)
+      const ib = FILING_TYPE_ORDER.indexOf(b)
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b)
+    })
 
     // Group filings by year
     const grouped = filtered?.reduce((acc, filing) => {
@@ -145,16 +162,16 @@ export default function CompanyPageClient() {
     // Sort years in descending order (newest first)
     const years = Object.keys(grouped).sort((a, b) => parseInt(b) - parseInt(a))
 
-    // Recommended filing: latest 10-K (the canonical annual report) if available,
-    // otherwise the most recent filing of any type. Computed from the FULL list (not the
-    // active type filter) so the recommendation is stable as the user filters.
+    // Recommended filing: the latest annual report (10-K domestic, or 20-F/40-F for foreign
+    // issuers) if available, otherwise the most recent filing of any type. Computed from the FULL
+    // list (not the active type filter) so the recommendation is stable as the user filters.
     const byDateDesc = (a: Filing, b: Filing) =>
       new Date(b.filing_date).getTime() - new Date(a.filing_date).getTime()
-    const tenKs = (filings ?? []).filter((f) => f.filing_type === '10-K')
+    const annuals = (filings ?? []).filter((f) => ANNUAL_FILING_TYPES.includes(f.filing_type))
     const recommendedFiling =
-      [...tenKs].sort(byDateDesc)[0] ?? [...(filings ?? [])].sort(byDateDesc)[0] ?? null
+      [...annuals].sort(byDateDesc)[0] ?? [...(filings ?? [])].sort(byDateDesc)[0] ?? null
 
-    return { groupedFilings: grouped, sortedYears: years, recommendedFiling }
+    return { groupedFilings: grouped, sortedYears: years, recommendedFiling, availableFilingTypes }
   }, [filings, filterType])
 
   // Handle case where ticker might not be available
@@ -209,10 +226,14 @@ export default function CompanyPageClient() {
     setExpandedYears(newExpanded)
   }
 
-  // Get styling for filing type
+  // Get styling for filing type. Annual reports (10-K + the foreign 20-F/40-F) share the brand
+  // accent; interim reports (10-Q + the foreign 6-K) share the info accent — so an FPI page reads
+  // consistently with a domestic one (annual = brand, interim = info).
   const getFilingTypeStyles = (filingType: string) => {
     switch (filingType) {
       case '10-K':
+      case '20-F':
+      case '40-F':
         return {
           borderColor: 'border-l-brand-strong dark:border-l-brand-strong-dark',
           bgColor: 'bg-brand-weak dark:bg-white/5',
@@ -222,6 +243,7 @@ export default function CompanyPageClient() {
           badgeText: 'text-brand-strong dark:text-brand-strong-dark',
         }
       case '10-Q':
+      case '6-K':
         return {
           borderColor: 'border-l-info-light dark:border-l-info-dark',
           bgColor: 'bg-info-light/10 dark:bg-info-dark/10',
@@ -312,7 +334,7 @@ export default function CompanyPageClient() {
         <section className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
             <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">SEC Filings</h2>
-            {filings && filings.length > 0 && (
+            {filings && filings.length > 0 && availableFilingTypes.length > 1 && (
               <div className="flex flex-wrap items-center gap-2">
                 <FunnelIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
                 <div className="flex flex-wrap items-center gap-2">
@@ -326,26 +348,19 @@ export default function CompanyPageClient() {
                   >
                     All Types
                   </button>
-                  <button
-                    onClick={() => setFilterType('10-K')}
-                    className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-md transition-colors ${
-                      filterType === '10-K'
-                        ? 'bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
-                        : 'bg-brand-weak dark:bg-white/5 text-brand-strong dark:text-brand-strong-dark hover:bg-brand-weak/70 dark:hover:bg-white/10'
-                    }`}
-                  >
-                    10-K
-                  </button>
-                  <button
-                    onClick={() => setFilterType('10-Q')}
-                    className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-md transition-colors ${
-                      filterType === '10-Q'
-                        ? 'bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
-                        : 'bg-brand-weak dark:bg-white/5 text-brand-strong dark:text-brand-strong-dark hover:bg-brand-weak/70 dark:hover:bg-white/10'
-                    }`}
-                  >
-                    10-Q
-                  </button>
+                  {availableFilingTypes.map((ft) => (
+                    <button
+                      key={ft}
+                      onClick={() => setFilterType(ft)}
+                      className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-md transition-colors ${
+                        filterType === ft
+                          ? 'bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
+                          : 'bg-brand-weak dark:bg-white/5 text-brand-strong dark:text-brand-strong-dark hover:bg-brand-weak/70 dark:hover:bg-white/10'
+                      }`}
+                    >
+                      {ft}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
@@ -367,7 +382,7 @@ export default function CompanyPageClient() {
                     </div>
                     <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                       Not sure where to start? This is {companyData.name}&apos;s most recent{' '}
-                      {recommendedFiling.filing_type === '10-K' ? 'annual report' : 'filing'} — get an instant AI summary.
+                      {ANNUAL_FILING_TYPES.includes(recommendedFiling.filing_type) ? 'annual report' : 'filing'} — get an instant AI summary.
                     </p>
                   </div>
                 </div>

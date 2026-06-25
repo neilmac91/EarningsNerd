@@ -266,6 +266,16 @@ class Settings(BaseSettings):
     # metadata). Enabled (report-quality Phase 0): users are not charged quota for partial results.
     AI_QUALITY_GATE: bool = True
 
+    # Foreign Private Issuer (FPI) filing support (roadmap: tasks/fpi-support-roadmap.md).
+    # Foreign issuers (ADRs like Alibaba/$BABA, TSM, ASML) file 20-F (annual) and 6-K (interim)
+    # instead of 10-K/10-Q, so the company page shows "no filings" for them today. When True, the
+    # company-filings endpoint also discovers/lists FPI forms (20-F/6-K/40-F). Ships OFF by default
+    # and is flipped per-environment only after the FPI summary + currency phases land, so we never
+    # surface an FPI filing whose summary would silently fall back to 10-K assumptions. Page-scoped:
+    # only the company/filing listing is affected — the dashboard feed, scanner and alerts keep
+    # their own form sets until a later phase. Toggle with ENABLE_FPI_FILINGS=true.
+    ENABLE_FPI_FILINGS: bool = False
+
     # Anonymous (guest) daily summary quota (roadmap S5). Guests currently have no daily/monthly
     # cap (only 5/60s per IP), so one IP could trigger thousands of AI calls/month. A small daily
     # cap keeps free activation sustainable WITHOUT ever gating the first summary (a brand-new IP

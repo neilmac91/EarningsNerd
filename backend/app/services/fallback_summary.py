@@ -123,10 +123,16 @@ def _extract_mda(filing_text: str, filing_type: str = "10-Q") -> str:
     if not filing_text:
         return ""
 
-    # Different patterns for 10-K vs 10-Q
+    # Different patterns per form. 20-F uses Item 5 (Operating & Financial Review) as its MD&A.
     if filing_type == "10-K":
         patterns = [
             r"Item\s*7[\.\s\-:]*Management['']?s?\s*Discussion(.*?)(?=Item\s*7A|Item\s*8|$)",
+            r"MANAGEMENT['']?S?\s*DISCUSSION\s*AND\s*ANALYSIS(.*?)(?=Item\s*\d|$)",
+        ]
+    elif filing_type == "20-F":
+        patterns = [
+            r"Item\s*5[\.\s\-:]*Operating\s*and\s*Financial\s*Review(.*?)(?=Item\s*6|Item\s*7|$)",
+            r"Operating\s*and\s*Financial\s*Review\s*and\s*Prospects(.*?)(?=Item\s*\d|$)",
             r"MANAGEMENT['']?S?\s*DISCUSSION\s*AND\s*ANALYSIS(.*?)(?=Item\s*\d|$)",
         ]
     else:  # 10-Q

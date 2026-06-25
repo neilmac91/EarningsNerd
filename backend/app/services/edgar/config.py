@@ -34,6 +34,15 @@ class FilingType(str, Enum):
     FORM_8K = "8-K"
     FORM_8K_AMENDED = "8-K/A"
 
+    # Foreign Private Issuer (FPI) Reports — foreign filers (ADRs like Alibaba/$BABA, TSM,
+    # ASML) file these INSTEAD OF 10-K/10-Q. See tasks/fpi-support-roadmap.md.
+    FORM_20F = "20-F"          # Annual report (FPI; the foreign analogue of a 10-K)
+    FORM_20F_AMENDED = "20-F/A"
+    FORM_40F = "40-F"          # Annual report (Canadian MJDS filers)
+    FORM_40F_AMENDED = "40-F/A"
+    FORM_6K = "6-K"            # Interim/furnished report (FPI; free-form, often an earnings release)
+    FORM_6K_AMENDED = "6-K/A"
+
     # Insider Trading
     FORM_3 = "3"      # Initial statement of beneficial ownership
     FORM_4 = "4"      # Changes in beneficial ownership
@@ -48,13 +57,31 @@ class FilingType(str, Enum):
 
     @property
     def is_annual(self) -> bool:
-        """Check if this is an annual filing type."""
-        return self in (FilingType.FORM_10K, FilingType.FORM_10K_AMENDED)
+        """Check if this is an annual filing type (10-K domestic, 20-F/40-F foreign)."""
+        return self in (
+            FilingType.FORM_10K, FilingType.FORM_10K_AMENDED,
+            FilingType.FORM_20F, FilingType.FORM_20F_AMENDED,
+            FilingType.FORM_40F, FilingType.FORM_40F_AMENDED,
+        )
 
     @property
     def is_quarterly(self) -> bool:
         """Check if this is a quarterly filing type."""
         return self in (FilingType.FORM_10Q, FilingType.FORM_10Q_AMENDED)
+
+    @property
+    def is_interim(self) -> bool:
+        """Check if this is a foreign-issuer interim/furnished report (6-K)."""
+        return self in (FilingType.FORM_6K, FilingType.FORM_6K_AMENDED)
+
+    @property
+    def is_foreign(self) -> bool:
+        """Check if this is a foreign-private-issuer form (20-F / 40-F / 6-K)."""
+        return self in (
+            FilingType.FORM_20F, FilingType.FORM_20F_AMENDED,
+            FilingType.FORM_40F, FilingType.FORM_40F_AMENDED,
+            FilingType.FORM_6K, FilingType.FORM_6K_AMENDED,
+        )
 
     @property
     def is_insider(self) -> bool:
@@ -73,10 +100,23 @@ class FilingType(str, Enum):
 
     @classmethod
     def financial_reports(cls) -> List["FilingType"]:
-        """Return all financial report types (10-K and 10-Q)."""
+        """Return all domestic financial report types (10-K and 10-Q)."""
         return [
             cls.FORM_10K, cls.FORM_10K_AMENDED,
             cls.FORM_10Q, cls.FORM_10Q_AMENDED,
+        ]
+
+    @classmethod
+    def foreign_reports(cls) -> List["FilingType"]:
+        """Foreign-private-issuer report types — annual (20-F/40-F) + interim (6-K).
+
+        The FPI analogue of financial_reports(); used to discover filings for ADRs that never
+        file 10-K/10-Q (e.g. Alibaba). See tasks/fpi-support-roadmap.md.
+        """
+        return [
+            cls.FORM_20F, cls.FORM_20F_AMENDED,
+            cls.FORM_40F, cls.FORM_40F_AMENDED,
+            cls.FORM_6K, cls.FORM_6K_AMENDED,
         ]
 
     @classmethod
@@ -102,6 +142,9 @@ class FilingType(str, Enum):
             "10K": cls.FORM_10K,
             "10Q": cls.FORM_10Q,
             "8K": cls.FORM_8K,
+            "20F": cls.FORM_20F,
+            "40F": cls.FORM_40F,
+            "6K": cls.FORM_6K,
         }
 
         if normalized in variations:

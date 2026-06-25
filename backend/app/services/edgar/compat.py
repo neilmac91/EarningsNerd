@@ -253,15 +253,17 @@ class SECEdgarServiceCompat:
             all_filings = []
 
             for form_type in filing_types:
-                try:
-                    ft = FilingType.from_string(form_type)
-                    filings = await edgar_client.get_filings(
-                        cik, ft, limit=limit, include_amended=False
-                    )
-                    all_filings.extend(filings)
-                except ValueError:
+                # Non-strict resolution: known forms (incl. FPI 20-F/6-K/40-F) map to a member;
+                # only genuinely unrecognized strings fall through to UNKNOWN and are skipped. This
+                # replaces the old strict() + ValueError path that silently dropped 20-F/6-K.
+                ft = FilingType.from_string(form_type, strict=False)
+                if ft == FilingType.UNKNOWN:
                     logger.warning(f"Unknown filing type: {form_type}")
                     continue
+                filings = await edgar_client.get_filings(
+                    cik, ft, limit=limit, include_amended=False
+                )
+                all_filings.extend(filings)
 
             # Sort by date descending, handling None filing_date gracefully
             from datetime import date as date_type

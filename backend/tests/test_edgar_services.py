@@ -71,6 +71,47 @@ class TestFilingType:
         assert FilingType.UNKNOWN.is_annual is False
         assert FilingType.UNKNOWN.is_quarterly is False
 
+    # --- Foreign Private Issuer (FPI) forms: 20-F / 40-F / 6-K ---
+    # Regression guard for the Alibaba ($BABA) "no filings" bug: these forms must resolve to
+    # concrete members (not UNKNOWN) so the discovery path can request them from SEC.
+
+    def test_fpi_basic_values(self):
+        assert FilingType.FORM_20F.value == "20-F"
+        assert FilingType.FORM_40F.value == "40-F"
+        assert FilingType.FORM_6K.value == "6-K"
+
+    def test_fpi_from_string_resolves(self):
+        # Hyphenated and hyphen-less variants both resolve (no ValueError, no UNKNOWN).
+        assert FilingType.from_string("20-F") == FilingType.FORM_20F
+        assert FilingType.from_string("20F") == FilingType.FORM_20F
+        assert FilingType.from_string("6-K") == FilingType.FORM_6K
+        assert FilingType.from_string("6k") == FilingType.FORM_6K
+        assert FilingType.from_string("40-F") == FilingType.FORM_40F
+        assert FilingType.from_string("20-F/A") == FilingType.FORM_20F_AMENDED
+
+    def test_fpi_annual_vs_interim(self):
+        # 20-F / 40-F are annual reports (like 10-K); 6-K is a foreign interim/furnished report.
+        assert FilingType.FORM_20F.is_annual is True
+        assert FilingType.FORM_40F.is_annual is True
+        assert FilingType.FORM_6K.is_annual is False
+        assert FilingType.FORM_6K.is_interim is True
+        assert FilingType.FORM_10Q.is_interim is False
+
+    def test_fpi_is_foreign(self):
+        assert FilingType.FORM_20F.is_foreign is True
+        assert FilingType.FORM_6K.is_foreign is True
+        assert FilingType.FORM_40F.is_foreign is True
+        assert FilingType.FORM_10K.is_foreign is False
+        assert FilingType.FORM_10Q.is_foreign is False
+
+    def test_foreign_reports_classmethod(self):
+        foreign = FilingType.foreign_reports()
+        assert FilingType.FORM_20F in foreign
+        assert FilingType.FORM_6K in foreign
+        assert FilingType.FORM_40F in foreign
+        # Must not leak into the domestic financial-reports set.
+        assert FilingType.FORM_20F not in FilingType.financial_reports()
+
 
 class TestCompanyModel:
     """Test the Company domain model."""
@@ -272,6 +313,35 @@ class TestBackwardCompatibility:
         assert hasattr(sec_edgar_service, "get_company_tickers")
         assert hasattr(xbrl_service, "get_xbrl_data")
         assert hasattr(xbrl_service, "extract_standardized_metrics")
+
+    @pytest.mark.asyncio
+    async def test_get_filings_requests_fpi_forms(self, monkeypatch):
+        """Regression for the Alibaba ($BABA) 'no filings' bug.
+
+        20-F / 6-K must reach edgar_client (i.e. be requested from SEC), not be dropped as an
+        'unknown' form the way the old strict from_string() + ValueError path did. A genuinely
+        unknown form is still skipped.
+        """
+        from app.services.edgar import compat as compat_mod
+
+        requested: list = []
+
+        async def fake_get_filings(cik, ft, limit=None, include_amended=False):
+            requested.append(ft)
+            return []  # shape doesn't matter here — we assert on what was requested
+
+        monkeypatch.setattr(compat_mod.edgar_client, "get_filings", fake_get_filings)
+
+        result = await compat_mod.sec_edgar_service.get_filings(
+            "0001577552", ["20-F", "6-K", "bogus-form"]
+        )
+
+        assert result == []  # stub returns nothing, but the call must not crash
+        assert FilingType.FORM_20F in requested
+        assert FilingType.FORM_6K in requested
+        # The genuinely unknown form is skipped, never requested (and never resolves to UNKNOWN).
+        assert FilingType.UNKNOWN not in requested
+        assert len(requested) == 2
 
 
 class TestNullHandling:

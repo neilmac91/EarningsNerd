@@ -399,6 +399,7 @@ RECOVERY_MAX_CONCURRENCY=3                    # Max concurrent calls for section
 USE_STRUCTURED_OUTPUT=false                   # Phase-A structured extraction (JSON response_format)
 USE_EDGARTOOLS_SECTIONS=true                  # Native edgartools section extraction (vs legacy regex)
 AI_QUALITY_GATE=true                          # Partial summaries don't consume user quota
+ENABLE_FPI_FILINGS=false                      # Foreign private issuer (ADR) filings: list 20-F/6-K/40-F on the company page (page-scoped; default off — see tasks/fpi-support-roadmap.md)
 
 # Copilot ("Ask this Filing" — Pro-only grounded Q&A)
 COPILOT_MONTHLY_QUESTION_CAP=1000

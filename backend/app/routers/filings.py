@@ -5,6 +5,7 @@ from typing import List, Optional
 
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
+from app.config import settings
 from app.database import get_db
 from app.models import Company, Filing
 # EdgarTools migration: Using new edgar module for SEC services
@@ -100,10 +101,17 @@ async def get_company_filings(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error fetching company: {str(e)}") from e
 
-    # Parse filing types
-    types_list = ["10-K", "10-Q"]
+    # Parse filing types. Default to the domestic financial reports; when FPI support is enabled,
+    # also discover foreign-issuer forms (20-F annual, 6-K interim, 40-F) so ADRs like Alibaba
+    # ($BABA) list their filings instead of showing an empty state. An explicit ?filing_types=
+    # query always wins. Page-scoped: only this endpoint expands — the dashboard feed / scanner /
+    # alerts keep their own form sets (see tasks/fpi-support-roadmap.md, Phase 5).
     if filing_types:
         types_list = [t.strip() for t in filing_types.split(",")]
+    elif settings.ENABLE_FPI_FILINGS:
+        types_list = ["10-K", "10-Q", "20-F", "6-K", "40-F"]
+    else:
+        types_list = ["10-K", "10-Q"]
 
     # Helper to get cached filings from database
     def get_cached_filings() -> List[FilingResponse]:

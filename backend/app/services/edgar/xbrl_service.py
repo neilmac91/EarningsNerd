@@ -324,6 +324,26 @@ def _extract_sections_sync(
             text = text_attr() if callable(text_attr) else text_attr
             if text and len(text.strip()) >= _SECTION_MIN_CHARS:
                 out[canonical] = text.strip()
+    elif base_form == "20-F":
+        # 20-F (foreign private issuer annual report) uses Part/Item numbering distinct from a
+        # 10-K: Item 3 (Key Information) carries the Risk Factors, Item 5 (Operating & Financial
+        # Review and Prospects) is the MD&A equivalent, and the audited statements live under
+        # Item 18 (or the older Item 17). Items repeat across parts, so use the part-prefixed
+        # section keys like the 10-Q path. Each canonical maps to ordered candidate keys —
+        # first one that yields real content wins (handles the Item 18-vs-17 filer choice).
+        sections = getattr(obj, "sections", None) or {}
+        for canonical, candidate_keys in (
+            ("risk", ("part_i_item_3",)),
+            ("mda", ("part_i_item_5",)),
+            ("financials", ("part_iii_item_18", "part_iii_item_17", "part_i_item_8")),
+        ):
+            for skey in candidate_keys:
+                section = sections.get(skey) if hasattr(sections, "get") else None
+                text_attr = getattr(section, "text", None) if section is not None else None
+                text = text_attr() if callable(text_attr) else text_attr
+                if text and len(text.strip()) >= _SECTION_MIN_CHARS:
+                    out[canonical] = text.strip()
+                    break
 
     return out or None
 
@@ -493,13 +513,17 @@ class EdgarXBRLService:
         the timeout is hit — callers fall back to the legacy regex extractor in that case.
         """
         base_form = normalize_form(filing_type)
-        if base_form not in {"10-K", "10-Q"}:
+        if base_form not in {"10-K", "10-Q", "20-F"}:
             return None
         cik_padded = str(cik).zfill(10)
+        # 20-F annual reports are far larger than a 10-K (verified: a BABA 20-F parses + extracts
+        # Item 3/5/18 in ~17.5s, over the 15s default), so give them extra headroom. They run
+        # concurrently with the document fetch, so the wall-clock cost is hidden.
+        section_timeout = max(self.timeout, 40.0) if base_form == "20-F" else self.timeout
         try:
             return await run_in_executor_with_timeout(
                 lambda: _extract_sections_sync(cik_padded, accession_number, base_form),
-                timeout=self.timeout,
+                timeout=section_timeout,
             )
         except asyncio.TimeoutError:
             logger.warning(f"Section extraction timed out for {accession_number}")
