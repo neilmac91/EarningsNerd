@@ -122,7 +122,6 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
         if (risk.description && isPlaceholderText(risk.description)) return false
         return true
       })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sections.risk_factors])
 
   // Content Checkers - Enhanced to detect placeholder content

@@ -3,7 +3,6 @@ import { generateSummaryStream } from '@/features/summaries/api/summaries-api'
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
 
 declare global {
-  // eslint-disable-next-line no-var
   var fetch: typeof fetch
 }
 
