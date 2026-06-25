@@ -33,9 +33,7 @@ from .instance_extractor import (
     DURATION_CONCEPTS,
     DURATION_WINDOWS,
     INSTANT_CONCEPTS,
-    duration_series,
     duration_series_with_currency,
-    instant_series,
     instant_series_with_currency,
     normalize_form,
 )
