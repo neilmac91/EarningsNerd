@@ -198,4 +198,13 @@ Phase 0 → **Phase 1 (kills the bug, ship behind flag)** → Phase 2 → **Phas
 - `frontend/app/company/[ticker]/page-client.tsx` — filter chips now derived from the filing types actually present; badge styles extended (annual 20-F/40-F = brand, interim 6-K = info); "Recommended" filing + "annual report" copy generalized to 20-F/40-F.
 - Tests: `backend/tests/test_edgar_services.py` — FPI enum/`from_string`/classification tests + an async regression that `compat.get_filings` requests 20-F/6-K and skips truly-unknown forms. **38 passed.**
 
-**Not yet done (next):** Phase 2 (20-F summaries) — until then, leave `ENABLE_FPI_FILINGS=false` in prod so we never serve an FPI filing whose summary would fall back to 10-K assumptions. The flag can be enabled in **preview** to validate the listing UX on `/company/BABA`.
+### Phase 2 — 20-F annual summaries: ✅ DONE (narrative + sections; XBRL/currency deferred to Phase 3)
+- `backend/prompts/20f-analyst-agent.md` + `20f-structured-agent.md` (new) — 20-F item structure (Item 3.D risk, Item 5 MD&A, Item 18/17 financials), native-currency (no USD assumption/conversion), VIE/PRC + ADS-ratio framing, no "dual-class" assumption.
+- `prompt_loader.py` — registers the 20-F prompts; `_normalize_filing_type` handles `20F`/`6K`/`40F`; the unknown-form fallback to the 10-K prompt is now **logged** (no longer silent) so a 6-K (pre-Phase-4) mis-analysis is visible.
+- `xbrl_service.py` — `_extract_sections_sync` gains a 20-F branch (`part_i_item_3` → risk, `part_i_item_5` → MD&A, `part_iii_item_18`/`_17`/`part_i_item_8` → financials); `get_filing_sections` admits 20-F with a **raised timeout (40s)** — a real BABA 20-F parses in ~17.5s, over the 15s default.
+- `openai_service.py` — `_SECTION_LAYOUT` + `_get_type_config` gain a 20-F entry (10-K-sized budget); the FY-period label and prompt's section description now cover 20-F.
+- `summary_pipeline.py` + `summary_generation_service.py` — section gate opened to 20-F (XBRL gate stays 10-K/10-Q); batch `global_timeout` gives 20-F the 120s 10-K budget.
+- `fallback_summary.py` — 20-F MD&A extraction (Item 5).
+- **Live-verified:** `get_filing_sections` on the real BABA 20-F returns risk **410,872** + MD&A **139,430** chars (financials section thin at 761 chars → handled by the existing dense-window backfill). Tests: `tests/unit/test_fpi_summary.py` + existing — **86 passed**.
+
+**Next:** Phase 3 (currency-correct RMB/native financials + IFRS) — this is the gate to flip `ENABLE_FPI_FILINGS=true` in prod. Until then keep it OFF in prod (a 20-F summary today is narrative-correct but cites no XBRL figures, by design, so there's no USD-mislabel risk). The flag can be enabled in **preview** to validate `/company/BABA` end-to-end (listing + a real 20-F summary).

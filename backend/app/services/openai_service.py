@@ -336,6 +336,23 @@ class OpenAIService:
                     "guidance": 10000,    # Increased from 6000
                     "footnotes": 10000    # Increased from 6000
                 }
+            },
+            # 20-F annual reports are as large and detailed as a 10-K — give them the same
+            # generous budget so financials/MD&A/risk aren't truncated before reaching the model.
+            "20-F": {
+                "ai_timeout": 150.0,
+                "max_tokens": 12000,
+                "sample_length": 100000,
+                "section_limits": {
+                    "financials": 50000,
+                    "mda": 40000,
+                    "risk_factors": 30000,
+                    "business": 25000,
+                    "liquidity": 25000,
+                    "segments": 20000,
+                    "guidance": 15000,
+                    "footnotes": 20000
+                }
             }
         }
 
@@ -653,6 +670,13 @@ class OpenAIService:
             ("financials", "ITEM 1 - FINANCIAL STATEMENTS", 50000),
             ("mda", "ITEM 2 - MANAGEMENT'S DISCUSSION AND ANALYSIS", 45000),
             ("risk", "ITEM 1A - RISK FACTORS", 25000),
+        ],
+        # 20-F (foreign annual report): Item 18 carries the audited statements, Item 5 is the
+        # MD&A equivalent (Operating & Financial Review), Item 3 holds the Risk Factors.
+        "20-F": [
+            ("financials", "ITEM 18 - FINANCIAL STATEMENTS", 70000),
+            ("mda", "ITEM 5 - OPERATING AND FINANCIAL REVIEW AND PROSPECTS", 55000),
+            ("risk", "ITEM 3.D - RISK FACTORS", 45000),
         ],
     }
 
@@ -2622,6 +2646,7 @@ Your task: Analyze {company_name}'s {filing_type} filing and provide key takeawa
 IMPORTANT: The text below contains ONLY the most critical sections extracted from the filing:
 - For 10-K: Item 1A (Risk Factors) and Item 7 (Management's Discussion and Analysis)
 - For 10-Q: Item 1A (Risk Factors) and Item 2 (Management's Discussion and Analysis)
+- For 20-F: Item 3.D (Risk Factors) and Item 5 (Operating & Financial Review) — figures are in the issuer's reporting currency (e.g. RMB/EUR), not USD
 
 This focused extraction allows for faster, more targeted analysis while maintaining the essential information needed for investment decisions.
 
@@ -3108,7 +3133,8 @@ Do not include any additional keys or text outside the JSON object."""
                 from datetime import datetime
                 date_obj = datetime.fromisoformat(filing_date.replace("Z", "+00:00"))
                 year = date_obj.year
-                if filing_type_key == "10-K":
+                if filing_type_key in {"10-K", "20-F"}:
+                    # 20-F is a foreign annual report — label as a fiscal year like a 10-K.
                     period_suffix = f" (FY{year})"
                 elif filing_type_key == "10-Q":
                     quarter = (date_obj.month - 1) // 3 + 1

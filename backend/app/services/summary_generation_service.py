@@ -419,8 +419,12 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
         
         start_time = time.time()
 
-        # Increased timeouts to accommodate API retries (3 attempts with exponential backoff)
-        global_timeout = 120.0 if filing_type == "10-K" else (100.0 if filing_type == "10-Q" else 60.0)
+        # Increased timeouts to accommodate API retries (3 attempts with exponential backoff).
+        # 20-F (foreign annual report) is as large as a 10-K, so it gets the same generous budget.
+        global_timeout = (
+            120.0 if filing_type in {"10-K", "20-F"}
+            else (100.0 if filing_type == "10-Q" else 60.0)
+        )
 
         async def generate_summary_core() -> None:
                 # Step 1: File Validation
@@ -518,7 +522,9 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                 if (
                     settings.USE_EDGARTOOLS_SECTIONS
                     and company_cik
-                    and filing_type in {"10-K", "10-Q"}
+                    # 20-F gets section extraction too; its XBRL stays gated (fetch_xbrl above) until
+                    # the currency-aware phase. See tasks/fpi-support-roadmap.md.
+                    and filing_type in {"10-K", "10-Q", "20-F"}
                 ):
                     async def fetch_sections() -> Optional[Dict[str, str]]:
                         try:

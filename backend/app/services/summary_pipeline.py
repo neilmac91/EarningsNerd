@@ -247,7 +247,10 @@ async def stream_filing_summary(
                 and settings.USE_EDGARTOOLS_SECTIONS
                 and company_cik
                 and filing_type
-                and filing_type.upper() in {"10-K", "10-Q"}
+                # 20-F (foreign annual report) gets edgartools section extraction too; its XBRL
+                # stays gated to 10-K/10-Q above until the currency-aware phase (financials in a
+                # non-USD reporting currency must not render as USD). See tasks/fpi-support-roadmap.md.
+                and filing_type.upper() in {"10-K", "10-Q", "20-F"}
             ):
                 async def fetch_sections():
                     try:
