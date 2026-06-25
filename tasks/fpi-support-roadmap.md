@@ -176,3 +176,26 @@ Summarize 6-K interim content, accepting it is free-form and often XBRL-less.
 
 ## 9. Suggested Sequencing
 Phase 0 → **Phase 1 (kills the bug, ship behind flag)** → Phase 2 → **Phase 3 (BABA fully trustworthy)** → Phase 5 (resolution/insiders/unsupported honesty) → Phase 4 (6-K). Phases 1+3 deliver the headline outcome ("Alibaba works"); Phase 5's unsupported-name guard is worth pulling early so foreign names stop looking broken even before full coverage.
+
+---
+
+## 10. Implementation Log
+
+### Phase 0 — spike: ✅ DONE, **PASSED against live SEC**
+`backend/scripts/verify_fpi_extraction.py` (new). Live run (`python scripts/verify_fpi_extraction.py BABA`):
+- BABA resolves → `Alibaba Group Holding Ltd`, CIK `1577552`.
+- `get_filings(form="20-F")` → latest accession `0001193125-26-231755` (filed 2026-05-20). ✅
+- `get_filings(form="6-K")` → latest accession `0001104659-26-075717` (filed 2026-06-18). ✅
+- `get_financials()` → `Financials` object. ✅
+- `TwentyF.obj()` → **30 item-sections** (`part_i_item_1` … `part_ii_item_13` …) — confirms edgartools has native 20-F item extraction for Phase 2. ✅
+- **Currency resolved to `$`** for BABA (which reports in RMB) — **confirms the Phase 3 currency risk is real**; the default cannot be trusted.
+
+### Phase 1 — listing: ✅ DONE (behind `ENABLE_FPI_FILINGS`, default OFF)
+- `backend/app/services/edgar/config.py` — added `FORM_20F`/`_AMENDED`, `FORM_40F`/`_AMENDED`, `FORM_6K`/`_AMENDED`; `from_string` variations (`20F`/`40F`/`6K`); `is_annual` now covers 20-F/40-F; new `is_interim` (6-K) and `is_foreign` props; new `foreign_reports()` classmethod.
+- `backend/app/config.py` — new `ENABLE_FPI_FILINGS: bool = False` setting (page-scoped discovery gate).
+- `backend/app/services/edgar/compat.py` — `get_filings()` now resolves forms non-strict and skips only genuine `UNKNOWN` (was: strict + `ValueError` → silently dropped 20-F/6-K).
+- `backend/app/routers/filings.py` — when `ENABLE_FPI_FILINGS` and no explicit `?filing_types`, the company-filings default expands to `["10-K","10-Q","20-F","6-K","40-F"]`. Page-scoped; feed/scanner/alerts untouched.
+- `frontend/app/company/[ticker]/page-client.tsx` — filter chips now derived from the filing types actually present; badge styles extended (annual 20-F/40-F = brand, interim 6-K = info); "Recommended" filing + "annual report" copy generalized to 20-F/40-F.
+- Tests: `backend/tests/test_edgar_services.py` — FPI enum/`from_string`/classification tests + an async regression that `compat.get_filings` requests 20-F/6-K and skips truly-unknown forms. **38 passed.**
+
+**Not yet done (next):** Phase 2 (20-F summaries) — until then, leave `ENABLE_FPI_FILINGS=false` in prod so we never serve an FPI filing whose summary would fall back to 10-K assumptions. The flag can be enabled in **preview** to validate the listing UX on `/company/BABA`.
