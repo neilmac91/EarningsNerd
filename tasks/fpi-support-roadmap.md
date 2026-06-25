@@ -143,7 +143,7 @@ Show figures in the filing's **reporting currency**, correctly, and extend XBRL 
 
 ### Phase 4 — 6-K interim *(L — deferred per D3)*
 Summarize 6-K interim content, accepting it is free-form and often XBRL-less.
-- [ ] Exhibit-centric path using edgartools `SixK.exhibits`/`.press_releases`/`.text()` + cover-page metadata — **not** the Item/XBRL pipeline. Wrap `SixK.text()` in try/except (known edgartools edge case #844).
+- [ ] Exhibit-centric path using edgartools `SixK.exhibits`/`.press_releases`/`.text()` + cover-page metadata — **not** the Item/XBRL pipeline. **Harden access to `SixK.text`**: resolve via `getattr` and check `callable()` to handle both a method and a plain property/string (edgartools attributes/return types shift across versions — cf. `Section.text`), *and* wrap in try/except (known edgartools edge case #844). Mirror the version-variance defense already used in `ownership_extractor.py`.
 - [ ] Author a 6-K prompt that summarizes whatever earnings release / interim statements are attached and does **not** demand item-numbered or GAAP sections.
 - [ ] Lightweight 6-K classification (earnings vs press release vs governance); run financial summarization only on those containing statements.
 - [ ] `change_report_service` (`:134-135`): add 6-K interim basis; handle **semi-annual** (not quarterly) cadence.
