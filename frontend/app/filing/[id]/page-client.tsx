@@ -48,11 +48,19 @@ const WHIMSY_MESSAGES = [
   "Looking for hidden gems in the appendix..."
 ]
 
-const LOADING_STEPS = [
-  { id: '1', label: 'Retrieving 10-Q filing from EDGAR', threshold: 10, nextTarget: 25 },
-  { id: '2', label: 'Extracting Item 1A (Risk Factors) & MD&A', threshold: 25, nextTarget: 45 },
-  { id: '3', label: 'Vectorizing content for semantic analysis', threshold: 45, nextTarget: 75 },
-  { id: '4', label: 'Synthesizing investment insights', threshold: 75, nextTarget: 95 }
+// Ordered list of the real pipeline stages the backend streams over SSE
+// (see backend/app/services/summary_pipeline.py). Step status is derived from the
+// live stage below — not from a timer — so the log reflects what is actually happening.
+const STAGE_ORDER = ['initializing', 'queued', 'fetching', 'parsing', 'analyzing', 'summarizing', 'completed'] as const
+
+// Honest progress steps mapped to real backend stages. The filing-type label is
+// derived from the actual filing (no more hard-coded "10-Q"), and there is no
+// "vectorizing"/"semantic analysis" step because the summary path does no embedding.
+const buildLoadingSteps = (filingType: string) => [
+  { stage: 'fetching', label: `Retrieving ${filingType || 'SEC'} filing from EDGAR` },
+  { stage: 'parsing', label: 'Extracting financial statements, risk factors & MD&A' },
+  { stage: 'analyzing', label: 'Cross-referencing standardized XBRL financials' },
+  { stage: 'summarizing', label: 'Generating investment analysis' },
 ]
 
 const STAGE_PROGRESS_MAP: Record<string, number> = {
@@ -797,6 +805,17 @@ function StreamingSummaryDisplay({
   // Actually, let's show whimsy message as a sub-text or rotating label
   const activeMessage = error || message || stage
 
+  // Honest, backend-driven progress log: steps reflect the real streamed stage.
+  const loadingSteps = buildLoadingSteps(filing.filing_type)
+  const currentStageIdx = STAGE_ORDER.indexOf(stage as (typeof STAGE_ORDER)[number])
+  // On the error path `stage` becomes 'error' (not in STAGE_ORDER → index -1). Fall back to the
+  // furthest stage the persisted progress implies so the step log keeps its completed steps instead
+  // of collapsing to all-pending — staying consistent with the circular indicator, which also
+  // retains its last value on error.
+  const displayStageIdx = currentStageIdx > -1
+    ? currentStageIdx
+    : STAGE_ORDER.reduce((acc, s, i) => ((STAGE_PROGRESS_MAP[s] ?? 0) <= optimisticProgress ? i : acc), -1)
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Progress Header */}
@@ -898,13 +917,14 @@ function StreamingSummaryDisplay({
               <div className="absolute left-3 top-2 bottom-2 w-0.5 bg-border-light dark:bg-border-dark lg:block hidden" />
 
               {/* Dynamically generate log steps based on progress */}
-              {LOADING_STEPS.map((step) => {
-                const status = optimisticProgress > step.threshold
+              {loadingSteps.map((step) => {
+                const stepIdx = STAGE_ORDER.indexOf(step.stage as (typeof STAGE_ORDER)[number])
+                const status = (stage === 'completed' || (displayStageIdx > -1 && displayStageIdx > stepIdx))
                   ? 'complete'
-                  : optimisticProgress > (step.threshold - 10) ? 'active' : 'pending'
+                  : (displayStageIdx === stepIdx ? 'active' : 'pending')
 
                 return (
-                  <div key={step.id} className={`flex items-center gap-3 transition-opacity duration-300 ${status === 'pending' ? 'opacity-40' : 'opacity-100'}`}>
+                  <div key={step.stage} className={`flex items-center gap-3 transition-opacity duration-300 ${status === 'pending' ? 'opacity-40' : 'opacity-100'}`}>
                     <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center border transition-all duration-300 ${status === 'complete'
                       ? 'bg-brand-strong border-brand-strong text-white dark:bg-brand-dark dark:border-brand-dark dark:text-background-dark'
                       : status === 'active'
