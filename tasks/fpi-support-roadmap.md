@@ -228,3 +228,13 @@ Phase 0 → **Phase 1 (kills the bug, ship behind flag)** → Phase 2 → **Phas
 - **Eval golden set** now has three verified FPI 20-Fs spanning the currency/taxonomy matrix: **BABA** (U.S. GAAP / CNY), **TSM** (IFRS / TWD), **ASML** (IFRS / EUR — revenue hand-filled, it double-tags). Ground truth resolved live with native-currency units (`CNY`/`TWD`/`EUR` + `*_per_share`).
 - **Adoption gate documented** in `backend/evals/RUNBOOK.md` → "FPI adoption gate" section: offline tests → live extraction spot-check → bake-off on the FPI rows → eyeball check (native currency, 20-F structure, VIE/PRC) → rollout (canary → prod env var → facts backfill).
 - **Flip mechanics:** the flag is a Cloud Run env var. Canary: `gcloud run deploy … --no-traffic --tag=fpi --update-env-vars=ENABLE_FPI_FILINGS=true`. Prod: add `ENABLE_FPI_FILINGS=true` to the `--update-env-vars` list in `.github/workflows/ci.yml` (the `gcloud run deploy` step) — **intentionally not added yet** (would flip on the next backend deploy, before the eval pass). Manual `gcloud run services update` survives later CI deploys (merge semantics).
+
+### Gate run (offline + live, no provider keys): ✅ plumbing GREEN
+Ran Steps A–B of the RUNBOOK gate:
+- **Offline:** 79/79 tests pass.
+- **BABA** (US-GAAP/CNY): PASS — `reporting_currency=CNY`, revenue RMB 1,023.67B + net income RMB 103.59B, sections [financials, mda, risk], 20-F prompt resolves.
+- **TSM** (IFRS/TWD): PASS — `reporting_currency=TWD`, revenue TWD 3,809B + net income TWD 1,695B, sections + prompt OK.
+- **ASML** (IFRS/EUR): PASS-with-degradation — `reporting_currency=EUR`, net income €9.61B (revenue legitimately absent — double-tagged), prompt OK; section extraction **falls back to dense-window** because ASML's 20-F section parse takes >120s (the 40s cap is correct — see RUNBOOK gotcha).
+- **#1 risk (USD mislabel): confirmed clean** — no native CNY/TWD/EUR value rendered as USD on any ticker.
+
+**Remaining before flip:** Step C (keyed AI bake-off — needs a provider key) **or** a canary read of a live BABA summary (exercises the real model end-to-end). Recommendation: canary now → eyeball a BABA 20-F summary → promote → `backfill_facts.py`.
