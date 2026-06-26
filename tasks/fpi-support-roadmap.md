@@ -237,4 +237,10 @@ Ran Steps A–B of the RUNBOOK gate:
 - **ASML** (IFRS/EUR): PASS-with-degradation — `reporting_currency=EUR`, net income €9.61B (revenue legitimately absent — double-tagged), prompt OK; section extraction **falls back to dense-window** because ASML's 20-F section parse takes >120s (the 40s cap is correct — see RUNBOOK gotcha).
 - **#1 risk (USD mislabel): confirmed clean** — no native CNY/TWD/EUR value rendered as USD on any ticker.
 
-**Remaining before flip:** Step C (keyed AI bake-off — needs a provider key) **or** a canary read of a live BABA summary (exercises the real model end-to-end). Recommendation: canary now → eyeball a BABA 20-F summary → promote → `backfill_facts.py`.
+### Step C — keyed bake-off on the PROD model (DeepSeek): ✅ PASS
+Ran `evals.runner --candidates baseline` over BABA against the prod model (`deepseek-v4-pro` via `api.deepseek.com`, using the env's `DEEPSEEK_API_KEY`). Generated summary inspected by eye:
+- **Currency: native RMB throughout** (40× `RMB`, **0 bare-`$`** on headline figures); USD shown only as labeled convenience (`US$`, e.g. "RMB1,023,670M (US$148,401M)") — exactly the D2 behavior.
+- **20-F structure** (cites Item 3.D, PRC/HFCAA), **VIE framing** ("Cayman holding company, not the PRC operating entities … contractual arrangements"), **ADS ratio applied** ("per ADS RMB45.63 … each ADS = eight ordinary shares").
+- `gate_fail=0`, `numeric_precision=1.0` (no fabricated/wrong numbers). `num_recall=0.33` is a **ground-truth-definition artifact, not a defect** — the AI reports per-ADS EPS (45.63 = 5.7×8) and net income attributable to ordinary shareholders (105,904M), while the golden set holds per-share EPS (5.7) and total `NetIncomeLoss` (103,592M).
+
+**Gate verdict: PASS** — currency-correct, item-correct, VIE/ADS-aware on the real prod model. Safe to flip. Recommendation: enable in prod (or canary first) → run `backfill_facts.py` so fundamentals charts populate in native currency. Optional follow-ups: credit per-ADS EPS / attributable-NI in the eval scorer (removes the false recall miss); run TSM/ASML prose for extra confidence.
