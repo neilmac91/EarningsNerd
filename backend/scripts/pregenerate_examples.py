@@ -25,7 +25,6 @@ import asyncio
 import logging
 import os
 import sys
-from datetime import datetime
 
 # Make the backend root importable as `app.*` even when this file is run directly as
 # `python scripts/pregenerate_examples.py` (which puts scripts/ on sys.path, not the backend root).
@@ -51,114 +50,21 @@ DEFAULT_TICKERS = [
 async def pregenerate_for_ticker(ticker: str, force: bool = False) -> None:
     """Resolve the latest 10-K for ``ticker``, persist it, and cache its summary.
 
-    When ``force`` is True, an existing summary + cached critical excerpt for the filing are
-    cleared first, so generation re-runs from scratch on the current code/prompts (otherwise
-    generation is idempotent and skips filings that already have a summary).
+    Thin wrapper over ``precompute_service.precompute_one`` — the shared, idempotent core also used
+    by the token-gated ``POST /internal/jobs/precompute`` trigger. When ``force`` is True the
+    existing summary + cached excerpt are cleared first, so generation re-runs on the current
+    code/prompts (otherwise generation is idempotent and skips filings that already have a summary).
     """
-    # Imports are deferred so the module parses/imports without app config
-    # (and so SKIP_REDIS_INIT is set before app modules initialize).
-    from app.database import SessionLocal
-    from app.models import Company, Filing, FilingContentCache, Summary
-    from app.services.edgar.compat import sec_edgar_service
-    from app.services.summary_generation_service import generate_summary_background
+    # Deferred import so the module parses without app config (and SKIP_REDIS_INIT is set first).
+    from app.services.precompute_service import precompute_one
 
-    ticker_upper = ticker.upper().strip()
-
-    with SessionLocal() as db:
-        # Get-or-create the company (mirrors routers/companies.py get_company).
-        company = db.query(Company).filter(Company.ticker == ticker_upper).first()
-        if not company:
-            sec_results = await sec_edgar_service.search_company(ticker_upper)
-            if not sec_results:
-                print(f"{ticker_upper}: company not found on SEC EDGAR — skipping")
-                return
-            sec_data = sec_results[0]
-            company = Company(
-                cik=sec_data["cik"],
-                ticker=sec_data["ticker"],
-                name=sec_data["name"],
-                exchange=sec_data.get("exchange"),
-            )
-            db.add(company)
-            db.commit()
-            db.refresh(company)
-
-        # Resolve the latest 10-K.
-        sec_filings = await sec_edgar_service.get_filings(
-            company.cik, filing_types=["10-K"], limit=1
-        )
-        if not sec_filings:
-            print(f"{ticker_upper}: no 10-K filings found — skipping")
-            return
-
-        sec_filing = sec_filings[0]
-        sec_url = sec_filing.get("sec_url")
-        document_url = sec_filing.get("document_url")
-
-        # Both URLs are NOT NULL on the Filing model and validated by event
-        # listeners in app/models/__init__.py — skip rather than fail the row.
-        if not sec_url or not document_url:
-            print(
-                f"{ticker_upper}: filing {sec_filing.get('accession_number')} "
-                f"missing sec_url/document_url — skipping"
-            )
-            return
-
-        # Get-or-create the Filing row (mirrors routers/filings.py persistence).
-        filing = db.query(Filing).filter(
-            Filing.accession_number == sec_filing["accession_number"]
-        ).first()
-        if not filing:
-            filing = Filing(
-                company_id=company.id,
-                accession_number=sec_filing["accession_number"],
-                filing_type=sec_filing["filing_type"],
-                filing_date=datetime.fromisoformat(sec_filing["filing_date"]),
-                period_end_date=(
-                    datetime.fromisoformat(sec_filing["report_date"])
-                    if sec_filing.get("report_date")
-                    else None
-                ),
-                document_url=document_url,
-                sec_url=sec_url,
-            )
-            db.add(filing)
-            db.commit()
-            db.refresh(filing)
-
-        filing_id = filing.id
-        # Materialize the accession now, while ``filing`` is still bound to this session — the
-        # force-reset commit below expires ORM attributes, and the report block runs after this
-        # session has closed (accessing filing.accession_number there raises DetachedInstanceError).
-        filing_accession_number = filing.accession_number
-
-        # Force refresh: drop the existing summary + cached excerpt so generation re-runs on the
-        # current extraction path (the critical_excerpt is otherwise reused as-is, and generation
-        # short-circuits when a Summary already exists).
-        if force:
-            deleted = db.query(Summary).filter(Summary.filing_id == filing_id).delete()
-            cache = (
-                db.query(FilingContentCache)
-                .filter(FilingContentCache.filing_id == filing_id)
-                .first()
-            )
-            if cache:
-                cache.critical_excerpt = None
-            db.commit()
-            print(
-                f"{ticker_upper}: force reset filing {filing_id} "
-                f"(removed {deleted} summary, cleared cached excerpt)"
-            )
-
-    # Trigger generation (idempotent: returns early if a Summary already
-    # exists; manages its own DB session).
-    await generate_summary_background(filing_id, user_id=None)
-
-    # Report whether a cached summary now exists.
-    with SessionLocal() as db:
-        summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-        status = "summary cached" if summary else "NO summary (check OPENAI_API_KEY/logs)"
-        print(f"{ticker_upper}: filing_id={filing_id} accession={filing_accession_number} -> {status}")
+    r = await precompute_one(ticker, "10-K", force=force)
+    cached = r["status"] in ("generated", "already_cached")
+    detail = "summary cached" if cached else r["status"].replace("_", " ")
+    if r.get("filing_id"):
+        print(f"{r['ticker']}: filing_id={r['filing_id']} accession={r['accession']} -> {detail}")
+    else:
+        print(f"{r['ticker']}: {detail}")
 
 
 async def main(tickers: list[str], force: bool = False) -> None:

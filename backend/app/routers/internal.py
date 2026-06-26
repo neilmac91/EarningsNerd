@@ -14,7 +14,8 @@ import hmac
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Response, status
+from pydantic import BaseModel, Field
 
 from app.config import settings
 from app.services import filing_scan_service
@@ -92,3 +93,55 @@ def _run_backfill_facts() -> None:
 async def trigger_backfill_facts(background: BackgroundTasks):
     background.add_task(_run_backfill_facts)
     return {"status": "accepted", "job": "backfill-facts"}
+
+
+class PrecomputeRequest(BaseModel):
+    """Roadmap A1: warm the cold path by pre-generating analyses for an explicit ticker list.
+
+    Deliberately list-driven (no implicit fleet sweep) — the operator chooses the cohort. ``dry_run``
+    returns a coverage report (what would generate vs is already cached) without spending tokens.
+    """
+
+    tickers: list[str] = Field(default_factory=list)
+    forms: list[str] = Field(default_factory=lambda: ["10-K"])
+    force: bool = False
+    dry_run: bool = False
+
+
+async def _run_precompute(tickers: list[str], forms: list[str], force: bool) -> None:
+    from app.services import precompute_service
+
+    try:
+        out = await precompute_service.precompute(tickers, forms=forms, force=force)
+        logger.info("Precompute (internal trigger) complete: %s", out["stats"])
+    except Exception:
+        logger.exception("Precompute (internal trigger) failed")
+
+
+@router.post("/jobs/precompute", dependencies=[Depends(_require_internal_token)])
+async def trigger_precompute(req: PrecomputeRequest, background: BackgroundTasks, response: Response):
+    """Pre-generate (and cache) the latest 10-K/10-Q analyses for the given tickers.
+
+    ``dry_run=true`` runs synchronously and returns the coverage report (no generation). A real run
+    is fire-and-forget (202) — generation is slow, so we don't hold the request open."""
+    from app.services import precompute_service
+
+    tickers = [t.strip().upper() for t in req.tickers if t and t.strip()]
+    if not tickers:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="`tickers` must be a non-empty list.")
+    forms = [f.strip().upper() for f in req.forms if f and f.strip()] or ["10-K"]
+
+    if req.dry_run:
+        # A dry run does a couple of (serial) SEC round-trips per job, so a large cohort would blow
+        # the request/gateway timeout. Cap the synchronous preview; use a real run for the full fleet.
+        if len(tickers) * len(forms) > 100:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Dry run is capped at 100 total jobs (tickers x forms) to avoid gateway timeouts.",
+            )
+        out = await precompute_service.precompute(tickers, forms=forms, force=False, dry_run=True)
+        return {"status": "ok", "job": "precompute", "dry_run": True, **out}
+
+    response.status_code = status.HTTP_202_ACCEPTED
+    background.add_task(_run_precompute, tickers, forms, req.force)
+    return {"status": "accepted", "job": "precompute", "tickers": len(tickers), "forms": forms}
