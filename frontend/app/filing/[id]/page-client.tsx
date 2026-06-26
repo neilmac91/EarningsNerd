@@ -808,6 +808,13 @@ function StreamingSummaryDisplay({
   // Honest, backend-driven progress log: steps reflect the real streamed stage.
   const loadingSteps = buildLoadingSteps(filing.filing_type)
   const currentStageIdx = STAGE_ORDER.indexOf(stage as (typeof STAGE_ORDER)[number])
+  // On the error path `stage` becomes 'error' (not in STAGE_ORDER → index -1). Fall back to the
+  // furthest stage the persisted progress implies so the step log keeps its completed steps instead
+  // of collapsing to all-pending — staying consistent with the circular indicator, which also
+  // retains its last value on error.
+  const displayStageIdx = currentStageIdx > -1
+    ? currentStageIdx
+    : STAGE_ORDER.reduce((acc, s, i) => ((STAGE_PROGRESS_MAP[s] ?? 0) <= optimisticProgress ? i : acc), -1)
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -912,9 +919,9 @@ function StreamingSummaryDisplay({
               {/* Dynamically generate log steps based on progress */}
               {loadingSteps.map((step) => {
                 const stepIdx = STAGE_ORDER.indexOf(step.stage as (typeof STAGE_ORDER)[number])
-                const status = (stage === 'completed' || (currentStageIdx > -1 && currentStageIdx > stepIdx))
+                const status = (stage === 'completed' || (displayStageIdx > -1 && displayStageIdx > stepIdx))
                   ? 'complete'
-                  : (currentStageIdx === stepIdx ? 'active' : 'pending')
+                  : (displayStageIdx === stepIdx ? 'active' : 'pending')
 
                 return (
                   <div key={step.stage} className={`flex items-center gap-3 transition-opacity duration-300 ${status === 'pending' ? 'opacity-40' : 'opacity-100'}`}>
