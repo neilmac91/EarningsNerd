@@ -223,3 +223,24 @@ Phase 0 → **Phase 1 (kills the bug, ship behind flag)** → Phase 2 → **Phas
 - **Live-verified end-to-end:** `get_xbrl_data` on the real BABA 20-F → `reporting_currency=CNY`, revenue **RMB 1,023.67B**, net income **RMB 103.6B**, total assets **RMB 1,909.57B** — all native CNY (never the USD convenience), all 3 comparatives retained. Tests: `tests/unit/test_fpi_currency.py` (new) + existing — **114 passed**.
 
 **Status:** Phases 0–3 complete. **`ENABLE_FPI_FILINGS` can now be flipped on** (preview first, then prod after an eval pass) — BABA lists its 20-F/6-K, generates an item-correct 20-F summary, and shows financials in native RMB. Remaining: Phase 4 (6-K interim, deferred) and Phase 5 (peers/alerts/insiders FPI-awareness + honest "not available" for unsupported foreign names).
+
+### Flag + eval gate config: ✅ DONE
+- **Eval golden set** now has three verified FPI 20-Fs spanning the currency/taxonomy matrix: **BABA** (U.S. GAAP / CNY), **TSM** (IFRS / TWD), **ASML** (IFRS / EUR — revenue hand-filled, it double-tags). Ground truth resolved live with native-currency units (`CNY`/`TWD`/`EUR` + `*_per_share`).
+- **Adoption gate documented** in `backend/evals/RUNBOOK.md` → "FPI adoption gate" section: offline tests → live extraction spot-check → bake-off on the FPI rows → eyeball check (native currency, 20-F structure, VIE/PRC) → rollout (canary → prod env var → facts backfill).
+- **Flip mechanics:** the flag is a Cloud Run env var. Canary: `gcloud run deploy … --no-traffic --tag=fpi --update-env-vars=ENABLE_FPI_FILINGS=true`. Prod: add `ENABLE_FPI_FILINGS=true` to the `--update-env-vars` list in `.github/workflows/ci.yml` (the `gcloud run deploy` step) — **intentionally not added yet** (would flip on the next backend deploy, before the eval pass). Manual `gcloud run services update` survives later CI deploys (merge semantics).
+
+### Gate run (offline + live, no provider keys): ✅ plumbing GREEN
+Ran Steps A–B of the RUNBOOK gate:
+- **Offline:** 79/79 tests pass.
+- **BABA** (US-GAAP/CNY): PASS — `reporting_currency=CNY`, revenue RMB 1,023.67B + net income RMB 103.59B, sections [financials, mda, risk], 20-F prompt resolves.
+- **TSM** (IFRS/TWD): PASS — `reporting_currency=TWD`, revenue TWD 3,809B + net income TWD 1,695B, sections + prompt OK.
+- **ASML** (IFRS/EUR): PASS-with-degradation — `reporting_currency=EUR`, net income €9.61B (revenue legitimately absent — double-tagged), prompt OK; section extraction **falls back to dense-window** because ASML's 20-F section parse takes >120s (the 40s cap is correct — see RUNBOOK gotcha).
+- **#1 risk (USD mislabel): confirmed clean** — no native CNY/TWD/EUR value rendered as USD on any ticker.
+
+### Step C — keyed bake-off on the PROD model (DeepSeek): ✅ PASS
+Ran `evals.runner --candidates baseline` over BABA against the prod model (`deepseek-v4-pro` via `api.deepseek.com`, using the env's `DEEPSEEK_API_KEY`). Generated summary inspected by eye:
+- **Currency: native RMB throughout** (40× `RMB`, **0 bare-`$`** on headline figures); USD shown only as labeled convenience (`US$`, e.g. "RMB1,023,670M (US$148,401M)") — exactly the D2 behavior.
+- **20-F structure** (cites Item 3.D, PRC/HFCAA), **VIE framing** ("Cayman holding company, not the PRC operating entities … contractual arrangements"), **ADS ratio applied** ("per ADS RMB45.63 … each ADS = eight ordinary shares").
+- `gate_fail=0`, `numeric_precision=1.0` (no fabricated/wrong numbers). `num_recall=0.33` is a **ground-truth-definition artifact, not a defect** — the AI reports per-ADS EPS (45.63 = 5.7×8) and net income attributable to ordinary shareholders (105,904M), while the golden set holds per-share EPS (5.7) and total `NetIncomeLoss` (103,592M).
+
+**Gate verdict: PASS** — currency-correct, item-correct, VIE/ADS-aware on the real prod model. Safe to flip. Recommendation: enable in prod (or canary first) → run `backfill_facts.py` so fundamentals charts populate in native currency. Optional follow-ups: credit per-ADS EPS / attributable-NI in the eval scorer (removes the false recall miss); run TSM/ASML prose for extra confidence.

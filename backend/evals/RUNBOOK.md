@@ -160,6 +160,80 @@ acceptable cost/latency. Then:
 
 ---
 
+## FPI adoption gate — flipping `ENABLE_FPI_FILINGS`
+
+Separate, default-off gate (`app/config.py` → `ENABLE_FPI_FILINGS`). It controls whether the
+company-filings endpoint lists + summarizes foreign-issuer forms (20-F/6-K/40-F) for ADRs like
+Alibaba. **What you're deciding:** are 20-F summaries + native-currency financials good enough to
+turn on for users. See `tasks/fpi-support-roadmap.md`.
+
+The golden set ships three verified FPI 20-Fs covering the currency/taxonomy matrix:
+
+| Ticker | Accounting | Reporting currency | Why |
+|---|---|---|---|
+| BABA | U.S. GAAP | CNY (+ USD convenience) | flagship; convenience-translation filter |
+| TSM  | IFRS | TWD | ifrs-full namespace + non-USD |
+| ASML | IFRS | EUR | EUR; revenue hand-filled (double-tagged — see below) |
+
+### Step A — offline (no API spend, no network)
+```bash
+cd backend
+pytest tests/unit/test_fpi_currency.py tests/unit/test_fpi_summary.py tests/test_edgar_services.py -q
+```
+Covers reporting-currency capture (native vs USD-convenience), the `*_per_share` scorer, 20-F
+prompt selection, and the `FilingType` enum.
+
+### Step B — live extraction spot-check (SEC only, no provider keys)
+```bash
+python scripts/verify_fpi_extraction.py BABA TSM ASML
+```
+Each must show its 20-F + 6-K, a non-None `Financials`, and `TwentyF` sections. Then confirm the
+currency-aware path returns the **native** figure (not the USD convenience):
+```bash
+SKIP_REDIS_INIT=true python -c "import asyncio; from app.services.edgar.xbrl_service import edgar_xbrl_service as s; \
+d=asyncio.run(s.get_xbrl_data('0001193125-26-231755','1577552')); print(s.extract_standardized_metrics(d)['reporting_currency'])"
+# expect: CNY
+```
+
+### Step C — summary quality on the FPI entries (provider keys; reuses Steps 5–7 above)
+```bash
+python -m evals.runner --candidates baseline --runs 3   # scores all golden entries incl. BABA/TSM/ASML
+```
+In `evals/reports/eval_*.json`, check the three FPI rows: `num_recall`/`num_precision` (the
+scorer is currency-agnostic, so a "RMB 1,023.67B" rendering matches), and **no `gate_fail`**
+(no fabricated numbers). Then **read one FPI summary by eye** — non-negotiables:
+- figures in the issuer's currency (RMB/TWD/EUR), **never `$`**;
+- 20-F item structure (Item 3.D risk, Item 5 MD&A), not 10-K item numbers;
+- VIE / PRC-control framing for BABA; no "dual-class" claim.
+
+### Step D — adoption rule → flip
+Enable **only if** the FPI rows clear the same bar as domestic (recall/coverage, no gate-fail) **and**
+the eyeball check passes. Rollout (mirrors Step 9):
+
+1. **Canary first** — a no-traffic revision with the flag, tested via its tag URL:
+   ```bash
+   gcloud run deploy earningsnerd-backend --region=us-west1 --image=<current-image> \
+     --no-traffic --tag=fpi --update-env-vars=ENABLE_FPI_FILINGS=true
+   # hit https://fpi---earningsnerd-backend-...run.app via the Vercel preview / curl, verify /company/BABA
+   gcloud run services update-traffic earningsnerd-backend --region=us-west1 --to-tags fpi=100  # promote
+   ```
+   Or flip the live service directly (all traffic): `gcloud run services update earningsnerd-backend
+   --region=us-west1 --update-env-vars=ENABLE_FPI_FILINGS=true`. **Merge semantics** — it survives
+   later CI deploys (CI uses `--update-env-vars`, never `--set-env-vars`).
+2. **Make it durable** — once validated, add `ENABLE_FPI_FILINGS=true` to the `--update-env-vars`
+   list in `.github/workflows/ci.yml` (the `gcloud run deploy` step) so it's declarative, not an
+   out-of-band setting. (Intentionally NOT added yet — that would flip prod on the next backend deploy.)
+3. **Backfill FPI facts** so the fundamentals chart populates in the issuer's currency:
+   `python scripts/backfill_facts.py` (or the `/internal/jobs/backfill-facts` job).
+4. **Re-run Step B/C** against prod config to confirm it matches.
+
+### Regenerating / extending the FPI golden entries
+The three entries were resolved live (currency captured automatically). To refresh or add more,
+resolve only the new ones (re-running the full `build_golden_set` re-resolves all 22 to their latest
+filings). Hand-fill is fine for double-tagged filers (ASML tags revenue twice — €32.6673B statement
++ €32.7B rounded — which the extractor correctly drops as ambiguous; the AI still reads it from the
+filing text).
+
 ## Gotchas
 | Issue | Mitigation |
 |---|---|
@@ -168,3 +242,6 @@ acceptable cost/latency. Then:
 | Cost surprise | `--limit` + fewer `--runs`; fix `models.py` price placeholders |
 | `anthropic` ImportError / no key | `pip install anthropic`; judge/Claude degrade to a FAIL-with-error row, not a crash |
 | Wrong ground truth | Spot-check against the filing — it silently corrupts every score |
+| FPI figure renders as `$` | Reporting currency not captured — re-check `reporting_currency` (Step B); the value must be native (RMB/EUR/TWD) |
+| FPI metric missing (double-tagged) | Filer tags the same line twice (statement + rounded) → dropped as ambiguous; hand-fill ground truth from the statement value |
+| Huge 20-F section parse very slow (e.g. ASML >120s) | `get_filing_sections` caps at 40s and returns None → pipeline falls back to the fast dense-window extractor (lower precision, still usable). Expected, not a failure; don't raise the cap (it would block generation for minutes). |
