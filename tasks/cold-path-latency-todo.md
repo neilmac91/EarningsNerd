@@ -23,8 +23,10 @@ Branch: `claude/earningsnerd-cold-path-latency-6imswg`
 ## Phase A — quick wins
 - [x] **A2** Wire summary progress to real backend stages; fix the "10-Q" mislabel; drop the false
       "vectorizing/semantic analysis" step. (`frontend/app/filing/[id]/page-client.tsx`)
-- [ ] **A1** Background precompute mechanism (idempotent generator + `/internal/jobs` trigger +
-      filing-scan hook + sweep script). **← stop at the gate before the 500+ run.**
+- [~] **A1** Background precompute. **Mechanism + pilot DONE** (`precompute_service.py`,
+      `/internal/jobs/precompute`, `pregenerate_examples` delegates to it; 7 unit tests). **Fleet run
+      still GATED** — awaiting owner go on the top-500 cohort + batch concurrency. Filing-scan
+      auto-trigger for *new* filings = follow-up.
 - [ ] **A4** Filings list: 3-year default + prefetch latest 10-K on company open.
 - [ ] **A5** Stream the existing single call's output → progressive section reveal (same call/output).
 - [ ] **A3** In-flight dedup for concurrent same-`filing_id` requests.
@@ -43,4 +45,12 @@ bulk `submissions.zip`, CDN mirror.
   (`STAGE_ORDER`) and labels the first step with the actual `filing.filing_type`. Removed the
   fabricated "Vectorizing content for semantic analysis" step (no embedding on the summary path).
   No generation behavior change. Verified: `tsc --noEmit -p tsconfig.ci.json` exit 0; zero errors in
-  the changed file.
+  the changed file. **Merged in PR #429.**
+- **A1 mechanism (done, fleet run gated):** `precompute_service.precompute()/precompute_one()` reuse
+  the idempotent `generate_summary_background` path; token-gated `POST /internal/jobs/precompute`
+  (sync `dry_run` coverage report; real run = 202 + background); `pregenerate_examples` now delegates
+  (DRY). `MAX_BATCH=1200` cost guard. 7 unit tests pass; ruff clean.
+  Pilot (SQLite, POWL+AAON × 10-K/10-Q): 4/4 generated + persisted; idempotent re-run skipped all
+  with **0 new LLM calls**; **$0.011/filing** → top-500 10-K ≈ **$5.56**, ×2 forms ≈ **$11.13**.
+  Finding: serial batch ≈ 59s/filing (~16h for 1000) → needs bounded concurrency or multi-night
+  spread before the fleet run.
