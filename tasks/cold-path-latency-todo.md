@@ -27,7 +27,8 @@ Branch: `claude/earningsnerd-cold-path-latency-6imswg`
       `/internal/jobs/precompute`, `pregenerate_examples` delegates to it; 7 unit tests). **Fleet run
       still GATED** — awaiting owner go on the top-500 cohort + batch concurrency. Filing-scan
       auto-trigger for *new* filings = follow-up.
-- [ ] **A4** Filings list: 3-year default + prefetch latest 10-K on company open.
+- [x] **A4** Filings list: default-expand the most recent 3 years that have filings; prefetch the
+      latest 10-K's summary on company open (read-only, warms the next click). (`company/[ticker]`)
 - [ ] **A5** Stream the existing single call's output → progressive section reveal (same call/output).
 - [ ] **A3** In-flight dedup for concurrent same-`filing_id` requests.
 

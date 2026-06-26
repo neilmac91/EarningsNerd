@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getCompany, Company } from '@/features/companies/api/companies-api'
 import { getCompanyFilings, Filing } from '@/features/filings/api/filings-api'
+import { getSummary } from '@/features/summaries/api/summaries-api'
 import { addToWatchlist, removeFromWatchlist, getWatchlist, WatchlistItem } from '@/features/watchlist/api/watchlist-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { ArrowRightIcon, ArrowSquareOutIcon, CaretDownIcon, CircleNotchIcon, FileTextIcon, FunnelIcon, SparkleIcon, StarIcon } from '@/lib/icons'
@@ -173,6 +174,30 @@ export default function CompanyPageClient() {
 
     return { groupedFilings: grouped, sortedYears: years, recommendedFiling, availableFilingTypes }
   }, [filings, filterType])
+
+  // A4: default the filing list to the most recent ~3 years that actually have filings (older years
+  // stay collapsed behind their headers) — instead of only the current calendar year, which is empty
+  // for a company whose latest filing is last year. Runs once on load; the user controls it after.
+  const hasAutoExpandedRef = useRef(false)
+  useEffect(() => {
+    if (hasAutoExpandedRef.current || sortedYears.length === 0) return
+    hasAutoExpandedRef.current = true
+    setExpandedYears(new Set(sortedYears.slice(0, 3)))
+  }, [sortedYears])
+
+  // A4: prefetch the recommended filing's summary (the latest 10-K) the moment the company opens, so
+  // the most-likely next click renders the cached analysis instantly. Read-only GET — never triggers
+  // generation. Dovetails with the A1 precompute that warms these summaries server-side.
+  const hasPrefetchedRef = useRef(false)
+  useEffect(() => {
+    if (hasPrefetchedRef.current || !recommendedFiling?.id) return
+    hasPrefetchedRef.current = true
+    queryClient.prefetchQuery({
+      queryKey: ['summary', recommendedFiling.id],
+      queryFn: () => getSummary(recommendedFiling.id),
+      staleTime: 60_000,
+    })
+  }, [recommendedFiling, queryClient])
 
   // Handle case where ticker might not be available
   if (!ticker) {
