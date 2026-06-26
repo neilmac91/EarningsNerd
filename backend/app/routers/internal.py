@@ -132,6 +132,13 @@ async def trigger_precompute(req: PrecomputeRequest, background: BackgroundTasks
     forms = [f.strip().upper() for f in req.forms if f and f.strip()] or ["10-K"]
 
     if req.dry_run:
+        # A dry run does a couple of (serial) SEC round-trips per job, so a large cohort would blow
+        # the request/gateway timeout. Cap the synchronous preview; use a real run for the full fleet.
+        if len(tickers) * len(forms) > 100:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Dry run is capped at 100 total jobs (tickers x forms) to avoid gateway timeouts.",
+            )
         out = await precompute_service.precompute(tickers, forms=forms, force=False, dry_run=True)
         return {"status": "ok", "job": "precompute", "dry_run": True, **out}
 

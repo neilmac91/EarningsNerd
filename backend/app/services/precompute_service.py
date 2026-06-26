@@ -61,81 +61,105 @@ async def precompute_one(
         result["status"] = "unsupported_form"
         return result
 
-    filing_id: Optional[int] = None
+    # DB sessions are kept short and are NEVER held open across the (slow) SEC EDGAR network calls —
+    # otherwise a pooled connection would be checked out for the whole multi-second fetch, starving
+    # the pool under any batch/concurrency. So: read with a session, close it, hit SEC, reopen only
+    # to write.
+    cik: Optional[str] = None
+    company_id: Optional[int] = None
+    sec_company: Optional[dict] = None
 
     with SessionLocal() as db:
-        # Resolve company (existing row, else SEC lookup). Only persist a new Company on a real run.
         company = db.query(Company).filter(Company.ticker == ticker_u).first()
         if company:
             cik = company.cik
-        else:
-            sec_results = await sec_edgar_service.search_company(ticker_u)
-            if not sec_results:
-                result["status"] = "company_not_found"
-                return result
-            sec_company = sec_results[0]
-            cik = sec_company["cik"]
-            if not dry_run:
-                company = Company(
-                    cik=cik,
-                    ticker=sec_company["ticker"],
-                    name=sec_company["name"],
-                    exchange=sec_company.get("exchange"),
-                )
-                db.add(company)
-                db.commit()
-                db.refresh(company)
+            company_id = company.id
 
-        # Resolve the latest filing of this form.
-        sec_filings = await sec_edgar_service.get_filings(cik, filing_types=[form_u], limit=1)
-        if not sec_filings:
-            result["status"] = "no_filings"
+    if cik is None:
+        sec_results = await sec_edgar_service.search_company(ticker_u)  # network, no session held
+        if not sec_results:
+            result["status"] = "company_not_found"
             return result
-        sf = sec_filings[0]
-        result["accession"] = sf.get("accession_number")
-        sec_url = sf.get("sec_url")
-        document_url = sf.get("document_url")
-        # sec_url/document_url are NOT NULL + validated on the Filing model — skip rather than fail.
-        if not sec_url or not document_url:
-            result["status"] = "missing_urls"
-            return result
+        sec_company = sec_results[0]
+        cik = sec_company["cik"]
+        if not dry_run:
+            with SessionLocal() as db:
+                company = db.query(Company).filter(Company.ticker == ticker_u).first()
+                if not company:
+                    company = Company(
+                        cik=cik,
+                        ticker=sec_company["ticker"],
+                        name=sec_company["name"],
+                        exchange=sec_company.get("exchange"),
+                    )
+                    db.add(company)
+                    db.commit()
+                    db.refresh(company)
+                company_id = company.id
 
-        filing = (
-            db.query(Filing).filter(Filing.accession_number == sf["accession_number"]).first()
-        )
-        existing_summary = (
-            db.query(Summary).filter(Summary.filing_id == filing.id).first() if filing else None
-        )
+    # Resolve the latest filing of this form (network, no session held).
+    sec_filings = await sec_edgar_service.get_filings(cik, filing_types=[form_u], limit=1)
+    if not sec_filings:
+        result["status"] = "no_filings"
+        return result
+    sf = sec_filings[0]
+    result["accession"] = sf.get("accession_number")
+    sec_url = sf.get("sec_url")
+    document_url = sf.get("document_url")
+    # sec_url/document_url are NOT NULL + validated on the Filing model — skip rather than fail.
+    if not sec_url or not document_url:
+        result["status"] = "missing_urls"
+        return result
 
-        if dry_run:
-            result["filing_id"] = filing.id if filing else None
-            result["status"] = "already_cached" if (existing_summary and not force) else "would_generate"
-            return result
-
-        # Get-or-create the Filing row (mirrors routers/filings.py persistence).
-        if not filing:
-            filing = Filing(
-                company_id=company.id,
-                accession_number=sf["accession_number"],
-                filing_type=sf["filing_type"],
-                filing_date=datetime.fromisoformat(sf["filing_date"]),
-                period_end_date=(
-                    datetime.fromisoformat(sf["report_date"]) if sf.get("report_date") else None
-                ),
-                document_url=document_url,
-                sec_url=sec_url,
+    # Look up the filing + whether it's already summarized (short read session).
+    filing_id: Optional[int] = None
+    has_summary = False
+    with SessionLocal() as db:
+        filing = db.query(Filing).filter(Filing.accession_number == sf["accession_number"]).first()
+        if filing:
+            filing_id = filing.id
+            has_summary = (
+                db.query(Summary).filter(Summary.filing_id == filing_id).first() is not None
             )
-            db.add(filing)
-            db.commit()
-            db.refresh(filing)
-        filing_id = filing.id
+
+    if dry_run:
         result["filing_id"] = filing_id
+        result["status"] = "already_cached" if (has_summary and not force) else "would_generate"
+        return result
 
-        if existing_summary and not force:
-            result["status"] = "already_cached"
-            return result
+    # Get-or-create the Filing row (short write session; mirrors routers/filings.py persistence).
+    if filing_id is None:
+        with SessionLocal() as db:
+            filing = (
+                db.query(Filing).filter(Filing.accession_number == sf["accession_number"]).first()
+            )
+            if not filing:
+                filing = Filing(
+                    company_id=company_id,
+                    accession_number=sf["accession_number"],
+                    filing_type=sf["filing_type"],
+                    filing_date=datetime.fromisoformat(sf["filing_date"]),
+                    period_end_date=(
+                        datetime.fromisoformat(sf["report_date"]) if sf.get("report_date") else None
+                    ),
+                    document_url=document_url,
+                    sec_url=sec_url,
+                )
+                db.add(filing)
+                db.commit()
+                db.refresh(filing)
+            filing_id = filing.id
+            has_summary = (
+                db.query(Summary).filter(Summary.filing_id == filing_id).first() is not None
+            )
+    result["filing_id"] = filing_id
 
-        if force:
+    if has_summary and not force:
+        result["status"] = "already_cached"
+        return result
+
+    if force:
+        with SessionLocal() as db:
             db.query(Summary).filter(Summary.filing_id == filing_id).delete()
             cache = (
                 db.query(FilingContentCache)
@@ -146,12 +170,10 @@ async def precompute_one(
                 cache.critical_excerpt = None
             db.commit()
 
-    # Generate outside the session (it manages its own; idempotent if a Summary slipped in).
+    # Generate outside any session (it manages its own; idempotent if a Summary slipped in).
     await generate_summary_background(filing_id, user_id=None)
 
     with SessionLocal() as db:
-        from app.models import Summary
-
         summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
         result["status"] = "generated" if summary else "generation_failed"
     return result
