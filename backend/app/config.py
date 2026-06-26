@@ -304,7 +304,14 @@ class Settings(BaseSettings):
     # Stream Settings
     STREAM_HEARTBEAT_INTERVAL: int = 3  # Send updates every 3 seconds (reduced from 5s for better UX)
     STREAM_TIMEOUT: int = 600
-    
+
+    # A5 progressive section reveal: stream the structured-extraction call and push partial-markdown
+    # previews to the SSE client as sections fill in (first content in ~10s instead of ~35-60s). The
+    # final assembled summary is identical to the non-streaming path (same _assemble_structured_summary),
+    # so this is a perceived-latency change with no quality impact; on any streaming error it falls
+    # back to non-streaming generation. Default OFF — flip STREAM_SECTION_REVEAL=true to enable.
+    STREAM_SECTION_REVEAL: bool = False
+
     class Config:
         env_file = ".env"
         # Pydantic Settings automatically checks environment variables first
