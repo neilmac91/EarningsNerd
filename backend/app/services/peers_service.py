@@ -75,7 +75,9 @@ def get_peers(
         .order_by(FinancialFact.period_end.desc())
         .first()
     )
-    subject_unit = subject_unit_row[0] if subject_unit_row else _unit_for(concept, None)
+    # `unit` is NOT NULL on the model, but guard a NULL-valued row defensively so a bad datum
+    # can never make the whole cohort fall through to an empty unit filter.
+    subject_unit = (subject_unit_row[0] if subject_unit_row else None) or _unit_for(concept, None)
 
     # Same-SIC companies that have a fact for this concept, in one JOIN — avoids a
     # large IN list and never loads companies without facts. A subject with no fact

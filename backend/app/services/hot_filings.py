@@ -255,7 +255,7 @@ class HotFilingsService:
             # above other forms. DB-read-only over already-ingested filings — no SEC cost — so this
             # is ungated; it only re-weights FPI filings already surfaced via ENABLE_FPI_FILINGS.
             filing_type_bonus = 0.5
-            if filing.filing_type.upper() in {"10-K", "10-Q", "20-F", "40-F", "6-K"}:
+            if (filing.filing_type or "").upper() in {"10-K", "10-Q", "20-F", "40-F", "6-K"}:
                 filing_type_bonus = 1.5
 
             buzz_score = (
