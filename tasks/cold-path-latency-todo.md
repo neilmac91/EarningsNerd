@@ -61,7 +61,11 @@ Branch: `claude/earningsnerd-cold-path-latency-6imswg`
       `baseline_scores.json` (pinned bar, now reflecting the diluted-EPS fix), advisory path-filtered
       `eval-baseline` CI job (inert until owner adds a `DEEPSEEK_API_KEY` Actions secret; NOT in
       deploy-backend `needs:`), RUNBOOK section, unit tests. Gate logic runs free in `backend-tests`.
-- [ ] **B2** Filings-list backend cache/refresh for popular tickers.
+- [x] **B2** Filings-list backend cache: `GET /api/filings/company/{ticker}` now serves the
+      DB-cached list on a fresh `(ticker, types)` key (synced within `FILINGS_LIST_TTL`, 3h),
+      skipping the 3–5s SEC round-trip; live fetch + persist on a cold/stale key stamps the sync.
+      In-memory (single instance, Redis off), bounded to 2000 keys. New-filing alerts unaffected
+      (separate filing-scan job). 6 unit tests.
 - [ ] **B3** Section-parse 15s-timeout tail fix for big financial filers (e.g. JPM).
 
 ## Forward plan (post-B1, A1 fleet held per owner)
@@ -69,8 +73,13 @@ Sequenced by value-to-effort; each a separate PR, gate-protected where it touche
 1. [~] **Activate A5** progressive reveal — `STREAM_SECTION_REVEAL=true` in CI service deploy. *(this PR)*
 2. [ ] **S1 structured-output bake-off** — flip `USE_STRUCTURED_OUTPUT` off-vs-on through the gate;
        ship + re-pin only if it wins (schema_valid 0→1, no recall/precision/coverage regression).
-3. [ ] **B2** filings-list backend cache (original cold-path #1: first company-page load).
+3. [x] **B2** filings-list backend cache (original cold-path #1) — stale-within-TTL DB serve. *(this PR)*
 4. [ ] **B3** parse-timeout tail for big filers (faster + higher-precision excerpts for JPM-class).
+- Note: dropped the planned "S1 flip for schema_valid" — investigation showed `USE_STRUCTURED_OUTPUT`
+  doesn't move `schema_valid` (the product's `financial_highlights` is `{table, profitability,
+  cash_flow, balance_sheet}` in both flag states, vs the eval's canonical `{revenue, net_income,
+  eps, key_metrics}`). Aligning the eval schema is optional polish; the gate hard-fails on per-
+  dimension drops, not aggregate, so it's unaffected.
 - Parked: **A1 fleet** (owner-held), **BABA/FPI per-ADS** (niche), **arm CI gate** (owner adds secret).
 
 ## Phase C — deferred (parked per owner)
