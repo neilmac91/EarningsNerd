@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: 'eval-baseline: number of golden filings (blank = full verified set)'
+        required: false
+        default: ''
 
 jobs:
   backend-tests:
@@ -98,6 +104,94 @@ jobs:
         env:
           NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
           WAITLIST_MODE: 'false'
+
+  # Advisory AI-quality regression gate (B1). Non-blocking by design: continue-on-error and
+  # intentionally NOT in the deploy-backend `needs:` gate — it reports a quality verdict, it never
+  # blocks a deploy. The *gate logic* is already unit-tested for free in backend-tests
+  # (tests/unit/test_eval_regression_gate.py); THIS job runs the live pipeline over a few golden
+  # filings and diffs the result against the pinned baseline_scores.json.
+  #
+  # INERT until the owner adds a DEEPSEEK_API_KEY *GitHub Actions* secret (the prod key lives in
+  # GCP Secret Manager, which CI can't read). Until then the key-check step self-skips with a
+  # notice, so merging this changes nothing and costs nothing. Path-filtered so it only spends
+  # tokens when AI-relevant code changes; ~$0.15–0.30 + a few minutes per qualifying PR once armed.
+  eval-baseline:
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+      - name: Detect AI-relevant changes
+        id: scope
+        # Only spend tokens when backend AI code/prompts/evals change (or on manual dispatch).
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          BASE="${{ github.event.pull_request.base.sha }}"
+          git fetch --depth=1 origin "$BASE" 2>/dev/null || true
+          if git diff --name-only "$BASE" HEAD 2>/dev/null | grep -qE '^backend/(app|evals|prompts)/'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "No AI-relevant backend changes — skipping eval-baseline."
+          fi
+      - name: Check for eval API key
+        id: key
+        if: steps.scope.outputs.run == 'true'
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          if [ -n "$DEEPSEEK_API_KEY" ]; then
+            echo "have=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "have=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::DEEPSEEK_API_KEY GitHub Actions secret not set — eval-baseline skipped. Add it under Settings → Secrets and variables → Actions to arm the gate."
+          fi
+      - name: Set up Python
+        if: steps.key.outputs.have == 'true'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        if: steps.key.outputs.have == 'true'
+        run: pip install -r backend/requirements.txt
+      - name: Run baseline eval (deterministic scorers, no judge)
+        if: steps.key.outputs.have == 'true'
+        working-directory: backend
+        # PRs run a cheap 6-filing smoke; manual dispatch runs the full verified set (authoritative,
+        # apples-to-apples with the pinned baseline) unless an explicit limit is given.
+        env:
+          SKIP_REDIS_INIT: 'true'
+          SECRET_KEY: eval-baseline-secret-key-for-ci-0123456789
+          STRIPE_SECRET_KEY: sk_test_ci_eval
+          STRIPE_WEBHOOK_SECRET: whsec_ci_eval
+          PWNED_PASSWORD_CHECK_ENABLED: 'false'
+          OPENAI_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          OPENAI_BASE_URL: https://api.deepseek.com/v1
+          AI_DEFAULT_MODEL: deepseek-v4-pro
+          USE_STRUCTURED_OUTPUT: 'false'
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            LIMIT="${{ github.event.inputs.limit }}"
+          else
+            LIMIT=6
+          fi
+          ARGS="--candidates baseline --runs 1"
+          [ -n "$LIMIT" ] && ARGS="$ARGS --limit $LIMIT"
+          echo "Running: python -m evals.runner $ARGS"
+          python -m evals.runner $ARGS
+      - name: Regression gate vs pinned baseline
+        if: steps.key.outputs.have == 'true'
+        working-directory: backend
+        run: python -m evals.regression_gate --latest
+      - name: Upload eval report
+        if: always() && steps.key.outputs.have == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: eval-report-${{ github.run_id }}
+          path: backend/evals/reports/eval_*.json
+          retention-days: 14
 
   e2e-tests:
     runs-on: ubuntu-latest
