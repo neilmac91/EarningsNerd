@@ -694,6 +694,14 @@ class OpenAIService:
     # Below this many chars, a parsed Item 8 (10-K) / Item 1 (10-Q) is treated as a stub — some
     # filers incorporate the financial statements by reference, leaving only a short pointer.
     _FINANCIALS_MIN_CHARS = 5000
+    # MD&A keyword set for the dense-window backfill (mirrors the regex path's narrative recovery).
+    _MDA_KW = ["results of operations", "liquidity and capital resources", "management's discussion",
+               "critical accounting", "compared to", "non-interest income", "net interest income",
+               "operating segment", "contractual obligations", "off-balance sheet"]
+    # Below this, a parsed Item 7 (10-K) / Item 2 (10-Q) MD&A is treated as a stub — big financial
+    # filers (e.g. JPM) routinely parse only a thin Item 7 pointer even when the full narrative is
+    # present in the document, so backfill it the same way the financial statements are.
+    _MDA_MIN_CHARS = 3000
 
     def assemble_excerpt_from_sections(
         self,
@@ -729,19 +737,33 @@ class OpenAIService:
         if not parts:
             return ""
 
-        # Backfill a thin/absent financial-statements section with a dense financial window.
-        if financials_len < self._FINANCIALS_MIN_CHARS and filing_text:
+        # Backfill thin/absent narrative sections with dense, keyword-anchored windows of the raw
+        # document so depth isn't lost. Financials are often incorporated by reference (a short
+        # pointer); big financial filers (e.g. JPM) likewise parse only a stub Item 7 MD&A even when
+        # the full narrative is present. XBRL still supplies the verified headline numbers (P1.1).
+        financials_thin = financials_len < self._FINANCIALS_MIN_CHARS
+        mda_len = len((sections.get("mda") or "").strip())
+        mda_thin = mda_len < self._MDA_MIN_CHARS
+        if (financials_thin or mda_thin) and filing_text:
             try:
                 clean = BeautifulSoup(filing_text, "html.parser").get_text(separator="\n", strip=False)
             except Exception:  # noqa: BLE001
                 clean = filing_text
-            fin_slice = self._dense_window(clean, self._FIN_KW)
+            fin_slice = self._dense_window(clean, self._FIN_KW) if financials_thin else ""
             if fin_slice:
                 parts.append("FINANCIAL STATEMENTS CONTEXT (recovered from filing):\n" + fin_slice)
                 logger.info(
                     f"{filing_type_key} financials thin ({financials_len:,} chars) — "
                     f"backfilled dense window ({len(fin_slice):,} chars)"
                 )
+            if mda_thin:
+                mda_slice = self._dense_window(clean, self._MDA_KW)
+                if mda_slice and mda_slice != fin_slice:  # avoid a duplicate window
+                    parts.append("MD&A CONTEXT (recovered from filing):\n" + mda_slice)
+                    logger.info(
+                        f"{filing_type_key} MD&A thin ({mda_len:,} chars) — "
+                        f"backfilled dense window ({len(mda_slice):,} chars)"
+                    )
 
         excerpt = ("\n\n" + "=" * 50 + "\n\n").join(parts)
         logger.info(
