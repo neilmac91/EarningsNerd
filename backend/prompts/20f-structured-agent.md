@@ -43,6 +43,12 @@ Reference 20-F item numbers, not 10-K item numbers.
 20-F filings carry multiple years of comparative data — capture prior-period values for trend
 context when present. Note the accounting basis (U.S. GAAP vs IFRS) where the schema allows.
 
+**Net income basis (be consistent):** when several net-income lines appear (consolidated total
+**net income** vs **net income attributable to ordinary shareholders / to the parent**), populate
+the metric fields with the **consolidated total net income** ("Net income" / "Profit for the year")
+— the same figure carried in the verified financial metrics — and use that one basis consistently.
+Reference an attributable line only where the schema provides a distinct field for it.
+
 ## Per-ADS vs per-share
 If the filing states an ADS-to-ordinary-share ratio (e.g., 1 ADS = 8 ordinary shares) and reports
 per-ADS figures, prefer the per-ADS metric and note the ratio. Do not compute a ratio the filing
