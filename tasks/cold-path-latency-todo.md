@@ -42,14 +42,16 @@ Branch: `claude/earningsnerd-cold-path-latency-6imswg`
 ## Output quality (B1-protected, gated work)
 - [x] **Baseline re-pinned** from the real full verified-set run (21×3, 0 errors): recall 0.905,
       precision 1.0, coverage 1.0, depth 0.947, stdev 0.082, gate_fail 0.0 (PR #441).
-- [~] **Diluted-EPS recall fix.** Root-caused the "weakest dimension": the recall misses were a
-      measurement artifact — the golden set pinned *basic* EPS while the model correctly reports
-      *diluted* EPS (NVDA 2.40 vs 2.39, AMZN 7.29 vs 7.17; BA's run-to-run wobble was the same
-      coin-flip). Fix: `GroundTruthFact.alt_values` + scorer accepts basic **OR** diluted (recall
-      and precision); enriched 13 golden EPS facts with the diluted alt; `build_golden_set`
-      populates it durably. Offline re-score proved NVDA/AMZN 0.667→1.0, BA stable, BABA unchanged
-      (per-ADS residual). Re-running 21×3 to re-pin. **Residual real gap = BABA/FPI** (per-ADS vs
-      per-share EPS, attributable vs consolidated net income).
+- [x] **Diluted-EPS recall fix** (PR #443). Root-caused the "weakest dimension": the recall misses
+      were a measurement artifact — the golden set pinned *basic* EPS while the model correctly
+      reports *diluted* EPS (NVDA 2.40 vs 2.39, AMZN 7.29 vs 7.17; BA's run-to-run wobble was the
+      same coin-flip). Fix: `GroundTruthFact.alt_values` + scorer accepts basic **OR** diluted
+      (recall and precision); enriched 13 golden EPS facts with the diluted alt; `build_golden_set`
+      populates it durably (reusing the product's `DURATION_CONCEPTS["eps_diluted"]`). Re-pinned
+      from a fresh 21×3 run (0 errors): **recall 0.905→0.963, pass_rate 0.762→0.937, stdev
+      0.082→0.066**; gate_fail/precision/coverage unchanged (0.0/1.0/1.0). NVDA/AMZN/BA/AAPL/MSFT
+      now 1.0 across all runs. **Residual real gap = BABA/FPI** (per-ADS vs per-share EPS,
+      attributable vs consolidated net income).
 
 ## Phase B — structural (minimal-infra)
 - [~] **B1** Harden `backend/evals` into a pinned baseline + CI regression gate. **DONE (gate
