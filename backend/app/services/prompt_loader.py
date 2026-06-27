@@ -22,6 +22,8 @@ _PROMPT_FILES = {
     # 20-F = foreign private issuer annual report (FPI; analogue of a 10-K, different item
     # structure + non-USD reporting currency). See tasks/fpi-support-roadmap.md.
     "20-F": "20f-analyst-agent.md",
+    # 6-K = FPI interim/furnished report (free-form exhibits, often XBRL-less, semi-annual). Phase 4.
+    "6-K": "6k-analyst-agent.md",
 }
 
 # Schema-first prompts used when USE_STRUCTURED_OUTPUT is enabled (roadmap S1). These keep the
@@ -31,6 +33,7 @@ _STRUCTURED_PROMPT_FILES = {
     "10-K": "10k-structured-agent.md",
     "10-Q": "10q-structured-agent.md",
     "20-F": "20f-structured-agent.md",
+    "6-K": "6k-structured-agent.md",
 }
 
 

@@ -27,9 +27,22 @@ class TestPromptSelection:
         # The structured prompt enforces the native-currency rule.
         assert "USD" in s
 
+    def test_6k_analyst_prompt_selected(self):
+        # Phase 4: 6-K now has its own prompt (free-form interim, not a 10-K).
+        p = prompt_loader.get_prompt("6-K")
+        assert p is prompt_loader._PROMPTS["6-K"]
+        assert p is not prompt_loader._PROMPTS["10-K"]
+        assert "6-K" in p.raw
+        assert prompt_loader.get_prompt("6k") is prompt_loader._PROMPTS["6-K"]  # hyphenless
+
+    def test_6k_structured_prompt_selected(self):
+        s = prompt_loader.get_structured_prompt("6-K")
+        assert s == prompt_loader._STRUCTURED_PROMPTS["6-K"]
+        assert "6-K" in s
+
     def test_unknown_form_falls_back_to_10k(self):
-        # 6-K has no dedicated prompt yet (Phase 4) → explicit, logged 10-K fallback (not silent).
-        assert prompt_loader.get_prompt("6-K") is prompt_loader._PROMPTS["10-K"]
+        # A form without its own prompt (e.g. S-1) → explicit, logged 10-K fallback (not silent).
+        assert prompt_loader.get_prompt("S-1") is prompt_loader._PROMPTS["10-K"]
 
 
 class TestSectionConfig:
@@ -47,6 +60,13 @@ class TestSectionConfig:
         assert cfg["max_tokens"] == 12000
         assert cfg["ai_timeout"] == 150.0
         assert cfg["sample_length"] == 100000
+
+    def test_type_config_6k_budget(self):
+        cfg = openai_service._get_type_config("6-K")
+        # 6-K is a short interim release — a modest budget/timeout, not the annual-report budget.
+        assert cfg["max_tokens"] == 5000
+        assert cfg["ai_timeout"] == 90.0
+        assert cfg["sample_length"] == 60000
 
     def test_assemble_excerpt_uses_20f_labels(self):
         sections = {

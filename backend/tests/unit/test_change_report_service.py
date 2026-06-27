@@ -137,3 +137,19 @@ class TestAssembleReport:
         prior_summary = SimpleNamespace(risk_factors=[], raw_summary=None, key_changes=None)
         out = svc.assemble_report(self.CURRENT_FILING, self.PRIOR_FILING, current_summary, prior_summary)
         assert out["risks"]["new"] == ["Raw-section sourced risk"]
+
+
+def test_comparison_basis_covers_fpi_forms():
+    """Phase 4/5: FPI forms get a basis label too (20-F/40-F annual; 6-K semi-annual interim)."""
+    from app.services.change_report_service import _comparison_basis
+
+    assert _comparison_basis("10-K") == "Year over year"
+    assert _comparison_basis("10-Q") == "Quarter over quarter"
+    assert _comparison_basis("20-F") == "Year over year"
+    assert _comparison_basis("40-F") == "Year over year"
+    assert _comparison_basis("6-K") == "Period over period"
+    # Amended forms normalize to their base label.
+    assert _comparison_basis("20-F/A") == "Year over year"
+    assert _comparison_basis("6-K/A") == "Period over period"
+    # Genuinely unknown forms still have no basis.
+    assert _comparison_basis("S-1") is None
