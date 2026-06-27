@@ -120,9 +120,16 @@ describe('InsiderActivityPanel', () => {
 
   it('does not query until FPI status is known (isFpi undefined while filings load)', async () => {
     getInsiderActivity.mockResolvedValue(RESP)
-    renderPanel('AAPL', undefined)
+    // Render WITHOUT the isFpi prop so it is genuinely undefined — passing `undefined` to
+    // renderPanel would trigger its default of false. enabled is gated on isFpi === false, so the
+    // live read must not fire while FPI status is still unknown.
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={qc}>
+        <InsiderActivityPanel ticker="AAPL" />
+      </QueryClientProvider>,
+    )
 
-    // No live read fires while isFpi is undefined; the panel renders nothing yet.
     await waitFor(() => expect(getInsiderActivity).not.toHaveBeenCalled())
     expect(screen.queryByText('Insider Activity')).not.toBeInTheDocument()
   })
