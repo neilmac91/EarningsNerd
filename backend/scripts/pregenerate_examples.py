@@ -47,8 +47,15 @@ DEFAULT_TICKERS = [
 ]
 
 
+# Foreign private issuers file 20-F (annual) instead of 10-K — pick the right annual form per
+# ticker so a foreign name in DEFAULT_TICKERS (e.g. BABA) resolves its actual filing rather than a
+# 10-K it never files. (Requires ENABLE_FPI_FILINGS for precompute_one to accept 20-F.)
+_ANNUAL_FORM_BY_TICKER = {"BABA": "20-F"}
+
+
 async def pregenerate_for_ticker(ticker: str, force: bool = False) -> None:
-    """Resolve the latest 10-K for ``ticker``, persist it, and cache its summary.
+    """Resolve the latest annual filing (10-K, or 20-F for foreign issuers) for ``ticker``,
+    persist it, and cache its summary.
 
     Thin wrapper over ``precompute_service.precompute_one`` — the shared, idempotent core also used
     by the token-gated ``POST /internal/jobs/precompute`` trigger. When ``force`` is True the
@@ -58,7 +65,8 @@ async def pregenerate_for_ticker(ticker: str, force: bool = False) -> None:
     # Deferred import so the module parses without app config (and SKIP_REDIS_INIT is set first).
     from app.services.precompute_service import precompute_one
 
-    r = await precompute_one(ticker, "10-K", force=force)
+    form = _ANNUAL_FORM_BY_TICKER.get(ticker.upper().strip(), "10-K")
+    r = await precompute_one(ticker, form, force=force)
     cached = r["status"] in ("generated", "already_cached")
     detail = "summary cached" if cached else r["status"].replace("_", " ")
     if r.get("filing_id"):

@@ -251,8 +251,11 @@ class HotFilingsService:
             news_headline_score = normalized_news_headlines.get(ticker, 0.0) * 3.0
             news_sentiment_bonus = normalized_bullish_spread.get(ticker, 0.0) * 2.5
 
+            # Financial reports (domestic 10-K/10-Q and FPI annual/interim 20-F/40-F/6-K) rank
+            # above other forms. DB-read-only over already-ingested filings — no SEC cost — so this
+            # is ungated; it only re-weights FPI filings already surfaced via ENABLE_FPI_FILINGS.
             filing_type_bonus = 0.5
-            if filing.filing_type.upper() in {"10-K", "10-Q"}:
+            if (filing.filing_type or "").upper() in {"10-K", "10-Q", "20-F", "40-F", "6-K"}:
                 filing_type_bonus = 1.5
 
             buzz_score = (

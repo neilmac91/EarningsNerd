@@ -5,7 +5,10 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { ArrowSquareOutIcon, CircleNotchIcon, MagnifyingGlassIcon, WarningIcon } from '@/lib/icons'
 import { searchFullText, type FullTextSearchHit } from '@/features/search/api/search-api'
 
-const FORM_FILTERS = ['10-K', '10-Q', '8-K', '4'] as const
+// EFTS is a global SEC index (independent of our ENABLE_FPI_FILINGS discovery flag), so the
+// foreign-issuer forms are always searchable. EFTS matches on root_form, which folds amendments
+// (20-F/A, 6-K/A) into the base form — one chip each covers amendments too.
+const FORM_FILTERS = ['10-K', '10-Q', '8-K', '20-F', '6-K', '4'] as const
 
 /**
  * Pure presentational list of full-text search hits. Each row links out to the matched document on

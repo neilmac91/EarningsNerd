@@ -92,6 +92,44 @@ async def test_unsupported_form_short_circuits():
 
 
 @pytest.mark.asyncio
+async def test_20f_unsupported_when_fpi_flag_off(monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", False)
+    r = await precompute_one("BABA", "20-F")
+    assert r["status"] == "unsupported_form"
+
+
+@pytest.mark.asyncio
+async def test_20f_supported_when_fpi_flag_on(monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", True)
+    ticker = f"FPI{uuid.uuid4().hex[:4].upper()}"
+    _mk_company(ticker)
+    acc = f"acc-{uuid.uuid4().hex[:10]}"
+    _patch_sec(monkeypatch, filings=[_sec_filing(acc, "20-F")])
+
+    async def fake_gen(filing_id, user_id=None):
+        from app.database import SessionLocal
+        from app.models import Summary
+
+        db = SessionLocal()
+        try:
+            db.add(Summary(filing_id=filing_id, business_overview="generated"))
+            db.commit()
+        finally:
+            db.close()
+
+    gen = AsyncMock(side_effect=fake_gen)
+    monkeypatch.setattr("app.services.summary_generation_service.generate_summary_background", gen)
+
+    r = await precompute_one(ticker, "20-F")
+    assert r["status"] == "generated"
+    gen.assert_awaited_once()
+
+
+@pytest.mark.asyncio
 async def test_idempotent_skip_when_summary_exists(monkeypatch):
     ticker = f"IDEM{uuid.uuid4().hex[:4].upper()}"
     cid = _mk_company(ticker)

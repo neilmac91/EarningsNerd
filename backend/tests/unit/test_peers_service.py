@@ -28,14 +28,14 @@ def _company(db, *, sic):
     return company
 
 
-def _fact(db, company_id, *, concept, value, period_end, fy, latest=True, accession=None):
+def _fact(db, company_id, *, concept, value, period_end, fy, latest=True, accession=None, unit="USD"):
     from app.models import FinancialFact
 
     db.add(
         FinancialFact(
             company_id=company_id,
             concept=concept,
-            unit="USD",
+            unit=unit,
             period_end=period_end,
             fiscal_year=fy,
             fiscal_period="FY",
@@ -173,6 +173,52 @@ class TestGetPeers:
         assert by_ticker[tie_a.ticker]["rank"] == 2
         assert by_ticker[tie_b.ticker]["rank"] == 2  # shares rank 2, not pushed to 3
         assert by_ticker[tie_a.ticker]["percentile"] == by_ticker[tie_b.ticker]["percentile"]
+        db.close()
+
+    def test_excludes_foreign_currency_peer_from_usd_ranking(self):
+        """A foreign private issuer that reports in CNY must NOT be ranked against USD filers
+        in the same SIC (a CNY revenue is ~7x a USD one — apples-to-oranges)."""
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        sic = f"SIC{uuid.uuid4().hex[:6]}"
+        usd_subject = _company(db, sic=sic)
+        usd_peer = _company(db, sic=sic)
+        cny_fpi = _company(db, sic=sic)
+        _fact(db, usd_subject.id, concept="revenue", value=100.0, period_end=date(2023, 12, 31), fy=2023, unit="USD")
+        _fact(db, usd_peer.id, concept="revenue", value=200.0, period_end=date(2023, 12, 31), fy=2023, unit="USD")
+        # Huge CNY figure in the same SIC — if currency were ignored it would rank #1.
+        _fact(db, cny_fpi.id, concept="revenue", value=900000.0, period_end=date(2023, 12, 31), fy=2023, unit="CNY")
+
+        result = svc.get_peers(db, usd_subject.ticker, "revenue")
+        tickers = [p["ticker"] for p in result["peers"]]
+        assert cny_fpi.ticker not in tickers  # excluded by the currency guard
+        assert usd_peer.ticker in tickers
+        assert result["peer_count"] == 2
+        assert result["unit"] == "USD"
+        db.close()
+
+    def test_foreign_subject_ranks_in_its_own_currency(self):
+        """A CNY subject ranks only against other CNY filers; the response unit is the
+        subject's currency, and USD filers in the same SIC are excluded."""
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        sic = f"SIC{uuid.uuid4().hex[:6]}"
+        cny_subject = _company(db, sic=sic)
+        cny_peer = _company(db, sic=sic)
+        usd_peer = _company(db, sic=sic)
+        _fact(db, cny_subject.id, concept="revenue", value=500000.0, period_end=date(2023, 12, 31), fy=2023, unit="CNY")
+        _fact(db, cny_peer.id, concept="revenue", value=800000.0, period_end=date(2023, 12, 31), fy=2023, unit="CNY")
+        _fact(db, usd_peer.id, concept="revenue", value=100.0, period_end=date(2023, 12, 31), fy=2023, unit="USD")
+
+        result = svc.get_peers(db, cny_subject.ticker, "revenue")
+        tickers = [p["ticker"] for p in result["peers"]]
+        assert result["unit"] == "CNY"
+        assert set(tickers) == {cny_subject.ticker, cny_peer.ticker}
+        assert usd_peer.ticker not in tickers
+        # Subject ranks #2 of the two CNY filers (800k > 500k).
+        assert result["subject"]["rank"] == 2
         db.close()
 
     def test_unknown_ticker_returns_none(self):

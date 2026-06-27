@@ -48,6 +48,7 @@ async def precompute_one(
     and generating nothing. Returns a status dict; never raises for "expected" misses (not found,
     no filings) — the caller aggregates statuses.
     """
+    from app.config import settings
     from app.database import SessionLocal
     from app.models import Company, Filing, FilingContentCache, Summary
     from app.services.edgar.compat import sec_edgar_service
@@ -57,7 +58,10 @@ async def precompute_one(
     form_u = form.upper().strip()
     result: dict = {"ticker": ticker_u, "form": form_u, "status": "unknown", "filing_id": None, "accession": None}
 
-    if form_u not in SUPPORTED_FORMS:
+    # 20-F (FPI annual report) is summarizable end-to-end (Phase 2/3) but, like the rest of the
+    # FPI program, only enabled when the discovery flag is on — keeping the page-scoped discipline.
+    supported = SUPPORTED_FORMS + (("20-F",) if settings.ENABLE_FPI_FILINGS else ())
+    if form_u not in supported:
         result["status"] = "unsupported_form"
         return result
 

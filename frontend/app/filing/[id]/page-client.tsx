@@ -1047,7 +1047,7 @@ function StreamingSummaryDisplay({
                 {activeMessage}
               </p>
               <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm">
-                Analyzing critical sections (Item 1A & Item 7) for investment insights...
+                Analyzing risk factors, financials &amp; management discussion for investment insights...
               </p>
             </div>
           </div>
