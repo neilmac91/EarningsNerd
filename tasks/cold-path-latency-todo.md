@@ -29,11 +29,15 @@ Branch: `claude/earningsnerd-cold-path-latency-6imswg`
       auto-trigger for *new* filings = follow-up.
 - [x] **A4** Filings list: default-expand the most recent 3 years that have filings; prefetch the
       latest 10-K's summary on company open (read-only, warms the next click). (`company/[ticker]`)
-- [~] **A5** Progressive section reveal. **Backend DONE** (stream the extraction, push partial-markdown
-      previews; `STREAM_SECTION_REVEAL` flag, default off; identical final output via shared
-      `_assemble_structured_summary`; non-streaming fallback). Verified: first paint ~10s vs ~60s
-      (6.4× perceived). **Frontend progressive render = next PR.**
-- [ ] **A3** In-flight dedup for concurrent same-`filing_id` requests.
+- [x] **A5** Progressive section reveal. **Backend** (PR #432): stream the extraction, push
+      partial-markdown previews; `STREAM_SECTION_REVEAL` flag (default off); identical final output via
+      shared `_assemble_structured_summary`; non-streaming fallback. **Frontend**: the filing page
+      consumes the `preview` SSE event and replace-renders the growing markdown (final `chunk`
+      supersedes). Verified: first paint ~10s vs ~60s (6.4× perceived); flag off ⇒ unchanged.
+- [x] **A3** In-flight dedup: a process-local registry (`_inflight_generations`) in the SSE pipeline —
+      concurrent first-requests for the same `filing_id` join the in-flight generation (wait with
+      heartbeats) and serve the persisted result instead of running N redundant generations. Released
+      in `finally` (incl. client disconnect). Verified: 3 dedup tests + 698 backend tests pass.
 
 ## Phase B — structural (minimal-infra)
 - [ ] **B1** Harden `backend/evals` into a pinned baseline + CI regression gate.
