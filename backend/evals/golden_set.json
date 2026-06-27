@@ -22,7 +22,10 @@
         {
           "metric": "eps",
           "value": 7.49,
-          "unit": "USD_per_share"
+          "unit": "USD_per_share",
+          "alt_values": [
+            7.46
+          ]
         }
       ],
       "verified": true,
@@ -49,7 +52,10 @@
         {
           "metric": "eps",
           "value": 13.7,
-          "unit": "USD_per_share"
+          "unit": "USD_per_share",
+          "alt_values": [
+            13.64
+          ]
         }
       ],
       "verified": true,
@@ -76,7 +82,10 @@
         {
           "metric": "eps",
           "value": 2.4,
-          "unit": "USD_per_share"
+          "unit": "USD_per_share",
+          "alt_values": [
+            2.39
+          ]
         }
       ],
       "verified": true,
@@ -103,7 +112,10 @@
         {
           "metric": "eps",
           "value": 20.05,
-          "unit": "USD_per_share"
+          "unit": "USD_per_share",
+          "alt_values": [
+            20.02
+          ]
         }
       ],
       "verified": true,
@@ -157,7 +169,10 @@
         {
           "metric": "eps",
           "value": 1.18,
-          "unit": "USD_per_share"
+          "unit": "USD_per_share",
+          "alt_values": [
+            1.08
+          ]
         }
       ],
       "verified": true,
@@ -184,7 +199,10 @@
         {
           "metric": "eps",
           "value": 7.29,
-          "unit": "USD_per_share"
+          "unit": "USD_per_share",
+          "alt_values": [
+            7.17
+          ]
         }
       ],
       "verified": true,
@@ -290,7 +308,10 @@
         {
           "metric": "eps",
           "value": 0.64,
-          "unit": "USD_per_share"
+          "unit": "USD_per_share",
+          "alt_values": [
+            0.63
+          ]
         }
       ],
       "verified": true,
@@ -317,7 +338,10 @@
         {
           "metric": "eps",
           "value": 2.74,
-          "unit": "USD_per_share"
+          "unit": "USD_per_share",
+          "alt_values": [
+            2.73
+          ]
         }
       ],
       "verified": true,
@@ -344,7 +368,10 @@
         {
           "metric": "eps",
           "value": 4.94,
-          "unit": "USD_per_share"
+          "unit": "USD_per_share",
+          "alt_values": [
+            4.93
+          ]
         }
       ],
       "verified": true,
@@ -371,7 +398,10 @@
         {
           "metric": "eps",
           "value": 2.49,
-          "unit": "USD_per_share"
+          "unit": "USD_per_share",
+          "alt_values": [
+            2.48
+          ]
         }
       ],
       "verified": true,
@@ -425,7 +455,10 @@
         {
           "metric": "eps",
           "value": 0.36,
-          "unit": "USD_per_share"
+          "unit": "USD_per_share",
+          "alt_values": [
+            0.34
+          ]
         }
       ],
       "verified": true,
@@ -533,7 +566,10 @@
         {
           "metric": "eps",
           "value": 5.7,
-          "unit": "CNY_per_share"
+          "unit": "CNY_per_share",
+          "alt_values": [
+            5.5
+          ]
         }
       ],
       "verified": true,
@@ -560,7 +596,10 @@
         {
           "metric": "eps",
           "value": 24.73,
-          "unit": "EUR_per_share"
+          "unit": "EUR_per_share",
+          "alt_values": [
+            24.71
+          ]
         }
       ],
       "verified": true,

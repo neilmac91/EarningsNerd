@@ -125,6 +125,17 @@ def _number_renderings(value: float, unit: str) -> List[str]:
     return [r for r in out if len(r.replace(",", "").replace(".", "")) >= 2]
 
 
+def _fact_renderings(fact: GroundTruthFact) -> List[str]:
+    """All acceptable string renderings of a fact: its `value` plus any `alt_values`.
+
+    Alts let one fact accept more than one correct figure — e.g. EPS matches whether the summary
+    quotes basic or diluted (both are right; the model headlines diluted)."""
+    out = list(_number_renderings(fact.value, fact.unit))
+    for alt in fact.alt_values:
+        out.extend(_number_renderings(alt, fact.unit))
+    return out
+
+
 def score_numeric_accuracy(
     haystack: str, ground_truth: List[GroundTruthFact]
 ) -> Tuple[float, List[str], List[str]]:
@@ -135,7 +146,7 @@ def score_numeric_accuracy(
     hay = haystack.lower()
     matched, missing = [], []
     for fact in ground_truth:
-        renderings = _number_renderings(fact.value, fact.unit)
+        renderings = _fact_renderings(fact)
         if any(r.lower() in hay for r in renderings):
             matched.append(fact.metric)
         else:
@@ -260,7 +271,7 @@ def score_numeric_precision(
                 f"{fact.value:g} {fact.unit}"
             )
             continue
-        renderings = _number_renderings(fact.value, fact.unit)
+        renderings = _fact_renderings(fact)  # accept value OR an alt (e.g. basic/diluted EPS)
         if not any(r.lower() in field_val.lower() for r in renderings):
             contradictions.append(
                 f"{metric}: field '{field_val.strip()[:50]}' contradicts ground truth "

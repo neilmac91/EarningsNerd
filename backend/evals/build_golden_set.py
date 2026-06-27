@@ -106,6 +106,25 @@ def _fact_for_metric(
     return None, None, f"{metric}: no consolidated fact for period {period_of_report}"
 
 
+# Diluted EPS, captured as an accepted ALTERNATE to the (basic-first) `eps` ground truth: a summary
+# that quotes diluted EPS — the headline figure investors use — is correct, not a miss.
+_DILUTED_EPS_CONCEPTS = (
+    "EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted", "DilutedEarningsLossPerShare",
+)
+
+
+def _diluted_eps(xb, period_of_report: str, filing_type: str) -> Optional[float]:
+    """Diluted EPS for the filing's own period, or None if not separately tagged."""
+    from app.services.edgar.instance_extractor import duration_series_with_currency
+
+    series, _ = duration_series_with_currency(
+        xb, list(_DILUTED_EPS_CONCEPTS), filing_type, period_of_report
+    )
+    if series and series[0][0] == period_of_report:
+        return series[0][1]
+    return None
+
+
 def _extract_ground_truth(cik: str, accession_number: str, filing_type: str) -> Tuple[List[Dict[str, Any]], List[str]]:
     """Load the specific filing's XBRL and return (facts, problems). Sync — run in a thread."""
     from edgar import Company
@@ -136,6 +155,13 @@ def _extract_ground_truth(cik: str, accession_number: str, filing_type: str) -> 
             continue
         by_metric[metric] = value
         facts.append({"metric": metric, "value": value, "unit": _unit_with_currency(default_unit, currency)})
+
+    # EPS: add diluted as an accepted alternate when it differs from the basic value.
+    eps_fact = next((f for f in facts if f["metric"] == "eps"), None)
+    if eps_fact is not None:
+        diluted = _diluted_eps(xb, period_of_report, filing_type)
+        if diluted is not None and abs(diluted - eps_fact["value"]) > 1e-9:
+            eps_fact["alt_values"] = [diluted]
 
     # Hard invariants — corrupt ground truth poisons every bake-off run.
     if "revenue" in by_metric and by_metric["revenue"] <= 0:

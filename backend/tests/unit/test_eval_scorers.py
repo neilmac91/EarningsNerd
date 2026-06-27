@@ -227,6 +227,51 @@ def test_profit_reported_as_loss_is_a_contradiction():
     assert precision == 0.0 and any("sign mismatch" in c for c in contradictions)
 
 
+# ---------------------------------------------------------------------------
+# Alt-value matching: EPS basic vs diluted (a correct figure must not score as a miss)
+# ---------------------------------------------------------------------------
+EPS_BASIC_WITH_DILUTED_ALT = GroundTruthFact(
+    metric="eps", value=2.40, unit="USD_per_share", alt_values=[2.39]
+)
+
+
+def test_recall_matches_diluted_eps_via_alt_value():
+    # Output quotes diluted EPS ($2.39); ground truth's primary is basic ($2.40). With the diluted
+    # value as an alt, this is a match, not a miss.
+    recall, matched, missing = score_numeric_accuracy(
+        "Diluted EPS: $2.39 vs $0.76.", [EPS_BASIC_WITH_DILUTED_ALT]
+    )
+    assert recall == 1.0 and matched == ["eps"] and missing == []
+
+
+def test_recall_still_matches_basic_when_alt_present():
+    recall, _, _ = score_numeric_accuracy("EPS of $2.40.", [EPS_BASIC_WITH_DILUTED_ALT])
+    assert recall == 1.0
+
+
+def test_recall_misses_when_neither_basic_nor_diluted_present():
+    recall, matched, missing = score_numeric_accuracy(
+        "EPS of $9.99.", [EPS_BASIC_WITH_DILUTED_ALT]
+    )
+    assert recall == 0.0 and missing == ["eps"]
+
+
+def test_precision_accepts_diluted_eps_in_labeled_field_via_alt():
+    fh = {"revenue": "$383.3 billion", "net_income": "$96.995 billion",
+          "eps": "$2.39 (diluted)", "key_metrics": []}
+    precision, contradictions = score_numeric_precision(
+        _payload(financial_highlights=fh), [REVENUE, NET_INCOME, EPS_BASIC_WITH_DILUTED_ALT]
+    )
+    assert precision == 1.0 and contradictions == []
+
+
+def test_alt_values_default_empty_is_backward_compatible():
+    # A fact with no alts behaves exactly as before.
+    plain = GroundTruthFact(metric="eps", value=6.13, unit="USD_per_share")
+    recall, _, _ = score_numeric_accuracy("EPS $6.13.", [plain])
+    assert recall == 1.0
+
+
 def test_financial_depth_rewards_cash_flow_balance_sheet_and_margins():
     """A deep financial section (P1.1 output) scores 1.0 across all three categories."""
     payload = {

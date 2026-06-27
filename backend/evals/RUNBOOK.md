@@ -228,6 +228,17 @@ protected floor.
 - **Judge is OFF in the gate** — deterministic scorers only. The LLM judge is flaky and costly
   (~$0.20/filing, 30–60s latency); keep it for manual pre-deploy spot-checks (`--judge claude-opus-4-8`).
 
+### Golden-set EPS semantics (basic vs diluted)
+
+EPS ground truth carries **both** figures: basic as `value`, diluted in `alt_values`
+(`build_golden_set` extracts the diluted tag and adds it when it differs). A summary that quotes
+**either** basic or diluted EPS is scored as correct — diluted is the headline figure investors
+use, so penalizing it would be a measurement artifact, not a real miss. The scorer matches a fact
+when the output renders `value` OR any `alt_values` entry (recall and precision both). Single-class
+filers and loss-makers have basic == diluted, so they get no alt. (FPI per-ADS reporting — e.g.
+Alibaba's "RMB per ADS" — is a *different* basis and is NOT covered by this; it remains a known
+residual.)
+
 ### Re-pinning the baseline
 Re-pin whenever you intentionally move the bar — flip `USE_STRUCTURED_OUTPUT`, change the default
 model/prompt, or adopt a quality improvement. From `backend/`:
