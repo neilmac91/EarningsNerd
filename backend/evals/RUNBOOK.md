@@ -199,14 +199,17 @@ non-configurable from the report (a candidate must not relax its own gate).
 | `mean_numeric_accuracy` (recall) | **HARD** | drops > 0.10 (looser — noisiest on small subsets) |
 | `pass_rate` | warn | drops > 0.05 |
 | `aggregate_stdev` (consistency) | warn | increases > 0.05 |
-| `schema_valid_rate` | warn | drops > 0.05 (inert while baseline = 0.0; meaningful once S1 flips it to ~1.0) |
+| `schema_valid_rate` | warn | drops > 0.05 |
 | `mean_financial_depth` | warn | drops > 0.10 |
 
-**`schema_valid_rate = 0.0` is the honest baseline, not a defect** — the current pipeline returns
-`financial_highlights` with `[table, profitability, cash_flow, balance_sheet]`, not the canonical
-`[revenue, net_income, eps, key_metrics]`. Closing that gap is the S1 lever
-(`USE_STRUCTURED_OUTPUT=true`); when you flip it, re-pin the baseline so the new ~1.0 becomes the
-protected floor.
+**`schema_valid` recognizes both financial_highlights shapes** — the flat canonical
+`[revenue, net_income, eps, key_metrics]` (a bake-off candidate prompted to emit it) **or** the
+production pipeline's richer `[table, profitability, cash_flow, balance_sheet]`. Both are
+well-formed, so production output earns `schema_valid` (≈1.0). Earlier this required only the flat
+shape, which made real output structurally schema-invalid and silently capped the aggregate at
+~0.70 (the 0.30 schema weight was unearnable). It was NOT the `USE_STRUCTURED_OUTPUT` lever —
+that flag changes the prompt/temperature, not the output shape, so it can't move `schema_valid`.
+A malformed/empty object still fails.
 
 ### The advisory CI job (`eval-baseline`)
 - **Inert until armed.** It self-skips with a notice unless a `DEEPSEEK_API_KEY` **GitHub Actions

@@ -100,9 +100,9 @@ async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:
 def _baseline_to_canonical(summary: Dict[str, Any]) -> Dict[str, Any]:
     """Map the current pipeline's output into the canonical eval shape (best-effort).
 
-    The baseline does not enforce the canonical schema, so it will typically score as
-    schema-invalid here — that gap is exactly what S1 aims to close, and is the honest
-    baseline to beat."""
+    `financial_highlights` is passed through in the pipeline's own richer shape (a metric table +
+    profitability / cash_flow / balance_sheet bullets); `validate_schema` accepts that shape, so a
+    well-formed baseline scores schema-valid."""
     return {
         "executive_summary": summary.get("business_overview") or "",
         "financial_highlights": summary.get("financial_highlights") or {},
