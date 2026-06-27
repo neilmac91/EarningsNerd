@@ -160,6 +160,88 @@ acceptable cost/latency. Then:
 
 ---
 
+## Regression gate (B1) — pinned baseline + machine-checkable diff
+
+Steps 1–9 are the **one-time adoption gate**. B1 makes that durable: it pins the current
+production-pipeline quality and gives a deterministic, CI-runnable check that a change hasn't
+eroded it — the safety net under any future output-quality work (and before a large precompute run).
+
+Three pieces:
+
+| Piece | What it is |
+|---|---|
+| `baseline_scores.json` | The pinned bar to protect — the `baseline` candidate's summary stats from a full verified-set run, committed to git. |
+| `regression_gate.py` | Deterministic per-dimension diff of a fresh `reports/eval_*.json` against the pinned baseline. Exits non-zero on a HARD regression. |
+| `eval-baseline` CI job | Advisory (non-blocking) job in `.github/workflows/ci.yml` that runs the live pipeline on a few golden filings per AI-relevant PR and runs the gate. |
+
+### Running the gate locally
+```bash
+cd backend
+python -m evals.runner --candidates baseline --runs 1   # produce a fresh report
+python -m evals.regression_gate --latest                # diff it against baseline_scores.json
+# or gate a specific report:
+python -m evals.regression_gate evals/reports/eval_<stamp>.json
+```
+Exit 0 = no hard regression (warnings may print); exit 1 = at least one HARD regression. The gate
+**logic** is unit-tested offline (`tests/unit/test_eval_regression_gate.py`) — no network/AI — so it
+runs for free in `backend-tests` on every PR.
+
+### Thresholds (absolute deltas, in `regression_gate.py`)
+Hard tolerances sit comfortably above the baseline's measured run-to-run `aggregate_stdev` so
+ordinary model jitter never trips the gate, while a real drop does. Tuned deliberately
+non-configurable from the report (a candidate must not relax its own gate).
+
+| Dimension | Severity | Trips when |
+|---|---|---|
+| `gate_fail_rate` (fabricated number / hygiene veto) | **HARD** | increases > 0.005 (must never regress) |
+| `mean_numeric_precision` (labeled-field fidelity) | **HARD** | drops > 0.05 |
+| `mean_coverage` | **HARD** | drops > 0.05 |
+| `mean_numeric_accuracy` (recall) | **HARD** | drops > 0.10 (looser — noisiest on small subsets) |
+| `pass_rate` | warn | drops > 0.05 |
+| `aggregate_stdev` (consistency) | warn | increases > 0.05 |
+| `schema_valid_rate` | warn | drops > 0.05 (inert while baseline = 0.0; meaningful once S1 flips it to ~1.0) |
+| `mean_financial_depth` | warn | drops > 0.10 |
+
+**`schema_valid_rate = 0.0` is the honest baseline, not a defect** — the current pipeline returns
+`financial_highlights` with `[table, profitability, cash_flow, balance_sheet]`, not the canonical
+`[revenue, net_income, eps, key_metrics]`. Closing that gap is the S1 lever
+(`USE_STRUCTURED_OUTPUT=true`); when you flip it, re-pin the baseline so the new ~1.0 becomes the
+protected floor.
+
+### The advisory CI job (`eval-baseline`)
+- **Inert until armed.** It self-skips with a notice unless a `DEEPSEEK_API_KEY` **GitHub Actions
+  secret** exists. The prod key lives in GCP Secret Manager (used by `deploy-backend` via
+  `--update-secrets`), which CI cannot read — so arming the gate is a one-time owner action:
+  **Settings → Secrets and variables → Actions → New repository secret → `DEEPSEEK_API_KEY`.**
+- **Non-blocking.** `continue-on-error: true` and deliberately NOT in `deploy-backend`'s `needs:` —
+  a red gate is a signal to a reviewer, never a deploy block. (Same posture as `lighthouse`.)
+- **Path-filtered.** Runs only when `backend/app/**`, `backend/evals/**`, or `backend/prompts/**`
+  change (or on manual `workflow_dispatch`), so it spends tokens only on AI-relevant changes
+  (~$0.15–0.30 + a few minutes per qualifying PR once armed).
+- **PR vs dispatch.** A PR runs a cheap **6-filing smoke** (catches catastrophic regressions —
+  parse breakage, hygiene leaks, sign flips). Manual `workflow_dispatch` runs the **full verified
+  set** (authoritative, apples-to-apples with the pinned baseline); pass a `limit` input to scope it.
+  > Caveat: the 6-filing PR smoke is diffed against the full-set baseline, so its `pass_rate` /
+  > `aggregate_stdev` are not directly comparable (warn-only). The HARD dimensions
+  > (precision/coverage/gate_fail/recall) hold on any reasonable subset. For an authoritative
+  > verdict, run the full set via dispatch.
+- **Judge is OFF in the gate** — deterministic scorers only. The LLM judge is flaky and costly
+  (~$0.20/filing, 30–60s latency); keep it for manual pre-deploy spot-checks (`--judge claude-opus-4-8`).
+
+### Re-pinning the baseline
+Re-pin whenever you intentionally move the bar — flip `USE_STRUCTURED_OUTPUT`, change the default
+model/prompt, or adopt a quality improvement. From `backend/`:
+```bash
+python -m evals.runner --candidates baseline --runs 3            # full verified set
+python scripts/pin_baseline.py evals/reports/eval_<stamp>.json   # rewrite baseline_scores.json
+```
+Then commit the new `baseline_scores.json` in the same PR as the change it protects, so the diff
+shows both the code change and the new bar. **BRK.B is `verified: false`** (no consolidated EPS
+fact) and is auto-excluded by the runner — leave it out of the pinned set until its ground truth
+is hand-filled.
+
+---
+
 ## FPI adoption gate — flipping `ENABLE_FPI_FILINGS`
 
 Separate, default-off gate (`app/config.py` → `ENABLE_FPI_FILINGS`). It controls whether the

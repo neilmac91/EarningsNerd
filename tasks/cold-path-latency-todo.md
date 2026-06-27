@@ -40,7 +40,13 @@ Branch: `claude/earningsnerd-cold-path-latency-6imswg`
       in `finally` (incl. client disconnect). Verified: 3 dedup tests + 698 backend tests pass.
 
 ## Phase B — structural (minimal-infra)
-- [ ] **B1** Harden `backend/evals` into a pinned baseline + CI regression gate.
+- [~] **B1** Harden `backend/evals` into a pinned baseline + CI regression gate. **DONE (gate
+      mechanism):** `regression_gate.py` (deterministic per-dimension diff, hard-fail vs warn),
+      `scripts/pin_baseline.py` (re-pin from a report), `baseline_scores.json` (pinned bar),
+      advisory path-filtered `eval-baseline` CI job (inert until owner adds a `DEEPSEEK_API_KEY`
+      GitHub Actions secret; NOT in deploy-backend `needs:`), RUNBOOK section, 13 unit tests.
+      Gate logic runs free in `backend-tests`; live eval is opt-in. Output-improvement work
+      (segment reconciliation, prompt discipline, S1 flip) sits on top of this gate next.
 - [ ] **B2** Filings-list backend cache/refresh for popular tickers.
 - [ ] **B3** Section-parse 15s-timeout tail fix for big financial filers (e.g. JPM).
 
