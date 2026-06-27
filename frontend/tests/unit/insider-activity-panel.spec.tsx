@@ -10,11 +10,13 @@ vi.mock('@/features/insiders/api/insiders-api', () => ({
 
 import InsiderActivityPanel from '@/features/insiders/components/InsiderActivityPanel'
 
-function renderPanel(ticker = 'AAPL') {
+// isFpi defaults to false ("known domestic") so the live read is enabled — the panel only queries
+// once the parent knows the company is not a foreign private issuer (isFpi === false).
+function renderPanel(ticker = 'AAPL', isFpi: boolean | undefined = false) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
-      <InsiderActivityPanel ticker={ticker} />
+      <InsiderActivityPanel ticker={ticker} isFpi={isFpi} />
     </QueryClientProvider>,
   )
 }
@@ -105,5 +107,23 @@ describe('InsiderActivityPanel', () => {
     renderPanel()
 
     await waitFor(() => expect(screen.queryByText('Insider Activity')).not.toBeInTheDocument())
+  })
+
+  it('shows the FPI note and skips the live SEC read for foreign private issuers', async () => {
+    renderPanel('BABA', true)
+
+    expect(
+      await screen.findByText(/not generally required for foreign private issuers/),
+    ).toBeInTheDocument()
+    expect(getInsiderActivity).not.toHaveBeenCalled()
+  })
+
+  it('does not query until FPI status is known (isFpi undefined while filings load)', async () => {
+    getInsiderActivity.mockResolvedValue(RESP)
+    renderPanel('AAPL', undefined)
+
+    // No live read fires while isFpi is undefined; the panel renders nothing yet.
+    await waitFor(() => expect(getInsiderActivity).not.toHaveBeenCalled())
+    expect(screen.queryByText('Insider Activity')).not.toBeInTheDocument()
   })
 })
