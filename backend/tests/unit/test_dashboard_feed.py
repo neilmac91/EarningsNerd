@@ -212,3 +212,17 @@ def test_compose_feed_empty_for_no_watchlist():
         db.query(User).filter(User.id == uid).delete()
         db.commit()
         db.close()
+
+
+def test_feed_form_types_gated_by_fpi_flag(monkeypatch):
+    """The feed adds FPI ANNUAL forms (20-F/40-F) behind the flag, but never 6-K (XBRL-less/noisy)."""
+    from app.config import settings
+    from app.services import dashboard_feed_service as svc
+
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", False)
+    assert svc._feed_form_types() == ("10-K", "10-Q")
+
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", True)
+    on = svc._feed_form_types()
+    assert "20-F" in on and "40-F" in on
+    assert "6-K" not in on  # deliberately excluded from the what-changed feed

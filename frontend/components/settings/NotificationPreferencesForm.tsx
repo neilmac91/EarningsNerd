@@ -12,7 +12,7 @@ import {
 } from '@/features/notifications/api/notifications-api'
 import { inputClasses } from '@/components/ui/Input'
 
-type BoolPref = 'notify_10k' | 'notify_10q' | 'notify_8k' | 'realtime'
+type BoolPref = 'notify_10k' | 'notify_10q' | 'notify_8k' | 'notify_20f' | 'notify_6k' | 'realtime'
 
 function Toggle({
   checked,
@@ -155,6 +155,20 @@ function PreferenceRows({
         disabled={disabled || !prefs.eightk_available}
         locked={!prefs.eightk_available}
         onChange={setBool('notify_8k')}
+      />
+      <Toggle
+        label="Foreign annual reports (20-F)"
+        description="Annual reports from foreign issuers (20-F / 40-F)."
+        checked={prefs.notify_20f}
+        disabled={disabled}
+        onChange={setBool('notify_20f')}
+      />
+      <Toggle
+        label="Foreign interim reports (6-K)"
+        description="Interim updates from foreign issuers — delivered in your digest, not in real time."
+        checked={prefs.notify_6k}
+        disabled={disabled}
+        onChange={setBool('notify_6k')}
       />
       <Toggle
         label="Real-time alerts"

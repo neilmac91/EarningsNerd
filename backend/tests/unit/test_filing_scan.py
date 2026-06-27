@@ -300,3 +300,19 @@ async def test_each_eligible_watcher_gets_exactly_one_alert():
         assert len(recipients) == 2
         for uid in uids:
             assert _log_count(uid) == 1
+
+
+def test_scan_form_types_gated_by_fpi_flag(monkeypatch):
+    """FPI forms are fetched per company only when ENABLE_FPI_FILINGS is on (cost control)."""
+    from app.config import settings
+    from app.services import filing_scan_service as svc
+
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", False)
+    off = svc._scan_form_types()
+    assert "20-F" not in off and "6-K" not in off and "40-F" not in off
+    assert "10-K" in off and "10-Q" in off and "8-K" in off  # domestic forms always present
+
+    monkeypatch.setattr(settings, "ENABLE_FPI_FILINGS", True)
+    on = svc._scan_form_types()
+    assert {"20-F", "6-K", "40-F"}.issubset(set(on))
+    assert "10-K" in on and "8-K" in on
