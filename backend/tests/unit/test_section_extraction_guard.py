@@ -86,3 +86,62 @@ def test_assemble_excerpt_empty_inputs_return_empty():
     assert openai_service.assemble_excerpt_from_sections({}, "10-K") == ""
     # A sub-threshold stub (<200 chars) is dropped, yielding no excerpt.
     assert openai_service.assemble_excerpt_from_sections({"risk": "tiny"}, "10-K") == ""
+
+
+# ---------------------------------------------------------------------------
+# B3: MD&A dense-window backfill. Big financial filers (e.g. JPM) parse a real Item 1A but only a
+# stub Item 7 MD&A; the assembler backfills it from the raw document (like it already does for a
+# thin Item 8), so the summary keeps its narrative depth instead of discarding the good sections.
+# ---------------------------------------------------------------------------
+
+
+def test_mda_backfill_recovers_a_thin_mda_from_raw_text():
+    sections = {
+        # Substantive financials (> _FINANCIALS_MIN_CHARS) so ONLY the MD&A path triggers.
+        "financials": "Net interest income detail. " * 300,
+        "mda": "See Item 7.",  # stub (< _MDA_MIN_CHARS), as JPM parses
+        "risk": "Credit losses could adversely affect results. " * 60,
+    }
+    raw = (
+        "Results of operations improved year over year. Net interest income rose on higher rates. "
+        "Liquidity and capital resources remained strong; critical accounting estimates unchanged. "
+    ) * 400
+    out = openai_service.assemble_excerpt_from_sections(sections, "10-K", filing_text=raw)
+    assert "MD&A CONTEXT (recovered from filing)" in out
+    # Financials were substantive, so that backfill must NOT fire.
+    assert "FINANCIAL STATEMENTS CONTEXT (recovered from filing)" not in out
+    # The well-parsed risk section is preserved (not discarded in favor of regex).
+    assert "ITEM 1A - RISK FACTORS" in out
+
+
+def test_no_mda_backfill_when_mda_is_substantive():
+    sections = {
+        "financials": "Net sales $383,285 million. " * 300,
+        "mda": "Management's discussion of operations and liquidity. " * 200,  # well over the stub bar
+        "risk": "Risk narrative. " * 60,
+    }
+    raw = "Results of operations and liquidity and capital resources. " * 400
+    out = openai_service.assemble_excerpt_from_sections(sections, "10-K", filing_text=raw)
+    assert "MD&A CONTEXT (recovered from filing)" not in out
+
+
+def test_mda_backfill_skipped_without_filing_text():
+    # No raw text to recover from → no backfill, but the parsed sections still assemble.
+    sections = {"mda": "stub", "risk": "Real risk content. " * 60}
+    out = openai_service.assemble_excerpt_from_sections(sections, "10-K")
+    assert "MD&A CONTEXT" not in out
+    assert "ITEM 1A - RISK FACTORS" in out
+
+
+def test_mda_backfill_skips_window_overlapping_financials():
+    # Both financials and MD&A are stubs, and the raw text is a single keyword-dense region carrying
+    # BOTH financial and MD&A markers → the two dense windows coincide. Only one context block should
+    # be appended; the near-duplicate MD&A window is skipped so it doesn't waste model context.
+    sections = {"financials": "see ref", "mda": "see Item 7", "risk": "Risk content. " * 60}
+    raw = (
+        "Net income and cash flow from operating activities improved. Results of operations and "
+        "liquidity and capital resources were discussed across the period. "
+    ) * 300
+    out = openai_service.assemble_excerpt_from_sections(sections, "10-K", filing_text=raw)
+    assert "FINANCIAL STATEMENTS CONTEXT (recovered from filing)" in out
+    assert "MD&A CONTEXT (recovered from filing)" not in out  # deduped — overlaps the financials window

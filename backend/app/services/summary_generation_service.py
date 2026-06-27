@@ -462,6 +462,15 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                         }
                     )
 
+                # B3: the section parse gets its OWN (larger) budget rather than sharing
+                # document_timeout — it runs concurrent with the fetch, so the headroom is mostly
+                # hidden, and big financial filers (BAC/GS ~20-21s, JPM ~26s) were exceeding the 15s
+                # document budget and falling back to the lower-precision regex excerpt. This also
+                # fixes 20-F (its inner 40s cap was previously defeated by the 15s outer wait_for).
+                processing_profile["section_timeout"] = (
+                    40.0 if filing_type.split("/")[0] == "20-F" else 30.0
+                )
+
                 previous_filings = []
                 if processing_profile["include_previous"]:
                     previous_filings = (
@@ -535,7 +544,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                                 xbrl_service.get_filing_sections(
                                     filing_accession_number, company_cik, filing_type
                                 ),
-                                timeout=processing_profile["document_timeout"],
+                                timeout=processing_profile["section_timeout"],
                             )
                         except asyncio.TimeoutError:
                             logger.warning(f"[{filing_id}] ⚠ Section parse timed out, using regex fallback")

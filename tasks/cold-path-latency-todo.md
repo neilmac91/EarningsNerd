@@ -66,7 +66,15 @@ Branch: `claude/earningsnerd-cold-path-latency-6imswg`
       skipping the 3–5s SEC round-trip; live fetch + persist on a cold/stale key stamps the sync.
       In-memory (single instance, Redis off), bounded to 2000 keys. New-filing alerts unaffected
       (separate filing-scan job). 6 unit tests.
-- [ ] **B3** Section-parse 15s-timeout tail fix for big financial filers (e.g. JPM).
+- [x] **B3** Section-parse timeout tail for big financial filers. Measured big-bank 10-Ks parse
+      fully but over the 15s cap (BAC ~21s, GS ~20s, JPM ~26s) → they were falling back to the
+      lower-precision regex excerpt. Fix: give the section parse its OWN budget (30s domestic / 40s
+      20-F, decoupled from `document_timeout` — also fixes 20-F whose inner 40s was defeated by the
+      15s outer wait), and backfill a thin MD&A from a dense keyword window (mirroring the existing
+      financials backfill) so JPM-class keep their high-precision parsed Risk Factors instead of
+      discarding the parse. Verified on JPM: 26s parse, excerpt 306k chars, MD&A + financials
+      backfilled, risk preserved. +~6s upstream for clean filers (BAC/GS), ~+11s for JPM, in
+      exchange for the high-precision excerpt. 9 + FPI + 76 smoke/section/edgar tests pass.
 
 ## Forward plan (post-B1, A1 fleet held per owner)
 Sequenced by value-to-effort; each a separate PR, gate-protected where it touches generation.
@@ -74,7 +82,7 @@ Sequenced by value-to-effort; each a separate PR, gate-protected where it touche
 2. [ ] **S1 structured-output bake-off** — flip `USE_STRUCTURED_OUTPUT` off-vs-on through the gate;
        ship + re-pin only if it wins (schema_valid 0→1, no recall/precision/coverage regression).
 3. [x] **B2** filings-list backend cache (original cold-path #1) — stale-within-TTL DB serve. *(this PR)*
-4. [ ] **B3** parse-timeout tail for big filers (faster + higher-precision excerpts for JPM-class).
+4. [x] **B3** parse-timeout tail for big filers — own section budget (30s/40s) + MD&A backfill. *(PR)*
 - Note: dropped the planned "S1 flip for schema_valid" — investigation showed `USE_STRUCTURED_OUTPUT`
   doesn't move `schema_valid` (the product's `financial_highlights` is `{table, profitability,
   cash_flow, balance_sheet}` in both flag states, vs the eval's canonical `{revenue, net_income,

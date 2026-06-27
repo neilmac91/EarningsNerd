@@ -535,10 +535,11 @@ class EdgarXBRLService:
         if base_form not in {"10-K", "10-Q", "20-F"}:
             return None
         cik_padded = str(cik).zfill(10)
-        # 20-F annual reports are far larger than a 10-K (verified: a BABA 20-F parses + extracts
-        # Item 3/5/18 in ~17.5s, over the 15s default), so give them extra headroom. They run
-        # concurrently with the document fetch, so the wall-clock cost is hidden.
-        section_timeout = max(self.timeout, 40.0) if base_form == "20-F" else self.timeout
+        # The section parse runs CONCURRENT with the document fetch, so extra headroom is largely
+        # hidden. Big financial 10-Ks need it: measured BAC ~21s, GS ~20s, JPM ~26s — all over the
+        # 15s default, so they were timing out into the lower-precision regex excerpt. 20-F annual
+        # reports are larger still (a BABA 20-F parses Item 3/5/18 in ~17.5s). (B3)
+        section_timeout = max(self.timeout, 40.0) if base_form == "20-F" else max(self.timeout, 30.0)
         try:
             return await run_in_executor_with_timeout(
                 lambda: _extract_sections_sync(cik_padded, accession_number, base_form),
