@@ -108,17 +108,16 @@ def _fact_for_metric(
 
 # Diluted EPS, captured as an accepted ALTERNATE to the (basic-first) `eps` ground truth: a summary
 # that quotes diluted EPS — the headline figure investors use — is correct, not a miss.
-_DILUTED_EPS_CONCEPTS = (
-    "EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted", "DilutedEarningsLossPerShare",
-)
-
-
 def _diluted_eps(xb, period_of_report: str, filing_type: str) -> Optional[float]:
-    """Diluted EPS for the filing's own period, or None if not separately tagged."""
-    from app.services.edgar.instance_extractor import duration_series_with_currency
+    """Diluted EPS for the filing's own period, or None if not separately tagged.
+
+    Reuses the product's `DURATION_CONCEPTS["eps_diluted"]` so the harness and the product can't
+    drift on which diluted-EPS tags count.
+    """
+    from app.services.edgar.instance_extractor import DURATION_CONCEPTS, duration_series_with_currency
 
     series, _ = duration_series_with_currency(
-        xb, list(_DILUTED_EPS_CONCEPTS), filing_type, period_of_report
+        xb, DURATION_CONCEPTS["eps_diluted"], filing_type, period_of_report
     )
     if series and series[0][0] == period_of_report:
         return series[0][1]

@@ -272,6 +272,13 @@ def test_alt_values_default_empty_is_backward_compatible():
     assert recall == 1.0
 
 
+def test_alt_values_none_does_not_crash():
+    # A malformed fact (alt_values=None, e.g. JSON null) must not raise.
+    none_alt = GroundTruthFact(metric="eps", value=6.13, unit="USD_per_share", alt_values=None)
+    recall, _, _ = score_numeric_accuracy("EPS $6.13.", [none_alt])
+    assert recall == 1.0
+
+
 def test_financial_depth_rewards_cash_flow_balance_sheet_and_margins():
     """A deep financial section (P1.1 output) scores 1.0 across all three categories."""
     payload = {

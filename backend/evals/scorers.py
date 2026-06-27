@@ -131,7 +131,7 @@ def _fact_renderings(fact: GroundTruthFact) -> List[str]:
     Alts let one fact accept more than one correct figure — e.g. EPS matches whether the summary
     quotes basic or diluted (both are right; the model headlines diluted)."""
     out = list(_number_renderings(fact.value, fact.unit))
-    for alt in fact.alt_values:
+    for alt in (fact.alt_values or []):  # tolerate alt_values being None (e.g. JSON null)
         out.extend(_number_renderings(alt, fact.unit))
     return out
 
