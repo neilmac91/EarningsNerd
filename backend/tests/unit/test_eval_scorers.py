@@ -103,6 +103,18 @@ def test_validate_schema_rejects_empty_financial_highlights():
     assert any("financial_highlights missing" in p for p in problems)
 
 
+def test_validate_schema_accepts_structured_but_empty_production_shape():
+    # Production keys PRESENT but empty is structurally valid — emptiness is coverage's concern, not
+    # schema validity's. (Identify the shape by key presence, not truthiness.)
+    payload = {
+        "executive_summary": "x",
+        "financial_highlights": {"table": [], "profitability": [], "cash_flow": [], "balance_sheet": []},
+        "risk_factors": [], "management_discussion": "y", "outlook": "z",
+    }
+    valid, problems = validate_schema(payload)
+    assert valid and problems == []
+
+
 def test_parse_model_json_clean_vs_fenced_vs_garbage():
     payload, repaired = parse_model_json('{"a": 1}')
     assert payload == {"a": 1} and repaired is False

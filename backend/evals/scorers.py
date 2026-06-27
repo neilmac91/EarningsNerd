@@ -55,8 +55,11 @@ def validate_schema(payload: Dict[str, Any]) -> Tuple[bool, List[str]]:
     fh = payload.get("financial_highlights")
     if not isinstance(fh, dict):
         problems.append("financial_highlights is not an object")
-    elif any(fh.get(k) for k in _PRODUCT_FH_KEYS):
-        pass  # production pipeline shape with content — well-formed as-is
+    elif any(k in fh for k in _PRODUCT_FH_KEYS):
+        # Production pipeline shape (table + bullet lists) — structurally well-formed. Check key
+        # PRESENCE, not truthiness: an empty-but-structured object is still valid here; emptiness
+        # is coverage's concern, not schema validity's.
+        pass
     else:
         # Otherwise require the full flat canonical shape (a candidate that emits it).
         for k in _FLAT_FH_KEYS:
