@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getCompany, Company } from '@/features/companies/api/companies-api'
 import { getCompanyFilings, Filing } from '@/features/filings/api/filings-api'
+import { getSummary } from '@/features/summaries/api/summaries-api'
 import { addToWatchlist, removeFromWatchlist, getWatchlist, WatchlistItem } from '@/features/watchlist/api/watchlist-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { ArrowRightIcon, ArrowSquareOutIcon, CaretDownIcon, CircleNotchIcon, FileTextIcon, FunnelIcon, SparkleIcon, StarIcon } from '@/lib/icons'
@@ -173,6 +174,35 @@ export default function CompanyPageClient() {
 
     return { groupedFilings: grouped, sortedYears: years, recommendedFiling, availableFilingTypes }
   }, [filings, filterType])
+
+  // A4: default the filing list to the most recent ~3 years that actually have filings (older years
+  // stay collapsed behind their headers) — instead of only the current calendar year, which is empty
+  // for a company whose latest filing is last year. Runs once on load; the user controls it after.
+  const autoExpandedForRef = useRef<string | null>(null)
+  useEffect(() => {
+    // Keyed on the ticker (not a one-shot bool) so it re-expands when this page is reused across a
+    // soft navigation to a different company. `sortedYears` is [] while the new ticker's filings
+    // load, so this no-ops until the correct data arrives.
+    if (autoExpandedForRef.current === normalizedTicker || sortedYears.length === 0) return
+    autoExpandedForRef.current = normalizedTicker
+    setExpandedYears(new Set(sortedYears.slice(0, 3)))
+  }, [sortedYears, normalizedTicker])
+
+  // A4: prefetch the recommended filing's summary (the latest 10-K) the moment the company opens, so
+  // the most-likely next click renders the cached analysis instantly. Read-only GET — never triggers
+  // generation. Dovetails with the A1 precompute that warms these summaries server-side.
+  const prefetchedFilingIdRef = useRef<number | null>(null)
+  useEffect(() => {
+    // Keyed on the filing id so a soft-nav to a different company prefetches that company's latest
+    // 10-K, and we never re-prefetch the same one.
+    if (!recommendedFiling?.id || prefetchedFilingIdRef.current === recommendedFiling.id) return
+    prefetchedFilingIdRef.current = recommendedFiling.id
+    queryClient.prefetchQuery({
+      queryKey: ['summary', recommendedFiling.id],
+      queryFn: () => getSummary(recommendedFiling.id),
+      staleTime: 60_000,
+    })
+  }, [recommendedFiling, queryClient])
 
   // Handle case where ticker might not be available
   if (!ticker) {

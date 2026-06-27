@@ -430,6 +430,17 @@ async def stream_filing_summary(
 
             mark_stage("context_enrichment")
 
+            # A5: when STREAM_SECTION_REVEAL is on, stream the extraction and push progressive section
+            # previews onto a queue that the heartbeat loop drains below. The callback can't yield from
+            # this generator, so the queue decouples them. Off by default → behaviour unchanged.
+            preview_queue: Optional[asyncio.Queue] = (
+                asyncio.Queue() if settings.STREAM_SECTION_REVEAL else None
+            )
+            summary_stream_cb = None
+            if preview_queue is not None:
+                async def summary_stream_cb(preview_md: str) -> None:
+                    preview_queue.put_nowait(preview_md)
+
             # Now run AI summarization (with excerpt/XBRL if available)
             # Wrap in task to enable heartbeat loop while waiting
             summary_task = asyncio.create_task(openai_service.summarize_filing(
@@ -439,6 +450,7 @@ async def stream_filing_summary(
                 previous_filings=None,
                 xbrl_metrics=xbrl_metrics,
                 filing_excerpt=excerpt,
+                stream_cb=summary_stream_cb,
             ))
 
             SUMMARIZE_MESSAGES = [
@@ -488,7 +500,17 @@ async def stream_filing_summary(
                 elapsed_secs = int(time.time() - pipeline_started_at)
                 # Estimate progress during summarization: start at 50%, increase by 2% per heartbeat, cap at 90%
                 current_percent = min(50 + (summarize_heartbeat_index * 2), 90)
-                yield {'type': 'progress', 'stage': 'summarizing', 'message': heartbeat_message, 'heartbeat_count': summarize_heartbeat_index, 'percent': current_percent, 'elapsed_seconds': elapsed_secs}
+                # A5: if progressive previews have arrived, emit the latest full render (coalesced) as a
+                # 'preview' event — real content the client can reveal early — instead of a generic
+                # heartbeat. Falls through to the heartbeat when no preview is pending (or feature off).
+                latest_preview = None
+                if preview_queue is not None:
+                    while not preview_queue.empty():
+                        latest_preview = preview_queue.get_nowait()
+                if latest_preview:
+                    yield {'type': 'preview', 'stage': 'summarizing', 'markdown': latest_preview, 'heartbeat_count': summarize_heartbeat_index, 'percent': current_percent, 'elapsed_seconds': elapsed_secs}
+                else:
+                    yield {'type': 'progress', 'stage': 'summarizing', 'message': heartbeat_message, 'heartbeat_count': summarize_heartbeat_index, 'percent': current_percent, 'elapsed_seconds': elapsed_secs}
                 summarize_heartbeat_index += 1
 
             if not summary_payload:

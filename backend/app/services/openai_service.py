@@ -1936,8 +1936,16 @@ Return JSON containing only the `{section_key}` key."""
         previous_filings: Optional[list] = None,
         xbrl_metrics: Optional[Dict] = None,
         filing_excerpt: Optional[str] = None,
+        stream_cb: Optional[Any] = None,
     ) -> Dict[str, Any]:
-        """Phase 1: Extract structured financial schema from the filing."""
+        """Phase 1: Extract structured financial schema from the filing.
+
+        When ``stream_cb`` is provided (A5 progressive reveal), the primary model is streamed and
+        ``stream_cb(partial_markdown)`` is awaited with throttled preview renders as the JSON fills
+        in; the COMPLETE content is then assembled through the same path as the non-streaming branch,
+        so the final result is identical. ``stream_cb`` errors / streaming failures propagate to the
+        caller (``summarize_filing``), which falls back to non-streaming — streaming never degrades
+        the output, it only adds the preview."""
         from fastapi.concurrency import run_in_threadpool
 
         filing_type_key = (filing_type or "10-K").upper()
@@ -2193,6 +2201,47 @@ Rules:
         models_to_try = [self.get_model_for_filing(filing_type_key)] + self._fallback_models
         models_to_try = list(dict.fromkeys(models_to_try))
 
+        if stream_cb is not None:
+            # A5: best-effort progressive reveal. Stream the primary model once, emitting throttled
+            # partial-markdown previews as the JSON fills in, then assemble the COMPLETE content
+            # through the SAME path as the non-streaming branch (identical final output). Any error
+            # propagates so summarize_filing can fall back to non-streaming generation.
+            stream_model = models_to_try[0]
+            stream_timeout = config.get("ai_timeout", 45.0)
+            stream_kwargs: Dict[str, Any] = dict(
+                model=stream_model,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "You are a structured data extraction engine for financial journalism. "
+                            "You never write narrative prose. You output STRICT RFC8259 COMPLIANT JSON. "
+                            "ALL keys and strings must use DOUBLE QUOTES. No trailing commas. "
+                            "Adhere strictly to the requested schema. "
+                            "Fill in 'Not disclosed' when data is missing. "
+                            "Never invent prior-period figures."
+                        ),
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.1 if structured_mode else 0.2,
+                max_tokens=config.get("max_tokens", 1500),
+                stream=True,
+                response_format={"type": "json_object"},
+            )
+            if ("deepseek" in stream_model.lower()
+                    or "deepseek" in (settings.OPENAI_BASE_URL or "").lower()):
+                stream_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
+            else:
+                stream_kwargs["max_tokens"] = min(stream_kwargs["max_tokens"], 8192)
+            streamed_content = await asyncio.wait_for(
+                self._stream_collect(stream_kwargs, stream_cb, filing_type_key, xbrl_metrics),
+                timeout=stream_timeout,
+            )
+            return await self._assemble_structured_summary(
+                streamed_content, filing_text, filing_type_key, filing_sample, xbrl_metrics
+            )
+
         response = None
         last_error: Optional[Exception] = None
         max_retries = 1  # Reduced from 3 to limit worst-case latency
@@ -2279,6 +2328,22 @@ Rules:
             raise last_error if last_error else RuntimeError("All extraction models failed.")
 
         content = response.choices[0].message.content
+        return await self._assemble_structured_summary(
+            content, filing_text, filing_type_key, filing_sample, xbrl_metrics
+        )
+
+    async def _assemble_structured_summary(
+        self,
+        content: Optional[str],
+        filing_text: str,
+        filing_type_key: str,
+        filing_sample: str,
+        xbrl_metrics: Optional[Dict],
+    ) -> Dict[str, Any]:
+        """Parse the model's JSON response → recover empty sections → apply fallbacks → return the
+        structured summary dict. Shared by the non-streaming path and the streaming (progressive
+        reveal) path, so the FINAL output is identical regardless of how the content was produced —
+        this is the invariant that makes streaming a zero-quality-risk change."""
         payload = self._clean_json_payload(content or "")
 
         if not payload:
@@ -2335,6 +2400,53 @@ Rules:
         summary_data["metadata"] = metadata
 
         return summary_data
+
+    async def _stream_collect(
+        self,
+        create_kwargs: Dict[str, Any],
+        stream_cb: Any,
+        filing_type_key: str,
+        xbrl_metrics: Optional[Dict],
+    ) -> str:
+        """Stream a structured-extraction call, awaiting ``stream_cb(partial_markdown)`` with throttled
+        preview renders as the JSON fills in, and return the COMPLETE accumulated content. Preview
+        rendering and ``stream_cb`` are best-effort — they never affect the returned content."""
+        parts: List[str] = []
+        emitted_at = 0
+        stream = await self.client.chat.completions.create(**create_kwargs)
+        async for chunk in stream:
+            choices = getattr(chunk, "choices", None)
+            if not choices:
+                continue
+            delta = getattr(choices[0], "delta", None)
+            piece = getattr(delta, "content", None) if delta is not None else None
+            if not piece:
+                continue
+            parts.append(piece)
+            total = sum(len(p) for p in parts)
+            # Re-render a preview every ~1500 new chars to keep preview frames modest.
+            if total - emitted_at >= 1500:
+                emitted_at = total
+                preview = self._partial_markdown_preview("".join(parts), xbrl_metrics)
+                if preview:
+                    try:
+                        await stream_cb(preview)
+                    except Exception:  # noqa: BLE001 — a consumer error must never abort generation
+                        pass
+        return "".join(parts)
+
+    def _partial_markdown_preview(self, partial_content: str, xbrl_metrics: Optional[Dict]) -> Optional[str]:
+        """Best-effort partial render: repair-parse the in-progress JSON and build a partial markdown
+        preview with the SAME builder as the final output. Returns None on any failure (preview frames
+        are optional and are always superseded by the authoritative final render)."""
+        try:
+            repaired = self._repair_json(self._clean_json_payload(partial_content or ""))
+            data = self._coerce_summary_dict(json.loads(repaired))
+            if not isinstance(data.get("sections"), dict):
+                return None
+            return self._build_structured_markdown(data) or None
+        except Exception:  # noqa: BLE001 — partial JSON frequently won't parse cleanly; skip this frame
+            return None
 
     async def generate_editorial_markdown(self, structured_summary: Dict[str, Any]) -> Dict[str, Any]:
         """Phase 2: Convert structured schema into polished newsroom-ready markdown."""
@@ -2977,21 +3089,47 @@ Do not include any additional keys or text outside the JSON object."""
         previous_filings: Optional[list] = None,
         xbrl_metrics: Optional[Dict] = None,
         filing_excerpt: Optional[str] = None,
+        stream_cb: Optional[Any] = None,
     ) -> Dict:
-        """Generate newsroom-ready summary using structured extraction + editorial writer phases."""
+        """Generate newsroom-ready summary using structured extraction + editorial writer phases.
+
+        ``stream_cb`` (A5) opts into progressive reveal: the extraction is streamed and
+        ``stream_cb(partial_markdown)`` is awaited as sections fill in. If streaming fails for any
+        non-timeout reason it falls back to non-streaming generation, so the result is never
+        degraded — the final assembled summary is identical either way."""
         import asyncio
 
         filing_type_key = (filing_type or "10-K").upper()
         try:
-            structured_summary = await self.generate_structured_summary(
-                filing_text,
-                company_name,
-                filing_type,
-                previous_filings=previous_filings,
-                xbrl_metrics=xbrl_metrics,
-                filing_excerpt=filing_excerpt,
-            )
-            
+            try:
+                structured_summary = await self.generate_structured_summary(
+                    filing_text,
+                    company_name,
+                    filing_type,
+                    previous_filings=previous_filings,
+                    xbrl_metrics=xbrl_metrics,
+                    filing_excerpt=filing_excerpt,
+                    stream_cb=stream_cb,
+                )
+            except asyncio.TimeoutError:
+                raise
+            except Exception as stream_error:
+                if stream_cb is None:
+                    raise
+                logger.warning(
+                    f"Streaming extraction failed ({str(stream_error)[:160]}); "
+                    "falling back to non-streaming generation"
+                )
+                structured_summary = await self.generate_structured_summary(
+                    filing_text,
+                    company_name,
+                    filing_type,
+                    previous_filings=previous_filings,
+                    xbrl_metrics=xbrl_metrics,
+                    filing_excerpt=filing_excerpt,
+                    stream_cb=None,
+                )
+
         except asyncio.TimeoutError:
             timeout_seconds = self._get_type_config(filing_type_key).get("ai_timeout", 30.0)
             logger.warning(f"Structured extraction timed out after {timeout_seconds}s for {filing_type_key}")

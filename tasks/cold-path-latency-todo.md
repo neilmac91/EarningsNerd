@@ -27,8 +27,12 @@ Branch: `claude/earningsnerd-cold-path-latency-6imswg`
       `/internal/jobs/precompute`, `pregenerate_examples` delegates to it; 7 unit tests). **Fleet run
       still GATED** — awaiting owner go on the top-500 cohort + batch concurrency. Filing-scan
       auto-trigger for *new* filings = follow-up.
-- [ ] **A4** Filings list: 3-year default + prefetch latest 10-K on company open.
-- [ ] **A5** Stream the existing single call's output → progressive section reveal (same call/output).
+- [x] **A4** Filings list: default-expand the most recent 3 years that have filings; prefetch the
+      latest 10-K's summary on company open (read-only, warms the next click). (`company/[ticker]`)
+- [~] **A5** Progressive section reveal. **Backend DONE** (stream the extraction, push partial-markdown
+      previews; `STREAM_SECTION_REVEAL` flag, default off; identical final output via shared
+      `_assemble_structured_summary`; non-streaming fallback). Verified: first paint ~10s vs ~60s
+      (6.4× perceived). **Frontend progressive render = next PR.**
 - [ ] **A3** In-flight dedup for concurrent same-`filing_id` requests.
 
 ## Phase B — structural (minimal-infra)
@@ -54,3 +58,11 @@ bulk `submissions.zip`, CDN mirror.
   with **0 new LLM calls**; **$0.011/filing** → top-500 10-K ≈ **$5.56**, ×2 forms ≈ **$11.13**.
   Finding: serial batch ≈ 59s/filing (~16h for 1000) → needs bounded concurrency or multi-night
   spread before the fleet run.
+- **A5 backend (done, flag off):** extracted `_assemble_structured_summary` (shared by both paths →
+  identical final output); added a streaming early-path in `generate_structured_summary` +
+  `_stream_collect`/`_partial_markdown_preview` that emit throttled partial-markdown previews;
+  `summarize_filing` threads `stream_cb` with a non-streaming fallback; pipeline drains previews into
+  a `preview` SSE event behind `STREAM_SECTION_REVEAL` (default off). Verified: full non-streaming run
+  unchanged (status=complete, 4 sections); streaming run AAON 10-K → 9 preview frames, **first paint
+  ~9.8s vs 62.4s final (6.4× perceived)**; 695 backend tests pass; 8 new unit tests; ruff clean.
+  **Frontend progressive render (consume the `preview` event) = next PR.**
