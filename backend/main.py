@@ -43,7 +43,7 @@ else:
     else:
         print("⚠️  SENTRY_DSN not configured - error tracking disabled")
 
-from app.database import engine, Base, get_db
+from app.database import engine, Base, get_db, ensure_additive_columns
 from app.services.logging_service import (
     configure_logging,
     CorrelationIdMiddleware,
@@ -84,6 +84,10 @@ async def lifespan(app: FastAPI):
     # Startup - run sync DB operation in thread pool to avoid blocking event loop
     loop = asyncio.get_running_loop()
     await loop.run_in_executor(None, lambda: Base.metadata.create_all(bind=engine))
+    # create_all() never ALTERs existing tables, so self-apply small additive columns that post-date
+    # a table's original CREATE (e.g. the FPI alert prefs) — keeps deployed code + schema in sync
+    # without a manual migration step. Idempotent + non-fatal; see database.ensure_additive_columns.
+    await loop.run_in_executor(None, ensure_additive_columns)
 
     # Validate database connection at startup
     from sqlalchemy import text
