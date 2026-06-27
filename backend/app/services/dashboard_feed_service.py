@@ -27,8 +27,20 @@ from app.services.summary_generation_service import get_generation_progress_snap
 logger = logging.getLogger(__name__)
 
 # The feed centres on filings that carry XBRL financials (the "what changed" signal). 8-Ks have no
-# XBRL, so v1 shows 10-K/10-Q only.
+# XBRL, so v1 shows 10-K/10-Q only. When ENABLE_FPI_FILINGS is on we also include FPI ANNUAL reports
+# (20-F/40-F) — they now carry XBRL (Phase 3) and pair year-over-year via _prior_same_form. 6-K is
+# deliberately EXCLUDED: it's free-form / often XBRL-less, so it would yield neutral/None headlines.
 FEED_FORM_TYPES = ("10-K", "10-Q")
+FEED_FPI_ANNUAL_FORM_TYPES = ("20-F", "40-F")
+
+
+def _feed_form_types() -> tuple[str, ...]:
+    """Form types included in the dashboard feed — FPI annual reports added only behind the flag."""
+    from app.config import settings
+
+    if settings.ENABLE_FPI_FILINGS:
+        return FEED_FORM_TYPES + FEED_FPI_ANNUAL_FORM_TYPES
+    return FEED_FORM_TYPES
 
 # (xbrl_data key, human label) in headline priority order.
 _DELTA_METRICS = [
@@ -195,10 +207,11 @@ def compose_feed(db: Session, user_id: int, limit: int = 20) -> list[dict]:
     if not company_ids:
         return []
 
+    form_types = _feed_form_types()
     filings = (
         db.query(Filing)
         .options(joinedload(Filing.company))
-        .filter(Filing.company_id.in_(company_ids), Filing.filing_type.in_(FEED_FORM_TYPES))
+        .filter(Filing.company_id.in_(company_ids), Filing.filing_type.in_(form_types))
         .order_by(desc(Filing.filing_date))
         .limit(limit)
         .all()
@@ -214,7 +227,7 @@ def compose_feed(db: Session, user_id: int, limit: int = 20) -> list[dict]:
     for f in (
         db.query(Filing)
         .options(defer(Filing.xbrl_data))
-        .filter(Filing.company_id.in_(feed_company_ids), Filing.filing_type.in_(FEED_FORM_TYPES))
+        .filter(Filing.company_id.in_(feed_company_ids), Filing.filing_type.in_(form_types))
         .order_by(Filing.company_id, desc(Filing.filing_date))
         .all()
     ):

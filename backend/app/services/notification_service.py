@@ -42,6 +42,11 @@ def coerce_to_entitlement(prefs: NotificationPreferences, ent: Entitlements) -> 
     return prefs
 
 
+def _is_six_k(filing_type: str) -> bool:
+    ft = (filing_type or "").upper().replace(" ", "")
+    return ft.startswith("6-K") or ft.startswith("6K")
+
+
 def _filing_type_enabled(prefs: NotificationPreferences, ent: Entitlements, filing_type: str) -> bool:
     ft = (filing_type or "").upper().replace(" ", "")
     if ft.startswith("10-K") or ft.startswith("10K"):
@@ -51,6 +56,11 @@ def _filing_type_enabled(prefs: NotificationPreferences, ent: Entitlements, fili
     if ft.startswith("8-K") or ft.startswith("8K"):
         # 8-K is Pro-only: requires both the user's opt-in AND the entitlement.
         return bool(prefs.notify_8k and ent.eightk_coverage)
+    # FPI forms (Phase 5). 20-F + 40-F (Canadian annual analogue) share one opt-in; 6-K is its own.
+    if ft.startswith("20-F") or ft.startswith("20F") or ft.startswith("40-F") or ft.startswith("40F"):
+        return bool(prefs.notify_20f)
+    if _is_six_k(ft):
+        return bool(prefs.notify_6k)
     return False
 
 
@@ -64,7 +74,9 @@ def evaluate_delivery(
     """
     if not _filing_type_enabled(prefs, ent, filing_type):
         return (False, False)
-    realtime = bool(ent.realtime_alerts and prefs.realtime)
+    # 6-Ks are frequent and heterogeneous (earnings vs governance vs press release), so they are
+    # ALWAYS digest-only — never realtime even for a Pro user with realtime on — to avoid spam.
+    realtime = bool(ent.realtime_alerts and prefs.realtime and not _is_six_k(filing_type))
     return (True, realtime)
 
 

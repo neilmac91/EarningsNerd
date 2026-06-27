@@ -32,9 +32,24 @@ from app.services.notification_service import evaluate_delivery, get_or_create_p
 logger = logging.getLogger(__name__)
 
 SCAN_FORM_TYPES = ["10-K", "10-Q", "8-K"]
+# FPI forms added to the scan only behind ENABLE_FPI_FILINGS — the roadmap warns against a blanket
+# global default (each extra form is one more SEC get_filings call per watched company per tick, and
+# the watched universe is overwhelmingly domestic). Per-form alert eligibility is still gated by the
+# user's notify_20f / notify_6k prefs in evaluate_delivery, and 6-K is forced digest-only.
+SCAN_FPI_FORM_TYPES = ["20-F", "6-K", "40-F"]
 DEFAULT_PER_COMPANY_LIMIT = 10
 DEFAULT_CADENCE_MINUTES = 60
 DEFAULT_DIGEST_WINDOW_HOURS = 24
+
+
+def _scan_form_types() -> list[str]:
+    """Forms fetched per watched company — FPI forms appended only behind ENABLE_FPI_FILINGS."""
+    from app.config import settings
+
+    if settings.ENABLE_FPI_FILINGS:
+        return SCAN_FORM_TYPES + SCAN_FPI_FORM_TYPES
+    return SCAN_FORM_TYPES
+
 
 # Type aliases for the injectable collaborators.
 FetchFilings = Callable[..., Awaitable[list[dict]]]
@@ -197,7 +212,7 @@ async def run_filing_scan(
             continue  # checked recently — honour the scan cadence
 
         try:
-            sec_filings = await fetch_filings(company.cik, filing_types=SCAN_FORM_TYPES, limit=per_company_limit)
+            sec_filings = await fetch_filings(company.cik, filing_types=_scan_form_types(), limit=per_company_limit)
         except Exception as e:  # EdgarError / CircuitOpenError — skip this company, keep scanning
             logger.warning("Filing fetch failed for %s (%s): %s", company.ticker, company.cik, e)
             continue

@@ -119,6 +119,9 @@ class NotificationPreferencesResponse(BaseModel):
     notify_10k: bool
     notify_10q: bool
     notify_8k: bool
+    # FPI alerts (Phase 5): 20-F/40-F annual (free) and 6-K interim (free, digest-only).
+    notify_20f: bool
+    notify_6k: bool
     channel: str
     digest: str
     realtime: bool
@@ -134,6 +137,8 @@ class NotificationPreferencesUpdate(BaseModel):
     notify_10k: Optional[bool] = None
     notify_10q: Optional[bool] = None
     notify_8k: Optional[bool] = None
+    notify_20f: Optional[bool] = None
+    notify_6k: Optional[bool] = None
     channel: Optional[str] = None
     digest: Optional[str] = None
     realtime: Optional[bool] = None
@@ -144,6 +149,8 @@ def _prefs_response(prefs, ent) -> NotificationPreferencesResponse:
         notify_10k=prefs.notify_10k,
         notify_10q=prefs.notify_10q,
         notify_8k=prefs.notify_8k,
+        notify_20f=prefs.notify_20f,
+        notify_6k=prefs.notify_6k,
         channel=prefs.channel,
         digest=prefs.digest,
         realtime=prefs.realtime,

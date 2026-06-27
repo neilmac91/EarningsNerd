@@ -4,6 +4,9 @@ export interface NotificationPreferences {
   notify_10k: boolean
   notify_10q: boolean
   notify_8k: boolean
+  // FPI alerts: 20-F/40-F annual (free) and 6-K interim (free, digest-only).
+  notify_20f: boolean
+  notify_6k: boolean
   channel: string
   digest: string
   realtime: boolean
@@ -13,7 +16,10 @@ export interface NotificationPreferences {
 }
 
 export type NotificationPreferencesUpdate = Partial<
-  Pick<NotificationPreferences, 'notify_10k' | 'notify_10q' | 'notify_8k' | 'channel' | 'digest' | 'realtime'>
+  Pick<
+    NotificationPreferences,
+    'notify_10k' | 'notify_10q' | 'notify_8k' | 'notify_20f' | 'notify_6k' | 'channel' | 'digest' | 'realtime'
+  >
 >
 
 export const getNotificationPreferences = async (): Promise<NotificationPreferences> => {

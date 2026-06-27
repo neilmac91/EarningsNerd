@@ -5,7 +5,10 @@ from app.services.notification_service import coerce_to_entitlement, evaluate_de
 
 
 def _prefs(**over):
-    base = dict(notify_10k=True, notify_10q=True, notify_8k=False, realtime=False)
+    base = dict(
+        notify_10k=True, notify_10q=True, notify_8k=False,
+        notify_20f=True, notify_6k=False, realtime=False,
+    )
     base.update(over)
     return SimpleNamespace(**base)
 
@@ -44,6 +47,24 @@ def test_form_type_pref_off_suppresses():
 
 def test_unknown_form_type_not_eligible():
     assert evaluate_delivery(_prefs(), _ent(), "S-1") == (False, False)
+
+
+def test_20f_and_40f_follow_notify_20f_free():
+    # 20-F / 40-F (foreign annual) are free, default on, and can be realtime for Pro.
+    assert evaluate_delivery(_prefs(), _ent(), "20-F") == (True, False)
+    assert evaluate_delivery(_prefs(), _ent(), "40-F") == (True, False)
+    assert evaluate_delivery(_prefs(realtime=True), _ent(realtime_alerts=True), "20-F") == (True, True)
+    # Off when the pref is off, even for Pro.
+    assert evaluate_delivery(_prefs(notify_20f=False), _ent(realtime_alerts=True), "20-F") == (False, False)
+
+
+def test_6k_off_by_default_and_always_digest_only():
+    # Default pref off → ineligible.
+    assert evaluate_delivery(_prefs(), _ent(), "6-K") == (False, False)
+    # Opted in → eligible, but NEVER realtime even for a Pro user with realtime on (spam control).
+    assert evaluate_delivery(
+        _prefs(notify_6k=True, realtime=True), _ent(realtime_alerts=True), "6-K"
+    ) == (True, False)
 
 
 def test_coerce_forces_pro_toggles_off_for_free():

@@ -37,6 +37,11 @@ class NotificationPreferences(Base):
     notify_10k = Column(Boolean, nullable=False, default=True)
     notify_10q = Column(Boolean, nullable=False, default=True)
     notify_8k = Column(Boolean, nullable=False, default=False)   # Pro-gated (eightk_coverage)
+    # FPI alert opt-ins (Phase 5). 20-F/40-F = foreign annual report (free, default on like 10-K).
+    # 6-K = foreign interim/furnished (free, default OFF + digest-only — 6-Ks are frequent and
+    # heterogeneous, so a default-on realtime would be spammy).
+    notify_20f = Column(Boolean, nullable=False, default=True)
+    notify_6k = Column(Boolean, nullable=False, default=False)
     channel = Column(String(20), nullable=False, default=CHANNEL_EMAIL)   # email | in_app
     digest = Column(String(20), nullable=False, default="daily")          # immediate | daily | weekly
     realtime = Column(Boolean, nullable=False, default=False)             # Pro-gated (realtime_alerts)
