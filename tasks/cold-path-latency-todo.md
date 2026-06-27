@@ -34,6 +34,8 @@ Branch: `claude/earningsnerd-cold-path-latency-6imswg`
       shared `_assemble_structured_summary`; non-streaming fallback. **Frontend**: the filing page
       consumes the `preview` SSE event and replace-renders the growing markdown (final `chunk`
       supersedes). Verified: first paint ~10s vs ~60s (6.4× perceived); flag off ⇒ unchanged.
+      **ACTIVATED**: `STREAM_SECTION_REVEAL=true` added to the Cloud Run *service* deploy env in CI
+      (re-verified POWL 10-K: 10 preview frames, first content ~6s vs 31.6s final, output complete).
 - [x] **A3** In-flight dedup: a process-local registry (`_inflight_generations`) in the SSE pipeline —
       concurrent first-requests for the same `filing_id` join the in-flight generation (wait with
       heartbeats) and serve the persisted result instead of running N redundant generations. Released
@@ -54,15 +56,31 @@ Branch: `claude/earningsnerd-cold-path-latency-6imswg`
       attributable vs consolidated net income).
 
 ## Phase B — structural (minimal-infra)
-- [~] **B1** Harden `backend/evals` into a pinned baseline + CI regression gate. **DONE (gate
-      mechanism):** `regression_gate.py` (deterministic per-dimension diff, hard-fail vs warn),
-      `scripts/pin_baseline.py` (re-pin from a report), `baseline_scores.json` (pinned bar),
-      advisory path-filtered `eval-baseline` CI job (inert until owner adds a `DEEPSEEK_API_KEY`
-      GitHub Actions secret; NOT in deploy-backend `needs:`), RUNBOOK section, 13 unit tests.
-      Gate logic runs free in `backend-tests`; live eval is opt-in. Output-improvement work
-      (segment reconciliation, prompt discipline, S1 flip) sits on top of this gate next.
-- [ ] **B2** Filings-list backend cache/refresh for popular tickers.
+- [x] **B1** Harden `backend/evals` into a pinned baseline + CI regression gate (PRs #435/#441/#443).
+      `regression_gate.py` (deterministic per-dimension diff, hard-fail vs warn), `scripts/pin_baseline.py`,
+      `baseline_scores.json` (pinned bar, now reflecting the diluted-EPS fix), advisory path-filtered
+      `eval-baseline` CI job (inert until owner adds a `DEEPSEEK_API_KEY` Actions secret; NOT in
+      deploy-backend `needs:`), RUNBOOK section, unit tests. Gate logic runs free in `backend-tests`.
+- [x] **B2** Filings-list backend cache: `GET /api/filings/company/{ticker}` now serves the
+      DB-cached list on a fresh `(ticker, types)` key (synced within `FILINGS_LIST_TTL`, 3h),
+      skipping the 3–5s SEC round-trip; live fetch + persist on a cold/stale key stamps the sync.
+      In-memory (single instance, Redis off), bounded to 2000 keys. New-filing alerts unaffected
+      (separate filing-scan job). 6 unit tests.
 - [ ] **B3** Section-parse 15s-timeout tail fix for big financial filers (e.g. JPM).
+
+## Forward plan (post-B1, A1 fleet held per owner)
+Sequenced by value-to-effort; each a separate PR, gate-protected where it touches generation.
+1. [~] **Activate A5** progressive reveal — `STREAM_SECTION_REVEAL=true` in CI service deploy. *(this PR)*
+2. [ ] **S1 structured-output bake-off** — flip `USE_STRUCTURED_OUTPUT` off-vs-on through the gate;
+       ship + re-pin only if it wins (schema_valid 0→1, no recall/precision/coverage regression).
+3. [x] **B2** filings-list backend cache (original cold-path #1) — stale-within-TTL DB serve. *(this PR)*
+4. [ ] **B3** parse-timeout tail for big filers (faster + higher-precision excerpts for JPM-class).
+- Note: dropped the planned "S1 flip for schema_valid" — investigation showed `USE_STRUCTURED_OUTPUT`
+  doesn't move `schema_valid` (the product's `financial_highlights` is `{table, profitability,
+  cash_flow, balance_sheet}` in both flag states, vs the eval's canonical `{revenue, net_income,
+  eps, key_metrics}`). Aligning the eval schema is optional polish; the gate hard-fails on per-
+  dimension drops, not aggregate, so it's unaffected.
+- Parked: **A1 fleet** (owner-held), **BABA/FPI per-ADS** (niche), **arm CI gate** (owner adds secret).
 
 ## Phase C — deferred (parked per owner)
 Parallel-section generation, async-job decoupling, alt inference provider / `AI_FAST_MODEL`,

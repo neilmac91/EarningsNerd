@@ -1,7 +1,7 @@
 import asyncio
 import logging
-from datetime import datetime
-from typing import List, Optional
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
@@ -18,6 +18,30 @@ logger = logging.getLogger(__name__)
 # Constants for filings endpoint configuration
 SEC_REQUEST_TIMEOUT_SECONDS = 20.0  # Timeout for SEC EDGAR requests (within frontend's 30s limit)
 CACHED_FILINGS_LIMIT = 20  # Maximum number of cached filings to return as fallback
+
+# B2: stale-within-TTL cache for the company filings list. The hot path already persists every SEC
+# fetch into the Filing table, so a recently-synced ticker can serve its list straight from the DB
+# (~ms) instead of paying the 3-5s SEC round-trip on every load. In-memory by design — single Cloud
+# Run instance, Redis off in prod (mirrors companies.py's _quote_cache). Staleness is bounded by the
+# TTL; the new-filing ALERT path (filing-scan job) is independent, so users are still notified of new
+# filings even if this list lags by up to the TTL.
+FILINGS_LIST_TTL = timedelta(hours=3)
+MAX_FILINGS_SYNC_ENTRIES = 2000  # bound memory; oldest (ticker,types) key is evicted past this
+_filings_synced_at: Dict[Tuple[str, Tuple[str, ...]], datetime] = {}
+
+
+def _filings_cache_fresh(ticker: str, types_list: List[str]) -> bool:
+    """True when this (ticker, types) was synced from SEC within the TTL."""
+    synced = _filings_synced_at.get((ticker, tuple(types_list)))
+    return synced is not None and (datetime.utcnow() - synced) < FILINGS_LIST_TTL
+
+
+def _mark_filings_synced(ticker: str, types_list: List[str]) -> None:
+    """Record a successful live SEC sync for this (ticker, types), evicting the oldest if full."""
+    if len(_filings_synced_at) >= MAX_FILINGS_SYNC_ENTRIES:
+        _filings_synced_at.pop(next(iter(_filings_synced_at)), None)  # insertion-ordered → oldest
+    _filings_synced_at[(ticker, tuple(types_list))] = datetime.utcnow()
+
 
 router = APIRouter()
 
@@ -121,6 +145,14 @@ async def get_company_filings(
         ).order_by(Filing.filing_date.desc()).limit(CACHED_FILINGS_LIMIT).all()
         return [FilingResponse.from_orm(f) for f in cached]
 
+    # B2 fast path: a recently-synced ticker serves its list from the DB (already populated by a
+    # prior live fetch) without the 3-5s SEC round-trip. Falls through to the live fetch on a cold
+    # or stale key, or when the DB has nothing cached yet.
+    if _filings_cache_fresh(ticker_upper, types_list):
+        cached = get_cached_filings()
+        if cached:
+            return cached
+
     try:
         # Try to fetch from SEC with a timeout to ensure we respond within frontend's limit
         sec_filings = await asyncio.wait_for(
@@ -203,6 +235,9 @@ async def get_company_filings(
             # Refresh new filings to get generated IDs
             for filing in new_filings:
                 db.refresh(filing)
+
+        # Mark this (ticker, types) freshly synced so subsequent loads take the B2 fast path.
+        _mark_filings_synced(ticker_upper, types_list)
 
         # Convert to response models after commit
         return [FilingResponse.from_orm(f) for f in filings]
