@@ -34,7 +34,10 @@ Branch: `claude/earningsnerd-cold-path-latency-6imswg`
       shared `_assemble_structured_summary`; non-streaming fallback. **Frontend**: the filing page
       consumes the `preview` SSE event and replace-renders the growing markdown (final `chunk`
       supersedes). Verified: first paint ~10s vs ~60s (6.4× perceived); flag off ⇒ unchanged.
-- [ ] **A3** In-flight dedup for concurrent same-`filing_id` requests.
+- [x] **A3** In-flight dedup: a process-local registry (`_inflight_generations`) in the SSE pipeline —
+      concurrent first-requests for the same `filing_id` join the in-flight generation (wait with
+      heartbeats) and serve the persisted result instead of running N redundant generations. Released
+      in `finally` (incl. client disconnect). Verified: 3 dedup tests + 698 backend tests pass.
 
 ## Phase B — structural (minimal-infra)
 - [ ] **B1** Harden `backend/evals` into a pinned baseline + CI regression gate.

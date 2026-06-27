@@ -51,6 +51,29 @@ from app.services.summary_generation_service import (
 
 logger = logging.getLogger(__name__)
 
+# A3: process-local registry of in-flight summary generations, keyed by filing_id. When a request
+# would generate a filing another request is already generating, it waits for that one and serves the
+# persisted result — collapsing a concurrent "thundering herd" on a newly-filed popular report into a
+# single generation. Process-local is the right scope: prod is a single Cloud Run instance with Redis
+# off, and even when scaled it bounds redundant work per instance.
+_inflight_generations: dict[int, asyncio.Event] = {}
+INFLIGHT_WAIT_CAP_SECONDS = 110.0  # just under PIPELINE_TIMEOUT_SECONDS (120s)
+
+
+def _claim_inflight(filing_id: int) -> asyncio.Event:
+    """Register this request as the leader generating ``filing_id``; returns the event to release."""
+    event = asyncio.Event()
+    _inflight_generations[filing_id] = event
+    return event
+
+
+def _release_inflight(filing_id: int, event: asyncio.Event) -> None:
+    """Release leadership (only if we still own the slot) and wake any waiters."""
+    if _inflight_generations.get(filing_id) is event:
+        _inflight_generations.pop(filing_id, None)
+    event.set()
+
+
 # Strong references to fire-and-forget background tasks (e.g. the cached-content refresh),
 # so the event loop doesn't garbage-collect them mid-execution. Each task removes itself on
 # completion. See https://docs.python.org/3/library/asyncio-task.html#asyncio.create_task.
@@ -120,6 +143,8 @@ async def stream_filing_summary(
         stage_started_at = now
 
     session = database.SessionLocal()
+    # A3: set when this request becomes the generation leader; released in `finally`.
+    inflight_event: Optional[asyncio.Event] = None
 
     async def run_sync_db(func, *args, **kwargs):
         """Helper to run DB operations in default thread pool"""
@@ -154,6 +179,38 @@ async def stream_filing_summary(
                     'summary_id': summary_in_session.id,
                 }
                 return
+
+            # A3: in-flight dedup. If another request is already generating this filing, wait for it
+            # (emitting heartbeats) and serve the persisted result instead of running a second full
+            # generation; otherwise claim leadership (released in `finally`).
+            existing_generation = _inflight_generations.get(filing_id)
+            if existing_generation is not None:
+                logger.info(f"[stream:{filing_id}] Joining in-flight generation (dedup).")
+                yield {'type': 'progress', 'stage': 'queued', 'message': 'Another request is already generating this analysis — joining it...', 'percent': 3, 'elapsed_seconds': int(time.time() - pipeline_started_at)}
+                waited = 0.0
+                while not existing_generation.is_set() and waited < INFLIGHT_WAIT_CAP_SECONDS:
+                    try:
+                        await asyncio.wait_for(existing_generation.wait(), timeout=settings.STREAM_HEARTBEAT_INTERVAL)
+                    except asyncio.TimeoutError:
+                        waited += settings.STREAM_HEARTBEAT_INTERVAL
+                        yield {'type': 'progress', 'stage': 'summarizing', 'message': 'Finishing the shared analysis...', 'percent': min(50 + int(waited), 90), 'elapsed_seconds': int(time.time() - pipeline_started_at)}
+
+                # Re-read on a fresh session (the leader committed on its own) and serve it.
+                def get_persisted_summary_fields():
+                    with database.SessionLocal() as s:
+                        summ = s.query(Summary).filter(Summary.filing_id == filing_id).first()
+                        return {"business_overview": summ.business_overview, "id": summ.id} if summ else None
+
+                summary_fields = await run_sync_db(get_persisted_summary_fields)
+                if summary_fields:
+                    logger.info(f"[stream:{filing_id}] Served result from in-flight leader (dedup hit).")
+                    yield {'type': 'complete', 'summary': summary_fields["business_overview"], 'summary_id': summary_fields["id"]}
+                    return
+                # Leader finished without a persisted summary (error/timeout) — generate directly.
+                logger.info(f"[stream:{filing_id}] In-flight leader produced no summary; generating directly.")
+
+            # Claim leadership for this filing_id (atomic: no await between the get above and this set).
+            inflight_event = _claim_inflight(filing_id)
 
             # Cache company data and filing attributes from the fetched filing
             company_name = filing_in_session.company.name if filing_in_session.company else "Unknown company"
@@ -729,6 +786,10 @@ async def stream_filing_summary(
 
         yield {'type': 'error', 'message': error_message}
     finally:
+        # A3: release in-flight leadership so any waiters proceed and serve the persisted result.
+        # Runs on completion, error, timeout, AND GeneratorExit (client disconnect) — never leaks a slot.
+        if inflight_event is not None:
+            _release_inflight(filing_id, inflight_event)
         try:
             session.close()
         except Exception as e:
