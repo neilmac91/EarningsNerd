@@ -376,8 +376,11 @@ function FilingDetailView({ filingId }: { filingId: number }) {
       await generateSummaryStream(
         filingId,
         (chunk: string) => {
+          // REPLACE (not append): the backend emits the summary as a single full-markdown 'chunk',
+          // and A5 progressive 'preview' frames are growing full renders routed through here — each
+          // supersedes the last, and the final 'chunk' supersedes the previews.
           setGenerationError(null)
-          setStreamingText(prev => prev + chunk)
+          setStreamingText(chunk)
         },
         (stage: string, message: string, data?: { elapsed_seconds?: number; heartbeat_count?: number }) => {
           setGenerationError(null)

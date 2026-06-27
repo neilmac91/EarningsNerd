@@ -301,6 +301,14 @@ const runStreamAttempt = async (
               console.info(`[summary] ${filingId} chunk received (${chunkSize} chars)`)
               markContentDelivered()
               onChunk(data.content)
+            } else if (data.type === 'preview') {
+              // A5: progressive section reveal — a growing full-markdown render emitted while the
+              // model streams. Routed through onChunk, which REPLACES the displayed text; the
+              // authoritative final 'chunk' supersedes the last preview. No-op when the backend
+              // feature flag is off (no preview events are emitted).
+              if (typeof data.markdown === 'string' && data.markdown) {
+                onChunk(data.markdown)
+              }
             } else if (data.type === 'progress') {
               const stageName = typeof data.stage === 'string' ? data.stage : 'unknown'
               const message = typeof data.message === 'string' ? data.message : ''

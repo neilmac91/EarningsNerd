@@ -29,10 +29,11 @@ Branch: `claude/earningsnerd-cold-path-latency-6imswg`
       auto-trigger for *new* filings = follow-up.
 - [x] **A4** Filings list: default-expand the most recent 3 years that have filings; prefetch the
       latest 10-K's summary on company open (read-only, warms the next click). (`company/[ticker]`)
-- [~] **A5** Progressive section reveal. **Backend DONE** (stream the extraction, push partial-markdown
-      previews; `STREAM_SECTION_REVEAL` flag, default off; identical final output via shared
-      `_assemble_structured_summary`; non-streaming fallback). Verified: first paint ~10s vs ~60s
-      (6.4× perceived). **Frontend progressive render = next PR.**
+- [x] **A5** Progressive section reveal. **Backend** (PR #432): stream the extraction, push
+      partial-markdown previews; `STREAM_SECTION_REVEAL` flag (default off); identical final output via
+      shared `_assemble_structured_summary`; non-streaming fallback. **Frontend**: the filing page
+      consumes the `preview` SSE event and replace-renders the growing markdown (final `chunk`
+      supersedes). Verified: first paint ~10s vs ~60s (6.4× perceived); flag off ⇒ unchanged.
 - [ ] **A3** In-flight dedup for concurrent same-`filing_id` requests.
 
 ## Phase B — structural (minimal-infra)
