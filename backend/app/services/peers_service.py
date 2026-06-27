@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Company
 from app.models.financial_fact import FinancialFact
+from app.services.facts_service import _unit_for
 
 DEFAULT_CONCEPT = "revenue"
 
@@ -52,6 +53,30 @@ def get_peers(
 
     concept = (concept or DEFAULT_CONCEPT).strip() or DEFAULT_CONCEPT
 
+    # Currency guard: a ranking is only meaningful within ONE currency — a CNY revenue is
+    # ~7x a USD one, so a foreign private issuer (which now stores native-currency facts,
+    # e.g. unit="CNY") must never be ranked head-to-head against USD filers in the same SIC.
+    # We constrain the cohort to the subject's own reporting currency for this concept:
+    #   • monetary concepts (unit "USD"/"CNY"/…) → like-for-like (a USD subject excludes FPIs;
+    #     a CNY subject ranks only against other CNY filers, usually itself → panel hides),
+    #   • per-share ("USD/shares"/"CNY/shares") → same,
+    #   • dimensionless margins ("pure", currency-blind) → all filers share unit "pure", so
+    #     a margin cohort naturally spans every currency, which is correct for a ratio.
+    # `_unit_for(concept, None)` gives the concept's default unit (USD/USD-shares/pure) for a
+    # subject that has no fact yet, so a domestic subject still ranks against its USD peers.
+    subject_unit_row = (
+        db.query(FinancialFact.unit)
+        .filter(
+            FinancialFact.company_id == company.id,
+            FinancialFact.concept == concept,
+            FinancialFact.fiscal_period == "FY",
+            FinancialFact.is_latest.is_(True),
+        )
+        .order_by(FinancialFact.period_end.desc())
+        .first()
+    )
+    subject_unit = subject_unit_row[0] if subject_unit_row else _unit_for(concept, None)
+
     # Same-SIC companies that have a fact for this concept, in one JOIN — avoids a
     # large IN list and never loads companies without facts. A subject with no fact
     # is still surfaced by the fallback below, since `company` is already fetched.
@@ -70,6 +95,8 @@ def get_peers(
             # that have one and the annual for those that don't (apples-to-oranges).
             FinancialFact.fiscal_period == "FY",
             FinancialFact.is_latest.is_(True),
+            # One currency per ranking (see comment above).
+            FinancialFact.unit == subject_unit,
         )
         .order_by(FinancialFact.company_id.asc(), FinancialFact.period_end.desc())
         .all()
@@ -80,10 +107,12 @@ def get_peers(
     for peer, fact in results:
         latest.setdefault(peer.id, (peer, fact))
 
-    unit: Optional[str] = None
+    # The cohort is now single-currency by construction, so the response unit is the
+    # subject's unit (not "whichever fact iterated first" — which could differ once the
+    # corpus mixes currencies). The frontend formats values with this currency.
+    unit: Optional[str] = subject_unit
     entries: list[dict[str, Any]] = []
     for peer, fact in latest.values():
-        unit = unit or fact.unit
         entries.append(_entry(peer, fact, is_subject=peer.id == company.id))
 
     # Deterministic order: companies with a value first, value descending, then ticker as a

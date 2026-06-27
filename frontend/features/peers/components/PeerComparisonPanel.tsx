@@ -29,13 +29,23 @@ const METRICS: { key: string; label: string }[] = [
 const MAX_BARS = 10
 const SUBJECT_FILL = '#3E8E84' // chart.1 (teal)
 
+// Any "<ccy>/shares" unit is a per-share metric; "pure" is a ratio; everything else is a
+// monetary amount. Keyed on the suffix (not a literal "USD/shares") so a foreign issuer's
+// "CNY/shares" is recognised as EPS rather than mislabelled as a compact currency.
 const fmtKindFor = (unit: string | null | undefined): FmtKind =>
-  unit === 'pure' ? 'pct' : unit === 'USD/shares' ? 'eps' : 'usd'
+  unit === 'pure' ? 'pct' : unit?.endsWith('/shares') ? 'eps' : 'usd'
 
-const formatValue = (value: number, kind: FmtKind): string => {
+// Derive an ISO-4217 code from the stored unit ("CNY", "CNY/shares" -> "CNY"; "pure"/unknown ->
+// USD fallback, never used for percentages) so a foreign issuer's value never renders with a "$".
+const currencyFromUnit = (unit: string | null | undefined): string => {
+  const code = (unit || 'USD').split('/')[0].trim().toUpperCase()
+  return /^[A-Z]{3}$/.test(code) ? code : 'USD'
+}
+
+const formatValue = (value: number, kind: FmtKind, currency = 'USD'): string => {
   if (kind === 'pct') return fmtPercent(value, { digits: 1 })
-  if (kind === 'eps') return fmtCurrency(value, { digits: 2, compact: false })
-  return fmtCurrency(value, { compact: true })
+  if (kind === 'eps') return fmtCurrency(value, { currency, digits: 2, compact: false })
+  return fmtCurrency(value, { currency, compact: true })
 }
 
 export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
@@ -72,6 +82,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
   const meaningful = !!data && data.peer_count >= 2
   const label = METRICS.find((m) => m.key === metric)?.label ?? metric
   const kind = fmtKindFor(data?.unit)
+  const currency = currencyFromUnit(data?.unit)
 
   const chartData = useMemo(() => {
     if (!data || data.peer_count < 2) return []
@@ -162,7 +173,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
                 tick={{ fontSize: 12, fill: axisText }}
                 tickLine={false}
                 axisLine={false}
-                tickFormatter={(v: number) => formatValue(v, kind)}
+                tickFormatter={(v: number) => formatValue(v, kind, currency)}
               />
               <YAxis
                 type="category"
@@ -174,7 +185,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
               />
               <Tooltip
                 cursor={{ fill: cursorFill }}
-                formatter={(v) => [formatValue(Number(v), kind), label]}
+                formatter={(v) => [formatValue(Number(v), kind, currency), label]}
                 contentStyle={{
                   background: tooltipBg,
                   border: `1px solid ${tooltipBorder}`,
