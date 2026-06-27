@@ -203,6 +203,7 @@ async def run_filing_scan(
     stats = {"companies_scanned": 0, "filings_upserted": 0, "alerts_sent": 0, "alerts_failed": 0}
 
     company_ids = [row[0] for row in db.query(Watchlist.company_id).distinct().all()]
+    form_types = _scan_form_types()  # resolve once (flag read + concat) — not per company
     for cid in company_ids:
         company = db.get(Company, cid)
         if company is None:
@@ -212,7 +213,7 @@ async def run_filing_scan(
             continue  # checked recently — honour the scan cadence
 
         try:
-            sec_filings = await fetch_filings(company.cik, filing_types=_scan_form_types(), limit=per_company_limit)
+            sec_filings = await fetch_filings(company.cik, filing_types=form_types, limit=per_company_limit)
         except Exception as e:  # EdgarError / CircuitOpenError — skip this company, keep scanning
             logger.warning("Filing fetch failed for %s (%s): %s", company.ticker, company.cik, e)
             continue

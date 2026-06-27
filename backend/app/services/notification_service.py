@@ -59,7 +59,7 @@ def _filing_type_enabled(prefs: NotificationPreferences, ent: Entitlements, fili
     # FPI forms (Phase 5). 20-F + 40-F (Canadian annual analogue) share one opt-in; 6-K is its own.
     if ft.startswith("20-F") or ft.startswith("20F") or ft.startswith("40-F") or ft.startswith("40F"):
         return bool(prefs.notify_20f)
-    if _is_six_k(ft):
+    if _is_six_k(filing_type):  # _is_six_k normalizes; pass the raw value (ft is already normalized)
         return bool(prefs.notify_6k)
     return False
 
