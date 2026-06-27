@@ -5,6 +5,7 @@ from app.database import get_db
 from app.models import Company
 from app.schemas.fundamentals import FundamentalsResponse
 from app.services import facts_service
+from app.services.company_coverage import UNSUPPORTED_FOREIGN_REASON, unsupported_foreign_name
 # EdgarTools migration: Using new edgar module for SEC services
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.exceptions import EdgarError as SECEdgarServiceError
@@ -135,9 +136,37 @@ class CompanyResponse(BaseModel):
     name: str
     exchange: Optional[str]
     stock_quote: Optional[StockQuote] = None
-    
+    # Set to "unsupported_foreign" for a recognizable foreign issuer (unsponsored ADR) that files
+    # no financial reports with the SEC — lets the frontend show an honest "coverage unavailable"
+    # state instead of a bare "Company not found".
+    coverage_status: Optional[str] = None
+    coverage_reason: Optional[str] = None
+
     class Config:
         from_attributes = True
+
+
+def _unsupported_foreign_response(ticker: str) -> Optional[CompanyResponse]:
+    """Honest 'coverage unavailable' response for a known unsupported foreign name, else None.
+
+    Returned BEFORE any SEC resolution so a recognizable ADR ticker can never fuzzy-match onto an
+    unrelated reporting issuer (e.g. TCEHY/Tencent must NOT bind to TME/Tencent Music, a real 20-F
+    filer at a different CIK). The synthesized response is never persisted to the DB. The curated
+    set lives in ``app.services.company_coverage`` (the single source of truth).
+    """
+    name = unsupported_foreign_name(ticker)
+    if not name:
+        return None
+    return CompanyResponse(
+        id=0,
+        cik="",
+        ticker=(ticker or "").upper().strip(),
+        name=name,
+        exchange=None,
+        stock_quote=None,
+        coverage_status="unsupported_foreign",
+        coverage_reason=UNSUPPORTED_FOREIGN_REASON,
+    )
 
 @router.get("/search", response_model=List[CompanyResponse])
 async def search_companies(
@@ -366,8 +395,14 @@ async def get_stock_quote(ticker: str) -> Optional[StockQuote]:
 async def get_company(ticker: str, db: Session = Depends(get_db)) -> CompanyResponse:
     """Get company by ticker"""
     company = db.query(Company).filter(Company.ticker == ticker.upper()).first()
-    
+
     if not company:
+        # Known unsupported foreign issuer → honest "coverage unavailable" state. Checked BEFORE any
+        # SEC resolution so a recognizable ADR ticker can never fuzzy-match onto an unrelated
+        # reporting CIK (the TCEHY/Tencent → TME/Tencent Music guard). Not persisted.
+        unsupported = _unsupported_foreign_response(ticker)
+        if unsupported is not None:
+            return unsupported
         # Try to fetch from SEC
         try:
             sec_results = await sec_edgar_service.search_company(ticker)
@@ -386,6 +421,10 @@ async def get_company(ticker: str, db: Session = Depends(get_db)) -> CompanyResp
                 raise HTTPException(status_code=404, detail="Company not found")
         except SECEdgarServiceError as e:
             raise HTTPException(status_code=503, detail="SEC EDGAR is temporarily unavailable. Please retry shortly.") from e
+        except HTTPException:
+            # Let intended HTTP errors (e.g. the 404 above) propagate unchanged — the generic
+            # handler below would otherwise wrap them as a 500.
+            raise
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Error fetching company: {str(e)}") from e
     

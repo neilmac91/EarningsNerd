@@ -20,6 +20,10 @@ export interface Company {
   name: string
   exchange?: string
   stock_quote?: StockQuote
+  // Set to 'unsupported_foreign' for a recognizable foreign name (unsponsored ADR) that files no
+  // financial reports with the SEC — the page renders an honest "coverage unavailable" state.
+  coverage_status?: string
+  coverage_reason?: string
 }
 
 export interface TrendingTicker {
