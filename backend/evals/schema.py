@@ -56,6 +56,11 @@ class GroundTruthFact:
     metric: str  # e.g. "revenue", "net_income", "eps"
     value: float  # absolute value in `unit` terms (USD for currency; per-share for eps)
     unit: str = "USD"  # "USD" | "USD_per_share"
+    # Alternate acceptable renderings of the SAME fact. The canonical case is EPS: ground truth
+    # carries basic EPS as `value` and diluted EPS here, because a summary that reports diluted
+    # EPS (the headline figure investors use) is correct, not a miss. A fact counts as matched/
+    # non-contradicted when the output renders `value` OR any `alt_values` entry.
+    alt_values: List[float] = field(default_factory=list)
 
 
 @dataclass
