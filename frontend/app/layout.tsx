@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Figtree } from 'next/font/google'
 import './globals.css'
 import { Providers } from './providers'
@@ -66,6 +66,14 @@ export const metadata: Metadata = {
     icon: '/assets/earningsnerd-icon-dark.svg',
     apple: '/assets/earningsnerd-icon-light.svg',
   },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  // Extend the layout under the notch / home indicator so env(safe-area-inset-*) reports real values.
+  // The bottom-anchored floating buttons (Ask, Feedback) use those insets to clear system UI.
+  viewportFit: 'cover',
 }
 
 export default function RootLayout({

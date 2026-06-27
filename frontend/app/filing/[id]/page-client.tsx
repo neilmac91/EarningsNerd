@@ -10,11 +10,12 @@ import FilingViewer from '@/features/filings/components/copilot/FilingViewer'
 import FilingWorkspace from '@/features/filings/components/copilot/FilingWorkspace'
 import { FilingViewerProvider } from '@/features/filings/components/copilot/FilingViewerContext'
 import AskAboutSelection from '@/features/filings/components/copilot/AskAboutSelection'
+import AskFilingCallout from '@/features/filings/components/copilot/AskFilingCallout'
 import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
 import { getCompany, Company } from '@/features/companies/api/companies-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getApiUrl } from '@/lib/api/client'
-import { BookmarkSimpleIcon, CircleNotchIcon, DownloadSimpleIcon, FileArrowDownIcon, FileTextIcon, WarningCircleIcon } from '@/lib/icons'
+import { BookmarkSimpleIcon, CircleNotchIcon, DownloadSimpleIcon, FileArrowDownIcon, FileTextIcon, SparkleIcon, WarningCircleIcon } from '@/lib/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
@@ -246,12 +247,6 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   // "Ask about this" text selection → open the rail + pre-fill the composer.
   const [copilotPrefill, setCopilotPrefill] = useState<{ text: string; nonce: number } | null>(null)
   const summaryContentRef = useRef<HTMLElement>(null)
-  const handleAskAboutSelection = useCallback((text: string) => {
-    // Cap so the templated question stays under the backend's 2000-char question limit.
-    const snippet = text.length > 1500 ? `${text.slice(0, 1500)}…` : text
-    setCopilotOpen(true)
-    setCopilotPrefill({ text: `Explain this excerpt: "${snippet}"`, nonce: Date.now() })
-  }, [])
   const hasTrackedFilingView = useRef(false)
   const hasTrackedSummaryGenerated = useRef(false)
   const hasTrackedSummaryViewed = useRef(false)
@@ -270,6 +265,28 @@ function FilingDetailView({ filingId }: { filingId: number }) {
     queryKey: ['filing', filingId],
     queryFn: () => getFiling(filingId),
   })
+
+  // Single entry point for every "Ask" affordance (callout CTA, starter chips, tappable follow-ups,
+  // coachmark, text selection): open the rail, optionally pre-fill, and attribute the surface. FREE
+  // users land on the in-rail teaser (the prefill is a no-op for them), preserving the Pro gating.
+  const handleAskCopilot = useCallback((prefillText: string, surface: string) => {
+    if (filing) {
+      analytics.copilotEntryClicked({
+        filingId: filing.id,
+        ticker: filing.company?.ticker ?? null,
+        filingType: filing.filing_type,
+        surface,
+      })
+    }
+    setCopilotOpen(true)
+    const text = prefillText.trim()
+    if (text) setCopilotPrefill({ text, nonce: Date.now() })
+  }, [filing])
+  const handleAskAboutSelection = useCallback((text: string) => {
+    // Cap so the templated question stays under the backend's 2000-char question limit.
+    const snippet = text.length > 1500 ? `${text.slice(0, 1500)}…` : text
+    handleAskCopilot(`Explain this excerpt: "${snippet}"`, 'selection')
+  }, [handleAskCopilot])
 
   // Smart back navigation handler
   const handleBack = () => {
@@ -640,6 +657,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
               debug={debugSummary}
               isAuthenticated={isAuthenticated}
               onRetry={handleRegenerateSummary}
+              onAsk={handleAskCopilot}
             />
           ) : (
             <StreamingSummaryDisplay
@@ -1057,6 +1075,7 @@ function SummaryDisplay({
   debug,
   isAuthenticated,
   onRetry,
+  onAsk,
 }: {
   summary: Summary
   filing: Filing
@@ -1066,6 +1085,8 @@ function SummaryDisplay({
   debug?: boolean
   isAuthenticated: boolean
   onRetry?: () => void
+  /** Opens the Copilot rail with an optional pre-filled question; `surface` attributes the entry point. */
+  onAsk: (prefill: string, surface: string) => void
 }) {
   const markdownContent = summary.business_overview || ''
   // S4 honest degradation, decoupled: ALWAYS strip internal failure notices (they're not
@@ -1113,6 +1134,10 @@ function SummaryDisplay({
   }
 
   const metadata: MetadataSections | null = rawSummary ? (rawSummary.sections as MetadataSections ?? null) : null
+
+  // "AAPL’s 10-K" when the issuer is known, else the cleaner "this 10-K".
+  const subjectName = filing.company?.ticker || filing.company?.name
+  const askSubjectLabel = subjectName ? `${subjectName}’s ${filing.filing_type}` : `this ${filing.filing_type}`
 
   const handleExportPDF = () => {
     const apiUrl = getApiUrl()
@@ -1303,13 +1328,29 @@ function SummaryDisplay({
 
       {metadata?.action_items && Array.isArray(metadata.action_items) && metadata.action_items.length > 0 && (
         <section className="bg-panel-light dark:bg-panel-dark rounded-lg shadow border border-brand-light/30 p-6">
-          <h3 className="text-lg font-semibold text-brand-strong dark:text-brand-strong-dark mb-3">Suggested Follow-Ups</h3>
-          <ul className="list-disc list-inside text-sm text-text-secondary-light dark:text-text-secondary-dark space-y-2">
+          <h3 className="text-lg font-semibold text-brand-strong dark:text-brand-strong-dark mb-1">Suggested Follow-Ups</h3>
+          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-3">Tap a question to ask the Copilot.</p>
+          <ul className="space-y-2">
             {metadata.action_items.map((item: string, index: number) => (
-              <li key={index}>{item}</li>
+              <li key={index}>
+                <button
+                  type="button"
+                  onClick={() => onAsk(item, 'followup')}
+                  className="group flex w-full items-start gap-2 rounded-lg border border-border-light dark:border-white/10 bg-background-light/60 dark:bg-white/5 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-light/40 hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+                >
+                  <SparkleIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
+                  <span>{item}</span>
+                </button>
+              </li>
             ))}
           </ul>
         </section>
+      )}
+
+      {/* End-of-summary discovery surface: turn the just-finished read into the next action. Hidden on
+          a degraded/error summary; FREE users open the same rail and land on the upsell teaser. */}
+      {!isError && (
+        <AskFilingCallout filingType={filing.filing_type} subjectLabel={askSubjectLabel} onAsk={onAsk} />
       )}
 
       {debug && rawSummary && (

@@ -220,6 +220,18 @@ export const analytics = {
     })
   },
 
+  // A non-launcher Ask affordance opened the Copilot: the end-of-summary callout, a starter chip, a
+  // tappable suggested follow-up, the first-run coachmark, or a text-selection action. `surface`
+  // attributes which surface drove the open so discovery can be measured per entry point.
+  copilotEntryClicked: (props: { filingId: number; ticker: string | null; filingType: string; surface: string }) => {
+    safeCapture('copilot_entry_clicked', {
+      filing_id: props.filingId,
+      ticker: props.ticker,
+      filing_type: props.filingType,
+      surface: props.surface,
+    })
+  },
+
   summarySaved: (filingId: number, ticker: string | null) => {
     safeCapture('summary_saved', {
       filing_id: filingId,

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties, type Reac
 import { ArrowSquareOutIcon, SparkleIcon } from '@/lib/icons'
 import PaneResizer from './PaneResizer'
 import SecondaryPaneTabs, { PANE_PANEL_IDS, PANE_TAB_IDS } from './SecondaryPaneTabs'
+import CopilotCoachmark from './CopilotCoachmark'
 import { isHttpUrl } from './CitationChip'
 import { useFilingViewer } from './FilingViewerContext'
 import { useSheetFocusTrap } from './useSheetFocusTrap'
@@ -11,6 +12,21 @@ import { useMediaQuery } from '@/hooks/useMediaQuery'
 
 // Below lg the secondary pane is a modal bottom-sheet; at lg+ it's a static side pane (no modal).
 const MOBILE_MEDIA_QUERY = '(max-width: 1023.98px)'
+
+// One-time discovery nudge (ping + coachmark) keyed in localStorage so it never nags twice.
+const COACH_KEY = 'en:copilot-coachmark-v1'
+
+// Hero launcher pinned bottom-RIGHT, clear of the iOS home indicator / Android nav bar. max() keeps a
+// 1.25rem base gap on flat phones and adds the inset on notched ones (needs viewport-fit=cover).
+const LAUNCHER_OFFSET: CSSProperties = {
+  bottom: 'max(1.25rem, env(safe-area-inset-bottom))',
+  right: 'max(1.25rem, env(safe-area-inset-right))',
+}
+// The coachmark floats just above the launcher.
+const COACHMARK_OFFSET: CSSProperties = {
+  bottom: 'calc(max(1.25rem, env(safe-area-inset-bottom)) + 4rem)',
+  right: 'max(1.25rem, env(safe-area-inset-right))',
+}
 
 const DEFAULT_WIDTH = 420
 const MIN_WIDTH = 360
@@ -87,6 +103,38 @@ export default function FilingWorkspace({
     setWidth(readStoredWidth())
   }, [])
 
+  // First-run discovery nudge: a subtle ping + a one-time coachmark on the launcher. Default to
+  // "dismissed" so nothing renders on the server / first paint; resolve the persisted state after
+  // mount (localStorage is client-only) to avoid a hydration mismatch.
+  const [coachMounted, setCoachMounted] = useState(false)
+  const [coachDismissed, setCoachDismissed] = useState(true)
+  useEffect(() => {
+    let dismissed = true
+    try {
+      dismissed = window.localStorage.getItem(COACH_KEY) === '1'
+    } catch {
+      dismissed = true // storage blocked (private mode) → keep the nudge hidden
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time hydration latch: the "seen" flag is client-only (localStorage), resolved after mount to keep SSR markup deterministic
+    setCoachMounted(true)
+    setCoachDismissed(dismissed)
+  }, [])
+  const dismissCoach = useCallback(() => {
+    setCoachDismissed(true)
+    try {
+      window.localStorage.setItem(COACH_KEY, '1')
+    } catch {
+      // Ignore storage write failures — the nudge still hides for this session.
+    }
+  }, [])
+  // Opening the rail by ANY means (launcher, ⌘K, an inline CTA) permanently marks the nudge seen.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot: persists "seen" the first time the rail opens; the cascading render is intended and bounded (fires at most once)
+    if (open) dismissCoach()
+  }, [open, dismissCoach])
+  // Show the nudge only once there's a summary to ask about and the rail is closed.
+  const showAttention = coachMounted && !coachDismissed && summaryAvailable && !open
+
   // Below lg the bottom-sheet acts as a modal (focus trap + scrim); at lg+ it's a static side pane.
   const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY)
 
@@ -130,19 +178,39 @@ export default function FilingWorkspace({
           <>
             {/* Launcher (closed) */}
             {!open && (
-              <button
-                ref={launcherRef}
-                type="button"
-                onClick={() => onOpenChange(true)}
-                className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-3 text-sm font-semibold shadow-e3 dark:shadow-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
-                aria-label="Ask this Filing"
-              >
-                <SparkleIcon className="h-4 w-4" />
-                Ask this Filing
-                <kbd className="ml-1 hidden rounded border border-slate-950/25 bg-slate-950/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none sm:inline-block">
-                  ⌘K
-                </kbd>
-              </button>
+              <>
+                <button
+                  ref={launcherRef}
+                  type="button"
+                  onClick={() => onOpenChange(true)}
+                  aria-haspopup="dialog"
+                  aria-expanded={false}
+                  style={LAUNCHER_OFFSET}
+                  className="fixed z-40 inline-flex items-center gap-2 rounded-full bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-3 text-sm font-semibold shadow-e3 dark:shadow-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+                  aria-label="Ask this Filing"
+                >
+                  <SparkleIcon className="h-4 w-4" />
+                  Ask this Filing
+                  <kbd className="ml-1 hidden rounded border border-slate-950/25 bg-slate-950/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none sm:inline-block">
+                    ⌘K
+                  </kbd>
+                  {/* First-run "new" dot: the ping ring animates only when motion is allowed; the dot
+                      itself is the static fallback for prefers-reduced-motion (WCAG 2.3.3). */}
+                  {showAttention && (
+                    <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-white/70 opacity-75 motion-safe:animate-ping" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white ring-2 ring-brand-strong dark:ring-brand-dark" />
+                    </span>
+                  )}
+                </button>
+                {showAttention && (
+                  <CopilotCoachmark
+                    onTry={() => onOpenChange(true)}
+                    onDismiss={dismissCoach}
+                    style={COACHMARK_OFFSET}
+                  />
+                )}
+              </>
             )}
 
             {/* Resize divider (desktop, open only) — sits on the pane's left edge. */}
