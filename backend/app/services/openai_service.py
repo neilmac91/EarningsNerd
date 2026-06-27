@@ -758,7 +758,13 @@ class OpenAIService:
                 )
             if mda_thin:
                 mda_slice = self._dense_window(clean, self._MDA_KW)
-                if mda_slice and mda_slice != fin_slice:  # avoid a duplicate window
+                # Skip when it substantially overlaps the financials window: financial and MD&A
+                # keywords cluster in the same region (Item 7/Item 8 are adjacent), so the two dense
+                # windows are often near-duplicates and a second copy just wastes model context. A
+                # mid-window probe catches that cheaply (vs an exact compare that misses partial overlap).
+                probe = mda_slice[len(mda_slice) // 2: len(mda_slice) // 2 + 1000]
+                overlaps_financials = bool(fin_slice) and bool(probe) and probe in fin_slice
+                if mda_slice and not overlaps_financials:
                     parts.append("MD&A CONTEXT (recovered from filing):\n" + mda_slice)
                     logger.info(
                         f"{filing_type_key} MD&A thin ({mda_len:,} chars) — "

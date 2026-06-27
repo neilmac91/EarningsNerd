@@ -131,3 +131,17 @@ def test_mda_backfill_skipped_without_filing_text():
     out = openai_service.assemble_excerpt_from_sections(sections, "10-K")
     assert "MD&A CONTEXT" not in out
     assert "ITEM 1A - RISK FACTORS" in out
+
+
+def test_mda_backfill_skips_window_overlapping_financials():
+    # Both financials and MD&A are stubs, and the raw text is a single keyword-dense region carrying
+    # BOTH financial and MD&A markers → the two dense windows coincide. Only one context block should
+    # be appended; the near-duplicate MD&A window is skipped so it doesn't waste model context.
+    sections = {"financials": "see ref", "mda": "see Item 7", "risk": "Risk content. " * 60}
+    raw = (
+        "Net income and cash flow from operating activities improved. Results of operations and "
+        "liquidity and capital resources were discussed across the period. "
+    ) * 300
+    out = openai_service.assemble_excerpt_from_sections(sections, "10-K", filing_text=raw)
+    assert "FINANCIAL STATEMENTS CONTEXT (recovered from filing)" in out
+    assert "MD&A CONTEXT (recovered from filing)" not in out  # deduped — overlaps the financials window
