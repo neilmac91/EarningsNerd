@@ -15,6 +15,19 @@ const TYPES: { value: FeedbackType; label: string }[] = [
   { value: 'general', label: '💬 General' },
 ]
 
+// Secondary launcher: pinned bottom-LEFT (Ask is the bottom-right hero) and clear of the iOS home
+// indicator / Android nav bar. max() keeps a 1.25rem base gap on flat phones and adds the inset on
+// notched ones (needs viewport-fit=cover, set in app/layout.tsx).
+const LAUNCHER_OFFSET: React.CSSProperties = {
+  bottom: 'max(1.25rem, env(safe-area-inset-bottom))',
+  left: 'max(1.25rem, env(safe-area-inset-left))',
+}
+// The popup sits just above the launcher.
+const PANEL_OFFSET: React.CSSProperties = {
+  bottom: 'calc(max(1.25rem, env(safe-area-inset-bottom)) + 3.75rem)',
+  left: 'max(1.25rem, env(safe-area-inset-left))',
+}
+
 /**
  * Always-available beta feedback launcher. Renders a floating button for logged-in users only
  * (gated on the client-readable session marker), opening a small bug/idea/general report panel that
@@ -65,7 +78,8 @@ export default function FeedbackWidget() {
         <div
           role="dialog"
           aria-label="Send feedback"
-          className="fixed bottom-20 right-5 z-50 w-[min(92vw,22rem)] rounded-2xl bg-panel-light p-4 shadow-e2 ring-1 ring-black/5 dark:bg-panel-dark dark:shadow-none dark:ring-white/10"
+          style={PANEL_OFFSET}
+          className="fixed z-30 w-[min(92vw,22rem)] rounded-2xl bg-panel-light p-4 shadow-e2 ring-1 ring-black/5 dark:bg-panel-dark dark:shadow-none dark:ring-white/10"
         >
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -138,8 +152,10 @@ export default function FeedbackWidget() {
         type="button"
         aria-label={open ? 'Close feedback' : 'Send feedback'}
         aria-expanded={open}
+        aria-haspopup="dialog"
         onClick={() => setOpen((v) => !v)}
-        className="fixed bottom-5 right-5 z-50 flex items-center gap-2 rounded-full bg-brand-strong px-4 py-3 text-sm font-semibold text-white shadow-e2 transition-transform hover:brightness-110 active:scale-95 dark:bg-brand-strong-dark dark:text-slate-900"
+        style={LAUNCHER_OFFSET}
+        className="fixed z-30 inline-flex min-h-[2.75rem] min-w-[2.75rem] items-center justify-center gap-2 rounded-full border border-border-light bg-panel-light px-3 py-2.5 text-xs font-medium text-text-secondary-light shadow-e2 transition-colors hover:bg-background-light hover:text-text-primary-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light dark:border-white/10 dark:bg-panel-dark dark:text-text-secondary-dark dark:shadow-none dark:hover:bg-white/5 dark:hover:text-text-primary-dark"
       >
         <ChatCircleDotsIcon className="h-5 w-5" />
         <span className="hidden sm:inline">Feedback</span>

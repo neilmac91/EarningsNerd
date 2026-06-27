@@ -18,6 +18,7 @@ import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { getUsage } from '@/features/subscriptions/api/subscriptions-api'
 import UpgradeModal from '@/components/UpgradeModal'
 import { analytics } from '@/lib/analytics'
+import { starterQuestions } from './starterQuestions'
 
 // Below lg the standalone overlay is a modal bottom-sheet; at lg+ it docks as a static side pane.
 const MOBILE_MEDIA_QUERY = '(max-width: 1023.98px)'
@@ -57,26 +58,6 @@ const PANEL_VARIANT: Record<'overlay' | 'pane', string> = {
 // Number of prior turns sent back as `history` so the model has conversational context
 // without ballooning the prompt.
 const HISTORY_LIMIT = 6
-
-const isTenQ = (filingType: string): boolean => /10-?q/i.test(filingType)
-
-function starterQuestions(filingType: string): string[] {
-  if (isTenQ(filingType)) {
-    return [
-      'How did revenue and margins change this quarter?',
-      'What are the top risks?',
-      'What did management say about demand?',
-      'Any changes to guidance?',
-    ]
-  }
-  // 10-K (and any non-10-Q) defaults
-  return [
-    'What are the biggest risks this year?',
-    'How did revenue and profitability trend?',
-    'What is the company’s competitive position?',
-    'What did management highlight in the MD&A?',
-  ]
-}
 
 let messageSeq = 0
 const nextId = () => `copilot-${Date.now()}-${messageSeq++}`
@@ -445,7 +426,10 @@ export default function AskCopilotRail({
         ref={launcherRef}
         type="button"
         onClick={() => onOpenChange(true)}
-        className="fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-3 text-sm font-semibold shadow-e3 dark:shadow-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+        aria-haspopup="dialog"
+        aria-expanded={false}
+        style={{ bottom: 'max(1.25rem, env(safe-area-inset-bottom))', right: 'max(1.25rem, env(safe-area-inset-right))' }}
+        className="fixed z-40 inline-flex items-center gap-2 rounded-full bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-3 text-sm font-semibold shadow-e3 dark:shadow-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
         aria-label="Ask this Filing"
       >
         <SparkleIcon className="h-4 w-4" />
