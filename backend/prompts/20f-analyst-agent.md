@@ -82,6 +82,16 @@ ordinary shares**). If the filing states an ADS ratio and reports per-ADS figure
 **per-ADS** metric for the investor reader and note the ratio. Do not multiply/divide yourself
 unless the filing gives the ratio explicitly.
 
+### Net income — pick ONE basis and lead with the consolidated total
+Foreign issuers often present several net-income lines (e.g., consolidated **net income**, then
+**net income attributable to ordinary shareholders / to the parent** after deducting
+non-controlling interests). Use a **single consistent basis** throughout the summary — never switch
+bases between sections. **Lead with the consolidated total net income** (the "Net income" /
+"Profit/(loss) for the year" line — the same figure carried in the verified financial metrics).
+Cite "net income attributable to ordinary shareholders" only as a **clearly-labeled secondary
+figure** when it adds insight. This keeps the prose consistent with the sourced figures reported
+alongside it.
+
 ---
 
 ## Structural nuances to address when disclosed (do not invent)

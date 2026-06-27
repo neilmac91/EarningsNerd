@@ -26,7 +26,7 @@ const SITE_URL = 'https://www.earningsnerd.io'
 export const metadata: Metadata = {
   title: 'EarningsNerd — Understand any SEC filing in minutes',
   description:
-    'AI-powered summaries that turn 100-page 10-Ks and 10-Qs into clear, decision-ready insights. Financials, risks, and trends — sourced directly from SEC EDGAR.',
+    'AI-powered summaries that turn dense, 100-page SEC filings into clear, decision-ready insights. Financials, risks, and trends — sourced directly from SEC EDGAR.',
   alternates: {
     canonical: '/',
   },
@@ -128,7 +128,7 @@ export default async function Home() {
                 in minutes
               </h1>
               <p className="mt-6 max-w-lg text-lg leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
-                AI-powered summaries that turn 100-page 10-Ks and 10-Qs into
+                AI-powered summaries that turn dense, 100-page SEC filings into
                 clear, decision-ready insights. Financials, risks, and trends —
                 all in one place.
               </p>

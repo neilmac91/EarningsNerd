@@ -29,7 +29,7 @@ export default function Footer() {
           <div>
             <EarningsNerdLogo variant="icon-only" iconClassName="h-8 w-8" mode="auto" />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
-              AI-powered SEC filing analysis. Turn dense 10-Ks and 10-Qs into clear, decision-ready insights.
+              AI-powered SEC filing analysis. Turn dense filings into clear, decision-ready insights.
             </p>
           </div>
 

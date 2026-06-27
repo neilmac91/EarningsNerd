@@ -11,7 +11,7 @@ import { exampleFilingHref } from '@/lib/featureFlags'
 export const metadata: Metadata = {
   title: 'EarningsNerd — Read a 10-K in 5 minutes, not 5 hours',
   description:
-    'Join the EarningsNerd waitlist. AI-powered summaries turn dense SEC 10-K and 10-Q filings into clear, decision-ready insights — sourced directly from SEC EDGAR.',
+    'Join the EarningsNerd waitlist. AI-powered summaries turn dense SEC filings into clear, decision-ready insights — sourced directly from SEC EDGAR.',
   alternates: {
     canonical: '/waitlist',
   },
