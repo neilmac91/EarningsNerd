@@ -280,7 +280,9 @@ function FilingDetailView({ filingId }: { filingId: number }) {
     }
     setCopilotOpen(true)
     const text = prefillText.trim()
-    if (text) setCopilotPrefill({ text, nonce: Date.now() })
+    // Reset to null when there's no prefill (e.g. the generic "Ask this filing" CTA) so we never
+    // retain a stale prefill from an earlier starter/follow-up click.
+    setCopilotPrefill(text ? { text, nonce: Date.now() } : null)
   }, [filing])
   const handleAskAboutSelection = useCallback((text: string) => {
     // Cap so the templated question stays under the backend's 2000-char question limit.
