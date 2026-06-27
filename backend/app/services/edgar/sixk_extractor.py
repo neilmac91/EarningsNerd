@@ -38,7 +38,14 @@ def _safe(obj: Any, name: str) -> Any:
 
 
 def _press_release_text(six_k: Any) -> Optional[str]:
-    """Concatenated text of the EX-99.x press release(s), or None."""
+    """Concatenated text of the EX-99.x press release(s), or None.
+
+    Index-based on purpose: edgartools' ``PressReleases.__getitem__`` returns ``None`` (not raises
+    ``IndexError``) for an out-of-range index, so ``for pr in prs`` — which relies on the legacy
+    getitem-until-IndexError iteration protocol — would loop forever. ``range(len(prs))`` is the safe
+    form. Each ``pr.text`` is resolved via ``_safe`` (getattr + callable() + try/except) for version
+    drift.
+    """
     prs = _safe(six_k, "press_releases")
     if prs is None:
         return None
