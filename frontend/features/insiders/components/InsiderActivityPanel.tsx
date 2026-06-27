@@ -42,12 +42,21 @@ function isBuy(t: InsiderTransaction): boolean {
   return (t.transaction_label ?? '').toLowerCase().includes('buy')
 }
 
-export default function InsiderActivityPanel({ ticker }: { ticker: string }) {
+export default function InsiderActivityPanel({
+  ticker,
+  isFpi,
+}: {
+  ticker: string
+  isFpi?: boolean
+}) {
   const [windowDays, setWindowDays] = useState(90)
   const { data, isLoading, isError } = useQuery<InsiderActivityResponse>({
     queryKey: ['insiders', ticker, windowDays],
     queryFn: () => getInsiderActivity(ticker, windowDays),
-    enabled: !!ticker,
+    // Foreign private issuers don't file Form 4s — skip the (slow) live SEC read entirely. While
+    // filings are still loading isFpi is undefined, so only enable the query once we KNOW the
+    // company is not an FPI (isFpi === false) — never fire a premature read on an as-yet-unknown FPI.
+    enabled: !!ticker && isFpi === false,
     retry: (failureCount, err) =>
       err instanceof ApiError && err.isRetryable ? failureCount < 2 : false,
     staleTime: 60 * 60 * 1000, // Form 4 data changes slowly; the endpoint is a live SEC read
@@ -60,6 +69,21 @@ export default function InsiderActivityPanel({ ticker }: { ticker: string }) {
   useEffect(() => {
     if (data && data.total_transactions > 0) everHadData.current = true
   }, [data])
+
+  // Foreign private issuers (20-F/6-K filers) are generally exempt from Section 16 insider
+  // reporting, so there are no Form 4s to show. Render an honest note instead of an empty/absent
+  // panel (the live SEC read is disabled for FPIs via `enabled` above).
+  if (isFpi) {
+    return (
+      <section className="mb-8 rounded-lg border border-border-light bg-panel-light p-6 shadow-sm dark:border-border-dark dark:bg-panel-dark">
+        <h2 className="mb-3 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Insider Activity</h2>
+        <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+          Insider (Form&nbsp;4) reporting is not generally required for foreign private issuers, so
+          no open-market insider trades are available for this company.
+        </p>
+      </section>
+    )
+  }
 
   // eslint-disable-next-line react-hooks/refs -- intentional render-time ref latch: everHadData only flips false->true to keep the panel mounted once it has shown trades; reading it in render avoids re-render churn
   if (isError && !everHadData.current) return null

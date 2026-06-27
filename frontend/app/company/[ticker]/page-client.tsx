@@ -26,6 +26,9 @@ import InsiderActivityPanel from '@/features/insiders/components/InsiderActivity
 const ANNUAL_FILING_TYPES = ['10-K', '20-F', '40-F']
 // Display order for the filing-type filter chips; unknown types sort to the end alphabetically.
 const FILING_TYPE_ORDER = ['10-K', '10-Q', '20-F', '6-K', '40-F']
+// Foreign private issuer forms — a company that files any of these is an FPI, which we use to show
+// the honest "insider reporting not required for FPIs" state instead of an empty insider panel.
+const FPI_FILING_TYPES = ['20-F', '40-F', '6-K']
 
 export default function CompanyPageClient() {
   const params = useParams()
@@ -242,6 +245,32 @@ export default function CompanyPageClient() {
     )
   }
 
+  // Known unsupported foreign issuer (an unsponsored ADR that files no financial reports with the
+  // SEC). The backend returns a 200 with coverage_status set so we can show an honest "coverage
+  // unavailable" state — distinct from a bare "Company not found" — instead of a broken page.
+  if (company.coverage_status === 'unsupported_foreign') {
+    return (
+      <div className="min-h-screen bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark">
+        <div className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center px-6 text-center">
+          <FileTextIcon className="mb-4 h-12 w-12 text-text-tertiary-light dark:text-text-secondary-dark" />
+          <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+            {company.name || normalizedTicker}
+          </h1>
+          <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            {company.coverage_reason ||
+              'This issuer does not file financial reports with the SEC, so EarningsNerd has no filings to analyze.'}
+          </p>
+          <Link
+            href="/"
+            className="mt-6 inline-flex items-center rounded-full bg-brand-strong px-5 py-2 text-sm font-semibold text-white transition hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark"
+          >
+            Back to home
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
   // TypeScript type guard: company is definitely defined at this point (checked above)
   // Use non-null assertion since we've already verified company exists
   const companyData = company!
@@ -357,8 +386,14 @@ export default function CompanyPageClient() {
         {/* Multi-year fundamentals trend (self-fetches; renders nothing until facts exist) */}
         {ENABLE_FINANCIAL_CHARTS && <FundamentalsTrendChart ticker={normalizedTicker} />}
         {ENABLE_FINANCIAL_CHARTS && <PeerComparisonPanel ticker={normalizedTicker} />}
-        {/* Insider (Form 4) activity — self-fetches; live SEC read, off by default */}
-        {ENABLE_INSIDER_ACTIVITY && <InsiderActivityPanel ticker={normalizedTicker} />}
+        {/* Insider (Form 4) activity — self-fetches; live SEC read, off by default. FPIs are
+            exempt from Form 4 reporting, so the panel shows an honest note (no live read). */}
+        {ENABLE_INSIDER_ACTIVITY && (
+          <InsiderActivityPanel
+            ticker={normalizedTicker}
+            isFpi={filingsLoading ? undefined : availableFilingTypes.some((t) => FPI_FILING_TYPES.includes(t))}
+          />
+        )}
 
         {/* Filings Section */}
         <section className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6">
