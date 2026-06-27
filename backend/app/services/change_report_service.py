@@ -132,7 +132,17 @@ def _clean_key_changes(text: Optional[str]) -> Optional[str]:
 
 
 def _comparison_basis(filing_type: Optional[str]) -> Optional[str]:
-    return {"10-Q": "Quarter over quarter", "10-K": "Year over year"}.get(filing_type or "")
+    # Normalize amended forms (10-K/A, 20-F/A, 6-K/A) to their base so they get a basis label too.
+    base = (filing_type or "").split("/")[0]
+    return {
+        "10-Q": "Quarter over quarter",
+        "10-K": "Year over year",
+        # FPI forms (Phase 4/5): 20-F/40-F are annual (YoY, like a 10-K); 6-K is a semi-annual
+        # interim furnished report, so its prior comparable is the prior interim period.
+        "20-F": "Year over year",
+        "40-F": "Year over year",
+        "6-K": "Period over period",
+    }.get(base)
 
 
 def _filing_ref(filing: Any) -> Optional[dict]:

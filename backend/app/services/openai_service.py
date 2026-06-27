@@ -353,6 +353,14 @@ class OpenAIService:
                     "guidance": 15000,
                     "footnotes": 20000
                 }
+            },
+            # A 6-K (FPI interim furnished report) is a short earnings release / notice, not a full
+            # report — a modest budget and faster timeout avoid over-spending on small filings. Its
+            # grounding text is supplied as a pre-extracted exhibit excerpt (no section sampling).
+            "6-K": {
+                "ai_timeout": 90.0,
+                "max_tokens": 5000,
+                "sample_length": 60000,
             }
         }
 

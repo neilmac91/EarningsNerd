@@ -28,6 +28,7 @@ from app.config import settings
 from app.models import Filing, Summary, User, FilingContentCache
 from app.schemas import attach_normalized_facts
 from app.services.edgar.compat import sec_edgar_service, xbrl_service
+from app.services.edgar.sixk_extractor import get_sixk_text
 from app.services.fallback_summary import generate_xbrl_summary
 from app.services.openai_service import openai_service
 from app.services.posthog_client import (
@@ -270,6 +271,10 @@ async def stream_filing_summary(
             # XBRL only needs the accession number + CIK (already cached above), not the document
             # text, so serializing it after the fetch wasted the entire fetch window and left it
             # racing an 8s budget. Running it in parallel gives it the realistic time it needs.
+            # A 6-K (FPI interim/furnished report) has no Item/XBRL structure — its content lives in
+            # EX-99.x exhibits. It takes a separate grounding path below (the SixK exhibit extractor),
+            # NOT the XBRL fetch or edgartools section parse, both of which are 10-K/10-Q/20-F only.
+            is_six_k = bool(filing_type and filing_type.upper().split("/")[0] == "6-K")
             xbrl_task = None
             # 20-F XBRL is now currency-aware end-to-end (the extractor captures the issuer's
             # reporting currency, e.g. CNY, instead of the USD convenience translation), so it is
@@ -362,6 +367,26 @@ async def stream_filing_summary(
 
                 # Yield immediate progress
                 yield {'type': 'progress', 'stage': 'fetching', 'message': 'Cached content found. Loading immediately...', 'percent': 15}
+            elif is_six_k and company_cik:
+                # 6-K grounding: the primary document is just the cover page, so pull the EX-99.x
+                # exhibit / press-release text via the SixK extractor (separate from the Item/XBRL
+                # pipeline). Falls back to the cover-page doc so a content-light 6-K still yields text.
+                yield {'type': 'progress', 'stage': 'fetching', 'message': 'Retrieving 6-K exhibits from EDGAR...', 'percent': 10}
+                try:
+                    filing_text = await get_sixk_text(filing_accession_number, company_cik) or ""
+                except Exception as sixk_error:  # noqa: BLE001 — extractor is defensive, but never break the stream
+                    logger.warning(f"[stream:{filing_id}] 6-K exhibit extraction failed: {sixk_error}")
+                    filing_text = ""
+                if not filing_text:
+                    try:
+                        filing_text = await sec_edgar_service.get_filing_document(filing_document_url, timeout=15.0) or ""
+                    except Exception:  # noqa: BLE001
+                        filing_text = ""
+                if not filing_text:
+                    yield {'type': 'error', 'message': 'Unable to retrieve this 6-K at the moment — please try again shortly.'}
+                    return
+                mark_stage("fetch_document")
+                yield {'type': 'progress', 'stage': 'fetching', 'message': '6-K exhibits fetched', 'percent': 15}
             else:
                 # Fetch filing document with heartbeat to prevent UI stall at 10%
                 FETCH_MESSAGES = [
