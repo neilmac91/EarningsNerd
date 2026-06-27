@@ -394,15 +394,17 @@ async def get_stock_quote(ticker: str) -> Optional[StockQuote]:
 @router.get("/{ticker}", response_model=CompanyResponse)
 async def get_company(ticker: str, db: Session = Depends(get_db)) -> CompanyResponse:
     """Get company by ticker"""
+    # Known unsupported foreign issuer → honest "coverage unavailable" state, checked BEFORE any DB
+    # or SEC lookup so a recognizable ADR ticker can never resolve to a stale/polluted DB row or
+    # fuzzy-match an unrelated reporting CIK (the TCEHY/Tencent → TME/Tencent Music guard). Not
+    # persisted.
+    unsupported = _unsupported_foreign_response(ticker)
+    if unsupported is not None:
+        return unsupported
+
     company = db.query(Company).filter(Company.ticker == ticker.upper()).first()
 
     if not company:
-        # Known unsupported foreign issuer → honest "coverage unavailable" state. Checked BEFORE any
-        # SEC resolution so a recognizable ADR ticker can never fuzzy-match onto an unrelated
-        # reporting CIK (the TCEHY/Tencent → TME/Tencent Music guard). Not persisted.
-        unsupported = _unsupported_foreign_response(ticker)
-        if unsupported is not None:
-            return unsupported
         # Try to fetch from SEC
         try:
             sec_results = await sec_edgar_service.search_company(ticker)

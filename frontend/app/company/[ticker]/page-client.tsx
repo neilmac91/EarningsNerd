@@ -391,7 +391,7 @@ export default function CompanyPageClient() {
         {ENABLE_INSIDER_ACTIVITY && (
           <InsiderActivityPanel
             ticker={normalizedTicker}
-            isFpi={availableFilingTypes.some((t) => FPI_FILING_TYPES.includes(t))}
+            isFpi={filingsLoading ? undefined : availableFilingTypes.some((t) => FPI_FILING_TYPES.includes(t))}
           />
         )}
 

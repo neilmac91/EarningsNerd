@@ -44,7 +44,7 @@ function isBuy(t: InsiderTransaction): boolean {
 
 export default function InsiderActivityPanel({
   ticker,
-  isFpi = false,
+  isFpi,
 }: {
   ticker: string
   isFpi?: boolean
@@ -53,8 +53,10 @@ export default function InsiderActivityPanel({
   const { data, isLoading, isError } = useQuery<InsiderActivityResponse>({
     queryKey: ['insiders', ticker, windowDays],
     queryFn: () => getInsiderActivity(ticker, windowDays),
-    // Foreign private issuers don't file Form 4s — skip the (slow) live SEC read entirely.
-    enabled: !!ticker && !isFpi,
+    // Foreign private issuers don't file Form 4s — skip the (slow) live SEC read entirely. While
+    // filings are still loading isFpi is undefined, so only enable the query once we KNOW the
+    // company is not an FPI (isFpi === false) — never fire a premature read on an as-yet-unknown FPI.
+    enabled: !!ticker && isFpi === false,
     retry: (failureCount, err) =>
       err instanceof ApiError && err.isRetryable ? failureCount < 2 : false,
     staleTime: 60 * 60 * 1000, // Form 4 data changes slowly; the endpoint is a live SEC read
