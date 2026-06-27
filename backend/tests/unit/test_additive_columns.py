@@ -6,7 +6,7 @@ non-fatal by construction.
 """
 from sqlalchemy import create_engine, inspect, text
 
-from app.database import ensure_additive_columns
+from app.database import _ADDITIVE_COLUMNS, ensure_additive_columns
 
 
 def test_adds_missing_column_and_is_idempotent():
@@ -30,8 +30,6 @@ def test_missing_table_is_skipped_not_raised():
 
 
 def test_default_specs_target_fpi_pref_columns():
-    from app.database import _ADDITIVE_COLUMNS
-
     cols = {(t, c) for t, c, _ in _ADDITIVE_COLUMNS}
     assert ("notification_preferences", "notify_20f") in cols
     assert ("notification_preferences", "notify_6k") in cols
