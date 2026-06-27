@@ -75,12 +75,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
 
     report_path = _resolve_report(args.report, args.latest)
-    report = json.loads(report_path.read_text())
+    report = json.loads(report_path.read_text(encoding="utf-8"))
     baseline = build_baseline(report, report_path)
     if "baseline" not in baseline["candidates"]:
         raise SystemExit(f"report {report_path.name} has no 'baseline' candidate to pin")
 
-    Path(args.out).write_text(json.dumps(baseline, indent=2) + "\n")
+    Path(args.out).write_text(json.dumps(baseline, indent=2) + "\n", encoding="utf-8")
     b = baseline["candidates"]["baseline"]
     print(f"Pinned {args.out} from {report_path.name}: "
           f"{baseline['golden_set_size']} filings × {baseline['runs_per_candidate']} runs")

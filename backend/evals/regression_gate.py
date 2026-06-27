@@ -23,7 +23,7 @@ import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 BASELINE_PATH = Path(__file__).with_name("baseline_scores.json")
 REPORTS_DIR = Path(__file__).with_name("reports")
@@ -77,7 +77,7 @@ class Finding:
 
 def load_baseline(path: Path = BASELINE_PATH) -> Dict[str, Any]:
     """Load the pinned baseline. Candidate stats live under the `candidates` map."""
-    with open(path) as f:
+    with open(path, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -94,8 +94,8 @@ def _breaches(direction: str, base: float, cand: float, tol: float) -> bool:
 
 
 def _check(
-    gates, severity: str, candidate: str, base_stats: Dict[str, Any],
-    cand_stats: Dict[str, Any],
+    gates: Tuple[Tuple[str, str, float, str], ...], severity: str, candidate: str,
+    base_stats: Dict[str, Any], cand_stats: Dict[str, Any],
 ) -> List[Finding]:
     out: List[Finding] = []
     for metric, direction, tol, label in gates:
@@ -157,7 +157,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 2
 
     baseline = load_baseline(Path(args.baseline))
-    report = json.loads(report_path.read_text())
+    report = json.loads(report_path.read_text(encoding="utf-8"))
     findings, notes = evaluate_report(report, baseline, only=args.candidate)
 
     print(f"Regression gate: {report_path.name} vs {Path(args.baseline).name} "
