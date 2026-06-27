@@ -47,7 +47,7 @@ context when present. Note the accounting basis (U.S. GAAP vs IFRS) where the sc
 **net income** vs **net income attributable to ordinary shareholders / to the parent**), populate
 the metric fields with the **consolidated total net income** ("Net income" / "Profit for the year")
 — the same figure carried in the verified financial metrics — and use that one basis consistently.
-Reference an attributable line only where the schema provides a distinct field for it.
+Do not populate an attributable net-income figure: the schema provides a single net-income field.
 
 ## Per-ADS vs per-share
 If the filing states an ADS-to-ordinary-share ratio (e.g., 1 ADS = 8 ordinary shares) and reports
