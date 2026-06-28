@@ -241,7 +241,8 @@ current codebase** — the research docs are stale relative to shipped code:
   on financials (`SummaryFinancials.tsx:58`, `FinancialMetricsTable.tsx:106`) — gated only on `source_url`
   existing, **not** on `ENABLE_QUALITY_BADGE`.
 - **"What changed" diffing IS shipped & live.** `getWhatChanged` is fetched unconditionally
-  (`page-client.tsx:1110`) and `<WhatChanged>` renders when `has_changes` (`page-client.tsx:1308`), backed
+  (`frontend/app/filing/[id]/page-client.tsx:1110`) and `<WhatChanged>` renders when `has_changes`
+  (`frontend/app/filing/[id]/page-client.tsx:1308`), backed
   by `change_report_service.build_change_report`. **Not** behind a dark flag.
 → Implication: the wedge's headline ("what changed, with the receipts") is **deliverable today**. The real
 remaining gap is **content quality** (boilerplate degradation; only 4 XBRL metrics), not the trust plumbing.
