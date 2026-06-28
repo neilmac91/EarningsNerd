@@ -125,7 +125,7 @@ function RegisterContent() {
                 htmlFor="fullName"
                 className="mb-1 block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark"
               >
-                Full name <span className="text-text-tertiary-light dark:text-text-tertiary-dark">(optional)</span>
+                Full name <span className="text-text-tertiary-light dark:text-text-secondary-dark">(optional)</span>
               </label>
               <Input
                 type="text"
@@ -186,7 +186,7 @@ function RegisterContent() {
         )}
       </div>
 
-      <p className="mt-6 text-center text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
+      <p className="mt-6 text-center text-xs text-text-tertiary-light dark:text-text-secondary-dark">
         By creating an account you agree to our{' '}
         <Link href="/terms" className="underline hover:text-brand-strong dark:hover:text-brand-strong-dark">
           Terms

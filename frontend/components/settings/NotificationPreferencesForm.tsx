@@ -44,7 +44,7 @@ function Toggle({
             </Link>
           )}
         </div>
-        <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">{description}</p>
+        <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">{description}</p>
       </div>
       <button
         type="button"
@@ -94,7 +94,7 @@ export default function NotificationPreferencesForm() {
           <BellIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
           Filing Alerts
         </h2>
-        {mutation.isPending && <CircleNotchIcon className="h-4 w-4 animate-spin text-text-tertiary-light dark:text-text-tertiary-dark" />}
+        {mutation.isPending && <CircleNotchIcon className="h-4 w-4 animate-spin text-text-tertiary-light dark:text-text-secondary-dark" />}
       </div>
       <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
         Get notified when companies on your watchlist file with the SEC.
@@ -102,7 +102,7 @@ export default function NotificationPreferencesForm() {
 
       {isLoading ? (
         <div className="flex justify-center py-6">
-          <CircleNotchIcon className="h-6 w-6 animate-spin text-text-tertiary-light dark:text-text-tertiary-dark" />
+          <CircleNotchIcon className="h-6 w-6 animate-spin text-text-tertiary-light dark:text-text-secondary-dark" />
         </div>
       ) : isError || !prefs ? (
         <p className="text-sm text-error-light dark:text-error-dark">
@@ -182,7 +182,7 @@ function PreferenceRows({
       <div className="flex items-center justify-between gap-4 py-3">
         <div className="flex-1">
           <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">Digest frequency</span>
-          <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+          <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
             How often to batch non-real-time alerts.
           </p>
         </div>

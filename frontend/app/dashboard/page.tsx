@@ -198,8 +198,8 @@ export default function DashboardPage() {
         {/* Phase 3 hero: quick search + personalised "what changed" feed + (optional) calendar.
             The plan/usage cards below become a compact secondary strip. */}
         <div className="mb-10 space-y-6">
-          <div className="rounded-2xl bg-panel-dark p-5 shadow-sm">
-            <p className="mb-2 text-sm font-medium text-text-secondary-dark">Jump to any company</p>
+          <div className="rounded-2xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark p-5 shadow-sm">
+            <p className="mb-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">Jump to any company</p>
             <CompanySearch />
           </div>
           <FilingFeed enabled={!!user} />

@@ -234,20 +234,24 @@ html[data-font='lora']  { --font-active: var(--font-lora); }
   border-bottom-color: rgba(255, 255, 255, 0.06);
 }
 
+/* Markdown body (filing summaries). Light values are unchanged; each color-bearing rule carries
+   a `dark:` token pair so the summary stays readable on the dark panel (the rules set color on the
+   element directly and would otherwise override the wrapper's themed color in dark mode). Muted body
+   text on dark = secondary-dark (tertiary-dark fails WCAG AA); headings = primary-dark. */
 .markdown-body {
-  @apply text-slate-800 leading-relaxed space-y-4;
+  @apply text-slate-800 dark:text-text-secondary-dark leading-relaxed space-y-4;
 }
 
 .markdown-body h2 {
-  @apply text-2xl font-semibold text-slate-900 mt-8 mb-3 tracking-tight;
+  @apply text-2xl font-semibold text-slate-900 dark:text-text-primary-dark mt-8 mb-3 tracking-tight;
 }
 
 .markdown-body h3 {
-  @apply text-xl font-semibold text-slate-900 mt-6 mb-2 tracking-tight;
+  @apply text-xl font-semibold text-slate-900 dark:text-text-primary-dark mt-6 mb-2 tracking-tight;
 }
 
 .markdown-body p {
-  @apply text-base text-slate-700;
+  @apply text-base text-slate-700 dark:text-text-secondary-dark;
 }
 
 .markdown-body ul {
@@ -263,15 +267,15 @@ html[data-font='lora']  { --font-active: var(--font-lora); }
 }
 
 .markdown-body table th {
-  @apply bg-slate-100 font-semibold text-slate-900 border border-slate-200 px-3 py-2;
+  @apply bg-slate-100 dark:bg-white/5 font-semibold text-slate-900 dark:text-text-primary-dark border border-slate-200 dark:border-border-dark px-3 py-2;
 }
 
 .markdown-body table td {
-  @apply border border-slate-200 px-3 py-2 align-top;
+  @apply border border-slate-200 dark:border-border-dark px-3 py-2 align-top;
 }
 
 .markdown-body blockquote {
-  @apply border-l-4 border-brand-strong pl-4 italic text-slate-600;
+  @apply border-l-4 border-brand-strong dark:border-brand-dark pl-4 italic text-slate-600 dark:text-text-secondary-dark;
 }
 
 /* In-app filing viewer (P7): citation highlight + flash.

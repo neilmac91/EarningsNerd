@@ -47,7 +47,7 @@ export default function UpgradeModal({ open, onClose, feature, title, message }:
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="absolute right-4 top-4 text-text-tertiary-light transition hover:text-text-primary-light dark:text-text-tertiary-dark dark:hover:text-text-primary-dark"
+          className="absolute right-4 top-4 text-text-tertiary-light transition hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
         >
           <XIcon className="h-5 w-5" />
         </button>

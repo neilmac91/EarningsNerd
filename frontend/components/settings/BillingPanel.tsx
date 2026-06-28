@@ -62,7 +62,7 @@ export default function BillingPanel() {
       </div>
 
       {isLoading ? (
-        <div className="flex items-center text-text-tertiary-light dark:text-text-tertiary-dark">
+        <div className="flex items-center text-text-tertiary-light dark:text-text-secondary-dark">
           <CircleNotchIcon className="h-4 w-4 mr-2 animate-spin" /> Loading…
         </div>
       ) : (

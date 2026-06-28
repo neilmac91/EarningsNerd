@@ -152,7 +152,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
       {status === 'ready' && (
         <div className="flex min-h-0 flex-1 flex-col">
           {passageMissing && (
-            <p className="border-b border-warning-light/20 dark:border-warning-dark/20 bg-warning-light/10 dark:bg-warning-dark/10 px-4 py-2 text-[11px] text-warning-dark">
+            <p className="border-b border-warning-light/20 dark:border-warning-dark/20 bg-warning-light/10 dark:bg-warning-dark/10 px-4 py-2 text-[11px] text-warning-light dark:text-warning-dark">
               Couldn’t pinpoint the exact passage — showing the full filing.{' '}
               {isHttpUrl(secUrl) && (
                 <a href={secUrl} target="_blank" rel="noopener noreferrer" className="font-medium underline">

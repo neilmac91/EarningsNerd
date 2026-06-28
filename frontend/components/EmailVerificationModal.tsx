@@ -87,7 +87,7 @@ export default function EmailVerificationModal() {
             type="button"
             onClick={() => setOpen(false)}
             aria-label="Close"
-            className="rounded p-1 text-text-tertiary-light transition-colors hover:bg-black/5 dark:text-text-tertiary-dark dark:hover:bg-white/5"
+            className="rounded p-1 text-text-tertiary-light transition-colors hover:bg-black/5 dark:text-text-secondary-dark dark:hover:bg-white/5"
           >
             <XIcon className="h-5 w-5" />
           </button>

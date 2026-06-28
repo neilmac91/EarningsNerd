@@ -83,7 +83,7 @@ export default function PasswordField({
           type="button"
           onClick={() => setShow((s) => !s)}
           aria-label={show ? 'Hide password' : 'Show password'}
-          className="absolute inset-y-0 right-0 flex items-center pr-3 text-text-tertiary-light transition-colors hover:text-text-secondary-light dark:text-text-tertiary-dark dark:hover:text-text-secondary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+          className="absolute inset-y-0 right-0 flex items-center pr-3 text-text-tertiary-light transition-colors hover:text-text-secondary-light dark:text-text-secondary-dark dark:hover:text-text-secondary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
         >
           {show ? <EyeSlashIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
         </button>
@@ -101,14 +101,14 @@ export default function PasswordField({
               />
             ))}
           </div>
-          <p className="mt-1 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
+          <p className="mt-1 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
             {STRENGTH_LABELS[score]}
           </p>
         </div>
       )}
 
       {hint && (
-        <p className="mt-2 text-xs text-text-tertiary-light dark:text-text-tertiary-dark">{hint}</p>
+        <p className="mt-2 text-xs text-text-tertiary-light dark:text-text-secondary-dark">{hint}</p>
       )}
     </div>
   )

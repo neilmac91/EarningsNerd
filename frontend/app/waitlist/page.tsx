@@ -48,7 +48,7 @@ export default function WaitlistPage() {
               </Suspense>
             </div>
 
-            <p className="mt-4 text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+            <p className="mt-4 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
               No spam. Early access invites and product updates only.
             </p>
 
@@ -67,7 +67,7 @@ export default function WaitlistPage() {
 
           <div className="relative">
             <div className="rounded-3xl border border-border-light bg-white/90 p-6 shadow-xl backdrop-blur-sm dark:border-border-dark dark:bg-slate-900/80">
-              <div className="flex items-center justify-between text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+              <div className="flex items-center justify-between text-sm text-text-tertiary-light dark:text-text-secondary-dark">
                 <span className="font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                   Product preview
                 </span>
@@ -75,7 +75,7 @@ export default function WaitlistPage() {
               </div>
               <div className="mt-4 space-y-4">
                 <div className="rounded-2xl border border-border-light bg-background-light px-4 py-3 dark:border-border-dark dark:bg-background-dark">
-                  <div className="text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-tertiary-dark">
+                  <div className="text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
                     Executive summary
                   </div>
                   <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
@@ -85,7 +85,7 @@ export default function WaitlistPage() {
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="rounded-2xl border border-border-light bg-background-light px-4 py-3 dark:border-border-dark dark:bg-background-dark">
-                    <div className="text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-tertiary-dark">
+                    <div className="text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
                       Key drivers
                     </div>
                     <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
@@ -95,7 +95,7 @@ export default function WaitlistPage() {
                     </ul>
                   </div>
                   <div className="rounded-2xl border border-border-light bg-background-light px-4 py-3 dark:border-border-dark dark:bg-background-dark">
-                    <div className="text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-tertiary-dark">
+                    <div className="text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
                       Risk flags
                     </div>
                     <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
