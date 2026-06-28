@@ -257,7 +257,7 @@ Keep it scannable. Use bullet points. Include the before/after examples where re
 
 ### step 6: save the transcript (optional)
 
-Only save a transcript if the user asks for it or if the question is significant enough to reference later. If saving, write to `council-transcript-[timestamp].md` in the project's `active/` directory.
+Only save a transcript if the user asks for it or if the question is significant enough to reference later. If saving, write to `council-transcript-[timestamp].md` under `.claude/council-transcripts/` (create the directory if it doesn't exist).
 
 ---
 
