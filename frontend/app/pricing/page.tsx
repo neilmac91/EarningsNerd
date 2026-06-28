@@ -113,9 +113,12 @@ function PricingContent() {
     }
   }
 
-  // Confirmed pricing: $14/mo · $140/yr (annual = 2 months free). The legacy $19/$29 A/B is retired;
-  // `pricingVariant` is still read below purely for exposure analytics continuity.
-  const priceConfig = { monthly: 14, yearly: 140, monthlyDisplay: '$14', yearlyDisplay: '$140' }
+  // Pricing anchor: $39/mo · $390/yr (annual = 2 months free) — the prosumer-band anchor the
+  // council set (kill $14, which reads as "toy" for an accountability product). Beta members still
+  // pay $0 via the 100%-off forever promo; this only changes the displayed/anchored price + the
+  // analytics value. `pricingVariant` is still read below purely for exposure analytics continuity
+  // (the $39-vs-$29 fake-door A/B is a separate, later change).
+  const priceConfig = { monthly: 39, yearly: 390, monthlyDisplay: '$39', yearlyDisplay: '$390' }
 
   // A reverse-trial user is `is_pro` but hasn't paid yet, so they must still be able to pick a
   // billing cycle and convert. Only a *paid* (active, non-trial) subscriber has nothing to buy —
@@ -124,7 +127,7 @@ function PricingContent() {
   const isPaidPro = Boolean(subscription?.is_pro) && !isTrialing
 
   // Beta members get Pro free via the 100%-off forever promo (applied server-side at checkout).
-  // Reframe the Pro card so they don't bounce off the $140 sticker — they pay $0 with no card.
+  // Reframe the Pro card so they don't bounce off the $390 sticker — they pay $0 with no card.
   const showBetaOffer = Boolean(currentUser?.is_beta) && !isPaidPro
 
   const plans = [
@@ -282,7 +285,7 @@ function PricingContent() {
         )}
 
         {/* Beta member: Pro is free via the 100%-off forever promo. Make that unmistakable so a
-            beta user doesn't bounce off the $140 sticker and settle for Free. */}
+            beta user doesn't bounce off the $390 sticker and settle for Free. */}
         {showBetaOffer && (
           <div className="mb-8 mx-auto max-w-2xl rounded-2xl border border-brand-strong/40 bg-brand-strong/10 p-5 text-center dark:border-brand-strong-dark/40 dark:bg-brand-strong-dark/15">
             <p className="text-base font-semibold text-text-heading-light dark:text-text-heading-dark">
