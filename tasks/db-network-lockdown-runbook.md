@@ -118,8 +118,11 @@ Add a private IP, route Cloud Run into the VPC, verify, then remove the public I
 Do this in a low-traffic window; keep public IP until private is proven.
 
 ```bash
-# 0. Pick the VPC (default network shown; substitute yours if different)
+# 0. Pick the VPC + subnet (default shown; substitute yours if different).
+#    SUBNET is the subnet NAME in this VPC/region — it equals NETWORK only for the
+#    auto-mode "default" VPC. Custom VPCs have distinct subnet names, so set it explicitly.
 NETWORK=default
+SUBNET=default
 gcloud services enable servicenetworking.googleapis.com compute.googleapis.com
 
 # 1. Private Service Access: reserve a range + peer it to Google services (one-time per VPC)
@@ -138,13 +141,20 @@ gcloud sql instances describe earningsnerd-db --format='value(ipAddresses)'
 
 # 3. Wire Cloud Run into the VPC (Direct VPC egress)
 gcloud run services update earningsnerd-backend --region=us-west1 \
-  --network=${NETWORK} --subnet=${NETWORK} --vpc-egress=private-ranges-only
+  --network=${NETWORK} --subnet=${SUBNET} --vpc-egress=private-ranges-only
 #    Verify the app still healthy via public IP path:
 curl -s https://api.earningsnerd.io/health/detailed ; echo
 
 # 4. Remove the public IP LAST — this forces the connector onto the private path
 gcloud sql instances patch earningsnerd-db --no-assign-ip
-#    Immediately verify; if DB goes unhealthy, roll back with: --assign-ip
+
+# 5. Force a new Cloud Run revision so serving instances re-resolve the DB IP.
+#    The built-in connector caches the instance's IP config at container start, so
+#    instances from the step-3 revision would keep dialing the now-removed public IP
+#    until they're replaced. A label change triggers a rolling restart with no config drift.
+gcloud run services update earningsnerd-backend --region=us-west1 \
+  --update-labels=db-ip-transition=private-only
+#    Immediately verify; if DB goes unhealthy, see Rollback below.
 curl -s https://api.earningsnerd.io/health/detailed ; echo
 ```
 ✅ Success: `database healthy:true` with no public IP on the instance
@@ -153,6 +163,9 @@ curl -s https://api.earningsnerd.io/health/detailed ; echo
 ### Rollback (Phase 3)
 ```bash
 gcloud sql instances patch earningsnerd-db --assign-ip   # re-add public IP
+# Restart Cloud Run too, so instances re-resolve and pick the public path back up.
+gcloud run services update earningsnerd-backend --region=us-west1 \
+  --update-labels=db-ip-transition=rollback-public
 ```
 
 ---
