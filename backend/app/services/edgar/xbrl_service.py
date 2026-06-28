@@ -1061,10 +1061,12 @@ class EdgarXBRLService:
         if ads_info:
             for eps_key in ("earnings_per_share", "eps_diluted"):
                 entry = metrics.get(eps_key)
-                current_value = (entry or {}).get("current", {}).get("value")
-                per_ads = build_per_ads_eps(current_value, ads_info, reporting_currency)
-                if per_ads:
-                    entry["per_ads"] = per_ads
+                if entry:  # explicit: only annotate an EPS metric that was actually built
+                    per_ads = build_per_ads_eps(
+                        entry.get("current", {}).get("value"), ads_info, reporting_currency
+                    )
+                    if per_ads:
+                        entry["per_ads"] = per_ads
 
         return metrics
 

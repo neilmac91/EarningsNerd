@@ -85,6 +85,9 @@ def test_build_per_ads_eps_returns_none_on_missing_or_bad_inputs():
     assert build_per_ads_eps(5.7, {"ordinary_per_ads": None}, "CNY") is None
     assert build_per_ads_eps(5.7, {"ordinary_per_ads": 0}, "CNY") is None
     assert build_per_ads_eps(5.7, {}, "CNY") is None
+    # ads_info not a dict (e.g. corrupted/deserialized cache) must fail safe, not raise
+    assert build_per_ads_eps(5.7, None, "CNY") is None
+    assert build_per_ads_eps(5.7, "not-a-dict", "CNY") is None
 
 
 # --- additive integration through extract_standardized_metrics ---

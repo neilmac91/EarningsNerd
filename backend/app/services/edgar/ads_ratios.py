@@ -95,7 +95,7 @@ def build_per_ads_eps(
         return None
     try:
         ratio = float(ads_info.get("ordinary_per_ads"))
-    except (TypeError, ValueError):
+    except (TypeError, ValueError, AttributeError):  # AttributeError: ads_info not a dict (bad cache)
         return None
     if ratio <= 0:
         return None
