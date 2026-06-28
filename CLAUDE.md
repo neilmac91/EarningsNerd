@@ -150,7 +150,7 @@ docker-compose down                   # Stop databases
 │   ├── featureFlags.ts   # Feature flag configuration
 │   ├── guards.ts         # Route guards
 │   ├── formatters.ts, format.ts  # Formatting utilities
-│   ├── topTickers.ts, entryPoint.ts  # Top-ticker list + entry-point config
+│   ├── entryPoint.ts     # Entry-point config
 │   ├── analytics.ts      # Analytics integration
 │   ├── QualityGate.ts    # Summary quality gating
 │   └── stripInternalNotices.ts  # Strip internal AI notices from output
