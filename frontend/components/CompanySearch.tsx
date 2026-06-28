@@ -8,7 +8,6 @@ import { ApiError } from '@/lib/api/client'
 import { useRouter } from 'next/navigation'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { directionText, directionOf } from '@/lib/financialTone'
-import { matchTopTickers } from '@/lib/topTickers'
 import analytics from '@/lib/analytics'
 
 const isTypingTarget = (el: EventTarget | null): boolean => {
@@ -87,18 +86,11 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
     goToResult(company.ticker, index)
   }
 
-  // Instant local matches from the top-tickers seed while the network query
-  // is still in flight (zero-latency feedback for the most common searches).
-  const localMatches = useMemo(() => matchTopTickers(query), [query])
-  const showLocalResults =
-    query.length > 0 && !companies && !isError && localMatches.length > 0
-
-  // The list keyboard navigation operates over (network results win once in).
-  const navigableTickers = useMemo(() => {
-    if (companies?.length) return companies.map((c) => c.ticker)
-    if (showLocalResults) return localMatches.map((t) => t.ticker)
-    return []
-  }, [companies, showLocalResults, localMatches])
+  // Keyboard navigation operates over the network search results.
+  const navigableTickers = useMemo(
+    () => companies?.map((c) => c.ticker) ?? [],
+    [companies],
+  )
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- reset keyboard selection when the query or network results change (external sync), not derivable from render
@@ -221,35 +213,6 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
       {!isLoading && !isError && companies && companies.length === 0 && debouncedQuery.length > 0 && (
         <div className="absolute z-10 mt-2 w-full rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/95 p-4 shadow-lg backdrop-blur-sm">
           <div className="text-center text-text-secondary-light dark:text-text-secondary-dark">No companies found matching &quot;{debouncedQuery}&quot;</div>
-        </div>
-      )}
-
-      {/* Instant local matches (shown only until network results arrive) */}
-      {showLocalResults && (
-        <div
-          id="company-search-results"
-          role="listbox"
-          aria-label="Instant matches"
-          className="absolute z-10 mt-2 w-full overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/95 shadow-lg backdrop-blur-sm"
-        >
-          {localMatches.map((match, index) => (
-            <button
-              key={match.ticker}
-              id={`company-search-option-${index}`}
-              role="option"
-              aria-selected={index === highlightIndex}
-              onClick={() => goToResult(match.ticker, index)}
-              className={`flex w-full items-baseline gap-3 border-b border-border-light dark:border-white/10 px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-brand-weak dark:hover:bg-white/5 ${
-                index === highlightIndex ? 'bg-brand-weak dark:bg-white/10' : ''
-              }`}
-            >
-              <span className="font-mono text-sm font-semibold text-brand-strong dark:text-brand-strong-dark">{match.ticker}</span>
-              <span className="truncate text-sm text-text-secondary-light dark:text-text-secondary-dark">{match.name}</span>
-              <span className="ml-auto font-mono text-[10px] uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
-                instant
-              </span>
-            </button>
-          ))}
         </div>
       )}
 
