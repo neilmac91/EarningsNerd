@@ -89,7 +89,7 @@ function VerifyEmailContent() {
                   Resend verification email
                 </Link>
               </p>
-              <p className="text-text-tertiary-light dark:text-text-tertiary-dark">
+              <p className="text-text-tertiary-light dark:text-text-secondary-dark">
                 or{' '}
                 <Link href="/login" className="text-brand-strong hover:underline dark:text-brand-strong-dark">
                   back to login

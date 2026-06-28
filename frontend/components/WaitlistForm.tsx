@@ -151,7 +151,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
         </p>
 
         <div className="mt-5 rounded-xl border border-border-light bg-background-light px-4 py-3 dark:border-border-dark dark:bg-background-dark">
-          <div className="text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-tertiary-dark">
+          <div className="text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
             Your referral link
           </div>
           <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -257,7 +257,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
         />
 
         {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-xl border border-error-light/40 dark:border-error-dark/40 bg-error-light/10 dark:bg-error-dark/10 px-4 py-3 text-sm text-error-light dark:text-error-dark">
             {error}
           </div>
         )}

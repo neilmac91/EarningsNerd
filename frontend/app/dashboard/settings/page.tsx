@@ -131,7 +131,7 @@ export default function SettingsPage() {
                 Download a complete copy of your data including your profile, search history,
                 saved summaries, watchlist, and usage statistics in JSON format.
               </p>
-              <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark mb-4">
+              <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark mb-4">
                 This is your right under GDPR Article 20 (Data Portability).
               </p>
             </div>
@@ -276,7 +276,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Privacy Notice */}
-        <div className="mt-8 text-sm text-text-tertiary-light dark:text-text-tertiary-dark text-center">
+        <div className="mt-8 text-sm text-text-tertiary-light dark:text-text-secondary-dark text-center">
           <p>
             For more information about how we handle your data, please read our{' '}
             <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline">

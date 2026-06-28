@@ -12,7 +12,7 @@ interface SummaryBlockProps {
 export function SummaryBlock({ type = 'neutral', title, children }: SummaryBlockProps) {
   const styles = {
     bullish: {
-      border: 'border-brand-light',
+      border: 'border-brand-light dark:border-brand-dark',
       bg: 'bg-panel-light dark:bg-panel-dark',
       icon: TrendUpIcon,
       iconColor: 'text-brand-strong dark:text-brand-strong-dark',

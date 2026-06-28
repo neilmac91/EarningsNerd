@@ -43,7 +43,7 @@ export default function Error({
             We encountered an unexpected error. This has been logged and we&apos;ll look into it.
           </p>
           {error.digest && (
-            <p className="mt-2 text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+            <p className="mt-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
               Error ID: {error.digest}
             </p>
           )}
@@ -73,7 +73,7 @@ export default function Error({
               {error.message}
             </pre>
             {error.stack && (
-              <pre className="mt-2 overflow-x-auto text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
+              <pre className="mt-2 overflow-x-auto text-xs text-text-tertiary-light dark:text-text-secondary-dark">
                 {error.stack}
               </pre>
             )}

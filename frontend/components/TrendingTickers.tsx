@@ -206,7 +206,7 @@ export default function TrendingTickers({
       <section className="mt-12">
         <header className="mb-4 flex items-center justify-between gap-3 text-text-primary-light dark:text-text-primary-dark">
           <div className="flex items-center gap-2">
-            <FlameIcon className="h-5 w-5 text-orange-300" />
+            <FlameIcon className="h-5 w-5 text-orange-500 dark:text-orange-300" />
             <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Market Movers</h2>
           </div>
         </header>
@@ -238,7 +238,7 @@ export default function TrendingTickers({
     return (
       <section className="mt-12">
         <header className="mb-3 flex items-center gap-2 text-text-primary-light dark:text-text-primary-dark">
-          <FlameIcon className="h-5 w-5 text-orange-300" />
+          <FlameIcon className="h-5 w-5 text-orange-500 dark:text-orange-300" />
           <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Market Movers</h2>
         </header>
         <div className="rounded-xl border border-error-light/30 dark:border-error-dark/30 bg-error-light/10 dark:bg-error-dark/10 p-4 text-sm text-error-light dark:text-error-dark">
@@ -264,7 +264,7 @@ export default function TrendingTickers({
     <section className="mt-12">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3 text-text-primary-light dark:text-text-primary-dark">
         <div className="flex items-center gap-2">
-          <FlameIcon className="h-5 w-5 text-orange-300" />
+          <FlameIcon className="h-5 w-5 text-orange-500 dark:text-orange-300" />
           <div>
             <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Market Movers</h2>
             <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">

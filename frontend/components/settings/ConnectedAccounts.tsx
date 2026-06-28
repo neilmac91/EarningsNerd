@@ -74,7 +74,7 @@ export default function ConnectedAccounts() {
       </p>
 
       {isLoading ? (
-        <div className="flex items-center text-text-tertiary-light dark:text-text-tertiary-dark">
+        <div className="flex items-center text-text-tertiary-light dark:text-text-secondary-dark">
           <CircleNotchIcon className="h-4 w-4 mr-2 animate-spin" /> Loading…
         </div>
       ) : isError ? (
@@ -87,10 +87,10 @@ export default function ConnectedAccounts() {
           {/* Password row */}
           <div className="flex items-center justify-between rounded-lg border border-border-light dark:border-border-dark px-4 py-3">
             <div className="flex items-center gap-3">
-              <KeyIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-tertiary-dark" />
+              <KeyIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
               <span className="text-sm text-text-primary-light dark:text-text-primary-dark">Password</span>
             </div>
-            <span className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+            <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
               {data?.has_password ? 'Set' : 'Not set'}
             </span>
           </div>
@@ -109,7 +109,7 @@ export default function ConnectedAccounts() {
                     {providerLabel(p.provider)}
                   </span>
                   {p.provider_email && (
-                    <span className="block text-xs text-text-tertiary-light dark:text-text-tertiary-dark">
+                    <span className="block text-xs text-text-tertiary-light dark:text-text-secondary-dark">
                       {p.provider_email}
                     </span>
                   )}
@@ -127,7 +127,7 @@ export default function ConnectedAccounts() {
           })}
 
           {providers.length === 0 && (
-            <p className="text-sm text-text-tertiary-light dark:text-text-tertiary-dark">
+            <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
               No social sign-ins linked.
             </p>
           )}

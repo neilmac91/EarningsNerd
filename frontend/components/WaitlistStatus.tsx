@@ -62,7 +62,7 @@ export default function WaitlistStatus() {
           className="rounded-xl px-4 py-3 text-sm"
         />
         {error && (
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="rounded-xl border border-error-light/40 dark:border-error-dark/40 bg-error-light/10 dark:bg-error-dark/10 px-4 py-3 text-sm text-error-light dark:text-error-dark">
             {error}
           </div>
         )}
@@ -94,7 +94,7 @@ export default function WaitlistStatus() {
               {status.email_verified ? 'Yes' : 'Not yet'}
             </span>
           </div>
-          <div className="pt-2 text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-tertiary-dark">
+          <div className="pt-2 text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
             Your referral link
           </div>
           <div className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
