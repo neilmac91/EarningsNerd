@@ -29,6 +29,7 @@ from edgar import Company as EdgarCompany, set_identity
 
 from .async_executor import run_in_executor, run_in_executor_with_timeout
 from .config import EDGAR_IDENTITY, EDGAR_DEFAULT_TIMEOUT_SECONDS
+from .ads_ratios import ads_ratio_for_cik, build_per_ads_eps
 from .instance_extractor import (
     DURATION_CONCEPTS,
     DURATION_WINDOWS,
@@ -270,6 +271,13 @@ def _extract_from_filing_instance_sync(
     # Filing-level reporting currency = the currency carried by the most monetary facts.
     if currency_votes:
         result["reporting_currency"] = max(currency_votes.items(), key=lambda kv: kv[1])[0]
+
+    # Item A: attach the issuer's locked ADS ratio (ratio != 1 ADRs only) so the standardized
+    # metrics can surface a per-ADS EPS alongside the as-filed per-ordinary-share figure. Absent
+    # for 1:1 ADRs and domestic filers, in which case no per-ADS normalization is applied.
+    ads_ratio = ads_ratio_for_cik(cik_padded)
+    if ads_ratio is not None:
+        result["ads_ratio"] = ads_ratio.as_dict()
 
     # Anchor requirement: at least one income-statement metric for the
     # filing's own period — otherwise this instance is unusable and the
@@ -1045,6 +1053,18 @@ class EdgarXBRLService:
             reporting_currency = revenue_series[0].get("currency")
         if reporting_currency:
             metrics["reporting_currency"] = reporting_currency
+
+        # Item A: additive per-ADS EPS for ADRs with a locked ratio (ratio != 1). The as-filed
+        # per-ordinary-share EPS is left untouched; this only ADDS a `per_ads` block (value +
+        # ratio + auditable arithmetic) so the ADR investor sees the figure they actually trade on.
+        ads_info = xbrl_data.get("ads_ratio")
+        if ads_info:
+            for eps_key in ("earnings_per_share", "eps_diluted"):
+                entry = metrics.get(eps_key)
+                current_value = (entry or {}).get("current", {}).get("value")
+                per_ads = build_per_ads_eps(current_value, ads_info, reporting_currency)
+                if per_ads:
+                    entry["per_ads"] = per_ads
 
         return metrics
 
