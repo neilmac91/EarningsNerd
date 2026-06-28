@@ -274,13 +274,20 @@ company-filings endpoint lists + summarizes foreign-issuer forms (20-F/6-K/40-F)
 Alibaba. **What you're deciding:** are 20-F summaries + native-currency financials good enough to
 turn on for users. See `tasks/fpi-support-roadmap.md`.
 
-The golden set ships three verified FPI 20-Fs covering the currency/taxonomy matrix:
+The golden set ships verified FPI 20-Fs covering the currency/taxonomy + ADS-ratio matrix:
 
-| Ticker | Accounting | Reporting currency | Why |
-|---|---|---|---|
-| BABA | U.S. GAAP | CNY (+ USD convenience) | flagship; convenience-translation filter |
-| TSM  | IFRS | TWD | ifrs-full namespace + non-USD |
-| ASML | IFRS | EUR | EUR; revenue hand-filled (double-tagged — see below) |
+| Ticker | Accounting | Reporting currency | `ads_ratio` | Why |
+|---|---|---|---|---|
+| BABA | U.S. GAAP | CNY (+ USD convenience) | 8 | flagship; convenience-translation filter; per-ADS EPS |
+| TSM  | IFRS | TWD | 5 | ifrs-full namespace + non-USD; multi-basis net income |
+| ASML | IFRS | EUR | — | EUR; revenue hand-filled (double-tagged — see below) |
+| JD   | U.S. GAAP | CNY | 2 | Chinese ADR; per-ADS EPS (×2) |
+| SE   | U.S. GAAP | USD | — | Singapore ADR (1:1); multi-basis net income |
+| NVO  | IFRS | DKK | — | Danish (1 ADR = 1 B share); DKK |
+| PDD  | U.S. GAAP | CNY | 4 | Chinese ADR; per-ADS EPS (×4) |
+
+(MercadoLibre, `MELI`, is also in the set as a Delaware-incorporated LatAm **10-K** in USD — domestic
+form, not an FPI 20-F.) An entry's `ads_ratio` (ordinary shares per ADS) drives the per-ADS EPS alts.
 
 ### Step A — offline (no API spend, no network)
 ```bash

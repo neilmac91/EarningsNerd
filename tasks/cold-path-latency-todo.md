@@ -94,7 +94,12 @@ Sequenced by value-to-effort; each a separate PR, gate-protected where it touche
   cash_flow, balance_sheet}` in both flag states, vs the eval's canonical `{revenue, net_income,
   eps, key_metrics}`). Aligning the eval schema is optional polish; the gate hard-fails on per-
   dimension drops, not aggregate, so it's unaffected.
-- Parked: **A1 fleet** (owner-held), **BABA/FPI per-ADS** (niche), **arm CI gate** (owner adds secret).
+7. [x] **Golden-set ADR/FPI expansion** — added JD, SE, NVO, PDD (20-F) + MELI (10-K). Standalone
+       eval first scored all five **1.0** across recall/precision/coverage/schema (per-ADS + multi-basis
+       alts auto-derived; GTs spot-checked plausible). Golden set 21→26 verified; re-pin in progress. *(PR)*
+- Parked: **A1 fleet** (owner-held). **Arm CI gate** = DONE (owner added the secret; gate ran live on #446).
+  Optional future: the deterministic eval now tops out at 1.0 across the cohort → add harder/adversarial
+  golden filings or lean on the LLM judge if continued *quality discrimination* (not just regression) is wanted.
 
 ## Phase C — deferred (parked per owner)
 Parallel-section generation, async-job decoupling, alt inference provider / `AI_FAST_MODEL`,
