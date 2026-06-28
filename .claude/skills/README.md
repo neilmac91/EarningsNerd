@@ -6,6 +6,7 @@ This directory contains Claude Code skills that provide specialized knowledge an
 
 | Category | Skill | Description |
 |----------|-------|-------------|
+| **Meta** | [llm-council](./meta/llm-council/) | Run a decision through 5 AI advisors who peer-review each other, then a chairman synthesizes a verdict |
 | **Payments** | [stripe-best-practices](./payments/stripe-best-practices/) | Stripe API integration patterns and best practices |
 | **Infrastructure** | [cloudflare-agents-sdk](./infrastructure/cloudflare-agents-sdk/) | Building AI agents on Cloudflare Workers |
 | **Frontend** | [react-best-practices](./frontend/react-best-practices/) | React/Next.js performance optimization (57 rules) |
@@ -14,6 +15,10 @@ This directory contains Claude Code skills that provide specialized knowledge an
 | **Subagents** | [voltagent](./subagents/voltagent/) | 126+ specialized Claude Code subagents |
 
 ## Skill Categories
+
+### Meta (`/meta`)
+Skills for reasoning and decision-making workflows:
+- **llm-council** - Pressure-test a high-stakes decision through 5 independent advisors (Contrarian, First Principles, Expansionist, Outsider, Executor), anonymous peer review, and a chairman synthesis. Triggers: "council this", "pressure-test this", "war room this".
 
 ### Payments (`/payments`)
 Skills for payment processing integrations:
