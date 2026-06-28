@@ -218,10 +218,87 @@ _Stakes: pure founder-time-allocation. Polishing the wrong dormant feature (Comp
 ## Verdict log
 _(filled in as questions are run)_
 
-- [ ] #1 Wedge
+- [x] #1 Wedge — **VERDICT (run #1, 2026-06-28):** lead with **the serious individual investor who already reads 10-Ks (wedge b)**; JTBD = _"read this filing for me, tell me what changed since last quarter, and show me exactly where it says so."_ Homepage one-liner: _"Every new 10-K and 10-Q, read for you — what changed since last quarter, every claim linked to the source."_ Hide everything else (insiders, Compare, calendar, charts, ADR, copilot-as-hero, peers/watchlists) → land on ONE report, not a feature grid. First move: run `evals/` golden set to measure the boilerplate-degradation rate — that number gates whether a single-report wedge is shippable in weeks. (Full council write-up below.)
 - [x] #2 Moat — ✅ complete (run #2, 2026-06-28): 5 advisors + peer review + chairman. Verdict: features-not-moats; lead with **accountability** ("ChatGPT sells confidence; you sell verifiable accuracy"); dataset = evidence not API; real work = distribution+retention. First move: the side-by-side "ChatGPT-wrong / we-catch-it" demo.
 - [ ] #3 Pricing
 - [ ] #4 Beta scope
 - [ ] #5 Distribution
 - [ ] #6 Fundraising
 - [ ] #7 Dormant features
+
+---
+
+## Run #1 — Wedge & ICP — Council Verdict (captured 2026-06-28)
+
+> Run via the `llm-council` workflow (5 advisors → anonymized peer review → chairman), grounded in
+> `CLAUDE.md`, `config.py`, `featureFlags.ts`, `tasks/research/competitors.md`, and
+> `tasks/research/user-needs.md`. **Two premises in the brief turned out to be stale** — see the
+> correction box below; both were caught by the council's code verification and independently
+> re-verified against the working tree.
+
+### ⚠️ Factual correction (verified against the code, not the brief)
+The brief (inherited from `tasks/research/*` and my framing) asserted two things that are **false in the
+current codebase** — the research docs are stale relative to shipped code:
+- **Click-to-source IS shipped & live (not dark).** `provenance_service.py` builds `#:~:text=` SEC
+  deep-links; `SourceTrace.tsx` renders them on risks (`SummaryRisks.tsx:21`) and `MetricSourceLink.tsx`
+  on financials (`SummaryFinancials.tsx:58`, `FinancialMetricsTable.tsx:106`) — gated only on `source_url`
+  existing, **not** on `ENABLE_QUALITY_BADGE`.
+- **"What changed" diffing IS shipped & live.** `getWhatChanged` is fetched unconditionally
+  (`frontend/app/filing/[id]/page-client.tsx:1110`) and `<WhatChanged>` renders when `has_changes`
+  (`frontend/app/filing/[id]/page-client.tsx:1308`), backed
+  by `change_report_service.build_change_report`. **Not** behind a dark flag.
+→ Implication: the wedge's headline ("what changed, with the receipts") is **deliverable today**. The real
+remaining gap is **content quality** (boilerplate degradation; only 4 XBRL metrics), not the trust plumbing.
+
+### Where the council agreed (high-confidence)
+- **ICP = serious individual investor (b)** — the finance-Twitter / already-reads-10-Ks reader. Demand
+  already exists ("they self-serve on the SEC site; you just make them faster"). Retail (a) unanimously
+  rejected: most don't read filings, are least able to catch AI errors → you'd manufacture demand *and*
+  ship worst-case output to the most fragile audience.
+- **JTBD = "read this filing for me, show me what changed, with the receipts."**
+- **Hide list (unanimous):** insiders (75s load), multi-filing Compare (dead-ends), earnings calendar
+  (paid key), financial charts (rough), ADR/20-F, copilot-as-hero + 1000-cap, raw peers/watchlists. Land
+  on ONE generated report, not a feature grid.
+- **The quality gap is a forcing function, not a reason to retreat** — a fixed narrative can't dodge a
+  weak filing the way query-driven chat can; that exposure is what forces the fix.
+
+### Where the council clashed
+- **Headline wording:** "see what changed" (First Principles, Outsider) vs "verifiable structured analyst
+  report" (Executor, Expansionist, Contrarian). **Dissolved by verification** — both are shipped, so the
+  one-liner can carry both.
+- **Is verifiability a pre-beta blocker?** Contrarian made it a hard go/no-go gate; Executor (alone)
+  checked the repo and called it done. Verification sides with the Executor — the veto targets a solved
+  problem.
+- **Distribution & price:** Expansionist tied the wedge to a screenshot-driven growth loop and reframed
+  $14-vs-$39–89 as a deliberate land-grab; Reviewer 2 flagged the blind spot — it's a *closed, invite-gated*
+  beta with no public report URLs, and screenshot-virality would amplify the *failure* cases of a
+  hit-and-miss pipeline. Both true at different horizons.
+
+### Blind spots the peer review caught
+- **CONTENT-IS-EMPTY ≠ missing receipts.** A green "verified" deep-link can sit on confident boilerplate —
+  provenance verifies the *span exists*, not that the *claim is right*. For a "notices-a-wrong-number" ICP,
+  a verified-looking citation on a hollow narrative is *more* dangerous than none.
+- **The activation demo will lie** if it's AAPL/NVDA — mega-caps are exactly where the pipeline performs
+  best and *hides* the variance.
+- **There's a free, decisive empirical test nobody ran:** the `evals/` golden set can quantify the
+  boilerplate-degradation rate *before* invites; `pregenerate_examples.py` + `HeroExample` can A/B a marquee
+  report to finance-Twitter this week with zero new code.
+- **$14 is a positioning *risk*, not just a land-grab** — 60–75% below the $39–89 band can read as "toy" to
+  the prosumer who associates price with rigor.
+
+### Recommendation (chairman)
+Commit to **ICP = serious individual investor (b)**, **JTBD = "what changed since last quarter, with the
+receipts."** Homepage one-liner: _"Every new 10-K and 10-Q, read for you — what changed since last quarter,
+every claim linked to the source."_ Hide the breadth. The quality gap is MORE exposed and it's still the
+right bet, because the wedge forces the one fix that matters. Before invites: (1) flip
+`NEXT_PUBLIC_ENABLE_QUALITY_BADGE='true'` (one-line; backend verdict + `AI_QUALITY_GATE` quota protection
+already exist) so partial-and-honest beats silent boilerplate; (2) run the `evals/` golden set and add a
+hard floor — if a filing degrades to boilerplate, auto-retry on a stronger model or **refuse to render it**
+rather than surface a hollow report with a green badge. Hold $14 for beta (free via the promo anyway); plan
+to move toward the $39–89 band before public launch.
+
+### The one thing to do first
+**Run the `evals/` golden-set harness to measure what % of filings currently degrade to deterministic
+boilerplate.** That single number — not the positioning debate — decides whether a single-report wedge is
+shippable in weeks. Low rate → flip the quality badge and send invites. High rate → that's your only
+pre-beta engineering task.
