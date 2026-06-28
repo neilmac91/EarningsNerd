@@ -186,3 +186,56 @@ The SEO content moat (the Expansionist's insight) is real and valuable — treat
 ### The One Thing to Do First
 
 Monday morning: pick **Alibaba**, generate one gorgeous, screenshot-able teardown from your working deep-link leading with the **period-over-period diff in native RMB** ("here's what BABA's latest 20-F changed YoY, in actual yuan"), verify it does NOT return "partial," put a UTM on the link — then find the single highest-engagement *recent* thread where someone is genuinely asking about BABA's filings, and post it as a direct, value-first answer to that one person. Not a launch. A receipt.
+
+---
+
+## Cross-Run Reconciliation — vs #1 (Wedge) and #2 (Moat)
+
+_Added 2026-06-28 after #1 and #2 were run (captured in PRs #450 / #451). This Q5 run was framed
+before those landed, against a prep doc that still headlined the ADR/foreign-issuer edge as a
+differentiator — so the verdict over-weighted "native currency" as the **lead message**. This is an
+**emphasis correction, not a reversal**; Q5's channel logic survives intact._
+
+**What #1 decided:** ICP = the serious individual investor who already reads 10-Ks (wedge **b**).
+JTBD / message = _"read this filing for me, what changed since last quarter, with the receipts."_
+It **explicitly hid ADR/20-F from the product surface** (land on ONE report, not a feature grid).
+It also verified — against the working tree — that **click-to-source and "what changed" diffing are
+shipped and live** (not behind a dark flag); the real remaining gap is summary **content quality**.
+
+**What #2 decided:** the candidate moats are features-with-a-head-start; the one honest, durable
+positioning is **accountability** — _"ChatGPT sells confidence; you sell verifiable, source-traced
+accuracy."_ ADR-native-currency is _"a genuine taste signal but copyable — keep it as a
+wedge-marketing proof point, not a build priority."_ #2's single first move = the side-by-side
+**"ChatGPT states a wrong number / EarningsNerd catches it with click-through to the source span"**
+demo, which it explicitly called the best distribution content — and it punted distribution
+mechanics (incl. public summary pages + ticker/ADR SEO) to Q5.
+
+### Where Q5 is reinforced by #1/#2
+- **"Lead with the period-over-period diff"** is exactly #1's chosen wedge ("what changed since last
+  quarter") — and #1 confirmed the diff is **shipped/live**, so it's deliverable today.
+- **Community-seeded teardowns over broad finance-Twitter / newsletter outreach** is consistent with
+  #2's named loop (public summary pages + ticker/ADR SEO).
+- The three Q5 additions (onboard onto **known-good** non-"partial" filings; **1:1 > broadcast**;
+  **instrument links + time-box the promo**) all hold; "known-good filings" directly reinforces #1's
+  content-quality forcing-function.
+- Q5's Contrarian fixated on _"does the summary beat a free ChatGPT side-by-side?"_ — #2 elevates
+  exactly that question to **the** positioning. Strong cross-run convergence.
+
+### Where Q5's emphasis is corrected
+- **Demote the native-RMB / foreign-issuer angle** from the lead *message* to two narrower roles:
+  (i) a **beachhead venue** — the underserved ADR corner of the #1 ICP, chosen *because* native
+  currency is where ChatGPT fails most visibly, so the accountability wedge is most vivid and the
+  competition thinnest; and (ii) a **marquee proof point**. This squares with #1 (hide ADR as a
+  *product feature*) and #2 (ADR = proof point, not priority). Hiding the ADR *feature* in-product is
+  not the same as declining to publish ADR *content* — so (c) survives as a channel, not as the pitch.
+- **No acquire-on-X / land-on-Y split:** the teardown must lead with the **catch/diff** ("the number
+  ChatGPT gets wrong, and the receipt"), not with "native currency," and must funnel users to the
+  **same single what-changed report the homepage leads with**.
+
+### Upgraded "one thing to do first" (merges #5 + #2)
+Build the BABA teardown **as** the side-by-side demo: show ChatGPT misstating an RMB figure from
+Alibaba's 20-F, and EarningsNerd catching/sourcing it with a click-through to the exact source span;
+verify it's not "partial," UTM the link, and post it as a value-first reply to one real recent
+BABA-filing thread. This single artifact is simultaneously **#1's wedge** (what changed, with the
+receipts), **#2's positioning + first move** (accountability / ChatGPT-wrong-we-catch-it), and
+**#5's channel content** (the ADR beachhead). One asset, three council verdicts satisfied.
