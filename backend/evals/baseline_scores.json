@@ -1,7 +1,7 @@
 {
-  "snapshot_date": "2026-06-28T08:32:57Z",
-  "source_report": "eval_20260628T083257Z.json",
-  "golden_set_size": 21,
+  "snapshot_date": "2026-06-28T10:51:58Z",
+  "source_report": "eval_20260628T105158Z.json",
+  "golden_set_size": 26,
   "runs_per_candidate": 3,
   "harness": {
     "model": "deepseek-v4-pro",
@@ -10,7 +10,7 @@
   },
   "candidates": {
     "baseline": {
-      "n": 63,
+      "n": 78,
       "errors": 0,
       "mean_aggregate": 1.0,
       "aggregate_stdev": 0.0,
@@ -21,10 +21,10 @@
       "mean_numeric_accuracy": 1.0,
       "mean_numeric_precision": 1.0,
       "mean_coverage": 1.0,
-      "mean_financial_depth": 0.9471,
+      "mean_financial_depth": 0.9573,
       "judge_pass_rate": null,
       "total_cost_usd": 0.0,
-      "mean_latency_seconds": 42.664
+      "mean_latency_seconds": 40.635
     }
   }
 }
