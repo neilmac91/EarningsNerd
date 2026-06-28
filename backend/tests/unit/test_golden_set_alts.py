@@ -5,7 +5,7 @@ per-ADS EPS and multi-basis net-income alternates that close the FPI recall resi
 import json
 from pathlib import Path
 
-from evals.build_golden_set import _distinct_alts
+from evals.build_golden_set import _distinct_alts, _per_ads_eps_alts
 
 GOLDEN = Path(__file__).resolve().parents[2] / "evals" / "golden_set.json"
 
@@ -23,6 +23,12 @@ def test_distinct_alts_dedups_and_excludes_primary():
     assert _distinct_alts([5.5, 5.7, 5.5, 44.0], 5.7) == [5.5, 44.0]
     assert _distinct_alts([100.0, 100.0], 100.0) == []      # all equal the primary
     assert _distinct_alts([None, 3.0], 2.0) == [3.0]         # None dropped
+
+
+def test_per_ads_eps_alts_guard_short_circuits_no_op_and_invalid_ratios():
+    # A no-op (1:1) or invalid ratio returns [] WITHOUT touching the XBRL instance (xb=None is safe).
+    for ratio in (None, 0, -1, 1, 1.0, "not-a-number"):
+        assert _per_ads_eps_alts(None, "2026-03-31", "20-F", ratio) == []
 
 
 def test_baba_carries_per_ads_eps_and_multibasis_net_income():

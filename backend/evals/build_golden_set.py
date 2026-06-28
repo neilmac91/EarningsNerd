@@ -148,13 +148,16 @@ _NET_INCOME_ALT_CONCEPTS = (
 
 
 def _net_income_alts(xb, period_of_report: str, filing_type: str, primary: float) -> List[float]:
-    """Distinct other-basis net-income values for the period (excludes the primary)."""
+    """Distinct other-basis net-income values for the period (excludes the primary).
+
+    Same-sign only: every legitimate net-income basis shares the period's sign, so an opposite-sign
+    value would be a wrong concept — never accept it as an alternate (it would weaken the G1 gate)."""
     from app.services.edgar.instance_extractor import duration_series_with_currency
 
     found: List[float] = []
     for concept in _NET_INCOME_ALT_CONCEPTS:
         series, _ = duration_series_with_currency(xb, [concept], filing_type, period_of_report)
-        if series and series[0][0] == period_of_report:
+        if series and series[0][0] == period_of_report and (series[0][1] >= 0) == (primary >= 0):
             found.append(series[0][1])
     return _distinct_alts(found, primary)
 
@@ -163,8 +166,15 @@ def _per_ads_eps_alts(xb, period_of_report: str, filing_type: str, ads_ratio: Op
     """Per-ADS EPS renderings (= per-ordinary-share × ratio) for ADR filers.
 
     A 20-F headlines 'earnings per ADS' while the XBRL tags per-ordinary-share, so a correct
-    per-ADS figure (e.g. Alibaba's RMB44.00 = RMB5.50 × 8) would otherwise score as a miss."""
-    if not ads_ratio or ads_ratio <= 1:
+    per-ADS figure (e.g. Alibaba's RMB44.00 = RMB5.50 × 8) would otherwise score as a miss. Ratios
+    can be fractional (some ADSs represent a fraction of a share); only a 1:1 ratio is a no-op."""
+    if ads_ratio is None:
+        return []
+    try:
+        ratio = float(ads_ratio)  # tolerate a stringified ratio in golden_set.json
+    except (TypeError, ValueError):
+        return []
+    if ratio <= 0 or abs(ratio - 1.0) < 1e-6:  # 1:1 (or invalid) → per-ADS equals per-share
         return []
     from app.services.edgar.instance_extractor import DURATION_CONCEPTS, duration_series_with_currency
 
@@ -172,7 +182,7 @@ def _per_ads_eps_alts(xb, period_of_report: str, filing_type: str, ads_ratio: Op
     for concepts in (METRIC_CONCEPTS["eps"][1], DURATION_CONCEPTS["eps_diluted"]):
         series, _ = duration_series_with_currency(xb, concepts, filing_type, period_of_report)
         if series and series[0][0] == period_of_report:
-            out.append(round(series[0][1] * ads_ratio, 2))
+            out.append(round(series[0][1] * ratio, 2))
     return out
 
 
