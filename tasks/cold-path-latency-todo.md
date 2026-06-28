@@ -83,6 +83,12 @@ Sequenced by value-to-effort; each a separate PR, gate-protected where it touche
        ship + re-pin only if it wins (schema_valid 0→1, no recall/precision/coverage regression).
 3. [x] **B2** filings-list backend cache (original cold-path #1) — stale-within-TTL DB serve. *(this PR)*
 4. [x] **B3** parse-timeout tail for big filers — own section budget (30s/40s) + MD&A backfill. *(PR)*
+5. [x] **Eval-schema alignment** — `validate_schema` accepts the production financial_highlights shape;
+       schema_valid 0→1, aggregate 0.68→0.986 (PR #446).
+6. [x] **FPI per-ADS / multi-basis residual** — `build_golden_set` now derives per-ADS EPS alts
+       (`ads_ratio`: BABA 8, TSM 5) and multi-basis net-income alts (consolidated / attributable /
+       available-to-common, all from XBRL). Verified offline: BABA 0.333→1.0, TSM 0.667→1.0, ASML
+       1.0. The NI-alts fix is general (JPM/BRK.B/XOM/… also gain robustness). Re-pin in progress. *(PR)*
 - Note: dropped the planned "S1 flip for schema_valid" — investigation showed `USE_STRUCTURED_OUTPUT`
   doesn't move `schema_valid` (the product's `financial_highlights` is `{table, profitability,
   cash_flow, balance_sheet}` in both flag states, vs the eval's canonical `{revenue, net_income,

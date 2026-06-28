@@ -124,7 +124,61 @@ def _diluted_eps(xb, period_of_report: str, filing_type: str) -> Optional[float]
     return None
 
 
-def _extract_ground_truth(cik: str, accession_number: str, filing_type: str) -> Tuple[List[Dict[str, Any]], List[str]]:
+def _distinct_alts(values: List[float], primary: float) -> List[float]:
+    """De-dup candidate alt values against the primary and each other (float-tolerant)."""
+    out: List[float] = []
+    for v in values:
+        if v is None or abs(v - primary) <= 1e-6:
+            continue
+        if all(abs(v - o) > 1e-6 for o in out):
+            out.append(v)
+    return out
+
+
+# A multi-entity filer tags several legitimate net-income figures: consolidated (incl. NCI),
+# attributable to the parent, and available-to-common (after preferred / mezzanine adjustments).
+# A summary that quotes ANY of them is correct, not a miss — so the non-primary ones are accepted
+# as alternates. Single-concept (most domestic) filers yield none.
+_NET_INCOME_ALT_CONCEPTS = (
+    "NetIncomeLoss", "ProfitLoss",
+    "NetIncomeLossAvailableToCommonStockholdersBasic",
+    "NetIncomeLossAvailableToCommonStockholdersDiluted",
+    "ProfitLossAttributableToOwnersOfParent",
+)
+
+
+def _net_income_alts(xb, period_of_report: str, filing_type: str, primary: float) -> List[float]:
+    """Distinct other-basis net-income values for the period (excludes the primary)."""
+    from app.services.edgar.instance_extractor import duration_series_with_currency
+
+    found: List[float] = []
+    for concept in _NET_INCOME_ALT_CONCEPTS:
+        series, _ = duration_series_with_currency(xb, [concept], filing_type, period_of_report)
+        if series and series[0][0] == period_of_report:
+            found.append(series[0][1])
+    return _distinct_alts(found, primary)
+
+
+def _per_ads_eps_alts(xb, period_of_report: str, filing_type: str, ads_ratio: Optional[float]) -> List[float]:
+    """Per-ADS EPS renderings (= per-ordinary-share × ratio) for ADR filers.
+
+    A 20-F headlines 'earnings per ADS' while the XBRL tags per-ordinary-share, so a correct
+    per-ADS figure (e.g. Alibaba's RMB44.00 = RMB5.50 × 8) would otherwise score as a miss."""
+    if not ads_ratio or ads_ratio <= 1:
+        return []
+    from app.services.edgar.instance_extractor import DURATION_CONCEPTS, duration_series_with_currency
+
+    out: List[float] = []
+    for concepts in (METRIC_CONCEPTS["eps"][1], DURATION_CONCEPTS["eps_diluted"]):
+        series, _ = duration_series_with_currency(xb, concepts, filing_type, period_of_report)
+        if series and series[0][0] == period_of_report:
+            out.append(round(series[0][1] * ads_ratio, 2))
+    return out
+
+
+def _extract_ground_truth(
+    cik: str, accession_number: str, filing_type: str, ads_ratio: Optional[float] = None
+) -> Tuple[List[Dict[str, Any]], List[str]]:
     """Load the specific filing's XBRL and return (facts, problems). Sync — run in a thread."""
     from edgar import Company
 
@@ -155,12 +209,21 @@ def _extract_ground_truth(cik: str, accession_number: str, filing_type: str) -> 
         by_metric[metric] = value
         facts.append({"metric": metric, "value": value, "unit": _unit_with_currency(default_unit, currency)})
 
-    # EPS: add diluted as an accepted alternate when it differs from the basic value.
+    # EPS alternates: diluted (vs basic primary) + per-ADS renderings for ADR filers.
     eps_fact = next((f for f in facts if f["metric"] == "eps"), None)
     if eps_fact is not None:
-        diluted = _diluted_eps(xb, period_of_report, filing_type)
-        if diluted is not None and abs(diluted - eps_fact["value"]) > 1e-9:
-            eps_fact["alt_values"] = [diluted]
+        candidates = [_diluted_eps(xb, period_of_report, filing_type)]
+        candidates += _per_ads_eps_alts(xb, period_of_report, filing_type, ads_ratio)
+        alts = _distinct_alts([c for c in candidates if c is not None], eps_fact["value"])
+        if alts:
+            eps_fact["alt_values"] = alts
+
+    # Net income alternates: other legitimately-tagged bases (consolidated / attributable / common).
+    ni_fact = next((f for f in facts if f["metric"] == "net_income"), None)
+    if ni_fact is not None:
+        ni_alts = _net_income_alts(xb, period_of_report, filing_type, ni_fact["value"])
+        if ni_alts:
+            ni_fact["alt_values"] = ni_alts
 
     # Hard invariants — corrupt ground truth poisons every bake-off run.
     if "revenue" in by_metric and by_metric["revenue"] <= 0:
@@ -189,7 +252,7 @@ async def _resolve_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
 
     try:
         facts, problems = await asyncio.to_thread(
-            _extract_ground_truth, cik, entry["accession_number"], ftype
+            _extract_ground_truth, cik, entry["accession_number"], ftype, entry.get("ads_ratio")
         )
     except Exception as exc:  # noqa: BLE001
         facts, problems = [], [f"XBRL extraction failed: {exc}"]
