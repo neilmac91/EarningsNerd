@@ -219,6 +219,7 @@ _(filled in as questions are run)_
 - [~] #2 Moat — 3/5 advisors captured (Contrarian, First Principles, Expansionist); needs Executor + Outsider + review + chairman
 - [ ] #3 Pricing
 - [ ] #4 Beta scope
-- [ ] #5 Distribution
+- [x] #5 Distribution — **run 2026-06-28** (full council; transcript: `.claude/council-transcripts/council-transcript-2026-06-28-q5-distribution.md`).
+      **Verdict:** concentrate on **(c) ADR/foreign-issuer communities via (b) curated teardowns**; deliberately do NOT do (a) broad finance Twitter or (d) newsletter outreach until there's a body of work. Lead with the period-over-period diff in native RMB (the deep-link works today; the dark FPI listing flag is not a blocker). Three additions the raw advice missed: (1) onboard new users onto *known-good* (non-"partial") filings only — BABA/PDD/SE/MELI/NVO; (2) at this scale 1:1 outreach beats broadcast; (3) instrument deep-links (UTM) + time-box the 100%-off promo so a payment trigger actually exists (the first-10-payers ask has no trigger while beta is free). **First move:** one screenshot-able Alibaba 20-F teardown (diff-first, RMB, verified not "partial", UTM'd) posted as a value-first reply to one real recent BABA-filing question.
 - [ ] #6 Fundraising
 - [ ] #7 Dormant features
