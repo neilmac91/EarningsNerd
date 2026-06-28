@@ -829,6 +829,7 @@ This project includes a skill directory at `.claude/skills/` providing specializ
 | Category | Skill | Description |
 |----------|-------|-------------|
 | Meta | `karpathy-guidelines` | Four behavioral principles (Think Before Coding, Simplicity First, Surgical Changes, Goal-Driven Execution) — see Core Principles |
+| Meta | `llm-council` | Pressure-test a high-stakes decision through 5 advisors + anonymous peer review + chairman synthesis (triggers: "council this", "pressure-test this") |
 | Payments | `stripe-best-practices` | Modern Stripe API patterns |
 | Infrastructure | `cloudflare-agents-sdk` | Building AI agents on Cloudflare Workers |
 | Frontend | `react-best-practices` | 57 React/Next.js optimization rules |
