@@ -96,7 +96,7 @@ Each is paste-ready. The standard pre-council prep block above applies to all of
 
 _Stakes: drives the homepage, the activation flow, and the investor one-liner. Everything downstream depends on it._
 
-## 2. The Moat — "why won't ChatGPT eat this?"  · _Trust/moat_  · **(3 of 5 advisors already ran — complete from partials)**
+## 2. The Moat — "why won't ChatGPT eat this?"  · _Trust/moat_  · **✅ COMPLETE (run #2, 2026-06-28 — full transcript: `.claude/council-transcripts/council-2026-06-28-q2-moat.md`)**
 
 > `council this:` "Pressure-test EarningsNerd's defensibility — both for investors and for deciding where
 > I spend scarce build time. A skeptic argues: 'Anyone can paste a 10-K into ChatGPT; Bloomberg/Koyfin/
@@ -111,11 +111,14 @@ _Stakes: drives the homepage, the activation flow, and the investor one-liner. E
 
 _Stakes: load-bearing assumption under fundraising and product focus._
 
-**Partial results captured (to fold into the chairman synthesis):**
+**All 5 advisor positions (full transcript in `.claude/council-transcripts/council-2026-06-28-q2-moat.md`):**
 - **Contrarian:** candidate moats are mostly features; none compound with scale; "ChatGPT won't bother — retail SEC analysis is a thin niche — so distribution into a wedge is your only defensible bet."
 - **First Principles:** "moat" is the wrong lens at pre-seed; real question is "can this founder reach a wedge of users who care faster than the category commoditizes?" The Alibaba-in-RMB catch is proof of founder taste, not a moat.
 - **Expansionist:** every verified citation mints a labeled (claim → source → pass/fail) pair → a proprietary "financial verification" data asset / API / trust-stamp others embed; "ChatGPT sells confidence, you sell accountability."
-- _Still needed:_ Executor + Outsider responses, then peer review + chairman.
+- **Executor** (run #2): the verification dataset is the only real candidate, but **only if instrumented now** ("a moat you can't measure is a story"); don't build more features (ADR-currency is copyable in a weekend); honest answer = OpenAI will never assume liability for a wrong financial number. Monday: queryable verification rows + clickable "verified against source" badge + write down the catch-rate stat.
+- **Outsider** (run #2): the trust gap is the real story but it's buried in jargon; one side-by-side demo of ChatGPT getting a number wrong and you catching it beats any feature; (c) lock-in and (d) dataset are inert/invisible today.
+
+**Chairman verdict (summary):** These are *features with a head start, not moats.* The one honest, durable answer is **accountability — "ChatGPT sells confidence; you sell verifiable, source-traced accuracy."** Treat the verification dataset as *evidence, not a future API.* Peer review's unanimous catch: the Expansionist over-romanticizes the dataset (self-graded labels are circular; span-verification may be deterministic, not a learned flywheel; no buyer). The gaping hole all advisors missed = **distribution + retention** (public summary pages + ticker/ADR SEO → Q5). **Do first:** build the one side-by-side ChatGPT-gets-it-wrong / EarningsNerd-catches-it demo with click-through to the source span — it's the user aha, the investor answer, and the best distribution content at once.
 
 ## 3. Pricing & Packaging — is $14 flat / Free-5 right?  · _Pricing_
 
@@ -216,7 +219,7 @@ _Stakes: pure founder-time-allocation. Polishing the wrong dormant feature (Comp
 _(filled in as questions are run)_
 
 - [x] #1 Wedge — **VERDICT (run #1, 2026-06-28):** lead with **the serious individual investor who already reads 10-Ks (wedge b)**; JTBD = _"read this filing for me, tell me what changed since last quarter, and show me exactly where it says so."_ Homepage one-liner: _"Every new 10-K and 10-Q, read for you — what changed since last quarter, every claim linked to the source."_ Hide everything else (insiders, Compare, calendar, charts, ADR, copilot-as-hero, peers/watchlists) → land on ONE report, not a feature grid. First move: run `evals/` golden set to measure the boilerplate-degradation rate — that number gates whether a single-report wedge is shippable in weeks. (Full council write-up below.)
-- [~] #2 Moat — 3/5 advisors captured (Contrarian, First Principles, Expansionist); needs Executor + Outsider + review + chairman
+- [x] #2 Moat — ✅ complete (run #2, 2026-06-28): 5 advisors + peer review + chairman. Verdict: features-not-moats; lead with **accountability** ("ChatGPT sells confidence; you sell verifiable accuracy"); dataset = evidence not API; real work = distribution+retention. First move: the side-by-side "ChatGPT-wrong / we-catch-it" demo.
 - [ ] #3 Pricing
 - [ ] #4 Beta scope
 - [ ] #5 Distribution
