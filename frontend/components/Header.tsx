@@ -30,11 +30,21 @@ export default function Header() {
   const router = useRouter()
   const queryClient = useQueryClient()
 
-  const { data: user, isLoading } = useQuery({
+  // `user` is tri-state: a user object (logged in), `null` (definitive 401 → logged out), or
+  // `undefined` (still resolving, or errored with no data). getCurrentUserSafe returns `null`
+  // for a 401 rather than throwing, so a "not logged in" answer never triggers a retry.
+  const { data: user } = useQuery({
     queryKey: ['current-user'],
     queryFn: getCurrentUserSafe,
-    retry: false,
+    // Retry only real failures (cold-start timeouts, network blips, 5xx) — these throw. A 401
+    // resolves to `null` and is left alone, so guests still settle in a single request.
+    retry: 3,
+    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 8000),
     staleTime: 60_000,
+    // The global default disables focus refetch; re-enable it here so a stranded auth check
+    // recovers when the user returns to the tab, without needing a full page reload. staleTime
+    // keeps this cheap (no refetch within 60s of the last success).
+    refetchOnWindowFocus: true,
   })
 
   const handleMobileLogout = async () => {
@@ -82,14 +92,12 @@ export default function Header() {
         {/* Right: CTAs / user menu (desktop) */}
         <div className="hidden items-center gap-3 md:flex">
           <ThemeToggle />
-          {isLoading ? (
-            <div className="h-9 w-9 animate-pulse rounded-full bg-border-light dark:bg-white/10" aria-hidden="true" />
-          ) : user ? (
+          {user ? (
             <>
               <NotificationBell />
               <UserMenu user={user} />
             </>
-          ) : (
+          ) : user === null ? (
             <>
               <Link
                 href="/login"
@@ -105,6 +113,11 @@ export default function Header() {
                 <ArrowRightIcon className="h-3.5 w-3.5" />
               </Link>
             </>
+          ) : (
+            // user === undefined: auth not yet resolved (loading or a transient error). Hold the
+            // skeleton rather than asserting logged-out, so a slow/cold backend never flashes the
+            // "Log In" CTAs to a user who is actually signed in.
+            <div className="h-9 w-9 animate-pulse rounded-full bg-border-light dark:bg-white/10" aria-hidden="true" />
           )}
         </div>
 
@@ -174,7 +187,7 @@ export default function Header() {
                     Log out
                   </button>
                 </>
-              ) : (
+              ) : user === null ? (
                 <>
                   <Link
                     href="/login"
@@ -191,6 +204,11 @@ export default function Header() {
                     Get Started
                   </Link>
                 </>
+              ) : (
+                // Auth not yet resolved (loading or a transient error): show a skeleton bar
+                // rather than leaving the bordered container empty (a stray divider + gap), so
+                // the mobile menu matches the desktop header's loading state.
+                <div className="h-9 w-full animate-pulse rounded-lg bg-border-light dark:bg-white/10" aria-hidden="true" />
               )}
             </div>
           </nav>
