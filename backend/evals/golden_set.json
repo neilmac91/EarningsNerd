@@ -107,7 +107,10 @@
         {
           "metric": "net_income",
           "value": 57048000000.0,
-          "unit": "USD"
+          "unit": "USD",
+          "alt_values": [
+            55681000000.0
+          ]
         },
         {
           "metric": "eps",
@@ -137,7 +140,10 @@
         {
           "metric": "net_income",
           "value": 3924000000.0,
-          "unit": "USD"
+          "unit": "USD",
+          "alt_values": [
+            3966000000.0
+          ]
         },
         {
           "metric": "eps",
@@ -164,7 +170,10 @@
         {
           "metric": "net_income",
           "value": 3794000000.0,
-          "unit": "USD"
+          "unit": "USD",
+          "alt_values": [
+            3855000000.0
+          ]
         },
         {
           "metric": "eps",
@@ -224,7 +233,10 @@
         {
           "metric": "net_income",
           "value": 66968000000.0,
-          "unit": "USD"
+          "unit": "USD",
+          "alt_values": [
+            67260000000.0
+          ]
         }
       ],
       "verified": false,
@@ -249,7 +261,10 @@
         {
           "metric": "net_income",
           "value": 28844000000.0,
-          "unit": "USD"
+          "unit": "USD",
+          "alt_values": [
+            29764000000.0
+          ]
         },
         {
           "metric": "eps",
@@ -276,7 +291,10 @@
         {
           "metric": "net_income",
           "value": 2687000000.0,
-          "unit": "USD"
+          "unit": "USD",
+          "alt_values": [
+            2696000000.0
+          ]
         },
         {
           "metric": "eps",
@@ -303,7 +321,10 @@
         {
           "metric": "net_income",
           "value": 2551000000.0,
-          "unit": "USD"
+          "unit": "USD",
+          "alt_values": [
+            2548000000.0
+          ]
         },
         {
           "metric": "eps",
@@ -333,7 +354,10 @@
         {
           "metric": "net_income",
           "value": 21893000000.0,
-          "unit": "USD"
+          "unit": "USD",
+          "alt_values": [
+            22270000000.0
+          ]
         },
         {
           "metric": "eps",
@@ -393,7 +417,11 @@
         {
           "metric": "net_income",
           "value": 2235000000.0,
-          "unit": "USD"
+          "unit": "USD",
+          "alt_values": [
+            2238000000.0,
+            1890000000.0
+          ]
         },
         {
           "metric": "eps",
@@ -423,7 +451,10 @@
         {
           "metric": "net_income",
           "value": -3728000000.0,
-          "unit": "USD"
+          "unit": "USD",
+          "alt_values": [
+            -4281000000.0
+          ]
         },
         {
           "metric": "eps",
@@ -450,7 +481,10 @@
         {
           "metric": "net_income",
           "value": 870527000.0,
-          "unit": "USD"
+          "unit": "USD",
+          "alt_values": [
+            876402000.0
+          ]
         },
         {
           "metric": "eps",
@@ -480,7 +514,10 @@
         {
           "metric": "net_income",
           "value": -3646000000.0,
-          "unit": "USD"
+          "unit": "USD",
+          "alt_values": [
+            -3626000000.0
+          ]
         },
         {
           "metric": "eps",
@@ -561,19 +598,27 @@
         {
           "metric": "net_income",
           "value": 103592000000.0,
-          "unit": "CNY"
+          "unit": "CNY",
+          "alt_values": [
+            102127000000.0,
+            105904000000.0,
+            105803000000.0
+          ]
         },
         {
           "metric": "eps",
           "value": 5.7,
           "unit": "CNY_per_share",
           "alt_values": [
-            5.5
+            5.5,
+            45.6,
+            44.0
           ]
         }
       ],
       "verified": true,
-      "notes": "FPI flagship \u2014 U.S. GAAP, reports in RMB (CNY) + USD convenience; VIE structure"
+      "notes": "FPI flagship \u2014 U.S. GAAP, reports in RMB (CNY) + USD convenience; VIE structure",
+      "ads_ratio": 8
     },
     {
       "ticker": "ASML",
@@ -621,16 +666,184 @@
         {
           "metric": "net_income",
           "value": 1695124900000.0,
-          "unit": "TWD"
+          "unit": "TWD",
+          "alt_values": [
+            1697604000000.0
+          ]
         },
         {
           "metric": "eps",
           "value": 65.47,
-          "unit": "TWD_per_share"
+          "unit": "TWD_per_share",
+          "alt_values": [
+            327.35
+          ]
         }
       ],
       "verified": true,
-      "notes": "FPI 20-F \u2014 IFRS, reports in TWD; large-cap ADR"
+      "notes": "FPI 20-F \u2014 IFRS, reports in TWD; large-cap ADR",
+      "ads_ratio": 5
+    },
+    {
+      "ticker": "JD",
+      "cik": "1549802",
+      "filing_type": "20-F",
+      "company_name": "JD.com, Inc.",
+      "notes": "FPI 20-F \u2014 Chinese ADR (1 ADS = 2 Class A ord), reports CNY",
+      "ads_ratio": 2,
+      "accession_number": "0001193125-26-157870",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1549802/000119312526157870/d53690d20f.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 1309085000000.0,
+          "unit": "CNY"
+        },
+        {
+          "metric": "net_income",
+          "value": 23142000000.0,
+          "unit": "CNY",
+          "alt_values": [
+            19631000000.0,
+            19210000000.0
+          ]
+        },
+        {
+          "metric": "eps",
+          "value": 6.89,
+          "unit": "CNY_per_share",
+          "alt_values": [
+            6.45,
+            13.78,
+            12.9
+          ]
+        }
+      ],
+      "verified": true
+    },
+    {
+      "ticker": "SE",
+      "cik": "1703399",
+      "filing_type": "20-F",
+      "company_name": "Sea Limited",
+      "notes": "FPI 20-F \u2014 Singapore ADR (1 ADS = 1 ord), reports USD",
+      "accession_number": "0001140361-26-015366",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1703399/000114036126015366/ef20067274_20f.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 22938469000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 1578149000.0,
+          "unit": "USD",
+          "alt_values": [
+            1610894000.0,
+            1610326000.0
+          ]
+        },
+        {
+          "metric": "eps",
+          "value": 2.65,
+          "unit": "USD_per_share",
+          "alt_values": [
+            2.52
+          ]
+        }
+      ],
+      "verified": true
+    },
+    {
+      "ticker": "NVO",
+      "cik": "353278",
+      "filing_type": "20-F",
+      "company_name": "Novo Nordisk A/S",
+      "notes": "FPI 20-F \u2014 Danish (1 ADR = 1 B share), reports DKK",
+      "accession_number": "0000353278-26-000012",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/353278/000035327826000012/nvo-20251231.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 309064000000.0,
+          "unit": "DKK"
+        },
+        {
+          "metric": "net_income",
+          "value": 102434000000.0,
+          "unit": "DKK"
+        },
+        {
+          "metric": "eps",
+          "value": 23.06,
+          "unit": "DKK_per_share",
+          "alt_values": [
+            23.03
+          ]
+        }
+      ],
+      "verified": true
+    },
+    {
+      "ticker": "PDD",
+      "cik": "1737806",
+      "filing_type": "20-F",
+      "company_name": "PDD Holdings Inc.",
+      "notes": "FPI 20-F \u2014 Chinese ADR (1 ADS = 4 ord), reports CNY",
+      "ads_ratio": 4,
+      "accession_number": "0001104659-26-050727",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1737806/000110465926050727/pdd-20251231x20f.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 431845713000.0,
+          "unit": "CNY"
+        },
+        {
+          "metric": "net_income",
+          "value": 97842539000.0,
+          "unit": "CNY"
+        },
+        {
+          "metric": "eps",
+          "value": 17.5,
+          "unit": "CNY_per_share",
+          "alt_values": [
+            16.5,
+            70.0,
+            66.0
+          ]
+        }
+      ],
+      "verified": true
+    },
+    {
+      "ticker": "MELI",
+      "cik": "1099590",
+      "filing_type": "10-K",
+      "company_name": "MercadoLibre, Inc.",
+      "notes": "Delaware-incorporated LatAm e-commerce \u2014 domestic 10-K, USD",
+      "accession_number": "0001099590-26-000006",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1099590/000109959026000006/meli-20251231.htm",
+      "ground_truth": [
+        {
+          "metric": "revenue",
+          "value": 28893000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_income",
+          "value": 1997000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "eps",
+          "value": 39.4,
+          "unit": "USD_per_share"
+        }
+      ],
+      "verified": true
     }
   ]
 }
