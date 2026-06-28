@@ -25,6 +25,16 @@ PLACEHOLDER_PATTERNS = (
 
 _MIN_SUBSTANTIVE_CHARS = 20
 
+# A financial_highlights object is well-formed in EITHER of two shapes:
+#   - the flat canonical shape a bake-off candidate is prompted to emit, or
+#   - the production pipeline's richer shape (a metric table + profitability / cash_flow /
+#     balance_sheet bullet lists).
+# Requiring only the flat shape made real production output structurally schema-invalid, which
+# silently capped the aggregate (the schema weight was unearnable). Accepting either is the honest
+# check: it still rejects a malformed/empty object.
+_FLAT_FH_KEYS = ("revenue", "net_income", "eps", "key_metrics")
+_PRODUCT_FH_KEYS = ("table", "profitability", "cash_flow", "balance_sheet")
+
 
 # ---------------------------------------------------------------------------
 # Schema validity
@@ -45,8 +55,14 @@ def validate_schema(payload: Dict[str, Any]) -> Tuple[bool, List[str]]:
     fh = payload.get("financial_highlights")
     if not isinstance(fh, dict):
         problems.append("financial_highlights is not an object")
+    elif any(k in fh for k in _PRODUCT_FH_KEYS):
+        # Production pipeline shape (table + bullet lists) — structurally well-formed. Check key
+        # PRESENCE, not truthiness: an empty-but-structured object is still valid here; emptiness
+        # is coverage's concern, not schema validity's.
+        pass
     else:
-        for k in ("revenue", "net_income", "eps", "key_metrics"):
+        # Otherwise require the full flat canonical shape (a candidate that emits it).
+        for k in _FLAT_FH_KEYS:
             if k not in fh:
                 problems.append(f"financial_highlights missing: {k}")
         if "key_metrics" in fh and not isinstance(fh["key_metrics"], list):

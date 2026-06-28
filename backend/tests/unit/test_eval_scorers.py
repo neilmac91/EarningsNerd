@@ -72,6 +72,49 @@ def test_validate_schema_flags_missing_keys_and_bad_types():
     assert any("missing key" in p for p in problems)
 
 
+def test_validate_schema_accepts_production_financial_highlights_shape():
+    # The production pipeline emits financial_highlights as a metric table + bullet lists, NOT the
+    # flat revenue/net_income/eps fields. That shape is well-formed and must score schema_valid.
+    payload = {
+        "executive_summary": "Record services quarter.",
+        "financial_highlights": {
+            "table": [{"metric": "Revenue", "current_period": "$383B", "prior_period": "$394B",
+                       "change": "-2.8%", "commentary": "Services offset iPhone."}],
+            "profitability": ["Gross margin 44%"],
+            "cash_flow": ["Operating cash flow $110B"],
+            "balance_sheet": ["Total assets $352B"],
+        },
+        "risk_factors": ["Concentration risk."],
+        "management_discussion": "Margin expansion on mix.",
+        "outlook": "Continued momentum.",
+    }
+    valid, problems = validate_schema(payload)
+    assert valid and problems == []
+
+
+def test_validate_schema_rejects_empty_financial_highlights():
+    # An empty object matches neither shape — still invalid (the guard isn't gutted).
+    payload = {
+        "executive_summary": "x", "financial_highlights": {},
+        "risk_factors": [], "management_discussion": "y", "outlook": "z",
+    }
+    valid, problems = validate_schema(payload)
+    assert not valid
+    assert any("financial_highlights missing" in p for p in problems)
+
+
+def test_validate_schema_accepts_structured_but_empty_production_shape():
+    # Production keys PRESENT but empty is structurally valid — emptiness is coverage's concern, not
+    # schema validity's. (Identify the shape by key presence, not truthiness.)
+    payload = {
+        "executive_summary": "x",
+        "financial_highlights": {"table": [], "profitability": [], "cash_flow": [], "balance_sheet": []},
+        "risk_factors": [], "management_discussion": "y", "outlook": "z",
+    }
+    valid, problems = validate_schema(payload)
+    assert valid and problems == []
+
+
 def test_parse_model_json_clean_vs_fenced_vs_garbage():
     payload, repaired = parse_model_json('{"a": 1}')
     assert payload == {"a": 1} and repaired is False
