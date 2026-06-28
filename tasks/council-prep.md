@@ -15,8 +15,9 @@ _Last updated: 2026-06-28_
 - **Uncertainties in play:** positioning, pricing, product focus/UX, trust/accuracy/moat.
 - **Resources:** solo founder, launching closed beta within weeks → recommendations must be lean and high-leverage.
 - **Current prod state (verified):** site live but pre-traffic (`WAITLIST_MODE=false`), invite-gated
-  registration (`REGISTRATION_MODE=invite_only`), `TRUSTED_PROXY_HOPS=1`. **Stripe still in test mode**
-  and **backend PostHog key unset** — both matter for a real beta.
+  registration (`REGISTRATION_MODE=invite_only`), `TRUSTED_PROXY_HOPS=1`. **Stripe is live in prod**
+  (live, non-test id; the beta promo gives beta users Pro free). Watch item: confirm the **backend
+  PostHog key** is set so server-side funnel events fire.
 
 ---
 
@@ -44,7 +45,7 @@ edgartools sections, feedback widget, proxy-hops security fix). Grouped by activ
 | `STREAM_SECTION_REVEAL=true` | First content ~10s vs ~35–60s; identical final output, safe fallback | Env flip | Hrs | **Yes** (perceived latency) |
 | `NEXT_PUBLIC_EXAMPLE_FILING_ID` | Zero-wait "see an example" aha (else falls back to /company/AAPL) | Run pregenerate job, paste id | Hrs | **Yes** — flagged as the single best activation lever |
 | `ENABLE_CALENDAR` + `FMP_API_KEY` | Earnings calendar on dashboard | Provision FMP key | Hrs | Medium |
-| `STRIPE_BETA_PROMO_CODE_ID` | $0 100%-off beta checkout | Create **live** Stripe coupon (prod still test-mode) | Hrs | **Yes** (beta monetization) |
+| `STRIPE_BETA_PROMO_CODE_ID` | $0 100%-off beta checkout (Pro free for beta users) | ✅ Done — live, non-test Promotion Code id (`promo_…`; a `co_` coupon id won't validate) set in prod | — | **Yes** (beta monetization) |
 | `INTERNAL_JOB_TOKEN` + Cloud Scheduler | New-filing alerts, digests, facts backfill | Set secret + create cron jobs | Hrs | **Yes** — watchlist/alerts value prop is inert without it |
 | Turnstile (2 keys) | Bot defense on auth/contact/waitlist | Provision Cloudflare keys | Hrs | Ops/security |
 | `ENABLE_SECTION_TABS`, `ENABLE_FINANCIAL_CHARTS` | UX variants (components exist) | Env flip (+ UX glance) | Hrs | Low/cosmetic |
@@ -71,9 +72,9 @@ edgartools sections, feedback widget, proxy-hops security fix). Grouped by activ
 `TRUSTED_PROXY_HOPS=1`, `REGISTRATION_MODE=invite_only`, `WAITLIST_MODE=false` are already set
 correctly in prod. The *code defaults* are the unsafe/closed ones.
 
-**Cross-cutting risk:** planning docs are slightly ahead of actual prod — **Stripe still test-mode**
-(can't take $0 beta checkouts on a test coupon) and **backend PostHog key unset** (blind on
-server-side funnel events).
+**Cross-cutting watch item:** Stripe is now **live in prod** (live promo code in place — beta users get
+Pro free). Remaining check: confirm the **backend PostHog key** is set, or server-side funnel events
+won't fire (blind on conversion analytics during beta).
 
 ---
 
@@ -173,8 +174,8 @@ _Stakes: answers the open investor question directly; determines what the other 
 > `council this:` "I'm a solo founder of EarningsNerd, launching a closed beta in weeks, and my scarcest
 > resource is my own time. I have a pile of functionality that's BUILT but dormant in production. Inventory:
 > • **Flip-ready (hours each):** honest quality badge, streamed section reveal (faster perceived load), a
-> zero-wait example-filing landing, earnings calendar (needs an API key), the $0 beta-checkout promo, and the
-> alerts/digest cron pipeline.
+> zero-wait example-filing landing, earnings calendar (needs an API key), and the alerts/digest cron pipeline.
+> (The $0 beta-checkout promo is already live in prod.)
 > • **Needs real work (days–weeks):** multi-filing Compare (picker dead-ends, ~days), insider-activity panel
 > (~75s load, needs validation, ~days), Apple sign-in (console setup), a reverse-trial (blocked on an
 > anti-abuse ledger), and foreign-issuer/ADR support (multi-week, high-value but risky if rushed).
