@@ -204,7 +204,12 @@ export default function Header() {
                     Get Started
                   </Link>
                 </>
-              ) : null}
+              ) : (
+                // Auth not yet resolved (loading or a transient error): show a skeleton bar
+                // rather than leaving the bordered container empty (a stray divider + gap), so
+                // the mobile menu matches the desktop header's loading state.
+                <div className="h-9 w-full animate-pulse rounded-lg bg-border-light dark:bg-white/10" aria-hidden="true" />
+              )}
             </div>
           </nav>
         </div>
