@@ -1327,14 +1327,19 @@ function SummaryDisplay({
           {/* A5: What Changed vs the prior comparable filing */}
           {changeReport?.has_changes && <WhatChanged report={changeReport} />}
 
-          {/* 2.5: multi-period trend of the company's standardized fundamentals (revenue/NI/EPS/…)
-              for trajectory context next to the period-over-period diff. Self-fetches + self-gates
-              (renders nothing until facts exist); behind the same flag as the company-page chart. */}
-          {ENABLE_FINANCIAL_CHARTS && filing.company?.ticker && (
+          {/* 2.5 + roadmap B: multi-period trend of the standardized fundamentals (revenue/NI/EPS/…)
+              *as reported in this filing* — the filing's own comparative years, an immutable snapshot
+              faithful to the document (filing-scoped, not the company's latest series). Self-fetches +
+              self-gates (renders nothing until facts exist); behind the same flag as the company chart. */}
+          {ENABLE_FINANCIAL_CHARTS && filing.id && (
             <ChartErrorBoundary>
               <FundamentalsTrendChart
-                ticker={filing.company.ticker}
-                subtitle={`${filing.company.ticker} across recent fiscal years`}
+                filingId={filing.id}
+                subtitle={
+                  filing.company?.ticker
+                    ? `${filing.company.ticker} — figures as reported in this ${filing.filing_type}`
+                    : `Figures as reported in this ${filing.filing_type}`
+                }
               />
             </ChartErrorBoundary>
           )}

@@ -1,57 +1,63 @@
-# Task: Free Copilot "taste" — 3 lifetime questions (roadmap item 2.2)
+# Task: Filing-scoped fundamentals chart (Design B) + event-driven facts backfill
 
-Let Free users sample the Pro "Ask this Filing" Copilot a few times before the upsell, so the
-grounded-citation magic drives conversion. Unblocked by 2.1 (cost telemetry), and cost-guarded:
-each free-taste answer is tagged in the cost event so free-taste spend is isolatable.
+Founder feedback: the filing page chart should represent **the specific (immutable) filing**, not
+the company's accumulated trend. So:
+- **B — make the filing-page chart filing-scoped:** show the multi-year figures *as reported in this
+  filing's own XBRL* (its comparative years), not the company's latest `is_latest` series by ticker.
+  Immutable + faithful to the document.
+- **Event-driven backfill:** populate a filing's facts once, when it's summarized (xbrl_data stored),
+  instead of a recurring cron. Filing-scoped data never goes stale, so no schedule is needed.
 
-## Decisions (per roadmap "3 lifetime questions" + simplicity)
-- **3 lifetime free questions, GLOBAL pool** (not locked to one filing). Simplest + cleanest UX.
-  (Roadmap says "on first filing"; chose global over per-filing scoping — flagged in the PR as a
-  one-column follow-up if a deeper single-filing taste is preferred.)
-- **Lifetime counter lives on `User`** (`copilot_free_taste_used`), NOT `user_usage` (which is
-  monthly — wrong home for a lifetime value; the recon's suggestion corrected here).
-- **Entitlements SSoT extension:** `Entitlements.copilot_free_taste` (3 Free / 0 Pro) +
-  `can_use_copilot(user)`.
+The company page chart stays company-scoped (correct there) — only the filing page changes.
+
+## Design notes (verified)
+- `financial_fact` rows carry `filing_id` + `accession`; a 10-K's XBRL has the current year + prior
+  comparatives, so one filing → a multi-year FY series. Filing-scoped query = `WHERE filing_id = X
+  AND fiscal_period = 'FY'` (NO `is_latest` filter — we want the figures *this* filing reported, even
+  if a later filing restated them). One row per (concept, period_end) within a filing.
+- Both summary paths persist `xbrl_data` at known chokepoints: `summary_pipeline.py:~295` (SSE, inside
+  `update_xbrl_sync`, own session + threadpool) and `summary_generation_service.py:~603` (batch).
+- `upsert_facts(reconcile=True, authoritative=None)` runs only the local gate — no network — so the
+  post-summary hook is fast + SEC-call-free.
 
 ## Backend
-- [x] `User.copilot_free_taste_used` column (`server_default "0"`, NOT NULL) + manual migration
-      `20260629_user_copilot_free_taste.sql` (create_all won't ALTER existing `users`).
-- [x] `entitlements.py`: `copilot_free_taste` field (Free=3, Pro=0) + `can_use_copilot()` helper.
-- [x] `dependencies.py`: `require_copilot_or_taste` — Pro OR Free-with-taste; else 403 → upsell.
-- [x] `summaries.py` ask-stream: swap the dep; the monthly 429 cap is now Pro-only; meter on
-      completion → Free decrements the lifetime counter, Pro increments monthly `qa_count`.
-- [x] `subscription_service.py`: `increment_user_copilot_free_taste(user_id, db)`.
-- [x] Cost guard: `_emit_copilot_cost_best_effort` + `capture_copilot_inference` now tag
-      `is_free_taste` so free-taste $ is isolatable in PostHog (the "guard cost" of 2.2).
-- [x] `subscriptions.py` `UsageResponse`: `copilot_free_taste_used` + `copilot_free_taste_total`.
+- [ ] `facts_service.process_filing_facts(db, filing, *, extract=None, standardized=None, authoritative=None)`
+      — per-filing extract→normalize→upsert→stamp (the per-filing core). Refactor `backfill_facts` to
+      call it (DRY; behavior-preserving — keep the counters/cross-check/idempotency the tests assert).
+- [ ] `facts_service.get_filing_fundamentals(db, filing_id)` — filing-scoped FY series (no is_latest).
+- [ ] `GET /api/filings/{filing_id}/fundamentals` → `FundamentalsResponse` (404 if filing unknown).
+- [ ] Hook `process_filing_facts` (best-effort, try/except) after both xbrl_data commits — pass the
+      already-extracted `standardized` metrics on the SSE path to avoid re-extraction; `authoritative=None`
+      (no SEC round-trip on the hot path). Never break the summary stream.
 
 ## Frontend
-- [x] `Usage` type + the usage endpoint already gain the two taste fields.
-- [x] `AskCopilotRail`: fetch usage for any authed user; a Free user with taste gets the composer +
-      "N of 3 free questions left" pill; on exhaustion the composer disables and an inline upsell
-      shows (the conversation stays — not yanked for the teaser). Anonymous / already-exhausted-with-
-      no-conversation users still get the teaser. Conservative until usage loads (teaser is the safe
-      default), so the composer is never shown to someone out of questions.
+- [ ] `getFilingFundamentals(filingId)` in fundamentals-api.ts (`GET /api/filings/{id}/fundamentals`).
+- [ ] `FundamentalsTrendChart`: accept `filingId?` (filing-scoped fetch, key `['filing-fundamentals', id]`)
+      OR `ticker?` (company-scoped, as now); `enabled` on whichever is present. Company page unchanged.
+- [ ] Filing page: render `<FundamentalsTrendChart filingId={filing.id} subtitle="…as reported in this
+      {filingType}" />` (filing-scoped framing) instead of ticker-scoped.
 
 ## Tests
-- [x] backend `test_entitlements.py`: free taste allowance + `can_use_copilot` (0/2 allow, 3/4 deny;
-      Pro always). `test_copilot.py`: free-with-taste streams, taste-exhausted 403, a free answer
-      decrements the lifetime counter (and leaves monthly `qa_count` at 0).
-- [x] frontend `AskCopilotRail.test.tsx`: free-with-taste shows composer + count; exhausted shows
-      teaser. Existing "teaser for non-Pro" stays green (default usage carries no taste → teaser).
+- [ ] backend: `get_filing_fundamentals` returns the filing's FY rows incl. restated (is_latest=False);
+      `process_filing_facts` extracts+upserts+stamps one filing; backfill tests still green.
+- [ ] frontend: chart spec — a `filingId`-mode render test (mock `getFilingFundamentals`); existing
+      ticker-mode tests stay green.
 
 ## Verify
-- [x] Backend `py_compile` clean (pytest unavailable locally → the new cases run on CI backend-tests).
-- [x] Frontend `npm run typecheck` + `lint --max-warnings 0` clean; vitest 50 files / 230 tests (+2).
-- [ ] CI green on the pushed branch; open as a draft PR.
-
-## Founder actions (not code)
-- **Apply the migration to prod** (`20260629_user_copilot_free_taste.sql`) before/with deploy.
-- Watch the funnel: `copilot_inference_cost{is_free_taste=true}` for spend, and the question→answer
-  events for Free users converting after the taste.
+- [ ] `py_compile`; `npm run typecheck` + `lint`; full `vitest`. Backend DB tests run on CI.
 
 ## Review
-- Surgical + reuse-first: leans on the existing Copilot pipeline, usage endpoint, teaser, and cost
-  telemetry — the new logic is one gate, one lifetime counter, one metering branch, one cost tag,
-  and the rail's free-user rendering. No change to the Copilot service/tools/prompts; no eval surface.
-- Scope flag: global-pool taste chosen over first-filing scoping (stated in the PR for redirect).
+- **B (filing-scoped):** new `get_filing_fundamentals` (query by `filing_id`, FY-only, no `is_latest`)
+  + `GET /api/filings/{id}/fundamentals`; chart gained a `filingId` mode (company page unchanged);
+  filing page now passes `filingId` + a "as reported in this {type}" subtitle. The shared row→series
+  shaping was factored into `_fundamentals_payload` (DRY).
+- **Event-driven backfill:** factored the per-filing core into `process_filing_facts` (used by both
+  `backfill_facts` and the hooks). Hooked it best-effort + network-free after both xbrl_data commits
+  (SSE reuses the metrics it already extracted; batch re-extracts). `backfill_facts` refactor is
+  behavior-preserving — existing backfill tests use `cross_check=False`, and the cross-check test
+  still passes `authoritative` through, so no new network calls.
+- **Verified:** `py_compile` clean; `npm run typecheck` + `lint --max-warnings 0` clean; vitest 50
+  files / 231 tests (+1 filing-scoped). New backend tests (filing-scoped read incl. restated rows;
+  `process_filing_facts`) run on CI.
+- **Outcome:** the filing chart is now an immutable, document-faithful snapshot; no recurring backfill
+  needed (facts populate when a filing is summarized).

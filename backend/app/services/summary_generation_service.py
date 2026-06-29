@@ -602,6 +602,15 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                         if filing_for_xbrl:
                             filing_for_xbrl.xbrl_data = xbrl_data
                             db.commit()
+                            # Populate this filing's normalized facts now (roadmap B: the filing-scoped
+                            # trend chart reads them). Best-effort + network-free; never break batch
+                            # generation. Batch path isn't latency-sensitive, so a synchronous upsert.
+                            try:
+                                from app.services import facts_service
+
+                                facts_service.process_filing_facts(db, filing_for_xbrl)
+                            except Exception:
+                                logger.warning(f"[{filing_id}] facts upsert failed (non-fatal)", exc_info=True)
                         if xbrl_start:
                             xbrl_time = time.time() - xbrl_start
                             logger.info(f"[{filing_id}] ✓ Extracted XBRL data in {xbrl_time:.1f}s")

@@ -5,7 +5,11 @@ import { useQuery } from '@tanstack/react-query'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { CircleNotchIcon } from '@/lib/icons'
 
-import { getFundamentals, FundamentalsResponse } from '@/features/fundamentals/api/fundamentals-api'
+import {
+  getFundamentals,
+  getFilingFundamentals,
+  FundamentalsResponse,
+} from '@/features/fundamentals/api/fundamentals-api'
 import { ApiError } from '@/lib/api/client'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import UnverifiedBadge from '@/components/UnverifiedBadge'
@@ -49,12 +53,15 @@ const formatValue = (value: number, fmt: FmtKind, currency = 'USD'): string => {
 
 export default function FundamentalsTrendChart({
   ticker,
+  filingId,
   subtitle,
 }: {
-  ticker: string
-  // Optional context line under the heading. The company page omits it (the page header already
-  // identifies the company); the filing page passes one so the multi-year series reads as the
-  // company's history, not just this single filing.
+  // Company-scoped: the latest (`is_latest`) annual series for this ticker — the company page's trend.
+  ticker?: string
+  // Filing-scoped (roadmap B): the multi-year figures *as reported in this specific filing*. Provide
+  // exactly one of `ticker` / `filingId`; `filingId` takes precedence when both are present.
+  filingId?: number
+  // Optional context line under the heading (the filing page passes one to frame the source).
   subtitle?: string
 }) {
   // Recharts colours are props, not classes. Read theme off the context (not useTheme) with a
@@ -68,12 +75,13 @@ export default function FundamentalsTrendChart({
   const cursorFill = dark ? 'rgba(62,142,132,0.16)' : 'rgba(62,142,132,0.08)'
 
   const { data, isLoading, isError } = useQuery<FundamentalsResponse>({
-    queryKey: ['fundamentals', ticker],
-    queryFn: () => getFundamentals(ticker),
-    enabled: !!ticker,
+    queryKey: filingId != null ? ['filing-fundamentals', filingId] : ['fundamentals', ticker],
+    queryFn: () =>
+      filingId != null ? getFilingFundamentals(filingId) : getFundamentals(ticker as string),
+    enabled: filingId != null || !!ticker,
     retry: (failureCount, err) =>
       err instanceof ApiError && err.isRetryable ? failureCount < 2 : false,
-    staleTime: 60 * 60 * 1000, // facts change only with new filings
+    staleTime: 60 * 60 * 1000, // facts change only with new filings (filing-scoped is immutable)
     gcTime: 2 * 60 * 60 * 1000,
   })
 

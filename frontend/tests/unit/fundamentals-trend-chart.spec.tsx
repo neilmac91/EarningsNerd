@@ -14,8 +14,10 @@ vi.mock('recharts', () => ({
 }))
 
 const getFundamentals = vi.fn()
+const getFilingFundamentals = vi.fn()
 vi.mock('@/features/fundamentals/api/fundamentals-api', () => ({
   getFundamentals: (...args: unknown[]) => getFundamentals(...args),
+  getFilingFundamentals: (...args: unknown[]) => getFilingFundamentals(...args),
 }))
 
 import FundamentalsTrendChart from '@/features/fundamentals/components/FundamentalsTrendChart'
@@ -51,7 +53,10 @@ const RESP = {
 }
 
 describe('FundamentalsTrendChart', () => {
-  beforeEach(() => getFundamentals.mockReset())
+  beforeEach(() => {
+    getFundamentals.mockReset()
+    getFilingFundamentals.mockReset()
+  })
 
   it('shows only featured concepts present in the response, defaulting to the first', async () => {
     getFundamentals.mockResolvedValue(RESP)
@@ -118,5 +123,20 @@ describe('FundamentalsTrendChart', () => {
     await waitFor(() =>
       expect(screen.queryByText('AAPL across recent fiscal years')).not.toBeInTheDocument(),
     )
+  })
+
+  it('filing-scoped mode fetches by filingId (roadmap B), not by ticker', async () => {
+    getFilingFundamentals.mockResolvedValue(RESP)
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={qc}>
+        <FundamentalsTrendChart filingId={285} subtitle="LLY — figures as reported in this 10-K" />
+      </QueryClientProvider>,
+    )
+
+    expect(await screen.findByRole('button', { name: 'Revenue' })).toBeInTheDocument()
+    expect(screen.getByText('LLY — figures as reported in this 10-K')).toBeInTheDocument()
+    expect(getFilingFundamentals).toHaveBeenCalledWith(285)
+    expect(getFundamentals).not.toHaveBeenCalled() // filing-scoped, never the company endpoint
   })
 })
