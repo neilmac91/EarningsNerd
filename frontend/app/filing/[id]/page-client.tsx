@@ -373,6 +373,10 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   const summaryErrorMessage = getFriendlyErrorMessage(summaryError)
   const activeErrorMessage = generationError || summaryErrorMessage
   const debugSummary = searchParams?.get('debug') === '1'
+  // Demo mode (curated first impression): the example/onboarding deep-links carry `?demo=1`.
+  // It suppresses the quality badge + Regenerate button and silences the copilot attention nudge,
+  // so a first-time visitor never meets a "Partial" badge on the curated example (plan item 1.3).
+  const demoMode = searchParams?.get('demo') === '1'
 
   const handleGenerateSummary = useCallback(async (options?: { force?: boolean }) => {
     // Feature flag for auth requirement (default to false implies POC mode/open access)
@@ -614,6 +618,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
         open={copilotOpen}
         onOpenChange={setCopilotOpen}
         summaryAvailable={hasSummaryContent}
+        demoMode={demoMode}
         secUrl={filing.sec_url ?? filing.document_url ?? null}
         copilotBody={
           <AskCopilotRail
@@ -660,6 +665,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
               saveMutation={saveMutation}
               isSaved={!!isSaved}
               debug={debugSummary}
+              demoMode={demoMode}
               isAuthenticated={isAuthenticated}
               onRetry={handleRegenerateSummary}
               onAsk={handleAskCopilot}
@@ -1078,6 +1084,7 @@ function SummaryDisplay({
   saveMutation,
   isSaved,
   debug,
+  demoMode,
   isAuthenticated,
   onRetry,
   onAsk,
@@ -1088,6 +1095,7 @@ function SummaryDisplay({
   saveMutation: SaveMutation
   isSaved: boolean
   debug?: boolean
+  demoMode?: boolean
   isAuthenticated: boolean
   onRetry?: () => void
   /** Opens the Copilot rail with an optional pre-filled question; `surface` attributes the entry point. */
@@ -1273,8 +1281,10 @@ function SummaryDisplay({
                 <div className="flex items-center space-x-2">
                   <FileTextIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
                   <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Summary</h2>
-                  {/* S4 quality badge: honest signal of full vs partial output */}
-                  {ENABLE_QUALITY_BADGE && quality?.tier && (
+                  {/* S4 quality badge: honest signal of full vs partial output.
+                      Suppressed in demo mode so a first-time visitor never meets "Partial" on the
+                      curated example (plan item 1.3) — the badge still shows on user-chosen filings. */}
+                  {!demoMode && ENABLE_QUALITY_BADGE && quality?.tier && (
                     <span
                       title={quality.reasons && quality.reasons.length ? quality.reasons.join('; ') : undefined}
                       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${
@@ -1289,8 +1299,9 @@ function SummaryDisplay({
                     </span>
                   )}
                 </div>
-                {/* Retry button - shown for partial results or fallback summaries */}
-                {(isPartial || writerFallback || isPartialQuality) && onRetry && (
+                {/* Retry button - shown for partial results or fallback summaries.
+                    Suppressed in demo mode (no "regenerate" affordance on the curated example). */}
+                {!demoMode && (isPartial || writerFallback || isPartialQuality) && onRetry && (
                   <Button variant="secondary" onClick={onRetry}>
                     Regenerate Analysis
                   </Button>
