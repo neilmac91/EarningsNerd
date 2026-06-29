@@ -289,13 +289,22 @@ def _emit_copilot_cost_best_effort(user_id: int, filing_id: int, ticker, event: 
             return
         prompt_tokens = usage.get("prompt_tokens")
         completion_tokens = usage.get("completion_tokens")
+        cache_hit_tokens = usage.get("cache_hit_tokens")
+        cache_miss_tokens = usage.get("cache_miss_tokens")
         capture_copilot_inference(
             distinct_id=str(user_id),
             model=usage.get("model"),
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             total_tokens=usage.get("total_tokens"),
-            cost_usd=estimate_inference_cost_usd(prompt_tokens, completion_tokens),
+            cache_hit_tokens=cache_hit_tokens,
+            cache_miss_tokens=cache_miss_tokens,
+            cost_usd=estimate_inference_cost_usd(
+                prompt_tokens,
+                completion_tokens,
+                cache_hit_tokens=cache_hit_tokens,
+                cache_miss_tokens=cache_miss_tokens,
+            ),
             filing_id=filing_id,
             ticker=ticker,
             kind=event.get("kind"),

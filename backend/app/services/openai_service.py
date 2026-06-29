@@ -3066,12 +3066,20 @@ Do not include any additional keys or text outside the JSON object."""
                         if usage_sink is not None:
                             u = getattr(chunk, "usage", None)
                             if u is not None:
-                                p_tok = u.get("prompt_tokens") if isinstance(u, dict) else getattr(u, "prompt_tokens", 0)
-                                c_tok = u.get("completion_tokens") if isinstance(u, dict) else getattr(u, "completion_tokens", 0)
-                                t_tok = u.get("total_tokens") if isinstance(u, dict) else getattr(u, "total_tokens", 0)
-                                usage_sink["prompt_tokens"] = usage_sink.get("prompt_tokens", 0) + (p_tok or 0)
-                                usage_sink["completion_tokens"] = usage_sink.get("completion_tokens", 0) + (c_tok or 0)
-                                usage_sink["total_tokens"] = usage_sink.get("total_tokens", 0) + (t_tok or 0)
+                                is_dict = isinstance(u, dict)
+                                p_tok = (u.get("prompt_tokens") if is_dict else getattr(u, "prompt_tokens", 0)) or 0
+                                c_tok = (u.get("completion_tokens") if is_dict else getattr(u, "completion_tokens", 0)) or 0
+                                t_tok = (u.get("total_tokens") if is_dict else getattr(u, "total_tokens", 0)) or 0
+                                # DeepSeek-specific: input tokens served from the context cache (HIT)
+                                # vs not (MISS), priced ~120x apart. Absent on providers that don't
+                                # cache → 0, and the cost estimate then treats all input as a miss.
+                                hit_tok = (u.get("prompt_cache_hit_tokens") if is_dict else getattr(u, "prompt_cache_hit_tokens", 0)) or 0
+                                miss_tok = (u.get("prompt_cache_miss_tokens") if is_dict else getattr(u, "prompt_cache_miss_tokens", 0)) or 0
+                                usage_sink["prompt_tokens"] = usage_sink.get("prompt_tokens", 0) + p_tok
+                                usage_sink["completion_tokens"] = usage_sink.get("completion_tokens", 0) + c_tok
+                                usage_sink["total_tokens"] = usage_sink.get("total_tokens", 0) + t_tok
+                                usage_sink["cache_hit_tokens"] = usage_sink.get("cache_hit_tokens", 0) + hit_tok
+                                usage_sink["cache_miss_tokens"] = usage_sink.get("cache_miss_tokens", 0) + miss_tok
                         continue
                     choice = chunk.choices[0]
                     delta = choice.delta

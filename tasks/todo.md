@@ -34,8 +34,11 @@ only return it when `stream_options={"include_usage": True}` is set), and there 
 ## Notes
 - **Not eval-relevant:** touches the copilot path (`stream_chat_with_tools`), not summary generation
   (`stream_chat`/`summarize_filing`) — `eval-baseline` is unaffected.
-- **Pricing rates are placeholders** ($0.14 / $0.28 per 1M) — set `AI_INPUT/OUTPUT_PRICE_PER_1M_TOKENS`
-  to the provider's actual rates so `cost_usd` reflects real spend.
+- **Pricing is cache-aware, real deepseek-v4-pro rates** ($/1M): input cache-hit $0.003625,
+  input cache-miss $0.435, output $0.87 (from the DeepSeek pricing docs / 29-Jun email). DeepSeek
+  prices input cache-hit vs cache-miss ~120x apart and reports the split in `usage`, so we capture
+  `prompt_cache_hit/miss_tokens` and price each bucket (fallback: all-miss). Peak-hour surcharge
+  (~2x, from the ~mid-July V4 release) is intentionally NOT modelled yet (regular rates).
 - DeepSeek (the default provider) supports `stream_options.include_usage`; if usage is ever absent,
   the cost event is simply skipped.
 - Unblocks 2.2 (free-Copilot taste) once a few weeks of cost data confirm affordability.
