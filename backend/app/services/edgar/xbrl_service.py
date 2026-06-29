@@ -34,6 +34,8 @@ from .instance_extractor import (
     DURATION_CONCEPTS,
     DURATION_WINDOWS,
     INSTANT_CONCEPTS,
+    RICHER_DURATION_CONCEPTS,
+    RICHER_INSTANT_CONCEPTS,
     duration_series_with_currency,
     instant_series_with_currency,
     normalize_form,
@@ -250,7 +252,18 @@ def _extract_from_filing_instance_sync(
         if currency:
             currency_votes[currency] = currency_votes.get(currency, 0) + weight
 
-    for metric, concepts in DURATION_CONCEPTS.items():
+    # Roadmap 2.6 (Phase A): when enabled, also extract the full cash-flow statement (investing +
+    # financing flows) and working-capital lines (current assets/liabilities). Flag-gated, so the
+    # default concept set — and the eval baseline — stays byte-for-byte unchanged until flipped on.
+    from app.config import settings
+
+    duration_concepts = DURATION_CONCEPTS
+    instant_concepts = INSTANT_CONCEPTS
+    if settings.RICHER_FINANCIALS_ENABLED:
+        duration_concepts = {**DURATION_CONCEPTS, **RICHER_DURATION_CONCEPTS}
+        instant_concepts = {**INSTANT_CONCEPTS, **RICHER_INSTANT_CONCEPTS}
+
+    for metric, concepts in duration_concepts.items():
         series, currency = duration_series_with_currency(xb, concepts, base_form, period_of_report)
         result[metric] = [
             {"period": end, "value": value, "form": form, "accn": accession_number, "currency": currency}
@@ -260,7 +273,7 @@ def _extract_from_filing_instance_sync(
         # currency vote; weight revenue/net_income (true monetary totals) instead.
         if metric not in ("earnings_per_share", "eps_diluted"):
             _record_currency(currency, len(series))
-    for metric, concepts in INSTANT_CONCEPTS.items():
+    for metric, concepts in instant_concepts.items():
         series, currency = instant_series_with_currency(xb, concepts, period_of_report)
         result[metric] = [
             {"period": end, "value": value, "form": form, "accn": accession_number, "currency": currency}
@@ -984,13 +997,43 @@ class EdgarXBRLService:
             if margin_series:
                 metrics["net_margin"] = build_metric_entry(margin_series)
 
-        # P1.1 depth: surface cash-flow + balance-sheet metrics the pipeline already collects.
+        # P1.1 depth + roadmap 2.6: surface cash-flow + balance-sheet metrics the pipeline collects.
+        # The 2.6 keys (investing/financing CF, current assets/liabilities) only carry a series when
+        # RICHER_FINANCIALS_ENABLED was on at extraction, so listing them here is inert until then.
         for key in ("eps_diluted", "operating_cash_flow", "capital_expenditures", "gross_profit",
                     "operating_income", "total_assets", "cash_and_equivalents",
-                    "shareholders_equity", "long_term_debt"):
+                    "shareholders_equity", "long_term_debt",
+                    "investing_cash_flow", "financing_cash_flow",
+                    "current_assets", "current_liabilities"):
             series = normalise_series(xbrl_data.get(key, []))
             if series:
                 metrics[key] = build_metric_entry(series)
+
+        # Roadmap 2.6 derived liquidity (per period): working capital = current assets − current
+        # liabilities; current ratio = current assets ÷ current liabilities. Self-gating — both
+        # require the 2.6 balance-sheet lines, which only exist when the flag is on.
+        ca_series = normalise_series(xbrl_data.get("current_assets", []))
+        cl_series = normalise_series(xbrl_data.get("current_liabilities", []))
+        if ca_series and cl_series:
+            cl_by_period = {e["period"]: e for e in cl_series}
+            wc_series, cr_series = [], []
+            for ca in ca_series:
+                cl = cl_by_period.get(ca["period"])
+                ca_v = ca.get("value")
+                cl_v = cl.get("value") if cl else None
+                # Guard on non-negative components: a negative current-assets/liabilities total is a
+                # parse error (the base fact is hard-rejected by the reconciliation gate). The derived
+                # metrics aren't in NON_NEGATIVE_CONCEPTS (working_capital CAN be negative), so without
+                # this guard a corrupt component would persist an invalid working_capital / negative
+                # current_ratio. Only derive from clean inputs.
+                if ca_v is not None and cl_v is not None and ca_v >= 0 and cl_v >= 0:
+                    wc_series.append({"period": ca["period"], "value": ca_v - cl_v, "form": ca.get("form")})
+                    if cl_v > 0:
+                        cr_series.append({"period": ca["period"], "value": ca_v / cl_v, "form": ca.get("form")})
+            if wc_series:
+                metrics["working_capital"] = build_metric_entry(wc_series)
+            if cr_series:
+                metrics["current_ratio"] = build_metric_entry(cr_series)
 
         # Derived: free cash flow = operating cash flow - capital expenditures (per period).
         # abs(capex) handles filers that tag the outflow as negative.

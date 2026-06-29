@@ -15,7 +15,7 @@ import { fmtCurrency, fmtPercent } from '@/lib/format'
 import UnverifiedBadge from '@/components/UnverifiedBadge'
 import { ThemeContext } from '@/components/ThemeProvider'
 
-type FmtKind = 'usd' | 'eps' | 'pct'
+type FmtKind = 'usd' | 'eps' | 'pct' | 'ratio'
 
 // Curated, ordered set of concepts to offer (only those present in the response are shown).
 // `concept` keys match the backend's standardized vocabulary (facts_service._CONCEPT_UNITS).
@@ -25,6 +25,8 @@ const FEATURED: { key: string; label: string; fmt: FmtKind }[] = [
   { key: 'gross_profit', label: 'Gross Profit', fmt: 'usd' },
   { key: 'operating_income', label: 'Operating Income', fmt: 'usd' },
   { key: 'operating_cash_flow', label: 'Operating Cash Flow', fmt: 'usd' },
+  { key: 'investing_cash_flow', label: 'Investing Cash Flow', fmt: 'usd' },
+  { key: 'financing_cash_flow', label: 'Financing Cash Flow', fmt: 'usd' },
   { key: 'free_cash_flow', label: 'Free Cash Flow', fmt: 'usd' },
   { key: 'eps_diluted', label: 'Diluted EPS', fmt: 'eps' },
   { key: 'earnings_per_share', label: 'EPS', fmt: 'eps' },
@@ -32,6 +34,10 @@ const FEATURED: { key: string; label: string; fmt: FmtKind }[] = [
   { key: 'operating_margin', label: 'Operating Margin', fmt: 'pct' },
   { key: 'net_margin', label: 'Net Margin', fmt: 'pct' },
   { key: 'total_assets', label: 'Total Assets', fmt: 'usd' },
+  { key: 'current_assets', label: 'Current Assets', fmt: 'usd' },
+  { key: 'current_liabilities', label: 'Current Liabilities', fmt: 'usd' },
+  { key: 'working_capital', label: 'Working Capital', fmt: 'usd' },
+  { key: 'current_ratio', label: 'Current Ratio', fmt: 'ratio' },
   { key: 'shareholders_equity', label: "Shareholders' Equity", fmt: 'usd' },
 ]
 
@@ -47,6 +53,9 @@ const currencyFromUnit = (unit: string | undefined): string => {
 
 const formatValue = (value: number, fmt: FmtKind, currency = 'USD'): string => {
   if (fmt === 'pct') return fmtPercent(value, { digits: 1 })
+  // A ratio (e.g. current ratio 2.5) is a dimensionless multiple — never a "$" or "%".
+  if (fmt === 'ratio')
+    return `${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}×`
   if (fmt === 'eps') return fmtCurrency(value, { currency, digits: 2, compact: false })
   return fmtCurrency(value, { currency, compact: true })
 }

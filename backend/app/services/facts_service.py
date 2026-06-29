@@ -43,13 +43,23 @@ _CONCEPT_UNITS: dict[str, str] = {
     "net_margin": "pure",
     "gross_margin": "pure",
     "operating_margin": "pure",
+    # Roadmap 2.6: full cash-flow statement + working-capital lines (flag-gated extraction).
+    "investing_cash_flow": "USD",
+    "financing_cash_flow": "USD",
+    "current_assets": "USD",
+    "current_liabilities": "USD",
+    "working_capital": "USD",
+    "current_ratio": "pure",
 }
 
 # Concepts that are physically impossible below zero — a negative value is a parse error,
 # not a legitimate datum (a loss lives in net_income/operating_income, never in revenue or
 # total_assets). These hard-reject; everything else can legitimately be negative.
 NON_NEGATIVE_CONCEPTS: frozenset[str] = frozenset(
-    {"revenue", "total_assets", "cash_and_equivalents", "long_term_debt"}
+    {"revenue", "total_assets", "cash_and_equivalents", "long_term_debt",
+     # Roadmap 2.6: balance-sheet totals + the current ratio can't be negative (working_capital CAN
+     # be, and the investing/financing cash flows routinely are — so those stay out of this set).
+     "current_assets", "current_liabilities", "current_ratio"}
 )
 
 # A period-over-period swing beyond this factor (either direction) is treated as a likely
