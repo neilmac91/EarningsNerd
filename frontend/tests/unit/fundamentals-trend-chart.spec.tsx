@@ -138,6 +138,7 @@ describe('FundamentalsTrendChart', () => {
         { concept: 'current_assets', unit: 'USD', points: [point(2023, 30, 'USD')] },
         { concept: 'current_liabilities', unit: 'USD', points: [point(2023, 20, 'USD')] },
         { concept: 'working_capital', unit: 'USD', points: [point(2023, 10, 'USD')] },
+        { concept: 'current_ratio', unit: 'pure', points: [point(2023, 1.5, 'pure')] },
       ],
     })
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -152,6 +153,7 @@ describe('FundamentalsTrendChart', () => {
     expect(screen.getByRole('button', { name: 'Current Assets' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Current Liabilities' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Working Capital' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Current Ratio' })).toBeInTheDocument()
   })
 
   it('filing-scoped mode fetches by filingId (roadmap B), not by ticker', async () => {

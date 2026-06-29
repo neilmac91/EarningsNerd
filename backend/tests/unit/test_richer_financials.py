@@ -62,6 +62,19 @@ class TestStandardize:
         assert "working_capital" not in metrics
         assert "current_ratio" not in metrics
 
+    def test_no_derived_liquidity_from_negative_components(self):
+        # A negative current-assets/liabilities total is a parse error (the base fact is hard-rejected
+        # by reconcile). The derived metrics run BEFORE reconcile and aren't all non-negative, so guard
+        # them at the source: a corrupt component must not persist an invalid working_capital / a
+        # physically-impossible negative current_ratio.
+        data = {
+            "current_assets": [_line("2024-09-28", -300_000.0)],
+            "current_liabilities": [_line("2024-09-28", 120_000.0)],
+        }
+        metrics = edgar_xbrl_service.extract_standardized_metrics(data)
+        assert "working_capital" not in metrics
+        assert "current_ratio" not in metrics
+
     def test_current_ratio_skips_period_with_zero_liabilities(self):
         # A zero-liabilities period must not divide-by-zero; working_capital still computes.
         data = {
@@ -128,6 +141,13 @@ class TestReconcileGate:
     def test_negative_current_liabilities_hard_rejected(self):
         accepted, rejected = svc.reconcile_facts([_gatefact("current_liabilities", -1.0)])
         assert [f["concept"] for f in rejected] == ["current_liabilities"]
+        assert accepted == []
+
+    def test_negative_current_ratio_hard_rejected(self):
+        # A current ratio is current_assets ÷ current_liabilities — both non-negative — so it can
+        # never be negative. Defense-in-depth: hard-reject if one ever slips through.
+        accepted, rejected = svc.reconcile_facts([_gatefact("current_ratio", -1.5)])
+        assert [f["concept"] for f in rejected] == ["current_ratio"]
         assert accepted == []
 
     def test_negative_financing_cash_flow_kept(self):

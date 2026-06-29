@@ -1021,9 +1021,14 @@ class EdgarXBRLService:
                 cl = cl_by_period.get(ca["period"])
                 ca_v = ca.get("value")
                 cl_v = cl.get("value") if cl else None
-                if ca_v is not None and cl_v is not None:
+                # Guard on non-negative components: a negative current-assets/liabilities total is a
+                # parse error (the base fact is hard-rejected by the reconciliation gate). The derived
+                # metrics aren't in NON_NEGATIVE_CONCEPTS (working_capital CAN be negative), so without
+                # this guard a corrupt component would persist an invalid working_capital / negative
+                # current_ratio. Only derive from clean inputs.
+                if ca_v is not None and cl_v is not None and ca_v >= 0 and cl_v >= 0:
                     wc_series.append({"period": ca["period"], "value": ca_v - cl_v, "form": ca.get("form")})
-                    if cl_v != 0:
+                    if cl_v > 0:
                         cr_series.append({"period": ca["period"], "value": ca_v / cl_v, "form": ca.get("form")})
             if wc_series:
                 metrics["working_capital"] = build_metric_entry(wc_series)

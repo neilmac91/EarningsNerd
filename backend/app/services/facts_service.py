@@ -57,9 +57,9 @@ _CONCEPT_UNITS: dict[str, str] = {
 # total_assets). These hard-reject; everything else can legitimately be negative.
 NON_NEGATIVE_CONCEPTS: frozenset[str] = frozenset(
     {"revenue", "total_assets", "cash_and_equivalents", "long_term_debt",
-     # Roadmap 2.6: balance-sheet totals that can't be negative (working_capital CAN be, and the
-     # investing/financing cash flows routinely are — so they stay out of this set).
-     "current_assets", "current_liabilities"}
+     # Roadmap 2.6: balance-sheet totals + the current ratio can't be negative (working_capital CAN
+     # be, and the investing/financing cash flows routinely are — so those stay out of this set).
+     "current_assets", "current_liabilities", "current_ratio"}
 )
 
 # A period-over-period swing beyond this factor (either direction) is treated as a likely

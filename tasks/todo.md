@@ -124,3 +124,14 @@ byte-for-byte unchanged.
   event-driven hook from #473) or a one-off `backfill_facts` run once the flag is on. No schema change.
 - **Rollout:** default OFF; flip `RICHER_FINANCIALS_ENABLED=true` + run a one-off backfill to populate
   existing summarized filings, then the chart shows the new metric buttons and Copilot can cite them.
+
+## Review fixes (Gemini, PR #475 — all applied)
+- **Guard derived liquidity on non-negative components (HIGH):** `working_capital`/`current_ratio` are
+  derived BEFORE reconciliation and aren't all non-negative, so a corrupt negative current-assets/
+  liabilities would persist garbage. Now only derived when `ca_v >= 0 and cl_v >= 0` (ratio: `cl_v > 0`).
+- **Surface `current_ratio` on the chart (HIGH):** it was persisted but omitted from `FEATURED`. Added
+  with a new `'ratio'` `FmtKind` (renders as a `2.50×` multiple — never "$"/"%"); no `as any` cast.
+- **`current_ratio` → `NON_NEGATIVE_CONCEPTS` (MEDIUM):** defense-in-depth hard-reject (a ratio of two
+  non-negative numbers can't be negative).
+- Tests added: negative component ⇒ no derived liquidity; negative `current_ratio` hard-rejected;
+  chart renders the Current Ratio button. 90 backend + 7 chart tests green; typecheck/lint clean.
