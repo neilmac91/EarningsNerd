@@ -98,14 +98,11 @@ const getFriendlyErrorMessage = (error: unknown): string | null => {
 }
 
 // --- Components ---
-const FinancialCharts = dynamic(() => import('@/components/FinancialCharts'), {
-  ssr: false,
-  loading: () => <ChartsSkeleton />,
-})
-
 // Multi-period fundamentals trend (item 2.5), reused from the company page. recharts is heavy +
 // DOM-only, so load it client-side like the other charts. It self-fetches and renders nothing until
-// facts exist, so no loading fallback (which would flash an empty card before it decides).
+// facts exist, so no loading fallback (which would flash an empty card before it decides). This is
+// the page's single financial chart — it replaced the older current-vs-prior FinancialCharts, whose
+// bar chart duplicated this one's metrics; the FinancialMetricsTable below still shows the numbers.
 const FundamentalsTrendChart = dynamic(
   () => import('@/features/fundamentals/components/FundamentalsTrendChart'),
   { ssr: false },
@@ -1335,24 +1332,19 @@ function SummaryDisplay({
               (renders nothing until facts exist); behind the same flag as the company-page chart. */}
           {ENABLE_FINANCIAL_CHARTS && filing.company?.ticker && (
             <ChartErrorBoundary>
-              <FundamentalsTrendChart ticker={filing.company.ticker} />
+              <FundamentalsTrendChart
+                ticker={filing.company.ticker}
+                subtitle={`${filing.company.ticker} across recent fiscal years`}
+              />
             </ChartErrorBoundary>
           )}
 
           {/* Financial Metrics Table */}
           {metadata?.financial_highlights?.table && Array.isArray(metadata.financial_highlights.table) && (
-            <>
-              <FinancialMetricsTable
-                metrics={metadata.financial_highlights.table}
-                notes={metadata.financial_highlights.notes}
-              />
-              {/* Charts controlled by feature flag - hidden by default */}
-              {ENABLE_FINANCIAL_CHARTS && (
-                <ChartErrorBoundary>
-                  <FinancialCharts metrics={metadata.financial_highlights.table} />
-                </ChartErrorBoundary>
-              )}
-            </>
+            <FinancialMetricsTable
+              metrics={metadata.financial_highlights.table}
+              notes={metadata.financial_highlights.notes}
+            />
           )}
 
           {/* Structured Summary with Tabs */}
@@ -1398,15 +1390,6 @@ function SummaryDisplay({
           </pre>
         </section>
       )}
-    </div>
-  )
-}
-
-function ChartsSkeleton() {
-  return (
-    <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 animate-pulse">
-      <div className="h-5 w-48 bg-border-light dark:bg-border-dark rounded mb-4" />
-      <div className="h-64 bg-background-light dark:bg-background-dark rounded" />
     </div>
   )
 }

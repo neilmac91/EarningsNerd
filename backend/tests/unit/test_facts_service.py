@@ -586,6 +586,35 @@ class TestGetFundamentals:
         assert [p["fiscal_year"] for p in revenue["points"]] == [2023, 2024]
         db.close()
 
+    def test_excludes_non_annual_facts(self):
+        # The series must be annual-only: a quarterly fact (fiscal_period=None, as a 10-Q yields) must
+        # never surface next to the FY value for the same year under the chart's "Annual figures" label.
+        from app.database import SessionLocal
+        from app.models import Company
+
+        db = SessionLocal()
+        suffix = uuid.uuid4().hex[:8]
+        company = Company(cik=suffix, ticker=("Q" + suffix[:4]).upper(), name=f"Qtr {suffix}")
+        db.add(company)
+        db.commit()
+        db.refresh(company)
+
+        common = {"concept": "revenue", "unit": "USD", "form": "10-K",
+                  "company_id": company.id, "filing_id": None, "source": "edgar_xbrl"}
+        svc.upsert_facts(db, [
+            {**common, "period_end": date(2024, 12, 31), "fiscal_year": 2024, "fiscal_period": "FY",
+             "value": 400.0, "accession": "FY24"},
+            # A Q3 point in the same fiscal_year — annual-only filter must drop it.
+            {**common, "period_end": date(2024, 9, 30), "fiscal_year": 2024, "fiscal_period": None,
+             "form": "10-Q", "value": 100.0, "accession": "Q3-24"},
+        ])
+
+        out = svc.get_fundamentals(db, company.ticker)
+        revenue = next(c for c in out["concepts"] if c["concept"] == "revenue")
+        assert [p["value"] for p in revenue["points"]] == [400.0]  # FY only; the quarterly point dropped
+        assert all(p["fiscal_period"] == "FY" for p in revenue["points"])
+        db.close()
+
     def test_unknown_ticker_returns_none(self):
         from app.database import SessionLocal
 

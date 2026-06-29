@@ -605,10 +605,18 @@ def backfill_facts(
 
 
 def get_fundamentals(db: Session, ticker: str) -> Optional[dict[str, Any]]:
-    """Current (``is_latest``) facts for a ticker, grouped into per-concept time-series.
+    """Current (``is_latest``) **annual** facts for a ticker, grouped into per-concept time-series.
 
     Returns ``None`` when the ticker isn't a known company. Each concept's points are ordered oldest
     → newest so a chart can render the trend directly.
+
+    Restricted to ``fiscal_period == "FY"`` (the annual-report periods — 10-K / 20-F / 40-F; see
+    ``_fiscal_period``). The backfill ingests every XBRL-bearing filing, so a company that has filed
+    10-Qs also carries quarterly facts (``fiscal_period`` is ``None``). Without this filter a 3-month
+    quarterly value would surface alongside the full-year value for the same ``fiscal_year`` — a
+    quarterly bar masquerading as an annual one under the chart's "Annual figures" label. Annual-only
+    keeps the series an honest year-over-year trend, and fixes both the filing and company pages,
+    which share this read path.
     """
     company = db.query(Company).filter(Company.ticker == (ticker or "").upper()).first()
     if company is None:
@@ -616,7 +624,11 @@ def get_fundamentals(db: Session, ticker: str) -> Optional[dict[str, Any]]:
 
     rows = (
         db.query(FinancialFact)
-        .filter(FinancialFact.company_id == company.id, FinancialFact.is_latest.is_(True))
+        .filter(
+            FinancialFact.company_id == company.id,
+            FinancialFact.is_latest.is_(True),
+            FinancialFact.fiscal_period == "FY",
+        )
         .order_by(FinancialFact.concept.asc(), FinancialFact.period_end.asc())
         .all()
     )
