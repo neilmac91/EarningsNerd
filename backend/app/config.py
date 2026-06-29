@@ -300,6 +300,10 @@ class Settings(BaseSettings):
     COPILOT_HISTORY_TURNS: int = 6
     COPILOT_HISTORY_MAX_ITEMS: int = 50
     COPILOT_HISTORY_ITEM_CHAR_CAP: int = 8000
+    # Inference-cost estimate for Copilot telemetry ($ per 1M tokens). Placeholders — set to the
+    # configured AI provider's actual rates so the `copilot_inference_cost` event reflects real spend.
+    AI_INPUT_PRICE_PER_1M_TOKENS: float = 0.14
+    AI_OUTPUT_PRICE_PER_1M_TOKENS: float = 0.28
 
     # Stream Settings
     STREAM_HEARTBEAT_INTERVAL: int = 3  # Send updates every 3 seconds (reduced from 5s for better UX)

@@ -365,13 +365,19 @@ async def answer_filing_question(
         pending = ""                          # carry-over tail for cross-chunk sentinel detection
         mode = "answer"                        # answer | citations | not_disclosed
 
+        # Token usage is accumulated here across tool rounds (opt-in via usage_sink) so the router
+        # can emit per-answer inference cost from the `complete` event; empty if the provider
+        # returns no usage.
+        usage_sink: dict[str, int] = {}
+        model_name = openai_service.model
         async for delta in openai_service.stream_chat_with_tools(
             messages,
             copilot_tools.TOOLS,
             _run_tool,
-            model=openai_service.model,
+            model=model_name,
             max_tokens=settings.COPILOT_MAX_TOKENS,
             temperature=0.2,
+            usage_sink=usage_sink,
         ):
             if not delta:
                 continue
@@ -442,7 +448,11 @@ async def answer_filing_question(
                         yield {"type": "token", "text": emit}
                 break
 
-        # Stream finished. Flush any held-back tail that turned out to be plain prose.
+        # Stream finished. Build the usage payload (tokens + model) for the per-answer cost
+        # telemetry the router emits from the `complete` event; None if the provider gave no usage.
+        usage_payload = {"model": model_name, **usage_sink} if usage_sink else None
+
+        # Flush any held-back tail that turned out to be plain prose.
         if mode == "answer" and pending:
             answer_parts.append(pending)
             yield {"type": "token", "text": pending}
@@ -456,6 +466,7 @@ async def answer_filing_question(
                 "citations": [],
                 "grounded": 0,
                 "kind": "not_disclosed",
+                "usage": usage_payload,
             }
             return
 
@@ -502,6 +513,7 @@ async def answer_filing_question(
             "grounded": grounded,
             "kind": "answer",
             "followups": followups,
+            "usage": usage_payload,
         }
     except Exception as e:  # noqa: BLE001 — never raise out of the SSE generator
         logger.exception("Copilot answer_filing_question failed")

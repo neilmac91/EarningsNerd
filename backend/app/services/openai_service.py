@@ -2997,6 +2997,7 @@ Do not include any additional keys or text outside the JSON object."""
         max_tokens: int = 1200,
         temperature: float = 0.2,
         max_rounds: int = 4,
+        usage_sink: Optional[Dict[str, int]] = None,
     ) -> AsyncGenerator[str, None]:
         """Stream a chat completion that may call tools, executing them server-side between rounds.
 
@@ -3043,6 +3044,10 @@ Do not include any additional keys or text outside the JSON object."""
                 }
                 if is_deepseek:
                     create_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
+                # Ask for token usage on the final (choices-empty) chunk when the caller wants to
+                # meter cost. Opt-in, so the default streaming contract is otherwise unchanged.
+                if usage_sink is not None:
+                    create_kwargs["stream_options"] = {"include_usage": True}
 
                 stream = await self.client.chat.completions.create(**create_kwargs)
 
@@ -3054,6 +3059,14 @@ Do not include any additional keys or text outside the JSON object."""
 
                 async for chunk in stream:
                     if not chunk.choices:
+                        # The include_usage final chunk has empty choices + a `usage` payload;
+                        # accumulate it across tool rounds (best-effort, only when requested).
+                        if usage_sink is not None:
+                            u = getattr(chunk, "usage", None)
+                            if u is not None:
+                                usage_sink["prompt_tokens"] = usage_sink.get("prompt_tokens", 0) + (getattr(u, "prompt_tokens", 0) or 0)
+                                usage_sink["completion_tokens"] = usage_sink.get("completion_tokens", 0) + (getattr(u, "completion_tokens", 0) or 0)
+                                usage_sink["total_tokens"] = usage_sink.get("total_tokens", 0) + (getattr(u, "total_tokens", 0) or 0)
                         continue
                     choice = chunk.choices[0]
                     delta = choice.delta
