@@ -50,10 +50,15 @@ export const EXAMPLE_FILING_ID = process.env.NEXT_PUBLIC_EXAMPLE_FILING_ID
  * Href for "see an example" CTAs. Deep-links to the pre-generated example
  * filing (tagged with an `entry` param for funnel attribution) when
  * EXAMPLE_FILING_ID is set, else falls back to the company page.
+ *
+ * The example/onboarding deep-link carries `demo=1` so the filing page renders
+ * in demo mode (curated first impression): the quality badge + Regenerate
+ * button are suppressed and the copilot's attention nudge is silenced, so a
+ * first-time visitor never meets a "Partial" badge on the curated example.
  */
 export const exampleFilingHref = (entry: string): string =>
   EXAMPLE_FILING_ID
-    ? `/filing/${EXAMPLE_FILING_ID}?entry=${encodeURIComponent(entry)}`
+    ? `/filing/${EXAMPLE_FILING_ID}?entry=${encodeURIComponent(entry)}&demo=1`
     : '/company/AAPL'
 
 /**
