@@ -1334,7 +1334,9 @@ function SummaryDisplay({
               for trajectory context next to the period-over-period diff. Self-fetches + self-gates
               (renders nothing until facts exist); behind the same flag as the company-page chart. */}
           {ENABLE_FINANCIAL_CHARTS && filing.company?.ticker && (
-            <FundamentalsTrendChart ticker={filing.company.ticker} />
+            <ChartErrorBoundary>
+              <FundamentalsTrendChart ticker={filing.company.ticker} />
+            </ChartErrorBoundary>
           )}
 
           {/* Financial Metrics Table */}
