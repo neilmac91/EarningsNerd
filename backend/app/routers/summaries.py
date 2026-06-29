@@ -6,6 +6,8 @@ from pydantic import BaseModel, Field, field_validator
 import logging
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response, StreamingResponse
+from app.services.posthog_client import capture_copilot_inference
+from app.services.llm_pricing import estimate_inference_cost_usd
 
 from app.config import settings
 from app.database import get_db, SessionLocal
@@ -274,6 +276,44 @@ def _meter_qa_best_effort(user_id: int) -> None:
         db.close()
 
 
+def _emit_copilot_cost_best_effort(user_id: int, filing_id: int, ticker, event: dict) -> None:
+    """Emit a Copilot answer's token usage + estimated inference cost to PostHog (roadmap 2.1).
+
+    Keyed on ``str(user_id)`` — the same id the frontend identifies on — so it joins the person's
+    journey without a separate alias. Best-effort: telemetry must never break the answer stream, so
+    a missing-usage answer (provider returned none) is a quiet no-op and any failure is swallowed.
+    """
+    try:
+        usage = event.get("usage") or {}
+        if not usage:
+            return
+        prompt_tokens = usage.get("prompt_tokens")
+        completion_tokens = usage.get("completion_tokens")
+        cache_hit_tokens = usage.get("cache_hit_tokens")
+        cache_miss_tokens = usage.get("cache_miss_tokens")
+        capture_copilot_inference(
+            distinct_id=str(user_id),
+            model=usage.get("model"),
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=usage.get("total_tokens"),
+            cache_hit_tokens=cache_hit_tokens,
+            cache_miss_tokens=cache_miss_tokens,
+            cost_usd=estimate_inference_cost_usd(
+                prompt_tokens,
+                completion_tokens,
+                cache_hit_tokens=cache_hit_tokens,
+                cache_miss_tokens=cache_miss_tokens,
+            ),
+            filing_id=filing_id,
+            ticker=ticker,
+            kind=event.get("kind"),
+            grounded=event.get("grounded"),
+        )
+    except Exception:  # noqa: BLE001 — telemetry must not break the answer stream
+        logger.warning("Failed to emit Copilot cost telemetry for user %s", user_id, exc_info=True)
+
+
 @router.post("/filing/{filing_id}/ask-stream")
 async def ask_filing_stream(
     filing_id: int,
@@ -334,6 +374,14 @@ async def ask_filing_stream(
                 # loop mid-stream (it opens its own fresh SessionLocal, so it's thread-safe).
                 await run_in_threadpool(_meter_qa_best_effort, user_id)
                 metered = True
+                # Per-answer inference-cost telemetry (roadmap 2.1) — token usage rides the complete
+                # event; cost is estimated here. Non-blocking (PostHog batches) + best-effort.
+                _emit_copilot_cost_best_effort(
+                    user_id,
+                    filing_id,
+                    getattr(getattr(filing_ctx, "company", None), "ticker", None),
+                    event,
+                )
             yield to_sse(event)
 
     return StreamingResponse(

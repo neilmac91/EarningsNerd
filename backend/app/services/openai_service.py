@@ -2997,6 +2997,7 @@ Do not include any additional keys or text outside the JSON object."""
         max_tokens: int = 1200,
         temperature: float = 0.2,
         max_rounds: int = 4,
+        usage_sink: Optional[Dict[str, int]] = None,
     ) -> AsyncGenerator[str, None]:
         """Stream a chat completion that may call tools, executing them server-side between rounds.
 
@@ -3043,6 +3044,10 @@ Do not include any additional keys or text outside the JSON object."""
                 }
                 if is_deepseek:
                     create_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
+                # Ask for token usage on the final (choices-empty) chunk when the caller wants to
+                # meter cost. Opt-in, so the default streaming contract is otherwise unchanged.
+                if usage_sink is not None:
+                    create_kwargs["stream_options"] = {"include_usage": True}
 
                 stream = await self.client.chat.completions.create(**create_kwargs)
 
@@ -3054,6 +3059,27 @@ Do not include any additional keys or text outside the JSON object."""
 
                 async for chunk in stream:
                     if not chunk.choices:
+                        # The include_usage final chunk has empty choices + a `usage` payload;
+                        # accumulate it across tool rounds (best-effort, only when requested). Some
+                        # OpenAI-compatible gateways return usage as a dict rather than an object, so
+                        # handle both — getattr on a dict would silently zero the token counts.
+                        if usage_sink is not None:
+                            u = getattr(chunk, "usage", None)
+                            if u is not None:
+                                is_dict = isinstance(u, dict)
+                                p_tok = (u.get("prompt_tokens") if is_dict else getattr(u, "prompt_tokens", 0)) or 0
+                                c_tok = (u.get("completion_tokens") if is_dict else getattr(u, "completion_tokens", 0)) or 0
+                                t_tok = (u.get("total_tokens") if is_dict else getattr(u, "total_tokens", 0)) or 0
+                                # DeepSeek-specific: input tokens served from the context cache (HIT)
+                                # vs not (MISS), priced ~120x apart. Absent on providers that don't
+                                # cache → 0, and the cost estimate then treats all input as a miss.
+                                hit_tok = (u.get("prompt_cache_hit_tokens") if is_dict else getattr(u, "prompt_cache_hit_tokens", 0)) or 0
+                                miss_tok = (u.get("prompt_cache_miss_tokens") if is_dict else getattr(u, "prompt_cache_miss_tokens", 0)) or 0
+                                usage_sink["prompt_tokens"] = usage_sink.get("prompt_tokens", 0) + p_tok
+                                usage_sink["completion_tokens"] = usage_sink.get("completion_tokens", 0) + c_tok
+                                usage_sink["total_tokens"] = usage_sink.get("total_tokens", 0) + t_tok
+                                usage_sink["cache_hit_tokens"] = usage_sink.get("cache_hit_tokens", 0) + hit_tok
+                                usage_sink["cache_miss_tokens"] = usage_sink.get("cache_miss_tokens", 0) + miss_tok
                         continue
                     choice = chunk.choices[0]
                     delta = choice.delta

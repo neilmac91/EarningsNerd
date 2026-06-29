@@ -27,6 +27,10 @@ EVENT_SUMMARY_VIEWED = "summary_viewed"
 # Fired when a free user is blocked by the monthly summary limit — the single best
 # demand/pricing signal for future monetization (how often free users hit the wall).
 EVENT_PAYWALL_HIT = "paywall_hit"
+# Per-answer Copilot inference cost (tokens + estimated USD) — the unit-economics signal that gates
+# whether a free-taste of Copilot (roadmap 2.2) is affordable. Emitted server-side, keyed on the
+# same str(user.id) the frontend identifies on, so it joins the person's journey.
+EVENT_COPILOT_INFERENCE = "copilot_inference_cost"
 
 # Closed-beta activation funnel. All emitted server-side keyed on str(user.id) — which is the same
 # canonical id the frontend identifies on (String(user.id)) — so server + client events stitch onto
@@ -80,3 +84,40 @@ def capture_funnel_event(
         capture_event(distinct_id, event, properties)
     except Exception as exc:  # pragma: no cover - defensive: PostHog SDK/network issues
         logger.warning(f"PostHog capture failed for {event}: {exc}")
+
+
+def capture_copilot_inference(
+    distinct_id: str,
+    *,
+    model: Optional[str] = None,
+    prompt_tokens: Optional[int] = None,
+    completion_tokens: Optional[int] = None,
+    total_tokens: Optional[int] = None,
+    cache_hit_tokens: Optional[int] = None,
+    cache_miss_tokens: Optional[int] = None,
+    cost_usd: Optional[float] = None,
+    filing_id: Optional[int] = None,
+    ticker: Optional[str] = None,
+    kind: Optional[str] = None,
+    grounded: Optional[int] = None,
+) -> None:
+    """Capture a Copilot answer's token usage + estimated inference cost. Never raises —
+    telemetry must not break or slow the answer stream."""
+    properties: dict = {
+        "model": model,
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+        "cache_hit_tokens": cache_hit_tokens,
+        "cache_miss_tokens": cache_miss_tokens,
+        "cost_usd": cost_usd,
+        "filing_id": filing_id,
+        "ticker": ticker,
+        "kind": kind,
+        "grounded": grounded,
+    }
+    properties = {k: v for k, v in properties.items() if v is not None}
+    try:
+        capture_event(distinct_id, EVENT_COPILOT_INFERENCE, properties)
+    except Exception as exc:  # pragma: no cover - defensive: PostHog SDK/network issues
+        logger.warning(f"PostHog capture failed for {EVENT_COPILOT_INFERENCE}: {exc}")

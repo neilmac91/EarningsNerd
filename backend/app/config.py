@@ -300,6 +300,15 @@ class Settings(BaseSettings):
     COPILOT_HISTORY_TURNS: int = 6
     COPILOT_HISTORY_MAX_ITEMS: int = 50
     COPILOT_HISTORY_ITEM_CHAR_CAP: int = 8000
+    # Inference-cost estimate for Copilot telemetry ($ per 1M tokens) for the configured AI model
+    # (default deepseek-v4-pro). DeepSeek prices INPUT tokens differently on a context-cache HIT vs
+    # MISS (~120x apart), so the two input rates are tracked separately and the response's hit/miss
+    # split is priced accordingly. Update these on a model/price change.
+    # NB: from the V4 official release (~mid-July 2026) v4-pro adds a peak-hour surcharge (~2x)
+    # during UTC 01:00-04:00 + 06:00-10:00 — NOT modelled here (regular rates); revisit if material.
+    AI_INPUT_CACHE_HIT_PRICE_PER_1M: float = 0.003625
+    AI_INPUT_CACHE_MISS_PRICE_PER_1M: float = 0.435
+    AI_OUTPUT_PRICE_PER_1M_TOKENS: float = 0.87
 
     # Stream Settings
     STREAM_HEARTBEAT_INTERVAL: int = 3  # Send updates every 3 seconds (reduced from 5s for better UX)
