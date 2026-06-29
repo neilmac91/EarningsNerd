@@ -621,3 +621,89 @@ class TestGetFundamentals:
         db = SessionLocal()
         assert svc.get_fundamentals(db, "NOPE-NOT-A-TICKER") is None
         db.close()
+
+
+@pytest.mark.requires_db
+class TestGetFilingFundamentals:
+    def _company_and_filing(self, db, acc):
+        from datetime import datetime
+        from app.models import Company, Filing
+
+        suffix = uuid.uuid4().hex[:8]
+        company = db.query(Company).filter_by(ticker=("F" + suffix[:4]).upper()).first()
+        if company is None:
+            company = Company(cik=suffix, ticker=("F" + suffix[:4]).upper(), name=f"FF {suffix}")
+            db.add(company)
+            db.commit()
+            db.refresh(company)
+        filing = Filing(
+            company_id=company.id, accession_number=acc, filing_type="10-K",
+            filing_date=datetime(2025, 1, 1),
+            document_url="https://sec.example/x.htm", sec_url="https://sec.example/",
+        )
+        db.add(filing)
+        db.commit()
+        db.refresh(filing)
+        return company, filing
+
+    def test_returns_figures_as_reported_in_the_filing_even_when_restated(self):
+        # Filing-scoped read returns THIS filing's reported figures, including rows a later filing
+        # restated (is_latest=False) — distinct from the company-wide latest series.
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        acc = uuid.uuid4().hex[:8]
+        company, old = self._company_and_filing(db, f"OLD-{acc}")
+        # A second filing for the SAME company (the later restatement).
+        from datetime import datetime
+        from app.models import Filing
+        new = Filing(company_id=company.id, accession_number=f"NEW-{acc}", filing_type="10-K",
+                     filing_date=datetime(2026, 1, 1),
+                     document_url="https://sec.example/y.htm", sec_url="https://sec.example/")
+        db.add(new)
+        db.commit()
+        db.refresh(new)
+
+        base = {"concept": "revenue", "unit": "USD", "fiscal_period": "FY", "form": "10-K",
+                "company_id": company.id, "source": "edgar_xbrl"}
+        svc.upsert_facts(db, [{**base, "filing_id": old.id, "period_end": date(2023, 12, 31),
+                               "fiscal_year": 2023, "value": 80.0, "accession": old.accession_number}])
+        # Later filing restates FY2023 → demotes the old row to is_latest=False.
+        svc.upsert_facts(db, [{**base, "filing_id": new.id, "period_end": date(2023, 12, 31),
+                               "fiscal_year": 2023, "value": 85.0, "accession": new.accession_number}])
+
+        out = svc.get_filing_fundamentals(db, old.id)
+        rev = next(c for c in out["concepts"] if c["concept"] == "revenue")
+        assert [p["value"] for p in rev["points"]] == [80.0]  # the OLD filing's figure, not the restatement
+        assert out["ticker"] == company.ticker
+
+        # Company-scoped read returns the latest (restated) value — proving the two paths differ.
+        comp = svc.get_fundamentals(db, company.ticker)
+        comp_rev = next(c for c in comp["concepts"] if c["concept"] == "revenue")
+        assert [p["value"] for p in comp_rev["points"]] == [85.0]
+        db.close()
+
+    def test_unknown_filing_returns_none(self):
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        assert svc.get_filing_fundamentals(db, 999_999_999) is None
+        db.close()
+
+    def test_process_filing_facts_normalizes_and_stamps_one_filing(self):
+        # The event-hook helper: extract (or reuse standardized) → upsert → stamp processed_facts_at.
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        acc = uuid.uuid4().hex[:8]
+        _company, filing = self._company_and_filing(db, f"PF-{acc}")
+        standardized = {"revenue": {"current": {"period": "2024-12-31", "value": 500.0}}}
+
+        result = svc.process_filing_facts(db, filing, standardized=standardized)
+        assert result["inserted"] == 1
+        assert filing.processed_facts_at is not None
+
+        out = svc.get_filing_fundamentals(db, filing.id)
+        rev = next(c for c in out["concepts"] if c["concept"] == "revenue")
+        assert [p["value"] for p in rev["points"]] == [500.0]
+        db.close()

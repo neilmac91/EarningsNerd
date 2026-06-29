@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.models import Company, Filing
+from app.schemas.fundamentals import FundamentalsResponse
 # EdgarTools migration: Using new edgar module for SEC services
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.exceptions import EdgarError as SECEdgarServiceError
@@ -319,6 +320,23 @@ async def get_filing_content(filing_id: int, db: Session = Depends(get_db)):
         has_content=bool(markdown),
         markdown_content=markdown or None,
     )
+
+
+@router.get("/{filing_id}/fundamentals", response_model=FundamentalsResponse)
+async def get_filing_fundamentals(filing_id: int, db: Session = Depends(get_db)) -> FundamentalsResponse:
+    """Annual fundamentals time-series **as reported in this specific filing** (roadmap B).
+
+    Reads the normalized `financial_fact` rows for this `filing_id` (its own comparative years) — an
+    immutable, document-faithful snapshot, distinct from the company-wide latest series at
+    `/api/companies/{ticker}/fundamentals`. A single indexed DB read, no live SEC calls. Returns empty
+    `concepts` when the filing's facts aren't populated yet (they backfill when it's summarized).
+    """
+    from app.services import facts_service
+
+    data = facts_service.get_filing_fundamentals(db, filing_id)
+    if data is None:
+        raise HTTPException(status_code=404, detail="Filing not found")
+    return data
 
 
 @router.get("/recent/latest", response_model=List[FilingResponse])

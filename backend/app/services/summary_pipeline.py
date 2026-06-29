@@ -294,6 +294,22 @@ async def stream_filing_summary(
                                     if filing_for_update:
                                         filing_for_update.xbrl_data = data
                                         xbrl_session.commit()
+                                        # Populate this filing's normalized facts now (roadmap B: the
+                                        # filing-scoped trend chart reads them). Best-effort and
+                                        # network-free — reuse the metrics just extracted; a failure
+                                        # must never break the summary stream. We're already off the
+                                        # event loop (run_sync_db threadpool) with our own session.
+                                        try:
+                                            from app.services import facts_service
+
+                                            facts_service.process_filing_facts(
+                                                xbrl_session, filing_for_update, standardized=metrics
+                                            )
+                                        except Exception:
+                                            logger.warning(
+                                                f"[stream:{filing_id}] facts upsert failed (non-fatal)",
+                                                exc_info=True,
+                                            )
 
                             await run_sync_db(update_xbrl_sync)
                             return metrics

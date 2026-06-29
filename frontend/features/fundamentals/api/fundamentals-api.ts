@@ -26,7 +26,15 @@ export interface FundamentalsResponse {
   concepts: FundamentalSeries[]
 }
 
+// Company-wide latest (`is_latest`) annual series — the company page's trend.
 export const getFundamentals = async (ticker: string): Promise<FundamentalsResponse> => {
   const response = await api.get(`/api/companies/${encodeURIComponent(ticker)}/fundamentals`)
+  return response.data
+}
+
+// Filing-scoped series — the multi-year figures *as reported in this specific filing* (roadmap B),
+// served by GET /api/filings/{id}/fundamentals. Immutable snapshot, faithful to the document.
+export const getFilingFundamentals = async (filingId: number): Promise<FundamentalsResponse> => {
+  const response = await api.get(`/api/filings/${filingId}/fundamentals`)
   return response.data
 }

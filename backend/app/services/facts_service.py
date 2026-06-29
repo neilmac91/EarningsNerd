@@ -508,6 +508,47 @@ def upsert_facts(
     return {"inserted": inserted, "skipped": skipped, "rejected": rejected}
 
 
+def process_filing_facts(
+    db: Session,
+    filing,
+    *,
+    extract=None,
+    standardized: Optional[dict] = None,
+    authoritative: Optional[dict[tuple[str, date], float]] = None,
+) -> Optional[dict[str, int]]:
+    """Normalize ONE filing's stored ``xbrl_data`` into ``financial_fact`` (extract → normalize →
+    upsert → stamp ``processed_facts_at``). The per-filing core shared by ``backfill_facts`` (the
+    loop) and the post-summary event hook, so a freshly-summarized filing populates its own facts
+    without waiting for a batch run.
+
+    No network unless ``authoritative`` (a companyfacts map) is supplied — the local-invariant gate
+    in ``upsert_facts`` runs regardless. Pass ``standardized`` to reuse metrics the caller already
+    extracted (the SSE path) and skip re-extraction. Returns the upsert result, or ``None`` when the
+    filing has no ``xbrl_data`` to process.
+    """
+    if standardized is None:
+        if getattr(filing, "xbrl_data", None) is None:
+            return None
+        if extract is None:
+            from app.services.edgar.compat import xbrl_service
+
+            extract = xbrl_service.extract_standardized_metrics
+        standardized = extract(filing.xbrl_data)
+
+    facts = normalize_standardized_to_facts(
+        filing.company_id, filing.id, filing.accession_number, filing.filing_type, standardized
+    )
+    result = upsert_facts(
+        db,
+        facts,
+        period_of_report=getattr(filing, "period_of_report", None),
+        authoritative=authoritative,
+    )
+    filing.processed_facts_at = datetime.now(timezone.utc)
+    db.commit()
+    return result
+
+
 def backfill_facts(
     db: Session,
     extract=None,
@@ -564,13 +605,10 @@ def backfill_facts(
             logger.exception("facts backfill: extract failed for filing %s", filing.id)
             errors += 1
             continue
-        facts = normalize_standardized_to_facts(
-            filing.company_id, filing.id, filing.accession_number, filing.filing_type, standardized
-        )
 
         # Cross-check headline figures against companyfacts (one fetch per company, cached).
         authoritative: Optional[dict[tuple[str, date], float]] = None
-        if cross_check and facts:
+        if cross_check:
             if filing.company_id not in auth_by_company:
                 cik = getattr(filing.company, "cik", None)
                 fetched = fetch_companyfacts(cik) if cik else None
@@ -579,21 +617,18 @@ def backfill_facts(
                 )
             authoritative = auth_by_company[filing.company_id]
 
-        # `period_of_report` isn't a Filing column today; read defensively so the period-correctness
-        # check auto-activates if one is added later.
-        result = upsert_facts(
-            db,
-            facts,
-            period_of_report=getattr(filing, "period_of_report", None),
-            authoritative=authoritative,
+        # Per-filing normalize → upsert → stamp (shared with the post-summary hook). `period_of_report`
+        # isn't a Filing column today; process_filing_facts reads it defensively.
+        result = process_filing_facts(
+            db, filing, standardized=standardized, authoritative=authoritative
         )
-        # Stamp the filing as normalized (tracking column; also drives `only_unprocessed`).
-        filing.processed_facts_at = datetime.now(timezone.utc)
-        db.commit()
-        inserted += result["inserted"]
-        skipped += result["skipped"]
-        rejected += result.get("rejected", 0)
-        processed += 1
+        # result is None only when there's nothing to process (no xbrl_data) — can't happen here
+        # since the query filters `xbrl_data IS NOT NULL`, but guard it (the return type is Optional).
+        if result is not None:
+            inserted += result["inserted"]
+            skipped += result["skipped"]
+            rejected += result.get("rejected", 0)
+            processed += 1
 
     return {
         "filings_processed": processed,
@@ -601,6 +636,33 @@ def backfill_facts(
         "facts_skipped": skipped,
         "facts_rejected": rejected,
         "extract_errors": errors,
+    }
+
+
+def _fundamentals_payload(ticker: str, company_name: str, rows) -> dict[str, Any]:
+    """Group flat ``FinancialFact`` rows into the FundamentalsResponse shape (per-concept series, in
+    the order queried — oldest→newest). Shared by the company- and filing-scoped readers."""
+    series: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        series.setdefault(row.concept, []).append(
+            {
+                "period_end": row.period_end.isoformat() if row.period_end else None,
+                "fiscal_year": row.fiscal_year,
+                "fiscal_period": row.fiscal_period,
+                "value": float(row.value) if row.value is not None else None,
+                "unit": row.unit,
+                "form": row.form,
+                "accession": row.accession,
+                "reconciled": bool(row.reconciled),
+            }
+        )
+    return {
+        "ticker": ticker,
+        "company_name": company_name,
+        "concepts": [
+            {"concept": concept, "unit": points[0]["unit"], "points": points}
+            for concept, points in series.items()
+        ],
     }
 
 
@@ -633,26 +695,37 @@ def get_fundamentals(db: Session, ticker: str) -> Optional[dict[str, Any]]:
         .all()
     )
 
-    series: dict[str, list[dict[str, Any]]] = {}
-    for row in rows:
-        series.setdefault(row.concept, []).append(
-            {
-                "period_end": row.period_end.isoformat() if row.period_end else None,
-                "fiscal_year": row.fiscal_year,
-                "fiscal_period": row.fiscal_period,
-                "value": float(row.value) if row.value is not None else None,
-                "unit": row.unit,
-                "form": row.form,
-                "accession": row.accession,
-                "reconciled": bool(row.reconciled),
-            }
-        )
+    return _fundamentals_payload(company.ticker, company.name, rows)
 
-    return {
-        "ticker": company.ticker,
-        "company_name": company.name,
-        "concepts": [
-            {"concept": concept, "unit": points[0]["unit"], "points": points}
-            for concept, points in series.items()
-        ],
-    }
+
+def get_filing_fundamentals(db: Session, filing_id: int) -> Optional[dict[str, Any]]:
+    """Annual (FY) facts **as reported in a single filing**, grouped into per-concept time-series.
+
+    Filing-scoped (roadmap B): keyed by ``filing_id`` with **no** ``is_latest`` filter, so the chart
+    shows the multi-year figures *this specific filing* disclosed (its comparative years) — an
+    immutable snapshot faithful to the document, even if a later filing restated a period. Contrast
+    ``get_fundamentals`` (the company-wide, restatement-safe *latest* series). Returns ``None`` when
+    the filing doesn't exist; ``fiscal_period == "FY"`` so the "Annual figures" footnote holds.
+    """
+    filing = (
+        db.query(Filing).options(joinedload(Filing.company)).filter(Filing.id == filing_id).first()
+    )
+    if filing is None:
+        return None
+
+    rows = (
+        db.query(FinancialFact)
+        .filter(
+            FinancialFact.filing_id == filing_id,
+            FinancialFact.fiscal_period == "FY",
+        )
+        .order_by(FinancialFact.concept.asc(), FinancialFact.period_end.asc())
+        .all()
+    )
+
+    company = filing.company
+    return _fundamentals_payload(
+        (company.ticker if company else "") or "",
+        (company.name if company else "") or "",
+        rows,
+    )
