@@ -41,12 +41,15 @@ export function usePostHogUserIdentification(): void {
     // user either. (null preferences = no choice yet → wait for consent.)
     if (getCookiePreferences()?.analytics !== true) return
 
-    // Subscription row is authoritative; fall back to the user's is_pro mirror until it resolves.
-    const isPro = Boolean(subscription?.is_pro ?? user.is_pro)
+    // Entitlements SSoT: wait for the subscription row and use it directly, rather than the
+    // denormalized `user.is_pro` mirror (which can be briefly out of sync). If the subscription
+    // query never resolves (rare error), we simply don't tag a possibly-stale plan.
+    if (subscription === undefined) return
+    const isPro = Boolean(subscription.is_pro)
     const identity = `${user.id}:${isPro}`
     if (lastIdentity.current === identity) return // already identified with this state
     lastIdentity.current = identity
 
     analytics.identify(String(user.id), { is_pro: isPro, plan: isPro ? 'pro' : 'free' })
-  }, [user?.id, user?.is_pro, subscription?.is_pro])
+  }, [user?.id, subscription])
 }
