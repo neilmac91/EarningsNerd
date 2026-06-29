@@ -94,11 +94,14 @@ def increment_user_copilot_free_taste(user_id: int, db: Session) -> None:
 
     Lifetime (lives on ``users``), so it's keyed only by user — unlike the monthly ``qa_count`` on
     ``user_usage``. Metered after a successful answer; Pro users never reach this path.
+
+    Atomic DB-level increment (not read-modify-write) so concurrent questions — a double-click or
+    parallel requests — can't lose an update and let a Free user slip past the 3-question cap.
     """
-    user = db.query(User).filter(User.id == user_id).first()
-    if user is None:
-        return
-    user.copilot_free_taste_used = (user.copilot_free_taste_used or 0) + 1
+    db.query(User).filter(User.id == user_id).update(
+        {User.copilot_free_taste_used: User.copilot_free_taste_used + 1},
+        synchronize_session=False,
+    )
     db.commit()
 
 

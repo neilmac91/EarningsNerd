@@ -12,12 +12,11 @@ from app.routers.auth import get_current_user
 from app.config import settings
 from app.services.posthog_client import EVENT_TRIAL_STARTED, capture_event
 from app.services import subscription_sync
-from app.services.entitlements import get_entitlements, get_plan
+from app.services.entitlements import get_entitlements, get_plan, is_pro_user
 from app.services.subscription_service import (
     get_current_month,
     get_user_usage_count,
     get_user_qa_count,
-    FREE_TIER_SUMMARY_LIMIT
 )
 
 router = APIRouter()
@@ -76,11 +75,13 @@ async def get_usage(
     month = get_current_month()
     current_count = get_user_usage_count(current_user.id, month, db)
     
+    # Resolve via the entitlements SSoT (subscription row first, is_pro mirror as fallback) so an
+    # active subscriber with a momentarily-stale is_pro mirror still gets the right limits/status.
     ent = get_entitlements(current_user)
     return UsageResponse(
         summaries_used=current_count,
-        summaries_limit=None if current_user.is_pro else FREE_TIER_SUMMARY_LIMIT,
-        is_pro=current_user.is_pro,
+        summaries_limit=ent.monthly_summary_limit,
+        is_pro=is_pro_user(current_user),
         month=month,
         qa_used=get_user_qa_count(current_user.id, month, db),
         qa_limit=settings.COPILOT_MONTHLY_QUESTION_CAP,
