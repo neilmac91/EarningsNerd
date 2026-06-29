@@ -17,15 +17,25 @@ export function PerAdsNote({ perAds }: { perAds: PerAdsValue }) {
   const tooltip = [perAds.source, perAds.as_of ? `as of ${perAds.as_of}` : null]
     .filter(Boolean)
     .join(' · ')
+  // Defensive against a malformed payload: `value` is typed `number`, but this rides runtime JSON
+  // from the backend, so only render the figure when it's a real finite number (never "≈ NaN").
+  // The arithmetic is a backend-built string and is safe to show on its own.
+  const hasValue = typeof perAds.value === 'number' && Number.isFinite(perAds.value)
+  if (!hasValue && !perAds.arithmetic) return null
 
   return (
+    // whitespace-normal: the metrics-table cell sets whitespace-nowrap (to keep the headline figure
+    // on one line), and `white-space` inherits — without this the arithmetic caption can't wrap and
+    // would overflow the column.
     <span
-      className="mt-0.5 block text-xs text-text-tertiary-light dark:text-text-secondary-dark"
+      className="mt-0.5 block whitespace-normal text-xs text-text-tertiary-light dark:text-text-secondary-dark"
       title={tooltip || undefined}
     >
-      <span className="font-medium text-text-secondary-light dark:text-text-secondary-dark">
-        ≈ {formatPerAds(perAds.value, perAds.currency)} per ADS
-      </span>
+      {hasValue && (
+        <span className="font-medium text-text-secondary-light dark:text-text-secondary-dark">
+          ≈ {formatPerAds(perAds.value, perAds.currency)} per ADS
+        </span>
+      )}
       {perAds.arithmetic && <span className="mt-0.5 block">{perAds.arithmetic}</span>}
     </span>
   )
