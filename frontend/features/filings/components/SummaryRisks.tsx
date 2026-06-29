@@ -22,6 +22,7 @@ function TraceToSource({ risk }: { risk: RiskFactor }) {
         url={risk.source_url}
         verified={risk.source_verified === true}
         sectionRef={risk.source_section_ref}
+        excerpt={risk.supporting_evidence}
       />
     </div>
   )

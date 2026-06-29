@@ -1,47 +1,49 @@
-# Task: Per-ADS EPS display (roadmap item 1.5)
+# Task: In-app source highlight for figures + risks (roadmap item 1.4)
 
 ## Context
-The ADS-ratio correctness layer (item A / #461) computes a per-ADS EPS block
-(`{value, ordinary_per_ads, currency, as_of, source, arithmetic}`) for the four
-ratio≠1 ADRs (BABA 8 / TSM 5 / JD 2 / PDD 4) in `extract_standardized_metrics`.
-A reconnaissance pass found it **never reached the frontend**: `attach_normalized_facts`
-used the standardized metrics only to backfill prior periods, and the frontend
-`MetricItem` had no per-ADS field. So the correct per-ADS figure — the most
-credibility-sensitive number on an ADR report — was computed but invisible.
+1.4's vision was "click any figure → exact source line highlights." A grounded recon (+ direct
+code read of `provenance_service.build_metric_source`) found the approved "verified-snippet for
+metrics" approach isn't safe: metrics carry **no verified verbatim excerpt** (verification runs
+against the display string, not the filing text), and a bare number is non-unique across a 10-K —
+so an exact figure-line highlight would risk flashing the WRONG line, which breaks the
+verify-it-yourself promise. Risk factors, by contrast, already carry a filing-verified verbatim
+excerpt (`supporting_evidence`) + the proven `requestHighlight` → `FilingViewer` pipeline.
+
+Decision (user-approved, option "Both"): ship the robust pieces.
 
 ## Decision
-- **Backend (additive):** in `attach_normalized_facts`, merge `xbrl_metrics[eps_key].per_ads`
-  onto the EPS row of `financial_highlights.table` (the JSON the API serializes). New key only;
-  never alters the as-filed per-ordinary-share `current_period`, so it can't regress the eval
-  baseline (the golden set already accepts per-ADS as a valid alt-value).
-- **Frontend:** add `PerAdsValue` + optional `per_ads` to `MetricItem`; one shared `PerAdsNote`
-  component renders the per-ADS figure with its conversion **arithmetic inline** and the
-  **sourced + dated** ratio in the tooltip — auditable, never an unexplained number (1.5's contract).
-- Reuse the existing financial-highlights rendering (`FinancialMetricsTable`, `SummaryFinancials`);
-  no new endpoint, no schema/migration.
+- One shared mechanism in `SourceTrace`: when a `FilingViewerProvider` is mounted and there's a
+  highlight target, the chip becomes an in-app "jump to source" (`requestHighlight`) instead of an
+  external EDGAR link; the EDGAR link stays as the popover fallback. Outside a provider (compare
+  page, FREE teaser, existing unit tests) `useFilingViewer()` is null → exact current behavior.
+- Target = `excerpt || sectionRef`:
+  - **Risk factors** pass `excerpt={supporting_evidence}` (verified verbatim) → anchors the exact
+    line precisely.
+  - **Figures/metrics** have no excerpt → fall back to the section heading (`source_section_ref`),
+    a best-effort section jump that degrades honestly ("Couldn't pinpoint the exact passage —
+    showing the full filing") rather than ever flashing a wrong line.
+- Frontend-only: reuses provenance the API already serves; no backend change, no eval concern.
 
 ## Plan
-- [x] Backend: merge `per_ads` onto the EPS row in `attach_normalized_facts` (`app/schemas/summary.py`)
-- [x] Frontend type: `PerAdsValue` + optional `per_ads` on `MetricItem` (`types/summary.ts`)
-- [x] New `PerAdsNote` component (figure + inline arithmetic + sourced/dated tooltip)
-- [x] Render it in `FinancialMetricsTable` (EPS current-period cell) + `SummaryFinancials` (EPS bullet)
-- [x] Backend test: per_ads merged onto EPS row, value untouched, absent for domestic/non-dict/no-metrics
-- [x] Frontend test: table renders per-ADS figure + arithmetic when present, omits otherwise
-- [x] Verify frontend locally: vitest (48 files / 217 tests) + typecheck + lint (max-warnings 0) — green
+- [x] `SourceTrace`: optional `excerpt` + `useFilingViewer()`; `canHighlight` → button →
+      `requestHighlight({excerpt|heading, section_ref, verified, fragment_url})`; EDGAR fallback kept
+- [x] `MetricSourceLink`: thread `sectionRef` through to `SourceTrace`
+- [x] `SummaryRisks`: pass `excerpt={risk.supporting_evidence}`
+- [x] `FinancialMetricsTable` + `SummaryFinancials`: pass `sectionRef={…source_section_ref}`
+- [x] New Vitest: in-app highlight of the excerpt (risk) + section heading (metric); external-link
+      fallback with no provider
+- [x] Verify frontend locally: vitest (50 files / 224 tests) + typecheck + lint (max-warnings 0) — green
 - [ ] Commit + push + open draft PR
 
-## Notes / follow-ups
-- Backend test runs in CI (`backend-tests`) — `pytest`/`pydantic` aren't installed in this sandbox,
-  so the backend change is verified by inspection + CI; the frontend is verified locally.
-- Eval: the change is additive (a new key on the EPS row), so it should be eval-neutral; re-run the
-  eval on the ADR golden-set members (BABA/TSM/JD/PDD) before relying on it in prod as belt-and-suspenders.
-- Next (item 1.4): upgrade headline-figure source links from the external SEC `#:~:text=` deep-link to
-  the in-app `requestHighlight` scroll-highlight (separate PR; needs grounding the SourceTrace wiring).
+## Notes
+- Exact figure-line highlight was deliberately NOT built (fragile/wrong-line risk). The figure path
+  is a best-effort section jump; precise figure→line would need a verified metric-excerpt the
+  backend doesn't produce today.
+- On touch, a highlightable chip jumps in-app on tap (the EDGAR sheet isn't surfaced there) — the
+  in-app viewer is the better action when the workspace is open.
 
 ## Review
-- 1.5's gap was a backend→frontend plumbing miss, not missing data: the per-ADS figure existed but
-  `attach_normalized_facts` dropped it. Fix is a 4-line additive merge + a small presentation layer.
-- Strictly additive end to end — no existing event/value/schema changed; the as-filed
-  per-ordinary-share EPS is untouched (backend test asserts this), so the perfect eval baseline holds.
-- Auditable by construction: the per-ADS figure is always shown WITH its ratio + arithmetic and a
-  dated source, so the correction can be verified rather than trusted (the accountability moat, #2).
+- Robust by construction: only highlights what's anchorable (verified risk excerpt), and degrades
+  to the honest "showing the full filing" banner otherwise — never a confidently-wrong line.
+- Backward-compatible: outside a `FilingViewerProvider`, `SourceTrace` is byte-for-byte its old
+  self (the existing risk/metric trace-to-source specs pass unchanged).

@@ -14,6 +14,7 @@ interface FinancialMetric {
   commentary?: string
   source_url?: string | null
   source_verified?: boolean | null
+  source_section_ref?: string | null
   xbrl_concept?: string | null
   per_ads?: PerAdsValue | null
 }
@@ -110,6 +111,7 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
                         url={metric.source_url}
                         verified={metric.source_verified}
                         concept={metric.xbrl_concept}
+                        sectionRef={metric.source_section_ref}
                       />
                     </div>
                   </td>
