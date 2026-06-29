@@ -106,7 +106,9 @@ function PricingContent() {
     setIsLoadingCheckout(priceId)
     try {
       const priceValue = billingCycle === 'monthly' ? priceConfig.monthly : priceConfig.yearly
-      analytics.checkoutStarted('pro', priceValue, billingCycle)
+      // Tag the checkout with the A/B arm ('control' when the flag is unset) so the funnel splits cleanly.
+      const variant = typeof pricingVariant === 'string' ? pricingVariant : 'control'
+      analytics.checkoutStarted('pro', priceValue, billingCycle, variant)
       await checkoutMutation.mutateAsync(priceId)
     } catch {
       // Error handled in mutation
@@ -116,9 +118,17 @@ function PricingContent() {
   // Pricing anchor: $39/mo · $390/yr (annual = 2 months free) — the prosumer-band anchor the
   // council set (kill $14, which reads as "toy" for an accountability product). Beta members still
   // pay $0 via the 100%-off forever promo; this only changes the displayed/anchored price + the
-  // analytics value. `pricingVariant` is still read below purely for exposure analytics continuity
-  // (the $39-vs-$29 fake-door A/B is a separate, later change).
-  const priceConfig = { monthly: 39, yearly: 390, monthlyDisplay: '$39', yearlyDisplay: '$390' }
+  // analytics value.
+  //
+  // Fake-door $39-vs-$29 A/B (roadmap 2.3): the `pricing-experiment` PostHog flag picks the arm.
+  // Display-only — both arms route to the same checkout, so the charge path is unchanged. Only the
+  // explicit `price_29` arm lowers the anchor; an unset/missing flag (or PostHog being down) falls
+  // through to the $39 control, so there's no regression if the experiment isn't configured.
+  const PRICE_VARIANTS = {
+    control: { monthly: 39, yearly: 390, monthlyDisplay: '$39', yearlyDisplay: '$390' },
+    price_29: { monthly: 29, yearly: 290, monthlyDisplay: '$29', yearlyDisplay: '$290' },
+  } as const
+  const priceConfig = pricingVariant === 'price_29' ? PRICE_VARIANTS.price_29 : PRICE_VARIANTS.control
 
   // A reverse-trial user is `is_pro` but hasn't paid yet, so they must still be able to pick a
   // billing cycle and convert. Only a *paid* (active, non-trial) subscriber has nothing to buy —

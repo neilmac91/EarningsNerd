@@ -1,61 +1,57 @@
-# Task: PR #470 post-review amendments (multi-period fundamentals trend)
+# Task: Fake-door $39-vs-$29 price test (roadmap item 2.3)
 
-A 6-agent quality review of PR #470 surfaced two issues to fix before the chart goes live
-(flag is dark today). Founder approved fixing both, with the recommended duplication approach.
+Measure willingness-to-pay by A/B-testing the displayed Pro price ($39 control vs $29 test). Both
+arms route to the **existing** checkout — beta members still pay $0 via the forever promo; the
+charge logic is untouched. The signal is `checkout_started{variant}` (and the already-firing
+`pricing_experiment_exposed{variant}`), analyzable as an exposed→checkout funnel split by arm.
 
-## Fix 1 — Period-mixing under an "Annual figures" label (HIGH, data-defensibility)
-**Root cause (verified):** `get_fundamentals` filters only `is_latest=True` with **no fiscal_period
-filter** (`facts_service.py:617-622`). `backfill_facts` ingests *all* XBRL-bearing filings incl.
-10-Qs (`:547`); 10-Q facts get `fiscal_period=None`, not `"FY"` (`_fiscal_period`, `:75`); the chart
-buckets bars purely by `fiscal_year` (`FundamentalsTrendChart.tsx:95`). So a quarterly (3-month) bar
-can sit beside an annual bar under a footnote that says "Annual figures." Pre-exists on the live
-company page too (same read path) — the read-path fix heals both surfaces.
+## Recon findings (the infra already exists)
+- `pricing/page.tsx:30` already reads `useFeatureFlagVariantKey('pricing-experiment')`; `:76-82`
+  already fires `pricing_experiment_exposed{variant}`. Both currently unused for the price.
+- `:121` hardcodes `priceConfig = { monthly: 39, yearly: 390, … }`; `handleUpgrade` (`:100-114`)
+  already calls `analytics.checkoutStarted('pro', priceValue, billingCycle)`.
+- Backend checkout is variant-agnostic; $0 is server-side via `is_beta` + `STRIPE_BETA_PROMO_CODE_ID`
+  with `payment_method_collection:"if_required"`. **Display-only fake-door → no backend change, no
+  new Stripe price.**
 
-- [ ] Add `.filter(FinancialFact.fiscal_period == "FY")` to `get_fundamentals` (annual-only series),
-      update the docstring to state the FY contract.
-- [ ] Test: a company with a FY fact + a quarterly (fiscal_period=None) fact for the same concept →
-      only the FY point is returned. (TestGetFundamentals, `@pytest.mark.requires_db`.)
+## Decisions (per approved roadmap "$39 vs $29" + safe-default design)
+- **control / undefined / PostHog-down → $39/$390** (current anchor; zero-regression default).
+- **`price_29` variant → $29/$290** (annual stays 10×, matching the $39→$390 pattern).
+- **Frontend-only.** No charge-path change; the test measures intent (checkout_started), not real
+  conversions (those stay gated by the existing beta/$0 logic).
+- **Founder owns** the PostHog flag `pricing-experiment` (variants `control` + `price_29`, rollout %).
+  Until it's created, everyone sees $39 (safe default) and no exposure fires.
 
-## Fix 2 — Filing-page duplication (HIGH, design) — approach (b) replace
-**Root cause (verified):** filing page renders BOTH `FundamentalsTrendChart` (new) and
-`FinancialCharts` (`#3E8E84` current-vs-prior bars of overlapping metrics) under the *same*
-`ENABLE_FINANCIAL_CHARTS` flag → two stacked bar charts + the metrics table. The **company page uses
-only `FundamentalsTrendChart`** — so replacing on the filing page makes it consistent.
-`FinancialCharts`' unique StatCards grid is acceptable to drop: `FinancialMetricsTable` (current/prior
-numbers) + `WhatChanged` (delta pills) already cover current-vs-prior, and the company page has no
-StatCards either.
-
-- [ ] Remove the `FinancialCharts` dynamic import + render block from the filing page
-      (`page-client.tsx`), and the now-orphaned `ChartsSkeleton` (only used by that import; else
-      ESLint `--max-warnings 0` fails). Leave `FinancialCharts.tsx` and the company page untouched.
-- [ ] Heading context (the design [medium]): add an optional `subtitle?: string` prop to
-      `FundamentalsTrendChart` (default off → company page unchanged) and pass a filing-context line
-      on the filing page (the chart spans the company's multi-year history, not just this filing).
-- [ ] Test: the new `subtitle` renders when passed (and is absent by default).
+## Plan
+- [ ] `analytics.ts`: add optional `variant?: string` to `checkoutStarted`; include it in props when present.
+- [ ] `pricing/page.tsx`: replace the static `priceConfig` with a variant-aware pick
+      (`price_29` → $29/$290; else control $39/$390); pass the variant (`'control'` when unset) into
+      `checkoutStarted`. The strike-through/period text already derive from `priceConfig`, so they
+      follow automatically.
+- [ ] `PricingPage.test.tsx`: make the `useFeatureFlagVariantKey` / `createCheckoutSession` /
+      `checkoutStarted` mocks controllable; add tests — control arm shows $390, `price_29` shows $290,
+      and clicking Upgrade fires `checkout_started` with the arm's price + variant.
 
 ## Verify
-- [ ] Backend: `python3 -m py_compile` the changed files (pytest/pydantic unavailable locally; the FY
-      test runs on CI `backend-tests` where a DB is present).
-- [ ] Frontend: `tsc --noEmit` (subtitle prop narrowing), `eslint --max-warnings 0` (no orphaned
-      ChartsSkeleton), full `vitest` (incl. the new subtitle assertion + unchanged FinancialCharts
-      spec, which still tests the component directly).
-- [ ] Confirm CI green on the pushed branch; PR #470 already open (draft).
+- [ ] `npm run typecheck` (tsconfig.ci.json) · `npm run lint --max-warnings 0` · full `vitest`.
+- [ ] Existing PricingPage tests stay green (default mock = undefined → $39 control, unchanged).
+- [ ] CI green on the pushed branch; open as a draft PR (per-item convention).
 
 ## Notes
-- Minimal-impact: shared `FinancialCharts.tsx` is NOT modified, so its other consumer (company page)
-  and its existing spec are unaffected. The FY fix is a single read-path filter → fixes both pages.
-- No new theme tokens (subtitle reuses the WCAG-safe muted pair) → no both-themes design risk.
+- Surgical + reuse-first: leans entirely on the pre-wired flag read + exposure event; ~1 new line of
+  real logic + analytics plumbing. No backend, no API-contract, no Stripe price, no eval impact.
 
 ## Review
-- **Fix 1 (FY filter):** one-line read-path filter in `get_fundamentals` + a `requires_db` test
-  asserting a quarterly point is dropped beside the FY value. Centralized at the read path, so it
-  heals both the filing and company charts; the "Annual figures" footnote is now true.
-- **Fix 2 (dedup):** filing page now renders only `FundamentalsTrendChart` (matching the company
-  page) — removed the `FinancialCharts` import + render block + orphaned `ChartsSkeleton`.
-  `FinancialCharts.tsx` itself and the company page are untouched (its existing spec still passes).
-  Added an optional `subtitle` prop (default off → company page unchanged) and pass a filing-context
-  line; covered by a new spec.
-- **Verified:** `py_compile` OK; `npm run typecheck` (tsconfig.ci.json) clean; `npm run lint` clean;
-  `vitest` 50 files / 225 tests green (was 224 — +1 subtitle test). Backend FY test runs on CI.
-- **Scope honored:** surgical, reuse-over-new, minimal blast radius; the one shared-component change
-  is additive and default-inert.
+- **Surgical, as scoped.** Two real changes: (1) `priceConfig` is now a variant pick — `price_29` →
+  $29/$290, everything else → the $39/$390 control; (2) the variant ('control' when unset) flows into
+  `checkout_started`. The existing flag read + exposure event needed no change. No backend, no API,
+  no Stripe price, no eval surface.
+- **Zero-regression default.** Flag unset / PostHog down → $39 control, identical to today. Existing
+  PricingPage tests (mock returns undefined) stayed green untouched.
+- **Tests:** made the flag/checkout/analytics mocks controllable; added 3 — control shows $390,
+  `price_29` shows $290, and a click fires `checkout_started('pro', 290, 'yearly', 'price_29')` +
+  `createCheckoutSession('price_pro_yearly')`.
+- **Verified:** `npm run typecheck` clean · `npm run lint --max-warnings 0` clean · vitest 50 files /
+  228 tests (was 225; +3).
+- **Founder action (not code):** create the `pricing-experiment` PostHog flag (variants `control` +
+  `price_29`, e.g. 50/50) to start the test; until then everyone sees $39.

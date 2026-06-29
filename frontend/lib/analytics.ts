@@ -290,11 +290,13 @@ export const analytics = {
     safeCapture('billing_cycle_toggled', { from, to })
   },
 
-  checkoutStarted: (plan: string, price: number, billingCycle: string) => {
+  checkoutStarted: (plan: string, price: number, billingCycle: string, variant?: string) => {
     safeCapture('checkout_started', {
       plan,
       price,
       billing_cycle: billingCycle,
+      // Pricing A/B arm (roadmap 2.3) — present so the exposed→checkout funnel can split by variant.
+      ...(variant ? { variant } : {}),
     })
   },
 
