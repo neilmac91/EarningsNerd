@@ -3060,13 +3060,18 @@ Do not include any additional keys or text outside the JSON object."""
                 async for chunk in stream:
                     if not chunk.choices:
                         # The include_usage final chunk has empty choices + a `usage` payload;
-                        # accumulate it across tool rounds (best-effort, only when requested).
+                        # accumulate it across tool rounds (best-effort, only when requested). Some
+                        # OpenAI-compatible gateways return usage as a dict rather than an object, so
+                        # handle both — getattr on a dict would silently zero the token counts.
                         if usage_sink is not None:
                             u = getattr(chunk, "usage", None)
                             if u is not None:
-                                usage_sink["prompt_tokens"] = usage_sink.get("prompt_tokens", 0) + (getattr(u, "prompt_tokens", 0) or 0)
-                                usage_sink["completion_tokens"] = usage_sink.get("completion_tokens", 0) + (getattr(u, "completion_tokens", 0) or 0)
-                                usage_sink["total_tokens"] = usage_sink.get("total_tokens", 0) + (getattr(u, "total_tokens", 0) or 0)
+                                p_tok = u.get("prompt_tokens") if isinstance(u, dict) else getattr(u, "prompt_tokens", 0)
+                                c_tok = u.get("completion_tokens") if isinstance(u, dict) else getattr(u, "completion_tokens", 0)
+                                t_tok = u.get("total_tokens") if isinstance(u, dict) else getattr(u, "total_tokens", 0)
+                                usage_sink["prompt_tokens"] = usage_sink.get("prompt_tokens", 0) + (p_tok or 0)
+                                usage_sink["completion_tokens"] = usage_sink.get("completion_tokens", 0) + (c_tok or 0)
+                                usage_sink["total_tokens"] = usage_sink.get("total_tokens", 0) + (t_tok or 0)
                         continue
                     choice = chunk.choices[0]
                     delta = choice.delta
