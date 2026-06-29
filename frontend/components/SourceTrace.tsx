@@ -91,8 +91,11 @@ function SourceTraceInner({
   // anchors the exact line); else fall back to the section heading (metrics have no verbatim
   // excerpt — a best-effort section jump that degrades to "couldn't pinpoint, showing the full
   // filing" when the heading isn't found, never a wrong line).
-  const highlightTarget = excerpt || header || ''
-  const canHighlight = !!viewer && highlightTarget.length >= 4
+  // Prefer the verbatim excerpt (anchors the exact line); if it's too short to anchor reliably,
+  // fall back to the section heading rather than disabling the in-app jump entirely.
+  const highlightTarget =
+    excerpt && excerpt.length >= 4 ? excerpt : header && header.length >= 4 ? header : ''
+  const canHighlight = !!viewer && !!highlightTarget
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [open, setOpen] = useState(false)
@@ -237,6 +240,8 @@ function SourceTraceInner({
   )
 
   const doHighlight = () => {
+    // Dismiss the hover/focus popover so it doesn't linger over the freshly-highlighted passage.
+    closePanel()
     viewer?.requestHighlight({
       n: 0,
       excerpt: highlightTarget,
