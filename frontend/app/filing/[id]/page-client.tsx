@@ -103,6 +103,14 @@ const FinancialCharts = dynamic(() => import('@/components/FinancialCharts'), {
   loading: () => <ChartsSkeleton />,
 })
 
+// Multi-period fundamentals trend (item 2.5), reused from the company page. recharts is heavy +
+// DOM-only, so load it client-side like the other charts. It self-fetches and renders nothing until
+// facts exist, so no loading fallback (which would flash an empty card before it decides).
+const FundamentalsTrendChart = dynamic(
+  () => import('@/features/fundamentals/components/FundamentalsTrendChart'),
+  { ssr: false },
+)
+
 const SummarySections = dynamic(() => import('@/components/SummarySections'), {
   ssr: false,
   loading: () => <SummarySectionsSkeleton />,
@@ -1321,6 +1329,13 @@ function SummaryDisplay({
 
           {/* A5: What Changed vs the prior comparable filing */}
           {changeReport?.has_changes && <WhatChanged report={changeReport} />}
+
+          {/* 2.5: multi-period trend of the company's standardized fundamentals (revenue/NI/EPS/…)
+              for trajectory context next to the period-over-period diff. Self-fetches + self-gates
+              (renders nothing until facts exist); behind the same flag as the company-page chart. */}
+          {ENABLE_FINANCIAL_CHARTS && filing.company?.ticker && (
+            <FundamentalsTrendChart ticker={filing.company.ticker} />
+          )}
 
           {/* Financial Metrics Table */}
           {metadata?.financial_highlights?.table && Array.isArray(metadata.financial_highlights.table) && (
