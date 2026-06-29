@@ -12,7 +12,7 @@ from app.routers.auth import get_current_user
 from app.config import settings
 from app.services.posthog_client import EVENT_TRIAL_STARTED, capture_event
 from app.services import subscription_sync
-from app.services.entitlements import get_plan
+from app.services.entitlements import get_entitlements, get_plan
 from app.services.subscription_service import (
     get_current_month,
     get_user_usage_count,
@@ -47,9 +47,14 @@ class UsageResponse(BaseModel):
     month: str
     # Copilot ("Ask this Filing") Q&A usage this month. qa_limit is the PRO fair-use soft cap
     # (COPILOT_MONTHLY_QUESTION_CAP); surfaced so the UI can show an honest "N of M" instead of
-    # only revealing the cap at a 429. FREE users have no Copilot access, so qa_used stays 0.
+    # only revealing the cap at a 429. FREE users have no monthly Copilot access, so qa_used stays 0.
     qa_used: int
     qa_limit: int
+    # Free "taste" of Copilot (roadmap 2.2): lifetime grounded questions a FREE user has spent and
+    # the plan's total allowance, so the UI can show "N of M free questions" and switch to the upsell
+    # at exhaustion. For Pro these are 0 (Pro is unlimited via qa_limit).
+    copilot_free_taste_used: int
+    copilot_free_taste_total: int
 
 class SubscriptionStatus(BaseModel):
     is_pro: bool
@@ -71,6 +76,7 @@ async def get_usage(
     month = get_current_month()
     current_count = get_user_usage_count(current_user.id, month, db)
     
+    ent = get_entitlements(current_user)
     return UsageResponse(
         summaries_used=current_count,
         summaries_limit=None if current_user.is_pro else FREE_TIER_SUMMARY_LIMIT,
@@ -78,6 +84,8 @@ async def get_usage(
         month=month,
         qa_used=get_user_qa_count(current_user.id, month, db),
         qa_limit=settings.COPILOT_MONTHLY_QUESTION_CAP,
+        copilot_free_taste_used=getattr(current_user, "copilot_free_taste_used", 0) or 0,
+        copilot_free_taste_total=ent.copilot_free_taste,
     )
 
 @router.get("/subscription", response_model=SubscriptionStatus)

@@ -167,14 +167,19 @@ def client():
 
 
 @contextmanager
-def _as_user(is_pro):
-    """Create a real user row + override get_current_user with a matching stand-in."""
+def _as_user(is_pro, free_taste_used=0):
+    """Create a real user row + override get_current_user with a matching stand-in.
+
+    ``free_taste_used`` seeds the lifetime Copilot free-taste counter (roadmap 2.2) on both the real
+    row (so metering reads/writes it) and the stand-in (so the gate sees it).
+    """
     from app.database import SessionLocal
     from app.models import User, UserUsage
 
     db = SessionLocal()
     user = User(email=f"copilot-{uuid.uuid4().hex}@example.com", hashed_password="x",
-                email_verified=True, is_active=True, is_pro=is_pro)
+                email_verified=True, is_active=True, is_pro=is_pro,
+                copilot_free_taste_used=free_taste_used)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -182,7 +187,8 @@ def _as_user(is_pro):
     db.close()
 
     stand_in = SimpleNamespace(
-        id=uid, is_pro=is_pro, subscription=None, email="x@example.com", full_name="Tester"
+        id=uid, is_pro=is_pro, subscription=None, email="x@example.com", full_name="Tester",
+        copilot_free_taste_used=free_taste_used,
     )
     # require_entitlement resolves the user through _resolve_current_user (which lazily calls the
     # canonical get_current_user). Override both so the gate sees our stand-in regardless of which
@@ -241,10 +247,51 @@ def _seed_filing():
 
 
 @pytest.mark.requires_db
-def test_endpoint_free_user_forbidden(client):
-    with _as_user(is_pro=False), _seed_filing() as fid:
+def test_endpoint_free_user_with_taste_streams(client, monkeypatch):
+    # Roadmap 2.2: a Free user under their lifetime free-taste allowance can sample Copilot.
+    async def _fake_answer(*, filing, question, history=None):
+        yield {"type": "complete", "answer": "hi", "citations": [], "grounded": 0, "kind": "answer"}
+
+    import app.routers.summaries as summaries_router
+    monkeypatch.setattr(summaries_router, "answer_filing_question", _fake_answer)
+
+    with _as_user(is_pro=False, free_taste_used=0), _seed_filing() as fid:
+        resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Hi?"})
+        assert resp.status_code == 200
+        assert '"type": "complete"' in resp.text
+
+
+@pytest.mark.requires_db
+def test_endpoint_free_user_taste_exhausted_forbidden(client):
+    # Free user who has already spent all 3 lifetime free questions → 403 upsell.
+    with _as_user(is_pro=False, free_taste_used=3), _seed_filing() as fid:
         resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Hi?"})
         assert resp.status_code == 403
+
+
+@pytest.mark.requires_db
+def test_endpoint_free_taste_decrements_lifetime_counter(client, monkeypatch):
+    # A successful free-taste answer increments the lifetime counter (not the monthly qa_count).
+    async def _fake_answer(*, filing, question, history=None):
+        yield {"type": "complete", "answer": "ok", "citations": [], "grounded": 0, "kind": "answer"}
+
+    import app.routers.summaries as summaries_router
+    from app.services.subscription_service import get_current_month, get_user_qa_count
+    from app.database import SessionLocal
+    from app.models import User
+
+    monkeypatch.setattr(summaries_router, "answer_filing_question", _fake_answer)
+
+    with _as_user(is_pro=False, free_taste_used=1) as uid, _seed_filing() as fid:
+        resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Q?"})
+        assert resp.status_code == 200
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter(User.id == uid).first()
+            assert user.copilot_free_taste_used == 2  # lifetime counter advanced 1 → 2
+            assert get_user_qa_count(uid, get_current_month(), db) == 0  # monthly cap untouched
+        finally:
+            db.close()
 
 
 @pytest.mark.requires_db

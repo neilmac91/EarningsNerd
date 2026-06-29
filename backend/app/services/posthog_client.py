@@ -100,9 +100,11 @@ def capture_copilot_inference(
     ticker: Optional[str] = None,
     kind: Optional[str] = None,
     grounded: Optional[int] = None,
+    is_free_taste: Optional[bool] = None,
 ) -> None:
     """Capture a Copilot answer's token usage + estimated inference cost. Never raises —
-    telemetry must not break or slow the answer stream."""
+    telemetry must not break or slow the answer stream. ``is_free_taste`` tags answers served on a
+    Free user's lifetime taste (roadmap 2.2) so that spend can be isolated from Pro spend."""
     properties: dict = {
         "model": model,
         "prompt_tokens": prompt_tokens,
@@ -115,6 +117,7 @@ def capture_copilot_inference(
         "ticker": ticker,
         "kind": kind,
         "grounded": grounded,
+        "is_free_taste": is_free_taste,
     }
     properties = {k: v for k, v in properties.items() if v is not None}
     try:

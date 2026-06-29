@@ -89,6 +89,19 @@ def increment_user_qa(user_id: int, month: str, db: Session) -> None:
     db.commit()
 
 
+def increment_user_copilot_free_taste(user_id: int, db: Session) -> None:
+    """Increment a Free user's *lifetime* Copilot free-taste counter (roadmap 2.2).
+
+    Lifetime (lives on ``users``), so it's keyed only by user — unlike the monthly ``qa_count`` on
+    ``user_usage``. Metered after a successful answer; Pro users never reach this path.
+    """
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None:
+        return
+    user.copilot_free_taste_used = (user.copilot_free_taste_used or 0) + 1
+    db.commit()
+
+
 def check_qa_limit(user: User, db: Session) -> tuple[bool, int, int]:
     """Check if a Pro user is under the Copilot monthly question cap.
 
