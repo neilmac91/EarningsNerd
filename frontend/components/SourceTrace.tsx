@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowSquareOutIcon, CheckCircleIcon, XIcon } from '@/lib/icons'
+import { useFilingViewer } from '@/features/filings/components/copilot/FilingViewerContext'
 
 /**
  * Shared "Trace to Source" provenance affordance — the ambient, on-brand way every metric and risk
@@ -27,6 +28,13 @@ interface SourceTraceProps {
   label?: string
   /** One-line explanation in the panel (e.g. a metric's XBRL match note). */
   note?: string | null
+  /**
+   * Verbatim filing text to scroll-highlight in the IN-APP viewer (item 1.4). When a
+   * `FilingViewerProvider` is mounted, the chip becomes an in-app "jump to source" instead of an
+   * external EDGAR link; the EDGAR link stays available as the popover fallback. A verified risk
+   * excerpt anchors precisely; metrics (no verbatim excerpt) fall back to the section heading.
+   */
+  excerpt?: string | null
 }
 
 interface PopoverPos {
@@ -38,7 +46,7 @@ interface PopoverPos {
 const POPOVER_WIDTH = 288 // w-72
 const CLOSE_DELAY_MS = 120
 
-export function SourceTrace({ url, verified, sectionRef, label, note }: SourceTraceProps) {
+export function SourceTrace({ url, verified, sectionRef, label, note, excerpt }: SourceTraceProps) {
   const isVerified = verified === true
   const header = sectionRef?.trim() || null
   const chipLabel = label ?? (isVerified ? 'Verified in filing' : 'Cited')
@@ -56,6 +64,7 @@ export function SourceTrace({ url, verified, sectionRef, label, note }: SourceTr
       note={note?.trim() || null}
       chipLabel={chipLabel}
       panelId={panelId}
+      excerpt={excerpt?.trim() || null}
     />
   )
 }
@@ -67,6 +76,7 @@ function SourceTraceInner({
   note,
   chipLabel,
   panelId,
+  excerpt,
 }: {
   url: string | null
   isVerified: boolean
@@ -74,7 +84,15 @@ function SourceTraceInner({
   note: string | null
   chipLabel: string
   panelId: string
+  excerpt: string | null
 }) {
+  const viewer = useFilingViewer()
+  // In-app source highlight (item 1.4): prefer a verbatim excerpt (a verified risk-evidence span
+  // anchors the exact line); else fall back to the section heading (metrics have no verbatim
+  // excerpt — a best-effort section jump that degrades to "couldn't pinpoint, showing the full
+  // filing" when the heading isn't found, never a wrong line).
+  const highlightTarget = excerpt || header || ''
+  const canHighlight = !!viewer && highlightTarget.length >= 4
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [open, setOpen] = useState(false)
@@ -218,22 +236,43 @@ function SourceTraceInner({
     </>
   )
 
-  const trigger =
-    url && !isCoarse ? (
-      <a {...triggerCommon} href={url} target="_blank" rel="noopener noreferrer">
-        {chipInner}
-      </a>
-    ) : (
-      <button
-        type="button"
-        {...triggerCommon}
-        onClick={handleTrigger}
-        aria-expanded={open}
-        aria-controls={open ? panelId : undefined}
-      >
-        {chipInner}
-      </button>
-    )
+  const doHighlight = () => {
+    viewer?.requestHighlight({
+      n: 0,
+      excerpt: highlightTarget,
+      section_ref: header,
+      verified: isVerified,
+      fragment_url: url,
+    })
+  }
+
+  const trigger = canHighlight ? (
+    // In-app: clicking jumps to + highlights the source in the embedded filing viewer; the
+    // hover/focus panel still offers "Open in SEC EDGAR" as the fallback.
+    <button
+      type="button"
+      {...triggerCommon}
+      onClick={doHighlight}
+      aria-expanded={open}
+      aria-controls={open ? panelId : undefined}
+    >
+      {chipInner}
+    </button>
+  ) : url && !isCoarse ? (
+    <a {...triggerCommon} href={url} target="_blank" rel="noopener noreferrer">
+      {chipInner}
+    </a>
+  ) : (
+    <button
+      type="button"
+      {...triggerCommon}
+      onClick={handleTrigger}
+      aria-expanded={open}
+      aria-controls={open ? panelId : undefined}
+    >
+      {chipInner}
+    </button>
+  )
 
   let overlay: React.ReactNode = null
   if (open && typeof document !== 'undefined') {

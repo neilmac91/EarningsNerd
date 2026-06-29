@@ -60,6 +60,7 @@ export function SummaryFinancials({ notes, metrics }: SummaryFinancialsProps) {
                         url={m.source_url}
                         verified={m.source_verified}
                         concept={m.xbrl_concept}
+                        sectionRef={m.source_section_ref}
                       />
                     </span>
                   )}
