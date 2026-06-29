@@ -548,7 +548,11 @@ function FilingDetailView({ filingId }: { filingId: number }) {
 
 
   return (
-    <FilingViewerProvider>
+    <FilingViewerProvider
+      filingId={filing.id}
+      ticker={filing.company?.ticker ?? null}
+      filingType={filing.filing_type}
+    >
     <div className="min-h-screen bg-background-light dark:bg-background-dark">
       {/* Header */}
       <header className="bg-panel-light dark:bg-panel-dark shadow-lg border-b border-border-light dark:border-border-dark">
