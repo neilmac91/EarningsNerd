@@ -1,44 +1,47 @@
-# Task: Unify company-search dropdown styles
+# Task: Per-ADS EPS display (roadmap item 1.5)
 
-## Problem
-The main-page search dropdown (`CompanySearch.tsx`) rendered results in two
-divergent visual styles during a single search:
-- "Instant local matches" block (sage ticker + muted name + "instant" badge),
-  seeded from a static `TOP_TICKERS` list — no price/change data possible.
-- "Search Results" block (network) — name + ticker + price + daily gain/loss.
-They appeared in sequence, reading as two design languages = "amateur/buggy".
+## Context
+The ADS-ratio correctness layer (item A / #461) computes a per-ADS EPS block
+(`{value, ordinary_per_ads, currency, as_of, source, arithmetic}`) for the four
+ratio≠1 ADRs (BABA 8 / TSM 5 / JD 2 / PDD 4) in `extract_standardized_metrics`.
+A reconnaissance pass found it **never reached the frontend**: `attach_normalized_facts`
+used the standardized metrics only to backfill prior periods, and the frontend
+`MetricItem` had no per-ADS field. So the correct per-ADS figure — the most
+credibility-sensitive number on an ADR report — was computed but invisible.
 
-## Decision (from user)
-- DROP the instant-matches block entirely (one consistent style).
-- Scope: CompanySearch only (leave WatchlistAddSearch alone).
-- Function over design — keep the already-correct, theme-aware network row.
+## Decision
+- **Backend (additive):** in `attach_normalized_facts`, merge `xbrl_metrics[eps_key].per_ads`
+  onto the EPS row of `financial_highlights.table` (the JSON the API serializes). New key only;
+  never alters the as-filed per-ordinary-share `current_period`, so it can't regress the eval
+  baseline (the golden set already accepts per-ADS as a valid alt-value).
+- **Frontend:** add `PerAdsValue` + optional `per_ads` to `MetricItem`; one shared `PerAdsNote`
+  component renders the per-ADS figure with its conversion **arithmetic inline** and the
+  **sourced + dated** ratio in the tooltip — auditable, never an unexplained number (1.5's contract).
+- Reuse the existing financial-highlights rendering (`FinancialMetricsTable`, `SummaryFinancials`);
+  no new endpoint, no schema/migration.
 
 ## Plan
-- [x] Remove instant-matches JSX block from `CompanySearch.tsx`
-- [x] Remove supporting machinery (`localMatches`, `showLocalResults`, simplify
-      `navigableTickers` to network results) + the `matchTopTickers` import
-- [x] Delete now-orphaned `lib/topTickers.ts` and update its CLAUDE.md reference
-- [x] Add focused Vitest regression test for the single unified row
-- [x] Verify: lint (max-warnings 0), typecheck, vitest, next build
+- [x] Backend: merge `per_ads` onto the EPS row in `attach_normalized_facts` (`app/schemas/summary.py`)
+- [x] Frontend type: `PerAdsValue` + optional `per_ads` on `MetricItem` (`types/summary.ts`)
+- [x] New `PerAdsNote` component (figure + inline arithmetic + sourced/dated tooltip)
+- [x] Render it in `FinancialMetricsTable` (EPS current-period cell) + `SummaryFinancials` (EPS bullet)
+- [x] Backend test: per_ads merged onto EPS row, value untouched, absent for domestic/non-dict/no-metrics
+- [x] Frontend test: table renders per-ADS figure + arithmetic when present, omits otherwise
+- [x] Verify frontend locally: vitest (48 files / 217 tests) + typecheck + lint (max-warnings 0) — green
 - [ ] Commit + push + open draft PR
 
+## Notes / follow-ups
+- Backend test runs in CI (`backend-tests`) — `pytest`/`pydantic` aren't installed in this sandbox,
+  so the backend change is verified by inspection + CI; the frontend is verified locally.
+- Eval: the change is additive (a new key on the EPS row), so it should be eval-neutral; re-run the
+  eval on the ADR golden-set members (BABA/TSM/JD/PDD) before relying on it in prod as belt-and-suspenders.
+- Next (item 1.4): upgrade headline-figure source links from the external SEC `#:~:text=` deep-link to
+  the in-app `requestHighlight` scroll-highlight (separate PR; needs grounding the SourceTrace wiring).
+
 ## Review
-- The dropdown now has a SINGLE rendering path: the theme-aware network
-  "Search Results" block (name + ticker + price + daily gain/loss). The
-  divergent instant-local-matches block (sage ticker + muted name + "instant"
-  badge) is gone, so no second style can appear during a search.
-- `lib/topTickers.ts` was used only by that block, so it was deleted (dead code);
-  its one CLAUDE.md reference was updated.
-- Verification:
-  - `eslint . --max-warnings 0` → clean
-  - `tsc --noEmit` (tsconfig.ci.json) → clean
-  - `vitest run` → 47 files / 215 tests pass (incl. new `CompanySearch.test.tsx`)
-  - `next build` → succeeds
-  - Rendered the real homepage via Playwright with the search API mocked and
-    screenshotted the dropdown in BOTH themes — one consistent, theme-aware
-    style; gain green / loss red; "Loading price…" placeholder for quote-less
-    rows; no "instant" badge.
-- Deploy note: the deployed `origin/main` ran an older single dark-only block;
-  this branch already carried the two-block version. Collapsing to one block
-  fixes the inconsistency regardless of which generation prod runs; takes effect
-  on merge + deploy.
+- 1.5's gap was a backend→frontend plumbing miss, not missing data: the per-ADS figure existed but
+  `attach_normalized_facts` dropped it. Fix is a 4-line additive merge + a small presentation layer.
+- Strictly additive end to end — no existing event/value/schema changed; the as-filed
+  per-ordinary-share EPS is untouched (backend test asserts this), so the perfect eval baseline holds.
+- Auditable by construction: the per-ADS figure is always shown WITH its ratio + arithmetic and a
+  dated source, so the correction can be verified rather than trusted (the accountability moat, #2).
