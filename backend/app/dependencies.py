@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import User
-from app.services.entitlements import get_entitlements, is_pro_user
+from app.services.entitlements import can_use_copilot, get_entitlements, is_pro_user
 
 _UPGRADE_HINT = "Upgrade to Pro to access this feature."
 # Mirrors the bearer scheme in app.routers.auth (auto_error=False → get_current_user decides 401).
@@ -46,6 +46,26 @@ def require_pro(current_user: User = Depends(_resolve_current_user)) -> User:
             detail=f"This is a Pro feature. {_UPGRADE_HINT}",
         )
     return current_user
+
+
+def require_copilot_or_taste(current_user: User = Depends(_resolve_current_user)) -> User:
+    """Allow the Copilot Q&A endpoint for Pro users (full entitlement) OR a Free user who still has
+    lifetime free-taste questions left (roadmap 2.2); 403 → upsell once the taste is spent.
+
+    Unlike ``require_entitlement("copilot")`` (a hard Pro gate), this lets Free users sample the
+    feature a few times. The lifetime counter is metered on the endpoint after a successful answer.
+    """
+    if can_use_copilot(current_user):
+        return current_user
+    allowance = get_entitlements(current_user).copilot_free_taste
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=(
+            f"You've used your {allowance} free Copilot questions. {_UPGRADE_HINT}"
+            if allowance
+            else f"Ask this Filing is a Pro feature. {_UPGRADE_HINT}"
+        ),
+    )
 
 
 def require_entitlement(flag: str, feature_label: str | None = None) -> Callable[..., User]:

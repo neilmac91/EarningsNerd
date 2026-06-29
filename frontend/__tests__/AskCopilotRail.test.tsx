@@ -37,17 +37,23 @@ vi.mock('@/lib/analytics', () => ({
   },
 }))
 
-// The rail fetches PRO Copilot usage for the "N of M left" pill; stub it so tests don't hit network.
+// The rail fetches Copilot usage (PRO monthly count, or FREE lifetime "taste" balance); stub it so
+// tests don't hit network. Controllable per-test via mockGetUsage.
+const mockGetUsage = vi.fn()
 vi.mock('@/features/subscriptions/api/subscriptions-api', () => ({
-  getUsage: vi.fn().mockResolvedValue({
-    summaries_used: 0,
-    summaries_limit: null,
-    is_pro: true,
-    month: '2026-06',
-    qa_used: 3,
-    qa_limit: 1000,
-  }),
+  getUsage: () => mockGetUsage(),
 }))
+
+const PRO_USAGE = {
+  summaries_used: 0,
+  summaries_limit: null,
+  is_pro: true,
+  month: '2026-06',
+  qa_used: 3,
+  qa_limit: 1000,
+  copilot_free_taste_used: 0,
+  copilot_free_taste_total: 0,
+}
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { askFilingStream, type CopilotHandlers } from '@/features/filings/api/copilot-api'
@@ -78,6 +84,8 @@ function renderRail(overrides: Partial<React.ComponentProps<typeof AskCopilotRai
 describe('AskCopilotRail', () => {
   beforeEach(() => {
     vi.mocked(askFilingStream).mockReset()
+    mockGetUsage.mockReset()
+    mockGetUsage.mockResolvedValue(PRO_USAGE)
   })
 
   it('renders the launcher when a summary is available', () => {
@@ -105,6 +113,31 @@ describe('AskCopilotRail', () => {
     expect(analytics.paywallPromptShown).toHaveBeenCalledWith(
       expect.objectContaining({ filingId: 42, entryPoint: 'copilot_rail' }),
     )
+  })
+
+  it('lets a FREE user with remaining taste ask, and shows the free-questions count (roadmap 2.2)', async () => {
+    mockGetUsage.mockResolvedValue({
+      ...PRO_USAGE, is_pro: false, qa_used: 0,
+      copilot_free_taste_used: 1, copilot_free_taste_total: 3,
+    })
+    renderRail({ open: true, isPro: false })
+
+    // Composer (not the teaser) once usage confirms taste remains, plus an honest count.
+    expect(await screen.findByLabelText(/ask about this filing/i)).toBeInTheDocument()
+    expect(screen.getByText(/2 of 3 free questions left/i)).toBeInTheDocument()
+    expect(screen.queryByText(/cited to the exact filing text/i)).not.toBeInTheDocument()
+  })
+
+  it('shows the teaser for a FREE user who has spent all their free questions', async () => {
+    mockGetUsage.mockResolvedValue({
+      ...PRO_USAGE, is_pro: false, qa_used: 0,
+      copilot_free_taste_used: 3, copilot_free_taste_total: 3,
+    })
+    renderRail({ open: true, isPro: false })
+
+    // Exhausted + no conversation yet → the locked teaser (its CTA upsells).
+    expect(await screen.findByText(/cited to the exact filing text/i)).toBeInTheDocument()
+    expect(screen.queryByLabelText(/ask about this filing/i)).not.toBeInTheDocument()
   })
 
   it('shows starter chips in the empty state for Pro users', () => {

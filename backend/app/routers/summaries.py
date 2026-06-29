@@ -18,13 +18,14 @@ from app.models import (
     SummaryGenerationProgress,
 )
 from app.routers.auth import get_current_user_optional
-from app.dependencies import require_entitlement
+from app.dependencies import require_copilot_or_taste
 from app.services.entitlements import get_entitlements
 from app.services.export_service import export_service
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.subscription_service import (
     check_qa_limit,
     get_current_month,
+    increment_user_copilot_free_taste,
     increment_user_qa,
 )
 from app.services.copilot_service import answer_filing_question, snapshot_filing
@@ -260,23 +261,30 @@ async def generate_summary_stream(
     )
 
 
-def _meter_qa_best_effort(user_id: int) -> None:
-    """Increment a user's Copilot QA count in a fresh DB session (best-effort).
+def _meter_qa_best_effort(user_id: int, is_free_taste: bool = False) -> None:
+    """Meter one answered Copilot question in a fresh DB session (best-effort).
 
-    Called from inside the SSE generator, which runs after the request's DB session may already be
-    gone (see ``snapshot_filing``), so it opens its own short-lived session. A metering failure must
-    never break the answer stream, so errors are swallowed (and logged).
+    Free users (``is_free_taste``) decrement their lifetime free-taste allowance; Pro users
+    increment the monthly fair-use ``qa_count``. Called from inside the SSE generator, which runs
+    after the request's DB session may already be gone (see ``snapshot_filing``), so it opens its own
+    short-lived session. A metering failure must never break the answer stream, so errors are
+    swallowed (and logged).
     """
     db = SessionLocal()
     try:
-        increment_user_qa(user_id, get_current_month(), db)
+        if is_free_taste:
+            increment_user_copilot_free_taste(user_id, db)
+        else:
+            increment_user_qa(user_id, get_current_month(), db)
     except Exception:  # noqa: BLE001 — metering must not break the answer stream
         logger.warning("Failed to meter Copilot QA for user %s", user_id, exc_info=True)
     finally:
         db.close()
 
 
-def _emit_copilot_cost_best_effort(user_id: int, filing_id: int, ticker, event: dict) -> None:
+def _emit_copilot_cost_best_effort(
+    user_id: int, filing_id: int, ticker, event: dict, is_free_taste: bool = False
+) -> None:
     """Emit a Copilot answer's token usage + estimated inference cost to PostHog (roadmap 2.1).
 
     Keyed on ``str(user_id)`` — the same id the frontend identifies on — so it joins the person's
@@ -309,6 +317,7 @@ def _emit_copilot_cost_best_effort(user_id: int, filing_id: int, ticker, event: 
             ticker=ticker,
             kind=event.get("kind"),
             grounded=event.get("grounded"),
+            is_free_taste=is_free_taste,
         )
     except Exception:  # noqa: BLE001 — telemetry must not break the answer stream
         logger.warning("Failed to emit Copilot cost telemetry for user %s", user_id, exc_info=True)
@@ -319,15 +328,18 @@ async def ask_filing_stream(
     filing_id: int,
     body: AskRequest,
     request: Request,
-    current_user: User = Depends(require_entitlement("copilot", "Ask this Filing")),
+    current_user: User = Depends(require_copilot_or_taste),
     db: Session = Depends(get_db),
 ):
-    """Grounded single-filing Q&A with a streaming (SSE) response. Pro-only ("copilot" entitlement).
+    """Grounded single-filing Q&A with a streaming (SSE) response.
 
-    The model answers using only this filing's cached content; the server verifies each cited excerpt
-    against the filing text (reusing the Trace-to-Source provenance helpers) and emits honest
-    verified/cited labels plus ``#:~:text=`` deep links. Excluded from the timeout middleware by the
-    ``*stream*`` name rule. Metering: counts against the Pro fair-use monthly cap.
+    Open to Pro (full "copilot" entitlement) and to Free users within their lifetime free-taste
+    allowance (roadmap 2.2); the dependency 403s a Free user once the taste is spent. The model
+    answers using only this filing's cached content; the server verifies each cited excerpt against
+    the filing text (reusing the Trace-to-Source provenance helpers) and emits honest verified/cited
+    labels plus ``#:~:text=`` deep links. Excluded from the timeout middleware by the ``*stream*``
+    name rule. Metering: Pro counts against the monthly fair-use cap; Free decrements the lifetime
+    free-taste counter — both only on a successful answer.
     """
     enforce_rate_limit(
         request,
@@ -343,16 +355,20 @@ async def ask_filing_stream(
     if not filing:
         raise HTTPException(status_code=404, detail="Filing not found")
 
-    # Fair-use soft cap (Pro only reaches here). 429 when over, otherwise meter this question.
-    allowed, count, cap = check_qa_limit(current_user, db)
-    if not allowed:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=(
-                f"You've reached this month's fair-use limit of {cap} Copilot questions. "
-                "It resets at the start of next month."
-            ),
-        )
+    # Free users reach here on their lifetime free-taste allowance (gated upstream by
+    # require_copilot_or_taste); they meter the lifetime counter, not the monthly cap. The monthly
+    # fair-use cap is a Pro-only protection against runaway volume.
+    is_free_taste = not get_entitlements(current_user).copilot
+    if not is_free_taste:
+        allowed, count, cap = check_qa_limit(current_user, db)
+        if not allowed:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    f"You've reached this month's fair-use limit of {cap} Copilot questions. "
+                    "It resets at the start of next month."
+                ),
+            )
     # Snapshot the filing into detached plain objects up front. The SSE generator below runs after
     # this request's session may be gone, so it must never touch the ORM (mirrors
     # generate_summary_stream's eager value capture).
@@ -371,8 +387,9 @@ async def ask_filing_stream(
         ):
             if not metered and event.get("type") == "complete":
                 # Offload the synchronous DB write to a worker thread so it never blocks the event
-                # loop mid-stream (it opens its own fresh SessionLocal, so it's thread-safe).
-                await run_in_threadpool(_meter_qa_best_effort, user_id)
+                # loop mid-stream (it opens its own fresh SessionLocal, so it's thread-safe). Free
+                # users decrement the lifetime free-taste counter; Pro the monthly fair-use count.
+                await run_in_threadpool(_meter_qa_best_effort, user_id, is_free_taste)
                 metered = True
                 # Per-answer inference-cost telemetry (roadmap 2.1) — token usage rides the complete
                 # event; cost is estimated here. Non-blocking (PostHog batches) + best-effort.
@@ -381,6 +398,7 @@ async def ask_filing_stream(
                     filing_id,
                     getattr(getattr(filing_ctx, "company", None), "ticker", None),
                     event,
+                    is_free_taste,
                 )
             yield to_sse(event)
 

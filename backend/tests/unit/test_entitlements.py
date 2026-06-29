@@ -4,7 +4,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.services.entitlements import Plan, get_entitlements, get_plan, is_pro_user
+from app.services.entitlements import (
+    Plan,
+    can_use_copilot,
+    get_entitlements,
+    get_plan,
+    is_pro_user,
+)
 
 
 def _user(is_pro=False, subscription=None):
@@ -65,3 +71,31 @@ def test_trialing_naive_datetime_is_treated_as_utc():
 def test_inactive_subscription_is_free_even_if_mirror_true(status):
     # Once a sub row exists, it overrides the mirror — canceled/past_due/incomplete = free.
     assert get_plan(_user(is_pro=True, subscription=_sub(status))) is Plan.FREE
+
+
+# --- Copilot free taste (roadmap 2.2) ---
+
+def _free_user(used):
+    return SimpleNamespace(is_pro=False, subscription=None, copilot_free_taste_used=used)
+
+
+def test_free_entitlements_carry_a_copilot_taste():
+    ent = get_entitlements(_user(is_pro=False))
+    assert ent.copilot is False          # no full Copilot entitlement on Free
+    assert ent.copilot_free_taste == 3   # ...but a 3-question lifetime taste
+
+
+def test_pro_has_full_copilot_and_no_taste_needed():
+    ent = get_entitlements(_user(is_pro=True))
+    assert ent.copilot is True
+    assert ent.copilot_free_taste == 0
+
+
+@pytest.mark.parametrize("used, allowed", [(0, True), (2, True), (3, False), (4, False)])
+def test_can_use_copilot_tracks_free_taste(used, allowed):
+    assert can_use_copilot(_free_user(used)) is allowed
+
+
+def test_pro_can_always_use_copilot_regardless_of_taste_counter():
+    pro = SimpleNamespace(is_pro=True, subscription=None, copilot_free_taste_used=99)
+    assert can_use_copilot(pro) is True

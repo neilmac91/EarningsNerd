@@ -54,6 +54,10 @@ class Entitlements:
     priority_model: bool = False
     # "Ask this Filing" Copilot (A2). Pro-only grounded single-filing Q&A.
     copilot: bool = False
+    # Free "taste" of Copilot (roadmap 2.2): a lifetime allowance of grounded questions for users
+    # without the full `copilot` entitlement, after which they hit the upsell. 0 = no taste (Pro
+    # doesn't need one — it's unlimited via `copilot=True`).
+    copilot_free_taste: int = 0
 
     @property
     def has_unlimited_summaries(self) -> bool:
@@ -74,6 +78,8 @@ _FREE = Entitlements(
     history_retention_days=90,
     priority_model=False,
     copilot=False,
+    # 3 lifetime grounded Copilot questions as a taste before the upsell (roadmap 2.2).
+    copilot_free_taste=3,
 )
 
 _PRO = Entitlements(
@@ -139,3 +145,13 @@ def get_entitlements(user: User) -> Entitlements:
 def is_pro_user(user: User) -> bool:
     """Convenience boolean for gates that only care about Pro-vs-not."""
     return get_plan(user) is Plan.PRO
+
+
+def can_use_copilot(user: User) -> bool:
+    """True if the user may ask a Copilot question right now: Pro (full entitlement) or a Free user
+    still within their lifetime free-taste allowance (roadmap 2.2)."""
+    ent = get_entitlements(user)
+    if ent.copilot:
+        return True
+    used = getattr(user, "copilot_free_taste_used", 0) or 0
+    return used < ent.copilot_free_taste

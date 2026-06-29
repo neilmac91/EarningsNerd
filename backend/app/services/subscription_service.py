@@ -89,6 +89,22 @@ def increment_user_qa(user_id: int, month: str, db: Session) -> None:
     db.commit()
 
 
+def increment_user_copilot_free_taste(user_id: int, db: Session) -> None:
+    """Increment a Free user's *lifetime* Copilot free-taste counter (roadmap 2.2).
+
+    Lifetime (lives on ``users``), so it's keyed only by user — unlike the monthly ``qa_count`` on
+    ``user_usage``. Metered after a successful answer; Pro users never reach this path.
+
+    Atomic DB-level increment (not read-modify-write) so concurrent questions — a double-click or
+    parallel requests — can't lose an update and let a Free user slip past the 3-question cap.
+    """
+    db.query(User).filter(User.id == user_id).update(
+        {User.copilot_free_taste_used: User.copilot_free_taste_used + 1},
+        synchronize_session=False,
+    )
+    db.commit()
+
+
 def check_qa_limit(user: User, db: Session) -> tuple[bool, int, int]:
     """Check if a Pro user is under the Copilot monthly question cap.
 

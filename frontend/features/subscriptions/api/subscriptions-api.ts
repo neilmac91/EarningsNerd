@@ -9,6 +9,10 @@ export interface Usage {
   qa_used: number
   /** PRO fair-use soft cap on Copilot questions per month. */
   qa_limit: number
+  /** FREE "taste" of Copilot (roadmap 2.2): lifetime grounded questions spent so far. */
+  copilot_free_taste_used: number
+  /** FREE plan's lifetime taste allowance (0 for PRO, which is unlimited via qa_limit). */
+  copilot_free_taste_total: number
 }
 
 export interface SubscriptionStatus {

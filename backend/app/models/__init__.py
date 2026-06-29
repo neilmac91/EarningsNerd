@@ -31,6 +31,11 @@ class User(Base):
     # Closed-beta cohort flag, set server-side when a user registers with a valid invite. Drives the
     # 100%-off promo at checkout (so eligibility never depends on a client-supplied parameter).
     is_beta = Column(Boolean, default=False, nullable=False)
+    # Lifetime "free taste" of the Pro Copilot (roadmap 2.2): a Free user gets a small lifetime
+    # allowance of grounded "Ask this Filing" questions before the upsell. Lifetime, so it lives here
+    # (one row per user) rather than on user_usage (which is monthly). Pro is unlimited via
+    # entitlements and never touches this counter.
+    copilot_free_taste_used = Column(Integer, default=0, server_default="0", nullable=False)
     stripe_customer_id = Column(String, nullable=True)
     stripe_subscription_id = Column(String, nullable=True)
     # Email verification (store SHA-256 hash of token, never the raw token)

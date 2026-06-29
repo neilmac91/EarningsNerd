@@ -111,6 +111,24 @@ export default function AskCopilotRail({
     return () => abortStream()
   }, [])
 
+  // Copilot question usage (roadmap 2.2). Fetched for any signed-in user while the panel is open:
+  // PRO shows the monthly fair-use count; a FREE user shows their lifetime "free taste" balance.
+  // Refreshed after each answer (the counter advances server-side on completion).
+  const queryClient = useQueryClient()
+  const { data: usage } = useQuery({
+    queryKey: ['copilot-usage'],
+    queryFn: getUsage,
+    // /usage is auth-gated — never fire it for an anon user (a guaranteed 401 from a public page).
+    enabled: isAuthenticated && open,
+    staleTime: 60_000,
+  })
+  const freeTasteTotal = usage?.copilot_free_taste_total ?? 0
+  const freeTasteRemaining = Math.max(freeTasteTotal - (usage?.copilot_free_taste_used ?? 0), 0)
+  // A FREE user may ask while they have lifetime taste left. Conservative until usage loads (the
+  // teaser is the safe default), so we never expose the composer to someone who's out of questions.
+  const freeHasTaste = isAuthenticated && !isPro && freeTasteRemaining > 0
+  const canAsk = isPro || freeHasTaste
+
   // Auto-scroll to the newest message as content streams in.
   useEffect(() => {
     const el = scrollRef.current
@@ -127,20 +145,20 @@ export default function AskCopilotRail({
   // citation flow that returns to the answer, or switching back via the [Answer · Filing] tabs).
   const composerRef = useRef<CopilotComposerHandle>(null)
   useEffect(() => {
-    if (!open || !isPro || !isCopilotActive) return
+    if (!open || !canAsk || !isCopilotActive) return
     const raf = requestAnimationFrame(() => composerRef.current?.focus())
     return () => cancelAnimationFrame(raf)
-  }, [open, isPro, isCopilotActive])
+  }, [open, canAsk, isCopilotActive])
 
   // Pre-fill the composer from an "Ask about this" text selection (page sets `prefill` + opens us).
   const lastPrefillNonce = useRef(0)
   useEffect(() => {
-    if (!prefill || !isPro || prefill.nonce === lastPrefillNonce.current) return
+    if (!prefill || !canAsk || prefill.nonce === lastPrefillNonce.current) return
     lastPrefillNonce.current = prefill.nonce
     // Defer so the composer has mounted (the rail was opened in the same tick).
     const raf = requestAnimationFrame(() => composerRef.current?.prefill(prefill.text))
     return () => cancelAnimationFrame(raf)
-  }, [prefill, isPro])
+  }, [prefill, canAsk])
 
   // Below lg the standalone overlay acts as a modal (focus trap + scrim). When `embedded`,
   // FilingWorkspace owns the trap/scrim, so we disable the query entirely (isMobile stays false)
@@ -156,19 +174,6 @@ export default function AskCopilotRail({
     containerRef: panelRef,
     onClose: handleClose,
     restoreFocusRef: launcherRef,
-  })
-
-  // PRO Copilot question usage → an honest "N of M left" pill. Fetched only for PRO (FREE has no
-  // Copilot access) and only while open; refreshed after each answer (qa_count increments
-  // server-side on completion).
-  const queryClient = useQueryClient()
-  const { data: usage } = useQuery({
-    queryKey: ['copilot-usage'],
-    queryFn: getUsage,
-    // /usage is auth-gated; an anon user is never PRO, but gate on isAuthenticated too so we never
-    // fire a guaranteed-401 from a public page.
-    enabled: isAuthenticated && isPro && open,
-    staleTime: 60_000,
   })
 
   // Keyboard: ⌘K / Ctrl+K (and "/" when not already typing) open + focus the rail; Escape closes it.
@@ -303,7 +308,9 @@ export default function AskCopilotRail({
   }
 
   const handleSubmit = (question: string) => {
-    if (isStreaming) return
+    // Guard on canAsk too (not just the disabled composer) so a starter-question click can't slip
+    // past an exhausted FREE taste — the server would 403 anyway, but fail fast client-side.
+    if (isStreaming || !canAsk) return
     runQuestion(question, messagesRef.current)
   }
 
@@ -332,9 +339,15 @@ export default function AskCopilotRail({
 
   const subjectLabel = ticker || companyName || 'this filing'
 
-  // The conversation surface (teaser for FREE, else messages + composer). Shared by the overlay
-  // panel and the embedded (FilingWorkspace shell) layout so both exercise the same code path.
-  const body = !isPro ? (
+  // Who sees the conversation vs the teaser (roadmap 2.2): PRO and FREE-with-taste get the composer.
+  // An authed FREE user who exhausts mid-session keeps the conversation (messages.length > 0) with
+  // the composer disabled + an inline upsell, rather than having their answers yanked for the teaser.
+  // Anonymous users (and returning, already-exhausted FREE users with no conversation) get the teaser.
+  const showConversation = isPro || (isAuthenticated && (freeHasTaste || messages.length > 0))
+
+  // The conversation surface (teaser when there's nothing to ask, else messages + composer). Shared
+  // by the overlay panel and the embedded (FilingWorkspace shell) layout so both exercise it.
+  const body = !showConversation ? (
     <CopilotTeaser
       filingId={filingId}
       filingType={filingType}
@@ -387,15 +400,43 @@ export default function AskCopilotRail({
         )}
       </div>
 
-      {/* Composer */}
-      <CopilotComposer ref={composerRef} onSubmit={handleSubmit} disabled={isStreaming} />
+      {/* Composer — disabled while streaming, or once a FREE user has spent their taste. */}
+      <CopilotComposer ref={composerRef} onSubmit={handleSubmit} disabled={isStreaming || !canAsk} />
 
-      {/* Honest PRO usage — a calm count, not a hard sell. Shows the generous monthly allowance. */}
-      {usage && (
+      {/* Honest usage line. PRO: a calm monthly count. FREE: the lifetime taste balance, then a
+          gentle upsell at exhaustion (the conversation above stays put). */}
+      {isPro && usage && (
         <p className="px-4 pb-2 text-center text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
           {Math.max(usage.qa_limit - usage.qa_used, 0).toLocaleString()} of{' '}
           {usage.qa_limit.toLocaleString()} questions left this month
         </p>
+      )}
+      {!isPro && usage && freeTasteTotal > 0 && (
+        freeTasteRemaining > 0 ? (
+          <p className="px-4 pb-2 text-center text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
+            {freeTasteRemaining} of {freeTasteTotal} free question{freeTasteTotal === 1 ? '' : 's'} left ·{' '}
+            <button
+              type="button"
+              onClick={() => handleUpgrade('copilot_free_taste')}
+              className="font-semibold text-brand-strong hover:underline dark:text-brand-strong-dark"
+            >
+              Upgrade for unlimited
+            </button>
+          </p>
+        ) : (
+          <div className="px-4 pb-3 pt-1 text-center">
+            <p className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
+              You’ve used your {freeTasteTotal} free Copilot question{freeTasteTotal === 1 ? '' : 's'}.
+            </p>
+            <button
+              type="button"
+              onClick={() => handleUpgrade('copilot_free_taste_exhausted')}
+              className="mt-1 inline-flex items-center rounded-full bg-brand-strong px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark"
+            >
+              Upgrade to Pro for unlimited questions
+            </button>
+          </div>
+        )
       )}
     </>
   )
