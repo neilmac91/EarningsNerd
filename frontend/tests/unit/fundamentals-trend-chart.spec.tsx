@@ -125,6 +125,35 @@ describe('FundamentalsTrendChart', () => {
     )
   })
 
+  it('renders the richer 2.6 metrics (cash-flow + working capital) as buttons when present', async () => {
+    // Roadmap 2.6 (Phase A): the new concepts self-gate — they only appear when the response
+    // carries them (i.e. once RICHER_FINANCIALS_ENABLED extracted them). Here they're present.
+    getFilingFundamentals.mockResolvedValue({
+      ticker: 'LLY',
+      company_name: 'Eli Lilly',
+      concepts: [
+        { concept: 'revenue', unit: 'USD', points: [point(2023, 34, 'USD')] },
+        { concept: 'investing_cash_flow', unit: 'USD', points: [point(2023, -5, 'USD')] },
+        { concept: 'financing_cash_flow', unit: 'USD', points: [point(2023, -3, 'USD')] },
+        { concept: 'current_assets', unit: 'USD', points: [point(2023, 30, 'USD')] },
+        { concept: 'current_liabilities', unit: 'USD', points: [point(2023, 20, 'USD')] },
+        { concept: 'working_capital', unit: 'USD', points: [point(2023, 10, 'USD')] },
+      ],
+    })
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    render(
+      <QueryClientProvider client={qc}>
+        <FundamentalsTrendChart filingId={285} />
+      </QueryClientProvider>,
+    )
+
+    expect(await screen.findByRole('button', { name: 'Investing Cash Flow' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Financing Cash Flow' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Current Assets' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Current Liabilities' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Working Capital' })).toBeInTheDocument()
+  })
+
   it('filing-scoped mode fetches by filingId (roadmap B), not by ticker', async () => {
     getFilingFundamentals.mockResolvedValue(RESP)
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })

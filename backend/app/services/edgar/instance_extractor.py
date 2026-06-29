@@ -114,6 +114,30 @@ INSTANT_CONCEPTS: Dict[str, List[str]] = {
 }
 
 
+# Roadmap 2.6 (Phase A): richer cited financials — the full cash-flow statement (investing +
+# financing flows, on top of the operating CF + capex we already extract) and working-capital
+# components (current assets/liabilities). Kept in separate dicts and merged into the extraction
+# only when `settings.RICHER_FINANCIALS_ENABLED` is on, so the default behaviour — and the eval
+# baseline — is byte-for-byte unchanged until the founder flips the flag. US-GAAP first, IFRS next.
+RICHER_DURATION_CONCEPTS: Dict[str, List[str]] = {
+    "investing_cash_flow": [
+        "NetCashProvidedByUsedInInvestingActivities",
+        "NetCashProvidedByUsedInInvestingActivitiesContinuingOperations",
+        "CashFlowsFromUsedInInvestingActivities",  # IFRS
+    ],
+    "financing_cash_flow": [
+        "NetCashProvidedByUsedInFinancingActivities",
+        "NetCashProvidedByUsedInFinancingActivitiesContinuingOperations",
+        "CashFlowsFromUsedInFinancingActivities",  # IFRS
+    ],
+}
+
+RICHER_INSTANT_CONCEPTS: Dict[str, List[str]] = {
+    "current_assets": ["AssetsCurrent", "CurrentAssets"],  # IFRS: CurrentAssets
+    "current_liabilities": ["LiabilitiesCurrent", "CurrentLiabilities"],  # IFRS: CurrentLiabilities
+}
+
+
 def normalize_form(form: Optional[str]) -> str:
     """Normalize a form label to its base type: "10-K/A" -> "10-K"."""
     return str(form or "").split("/")[0].strip().upper()

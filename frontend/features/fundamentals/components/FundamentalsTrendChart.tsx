@@ -25,6 +25,8 @@ const FEATURED: { key: string; label: string; fmt: FmtKind }[] = [
   { key: 'gross_profit', label: 'Gross Profit', fmt: 'usd' },
   { key: 'operating_income', label: 'Operating Income', fmt: 'usd' },
   { key: 'operating_cash_flow', label: 'Operating Cash Flow', fmt: 'usd' },
+  { key: 'investing_cash_flow', label: 'Investing Cash Flow', fmt: 'usd' },
+  { key: 'financing_cash_flow', label: 'Financing Cash Flow', fmt: 'usd' },
   { key: 'free_cash_flow', label: 'Free Cash Flow', fmt: 'usd' },
   { key: 'eps_diluted', label: 'Diluted EPS', fmt: 'eps' },
   { key: 'earnings_per_share', label: 'EPS', fmt: 'eps' },
@@ -32,6 +34,9 @@ const FEATURED: { key: string; label: string; fmt: FmtKind }[] = [
   { key: 'operating_margin', label: 'Operating Margin', fmt: 'pct' },
   { key: 'net_margin', label: 'Net Margin', fmt: 'pct' },
   { key: 'total_assets', label: 'Total Assets', fmt: 'usd' },
+  { key: 'current_assets', label: 'Current Assets', fmt: 'usd' },
+  { key: 'current_liabilities', label: 'Current Liabilities', fmt: 'usd' },
+  { key: 'working_capital', label: 'Working Capital', fmt: 'usd' },
   { key: 'shareholders_equity', label: "Shareholders' Equity", fmt: 'usd' },
 ]
 

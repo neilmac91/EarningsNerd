@@ -258,6 +258,34 @@ def test_sync_extraction_returns_none_when_unusable(filings):
         assert _extract_from_filing_instance_sync("0000320193", "0001-26-000003") is None
 
 
+def test_richer_financials_extracted_only_behind_the_flag(monkeypatch):
+    # Roadmap 2.6 (Phase A): the full cash-flow + working-capital lines are extracted only when
+    # RICHER_FINANCIALS_ENABLED is on, so the default concept set stays byte-for-byte unchanged.
+    from app.config import settings
+
+    frames = _quarter_frames()
+    frames["AssetsCurrent"] = _facts_df([(False, None, "2026-03-31", 300_000.0)])
+    frames["LiabilitiesCurrent"] = _facts_df([(False, None, "2026-03-31", 120_000.0)])
+    frames["NetCashProvidedByUsedInInvestingActivities"] = _facts_df([
+        (False, "2026-01-01", "2026-03-31", -15_000.0),
+    ])
+
+    # Flag OFF (default): the richer concepts are absent.
+    monkeypatch.setattr(settings, "RICHER_FINANCIALS_ENABLED", False)
+    with _patch_company([FakeFiling("10-Q", "2026-03-31", FakeXBRL(frames))]):
+        off = _extract_from_filing_instance_sync("0000320193", "0001-26-000010")
+    assert off is not None
+    assert "current_assets" not in off and "investing_cash_flow" not in off
+
+    # Flag ON: they're extracted from the filing's own instance.
+    monkeypatch.setattr(settings, "RICHER_FINANCIALS_ENABLED", True)
+    with _patch_company([FakeFiling("10-Q", "2026-03-31", FakeXBRL(frames))]):
+        on = _extract_from_filing_instance_sync("0000320193", "0001-26-000011")
+    assert on["current_assets"][0]["value"] == 300_000.0
+    assert on["current_liabilities"][0]["value"] == 120_000.0
+    assert on["investing_cash_flow"][0]["value"] == -15_000.0
+
+
 # ---------------------------------------------------------------------------
 # _fetch_xbrl_data ordering: instance -> companyfacts -> get_financials
 # ---------------------------------------------------------------------------
