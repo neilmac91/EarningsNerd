@@ -61,6 +61,9 @@ interface FilingWorkspaceProps {
   onOpenChange: (open: boolean) => void
   /** Gates the whole Copilot surface — without a summary there's nothing to cite against. */
   summaryAvailable: boolean
+  /** Demo mode (curated example/onboarding): keep the rail present-but-quiet by silencing the
+   * first-run attention nudge (ping + coachmark) so it doesn't solicit on the first impression. */
+  demoMode?: boolean
   /** The embedded Copilot conversation (<AskCopilotRail embedded .../>). */
   copilotBody: ReactNode
   /** The embedded filing reader (<FilingViewer embedded .../>). */
@@ -86,6 +89,7 @@ export default function FilingWorkspace({
   open,
   onOpenChange,
   summaryAvailable,
+  demoMode = false,
   copilotBody,
   filingBody,
   secUrl,
@@ -132,8 +136,9 @@ export default function FilingWorkspace({
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot: persists "seen" the first time the rail opens; the cascading render is intended and bounded (fires at most once)
     if (open) dismissCoach()
   }, [open, dismissCoach])
-  // Show the nudge only once there's a summary to ask about and the rail is closed.
-  const showAttention = coachMounted && !coachDismissed && summaryAvailable && !open
+  // Show the nudge only once there's a summary to ask about and the rail is closed — but never in
+  // demo mode, where the curated first impression stays calm (the launcher remains, just no nudge).
+  const showAttention = coachMounted && !coachDismissed && summaryAvailable && !open && !demoMode
 
   // Below lg the bottom-sheet acts as a modal (focus trap + scrim); at lg+ it's a static side pane.
   const isMobile = useMediaQuery(MOBILE_MEDIA_QUERY)

@@ -232,6 +232,32 @@ export const analytics = {
     })
   },
 
+  // Activation DEPTH (item 1.8): the user clicked a Copilot citation ([n] / [F#]) to verify a claim
+  // against its source — the in-app viewer scroll-flash-highlights the cited passage
+  // (action 'scroll_highlight'), or the no-viewer FREE teaser opens the SEC deep link
+  // ('open_original'). Distinct from `summary_viewed` (summary merely rendered): this measures the
+  // click-to-source "aha" — the verifiability moment the product is built on. `citation_kind`
+  // separates XBRL figure citations from filing-text excerpts; `verified` is the backend's claim.
+  sourceSpanClicked: (props: {
+    filingId: number
+    ticker: string | null
+    filingType: string
+    citationIndex: string
+    citationKind: 'xbrl' | 'text'
+    verified: boolean
+    action: 'scroll_highlight' | 'open_original'
+  }) => {
+    safeCapture('source_span_click', {
+      filing_id: props.filingId,
+      ticker: props.ticker,
+      filing_type: props.filingType,
+      citation_index: props.citationIndex,
+      citation_kind: props.citationKind,
+      verified: props.verified,
+      action: props.action,
+    })
+  },
+
   summarySaved: (filingId: number, ticker: string | null) => {
     safeCapture('summary_saved', {
       filing_id: filingId,

@@ -122,6 +122,19 @@ describe('FilingWorkspace', () => {
     expect(screen.queryByRole('separator')).toBeNull()
   })
 
+  it('silences the first-run nudge in demo mode but keeps the launcher', () => {
+    // Non-demo, closed: the contextual coachmark nudge appears alongside the launcher.
+    const { unmount } = renderWorkspace({ open: false })
+    expect(screen.getByRole('button', { name: /ask this filing/i })).toBeInTheDocument()
+    expect(screen.getByText(/ask this filing anything/i)).toBeInTheDocument()
+    unmount()
+
+    // Demo mode, closed: launcher still present, but the nudge is suppressed (calm first impression).
+    renderWorkspace({ open: false, demoMode: true })
+    expect(screen.getByRole('button', { name: /ask this filing/i })).toBeInTheDocument()
+    expect(screen.queryByText(/ask this filing anything/i)).toBeNull()
+  })
+
   it('shows the resize separator when open and persists a keyboard resize', () => {
     renderWorkspace()
     const sep = screen.getByRole('separator', { name: /resize copilot/i })
