@@ -98,4 +98,25 @@ describe('FundamentalsTrendChart', () => {
 
     await waitFor(() => expect(screen.queryByText('Financial Trends')).not.toBeInTheDocument())
   })
+
+  it('shows the optional subtitle when provided, and omits it by default', async () => {
+    getFundamentals.mockResolvedValue(RESP)
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    const { rerender } = render(
+      <QueryClientProvider client={qc}>
+        <FundamentalsTrendChart ticker="AAPL" subtitle="AAPL across recent fiscal years" />
+      </QueryClientProvider>,
+    )
+    expect(await screen.findByText('AAPL across recent fiscal years')).toBeInTheDocument()
+
+    // Default (no subtitle) — the company-page usage — renders no context line.
+    rerender(
+      <QueryClientProvider client={qc}>
+        <FundamentalsTrendChart ticker="AAPL" />
+      </QueryClientProvider>,
+    )
+    await waitFor(() =>
+      expect(screen.queryByText('AAPL across recent fiscal years')).not.toBeInTheDocument(),
+    )
+  })
 })

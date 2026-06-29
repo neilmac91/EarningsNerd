@@ -47,7 +47,16 @@ const formatValue = (value: number, fmt: FmtKind, currency = 'USD'): string => {
   return fmtCurrency(value, { currency, compact: true })
 }
 
-export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
+export default function FundamentalsTrendChart({
+  ticker,
+  subtitle,
+}: {
+  ticker: string
+  // Optional context line under the heading. The company page omits it (the page header already
+  // identifies the company); the filing page passes one so the multi-year series reads as the
+  // company's history, not just this single filing.
+  subtitle?: string
+}) {
   // Recharts colours are props, not classes. Read theme off the context (not useTheme) with a
   // light fallback so provider-less renders/SSR/tests never throw.
   const dark = useContext(ThemeContext)?.theme === 'dark'
@@ -113,9 +122,14 @@ export default function FundamentalsTrendChart({ ticker }: { ticker: string }) {
   return (
     <section className="mb-8 rounded-lg border border-border-light bg-panel-light p-6 shadow-sm dark:border-border-dark dark:bg-panel-dark">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Financial Trends</h2>
-          {hasUnverified && <UnverifiedBadge />}
+        <div className="flex flex-col gap-0.5">
+          <div className="flex items-center gap-2">
+            <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Financial Trends</h2>
+            {hasUnverified && <UnverifiedBadge />}
+          </div>
+          {subtitle && (
+            <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">{subtitle}</p>
+          )}
         </div>
         {available.length > 0 && (
           <div className="flex flex-wrap gap-2" role="group" aria-label="Select metric">
