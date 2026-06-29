@@ -8,6 +8,14 @@ import { ThemeProvider } from '@/components/ThemeProvider'
 import { PostHogProvider } from './posthog-provider'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
 import FeedbackWidget from '@/components/FeedbackWidget'
+import { usePostHogUserIdentification } from '@/hooks/usePostHogUserIdentification'
+
+// Sets `is_pro`/`plan` PostHog person properties app-wide once the user + subscription resolve
+// (roadmap 2.4). Renders nothing; lives inside the Query + PostHog providers so the hook has both.
+function UserIdentificationSync() {
+  usePostHogUserIdentification()
+  return null
+}
 
 // App-wide Phosphor icon defaults. size:24 matches Lucide's former 24px default so any icon
 // without an explicit Tailwind h-/w- class keeps its size (Phosphor would otherwise fall back
@@ -31,6 +39,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <PostHogProvider>
           <QueryClientProvider client={queryClient}>
             <ThemeProvider>
+              <UserIdentificationSync />
               {children}
               {/* Beta feedback launcher — renders only for logged-in users (client-side session check). */}
               <FeedbackWidget />
