@@ -622,10 +622,13 @@ def backfill_facts(
         result = process_filing_facts(
             db, filing, standardized=standardized, authoritative=authoritative
         )
-        inserted += result["inserted"]
-        skipped += result["skipped"]
-        rejected += result.get("rejected", 0)
-        processed += 1
+        # result is None only when there's nothing to process (no xbrl_data) — can't happen here
+        # since the query filters `xbrl_data IS NOT NULL`, but guard it (the return type is Optional).
+        if result is not None:
+            inserted += result["inserted"]
+            skipped += result["skipped"]
+            rejected += result.get("rejected", 0)
+            processed += 1
 
     return {
         "filings_processed": processed,
