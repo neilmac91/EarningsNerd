@@ -660,7 +660,9 @@ class TestGetFilingFundamentals:
         new = Filing(company_id=company.id, accession_number=f"NEW-{acc}", filing_type="10-K",
                      filing_date=datetime(2026, 1, 1),
                      document_url="https://sec.example/y.htm", sec_url="https://sec.example/")
-        db.add(new); db.commit(); db.refresh(new)
+        db.add(new)
+        db.commit()
+        db.refresh(new)
 
         base = {"concept": "revenue", "unit": "USD", "fiscal_period": "FY", "form": "10-K",
                 "company_id": company.id, "source": "edgar_xbrl"}
