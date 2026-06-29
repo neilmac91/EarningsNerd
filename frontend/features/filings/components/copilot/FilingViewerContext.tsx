@@ -1,7 +1,8 @@
 'use client'
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react'
-import type { CopilotCitation } from '@/features/filings/api/copilot-api'
+import { isXbrlCitation, type CopilotCitation } from '@/features/filings/api/copilot-api'
+import analytics from '@/lib/analytics'
 
 export interface CitationHighlightRequest {
   citation: CopilotCitation
@@ -34,15 +35,42 @@ const FilingViewerContext = createContext<FilingViewerContextValue | null>(null)
  * Kept tiny (a request channel + view state) so it doesn't couple the chip, the tabs, and the viewer
  * beyond the citation payload.
  */
-export function FilingViewerProvider({ children }: { children: ReactNode }) {
+export function FilingViewerProvider({
+  children,
+  filingId,
+  ticker,
+  filingType,
+}: {
+  children: ReactNode
+  // Filing context for the source_span_click analytics attribution (item 1.8). Optional so the
+  // provider can still be mounted without it (the FREE teaser, component tests) — without filing
+  // context the verification event is simply not emitted.
+  filingId?: number
+  ticker?: string | null
+  filingType?: string
+}) {
   const [request, setRequest] = useState<CitationHighlightRequest | null>(null)
   const [activeView, setActiveView] = useState<CopilotView>('copilot')
 
   const requestHighlight = useCallback((citation: CopilotCitation) => {
+    // Activation DEPTH (item 1.8): a citation click is the user verifying a claim against its
+    // source. This is the single shared point for every in-app citation (text [n] + XBRL [F#]).
+    // Guard on filingId so propless mounts (teaser / tests) don't emit a context-less event.
+    if (filingId != null) {
+      analytics.sourceSpanClicked({
+        filingId,
+        ticker: ticker ?? null,
+        filingType: filingType ?? '',
+        citationIndex: String(citation.n),
+        citationKind: isXbrlCitation(citation) ? 'xbrl' : 'text',
+        verified: citation.verified,
+        action: 'scroll_highlight',
+      })
+    }
     setRequest((prev) => ({ citation, nonce: (prev?.nonce ?? 0) + 1 }))
     // A citation always means "show me that passage" — switch the pane to the filing view.
     setActiveView('filing')
-  }, [])
+  }, [filingId, ticker, filingType])
   const clearRequest = useCallback(() => setRequest(null), [])
   const openFiling = useCallback(() => setActiveView('filing'), [])
 
