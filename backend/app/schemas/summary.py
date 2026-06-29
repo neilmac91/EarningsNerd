@@ -293,6 +293,13 @@ def attach_normalized_facts(
 
             if xbrl_metrics and xbrl_key:
                 metric_info = xbrl_metrics.get(xbrl_key) or {}
+                # Surface the per-ADS EPS block (ADS-ratio correctness layer) onto the row so it
+                # reaches the frontend. Purely additive — a new `per_ads` key; it never alters the
+                # as-filed per-ordinary-share `current_period`, so it can't regress the eval baseline.
+                # Present only on the EPS row of ratio != 1 ADRs (else metric_info has no per_ads).
+                per_ads = metric_info.get("per_ads")
+                if isinstance(per_ads, dict):
+                    row_dict["per_ads"] = per_ads
                 prior_entry = metric_info.get("prior")
                 if prior_entry and prior_entry.get("value") is not None:
                     prior_value_raw = prior_entry.get("value")

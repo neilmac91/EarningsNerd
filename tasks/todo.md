@@ -1,55 +1,47 @@
-# Task: Activation-funnel instrumentation (roadmap item 1.8)
+# Task: Per-ADS EPS display (roadmap item 1.5)
 
 ## Context
-Roadmap item 1.8 — instrument the activation funnel for PostHog. A grounded
-fan-out map (analytics infra + every funnel touchpoint + the launch-runbook §C
-event contract) found the funnel is **already fully instrumented except one
-event**: the click-to-source verification moment, which is item 1.8's centerpiece
-(the verifiability "aha" the product is built on).
-
-Existing events (no change): `$pageview`, `example_cta_clicked`,
-`company_searched`, `quick_access_click`, `filing_viewed`, `summary_viewed`,
-`copilot_entry_clicked`, `pricing_viewed`, `checkout_started`, and the
-server-side `generation_*`.
+The ADS-ratio correctness layer (item A / #461) computes a per-ADS EPS block
+(`{value, ordinary_per_ads, currency, as_of, source, arithmetic}`) for the four
+ratio≠1 ADRs (BABA 8 / TSM 5 / JD 2 / PDD 4) in `extract_standardized_metrics`.
+A reconnaissance pass found it **never reached the frontend**: `attach_normalized_facts`
+used the standardized metrics only to backfill prior periods, and the frontend
+`MetricItem` had no per-ADS field. So the correct per-ADS figure — the most
+credibility-sensitive number on an ADR report — was computed but invisible.
 
 ## Decision
-- Add ONE new event: `source_span_click`, emitted from the single shared
-  `requestHighlight` handler in `FilingViewerContext` — this covers every in-app
-  citation click (text `[n]` + XBRL `[F#]`) from one point.
-- Reuse the existing `analytics` helper + `safeCapture` (dark-launch safe; no-ops
-  until `NEXT_PUBLIC_POSTHOG_KEY` is set). No new analytics layer.
-- New provider props (`filingId`/`ticker`/`filingType`) are **optional** so the
-  three existing propless `FilingViewerProvider` test mounts (and the FREE-teaser
-  path) keep working; the event is simply not emitted without filing context.
-- Defer the no-viewer FREE-teaser `<a>` path (`action: 'open_original'`) — the
-  `action` property is pre-defined so it can be added later with no schema change.
+- **Backend (additive):** in `attach_normalized_facts`, merge `xbrl_metrics[eps_key].per_ads`
+  onto the EPS row of `financial_highlights.table` (the JSON the API serializes). New key only;
+  never alters the as-filed per-ordinary-share `current_period`, so it can't regress the eval
+  baseline (the golden set already accepts per-ADS as a valid alt-value).
+- **Frontend:** add `PerAdsValue` + optional `per_ads` to `MetricItem`; one shared `PerAdsNote`
+  component renders the per-ADS figure with its conversion **arithmetic inline** and the
+  **sourced + dated** ratio in the tooltip — auditable, never an unexplained number (1.5's contract).
+- Reuse the existing financial-highlights rendering (`FinancialMetricsTable`, `SummaryFinancials`);
+  no new endpoint, no schema/migration.
 
 ## Plan
-- [x] `analytics.ts`: add typed `sourceSpanClicked` method → `safeCapture('source_span_click', {snake_case})`
-- [x] `FilingViewerContext.tsx`: optional `filingId/ticker/filingType` props; emit
-      (guarded on `filingId != null`) as the first statement of `requestHighlight`; update deps
-- [x] `page-client.tsx`: pass `filingId/ticker/filingType` to `<FilingViewerProvider>` (line 551)
-- [x] New Vitest: click a real `CitationChip` in a propped provider → asserts the
-      snake_case payload (text + XBRL kinds) and that propless mounts don't emit
-- [x] Verify locally: full vitest suite (48 files / 218 tests) + typecheck + lint (max-warnings 0) — all green
+- [x] Backend: merge `per_ads` onto the EPS row in `attach_normalized_facts` (`app/schemas/summary.py`)
+- [x] Frontend type: `PerAdsValue` + optional `per_ads` on `MetricItem` (`types/summary.ts`)
+- [x] New `PerAdsNote` component (figure + inline arithmetic + sourced/dated tooltip)
+- [x] Render it in `FinancialMetricsTable` (EPS current-period cell) + `SummaryFinancials` (EPS bullet)
+- [x] Backend test: per_ads merged onto EPS row, value untouched, absent for domestic/non-dict/no-metrics
+- [x] Frontend test: table renders per-ADS figure + arithmetic when present, omits otherwise
+- [x] Verify frontend locally: vitest (48 files / 217 tests) + typecheck + lint (max-warnings 0) — green
 - [ ] Commit + push + open draft PR
 
-## User actions (to make the funnel capture data — separate from shipping code)
-- Set `NEXT_PUBLIC_POSTHOG_KEY` (+ optional `NEXT_PUBLIC_POSTHOG_HOST`) in Vercel.
-- Confirm backend `POSTHOG_API_KEY` in Cloud Run (joins server `generation_*`).
-- Build the PostHog funnel + a `source_span_click` activation-depth insight.
+## Notes / follow-ups
+- Backend test runs in CI (`backend-tests`) — `pytest`/`pydantic` aren't installed in this sandbox,
+  so the backend change is verified by inspection + CI; the frontend is verified locally.
+- Eval: the change is additive (a new key on the EPS row), so it should be eval-neutral; re-run the
+  eval on the ADR golden-set members (BABA/TSM/JD/PDD) before relying on it in prod as belt-and-suspenders.
+- Next (item 1.4): upgrade headline-figure source links from the external SEC `#:~:text=` deep-link to
+  the in-app `requestHighlight` scroll-highlight (separate PR; needs grounding the SourceTrace wiring).
 
 ## Review
-- Net change is one new funnel event, `source_span_click`, emitted from the single shared
-  `requestHighlight` handler in `FilingViewerContext` — so every in-app citation click (text
-  `[n]` + XBRL `[F#]`) is captured from ONE point, with no threading into `CitationChip`.
-- Strictly additive: a new `analytics` method (no existing event touched) + new OPTIONAL provider
-  props. The three existing propless `FilingViewerProvider` tests keep passing unchanged.
-- The one risk this introduced — `FilingViewerContext` now transitively loads `analytics.ts` →
-  `@sentry/nextjs` in tests that don't mock it — was verified safe by running those specs: the
-  full frontend suite (48 files / 218 tests) is green, plus typecheck and lint (max-warnings 0).
-- Dark-launch safe: rides the existing `safeCapture` (no-ops until `NEXT_PUBLIC_POSTHOG_KEY` is
-  set in the provider); no separate key check added.
-- Deliberately NOT done: the no-viewer FREE-teaser `<a>` path (`action: 'open_original'`) and the
-  `SourceTrace` metric/risk provenance chips — separate components with no filing context. The
-  `action` property is pre-defined so the teaser path can be added later with no schema change.
+- 1.5's gap was a backend→frontend plumbing miss, not missing data: the per-ADS figure existed but
+  `attach_normalized_facts` dropped it. Fix is a 4-line additive merge + a small presentation layer.
+- Strictly additive end to end — no existing event/value/schema changed; the as-filed
+  per-ordinary-share EPS is untouched (backend test asserts this), so the perfect eval baseline holds.
+- Auditable by construction: the per-ADS figure is always shown WITH its ratio + arithmetic and a
+  dated source, so the correction can be verified rather than trusted (the accountability moat, #2).

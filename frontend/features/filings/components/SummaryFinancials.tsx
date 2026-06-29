@@ -2,6 +2,7 @@ import React from 'react'
 import { SummaryBlock } from '@/components/SummaryBlock'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { MetricSourceLink } from '@/components/MetricSourceLink'
+import { PerAdsNote } from '@/components/PerAdsNote'
 import type { MetricItem } from '@/types/summary'
 
 interface SummaryFinancialsProps {
@@ -62,6 +63,7 @@ export function SummaryFinancials({ notes, metrics }: SummaryFinancialsProps) {
                       />
                     </span>
                   )}
+                  {m.per_ads && <PerAdsNote perAds={m.per_ads} />}
                 </li>
               )
             })}

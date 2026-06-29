@@ -3,7 +3,9 @@
 import { MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 import { fmtCurrency, fmtPercent, fmtScale, parseNumeric } from '@/lib/format'
 import { MetricSourceLink } from '@/components/MetricSourceLink'
+import { PerAdsNote } from '@/components/PerAdsNote'
 import { directionText } from '@/lib/financialTone'
+import type { PerAdsValue } from '@/types/summary'
 
 interface FinancialMetric {
   metric: string
@@ -13,6 +15,7 @@ interface FinancialMetric {
   source_url?: string | null
   source_verified?: boolean | null
   xbrl_concept?: string | null
+  per_ads?: PerAdsValue | null
 }
 
 interface FinancialMetricsTableProps {
@@ -112,6 +115,7 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-text-primary-light dark:text-text-primary-dark">
                     {formatMetricValue(metric.current_period)}
+                    {metric.per_ads && <PerAdsNote perAds={metric.per_ads} />}
                   </td>
                   {hasComparatives && (
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-right text-text-secondary-light dark:text-text-secondary-dark">
