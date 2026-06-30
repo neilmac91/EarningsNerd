@@ -156,7 +156,10 @@ async def judge_summary(
     system, user = build_judge_messages(summary_payload, company, filing_type, excerpt, xbrl_text)
     try:
         resp = await client.messages.create(
-            model=model_id, max_tokens=max_tokens, temperature=0.0,
+            # temperature is intentionally omitted: claude-opus-4-8 (the default judge) rejects it
+            # as deprecated. The judge grades on a strict rubric and variance is handled by
+            # averaging over --runs, not a sampling-temperature knob.
+            model=model_id, max_tokens=max_tokens,
             system=system, messages=[{"role": "user", "content": user}],
         )
         raw = next((b.text for b in resp.content if getattr(b, "type", None) == "text"), "")
