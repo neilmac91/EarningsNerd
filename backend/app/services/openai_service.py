@@ -20,6 +20,25 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
+def _thinking_disabled_model(model_name: str, base_url: Optional[str]) -> bool:
+    """True for reasoning models that default to a "thinking" mode we want OFF for the
+    deterministic extraction/summary task, AND that accept the OpenAI-compatible
+    ``extra_body={"thinking": {"type": "disabled"}}`` switch.
+
+    Covers DeepSeek V4 (api.deepseek.com) and Zhipu GLM served via the z.ai
+    OpenAI-compatible endpoint. For these we pass the switch and keep full max_tokens
+    headroom; for everything else the caller clamps max_tokens to the Gemini-safe ceiling.
+    Detection is by model id OR base URL so an env-swap (OPENAI_BASE_URL/AI_DEFAULT_MODEL)
+    is enough — no per-call wiring."""
+    m = (model_name or "").lower()
+    b = (base_url or "").lower()
+    return (
+        "deepseek" in m or "deepseek" in b
+        or m.startswith("glm") or "glm-" in m
+        or "z.ai" in b or "bigmodel" in b
+    )
+
 # Distinct failure signal for the transport-agnostic streaming wrappers (``stream_chat`` /
 # ``stream_chat_with_tools``). On an upstream/model error they yield a single chunk prefixed with
 # this sentinel instead of raising, so the SSE contract stays intact. The null-byte delimiters can
@@ -2312,8 +2331,7 @@ Rules:
                 stream=True,
                 response_format={"type": "json_object"},
             )
-            if ("deepseek" in stream_model.lower()
-                    or "deepseek" in (settings.OPENAI_BASE_URL or "").lower()):
+            if _thinking_disabled_model(stream_model, settings.OPENAI_BASE_URL):
                 stream_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
             else:
                 stream_kwargs["max_tokens"] = min(stream_kwargs["max_tokens"], 8192)
@@ -2361,13 +2379,11 @@ Rules:
                     # depends on the model resolving a prompt-vs-schema conflict. Critical for
                     # reliable extraction across Gemini/DeepSeek and for avoiding non-object output.
                     create_kwargs["response_format"] = {"type": "json_object"}
-                    # DeepSeek V4 is a reasoning model that defaults to "thinking" mode; disable it
-                    # for this deterministic extraction task. Also cap max_tokens to the provider's
-                    # output limit — Gemini rejects/clamps above ~8192, while DeepSeek V4 allows far
-                    # more (so it keeps the headroom that prevents mid-JSON truncation).
-                    is_deepseek = ("deepseek" in model_name.lower()
-                                   or "deepseek" in (settings.OPENAI_BASE_URL or "").lower())
-                    if is_deepseek:
+                    # Reasoning models (DeepSeek V4, Zhipu GLM via z.ai) default to "thinking" mode;
+                    # disable it for this deterministic extraction task and keep full max_tokens
+                    # headroom (prevents mid-JSON truncation). For everything else (e.g. Gemini),
+                    # cap max_tokens to the provider's ~8192 output ceiling.
+                    if _thinking_disabled_model(model_name, settings.OPENAI_BASE_URL):
                         create_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
                     else:
                         create_kwargs["max_tokens"] = min(create_kwargs["max_tokens"], 8192)
