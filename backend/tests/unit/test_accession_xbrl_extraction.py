@@ -42,6 +42,14 @@ def _facts_df(rows):
     )
 
 
+def _facts_df_dec(rows):
+    """rows: (is_dimensioned, period_start, period_end, numeric_value, decimals)."""
+    return pd.DataFrame(
+        rows,
+        columns=["is_dimensioned", "period_start", "period_end", "numeric_value", "decimals"],
+    )
+
+
 class FakeQuery:
     def __init__(self, frames):
         self._frames = frames
@@ -175,6 +183,59 @@ def test_ambiguous_comparative_period_is_dropped_not_fatal():
     assert duration_series(xb, ["Revenues"], "10-K", "2025-12-31") == [
         ("2025-12-31", 300.0)
     ]
+
+
+# ---------------------------------------------------------------------------
+# Precision-aware disambiguation of undimensioned duplicates (ASML revenue gap)
+# ---------------------------------------------------------------------------
+
+def test_parse_decimals():
+    from app.services.edgar.instance_extractor import _parse_decimals
+    assert _parse_decimals("-5") == -5.0
+    assert _parse_decimals("0") == 0.0
+    assert _parse_decimals("INF") == float("inf")
+    assert _parse_decimals(None) == float("-inf")   # missing → least precise
+    assert _parse_decimals("garbage") == float("-inf")
+
+
+def test_resolve_period_value_prefers_finest_precision_for_rounded_duplicate():
+    # A filer tags the same line twice undimensioned: precise (-5) AND its rounding to -8.
+    # They are the same figure → the precise value wins (order-independent), not "ambiguous".
+    from app.services.edgar.instance_extractor import _resolve_period_value
+    assert _resolve_period_value([(32_667_300_000.0, -5.0), (32_700_000_000.0, -8.0)]) == 32_667_300_000.0
+    assert _resolve_period_value([(32_700_000_000.0, -8.0), (32_667_300_000.0, -5.0)]) == 32_667_300_000.0
+    assert _resolve_period_value([(100.0, float("-inf"))]) == 100.0  # single value always resolves
+
+
+def test_resolve_period_value_drops_genuine_conflict():
+    # Values that are NOT a clean rounding of the finest one are a real conflict → None (dropped).
+    from app.services.edgar.instance_extractor import _resolve_period_value
+    assert _resolve_period_value([(32_667_300_000.0, -5.0), (30_000_000_000.0, -8.0)]) is None
+    # Unknown precision (decimals missing → -inf) with distinct values stays conservative → None.
+    assert _resolve_period_value([(100.0, float("-inf")), (200.0, float("-inf"))]) is None
+
+
+def test_duration_series_recovers_rounded_undimensioned_total():
+    # End-to-end (the ASML FY2025 case): revenue tagged precise @ -5 and a rounded restatement @ -8
+    # for the same period → the precise consolidated total is recovered instead of dropped.
+    xb = FakeXBRL({"RevenueFromContractWithCustomerExcludingAssessedTax": _facts_df_dec([
+        (False, "2025-01-01", "2025-12-31", 32_667_300_000.0, "-5"),
+        (False, "2025-01-01", "2025-12-31", 32_700_000_000.0, "-8"),  # == round(32.6673B, -8)
+        (True,  "2025-01-01", "2025-12-31", 8_193_000_000.0, "-5"),   # a segment row (excluded)
+    ])})
+    series = duration_series(
+        xb, ["RevenueFromContractWithCustomerExcludingAssessedTax"], "10-K", "2025-12-31"
+    )
+    assert series == [("2025-12-31", 32_667_300_000.0)]
+
+
+def test_duration_series_still_drops_truly_divergent_undimensioned_values():
+    # Two undimensioned values that don't reconcile by precision → still dropped (no false pick).
+    xb = FakeXBRL({"Revenues": _facts_df_dec([
+        (False, "2025-01-01", "2025-12-31", 32_667_300_000.0, "-5"),
+        (False, "2025-01-01", "2025-12-31", 30_000_000_000.0, "-8"),  # != round(32.6673B, -8)
+    ])})
+    assert duration_series(xb, ["Revenues"], "10-K", "2025-12-31") == []
 
 
 def test_instant_series_selects_balance_sheet_instants():

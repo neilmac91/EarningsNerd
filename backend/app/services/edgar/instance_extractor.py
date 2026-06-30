@@ -16,6 +16,7 @@ exercise these functions with fake fact-query objects.
 """
 
 import logging
+import math
 from datetime import date
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -213,7 +214,7 @@ def _currency(row: Dict[str, Any]) -> Optional[str]:
 
 
 def _reporting_currency(
-    candidates: List[Tuple[str, float, Optional[str]]],
+    candidates: List[Tuple[str, float, Optional[str], float]],
     period_of_report: str,
 ) -> Optional[str]:
     """Pick the issuer's reporting currency from candidate facts for one concept.
@@ -225,7 +226,7 @@ def _reporting_currency(
     currency (unit tests, per-share concepts), which disables currency filtering.
     """
     ends_by_ccy: Dict[Optional[str], set] = {}
-    for end, _value, ccy in candidates:
+    for end, _value, ccy, _dec in candidates:
         ends_by_ccy.setdefault(ccy, set()).add(end)
     real = {c: ends for c, ends in ends_by_ccy.items() if c}
     if not real:
@@ -255,24 +256,61 @@ def _numeric(value: Any) -> Optional[float]:
     return None if number != number else number  # NaN guard
 
 
+def _parse_decimals(raw: Any) -> float:
+    """XBRL ``decimals`` as a precision rank (higher = finer): 'INF' → +inf; missing/junk → -inf."""
+    if raw is None:
+        return float("-inf")
+    text = str(raw).strip().upper()
+    if text in ("INF", "+INF"):
+        return float("inf")
+    try:
+        return float(int(text))
+    except (TypeError, ValueError):
+        return float("-inf")
+
+
+def _resolve_period_value(facts: List[Tuple[float, float]]) -> Optional[float]:
+    """The single consolidated value for one period end, or None when genuinely ambiguous.
+
+    A filer sometimes tags the same line twice undimensioned at different precision — e.g. revenue
+    as 32,667,300,000 (``decimals=-5``) AND a rounded 32,700,000,000 (``decimals=-8``). These are
+    the same figure, so the finest-precision value wins, PROVIDED every coarser value equals that
+    value rounded to the coarser fact's own ``decimals``. Values that are not such a clean rounding
+    are genuinely divergent (e.g. an unreconciled restatement) and stay ambiguous → None (dropped) —
+    which is also the conservative result when precision is unknown (decimals missing → -inf).
+    """
+    distinct = {round(v, 4) for v, _ in facts}
+    if len(distinct) <= 1:
+        return next(iter(distinct)) if distinct else None
+    best_value, _best_dec = max(facts, key=lambda vd: vd[1])
+    for value, dec in facts:
+        if round(value, 4) == round(best_value, 4):
+            continue
+        # `value` must be `best_value` rounded to its own (finite) decimals, else it's a real conflict.
+        if not math.isfinite(dec) or abs(round(best_value, int(dec)) - value) > 1.0:
+            return None
+    return best_value
+
+
 def _series_from_values(
-    values_by_end: Dict[str, set],
+    values_by_end: Dict[str, List[Tuple[float, float]]],
     period_of_report: str,
     max_items: int,
 ) -> List[Tuple[str, float]]:
-    """Dedupe per period end (ambiguity drops the period), newest first.
+    """Resolve one value per period end (genuine ambiguity drops the period), newest first.
 
-    Returns [] unless an unambiguous entry exists for the filing's own
-    period_of_report — the anchor that proves the concept is the one this
-    filing actually reports.
+    Each period maps to its undimensioned (value, decimals) facts; ``_resolve_period_value`` picks
+    the consolidated figure or returns None when the values genuinely conflict. Returns [] unless an
+    unambiguous entry exists for the filing's own period_of_report — the anchor that proves the
+    concept is the one this filing actually reports.
     """
     series: List[Tuple[str, float]] = []
     for end in sorted(values_by_end, reverse=True):
-        values = values_by_end[end]
-        if len(values) > 1:
-            logger.debug(f"Ambiguous consolidated values for {end}: {sorted(values)}")
+        resolved = _resolve_period_value(values_by_end[end])
+        if resolved is None:
+            logger.debug(f"Ambiguous consolidated values for {end}: {sorted(values_by_end[end])}")
             continue
-        series.append((end, next(iter(values))))
+        series.append((end, resolved))
     if not series or series[0][0] != period_of_report:
         return []
     return series[:max_items]
@@ -295,7 +333,7 @@ def duration_series_with_currency(
     within one series. Returns (series, currency); currency is None when facts carry no currency.
     """
     for concept in concepts:
-        candidates: List[Tuple[str, float, Optional[str]]] = []
+        candidates: List[Tuple[str, float, Optional[str], float]] = []
         for row in _fact_records(xb, concept):
             if row.get("is_dimensioned"):
                 continue
@@ -305,13 +343,13 @@ def duration_series_with_currency(
                 continue
             if not duration_in_window(row.get("period_start"), end, form):
                 continue
-            candidates.append((end, value, _currency(row)))
+            candidates.append((end, value, _currency(row), _parse_decimals(row.get("decimals"))))
         currency = _reporting_currency(candidates, period_of_report)
-        values_by_end: Dict[str, set] = {}
-        for end, value, ccy in candidates:
+        values_by_end: Dict[str, List[Tuple[float, float]]] = {}
+        for end, value, ccy, dec in candidates:
             if currency is not None and ccy != currency:
                 continue
-            values_by_end.setdefault(end, set()).add(round(value, 4))
+            values_by_end.setdefault(end, []).append((round(value, 4), dec))
         series = _series_from_values(values_by_end, period_of_report, max_items)
         if series:
             return series, currency
@@ -328,7 +366,7 @@ def instant_series_with_currency(
     anchored at period_of_report, plus the filing's comparative instants. Facts are filtered to the
     issuer's reporting currency (see ``duration_series_with_currency``)."""
     for concept in concepts:
-        candidates: List[Tuple[str, float, Optional[str]]] = []
+        candidates: List[Tuple[str, float, Optional[str], float]] = []
         for row in _fact_records(xb, concept):
             if row.get("is_dimensioned"):
                 continue
@@ -342,13 +380,13 @@ def instant_series_with_currency(
             value = _numeric(row.get("numeric_value"))
             if end is None or value is None or end > period_of_report:
                 continue
-            candidates.append((end, value, _currency(row)))
+            candidates.append((end, value, _currency(row), _parse_decimals(row.get("decimals"))))
         currency = _reporting_currency(candidates, period_of_report)
-        values_by_end: Dict[str, set] = {}
-        for end, value, ccy in candidates:
+        values_by_end: Dict[str, List[Tuple[float, float]]] = {}
+        for end, value, ccy, dec in candidates:
             if currency is not None and ccy != currency:
                 continue
-            values_by_end.setdefault(end, set()).add(round(value, 4))
+            values_by_end.setdefault(end, []).append((round(value, 4), dec))
         series = _series_from_values(values_by_end, period_of_report, max_items)
         if series:
             return series, currency
