@@ -13,7 +13,7 @@ import logging
 
 from app.config import settings
 from app.database import get_db
-from app.models import Filing, Summary, User, SummaryGenerationProgress, FilingContentCache, InviteCode
+from app.models import Filing, Summary, SavedSummary, User, SummaryGenerationProgress, FilingContentCache, InviteCode
 from app.models.feedback import Feedback
 from app.routers.auth import get_current_user
 from app.schemas.feedback import FeedbackAdminItem, FeedbackStatusUpdate, FeedbackStatus, FeedbackType
@@ -745,4 +745,98 @@ async def bulk_reset_stale_xbrl(
         "affected_count": len(affected_filings),
         "affected_filings": affected_filings,
         "message": f"{'Would reset' if dry_run else 'Reset'} {len(affected_filings)} filings with stale XBRL data"
+    }
+
+
+@router.post("/summaries/reset-all")
+async def reset_all_summaries(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    dry_run: bool = True,
+    filing_type: Optional[str] = None,
+    include_saved: bool = False,
+):
+    """Bulk-clear generated summaries so they regenerate with the CURRENT prompts.
+
+    Use after a prompt change to refresh the site (or one form) without raw SQL. Deletes Summary
+    rows (and their SummaryGenerationProgress) so the lazy regeneration path rebuilds them on next
+    view. **Keeps** XBRL data and the filing content cache — those are the source figures/text
+    (unchanged by a prompt edit), so regeneration stays fast and avoids re-fetching from SEC.
+
+    FK-safe: a Summary pinned by a `saved_summaries` bookmark is SKIPPED by default — deleting it
+    would violate the foreign key in Postgres (and orphan the bookmark). Pass ``include_saved=true``
+    to also drop those bookmarks and refresh them too.
+
+    Args:
+        dry_run: If True (default), only report what would be reset — delete nothing.
+        filing_type: Optional form filter (e.g. "10-K", "10-Q", "20-F"). None = all forms.
+        include_saved: If True, also delete the saved_summaries bookmarks for matched summaries
+            (so saved filings refresh too). The bookmark is lost; the user can re-save afterward.
+
+    Returns counts plus the skipped (saved) filings so an operator can act on them deliberately.
+    """
+    _require_admin(current_user)
+
+    query = db.query(Summary)
+    if filing_type:
+        query = query.join(Filing, Filing.id == Summary.filing_id).filter(
+            Filing.filing_type == filing_type
+        )
+    summaries = query.all()
+
+    pinned_ids = {sid for (sid,) in db.query(SavedSummary.summary_id).all()}
+
+    to_delete = [s for s in summaries if include_saved or s.id not in pinned_ids]
+    skipped = [s for s in summaries if not include_saved and s.id in pinned_ids]
+
+    delete_ids = [s.id for s in to_delete]
+    delete_filing_ids = sorted({s.filing_id for s in to_delete})
+    skipped_saved = [{"filing_id": s.filing_id, "summary_id": s.id} for s in skipped]
+
+    if not dry_run and delete_ids:
+        # When including saved summaries, drop their bookmarks first so the FK doesn't block.
+        if include_saved:
+            db.query(SavedSummary).filter(
+                SavedSummary.summary_id.in_(delete_ids)
+            ).delete(synchronize_session=False)
+        # Clear progress so regeneration starts clean (XBRL + content cache are intentionally kept).
+        db.query(SummaryGenerationProgress).filter(
+            SummaryGenerationProgress.filing_id.in_(delete_filing_ids)
+        ).delete(synchronize_session=False)
+        db.query(Summary).filter(Summary.id.in_(delete_ids)).delete(synchronize_session=False)
+        db.commit()
+        audit_service.create_audit_log(
+            db=db,
+            action="summaries_bulk_reset",
+            user_id=current_user.id,
+            user_email=getattr(current_user, "email", None),
+            entity_type="summaries",
+            details={
+                "filing_type": filing_type,
+                "include_saved": include_saved,
+                "deleted_count": len(delete_ids),
+                "skipped_saved_count": len(skipped_saved),
+            },
+            status="success",
+        )
+        logger.info(
+            "Admin %s bulk-reset %d summaries (filing_type=%s, include_saved=%s); skipped %d saved",
+            current_user.id, len(delete_ids), filing_type, include_saved, len(skipped_saved),
+        )
+
+    return {
+        "dry_run": dry_run,
+        "filing_type": filing_type,
+        "include_saved": include_saved,
+        "total_matched": len(summaries),
+        "deleted_count": len(delete_ids),
+        "skipped_saved_count": len(skipped_saved),
+        "skipped_saved": skipped_saved,
+        "retained": "xbrl_data + filing_content_cache (regeneration is lazy, on next view)",
+        "message": (
+            f"{'Would delete' if dry_run else 'Deleted'} {len(delete_ids)} summaries"
+            f"{f' of type {filing_type}' if filing_type else ''}; "
+            f"{'would skip' if dry_run else 'skipped'} {len(skipped_saved)} saved"
+            f"{' (bookmarks included)' if include_saved else ''}."
+        ),
     }
