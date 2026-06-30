@@ -194,6 +194,83 @@ def _normalize_risk_factors(raw_risks: Any) -> list[dict[str, str]]:
 
     return normalized
 
+
+# Standardized financial metrics surfaced in the prompt's grounding block, as
+# (narrative label, metrics key, format kind). The model is told to quote these verbatim, so this
+# whitelist is the single point that decides which SEC-verified figures the *narrative* may cite.
+# Keys absent from `xbrl_metrics` are silently skipped, so listing a metric is inert until the
+# extractor populates it — the roadmap-2.6 cash-flow/liquidity lines (investing/financing CF,
+# current assets/liabilities, working capital, current ratio) only carry values when
+# RICHER_FINANCIALS_ENABLED was on at extraction time, so the prompt is byte-for-byte unchanged
+# otherwise. Order mirrors the financial statements (CF flows by operating CF; liquidity by assets).
+_XBRL_NARRATIVE_SPEC: list[tuple[str, str, str]] = [
+    ("Revenue", "revenue", "usd"), ("Gross Profit", "gross_profit", "usd"),
+    ("Operating Income", "operating_income", "usd"), ("Net Income", "net_income", "usd"),
+    ("EPS (Basic)", "earnings_per_share", "eps"), ("EPS (Diluted)", "eps_diluted", "eps"),
+    ("Gross Margin", "gross_margin", "pct"),
+    ("Operating Margin", "operating_margin", "pct"), ("Net Margin", "net_margin", "pct"),
+    ("Return on Equity", "return_on_equity", "pct"), ("Return on Assets", "return_on_assets", "pct"),
+    ("Operating Cash Flow", "operating_cash_flow", "usd"),
+    ("Investing Cash Flow", "investing_cash_flow", "usd"),
+    ("Financing Cash Flow", "financing_cash_flow", "usd"),
+    ("Capital Expenditures", "capital_expenditures", "usd"),
+    ("Free Cash Flow", "free_cash_flow", "usd"), ("Total Assets", "total_assets", "usd"),
+    ("Current Assets", "current_assets", "usd"),
+    ("Current Liabilities", "current_liabilities", "usd"),
+    ("Working Capital", "working_capital", "usd"),
+    ("Current Ratio", "current_ratio", "ratio"),
+    ("Cash & Equivalents", "cash_and_equivalents", "usd"),
+    ("Long-term Debt", "long_term_debt", "usd"),
+    ("Shareholders' Equity", "shareholders_equity", "usd"),
+]
+
+
+def _format_xbrl_metric_value(value: Optional[float], kind: str) -> str:
+    """Format a standardized metric for the narrative grounding block."""
+    if value is None:
+        return "Not disclosed"
+    if kind == "pct":
+        return f"{value:.1f}%"
+    if kind == "ratio":
+        return f"{value:.2f}x"  # dimensionless multiple (e.g. current ratio "2.50x") — never $/%
+    if kind == "eps":
+        return f"{value:,.2f}"
+    return f"${value:,.0f}"
+
+
+def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
+    """Build the "XBRL STANDARDIZED FINANCIAL DATA" grounding block from standardized metrics.
+
+    Emits one line per `_XBRL_NARRATIVE_SPEC` entry that has a current value (with prior-period
+    YoY context when present); whitelisted-but-absent metrics are skipped. Returns "" when there is
+    nothing to surface, so the prompt is byte-for-byte unchanged for filings without metrics.
+    """
+    if not isinstance(xbrl_metrics, dict):
+        return ""
+    rows: list[str] = []
+    for label, key, kind in _XBRL_NARRATIVE_SPEC:
+        # Defensive: the metrics dict is produced by extract_standardized_metrics (always dict-shaped),
+        # but this is a reusable helper in the summary hot path — a non-dict entry/current/prior (a
+        # future upstream change or a corrupted cache) must skip, not raise an AttributeError.
+        entry = xbrl_metrics.get(key)
+        if not isinstance(entry, dict):
+            continue
+        current = entry.get("current")
+        if not isinstance(current, dict) or current.get("value") is None:
+            continue
+        line = f"- {label}: {_format_xbrl_metric_value(current.get('value'), kind)} (period: {current.get('period', 'N/A')})"
+        prior = entry.get("prior")
+        if isinstance(prior, dict) and prior.get("value") is not None:
+            line += f"; prior: {_format_xbrl_metric_value(prior.get('value'), kind)} ({prior.get('period', 'N/A')})"
+        rows.append(line)
+    if not rows:
+        return ""
+    return (
+        "XBRL STANDARDIZED FINANCIAL DATA (SEC-verified; quote these figures verbatim):\n"
+        + "\n".join(rows)
+    )
+
+
 class OpenAIService:
     def __init__(self):
         # Use Google AI Studio base URL if configured
@@ -2004,50 +2081,10 @@ Return JSON containing only the `{section_key}` key."""
         config = self._get_type_config(filing_type_key)
         prompt_template = get_prompt(filing_type_key)
 
-        xbrl_section = ""
-        if xbrl_metrics:
-            def _fmt(value: Optional[float], kind: str) -> str:
-                if value is None:
-                    return "Not disclosed"
-                if kind == "pct":
-                    return f"{value:.1f}%"
-                if kind == "eps":
-                    return f"{value:,.2f}"
-                return f"${value:,.0f}"
-
-            # P1.1: surface the full standardized financial picture (cash flow, balance sheet,
-            # margins) with prior-period values for YoY context. Only metrics actually present are
-            # emitted — no "Not disclosed" noise — so the model grounds on verified figures.
-            _xbrl_spec = [
-                ("Revenue", "revenue", "usd"), ("Gross Profit", "gross_profit", "usd"),
-                ("Operating Income", "operating_income", "usd"), ("Net Income", "net_income", "usd"),
-                ("EPS (Basic)", "earnings_per_share", "eps"), ("EPS (Diluted)", "eps_diluted", "eps"),
-                ("Gross Margin", "gross_margin", "pct"),
-                ("Operating Margin", "operating_margin", "pct"), ("Net Margin", "net_margin", "pct"),
-                ("Return on Equity", "return_on_equity", "pct"), ("Return on Assets", "return_on_assets", "pct"),
-                ("Operating Cash Flow", "operating_cash_flow", "usd"),
-                ("Capital Expenditures", "capital_expenditures", "usd"),
-                ("Free Cash Flow", "free_cash_flow", "usd"), ("Total Assets", "total_assets", "usd"),
-                ("Cash & Equivalents", "cash_and_equivalents", "usd"),
-                ("Long-term Debt", "long_term_debt", "usd"),
-                ("Shareholders' Equity", "shareholders_equity", "usd"),
-            ]
-            xbrl_rows = []
-            for label, key, kind in _xbrl_spec:
-                entry = xbrl_metrics.get(key) or {}
-                current = entry.get("current") or {}
-                if current.get("value") is None:
-                    continue
-                line = f"- {label}: {_fmt(current.get('value'), kind)} (period: {current.get('period', 'N/A')})"
-                prior = entry.get("prior") or {}
-                if prior.get("value") is not None:
-                    line += f"; prior: {_fmt(prior.get('value'), kind)} ({prior.get('period', 'N/A')})"
-                xbrl_rows.append(line)
-            if xbrl_rows:
-                xbrl_section = (
-                    "XBRL STANDARDIZED FINANCIAL DATA (SEC-verified; quote these figures verbatim):\n"
-                    + "\n".join(xbrl_rows)
-                )
+        # Roadmap 2.6 Phase B: the grounding block is built by the module-level
+        # `build_xbrl_narrative_section` (testable, behavior-preserving). It now also surfaces the
+        # full cash-flow statement (investing/financing) + working-capital lines when present.
+        xbrl_section = build_xbrl_narrative_section(xbrl_metrics)
 
         data_summary = f"""
 EXTRACTED FINANCIAL SIGNALS:
