@@ -72,6 +72,24 @@ class TestBuildSection:
         assert "Working Capital: $180,000,000" in section
         assert "Current Ratio: 2.50x" in section  # ratio format, not $/%
 
+    def test_malformed_entries_skip_without_raising(self):
+        # Defensive: a non-dict entry / current / prior (corrupted cache or future upstream change)
+        # must be skipped, never raise AttributeError in the summary hot path.
+        section = build_xbrl_narrative_section({
+            "revenue": ["not", "a", "dict"],                 # entry not a dict
+            "net_income": {"current": "also not a dict"},     # current not a dict
+            "eps_diluted": None,                              # entry is None
+            "gross_profit": {"current": {"value": 50.0, "period": "2024-09-28"},
+                             "prior": "bad-prior"},            # prior not a dict → no YoY, no raise
+        })
+        # only the well-formed gross_profit survives
+        assert "Gross Profit: $50 (period: 2024-09-28)" in section
+        assert "prior:" not in section
+        assert "Revenue" not in section and "Net Income" not in section
+
+    def test_non_dict_metrics_returns_blank(self):
+        assert build_xbrl_narrative_section(["not", "a", "dict"]) == ""
+
     def test_absent_whitelisted_keys_are_skipped(self):
         # Only revenue present → only the Revenue line; no "Not disclosed" noise, no other labels.
         section = build_xbrl_narrative_section({"revenue": _cur(100.0)})

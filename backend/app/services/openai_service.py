@@ -245,17 +245,22 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
     YoY context when present); whitelisted-but-absent metrics are skipped. Returns "" when there is
     nothing to surface, so the prompt is byte-for-byte unchanged for filings without metrics.
     """
-    if not xbrl_metrics:
+    if not isinstance(xbrl_metrics, dict):
         return ""
     rows: list[str] = []
     for label, key, kind in _XBRL_NARRATIVE_SPEC:
-        entry = xbrl_metrics.get(key) or {}
-        current = entry.get("current") or {}
-        if current.get("value") is None:
+        # Defensive: the metrics dict is produced by extract_standardized_metrics (always dict-shaped),
+        # but this is a reusable helper in the summary hot path — a non-dict entry/current/prior (a
+        # future upstream change or a corrupted cache) must skip, not raise an AttributeError.
+        entry = xbrl_metrics.get(key)
+        if not isinstance(entry, dict):
+            continue
+        current = entry.get("current")
+        if not isinstance(current, dict) or current.get("value") is None:
             continue
         line = f"- {label}: {_format_xbrl_metric_value(current.get('value'), kind)} (period: {current.get('period', 'N/A')})"
-        prior = entry.get("prior") or {}
-        if prior.get("value") is not None:
+        prior = entry.get("prior")
+        if isinstance(prior, dict) and prior.get("value") is not None:
             line += f"; prior: {_format_xbrl_metric_value(prior.get('value'), kind)} ({prior.get('period', 'N/A')})"
         rows.append(line)
     if not rows:
