@@ -22,6 +22,11 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from evals.scorers import parse_model_json
 
+try:  # json_repair is a declared dependency; degrade gracefully if absent.
+    from json_repair import repair_json as _repair_json
+except ImportError:  # pragma: no cover
+    _repair_json = None
+
 DEFAULT_JUDGE_MODEL = "claude-opus-4-8"  # strong reasoning; judging faithfulness > generating it
 JUDGE_PASS_THRESHOLD = 4.0  # mean dimension score required to PASS when no gate fails (Artifact 1)
 _DIMENSIONS = ("faithfulness", "insight", "clarity", "specificity")
@@ -94,6 +99,15 @@ def build_judge_messages(
 def parse_judge_response(raw: str) -> JudgeVerdict:
     """Parse the judge's JSON output into a verdict. Robust to fenced/garbage output."""
     payload, _ = parse_model_json(raw or "")
+    if not isinstance(payload, dict) and _repair_json is not None and (raw or "").strip():
+        # Fallback: repair malformed JSON (trailing commas, smart quotes, …) before giving up.
+        try:
+            repaired = _repair_json(raw)
+            cand = json.loads(repaired) if isinstance(repaired, str) else repaired
+            if isinstance(cand, dict) and isinstance(cand.get("dimensions"), dict):
+                payload = cand
+        except Exception:  # noqa: BLE001
+            pass
     if not isinstance(payload, dict):
         return JudgeVerdict(
             gate_failures=["judge response unparseable"], verdict="FAIL",
@@ -136,7 +150,7 @@ async def judge_summary(
     excerpt: str,
     xbrl_text: str,
     model_id: str = DEFAULT_JUDGE_MODEL,
-    max_tokens: int = 1024,
+    max_tokens: int = 4096,
 ) -> JudgeVerdict:
     """Run the LLM judge via the anthropic SDK (lazy import). Network-touching."""
     try:
@@ -154,15 +168,22 @@ async def judge_summary(
     client = _anthropic_client
 
     system, user = build_judge_messages(summary_payload, company, filing_type, excerpt, xbrl_text)
-    try:
-        resp = await client.messages.create(
-            # temperature is intentionally omitted: claude-opus-4-8 (the default judge) rejects it
-            # as deprecated. The judge grades on a strict rubric and variance is handled by
-            # averaging over --runs, not a sampling-temperature knob.
-            model=model_id, max_tokens=max_tokens,
-            system=system, messages=[{"role": "user", "content": user}],
-        )
-        raw = next((b.text for b in resp.content if getattr(b, "type", None) == "text"), "")
-    except Exception as exc:  # noqa: BLE001 - report, don't crash the bake-off
-        return JudgeVerdict(verdict="FAIL", error=f"{type(exc).__name__}: {exc}")
-    return parse_judge_response(raw)
+    # Up to 2 attempts — opus occasionally returns unparseable/malformed JSON or a transient 529.
+    # temperature is omitted (claude-opus-4-8 rejects it as deprecated) and assistant-prefill is also
+    # rejected; a generous max_tokens keeps the JSON from being truncated when opus prepends a
+    # rationale. parse_judge_response extracts/repairs the {...} object, so a preamble is harmless.
+    last = JudgeVerdict(verdict="FAIL", error="judge not run")
+    for _attempt in range(2):
+        try:
+            resp = await client.messages.create(
+                model=model_id, max_tokens=max_tokens,
+                system=system, messages=[{"role": "user", "content": user}],
+            )
+            raw = next((b.text for b in resp.content if getattr(b, "type", None) == "text"), "")
+        except Exception as exc:  # noqa: BLE001 - report, don't crash the bake-off
+            last = JudgeVerdict(verdict="FAIL", error=f"{type(exc).__name__}: {exc}")
+            continue
+        last = parse_judge_response(raw)
+        if not last.error:
+            return last
+    return last
