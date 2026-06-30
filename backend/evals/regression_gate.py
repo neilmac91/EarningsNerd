@@ -53,6 +53,7 @@ _WARN_GATES = (
     ("aggregate_stdev", "increase", 0.05, "consistency (run-to-run variance)"),
     ("schema_valid_rate", "decrease", 0.05, "schema validity"),
     ("mean_financial_depth", "decrease", 0.10, "financial depth"),
+    ("mean_specificity", "decrease", 0.10, "narrative specificity (anti-boilerplate)"),
 )
 
 

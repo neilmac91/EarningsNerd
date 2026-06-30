@@ -111,6 +111,10 @@ class RubricScore:
     # (report-quality P1). Reported alongside the aggregate (not folded into it, to keep the
     # adoption math stable) — it tracks whether the depth work is landing, run over run.
     financial_depth: float = 1.0
+    # [0,1] narrative specificity (Wave 2): penalises vague boilerplate in the prose fields and
+    # credits explicit period-over-period framing. Reported alongside the aggregate (NOT folded in),
+    # so de-boilerplating prompt changes are measurable in CI without the LLM judge.
+    specificity: float = 1.0
     # Artifact-1 HARD GATES. A non-empty list is a promotion VETO independent of `aggregate()`:
     # a single fabricated number or leaked notice fails the summary no matter how good the prose.
     gate_failures: List[str] = field(default_factory=list)
