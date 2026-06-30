@@ -102,3 +102,44 @@ and contends with the draining old revision. Apply column/table ALTERs **out-of-
 before the deploy (psql waits patiently for the lock), or via a dedicated pre-deploy migration job —
 never in `lifespan`. And remember: a Postgres-only code path that CI exercises only on SQLite is
 **effectively untested** — treat it as such before shipping it to prod.
+
+## 2026-06-30 — Ran pytest but not ruff; CI lint failed on F401
+Pushed a new test file importing `pytest` without using it; `pytest` was green locally so I shipped
+it, but the `backend-tests` job runs `ruff check .` FIRST and failed on F401 (unused import). This is
+a repeat of the 2026-06-16 lesson in spirit.
+**Rule:** run `ruff check .` (and `bandit`) before every push, not just pytest — the lint gate runs
+before the tests and a trivial unused import will red the build.
+
+## 2026-06-30 — LLM-judge (claude-opus-4-8) API quirks
+Getting the eval judge working took four separate fixes, each surfaced only by actually calling it:
+(1) the `anthropic` SDK isn't in core requirements (judge is off by default) — `pip install anthropic`;
+(2) the env key had no credits (`credit balance too low`) — verify with a 1-call test before a full run;
+(3) `claude-opus-4-8` rejects the `temperature` param as deprecated (400); (4) it also rejects
+assistant-message **prefill** ("conversation must end with a user message"), the usual JSON-pinning
+trick — so reliability came from generous `max_tokens` (opus prepends a rationale before the JSON and
+a tight cap truncated it → unparseable on ~30% of calls) + a `json_repair` fallback + one retry.
+**Rule:** before a long/expensive model run, smoke 1–2 items and INSPECT the raw result (not just
+exit code) — auth, credits, params, and parse-rate all fail silently as "0 score" otherwise. Don't
+assume params/features (temperature, prefill) carry across model generations.
+
+## 2026-06-30 — Mid-session env var updates don't reach the running shell
+The user updated `ANTHROPIC_API_KEY` in the environment, but my shell kept seeing the old value
+(env is captured at session start; updates don't propagate to a live session). Confirmed via a
+non-secret fingerprint (prefix + length + last-2 charcodes) that the value hadn't changed.
+**Rule:** when an env/secret is "updated" mid-session, verify the running process actually sees the
+new value (fingerprint it) before debugging downstream; a fresh key may need a session restart, or
+use the pasted value directly (write to a sourced scratch file, never echo it; recommend rotation).
+
+## 2026-06-30 — FK enforced in Postgres, not in SQLite tests
+`saved_summaries.summary_id → summaries.id` has no `ondelete`, so in **Postgres** a bulk
+`DELETE FROM summaries` referenced by a bookmark RAISES (NO ACTION). SQLite (the test DB) doesn't
+enforce FKs by default, so a test would NOT surface it. The bulk reset-all endpoint therefore skips
+pinned rows by design (FK-safe) regardless of the test DB's leniency.
+**Rule:** a destructive bulk delete must be FK-safe by construction, not by trusting the test DB —
+SQLite-green ≠ Postgres-safe for referential integrity.
+
+## 2026-06-30 — Eval ergonomics that saved rework
+- `prompt_loader` caches prompts at import, so editing a prompt file mid-run is safe for an in-flight
+  eval (it uses the cached copy); the candidate/after run picks up edits via a fresh process.
+- The golden-set builder re-resolves each entry to the *latest* filing (drift). To re-verify ONE
+  entry after an extraction fix, re-extract by its PINNED accession — don't run the full builder.
