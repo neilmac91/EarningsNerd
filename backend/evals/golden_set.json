@@ -1094,6 +1094,11 @@
       "document_url": "https://www.sec.gov/Archives/edgar/data/937966/000162828026011378/asml-20251231.htm",
       "ground_truth": [
         {
+          "metric": "revenue",
+          "value": 32667300000.0,
+          "unit": "EUR"
+        },
+        {
           "metric": "net_income",
           "value": 9609400000.0,
           "unit": "EUR"
@@ -1132,11 +1137,8 @@
           "unit": "EUR"
         }
       ],
-      "verified": false,
-      "notes": "FPI IFRS filer reporting in EUR (exercises ifrs-full namespace + non-USD currency). Revenue hand-filled: ASML double-tags it (statement \u20ac32.6673B + rounded \u20ac32.7B), so the extractor drops it as ambiguous \u2014 see RUNBOOK.",
-      "verification_problems": [
-        "revenue: no consolidated fact for period 2025-12-31"
-      ]
+      "verified": true,
+      "notes": "FPI IFRS filer reporting in EUR (exercises ifrs-full namespace + non-USD currency). ASML double-tags revenue undimensioned (statement \u20ac32.6673B @ decimals=-5 + rounded \u20ac32.7B @ -8); the extractor now recovers the finest-precision consolidated total (PR #478), so revenue resolves automatically."
     },
     {
       "ticker": "TSM",

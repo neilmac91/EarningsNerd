@@ -1415,7 +1415,17 @@ class OpenAIService:
                 change = row.get("change")
                 commentary = (row.get("commentary") or "").replace("\n", " ").strip()
 
-                bullet = f"- {metric}: {current_period}"
+                # Bold the metric label + current figure so a reader scanning the page lands on the
+                # numbers (render-safe markdown; substring-matchable so eval numeric scorers are
+                # unaffected). Only a real value is bolded — never a placeholder ("Not disclosed",
+                # "N/A", "—", …), checked against the canonical _PLACEHOLDER_STRINGS set.
+                current_disp = (
+                    f"**{current_period}**"
+                    if isinstance(current_period, str)
+                    and current_period.strip().lower() not in _PLACEHOLDER_STRINGS
+                    else current_period
+                )
+                bullet = f"- **{metric}:** {current_disp}"
                 if prior_period and prior_period != "Not disclosed":
                     bullet += f" vs. {prior_period}"
                 if change and change != "Not disclosed":
