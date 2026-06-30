@@ -26,6 +26,31 @@
           "alt_values": [
             7.46
           ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 111482000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": 15195000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -120686000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 147957000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 165631000000.0,
+          "unit": "USD"
         }
       ],
       "verified": true,
@@ -56,6 +81,31 @@
           "alt_values": [
             13.64
           ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 136162000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -72599000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -51699000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 191131000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 141218000000.0,
+          "unit": "USD"
         }
       ],
       "verified": true,
@@ -86,6 +136,31 @@
           "alt_values": [
             2.39
           ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 50344000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -26429000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -21283000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 150995000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 43884000000.0,
+          "unit": "USD"
         }
       ],
       "verified": true,
@@ -119,6 +194,21 @@
           "alt_values": [
             20.02
           ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": -147782000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -265565000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": 269533000000.0,
+          "unit": "USD"
         }
       ],
       "verified": true,
@@ -149,6 +239,31 @@
           "metric": "eps",
           "value": 0.91,
           "unit": "USD_per_share"
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 2021000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": 1746000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -3868000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 30390000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 22378000000.0,
+          "unit": "USD"
         }
       ],
       "verified": true,
@@ -182,6 +297,31 @@
           "alt_values": [
             1.08
           ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 14747000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -15478000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": 1139000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 68642000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 31714000000.0,
+          "unit": "USD"
         }
       ],
       "verified": true,
@@ -212,6 +352,31 @@
           "alt_values": [
             7.17
           ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 139514000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -142545000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": 9661000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 229083000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 218005000000.0,
+          "unit": "USD"
         }
       ],
       "verified": true,
@@ -237,6 +402,21 @@
           "alt_values": [
             67260000000.0
           ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 45969000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -44487000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": 2233000000.0,
+          "unit": "USD"
         }
       ],
       "verified": false,
@@ -270,6 +450,31 @@
           "metric": "eps",
           "value": 6.7,
           "unit": "USD_per_share"
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 51970000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -25927000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -39081000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 83382000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 72330000000.0,
+          "unit": "USD"
         }
       ],
       "verified": true,
@@ -300,6 +505,31 @@
           "metric": "eps",
           "value": 0.47,
           "unit": "USD_per_share"
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 2615000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": 785000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -2856000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 42822000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 34348000000.0,
+          "unit": "USD"
         }
       ],
       "verified": true,
@@ -333,6 +563,31 @@
           "alt_values": [
             0.63
           ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 1316000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -771000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -6172000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 116329000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 106679000000.0,
+          "unit": "USD"
         }
       ],
       "verified": true,
@@ -366,6 +621,31 @@
           "alt_values": [
             2.73
           ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 41565000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -26350000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -13553000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 84874000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 107469000000.0,
+          "unit": "USD"
         }
       ],
       "verified": true,
@@ -396,6 +676,16 @@
           "alt_values": [
             4.93
           ]
+        },
+        {
+          "metric": "current_assets",
+          "value": 45177000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 42125000000.0,
+          "unit": "USD"
         }
       ],
       "verified": true,
@@ -430,6 +720,31 @@
           "alt_values": [
             2.48
           ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 1065000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": 499000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -3763000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 128459000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 108115000000.0,
+          "unit": "USD"
         }
       ],
       "verified": true,
@@ -460,6 +775,31 @@
           "metric": "eps",
           "value": -0.73,
           "unit": "USD_per_share"
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 1096000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": 3093000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -1206000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 62157000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 26885000000.0,
+          "unit": "USD"
         }
       ],
       "verified": true,
@@ -493,6 +833,31 @@
           "alt_values": [
             0.34
           ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 899165000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -26724000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": 3397000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 9551704000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 1382949000.0,
+          "unit": "USD"
         }
       ],
       "verified": true,
@@ -523,6 +888,31 @@
           "metric": "eps",
           "value": -3.07,
           "unit": "USD_per_share"
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": -779000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -1828000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": 886000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 8592000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 3693000000.0,
+          "unit": "USD"
         }
       ],
       "verified": true,
@@ -550,6 +940,31 @@
           "metric": "eps",
           "value": -1.49,
           "unit": "USD_per_share"
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 182744000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -239064000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -864907000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 19679810000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 9190890000.0,
+          "unit": "USD"
         }
       ],
       "verified": true,
@@ -577,6 +992,31 @@
           "metric": "eps",
           "value": -0.06,
           "unit": "USD_per_share"
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": -5028000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -1782000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -4497000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 311015000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 109019000.0,
+          "unit": "USD"
         }
       ],
       "verified": true,
@@ -614,6 +1054,31 @@
             45.6,
             44.0
           ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 76213000000.0,
+          "unit": "CNY"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -67336000000.0,
+          "unit": "CNY"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -20573000000.0,
+          "unit": "CNY"
+        },
+        {
+          "metric": "current_assets",
+          "value": 610769000000.0,
+          "unit": "CNY"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 476398000000.0,
+          "unit": "CNY"
         }
       ],
       "verified": true,
@@ -629,11 +1094,6 @@
       "document_url": "https://www.sec.gov/Archives/edgar/data/937966/000162828026011378/asml-20251231.htm",
       "ground_truth": [
         {
-          "metric": "revenue",
-          "value": 32667300000.0,
-          "unit": "EUR"
-        },
-        {
           "metric": "net_income",
           "value": 9609400000.0,
           "unit": "EUR"
@@ -645,10 +1105,38 @@
           "alt_values": [
             24.71
           ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 12658500000.0,
+          "unit": "EUR"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -3777800000.0,
+          "unit": "EUR"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -8670500000.0,
+          "unit": "EUR"
+        },
+        {
+          "metric": "current_assets",
+          "value": 30616100000.0,
+          "unit": "EUR"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 24263900000.0,
+          "unit": "EUR"
         }
       ],
-      "verified": true,
-      "notes": "FPI IFRS filer reporting in EUR (exercises ifrs-full namespace + non-USD currency). Revenue hand-filled: ASML double-tags it (statement \u20ac32.6673B + rounded \u20ac32.7B), so the extractor drops it as ambiguous \u2014 see RUNBOOK."
+      "verified": false,
+      "notes": "FPI IFRS filer reporting in EUR (exercises ifrs-full namespace + non-USD currency). Revenue hand-filled: ASML double-tags it (statement \u20ac32.6673B + rounded \u20ac32.7B), so the extractor drops it as ambiguous \u2014 see RUNBOOK.",
+      "verification_problems": [
+        "revenue: no consolidated fact for period 2025-12-31"
+      ]
     },
     {
       "ticker": "TSM",
@@ -678,6 +1166,31 @@
           "alt_values": [
             327.35
           ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 2274975600000.0,
+          "unit": "TWD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -1144393400000.0,
+          "unit": "TWD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -440344600000.0,
+          "unit": "TWD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 3817130800000.0,
+          "unit": "TWD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 1522414000000.0,
+          "unit": "TWD"
         }
       ],
       "verified": true,
@@ -717,6 +1230,31 @@
             13.78,
             12.9
           ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 18991000000.0,
+          "unit": "CNY"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": 41832000000.0,
+          "unit": "CNY"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -26728000000.0,
+          "unit": "CNY"
+        },
+        {
+          "metric": "current_assets",
+          "value": 374421000000.0,
+          "unit": "CNY"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 306072000000.0,
+          "unit": "CNY"
         }
       ],
       "verified": true
@@ -751,6 +1289,31 @@
           "alt_values": [
             2.52
           ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 5024523000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -4408668000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": 1623183000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 23249495000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 14680550000.0,
+          "unit": "USD"
         }
       ],
       "verified": true
@@ -781,6 +1344,31 @@
           "alt_values": [
             23.03
           ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 119102000000.0,
+          "unit": "DKK"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -79158000000.0,
+          "unit": "DKK"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -28408000000.0,
+          "unit": "DKK"
+        },
+        {
+          "metric": "current_assets",
+          "value": 172453000000.0,
+          "unit": "DKK"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 215661000000.0,
+          "unit": "DKK"
         }
       ],
       "verified": true
@@ -814,6 +1402,31 @@
             70.0,
             66.0
           ]
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 106938690000.0,
+          "unit": "CNY"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -43423236000.0,
+          "unit": "CNY"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": -5227353000.0,
+          "unit": "CNY"
+        },
+        {
+          "metric": "current_assets",
+          "value": 518979892000.0,
+          "unit": "CNY"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 213737168000.0,
+          "unit": "CNY"
         }
       ],
       "verified": true
@@ -841,6 +1454,31 @@
           "metric": "eps",
           "value": 39.4,
           "unit": "USD_per_share"
+        },
+        {
+          "metric": "operating_cash_flow",
+          "value": 12116000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "investing_cash_flow",
+          "value": -6179000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "financing_cash_flow",
+          "value": 2904000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_assets",
+          "value": 33573000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "current_liabilities",
+          "value": 28633000000.0,
+          "unit": "USD"
         }
       ],
       "verified": true

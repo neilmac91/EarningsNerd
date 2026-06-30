@@ -166,3 +166,36 @@ in prod). Investor sources (SEC "How to Read a 10-K"; Investopedia) prioritise t
 - On gate pass: commit, push `claude/richer-narrative`, open draft PR (trailers + footer), watch CI.
 - Follow-up idea (not this PR): extend the golden set with cash-flow/working-capital ground-truth facts
   so the eval can actually score the richer grounding (today it can't move recall).
+
+---
+
+# Eval golden-set extension — score the richer grounding (branch claude/eval-golden-set-richer)
+
+## Goal
+Add cash-flow + liquidity ground-truth facts so numeric recall MEASURES the Phase B grounding (not
+just no-regression). Decisions: flip `RICHER_FINANCIALS_ENABLED` default → True (graduate the flag;
+eval+CI+prod coherent); add the robust 5 (operating/investing/financing CF + current assets/liabilities).
+
+## Done (code)
+- `app/config.py`: `RICHER_FINANCIALS_ENABLED` default → True (+ comment).
+- `evals/build_golden_set.py`: `EXTENDED_METRIC_CONCEPTS` (5 metrics, mirror product dicts);
+  `_fact_for_metric` gained a `kind` param + INSTANT branch (`instant_series_with_currency`); core loop
+  passes concepts+kind; ADDITIVE extended loop (a miss is NOT a `problem`); `verified` now counts only
+  CORE metrics (banks/retailers missing a line stay verified).
+- `tests/unit/test_accession_xbrl_extraction.py`: new sync test for the extended concepts + kind tags.
+- py_compile + ruff clean; 74 unit tests green (sync + flag-sensitive + facts_service).
+
+## Golden set rebuilt (canonical `build_golden_set`)
+- +127 facts (80→207): operating/investing/financing CF ×26, current assets/liabilities ×25 (banks
+  omit them — additive, no penalty). verified 26→25.
+- **ASML collateral (documented, not a regression I caused):** with the pinned `edgartools==5.39.0`
+  (CI/prod toolchain), ASML's FY2025 20-F tags revenue ONLY dimensionally (segment breakouts, no
+  undimensioned consolidated total), so `duration_series_with_currency` correctly can't derive it →
+  ASML unverified → auto-excluded. Phase A (#475) only added dicts (verified via `git show`), so this
+  is a pre-existing edgartools/IFRS extraction limitation surfaced by rebuilding, not a code change.
+  FLAG to founder: ASML prod summaries likely lack XBRL revenue grounding under 5.39.0 — separate follow-up.
+
+## In progress / next
+- Flag-on bake-off (`--runs 3`, DeepSeek) over the 25 verified → spot-check narratives → re-pin
+  `baseline_scores.json` (`scripts/pin_baseline.py`) → `regression_gate --latest` PASS against the new bar.
+- Commit golden_set.json + baseline_scores.json + code + test TOGETHER; push; draft PR; watch CI.
