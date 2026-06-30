@@ -45,6 +45,13 @@ def _require_admin(user: User) -> None:
         )
 
 
+def _chunked(seq, size=900):
+    """Yield successive `size`-length slices so a bulk IN(...) can't exceed a DB parameter cap
+    (SQLite's 999, PostgreSQL's bind-parameter ceiling)."""
+    for i in range(0, len(seq), size):
+        yield seq[i:i + size]
+
+
 class EmailTestRequest(BaseModel):
     to: Optional[EmailStr] = None  # defaults to the requesting admin's own email
 
@@ -777,14 +784,24 @@ async def reset_all_summaries(
     """
     _require_admin(current_user)
 
-    query = db.query(Summary)
+    # Select only the columns we need (id + filing_id). Summary has large JSON/text columns we
+    # never read here, so loading full ORM objects for a bulk op wastes memory + DB I/O.
+    query = db.query(Summary.id, Summary.filing_id)
     if filing_type:
         query = query.join(Filing, Filing.id == Summary.filing_id).filter(
             Filing.filing_type == filing_type
         )
     summaries = query.all()
 
-    pinned_ids = {sid for (sid,) in db.query(SavedSummary.summary_id).all()}
+    # Pinned (saved) summaries, scoped to the same filter so we don't load every bookmark in the DB.
+    pinned_query = db.query(SavedSummary.summary_id).join(
+        Summary, Summary.id == SavedSummary.summary_id
+    )
+    if filing_type:
+        pinned_query = pinned_query.join(Filing, Filing.id == Summary.filing_id).filter(
+            Filing.filing_type == filing_type
+        )
+    pinned_ids = {sid for (sid,) in pinned_query.all()}
 
     to_delete = [s for s in summaries if include_saved or s.id not in pinned_ids]
     skipped = [s for s in summaries if not include_saved and s.id in pinned_ids]
@@ -794,16 +811,20 @@ async def reset_all_summaries(
     skipped_saved = [{"filing_id": s.filing_id, "summary_id": s.id} for s in skipped]
 
     if not dry_run and delete_ids:
+        # Chunk every IN-list so a large reset can't exceed a DB parameter cap (SQLite's 999, etc.).
         # When including saved summaries, drop their bookmarks first so the FK doesn't block.
         if include_saved:
-            db.query(SavedSummary).filter(
-                SavedSummary.summary_id.in_(delete_ids)
-            ).delete(synchronize_session=False)
+            for chunk in _chunked(delete_ids):
+                db.query(SavedSummary).filter(
+                    SavedSummary.summary_id.in_(chunk)
+                ).delete(synchronize_session=False)
         # Clear progress so regeneration starts clean (XBRL + content cache are intentionally kept).
-        db.query(SummaryGenerationProgress).filter(
-            SummaryGenerationProgress.filing_id.in_(delete_filing_ids)
-        ).delete(synchronize_session=False)
-        db.query(Summary).filter(Summary.id.in_(delete_ids)).delete(synchronize_session=False)
+        for chunk in _chunked(delete_filing_ids):
+            db.query(SummaryGenerationProgress).filter(
+                SummaryGenerationProgress.filing_id.in_(chunk)
+            ).delete(synchronize_session=False)
+        for chunk in _chunked(delete_ids):
+            db.query(Summary).filter(Summary.id.in_(chunk)).delete(synchronize_session=False)
         db.commit()
         audit_service.create_audit_log(
             db=db,
