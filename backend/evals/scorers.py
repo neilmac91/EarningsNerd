@@ -366,6 +366,71 @@ def _financial_haystack(payload: Dict[str, Any]) -> str:
     return " ".join(parts)
 
 
+# ---------------------------------------------------------------------------
+# Narrative specificity (Wave 2 anti-boilerplate signal)
+# ---------------------------------------------------------------------------
+# Coverage/depth ask "is the content present, with figures?". SPECIFICITY asks the Wave-2 question:
+# is the PROSE concrete, or padded with vague filler? It penalises generic boilerplate (distinct
+# from the hygiene gate's leaked-notice patterns — these phrases are merely vague, not forbidden)
+# and gives partial credit for explicit period-over-period framing (the "what changed" Wave 2
+# targets). Reported alongside the aggregate (NOT folded in, like financial_depth), so a prompt
+# change that de-boilerplates the narrative is measurable in CI without the LLM judge.
+BOILERPLATE_PHRASES = (
+    "well-positioned", "well positioned", "strong position", "market conditions",
+    "operational execution", "business momentum", "ongoing momentum", "robust demand",
+    "remains committed", "poised for", "poised to", "navigate the", "headwinds and tailwinds",
+    "operational and market conditions", "continued growth", "solid performance",
+    "challenging environment", "challenging macro", "dynamic market", "competitive landscape",
+    "in line with expectations", "consistent with prior", "no material change",
+    "focused on execution", "execution and market conditions", "long-term value", "going forward",
+)
+_COMPARATIVE_TERMS = (
+    "yoy", "y/y", "year-over-year", "year over year", "vs prior", "vs. prior", "versus prior",
+    "compared to", "compared with", "increased from", "decreased from", "rose from", "fell from",
+    "up from", "down from", "prior year", "prior-year", "year-ago", "quarter-over-quarter",
+    "q/q", "qoq", "sequentially", "from the prior",
+)
+_SPECIFICITY_MIN_WORDS = 25       # below this, prose is too short to judge — don't penalise
+_BOILERPLATE_DENSITY_FLOOR = 6.0  # boilerplate hits per 100 words that zeroes the component
+
+
+def _prose_blob(payload: Dict[str, Any]) -> str:
+    """Concatenate the narrative prose fields (same set the hygiene gate inspects)."""
+    return " ".join(str(payload.get(k) or "") for k in _HYGIENE_PROSE_FIELDS)
+
+
+def score_specificity(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
+    """[0,1] narrative specificity over the prose fields. Returns (score, flagged_phrases).
+
+    score = 0.8 * boilerplate_component + 0.2 * change_component
+      - boilerplate_component: 1.0 with no vague filler, falling to 0 at _BOILERPLATE_DENSITY_FLOOR
+        boilerplate hits per 100 words.
+      - change_component: 1.0 when the prose uses explicit period-over-period language, else 0.6
+        (Wave 2 wants the "what changed" stated, not just a static description).
+    Short/empty prose returns 1.0 (not assessable → not penalised)."""
+    blob = _prose_blob(payload)
+    low = blob.lower()
+    words = len(blob.split())
+    if words < _SPECIFICITY_MIN_WORDS:
+        return 1.0, []
+    # De-dup overlapping substrings (e.g. "market conditions" inside "execution and market
+    # conditions"): match longest-first and blank each hit so a contained phrase isn't recounted.
+    flagged: List[str] = []
+    hits = 0
+    remaining = low
+    for phrase in sorted(BOILERPLATE_PHRASES, key=len, reverse=True):
+        count = remaining.count(phrase)
+        if count:
+            hits += count
+            flagged.append(phrase)
+            remaining = remaining.replace(phrase, " ")
+    flagged = [p for p in BOILERPLATE_PHRASES if p in flagged]
+    density = hits / (words / 100.0)
+    boilerplate_component = max(0.0, 1.0 - density / _BOILERPLATE_DENSITY_FLOOR)
+    change_component = 1.0 if any(t in low for t in _COMPARATIVE_TERMS) else 0.6
+    return round(0.8 * boilerplate_component + 0.2 * change_component, 4), flagged
+
+
 def score_summary(
     raw_or_payload: Any, ground_truth: List[GroundTruthFact]
 ) -> RubricScore:
@@ -392,6 +457,7 @@ def score_summary(
     coverage, missing_sections = score_coverage(payload)
     precision, contradictions = score_numeric_precision(payload, ground_truth)
     depth, _ = score_financial_depth(payload)
+    specificity, _ = score_specificity(payload)
     return RubricScore(
         schema_valid=schema_valid,
         repaired=repaired,
@@ -399,6 +465,7 @@ def score_summary(
         coverage=coverage,
         numeric_precision=precision,
         financial_depth=depth,
+        specificity=specificity,
         gate_failures=compute_gate_failures(payload, contradictions),
         missing_sections=missing_sections,
         matched_facts=matched,

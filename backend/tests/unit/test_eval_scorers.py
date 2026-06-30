@@ -14,6 +14,7 @@ from evals.scorers import (
     score_financial_depth,
     score_numeric_accuracy,
     score_numeric_precision,
+    score_specificity,
     score_summary,
     validate_schema,
 )
@@ -359,3 +360,91 @@ def test_financial_depth_ignores_placeholders_and_bare_terms():
     depth, missing = score_financial_depth(payload)
     assert depth == 0.0
     assert set(missing) == {"cash_flow", "balance_sheet", "margins"}
+
+
+# --- narrative specificity (Wave 2 anti-boilerplate) -----------------------------------------
+
+def _specificity_payload(exec_summary="", mgmt="", outlook=""):
+    return {"executive_summary": exec_summary, "management_discussion": mgmt, "outlook": outlook}
+
+
+def test_specificity_clean_concrete_prose_scores_high():
+    """Concrete prose with explicit period-over-period framing and no filler scores ~1.0."""
+    payload = _specificity_payload(
+        exec_summary=(
+            "Revenue rose 14% to $42.3B, up from $37.1B a year ago, driven by a 9% increase in "
+            "datacenter units. Operating margin expanded 230bps to 31% as input costs fell from "
+            "the prior year. Diluted EPS of $3.45 grew faster than net income on buyback-reduced "
+            "share count."
+        ),
+    )
+    score, flagged = score_specificity(payload)
+    assert score >= 0.95
+    assert flagged == []
+
+
+def test_specificity_penalizes_boilerplate_filler():
+    """Vague filler drags the score well below a clean summary's."""
+    payload = _specificity_payload(
+        exec_summary=(
+            "The company remains well-positioned to navigate the challenging environment. "
+            "Management is focused on execution and market conditions, with continued growth and "
+            "solid performance expected going forward as it drives long-term value in a dynamic "
+            "market and competitive landscape."
+        ),
+    )
+    score, flagged = score_specificity(payload)
+    assert score < 0.6
+    assert "well-positioned" in flagged and "going forward" in flagged
+
+
+def test_specificity_short_prose_is_not_penalized():
+    score, flagged = score_specificity(_specificity_payload(exec_summary="Strong quarter."))
+    assert score == 1.0
+    assert flagged == []
+
+
+def test_specificity_missing_change_language_costs_the_change_component():
+    """Clean (no boilerplate) but static prose with no comparative framing loses the 0.2 change
+    component → ~0.8, while the same prose with YoY framing scores ~1.0."""
+    static = _specificity_payload(
+        mgmt=(
+            "The datacenter segment generated $20.1B of revenue and the gaming segment $9.4B. "
+            "Gross margin was 31% and the company repurchased $4.0B of stock during the period "
+            "across its three reportable segments and two geographies as disclosed."
+        ),
+    )
+    score_static, _ = score_specificity(static)
+    # No boilerplate (component 1.0) but no comparative framing (component 0.6): 0.8 + 0.2*0.6.
+    assert 0.90 <= score_static <= 0.93
+
+    changed = _specificity_payload(
+        mgmt=static["management_discussion"] + " Datacenter revenue increased from $14.5B YoY.",
+    )
+    score_changed, _ = score_specificity(changed)
+    assert score_changed > score_static
+
+
+def test_score_summary_exposes_specificity_and_keeps_it_out_of_aggregate():
+    """specificity is reported on the RubricScore but, like financial_depth, not folded into the
+    aggregate (so the adoption math is unchanged)."""
+    clean = {
+        "executive_summary": "Revenue rose 14% to $42.3B, up from $37.1B in the prior year.",
+        "financial_highlights": {"revenue": "$42.3B", "net_income": "$9.6B", "eps": "$3.45",
+                                 "key_metrics": []},
+        "risk_factors": [], "management_discussion": "Datacenter drove the increase from $14.5B YoY.",
+        "outlook": "Guidance raised compared to the prior quarter.",
+    }
+    boiler = dict(clean)
+    boiler["executive_summary"] = (
+        "The company remains well-positioned to navigate the challenging environment, focused on "
+        "execution and market conditions with continued growth and solid performance going forward."
+    )
+    boiler["management_discussion"] = "Long-term value in a dynamic market and competitive landscape."
+    boiler["outlook"] = "Consistent with prior; no material change."
+
+    s_clean = score_summary(clean, [REVENUE])
+    s_boiler = score_summary(boiler, [REVENUE])
+    assert s_clean.specificity > s_boiler.specificity
+    # aggregate must not move with specificity (depends only on schema/recall/coverage).
+    assert s_clean.aggregate() == s_boiler.aggregate()

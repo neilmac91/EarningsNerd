@@ -1,6 +1,6 @@
 {
-  "snapshot_date": "2026-06-30T14:43:39Z",
-  "source_report": "eval_20260630T144339Z.json",
+  "snapshot_date": "2026-06-30T19:57:18Z",
+  "source_report": "eval_20260630T195718Z.json",
   "golden_set_size": 26,
   "runs_per_candidate": 3,
   "harness": {
@@ -8,23 +8,25 @@
     "use_structured_output": false,
     "judge": false
   },
+  "note": "Deterministic baseline incl. mean_specificity (Wave-2 anti-boilerplate gate). Judge dimensions are NOT pinned here: the first judged run predated the judge-robustness fix (3d75f39); the trustworthy judge before/after is captured at Wave 2 with the fixed judge.",
   "candidates": {
     "baseline": {
       "n": 78,
       "errors": 0,
-      "mean_aggregate": 0.9172,
-      "aggregate_stdev": 0.054,
+      "mean_aggregate": 0.9233,
+      "aggregate_stdev": 0.0469,
       "pass_rate": 1.0,
       "gate_fail_rate": 0.0,
       "schema_valid_rate": 1.0,
       "repaired_rate": 0.0,
-      "mean_numeric_accuracy": 0.816,
+      "mean_numeric_accuracy": 0.8295,
       "mean_numeric_precision": 1.0,
       "mean_coverage": 1.0,
-      "mean_financial_depth": 0.953,
+      "mean_financial_depth": 0.9658,
+      "mean_specificity": 0.9857,
       "judge_pass_rate": null,
       "total_cost_usd": 0.0,
-      "mean_latency_seconds": 41.848
+      "mean_latency_seconds": 31.388
     }
   }
 }
