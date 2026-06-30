@@ -135,3 +135,34 @@ byte-for-byte unchanged.
   non-negative numbers can't be negative).
 - Tests added: negative component ⇒ no derived liquidity; negative `current_ratio` hard-rejected;
   chart renders the Current Ratio button. 90 backend + 7 chart tests green; typecheck/lint clean.
+
+---
+
+# 2.6 Phase B — ground the AI narrative on the richer financials (branch claude/richer-narrative)
+
+## Goal
+Let the summary *narrative* cite the Phase A cash-flow/liquidity figures (they already reach the
+chart + Copilot). Data-only, no new flag — gated transparently by `RICHER_FINANCIALS_ENABLED` (now on
+in prod). Investor sources (SEC "How to Read a 10-K"; Investopedia) prioritise the cash-flow statement
++ liquidity, which is exactly the gap.
+
+## Done (code)
+- `openai_service.py`: extracted the grounding-block builder to module-level `build_xbrl_narrative_section`
+  + `_format_xbrl_metric_value` + `_XBRL_NARRATIVE_SPEC` (behavior-preserving refactor → unit-testable).
+  Added the 6 keys (investing/financing CF, current assets/liabilities, working capital, current ratio)
+  in statement order, + a new `ratio` format ("2.50x"). The method now calls the helper.
+- The 6 new keys are inert unless extraction populated them (flag on) → flag-off block is byte-for-byte
+  identical → eval baseline unchanged. ROE/ROA/margins/FCF already grounded (verified — not re-added).
+- New test `tests/unit/test_xbrl_narrative_section.py` (9 tests incl. a byte-for-byte legacy-block
+  assertion). `py_compile` + `ruff` clean; 22 openai-related unit tests green (incl. structured-output).
+
+## Eval gate (in progress)
+- Golden set carries only revenue/net_income/eps facts → the eval measures **no-regression** (not a
+  recall lift). Running the full set `--runs 3` against DeepSeek (`RICHER_FINANCIALS_ENABLED=true`) →
+  `regression_gate --latest` vs pinned `baseline_scores.json` (deepseek-v4-pro). Smoke (AAPL/MSFT)
+  scored aggregate 1.0, gate_fail 0.0.
+
+## Next
+- On gate pass: commit, push `claude/richer-narrative`, open draft PR (trailers + footer), watch CI.
+- Follow-up idea (not this PR): extend the golden set with cash-flow/working-capital ground-truth facts
+  so the eval can actually score the richer grounding (today it can't move recall).
