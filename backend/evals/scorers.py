@@ -413,8 +413,18 @@ def score_specificity(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
     words = len(blob.split())
     if words < _SPECIFICITY_MIN_WORDS:
         return 1.0, []
-    flagged = [p for p in BOILERPLATE_PHRASES if p in low]
-    hits = sum(low.count(p) for p in BOILERPLATE_PHRASES)
+    # De-dup overlapping substrings (e.g. "market conditions" inside "execution and market
+    # conditions"): match longest-first and blank each hit so a contained phrase isn't recounted.
+    flagged: List[str] = []
+    hits = 0
+    remaining = low
+    for phrase in sorted(BOILERPLATE_PHRASES, key=len, reverse=True):
+        count = remaining.count(phrase)
+        if count:
+            hits += count
+            flagged.append(phrase)
+            remaining = remaining.replace(phrase, " ")
+    flagged = [p for p in BOILERPLATE_PHRASES if p in flagged]
     density = hits / (words / 100.0)
     boilerplate_component = max(0.0, 1.0 - density / _BOILERPLATE_DENSITY_FLOOR)
     change_component = 1.0 if any(t in low for t in _COMPARATIVE_TERMS) else 0.6
