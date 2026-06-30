@@ -276,14 +276,14 @@ class Settings(BaseSettings):
     # their own form sets until a later phase. Toggle with ENABLE_FPI_FILINGS=true.
     ENABLE_FPI_FILINGS: bool = False
 
-    # Roadmap 2.6 (Phase A): richer cited financials. When True, XBRL extraction also pulls the full
-    # cash-flow statement (investing + financing flows) and working-capital lines (current
-    # assets/liabilities → derived working_capital + current_ratio), which flow into financial_fact
-    # and surface on the verifiable channels (the filing-scoped trend chart + Copilot citations).
-    # Ships OFF so the default concept set — and the perfect eval baseline — is byte-for-byte
-    # unchanged; the AI narrative is untouched regardless (the prompt whitelist is separate, Phase B).
-    # Toggle with RICHER_FINANCIALS_ENABLED=true.
-    RICHER_FINANCIALS_ENABLED: bool = False
+    # Roadmap 2.6: richer cited financials. When True, XBRL extraction also pulls the full cash-flow
+    # statement (investing + financing flows) and working-capital lines (current assets/liabilities →
+    # derived working_capital + current_ratio), which flow into financial_fact, the filing-scoped trend
+    # chart, Copilot citations, and (Phase B) the AI summary narrative's grounding block.
+    # Graduated to default-ON after Phase A + Phase B shipped and the eval bake-off confirmed no
+    # regression (PRs #475, #476); the eval golden set + pinned baseline are flag-on. Set to false only
+    # to fall back to the legacy concept set.
+    RICHER_FINANCIALS_ENABLED: bool = True
 
     # Anonymous (guest) daily summary quota (roadmap S5). Guests currently have no daily/monthly
     # cap (only 5/60s per IP), so one IP could trigger thousands of AI calls/month. A small daily

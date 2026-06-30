@@ -66,6 +66,35 @@ METRIC_CONCEPTS: Dict[str, Tuple[str, List[str]]] = {
     ]),
 }
 
+# Extended (roadmap 2.6) metrics — ADDITIVE ground truth so the bake-off can SCORE the richer
+# cash-flow + liquidity grounding (Phase B), not just prove no-regression. Unlike the core metrics
+# above, these do NOT gate `verified`: a filing that legitimately lacks a line (a bank/insurer has no
+# classified balance sheet → no current assets/liabilities; some filers don't separately tag a flow)
+# stays verified and simply omits that fact, so recall is never penalised for an absent line. `kind`
+# selects the instant (balance-sheet, point-in-time) vs duration (flow, period) extraction path.
+# Concept lists mirror the product's DURATION_CONCEPTS / RICHER_DURATION_CONCEPTS / RICHER_INSTANT_
+# CONCEPTS in app.services.edgar.instance_extractor (kept in sync by
+# test_golden_set_concepts_match_product_extraction).
+EXTENDED_METRIC_CONCEPTS: Dict[str, Tuple[str, List[str], str]] = {
+    "operating_cash_flow": ("USD", [
+        "NetCashProvidedByUsedInOperatingActivities",
+        "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+        "CashFlowsFromUsedInOperatingActivities",
+    ], "duration"),
+    "investing_cash_flow": ("USD", [
+        "NetCashProvidedByUsedInInvestingActivities",
+        "NetCashProvidedByUsedInInvestingActivitiesContinuingOperations",
+        "CashFlowsFromUsedInInvestingActivities",
+    ], "duration"),
+    "financing_cash_flow": ("USD", [
+        "NetCashProvidedByUsedInFinancingActivities",
+        "NetCashProvidedByUsedInFinancingActivitiesContinuingOperations",
+        "CashFlowsFromUsedInFinancingActivities",
+    ], "duration"),
+    "current_assets": ("USD", ["AssetsCurrent", "CurrentAssets"], "instant"),
+    "current_liabilities": ("USD", ["LiabilitiesCurrent", "CurrentLiabilities"], "instant"),
+}
+
 def _unit_with_currency(default_unit: str, currency: Optional[str]) -> str:
     """Stamp the as-filed reporting currency onto the ground-truth unit (USD defaults otherwise).
 
@@ -88,19 +117,26 @@ def _duration_ok(start: Optional[str], end: Optional[str], filing_type: str) -> 
 
 
 def _fact_for_metric(
-    xb, metric: str, period_of_report: str, filing_type: str
+    xb, metric: str, concepts: List[str], kind: str, period_of_report: str, filing_type: str
 ) -> Tuple[Optional[float], Optional[str], Optional[str]]:
     """Extract one consolidated fact (+ its reporting currency) for the filing's own period.
 
     Delegates to the product's currency-aware series selection so the eval ground truth and the
     product ground on identical period + currency semantics: facts are filtered to the issuer's
     reporting currency, so a foreign filer that also tags a USD convenience translation (e.g.
-    Alibaba) yields its native value — not an "ambiguous" drop. Returns (value, currency, problem).
+    Alibaba) yields its native value — not an "ambiguous" drop. `kind` picks the instant
+    (balance-sheet, point-in-time) vs duration (flow/income, period) selector. Returns
+    (value, currency, problem).
     """
-    from app.services.edgar.instance_extractor import duration_series_with_currency
+    from app.services.edgar.instance_extractor import (
+        duration_series_with_currency,
+        instant_series_with_currency,
+    )
 
-    _, concepts = METRIC_CONCEPTS[metric]
-    series, currency = duration_series_with_currency(xb, concepts, filing_type, period_of_report)
+    if kind == "instant":
+        series, currency = instant_series_with_currency(xb, concepts, period_of_report)
+    else:
+        series, currency = duration_series_with_currency(xb, concepts, filing_type, period_of_report)
     if series and series[0][0] == period_of_report:
         return series[0][1], currency, None
     return None, None, f"{metric}: no consolidated fact for period {period_of_report}"
@@ -211,13 +247,26 @@ def _extract_ground_truth(
     facts: List[Dict[str, Any]] = []
     problems: List[str] = []
     by_metric: Dict[str, float] = {}
-    for metric, (default_unit, _) in METRIC_CONCEPTS.items():
-        value, currency, problem = _fact_for_metric(xb, metric, period_of_report, filing_type)
+    # Core metrics gate `verified` — a miss is a `problem`.
+    for metric, (default_unit, concepts) in METRIC_CONCEPTS.items():
+        value, currency, problem = _fact_for_metric(
+            xb, metric, concepts, "duration", period_of_report, filing_type
+        )
         if problem:
             problems.append(problem)
             continue
         by_metric[metric] = value
         facts.append({"metric": metric, "value": value, "unit": _unit_with_currency(default_unit, currency)})
+
+    # Extended (2.6) metrics are ADDITIVE: included when tagged, silently omitted otherwise. A miss is
+    # NOT a `problem` — it must never flip a legitimate filing (e.g. a bank without current
+    # assets/liabilities) to unverified or shrink the runnable set.
+    for metric, (default_unit, concepts, kind) in EXTENDED_METRIC_CONCEPTS.items():
+        value, currency, _ = _fact_for_metric(
+            xb, metric, concepts, kind, period_of_report, filing_type
+        )
+        if value is not None:
+            facts.append({"metric": metric, "value": value, "unit": _unit_with_currency(default_unit, currency)})
 
     # EPS alternates: diluted (vs basic primary) + per-ADS renderings for ADR filers.
     eps_fact = next((f for f in facts if f["metric"] == "eps"), None)
@@ -268,9 +317,12 @@ async def _resolve_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
         facts, problems = [], [f"XBRL extraction failed: {exc}"]
 
     entry["ground_truth"] = facts
+    # `verified` is gated on the CORE metrics only (extended 2.6 facts are additive — see above), so a
+    # filing legitimately missing a balance-sheet/cash-flow line stays runnable.
+    core_facts = sum(1 for f in facts if f["metric"] in METRIC_CONCEPTS)
     entry["verified"] = bool(
         entry["accession_number"] and entry["document_url"]
-        and len(facts) == len(METRIC_CONCEPTS) and not problems
+        and core_facts == len(METRIC_CONCEPTS) and not problems
     )
     if problems:
         entry["verification_problems"] = problems

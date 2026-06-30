@@ -374,3 +374,25 @@ def test_golden_set_concepts_match_product_extraction():
     assert METRIC_CONCEPTS["revenue"][1] == DURATION_CONCEPTS["revenue"]
     assert METRIC_CONCEPTS["net_income"][1] == DURATION_CONCEPTS["net_income"]
     assert METRIC_CONCEPTS["eps"][1] == DURATION_CONCEPTS["earnings_per_share"]
+
+
+def test_extended_golden_set_concepts_match_product_extraction():
+    # The 2.6 extended ground-truth metrics must mirror the product's concept lists so the golden set
+    # and production extraction can't drift on which tags count.
+    from evals.build_golden_set import EXTENDED_METRIC_CONCEPTS, METRIC_CONCEPTS
+    from app.services.edgar.instance_extractor import (
+        RICHER_DURATION_CONCEPTS,
+        RICHER_INSTANT_CONCEPTS,
+    )
+
+    assert EXTENDED_METRIC_CONCEPTS["operating_cash_flow"][1] == DURATION_CONCEPTS["operating_cash_flow"]
+    assert EXTENDED_METRIC_CONCEPTS["investing_cash_flow"][1] == RICHER_DURATION_CONCEPTS["investing_cash_flow"]
+    assert EXTENDED_METRIC_CONCEPTS["financing_cash_flow"][1] == RICHER_DURATION_CONCEPTS["financing_cash_flow"]
+    assert EXTENDED_METRIC_CONCEPTS["current_assets"][1] == RICHER_INSTANT_CONCEPTS["current_assets"]
+    assert EXTENDED_METRIC_CONCEPTS["current_liabilities"][1] == RICHER_INSTANT_CONCEPTS["current_liabilities"]
+    # `kind` routes the extraction path: balance-sheet lines are instant, flows are duration.
+    assert EXTENDED_METRIC_CONCEPTS["current_assets"][2] == "instant"
+    assert EXTENDED_METRIC_CONCEPTS["current_liabilities"][2] == "instant"
+    assert EXTENDED_METRIC_CONCEPTS["operating_cash_flow"][2] == "duration"
+    # Extended metrics must not overlap the core (verified-gating) set.
+    assert set(EXTENDED_METRIC_CONCEPTS) & set(METRIC_CONCEPTS) == set()
