@@ -213,6 +213,10 @@ def test_resolve_period_value_drops_genuine_conflict():
     assert _resolve_period_value([(32_667_300_000.0, -5.0), (30_000_000_000.0, -8.0)]) is None
     # Unknown precision (decimals missing → -inf) with distinct values stays conservative → None.
     assert _resolve_period_value([(100.0, float("-inf")), (200.0, float("-inf"))]) is None
+    # Distinct values at the SAME finite precision are a real conflict (a coarse absolute tolerance
+    # would have masked these — 100 vs 101 differ by exactly 1.0; 1.00 vs 1.01 are cents apart).
+    assert _resolve_period_value([(100.0, 0.0), (101.0, 0.0)]) is None
+    assert _resolve_period_value([(1.00, 2.0), (1.01, 2.0)]) is None
 
 
 def test_duration_series_recovers_rounded_undimensioned_total():

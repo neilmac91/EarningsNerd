@@ -226,8 +226,8 @@ def _reporting_currency(
     currency (unit tests, per-share concepts), which disables currency filtering.
     """
     ends_by_ccy: Dict[Optional[str], set] = {}
-    for end, _value, ccy, _dec in candidates:
-        ends_by_ccy.setdefault(ccy, set()).add(end)
+    for cand in candidates:  # candidates carry (end, value, ccy[, decimals]); only end + ccy are used
+        ends_by_ccy.setdefault(cand[2], set()).add(cand[0])
     real = {c: ends for c, ends in ends_by_ccy.items() if c}
     if not real:
         return None
@@ -286,8 +286,15 @@ def _resolve_period_value(facts: List[Tuple[float, float]]) -> Optional[float]:
     for value, dec in facts:
         if round(value, 4) == round(best_value, 4):
             continue
-        # `value` must be `best_value` rounded to its own (finite) decimals, else it's a real conflict.
-        if not math.isfinite(dec) or abs(round(best_value, int(dec)) - value) > 1.0:
+        # `value` must EQUAL `best_value` rounded to the coarser fact's own (finite) decimals — else
+        # it's a genuine conflict. Compare at fixed precision (>= 4 dp) rather than an absolute
+        # tolerance, so positive decimals (cents, EPS) and same-precision distinct values (e.g.
+        # 100 vs 101 at decimals=0) are not silently collapsed. Guard isfinite BEFORE int(dec)
+        # (int(±inf) raises).
+        if not math.isfinite(dec):
+            return None
+        ndigits = max(4, int(dec))
+        if round(value, ndigits) != round(round(best_value, int(dec)), ndigits):
             return None
     return best_value
 
