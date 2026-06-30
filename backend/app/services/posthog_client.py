@@ -57,7 +57,12 @@ def capture_event(distinct_id: str, event: str, properties: Optional[dict] = Non
     client = get_posthog_client()
     if not client:
         return
-    client.capture(distinct_id, event, properties or {})
+    # PostHog's Python SDK uses the event-first signature
+    # ``capture(event, *, distinct_id=..., properties=...)`` (one positional, rest
+    # keyword-only). The legacy positional ``capture(distinct_id, event, properties)``
+    # raises ``TypeError: too many positional arguments``, which the wrappers below
+    # silently swallow — dropping every server-side event. Call it the modern way.
+    client.capture(event, distinct_id=distinct_id, properties=properties or {})
 
 
 def capture_funnel_event(
