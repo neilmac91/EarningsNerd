@@ -41,5 +41,12 @@
 - [x] Expert review (workflow) + adversarial verify.
 - [x] Roll 5 packages forward to latest; regenerate lockfiles.
 - [x] Fix pre-existing posthog capture bug (separate commit) + update test_funnel_telemetry.py.
-- [ ] Re-run suites on rolled-forward pins (backend pytest + frontend lint/typecheck/test/build). [in progress]
-- [ ] Commit (deps + posthog fix as separate commits), push, open draft PR superseding #463/#464.
+- [x] Re-run suites on rolled-forward pins: pip check clean, backend pytest 907 passed; frontend
+      lint + typecheck + vitest (236) + next build all green. posthog 7.21.1 capture sig verified event-first.
+- [x] Commit (deps roll-forward + posthog fix as separate commits), push, open draft PR superseding #463/#464.
+
+## Done
+- Draft PR **#482** opened (supersedes #463 + #464). Commits: `19f274c` (deps), `9ed5444` (posthog fix).
+- Action determined: both Dependabot PRs were safe minor bumps on a stale base → consolidated, rebased,
+  rolled forward to latest same-risk-class releases, re-verified on current main. One pre-existing
+  analytics bug fixed as a byproduct. No dependency required a compatibility code change.
