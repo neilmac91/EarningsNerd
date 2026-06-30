@@ -195,7 +195,15 @@ eval+CI+prod coherent); add the robust 5 (operating/investing/financing CF + cur
   is a pre-existing edgartools/IFRS extraction limitation surfaced by rebuilding, not a code change.
   FLAG to founder: ASML prod summaries likely lack XBRL revenue grounding under 5.39.0 — separate follow-up.
 
-## In progress / next
-- Flag-on bake-off (`--runs 3`, DeepSeek) over the 25 verified → spot-check narratives → re-pin
-  `baseline_scores.json` (`scripts/pin_baseline.py`) → `regression_gate --latest` PASS against the new bar.
-- Commit golden_set.json + baseline_scores.json + code + test TOGETHER; push; draft PR; watch CI.
+## Eval gate (DONE)
+- Flag-on bake-off (`--runs 3`, DeepSeek, n=75): gate_fail 0.0, precision 1.0, coverage 1.0,
+  pass_rate 1.0, **recall 0.794** (now a live, non-saturated signal — was 1.0 over only rev/NI/eps).
+- Re-pinned `baseline_scores.json` (recall 0.794, 25×3); `regression_gate --latest` PASS.
+- Per-metric recall: revenue/net_income/eps 100%, operating_cash_flow 100%, financing_cash_flow 86%,
+  investing_cash_flow 81%, **current_assets 36%, current_liabilities 31%**. Core never missed (no
+  regression). The balance-sheet liquidity lines are the underused ones → headroom for a future
+  prompt-prose tweak (the analyst prompt asks for "working capital adequacy" only qualitatively).
+
+## Next
+- Push babfd58 + baseline commit; open draft PR (trailers + footer); watch CI (`eval-baseline` now
+  flag-on → reproduces recall 0.794 against the freshly pinned bar).
