@@ -6,8 +6,6 @@ tests lock in that the financials bullets bold the metric label + current value 
 WITHOUT bolding "Not disclosed" placeholders, and that the bold markup stays substring-matchable
 so the eval numeric scorers are unaffected.
 """
-import pytest
-
 from app.services.openai_service import openai_service
 
 
@@ -41,6 +39,23 @@ def test_not_disclosed_placeholder_is_not_bolded():
     md = openai_service._build_structured_markdown(_summary())
     assert "- **EPS (Diluted):** Not disclosed" in md
     assert "**Not disclosed**" not in md
+
+
+def test_other_placeholder_values_are_not_bolded():
+    # The model/extraction can emit placeholders beyond "Not disclosed" (N/A, None, —, …); none
+    # should be bolded. Guards against the metric-value bolding defeating its own scannability goal.
+    summary = {
+        "metadata": {"company_name": "TestCo", "filing_type": "10-K"},
+        "sections": {"financial_highlights": {"table": [
+            {"metric": "Revenue", "current_period": "N/A"},
+            {"metric": "Net Income", "current_period": "None"},
+            {"metric": "EPS", "current_period": "—"},
+        ]}},
+    }
+    md = openai_service._build_structured_markdown(summary)
+    assert "**N/A**" not in md and "**None**" not in md and "**—**" not in md
+    # The metric labels are still bolded — only the placeholder value is left plain.
+    assert "- **Revenue:** N/A" in md
 
 
 def test_bolded_figures_remain_substring_matchable_for_eval_scorers():

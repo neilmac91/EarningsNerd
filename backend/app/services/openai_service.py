@@ -1417,10 +1417,12 @@ class OpenAIService:
 
                 # Bold the metric label + current figure so a reader scanning the page lands on the
                 # numbers (render-safe markdown; substring-matchable so eval numeric scorers are
-                # unaffected). Only the real value is bolded — never a "Not disclosed" placeholder.
+                # unaffected). Only a real value is bolded — never a placeholder ("Not disclosed",
+                # "N/A", "—", …), checked against the canonical _PLACEHOLDER_STRINGS set.
                 current_disp = (
                     f"**{current_period}**"
-                    if current_period and current_period != "Not disclosed"
+                    if isinstance(current_period, str)
+                    and current_period.strip().lower() not in _PLACEHOLDER_STRINGS
                     else current_period
                 )
                 bullet = f"- **{metric}:** {current_disp}"
