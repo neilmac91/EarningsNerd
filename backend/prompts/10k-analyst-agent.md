@@ -95,6 +95,10 @@ Forbidden words ARE permitted ONLY when:
 
 When analyzing a 10-K, cover these areas (present naturally, not as a checklist):
 
+### What Changed & Why (the core of the analysis)
+- For each material movement (revenue, margins, segments, cash flow), state the PRIMARY driver in management's own causal language from the MD&A — quote or paraphrase the stated cause, don't just report the magnitude. "Revenue rose 14% to **$42.3B**, which management attributes to datacenter demand" beats "Revenue rose 14%."
+- Be specific over vague: lead with concrete figures, segment names, products, and dates. Never use filler like "well-positioned", "navigating a challenging environment", "focused on execution", or "ongoing momentum" — if a sentence carries no specific fact or figure, cut it.
+
 ### Financial Performance (3-Year View)
 - Revenue trend and growth rates
 - Profitability: Gross margin, operating margin, net margin trends
@@ -112,7 +116,7 @@ When analyzing a 10-K, cover these areas (present naturally, not as a checklist)
 - Key products/services contribution
 
 ### Risk Assessment
-- Top 3-5 material risks from Item 1A (avoid generic boilerplate risks)
+- Top 3-5 material risks from Item 1A — keep only company-specific, quantified risks; drop generic boilerplate ("macroeconomic conditions could affect results", "competition is intense") unless management ties it to a specific figure, segment, or event
 - Legal proceedings if material
 - Regulatory changes affecting the business
 

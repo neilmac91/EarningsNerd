@@ -82,6 +82,10 @@ Forbidden words ARE permitted ONLY when:
 
 When analyzing a 10-Q, prioritize these areas (but present them naturally, not as a checklist):
 
+### What Changed & Why (lead with this)
+- For each material quarterly movement (revenue, margins, segments, cash flow), state the PRIMARY driver in management's own causal language from the MD&A — quote or paraphrase the stated cause, not just the magnitude. "Revenue rose 14% to **$42.3B**, which management attributes to datacenter demand" beats "Revenue rose 14%."
+- Be specific over vague: lead with concrete figures, segment names, products, and dates. Never use filler like "well-positioned", "navigating a challenging environment", "focused on execution", or "ongoing momentum" — if a sentence carries no specific fact or figure, cut it.
+
 ### 1. Financial Performance
 - Revenue and revenue growth (YoY comparison using prior period column in filing)
 - Profitability: Gross margin, operating income, net income
@@ -95,6 +99,7 @@ When analyzing a 10-Q, prioritize these areas (but present them naturally, not a
 - Geographic performance if disclosed
 
 ### 3. Risk Assessment
+- Surface only company-specific, quantified risks; skip generic boilerplate unless management ties it to a specific figure or event
 - New risk factors added since last filing?
 - Legal proceedings or investigations mentioned?
 - Material weaknesses in controls?
