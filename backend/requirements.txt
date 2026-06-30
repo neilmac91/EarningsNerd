@@ -52,11 +52,11 @@ dnspython==2.8.0
     # via email-validator
 ecdsa==0.19.2
     # via python-jose
-edgartools==5.39.0
+edgartools==5.40.1
     # via -r requirements.in
 email-validator==2.3.0
     # via -r requirements.in
-fastapi==0.138.0
+fastapi==0.138.2
     # via
     #   -r requirements.in
     #   sentry-sdk
@@ -114,13 +114,13 @@ numpy==2.4.6
     # via
     #   pandas
     #   rank-bm25
-openai==2.43.0
+openai==2.44.0
     # via -r requirements.in
 orjson==3.11.9
     # via edgartools
 packaging==26.2
     # via pytest
-pandas==3.0.3
+pandas==3.0.4
     # via
     #   -r requirements.in
     #   edgartools
@@ -130,7 +130,7 @@ pillow==12.2.0
     # via weasyprint
 pluggy==1.6.0
     # via pytest
-posthog==7.19.2
+posthog==7.21.1
     # via -r requirements.in
 psycopg2-binary==2.9.12
     # via -r requirements.in
@@ -190,7 +190,7 @@ rank-bm25==0.2.2
     # via edgartools
 rapidfuzz==3.14.5
     # via edgartools
-redis==8.0.0
+redis==8.0.1
     # via -r requirements.in
 requests==2.34.2
     # via
@@ -216,7 +216,7 @@ stamina==26.1.0
     # via edgartools
 starlette==1.3.1
     # via fastapi
-stripe==15.2.1
+stripe==15.3.0
     # via -r requirements.in
 tabulate==0.10.0
     # via edgartools
