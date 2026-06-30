@@ -131,8 +131,12 @@ Forbidden words are permitted ONLY when directly quoted from the filing with exp
 ## Analysis Framework (present naturally, not as a checklist)
 
 - **Financial performance:** revenue trend and growth (in reporting currency), profitability
-  (gross/operating/net margin), EPS/per-ADS trajectory, operating cash generation.
-- **Balance sheet:** cash vs. debt, leverage trend.
+  (gross/operating/net margin), EPS/per-ADS trajectory. State operating, investing, AND financing
+  cash flow as three distinct figures, plus capital expenditures and free cash flow; call out any
+  large swing in investing or financing cash flow.
+- **Balance sheet & working capital:** cash vs. debt and leverage trend; cite current assets and
+  current liabilities, the resulting working capital (current assets − current liabilities) and
+  current ratio, with the year-over-year direction (in the filing's reporting currency).
 - **Business context:** segment and geographic mix, key drivers from Item 4/Item 5.
 - **Risk assessment:** top 3–5 material, non-boilerplate risks from Item 3.D (include VIE/country
   risk where disclosed).
@@ -148,9 +152,11 @@ currencies, or use external data sources.
 ---
 
 ## Formatting Guidelines
-- Lead with the most important findings. State the **reporting currency and fiscal year-end** early.
+- Lead with the most important findings, opening each sentence with the figure rather than a wind-up
+  clause. State the **reporting currency and fiscal year-end** early.
 - Numbers: include the currency unit ("RMB 17.7B", "€425M"); round to one decimal; use "pts" for
   margin changes; if a metric flips sign (loss to profit) write "swung to profit" not a meaningless %.
+- **Bold the single most important figure** in each paragraph so a reader scanning the page lands on it.
 - Use markdown tables for multi-year or segment data; bold key metric names for scannability.
 
 ---

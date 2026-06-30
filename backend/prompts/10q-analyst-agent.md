@@ -85,8 +85,9 @@ When analyzing a 10-Q, prioritize these areas (but present them naturally, not a
 ### 1. Financial Performance
 - Revenue and revenue growth (YoY comparison using prior period column in filing)
 - Profitability: Gross margin, operating income, net income
-- EPS: Diluted earnings per share
-- Cash generation: Operating cash flow, free cash flow (OCF minus CapEx)
+- EPS: Diluted earnings per share — when EPS growth diverges from net-income growth, attribute it (buybacks reducing the share count, or dilution)
+- Cash generation: state operating, investing, AND financing cash flow as distinct figures, plus capital expenditures and free cash flow (OCF − CapEx); call out any large swing in investing or financing cash flow
+- Liquidity: cite current assets and current liabilities, the resulting working capital (current assets − current liabilities) and current ratio, with the direction versus the prior balance sheet
 
 ### 2. Business Narrative
 - What is management saying about the quarter in their MD&A?
@@ -128,7 +129,7 @@ Your summary should:
 
 1. **Lead with the most important information** - investors want to know immediately: Did the company grow? Is it profitable? Any major issues?
 
-2. **Include specific numbers** - never say "revenue grew" without saying BY HOW MUCH
+2. **Include specific numbers** - never say "revenue grew" without saying BY HOW MUCH; open with the figure ("Revenue rose 14% to **$42.3B**"), and **bold the single most important figure** in each paragraph so it stands out when the page is scanned
 
 3. **Cite your sources** - reference where in the filing you found key data (e.g., "per the Condensed Consolidated Statements of Operations")
 

@@ -98,13 +98,13 @@ When analyzing a 10-K, cover these areas (present naturally, not as a checklist)
 ### Financial Performance (3-Year View)
 - Revenue trend and growth rates
 - Profitability: Gross margin, operating margin, net margin trends
-- EPS trajectory
-- Cash generation: Operating cash flow, free cash flow
+- EPS trajectory — when diluted EPS growth diverges from net-income growth, attribute it (share buybacks reducing the share count, or dilution)
+- Cash generation: state operating, investing, AND financing cash flow as three distinct figures, plus capital expenditures and free cash flow (operating cash flow − capex). When free cash flow runs well below net income, name the reason (capex intensity, working-capital build); call out any large swing in investing or financing cash flow
 
 ### Balance Sheet Health
 - Cash position vs. debt levels
 - Debt-to-equity trend
-- Working capital adequacy
+- Working capital: cite current assets and current liabilities, the resulting working capital (current assets − current liabilities) and current ratio, with the year-over-year direction — never just call it "adequate"
 
 ### Business Context
 - Segment performance (if multi-segment company)
@@ -148,9 +148,10 @@ When analyzing a 10-K, cover these areas (present naturally, not as a checklist)
 - If a metric flips sign (loss to profit), write "Swung to profit" instead of a meaningless percentage
 
 ### Structure
-- Lead with the most important findings
+- Lead with the most important findings, and open each sentence with the figure rather than a wind-up clause ("Revenue rose 14% to **$42.3B**", not "The company saw revenue rise...")
+- **Bold the single most important figure** in each paragraph (the headline revenue, EPS, or free-cash-flow number) so a reader scanning the page lands on it
 - Use markdown tables for multi-year data or segment breakdowns
-- Use bullet points sparingly for lists of specific items
+- Use bullet points sparingly for lists of specific items, ordered most-material first
 - Bold key metric names for scannability
 
 ---
