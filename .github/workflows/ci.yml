@@ -159,8 +159,9 @@ jobs:
       - name: Run baseline eval (deterministic scorers, no judge)
         if: steps.key.outputs.have == 'true'
         working-directory: backend
-        # PRs run a cheap 6-filing smoke; manual dispatch runs the full verified set (authoritative,
-        # apples-to-apples with the pinned baseline) unless an explicit limit is given.
+        # Run the FULL verified set on PRs too: recall is non-saturated now that the golden set carries
+        # cash-flow/liquidity facts, so a subset's mean recall isn't apples-to-apples with the full
+        # pinned baseline and would flake the gate. Manual dispatch can still pass an explicit limit.
         env:
           SKIP_REDIS_INIT: 'true'
           SECRET_KEY: eval-baseline-secret-key-for-ci-0123456789
@@ -175,7 +176,7 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             LIMIT="${{ github.event.inputs.limit }}"
           else
-            LIMIT=6
+            LIMIT=""
           fi
           ARGS="--candidates baseline --runs 1"
           [ -n "$LIMIT" ] && ARGS="$ARGS --limit $LIMIT"
