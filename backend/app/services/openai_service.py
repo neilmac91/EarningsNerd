@@ -21,7 +21,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 
-def _thinking_disabled_model(model_name: str, base_url: Optional[str]) -> bool:
+def _thinking_disabled_model(model_name: Optional[str], base_url: Optional[str]) -> bool:
     """True for reasoning models that default to a "thinking" mode we want OFF for the
     deterministic extraction/summary task, AND that accept the OpenAI-compatible
     ``extra_body={"thinking": {"type": "disabled"}}`` switch.
@@ -2331,7 +2331,7 @@ Rules:
                 stream=True,
                 response_format={"type": "json_object"},
             )
-            if _thinking_disabled_model(stream_model, settings.OPENAI_BASE_URL):
+            if _thinking_disabled_model(stream_model, getattr(settings, "OPENAI_BASE_URL", None)):
                 stream_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
             else:
                 stream_kwargs["max_tokens"] = min(stream_kwargs["max_tokens"], 8192)
@@ -2383,7 +2383,7 @@ Rules:
                     # disable it for this deterministic extraction task and keep full max_tokens
                     # headroom (prevents mid-JSON truncation). For everything else (e.g. Gemini),
                     # cap max_tokens to the provider's ~8192 output ceiling.
-                    if _thinking_disabled_model(model_name, settings.OPENAI_BASE_URL):
+                    if _thinking_disabled_model(model_name, getattr(settings, "OPENAI_BASE_URL", None)):
                         create_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
                     else:
                         create_kwargs["max_tokens"] = min(create_kwargs["max_tokens"], 8192)
@@ -3035,9 +3035,7 @@ Do not include any additional keys or text outside the JSON object."""
                 "max_tokens": max_tokens,
                 "stream": True,
             }
-            is_deepseek = ("deepseek" in model_name.lower()
-                           or "deepseek" in (settings.OPENAI_BASE_URL or "").lower())
-            if is_deepseek:
+            if _thinking_disabled_model(model_name, getattr(settings, "OPENAI_BASE_URL", None)):
                 create_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
             stream = await self.client.chat.completions.create(**create_kwargs)
             async for chunk in stream:
@@ -3092,8 +3090,7 @@ Do not include any additional keys or text outside the JSON object."""
             of streaming it as the answer) rather than raising, so the SSE contract is never broken.
         """
         model_name = model or self.model
-        is_deepseek = ("deepseek" in model_name.lower()
-                       or "deepseek" in (getattr(settings, "OPENAI_BASE_URL", None) or "").lower())
+        disable_thinking = _thinking_disabled_model(model_name, getattr(settings, "OPENAI_BASE_URL", None))
         try:
             for _ in range(max_rounds):
                 create_kwargs: Dict[str, Any] = {
@@ -3105,7 +3102,7 @@ Do not include any additional keys or text outside the JSON object."""
                     "max_tokens": max_tokens,
                     "stream": True,
                 }
-                if is_deepseek:
+                if disable_thinking:
                     create_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
                 # Ask for token usage on the final (choices-empty) chunk when the caller wants to
                 # meter cost. Opt-in, so the default streaming contract is otherwise unchanged.
