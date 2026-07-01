@@ -136,6 +136,9 @@ class TestReportingCurrencyDirective:
         assert 'NEVER as a bare "$"' in block
         # the SEC-verified figures block is still present, after the directive
         assert "XBRL STANDARDIZED FINANCIAL DATA" in block
+        # and its figures are relabeled to the reporting currency, not a bare '$'
+        assert "Revenue: DKK 309,100,000,000" in block
+        assert "Revenue: $" not in block
 
     def test_usd_is_byte_for_byte_unchanged(self):
         metrics = {"reporting_currency": "USD", "revenue": _cur(383_000_000_000.0)}

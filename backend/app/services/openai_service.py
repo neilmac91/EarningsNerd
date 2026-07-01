@@ -293,6 +293,12 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
     # catch). A per-figure, currency-NAMED directive at the point of grounding cuts that slip.
     cur = str(xbrl_metrics.get("reporting_currency") or "").strip().upper()
     if cur and cur != "USD":
+        # The metric formatter labels every monetary value "$" (it assumes USD), but for a non-USD
+        # filer these extracted values are ALREADY in the reporting currency — so the "$" is a
+        # mislabel that contradicts the directive below. Relabel the figures with the currency code
+        # (only the "usd"-kind rows carry "$"; eps/pct/ratio don't), then prepend the directive
+        # (whose own literal "$" is added AFTER the replace, so it's preserved).
+        body = body.replace("$", f"{cur} ")
         return (
             f'CURRENCY — this issuer reports in {cur}: render EVERY monetary figure (below and in '
             f'your summary) as "{cur} <amount>" (e.g. "{cur} 941.2B"), NEVER as a bare "$". Use '
