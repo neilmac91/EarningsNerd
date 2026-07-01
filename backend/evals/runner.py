@@ -318,8 +318,11 @@ if __name__ == "__main__":
     parser.add_argument("--pass-threshold", type=float, default=DEFAULT_PASS_THRESHOLD,
                         help="aggregate a gate-passing run must clear to count as a PASS")
     parser.add_argument("--judge", default=None,
-                        help="LLM-judge model id (e.g. claude-opus-4-8) for the secondary signal; "
-                             "needs `pip install anthropic` + ANTHROPIC_API_KEY. Off by default.")
+                        help="LLM-judge model id for the secondary signal (off by default). Backends: "
+                             "'claude-opus-4-8' (anthropic SDK + ANTHROPIC_API_KEY; authoritative); "
+                             "'cli:sonnet'/'cli:opus' (subscription CLI via `claude -p`, no API key; "
+                             "local only); 'glm-5.2'/'openai:<model>' (OpenAI-compatible, "
+                             "JUDGE_OPENAI_BASE_URL/JUDGE_OPENAI_API_KEY; cheap CI/fallback).")
     parser.add_argument("--forms", default=None,
                         help="comma-separated filing types to include (e.g. '20-F' or '10-K,10-Q'); "
                              "scores only matching golden entries. Cheap way to iterate on one form.")

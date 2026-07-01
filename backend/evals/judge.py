@@ -8,17 +8,34 @@ code cannot see without reading the filing:
   * G3 — hallucinated facts/events not present in the source
   * the prose dimensions: faithfulness, insight, clarity, specificity
 
-It is OFF by default in the runner (needs the `anthropic` SDK + an API key, kept out of core
-requirements). The message-construction and response-parsing helpers are pure and unit-tested
-offline; only `judge_summary` touches the network.
+It is OFF by default in the runner. The message-construction and response-parsing helpers are
+pure and unit-tested offline; only the `_judge_via_*` backends touch the network.
+
+## Judge backends (pick via the model id passed to `--judge` / `judge_summary(model_id=...)`)
+
+The judge dispatches on the model id so a run can trade cost for authority without code changes:
+
+  * ``claude-opus-4-8`` (and any other bare ``claude-*``) → **anthropic SDK** on ``ANTHROPIC_API_KEY``.
+    Strongest, but bills API credits. This is the DEFAULT and the authoritative-audit judge.
+  * ``cli:sonnet`` / ``cli:opus`` (``cli:<alias>``) → **subscription CLI** (`claude -p --output-format
+    json`) with ``ANTHROPIC_API_KEY`` unset in the child env, so it authenticates via the logged-in
+    Claude subscription (OAuth) instead of API credits. For local/manual gates only — there is no
+    OAuth session in CI.
+  * ``glm-5.2`` (or ``openai:<model>``) → **OpenAI-compatible** chat API (e.g. Zhipu GLM via z.ai),
+    reading ``JUDGE_OPENAI_BASE_URL``/``JUDGE_OPENAI_API_KEY`` (falling back to ``OPENAI_BASE_URL``/
+    ``OPENAI_API_KEY``). The cheap CI/fallback judge.
+
+Before trusting a cheaper backend as the gate, run an agreement check against the Opus default on a
+small sample (RUNBOOK) so we don't silently weaken the quality bar.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import statistics
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
 
 from evals.scorers import parse_model_json
 
@@ -30,6 +47,7 @@ except ImportError:  # pragma: no cover
 DEFAULT_JUDGE_MODEL = "claude-opus-4-8"  # strong reasoning; judging faithfulness > generating it
 JUDGE_PASS_THRESHOLD = 4.0  # mean dimension score required to PASS when no gate fails (Artifact 1)
 _DIMENSIONS = ("faithfulness", "insight", "clarity", "specificity")
+_CLI_TIMEOUT_SECONDS = 300  # subscription CLI can be slow on a 200k-char excerpt + reasoning
 # The judge MUST see the same source the model grounded on, or it false-flags real facts as
 # hallucinations. The generator grounds on the full critical-sections excerpt (filing_sample =
 # filing_excerpt), which runs ~120–165k chars; a smaller cap truncates capital-return/obligations/
@@ -149,16 +167,46 @@ def parse_judge_response(raw: str) -> JudgeVerdict:
     return verdict
 
 
-async def judge_summary(
-    summary_payload: Dict[str, Any],
-    company: str,
-    filing_type: str,
-    excerpt: str,
-    xbrl_text: str,
-    model_id: str = DEFAULT_JUDGE_MODEL,
-    max_tokens: int = 4096,
+def judge_backend(model_id: str) -> str:
+    """Route a judge model id to a backend: 'cli' | 'openai' | 'anthropic'.
+
+    Dispatch is by prefix so the mapping is explicit and testable offline:
+      - ``cli:<alias>`` / ``subscription:<alias>`` → the subscription CLI (`claude -p`)
+      - ``openai:<model>`` or any id starting ``glm`` → the OpenAI-compatible chat API
+      - everything else (default ``claude-opus-4-8``) → the anthropic SDK on the API key
+    """
+    m = (model_id or "").strip().lower()
+    if m.startswith(("cli:", "subscription:")):
+        return "cli"
+    if m.startswith("openai:") or m.startswith("glm"):
+        return "openai"
+    return "anthropic"
+
+
+async def _judge_with_retry(call_once: Callable[[], Awaitable[str]]) -> JudgeVerdict:
+    """Run `call_once` up to twice, parsing its raw text into a verdict.
+
+    Backends occasionally return unparseable/malformed JSON or a transient upstream error; a
+    second attempt clears most of those. `parse_judge_response` extracts/repairs the ``{...}``
+    object, so a model preamble is harmless. Errors are reported, never raised, so one bad
+    filing can't crash a bake-off."""
+    last = JudgeVerdict(verdict="FAIL", error="judge not run")
+    for _attempt in range(2):
+        try:
+            raw = await call_once()
+        except Exception as exc:  # noqa: BLE001 - report, don't crash the bake-off
+            last = JudgeVerdict(verdict="FAIL", error=f"{type(exc).__name__}: {exc}")
+            continue
+        last = parse_judge_response(raw)
+        if not last.error:
+            return last
+    return last
+
+
+async def _judge_via_anthropic(
+    system: str, user: str, model_id: str, max_tokens: int
 ) -> JudgeVerdict:
-    """Run the LLM judge via the anthropic SDK (lazy import). Network-touching."""
+    """Anthropic SDK path (default; bills API credits). Reuses one client for its pool."""
     try:
         import anthropic  # lazy: not a core dependency.
     except ImportError as exc:  # pragma: no cover - environment dependent
@@ -173,23 +221,131 @@ async def judge_summary(
         _anthropic_client = anthropic.AsyncAnthropic(api_key=api_key)
     client = _anthropic_client
 
-    system, user = build_judge_messages(summary_payload, company, filing_type, excerpt, xbrl_text)
-    # Up to 2 attempts — opus occasionally returns unparseable/malformed JSON or a transient 529.
-    # temperature is omitted (claude-opus-4-8 rejects it as deprecated) and assistant-prefill is also
-    # rejected; a generous max_tokens keeps the JSON from being truncated when opus prepends a
-    # rationale. parse_judge_response extracts/repairs the {...} object, so a preamble is harmless.
-    last = JudgeVerdict(verdict="FAIL", error="judge not run")
-    for _attempt in range(2):
-        try:
-            resp = await client.messages.create(
-                model=model_id, max_tokens=max_tokens,
-                system=system, messages=[{"role": "user", "content": user}],
+    # temperature is omitted (claude-opus-4-8 rejects it as deprecated) and assistant-prefill is
+    # also rejected; a generous max_tokens keeps the JSON from being truncated when the model
+    # prepends a rationale.
+    async def call_once() -> str:
+        resp = await client.messages.create(
+            model=model_id, max_tokens=max_tokens,
+            system=system, messages=[{"role": "user", "content": user}],
+        )
+        return next((b.text for b in resp.content if getattr(b, "type", None) == "text"), "")
+
+    return await _judge_with_retry(call_once)
+
+
+async def _judge_via_openai(
+    system: str, user: str, model_id: str, max_tokens: int
+) -> JudgeVerdict:
+    """OpenAI-compatible path (e.g. GLM-5.2 via z.ai). The cheap CI/fallback judge.
+
+    Reads ``JUDGE_OPENAI_BASE_URL``/``JUDGE_OPENAI_API_KEY`` so the judge provider is
+    configured independently of the generation pipeline's ``OPENAI_*`` (which points at
+    DeepSeek); falls back to ``OPENAI_*`` when the judge-specific vars are unset."""
+    try:
+        from openai import AsyncOpenAI  # lazy: keep the eval harness importable without it.
+    except ImportError as exc:  # pragma: no cover - environment dependent
+        return JudgeVerdict(verdict="FAIL", error=f"openai SDK not installed: {exc}")
+
+    # base_url is optional: when unset the SDK targets the official OpenAI endpoint (so
+    # "openai:gpt-4o" works with just an API key); set it for GLM/z.ai and other compatible providers.
+    base_url = os.environ.get("JUDGE_OPENAI_BASE_URL") or os.environ.get("OPENAI_BASE_URL") or None
+    api_key = os.environ.get("JUDGE_OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY", "")
+    if not api_key:
+        return JudgeVerdict(
+            verdict="FAIL", error="missing JUDGE_OPENAI_API_KEY (or OPENAI_API_KEY)",
+        )
+    # "openai:<model>" is an explicit backend selector; strip it. Bare ids (e.g. "glm-5.2") pass through.
+    model = model_id.split(":", 1)[1] if model_id.lower().startswith("openai:") else model_id
+
+    # Context-manage the client so its httpx connections are closed even across retries (no leak).
+    async with AsyncOpenAI(api_key=api_key, base_url=base_url) as client:
+        async def call_once() -> str:
+            resp = await client.chat.completions.create(
+                model=model, max_tokens=max_tokens,
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
             )
-            raw = next((b.text for b in resp.content if getattr(b, "type", None) == "text"), "")
-        except Exception as exc:  # noqa: BLE001 - report, don't crash the bake-off
-            last = JudgeVerdict(verdict="FAIL", error=f"{type(exc).__name__}: {exc}")
-            continue
-        last = parse_judge_response(raw)
-        if not last.error:
-            return last
-    return last
+            return (resp.choices[0].message.content or "") if resp.choices else ""
+
+        return await _judge_with_retry(call_once)
+
+
+async def _kill_and_reap(proc: Any) -> None:
+    """Kill a subprocess and await it so it's reaped (no zombie). Safe if it already exited."""
+    try:
+        proc.kill()
+    except ProcessLookupError:  # already exited between the check and the kill
+        pass
+    await proc.wait()
+
+
+async def _judge_via_cli(
+    system: str, user: str, model_id: str, max_tokens: int
+) -> JudgeVerdict:
+    """Subscription CLI path: `claude -p --output-format json` with the API key removed from the
+    child env, so it authenticates via the logged-in Claude subscription (OAuth) instead of
+    billing API credits. Manual/local only — CI has no OAuth session.
+
+    The judge framing goes via ``--append-system-prompt`` and the (large) source+summary via
+    stdin. ``--output-format json`` wraps the reply in ``{"result": "..."}``; we hand ``result``
+    to the same `parse_judge_response` used by every backend."""
+    alias = model_id.split(":", 1)[1].strip() if ":" in model_id else ""
+    model = alias or "sonnet"
+    # Force subscription/OAuth auth: an inherited ANTHROPIC_API_KEY would bill API credits instead.
+    child_env = {k: v for k, v in os.environ.items() if k != "ANTHROPIC_API_KEY"}
+
+    async def call_once() -> str:
+        proc = await asyncio.create_subprocess_exec(
+            "claude", "-p", "--model", model, "--output-format", "json",
+            "--append-system-prompt", system,
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            env=child_env,
+        )
+        try:
+            out, err = await asyncio.wait_for(
+                proc.communicate(user.encode("utf-8")), timeout=_CLI_TIMEOUT_SECONDS
+            )
+        except asyncio.TimeoutError:
+            await _kill_and_reap(proc)
+            raise RuntimeError(f"claude CLI timed out after {_CLI_TIMEOUT_SECONDS}s")
+        except BaseException:
+            # asyncio.CancelledError is a BaseException (not Exception), so it slips past the
+            # TimeoutError handler above; reap the child on any cancellation/error, then re-raise
+            # so a cancelled judge run never leaks a zombie subprocess.
+            await _kill_and_reap(proc)
+            raise
+        if proc.returncode != 0:
+            raise RuntimeError(
+                f"claude CLI exit {proc.returncode}: {err.decode('utf-8', 'replace')[:300]}"
+            )
+        outer = json.loads(out.decode("utf-8"))
+        if isinstance(outer, dict):
+            if outer.get("is_error") or outer.get("subtype") not in (None, "success"):
+                raise RuntimeError(f"claude CLI error result: {str(outer)[:300]}")
+            return str(outer.get("result", ""))
+        return out.decode("utf-8")  # unexpected shape — let the parser try
+
+    return await _judge_with_retry(call_once)
+
+
+async def judge_summary(
+    summary_payload: Dict[str, Any],
+    company: str,
+    filing_type: str,
+    excerpt: str,
+    xbrl_text: str,
+    model_id: str = DEFAULT_JUDGE_MODEL,
+    max_tokens: int = 4096,
+) -> JudgeVerdict:
+    """Run the LLM judge, dispatching to the backend selected by `model_id`. Network-touching.
+
+    See the module docstring for the model-id → backend routing (`judge_backend`)."""
+    system, user = build_judge_messages(summary_payload, company, filing_type, excerpt, xbrl_text)
+    backend = judge_backend(model_id)
+    if backend == "cli":
+        return await _judge_via_cli(system, user, model_id, max_tokens)
+    if backend == "openai":
+        return await _judge_via_openai(system, user, model_id, max_tokens)
+    return await _judge_via_anthropic(system, user, model_id, max_tokens)

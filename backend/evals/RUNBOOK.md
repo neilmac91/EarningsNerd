@@ -29,8 +29,11 @@ pip install anthropic          # only for Claude candidates + the LLM judge
 # Load your normal backend .env, then add provider keys:
 export OPENAI_API_KEY=...       # baseline + gemini-json (Google AI Studio)
 export OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/
-export ANTHROPIC_API_KEY=...    # claude-sonnet, claude-opus, judge
+export ANTHROPIC_API_KEY=...    # claude-sonnet, claude-opus, and the Opus judge (API credits)
 # optional: QWEN_API_KEY / KIMI_API_KEY / DEEPSEEK_API_KEY
+# optional judge backends (see "Judge backends" in Step 6):
+#   JUDGE_OPENAI_BASE_URL / JUDGE_OPENAI_API_KEY   # for --judge glm-5.2 / openai:<model>
+#   (for --judge cli:sonnet, no key: uses the logged-in `claude` subscription via OAuth)
 ```
 
 Sanity check (no API spend):
@@ -118,6 +121,25 @@ python -m evals.runner \
 Cost: ~`24×N` API calls for N filings (4 candidates × 3 runs + a judge call each). Start with
 `--limit 5`, then run the full set. If cost matters, fix the **unverified price placeholders** in
 `models.py` first (Claude prices are verified; others are guesses).
+
+### Judge backends (cost vs authority)
+`--judge <model_id>` dispatches by prefix (see `judge_backend` in `judge.py`), so you can trade
+cost for authority without touching code:
+
+| `--judge` value | Backend | Auth / env | When |
+|---|---|---|---|
+| `claude-opus-4-8` (default) | anthropic SDK | `ANTHROPIC_API_KEY` (API credits) | Authoritative audits, re-pinning baseline |
+| `cli:sonnet` / `cli:opus` | subscription CLI (`claude -p`) | logged-in Claude subscription (OAuth); `ANTHROPIC_API_KEY` is stripped from the child env | Local/manual gates — **no OAuth in CI** |
+| `glm-5.2` / `openai:<model>` | OpenAI-compatible chat | `JUDGE_OPENAI_BASE_URL` + `JUDGE_OPENAI_API_KEY` (falls back to `OPENAI_*`) | Cheap CI/fallback judge |
+
+**Agreement check before trusting a cheaper backend as the gate.** The default stays Opus so a
+cheaper judge can never *silently* weaken the bar — but before you rely on one, run the same
+`--forms <form> --runs 3` set through both it and `claude-opus-4-8` and confirm the verdicts and
+per-dimension means agree within noise. (Wiring smoke on a synthetic G3-hallucination case:
+`cli:sonnet` matched Opus exactly `{faith2,insight2,clarity4,spec3}`; `glm-5.2` was within 1 pt —
+both fired the same G3 gate.) For `cli:*`, unset `ANTHROPIC_API_KEY` in your shell first, or it
+will still route through the subscription (the child env strips it) — but confirm you are logged in
+(`claude -p --model sonnet -p "ok"`).
 
 ---
 
@@ -229,7 +251,9 @@ A malformed/empty object still fails.
   > (precision/coverage/gate_fail/recall) hold on any reasonable subset. For an authoritative
   > verdict, run the full set via dispatch.
 - **Judge is OFF in the gate** — deterministic scorers only. The LLM judge is flaky and costly
-  (~$0.20/filing, 30–60s latency); keep it for manual pre-deploy spot-checks (`--judge claude-opus-4-8`).
+  (~$0.20/filing on Opus, 30–60s latency); keep it for manual pre-deploy spot-checks. For cheap
+  iteration use `--judge cli:sonnet` (subscription, no API credits) or `--judge glm-5.2`; reserve
+  `--judge claude-opus-4-8` for the authoritative before/after that gates a prompt change.
 
 ### Golden-set figure semantics (legitimate alternate bases)
 
