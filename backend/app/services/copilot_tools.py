@@ -414,8 +414,10 @@ def fact_to_citation(fact_dict: dict[str, Any]) -> dict[str, Any]:
 
     Reuses the same ``{excerpt, section_ref, verified, fragment_url}`` shape as text citations so the
     frontend renders an XBRL fact in the Sources list / chips with a Verified badge — no frontend
-    change. ``n`` is assigned by the caller (continuing after the text citations). ``fragment_url`` is
-    the filing document URL when known (XBRL facts have no in-text fragment), populated by the caller.
+    change. ``n`` is assigned by the caller's unified citation-resolution pass (one continuous
+    sequence across text and fact citations, in first-appearance order — see
+    ``copilot_service._resolve_citations``). ``fragment_url`` is the filing document URL when known
+    (XBRL facts have no in-text fragment), populated by the caller.
     """
     concept = fact_dict.get("concept") or "value"
     label = _concept_label(concept)
