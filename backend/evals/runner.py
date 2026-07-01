@@ -262,10 +262,40 @@ def _write_report(summary: Dict[str, Any], results: List[Dict[str, Any]]) -> Pat
     return md_path
 
 
+DEFAULT_CONCURRENCY = 5  # headroom under EDGAR_THREAD_POOL_SIZE=4 while still parallelizing AI calls
+
+
+async def _process_filing(
+    f: GoldenFiling, candidates: List[str], runs: int, judge_model: Optional[str],
+) -> List[Dict[str, Any]]:
+    """Fetch grounding + run every (candidate, run) for one filing. Runs concurrently with other
+    filings (see `main`'s semaphore-bounded gather); sequential *within* a filing since candidates
+    share the same grounding data."""
+    try:
+        grounding = await _get_grounding(f)
+    except Exception as exc:  # noqa: BLE001 — a transient fetch failure (e.g. SEC 429) on one
+        # filing must not crash the whole bake-off; record it and move on.
+        print(f"  ! grounding failed for {f.ticker} {f.filing_type}: {type(exc).__name__}: {exc}")
+        return [
+            {"candidate": cand, "ticker": f.ticker, "filing_type": f.filing_type, "run": i,
+             "score": None, "aggregate": 0.0, "passed_gates": False, "judge": None,
+             "error": f"grounding: {type(exc).__name__}: {exc}"}
+            for cand in candidates for i in range(runs)
+        ]
+    out: List[Dict[str, Any]] = []
+    for cand in candidates:
+        for i in range(runs):
+            tag = f" run {i + 1}/{runs}" if runs > 1 else ""
+            print(f"  {cand} :: {f.ticker} {f.filing_type}{tag}")
+            out.append(await _run_one(cand, f, grounding, run_index=i, judge_model=judge_model))
+    return out
+
+
 async def main(
     candidates: List[str], limit: Optional[int], allow_unverified: bool,
     runs: int = 1, pass_threshold: float = DEFAULT_PASS_THRESHOLD,
     judge_model: Optional[str] = None, forms: Optional[List[str]] = None,
+    concurrency: int = DEFAULT_CONCURRENCY,
 ) -> None:
     data = json.loads(GOLDEN_PATH.read_text())
     filings = [GoldenFiling.from_dict(e) for e in data["filings"]]
@@ -285,28 +315,17 @@ async def main(
         runnable = matched
     if limit:
         runnable = runnable[:limit]
-    print(f"Running {candidates} over {len(runnable)} filings x {runs} run(s)"
-          f"{f', judge={judge_model}' if judge_model else ''}...")
+    print(f"Running {candidates} over {len(runnable)} filings x {runs} run(s), "
+          f"concurrency={concurrency}{f', judge={judge_model}' if judge_model else ''}...")
 
-    results: List[Dict[str, Any]] = []
-    for f in runnable:
-        try:
-            grounding = await _get_grounding(f)
-        except Exception as exc:  # noqa: BLE001 — a transient fetch failure (e.g. SEC 429) on one
-            # filing must not crash the whole bake-off; record it and move on.
-            print(f"  ! grounding failed for {f.ticker} {f.filing_type}: {type(exc).__name__}: {exc}")
-            for cand in candidates:
-                for i in range(runs):
-                    results.append({"candidate": cand, "ticker": f.ticker,
-                                    "filing_type": f.filing_type, "run": i, "score": None,
-                                    "aggregate": 0.0, "passed_gates": False, "judge": None,
-                                    "error": f"grounding: {type(exc).__name__}: {exc}"})
-            continue
-        for cand in candidates:
-            for i in range(runs):
-                tag = f" run {i + 1}/{runs}" if runs > 1 else ""
-                print(f"  {cand} :: {f.ticker} {f.filing_type}{tag}")
-                results.append(await _run_one(cand, f, grounding, run_index=i, judge_model=judge_model))
+    semaphore = asyncio.Semaphore(max(1, concurrency))
+
+    async def _bounded(f: GoldenFiling) -> List[Dict[str, Any]]:
+        async with semaphore:
+            return await _process_filing(f, candidates, runs, judge_model)
+
+    per_filing_results = await asyncio.gather(*[_bounded(f) for f in runnable])
+    results: List[Dict[str, Any]] = [r for sub in per_filing_results for r in sub]
 
     summary = _summarize(results, pass_threshold=pass_threshold)
     md_path = _write_report(summary, results)
@@ -336,8 +355,13 @@ if __name__ == "__main__":
     parser.add_argument("--forms", default=None,
                         help="comma-separated filing types to include (e.g. '20-F' or '10-K,10-Q'); "
                              "scores only matching golden entries. Cheap way to iterate on one form.")
+    parser.add_argument("--concurrency", type=int, default=DEFAULT_CONCURRENCY,
+                        help="max filings processed in parallel (each filing's candidates/runs stay "
+                             "sequential). Bounded by EDGAR_THREAD_POOL_SIZE for the fetch side; the "
+                             "AI-call side scales further. Set to 1 for the old fully-sequential behavior.")
     args = parser.parse_args()
     asyncio.run(main([c.strip() for c in args.candidates.split(",") if c.strip()],
                      args.limit, args.allow_unverified, runs=max(1, args.runs),
                      pass_threshold=args.pass_threshold, judge_model=args.judge,
-                     forms=[x.strip() for x in args.forms.split(",") if x.strip()] if args.forms else None))
+                     forms=[x.strip() for x in args.forms.split(",") if x.strip()] if args.forms else None,
+                     concurrency=args.concurrency))

@@ -108,17 +108,27 @@ jobs:
   # Advisory AI-quality regression gate (B1). Non-blocking by design: continue-on-error and
   # intentionally NOT in the deploy-backend `needs:` gate — it reports a quality verdict, it never
   # blocks a deploy. The *gate logic* is already unit-tested for free in backend-tests
-  # (tests/unit/test_eval_regression_gate.py); THIS job runs the live pipeline over a few golden
-  # filings and diffs the result against the pinned baseline_scores.json.
+  # (tests/unit/test_eval_regression_gate.py); THIS job runs the live production pipeline over the
+  # FULL verified golden set (27 filings as of writing — 10-K/10-Q/20-F, up to ~260k chars each) and
+  # diffs the result against the pinned baseline_scores.json.
   #
-  # INERT until the owner adds a DEEPSEEK_API_KEY *GitHub Actions* secret (the prod key lives in
-  # GCP Secret Manager, which CI can't read). Until then the key-check step self-skips with a
-  # notice, so merging this changes nothing and costs nothing. Path-filtered so it only spends
-  # tokens when AI-relevant code changes; ~$0.15–0.30 + a few minutes per qualifying PR once armed.
+  # Requires a DEEPSEEK_API_KEY *GitHub Actions* secret (the prod key lives in GCP Secret Manager,
+  # which CI can't read); the key-check step self-skips with a notice if it's unset. Once armed,
+  # this is a real per-run DeepSeek spend, not a token-budget rounding error — it makes 27 real
+  # `summarize_filing()` calls (some filings trigger extra section-recovery calls on top). Path-
+  # filtered so it only runs when AI-relevant code changes, and evals.runner parallelizes across
+  # filings (`--concurrency`, default 5) to keep wall-clock to ~5-8 min instead of ~26 min serial.
   eval-baseline:
     if: github.event_name == 'workflow_dispatch' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     continue-on-error: true
+    # Each run is a real, ~5-8 min DeepSeek bake-off (see step below). Without this, every new
+    # push to an open PR queues another full run on top of the still-running one from the last
+    # push — only the latest push's result matters, so cancel superseded runs to stop paying for
+    # (and waiting on) throwaway evals. Grouped per-PR so unrelated PRs don't cancel each other.
+    concurrency:
+      group: eval-baseline-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v7
       - name: Detect AI-relevant changes
