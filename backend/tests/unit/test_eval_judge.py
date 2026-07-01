@@ -1,10 +1,21 @@
 """Offline tests for the LLM-judge helpers (Artifact 2).
 
 `build_judge_messages` and `parse_judge_response` are pure — no network — so the judge's
-construction and verdict logic are provable without a model call."""
+construction and verdict logic are provable without a model call. The backend-dispatch tests
+(`judge_backend`, `judge_summary`, and the `_judge_via_*` credential/subprocess paths) are also
+offline: they assert routing and graceful-degradation without any model call."""
 import json
 
-from evals.judge import build_judge_messages, parse_judge_response
+import pytest
+
+import evals.judge as judge_mod
+from evals.judge import (
+    JudgeVerdict,
+    build_judge_messages,
+    judge_backend,
+    judge_summary,
+    parse_judge_response,
+)
 
 
 def test_parse_clean_pass():
@@ -74,3 +85,143 @@ def test_build_judge_messages_includes_source_and_summary():
     assert "Net sales were $10 billion" in user  # source excerpt present → judge can verify
     assert "Revenue grew" in user  # summary under test present
     assert "G2" in user and "G3" in user  # gate instructions present
+
+
+# --- backend dispatch (offline; no model call) --------------------------------------------
+
+@pytest.mark.parametrize(
+    "model_id, expected",
+    [
+        ("claude-opus-4-8", "anthropic"),
+        ("claude-sonnet-5", "anthropic"),
+        ("", "anthropic"),
+        ("cli:sonnet", "cli"),
+        ("cli:opus", "cli"),
+        ("subscription:sonnet", "cli"),
+        ("glm-5.2", "openai"),
+        ("GLM-5.2", "openai"),
+        ("openai:glm-5.2", "openai"),
+        ("openai:some-model", "openai"),
+    ],
+)
+def test_judge_backend_routing(model_id, expected):
+    assert judge_backend(model_id) == expected
+
+
+@pytest.mark.asyncio
+async def test_judge_summary_dispatches_by_model_id(monkeypatch):
+    """judge_summary routes to exactly the backend judge_backend selects."""
+    calls = []
+
+    def make_backend(name):
+        async def _impl(system, user, model_id, max_tokens):
+            calls.append(name)
+            return JudgeVerdict(verdict="PASS", dimensions={"faithfulness": 4})
+        return _impl
+
+    monkeypatch.setattr(judge_mod, "_judge_via_cli", make_backend("cli"))
+    monkeypatch.setattr(judge_mod, "_judge_via_openai", make_backend("openai"))
+    monkeypatch.setattr(judge_mod, "_judge_via_anthropic", make_backend("anthropic"))
+
+    for model_id, expected in [("cli:sonnet", "cli"), ("glm-5.2", "openai"), ("claude-opus-4-8", "anthropic")]:
+        await judge_summary({}, "Acme", "10-K", "excerpt", "{}", model_id=model_id)
+    assert calls == ["cli", "openai", "anthropic"]
+
+
+@pytest.mark.asyncio
+async def test_anthropic_backend_missing_key_is_graceful(monkeypatch):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    v = await judge_mod._judge_via_anthropic("sys", "user", "claude-opus-4-8", 4096)
+    assert v.verdict == "FAIL" and "ANTHROPIC_API_KEY" in (v.error or "")
+
+
+@pytest.mark.asyncio
+async def test_openai_backend_missing_creds_is_graceful(monkeypatch):
+    for var in ("JUDGE_OPENAI_BASE_URL", "JUDGE_OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
+    v = await judge_mod._judge_via_openai("sys", "user", "glm-5.2", 4096)
+    assert v.verdict == "FAIL" and "OPENAI" in (v.error or "")
+
+
+@pytest.mark.asyncio
+async def test_judge_with_retry_retries_then_parses(monkeypatch):
+    attempts = {"n": 0}
+    good = json.dumps({
+        "gate_failures": [], "verdict": "PASS",
+        "dimensions": {"faithfulness": 4, "insight": 4, "clarity": 4, "specificity": 4},
+    })
+
+    async def flaky():
+        attempts["n"] += 1
+        if attempts["n"] == 1:
+            raise RuntimeError("transient 529")
+        return good
+
+    v = await judge_mod._judge_with_retry(flaky)
+    assert attempts["n"] == 2 and v.verdict == "PASS" and v.error is None
+
+
+@pytest.mark.asyncio
+async def test_judge_with_retry_reports_error_after_two_failures():
+    async def always_fail():
+        raise RuntimeError("boom")
+
+    v = await judge_mod._judge_with_retry(always_fail)
+    assert v.verdict == "FAIL" and "boom" in (v.error or "")
+
+
+class _FakeProc:
+    """Minimal stand-in for an asyncio subprocess for the CLI-backend test."""
+
+    def __init__(self, stdout: bytes, returncode: int = 0):
+        self._stdout = stdout
+        self.returncode = returncode
+
+    async def communicate(self, _stdin=None):
+        return self._stdout, b""
+
+    def kill(self):  # pragma: no cover - only the timeout path calls this
+        pass
+
+    async def wait(self):  # pragma: no cover
+        return self.returncode
+
+
+@pytest.mark.asyncio
+async def test_cli_backend_unsets_api_key_and_parses_result(monkeypatch):
+    """The subscription CLI path must strip ANTHROPIC_API_KEY from the child env (so it uses the
+    subscription/OAuth, not API credits) and parse the judge JSON out of the `result` wrapper."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-should-not-leak")
+    judge_json = json.dumps({
+        "gate_failures": [], "verdict": "PASS",
+        "dimensions": {"faithfulness": 5, "insight": 4, "clarity": 5, "specificity": 4},
+    })
+    cli_wrapper = json.dumps({"type": "result", "subtype": "success", "result": judge_json}).encode()
+    captured = {}
+
+    async def fake_exec(*args, **kwargs):
+        captured["args"] = args
+        captured["env"] = kwargs.get("env", {})
+        return _FakeProc(cli_wrapper)
+
+    monkeypatch.setattr(judge_mod.asyncio, "create_subprocess_exec", fake_exec)
+    v = await judge_mod._judge_via_cli("sys", "user", "cli:sonnet", 4096)
+
+    assert v.verdict == "PASS" and v.mean_dimension == 4.5 and v.error is None
+    assert "ANTHROPIC_API_KEY" not in captured["env"]  # forced onto subscription auth
+    assert "--model" in captured["args"] and "sonnet" in captured["args"]
+    assert "--output-format" in captured["args"] and "json" in captured["args"]
+
+
+@pytest.mark.asyncio
+async def test_cli_backend_error_result_is_reported(monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
+    err_wrapper = json.dumps({"type": "result", "subtype": "error_during_execution",
+                              "is_error": True, "result": "quota exhausted"}).encode()
+
+    async def fake_exec(*args, **kwargs):
+        return _FakeProc(err_wrapper)
+
+    monkeypatch.setattr(judge_mod.asyncio, "create_subprocess_exec", fake_exec)
+    v = await judge_mod._judge_via_cli("sys", "user", "cli:opus", 4096)
+    assert v.verdict == "FAIL" and v.error is not None

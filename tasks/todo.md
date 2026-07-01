@@ -1,5 +1,25 @@
 # Task: Sharpen the AI reports via eval-gated prompt-prose waves (post-council activation)
 
+## Task #18 — Two-tier judge wiring (measure Wave 4 cheaply) — DONE, shipping
+- [x] `evals/judge.py`: dispatch `judge_summary` on the model id via `judge_backend()` →
+      three backends, existing Opus path refactored (behaviour unchanged):
+      - `claude-*` → **anthropic SDK** (`ANTHROPIC_API_KEY`, API credits) — DEFAULT, authoritative.
+      - `cli:sonnet`/`cli:opus` → **subscription CLI** (`claude -p --output-format json`), with
+        `ANTHROPIC_API_KEY` stripped from the child env so it uses the logged-in Claude
+        subscription (OAuth), not API credits. Manual/local only (no OAuth in CI).
+      - `glm-5.2`/`openai:<model>` → **OpenAI-compatible** (z.ai), `JUDGE_OPENAI_BASE_URL/API_KEY`
+        (fall back to `OPENAI_*`). Cheap CI/fallback judge.
+- [x] Shared `_judge_with_retry` (2 attempts, parse, never raises) factored out of the old loop.
+- [x] `--judge` help + `evals/RUNBOOK.md` document the backends + the **agreement-check** gate
+      (default stays Opus so a cheaper judge can't *silently* weaken the bar).
+- [x] Tests: `judge_backend` routing (10 cases), dispatch, missing-cred graceful-fail for each
+      backend, retry-then-parse, CLI subprocess mock asserting `ANTHROPIC_API_KEY` stripped + JSON
+      parsed from the `result` wrapper. 24 judge tests; full suite **864 passed**; ruff + bandit green.
+- [x] **Live wiring smoke** (synthetic G3-hallucination case): all three backends caught the
+      fabricated outlook and returned FAIL — `cli:sonnet` matched Opus exactly `{2,2,4,3}`,
+      `glm-5.2` within 1 pt. Wiring proven; fuller golden-set agreement check runs with Wave 4.
+
+
 ## Wave 3 — ADR go-live (in PR #484) — RESULTS
 - [x] **20-F ADR prose** (3 groundable items: filing-stated risk-change, convenience-translation
       date/rate, restatement/basis flag). Judged before/after on 7 20-F golden filings (fixed judge):
