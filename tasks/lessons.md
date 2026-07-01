@@ -219,3 +219,22 @@ pre-chew deltas into the grounding unless paired with a groundedness guardrail (
 ONLY when the filing states it"). Dropped YoY for Wave 4a; kept the FCF relabel + working-capital
 fallback (pure grounding, no delta-to-explain) + the judge-view fix. The driver-guardrail (which would
 let YoY return safely) is the real prize — queued as a prose-wave item.
+
+## 2026-07-01 — Faithfulness guardrail: appended caveats fail; conditional directive works — but fabrication REDISTRIBUTES
+The driver/outlook guardrail wave, gated with judged before/after (3 filings × 3 runs, subscription
+`cli:sonnet`). **V1** (append two caveat bullets after the existing "state the PRIMARY driver"
+directive) did NOTHING: mean faithfulness 3.00→3.11 (flat), causal-driver fabrications 6→8 — a buried
+caveat loses to the unconditional lead directive it contradicts. **V2** (reword the LEAD directive to
+be conditional — "give the driver ONLY as management states it; when the filing gives no cause, report
+the movement alone" — + a prominent DO-NOT prohibition) cut the egregious source-contradicting causal
+fabrications to ~1, held faithfulness, no deterministic regression, prose stayed decisive (2 PASS vs 1).
+BUT the *mean* stayed flat (3.11) because the model's fabrication **redistributed** to modes the
+guardrail doesn't touch: presenting derived figures as reported ("Services now 26.2% of sales"), debt
+aggregations, inferred "tone: positive/cautious". **Rules:** (1) to change model behaviour, edit the
+DIRECTIVE THAT CAUSES IT (make the lead conditional), not an appended caveat — caveats that contradict
+a stronger nearby instruction are ignored. (2) A model has a roughly conserved "fabrication drive":
+suppressing one mode (invented causes) surfaces others (derived-as-reported, tone) — expect whack-a-mole
+and measure ALL modes, not just the one you targeted; the headline mean can stay flat while a specific
+egregious pattern is genuinely fixed. (3) Ship the targeted, no-regression win anyway (precedent: Wave 2
+shipped a no-regression refinement on a judge-visible gain) and make the redistributed modes the next
+target: a "don't present a derived/aggregated figure as if reported; don't infer tone" guardrail.

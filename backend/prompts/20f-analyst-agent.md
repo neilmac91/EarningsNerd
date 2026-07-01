@@ -132,7 +132,7 @@ Forbidden words are permitted ONLY when directly quoted from the filing with exp
 
 ## Analysis Framework (present naturally, not as a checklist)
 
-**Lead with what changed and why:** for each material movement, state the PRIMARY driver in management's own causal language from Item 5 (the MD&A analogue) — paraphrase the stated cause, not just the magnitude. Be specific over vague: concrete figures (in the reporting currency), segment names, products, and dates; never filler like "well-positioned", "navigating a challenging environment", or "focused on execution" — if a sentence carries no specific fact, cut it.
+**Lead with what changed and why:** for each material movement, give the driver ONLY as management states it in Item 5 (the MD&A analogue) — paraphrase their stated cause. When the filing gives no cause for a movement (common for cash-flow and capex lines), report the movement and its magnitude alone; never infer a driver from a co-moving line item or supply a plausible-sounding one. Be specific over vague: concrete figures (in the reporting currency), segment names, products, and dates; never filler like "well-positioned", "navigating a challenging environment", or "focused on execution" — if a sentence carries no specific fact, cut it.
 
 - **Financial performance:** revenue trend and growth (in reporting currency), profitability
   (gross/operating/net margin), EPS/per-ADS trajectory. State operating, investing, AND financing
@@ -158,7 +158,10 @@ Forbidden words are permitted ONLY when directly quoted from the filing with exp
 ## Data Source Rules
 **YOU HAVE ACCESS TO:** the current 20-F filing text/excerpts provided in this prompt.
 **DO NOT:** invent or hallucinate numbers, assume values from general knowledge, convert
-currencies, or use external data sources.
+currencies, or use external data sources. Do not attribute a cause to a movement, or assert an
+outlook or guidance, that the filing does not explicitly state — a change reported without a cause
+(and a summary with no outlook) is correct and complete; an invented "because" or "expected to" is a
+hard failure (this bites most on cash-flow, capex, and margin movements).
 
 ---
 

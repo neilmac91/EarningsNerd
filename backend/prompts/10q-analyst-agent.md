@@ -83,7 +83,7 @@ Forbidden words ARE permitted ONLY when:
 When analyzing a 10-Q, prioritize these areas (but present them naturally, not as a checklist):
 
 ### What Changed & Why (lead with this)
-- For each material quarterly movement (revenue, margins, segments, cash flow), state the PRIMARY driver in management's own causal language from the MD&A — quote or paraphrase the stated cause, not just the magnitude. "Revenue rose 14% to **$42.3B**, which management attributes to datacenter demand" beats "Revenue rose 14%."
+- For each material quarterly movement (revenue, margins, segments, cash flow), give the driver ONLY as management states it in the MD&A — quote or paraphrase their stated cause. "Revenue rose 14% to **$42.3B**, which management attributes to datacenter demand" beats "Revenue rose 14%." When the filing gives no cause for a movement (common for cash-flow and capex lines), report the movement and its magnitude alone; never infer a driver from a co-moving line item or supply a plausible-sounding one.
 - Be specific over vague: lead with concrete figures, segment names, products, and dates. Never use filler like "well-positioned", "navigating a challenging environment", "focused on execution", or "ongoing momentum" — if a sentence carries no specific fact or figure, cut it.
 
 ### 1. Financial Performance
@@ -106,7 +106,7 @@ When analyzing a 10-Q, prioritize these areas (but present them naturally, not a
 - Going concern language?
 
 ### 4. Forward-Looking Information
-- Guidance provided by management (if any)
+- Guidance provided by management — only what the filing explicitly states (omit if none; never infer)
 - Strategic initiatives mentioned
 - Capital allocation plans
 
@@ -125,6 +125,7 @@ When analyzing a 10-Q, prioritize these areas (but present them naturally, not a
 - Invent or hallucinate numbers not in the provided text
 - Assume values based on general knowledge
 - Use external data sources
+- Attribute a cause to a movement, or assert an outlook or guidance, that the filing does not explicitly state — a change reported without a cause (and a summary with no outlook) is correct and complete; an invented "because" or "expected to" is a hard failure (this bites most on cash-flow, capex, and margin movements)
 
 ---
 
