@@ -89,7 +89,11 @@ class ReportingThisWeekService:
 
     def __init__(self, fmp: Optional[FMPClient] = None) -> None:
         self._fmp = fmp or fmp_client
-        self._cache_data: Optional[Dict[str, Any]] = None
+        # Caches the FULL matched list (unlimited) so different callers requesting different
+        # `limit` values within the same cache window each get correctly sliced results —
+        # caching the already-limited response would let a small-limit request poison the
+        # cache for a later, larger-limit request in the same window.
+        self._cache_companies: Optional[List[ReportingCompany]] = None
         self._cache_timestamp: Optional[datetime] = None
         self._cache_week: Optional[tuple[date, date]] = None
 
@@ -106,29 +110,29 @@ class ReportingThisWeekService:
 
         if (
             not force_refresh
-            and self._cache_data is not None
+            and self._cache_companies is not None
             and self._cache_timestamp is not None
             and self._cache_week == (monday, friday)
             and now - self._cache_timestamp < self._cache_ttl
         ):
-            return self._cache_data
+            companies = self._cache_companies
+        else:
+            companies = await self._fetch(monday, friday)
+            self._cache_companies = companies
+            self._cache_timestamp = now
+            self._cache_week = (monday, friday)
 
-        companies = await self._fetch(monday, friday, limit=limit)
         status = "ok" if len(companies) >= MIN_COMPANIES else "empty"
-        payload: Dict[str, Any] = {
-            "companies": [c.to_dict() for c in companies] if status == "ok" else [],
+        sliced = companies[:limit] if status == "ok" else []
+        return {
+            "companies": [c.to_dict() for c in sliced],
             "week_start": monday.isoformat(),
             "week_end": friday.isoformat(),
             "status": status,
-            "timestamp": now.isoformat() + "Z",
+            "timestamp": self._cache_timestamp.isoformat() + "Z",
         }
 
-        self._cache_data = payload
-        self._cache_timestamp = now
-        self._cache_week = (monday, friday)
-        return payload
-
-    async def _fetch(self, monday: date, friday: date, *, limit: int) -> List[ReportingCompany]:
+    async def _fetch(self, monday: date, friday: date) -> List[ReportingCompany]:
         try:
             events = await self._fmp.fetch_earnings_calendar(from_date=monday, to_date=friday)
         except Exception as exc:  # never let a flaky integration break the homepage
@@ -152,7 +156,7 @@ class ReportingThisWeekService:
             ))
 
         matches.sort(key=lambda c: (c.earnings_date, c.ticker))
-        return matches[:limit]
+        return matches
 
 
 reporting_this_week_service = ReportingThisWeekService()

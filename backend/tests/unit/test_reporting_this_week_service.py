@@ -140,3 +140,23 @@ async def test_force_refresh_bypasses_cache():
     await svc.get_reporting_this_week()
     await svc.get_reporting_this_week(force_refresh=True)
     assert call_count["n"] == 2
+
+
+@pytest.mark.asyncio
+async def test_cache_respects_different_limits():
+    # Caching the already-sliced payload would let an early small-limit request poison
+    # the cache for a later, larger-limit request within the same window — regression
+    # test for that bug.
+    fmp = _FakeFMP({
+        "AAPL": _event(date(2026, 6, 29)),
+        "JPM": _event(date(2026, 6, 29)),
+        "MSFT": _event(date(2026, 6, 29)),
+        "GOOGL": _event(date(2026, 6, 29)),
+    })
+    svc = ReportingThisWeekService(fmp=fmp)
+
+    first = await svc.get_reporting_this_week(limit=2)
+    assert len(first["companies"]) == 2
+
+    second = await svc.get_reporting_this_week(limit=4)
+    assert len(second["companies"]) == 4
