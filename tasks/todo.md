@@ -1,52 +1,51 @@
-# Task: Review & land Dependabot PRs #463 (frontend) + #464 (backend)
+# Task: Sharpen the AI reports via eval-gated prompt-prose waves (post-council activation)
 
 ## Context
-- **#463** frontend npm minor-group: `@sentry/nextjs 10.59→10.62`, `@tanstack/react-query 5.101.0→5.101.2`,
-  `autoprefixer 10.5.0→10.5.2`, `posthog-js 1.392→1.395`, `recharts 3.8.1→3.9.0`,
-  `@playwright/test 1.61.0→1.61.1`, `@types/node 26.0.0→26.0.1`, `@vitejs/plugin-react 6.0.2→6.0.3`.
-- **#464** backend pip minor-group: `edgartools 5.39→5.40`, `fastapi 0.138.0→0.138.1`, `openai 2.43→2.44`,
-  `pandas 3.0.3→3.0.4`, `posthog 7.19.2→7.21.0`, `redis 8.0.0→8.0.1`, `stripe 15.2.1→15.3.0`.
-- Both PRs are **green CI** but based on a **stale main** (`25b50a46`; main now `2a8b040`).
-- Decision: **consolidate** both validated bumps onto designated branch `claude/pr-463-464-review-y06jsx`,
-  verify lockfiles, run full suites locally on up-to-date main, supersede both PRs with one PR.
+The report **is** the product. Highest-leverage, lowest-risk lever right now is improving the AI
+prompt prose (content + presentation), each change gated on the eval (deterministic scorers always;
+LLM judge for qualitative dims). Full plan: `~/.claude/plans/act-as-an-expert-adaptive-rivest.md`.
 
-## Plan
-- [x] Pull both Dependabot branches; confirm manifest deltas are clean (only bumped lines).
-- [x] Apply exact Dependabot manifests + lockfiles onto designated branch.
-- [x] Install backend (venv) + frontend (`npm ci`) — lockfiles consistent (npm ci exit 0; pip exit 0).
-- [ ] Expert review (workflow): per-package usage × changelog × **latest-available** × code-change risk.
-- [ ] Adversarial verify on any flagged breaking change.
-- [ ] Apply any required compatibility code changes.
-- [ ] Run suites: backend `pytest`, frontend `lint`/`typecheck`/`test`/`build`.
-- [ ] Decide on "bump further" (newer releases since 06-29) — stay within minor/patch risk class.
-- [ ] Commit, push, open draft PR superseding #463/#464.
+## Shipped (merged to main)
+- [x] **Wave 0a** — re-verified ASML in the golden set after #478 (drift-free; 26/27 verified). (#479)
+- [x] **Wave 1** — figure-citing directives (working capital, full operating/investing/financing
+      cash flow, EPS nuance) in 10-K/10-Q/20-F analyst prompts. (#479)
+- [x] **Wave V** — visual appeal: bold key figures (prompt prose + deterministic `_build_structured_markdown`);
+      editorial-writer path is disabled (decision 3a), so the renderer is the real lever. (#479)
+      Eval-gated: recall 0.778→0.816, precision/coverage/gate held, latency flat. Baseline re-pinned.
+- [x] **Reset-all endpoint** — `POST /api/admin/summaries/reset-all` (FK-safe, dry-run, keeps
+      XBRL/content, `include_saved` opt-in) to refresh summaries after a prompt change. (#480)
+- [x] **Phase-2 readiness** — deterministic `score_specificity` scorer (anti-boilerplate + change-language,
+      CI WARN-gated) + made the LLM judge reliable (no temperature, max_tokens 4096, json_repair, retry)
+      + re-pinned baseline with `mean_specificity=0.9857`. (#481)
 
-## Expert review outcome (16-agent workflow + adversarial verify)
-- **Every bump: risk none/low; ZERO code changes attributable to any dependency.** Matches green suites.
-- High-risk deps cleared at changelog level:
-  - `edgartools 5.40`: new proxy/registration/prospectus section extraction + offerings fixes do **not**
-    touch our 10-K (1A/7/8) / 10-Q / XBRL paths. Safe.
-  - `recharts 3.9`: no breaking prop/axis/tooltip changes for our charts. Safe.
-- **Bumped-further check (user ask):** 5 packages had newer releases since 06-29, all low-risk same-class.
-  Decision: **roll all 5 forward** — edgartools 5.40.1, fastapi 0.138.2, posthog 7.21.1, recharts 3.9.1
-  (patches) + posthog-js 1.396.3 (minor). Others already at latest.
-- **Pre-existing bug found (orthogonal to bumps):** `posthog_client.py:60` called PostHog's event-first
-  `capture()` with the legacy positional `(distinct_id, event, properties)` → `TypeError` silently
-  swallowed → backend funnel + copilot-cost events dropped. Broken on main since posthog 6.x (event-first),
-  NOT caused by this bump. Decision: **fix in a separate commit** + lock with updated test assertions.
+## Wave 2 (narrative quality), judge-gated — COMPLETE, shipping
+- [x] Add to 10-K/10-Q/20-F analyst prompts: "What changed & why" driver directive, anti-boilerplate
+      specificity, risk-factor materiality filter. Verified all forms load (6-K unchanged).
+- [x] Judge before/after (DeepSeek, `--runs 3 --judge`) + GLM bake-off, all 78 runs each, 0 errors.
+- [x] **Result:** regression gate GREEN — recall +0.009, precision/coverage/gate_fail held,
+      specificity flat (−0.0012; deterministic scorer saturated ~0.99). Judge specificity +0.074,
+      insight +0.058 (before/after delta valid; both old-cap). No regression anywhere; small positive.
+- [x] Deterministic specificity target didn't move (scorer near-ceiling) → Wave 2 is a
+      **no-regression prose refinement**, NOT re-pinning baseline (re-pin only on a locked gain).
+- [x] Full pytest (818 unit) + ruff + bandit GREEN. Push + draft PR.
+- [ ] (Optional, ~$50, founder call) Fixed-cap authoritative judged run on the Wave-2 config for
+      trustworthy faithfulness/insight numbers now that the judge sees the full excerpt (528827a).
 
-## Results
-- [x] Pull both Dependabot branches; confirm manifest deltas clean.
-- [x] Apply exact Dependabot manifests + lockfiles; verify lockfile consistency (npm ci / pip).
-- [x] Expert review (workflow) + adversarial verify.
-- [x] Roll 5 packages forward to latest; regenerate lockfiles.
-- [x] Fix pre-existing posthog capture bug (separate commit) + update test_funnel_telemetry.py.
-- [x] Re-run suites on rolled-forward pins: pip check clean, backend pytest 907 passed; frontend
-      lint + typecheck + vitest (236) + next build all green. posthog 7.21.1 capture sig verified event-first.
-- [x] Commit (deps roll-forward + posthog fix as separate commits), push, open draft PR superseding #463/#464.
+## MAJOR finding this session — judge truncation artifact (FIXED, 528827a)
+- Judge saw `excerpt[:60000]` while the model grounds on the full ~124–165k excerpt → real
+  deep-filing facts (buybacks/dividends/segment revenue, late in a 10-K) were false-flagged as G3
+  hallucinations, driving faithfulness to 1.96 / judge_pass 0 across all 78 runs — despite
+  deterministic numeric_precision 1.0. Proved on AAPL FY25 ($100B buyback at char 73,895, past 60k).
+  Raised cap to 200k; verified faithfulness 2→4, insight 3→4 on the same summary. **The pipeline was
+  never hallucinating; the judge was under-contexted.**
 
-## Done
-- Draft PR **#482** opened (supersedes #463 + #464). Commits: `19f274c` (deps), `9ed5444` (posthog fix).
-- Action determined: both Dependabot PRs were safe minor bumps on a stale base → consolidated, rebased,
-  rolled forward to latest same-risk-class releases, re-verified on current main. One pre-existing
-  analytics bug fixed as a byproduct. No dependency required a compatibility code change.
+## GLM-5.2 vs DeepSeek bake-off — COMPLETE (see tasks/glm-5.2-bakeoff.md)
+- [x] Full-pipeline env-swap, judge-on, identical Wave-2 prompts. **Quality dead-heat** (deltas within
+      noise; both perfect on precision/coverage/gates; 0/78 errors). DeepSeek ~48% faster, ~3.5×
+      cheaper. **Decision: stay on DeepSeek; keep GLM-5.2 as a validated env-swap failover.**
+- [x] Generalized reasoning-model thinking-disable to GLM/z.ai (264eb65; DeepSeek/Gemini unchanged).
+
+## Method / guardrails (CLAUDE.md)
+- Eval-gate every wave (deterministic no-regression + judge hold-or-improve). Re-pin baseline on a locked gain.
+- Run the FULL pytest AND `ruff check .` before pushing (lessons.md).
+- Surgical edits; keep directives lean (over-prescription → formulaic prose risk).

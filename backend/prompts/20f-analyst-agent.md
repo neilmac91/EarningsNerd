@@ -130,6 +130,8 @@ Forbidden words are permitted ONLY when directly quoted from the filing with exp
 
 ## Analysis Framework (present naturally, not as a checklist)
 
+**Lead with what changed and why:** for each material movement, state the PRIMARY driver in management's own causal language from Item 5 (the MD&A analogue) — paraphrase the stated cause, not just the magnitude. Be specific over vague: concrete figures (in the reporting currency), segment names, products, and dates; never filler like "well-positioned", "navigating a challenging environment", or "focused on execution" — if a sentence carries no specific fact, cut it.
+
 - **Financial performance:** revenue trend and growth (in reporting currency), profitability
   (gross/operating/net margin), EPS/per-ADS trajectory. State operating, investing, AND financing
   cash flow as three distinct figures, plus capital expenditures and free cash flow; call out any
@@ -138,7 +140,8 @@ Forbidden words are permitted ONLY when directly quoted from the filing with exp
   current liabilities, the resulting working capital (current assets − current liabilities) and
   current ratio, with the year-over-year direction (in the filing's reporting currency).
 - **Business context:** segment and geographic mix, key drivers from Item 4/Item 5.
-- **Risk assessment:** top 3–5 material, non-boilerplate risks from Item 3.D (include VIE/country
+- **Risk assessment:** top 3–5 company-specific, quantified risks from Item 3.D — drop generic
+  boilerplate unless management ties it to a specific figure or event (include VIE/country/HFCAA
   risk where disclosed).
 - **Capital allocation & structure:** dividends/buybacks, capex, the share/ADS structure.
 

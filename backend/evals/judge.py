@@ -30,6 +30,12 @@ except ImportError:  # pragma: no cover
 DEFAULT_JUDGE_MODEL = "claude-opus-4-8"  # strong reasoning; judging faithfulness > generating it
 JUDGE_PASS_THRESHOLD = 4.0  # mean dimension score required to PASS when no gate fails (Artifact 1)
 _DIMENSIONS = ("faithfulness", "insight", "clarity", "specificity")
+# The judge MUST see the same source the model grounded on, or it false-flags real facts as
+# hallucinations. The generator grounds on the full critical-sections excerpt (filing_sample =
+# filing_excerpt), which runs ~120–165k chars; a smaller cap truncates capital-return/obligations/
+# segment disclosures (which sit late in a 10-K) out of the judge's view, tanking faithfulness.
+# 200k chars (~50k tokens) covers observed excerpts and fits the judge model's context comfortably.
+_JUDGE_EXCERPT_CHAR_CAP = 200_000
 _anthropic_client: Any = None  # shared lazily across calls to reuse the connection pool
 
 _JUDGE_SYSTEM = (
@@ -89,7 +95,7 @@ def build_judge_messages(
     user = (
         f"Company: {company}\nFiling type: {filing_type}\n\n"
         f"=== XBRL FINANCIAL FACTS (ground truth) ===\n{xbrl_text or '(none available)'}\n\n"
-        f"=== SOURCE FILING EXCERPT ===\n{(excerpt or '')[:60000]}\n\n"
+        f"=== SOURCE FILING EXCERPT ===\n{(excerpt or '')[:_JUDGE_EXCERPT_CHAR_CAP]}\n\n"
         f"=== SUMMARY UNDER TEST ===\n{json.dumps(summary_payload, indent=2)[:20000]}\n\n"
         f"{_JUDGE_INSTRUCTIONS}"
     )
