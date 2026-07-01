@@ -278,11 +278,17 @@ def _parse_followups(raw: str) -> list[str]:
     return out
 
 
-def _verify_citations(citations: list[dict], filing: Any, normalized_source: str) -> tuple[list[dict], int]:
-    """Verify each citation excerpt against the normalized source; return (citations, grounded)."""
+def _verify_citations(citations: list[dict], filing: Any, normalized_source: str) -> dict[str, dict]:
+    """Verify each declared citation's excerpt; return a lookup keyed by its declared marker.
+
+    Keyed by the citation's own ``n`` (stringified, e.g. ``"1"``), falling back to its 1-based
+    position in the array when ``n`` isn't a valid int. This is a *candidate* pool only — a citation
+    the model declares here but never actually places inline is never surfaced: the caller's unified
+    :func:`_resolve_citations` pass looks entries up by the markers it finds in the answer text, not
+    the other way around.
+    """
     base_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or ""
-    verified_list: list[dict] = []
-    grounded = 0
+    by_marker: dict[str, dict] = {}
     for idx, cite in enumerate(citations, start=1):
         excerpt = str(cite.get("excerpt") or "").strip()
         section_ref = cite.get("section") or cite.get("section_ref")
@@ -291,18 +297,82 @@ def _verify_citations(citations: list[dict], filing: Any, normalized_source: str
             n = idx
         verified = verify_excerpt_in_text(excerpt, normalized_source)
         if verified:
-            grounded += 1
             fragment_url = build_text_fragment_url(base_url, excerpt) if base_url else base_url
         else:
             fragment_url = base_url
-        verified_list.append({
-            "n": n,
+        by_marker[str(n)] = {
             "excerpt": excerpt,
             "section_ref": section_ref,
             "verified": verified,
             "fragment_url": fragment_url,
-        })
-    return verified_list, grounded
+        }
+    return by_marker
+
+
+def _resolve_citations(
+    full_answer: str,
+    text_citations_by_marker: dict[str, dict],
+    used_facts: list[dict],
+    filing_url: Optional[str],
+) -> tuple[str, list[dict], int]:
+    """Single source of truth for citation numbering — the answer text and the Sources list can
+    never disagree, because both come from this one left-to-right pass over ``full_answer``.
+
+    The model reports two independent, self-assigned identifiers that used to be trusted blindly and
+    separately: an inline marker in its prose, and (for filing-text excerpts) a same-numbered entry
+    in a trailing JSON block emitted after the prose is already final. Nothing verified those two
+    numbers actually agreed, or that a declared citation was ever placed inline at all — that gap is
+    what let extra, uncited sources leak into the panel and let a misremembered marker (``[F13]``
+    for what was really the 10th tool figure, say) fall back to unstyled literal text with no chip.
+
+    This scans every ``[n]``/``[F n]``-shaped marker once, in the order it appears, resolves each
+    against whichever candidate pool matches (declared text citations first, then tool-fetched
+    facts), and assigns one continuous sequential number (1, 2, 3, ...) on first appearance — the
+    same number is substituted back into the returned answer text. A marker with no matching
+    candidate is left as literal text (the same "unmatched marker" contract the frontend already
+    implements, now enforced server-side too, uniformly for both citation kinds).
+    """
+    facts_by_marker = {f["_marker"]: f for f in used_facts if f.get("_marker")}
+
+    resolved: list[dict] = []          # citation dicts, in final numbering order
+    assigned: dict[str, int] = {}      # normalized original marker -> final n (repeat mentions reuse it)
+    pieces: list[str] = []
+    cursor = 0
+    grounded = 0
+
+    for match in re.finditer(r"\[(F?\s*\d+)\]", full_answer, re.IGNORECASE):
+        key = re.sub(r"\s+", "", match.group(1)).upper()
+
+        # A marker cited more than once (e.g. "[F1]" mentioned twice) just reuses the number from
+        # its first appearance — skip straight to rewriting, no need to re-resolve it.
+        n = assigned.get(key)
+        if n is not None:
+            pieces.append(full_answer[cursor:match.start()])
+            pieces.append(f"[{n}]")
+            cursor = match.end()
+            continue
+
+        citation = text_citations_by_marker.get(key)
+        if citation is None:
+            fact = facts_by_marker.get(key)
+            if fact is not None:
+                citation = {**copilot_tools.fact_to_citation(fact), "fragment_url": filing_url}
+        if citation is None:
+            continue  # not a real, resolvable citation — leave the literal bracket text untouched
+
+        pieces.append(full_answer[cursor:match.start()])
+        n = len(resolved) + 1
+        assigned[key] = n
+        resolved.append(citation)
+        if citation["verified"]:
+            grounded += 1
+        pieces.append(f"[{n}]")
+        cursor = match.end()
+
+    pieces.append(full_answer[cursor:])
+    rewritten_answer = "".join(pieces)
+    citations = [{"n": i + 1, **c} for i, c in enumerate(resolved)]
+    return rewritten_answer, citations, grounded
 
 
 async def answer_filing_question(
@@ -483,28 +553,17 @@ async def answer_filing_question(
             followups = _parse_followups(citation_raw[followups_match.end():])
             citation_raw = citation_raw[: followups_match.start()]
         citations = _parse_citations(citation_raw)
-        verified_citations, grounded = _verify_citations(citations, filing, normalized_source)
+        text_citations_by_marker = _verify_citations(citations, filing, normalized_source)
 
-        # Append the XBRL facts the model actually cited inline (via their ``[F#]`` marker) as verified
-        # citations, so they render as inline chips — not just Sources rows. A fact the model fetched
-        # but never cited is dropped: it must not inflate ``grounded`` or show as a stray source.
-        # Markers are normalized (case-insensitive, whitespace-tolerant: ``[f1]`` / ``[F 1]`` →
-        # ``F1``) so a minor LLM formatting variation doesn't silently drop a legitimate citation.
-        # This MUST mirror the frontend's chip-injection matcher (CopilotMessage.injectCitations).
-        cited_markers = {
-            re.sub(r"\s+", "", m.group(1)).upper()
-            for m in re.finditer(r"\[(f\s*\d+)\]", full_answer, re.IGNORECASE)
-        }
+        # Single server-owned numbering pass: resolves every marker actually present in the answer
+        # (text-excerpt or tool-figure alike) against its real source, assigns one continuous
+        # sequential number in first-appearance order, and rewrites the answer's inline markers to
+        # match — so the answer text and the returned citations list can never disagree, and a
+        # declared-but-never-cited source can never leak into the Sources panel.
         filing_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or None
-        for fact in used_facts:
-            marker = fact.get("_marker")
-            if not marker or marker not in cited_markers:
-                continue
-            cite = copilot_tools.fact_to_citation(fact)
-            cite["n"] = marker
-            cite["fragment_url"] = filing_url
-            verified_citations.append(cite)
-            grounded += 1
+        full_answer, verified_citations, grounded = _resolve_citations(
+            full_answer, text_citations_by_marker, used_facts, filing_url
+        )
 
         yield {
             "type": "complete",

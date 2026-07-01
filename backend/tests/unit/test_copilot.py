@@ -428,8 +428,9 @@ async def test_service_surfaces_xbrl_fact_as_verified_citation(monkeypatch):
     assert cite["verified"] is True
     assert cite["section_ref"].startswith("XBRL ·")
     assert "Revenue" in cite["excerpt"]
-    assert cite["n"] == "F1"  # cited inline via its [F1] marker → renders an inline chip
+    assert cite["n"] == 1  # cited inline via its [F1] marker → renumbered as the answer's 1st citation
     assert cite["fragment_url"] == _fake_filing().document_url
+    assert "[1]" in complete["answer"]  # the inline marker is rewritten to match the final numbering
 
 
 @pytest.mark.unit
@@ -494,7 +495,116 @@ async def test_service_matches_fact_marker_case_and_space_insensitive(monkeypatc
     complete = next(e for e in events if e["type"] == "complete")
 
     assert complete["grounded"] == 1
-    assert complete["citations"][0]["n"] == "F1"
+    assert complete["citations"][0]["n"] == 1
+    assert "[1]" in complete["answer"]  # "[f 1]" is normalized + rewritten to the canonical "[1]"
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_drops_uncited_text_citation(monkeypatch):
+    """A text citation the model declares in the trailing JSON block but never places inline is
+    dropped — mirrors test_service_drops_uncited_xbrl_fact, but for the text-citation path (the two
+    citation kinds used to be verified asymmetrically; this is the same guarantee for both)."""
+    citations_json = (
+        '[{"n":1,"excerpt":"' + _KNOWN_SENTENCE + '","section":"Item 7 — MD&A"},'
+        '{"n":2,"excerpt":"Operating margins expanded year over year.","section":"Item 7 — MD&A"}]'
+    )
+    chunks = ["Apple's revenue grew strongly [1]. ===CITATIONS===\n" + citations_json]
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
+    )
+
+    events = await _collect(_fake_filing(), "How did revenue do?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    # Only the citation actually placed inline ([1]) survives — the declared-but-uncited "n":2 must
+    # not leak into the Sources panel.
+    assert complete["grounded"] == 1
+    assert len(complete["citations"]) == 1
+    assert complete["citations"][0]["excerpt"] == _KNOWN_SENTENCE
+    assert isinstance(complete["citations"][0]["n"], int)
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_resolves_back_to_back_fact_markers(monkeypatch):
+    """Multiple fact markers cited back-to-back with no separating text ("[F1][F2][F3]") each
+    resolve to a distinct, correctly-ordered citation — the exact shape that produced unstyled,
+    unlinked literal bracket text in the field report this test guards against."""
+    facts = [
+        {"concept": "revenue", "value": 34124000000.0, "unit": "USD", "period_end": "2023-12-31",
+         "fiscal_year": 2023, "fiscal_period": "FY", "raw_tag": "us-gaap:Revenues", "accession": "a-2023"},
+        {"concept": "revenue", "value": 45043000000.0, "unit": "USD", "period_end": "2024-12-31",
+         "fiscal_year": 2024, "fiscal_period": "FY", "raw_tag": "us-gaap:Revenues", "accession": "a-2024"},
+        {"concept": "revenue", "value": 65179000000.0, "unit": "USD", "period_end": "2025-12-31",
+         "fiscal_year": 2025, "fiscal_period": "FY", "raw_tag": "us-gaap:Revenues", "accession": "a-2025"},
+    ]
+    call_count = {"n": 0}
+
+    def _fake_run_tool(name, args, company_id):
+        fact = dict(facts[call_count["n"]])
+        call_count["n"] += 1
+        return fact
+
+    def _fake_stream(messages, tools, run_tool, **_kwargs):
+        async def _gen():
+            for _ in facts:
+                run_tool("get_financial_fact", {"concept": "revenue"})
+            yield "Revenue grew from $34.1B to $45.0B to $65.2B [F1][F2][F3]. ===CITATIONS===\n[]"
+        return _gen()
+
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", _fake_stream)
+    monkeypatch.setattr(copilot_service.copilot_tools, "run_tool", _fake_run_tool)
+
+    events = await _collect(_fake_filing(), "How did revenue trend?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    assert complete["grounded"] == 3
+    assert [c["n"] for c in complete["citations"]] == [1, 2, 3]
+    expected_excerpts = [copilot_service.copilot_tools.fact_to_citation(f)["excerpt"] for f in facts]
+    assert [c["excerpt"] for c in complete["citations"]] == expected_excerpts
+    assert "[1]" in complete["answer"] and "[2]" in complete["answer"] and "[3]" in complete["answer"]
+    assert "[F1]" not in complete["answer"] and "[F2]" not in complete["answer"]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_unifies_text_and_fact_citation_numbering(monkeypatch):
+    """A text-excerpt citation and a tool-figure citation share ONE continuous numbering sequence,
+    assigned in the order each marker first appears in the rendered answer — not "facts always come
+    after text citations" or any other fixed ordering by kind."""
+    revenue_fact = {
+        "concept": "revenue", "value": 391035000000.0, "unit": "USD", "period_end": "2024-09-28",
+        "fiscal_year": 2024, "fiscal_period": "FY",
+        "raw_tag": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+        "accession": "0000320193-24-000123",
+    }
+    citations_json = '[{"n":1,"excerpt":"' + _KNOWN_SENTENCE + '","section":"Item 7 — MD&A"}]'
+
+    def _fake_stream(messages, tools, run_tool, **_kwargs):
+        async def _gen():
+            run_tool("get_financial_fact", {"concept": "revenue"})
+            yield (
+                "Revenue was $391.0B [F1], as management noted [1]. "
+                "===CITATIONS===\n" + citations_json
+            )
+        return _gen()
+
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", _fake_stream)
+    monkeypatch.setattr(copilot_service.copilot_tools, "run_tool",
+                        lambda name, args, company_id: dict(revenue_fact))
+
+    events = await _collect(_fake_filing(), "How much revenue, per management?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    assert complete["grounded"] == 2
+    assert [c["n"] for c in complete["citations"]] == [1, 2]
+    # [F1] appears before [1] in the rendered prose, so the fact citation wins the "[1]" slot — proof
+    # numbering is driven by first-appearance order, not by citation kind.
+    assert complete["citations"][0]["section_ref"].startswith("XBRL ·")
+    assert complete["citations"][1]["section_ref"] == "Item 7 — MD&A"
+    assert "[1]" in complete["answer"] and "[2]" in complete["answer"]
+    assert "[F1]" not in complete["answer"]
 
 
 # --- P6c: dynamic follow-up suggestions --------------------------------------------------------

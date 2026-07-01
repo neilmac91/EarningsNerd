@@ -64,22 +64,30 @@ describe('CopilotMessage citation chips', () => {
     expect(screen.queryByText('Verified in filing')).not.toBeInTheDocument()
   })
 
-  it('renders an inline chip for a tool-figure [F1] marker', () => {
+  it('renders an inline chip for a tool-figure marker, numbered by the backend like any other citation', () => {
+    // The backend's unified citation-resolution pass assigns every citation (text or XBRL fact
+    // alike) a plain sequential int — the "F#" shape only ever existed as an internal marker
+    // between the model and the tool, never on the wire. Only `section_ref` distinguishes an XBRL
+    // fact for styling purposes now.
     const factCitation: CopilotCitation = {
-      n: 'F1',
+      n: 9,
       excerpt: 'Revenue = $391.04B USD (FY2024)',
       section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
       verified: true,
       fragment_url: 'https://www.sec.gov/filing',
     }
-    const msg = doneMessage({ content: 'Revenue was $391.0B [F1].', citations: [factCitation] })
+    const msg = doneMessage({ content: 'Revenue was $391.0B [9].', citations: [factCitation] })
     render(<CopilotMessage message={msg} />)
-    const chip = screen.getByRole('link', { name: /citation f1/i })
-    expect(chip).toHaveTextContent('[F1]')
+    const chip = screen.getByRole('link', { name: /citation 9/i })
+    expect(chip).toHaveTextContent('[9]')
     expect(chip).toHaveAttribute('href', 'https://www.sec.gov/filing')
+    expect(chip).toHaveAttribute('data-citation-kind', 'xbrl')
   })
 
-  it('renders a chip for a lowercase / spaced marker ([f 1]) and normalizes its display', () => {
+  it('renders a chip for a lowercase / spaced marker ([f 1]) matched against a legacy "F1" citation id', () => {
+    // Defensive: the frontend matcher still tolerates an "F#"-shaped id/marker (case + whitespace
+    // insensitive) even though the backend no longer emits one, so an older cached/replayed
+    // payload still renders correctly.
     const factCitation: CopilotCitation = {
       n: 'F1',
       excerpt: 'Revenue = $391.04B USD (FY2024)',
@@ -138,7 +146,7 @@ describe('CopilotMessage not-disclosed redirect', () => {
 
 describe('CopilotMessage XBRL fact sources', () => {
   const fact: CopilotCitation = {
-    n: 'F1',
+    n: 1,
     excerpt: 'Revenue = $391.04B USD (FY2024)',
     section_ref: 'XBRL · us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax',
     verified: true,
@@ -148,7 +156,7 @@ describe('CopilotMessage XBRL fact sources', () => {
   it('renders an XBRL fact as a dense data row (figure value + source tag)', () => {
     render(
       <CopilotMessage
-        message={doneMessage({ content: 'Revenue was $391.0B [F1].', citations: [fact] })}
+        message={doneMessage({ content: 'Revenue was $391.0B [1].', citations: [fact] })}
       />,
     )
     // The figure is surfaced as the row value (not the prose-excerpt treatment)...
