@@ -47,8 +47,10 @@ RMB").
   labeled** (e.g., "Revenue of RMB 941.2B", "Net income of €7.8B"). Never silently render a
   non-USD figure with a `$` sign.
 - **Do NOT convert to USD.** If the filer provides a **convenience translation** to USD for some
-  lines, you may cite it *as such* and clearly labeled ("≈US$X, company convenience translation"),
-  but treat the home-currency figure as authoritative.
+  lines, you may cite it *as such* — but always **pair it with the native-currency figure and the
+  translation date/rate the filing states** (e.g., "RMB 941.2B (≈US$129B at the company's stated
+  year-end rate)"). The home-currency figure is authoritative; never present the USD convenience
+  figure on its own, and never apply your own exchange rate.
 - Note the **reporting-currency** and the **fiscal year-end** explicitly somewhere in the summary
   (many FPIs do not use a December year-end — e.g., a 31 March fiscal year).
 
@@ -136,13 +138,19 @@ Forbidden words are permitted ONLY when directly quoted from the filing with exp
   (gross/operating/net margin), EPS/per-ADS trajectory. State operating, investing, AND financing
   cash flow as three distinct figures, plus capital expenditures and free cash flow; call out any
   large swing in investing or financing cash flow.
+- **Accounting basis & restatements:** state whether the statements are **IFRS or U.S. GAAP**, and
+  flag any **restatement, change in accounting policy/basis, or material prior-period
+  reclassification the filing discloses** — these break year-over-year comparability, so say so.
+  Only report a restatement/basis change the filing itself states; do not infer one.
 - **Balance sheet & working capital:** cash vs. debt and leverage trend; cite current assets and
   current liabilities, the resulting working capital (current assets − current liabilities) and
   current ratio, with the year-over-year direction (in the filing's reporting currency).
 - **Business context:** segment and geographic mix, key drivers from Item 4/Item 5.
 - **Risk assessment:** top 3–5 company-specific, quantified risks from Item 3.D — drop generic
   boilerplate unless management ties it to a specific figure or event (include VIE/country/HFCAA
-  risk where disclosed).
+  risk where disclosed). **Flag any risk the filing ITSELF marks as new, heightened, or removed this
+  year** (e.g., a newly added risk factor, or one management states has increased) — but only when
+  the filing says so; do NOT infer escalation by comparing to a prior filing you were not given.
 - **Capital allocation & structure:** dividends/buybacks, capex, the share/ADS structure.
 
 ---

@@ -209,6 +209,7 @@ def _summarize(
             "mean_coverage": mean("coverage"),
             "mean_financial_depth": mean("financial_depth"),
             "mean_specificity": mean("specificity"),
+            "mean_currency_consistency": mean("currency_consistency"),
             "judge_pass_rate": round(sum(1 for j in judged if j.get("passed")) / len(judged), 4) if judged else None,
             "total_cost_usd": round(sum(r.get("cost_usd", 0.0) for r in rs), 4),
             "mean_latency_seconds": round(statistics.mean([r["latency_seconds"] for r in rs if r.get("latency_seconds")]), 3) if any(r.get("latency_seconds") for r in rs) else 0.0,
@@ -225,8 +226,8 @@ def _write_report(summary: Dict[str, Any], results: List[Dict[str, Any]]) -> Pat
     lines = [f"# Summary-quality bake-off — {stamp}", "",
              "Ranked by pass_rate (gate-passing runs clearing the aggregate threshold), then mean aggregate.",
              "",
-             "| candidate | n | pass_rate | agg | agg_stdev | gate_fail | schema_valid | repaired | num_recall | num_precision | coverage | depth | specificity | judge_pass | $cost | latency(s) | errors |",
-             "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+             "| candidate | n | pass_rate | agg | agg_stdev | gate_fail | schema_valid | repaired | num_recall | num_precision | coverage | depth | specificity | currency | judge_pass | $cost | latency(s) | errors |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     ranked = sorted(summary.items(),
                     key=lambda kv: (kv[1]["pass_rate"], kv[1]["mean_aggregate"]), reverse=True)
     for cand, s in ranked:
@@ -234,7 +235,7 @@ def _write_report(summary: Dict[str, Any], results: List[Dict[str, Any]]) -> Pat
         lines.append(
             f"| {cand} | {s['n']} | {s['pass_rate']} | {s['mean_aggregate']} | {s['aggregate_stdev']} | "
             f"{s['gate_fail_rate']} | {s['schema_valid_rate']} | {s['repaired_rate']} | "
-            f"{s['mean_numeric_accuracy']} | {s['mean_numeric_precision']} | {s['mean_coverage']} | {s['mean_financial_depth']} | {s.get('mean_specificity', '-')} | "
+            f"{s['mean_numeric_accuracy']} | {s['mean_numeric_precision']} | {s['mean_coverage']} | {s['mean_financial_depth']} | {s.get('mean_specificity', '-')} | {s.get('mean_currency_consistency', '-')} | "
             f"{judge_pass} | {s['total_cost_usd']} | {s['mean_latency_seconds']} | {s['errors']} |"
         )
     lines += [
@@ -254,17 +255,26 @@ def _write_report(summary: Dict[str, Any], results: List[Dict[str, Any]]) -> Pat
 async def main(
     candidates: List[str], limit: Optional[int], allow_unverified: bool,
     runs: int = 1, pass_threshold: float = DEFAULT_PASS_THRESHOLD,
-    judge_model: Optional[str] = None,
+    judge_model: Optional[str] = None, forms: Optional[List[str]] = None,
 ) -> None:
     data = json.loads(GOLDEN_PATH.read_text())
     filings = [GoldenFiling.from_dict(e) for e in data["filings"]]
     runnable = [f for f in filings if f.document_url and (f.verified or allow_unverified)]
-    if limit:
-        runnable = runnable[:limit]
     if not runnable:
         print("No runnable golden filings. Run `python -m evals.build_golden_set` first "
               "(or pass --allow-unverified once entries have document_url).")
         return
+    if forms:
+        wanted = {x.strip().upper() for x in forms}
+        matched = [f for f in runnable if f.filing_type.upper() in wanted]
+        if not matched:
+            available = sorted({f.filing_type.upper() for f in runnable})
+            print(f"No runnable golden filings match --forms {sorted(wanted)}. "
+                  f"Available forms: {available}.")
+            return
+        runnable = matched
+    if limit:
+        runnable = runnable[:limit]
     print(f"Running {candidates} over {len(runnable)} filings x {runs} run(s)"
           f"{f', judge={judge_model}' if judge_model else ''}...")
 
@@ -310,7 +320,11 @@ if __name__ == "__main__":
     parser.add_argument("--judge", default=None,
                         help="LLM-judge model id (e.g. claude-opus-4-8) for the secondary signal; "
                              "needs `pip install anthropic` + ANTHROPIC_API_KEY. Off by default.")
+    parser.add_argument("--forms", default=None,
+                        help="comma-separated filing types to include (e.g. '20-F' or '10-K,10-Q'); "
+                             "scores only matching golden entries. Cheap way to iterate on one form.")
     args = parser.parse_args()
     asyncio.run(main([c.strip() for c in args.candidates.split(",") if c.strip()],
                      args.limit, args.allow_unverified, runs=max(1, args.runs),
-                     pass_threshold=args.pass_threshold, judge_model=args.judge))
+                     pass_threshold=args.pass_threshold, judge_model=args.judge,
+                     forms=[x.strip() for x in args.forms.split(",") if x.strip()] if args.forms else None))

@@ -11,6 +11,7 @@ from evals.scorers import (
     detect_hygiene_violations,
     parse_model_json,
     score_coverage,
+    score_currency_consistency,
     score_financial_depth,
     score_numeric_accuracy,
     score_numeric_precision,
@@ -448,3 +449,70 @@ def test_score_summary_exposes_specificity_and_keeps_it_out_of_aggregate():
     assert s_clean.specificity > s_boiler.specificity
     # aggregate must not move with specificity (depends only on schema/recall/coverage).
     assert s_clean.aggregate() == s_boiler.aggregate()
+
+
+# --- currency consistency (Wave 3 / FPI $-mislabel guard) ------------------------------------
+_CNY_GT = [
+    GroundTruthFact(metric="revenue", value=941_200_000_000.0, unit="CNY"),
+    GroundTruthFact(metric="net_income", value=125_800_000_000.0, unit="CNY"),
+    GroundTruthFact(metric="eps", value=44.0, unit="CNY_per_share"),
+]
+_DKK_GT = [
+    GroundTruthFact(metric="revenue", value=309_100_000_000.0, unit="DKK"),
+    GroundTruthFact(metric="net_income", value=102_400_000_000.0, unit="DKK"),
+]
+_TWD_GT = [GroundTruthFact(metric="revenue", value=2_894_000_000_000.0, unit="TWD")]
+
+
+def _cur_payload(exec_summary: str) -> dict:
+    return {"executive_summary": exec_summary, "financial_highlights": {}}
+
+
+def test_currency_domestic_usd_filer_always_passes():
+    """USD/domestic filer: '$' is correct, so the guard is a no-op (1.0)."""
+    score, viol = score_currency_consistency(
+        _cur_payload("Revenue rose to $383.3B; net income $97.0B; diluted EPS $6.13."),
+        [REVENUE, NET_INCOME, EPS])
+    assert score == 1.0 and viol == []
+
+
+def test_currency_foreign_clean_native_scores_1():
+    """Foreign filer rendered entirely in its reporting currency -> 1.0."""
+    score, viol = score_currency_consistency(
+        _cur_payload("Revenue rose 8% to RMB 941.2B; net income RMB 125.8B; EPS RMB 5.50."),
+        _CNY_GT)
+    assert score == 1.0 and viol == []
+
+
+def test_currency_foreign_wholesale_mislabel_scores_near_zero():
+    """A DKK filer whose figures are all rendered as bare '$' -> ~0 + a flagged violation."""
+    score, viol = score_currency_consistency(
+        _cur_payload("Novo reports revenue of $309.1B and net income of $102.4B, up 6% YoY."),
+        _DKK_GT)
+    assert score < 0.5
+    assert viol and "DKK" in viol[0]
+
+
+def test_currency_labeled_us_convenience_not_flagged():
+    """A labeled US$ convenience figure paired with native currency is allowed (lookbehind)."""
+    score, viol = score_currency_consistency(
+        _cur_payload("Revenue was RMB 941.2B (US$129B convenience); net income RMB 125.8B."),
+        _CNY_GT)
+    assert score == 1.0 and viol == []
+
+
+def test_currency_localized_dollar_symbol_not_flagged():
+    """TWD rendered as 'NT$' is native, not a bare-$ mislabel."""
+    score, viol = score_currency_consistency(
+        _cur_payload("TSMC revenue reached NT$2,894.3B; net income NT$1,182.0B."),
+        _TWD_GT)
+    assert score == 1.0 and viol == []
+
+
+def test_currency_incidental_bare_dollar_amid_native_scores_high():
+    """Mostly-native prose with one stray bare-$ scores high (mild), not near-zero."""
+    score, viol = score_currency_consistency(
+        _cur_payload("Revenue RMB 941.2B, net income RMB 125.8B, cash RMB 400B; a $2.9B note matured."),
+        _CNY_GT)
+    assert score >= 0.6   # 3 RMB / (3 RMB + 1 bare-$) = 0.75
+    assert viol

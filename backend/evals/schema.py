@@ -115,6 +115,12 @@ class RubricScore:
     # credits explicit period-over-period framing. Reported alongside the aggregate (NOT folded in),
     # so de-boilerplating prompt changes are measurable in CI without the LLM judge.
     specificity: float = 1.0
+    # [0,1] currency-labeling fidelity for foreign (non-USD) filers (Wave 3 / FPI go-live): 1.0 for
+    # USD/domestic; for RMB/EUR/DKK/TWD filers it falls toward 0 as figures are rendered as bare '$'
+    # instead of the reporting currency — a mislabel the currency-agnostic numeric scorers can't see.
+    # Reported alongside the aggregate (NOT folded in); WARN-gated (see regression_gate) pending
+    # promotion to a hard FPI-adoption gate once the intermittent model slip is fixed.
+    currency_consistency: float = 1.0
     # Artifact-1 HARD GATES. A non-empty list is a promotion VETO independent of `aggregate()`:
     # a single fabricated number or leaked notice fails the summary no matter how good the prose.
     gate_failures: List[str] = field(default_factory=list)
