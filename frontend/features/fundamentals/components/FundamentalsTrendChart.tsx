@@ -6,7 +6,6 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { CircleNotchIcon } from '@/lib/icons'
 
 import {
-  getFundamentals,
   getFilingFundamentals,
   FundamentalsResponse,
 } from '@/features/fundamentals/api/fundamentals-api'
@@ -61,15 +60,12 @@ const formatValue = (value: number, fmt: FmtKind, currency = 'USD'): string => {
 }
 
 export default function FundamentalsTrendChart({
-  ticker,
   filingId,
   subtitle,
 }: {
-  // Company-scoped: the latest (`is_latest`) annual series for this ticker — the company page's trend.
-  ticker?: string
-  // Filing-scoped (roadmap B): the multi-year figures *as reported in this specific filing*. Provide
-  // exactly one of `ticker` / `filingId`; `filingId` takes precedence when both are present.
-  filingId?: number
+  // Filing-scoped (roadmap B): the multi-year figures *as reported in this specific filing* — an
+  // immutable snapshot faithful to the document, not the company's accumulated latest series.
+  filingId: number
   // Optional context line under the heading (the filing page passes one to frame the source).
   subtitle?: string
 }) {
@@ -84,10 +80,8 @@ export default function FundamentalsTrendChart({
   const cursorFill = dark ? 'rgba(62,142,132,0.16)' : 'rgba(62,142,132,0.08)'
 
   const { data, isLoading, isError } = useQuery<FundamentalsResponse>({
-    queryKey: filingId != null ? ['filing-fundamentals', filingId] : ['fundamentals', ticker],
-    queryFn: () =>
-      filingId != null ? getFilingFundamentals(filingId) : getFundamentals(ticker as string),
-    enabled: filingId != null || !!ticker,
+    queryKey: ['filing-fundamentals', filingId],
+    queryFn: () => getFilingFundamentals(filingId),
     retry: (failureCount, err) =>
       err instanceof ApiError && err.isRetryable ? failureCount < 2 : false,
     staleTime: 60 * 60 * 1000, // facts change only with new filings (filing-scoped is immutable)
