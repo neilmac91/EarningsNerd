@@ -111,6 +111,22 @@ class TestBuildSection:
         assert "Revenue: $391 (period: 2024-09-28); prior: $383 (2023-09-30)" in section
         assert "YoY:" not in section  # no derived comparative fed to the model (fabrication guard)
 
+    def test_none_or_empty_period_falls_back_to_na(self):
+        # A present-but-None/empty period must render "N/A", not "None" / "" (defensive hardening).
+        section = build_xbrl_narrative_section({
+            "revenue": {"current": {"value": 100.0, "period": None},
+                        "prior": {"value": 90.0, "period": ""}},
+        })
+        assert "Revenue: $100 (period: N/A); prior: $90 (N/A)" in section
+
+    def test_working_capital_fallback_rejects_boolean_values(self):
+        # bool is an int subclass; a stray True/False must not slip into CA - CL arithmetic.
+        section = build_xbrl_narrative_section({
+            "current_assets": {"current": {"value": True, "period": "2024"}},
+            "current_liabilities": {"current": {"value": 100.0, "period": "2024"}},
+        })
+        assert "Working Capital" not in section  # derivation refused, no bogus "$-99"
+
     def test_free_cash_flow_label_names_the_derivation(self):
         section = build_xbrl_narrative_section({"free_cash_flow": _cur(28_000_000.0)})
         assert "Free Cash Flow (OCF - CapEx): $28,000,000" in section

@@ -1,5 +1,19 @@
 # Task: Sharpen the AI reports via eval-gated prompt-prose waves (post-council activation)
 
+## Task #21 — Faithfulness guardrail (driver/outlook groundedness), eval-gated — guardrail-first
+**Why:** the #487 judge-view fix revealed the *baseline* model fabricates causal/outlook claims the
+source doesn't support (invents forward guidance a 10-K never gives; attributes a cash-flow change to a
+cause the statement contradicts). numeric_precision stays 1.0 → invisible to deterministic scorers; only
+the (now-trustworthy) judge sees it. Highest-value faithfulness lever.
+**Change (surgical, 10k/10q/20f-analyst-agent.md):** tighten the Wave-2 driver directive + the
+outlook/key_changes directive so the model attributes a cause / states an outlook ONLY when the filing
+explicitly does (cite it); otherwise report the change without inventing a driver, and don't manufacture
+an outlook a 10-K/10-Q doesn't give. Keep lean — over-correction → timid/generic prose (council concern),
+so pressure-test the wording (design panel) for over-refusal/insight-loss before shipping.
+**Gate (CLAUDE.md — ship only behind a pass):** judged before/after on a multi-run sample with the
+SUBSCRIPTION judge (`--judge cli:sonnet`, NOT the API key), counting causal/outlook G3 fabrication flags;
+faithfulness up, deterministic recall/precision/coverage no-regression (regression_gate). Then Wave 4b.
+
 ## Task #19 — Wave 4 (Copilot prose + golden set + XBRL amplifiers), eval-gated
 Judge is now wired (Task #18, merged in #486), so Wave 4 can be judged cheaply. Sequenced as two
 reviewable, separately-gated slices:

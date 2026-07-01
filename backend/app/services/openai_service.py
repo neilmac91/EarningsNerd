@@ -269,9 +269,11 @@ def _working_capital_fallback(xbrl_metrics: dict, which: str) -> Optional[dict]:
     if not isinstance(ca_p, dict) or not isinstance(cl_p, dict):
         return None
     ca_v, cl_v = ca_p.get("value"), cl_p.get("value")
-    if not isinstance(ca_v, (int, float)) or not isinstance(cl_v, (int, float)):
+    # bool is an int subclass — exclude it so a stray True/False can't slip into the arithmetic.
+    if (isinstance(ca_v, bool) or isinstance(cl_v, bool)
+            or not isinstance(ca_v, (int, float)) or not isinstance(cl_v, (int, float))):
         return None
-    return {"value": ca_v - cl_v, "period": ca_p.get("period", "N/A")}
+    return {"value": ca_v - cl_v, "period": ca_p.get("period") or "N/A"}
 
 
 def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
@@ -304,9 +306,9 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
 
         if not isinstance(current, dict) or current.get("value") is None:
             continue
-        line = f"- {label}: {_format_xbrl_metric_value(current.get('value'), kind)} (period: {current.get('period', 'N/A')})"
+        line = f"- {label}: {_format_xbrl_metric_value(current.get('value'), kind)} (period: {current.get('period') or 'N/A'})"
         if isinstance(prior, dict) and prior.get("value") is not None:
-            line += f"; prior: {_format_xbrl_metric_value(prior.get('value'), kind)} ({prior.get('period', 'N/A')})"
+            line += f"; prior: {_format_xbrl_metric_value(prior.get('value'), kind)} ({prior.get('period') or 'N/A'})"
         rows.append(line)
     if not rows:
         return ""
