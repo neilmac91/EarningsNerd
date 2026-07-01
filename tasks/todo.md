@@ -1,5 +1,26 @@
 # Task: Sharpen the AI reports via eval-gated prompt-prose waves (post-council activation)
 
+## Wave 3 — ADR go-live (in PR #484) — RESULTS
+- [x] **20-F ADR prose** (3 groundable items: filing-stated risk-change, convenience-translation
+      date/rate, restatement/basis flag). Judged before/after on 7 20-F golden filings (fixed judge):
+      recall +0.012, no deterministic regression, judge dims flat-within-noise, G3 fabrication flags
+      down on most ADRs. **Ship.**
+- [x] **`--forms` eval filter** (cheap per-form judged runs; e.g. `--forms 20-F` = 7 vs 22 entries).
+- [x] **`USE_STRUCTURED_OUTPUT` evaluation → DON'T FLIP.** Full-set analyst vs structured: structured
+      **loses 5.6 pts recall** (0.796 vs 0.851), less consistent, no offsetting gain. Keep OFF; the
+      `*-structured-agent.md` prompts stay dormant; no case to invest in structured-agent prose.
+- [x] **Currency-consistency guard** (`score_currency_consistency`) — deterministic scorers are
+      currency-AGNOSTIC (numeric_precision matched value not unit), so a foreign filer's figures
+      rendered as bare `$` (e.g. DKK→`$`, a ~7x distortion) was invisible. New scorer flags bare-`$`
+      on non-USD filers (US$/NT$/HK$ excluded via lookbehind; currency-alias native counting).
+      WARN-gated (not hard — the slip is intermittent, would flake CI). Validated on real NVO/BABA/ASML.
+- [~] **FPI adoption gate / `ENABLE_FPI_FILINGS` flip** — Step A (offline tests) green; B/C eyeball:
+      currency correct on **6/7 ADRs all runs**; **NVO (DKK) has an intermittent ~1/3 `$`-slip**
+      (the prompt already says "never render non-USD as `$`" yet the model occasionally ignores it).
+      GO-LIVE DECISION for founder: (a) flip now, accept the rare DKK slip with the guard monitoring,
+      or (b) hold until a runtime currency-enforcement (post-gen: regenerate/flag if reporting_currency
+      != USD and bare-`$` present) reduces it. Recommend (b) if DKK-class quality matters at launch.
+
 ## Context
 The report **is** the product. Highest-leverage, lowest-risk lever right now is improving the AI
 prompt prose (content + presentation), each change gated on the eval (deterministic scorers always;

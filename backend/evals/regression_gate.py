@@ -54,6 +54,7 @@ _WARN_GATES = (
     ("schema_valid_rate", "decrease", 0.05, "schema validity"),
     ("mean_financial_depth", "decrease", 0.10, "financial depth"),
     ("mean_specificity", "decrease", 0.10, "narrative specificity (anti-boilerplate)"),
+    ("mean_currency_consistency", "decrease", 0.05, "currency labeling for foreign filers (FPI $-mislabel guard)"),
 )
 
 

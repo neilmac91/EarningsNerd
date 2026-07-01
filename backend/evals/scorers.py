@@ -431,6 +431,69 @@ def score_specificity(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
     return round(0.8 * boilerplate_component + 0.2 * change_component, 4), flagged
 
 
+def _expected_reporting_currency(ground_truth: List[GroundTruthFact]) -> Optional[str]:
+    """The filing's reporting currency, inferred from ground-truth units (e.g. 'CNY',
+    'DKK_per_share' -> 'DKK'). Returns None for USD/domestic filers (no currency check needed)."""
+    codes: Dict[str, int] = {}
+    for f in ground_truth:
+        code = (f.unit or "USD").split("_")[0].upper()
+        if code and code != "USD":
+            codes[code] = codes.get(code, 0) + 1
+    if not codes:
+        return None
+    return max(codes, key=codes.get)
+
+
+# How each reporting currency is actually rendered in prose (ISO code differs from the symbol/name
+# the model writes — CNY->"RMB", DKK->"kroner", TWD->"NT$"). Used to count native mentions.
+_CURRENCY_ALIASES: Dict[str, Tuple[str, ...]] = {
+    "CNY": ("cny", "rmb", "renminbi", "yuan", "¥"),
+    "EUR": ("eur", "€"),
+    "DKK": ("dkk", "kroner", "krone"),
+    "TWD": ("twd", "nt$", "ntd"),
+    "JPY": ("jpy", "yen", "¥"),
+    "GBP": ("gbp", "£"),
+    "HKD": ("hkd", "hk$"),
+    "SGD": ("sgd", "s$"),
+}
+
+# A BARE '$' figure: a '$' NOT preceded by a letter or another '$', followed by a number. The
+# negative lookbehind means localized dollar symbols (US$, NT$, HK$, S$, A$, C$) are treated as
+# labeled/native, not as a mislabel — only a truly bare "$309B" is flagged.
+_BARE_DOLLAR_RE = re.compile(
+    r"(?<![A-Za-z$])\$\s?\d[\d,.]*\s?(?:B|M|K|bn|billion|million|thousand)?", re.IGNORECASE
+)
+
+
+def score_currency_consistency(
+    payload: Dict[str, Any], ground_truth: List[GroundTruthFact]
+) -> Tuple[float, List[str]]:
+    """[0,1] currency-labeling fidelity for foreign (non-USD) filers. Returns (score, violations).
+
+    A foreign issuer's figures must be in its reporting currency (RMB/EUR/DKK/TWD...), never a bare
+    '$' — rendering e.g. DKK as '$' is a ~7x distortion the currency-AGNOSTIC numeric scorers cannot
+    catch (numeric_precision matched only the value, not the unit). This flags bare-'$' monetary
+    tokens (US$/NT$/HK$ etc. are excluded — those are labeled). score = native-currency mentions /
+    (native + bare-'$'), so a wholesale mislabel (all figures '$') -> ~0 while an incidental labeled
+    US$ convenience figure amid native prose -> ~1.0. USD/domestic filers return 1.0.
+
+    NOTE: a foreign filer with genuinely USD-denominated items (e.g. USD convertible notes) can draw
+    a mild (<1.0) score; that's why this is a WARN signal + eyeball prompt for the FPI adoption gate,
+    not (yet) a hard gate."""
+    cur = _expected_reporting_currency(ground_truth)
+    if cur is None:
+        return 1.0, []
+    blob = _financial_haystack(payload)
+    bare = [m.group(0).strip() for m in _BARE_DOLLAR_RE.finditer(blob)]
+    if not bare:
+        return 1.0, []
+    low = blob.lower()
+    native = sum(low.count(a) for a in _CURRENCY_ALIASES.get(cur, (cur.lower(),)))
+    denom = native + len(bare)
+    score = round(native / denom, 4) if denom else 0.0
+    return score, [f"non-USD filer ({cur}) rendered bare-'$' figures: {', '.join(bare[:6])}"]
+
+
 def score_summary(
     raw_or_payload: Any, ground_truth: List[GroundTruthFact]
 ) -> RubricScore:
@@ -458,6 +521,7 @@ def score_summary(
     precision, contradictions = score_numeric_precision(payload, ground_truth)
     depth, _ = score_financial_depth(payload)
     specificity, _ = score_specificity(payload)
+    currency_consistency, _ = score_currency_consistency(payload, ground_truth)
     return RubricScore(
         schema_valid=schema_valid,
         repaired=repaired,
@@ -466,6 +530,7 @@ def score_summary(
         numeric_precision=precision,
         financial_depth=depth,
         specificity=specificity,
+        currency_consistency=currency_consistency,
         gate_failures=compute_gate_failures(payload, contradictions),
         missing_sections=missing_sections,
         matched_facts=matched,
