@@ -142,3 +142,24 @@ export const fetchHotFilingsInitial = (limit: number): Promise<HotFilingsRespons
 /** Initial trending-tickers payload for the same reason. */
 export const fetchTrendingInitial = (): Promise<TrendingTickerResponse | null> =>
   fetchJson<TrendingTickerResponse>('/api/trending_tickers', 300)
+
+export interface ReportingCompany {
+  ticker: string
+  name: string
+  earnings_date: string
+  time: 'bmo' | 'amc' | null
+}
+
+export interface ReportingThisWeekResponse {
+  companies: ReportingCompany[]
+  week_start: string
+  week_end: string
+  status: string
+  timestamp: string
+}
+
+/** Curated large-caps reporting earnings this week, for the homepage section below
+ * the hero. Revalidates every 6h, matching the backend's own cache TTL — no point
+ * refreshing more often than the backend actually recomputes. */
+export const fetchReportingThisWeek = (): Promise<ReportingThisWeekResponse | null> =>
+  fetchJson<ReportingThisWeekResponse>('/api/reporting_this_week', 21600)

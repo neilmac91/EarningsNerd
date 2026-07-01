@@ -8,6 +8,7 @@ import HotFilings from '@/components/HotFilings'
 import TrendingTickers from '@/components/TrendingTickers'
 import HeroExample from '@/components/HeroExample'
 import ExampleSummaryCard from '@/components/ExampleSummaryCard'
+import ReportingThisWeek from '@/components/ReportingThisWeek'
 import SocialProofStrip from '@/components/SocialProofStrip'
 import HowItWorks from '@/components/HowItWorks'
 import FeatureShowcase from '@/components/FeatureShowcase'
@@ -19,6 +20,7 @@ import {
   fetchExampleData,
   fetchHotFilingsInitial,
   fetchTrendingInitial,
+  fetchReportingThisWeek,
 } from '@/lib/serverApi'
 
 const SITE_URL = 'https://www.earningsnerd.io'
@@ -102,10 +104,11 @@ export default async function Home() {
   // Live data is fetched server-side so the first paint shows the real
   // product; every fetcher returns null on failure and the page falls back
   // to static content.
-  const [example, hotInitial, trendingInitial] = await Promise.all([
+  const [example, hotInitial, trendingInitial, reportingThisWeek] = await Promise.all([
     fetchExampleData(),
     fetchHotFilingsInitial(4),
     fetchTrendingInitial(),
+    fetchReportingThisWeek(),
   ])
 
   return (
@@ -175,6 +178,11 @@ export default async function Home() {
           SOCIAL PROOF STRIP
           ═══════════════════════════════════════════════════════════ */}
       <SocialProofStrip />
+
+      {/* ═══════════════════════════════════════════════════════════
+          REPORTING THIS WEEK — omits itself entirely when empty
+          ═══════════════════════════════════════════════════════════ */}
+      <ReportingThisWeek data={reportingThisWeek} />
 
       {/* ═══════════════════════════════════════════════════════════
           HOT FILINGS
