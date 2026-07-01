@@ -9,6 +9,7 @@ import posthog from 'posthog-js'
 
 import { getApiUrl } from '@/lib/api/client'
 import { FilingPulse, type Pulse } from '@/components/FilingPulse'
+import CompanyLogo from '@/components/CompanyLogo'
 
 const API_BASE_URL = getApiUrl().replace(/\/$/, '')
 
@@ -135,12 +136,16 @@ export default function HotFilings({
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="flex items-center space-x-2">
-                  <div
-                    className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-strong/10 dark:bg-brand-dark/15 text-brand-strong dark:text-brand-strong-dark"
-                    aria-hidden
-                  >
-                    <PulseIcon className="h-4 w-4" />
-                  </div>
+                  {filing.symbol ? (
+                    <CompanyLogo ticker={filing.symbol} name={filing.company_name} size={32} />
+                  ) : (
+                    <div
+                      className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-strong/10 dark:bg-brand-dark/15 text-brand-strong dark:text-brand-strong-dark"
+                      aria-hidden
+                    >
+                      <PulseIcon className="h-4 w-4" />
+                    </div>
+                  )}
                   <div>
                     <div className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                       {filing.company_name ?? 'Unknown Company'}

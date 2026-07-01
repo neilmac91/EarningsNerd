@@ -16,6 +16,7 @@ import {
   PriceData,
 } from '@/features/companies/api/companies-api'
 import { directionText, directionOf } from '@/lib/financialTone'
+import CompanyLogo from '@/components/CompanyLogo'
 
 const FULL_REFRESH_INTERVAL = 10 * 60 * 1000 // 10 minutes for full data
 const PRICE_REFRESH_INTERVAL = 2 * 60 * 1000 // 2 minutes for prices only
@@ -104,12 +105,15 @@ function TrendingTickerCard({
       onClick={handleClick}
       className="flex min-w-[240px] flex-col gap-2 rounded-2xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 p-4 shadow-e2 dark:shadow-none transition-all duration-200 hover:-translate-y-1 hover:bg-white dark:hover:bg-white/10 hover:shadow-e2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-slate-900"
     >
-      {/* Header: Symbol + Price */}
+      {/* Header: Logo + Symbol + Price */}
       <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">{ticker.symbol}</div>
-          <div className="truncate text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            {ticker.name ?? 'Loading...'}
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+          <CompanyLogo ticker={ticker.symbol} name={ticker.name} size={32} />
+          <div className="min-w-0">
+            <div className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">{ticker.symbol}</div>
+            <div className="truncate text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              {ticker.name ?? 'Loading...'}
+            </div>
           </div>
         </div>
         {priceFormatted && (

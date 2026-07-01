@@ -1,10 +1,12 @@
 import { ArrowRightIcon } from '@/lib/icons'
 import ExampleCtaLink from '@/components/ExampleCtaLink'
+import CompanyLogo from '@/components/CompanyLogo'
 import { exampleFilingHref } from '@/lib/featureFlags'
 import type { ExampleData } from '@/lib/serverApi'
 
 // Static fallback mirrors HeroExample's verified Apple FY 2022 figures.
 const FALLBACK = {
+  ticker: 'AAPL',
   companyName: 'Apple Inc.',
   filingLabel: '10-K · FY 2022',
   metrics: [
@@ -20,6 +22,7 @@ const FALLBACK = {
  * the pre-generated example summary. Renders live data when available.
  */
 function ExampleSummaryCard({ example }: { example: ExampleData | null }) {
+  const ticker = example?.ticker ?? FALLBACK.ticker
   const companyName = example?.companyName ?? FALLBACK.companyName
   const filingLabel = example ? example.filingType : FALLBACK.filingLabel
   const metrics =
@@ -35,10 +38,7 @@ function ExampleSummaryCard({ example }: { example: ExampleData | null }) {
     >
       <div className="flex items-center justify-between">
         <div className="flex min-w-0 items-center gap-2">
-          <div
-            className="h-5 w-5 flex-shrink-0 rounded-full bg-gradient-to-br from-brand-strong to-brand-light dark:from-brand-dark dark:to-brand-strong-dark"
-            aria-hidden="true"
-          />
+          <CompanyLogo ticker={ticker} name={companyName} size={20} priority />
           <span className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{companyName}</span>
           <span className="flex-shrink-0 rounded-full bg-brand-weak px-2 py-0.5 text-xs text-text-secondary-light dark:bg-white/10 dark:text-text-secondary-dark">
             {filingLabel}

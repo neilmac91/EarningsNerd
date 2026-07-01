@@ -11,6 +11,7 @@ import { evaluateComparisonQuality } from '@/lib/QualityGate'
 import { fmtPercent, fmtScale, fmtCurrency, parseNumeric } from '@/lib/format'
 import { directionText } from '@/lib/financialTone'
 import SecondaryHeader from '@/components/SecondaryHeader'
+import CompanyLogo from '@/components/CompanyLogo'
 
 const ComparisonMetricChart = dynamic(
   () => import('@/components/ComparisonMetricChart'),
@@ -267,7 +268,10 @@ export default function CompareResultPage() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             {filings.map((filing) => (
               <div key={filing.id} className="border border-border-light dark:border-white/10 rounded-lg p-4">
-                <div className="font-semibold text-text-primary-light dark:text-text-primary-dark">{filing.company.ticker}</div>
+                <div className="flex items-center gap-2">
+                  <CompanyLogo ticker={filing.company.ticker} name={filing.company.name} size={24} />
+                  <div className="font-semibold text-text-primary-light dark:text-text-primary-dark">{filing.company.ticker}</div>
+                </div>
                 <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{filing.filing_type}</div>
                 <div className="text-xs text-text-tertiary-light dark:text-text-secondary-dark mt-1">
                   {filing.filing_date && format(new Date(filing.filing_date), 'MMM yyyy')}

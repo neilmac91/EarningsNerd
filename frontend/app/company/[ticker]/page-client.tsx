@@ -18,6 +18,7 @@ import analytics from '@/lib/analytics'
 import { getEntryPoint } from '@/lib/entryPoint'
 import { ENABLE_RECOMMENDED_FILING, ENABLE_FINANCIAL_CHARTS, ENABLE_INSIDER_ACTIVITY } from '@/lib/featureFlags'
 import PeerComparisonPanel from '@/features/peers/components/PeerComparisonPanel'
+import CompanyLogo from '@/components/CompanyLogo'
 import InsiderActivityPanel from '@/features/insiders/components/InsiderActivityPanel'
 
 // Annual reports: 10-K (domestic) plus the foreign-issuer equivalents 20-F / 40-F. Used to pick
@@ -334,6 +335,7 @@ export default function CompanyPageClient() {
               </Link>
               <div className="border-l-0 sm:border-l border-border-light dark:border-border-dark sm:pl-4 flex-1">
                 <div className="flex items-center space-x-3">
+                  <CompanyLogo ticker={companyData.ticker} name={companyData.name} size={40} priority />
                   <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">{companyData.name}</h1>
                   {currentUser && (
                     <button

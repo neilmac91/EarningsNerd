@@ -6,6 +6,7 @@ import { getTrendingCompanies, Company } from '@/features/companies/api/companie
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { directionText, directionOf } from '@/lib/financialTone'
 import { TrendUpIcon } from '@/lib/icons'
+import CompanyLogo from '@/components/CompanyLogo'
 
 export default function TrendingCompanies() {
   const { data: trendingCompanies, isLoading, isError, error, refetch, isFetching } = useQuery({
@@ -58,12 +59,15 @@ export default function TrendingCompanies() {
               className="group block p-5 rounded-2xl bg-panel-light dark:bg-white/5 shadow-e1 dark:shadow-none hover:bg-gradient-to-br hover:from-panel-light hover:to-background-light dark:hover:from-white/10 dark:hover:to-white/5 transition-all duration-300 border border-border-light dark:border-white/10 hover:border-border-light dark:hover:border-white/20 hover:shadow-lg hover:shadow-gray-900/5 dark:hover:shadow-black/20"
             >
               <div className="flex items-center justify-between">
-                <div>
-                  <div className="font-semibold text-text-primary-light dark:text-text-primary-dark group-hover:text-brand-strong dark:group-hover:text-brand-strong-dark transition-colors">
-                    {company.name}
-                  </div>
-                  <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark font-medium mt-1">
-                    {company.ticker}
+                <div className="flex items-center gap-3">
+                  <CompanyLogo ticker={company.ticker} name={company.name} size={32} />
+                  <div>
+                    <div className="font-semibold text-text-primary-light dark:text-text-primary-dark group-hover:text-brand-strong dark:group-hover:text-brand-strong-dark transition-colors">
+                      {company.name}
+                    </div>
+                    <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark font-medium mt-1">
+                      {company.ticker}
+                    </div>
                   </div>
                 </div>
                 {company.stock_quote?.price !== undefined && company.stock_quote?.price !== null && (

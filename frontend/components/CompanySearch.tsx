@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { CircleNotchIcon, MagnifyingGlassIcon } from '@/lib/icons'
 import { useQuery } from '@tanstack/react-query'
 import { searchCompanies, Company } from '@/features/companies/api/companies-api'
+import CompanyLogo from '@/components/CompanyLogo'
 import { ApiError } from '@/lib/api/client'
 import { useRouter } from 'next/navigation'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
@@ -235,7 +236,10 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
                 index === highlightIndex ? 'bg-brand-weak dark:bg-white/10' : ''
               }`}
             >
-              <div className="font-semibold text-text-primary-light dark:text-text-primary-dark">{company.name}</div>
+              <div className="flex items-center gap-2">
+                <CompanyLogo ticker={company.ticker} name={company.name} size={24} />
+                <div className="font-semibold text-text-primary-light dark:text-text-primary-dark">{company.name}</div>
+              </div>
               <div className="flex flex-col space-y-1 text-sm">
                 <div className="flex items-center space-x-2">
                   <span className="text-text-secondary-light dark:text-text-secondary-dark">{company.ticker}</span>

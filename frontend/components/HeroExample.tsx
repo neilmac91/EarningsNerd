@@ -1,5 +1,6 @@
 import { format, parseISO } from 'date-fns'
 import ExampleCtaLink from '@/components/ExampleCtaLink'
+import CompanyLogo from '@/components/CompanyLogo'
 import { exampleFilingHref } from '@/lib/featureFlags'
 import { directionText } from '@/lib/financialTone'
 import type { ExampleData, ExampleMetric } from '@/lib/serverApi'
@@ -105,10 +106,7 @@ function HeroExample({ example }: { example: ExampleData | null }) {
           {/* Header area */}
           <div className="flex items-center justify-between gap-2">
             <div className="flex min-w-0 items-center gap-2">
-              <div
-                className="h-6 w-6 flex-shrink-0 rounded-full bg-gradient-to-br from-brand-strong to-brand-light dark:from-brand-dark dark:to-brand-strong-dark"
-                aria-hidden="true"
-              />
+              <CompanyLogo ticker={data.ticker} name={data.companyName} size={24} priority />
               <span className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{data.companyName}</span>
               <span className="flex-shrink-0 rounded-full border border-border-light dark:border-white/10 bg-white dark:bg-white/10 px-2 py-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                 {data.filingType}

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { memo, useCallback } from 'react'
 import posthog from 'posthog-js'
+import CompanyLogo from '@/components/CompanyLogo'
 
 // Rule 6.2: Hoist static data outside component to prevent recreation
 const TOP_COMPANIES = [
@@ -36,6 +37,7 @@ function QuickAccessBar() {
             className="group flex items-center gap-2 rounded-full border border-border-light bg-panel-light shadow-e1 px-4 py-2.5 text-sm font-medium transition-all duration-200 hover:-translate-y-1 hover:border-brand-strong hover:bg-white hover:shadow-e2 dark:border-white/10 dark:bg-white/5 dark:shadow-none dark:hover:border-brand-dark dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-background-dark"
             data-testid={`quick-access-${ticker}`}
           >
+            <CompanyLogo ticker={ticker} name={name} size={20} />
             <span className="font-bold text-text-primary-light dark:text-text-primary-dark">{ticker}</span>
             <span className="hidden text-text-secondary-light transition-colors group-hover:text-brand-strong dark:text-text-secondary-dark dark:group-hover:text-brand-strong-dark sm:inline">
               {name}
