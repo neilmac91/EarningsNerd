@@ -238,3 +238,12 @@ and measure ALL modes, not just the one you targeted; the headline mean can stay
 egregious pattern is genuinely fixed. (3) Ship the targeted, no-regression win anyway (precedent: Wave 2
 shipped a no-regression refinement on a judge-visible gain) and make the redistributed modes the next
 target: a "don't present a derived/aggregated figure as if reported; don't infer tone" guardrail.
+**V3 UPDATE — a concrete negative EXAMPLE was the real unlock (show, don't just tell).** A reviewer
+suggested pairing the existing with-cause example with a no-cause one — `report the movement alone
+(e.g. "Capex rose 12% to $1.2B")`. Adding that single parenthetical to the (V2) conditional directive
+moved the mean from 3.11 to **3.78** (before 3.00), took OUTLOOK fabrications to **0**, and HALVED the
+runs with any fabrication (8/9→4/9) — NVDA went fully clean. So the rewritten directive (V2) reduced the
+egregious pattern but the *example* (V3) is what lifted the headline: the model imitates a modeled
+output far more reliably than it obeys an abstract rule. **Rule:** when a directive tells the model to
+sometimes-omit something, give a concrete example of the omitting-output — a rule + its worked example
+beats the rule alone by a wide margin. (Cost: it took a 4th judged sweep to see it; worth it.)

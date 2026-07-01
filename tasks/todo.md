@@ -15,10 +15,10 @@ SUBSCRIPTION judge (`--judge cli:sonnet`, NOT the API key), counting causal/outl
 faithfulness up, deterministic recall/precision/coverage no-regression (regression_gate). Then Wave 4b.
 
 **RESULTS (3 filings × 3 runs, cli:sonnet):** V1 (append caveats) = no effect (faith 3.00→3.11 flat,
-causal 6→8). V2 (reword lead directive conditional + DO-NOT prohibition) = causal-driver fabrications
-~6→~1 (egregious source-contradicting pattern removed), faithfulness held, deterministic PASS, prose
-decisive (2 PASS vs 1). Mean flat because fabrication REDISTRIBUTES to derived-figure-as-reported / tone
-modes (see lessons.md). **Shipping V2** as a targeted no-regression refinement (Wave-2 precedent).
+causal 6→8). V2 (reword lead directive conditional + DO-NOT prohibition) = causal ~6→~1, but mean flat
+(3.11) — fabrication REDISTRIBUTES. **V3 (V2 + a concrete no-cause EXAMPLE — reviewer suggestion) is the
+ship:** mean faithfulness **3.00→3.78**, OUTLOOK fabrications **→0**, runs-with-any-fabrication 8/9→4/9,
+deterministic PASS. The worked example unlocked the headline gain (see lessons.md). **Shipped V3.**
 **Next target (queued):** a "don't present a derived/aggregated figure as reported; don't infer tone"
 guardrail — the redistributed modes — which would also let the Wave-4a YoY amplifier return.
 

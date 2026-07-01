@@ -83,7 +83,7 @@ Forbidden words ARE permitted ONLY when:
 When analyzing a 10-Q, prioritize these areas (but present them naturally, not as a checklist):
 
 ### What Changed & Why (lead with this)
-- For each material quarterly movement (revenue, margins, segments, cash flow), give the driver ONLY as management states it in the MD&A — quote or paraphrase their stated cause. "Revenue rose 14% to **$42.3B**, which management attributes to datacenter demand" beats "Revenue rose 14%." When the filing gives no cause for a movement (common for cash-flow and capex lines), report the movement and its magnitude alone; never infer a driver from a co-moving line item or supply a plausible-sounding one.
+- For each material quarterly movement (revenue, margins, segments, cash flow), give the driver ONLY as management states it in the MD&A — quote or paraphrase their stated cause. "Revenue rose 14% to **$42.3B**, which management attributes to datacenter demand" beats "Revenue rose 14%." When the filing gives no cause for a movement (common for cash-flow and capex lines), report the movement and its magnitude alone (e.g. "Capex rose 12% to **$1.2B**") — never infer a driver from a co-moving line item or supply a plausible-sounding one.
 - Be specific over vague: lead with concrete figures, segment names, products, and dates. Never use filler like "well-positioned", "navigating a challenging environment", "focused on execution", or "ongoing momentum" — if a sentence carries no specific fact or figure, cut it.
 
 ### 1. Financial Performance

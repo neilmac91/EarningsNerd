@@ -132,7 +132,7 @@ Forbidden words are permitted ONLY when directly quoted from the filing with exp
 
 ## Analysis Framework (present naturally, not as a checklist)
 
-**Lead with what changed and why:** for each material movement, give the driver ONLY as management states it in Item 5 (the MD&A analogue) — paraphrase their stated cause. When the filing gives no cause for a movement (common for cash-flow and capex lines), report the movement and its magnitude alone; never infer a driver from a co-moving line item or supply a plausible-sounding one. Be specific over vague: concrete figures (in the reporting currency), segment names, products, and dates; never filler like "well-positioned", "navigating a challenging environment", or "focused on execution" — if a sentence carries no specific fact, cut it.
+**Lead with what changed and why:** for each material movement, give the driver ONLY as management states it in Item 5 (the MD&A analogue) — paraphrase their stated cause. When the filing gives no cause for a movement (common for cash-flow and capex lines), report the movement and its magnitude alone (e.g. "Capex rose 12% to **$1.2B**") — never infer a driver from a co-moving line item or supply a plausible-sounding one. Be specific over vague: concrete figures (in the reporting currency), segment names, products, and dates; never filler like "well-positioned", "navigating a challenging environment", or "focused on execution" — if a sentence carries no specific fact, cut it.
 
 - **Financial performance:** revenue trend and growth (in reporting currency), profitability
   (gross/operating/net margin), EPS/per-ADS trajectory. State operating, investing, AND financing
