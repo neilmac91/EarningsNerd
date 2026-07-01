@@ -6,6 +6,7 @@ import { CheckIcon, CircleNotchIcon, MagnifyingGlassIcon, PlusIcon } from '@/lib
 import { searchCompanies, Company } from '@/features/companies/api/companies-api'
 import { addToWatchlist } from '@/features/watchlist/api/watchlist-api'
 import analytics from '@/lib/analytics'
+import CompanyLogo from '@/components/CompanyLogo'
 
 /**
  * Add-from-search for the watchlist page: type a company, pick it, and it's tracked — without
@@ -107,9 +108,12 @@ export default function WatchlistAddSearch() {
               disabled={addMutation.isPending}
               className="flex w-full items-center justify-between gap-3 border-b border-border-light dark:border-border-dark px-4 py-3 text-left transition-colors last:border-b-0 hover:bg-brand-weak dark:hover:bg-white/5 disabled:opacity-50"
             >
-              <span className="min-w-0">
-                <span className="block truncate font-medium text-text-primary-light dark:text-text-primary-dark">{company.name}</span>
-                <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">{company.ticker}</span>
+              <span className="flex min-w-0 items-center gap-2.5">
+                <CompanyLogo ticker={company.ticker} name={company.name} size={28} />
+                <span className="min-w-0">
+                  <span className="block truncate font-medium text-text-primary-light dark:text-text-primary-dark">{company.name}</span>
+                  <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">{company.ticker}</span>
+                </span>
               </span>
               <PlusIcon className="h-4 w-4 flex-shrink-0 text-brand-strong dark:text-brand-strong-dark" />
             </button>

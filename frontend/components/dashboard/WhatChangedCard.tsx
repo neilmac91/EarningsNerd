@@ -5,6 +5,7 @@ import { ArrowRightIcon, MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/ico
 import { FeedItem, WhatChangedItem } from '@/features/dashboard/api/dashboard-api'
 import { formatLocalDate } from '@/lib/format'
 import analytics from '@/lib/analytics'
+import CompanyLogo from '@/components/CompanyLogo'
 
 // Calm directional chips: brand accent for up, muted neutral for down — never casino red/green.
 const DIRECTION = {
@@ -42,8 +43,9 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
       className="block rounded-xl border border-border-light bg-panel-light p-5 transition hover:border-brand-light/30 hover:shadow-sm dark:border-border-dark dark:bg-panel-dark"
     >
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2.5">
+          <CompanyLogo ticker={company.ticker} name={company.name} size={28} />
+          <div className="flex min-w-0 items-center gap-2">
             <span className="truncate font-semibold text-text-primary-light dark:text-text-primary-dark">
               {company.name}
             </span>

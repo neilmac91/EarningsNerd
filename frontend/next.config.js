@@ -4,6 +4,17 @@ const { withSentryConfig } = require('@sentry/nextjs')
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['recharts'],
+  images: {
+    // Logo.dev's ticker-keyed logo CDN (see CompanyLogo.tsx). Hotlinked directly —
+    // no proxy needed since its token is a publishable, client-safe identifier.
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'img.logo.dev',
+        pathname: '/ticker/**',
+      },
+    ],
+  },
   env: {
     NEXT_PUBLIC_API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL ||
       (process.env.NODE_ENV === 'production' ? 'https://api.earningsnerd.io' : 'http://localhost:8000'),

@@ -11,6 +11,7 @@ import { getWatchlistInsights, WatchlistInsight } from '@/features/watchlist/api
 import SecondaryHeader from '@/components/SecondaryHeader'
 import StateCard from '@/components/StateCard'
 import WatchlistAddSearch from '@/components/watchlist/WatchlistAddSearch'
+import CompanyLogo from '@/components/CompanyLogo'
 import { ENABLE_COMPARE } from '@/lib/featureFlags'
 
 function useAuthGate() {
@@ -145,6 +146,7 @@ export default function WatchlistDashboardPage() {
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
                       <div className="flex items-center space-x-3">
+                        <CompanyLogo ticker={insight.company.ticker} name={insight.company.name} size={36} />
                         <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
                           {insight.company.name}
                         </h2>

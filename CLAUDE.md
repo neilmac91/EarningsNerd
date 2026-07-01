@@ -332,6 +332,7 @@ Modular ETL pipeline for SEC filing data (see `backend/docs/plan_sec_pipeline.md
 |-----------|---------|
 | `SummarySections.tsx` | Summary display with collapsible sections |
 | `SummaryProgress.tsx` | Real-time progress for summary generation |
+| `CompanyLogo.tsx` | Ticker-keyed company logo (Logo.dev) with an initials-monogram fallback — reused on every surface that shows a company; never a broken image or layout shift |
 | `HotFilings.tsx` | Trending/hot SEC filings display |
 | `TrendingCompanies.tsx` | List of trending companies |
 | `TrendingTickers.tsx` | List of trending stock tickers |
@@ -480,6 +481,7 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=...
 NEXT_PUBLIC_POSTHOG_KEY=...
 NEXT_PUBLIC_SENTRY_DSN=...
 NEXT_PUBLIC_TURNSTILE_SITE_KEY=...                 # Pairs with backend TURNSTILE_SECRET_KEY
+NEXT_PUBLIC_LOGO_DEV_TOKEN=...                     # Logo.dev publishable token for CompanyLogo (blank = monogram fallback only)
 NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS=true|false
 NEXT_PUBLIC_ENABLE_SECTION_TABS=true|false
 NEXT_PUBLIC_ENABLE_CALENDAR=true|false             # Earnings calendar (requires FMP_API_KEY)
