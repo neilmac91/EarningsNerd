@@ -247,26 +247,36 @@ async def _judge_via_openai(
     except ImportError as exc:  # pragma: no cover - environment dependent
         return JudgeVerdict(verdict="FAIL", error=f"openai SDK not installed: {exc}")
 
-    base_url = os.environ.get("JUDGE_OPENAI_BASE_URL") or os.environ.get("OPENAI_BASE_URL", "")
+    # base_url is optional: when unset the SDK targets the official OpenAI endpoint (so
+    # "openai:gpt-4o" works with just an API key); set it for GLM/z.ai and other compatible providers.
+    base_url = os.environ.get("JUDGE_OPENAI_BASE_URL") or os.environ.get("OPENAI_BASE_URL") or None
     api_key = os.environ.get("JUDGE_OPENAI_API_KEY") or os.environ.get("OPENAI_API_KEY", "")
-    if not api_key or not base_url:
+    if not api_key:
         return JudgeVerdict(
-            verdict="FAIL",
-            error="missing JUDGE_OPENAI_BASE_URL/JUDGE_OPENAI_API_KEY (or OPENAI_BASE_URL/OPENAI_API_KEY)",
+            verdict="FAIL", error="missing JUDGE_OPENAI_API_KEY (or OPENAI_API_KEY)",
         )
     # "openai:<model>" is an explicit backend selector; strip it. Bare ids (e.g. "glm-5.2") pass through.
     model = model_id.split(":", 1)[1] if model_id.lower().startswith("openai:") else model_id
 
-    client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+    # Context-manage the client so its httpx connections are closed even across retries (no leak).
+    async with AsyncOpenAI(api_key=api_key, base_url=base_url) as client:
+        async def call_once() -> str:
+            resp = await client.chat.completions.create(
+                model=model, max_tokens=max_tokens,
+                messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+            )
+            return (resp.choices[0].message.content or "") if resp.choices else ""
 
-    async def call_once() -> str:
-        resp = await client.chat.completions.create(
-            model=model, max_tokens=max_tokens,
-            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-        )
-        return (resp.choices[0].message.content or "") if resp.choices else ""
+        return await _judge_with_retry(call_once)
 
-    return await _judge_with_retry(call_once)
+
+async def _kill_and_reap(proc: Any) -> None:
+    """Kill a subprocess and await it so it's reaped (no zombie). Safe if it already exited."""
+    try:
+        proc.kill()
+    except ProcessLookupError:  # already exited between the check and the kill
+        pass
+    await proc.wait()
 
 
 async def _judge_via_cli(
@@ -298,9 +308,14 @@ async def _judge_via_cli(
                 proc.communicate(user.encode("utf-8")), timeout=_CLI_TIMEOUT_SECONDS
             )
         except asyncio.TimeoutError:
-            proc.kill()
-            await proc.wait()
+            await _kill_and_reap(proc)
             raise RuntimeError(f"claude CLI timed out after {_CLI_TIMEOUT_SECONDS}s")
+        except BaseException:
+            # asyncio.CancelledError is a BaseException (not Exception), so it slips past the
+            # TimeoutError handler above; reap the child on any cancellation/error, then re-raise
+            # so a cancelled judge run never leaks a zombie subprocess.
+            await _kill_and_reap(proc)
+            raise
         if proc.returncode != 0:
             raise RuntimeError(
                 f"claude CLI exit {proc.returncode}: {err.decode('utf-8', 'replace')[:300]}"

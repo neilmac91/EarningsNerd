@@ -4,6 +4,7 @@
 construction and verdict logic are provable without a model call. The backend-dispatch tests
 (`judge_backend`, `judge_summary`, and the `_judge_via_*` credential/subprocess paths) are also
 offline: they assert routing and graceful-degradation without any model call."""
+import asyncio
 import json
 
 import pytest
@@ -130,9 +131,13 @@ async def test_judge_summary_dispatches_by_model_id(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_anthropic_backend_missing_key_is_graceful(monkeypatch):
+    # Degrades to a FAIL-with-error, never a crash. Which error depends on the environment: the
+    # `anthropic` SDK is optional (absent in CI) → "SDK not installed"; present-but-no-key →
+    # "missing ANTHROPIC_API_KEY". Either is the graceful path this asserts.
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     v = await judge_mod._judge_via_anthropic("sys", "user", "claude-opus-4-8", 4096)
-    assert v.verdict == "FAIL" and "ANTHROPIC_API_KEY" in (v.error or "")
+    assert v.verdict == "FAIL"
+    assert ("ANTHROPIC_API_KEY" in (v.error or "")) or ("anthropic SDK not installed" in (v.error or ""))
 
 
 @pytest.mark.asyncio
@@ -225,3 +230,32 @@ async def test_cli_backend_error_result_is_reported(monkeypatch):
     monkeypatch.setattr(judge_mod.asyncio, "create_subprocess_exec", fake_exec)
     v = await judge_mod._judge_via_cli("sys", "user", "cli:opus", 4096)
     assert v.verdict == "FAIL" and v.error is not None
+
+
+@pytest.mark.asyncio
+async def test_cli_backend_reaps_subprocess_on_cancellation(monkeypatch):
+    """On task cancellation (CancelledError is a BaseException, not Exception), the child must be
+    killed and reaped — never left as a zombie — and the cancellation must still propagate."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "x")
+    reaped = {"kill": False, "wait": False}
+
+    class _CancelProc:
+        returncode = None
+
+        async def communicate(self, _stdin=None):
+            raise asyncio.CancelledError()
+
+        def kill(self):
+            reaped["kill"] = True
+
+        async def wait(self):
+            reaped["wait"] = True
+            return 0
+
+    async def fake_exec(*args, **kwargs):
+        return _CancelProc()
+
+    monkeypatch.setattr(judge_mod.asyncio, "create_subprocess_exec", fake_exec)
+    with pytest.raises(asyncio.CancelledError):
+        await judge_mod._judge_via_cli("sys", "user", "cli:sonnet", 4096)
+    assert reaped["kill"] and reaped["wait"]  # killed + reaped before re-raising
