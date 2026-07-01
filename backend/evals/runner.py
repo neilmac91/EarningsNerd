@@ -254,16 +254,20 @@ def _write_report(summary: Dict[str, Any], results: List[Dict[str, Any]]) -> Pat
 async def main(
     candidates: List[str], limit: Optional[int], allow_unverified: bool,
     runs: int = 1, pass_threshold: float = DEFAULT_PASS_THRESHOLD,
-    judge_model: Optional[str] = None,
+    judge_model: Optional[str] = None, forms: Optional[List[str]] = None,
 ) -> None:
     data = json.loads(GOLDEN_PATH.read_text())
     filings = [GoldenFiling.from_dict(e) for e in data["filings"]]
     runnable = [f for f in filings if f.document_url and (f.verified or allow_unverified)]
+    if forms:
+        wanted = {x.strip().upper() for x in forms}
+        runnable = [f for f in runnable if f.filing_type.upper() in wanted]
     if limit:
         runnable = runnable[:limit]
     if not runnable:
         print("No runnable golden filings. Run `python -m evals.build_golden_set` first "
-              "(or pass --allow-unverified once entries have document_url).")
+              "(or pass --allow-unverified once entries have document_url)"
+              f"{f'; no entries match --forms {sorted(forms)}' if forms else ''}.")
         return
     print(f"Running {candidates} over {len(runnable)} filings x {runs} run(s)"
           f"{f', judge={judge_model}' if judge_model else ''}...")
@@ -310,7 +314,11 @@ if __name__ == "__main__":
     parser.add_argument("--judge", default=None,
                         help="LLM-judge model id (e.g. claude-opus-4-8) for the secondary signal; "
                              "needs `pip install anthropic` + ANTHROPIC_API_KEY. Off by default.")
+    parser.add_argument("--forms", default=None,
+                        help="comma-separated filing types to include (e.g. '20-F' or '10-K,10-Q'); "
+                             "scores only matching golden entries. Cheap way to iterate on one form.")
     args = parser.parse_args()
     asyncio.run(main([c.strip() for c in args.candidates.split(",") if c.strip()],
                      args.limit, args.allow_unverified, runs=max(1, args.runs),
-                     pass_threshold=args.pass_threshold, judge_model=args.judge))
+                     pass_threshold=args.pass_threshold, judge_model=args.judge,
+                     forms=[x for x in args.forms.split(",") if x.strip()] if args.forms else None))
