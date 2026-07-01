@@ -14,6 +14,14 @@ so pressure-test the wording (design panel) for over-refusal/insight-loss before
 SUBSCRIPTION judge (`--judge cli:sonnet`, NOT the API key), counting causal/outlook G3 fabrication flags;
 faithfulness up, deterministic recall/precision/coverage no-regression (regression_gate). Then Wave 4b.
 
+**RESULTS (3 filings × 3 runs, cli:sonnet):** V1 (append caveats) = no effect (faith 3.00→3.11 flat,
+causal 6→8). V2 (reword lead directive conditional + DO-NOT prohibition) = causal ~6→~1, but mean flat
+(3.11) — fabrication REDISTRIBUTES. **V3 (V2 + a concrete no-cause EXAMPLE — reviewer suggestion) is the
+ship:** mean faithfulness **3.00→3.78**, OUTLOOK fabrications **→0**, runs-with-any-fabrication 8/9→4/9,
+deterministic PASS. The worked example unlocked the headline gain (see lessons.md). **Shipped V3.**
+**Next target (queued):** a "don't present a derived/aggregated figure as reported; don't infer tone"
+guardrail — the redistributed modes — which would also let the Wave-4a YoY amplifier return.
+
 ## Task #19 — Wave 4 (Copilot prose + golden set + XBRL amplifiers), eval-gated
 Judge is now wired (Task #18, merged in #486), so Wave 4 can be judged cheaply. Sequenced as two
 reviewable, separately-gated slices:
