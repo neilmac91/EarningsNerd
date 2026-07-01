@@ -1,5 +1,13 @@
 # Task: Sharpen the AI reports via eval-gated prompt-prose waves (post-council activation)
 
+## Task #23 — Revive YoY amplifier (guarded) — TESTED, DROPPED (no ship)
+Revived the Wave-4a YoY% amplifier under the now-merged guardrail and re-judged (cli:sonnet, 3×3).
+The guardrail prevents the old 4→2 crash (faithfulness held ~3.78), but YoY gives NO measurable gain
+and still tempts causal fabrication on salient deltas (full-YoY: capex; Option-B-minus-cashflow: geo).
+Neutral-with-downside ⇒ reverted, not shipped (reputation-first). Full analysis in lessons.md.
+
+## Task #22 — Redistribution guardrail — TESTED, DROPPED (no ship; see lessons.md / PR #493)
+
 ## Task #21 — Faithfulness guardrail (driver/outlook groundedness), eval-gated — guardrail-first
 **Why:** the #487 judge-view fix revealed the *baseline* model fabricates causal/outlook claims the
 source doesn't support (invents forward guidance a 10-K never gives; attributes a cash-flow change to a

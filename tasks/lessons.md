@@ -247,3 +247,42 @@ egregious pattern but the *example* (V3) is what lifted the headline: the model 
 output far more reliably than it obeys an abstract rule. **Rule:** when a directive tells the model to
 sometimes-omit something, give a concrete example of the omitting-output — a rule + its worked example
 beats the rule alone by a wide margin. (Cost: it took a 4th judged sweep to see it; worth it.)
+
+## 2026-07-01 — Redistribution guardrail did NOT pan out — know when to stop tuning prose
+After the driver/outlook win, I tried a follow-up guardrail for the modes fabrication redistributed
+into: derived-figure-as-reported (a segment's % of total, a "total debt" summed from components) and
+inferred "tone". Added two DO-NOT bullets + worked examples to all three prompts, judged before(V3=3.78)
+/after(redist). Result: **no improvement** — OTHER-mode flags unchanged (12→12), mean faithfulness
+3.78→3.56 (noise/slight drag), runs-with-G3 4/9→6/9. The targeted modes PERSISTED verbatim ("total
+debt (term + commercial paper) = $98.7B", "26.2% of total sales"). Reverted; did not ship. **Why it
+failed / lessons:** (1) unlike the driver directive (which I moved into the salient LEAD instruction), a
+DO-NOT bullet is buried and loses to the model's pull to synthesize — the same V1 failure mode. (2) The
+category is HETEROGENEOUS (debt roll-ups, segment %, dividend-per-quarter, liquidity, plus genuine
+arithmetic errors) — no single guardrail moves a grab-bag, and "mark as derived" can't fix a wrong sum.
+(3) CRUCIAL: the 10-K prompt itself INSTRUCTS "Total Debt = current portion + long-term debt", so the
+model's debt roll-up is prompt-COMPLIANT and useful — the judge just dings it on provenance. Suppressing
+prompt-requested, correct derivations is not a clear quality win. **Rule:** not every judge-flagged
+category is a prompt-prose problem. When (a) the flags are heterogeneous, (b) some are the model
+correctly following instructions the judge is merely strict about, and (c) a lesson-shaped fix (salient
++ example) would still only cover part — STOP tuning prose (CLAUDE.md: don't keep pushing). The residual
+belongs to a different lever (a deterministic "summary figure not traceable to XBRL/filing" provenance
+check, Wave 5) or is simply the floor. The driver/outlook guardrail captured the high-leverage,
+coherent fabrication category; faithfulness 3.00→3.78 is the banked win.
+
+## 2026-07-01 — Revived the YoY amplifier under the guardrail, re-judged, and DROPPED it again
+The Wave-4a YoY% amplifier (append "YoY: +X%" to grounding rows) was dropped for inducing fabricated
+cash-flow drivers. Hypothesis: now that the driver-groundedness guardrail is merged, YoY is safe to
+revive. Tested it hard (subscription cli:sonnet, 3×3), before(guardrail,no-YoY) vs two variants:
+- **full YoY** (all rows): faithfulness held at 3.78 (the guardrail DID prevent the old 4→2 crash), but
+  causal fabrications rose 2→4 — incl. a capex "reflecting investment in manufacturing" the YoY delta
+  invited. Runs-flagged 4/9→6/9.
+- **Option B** (YoY off the 5 cash-flow/capex rows — the volatile, filing-unexplained deltas): 3.44,
+  causal 3 (incl. a geographic "reflecting export controls" fabrication), 7/9 flagged.
+At n=9 the faithfulness numbers (3.78/3.78/3.44) and causal counts (2/4/3) all overlap within noise —
+so the robust reading is: **YoY gives NO measurable faithfulness or deterministic gain** (a YoY% isn't
+a scored fact; the block already shows current+prior so the reader sees the trend), while it reliably
+tempts the model to attribute a CAUSE to whichever delta it makes salient — a risk the guardrail only
+partly catches. **Rule:** an amplifier that adds no measurable quality but adds any fabrication risk is
+a bad trade for a trust-critical product — don't ship it, however "nice" it seems. The guardrail
+prevents the catastrophe but doesn't license reintroducing the trigger. Reverted; recorded. (Founder
+call, reputation-first: neutral-with-downside ⇒ no ship.)
