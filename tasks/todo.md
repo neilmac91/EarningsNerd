@@ -18,15 +18,32 @@ LLM judge for qualitative dims). Full plan: `~/.claude/plans/act-as-an-expert-ad
       CI WARN-gated) + made the LLM judge reliable (no temperature, max_tokens 4096, json_repair, retry)
       + re-pinned baseline with `mean_specificity=0.9857`. (#481)
 
-## In progress — Wave 2 (narrative quality), judge-gated
-- [x] Add to 10-K/10-Q/20-F analyst prompts: "What changed & why" driver directive (management's causal
-      language), anti-boilerplate specificity (discourages exactly the phrases `score_specificity` flags),
-      risk-factor materiality filter (company-specific/quantified only).
-- [x] Verify all forms still load (prompt_loader); 6-K intentionally unchanged.
-- [ ] Judge **before** baseline on current prompts (running, `--runs 3 --judge`).
-- [ ] Judge **after** on the Wave 2 prompts; compare before/after (insight/specificity/clarity hold-or-improve).
-- [ ] Deterministic gate: `mean_specificity` ↑, no recall/precision/coverage regression (`regression_gate`).
-- [ ] Run full pytest + ruff; commit; push; open draft PR; founder review/merge.
+## Wave 2 (narrative quality), judge-gated — COMPLETE, shipping
+- [x] Add to 10-K/10-Q/20-F analyst prompts: "What changed & why" driver directive, anti-boilerplate
+      specificity, risk-factor materiality filter. Verified all forms load (6-K unchanged).
+- [x] Judge before/after (DeepSeek, `--runs 3 --judge`) + GLM bake-off, all 78 runs each, 0 errors.
+- [x] **Result:** regression gate GREEN — recall +0.009, precision/coverage/gate_fail held,
+      specificity flat (−0.0012; deterministic scorer saturated ~0.99). Judge specificity +0.074,
+      insight +0.058 (before/after delta valid; both old-cap). No regression anywhere; small positive.
+- [x] Deterministic specificity target didn't move (scorer near-ceiling) → Wave 2 is a
+      **no-regression prose refinement**, NOT re-pinning baseline (re-pin only on a locked gain).
+- [x] Full pytest (818 unit) + ruff + bandit GREEN. Push + draft PR.
+- [ ] (Optional, ~$50, founder call) Fixed-cap authoritative judged run on the Wave-2 config for
+      trustworthy faithfulness/insight numbers now that the judge sees the full excerpt (528827a).
+
+## MAJOR finding this session — judge truncation artifact (FIXED, 528827a)
+- Judge saw `excerpt[:60000]` while the model grounds on the full ~124–165k excerpt → real
+  deep-filing facts (buybacks/dividends/segment revenue, late in a 10-K) were false-flagged as G3
+  hallucinations, driving faithfulness to 1.96 / judge_pass 0 across all 78 runs — despite
+  deterministic numeric_precision 1.0. Proved on AAPL FY25 ($100B buyback at char 73,895, past 60k).
+  Raised cap to 200k; verified faithfulness 2→4, insight 3→4 on the same summary. **The pipeline was
+  never hallucinating; the judge was under-contexted.**
+
+## GLM-5.2 vs DeepSeek bake-off — COMPLETE (see tasks/glm-5.2-bakeoff.md)
+- [x] Full-pipeline env-swap, judge-on, identical Wave-2 prompts. **Quality dead-heat** (deltas within
+      noise; both perfect on precision/coverage/gates; 0/78 errors). DeepSeek ~48% faster, ~3.5×
+      cheaper. **Decision: stay on DeepSeek; keep GLM-5.2 as a validated env-swap failover.**
+- [x] Generalized reasoning-model thinking-disable to GLM/z.ai (264eb65; DeepSeek/Gemini unchanged).
 
 ## Method / guardrails (CLAUDE.md)
 - Eval-gate every wave (deterministic no-regression + judge hold-or-improve). Re-pin baseline on a locked gain.
