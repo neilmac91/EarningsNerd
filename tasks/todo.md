@@ -1,6 +1,36 @@
 # Task: Sharpen the AI reports via eval-gated prompt-prose waves (post-council activation)
 
-## Task #18 — Two-tier judge wiring (measure Wave 4 cheaply) — DONE, shipping
+## Task #19 — Wave 4 (Copilot prose + golden set + XBRL amplifiers), eval-gated
+Judge is now wired (Task #18, merged in #486), so Wave 4 can be judged cheaply. Sequenced as two
+reviewable, separately-gated slices:
+
+### Wave 4a — XBRL grounding: amplifiers + a judge-view fix — DONE, shipping
+- [x] **FCF relabel** → "Free Cash Flow (OCF - CapEx)" (names the derivation for the model).
+- [x] **Working-capital fallback**: when `working_capital` is untagged, derive it from
+      Current Assets - Current Liabilities per period (labeled as derived).
+- [x] **Judge-view fix** (`evals/runner._xbrl_to_text` 8k→40k): the judge saw `json.dumps(metrics)[:8000]`
+      and false-flagged the ~1/3 of metrics past the cut (FCF/ROE/ROA/WC/current ratio) as G3
+      hallucinations. Same class as the 60k-excerpt bug. Pulled forward from Wave 5 because it blocks
+      trustworthy judging of ANY XBRL-grounded summary. +offline test.
+- [x] **YoY% amplifier — DROPPED.** A judged before/after (fixed judge) showed it induced *fabricated*
+      cash-flow causal drivers (faithfulness 4→2). Kept the raw prior-period figures (pre-existing),
+      dropped the pre-computed delta. See lessons.md; the driver-groundedness guardrail (which would
+      let YoY return) is queued as a prose-wave item.
+- [x] Gate: 45 offline unit tests; deterministic regression_gate PASS (3-filing live run: precision
+      1.0, coverage/depth/specificity 1.0, gate_fail 0, no regression); judged spot-check confirms
+      faithfulness holds without the YoY-induced fabrication.
+
+### Wave 4b — Copilot prose + golden-set expansion (copilot_service.py + copilot_golden_set.json)
+- [ ] Surgical prompt additions ONLY (prompt is already tool-first + refusal + verbatim + Item cites):
+      currency directive (render non-USD in reporting currency, never bare $); sharpen the
+      NOT_DISCLOSED explainer to name *where the figure would normally appear*; tool-fallback clarity
+      (if a tool returns not_disclosed, cite the filing's own stated figure verbatim or refuse — never
+      substitute memory/arithmetic); Wave-2 driver directive (state the cited primary driver).
+- [ ] Expand copilot_golden_set.json 1→~5: add a 20-F currency case + an 8-K guidance-refusal case
+      (verified against EDGAR). Note: live copilot_runner needs ingested filings; the deterministic
+      unit gates (test_copilot_evals.py) run offline in CI regardless.
+
+## Task #18 — Two-tier judge wiring (measure Wave 4 cheaply) — DONE, merged (#486)
 - [x] `evals/judge.py`: dispatch `judge_summary` on the model id via `judge_backend()` →
       three backends, existing Opus path refactored (behaviour unchanged):
       - `claude-*` → **anthropic SDK** (`ANTHROPIC_API_KEY`, API credits) — DEFAULT, authoritative.

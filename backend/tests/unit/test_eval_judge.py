@@ -10,6 +10,7 @@ import json
 import pytest
 
 import evals.judge as judge_mod
+from evals.runner import _XBRL_TEXT_CHAR_CAP, _xbrl_to_text
 from evals.judge import (
     JudgeVerdict,
     build_judge_messages,
@@ -86,6 +87,34 @@ def test_build_judge_messages_includes_source_and_summary():
     assert "Net sales were $10 billion" in user  # source excerpt present → judge can verify
     assert "Revenue grew" in user  # summary under test present
     assert "G2" in user and "G3" in user  # gate instructions present
+
+
+# --- judge XBRL-view fidelity (the _xbrl_to_text cap) --------------------------------------
+
+def test_xbrl_to_text_does_not_truncate_full_metric_set():
+    """The judge must see EVERY standardized metric the generator grounds on. A metric-rich filer
+    (AAPL FY25 = ~12.2k chars of metrics JSON) previously overran the old 8,000-char cap, dropping
+    late keys (free_cash_flow, ROE/ROA, working capital, current ratio) out of the judge's view and
+    triggering false G3 'hallucination' flags. Assert the late keys survive."""
+    metrics = {"reporting_currency": "USD"}
+
+    def _period(v):
+        # Mirror the real extracted shape (value/period/unit/raw_tag) so the JSON size is realistic.
+        return {"value": v, "period": "2025-09-27", "unit": "USD",
+                "raw_tag": "us-gaap:SomeStandardizedConceptName"}
+
+    # 40 metrics each with current+prior comfortably exceeds the old 8k cap (like AAPL FY25's ~12k).
+    for i in range(40):
+        metrics[f"metric_{i:02d}"] = {"current": _period(123456789012.0 + i),
+                                      "prior": _period(111111111111.0 + i)}
+    # The keys that were being truncated out on the real AAPL run — appended LAST so they sit past 8k:
+    metrics["free_cash_flow"] = {"current": _period(98_767_000_000.0)}
+    metrics["return_on_assets"] = {"current": {"value": 31.2, "period": "2025-09-27", "unit": "pure"}}
+
+    text = _xbrl_to_text(metrics)
+    assert len(json.dumps(metrics, default=str)) > 8000  # would have been cut under the old cap
+    assert "free_cash_flow" in text and "return_on_assets" in text  # now visible to the judge
+    assert len(text) <= _XBRL_TEXT_CHAR_CAP  # still bounded against a corrupted/oversized dict
 
 
 # --- backend dispatch (offline; no model call) --------------------------------------------

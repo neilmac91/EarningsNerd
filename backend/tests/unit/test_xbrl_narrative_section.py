@@ -98,7 +98,10 @@ class TestBuildSection:
         assert "Working Capital" not in section
         assert "Not disclosed" not in section
 
-    def test_prior_period_yoy_appended_when_present(self):
+    def test_prior_period_appended_when_present(self):
+        # Prior-period context (pre-existing behaviour). NOTE: an explicit YoY % was trialled here but
+        # dropped — a judged before/after showed it induced the model to over-explain the now-salient
+        # cash-flow deltas with *fabricated* causal drivers (faithfulness 4→2). See tasks/lessons.md.
         section = build_xbrl_narrative_section({
             "revenue": {
                 "current": {"value": 391.0, "period": "2024-09-28"},
@@ -106,6 +109,40 @@ class TestBuildSection:
             }
         })
         assert "Revenue: $391 (period: 2024-09-28); prior: $383 (2023-09-30)" in section
+        assert "YoY:" not in section  # no derived comparative fed to the model (fabrication guard)
+
+    def test_free_cash_flow_label_names_the_derivation(self):
+        section = build_xbrl_narrative_section({"free_cash_flow": _cur(28_000_000.0)})
+        assert "Free Cash Flow (OCF - CapEx): $28,000,000" in section
+
+    def test_working_capital_fallback_derived_when_untagged(self):
+        # working_capital absent, but current assets/liabilities present → derive CA - CL, labeled.
+        section = build_xbrl_narrative_section({
+            "current_assets": {"current": {"value": 300.0, "period": "2024"},
+                               "prior": {"value": 250.0, "period": "2023"}},
+            "current_liabilities": {"current": {"value": 120.0, "period": "2024"},
+                                    "prior": {"value": 100.0, "period": "2023"}},
+        })
+        # derived value 300-120=180 current, 250-100=150 prior (no YoY suffix — see above)
+        assert "Working Capital (Current Assets - Current Liabilities): $180 (period: 2024)" in section
+        assert "prior: $150 (2023)" in section
+        assert "YoY:" not in section
+
+    def test_working_capital_direct_value_preferred_over_fallback(self):
+        # When the metric IS tagged, use it as-is with the plain "Working Capital" label (no derivation).
+        section = build_xbrl_narrative_section({
+            "working_capital": _cur(999.0),
+            "current_assets": _cur(300.0),
+            "current_liabilities": _cur(120.0),
+        })
+        assert "Working Capital: $999" in section
+        assert "Current Assets - Current Liabilities" not in section
+
+    def test_working_capital_fallback_skipped_when_side_missing(self):
+        # Only current assets present (no liabilities) → no derivation, no crash, no WC line.
+        section = build_xbrl_narrative_section({"current_assets": _cur(300.0)})
+        assert "Working Capital" not in section
+        assert "Current Assets: $300" in section
 
     def test_legacy_only_block_is_byte_for_byte(self):
         # The flag-OFF / pre-Phase-B narrative must be unchanged: with only legacy metrics present,

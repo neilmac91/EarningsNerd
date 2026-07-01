@@ -233,7 +233,7 @@ _XBRL_NARRATIVE_SPEC: list[tuple[str, str, str]] = [
     ("Investing Cash Flow", "investing_cash_flow", "usd"),
     ("Financing Cash Flow", "financing_cash_flow", "usd"),
     ("Capital Expenditures", "capital_expenditures", "usd"),
-    ("Free Cash Flow", "free_cash_flow", "usd"), ("Total Assets", "total_assets", "usd"),
+    ("Free Cash Flow (OCF - CapEx)", "free_cash_flow", "usd"), ("Total Assets", "total_assets", "usd"),
     ("Current Assets", "current_assets", "usd"),
     ("Current Liabilities", "current_liabilities", "usd"),
     ("Working Capital", "working_capital", "usd"),
@@ -257,12 +257,30 @@ def _format_xbrl_metric_value(value: Optional[float], kind: str) -> str:
     return f"${value:,.0f}"
 
 
+def _working_capital_fallback(xbrl_metrics: dict, which: str) -> Optional[dict]:
+    """Derive a working-capital {value, period} for period `which` ('current'|'prior') from Current
+    Assets - Current Liabilities. Working capital is frequently untagged in XBRL; this fallback keeps
+    the liquidity figure available to the summary. Returns None if either side is missing."""
+    ca = xbrl_metrics.get("current_assets")
+    cl = xbrl_metrics.get("current_liabilities")
+    if not isinstance(ca, dict) or not isinstance(cl, dict):
+        return None
+    ca_p, cl_p = ca.get(which), cl.get(which)
+    if not isinstance(ca_p, dict) or not isinstance(cl_p, dict):
+        return None
+    ca_v, cl_v = ca_p.get("value"), cl_p.get("value")
+    if not isinstance(ca_v, (int, float)) or not isinstance(cl_v, (int, float)):
+        return None
+    return {"value": ca_v - cl_v, "period": ca_p.get("period", "N/A")}
+
+
 def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
     """Build the "XBRL STANDARDIZED FINANCIAL DATA" grounding block from standardized metrics.
 
-    Emits one line per `_XBRL_NARRATIVE_SPEC` entry that has a current value (with prior-period
-    YoY context when present); whitelisted-but-absent metrics are skipped. Returns "" when there is
-    nothing to surface, so the prompt is byte-for-byte unchanged for filings without metrics.
+    Emits one line per `_XBRL_NARRATIVE_SPEC` entry that has a current value; whitelisted-but-absent
+    metrics are skipped. Returns "" when there is nothing to surface, so the prompt is byte-for-byte
+    unchanged for filings without metrics. The prior period is shown when present, and working
+    capital is derived from Current Assets - Current Liabilities when untagged.
     """
     if not isinstance(xbrl_metrics, dict):
         return ""
@@ -272,13 +290,21 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
         # but this is a reusable helper in the summary hot path — a non-dict entry/current/prior (a
         # future upstream change or a corrupted cache) must skip, not raise an AttributeError.
         entry = xbrl_metrics.get(key)
-        if not isinstance(entry, dict):
-            continue
-        current = entry.get("current")
+        current = entry.get("current") if isinstance(entry, dict) else None
+        prior = entry.get("prior") if isinstance(entry, dict) else None
+
+        # Working-capital fallback: XBRL often doesn't tag working capital directly. When it's absent
+        # but current assets/liabilities are present, derive it (CA - CL) per period and name the
+        # derivation in the label so the model doesn't over-claim it as a reported line item.
+        if key == "working_capital" and (not isinstance(current, dict) or current.get("value") is None):
+            derived_current = _working_capital_fallback(xbrl_metrics, "current")
+            if derived_current is not None:
+                current, prior = derived_current, _working_capital_fallback(xbrl_metrics, "prior")
+                label = "Working Capital (Current Assets - Current Liabilities)"
+
         if not isinstance(current, dict) or current.get("value") is None:
             continue
         line = f"- {label}: {_format_xbrl_metric_value(current.get('value'), kind)} (period: {current.get('period', 'N/A')})"
-        prior = entry.get("prior")
         if isinstance(prior, dict) and prior.get("value") is not None:
             line += f"; prior: {_format_xbrl_metric_value(prior.get('value'), kind)} ({prior.get('period', 'N/A')})"
         rows.append(line)
