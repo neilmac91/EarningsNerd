@@ -50,13 +50,23 @@ def _grounding_user_prompt(
     )
 
 
+# The judge (and non-baseline candidate prompts) must see the FULL standardized-metric set the
+# generator grounds on. The old 8,000-char cap truncated ~1/3 of the metrics mid-dict for a
+# metric-rich filer (AAPL FY25 = 12,244 chars), so late keys (free_cash_flow, ROE/ROA, working
+# capital, current ratio) fell out of the judge's view and were false-flagged as G3 hallucinations —
+# the same class of judge blind-spot as the 60k→200k excerpt truncation. The full metrics JSON is
+# small (~12-15k) and the judge already carries a 200k excerpt budget, so a generous cap fits every
+# observed filer while still bounding a corrupted/oversized dict.
+_XBRL_TEXT_CHAR_CAP = 40_000
+
+
 def _xbrl_to_text(metrics: Optional[Dict[str, Any]]) -> str:
     if not metrics:
         return ""
     try:
-        return json.dumps(metrics, default=str)[:8000]
+        return json.dumps(metrics, default=str)[:_XBRL_TEXT_CHAR_CAP]
     except (TypeError, ValueError):
-        return str(metrics)[:8000]
+        return str(metrics)[:_XBRL_TEXT_CHAR_CAP]
 
 
 async def _get_grounding(filing: GoldenFiling) -> Dict[str, Any]:

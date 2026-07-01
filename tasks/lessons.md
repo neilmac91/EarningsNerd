@@ -188,3 +188,34 @@ go/no-go on a user-facing launch, inspect the worst per-item cases, not just the
 `score_currency_consistency` (bare-`$` on non-USD filers; US$/NT$/HK$ excluded via letter-lookbehind;
 native counted via a currency-alias map since CNY renders "RMB", TWD renders "NT$"). WARN-gated, not
 hard — the slip is intermittent and a hard gate would flake CI until the underlying model slip is fixed.
+
+## 2026-07-01 — The judge's XBRL view was ALSO truncated (json.dumps[:8000]) — a second blind-spot
+Wave 4a judged spot-check FAILed AAPL with faithfulness 2 and G3 "hallucination" flags on Free Cash
+Flow, ROE/ROA, working capital and current ratio — all figures the model legitimately grounds on. A
+probe settled it: the full standardized-metrics JSON is 12,244 chars, but `evals/runner._xbrl_to_text`
+capped the judge's XBRL view at 8,000 (`json.dumps(metrics)[:8000]`), so ~1/3 of the metrics (the
+*late* dict keys — FCF/ROE/ROA/WC/current ratio) fell out of the judge's view and were flagged as
+unsupported. Same class of bug as the 60k-excerpt truncation, different channel (the XBRL block, not
+the filing excerpt). Fix: raised the cap to 40,000 (`_XBRL_TEXT_CHAR_CAP`); the metrics JSON is small
+and the judge already carries a 200k excerpt budget. **Rule:** the judge-context lesson applies to
+EVERY channel the generator grounds on, not just the filing text — audit each source the generator
+sees (excerpt AND XBRL AND any tool output) for its own truncation cap. When the judge flags a figure
+you *know* is in the grounding, dump exactly what the judge received and check for a truncation
+boundary before believing a regression.
+
+## 2026-07-01 — Feeding the model pre-computed deltas (YoY%) induced FABRICATED causal drivers
+Wave 4a trialled appending an explicit "YoY: +X%" to each monetary grounding row (derived from the two
+SEC-verified current/prior values — genuinely grounded). A judged before/after on AAPL (with the
+now-fixed judge view, so the comparison was clean) was unambiguous: WITHOUT the YoY suffix faithfulness
+was 4 and the cash-flow narrative was clean; WITH it faithfulness dropped to 2 and the model produced
+two *fabricated* cash-flow causal attributions ("OCF fell due to higher tax payments"; "investing CF
+turned positive as maturities increased") that directly contradicted the source cash-flow statement.
+Mechanism: the salient delta (esp. investing CF +417.7%) + the Wave-2 "state the driver" directive =
+the model invents a driver to explain the number. `numeric_precision` stayed 1.0 (no wrong *number*),
+so only the judge caught it. **Rule:** a "figure amplifier" that surfaces a DERIVED comparative is not
+faithfulness-neutral when the prompt also asks the model to explain changes — it manufactures
+explanations. Ship the raw current/prior figures (let the reader/model see the trend) but DON'T
+pre-chew deltas into the grounding unless paired with a groundedness guardrail ("attribute a cause
+ONLY when the filing states it"). Dropped YoY for Wave 4a; kept the FCF relabel + working-capital
+fallback (pure grounding, no delta-to-explain) + the judge-view fix. The driver-guardrail (which would
+let YoY return safely) is the real prize — queued as a prose-wave item.
