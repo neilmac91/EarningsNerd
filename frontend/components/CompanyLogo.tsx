@@ -5,14 +5,15 @@ import Image from 'next/image'
 
 const LOGO_DEV_TOKEN = process.env.NEXT_PUBLIC_LOGO_DEV_TOKEN
 
-function initialsFor(ticker: string): string {
+function initialsFor(ticker: string | null | undefined): string {
+  if (!ticker) return '?'
   const letters = ticker.replace(/[^A-Za-z]/g, '')
   return (letters.slice(0, 2) || ticker.slice(0, 2) || '?').toUpperCase()
 }
 
 interface CompanyLogoProps {
   /** Stock ticker — the only required identity we key logos off everywhere. */
-  ticker: string
+  ticker: string | null | undefined
   /** Full company name, used for the accessible label when available. */
   name?: string | null
   /** Diameter in px. Both the monogram and the real logo render at this fixed size. */
@@ -40,7 +41,7 @@ export default function CompanyLogo({
   const [failed, setFailed] = useState(false)
 
   const showImage = Boolean(LOGO_DEV_TOKEN) && Boolean(ticker) && !failed
-  const label = name ? `${name} logo` : `${ticker} logo`
+  const label = name ? `${name} logo` : `${ticker || 'Company'} logo`
 
   return (
     <span
@@ -58,11 +59,11 @@ export default function CompanyLogo({
       >
         {initialsFor(ticker)}
       </span>
-      {showImage && (
+      {showImage && ticker && (
         <Image
           // format=png (broad support) at 2x the render size for retina; Logo.dev is ticker-keyed
-          // so no ticker→domain resolution step is needed.
-          src={`https://img.logo.dev/ticker/${encodeURIComponent(ticker)}?token=${LOGO_DEV_TOKEN}&size=${size * 2}&format=png&retina=true`}
+          // so no ticker→domain resolution step is needed. Uppercased for consistent CDN cache keys.
+          src={`https://img.logo.dev/ticker/${encodeURIComponent(ticker.toUpperCase())}?token=${LOGO_DEV_TOKEN}&size=${size * 2}&format=png&retina=true`}
           alt=""
           aria-hidden="true"
           width={size}
