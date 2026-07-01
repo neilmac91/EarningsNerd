@@ -342,6 +342,16 @@ def _resolve_citations(
 
     for match in re.finditer(r"\[(F?\s*\d+)\]", full_answer, re.IGNORECASE):
         key = re.sub(r"\s+", "", match.group(1)).upper()
+
+        # A marker cited more than once (e.g. "[F1]" mentioned twice) just reuses the number from
+        # its first appearance — skip straight to rewriting, no need to re-resolve it.
+        n = assigned.get(key)
+        if n is not None:
+            pieces.append(full_answer[cursor:match.start()])
+            pieces.append(f"[{n}]")
+            cursor = match.end()
+            continue
+
         citation = text_citations_by_marker.get(key)
         if citation is None:
             fact = facts_by_marker.get(key)
@@ -351,13 +361,11 @@ def _resolve_citations(
             continue  # not a real, resolvable citation — leave the literal bracket text untouched
 
         pieces.append(full_answer[cursor:match.start()])
-        n = assigned.get(key)
-        if n is None:
-            n = len(resolved) + 1
-            assigned[key] = n
-            resolved.append(citation)
-            if citation["verified"]:
-                grounded += 1
+        n = len(resolved) + 1
+        assigned[key] = n
+        resolved.append(citation)
+        if citation["verified"]:
+            grounded += 1
         pieces.append(f"[{n}]")
         cursor = match.end()
 
