@@ -6,18 +6,18 @@ vi.mock('@/lib/api/client', () => ({
   ApiError: class ApiError extends Error {},
 }))
 
-import { getFundamentals } from '@/features/fundamentals/api/fundamentals-api'
+import { getFilingFundamentals } from '@/features/fundamentals/api/fundamentals-api'
 
-describe('getFundamentals', () => {
+describe('getFilingFundamentals', () => {
   beforeEach(() => get.mockReset())
 
-  it('calls the company fundamentals endpoint and returns data', async () => {
+  it('calls the filing fundamentals endpoint and returns data', async () => {
     const payload = { ticker: 'AAPL', company_name: 'Apple Inc.', concepts: [] }
     get.mockResolvedValue({ data: payload })
 
-    const res = await getFundamentals('aapl')
+    const res = await getFilingFundamentals(285)
 
-    expect(get).toHaveBeenCalledWith('/api/companies/aapl/fundamentals')
+    expect(get).toHaveBeenCalledWith('/api/filings/285/fundamentals')
     expect(res).toEqual(payload)
   })
 })

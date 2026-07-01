@@ -1,7 +1,7 @@
 import api from '@/lib/api/client'
 
 // Mirrors the backend `FundamentalsResponse` (backend/app/schemas/fundamentals.py),
-// served by GET /api/companies/{ticker}/fundamentals from the financial_fact table.
+// served by GET /api/filings/{id}/fundamentals from the financial_fact table.
 export interface FundamentalPoint {
   period_end: string | null
   fiscal_year: number | null
@@ -24,12 +24,6 @@ export interface FundamentalsResponse {
   ticker: string
   company_name: string
   concepts: FundamentalSeries[]
-}
-
-// Company-wide latest (`is_latest`) annual series — the company page's trend.
-export const getFundamentals = async (ticker: string): Promise<FundamentalsResponse> => {
-  const response = await api.get(`/api/companies/${encodeURIComponent(ticker)}/fundamentals`)
-  return response.data
 }
 
 // Filing-scoped series — the multi-year figures *as reported in this specific filing* (roadmap B),

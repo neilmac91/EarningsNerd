@@ -18,7 +18,7 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Company, Filing, FinancialFact
+from app.models import Filing, FinancialFact
 
 logger = logging.getLogger(__name__)
 
@@ -676,46 +676,18 @@ def _fundamentals_payload(ticker: str, company_name: str, rows) -> dict[str, Any
     }
 
 
-def get_fundamentals(db: Session, ticker: str) -> Optional[dict[str, Any]]:
-    """Current (``is_latest``) **annual** facts for a ticker, grouped into per-concept time-series.
-
-    Returns ``None`` when the ticker isn't a known company. Each concept's points are ordered oldest
-    → newest so a chart can render the trend directly.
-
-    Restricted to ``fiscal_period == "FY"`` (the annual-report periods — 10-K / 20-F / 40-F; see
-    ``_fiscal_period``). The backfill ingests every XBRL-bearing filing, so a company that has filed
-    10-Qs also carries quarterly facts (``fiscal_period`` is ``None``). Without this filter a 3-month
-    quarterly value would surface alongside the full-year value for the same ``fiscal_year`` — a
-    quarterly bar masquerading as an annual one under the chart's "Annual figures" label. Annual-only
-    keeps the series an honest year-over-year trend, and fixes both the filing and company pages,
-    which share this read path.
-    """
-    company = db.query(Company).filter(Company.ticker == (ticker or "").upper()).first()
-    if company is None:
-        return None
-
-    rows = (
-        db.query(FinancialFact)
-        .filter(
-            FinancialFact.company_id == company.id,
-            FinancialFact.is_latest.is_(True),
-            FinancialFact.fiscal_period == "FY",
-        )
-        .order_by(FinancialFact.concept.asc(), FinancialFact.period_end.asc())
-        .all()
-    )
-
-    return _fundamentals_payload(company.ticker, company.name, rows)
-
-
 def get_filing_fundamentals(db: Session, filing_id: int) -> Optional[dict[str, Any]]:
     """Annual (FY) facts **as reported in a single filing**, grouped into per-concept time-series.
 
     Filing-scoped (roadmap B): keyed by ``filing_id`` with **no** ``is_latest`` filter, so the chart
     shows the multi-year figures *this specific filing* disclosed (its comparative years) — an
-    immutable snapshot faithful to the document, even if a later filing restated a period. Contrast
-    ``get_fundamentals`` (the company-wide, restatement-safe *latest* series). Returns ``None`` when
-    the filing doesn't exist; ``fiscal_period == "FY"`` so the "Annual figures" footnote holds.
+    immutable snapshot faithful to the document, even if a later filing restated a period. Restricted
+    to ``fiscal_period == "FY"`` (the annual-report periods — 10-K / 20-F / 40-F; see
+    ``_fiscal_period``): the backfill ingests every XBRL-bearing filing, so a company that has filed
+    10-Qs also carries quarterly facts (``fiscal_period`` is ``None``), and without this filter a
+    3-month quarterly value would surface alongside the full-year value for the same ``fiscal_year`` —
+    a quarterly bar masquerading as an annual one under the chart's "Annual figures" label. Returns
+    ``None`` when the filing doesn't exist.
     """
     filing = (
         db.query(Filing).options(joinedload(Filing.company)).filter(Filing.id == filing_id).first()

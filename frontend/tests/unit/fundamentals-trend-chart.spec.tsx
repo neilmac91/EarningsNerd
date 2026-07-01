@@ -13,20 +13,18 @@ vi.mock('recharts', () => ({
   Tooltip: () => null,
 }))
 
-const getFundamentals = vi.fn()
 const getFilingFundamentals = vi.fn()
 vi.mock('@/features/fundamentals/api/fundamentals-api', () => ({
-  getFundamentals: (...args: unknown[]) => getFundamentals(...args),
   getFilingFundamentals: (...args: unknown[]) => getFilingFundamentals(...args),
 }))
 
 import FundamentalsTrendChart from '@/features/fundamentals/components/FundamentalsTrendChart'
 
-function renderChart(ticker = 'AAPL') {
+function renderChart(filingId = 285, subtitle?: string) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   return render(
     <QueryClientProvider client={qc}>
-      <FundamentalsTrendChart ticker={ticker} />
+      <FundamentalsTrendChart filingId={filingId} subtitle={subtitle} />
     </QueryClientProvider>,
   )
 }
@@ -54,12 +52,11 @@ const RESP = {
 
 describe('FundamentalsTrendChart', () => {
   beforeEach(() => {
-    getFundamentals.mockReset()
     getFilingFundamentals.mockReset()
   })
 
   it('shows only featured concepts present in the response, defaulting to the first', async () => {
-    getFundamentals.mockResolvedValue(RESP)
+    getFilingFundamentals.mockResolvedValue(RESP)
     renderChart()
 
     // Wait on a data-driven button (the heading also shows during loading).
@@ -71,10 +68,11 @@ describe('FundamentalsTrendChart', () => {
     expect(screen.getByTestId('fundamentals-chart')).toBeInTheDocument()
     // Clean data → no honesty badge.
     expect(screen.queryByText('Unverified')).not.toBeInTheDocument()
+    expect(getFilingFundamentals).toHaveBeenCalledWith(285)
   })
 
   it('shows the Unverified badge when the active series has a flagged value', async () => {
-    getFundamentals.mockResolvedValue({
+    getFilingFundamentals.mockResolvedValue({
       ticker: 'AAPL',
       company_name: 'Apple Inc.',
       concepts: [
@@ -87,7 +85,7 @@ describe('FundamentalsTrendChart', () => {
   })
 
   it('switches the active metric on click', async () => {
-    getFundamentals.mockResolvedValue(RESP)
+    getFilingFundamentals.mockResolvedValue(RESP)
     renderChart()
 
     const netMargin = await screen.findByRole('button', { name: 'Net Margin' })
@@ -97,31 +95,31 @@ describe('FundamentalsTrendChart', () => {
     expect(screen.getByRole('button', { name: 'Revenue' })).toHaveAttribute('aria-pressed', 'false')
   })
 
-  it('renders nothing once loaded for a company with no facts', async () => {
-    getFundamentals.mockResolvedValue({ ticker: 'AAPL', company_name: 'Apple Inc.', concepts: [] })
+  it('renders nothing once loaded for a filing with no facts', async () => {
+    getFilingFundamentals.mockResolvedValue({ ticker: 'AAPL', company_name: 'Apple Inc.', concepts: [] })
     renderChart()
 
     await waitFor(() => expect(screen.queryByText('Financial Trends')).not.toBeInTheDocument())
   })
 
   it('shows the optional subtitle when provided, and omits it by default', async () => {
-    getFundamentals.mockResolvedValue(RESP)
+    getFilingFundamentals.mockResolvedValue(RESP)
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const { rerender } = render(
       <QueryClientProvider client={qc}>
-        <FundamentalsTrendChart ticker="AAPL" subtitle="AAPL across recent fiscal years" />
+        <FundamentalsTrendChart filingId={285} subtitle="AAPL — figures as reported in this 10-K" />
       </QueryClientProvider>,
     )
-    expect(await screen.findByText('AAPL across recent fiscal years')).toBeInTheDocument()
+    expect(await screen.findByText('AAPL — figures as reported in this 10-K')).toBeInTheDocument()
 
-    // Default (no subtitle) — the company-page usage — renders no context line.
+    // No subtitle prop → no context line.
     rerender(
       <QueryClientProvider client={qc}>
-        <FundamentalsTrendChart ticker="AAPL" />
+        <FundamentalsTrendChart filingId={285} />
       </QueryClientProvider>,
     )
     await waitFor(() =>
-      expect(screen.queryByText('AAPL across recent fiscal years')).not.toBeInTheDocument(),
+      expect(screen.queryByText('AAPL — figures as reported in this 10-K')).not.toBeInTheDocument(),
     )
   })
 
@@ -141,12 +139,7 @@ describe('FundamentalsTrendChart', () => {
         { concept: 'current_ratio', unit: 'pure', points: [point(2023, 1.5, 'pure')] },
       ],
     })
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    render(
-      <QueryClientProvider client={qc}>
-        <FundamentalsTrendChart filingId={285} />
-      </QueryClientProvider>,
-    )
+    renderChart()
 
     expect(await screen.findByRole('button', { name: 'Investing Cash Flow' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Financing Cash Flow' })).toBeInTheDocument()
@@ -156,18 +149,12 @@ describe('FundamentalsTrendChart', () => {
     expect(screen.getByRole('button', { name: 'Current Ratio' })).toBeInTheDocument()
   })
 
-  it('filing-scoped mode fetches by filingId (roadmap B), not by ticker', async () => {
+  it('fetches by filingId (roadmap B), not any company-wide endpoint', async () => {
     getFilingFundamentals.mockResolvedValue(RESP)
-    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-    render(
-      <QueryClientProvider client={qc}>
-        <FundamentalsTrendChart filingId={285} subtitle="LLY — figures as reported in this 10-K" />
-      </QueryClientProvider>,
-    )
+    renderChart(285, 'LLY — figures as reported in this 10-K')
 
     expect(await screen.findByRole('button', { name: 'Revenue' })).toBeInTheDocument()
     expect(screen.getByText('LLY — figures as reported in this 10-K')).toBeInTheDocument()
     expect(getFilingFundamentals).toHaveBeenCalledWith(285)
-    expect(getFundamentals).not.toHaveBeenCalled() // filing-scoped, never the company endpoint
   })
 })

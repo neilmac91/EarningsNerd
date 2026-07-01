@@ -98,11 +98,13 @@ const getFriendlyErrorMessage = (error: unknown): string | null => {
 }
 
 // --- Components ---
-// Multi-period fundamentals trend (item 2.5), reused from the company page. recharts is heavy +
-// DOM-only, so load it client-side like the other charts. It self-fetches and renders nothing until
-// facts exist, so no loading fallback (which would flash an empty card before it decides). This is
-// the page's single financial chart — it replaced the older current-vs-prior FinancialCharts, whose
-// bar chart duplicated this one's metrics; the FinancialMetricsTable below still shows the numbers.
+// Multi-period fundamentals trend (item 2.5), filing-scoped only — the company page no longer shows
+// a company-wide trend (it would "refresh" on every new filing rather than reflect this document).
+// recharts is heavy + DOM-only, so load it client-side like the other charts. It self-fetches and
+// renders nothing until facts exist, so no loading fallback (which would flash an empty card before
+// it decides). This is the page's single financial chart — it replaced the older current-vs-prior
+// FinancialCharts, whose bar chart duplicated this one's metrics; the FinancialMetricsTable below
+// still shows the numbers.
 const FundamentalsTrendChart = dynamic(
   () => import('@/features/fundamentals/components/FundamentalsTrendChart'),
   { ssr: false },
@@ -1329,8 +1331,7 @@ function SummaryDisplay({
 
           {/* 2.5 + roadmap B: multi-period trend of the standardized fundamentals (revenue/NI/EPS/…)
               *as reported in this filing* — the filing's own comparative years, an immutable snapshot
-              faithful to the document (filing-scoped, not the company's latest series). Self-fetches +
-              self-gates (renders nothing until facts exist); behind the same flag as the company chart. */}
+              faithful to the document. Self-fetches + self-gates (renders nothing until facts exist). */}
           {ENABLE_FINANCIAL_CHARTS && filing.id && (
             <ChartErrorBoundary>
               <FundamentalsTrendChart

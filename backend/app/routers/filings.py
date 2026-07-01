@@ -327,8 +327,7 @@ async def get_filing_fundamentals(filing_id: int, db: Session = Depends(get_db))
     """Annual fundamentals time-series **as reported in this specific filing** (roadmap B).
 
     Reads the normalized `financial_fact` rows for this `filing_id` (its own comparative years) — an
-    immutable, document-faithful snapshot, distinct from the company-wide latest series at
-    `/api/companies/{ticker}/fundamentals`. A single indexed DB read, no live SEC calls. Returns empty
+    immutable, document-faithful snapshot. A single indexed DB read, no live SEC calls. Returns empty
     `concepts` when the filing's facts aren't populated yet (they backfill when it's summarized).
     """
     from app.services import facts_service

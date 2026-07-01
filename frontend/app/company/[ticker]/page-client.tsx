@@ -17,7 +17,6 @@ import { directionText, directionOf } from '@/lib/financialTone'
 import analytics from '@/lib/analytics'
 import { getEntryPoint } from '@/lib/entryPoint'
 import { ENABLE_RECOMMENDED_FILING, ENABLE_FINANCIAL_CHARTS, ENABLE_INSIDER_ACTIVITY } from '@/lib/featureFlags'
-import FundamentalsTrendChart from '@/features/fundamentals/components/FundamentalsTrendChart'
 import PeerComparisonPanel from '@/features/peers/components/PeerComparisonPanel'
 import InsiderActivityPanel from '@/features/insiders/components/InsiderActivityPanel'
 
@@ -383,8 +382,6 @@ export default function CompanyPageClient() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Multi-year fundamentals trend (self-fetches; renders nothing until facts exist) */}
-        {ENABLE_FINANCIAL_CHARTS && <FundamentalsTrendChart ticker={normalizedTicker} />}
         {ENABLE_FINANCIAL_CHARTS && <PeerComparisonPanel ticker={normalizedTicker} />}
         {/* Insider (Form 4) activity — self-fetches; live SEC read, off by default. FPIs are
             exempt from Form 4 reporting, so the panel shows an honest note (no live read). */}

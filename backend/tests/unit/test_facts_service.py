@@ -557,73 +557,6 @@ class TestBackfillCrossCheck:
 
 
 @pytest.mark.requires_db
-class TestGetFundamentals:
-    def test_returns_per_concept_series_oldest_first(self):
-        from app.database import SessionLocal
-        from app.models import Company
-
-        db = SessionLocal()
-        suffix = uuid.uuid4().hex[:8]
-        company = Company(cik=suffix, ticker=("F" + suffix[:4]).upper(), name=f"Fund {suffix}")
-        db.add(company)
-        db.commit()
-        db.refresh(company)
-
-        common = {"concept": "revenue", "unit": "USD", "fiscal_period": "FY", "form": "10-K",
-                  "company_id": company.id, "filing_id": None, "source": "edgar_xbrl"}
-        svc.upsert_facts(db, [
-            {**common, "period_end": date(2023, 9, 30), "fiscal_year": 2023, "value": 80.0, "accession": "A23"},
-        ])
-        svc.upsert_facts(db, [
-            {**common, "period_end": date(2024, 9, 28), "fiscal_year": 2024, "value": 100.0, "accession": "A24"},
-        ])
-
-        out = svc.get_fundamentals(db, company.ticker.lower())  # case-insensitive
-        assert out["ticker"] == company.ticker
-        revenue = next(c for c in out["concepts"] if c["concept"] == "revenue")
-        assert revenue["unit"] == "USD"
-        assert [p["value"] for p in revenue["points"]] == [80.0, 100.0]  # oldest → newest
-        assert [p["fiscal_year"] for p in revenue["points"]] == [2023, 2024]
-        db.close()
-
-    def test_excludes_non_annual_facts(self):
-        # The series must be annual-only: a quarterly fact (fiscal_period=None, as a 10-Q yields) must
-        # never surface next to the FY value for the same year under the chart's "Annual figures" label.
-        from app.database import SessionLocal
-        from app.models import Company
-
-        db = SessionLocal()
-        suffix = uuid.uuid4().hex[:8]
-        company = Company(cik=suffix, ticker=("Q" + suffix[:4]).upper(), name=f"Qtr {suffix}")
-        db.add(company)
-        db.commit()
-        db.refresh(company)
-
-        common = {"concept": "revenue", "unit": "USD", "form": "10-K",
-                  "company_id": company.id, "filing_id": None, "source": "edgar_xbrl"}
-        svc.upsert_facts(db, [
-            {**common, "period_end": date(2024, 12, 31), "fiscal_year": 2024, "fiscal_period": "FY",
-             "value": 400.0, "accession": "FY24"},
-            # A Q3 point in the same fiscal_year — annual-only filter must drop it.
-            {**common, "period_end": date(2024, 9, 30), "fiscal_year": 2024, "fiscal_period": None,
-             "form": "10-Q", "value": 100.0, "accession": "Q3-24"},
-        ])
-
-        out = svc.get_fundamentals(db, company.ticker)
-        revenue = next(c for c in out["concepts"] if c["concept"] == "revenue")
-        assert [p["value"] for p in revenue["points"]] == [400.0]  # FY only; the quarterly point dropped
-        assert all(p["fiscal_period"] == "FY" for p in revenue["points"])
-        db.close()
-
-    def test_unknown_ticker_returns_none(self):
-        from app.database import SessionLocal
-
-        db = SessionLocal()
-        assert svc.get_fundamentals(db, "NOPE-NOT-A-TICKER") is None
-        db.close()
-
-
-@pytest.mark.requires_db
 class TestGetFilingFundamentals:
     def _company_and_filing(self, db, acc):
         from datetime import datetime
@@ -648,7 +581,7 @@ class TestGetFilingFundamentals:
 
     def test_returns_figures_as_reported_in_the_filing_even_when_restated(self):
         # Filing-scoped read returns THIS filing's reported figures, including rows a later filing
-        # restated (is_latest=False) — distinct from the company-wide latest series.
+        # restated (is_latest=False) — it has no is_latest filter, unlike a company-wide read.
         from app.database import SessionLocal
 
         db = SessionLocal()
@@ -676,11 +609,31 @@ class TestGetFilingFundamentals:
         rev = next(c for c in out["concepts"] if c["concept"] == "revenue")
         assert [p["value"] for p in rev["points"]] == [80.0]  # the OLD filing's figure, not the restatement
         assert out["ticker"] == company.ticker
+        db.close()
 
-        # Company-scoped read returns the latest (restated) value — proving the two paths differ.
-        comp = svc.get_fundamentals(db, company.ticker)
-        comp_rev = next(c for c in comp["concepts"] if c["concept"] == "revenue")
-        assert [p["value"] for p in comp_rev["points"]] == [85.0]
+    def test_excludes_non_annual_facts(self):
+        # The series must be annual-only: a quarterly fact (fiscal_period=None, as a 10-Q yields) must
+        # never surface next to the FY value for the same year under the chart's "Annual figures" label.
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        acc = uuid.uuid4().hex[:8]
+        _company, filing = self._company_and_filing(db, f"QTR-{acc}")
+
+        common = {"concept": "revenue", "unit": "USD", "form": "10-K",
+                  "company_id": _company.id, "filing_id": filing.id, "source": "edgar_xbrl"}
+        svc.upsert_facts(db, [
+            {**common, "period_end": date(2024, 12, 31), "fiscal_year": 2024, "fiscal_period": "FY",
+             "value": 400.0, "accession": f"FY-{acc}"},
+            # A Q3 point in the same fiscal_year — annual-only filter must drop it.
+            {**common, "period_end": date(2024, 9, 30), "fiscal_year": 2024, "fiscal_period": None,
+             "form": "10-Q", "value": 100.0, "accession": f"Q3-{acc}"},
+        ])
+
+        out = svc.get_filing_fundamentals(db, filing.id)
+        revenue = next(c for c in out["concepts"] if c["concept"] == "revenue")
+        assert [p["value"] for p in revenue["points"]] == [400.0]  # FY only; the quarterly point dropped
+        assert all(p["fiscal_period"] == "FY" for p in revenue["points"])
         db.close()
 
     def test_unknown_filing_returns_none(self):
