@@ -119,3 +119,39 @@ class TestBuildSection:
             "- Revenue: $391,035,000,000 (period: 2024-09-28)\n"
             "- Net Income: $93,736,000,000 (period: 2024-09-28)"
         )
+
+
+class TestReportingCurrencyDirective:
+    """Wave 3 / FPI: for foreign (non-USD) filers the block must emphatically name the reporting
+    currency (cuts the intermittent '$'-mislabel slip); for USD/domestic it stays byte-for-byte
+    unchanged so the eval baseline can't regress."""
+
+    def test_non_usd_prepends_currency_directive(self):
+        block = build_xbrl_narrative_section({
+            "reporting_currency": "DKK",
+            "revenue": _cur(309_100_000_000.0, "2025-12-31"),
+        })
+        assert block.startswith("CURRENCY — this issuer reports in DKK")
+        assert 'render EVERY monetary figure' in block
+        assert 'NEVER as a bare "$"' in block
+        # the SEC-verified figures block is still present, after the directive
+        assert "XBRL STANDARDIZED FINANCIAL DATA" in block
+        # and its figures are relabeled to the reporting currency, not a bare '$'
+        assert "Revenue: DKK 309,100,000,000" in block
+        assert "Revenue: $" not in block
+
+    def test_usd_is_byte_for_byte_unchanged(self):
+        metrics = {"reporting_currency": "USD", "revenue": _cur(383_000_000_000.0)}
+        with_flag = build_xbrl_narrative_section(metrics)
+        no_flag = build_xbrl_narrative_section({"revenue": _cur(383_000_000_000.0)})
+        assert with_flag == no_flag  # USD adds nothing
+        assert with_flag.startswith("XBRL STANDARDIZED FINANCIAL DATA")
+
+    def test_missing_currency_is_unchanged(self):
+        block = build_xbrl_narrative_section({"revenue": _cur(100_000_000_000.0)})
+        assert block.startswith("XBRL STANDARDIZED FINANCIAL DATA")
+        assert "CURRENCY —" not in block
+
+    def test_empty_metrics_still_empty(self):
+        # No rows -> "" regardless of currency (nothing to ground).
+        assert build_xbrl_narrative_section({"reporting_currency": "EUR"}) == ""
