@@ -259,16 +259,21 @@ async def main(
     data = json.loads(GOLDEN_PATH.read_text())
     filings = [GoldenFiling.from_dict(e) for e in data["filings"]]
     runnable = [f for f in filings if f.document_url and (f.verified or allow_unverified)]
-    if forms:
-        wanted = {x.strip().upper() for x in forms}
-        runnable = [f for f in runnable if f.filing_type.upper() in wanted]
-    if limit:
-        runnable = runnable[:limit]
     if not runnable:
         print("No runnable golden filings. Run `python -m evals.build_golden_set` first "
-              "(or pass --allow-unverified once entries have document_url)"
-              f"{f'; no entries match --forms {sorted(forms)}' if forms else ''}.")
+              "(or pass --allow-unverified once entries have document_url).")
         return
+    if forms:
+        wanted = {x.strip().upper() for x in forms}
+        matched = [f for f in runnable if f.filing_type.upper() in wanted]
+        if not matched:
+            available = sorted({f.filing_type.upper() for f in runnable})
+            print(f"No runnable golden filings match --forms {sorted(wanted)}. "
+                  f"Available forms: {available}.")
+            return
+        runnable = matched
+    if limit:
+        runnable = runnable[:limit]
     print(f"Running {candidates} over {len(runnable)} filings x {runs} run(s)"
           f"{f', judge={judge_model}' if judge_model else ''}...")
 
@@ -321,4 +326,4 @@ if __name__ == "__main__":
     asyncio.run(main([c.strip() for c in args.candidates.split(",") if c.strip()],
                      args.limit, args.allow_unverified, runs=max(1, args.runs),
                      pass_threshold=args.pass_threshold, judge_model=args.judge,
-                     forms=[x for x in args.forms.split(",") if x.strip()] if args.forms else None))
+                     forms=[x.strip() for x in args.forms.split(",") if x.strip()] if args.forms else None))
