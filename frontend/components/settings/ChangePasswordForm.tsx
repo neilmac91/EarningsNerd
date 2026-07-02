@@ -7,6 +7,8 @@ import { changePassword, getConnections } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { Card } from '@/components/ui/Card'
+import { Skeleton } from '@/components/ui/Skeleton'
 
 const MIN_LENGTH = 12
 
@@ -54,14 +56,21 @@ export default function ChangePasswordForm() {
   // would flash in for OAuth-only users (who default to hasPassword=true) before disappearing.
   if (connectionsLoading) {
     return (
-      <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6 flex items-center justify-center min-h-[200px]">
-        <CircleNotchIcon className="h-6 w-6 animate-spin text-brand-strong dark:text-brand-strong-dark" />
-      </div>
+      <Card className="p-6 mb-6">
+        {/* Form-shaped bones (heading + two fields) hold the same footprint the
+            spinner card reserved via min-h, so resolve doesn't shift content. */}
+        <div role="status" aria-label="Loading password form" className="min-h-[200px] space-y-4">
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-10 max-w-md" />
+          <Skeleton className="h-10 max-w-md" />
+          <span className="sr-only">Loading…</span>
+        </div>
+      </Card>
     )
   }
 
   return (
-    <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">
+    <Card className="p-6 mb-6">
       <div className="flex items-center gap-3 mb-2">
         <KeyIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -147,6 +156,6 @@ export default function ChangePasswordForm() {
           </p>
         )}
       </form>
-    </div>
+    </Card>
   )
 }

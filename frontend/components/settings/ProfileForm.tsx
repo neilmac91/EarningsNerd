@@ -7,6 +7,7 @@ import { getCurrentUser, updateProfile } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { Card } from '@/components/ui/Card'
 
 export default function ProfileForm() {
   const queryClient = useQueryClient()
@@ -30,7 +31,7 @@ export default function ProfileForm() {
   const dirty = (user?.full_name ?? '') !== name.trim()
 
   return (
-    <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">
+    <Card className="p-6 mb-6">
       <div className="flex items-center gap-3 mb-4">
         <UserIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Profile</h2>
@@ -79,6 +80,6 @@ export default function ProfileForm() {
           </p>
         )}
       </div>
-    </div>
+    </Card>
   )
 }

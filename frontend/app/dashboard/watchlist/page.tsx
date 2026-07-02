@@ -9,10 +9,10 @@ import { ArrowsCounterClockwiseIcon, CalendarDotsIcon, CircleNotchIcon, ClockIco
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getWatchlistInsights, WatchlistInsight } from '@/features/watchlist/api/watchlist-api'
 import SecondaryHeader from '@/components/SecondaryHeader'
-import StateCard from '@/components/StateCard'
 import WatchlistAddSearch from '@/components/watchlist/WatchlistAddSearch'
 import CompanyLogo from '@/components/CompanyLogo'
 import { ENABLE_COMPARE } from '@/lib/featureFlags'
+import { Badge, buttonVariants, Card, GuidanceCard, type BadgeVariant } from '@/components/ui'
 
 function useAuthGate() {
   const router = useRouter()
@@ -31,25 +31,23 @@ function useAuthGate() {
   return { isReady: !isLoading, hasUser: Boolean(user) }
 }
 
-function getStatusBadge(status: string, needsRegeneration: boolean) {
+// Status chips ride the Badge tonal recipes (beat/miss/new are tone names, not
+// semantics — icon={null} at the render site strips their auto glyphs).
+function getStatusBadge(status: string, needsRegeneration: boolean): { label: string; variant: BadgeVariant } {
   const [base, detail] = status.split(':')
   switch (base) {
     case 'ready':
-      return { label: 'Ready', className: 'bg-gain-soft text-success-light dark:bg-gain-soft-dark dark:text-success-dark' }
+      return { label: 'Ready', variant: 'beat' }
     case 'generating':
-      return {
-        label: detail ? `Generating (${detail})` : 'Generating',
-        className: 'bg-brand-weak text-brand-strong dark:bg-white/5 dark:text-brand-strong-dark',
-      }
+      return { label: detail ? `Generating (${detail})` : 'Generating', variant: 'brand' }
     case 'placeholder':
-      return { label: 'Fallback', className: 'bg-warning-light/10 text-warning-light dark:bg-warning-dark/10 dark:text-warning-dark' }
+      return { label: 'Fallback', variant: 'new' }
     case 'error':
-      return { label: 'Error', className: 'bg-loss-soft text-error-light dark:bg-loss-soft-dark dark:text-error-dark' }
+      return { label: 'Error', variant: 'miss' }
     default:
-      return {
-        label: needsRegeneration ? 'Needs Attention' : 'Pending',
-        className: needsRegeneration ? 'bg-loss-soft text-error-light dark:bg-loss-soft-dark dark:text-error-dark' : 'bg-brand-weak text-text-secondary-light dark:bg-white/5 dark:text-text-secondary-dark',
-      }
+      return needsRegeneration
+        ? { label: 'Needs Attention', variant: 'miss' }
+        : { label: 'Pending', variant: 'neutral' }
   }
 }
 
@@ -100,11 +98,8 @@ export default function WatchlistDashboardPage() {
         backLabel="Back to dashboard"
         actions={
           ENABLE_COMPARE ? (
-            <Link
-              href="/compare"
-              className="inline-flex items-center rounded-lg bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2 text-sm font-semibold transition-colors"
-            >
-              <SparkleIcon className="h-4 w-4 mr-2" />
+            <Link href="/compare" className={buttonVariants({ variant: 'primary' })}>
+              <SparkleIcon className="h-4 w-4" />
               Compare filings
             </Link>
           ) : undefined
@@ -116,17 +111,18 @@ export default function WatchlistDashboardPage() {
         <WatchlistAddSearch />
 
         {isError && (
-          <StateCard
+          <GuidanceCard
             variant="error"
             title="Unable to load watchlist insights"
-            message="Please retry in a moment, or confirm you are signed in with an active session."
+            description="Please retry in a moment, or confirm you are signed in with an active session."
           />
         )}
 
         {insights.length === 0 ? (
-          <StateCard
+          <GuidanceCard
+            variant="empty"
             title="No watchlist companies yet"
-            message="Use the search above to track your first company — you'll get an alert here (and by email) whenever it files with the SEC."
+            description="Use the search above to track your first company — you'll get an alert here (and by email) whenever it files with the SEC."
           />
         ) : (
           <div className="grid gap-6">
@@ -139,10 +135,9 @@ export default function WatchlistDashboardPage() {
               const elapsedSeconds = latest?.progress?.elapsedSeconds ?? latest?.progress?.elapsed
 
               return (
-                <div
-                  key={insight.company.id}
-                  className="bg-panel-light dark:bg-panel-dark border border-border-light dark:border-border-dark rounded-xl shadow-sm p-6 transition hover:border-brand-border"
-                >
+                // Non-interactive card (nothing on it is clickable as a whole) —
+                // no hover affordance; the buttons inside carry the actions.
+                <Card key={insight.company.id} className="p-6">
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
                       <div className="flex items-center space-x-3">
@@ -150,15 +145,11 @@ export default function WatchlistDashboardPage() {
                         <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
                           {insight.company.name}
                         </h2>
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-weak text-text-secondary-light dark:bg-white/5 dark:text-text-secondary-dark">
-                          {insight.company.ticker}
-                        </span>
+                        <Badge variant="neutral">{insight.company.ticker}</Badge>
                         {badge && (
-                          <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${badge.className}`}
-                          >
+                          <Badge variant={badge.variant} icon={null}>
                             {badge.label}
-                          </span>
+                          </Badge>
                         )}
                       </div>
                       <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
@@ -168,19 +159,16 @@ export default function WatchlistDashboardPage() {
                     </div>
                     <div className="flex flex-wrap items-center gap-3">
                       {latest && (
-                        <Link
-                          href={`/filing/${latest.id}`}
-                          className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg border border-border-light dark:border-border-dark text-text-secondary-light dark:text-text-secondary-dark hover:bg-brand-weak dark:hover:bg-white/5 transition-colors"
-                        >
-                          <CalendarDotsIcon className="h-4 w-4 mr-2" />
+                        <Link href={`/filing/${latest.id}`} className={buttonVariants({ variant: 'secondary' })}>
+                          <CalendarDotsIcon className="h-4 w-4" />
                           View filing
                         </Link>
                       )}
                       <Link
                         href={`/company/${insight.company.ticker}`}
-                        className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark transition-colors"
+                        className={buttonVariants({ variant: 'primary' })}
                       >
-                        <ArrowsCounterClockwiseIcon className="h-4 w-4 mr-2" />
+                        <ArrowsCounterClockwiseIcon className="h-4 w-4" />
                         Manage coverage
                       </Link>
                     </div>
@@ -260,7 +248,7 @@ export default function WatchlistDashboardPage() {
                       )}
                     </div>
                   </div>
-                </div>
+                </Card>
               )
             })}
           </div>

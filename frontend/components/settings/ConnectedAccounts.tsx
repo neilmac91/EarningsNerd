@@ -12,6 +12,8 @@ import {
 } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { Button } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { SkeletonText } from '@/components/ui/Skeleton'
 
 const PROVIDER_LABELS: Record<string, string> = { google: 'Google', apple: 'Apple' }
 
@@ -62,7 +64,7 @@ export default function ConnectedAccounts() {
   const credentialCount = (data?.has_password ? 1 : 0) + providers.length
 
   return (
-    <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">
+    <Card className="p-6 mb-6">
       <div className="flex items-center gap-3 mb-2">
         <LinkIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -74,9 +76,7 @@ export default function ConnectedAccounts() {
       </p>
 
       {isLoading ? (
-        <div className="flex items-center text-text-tertiary-light dark:text-text-secondary-dark">
-          <CircleNotchIcon className="h-4 w-4 mr-2 animate-spin" /> Loading…
-        </div>
+        <SkeletonText lines={2} />
       ) : isError ? (
         <div className="flex items-center text-sm text-error-light dark:text-error-dark">
           <WarningCircleIcon className="h-4 w-4 mr-2" />
@@ -115,10 +115,11 @@ export default function ConnectedAccounts() {
                   )}
                 </div>
                 <button
+                  type="button"
                   onClick={() => unlinkMutation.mutate(p.provider)}
                   disabled={isLast || pending}
                   title={isLast ? 'Set a password first so you keep a way to sign in' : undefined}
-                  className="text-sm font-medium text-error-light hover:opacity-80 dark:text-error-dark disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="text-sm font-medium text-error-light underline-offset-4 hover:underline dark:text-error-dark disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
                 >
                   {pending ? 'Unlinking…' : 'Unlink'}
                 </button>
@@ -156,6 +157,6 @@ export default function ConnectedAccounts() {
           </div>
         </div>
       )}
-    </div>
+    </Card>
   )
 }

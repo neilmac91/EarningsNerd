@@ -1,5 +1,51 @@
 # Task: Design-system v2 adoption pass (post-migration; PR-per-surface)
 
+## Task #25 — Adoption PR 2: dashboard surface onto the v2 component layer
+**Scope (approved pass, PR 2 of 5):** recompose /dashboard, /dashboard/settings, /dashboard/watchlist
++ components/dashboard/* + components/settings/* + components/watchlist/* onto components/ui/* with
+ZERO behavior change. Recon: container layer is 0% adopted (atoms partially in settings); no Recharts,
+no ShimmeringLoader, no orphans in scope; only BillingPanel has a unit test (preserve its
+link /subscribe|upgrade/ + button /manage billing/ roles).
+- [x] settings/* (5 comps, 8 identical hand-rolled cards) -> Card (kept inline icon+h2 headers —
+      CardHeader/Title would restyle headings, out of zero-change scope); spinner-cards/rows ->
+      Skeleton/SkeletonText bones; delete + export buttons -> Button destructive/loading
+      (kills 2 of 3 banned hover:opacity sites; ConnectedAccounts unlink became an
+      underline-on-hover text action — Button destructive is too heavy for an inline row)
+- [x] dashboard/page.tsx: all hand-rolled cards -> Card (quick actions = Link-wrapped
+      Card interactive, focus ring on the Link); full-page/saved/watchlist StateCards ->
+      GuidanceCard + Button retry; the two IN-CARD errors (subscription/usage) became the
+      inline icon+message+retry pattern instead — GuidanceCard-in-Card stacks panel chrome;
+      Pro/Free pill -> Badge; section spinners -> Skeleton bones (route-gate spinner stays);
+      transition-all -> transition-[width] duration-base. Header Logout text-button kept
+      (nav-link pattern, not a button)
+- [x] dashboard/error.tsx: both bespoke panels + hand-drawn SVGs + raw buttons -> GuidanceCard
+      error + Button (lock icon for the auth variant)
+- [x] watchlist/page.tsx: insight cards -> Card (dropped hover affordance — not clickable);
+      getStatusBadge -> Badge tonal variants (icon={null} strips beat/miss/new glyphs);
+      ticker chip -> Badge neutral; StateCards -> GuidanceCard; 3 Links -> buttonVariants;
+      inset metric wells (page-color inside panel) kept — a recess, not a card fill
+- [x] WatchlistAddSearch: KEPT hand-rolled (already token-compliant) — search-with-icon matches
+      the hero CompanySearch pattern and inputClasses' px-3.5 PAD fights the pl-11 icon inset;
+      aligned stray shadows (shadow-sm dropped; dropdowns shadow-lg -> shadow-e3 dark:none).
+      Upstream candidate: a leading-icon field variant
+- [x] FilingFeed: animate-pulse cards -> Skeleton (+ role=status/sr-only per the PR-1 a11y rule);
+      StateCard error/empty -> GuidanceCard + secondary Button retry
+- [x] EarningsCalendar: cream-as-card-fill bug fixed -> panel Card recipe on the semantic
+      <section> (ul list stays; weak DataTable fit — no numeric/tone columns)
+- [x] WhatChangedCard: container -> Link-wrapped Card interactive; DIRECTION chips KEPT —
+      financialTone.directionChip is gain/loss (green/red), and the card's calm brand/muted
+      treatment is a deliberate, now-documented exception (icons still carry direction)
+- [x] Gates: typecheck 0 / eslint clean / vitest 237/237 (BillingPanel roles intact) / build OK;
+      both themes verified by rendering the REAL /dashboard, /settings, /watchlist routes in
+      Playwright with en_session cookie + pathname-matched API fixtures (uncommitted script)
+**Review:** Zero-behavior recomposition of the dashboard surface (12 files): container layer went
+from 0% to full adoption (Card/GuidanceCard/Skeleton/Badge/buttonVariants); all three banned
+hover:opacity sites are gone. Two mapping judgment calls vs the recon: in-card errors use the
+inline pattern (no panel-in-panel), and WhatChangedCard's calm chips stay (deliberate exception
+to directionChip, now documented in-code). Screenshot-verified in both themes on live routes with
+fixture-fed APIs — feed/calendar fixtures needed the backend's {items}/{events} envelopes
+(bare arrays make React Query treat the query as errored via undefined data).
+
 ## Task #24 — Adoption PR 1: filing summary surface onto the v2 component layer
 **Scope (approved):** recompose the filing page's building blocks on components/ui/* with ZERO
 behavior change — same data, same handlers, new composition. DESIGN_SYSTEM.md is canonical.

@@ -74,7 +74,7 @@ export default function WatchlistAddSearch() {
           onFocus={() => setOpen(true)}
           placeholder="Add a company to your watchlist (e.g., AAPL, Apple)…"
           aria-label="Search for a company to add to your watchlist"
-          className="w-full rounded-xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark py-3 pl-11 pr-4 text-text-primary-light dark:text-text-primary-dark placeholder:text-text-tertiary-light dark:placeholder:text-text-secondary-dark shadow-sm focus:border-brand focus:outline-none focus:shadow-ring-brand"
+          className="w-full rounded-xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark py-3 pl-11 pr-4 text-text-primary-light dark:text-text-primary-dark placeholder:text-text-tertiary-light dark:placeholder:text-text-secondary-dark focus:border-brand focus:outline-none focus:shadow-ring-brand"
         />
         {(isLoading || addMutation.isPending) && (
           <CircleNotchIcon className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />
@@ -96,7 +96,7 @@ export default function WatchlistAddSearch() {
         <div
           role="listbox"
           aria-label="Company results"
-          className="absolute z-20 mt-2 max-h-80 w-full overflow-y-auto rounded-xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark shadow-lg"
+          className="absolute z-20 mt-2 max-h-80 w-full overflow-y-auto rounded-xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark shadow-e3 dark:shadow-none"
         >
           {companies.map((company) => (
             <button
@@ -122,7 +122,7 @@ export default function WatchlistAddSearch() {
       )}
 
       {open && debounced.length > 0 && !isLoading && companies && companies.length === 0 && (
-        <div className="absolute z-20 mt-2 w-full rounded-xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark p-4 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark shadow-lg">
+        <div className="absolute z-20 mt-2 w-full rounded-xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark p-4 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark shadow-e3 dark:shadow-none">
           No companies found matching &quot;{debounced}&quot;
         </div>
       )}
