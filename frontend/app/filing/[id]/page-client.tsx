@@ -1296,9 +1296,12 @@ function SummaryDisplay({
                     </span>
                   )}
                 </div>
-                {/* Retry button - shown for partial results or fallback summaries.
-                    Suppressed in demo mode (no "regenerate" affordance on the curated example). */}
-                {!demoMode && (isPartial || writerFallback || isPartialQuality) && onRetry && (
+                {/* Regenerate button - shown for partial results or fallback summaries. Pro-only:
+                    force-regeneration deletes the shared summary + triggers a paid LLM run, so the
+                    backend gates it to Pro (see summaries.generate_summary_stream). Hidden for
+                    non-Pro to avoid a 403. Error-retry (no summary yet) uses a different affordance
+                    and stays open to all. Suppressed in demo mode (curated example). */}
+                {!demoMode && isPro && (isPartial || writerFallback || isPartialQuality) && onRetry && (
                   <Button variant="secondary" onClick={onRetry}>
                     Regenerate Analysis
                   </Button>
