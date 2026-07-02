@@ -98,7 +98,7 @@ export function Notice({ variant = 'info', icon, title, description, action, cla
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{title}</p>
         {description ? (
-          <p className="mt-0.5 text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
+          <p className="mt-0.5 break-words text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
             {description}
           </p>
         ) : null}

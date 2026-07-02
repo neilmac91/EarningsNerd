@@ -267,7 +267,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         id={id}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy}
-        className={cx(FIELD, PAD, 'pr-9', error ? INVALID : undefined)}
+        className={cx(FIELD, 'py-2.5 pl-3.5 pr-9', error ? INVALID : undefined)}
         {...rest}
       >
         {children}

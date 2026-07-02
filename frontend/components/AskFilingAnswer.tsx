@@ -381,11 +381,11 @@ export function AskFilingAnswer({
 
         {status === 'done' && citations.length > 0 ? (
           <ol className="mt-4 space-y-3 border-t border-border-light pt-4 dark:border-border-dark">
-            {citations.map((c) => {
+            {citations.map((c, i) => {
               const key = markerKey(`[${String(c.n)}]`)
               const xbrl = c.section_ref?.startsWith('XBRL') ?? false
               return (
-                <li key={key} className="flex gap-2.5">
+                <li key={`${key}-${i}`} className="flex gap-2.5">
                   <span
                     className={cx(
                       'flex h-[18px] min-w-[18px] flex-none items-center justify-center rounded border px-1 font-data text-[10px] font-semibold',
