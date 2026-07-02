@@ -36,6 +36,7 @@ def _reset_rate_limiters():
         auth_module.ACCOUNT_LOGIN_FAIL_LIMITER,
         auth_module.RESET_REQUEST_LIMITER,
         auth_module.RESEND_VERIFY_LIMITER,
+        auth_module.RESET_RESEND_IP_LIMITER,
     ):
         lim._hits.clear()
     yield

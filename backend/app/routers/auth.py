@@ -55,6 +55,10 @@ LOGIN_LIMITER = RateLimiter(limit=10, window_seconds=60)
 REGISTER_LIMITER = RateLimiter(limit=5, window_seconds=60)
 RESET_REQUEST_LIMITER = RateLimiter(limit=3, window_seconds=3600)   # 3/hr per email
 RESEND_VERIFY_LIMITER = RateLimiter(limit=3, window_seconds=3600)   # 3/hr per email
+# Second tier for the email-scoped reset/verify limits above: a per-IP cap across ALL emails, so a
+# single IP can't spray reset/verification mail to thousands of different addresses (Resend cost +
+# domain-reputation abuse). The per-email limiters stop bombing ONE victim; this stops fan-out.
+RESET_RESEND_IP_LIMITER = RateLimiter(limit=20, window_seconds=3600)  # 20/hr per IP, all emails
 # Per-account failed-login throttle: bounds distributed brute-force/password-spray against a
 # single account (the per-IP LOGIN_LIMITER only bounds one source). Keyed by email and charged
 # only on failure. Generous threshold so legitimate users effectively never hit it; recoverable
@@ -889,9 +893,15 @@ async def resend_verification(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """Resend the email verification link. Rate-limited to 3/hr per address."""
+    """Resend the email verification link. Rate-limited to 3/hr per address + 20/hr per IP."""
+    # Per-IP cap across all addresses (stops one IP spraying verification mail to many emails)...
     enforce_rate_limit(
-        request, RESEND_VERIFY_LIMITER, f"resend:{payload.email.strip().lower()}",
+        request, RESET_RESEND_IP_LIMITER, "resend-ip",
+        error_detail="Too many resend requests. Please wait before trying again.",
+    )
+    # ...plus the per-email cap (email already normalized by the schema validator).
+    enforce_rate_limit(
+        request, RESEND_VERIFY_LIMITER, f"resend:{payload.email}",
         error_detail="Too many resend requests. Please wait before trying again.",
         include_client_ip=False,
     )
@@ -911,9 +921,15 @@ async def forgot_password(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    """Request a password reset link. Rate-limited to 3/hr per email address."""
+    """Request a password reset link. Rate-limited to 3/hr per email address + 20/hr per IP."""
+    # Per-IP cap across all addresses (stops one IP spraying reset mail to many emails)...
     enforce_rate_limit(
-        request, RESET_REQUEST_LIMITER, f"reset:{payload.email.strip().lower()}",
+        request, RESET_RESEND_IP_LIMITER, "reset-ip",
+        error_detail="Too many reset requests. Please wait before trying again.",
+    )
+    # ...plus the per-email cap (email already normalized by the schema validator).
+    enforce_rate_limit(
+        request, RESET_REQUEST_LIMITER, f"reset:{payload.email}",
         error_detail="Too many reset requests. Please wait before trying again.",
         include_client_ip=False,
     )
