@@ -33,6 +33,7 @@ import { getEntryPoint } from '@/lib/entryPoint'
 import { ENABLE_FINANCIAL_CHARTS } from '@/lib/featureFlags'
 import { sanitizeFilename } from '@/lib/format'
 import { Button } from '@/components/ui/Button'
+import { GuidanceCard, Skeleton, SkeletonText } from '@/components/ui'
 
 // --- Constants ---
 
@@ -189,9 +190,9 @@ function TickerFilingsView({ ticker }: { ticker: string }) {
 
           <div className="mt-6 space-y-3">
             {filingsLoading && (
-              <div className="space-y-3">
+              <div className="space-y-3" role="status" aria-label="Loading filings">
                 {Array.from({ length: 4 }).map((_, index) => (
-                  <div key={index} className="h-20 animate-pulse rounded-2xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/10" />
+                  <Skeleton key={index} className="h-20 rounded-2xl" />
                 ))}
               </div>
             )}
@@ -824,13 +825,11 @@ function StreamingSummaryDisplay({
   if (!isClient) {
     return (
       <div className="max-w-4xl mx-auto space-y-6">
-        <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-xl border border-border-light dark:border-border-dark p-8">
-          <div className="animate-pulse space-y-6">
-            <div className="h-6 bg-brand-weak rounded w-1/3"></div>
-            <div className="h-4 bg-brand-weak rounded w-full"></div>
-            <div className="h-4 bg-brand-weak rounded w-5/6"></div>
-            <div className="h-4 bg-brand-weak rounded w-2/3"></div>
-            <div className="h-32 bg-brand-weak rounded-lg"></div>
+        <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-e2 dark:shadow-none border border-border-light dark:border-white/10 p-8">
+          <div role="status" aria-label="Loading" className="space-y-6">
+            <Skeleton className="h-6 w-1/3" />
+            <SkeletonText lines={3} />
+            <Skeleton className="h-32 rounded-lg" />
           </div>
         </div>
       </div>
@@ -862,7 +861,7 @@ function StreamingSummaryDisplay({
       <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark p-8 relative overflow-hidden">
         {/* Shimmer overlay for active generation */}
         {isGenerating && (
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-[shimmer_2s_infinite]" />
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-shimmer motion-reduce:animate-none" />
         )}
 
         <div className="flex flex-col md:flex-row gap-8 relative z-10">
@@ -993,29 +992,19 @@ function StreamingSummaryDisplay({
 
       {/* Streaming Content */}
       {isError && (
-        <div className="bg-error-light/10 dark:bg-error-dark/10 border border-error-light/30 rounded-xl p-6 shadow-sm">
-          <div className="flex items-start space-x-3">
-            <WarningCircleIcon className="h-6 w-6 text-error-light dark:text-error-dark mt-1 flex-shrink-0" />
-            <div className="flex-1">
-              <h2 className="text-lg font-semibold text-error-light dark:text-error-dark mb-2">
-                Generation interrupted
-              </h2>
-              <p className="text-sm text-error-light dark:text-error-dark mb-4">
-                {error || message || 'Generation timed out. Please retry to continue.'}
-              </p>
-              <div className="flex items-center gap-3 flex-wrap">
-                {onRetry && (
-                  <button
-                    onClick={onRetry}
-                    className="inline-flex items-center px-4 py-2 bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark rounded-lg text-sm font-medium transition-colors"
-                  >
-                    Retry generation
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <GuidanceCard
+          variant="error"
+          title="Generation interrupted"
+          description={error || message || 'Generation timed out. Please retry to continue.'}
+          action={
+            onRetry ? (
+              // Secondary, per the GuidanceCard convention (error retry is never the page's primary action)
+              <Button variant="secondary" onClick={onRetry}>
+                Retry generation
+              </Button>
+            ) : undefined
+          }
+        />
       )}
 
       {displayText && (
@@ -1069,14 +1058,8 @@ function StreamingSummaryDisplay({
             </div>
           </div>
 
-          {/* Clean skeleton loader */}
-          <div className="mt-6 space-y-3">
-            <div className="h-4 bg-border-light dark:bg-border-dark rounded w-3/4 animate-pulse"></div>
-            <div className="h-4 bg-border-light dark:bg-border-dark rounded w-full animate-pulse delay-75"></div>
-            <div className="h-4 bg-border-light dark:bg-border-dark rounded w-5/6 animate-pulse delay-150"></div>
-            <div className="h-4 bg-border-light dark:bg-border-dark rounded w-4/5 mt-4 animate-pulse delay-200"></div>
-            <div className="h-4 bg-border-light dark:bg-border-dark rounded w-full animate-pulse delay-300"></div>
-          </div>
+          {/* Streaming placeholder — mono rhythm (the summary streams into the data face) */}
+          <SkeletonText lines={5} mono className="mt-6" />
         </div>
       )}
     </div>
@@ -1404,13 +1387,13 @@ function SummaryDisplay({
 
 function SummarySectionsSkeleton() {
   return (
-    <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-md border border-border-light dark:border-border-dark p-6 animate-pulse space-y-4">
-      <div className="h-4 w-32 bg-border-light dark:bg-border-dark rounded" />
-      <div className="space-y-2">
-        <div className="h-3 bg-background-light dark:bg-background-dark rounded" />
-        <div className="h-3 bg-background-light dark:bg-background-dark rounded w-5/6" />
-        <div className="h-3 bg-background-light dark:bg-background-dark rounded w-2/3" />
-      </div>
+    <div
+      role="status"
+      aria-label="Loading summary sections"
+      className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-e2 dark:shadow-none border border-border-light dark:border-white/10 p-6 space-y-4"
+    >
+      <Skeleton className="h-4 w-32" />
+      <SkeletonText lines={3} />
     </div>
   )
 }
