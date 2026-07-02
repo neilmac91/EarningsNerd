@@ -46,7 +46,10 @@ const nextConfig = {
     // to avoid Next.js emitting duplicate Referrer-Policy headers when rules overlap).
     return [
       {
-        source: '/(.*)',
+        // '/:path*' is Next's documented catch-all and matches the root '/' as well as every
+        // sub-path, so the landing page is covered too (a regex '/(.*)' source can miss the
+        // top-level route depending on Next's matcher version).
+        source: '/:path*',
         headers: [
           { key: 'X-Frame-Options', value: 'DENY' },
           { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
