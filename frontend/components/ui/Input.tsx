@@ -75,7 +75,9 @@ function Shell({
         </label>
       ) : null}
       {children}
-      {error ? (
+      {/* A boolean error means "invalid, no message" — render no alert (an empty
+          role="alert" announces nothing useful and shifts layout). */}
+      {error && typeof error !== 'boolean' ? (
         <p id={`${id}-error`} role="alert" className="text-xs font-medium text-error-light dark:text-error-dark">
           {error}
         </p>
@@ -115,7 +117,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
 ) {
   const autoId = useId()
   const id = idProp ?? autoId
-  const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined
+  const describedBy = error && typeof error !== 'boolean' ? `${id}-error` : hint ? `${id}-hint` : undefined
   return (
     <Shell id={id} label={label} hint={hint} error={error} className={className}>
       <div className="relative">
@@ -144,7 +146,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
 ) {
   const autoId = useId()
   const id = idProp ?? autoId
-  const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined
+  const describedBy = error && typeof error !== 'boolean' ? `${id}-error` : hint ? `${id}-hint` : undefined
   return (
     <Shell id={id} label={label} hint={hint} error={error} className={className}>
       <textarea
@@ -170,7 +172,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
 ) {
   const autoId = useId()
   const id = idProp ?? autoId
-  const describedBy = error ? `${id}-error` : hint ? `${id}-hint` : undefined
+  const describedBy = error && typeof error !== 'boolean' ? `${id}-error` : hint ? `${id}-hint` : undefined
   return (
     <Shell id={id} label={label} hint={hint} error={error} className={className}>
       <select
