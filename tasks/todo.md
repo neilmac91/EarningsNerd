@@ -38,8 +38,10 @@ inputClasses({leadingIcon}); FULL email retheme to the cream brand.
   (2) Input boolean-error guard dropped x4; (3) brand.light re-added; (4) NEW — Input.tsx missing
   'use client' with client-only hooks (build-breaking downstream); (5) MIGRATION.md not
   regenerated (still v2.1); (6) AskFilingAnswer re-parses markdown per streaming token (perf —
-  do not adopt for streaming); (7) minor: Select keeps the px/pr conflict-order gamble its own
-  header forbids; Notice description lacks break-words (unbroken URL/accession overflows).
+  do not adopt for streaming); (7) minor, now FIXED in-repo (verify + Gemini agreed; pack still
+  has them): Select px/pr conflict-order gamble its own header forbids -> explicit per-side
+  padding; Notice description lacks break-words (unbroken URL/accession overflows);
+  AskFilingAnswer citation-list React keys collide on duplicate `n` -> index-suffixed.
   **PR B port notes (from verify):** composer must stay CONTROLLED (value prop) so prefill
   triggers the layout-effect grow — imperative el.value alone fires nothing; cap height via
   style={{maxHeight:120, overflowY:'auto'}} (className styles the Shell, not the textarea);
