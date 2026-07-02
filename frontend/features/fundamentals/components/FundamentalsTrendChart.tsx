@@ -3,7 +3,6 @@
 import { useContext, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { CircleNotchIcon } from '@/lib/icons'
 
 import {
   getFilingFundamentals,
@@ -13,6 +12,7 @@ import { ApiError } from '@/lib/api/client'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import UnverifiedBadge from '@/components/UnverifiedBadge'
 import { ThemeContext } from '@/components/ThemeProvider'
+import { seriesColor, gridProps, xAxisProps, yAxisProps, ChartTooltip, Skeleton } from '@/components/ui'
 
 type FmtKind = 'usd' | 'eps' | 'pct' | 'ratio'
 
@@ -40,7 +40,6 @@ const FEATURED: { key: string; label: string; fmt: FmtKind }[] = [
   { key: 'shareholders_equity', label: "Shareholders' Equity", fmt: 'usd' },
 ]
 
-const SERIES_PRIMARY = '#3E8E84' // chart.1 (teal)
 
 // Derive an ISO-4217 currency code from a fact's stored unit (e.g. "CNY", "CNY/shares" -> "CNY",
 // "pure" -> USD fallback, never used for percentages). Foreign issuers report in their own
@@ -70,13 +69,11 @@ export default function FundamentalsTrendChart({
   subtitle?: string
 }) {
   // Recharts colours are props, not classes. Read theme off the context (not useTheme) with a
-  // light fallback so provider-less renders/SSR/tests never throw.
+  // light fallback so provider-less renders/SSR/tests never throw. Chrome comes from the
+  // Chart factories (chartTheme/gridProps/axis props/ChartTooltip) — no local hexes.
   const dark = useContext(ThemeContext)?.theme === 'dark'
-  const axisText = dark ? '#9CA3AF' : '#6B7280'
-  const gridStroke = dark ? '#374151' : '#E5E7EB'
-  const tooltipBg = dark ? '#1F2937' : '#FBFAF6'
-  const tooltipBorder = dark ? 'rgba(255,255,255,0.1)' : '#E5E7EB'
-  const tooltipText = dark ? '#D7DADC' : '#1A1A17'
+  // Bar-hover band: BarChart wants a FILL cursor (crosshairProps is for line charts) —
+  // derive it from the series color at chart-grid-level alphas.
   const cursorFill = dark ? 'rgba(62,142,132,0.16)' : 'rgba(62,142,132,0.08)'
 
   const { data, isLoading, isError } = useQuery<FundamentalsResponse>({
@@ -131,7 +128,9 @@ export default function FundamentalsTrendChart({
   if (isError || (!isLoading && available.length === 0)) return null
 
   return (
-    <section className="mb-8 rounded-lg border border-border-light bg-panel-light p-6 shadow-sm dark:border-border-dark dark:bg-panel-dark">
+    // v2 Card recipe on a semantic <section> (Card renders a div; polymorphic `as`
+    // is a deferred upstream item) — lift via e2 in light, hairline-only in dark.
+    <section className="mb-8 rounded-xl border border-border-light bg-panel-light p-6 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-col gap-0.5">
           <div className="flex items-center gap-2">
@@ -164,8 +163,9 @@ export default function FundamentalsTrendChart({
       </div>
 
       {isLoading ? (
-        <div className="flex h-72 items-center justify-center" aria-label="Loading financial trends">
-          <CircleNotchIcon className="h-6 w-6 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+        <div role="status" aria-label="Loading financial trends">
+          <Skeleton className="h-72 w-full rounded-lg" />
+          <span className="sr-only">Loading…</span>
         </div>
       ) : chartData.length === 0 ? (
         <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark">
@@ -175,29 +175,29 @@ export default function FundamentalsTrendChart({
         <div className="h-72 w-full" data-testid="fundamentals-chart">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} strokeOpacity={dark ? 0.6 : 1} vertical={false} />
-              <XAxis dataKey="year" tick={{ fontSize: 12, fill: axisText }} tickLine={false} axisLine={false} />
+              <CartesianGrid {...gridProps(dark)} />
+              <XAxis dataKey="year" {...xAxisProps(dark)} />
               <YAxis
-                tick={{ fontSize: 12, fill: axisText }}
-                tickLine={false}
-                axisLine={false}
-                width={70}
+                {...yAxisProps(dark)}
+                width={70 /* currency tick labels outgrow the factory's 44px */}
                 tickFormatter={(v: number) => formatValue(v, active?.fmt ?? 'usd', activeCurrency)}
               />
               <Tooltip
                 cursor={{ fill: cursorFill }}
-                formatter={(v) => [formatValue(Number(v), active?.fmt ?? 'usd', activeCurrency), active?.label ?? '']}
-                contentStyle={{
-                  background: tooltipBg,
-                  border: `1px solid ${tooltipBorder}`,
-                  borderRadius: 8,
-                  color: tooltipText,
-                  fontSize: 12,
-                }}
-                labelStyle={{ color: tooltipText }}
-                itemStyle={{ color: tooltipText }}
+                content={
+                  <ChartTooltip
+                    dark={dark}
+                    formatValue={(v) => formatValue(Number(v), active?.fmt ?? 'usd', activeCurrency)}
+                  />
+                }
               />
-              <Bar dataKey="value" fill={SERIES_PRIMARY} radius={[4, 4, 0, 0]} maxBarSize={56} />
+              <Bar
+                dataKey="value"
+                name={active?.label ?? 'Value'}
+                fill={seriesColor(0)}
+                radius={[4, 4, 0, 0]}
+                maxBarSize={56}
+              />
             </BarChart>
           </ResponsiveContainer>
         </div>
