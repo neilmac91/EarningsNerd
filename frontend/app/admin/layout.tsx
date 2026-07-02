@@ -7,7 +7,7 @@ import { clsx } from 'clsx'
 import { useQuery } from '@tanstack/react-query'
 import { ChatTextIcon, EnvelopeSimpleIcon } from '@/lib/icons'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
-import { ShimmeringLoader } from '@/components/ShimmeringLoader'
+import { Skeleton } from '@/components/ui'
 
 const ADMIN_NAV = [
   { href: '/admin/invites', label: 'Invites', icon: EnvelopeSimpleIcon },
@@ -76,10 +76,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (isLoading) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
-        <ShimmeringLoader className="h-8 w-48" />
-        <div className="mt-6 space-y-3">
-          <ShimmeringLoader className="h-40 w-full" />
-          <ShimmeringLoader className="h-64 w-full" />
+        <div role="status" aria-label="Loading admin">
+          <Skeleton className="h-8 w-48" />
+          <div className="mt-6 space-y-3">
+            <Skeleton className="h-40 w-full" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+          <span className="sr-only">Loading…</span>
         </div>
       </div>
     )

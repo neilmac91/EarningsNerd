@@ -11,8 +11,7 @@ import {
 } from '@/lib/icons'
 import { Button } from '@/components/ui/Button'
 import { Input, inputClasses } from '@/components/ui/Input'
-import { EmptyState } from '@/components/ui/EmptyState'
-import { ShimmeringLoader } from '@/components/ShimmeringLoader'
+import { GuidanceCard, Skeleton } from '@/components/ui'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import {
@@ -341,10 +340,11 @@ export default function AdminInvitesPage() {
           </div>
 
           {isLoading ? (
-            <div className="space-y-3 p-6">
+            <div role="status" aria-label="Loading invites" className="space-y-3 p-6">
               {[0, 1, 2, 3, 4].map((i) => (
-                <ShimmeringLoader key={i} className="h-12 w-full" />
+                <Skeleton key={i} className="h-12 w-full" />
               ))}
+              <span className="sr-only">Loading invites…</span>
             </div>
           ) : isError ? (
             <div className="p-6">
@@ -353,9 +353,10 @@ export default function AdminInvitesPage() {
               </p>
             </div>
           ) : filteredInvites.length === 0 ? (
-            <EmptyState
-              label="Invites"
-              message={
+            <GuidanceCard
+              variant="empty"
+              title="No Invites Found"
+              description={
                 (invites?.length ?? 0) === 0
                   ? 'No invites yet. Send your first one above.'
                   : 'No invites match these filters.'

@@ -1,6 +1,6 @@
 import React from 'react'
 import { SummaryBlock } from '@/components/SummaryBlock'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { SectionEmpty } from './SectionEmpty'
 import { MetricSourceLink } from '@/components/MetricSourceLink'
 import { PerAdsNote } from '@/components/PerAdsNote'
 import type { MetricItem } from '@/types/summary'
@@ -27,7 +27,7 @@ export function SummaryFinancials({ notes, metrics }: SummaryFinancialsProps) {
   const validMetrics = metrics?.filter(hasRealData) ?? []
   const hasContent = Boolean(notes || validMetrics.length > 0)
 
-  if (!hasContent) return <EmptyState label="Financial Highlights" />
+  if (!hasContent) return <SectionEmpty label="Financial Highlights" />
 
   return (
     <div className="space-y-4">

@@ -4,8 +4,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChatTextIcon } from '@/lib/icons'
 import { inputClasses } from '@/components/ui/Input'
-import { EmptyState } from '@/components/ui/EmptyState'
-import { ShimmeringLoader } from '@/components/ShimmeringLoader'
+import { GuidanceCard, Skeleton } from '@/components/ui'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import {
@@ -90,10 +89,11 @@ export default function AdminFeedbackPage() {
           </div>
 
           {isLoading ? (
-            <div className="space-y-3 p-6">
+            <div role="status" aria-label="Loading feedback" className="space-y-3 p-6">
               {[0, 1, 2, 3, 4].map((i) => (
-                <ShimmeringLoader key={i} className="h-12 w-full" />
+                <Skeleton key={i} className="h-12 w-full" />
               ))}
+              <span className="sr-only">Loading feedback…</span>
             </div>
           ) : isError ? (
             <div className="p-6">
@@ -102,9 +102,10 @@ export default function AdminFeedbackPage() {
               </p>
             </div>
           ) : (feedback?.length ?? 0) === 0 ? (
-            <EmptyState
-              label="Feedback"
-              message={
+            <GuidanceCard
+              variant="empty"
+              title="No Feedback Found"
+              description={
                 hasFilters
                   ? 'No feedback matches these filters.'
                   : 'No feedback yet. Reports will appear here as users submit them.'

@@ -2,7 +2,7 @@ import React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { SummaryBlock } from '@/components/SummaryBlock'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { SectionEmpty } from './SectionEmpty'
 import { renderMarkdownValue } from '@/lib/formatters'
 
 interface SummaryTrendsProps {
@@ -13,7 +13,7 @@ interface SummaryTrendsProps {
 export function SummaryTrends({ threeYearTrend, segmentPerformance }: SummaryTrendsProps) {
   const hasContent = Boolean(threeYearTrend || segmentPerformance)
   
-  if (!hasContent) return <EmptyState label="Trends & Segments" />
+  if (!hasContent) return <SectionEmpty label="Trends & Segments" />
 
   return (
     <div className="space-y-6">
