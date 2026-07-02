@@ -175,9 +175,9 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
                   </div>
                   {isActive && (
                     <div className="mt-2 flex space-x-1">
-                      <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-bounce" />
-                      <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-bounce" style={{ animationDelay: 'calc(var(--duration-fast) * 1)' }} />
-                      <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-bounce" style={{ animationDelay: 'calc(var(--duration-fast) * 2)' }} />
+                      <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-bounce motion-reduce:animate-none" />
+                      <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-bounce motion-reduce:animate-none" style={{ animationDelay: 'calc(var(--duration-fast) * 1)' }} />
+                      <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-bounce motion-reduce:animate-none" style={{ animationDelay: 'calc(var(--duration-fast) * 2)' }} />
                     </div>
                   )}
                 </div>

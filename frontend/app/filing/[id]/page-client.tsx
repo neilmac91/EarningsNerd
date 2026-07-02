@@ -937,7 +937,7 @@ function StreamingSummaryDisplay({
                   <span className="text-xl">✨</span>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark animate-[fadeIn_0.5s_ease-out]">
+                  <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark animate-fadeIn">
                     {isError
                       ? "We hit a snag, but don't worry."
                       : isStalled
@@ -1390,7 +1390,9 @@ function SummaryDisplay({
 
       {debug && rawSummary && (
         <section className="bg-gray-900 rounded-lg border border-gray-800 p-4 text-xs text-gray-100">
-          <h3 className="text-sm font-semibold mb-2">Debug: raw summary payload</h3>
+          {/* Explicit ink: the global h1–h6 --heading-color is theme-aware but not
+              surface-aware — this section is fixed-dark in both themes. */}
+          <h3 className="text-sm font-semibold mb-2 text-gray-100">Debug: raw summary payload</h3>
           <pre className="whitespace-pre-wrap break-all">
             {JSON.stringify(rawSummary, null, 2)}
           </pre>

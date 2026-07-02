@@ -18,9 +18,15 @@
    Replaces the retired `animate-count-up` keyframe, which was just a fade.
 ============================================================================= */
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MOTION, easeStandard } from '../lib/motion'
 import { usePrefersReducedMotion } from './usePrefersReducedMotion'
+
+// The tween arms in a LAYOUT effect: the initial state is the final value (SSR/no-JS
+// contract), so the reset to the tween's start must commit before the browser paints —
+// a plain effect ran post-paint and flashed value→0→value on every mount. The server
+// falls back to useEffect (useLayoutEffect warns during SSR and never runs there).
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 export interface CountUpOptions {
   /** ms — defaults to the slow token (600). Pass MOTION.* — never a raw number. */
@@ -41,11 +47,12 @@ export function useCountUp(
   const displayRef = useRef(value) // latest rendered number — restart point mid-animation
   const animatedRef = useRef(false)
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (reduced) {
       animatedRef.current = true
       displayRef.current = value
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- reduced-motion path snaps to the final value (WCAG 2.3.3) instead of tweening; intentional mount-time sync
+      // Reduced-motion path snaps to the final value (WCAG 2.3.3) instead of tweening;
+      // intentional mount-time sync.
       setDisplay(value)
       return
     }
@@ -56,6 +63,10 @@ export function useCountUp(
       setDisplay(value)
       return
     }
+    // Commit the tween's start value in the same pre-paint pass (see the layout-effect
+    // note above) so the first painted frame is the start, not the target.
+    displayRef.current = from
+    setDisplay(from)
     let raf = 0
     const t0 = performance.now()
     const tick = (now: number) => {

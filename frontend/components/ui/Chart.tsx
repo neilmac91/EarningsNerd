@@ -47,7 +47,9 @@ export function seriesColor(index: number): string {
 
 /** Data face for every number a chart renders — mirrors fontFamily.data. */
 export const CHART_FONT =
-  '"Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace'
+  // var first: next/font self-hosts Geist Mono under a hashed family name that only
+  // resolves through --font-geist-mono; the literal name is a fallback.
+  'var(--font-geist-mono), "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace'
 
 export interface ChartTheme {
   grid: string

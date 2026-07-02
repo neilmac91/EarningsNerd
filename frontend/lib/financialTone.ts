@@ -18,10 +18,12 @@ export function directionOf(n: number | null | undefined): Direction {
   return n > 0 ? 'up' : 'down'
 }
 
-/** Text-only tone — inline figures, deltas, signal headlines. Theme-aware. */
+/** Text-only tone — inline figures, deltas, signal headlines. Theme-aware.
+ *  Light uses the 700-level gain.text/loss.text: the 600-level gain/loss values are
+ *  graphic/chip-only (3:1 non-text floor) and fail AA as text on cream. */
 export const directionText: Record<Direction, string> = {
-  up: 'text-gain-light dark:text-gain-dark',
-  down: 'text-loss-light dark:text-loss-dark',
+  up: 'text-gain-text dark:text-gain-dark',
+  down: 'text-loss-text dark:text-loss-dark',
   flat: 'text-flat-light dark:text-flat-dark',
 }
 

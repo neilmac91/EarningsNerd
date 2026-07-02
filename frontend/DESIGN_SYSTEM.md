@@ -40,8 +40,8 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
 - **Muted text on dark = `secondary`, never `tertiary-dark`** (`text-text-tertiary-dark` fails WCAG AA
   on dark panels). Pattern for muted: `text-text-tertiary-light dark:text-text-secondary-dark`.
 - The theme-aware **effect classes** (`.glass-card`, `.mockup-frame`, `.hero-search-glow`,
-  `.text-accent-strong` — the legacy `.text-gradient-mint` name is an alias, and it is a solid ink,
-  not a gradient) already switch on `.dark` in `globals.css` — don't add `bg-*` overrides to them.
+  `.text-accent-strong` — a solid ink, not a gradient; the legacy `.text-gradient-mint` alias was
+  purged at cutover) already switch on `.dark` in `globals.css` — don't add `bg-*` overrides to them.
 
 ## 3. Type v2 — three fixed roles (the font switcher is retired)
 

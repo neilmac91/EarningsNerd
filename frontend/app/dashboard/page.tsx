@@ -232,7 +232,7 @@ export default function DashboardPage() {
                     type="button"
                     onClick={() => refetchSubscription()}
                     disabled={subscriptionFetching}
-                    className="mt-2 inline-flex items-center rounded-lg border border-loss-light/30 bg-loss-soft px-3 py-1 text-xs font-medium text-error-light transition hover:opacity-90 disabled:opacity-60 dark:bg-loss-soft-dark dark:border-loss-dark/30 dark:text-error-dark"
+                    className="mt-2 inline-flex items-center rounded-lg border border-loss-light/30 bg-loss-soft px-3 py-1 text-xs font-medium text-error-light transition hover:border-loss-light/60 disabled:opacity-60 dark:hover:border-loss-dark/60 dark:bg-loss-soft-dark dark:border-loss-dark/30 dark:text-error-dark"
                   >
                     {subscriptionFetching ? 'Retrying…' : 'Retry'}
                   </button>
@@ -286,7 +286,7 @@ export default function DashboardPage() {
                     type="button"
                     onClick={() => refetchUsage()}
                     disabled={usageFetching}
-                    className="mt-2 inline-flex items-center rounded-lg border border-loss-light/30 bg-loss-soft px-3 py-1 text-xs font-medium text-error-light transition hover:opacity-90 disabled:opacity-60 dark:bg-loss-soft-dark dark:border-loss-dark/30 dark:text-error-dark"
+                    className="mt-2 inline-flex items-center rounded-lg border border-loss-light/30 bg-loss-soft px-3 py-1 text-xs font-medium text-error-light transition hover:border-loss-light/60 disabled:opacity-60 dark:hover:border-loss-dark/60 dark:bg-loss-soft-dark dark:border-loss-dark/30 dark:text-error-dark"
                   >
                     {usageFetching ? 'Retrying…' : 'Retry'}
                   </button>
@@ -407,7 +407,7 @@ export default function DashboardPage() {
                   type="button"
                   onClick={() => refetchSavedSummaries()}
                   disabled={savedFetching}
-                  className="mt-2 inline-flex items-center rounded-lg border border-loss-light/30 bg-loss-soft px-3 py-1 text-xs font-medium text-error-light transition hover:opacity-90 disabled:opacity-60 dark:bg-loss-soft-dark dark:border-loss-dark/30 dark:text-error-dark"
+                  className="mt-2 inline-flex items-center rounded-lg border border-loss-light/30 bg-loss-soft px-3 py-1 text-xs font-medium text-error-light transition hover:border-loss-light/60 disabled:opacity-60 dark:hover:border-loss-dark/60 dark:bg-loss-soft-dark dark:border-loss-dark/30 dark:text-error-dark"
                 >
                   {savedFetching ? 'Retrying…' : 'Retry'}
                 </button>
@@ -436,7 +436,7 @@ export default function DashboardPage() {
                     </div>
                     <button
                       onClick={() => deleteSummaryMutation.mutate(item.id)}
-                      className="text-error-light hover:opacity-90 p-2 dark:text-error-dark"
+                      className="text-error-light hover:bg-error-light/10 p-2 rounded-lg dark:text-error-dark dark:hover:bg-error-dark/15"
                       title="Delete"
                       aria-label={`Delete summary for ${item.company.name}`}
                     >
@@ -472,7 +472,7 @@ export default function DashboardPage() {
                   type="button"
                   onClick={() => refetchWatchlist()}
                   disabled={watchlistFetching}
-                  className="mt-2 inline-flex items-center rounded-lg border border-loss-light/30 bg-loss-soft px-3 py-1 text-xs font-medium text-error-light transition hover:opacity-90 disabled:opacity-60 dark:bg-loss-soft-dark dark:border-loss-dark/30 dark:text-error-dark"
+                  className="mt-2 inline-flex items-center rounded-lg border border-loss-light/30 bg-loss-soft px-3 py-1 text-xs font-medium text-error-light transition hover:border-loss-light/60 disabled:opacity-60 dark:hover:border-loss-dark/60 dark:bg-loss-soft-dark dark:border-loss-dark/30 dark:text-error-dark"
                 >
                   {watchlistFetching ? 'Retrying…' : 'Retry'}
                 </button>
@@ -494,7 +494,7 @@ export default function DashboardPage() {
                     </Link>
                     <button
                       onClick={() => removeWatchlistMutation.mutate(item.company.ticker)}
-                      className="text-error-light hover:opacity-90 p-2 dark:text-error-dark"
+                      className="text-error-light hover:bg-error-light/10 p-2 rounded-lg dark:text-error-dark dark:hover:bg-error-dark/15"
                       title="Remove from watchlist"
                       aria-label={`Remove ${item.company.name} from watchlist`}
                     >

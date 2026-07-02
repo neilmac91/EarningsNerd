@@ -17,7 +17,16 @@ import { Analytics } from '@vercel/analytics/next'
 // reference the emitted variables (--font-inter / --font-geist-mono / --font-newsreader).
 const inter = Inter({ subsets: ['latin'], axes: ['opsz'], variable: '--font-inter' })
 const geistMono = Geist_Mono({ subsets: ['latin'], variable: '--font-geist-mono' })
-const newsreader = Newsreader({ subsets: ['latin'], style: ['normal', 'italic'], variable: '--font-newsreader' })
+// axes: opsz — the editorial role promises optical sizing (font-optical-sizing: auto);
+// preload: false — the serif is opt-in for long-form filing reading only, so ~120KB of
+// woff2 must not ride the critical path of every route.
+const newsreader = Newsreader({
+  subsets: ['latin'],
+  style: ['normal', 'italic'],
+  axes: ['opsz'],
+  variable: '--font-newsreader',
+  preload: false,
+})
 
 // Pre-paint theme script — mirrors ThemeProvider (saved 'theme' else light) and sets the
 // .dark class before first paint, so the (theme-responsive) pages don't flash the wrong theme

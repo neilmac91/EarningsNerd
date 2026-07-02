@@ -28,10 +28,13 @@ describe('useCountUp', () => {
     expect(result.current).toBe('42')
   })
 
-  it('renders the final value on first commit even when motion is allowed (SSR/hydration safety)', () => {
+  it('arms the tween from 0 in a pre-paint layout effect when motion is allowed', () => {
     mockReducedMotion(false)
     const { result } = renderHook(() => useCountUp(42))
-    expect(result.current).toBe('42')
+    // The INITIAL state is the final value (that is what SSR markup carries), but the
+    // mount-time layout effect resets to the tween start before the browser paints —
+    // no value→0→value flash. Post-mount the hook reports the start of the count-up.
+    expect(result.current).toBe('0')
   })
 
   it('applies the format option', () => {

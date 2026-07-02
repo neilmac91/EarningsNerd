@@ -153,6 +153,14 @@
 .hero-search-glow:focus-within {
   box-shadow: 0 0 0 2px rgba(79, 122, 99, 0.40), 0 0 40px -5px rgba(79, 122, 99, 0.25);
 }
+/* Dark: fill-level sage doesn't read on navy — use the brightened brand.dark sage
+   (restored at review; the pack shipped the light ring only). */
+.dark .hero-search-glow {
+  box-shadow: 0 0 0 1px rgba(127, 178, 149, 0.28), 0 0 30px -5px rgba(127, 178, 149, 0.18);
+}
+.dark .hero-search-glow:focus-within {
+  box-shadow: 0 0 0 2px rgba(127, 178, 149, 0.50), 0 0 40px -5px rgba(127, 178, 149, 0.28);
+}
 
 /* Hero accent word — solid sage ink, not a gradient. brand.strong in light,
    brand strong-dark on navy. (The legacy `.text-gradient-mint` alias was purged at
@@ -175,26 +183,49 @@
   .animate-on-scroll { opacity: 1; transform: none; transition: none; }
 }
 
+/* Theme-aware glass card (restored at review — the pack shipped the dark recipe only).
+   Light: white glass + e2 lift on cream. Dark: navy glass, fill-contrast separation,
+   no resting shadow. Hover brightens toward the sage hairline in both themes. */
 .glass-card {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(16, 24, 40, 0.12);
+  box-shadow: 0 1px 3px 0 rgba(16, 24, 40, 0.10), 0 1px 2px -1px rgba(16, 24, 40, 0.10);
 }
 .glass-card:hover {
-  border-color: rgba(127, 178, 149, 0.28);
+  border-color: rgba(60, 102, 80, 0.30); /* brand.strong @ 30% */
+  box-shadow: 0 8px 30px -12px rgba(16, 24, 40, 0.18);
+}
+.dark .glass-card {
+  background: rgba(15, 23, 42, 0.6);
+  border-color: rgba(255, 255, 255, 0.06);
+  box-shadow: none;
+}
+.dark .glass-card:hover {
+  border-color: rgba(127, 178, 149, 0.28); /* sage — the old slate hover is retired */
   box-shadow: 0 0 30px -10px rgba(127, 178, 149, 0.18);
 }
 
+/* Mockup browser frame — theme-aware, FLAT fills (the decorative gradients are retired;
+   the theme pair was restored at review — the pack shipped navy-only, which painted the
+   hero example's light-theme ink onto navy). */
 .mockup-frame {
-  /* Flat brand navy — the decorative slate gradient is retired (no decorative gradients). */
-  background: #0B1120;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #FBFAF6; /* panel.light */
+  border: 1px solid rgba(16, 24, 40, 0.10);
   border-radius: 12px;
   overflow: hidden;
 }
 .mockup-frame-titlebar {
+  background: rgba(16, 24, 40, 0.04);
+  border-bottom: 1px solid rgba(16, 24, 40, 0.06);
+}
+.dark .mockup-frame {
+  background: #0B1120; /* flat brand navy */
+  border-color: rgba(255, 255, 255, 0.1);
+}
+.dark .mockup-frame-titlebar {
   background: rgba(255, 255, 255, 0.05);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom-color: rgba(255, 255, 255, 0.06);
 }
 
 /* ===== markdown / filing viewer — the READER (v2) ===========================
@@ -219,10 +250,13 @@
   @apply text-text-primary-light dark:text-text-primary-dark;
   max-width: 88ch;            /* the breakout rail */
   margin-inline: auto;
-  font-family: var(--font-editorial);
-  font-optical-sizing: auto;
-  font-size: 1.1875rem;       /* 19px — Newsreader's x-height needs the bump */
-  line-height: 1.7;
+  /* Review deviation from the pack: the only .markdown-body consumer in this app is the
+     AI-generated summary, which the DS rules keep sans/mono ("serif = the filing's own
+     words"). The reader LAYOUT (measure, tables, figures) stays; the editorial serif is
+     reserved for the actual filing-reader surface when it adopts these styles. */
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.65;
 }
 .markdown-body > * { max-width: 68ch; margin-left: auto; margin-right: auto; }
 .markdown-body > table, .markdown-body > figure, .markdown-body > pre { max-width: none; }
