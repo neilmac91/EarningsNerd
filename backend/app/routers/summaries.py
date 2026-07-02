@@ -225,22 +225,19 @@ async def generate_summary_stream(
 
         # Key on the TRUSTED client IP (real client from X-Forwarded-For), not request.client.host —
         # behind Cloud Run the latter is the shared Google front-end address, so every guest would
-        # collapse onto one quota key. Skip when it's unresolvable ("unknown"), else all such guests
-        # would likewise share one key and exhaust the daily limit collectively.
-        trusted_ip = get_client_ip(request)
-        if trusted_ip != "unknown":
-            allowed, count = check_and_increment_guest_quota(
-                db, trusted_ip, _settings.GUEST_DAILY_SUMMARY_LIMIT
+        # collapse onto one quota key. The service fails open for an unresolvable ("unknown") IP.
+        allowed, count = check_and_increment_guest_quota(
+            db, get_client_ip(request), _settings.GUEST_DAILY_SUMMARY_LIMIT
+        )
+        if not allowed:
+            logger.info(f"[stream:{filing_id}] Guest over daily quota ({count}/{_settings.GUEST_DAILY_SUMMARY_LIMIT})")
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    f"You've reached today's free limit of {_settings.GUEST_DAILY_SUMMARY_LIMIT} "
+                    "summaries. Create a free account to generate more."
+                ),
             )
-            if not allowed:
-                logger.info(f"[stream:{filing_id}] Guest over daily quota ({count}/{_settings.GUEST_DAILY_SUMMARY_LIMIT})")
-                raise HTTPException(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    detail=(
-                        f"You've reached today's free limit of {_settings.GUEST_DAILY_SUMMARY_LIMIT} "
-                        "summaries. Create a free account to generate more."
-                    ),
-                )
 
     user_id = current_user.id if current_user else None
     logger.info(f"[stream:{filing_id}] Starting summary stream for user {user_id}")

@@ -280,6 +280,15 @@ def test_guest_first_summary_is_always_allowed(guest_db):
     assert allowed is True and count == 1
 
 
+def test_guest_unknown_ip_fails_open(guest_db):
+    """An unresolvable client IP is never counted or blocked — otherwise every guest whose IP can't
+    be determined would share the one 'unknown' bucket and collectively exhaust the daily limit."""
+    for ip in ("unknown", "  UNKNOWN  ", "", "none"):
+        allowed, count = guest_quota.check_and_increment_guest_quota(guest_db, ip, limit=1)
+        assert allowed is True and count == 0
+    assert guest_db.query(GuestDailyUsage).count() == 0  # nothing stored for unresolvable IPs
+
+
 def test_guest_cap_blocks_past_the_limit(guest_db):
     ip, limit = "1.2.3.4", 3
     for expected in (1, 2, 3):

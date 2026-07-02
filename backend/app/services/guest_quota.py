@@ -46,19 +46,40 @@ def check_and_increment_guest_quota(db: Session, client_ip: str, limit: int) -> 
     never be blocked by infrastructure. Pass the *trusted* client IP (get_client_ip), not the raw
     ``request.client.host``.
     """
+    # An unresolvable IP fails open: otherwise every guest whose IP can't be determined would share
+    # the one "unknown" key and collectively exhaust a single daily budget, blocking each other.
+    if not client_ip or client_ip.strip().lower() in ("unknown", "", "none"):
+        return True, 0
+
     try:
         ip_hash = _ip_hash(client_ip)
         today = datetime.now(timezone.utc).date()
-        row = db.query(GuestDailyUsage).filter(GuestDailyUsage.ip_hash == ip_hash).first()
+        # with_for_update locks the row so concurrent generations from one IP serialize instead of
+        # both reading the same count and overwriting each other (a lost update). No-op on SQLite,
+        # which serializes writes anyway; a real row lock on Postgres (prod).
+        row = (
+            db.query(GuestDailyUsage)
+            .filter(GuestDailyUsage.ip_hash == ip_hash)
+            .with_for_update()
+            .first()
+        )
         if row is None:
-            db.add(GuestDailyUsage(ip_hash=ip_hash, usage_date=today, count=1))
             try:
+                # Insert inside a SAVEPOINT so a concurrent insert's IntegrityError rolls back only
+                # this statement — a plain db.rollback() on the shared request session would expire
+                # every object loaded earlier in the request (e.g. the filing being summarized).
+                with db.begin_nested():
+                    db.add(GuestDailyUsage(ip_hash=ip_hash, usage_date=today, count=1))
                 db.commit()
                 return True, 1  # the first generation of the day is always under the cap
             except IntegrityError:
-                # A concurrent request inserted the same row first — fall through to increment it.
-                db.rollback()
-                row = db.query(GuestDailyUsage).filter(GuestDailyUsage.ip_hash == ip_hash).first()
+                # A concurrent request inserted the same row first — re-read it under the lock.
+                row = (
+                    db.query(GuestDailyUsage)
+                    .filter(GuestDailyUsage.ip_hash == ip_hash)
+                    .with_for_update()
+                    .first()
+                )
                 if row is None:
                     return True, 0  # fail open — can't determine the count
         if row.usage_date != today:
