@@ -40,7 +40,9 @@ export function seriesColor(index: number): string {
   if (process.env.NODE_ENV !== 'production' && index >= CHART_SERIES.length) {
     console.warn(`seriesColor(${index}): >6 series — collapse categories or facet the chart.`)
   }
-  return CHART_SERIES[index % CHART_SERIES.length]
+  // JS % returns negative values for negative inputs — wrap to a safe index so a
+  // bad caller gets a stable color instead of undefined breaking the chart.
+  return CHART_SERIES[((index % CHART_SERIES.length) + CHART_SERIES.length) % CHART_SERIES.length]
 }
 
 /** Data face for every number a chart renders — mirrors fontFamily.data. */

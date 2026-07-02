@@ -73,7 +73,10 @@ const CHIP = cx(
 )
 
 /** Split answer text on [n] markers and render them as citation chips. */
-function renderAnswer(text: string, onCitationClick?: (id: number) => void): ReactNode[] {
+function renderAnswer(text: string | undefined, onCitationClick?: (id: number) => void): ReactNode[] {
+  // Streaming starts with no answer text yet (and API fields can be nullish at
+  // runtime) — render nothing instead of crashing on .split.
+  if (!text) return []
   return text.split(/(\[\d+\])/g).map((part, i) => {
     const m = part.match(/^\[(\d+)\]$/)
     if (!m) return part
