@@ -291,7 +291,7 @@ call, reputation-first: neutral-with-downside ⇒ no ship.)
 During the PR-5 banned-utility sweep, two blind string replaces caused regressions
 that only Gemini's review caught: (1) a targeted `transition-all ->
 transition-[stroke-dashoffset]` replace missed the SVG ring because its classes
-live in a TEMPLATE LITERAL (`className={\`transition-all ... ${isError ...}\`}`),
+live in a TEMPLATE LITERAL (``className={`transition-all ... ${isError ...}`}``),
 so the blanket `transition-all -> transition` fallback silently killed the
 animation; (2) `replace('bg-amber-400', 'bg-warning-light dark:bg-warning-dark')`
 also matched `bg-amber-400/10` and `hover:bg-amber-400/20`, producing a solid
