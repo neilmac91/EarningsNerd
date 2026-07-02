@@ -150,22 +150,6 @@ async def generate_summary_stream(
         error_detail="Too many summary requests. Please try again shortly.",
     )
 
-    # Regeneration deletes the filing's shared summary + XBRL and kicks off a fresh, paid LLM run,
-    # so it's Pro-only: an anonymous caller could otherwise drive denial-of-wallet or wipe a popular
-    # filing's summary for everyone. Resolved via the entitlements SSoT (not the is_pro mirror) so a
-    # lagging mirror can't wrongly grant/deny it. Guests/Free users can still read and generate.
-    if force:
-        if current_user is None:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Please sign in to regenerate this analysis.",
-            )
-        if not is_pro_user(current_user):
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Regenerating an analysis is a Pro feature.",
-            )
-
     # Eagerly load content_cache and company relationship to avoid detached session issues
     filing = db.query(Filing).options(
         joinedload(Filing.content_cache),
@@ -179,6 +163,22 @@ async def generate_summary_stream(
     summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
     if summary:
         if force:
+            # Force regeneration DELETES the filing's shared summary + XBRL and triggers a fresh,
+            # paid LLM run, so it's Pro-only (guests 401, Free 403) — otherwise it's a denial-of-
+            # wallet / "wipe a popular filing for everyone" vector. Resolved via the entitlements
+            # SSoT (not the is_pro mirror) so a lagging mirror can't wrongly grant/deny it. NB this
+            # gate sits inside `if summary`: when no summary exists yet, force is a harmless no-op,
+            # so a failed-generation retry stays open to guests and Free users.
+            if current_user is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Please sign in to regenerate this analysis.",
+                )
+            if not is_pro_user(current_user):
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Regenerating an analysis is a Pro feature.",
+                )
             # Force regeneration: delete existing summary and related data
             logger.info(f"[stream:{filing_id}] Force regeneration requested - deleting existing summary")
             db.delete(summary)
