@@ -878,24 +878,28 @@ async def verify_email(
     # Grant the reverse trial only now, on verification — so no-card Pro requires a real, verified
     # inbox rather than being handed to any freshly-registered (unverified) address. Behind the flag
     # (default off), best-effort, and committed separately so a trial-grant failure can't undo the
-    # verification. start_reverse_trial is idempotent for an already-active/trialing subscription.
+    # verification. Skip entirely if the user already has active/trialing Pro — resolved via the
+    # entitlements SSoT, not the is_pro mirror — so we neither duplicate-grant nor fire a spurious
+    # "trial started" event. (start_reverse_trial is also internally idempotent.)
     if settings.REVERSE_TRIAL_ENABLED:
-        try:
-            from app.services.subscription_sync import start_reverse_trial
-            start_reverse_trial(db, user, settings.REVERSE_TRIAL_DAYS)
-            db.commit()
-        except Exception:
-            db.rollback()
-            logger.warning("Failed to start reverse trial for user %s on verify", user.id, exc_info=True)
-        else:
+        from app.services.entitlements import is_pro_user
+        from app.services.subscription_sync import start_reverse_trial
+        if not is_pro_user(user):
             try:
-                capture_event(
-                    str(user.id),
-                    EVENT_TRIAL_STARTED,
-                    {"source": "reverse_trial", "days": settings.REVERSE_TRIAL_DAYS},
-                )
+                start_reverse_trial(db, user, settings.REVERSE_TRIAL_DAYS)
+                db.commit()
             except Exception:
-                logger.warning("Trial-started telemetry failed for user %s", user.id, exc_info=True)
+                db.rollback()
+                logger.warning("Failed to start reverse trial for user %s on verify", user.id, exc_info=True)
+            else:
+                try:
+                    capture_event(
+                        str(user.id),
+                        EVENT_TRIAL_STARTED,
+                        {"source": "reverse_trial", "days": settings.REVERSE_TRIAL_DAYS},
+                    )
+                except Exception:
+                    logger.warning("Trial-started telemetry failed for user %s", user.id, exc_info=True)
     return {"message": "Email verified. You can now use all features."}
 
 
