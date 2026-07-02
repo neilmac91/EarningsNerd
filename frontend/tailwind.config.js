@@ -68,12 +68,10 @@ module.exports = {
         // to read as text/accents on navy. Never use brand in a numeric/price context.
         brand: {
           DEFAULT: '#4F7A63', strong: '#3C6650', emphasis: '#345C48',
-          // Legacy alias of DEFAULT — ~191 usages pending the brand-light sweep (MIGRATION
-          // v2.1 §c). Deleted only at the end of the sweep, in its own commit. Do not use
-          // in new code. (Re-added on sync: the v2.1 pack dropped it against its own
-          // ground-truth note.)
-          light: '#4F7A63',
           weak: '#ECF2EE', border: '#CFE0D6',
+          light: '#4F7A63',  // deprecated alias of DEFAULT — deleted only at the
+                             // end of the downstream §c sweep (MIGRATION.md);
+                             // do not use in new code
           dark: '#7FB295', 'strong-dark': '#98C5AD', 'fill-dark': '#569272',
           'weak-dark': 'rgba(127,178,149,0.14)', 'border-dark': 'rgba(127,178,149,0.28)',
         },
@@ -156,12 +154,15 @@ module.exports = {
 
       fontFamily: {
         // Type v2 — three FIXED roles (not user-selectable). Must mirror the CSS vars in globals.css.
+        // next/font self-hosts under HASHED family names exposed ONLY as CSS vars
+        // (--font-inter / --font-geist-mono / --font-newsreader — see layout.tsx Option A), so
+        // every stack LEADS with its next/font variable; the literals are fallbacks (Option B /
+        // non-Next consumers). EXCEPTION: `body` is system-first BY DESIGN — -apple-system stays
+        // first and the var precedes generic system-ui; do not "fix" it to lead. PACKAGING GATE:
+        // every fontFamily stack and :root font var leads with its next/font variable (body: the
+        // var leads the WEBFONT portion) — this wiring was missed in BOTH the v2 and v2.1 exports.
         // Headings: Inter loaded WITH the variable opsz axis — font-optical-sizing:auto gives the
         // SF-style Text↔Display optical cuts. ONE display weight: 600.
-        // Option A (next/font) wiring per the v2 cutover (§d.4): webfonts are self-hosted
-        // with hashed family names, exposed via --font-inter / --font-geist-mono /
-        // --font-newsreader on <html> (app/layout.tsx). The literal names stay as
-        // fallbacks. (Re-applied on sync: the v2.1 pack shipped literal-only stacks.)
         heading: ['var(--font-inter)', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
         // Body & UI: system-first — Apple hardware renders SF Pro (platform license, zero bytes);
         // everyone else falls through to Inter. Inter sits BEFORE generic system-ui on purpose.
@@ -172,8 +173,8 @@ module.exports = {
         // Technical & data: Geist Mono + tabular-nums — money, %, tickers, XBRL, verbatim excerpts.
         data: ['var(--font-geist-mono)', '"Geist Mono"', 'ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
         mono: ['var(--font-geist-mono)', '"Geist Mono"', 'ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
-        // fontFamily.system / fontFamily.grotesque stay purged (cutover decision — zero
-        // class usage; the v2.1 pack resurrected them against its own ground-truth note).
+        // fontFamily.system / .grotesque were PURGED at the v2 cutover (zero usage, confirmed by
+        // scan) — do not reintroduce. The v2.1 export resurrected them; #497 re-removed them.
       },
 
       fontSize: {

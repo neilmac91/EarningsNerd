@@ -1,7 +1,7 @@
 /* =============================================================================
    Motion constants — lib/motion.ts
    -----------------------------------------------------------------------------
-   JS mirror of the CSS motion tokens (globals.css :root / tokens/spacing.css)
+   JS mirror of the CSS motion tokens (globals.css :root)
    for consumers that need NUMBERS, not var() strings: Recharts animationDuration
    (ui/Chart.tsx lineProps) and the useCountUp rAF loop. The CSS :root block and
    this file are the only sanctioned homes for raw motion values — keep in sync.

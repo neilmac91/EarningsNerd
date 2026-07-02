@@ -17,11 +17,15 @@
    Editorial serif (Newsreader) is opt-in for long-form filing reading only.
 ============================================================================= */
 :root {
-  /* Option A (next/font) wiring per the v2 cutover (§d.4): --font-inter /
-     --font-geist-mono / --font-newsreader are the self-hosted families emitted on
-     <html> by app/layout.tsx; the literal names remain as fallbacks. (Re-applied on
-     sync: the v2.1 pack shipped literal-only stacks. --font-system stays dropped —
-     dead var, purged at cutover.) */
+  /* next/font self-hosts under HASHED family names exposed ONLY as CSS vars
+     (--font-inter / --font-geist-mono / --font-newsreader — layout.tsx Option A):
+     every stack LEADS with its next/font variable, literals are fallbacks
+     (Option B <link> / non-Next consumers). EXCEPTION: --font-body is
+     system-first BY DESIGN — -apple-system stays first (Apple hardware renders
+     SF Pro, zero bytes) and the var sits before generic system-ui; do not
+     "fix" it to lead. PACKAGING GATE: every fontFamily stack and :root font
+     var leads with its next/font variable (body: the var leads the WEBFONT
+     portion). --font-system was purged at the v2 cutover — do not reintroduce. */
   --font-editorial: var(--font-newsreader), 'Newsreader', 'New York', ui-serif, Georgia, serif;
   --font-data: var(--font-geist-mono), 'Geist Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
@@ -268,14 +272,6 @@
   max-width: 88ch;            /* the breakout rail */
   margin-inline: auto;
 }
-
-/* Links — restores what the retired Tailwind `prose-a:*` stack provided: preflight
-   strips anchor color AND underline, so unstyled links are indistinguishable from
-   the surrounding text. DS recipe: accent text/links = brand.strong / strong-dark.
-   (Review fix on the v2.1 sync — mirror upstream.) */
-:is(.markdown-body, .filing-reader) a {
-  @apply text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark;
-}
 /* Prose voice — .filing-reader ONLY. */
 .filing-reader {
   font-family: var(--font-editorial);
@@ -320,6 +316,13 @@
   font-style: normal;
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
+}
+
+/* links — Tailwind preflight strips BOTH anchor color and underline, so links
+   inside the reader/summary rendered indistinguishable from body text (caught
+   by review on #497). Accent ink + 4px-offset underline, both themes. */
+:is(.markdown-body, .filing-reader) a {
+  @apply text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark;
 }
 
 :is(.markdown-body, .filing-reader) blockquote {
