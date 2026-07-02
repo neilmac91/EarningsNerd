@@ -6,25 +6,36 @@ InsiderActivityPanel, ZERO behavior change. Out of scope (recon): CompanyLogo + 
 (shared leaves, high blast radius — UnverifiedBadge's raw amber flagged upstream: Badge needs a
 warning variant), financialTone wiring (already correct), accordion year-toggles + filter chips +
 panel toggles (token-compliant segmented controls; tests pin button roles/names like "1Y").
-- [ ] page-client: filings section + year-groups + filing rows -> Card recipe (rounded-lg->xl,
-      shadow-sm->e2; kill the 10-K row brand-weak fill); recommended banner -> Card e3 (kill the
-      banned gradient + brand-weak-as-fill); header shadow-sm -> e2
-- [ ] page-client: 3 full-page states (invalid ticker / not found / unsupported-foreign) ->
-      GuidanceCard + buttonVariants home actions; filings error/empty (inside the section card) ->
-      inline pattern with role=alert/status; spinners -> Skeleton bones (role=status + sr-only)
-- [ ] page-client: Summarize/Generate/SEC-EDGAR/back-home links -> buttonVariants; Retry -> Button;
-      watchlist star kept raw if token-clean (aria-pressed/label are load-bearing)
-- [ ] page-client: Recommended pills -> Badge; filing-type badges -> Badge tonal map (icon null)
-- [ ] PeerComparisonPanel: section -> Card recipe on semantic <section>; local hexes -> seriesColor/
-      chartTheme/axis factories; hand-built tooltip -> ChartTooltip; spinner -> Skeleton; PRESERVE
-      data-testid="peers-chart", "Sector Peers" h2, rank sentence, Unverified text
-- [ ] InsiderActivityPanel: both sections -> Card recipe; transactions <table> -> DataTable
-      (Shares/Value numeric right, Type tone gain/loss, 10b5-1 -> Badge neutral keeping the literal);
-      spinner -> Skeleton; PRESERVE "1Y" button name, "Jane Doe"/"10b5-1" row text, null-when-empty
-- [ ] Gates: typecheck / lint / vitest (peer + insider specs) / build (with chart+insider flags on);
-      both-theme Playwright render of the real public /company/AAPL route with fixture APIs
-      (filings = BARE array; peers/insiders = {.peers}/{.transactions} envelopes; auth/me user)
-**Review:** (filled in when done)
+- [x] page-client: filings section -> Card recipe on semantic <section>; year-groups + filing rows
+      rounded-lg->xl; per-type tinted row fills KEPT (tint insets on panel, not card fills — same
+      call as the watchlist wells); recommended banner: gradient KILLED -> flat brand-weak tint box
+      (trial-box precedent); header shadow-sm -> e1
+- [x] page-client: 3 full-page states -> GuidanceCard (unsupported-foreign = empty w/ FileTextIcon;
+      other two = error) + buttonVariants home actions; filings error -> inline pattern w/ role=alert
+      + Button retry; filings empty kept inline + role=status; filings spinner -> Skeleton rows;
+      full-page company spinner kept (route gate) + role=status/sr-only
+- [x] page-client: Summarize/Generate/SEC-EDGAR/back-home -> buttonVariants; Retry -> Button;
+      watchlist star kept raw (token-clean; aria-pressed/label load-bearing)
+- [x] page-client: Recommended pills KEPT as solid emphasis chips (tint Badge vanishes on the
+      brand-weak banner/row grounds; upstream: Badge solid variant); filing-type badges KEPT
+      (tonal map includes info, which Badge lacks; upstream: Badge info/warning variants)
+- [x] PeerComparisonPanel: Card recipe; SUBJECT_FILL + 6 local hexes deleted -> seriesColor(0)/
+      chartTheme(dark).flat/xAxisProps/yAxisProps; hand-built tooltip -> ChartTooltip (Bar gains
+      name={label}); spinner -> Skeleton; testid/h2/rank sentence/Unverified preserved
+- [x] InsiderActivityPanel: both sections -> Card recipe; <table> -> DataTable (module-level
+      TRANSACTION_COLUMNS; Type tone gain/loss + Badge neutral "10b5-1"; Shares/Value/Date numeric
+      right); InsiderTransaction interface -> type alias (DataTable Record constraint);
+      spinner -> Skeleton; "1Y" toggles + null-when-empty untouched
+- [x] Gates: typecheck 0 / eslint clean / vitest 237/237 (peer+insider+peers-api specs green) /
+      build with both panel flags compiled in; both themes verified on the real public
+      /company/AAPL route in Playwright with pathname-matched fixtures (bare-array filings,
+      {peers}/{transactions} envelopes) — chart chrome, DataTable tones, star, banner all correct
+**Review:** Zero-behavior recomposition of the company page (3 files + 1 type alias). The banned
+gradient banner and all local chart hexes are gone; the filings surface, both panels, and every
+CTA now ride the v2 layer. Three documented keep-decisions: per-type tinted filing rows (insets,
+not card fills), solid Recommended chips (tint Badge invisible on tinted grounds -> upstream Badge
+solid variant), and hand-rolled filing-type badges (Badge lacks an info tone -> upstream candidate,
+same family as UnverifiedBadge's missing warning variant).
 
 ## Task #25 — Adoption PR 2: dashboard surface onto the v2 component layer
 **Scope (approved pass, PR 2 of 5):** recompose /dashboard, /dashboard/settings, /dashboard/watchlist
