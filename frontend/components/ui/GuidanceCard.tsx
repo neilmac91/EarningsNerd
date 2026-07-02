@@ -1,20 +1,25 @@
 /* =============================================================================
-   StateCard — components/ui/StateCard.tsx
+   GuidanceCard — components/ui/GuidanceCard.tsx
    -----------------------------------------------------------------------------
    The system states a financial app needs, as one guidance surface:
      - empty:  brand-tint icon + a concrete next step (role="status").
      - error:  error-tint icon + honest copy + retry (role="alert").
    For loading, use Skeleton/SkeletonText in place of the content instead —
    a spinner card hides layout; bones preserve it.
+
+   NAMING (v2.1): shipped in v2 as ui/StateCard — renamed because the app
+   already owns components/StateCard.tsx (notice card, 10 importers) and both
+   sit one letter from StatCard (the KPI tile). The app's StateCard keeps its
+   name; this surface is the empty/error guidance card only.
 ============================================================================= */
 
 import { type ReactNode } from 'react'
 import { cx } from './cx'
 
-export type StateCardVariant = 'empty' | 'error'
+export type GuidanceCardVariant = 'empty' | 'error'
 
-export interface StateCardProps {
-  variant?: StateCardVariant
+export interface GuidanceCardProps {
+  variant?: GuidanceCardVariant
   /** Defaults: magnifier (empty) / alert circle (error). */
   icon?: ReactNode
   title: string
@@ -24,7 +29,7 @@ export interface StateCardProps {
   className?: string
 }
 
-const ICON_WRAP: Record<StateCardVariant, string> = {
+const ICON_WRAP: Record<GuidanceCardVariant, string> = {
   empty: cx(
     'border-brand-border bg-brand-weak text-brand-strong',
     'dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark',
@@ -35,7 +40,7 @@ const ICON_WRAP: Record<StateCardVariant, string> = {
   ),
 }
 
-function DefaultIcon({ variant }: { variant: StateCardVariant }) {
+function DefaultIcon({ variant }: { variant: GuidanceCardVariant }) {
   return variant === 'error' ? (
     <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5" aria-hidden="true">
       <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.7" />
@@ -50,7 +55,7 @@ function DefaultIcon({ variant }: { variant: StateCardVariant }) {
   )
 }
 
-export function StateCard({ variant = 'empty', icon, title, description, action, className }: StateCardProps) {
+export function GuidanceCard({ variant = 'empty', icon, title, description, action, className }: GuidanceCardProps) {
   return (
     <div
       role={variant === 'error' ? 'alert' : 'status'}

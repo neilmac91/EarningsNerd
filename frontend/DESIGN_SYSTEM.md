@@ -40,8 +40,9 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
 - **Muted text on dark = `secondary`, never `tertiary-dark`** (`text-text-tertiary-dark` fails WCAG AA
   on dark panels). Pattern for muted: `text-text-tertiary-light dark:text-text-secondary-dark`.
 - The theme-aware **effect classes** (`.glass-card`, `.mockup-frame`, `.hero-search-glow`,
-  `.text-accent-strong` — a solid ink, not a gradient; the legacy `.text-gradient-mint` alias was
-  purged at cutover) already switch on `.dark` in `globals.css` — don't add `bg-*` overrides to them.
+  `.text-accent-strong` — a solid ink, not a gradient) switch on `.dark` in `globals.css`, each as
+  a full light/dark pair — don't add `bg-*` overrides to them. The legacy `.text-gradient-mint`
+  alias is **purged** (cutover scan returned 0 uses); only `.text-accent-strong` exists.
 
 ## 3. Type v2 — three fixed roles (the font switcher is retired)
 
@@ -53,20 +54,23 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
 - **Data:** Geist Mono + `tabular-nums` — money, %, tickers, XBRL anchors, verbatim excerpts,
   Ask-this-Filing output. `.tabular` = mono evidence register; `.tnum` = body face + tabular figures
   (data tables, KPI tiles).
-- **Editorial serif (Newsreader)** is wired to exactly ONE surface: filing prose in the reader
-  (`.markdown-body`, 19/1.7, opsz auto). Serif = the filing's own words; UI, AI summaries, and
-  Ask output stay sans/mono.
+- **Editorial serif (Newsreader)** is wired to exactly ONE surface: the real filing viewer
+  (**`.filing-reader`**, 19/1.7, opsz auto — Item 1A, MD&A, notes). Serif = the filing's own words.
+  **`.markdown-body` is NOT serif**: it carries the same reader *layout* (68ch measure on children,
+  88ch table/figure rail, list + heading + table manners) on the **body sans** — its app consumer is
+  the AI-generated summary, and AI output never renders in the filing's voice. Ask output stays mono.
 - **Tracking ramp** (`--track-*`): +0.01em ≤12px · 0 at 13–19px · −0.012em 20–24px · −0.016em
   26–32px · −0.02em 34–44px · −0.025em 48px+ · `--track-eyebrow 0.08em` for uppercase micro-labels.
 - 12px UI-type floor (`text-data-xs` 11px only for dense numeric annotations). UPPERCASE tracked
-  eyebrows are reserved for metric labels — never card titles.
+  eyebrows are reserved for metric labels — never card titles (`CardTitle` is sentence case,
+  14px/600 heading ink; it shipped as an eyebrow in v2 and was fixed in v2.1).
 - **Figtree and Helvetica are retired.** `--font-active` survives as a permanent alias of the body
   role so existing `font-sans` usage keeps resolving; don't reference Figtree in new code.
 
 ## 4. Canonical component patterns
 
 **Compose the component layer, don't hand-roll** — `components/ui/*` (Button, Badge, Input, Card,
-DataTable, Skeleton, StateCard) + `components/AskFilingAnswer.tsx`. Every component defines
+DataTable, Skeleton, GuidanceCard) + `components/AskFilingAnswer.tsx`. Every component defines
 default / hover / active / focus-visible / disabled / loading plus the system states (empty,
 skeleton via the shared shimmer keyframe, error).
 
@@ -80,7 +84,12 @@ Secondary button <Button variant="secondary">  — panel fill + hairline + soft 
                  dark:bg-panel-dark dark:border-white/10 dark:shadow-none dark:hover:bg-white/5
                  (never hover:opacity — it darkens)
 
-Tertiary button  <Button variant="tertiary">  — ghost: transparent + border, hover bg-brand-weak
+Ghost button     <Button variant="ghost">  — brand.strong text on transparent, tint hover
+                 (`variant="tertiary"` is accepted as a deprecated alias of ghost — pre-v2 API)
+
+Link as button   buttonVariants({ variant, size })  — the class-string factory for <Link>/<a>
+                 styled as buttons; <Button> composes the same factory. Raw fields that the
+                 <Input> component can't wrap use inputClasses({ invalid }).
 
 Accent text/link text-brand-strong dark:text-brand-strong-dark   (never brand.DEFAULT as text on cream)
 Focus ring       focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark;
@@ -93,7 +102,8 @@ Input            <Input>  — fill is the BRIGHTEST surface so the field reads o
                  AND an off-white card: bg-white dark:bg-slate-900/60 + hairline + brand focus ring
 
 Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text-loss-dark
-                 (the 600-level gain/loss are chips + graphics only)
+                 (the 600-level gain/loss are chips + graphics only — the 3:1 non-text floor).
+                 lib/financialTone.directionText IS this recipe — route delta text through it.
 ```
 
 - **Radius scale is 4 / 8 / 12 / 16 / 24** — buttons + inputs 12 (`rounded-lg`), chips full,
@@ -137,7 +147,7 @@ search glow. The hero accent word is solid `text-brand-strong dark:text-brand-st
 - **Google / Apple sign-in buttons**: keep their brand-mandated surfaces (white / black). Only
   their focus rings get rebranded.
 - **Status + financial colors are semantic** — keep them; reserve loud status colors for genuine
-  state. A default guidance/info container is subdued/brand-tinted, not loud blue (see `StateCard`).
+  state. A default guidance/info container is subdued/brand-tinted, not loud blue (see `GuidanceCard`).
 - **Progress / step / completion indicators use the BRAND accent (sage), not success-green.**
   Green is for a genuine terminal *confirmation* state; in-progress ticks are brand activity.
 
@@ -146,7 +156,9 @@ search glow. The hero accent word is solid `text-brand-strong dark:text-brand-st
 Series colors come from **`chart-1..6`** — a CVD-validated **sequence** (blue↔yellow axis
 alternates early), taken 1→N in order, never skipped or re-sorted. At ≥5 series add direct
 labels/markers — color no longer carries alone. **Gain/loss never appear as series colors**
-(direction only) and **sage never appears inside a plot area**. Chart chrome (grid, axis, labels,
+(direction only) and **sage never appears inside a plot area**. Direction vocabulary is the app's
+`lib/financialTone.ts` `Direction` (`'up' | 'down' | 'flat'`) — derive with `directionOf()`, color
+with `directionTone()`/`directionTextTone()` from `ui/Chart.tsx`. Chart chrome (grid, axis, labels,
 crosshair, tooltip) uses the `chart.grid/axis/label/crosshair/ref/tip` sub-tokens — theme-aware via
 `useContext(ThemeContext)?.theme === 'dark'` (not `useTheme()`, which throws in provider-less
 chart unit tests). Axis labels: 11–12px data face + tabular-nums; dark labels use `secondary`.

@@ -72,10 +72,10 @@ const CHIP = cx(
   'dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark',
 )
 
-/** Split answer text on [n] markers and render them as citation chips. */
-function renderAnswer(text: string | undefined, onCitationClick?: (id: number) => void): ReactNode[] {
-  // Streaming starts with no answer text yet (and API fields can be nullish at
-  // runtime) — render nothing instead of crashing on .split.
+/** Split answer text on [n] markers and render them as citation chips.
+    Guards nullish text — in the streaming state the first token may not have
+    arrived yet (answer undefined/null), which must render as empty, not crash. */
+function renderAnswer(text: string | null | undefined, onCitationClick?: (id: number) => void): ReactNode[] {
   if (!text) return []
   return text.split(/(\[\d+\])/g).map((part, i) => {
     const m = part.match(/^\[(\d+)\]$/)

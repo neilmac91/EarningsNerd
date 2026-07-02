@@ -4,7 +4,7 @@ const { fontFamily } = require('tailwindcss/defaultTheme')
    EarningsNerd — Tailwind token system
    -----------------------------------------------------------------------------
    Replaces the existing config. Additive except the documented retirements
-   (animate-count-up, fade-up-delay-1/2/3 — see MIGRATION.md census):
+   (animate-count-up, fade-up-delay-1/2/3 — see DESIGN_SYSTEM.md §11):
      - fontFamily = the three FIXED type-v2 roles (heading / body / data; the
        runtime font switcher is retired) + legacy aliases so old classes resolve
      - financial data semantics (gain / loss / flat) — DISTINCT from the sage
@@ -21,14 +21,14 @@ const { fontFamily } = require('tailwindcss/defaultTheme')
 // Financial data signal — deliberately NOT the sage brand. Sage is identity; this is data.
 const gain = {
   light: '#16A34A',  // green-600 — GRAPHIC/chip value only: 3.0:1 on cream (meets the 3:1 non-text floor for bars/sparklines, FAILS AA for text)
-  text: '#15803D',   // green-700 — delta TEXT on cream/white (4.5:1); mirrors --gain-text in the DS tokens
+  text: '#15803D',   // green-700 — delta TEXT on cream/white (4.5:1); lib/financialTone directionText resolves to this
   dark: '#34D399',  // emerald-400 — 9.7:1 on navy, text-safe
   soft: '#DCFCE7',
   softDark: 'rgba(52,211,153,0.14)',
 }
 const loss = {
   light: '#DC2626',  // red-600 — GRAPHIC/chip value only: 4.0:1 on cream / 4.4:1 on white (FAILS AA for text)
-  text: '#B91C1C',   // red-700 — delta TEXT on cream/white (5.8:1); mirrors --loss-text in the DS tokens
+  text: '#B91C1C',   // red-700 — delta TEXT on cream/white (5.8:1); lib/financialTone directionText resolves to this
   dark: '#FB7185',  // rose-400 — 7.0:1 on navy, text-safe
   soft: '#FEE2E2',
   softDark: 'rgba(251,113,133,0.14)',
@@ -68,9 +68,10 @@ module.exports = {
         // to read as text/accents on navy. Never use brand in a numeric/price context.
         brand: {
           DEFAULT: '#4F7A63', strong: '#3C6650', emphasis: '#345C48',
-          // Legacy alias of DEFAULT — pre-cutover code uses brand-light-* classes widely
-          // (~70 files). Kept so they keep resolving; purge with the brand-light sweep.
-          // Do not use in new code.
+          // Legacy alias of DEFAULT — ~191 usages pending the brand-light sweep (MIGRATION
+          // v2.1 §c). Deleted only at the end of the sweep, in its own commit. Do not use
+          // in new code. (Re-added on sync: the v2.1 pack dropped it against its own
+          // ground-truth note.)
           light: '#4F7A63',
           weak: '#ECF2EE', border: '#CFE0D6',
           dark: '#7FB295', 'strong-dark': '#98C5AD', 'fill-dark': '#569272',
@@ -157,9 +158,10 @@ module.exports = {
         // Type v2 — three FIXED roles (not user-selectable). Must mirror the CSS vars in globals.css.
         // Headings: Inter loaded WITH the variable opsz axis — font-optical-sizing:auto gives the
         // SF-style Text↔Display optical cuts. ONE display weight: 600.
-        // Option A (next/font) wiring per MIGRATION §d.4: webfonts are self-hosted with hashed
-        // family names, exposed via --font-inter / --font-geist-mono / --font-newsreader on <html>
-        // (see app/layout.tsx). The literal names stay as fallbacks for any context without the vars.
+        // Option A (next/font) wiring per the v2 cutover (§d.4): webfonts are self-hosted
+        // with hashed family names, exposed via --font-inter / --font-geist-mono /
+        // --font-newsreader on <html> (app/layout.tsx). The literal names stay as
+        // fallbacks. (Re-applied on sync: the v2.1 pack shipped literal-only stacks.)
         heading: ['var(--font-inter)', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
         // Body & UI: system-first — Apple hardware renders SF Pro (platform license, zero bytes);
         // everyone else falls through to Inter. Inter sits BEFORE generic system-ui on purpose.
@@ -170,31 +172,31 @@ module.exports = {
         // Technical & data: Geist Mono + tabular-nums — money, %, tickers, XBRL, verbatim excerpts.
         data: ['var(--font-geist-mono)', '"Geist Mono"', 'ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
         mono: ['var(--font-geist-mono)', '"Geist Mono"', 'ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
-        // fontFamily.system / fontFamily.grotesque purged at cutover: the repo scan found
-        // zero font-system / font-grotesque class usage outside the deleted FontProvider.
+        // fontFamily.system / fontFamily.grotesque stay purged (cutover decision — zero
+        // class usage; the v2.1 pack resurrected them against its own ground-truth note).
       },
 
       fontSize: {
-        // [size, { lineHeight, letterSpacing }] — letter-spacing follows the --track-* ramp in the
-        // DS tokens (tracked OUT ≤12px, 0 through body, tightening as display sizes grow).
-        'data-xs': ['0.6875rem', { lineHeight: '1rem', letterSpacing: '0' }],
-        xs: ['0.75rem', { lineHeight: '1rem', letterSpacing: '0.01em' }],
+        // [size, { lineHeight, letterSpacing }] — letter-spacing references the --track-* ramp
+        // defined ONCE in globals.css :root (tracked OUT ≤12px, 0 through body, tightening as
+        // display sizes grow). Change the ramp there — never hard-code ems here.
+        'data-xs': ['0.6875rem', { lineHeight: '1rem', letterSpacing: '0' }], // tabular annotations don't track out
+        xs: ['0.75rem', { lineHeight: '1rem', letterSpacing: 'var(--track-caption)' }],
         sm: ['0.875rem', { lineHeight: '1.25rem' }],
         base: ['1rem', { lineHeight: '1.6rem' }],
         lg: ['1.125rem', { lineHeight: '1.75rem' }],
-        xl: ['1.25rem', { lineHeight: '1.75rem', letterSpacing: '-0.012em' }],
-        '2xl': ['1.5rem', { lineHeight: '2rem', letterSpacing: '-0.012em' }],
-        '3xl': ['1.875rem', { lineHeight: '2.25rem', letterSpacing: '-0.016em' }],
-        '4xl': ['2.25rem', { lineHeight: '2.5rem', letterSpacing: '-0.02em' }],
-        '5xl': ['3rem', { lineHeight: '1.1', letterSpacing: '-0.025em' }],
-        '6xl': ['3.75rem', { lineHeight: '1.05', letterSpacing: '-0.025em' }],
+        xl: ['1.25rem', { lineHeight: '1.75rem', letterSpacing: 'var(--track-title3)' }],
+        '2xl': ['1.5rem', { lineHeight: '2rem', letterSpacing: 'var(--track-title3)' }],
+        '3xl': ['1.875rem', { lineHeight: '2.25rem', letterSpacing: 'var(--track-title2)' }],
+        '4xl': ['2.25rem', { lineHeight: '2.5rem', letterSpacing: 'var(--track-title1)' }],
+        '5xl': ['3rem', { lineHeight: '1.1', letterSpacing: 'var(--track-display)' }],
+        '6xl': ['3.75rem', { lineHeight: '1.05', letterSpacing: 'var(--track-display)' }],
       },
 
       borderRadius: {
         sm: '0.25rem',
         DEFAULT: '0.5rem',
-        // md (10px) purged at cutover: the rounded-md sweep hit zero, so the key is gone
-        // rather than silently falling back to Tailwind's 6px default. Scale is 4/8/12/16/24.
+        md: '0.625rem', // legacy off-scale (10px) — the scale is 4/8/12/16/24; don't use in new code
         lg: '0.75rem',
         xl: '1rem',
         '2xl': '1.5rem',
@@ -219,8 +221,10 @@ module.exports = {
         'ring-brand': '0 0 0 3px rgba(79, 122, 99, 0.50)',
         'ring-brand-dark': '0 0 0 3px rgba(127, 178, 149, 0.55)',
         'ring-error': '0 0 0 3px rgba(185, 28, 28, 0.45)',
-        // shadow-glow-brand-* purged at cutover (repo scan: zero uses) — the ONE approved
-        // glow is the hero search, via the .hero-search-glow class in globals.css.
+        // Brand glow — sage (replaces the legacy mint glow)
+        'glow-brand': '0 0 40px -10px rgba(79, 122, 99, 0.30)',
+        'glow-brand-sm': '0 0 20px -5px rgba(79, 122, 99, 0.20)',
+        'glow-brand-lg': '0 0 60px -15px rgba(79, 122, 99, 0.25)',
       },
 
       // ---- Motion (tokens defined in globals.css :root; JS mirror lib/motion.ts) ----

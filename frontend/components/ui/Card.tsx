@@ -49,12 +49,15 @@ export function CardHeader({ className, ...rest }: HTMLAttributes<HTMLDivElement
   )
 }
 
-/** Eyebrow-style card title (uppercase micro-label, tracked wide). */
+/** Card title — sentence case in the heading register (14px/600, heading ink).
+    NOT an eyebrow: uppercase tracked micro-labels are reserved for METRIC
+    labels (table headers, KPI labels) — never card titles (DESIGN_SYSTEM §3).
+    v2.1 change: this shipped as an uppercase eyebrow, contradicting that rule. */
 export function CardTitle({ className, ...rest }: HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h3
       className={cx(
-        'text-xs font-semibold uppercase tracking-wider text-text-tertiary-light dark:text-text-secondary-dark',
+        'text-sm font-semibold text-text-primary-light dark:text-text-primary-dark',
         className,
       )}
       {...rest}
