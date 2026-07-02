@@ -8,7 +8,8 @@ import { getCompanyFilings, Filing } from '@/features/filings/api/filings-api'
 import { getSummary } from '@/features/summaries/api/summaries-api'
 import { addToWatchlist, removeFromWatchlist, getWatchlist, WatchlistItem } from '@/features/watchlist/api/watchlist-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
-import { ArrowRightIcon, ArrowSquareOutIcon, CaretDownIcon, CircleNotchIcon, FileTextIcon, FunnelIcon, SparkleIcon, StarIcon } from '@/lib/icons'
+import { ArrowRightIcon, ArrowSquareOutIcon, CaretDownIcon, CircleNotchIcon, FileTextIcon, FunnelIcon, SparkleIcon, StarIcon, WarningCircleIcon } from '@/lib/icons'
+import { Button, buttonVariants, GuidanceCard, Skeleton } from '@/components/ui'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { format } from 'date-fns'
@@ -210,12 +211,17 @@ export default function CompanyPageClient() {
   // Handle case where ticker might not be available
   if (!ticker) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Invalid ticker</h1>
-          <Link href="/" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
-            Go back home
-          </Link>
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="w-full max-w-md">
+          <GuidanceCard
+            variant="error"
+            title="Invalid ticker"
+            action={
+              <Link href="/" className={buttonVariants({ variant: 'secondary' })}>
+                Go back home
+              </Link>
+            }
+          />
         </div>
       </div>
     )
@@ -223,23 +229,31 @@ export default function CompanyPageClient() {
 
   if (companyLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div role="status" aria-label="Loading company" className="min-h-screen flex items-center justify-center">
         <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+        <span className="sr-only">Loading company…</span>
       </div>
     )
   }
 
   if (!company) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Company not found</h1>
-          <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
-            {companyError ? `Error: ${companyError instanceof Error ? companyError.message : 'Failed to load company'}` : `Could not find company with ticker "${normalizedTicker}"`}
-          </p>
-          <Link href="/" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
-            Go back home
-          </Link>
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="w-full max-w-md">
+          <GuidanceCard
+            variant="error"
+            title="Company not found"
+            description={
+              companyError
+                ? `Error: ${companyError instanceof Error ? companyError.message : 'Failed to load company'}`
+                : `Could not find company with ticker "${normalizedTicker}"`
+            }
+            action={
+              <Link href="/" className={buttonVariants({ variant: 'secondary' })}>
+                Go back home
+              </Link>
+            }
+          />
         </div>
       </div>
     )
@@ -250,22 +264,23 @@ export default function CompanyPageClient() {
   // unavailable" state — distinct from a bare "Company not found" — instead of a broken page.
   if (company.coverage_status === 'unsupported_foreign') {
     return (
-      <div className="min-h-screen bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark">
-        <div className="mx-auto flex min-h-screen max-w-lg flex-col items-center justify-center px-6 text-center">
-          <FileTextIcon className="mb-4 h-12 w-12 text-text-tertiary-light dark:text-text-secondary-dark" />
-          <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-            {company.name || normalizedTicker}
-          </h1>
-          <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            {company.coverage_reason ||
-              'This issuer does not file financial reports with the SEC, so EarningsNerd has no filings to analyze.'}
-          </p>
-          <Link
-            href="/"
-            className="mt-6 inline-flex items-center rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white transition hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark"
-          >
-            Back to home
-          </Link>
+      <div className="min-h-screen bg-background-light dark:bg-background-dark">
+        <div className="mx-auto flex min-h-screen max-w-lg flex-col justify-center px-6">
+          {/* Honest coverage-unavailable state — an empty, not an error. */}
+          <GuidanceCard
+            variant="empty"
+            icon={<FileTextIcon className="h-5 w-5" />}
+            title={company.name || normalizedTicker}
+            description={
+              company.coverage_reason ||
+              'This issuer does not file financial reports with the SEC, so EarningsNerd has no filings to analyze.'
+            }
+            action={
+              <Link href="/" className={buttonVariants({ variant: 'primary' })}>
+                Back to home
+              </Link>
+            }
+          />
         </div>
       </div>
     )
@@ -326,7 +341,7 @@ export default function CompanyPageClient() {
   return (
     <div className="min-h-screen bg-background-light dark:bg-background-dark">
       {/* Header */}
-      <header className="bg-panel-light dark:bg-panel-dark border-b border-border-light dark:border-border-dark shadow-sm">
+      <header className="bg-panel-light dark:bg-panel-dark border-b border-border-light dark:border-border-dark shadow-e1 dark:shadow-none">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:space-x-4">
@@ -394,8 +409,8 @@ export default function CompanyPageClient() {
           />
         )}
 
-        {/* Filings Section */}
-        <section className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6">
+        {/* Filings Section — v2 Card recipe on the semantic <section> */}
+        <section className="rounded-xl border border-border-light bg-panel-light p-6 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
             <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">SEC Filings</h2>
             {filings && filings.length > 0 && availableFilingTypes.length > 1 && (
@@ -431,12 +446,16 @@ export default function CompanyPageClient() {
           </div>
 
           {ENABLE_RECOMMENDED_FILING && !filingsLoading && !filingsError && recommendedFiling && (
-            <div className="mb-6 rounded-xl border border-brand-border dark:border-brand-border-dark bg-gradient-to-r from-brand-weak to-panel-light dark:from-white/5 dark:to-panel-dark p-4 sm:p-5">
+            // Highlighted inset INSIDE the section card: a flat brand-weak TINT box
+            // (like the billing trial box) — the old gradient is banned (DS §7).
+            <div className="mb-6 rounded-xl border border-brand-border dark:border-brand-border-dark bg-brand-weak dark:bg-white/5 p-4 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
                   <SparkleIcon className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-strong dark:text-brand-strong-dark" />
                   <div>
                     <div className="flex items-center gap-2">
+                      {/* Solid emphasis chip (primary-button colorway) — the tint Badge would
+                          vanish against this brand-weak banner. Upstream: Badge solid variant. */}
                       <span className="inline-flex items-center rounded-full bg-brand-strong dark:bg-brand-dark px-2 py-0.5 text-xs font-semibold text-white dark:text-background-dark">
                         Recommended
                       </span>
@@ -450,10 +469,7 @@ export default function CompanyPageClient() {
                     </p>
                   </div>
                 </div>
-                <Link
-                  href={`/filing/${recommendedFiling.id}`}
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2 text-sm font-semibold transition-colors"
-                >
+                <Link href={`/filing/${recommendedFiling.id}`} className={buttonVariants({ variant: 'primary' })}>
                   Summarize this filing
                   <ArrowRightIcon className="h-4 w-4" />
                 </Link>
@@ -462,23 +478,25 @@ export default function CompanyPageClient() {
           )}
 
           {filingsLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+            <div role="status" aria-label="Loading filings" className="space-y-4">
+              <Skeleton className="h-12 rounded-xl" />
+              <Skeleton className="h-12 rounded-xl" />
+              <Skeleton className="h-12 rounded-xl" />
+              <span className="sr-only">Loading filings…</span>
             </div>
           ) : filingsError ? (
-            <div className="rounded-lg border border-error-light/30 bg-error-light/10 p-6 text-center text-sm text-error-light dark:border-error-dark/40 dark:bg-error-dark/10 dark:text-error-dark">
-              <p className="font-semibold">Unable to load filings right now.</p>
-              <p className="mt-1 text-xs text-error-light/80 dark:text-error-dark/80">
+            // Inline error (not GuidanceCard) — this state lives INSIDE the section card.
+            <div role="alert" className="space-y-2 py-4">
+              <p className="flex items-center gap-2 text-sm font-medium text-error-light dark:text-error-dark">
+                <WarningCircleIcon className="h-4 w-4 flex-shrink-0" />
+                Unable to load filings right now.
+              </p>
+              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                 {filingsErrorData instanceof Error ? filingsErrorData.message : 'Please try again shortly.'}
               </p>
-              <button
-                type="button"
-                onClick={() => refetchFilings()}
-                disabled={filingsRefetching}
-                className="mt-3 inline-flex items-center rounded-lg border border-error-light/30 bg-panel-light/80 px-3 py-1 text-xs font-medium text-error-light transition hover:bg-panel-light dark:border-error-dark/40 dark:bg-white/10 dark:text-error-dark dark:hover:bg-white/20 disabled:opacity-60"
-              >
-                {filingsRefetching ? 'Retrying…' : 'Retry'}
-              </button>
+              <Button variant="secondary" size="sm" onClick={() => refetchFilings()} loading={filingsRefetching} loadingText="Retrying…">
+                Retry
+              </Button>
             </div>
           ) : sortedYears.length > 0 ? (
             <div className="space-y-4">
@@ -488,7 +506,7 @@ export default function CompanyPageClient() {
                 const filingCount = yearFilings?.length || 0
 
                 return (
-                  <div key={year} className="border border-border-light dark:border-border-dark rounded-lg overflow-hidden">
+                  <div key={year} className="border border-border-light dark:border-border-dark rounded-xl overflow-hidden">
                     {/* Year Header */}
                     <button
                       onClick={() => toggleYear(year)}
@@ -513,7 +531,7 @@ export default function CompanyPageClient() {
                           return (
                             <div
                               key={filing.id}
-                              className={`border-l-4 ${styles.borderColor} border-r border-t border-b border-border-light dark:border-border-dark rounded-lg p-4 ${styles.bgColor} ${styles.hoverBg} transition-colors`}
+                              className={`border-l-4 ${styles.borderColor} border-r border-t border-b border-border-light dark:border-border-dark rounded-xl p-4 ${styles.bgColor} ${styles.hoverBg} transition-colors`}
                             >
                               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                 <div className="flex-1">
@@ -525,6 +543,8 @@ export default function CompanyPageClient() {
                                           {filing.filing_type}
                                         </span>
                                         {ENABLE_RECOMMENDED_FILING && recommendedFiling?.id === filing.id && (
+                                          /* Solid emphasis chip — sits on the row's brand-weak tint,
+                                             where the tint Badge would vanish (see banner note). */
                                           <span className="inline-flex items-center gap-1 rounded-full bg-brand-strong dark:bg-brand-dark px-2 py-0.5 text-xs font-semibold text-white dark:text-background-dark">
                                             <SparkleIcon className="h-3 w-3" />
                                             Recommended
@@ -543,17 +563,14 @@ export default function CompanyPageClient() {
                                       href={filing.sec_url}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-2 px-4 py-2 border border-border-light dark:border-border-dark text-text-secondary-light dark:text-text-secondary-dark text-sm font-medium rounded-lg hover:bg-background-light dark:hover:bg-white/5 hover:border-text-tertiary-light dark:hover:border-text-tertiary-dark transition-colors"
+                                      className={buttonVariants({ variant: 'secondary' })}
                                       title="Open original filing on SEC EDGAR"
                                     >
                                       <ArrowSquareOutIcon className="h-4 w-4" />
                                       <span>View on SEC EDGAR</span>
                                     </a>
                                   )}
-                                  <Link
-                                    href={`/filing/${filing.id}`}
-                                    className="inline-flex items-center px-4 py-2 bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark text-sm font-medium rounded-lg transition-colors"
-                                  >
+                                  <Link href={`/filing/${filing.id}`} className={buttonVariants({ variant: 'primary' })}>
                                     Generate Filing Summary
                                   </Link>
                                 </div>
@@ -568,7 +585,8 @@ export default function CompanyPageClient() {
               })}
             </div>
           ) : (
-            <div className="text-center py-12">
+            // Inline empty — inside the section card, so no nested GuidanceCard panel.
+            <div role="status" className="text-center py-12">
               <FileTextIcon className="h-12 w-12 text-text-tertiary-light dark:text-text-secondary-dark mx-auto mb-4" />
               <p className="text-text-tertiary-light dark:text-text-secondary-dark">No filings found for this company.</p>
             </div>

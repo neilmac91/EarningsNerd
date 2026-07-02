@@ -1,5 +1,42 @@
 # Task: Design-system v2 adoption pass (post-migration; PR-per-surface)
 
+## Task #26 — Adoption PR 3: company page onto the v2 component layer
+**Scope (approved pass, PR 3 of 5):** app/company/[ticker]/page-client.tsx + PeerComparisonPanel +
+InsiderActivityPanel, ZERO behavior change. Out of scope (recon): CompanyLogo + UnverifiedBadge
+(shared leaves, high blast radius — UnverifiedBadge's raw amber flagged upstream: Badge needs a
+warning variant), financialTone wiring (already correct), accordion year-toggles + filter chips +
+panel toggles (token-compliant segmented controls; tests pin button roles/names like "1Y").
+- [x] page-client: filings section -> Card recipe on semantic <section>; year-groups + filing rows
+      rounded-lg->xl; per-type tinted row fills KEPT (tint insets on panel, not card fills — same
+      call as the watchlist wells); recommended banner: gradient KILLED -> flat brand-weak tint box
+      (trial-box precedent); header shadow-sm -> e1
+- [x] page-client: 3 full-page states -> GuidanceCard (unsupported-foreign = empty w/ FileTextIcon;
+      other two = error) + buttonVariants home actions; filings error -> inline pattern w/ role=alert
+      + Button retry; filings empty kept inline + role=status; filings spinner -> Skeleton rows;
+      full-page company spinner kept (route gate) + role=status/sr-only
+- [x] page-client: Summarize/Generate/SEC-EDGAR/back-home -> buttonVariants; Retry -> Button;
+      watchlist star kept raw (token-clean; aria-pressed/label load-bearing)
+- [x] page-client: Recommended pills KEPT as solid emphasis chips (tint Badge vanishes on the
+      brand-weak banner/row grounds; upstream: Badge solid variant); filing-type badges KEPT
+      (tonal map includes info, which Badge lacks; upstream: Badge info/warning variants)
+- [x] PeerComparisonPanel: Card recipe; SUBJECT_FILL + 6 local hexes deleted -> seriesColor(0)/
+      chartTheme(dark).flat/xAxisProps/yAxisProps; hand-built tooltip -> ChartTooltip (Bar gains
+      name={label}); spinner -> Skeleton; testid/h2/rank sentence/Unverified preserved
+- [x] InsiderActivityPanel: both sections -> Card recipe; <table> -> DataTable (module-level
+      TRANSACTION_COLUMNS; Type tone gain/loss + Badge neutral "10b5-1"; Shares/Value/Date numeric
+      right); InsiderTransaction interface -> type alias (DataTable Record constraint);
+      spinner -> Skeleton; "1Y" toggles + null-when-empty untouched
+- [x] Gates: typecheck 0 / eslint clean / vitest 237/237 (peer+insider+peers-api specs green) /
+      build with both panel flags compiled in; both themes verified on the real public
+      /company/AAPL route in Playwright with pathname-matched fixtures (bare-array filings,
+      {peers}/{transactions} envelopes) — chart chrome, DataTable tones, star, banner all correct
+**Review:** Zero-behavior recomposition of the company page (3 files + 1 type alias). The banned
+gradient banner and all local chart hexes are gone; the filings surface, both panels, and every
+CTA now ride the v2 layer. Three documented keep-decisions: per-type tinted filing rows (insets,
+not card fills), solid Recommended chips (tint Badge invisible on tinted grounds -> upstream Badge
+solid variant), and hand-rolled filing-type badges (Badge lacks an info tone -> upstream candidate,
+same family as UnverifiedBadge's missing warning variant).
+
 ## Task #25 — Adoption PR 2: dashboard surface onto the v2 component layer
 **Scope (approved pass, PR 2 of 5):** recompose /dashboard, /dashboard/settings, /dashboard/watchlist
 + components/dashboard/* + components/settings/* + components/watchlist/* onto components/ui/* with

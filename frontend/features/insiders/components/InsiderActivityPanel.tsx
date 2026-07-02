@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { CircleNotchIcon, MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
+import { MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 
 import {
   getInsiderActivity,
@@ -12,6 +12,7 @@ import {
 import { ApiError } from '@/lib/api/client'
 import { fmtCurrency, fmtScale } from '@/lib/format'
 import { directionText } from '@/lib/financialTone'
+import { Badge, DataTable, Skeleton, type Column } from '@/components/ui'
 
 const WINDOWS: { days: number; label: string }[] = [
   { days: 90, label: '90D' },
@@ -41,6 +42,42 @@ function isBuy(t: InsiderTransaction): boolean {
   if (t.acquired_disposed) return t.acquired_disposed.toUpperCase() === 'A'
   return (t.transaction_label ?? '').toLowerCase().includes('buy')
 }
+
+// v2 DataTable columns: Shares/Value/Date are numeric (data face + tabular-nums,
+// right-aligned); the Type cell tone carries buy/sell as gain/loss — the label
+// text ("Buy"/"Sell") means color is never the sole cue.
+const TRANSACTION_COLUMNS: Column<InsiderTransaction>[] = [
+  {
+    key: 'insider',
+    header: 'Insider',
+    render: (t) => (
+      <>
+        <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
+          {t.insider_name ?? '—'}
+        </span>
+        <span className="block text-xs text-text-tertiary-light dark:text-text-secondary-dark">{roleOf(t)}</span>
+      </>
+    ),
+  },
+  {
+    key: 'type',
+    header: 'Type',
+    tone: (t) => (isBuy(t) ? 'gain' : 'loss'),
+    render: (t) => (
+      <>
+        {t.transaction_label ?? (isBuy(t) ? 'Buy' : 'Sell')}
+        {t.is_10b5_1 && (
+          <Badge variant="neutral" icon={null} className="ml-1.5">
+            10b5-1
+          </Badge>
+        )}
+      </>
+    ),
+  },
+  { key: 'shares', header: 'Shares', align: 'right', numeric: true, render: (t) => fmtShares(t.shares) },
+  { key: 'value', header: 'Value', align: 'right', numeric: true, render: (t) => fmtMoney(t.value) },
+  { key: 'date', header: 'Date', align: 'right', numeric: true, render: (t) => t.transaction_date ?? '—' },
+]
 
 export default function InsiderActivityPanel({
   ticker,
@@ -75,7 +112,7 @@ export default function InsiderActivityPanel({
   // panel (the live SEC read is disabled for FPIs via `enabled` above).
   if (isFpi) {
     return (
-      <section className="mb-8 rounded-lg border border-border-light bg-panel-light p-6 shadow-sm dark:border-border-dark dark:bg-panel-dark">
+      <section className="mb-8 rounded-xl border border-border-light bg-panel-light p-6 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
         <h2 className="mb-3 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Insider Activity</h2>
         <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
           Insider (Form&nbsp;4) reporting is not generally required for foreign private issuers, so
@@ -111,7 +148,8 @@ export default function InsiderActivityPanel({
   const signalMagnitude = signalIsValue ? fmtMoney(signalValue) : `${fmtShares(signalValue)} shares`
 
   return (
-    <section className="mb-8 rounded-lg border border-border-light bg-panel-light p-6 shadow-sm dark:border-border-dark dark:bg-panel-dark">
+    // v2 Card recipe on the semantic <section> — lift via e2 in light, hairline-only in dark.
+    <section className="mb-8 rounded-xl border border-border-light bg-panel-light p-6 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Insider Activity</h2>
         <div className="flex flex-wrap gap-2" role="group" aria-label="Select window">
@@ -134,8 +172,9 @@ export default function InsiderActivityPanel({
       </div>
 
       {isLoading && !hasTrades ? (
-        <div className="flex h-48 items-center justify-center" aria-label="Loading insider activity">
-          <CircleNotchIcon className="h-6 w-6 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+        <div role="status" aria-label="Loading insider activity">
+          <Skeleton className="h-48 w-full rounded-lg" />
+          <span className="sr-only">Loading…</span>
         </div>
       ) : !hasTrades || !summary ? (
         <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark">
@@ -190,56 +229,12 @@ export default function InsiderActivityPanel({
           </div>
 
           {/* Recent transactions */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-border-light text-xs uppercase tracking-wide text-text-tertiary-light dark:border-border-dark dark:text-text-secondary-dark">
-                  <th className="py-2 pr-3 font-medium">Insider</th>
-                  <th className="py-2 pr-3 font-medium">Type</th>
-                  <th className="py-2 pr-3 text-right font-medium">Shares</th>
-                  <th className="py-2 pr-3 text-right font-medium">Value</th>
-                  <th className="py-2 text-right font-medium">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data!.transactions.slice(0, MAX_ROWS).map((t, i) => {
-                  const buy = isBuy(t)
-                  return (
-                    <tr
-                      key={`${t.accession ?? ''}-${i}`}
-                      className="border-b border-border-light last:border-0 dark:border-border-dark"
-                    >
-                      <td className="py-2 pr-3">
-                        <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
-                          {t.insider_name ?? '—'}
-                        </span>
-                        <span className="block text-xs text-text-tertiary-light dark:text-text-secondary-dark">{roleOf(t)}</span>
-                      </td>
-                      <td className="py-2 pr-3">
-                        <span className={`font-medium ${directionText[buy ? 'up' : 'down']}`}>
-                          {t.transaction_label ?? (buy ? 'Buy' : 'Sell')}
-                        </span>
-                        {t.is_10b5_1 && (
-                          <span className="ml-1.5 rounded bg-background-light px-1.5 py-0.5 text-[10px] font-medium text-text-tertiary-light dark:bg-white/5 dark:text-text-secondary-dark">
-                            10b5-1
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-2 pr-3 text-right tabular-nums text-text-secondary-light dark:text-text-secondary-dark">
-                        {fmtShares(t.shares)}
-                      </td>
-                      <td className="py-2 pr-3 text-right tabular-nums text-text-secondary-light dark:text-text-secondary-dark">
-                        {fmtMoney(t.value)}
-                      </td>
-                      <td className="py-2 text-right tabular-nums text-text-tertiary-light dark:text-text-secondary-dark">
-                        {t.transaction_date ?? '—'}
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+          <DataTable
+            columns={TRANSACTION_COLUMNS}
+            rows={data!.transactions.slice(0, MAX_ROWS)}
+            rowKey={(t, i) => `${t.accession ?? ''}-${i}`}
+            caption="Recent open-market insider transactions: insider, type, shares, value, and date"
+          />
         </>
       )}
 
