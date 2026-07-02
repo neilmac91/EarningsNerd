@@ -17,6 +17,7 @@ import {
 } from '@/features/companies/api/companies-api'
 import { directionText, directionOf } from '@/lib/financialTone'
 import CompanyLogo from '@/components/CompanyLogo'
+import { Button, GuidanceCard, Skeleton } from '@/components/ui'
 
 const FULL_REFRESH_INTERVAL = 10 * 60 * 1000 // 10 minutes for full data
 const PRICE_REFRESH_INTERVAL = 2 * 60 * 1000 // 2 minutes for prices only
@@ -103,7 +104,7 @@ function TrendingTickerCard({
     <Link
       href={`/company/${ticker.symbol}`}
       onClick={handleClick}
-      className="flex min-w-[240px] flex-col gap-2 rounded-2xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 p-4 shadow-e2 dark:shadow-none transition-all duration-base hover:-translate-y-1 hover:bg-white dark:hover:bg-white/10 hover:shadow-e2 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark "
+      className="flex min-w-[240px] flex-col gap-2 rounded-2xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 p-4 shadow-e2 dark:shadow-none transition duration-base hover:-translate-y-1 hover:bg-white dark:hover:bg-white/10 hover:shadow-e2 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark "
     >
       {/* Header: Logo + Symbol + Price */}
       <div className="flex items-start justify-between gap-2">
@@ -210,29 +211,15 @@ export default function TrendingTickers({
       <section className="mt-12">
         <header className="mb-4 flex items-center justify-between gap-3 text-text-primary-light dark:text-text-primary-dark">
           <div className="flex items-center gap-2">
-            <FlameIcon className="h-5 w-5 text-orange-500 dark:text-orange-300" />
+            <FlameIcon className="h-5 w-5 text-warning-light dark:text-warning-dark" />
             <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Market Movers</h2>
           </div>
         </header>
-        <div className="flex gap-4 overflow-x-auto pb-2">
+        <div role="status" aria-label="Loading market movers" className="flex gap-4 overflow-x-auto pb-2">
           {Array.from({ length: 5 }).map((_, index) => (
-            <div
-              key={index}
-              className="flex min-w-[240px] flex-col gap-3 rounded-2xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 p-4 shadow-e2 dark:shadow-none"
-            >
-              <div className="flex justify-between">
-                <div className="space-y-2">
-                  <div className="h-6 w-16 animate-pulse rounded bg-brand-weak dark:bg-white/10" />
-                  <div className="h-4 w-28 animate-pulse rounded bg-brand-weak dark:bg-white/10" />
-                </div>
-                <div className="space-y-2 text-right">
-                  <div className="h-6 w-20 animate-pulse rounded bg-brand-weak dark:bg-white/10" />
-                  <div className="h-4 w-14 animate-pulse rounded bg-brand-weak dark:bg-white/10" />
-                </div>
-              </div>
-              <div className="h-4 w-24 animate-pulse rounded bg-brand-weak dark:bg-white/10" />
-            </div>
+            <Skeleton key={index} className="h-28 min-w-[240px] rounded-2xl" />
           ))}
+          <span className="sr-only">Loading market movers…</span>
         </div>
       </section>
     )
@@ -242,15 +229,14 @@ export default function TrendingTickers({
     return (
       <section className="mt-12">
         <header className="mb-3 flex items-center gap-2 text-text-primary-light dark:text-text-primary-dark">
-          <FlameIcon className="h-5 w-5 text-orange-500 dark:text-orange-300" />
+          <FlameIcon className="h-5 w-5 text-warning-light dark:text-warning-dark" />
           <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Market Movers</h2>
         </header>
-        <div className="rounded-xl border border-error-light/30 dark:border-error-dark/30 bg-error-light/10 dark:bg-error-dark/10 p-4 text-sm text-error-light dark:text-error-dark">
-          Unable to load trending data. Please try again soon.
-          {error instanceof Error && (
-            <span className="mt-2 block text-xs text-error-light/80 dark:text-error-dark/80">{error.message}</span>
-          )}
-        </div>
+        <GuidanceCard
+          variant="error"
+          title="Unable to load trending data"
+          description={error instanceof Error ? error.message : 'Please try again soon.'}
+        />
       </section>
     )
   }
@@ -268,7 +254,7 @@ export default function TrendingTickers({
     <section className="mt-12">
       <header className="mb-4 flex flex-wrap items-center justify-between gap-3 text-text-primary-light dark:text-text-primary-dark">
         <div className="flex items-center gap-2">
-          <FlameIcon className="h-5 w-5 text-orange-500 dark:text-orange-300" />
+          <FlameIcon className="h-5 w-5 text-warning-light dark:text-warning-dark" />
           <div>
             <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Market Movers</h2>
             <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
@@ -283,15 +269,15 @@ export default function TrendingTickers({
               Source: {data.source}
             </span>
           )}
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => refetch()}
-            className="inline-flex items-center gap-2 rounded-full border border-border-light dark:border-white/20 bg-panel-light dark:bg-white/5 px-3 py-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark shadow-e1 dark:shadow-none transition hover:border-brand-strong/40 dark:hover:border-white/40 hover:bg-white dark:hover:bg-white/10 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark "
-            disabled={isFetching}
-            type="button"
+            loading={isFetching}
+            leftIcon={<ArrowsClockwiseIcon className="h-4 w-4" />}
           >
-            <ArrowsClockwiseIcon className={clsx('h-4 w-4', isFetching && 'animate-spin')} />
             Refresh
-          </button>
+          </Button>
         </div>
       </header>
 
@@ -336,9 +322,7 @@ export default function TrendingTickers({
           </div>
         </>
       ) : (
-        <div className="rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 p-4 text-sm text-text-secondary-light dark:text-text-secondary-dark shadow-e1 dark:shadow-none">
-          {emptyStateMessage}
-        </div>
+        <GuidanceCard variant="empty" title="No market movers right now" description={emptyStateMessage} />
       )}
     </section>
   )

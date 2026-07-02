@@ -82,10 +82,7 @@ function HeroExample({ example }: { example: ExampleData | null }) {
 
   return (
     <div className="relative">
-      {/* Ambient glow behind the card */}
-      <div className="absolute -inset-4 rounded-3xl bg-brand-strong/10 dark:bg-brand-dark/15 blur-3xl" aria-hidden="true" />
-
-      {/* Browser frame */}
+      {/* Browser frame — no ambient glow: DS §7, the only glow is the hero search. */}
       <div className="mockup-frame relative shadow-2xl">
         {/* Title bar */}
         <div className="mockup-frame-titlebar flex items-center gap-2 px-4 py-3">

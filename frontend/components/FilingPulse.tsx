@@ -39,23 +39,23 @@ export function FilingPulse({ pulse, score }: { pulse?: Pulse | null; score?: nu
   return (
     <div className="flex w-40 flex-col items-end">
       <div className="flex items-center gap-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">
+        <span className="text-xs font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">
           Pulse
         </span>
         <span className={clsx('text-xs font-semibold', style.text)}>{tier}</span>
       </div>
       <div
-        className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border-light dark:bg-slate-700/60"
+        className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-border-light dark:bg-white/10"
         role="img"
         aria-label={`Filing pulse: ${tier}`}
       >
         <div
-          className={clsx('h-1.5 rounded-full transition-all duration-slow', style.fill)}
+          className={clsx('h-1.5 rounded-full transition-[width] duration-slow', style.fill)}
           style={{ width: `${width}%` }}
         />
       </div>
       {top.length > 0 && (
-        <ul className="mt-2 w-full space-y-0.5 text-[10px] text-text-secondary-light dark:text-text-secondary-dark">
+        <ul className="mt-2 w-full space-y-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
           {top.map((c) => (
             <li
               key={c.key}
