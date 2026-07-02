@@ -95,9 +95,12 @@ def enforce_rate_limit(
     key_suffix: str,
     *,
     error_detail: str,
+    include_client_ip: bool = True,
 ) -> None:
-    client_ip = _get_client_ip(request)
-    key = f"{client_ip}:{key_suffix}"
+    # Email-scoped limits (password reset, resend-verification) pass include_client_ip=False so the
+    # bucket is keyed on the email alone. Prefixing the client IP would let an attacker with an IP
+    # pool multiply the per-email cap and bomb a victim's inbox.
+    key = f"{_get_client_ip(request)}:{key_suffix}" if include_client_ip else key_suffix
     if limiter.allow(key):
         return
     retry_after = limiter.retry_after(key)

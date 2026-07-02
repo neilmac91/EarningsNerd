@@ -891,8 +891,9 @@ async def resend_verification(
 ):
     """Resend the email verification link. Rate-limited to 3/hr per address."""
     enforce_rate_limit(
-        request, RESEND_VERIFY_LIMITER, f"resend:{payload.email}",
+        request, RESEND_VERIFY_LIMITER, f"resend:{payload.email.strip().lower()}",
         error_detail="Too many resend requests. Please wait before trying again.",
+        include_client_ip=False,
     )
     user = db.query(User).filter(User.email == payload.email).first()
     # Always return the same response (anti-enumeration)
@@ -912,8 +913,9 @@ async def forgot_password(
 ):
     """Request a password reset link. Rate-limited to 3/hr per email address."""
     enforce_rate_limit(
-        request, RESET_REQUEST_LIMITER, f"reset:{payload.email}",
+        request, RESET_REQUEST_LIMITER, f"reset:{payload.email.strip().lower()}",
         error_detail="Too many reset requests. Please wait before trying again.",
+        include_client_ip=False,
     )
     opaque = {"message": "If an account exists for that email, a password reset link is on its way."}
 

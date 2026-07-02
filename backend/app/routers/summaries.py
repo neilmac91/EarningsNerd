@@ -149,6 +149,16 @@ async def generate_summary_stream(
         rate_limit_key,
         error_detail="Too many summary requests. Please try again shortly.",
     )
+
+    # Regeneration deletes the filing's shared summary + XBRL and kicks off a fresh, paid LLM run.
+    # Gate it behind auth so an anonymous caller can't drive denial-of-wallet or wipe a popular
+    # filing's summary for everyone. Guests can still read and generate (just not force-regenerate).
+    if force and current_user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Please sign in to regenerate this analysis.",
+        )
+
     # Eagerly load content_cache and company relationship to avoid detached session issues
     filing = db.query(Filing).options(
         joinedload(Filing.content_cache),

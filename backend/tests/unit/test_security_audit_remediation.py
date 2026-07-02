@@ -1,4 +1,4 @@
-"""Security-audit remediation regression tests — Batch 1 (config & IP-trust hardening).
+"""Security-audit remediation regression tests (config, IP-trust, and abuse-limit hardening).
 
 Covers:
   - H1: SECRET_KEY validation now rejects empty, known-placeholder, and too-short keys in EVERY
@@ -6,10 +6,13 @@ Covers:
   - M8: get_client_ip never trusts the spoofable left-most X-Forwarded-For entry, and ignores the
     header entirely when TRUSTED_PROXY_HOPS <= 0 (falling back to the direct socket peer). The
     default hop count is now 1 (direct Cloud Run ingress).
+  - M7: enforce_rate_limit(include_client_ip=False) keys email-scoped limits (password reset,
+    resend-verification) on the email alone, so an IP pool can't multiply the per-email cap.
 """
 from types import SimpleNamespace
 
 import pytest
+from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.config import Settings, WEAK_SECRET_KEY_VALUES, MIN_SECRET_KEY_LENGTH
@@ -86,4 +89,34 @@ def test_client_ip_unknown_without_client_or_trusted_header(monkeypatch):
 def test_trusted_proxy_hops_defaults_to_one(monkeypatch):
     # The safe default for the documented deployment (direct Cloud Run ingress = 1 hop).
     monkeypatch.delenv("TRUSTED_PROXY_HOPS", raising=False)
-    assert Settings(SECRET_KEY="s" * 48).TRUSTED_PROXY_HOPS == 1
+    assert _settings(SECRET_KEY="s" * 48).TRUSTED_PROXY_HOPS == 1
+
+
+# ── M7: email-scoped limits are keyed on the email, not (IP, email) ───────────
+
+def test_enforce_rate_limit_email_scoped_ignores_client_ip(monkeypatch):
+    monkeypatch.setattr(rate_limiter.settings, "TRUSTED_PROXY_HOPS", 1)
+    limiter = rate_limiter.RateLimiter(limit=1, window_seconds=3600)
+    req_a = _FakeRequest(xff="1.1.1.1", client_host="1.1.1.1")
+    req_b = _FakeRequest(xff="2.2.2.2", client_host="2.2.2.2")
+    # With include_client_ip=False the bucket is keyed on the email suffix alone, so a second
+    # request from a *different* IP is still blocked — an IP pool can't multiply the per-email cap.
+    rate_limiter.enforce_rate_limit(
+        req_a, limiter, "reset:victim@example.com", error_detail="x", include_client_ip=False
+    )
+    with pytest.raises(HTTPException):
+        rate_limiter.enforce_rate_limit(
+            req_b, limiter, "reset:victim@example.com", error_detail="x", include_client_ip=False
+        )
+
+
+def test_enforce_rate_limit_default_is_per_ip(monkeypatch):
+    monkeypatch.setattr(rate_limiter.settings, "TRUSTED_PROXY_HOPS", 1)
+    limiter = rate_limiter.RateLimiter(limit=1, window_seconds=3600)
+    req_a = _FakeRequest(xff="1.1.1.1", client_host="1.1.1.1")
+    req_b = _FakeRequest(xff="2.2.2.2", client_host="2.2.2.2")
+    # Default behaviour is unchanged: each client IP gets its own bucket.
+    rate_limiter.enforce_rate_limit(req_a, limiter, "login", error_detail="x")
+    rate_limiter.enforce_rate_limit(req_b, limiter, "login", error_detail="x")  # different IP → ok
+    with pytest.raises(HTTPException):
+        rate_limiter.enforce_rate_limit(req_a, limiter, "login", error_detail="x")  # same IP → blocked

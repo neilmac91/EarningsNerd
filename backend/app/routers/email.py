@@ -17,7 +17,17 @@ async def send_test_email(
     payload: TestEmailRequest,
     current_user: User = Depends(get_current_user),
 ):
-    """Send a basic Resend test email."""
+    """Send a basic Resend test email. Admin only.
+
+    Sends from the platform's verified sender to an arbitrary recipient, so it must not be reachable
+    by ordinary accounts — otherwise anyone could emit mail from our domain to any address and wreck
+    its sending reputation. (The identical /api/admin/email/test is already admin-gated.)
+    """
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required.",
+        )
     to_email = payload.to or current_user.email
     if not to_email:
         raise HTTPException(
