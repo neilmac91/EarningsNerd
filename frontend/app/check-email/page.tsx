@@ -44,7 +44,7 @@ function CheckEmailContent() {
   return (
     <AuthShell>
       <div className="flex justify-center">
-        <div className="animate-float rounded-full bg-brand-strong/10 p-4 dark:bg-brand-dark/15">
+        <div className="rounded-full bg-brand-strong/10 p-4 dark:bg-brand-dark/15">
           <EnvelopeSimpleIcon className="h-8 w-8 text-brand-strong dark:text-brand-strong-dark" />
         </div>
       </div>

@@ -21,7 +21,7 @@ export default function SentryTestButton({ className }: Props) {
       onClick={handleClick}
       className={
         className ??
-        'rounded-md border border-border-light px-3 py-1 text-xs font-medium text-text-secondary-light transition-colors hover:text-text-primary-light dark:border-border-dark dark:text-text-secondary-dark dark:hover:text-text-primary-dark'
+        'rounded-lg border border-border-light px-3 py-1 text-xs font-medium text-text-secondary-light transition-colors hover:text-text-primary-light dark:border-border-dark dark:text-text-secondary-dark dark:hover:text-text-primary-dark'
       }
     >
       Trigger Sentry Test

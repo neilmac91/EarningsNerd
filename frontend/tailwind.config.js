@@ -193,7 +193,8 @@ module.exports = {
       borderRadius: {
         sm: '0.25rem',
         DEFAULT: '0.5rem',
-        md: '0.625rem', // legacy off-scale (10px) — the scale is 4/8/12/16/24; don't use in new code
+        // md (10px) purged at cutover: the rounded-md sweep hit zero, so the key is gone
+        // rather than silently falling back to Tailwind's 6px default. Scale is 4/8/12/16/24.
         lg: '0.75rem',
         xl: '1rem',
         '2xl': '1.5rem',

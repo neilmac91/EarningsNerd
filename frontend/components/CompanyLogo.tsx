@@ -52,7 +52,7 @@ export default function CompanyLogo({
     >
       <span
         aria-hidden="true"
-        className={`font-semibold text-brand-strong transition-opacity duration-200 dark:text-brand-strong-dark ${
+        className={`font-semibold text-brand-strong transition-opacity duration-base dark:text-brand-strong-dark ${
           loaded ? 'opacity-0' : 'opacity-100'
         }`}
         style={{ fontSize: Math.max(9, Math.round(size * 0.38)) }}
@@ -70,7 +70,7 @@ export default function CompanyLogo({
           height={size}
           unoptimized
           priority={priority}
-          className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-200 ${
+          className={`absolute inset-0 h-full w-full object-contain transition-opacity duration-base ${
             loaded ? 'opacity-100' : 'opacity-0'
           }`}
           onLoad={() => setLoaded(true)}

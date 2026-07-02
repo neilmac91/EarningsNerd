@@ -164,11 +164,9 @@ export default async function Home() {
               </div>
             </div>
 
-            {/* Right: Live example summary */}
+            {/* Right: Live example summary (decorative float retired — DS v2 motion pass) */}
             <div className="hidden lg:block">
-              <div className="animate-float">
-                <HeroExample example={example} />
-              </div>
+              <HeroExample example={example} />
             </div>
           </div>
         </div>

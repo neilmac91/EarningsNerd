@@ -103,7 +103,7 @@ function TrendingTickerCard({
     <Link
       href={`/company/${ticker.symbol}`}
       onClick={handleClick}
-      className="flex min-w-[240px] flex-col gap-2 rounded-2xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 p-4 shadow-e2 dark:shadow-none transition-all duration-200 hover:-translate-y-1 hover:bg-white dark:hover:bg-white/10 hover:shadow-e2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-slate-900"
+      className="flex min-w-[240px] flex-col gap-2 rounded-2xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 p-4 shadow-e2 dark:shadow-none transition-all duration-base hover:-translate-y-1 hover:bg-white dark:hover:bg-white/10 hover:shadow-e2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-slate-900"
     >
       {/* Header: Logo + Symbol + Price */}
       <div className="flex items-start justify-between gap-2">

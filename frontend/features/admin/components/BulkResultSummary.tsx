@@ -42,7 +42,7 @@ export default function BulkResultSummary({ outcomes, skipped }: BulkResultSumma
             {succeeded.map((o) => (
               <li
                 key={o.email}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md bg-background-light px-2.5 py-1.5 dark:bg-white/5"
+                className="flex flex-wrap items-center justify-between gap-2 rounded bg-background-light px-2.5 py-1.5 dark:bg-white/5"
               >
                 <span className="truncate text-sm text-text-primary-light dark:text-text-primary-dark">
                   {o.email}
@@ -69,7 +69,7 @@ export default function BulkResultSummary({ outcomes, skipped }: BulkResultSumma
             {failed.map((o) => (
               <li
                 key={o.email}
-                className="rounded-md bg-error-light/10 px-2.5 py-1.5 dark:bg-error-dark/15"
+                className="rounded bg-error-light/10 px-2.5 py-1.5 dark:bg-error-dark/15"
               >
                 <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
                   {o.email}

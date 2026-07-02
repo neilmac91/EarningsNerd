@@ -42,7 +42,7 @@ function FeatureShowcase() {
           return (
             <div
               key={feature.title}
-              className="glass-card group rounded-2xl p-6 transition-all duration-300"
+              className="glass-card group rounded-2xl p-6 transition-all duration-base"
             >
               <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-brand-strong/10 text-brand-strong dark:bg-brand-dark/15 dark:text-brand-strong-dark transition-colors group-hover:bg-brand-strong/20 dark:group-hover:bg-brand-dark/20">
                 <Icon className="h-6 w-6" />

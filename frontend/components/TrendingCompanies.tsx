@@ -34,7 +34,7 @@ export default function TrendingCompanies() {
           type="button"
           onClick={() => refetch()}
           disabled={isFetching}
-          className="mt-3 inline-flex items-center rounded-md border border-error-light/30 bg-error-light/10 px-3 py-1 text-xs font-medium text-error-light transition hover:bg-error-light/15 dark:border-error-dark/40 dark:bg-error-dark/10 dark:text-error-dark dark:hover:bg-error-dark/20 disabled:opacity-60"
+          className="mt-3 inline-flex items-center rounded-lg border border-error-light/30 bg-error-light/10 px-3 py-1 text-xs font-medium text-error-light transition hover:bg-error-light/15 dark:border-error-dark/40 dark:bg-error-dark/10 dark:text-error-dark dark:hover:bg-error-dark/20 disabled:opacity-60"
         >
           {isFetching ? 'Retrying…' : 'Retry'}
         </button>
@@ -56,7 +56,7 @@ export default function TrendingCompanies() {
             <Link
               key={company.id}
               href={`/company/${company.ticker}`}
-              className="group block p-5 rounded-2xl bg-panel-light dark:bg-white/5 shadow-e1 dark:shadow-none hover:bg-gradient-to-br hover:from-panel-light hover:to-background-light dark:hover:from-white/10 dark:hover:to-white/5 transition-all duration-300 border border-border-light dark:border-white/10 hover:border-border-light dark:hover:border-white/20 hover:shadow-lg hover:shadow-gray-900/5 dark:hover:shadow-black/20"
+              className="group block p-5 rounded-2xl bg-panel-light dark:bg-white/5 shadow-e1 dark:shadow-none hover:bg-gradient-to-br hover:from-panel-light hover:to-background-light dark:hover:from-white/10 dark:hover:to-white/5 transition-all duration-base border border-border-light dark:border-white/10 hover:border-border-light dark:hover:border-white/20 hover:shadow-lg hover:shadow-gray-900/5 dark:hover:shadow-black/20"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">

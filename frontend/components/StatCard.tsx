@@ -65,7 +65,7 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
   const sparklineData = trendData?.map((val, i) => ({ i, val })) || []
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark p-5 shadow-e2 dark:shadow-none transition-all duration-200 hover:shadow-md">
+    <div className="relative overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark p-5 shadow-e2 dark:shadow-none transition-all duration-base hover:shadow-md">
       <div className="flex justify-between items-start">
         <div className="space-y-1">
           <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>

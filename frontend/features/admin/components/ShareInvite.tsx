@@ -82,7 +82,7 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
   }
 
   const externalLinkClasses =
-    'inline-flex items-center gap-1.5 rounded-md border border-border-light bg-panel-light px-2.5 py-1.5 text-xs font-medium text-text-primary-light transition-colors hover:bg-brand-weak dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:hover:bg-white/5'
+    'inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-panel-light px-2.5 py-1.5 text-xs font-medium text-text-primary-light transition-colors hover:bg-brand-weak dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:hover:bg-white/5'
 
   return (
     <div className="inline-flex flex-col items-end gap-2">
@@ -130,7 +130,7 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
           </div>
 
           {unbound && (
-            <p className="flex items-start gap-1.5 rounded-md border border-warning-light/40 bg-warning-light/10 px-2.5 py-1.5 text-xs text-warning-light dark:border-warning-dark/40 dark:bg-warning-dark/15 dark:text-warning-dark">
+            <p className="flex items-start gap-1.5 rounded border border-warning-light/40 bg-warning-light/10 px-2.5 py-1.5 text-xs text-warning-light dark:border-warning-dark/40 dark:bg-warning-dark/15 dark:text-warning-dark">
               <WarningIcon className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
               <span>
                 Not bound to an email — anyone with this link can redeem it. Share only with the

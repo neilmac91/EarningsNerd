@@ -50,7 +50,7 @@ export function FilingPulse({ pulse, score }: { pulse?: Pulse | null; score?: nu
         aria-label={`Filing pulse: ${tier}`}
       >
         <div
-          className={clsx('h-1.5 rounded-full transition-all duration-500', style.fill)}
+          className={clsx('h-1.5 rounded-full transition-all duration-slow', style.fill)}
           style={{ width: `${width}%` }}
         />
       </div>

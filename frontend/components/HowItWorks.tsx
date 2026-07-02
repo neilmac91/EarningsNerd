@@ -40,7 +40,7 @@ function HowItWorks() {
           return (
             <div
               key={step.number}
-              className="glass-card group relative rounded-2xl p-6 transition-all duration-300"
+              className="glass-card group relative rounded-2xl p-6 transition-all duration-base"
             >
               {/* Step number */}
               <div className="mb-4 text-xs font-bold uppercase tracking-widest text-brand-strong dark:text-brand-strong-dark">
