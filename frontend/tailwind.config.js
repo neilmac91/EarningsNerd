@@ -3,40 +3,33 @@ const { fontFamily } = require('tailwindcss/defaultTheme')
 /* =============================================================================
    EarningsNerd — Tailwind token system
    -----------------------------------------------------------------------------
-   Builds on the existing config. Net-new, all additive (nothing removed):
-     - fontFamily mapped to the runtime font-switcher CSS variable (--font-active)
-       plus the four selectable system stacks + a permanent data/numeric stack
-     - financial data semantics (gain / loss / flat) — DISTINCT from the brand
-       accent, so "brand" never reads as "price went up"
+   Replaces the existing config. Additive except the documented retirements
+   (animate-count-up, fade-up-delay-1/2/3 — see MIGRATION.md census):
+     - fontFamily = the three FIXED type-v2 roles (heading / body / data; the
+       runtime font switcher is retired) + legacy aliases so old classes resolve
+     - financial data semantics (gain / loss / flat) — DISTINCT from the sage
+       brand accent, so "brand" never reads as "price went up"
      - state colors (success / warning / error / info), light + dark
      - a categorical chart palette
      - typography scale, radii, spacing additions, elevation + focus-ring shadows
+     - motion: transitionDuration / transitionTimingFunction + every animation
+       reference the --duration-* / --ease-* tokens (raw ms + bezier values live
+       ONLY in globals.css :root and the JS mirror lib/motion.ts)
    Every color pair is AA (>= 4.5:1) for body text on its intended surface.
 ============================================================================= */
 
-const mintColors = {
-  50: '#ECFDF5',
-  100: '#D1FAE5',
-  200: '#A7F3D0',
-  300: '#6EE7B7',
-  400: '#34D399',
-  500: '#10B981', // legacy accent (no longer primary)
-  600: '#059669',
-  700: '#047857',
-  800: '#065F46',
-  900: '#064E3B',
-}
-
-// Financial data signal — deliberately NOT the brand accent. Brand is identity; this is data.
+// Financial data signal — deliberately NOT the sage brand. Sage is identity; this is data.
 const gain = {
-  light: '#16A34A', // green-600  — on white: 4.55:1 (AA)
-  dark: '#34D399',  // emerald-400 — cleaner/clearer on dark navy than green-500
+  light: '#16A34A',  // green-600 — GRAPHIC/chip value only: 3.0:1 on cream (meets the 3:1 non-text floor for bars/sparklines, FAILS AA for text)
+  text: '#15803D',   // green-700 — delta TEXT on cream/white (4.5:1); mirrors --gain-text in the DS tokens
+  dark: '#34D399',  // emerald-400 — 9.7:1 on navy, text-safe
   soft: '#DCFCE7',
   softDark: 'rgba(52,211,153,0.14)',
 }
 const loss = {
-  light: '#DC2626', // red-600    — on white: 4.53:1 (AA)
-  dark: '#FB7185',  // rose-400   — cleaner on dark navy than red-400
+  light: '#DC2626',  // red-600 — GRAPHIC/chip value only: 4.0:1 on cream / 4.4:1 on white (FAILS AA for text)
+  text: '#B91C1C',   // red-700 — delta TEXT on cream/white (5.8:1); mirrors --loss-text in the DS tokens
+  dark: '#FB7185',  // rose-400 — 7.0:1 on navy, text-safe
   soft: '#FEE2E2',
   softDark: 'rgba(251,113,133,0.14)',
 }
@@ -45,16 +38,13 @@ const flat = {
   dark: '#9CA3AF',  // gray-400
 }
 
-/** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     // Domain modules (the "Ask this Filing" Copilot, etc.) live here. Without this glob, Tailwind
-    // never scans them, so any class used ONLY in features/ (e.g. the launcher's `bottom-5 right-5`,
-    // the FilingWorkspace grid template) is purged from the production CSS and the component renders
-    // unstyled/invisible. jsdom unit tests don't apply CSS, so this can't be caught there.
+    // never scans them, so any class used ONLY in features/ is purged in production.
     './features/**/*.{js,ts,jsx,tsx,mdx}',
     './hooks/**/*.{js,ts,jsx,tsx,mdx}',
   ],
@@ -62,7 +52,7 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // ---- Core surfaces ----
+        // ---- Core surfaces (unchanged) ----
         background: {
           light: '#F4F3EE', // warm cream (not stark white — friendlier, less clinical)
           dark: '#0B1120',  // deep navy
@@ -71,25 +61,27 @@ module.exports = {
           light: '#FBFAF6', // warm off-white card
           dark: '#1F2937', // gray-800
         },
-        // ---- Brand accent (subdued, approachable — replaces neon mint) ----
-        // Theme-default mapping: Sage reads best in light, Slate in dark. Wire it up
-        // with a `dark:` variant (e.g. text-brand-strong dark:text-brand-dark) or a CSS var swap.
+        // ---- Brand accent: a single Sage across BOTH themes ----
+        // Sage replaces the former Sage/Slate split AND the legacy neon mint.
+        // USAGE: DEFAULT is a FILL (white text on it) — never use it as text on
+        // cream; use `strong` for accent text/links. `*-dark` values are brightened
+        // to read as text/accents on navy. Never use brand in a numeric/price context.
         brand: {
-          DEFAULT: '#4F7A63',
-          light: '#4F7A63',  // Sage (light theme default)
-          strong: '#3C6650', // text/links on cream — AA
-          weak: '#ECF2EE',   // tint background
-          dark: '#92A0E2',   // Slate (dark theme default)
-          'strong-dark': '#B4BEEE',
+          DEFAULT: '#4F7A63', strong: '#3C6650', emphasis: '#345C48',
+          // Legacy alias of DEFAULT — pre-cutover code uses brand-light-* classes widely
+          // (~70 files). Kept so they keep resolving; purge with the brand-light sweep.
+          // Do not use in new code.
+          light: '#4F7A63',
+          weak: '#ECF2EE', border: '#CFE0D6',
+          dark: '#7FB295', 'strong-dark': '#98C5AD', 'fill-dark': '#569272',
+          'weak-dark': 'rgba(127,178,149,0.14)', 'border-dark': 'rgba(127,178,149,0.28)',
         },
-        // Legacy mint — kept for backward-compat; no longer the primary accent.
-        mint: mintColors,
-        primary: mintColors, // backward-compat alias
 
         // ---- Financial data semantics (NOT the brand accent) ----
         gain: {
           DEFAULT: gain.light,
           light: gain.light,
+          text: gain.text,
           dark: gain.dark,
           soft: gain.soft,
           'soft-dark': gain.softDark,
@@ -97,6 +89,7 @@ module.exports = {
         loss: {
           DEFAULT: loss.light,
           light: loss.light,
+          text: loss.text,
           dark: loss.dark,
           soft: loss.soft,
           'soft-dark': loss.softDark,
@@ -106,27 +99,50 @@ module.exports = {
           dark: flat.dark,
         },
 
-        // ---- UI state ----
-        success: { light: '#16A34A', dark: '#22C55E' },
-        warning: { light: '#B45309', dark: '#F59E0B' }, // amber-700 on white = 4.8:1
-        error: { light: '#DC2626', dark: '#F87171' },
+        // ---- UI state ---- (light values sized for the warm cream surface, not white)
+        success: { light: '#15803D', dark: '#22C55E' }, // was #16A34A — 3.3:1 as text; green-700 holds 4.5:1 on cream
+        warning: { light: '#92400E', dark: '#F59E0B' }, // was #B45309 — 3.8:1 inside its 13% tint; amber-800 holds 5.2:1 in-tint, 6.4:1 on cream
+        error: { light: '#B91C1C', dark: '#F87171', emphasis: '#991B1B' }, // was #DC2626 (white label = 4.4:1); red-700 fill = 6.5:1, emphasis = destructive hover, 8.3:1
         info: { light: '#2563EB', dark: '#60A5FA' },
 
         // ---- Categorical chart palette (subdued, warm-leaning, cohesive) ----
+        // SEQUENCE, not a pick-list: series take 1→N in order, never skipped or re-sorted.
+        // CVD-validated (deuteranopia + protanopia, Machado 2009 sim, ΔE Lab):
+        //   · resequenced so the blue↔yellow axis — the one hue axis dichromats keep —
+        //     alternates early; every ADJACENT pair holds ΔE ≥ 41 through 5 series
+        //   · chart.2 honey darkened #D99E4A → #B8812F (was 2.1:1 on cream — failed the
+        //     3:1 non-text floor); every value is now ≥3:1 vs BOTH cream #F4F3EE and
+        //     navy #0B1120, so one hex per series serves both themes
+        //   · known limits: chart.5+6 converge for dichromats (ΔE ~16), chart.6 vs
+        //     chart.3 is near-identical for protanopes (ΔE 3) — at ≥5 series color no
+        //     longer carries alone: add direct labels, markers, or dash patterns
+        // Gain/loss NEVER appear as series colors (direction only — see Chart.tsx),
+        // and the sage brand NEVER appears inside a plot area.
         chart: {
-          1: '#3E8E84', // teal
-          2: '#5B7CC0', // cornflower
-          3: '#D99E4A', // honey
-          4: '#CF7159', // coral
-          5: '#8B7BC0', // periwinkle
-          6: '#5E9A6E', // sage
+          1: '#3E8E84', // teal        — cream 3.5:1 · navy 4.9:1
+          2: '#B8812F', // honey       — cream 3.0:1 · navy 5.6:1 (darkened from #D99E4A)
+          3: '#5B7CC0', // cornflower  — cream 3.7:1 · navy 4.6:1
+          4: '#CF7159', // coral       — cream 3.1:1 · navy 5.5:1
+          5: '#6E7E9C', // slate-blue  — cream 3.7:1 · navy 4.6:1 (non-green — never competes with sage)
+          6: '#8B7BC0', // periwinkle  — cream 3.3:1 · navy 5.1:1 (protan-twin of chart.3 — label directly)
+          // ---- Chart chrome sub-tokens (all derived from surface/text/flat tokens) ----
+          grid: { light: 'rgba(229,231,235,0.6)', dark: 'rgba(255,255,255,0.06)' }, // hairline @ 60% — quieter than the axis
+          axis: { light: '#E5E7EB', dark: 'rgba(255,255,255,0.10)' },               // = the hairline itself
+          // Axis labels: 11–12px data face + tabular-nums. Light = text.tertiary (4.6:1 on
+          // the card charts sit on; on bare cream use secondary). Dark = text.SECONDARY
+          // (tertiary-dark fails on navy — same rule as muted text).
+          label: { light: '#6B7280', dark: '#9CA3AF' },
+          crosshair: { light: 'rgba(107,114,128,0.45)', dark: 'rgba(156,163,175,0.4)' }, // flat @ ~45%, dashed 3 3
+          ref: { light: '#6B7280', dark: '#9CA3AF' },   // zero/reference line = flat tokens — 4.4:1 / 7.4:1 (hairline-as-meaning ≥3:1)
+          tip: { light: '#FBFAF6', dark: '#1F2937' },   // tooltip surface = panel + hairline; shadow-e2 light / shadow NONE dark
         },
 
         // ---- Text ----
         text: {
           primary: { light: '#1A1A17', dark: '#D7DADC' },
-          // Headings use a warm dark-brown in light (espresso #3A2E26 default), off-white in dark.
-          heading: { light: '#3A2E26', dark: '#D7DADC' },
+          // v2: ONE heading ink — same espresso as body (walnut #3A2E26 retired); hierarchy comes
+          // from size + weight, never a second color.
+          heading: { light: '#1A1A17', dark: '#D7DADC' },
           secondary: { light: '#374151', dark: '#9CA3AF' },
           tertiary: { light: '#6B7280', dark: '#4B5563' },
         },
@@ -138,39 +154,46 @@ module.exports = {
       },
 
       fontFamily: {
-        // Three roles. Headings stay grotesque regardless of the switchable body font.
-        heading: ['Helvetica', '"Helvetica Neue"', 'Arial', 'sans-serif'],
-        // Live, switchable body font (set by FontProvider via --font-active; default Figtree).
-        sans: ['var(--font-active)', ...fontFamily.sans],
-        body: ['var(--font-body)', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Arial', 'sans-serif'],
-        // Selectable system stacks (all OS-native, zero network requests).
-        system: ['-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
-        grotesque: ['Helvetica', '"Helvetica Neue"', 'Arial', 'sans-serif'],
-        editorial: ['Georgia', '"Times New Roman"', 'Times', 'serif'],
-        // Permanent data/numeric stack — tables, figures, tickers, XBRL, Ask-this-Filing output.
-        data: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', '"Liberation Mono"', 'monospace'],
-        mono: ['ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
+        // Type v2 — three FIXED roles (not user-selectable). Must mirror the CSS vars in globals.css.
+        // Headings: Inter loaded WITH the variable opsz axis — font-optical-sizing:auto gives the
+        // SF-style Text↔Display optical cuts. ONE display weight: 600.
+        // Option A (next/font) wiring per MIGRATION §d.4: webfonts are self-hosted with hashed
+        // family names, exposed via --font-inter / --font-geist-mono / --font-newsreader on <html>
+        // (see app/layout.tsx). The literal names stay as fallbacks for any context without the vars.
+        heading: ['var(--font-inter)', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+        // Body & UI: system-first — Apple hardware renders SF Pro (platform license, zero bytes);
+        // everyone else falls through to Inter. Inter sits BEFORE generic system-ui on purpose.
+        sans: ['var(--font-body)', ...fontFamily.sans],
+        body: ['-apple-system', 'BlinkMacSystemFont', 'var(--font-inter)', 'Inter', 'system-ui', '"Segoe UI"', 'Roboto', 'sans-serif'],
+        // Editorial serif — opt-in, long-form filing reading only.
+        editorial: ['var(--font-newsreader)', 'Newsreader', '"New York"', 'ui-serif', 'Georgia', 'serif'],
+        // Technical & data: Geist Mono + tabular-nums — money, %, tickers, XBRL, verbatim excerpts.
+        data: ['var(--font-geist-mono)', '"Geist Mono"', 'ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
+        mono: ['var(--font-geist-mono)', '"Geist Mono"', 'ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
+        // fontFamily.system / fontFamily.grotesque purged at cutover: the repo scan found
+        // zero font-system / font-grotesque class usage outside the deleted FontProvider.
       },
 
       fontSize: {
-        // [size, { lineHeight, letterSpacing }] — financial UI: tight display, comfy body.
+        // [size, { lineHeight, letterSpacing }] — letter-spacing follows the --track-* ramp in the
+        // DS tokens (tracked OUT ≤12px, 0 through body, tightening as display sizes grow).
         'data-xs': ['0.6875rem', { lineHeight: '1rem', letterSpacing: '0' }],
-        xs: ['0.75rem', { lineHeight: '1rem' }],
+        xs: ['0.75rem', { lineHeight: '1rem', letterSpacing: '0.01em' }],
         sm: ['0.875rem', { lineHeight: '1.25rem' }],
         base: ['1rem', { lineHeight: '1.6rem' }],
         lg: ['1.125rem', { lineHeight: '1.75rem' }],
-        xl: ['1.25rem', { lineHeight: '1.75rem', letterSpacing: '-0.01em' }],
-        '2xl': ['1.5rem', { lineHeight: '2rem', letterSpacing: '-0.015em' }],
-        '3xl': ['1.875rem', { lineHeight: '2.25rem', letterSpacing: '-0.02em' }],
-        '4xl': ['2.25rem', { lineHeight: '2.5rem', letterSpacing: '-0.022em' }],
+        xl: ['1.25rem', { lineHeight: '1.75rem', letterSpacing: '-0.012em' }],
+        '2xl': ['1.5rem', { lineHeight: '2rem', letterSpacing: '-0.012em' }],
+        '3xl': ['1.875rem', { lineHeight: '2.25rem', letterSpacing: '-0.016em' }],
+        '4xl': ['2.25rem', { lineHeight: '2.5rem', letterSpacing: '-0.02em' }],
         '5xl': ['3rem', { lineHeight: '1.1', letterSpacing: '-0.025em' }],
-        '6xl': ['3.75rem', { lineHeight: '1.05', letterSpacing: '-0.03em' }],
+        '6xl': ['3.75rem', { lineHeight: '1.05', letterSpacing: '-0.025em' }],
       },
 
       borderRadius: {
         sm: '0.25rem',
         DEFAULT: '0.5rem',
-        md: '0.625rem',
+        md: '0.625rem', // legacy off-scale (10px) — the scale is 4/8/12/16/24; don't use in new code
         lg: '0.75rem',
         xl: '1rem',
         '2xl': '1.5rem',
@@ -184,9 +207,6 @@ module.exports = {
         gutter: '1.5rem',
       },
 
-      // Decorative marketing gradients were removed in favor of flat, on-brand solid
-      // surfaces (warm cream / deep navy) + a single brand accent — see globals.css.
-
       boxShadow: {
         // Elevation scale (light-mode tuned; pair with ring/border in dark)
         e1: '0 1px 2px 0 rgba(16, 24, 40, 0.06)',
@@ -195,36 +215,53 @@ module.exports = {
         e4: '0 10px 15px -3px rgba(16, 24, 40, 0.10), 0 4px 6px -4px rgba(16, 24, 40, 0.10)',
         e5: '0 20px 25px -5px rgba(16, 24, 40, 0.12), 0 8px 10px -6px rgba(16, 24, 40, 0.10)',
         // Focus rings — use with focus-visible for keyboard users
-        'ring-brand': '0 0 0 3px rgba(76, 95, 166, 0.45)',
-        'ring-error': '0 0 0 3px rgba(220, 38, 38, 0.40)',
-        // Brand glow (legacy mint — kept for backward-compat)
-        'glow-mint': '0 0 40px -10px rgba(16, 185, 129, 0.3)',
-        'glow-mint-sm': '0 0 20px -5px rgba(16, 185, 129, 0.2)',
-        'glow-mint-lg': '0 0 60px -15px rgba(16, 185, 129, 0.25)',
+        'ring-brand': '0 0 0 3px rgba(79, 122, 99, 0.50)',
+        'ring-brand-dark': '0 0 0 3px rgba(127, 178, 149, 0.55)',
+        'ring-error': '0 0 0 3px rgba(185, 28, 28, 0.45)',
+        // shadow-glow-brand-* purged at cutover (repo scan: zero uses) — the ONE approved
+        // glow is the hero search, via the .hero-search-glow class in globals.css.
+      },
+
+      // ---- Motion (tokens defined in globals.css :root; JS mirror lib/motion.ts) ----
+      // DEFAULTs re-point Tailwind's bare `transition-*` utilities: 200ms + standard.
+      transitionDuration: {
+        DEFAULT: 'var(--duration-base)',
+        fast: 'var(--duration-fast)', // 150ms — hover + color feedback
+        base: 'var(--duration-base)', // 200ms — crossfades, theme, skeleton→content
+        slow: 'var(--duration-slow)', // 600ms — entrances, draw-ins, count-up
+        ambient: 'var(--duration-ambient)', // 1800ms — loops + attention decay
+      },
+      transitionTimingFunction: {
+        DEFAULT: 'var(--ease-standard)',
+        standard: 'var(--ease-standard)',
+        pop: 'var(--ease-pop)', // success check-pop only
       },
 
       keyframes: {
-        shimmer: {
-          '100%': {
-            transform: 'translateX(100%)',
-          },
-        },
+        shimmer: { '100%': { transform: 'translateX(100%)' } },
         'fade-up': {
           '0%': { opacity: '0', transform: 'translateY(20px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
-        'count-up': {
-          '0%': { opacity: '0', transform: 'translateY(10px)' },
-          '100%': { opacity: '1', transform: 'translateY(0)' },
-        },
+        // Skeleton→content handoff (DataTable, AskFilingAnswer) on the loading flip.
+        'content-in': { from: { opacity: '0' }, to: { opacity: '1' } },
+        // count-up keyframe RETIRED — it was a fade impostor. The real signature
+        // is hooks/useCountUp (rAF, duration-slow, ease-standard, tabular-nums).
       },
+      // All token-timed. Pair with `motion-reduce:animate-none` at the use site
+      // (the globals.css classes self-guard; these utilities can't).
       animation: {
-        shimmer: 'shimmer 2s infinite',
-        'fade-up': 'fade-up 0.6s ease-out forwards',
-        'fade-up-delay-1': 'fade-up 0.6s ease-out 0.1s forwards',
-        'fade-up-delay-2': 'fade-up 0.6s ease-out 0.2s forwards',
-        'fade-up-delay-3': 'fade-up 0.6s ease-out 0.3s forwards',
-        'count-up': 'count-up 0.4s ease-out forwards',
+        shimmer: 'shimmer var(--duration-ambient) var(--ease-standard) infinite',
+        // Overrides Tailwind's raw 2s default so Badge dots + streaming carets sit on the scale.
+        pulse: 'pulse var(--duration-ambient) var(--ease-standard) infinite',
+        'fade-up': 'fade-up var(--duration-slow) var(--ease-standard) forwards',
+        // Stagger — replaces the hand-rolled fade-up-delay-1/2/3. Set --stagger-index
+        // (0-based) per item; step = duration-fast, capped at 4 steps so long lists
+        // don't queue. Static class ⇒ first paint only: theme toggles and re-renders
+        // never replay it (only a remount does).
+        'fade-up-stagger':
+          'fade-up var(--duration-slow) var(--ease-standard) calc(min(var(--stagger-index, 0), 4) * var(--duration-fast)) both',
+        'content-in': 'content-in var(--duration-base) var(--ease-standard) both',
       },
     },
   },

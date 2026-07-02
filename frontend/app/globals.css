@@ -3,56 +3,74 @@
 @tailwind utilities;
 
 /* =============================================================================
-   EarningsNerd — font-switcher CSS variables
+   EarningsNerd — type v2 font roles (FIXED — the user-facing switcher is retired)
    -----------------------------------------------------------------------------
-   The four stacks are all OS-native (no network request). --font-active is the
-   live body font; FontProvider rewrites it by setting [data-font] on <html>. The
-   inline pre-hydration script in app/layout.tsx sets [data-font] BEFORE first
-   paint, so there is no flash-of-wrong-font.
-
-   --font-data is permanent: tables, tickers, XBRL figures, and anything that
-   must align in columns always render monospace regardless of the body choice.
-
-   The default body role is Figtree, self-hosted via next/font (app/layout.tsx),
-   which exposes it as --font-figtree — no Google Fonts <link>, no FOUC.
+   Three roles, by intent (see the Typography v2 specimen):
+   - heading: Inter FIRST (deterministic display voice; variable opsz axis =
+     SF's Text↔Display optical cuts, activated by font-optical-sizing:auto).
+   - body: -apple-system/system-ui FIRST — Apple users render SF Pro under its
+     platform license (SF is NEVER embedded as a webfont); everyone else falls
+     through to Inter. Inter must sit BEFORE generic system-ui, or Segoe UI /
+     Roboto shadow it on Windows/Android.
+   - data: Geist Mono + tabular-nums — money, %, tickers, XBRL, verbatim
+     excerpts, Ask-this-Filing output. Columns must never jitter.
+   Editorial serif (Newsreader) is opt-in for long-form filing reading only.
 ============================================================================= */
 :root {
+  /* Option A (next/font) per MIGRATION §d.4: --font-inter / --font-geist-mono /
+     --font-newsreader are the self-hosted families emitted on <html> by app/layout.tsx;
+     the literal names remain as fallbacks. */
   --font-system: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  --font-grotesque: Helvetica, 'Helvetica Neue', Arial, sans-serif;
-  --font-editorial: Georgia, 'Times New Roman', Times, serif;
-  --font-data: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+  --font-editorial: var(--font-newsreader), 'Newsreader', 'New York', ui-serif, Georgia, serif;
+  --font-data: var(--font-geist-mono), 'Geist Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
-  /* Three type roles. Headings are FIXED to a neutral grotesque regardless of the
-     switchable body font; technical/data output is always monospace. */
-  --font-heading: Helvetica, 'Helvetica Neue', Arial, sans-serif;
-  /* Body = Figtree (loaded by next/font as --font-figtree), with system fallbacks. */
-  --font-body: var(--font-figtree, 'Figtree'), -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  --font-heading: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, var(--font-inter), 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
 
-  /* Default body font = Figtree (friendly, approachable). The body switcher overrides this. */
+  /* Heading ink: ONE value — same espresso as body text (hierarchy comes from
+     size + weight, not a second ink). Walnut #3A2E26 retired. */
+  --heading-color: #1A1A17;
+
+  /* Tracking ramp — SF-style dynamic tracking: tracked OUT at caption sizes,
+     progressively tighter as display sizes grow. Sign flips near 20px. */
+  --track-caption: 0.01em;   /* ≤12px */
+  --track-body: 0;           /* 13–19px */
+  --track-title3: -0.012em;  /* 20–24px */
+  --track-title2: -0.016em;  /* 26–32px */
+  --track-title1: -0.02em;   /* 34–44px */
+  --track-display: -0.025em; /* 48px+ */
+  --track-eyebrow: 0.08em;   /* uppercase micro-labels only */
+
+  /* Back-compat alias — the [data-font] switcher is retired; --font-active is
+     permanently the body role. Existing `font-sans` usage keeps resolving. */
   --font-active: var(--font-body);
+
+  /* Motion tokens — mirrors tokens/spacing.css; the JS mirror for consumers
+     that need numbers (Recharts, rAF) is lib/motion.ts. This block is the ONLY
+     place raw ms / cubic-bezier values are allowed — everything else references
+     var(--duration-*) / var(--ease-*).
+       fast    hover + color feedback
+       base    crossfades, theme switch, skeleton→content
+       slow    entrances, draw-ins, count-up
+       ambient loops + attention decay (shimmer sweep, pulse dots, citation-flash) */
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1); /* success check-pop only */
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 600ms;
+  --duration-ambient: 1800ms; /* deliberate off-scale step — shared by citation-flash (was 1.5s) + shimmer (was 2s) */
 }
 
-html[data-font='figtree']   { --font-active: var(--font-body); }
-html[data-font='system']    { --font-active: var(--font-system); }
-html[data-font='grotesque'] { --font-active: var(--font-grotesque); }
-html[data-font='editorial'] { --font-active: var(--font-editorial); }
-html[data-font='data']      { --font-active: var(--font-data); }
-
-/* --- Optional: extra body-font directions (Inter, Lora) ---
-   Figtree (the body default) is self-hosted via next/font in app/layout.tsx — no
-   <link> needed. Inter/Lora below are NOT loaded by default; to enable, load them
-   (next/font or a webfont <link>) and add 'inter' | 'lora' to FONT_OPTIONS in
-   FontProvider.tsx. */
-:root {
-  --font-inter: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-  --font-lora:  'Lora', Georgia, 'Times New Roman', Times, serif;
-}
-html[data-font='inter'] { --font-active: var(--font-inter); }
-html[data-font='lora']  { --font-active: var(--font-lora); }
+.dark { --heading-color: #D7DADC; }
 
 @layer base {
   html {
     scroll-behavior: smooth;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
   }
 
   body {
@@ -60,12 +78,12 @@ html[data-font='lora']  { --font-active: var(--font-lora); }
     @apply bg-background-light text-text-primary-light dark:bg-background-dark dark:text-text-primary-dark;
   }
 
-  /* Headings use the grotesque heading role (Helvetica / Arial). Color is intentionally NOT
-     set globally — headings inherit their surface's text color (theme token-pairs on themed
-     surfaces; explicit light text on permanently-dark surfaces). A global heading color would
-     paint dark ink on always-dark surfaces (e.g. the hero) when the theme is light. */
+  /* Headings always use the heading role (Inter + opsz) + the single espresso ink. */
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
+    font-optical-sizing: auto; /* Inter/SF opsz — Display cut at large sizes */
+    font-weight: 600;          /* ONE display weight; 700/800 retired */
+    color: var(--heading-color);
   }
 
   /* Technical / data output — filing summaries + Ask-this-Filing answers render mono. */
@@ -80,6 +98,14 @@ html[data-font='lora']  { --font-active: var(--font-lora); }
     font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum' 1;
   }
+
+  /* Apple-style numeric alignment: SAME face as body, tabular figures.
+     Recommended for data tables + KPI tiles. `.tabular` (mono) keeps the
+     evidence register: tickers, XBRL anchors, verbatim filing excerpts. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum' 1;
+  }
 }
 
 @layer utilities {
@@ -88,224 +114,205 @@ html[data-font='lora']  { --font-active: var(--font-lora); }
   }
 }
 
-/* ===== existing animations / effects (unchanged) ===== */
+/* ===== animations / effects — token-timed (2026-07 motion pass) =============
+   Everything below references the :root motion tokens. Retired in this pass:
+   - float (3s hover-bob): decorative — removed per "nothing decorative".
+   - animate-count-up (config): was a fade impostor — the real signature is
+     hooks/useCountUp (rAF, slow/standard, tabular-nums).
+   - fade-up-delay-1/2/3 (config): → animate-fade-up-stagger + --stagger-index.
+============================================================================= */
+
+/* Content-appear — the 10px in-card sibling of fade-up's 20px section entrance.
+   Audited 2026-07: kept, for single swapped-in elements. Retimed 0.5s → slow. */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
+.animate-fadeIn { animation: fadeIn var(--duration-slow) var(--ease-standard); }
 
-.animate-fadeIn {
-  animation: fadeIn 0.5s ease-out;
-}
-
-@keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-10px);
-  }
-}
-
-/* Success checkmark "pop" (auth verify/reset confirmation) */
+/* Success confirmation — the ONE ease-pop consumer. Retimed 0.4s → slow. */
 @keyframes check-pop {
-  0% {
-    transform: scale(0);
-    opacity: 0;
-  }
-  60% {
-    transform: scale(1.15);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
 }
+.animate-check-pop { animation: check-pop var(--duration-slow) var(--ease-pop) forwards; }
 
-.animate-check-pop {
-  animation: check-pop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
-}
+/* Sparkline draw-in (ui/Chart.tsx `animate`) — shared keyframe layer; no longer
+   inlined in the component's <style>. Reduced motion is handled in the component
+   (usePrefersReducedMotion skips the dash setup entirely). */
+@keyframes en-spark-draw { to { stroke-dashoffset: 0; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-check-pop {
-    animation: none;
-  }
+  .animate-fadeIn, .animate-check-pop { animation: none; }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .animate-float {
-    animation: float 3s ease-in-out infinite;
-  }
-}
-
-@keyframes gradient-shift {
-  0%, 100% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-}
-
-.animate-gradient {
-  background-size: 200% 200%;
-  animation: gradient-shift 3s ease infinite;
-}
-
-/* Hero search glow — brand accent, theme-aware (sage in light, slate in dark). */
 .hero-search-glow {
-  box-shadow: 0 0 0 1px rgba(79, 122, 99, 0.22),
-              0 0 30px -5px rgba(79, 122, 99, 0.15);
-  transition: box-shadow 0.3s ease;
+  box-shadow: 0 0 0 1px rgba(79, 122, 99, 0.20), 0 0 30px -5px rgba(79, 122, 99, 0.15);
+  transition: box-shadow var(--duration-base) var(--ease-standard); /* matches _ds base.css */
 }
 .hero-search-glow:focus-within {
-  box-shadow: 0 0 0 2px rgba(79, 122, 99, 0.40),
-              0 0 40px -5px rgba(79, 122, 99, 0.25);
-}
-.dark .hero-search-glow {
-  box-shadow: 0 0 0 1px rgba(146, 160, 226, 0.22),
-              0 0 30px -5px rgba(146, 160, 226, 0.18);
-}
-.dark .hero-search-glow:focus-within {
-  box-shadow: 0 0 0 2px rgba(146, 160, 226, 0.45),
-              0 0 40px -5px rgba(146, 160, 226, 0.28);
+  box-shadow: 0 0 0 2px rgba(79, 122, 99, 0.40), 0 0 40px -5px rgba(79, 122, 99, 0.25);
 }
 
-/* Scroll-triggered animation base */
+/* Hero accent word — solid sage ink, not a gradient. brand.strong in light,
+   brand strong-dark on navy. (The legacy `.text-gradient-mint` alias was purged at
+   cutover — the repo scan found zero usage.) */
+.text-accent-strong {
+  color: #3C6650;
+}
+.dark .text-accent-strong {
+  color: #98C5AD;
+}
+
 .animate-on-scroll {
   opacity: 0;
   transform: translateY(20px);
-  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+  transition: opacity var(--duration-slow) var(--ease-standard), transform var(--duration-slow) var(--ease-standard);
+}
+.animate-on-scroll.is-visible { opacity: 1; transform: translateY(0); }
+/* Reduced motion: content must never hide behind a scroll reveal. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-on-scroll { opacity: 1; transform: none; transition: none; }
 }
 
-.animate-on-scroll.is-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
-
-/* Glass card effect — theme-aware (translucent white in light, dark glass in dark). */
 .glass-card {
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(15, 23, 42, 0.6);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(16, 24, 40, 0.12);
-  /* Resting soft elevation (= shadow-e2) so the card lifts off the warm cream bg
-     instead of relying on a near-equal-luminance tint. */
-  box-shadow: 0 1px 3px 0 rgba(16, 24, 40, 0.10),
-              0 1px 2px -1px rgba(16, 24, 40, 0.10);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 .glass-card:hover {
-  border-color: rgba(60, 102, 80, 0.30);
-  box-shadow: 0 8px 30px -12px rgba(16, 24, 40, 0.18);
-}
-.dark .glass-card {
-  background: rgba(15, 23, 42, 0.6);
-  border-color: rgba(255, 255, 255, 0.06);
-  box-shadow: none; /* dark separates via fill contrast; keep no resting shadow */
-}
-.dark .glass-card:hover {
-  border-color: rgba(146, 160, 226, 0.25);
-  box-shadow: 0 0 30px -10px rgba(146, 160, 226, 0.15);
+  border-color: rgba(127, 178, 149, 0.28);
+  box-shadow: 0 0 30px -10px rgba(127, 178, 149, 0.18);
 }
 
-/* Mockup browser frame — theme-aware (warm off-white in light, dark in dark). */
 .mockup-frame {
-  background: linear-gradient(180deg, #FBFAF6 0%, #F4F3EE 100%);
-  border: 1px solid rgba(16, 24, 40, 0.10);
+  /* Flat brand navy — the decorative slate gradient is retired (no decorative gradients). */
+  background: #0B1120;
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   overflow: hidden;
 }
 .mockup-frame-titlebar {
-  background: rgba(16, 24, 40, 0.04);
-  border-bottom: 1px solid rgba(16, 24, 40, 0.06);
-}
-.dark .mockup-frame {
-  background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-  border-color: rgba(255, 255, 255, 0.1);
-}
-.dark .mockup-frame-titlebar {
   background: rgba(255, 255, 255, 0.05);
-  border-bottom-color: rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-/* Markdown body (filing summaries). Light values are unchanged; each color-bearing rule carries
-   a `dark:` token pair so the summary stays readable on the dark panel (the rules set color on the
-   element directly and would otherwise override the wrapper's themed color in dark mode). Muted body
-   text on dark = secondary-dark (tertiary-dark fails WCAG AA); headings = primary-dark. */
+/* ===== markdown / filing viewer — the READER (v2) ===========================
+   Long-form filing prose (Item 1A, MD&A, notes). Same tokens, designed for
+   200 pages — see the "Filing Reader" spec DC. Decisions:
+   - MEASURE lives on the reader's CHILDREN (68ch), never globally; tables,
+     figures and pre escape to the 88ch rail.
+   - PROSE wires the editorial role: Newsreader 19/1.7 (opsz auto). This is
+     the serif's ONE opt-in surface — UI, AI summaries and Ask output stay
+     sans/mono, so the serif always means "the filing's own words".
+   - FIGURES in prose (.fig, code): Geist Mono at 0.85em (x-height-matched to
+     the serif) + tabular-nums, weight 500. Deltas stay ink in prose — green/
+     red is a table/chip signal, not a prose voice.
+   - HEADINGS: Inter 600, one ink; space-before ≥ 2.5× space-after so headings
+     mark sections. Stacked headings collapse to 1rem.
+   - LISTS: outside markers + 1.375em gutter — wrapped lines align under text.
+   - TABLES: DataTable manners — hairline rows (no grids, no header fill),
+     12px uppercase header, right-aligned numerics in the data face.
+   AA both themes: prose = secondary (10.4:1 cream / 7.0:1 navy); header +
+   captions = tertiary light / SECONDARY dark (tertiary-dark fails on navy). */
 .markdown-body {
-  @apply text-slate-800 dark:text-text-secondary-dark leading-relaxed space-y-4;
+  @apply text-text-primary-light dark:text-text-primary-dark;
+  max-width: 88ch;            /* the breakout rail */
+  margin-inline: auto;
+  font-family: var(--font-editorial);
+  font-optical-sizing: auto;
+  font-size: 1.1875rem;       /* 19px — Newsreader's x-height needs the bump */
+  line-height: 1.7;
 }
+.markdown-body > * { max-width: 68ch; margin-left: auto; margin-right: auto; }
+.markdown-body > table, .markdown-body > figure, .markdown-body > pre { max-width: none; }
+.markdown-body > :first-child { margin-top: 0; }
 
-.markdown-body h2 {
-  @apply text-2xl font-semibold text-slate-900 dark:text-text-primary-dark mt-8 mb-3 tracking-tight;
-}
+.markdown-body p { @apply text-text-secondary-light dark:text-text-secondary-dark; margin-top: 0; margin-bottom: 1em; }
 
-.markdown-body h3 {
-  @apply text-xl font-semibold text-slate-900 dark:text-text-primary-dark mt-6 mb-2 tracking-tight;
-}
+.markdown-body h2, .markdown-body h3, .markdown-body h4 { font-family: var(--font-heading); font-weight: 600; color: var(--heading-color); margin-bottom: 0; }
+.markdown-body h2 { font-size: 1.5rem; line-height: 1.3; letter-spacing: var(--track-title3); margin-top: 4rem; padding-bottom: 1rem; }
+.markdown-body h3 { font-size: 1.25rem; line-height: 1.35; letter-spacing: var(--track-title3); margin-top: 2.5rem; padding-bottom: 0.625rem; }
+.markdown-body h4 { font-size: 1.0625rem; line-height: 1.4; margin-top: 2rem; padding-bottom: 0.5rem; }
+.markdown-body :is(h2, h3, h4) + :is(h2, h3, h4) { margin-top: 1rem; } /* stacked headings collapse */
 
-.markdown-body p {
-  @apply text-base text-slate-700 dark:text-text-secondary-dark;
-}
+.markdown-body ul, .markdown-body ol { list-style-position: outside; padding-left: 1.375em; margin-top: 0; margin-bottom: 1em; }
+.markdown-body ul { list-style-type: disc; }
+.markdown-body ol { list-style-type: decimal; }
+.markdown-body li { padding-left: 0.125em; }
+.markdown-body li + li { margin-top: 0.5em; }
+.markdown-body ::marker { @apply text-text-tertiary-light dark:text-text-secondary-dark; }
+.markdown-body ol > li::marker { font-variant-numeric: tabular-nums; }
 
-.markdown-body ul {
-  @apply list-disc list-inside space-y-2;
-}
-
-.markdown-body ol {
-  @apply list-decimal list-inside space-y-2;
-}
-
-.markdown-body table {
-  @apply w-full border-collapse text-sm;
-}
-
-.markdown-body table th {
-  @apply bg-slate-100 dark:bg-white/5 font-semibold text-slate-900 dark:text-text-primary-dark border border-slate-200 dark:border-border-dark px-3 py-2;
-}
-
-.markdown-body table td {
-  @apply border border-slate-200 dark:border-border-dark px-3 py-2 align-top;
+/* inline figures — $391.0B, 61.2%, tickers. The renderer wraps money/percent
+   tokens in .fig; inline code gets the same evidence face. */
+.markdown-body .fig, .markdown-body code {
+  font-family: var(--font-data);
+  font-size: 0.85em;          /* x-height-matched to the 19px serif */
+  font-weight: 500;
+  font-style: normal;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
 }
 
 .markdown-body blockquote {
-  @apply border-l-4 border-brand-strong dark:border-brand-dark pl-4 italic text-slate-600 dark:text-text-secondary-dark;
+  @apply border-brand-border dark:border-brand-border-dark text-text-secondary-light dark:text-text-secondary-dark;
+  border-left-width: 2px;
+  border-left-style: solid;
+  margin: 1.5em auto;
+  padding: 0.125em 0 0.125em 1.25em;
+  font-style: italic;
 }
 
-/* In-app filing viewer (P7): citation highlight + flash.
-   ::highlight paints the exact matched span via the CSS Custom Highlight API (when supported);
-   .citation-flash pulses the enclosing block so the jump is visible everywhere (incl. browsers
-   without the Highlight API). mint-400 == rgb(45, 212, 191). */
+/* reader tables — hairlines, not grids (DataTable manners without the component) */
+.markdown-body table {
+  @apply w-full border-collapse;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  line-height: 1.45;
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+}
+.markdown-body table th {
+  @apply text-text-tertiary-light dark:text-text-secondary-dark border-b border-border-light dark:border-border-dark;
+  background: none;
+  font-family: var(--font-heading);
+  font-weight: 600;
+  font-size: 0.75rem;         /* 12px uppercase eyebrow — metric-label register */
+  letter-spacing: var(--track-eyebrow);
+  text-transform: uppercase;
+  text-align: left;
+  padding: 0.625rem 0.75rem;
+}
+.markdown-body table td {
+  @apply border-b border-border-light dark:border-border-dark px-3 py-2.5 align-top;
+  border-left: 0;
+  border-right: 0;
+  border-top: 0;
+}
+/* numerics: markdown alignment emits align="right"; .num is the HTML-source hook */
+.markdown-body :is(th, td)[align="right"], .markdown-body :is(th, td).num { text-align: right; }
+.markdown-body td[align="right"], .markdown-body td.num {
+  font-family: var(--font-data);
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+  white-space: nowrap;
+}
+.markdown-body tfoot td, .markdown-body tr.total td { font-weight: 600; }
+/* delta text inside tables uses gain.text / loss.text light, 400-level dark —
+   e.g. class="num text-gain-text dark:text-gain-dark" (never the 600-level as text) */
+
 ::highlight(copilot-citation) {
-  background-color: rgba(45, 212, 191, 0.32);
+  background-color: rgba(79, 122, 99, 0.22);
   color: inherit;
 }
-
 @keyframes citation-flash {
-  0% {
-    background-color: rgba(45, 212, 191, 0.28);
-  }
-  100% {
-    background-color: transparent;
-  }
+  0% { background-color: rgba(79, 122, 99, 0.30); }
+  100% { background-color: transparent; }
 }
-
-.citation-flash {
-  animation: citation-flash 1.5s ease-out;
-  border-radius: 0.25rem;
-}
-
-/* Respect reduced-motion: skip the pulse but keep a brief static highlight so the jump-to is still
-   visible (it's cleared with the class when the citation is dismissed). */
+.citation-flash { animation: citation-flash var(--duration-ambient) var(--ease-standard); border-radius: 0.25rem; } /* 1.5s → the shared ambient token */
 @media (prefers-reduced-motion: reduce) {
-  .citation-flash {
-    animation: none;
-    background-color: rgba(45, 212, 191, 0.18);
-  }
+  .citation-flash { animation: none; background-color: rgba(79, 122, 99, 0.16); }
 }
