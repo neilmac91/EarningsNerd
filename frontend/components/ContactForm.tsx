@@ -101,7 +101,7 @@ export default function ContactForm() {
           </p>
           <button
             onClick={() => setSuccess(false)}
-            className="mt-6 text-sm font-medium text-brand-strong hover:opacity-80 dark:text-brand-strong-dark"
+            className="mt-6 text-sm font-medium text-brand-strong underline-offset-4 hover:underline dark:text-brand-strong-dark"
           >
             Send another message
           </button>

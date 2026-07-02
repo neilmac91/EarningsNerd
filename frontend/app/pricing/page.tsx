@@ -9,6 +9,7 @@ import { CheckIcon, CircleNotchIcon } from '@/lib/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import StateCard from '@/components/StateCard'
+import { Button } from '@/components/ui'
 import analytics from '@/lib/analytics'
 import { useFeatureFlagVariantKey } from 'posthog-js/react'
 import posthog from 'posthog-js'
@@ -213,22 +214,12 @@ function PricingContent() {
                 }
                 action={
                   <div className="flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => refetchSubscription()}
-                      disabled={subscriptionFetching}
-                      className="inline-flex items-center rounded-lg border border-error-light/40 bg-panel-light px-3 py-1 text-xs font-medium text-error-light transition hover:bg-error-light/10 dark:border-error-dark/40 dark:bg-panel-dark dark:text-error-dark dark:hover:bg-error-dark/15 disabled:opacity-60"
-                    >
-                      {subscriptionFetching ? 'Retrying…' : 'Retry subscription'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => refetchUsage()}
-                      disabled={usageFetching}
-                      className="inline-flex items-center rounded-lg border border-error-light/40 bg-panel-light px-3 py-1 text-xs font-medium text-error-light transition hover:bg-error-light/10 dark:border-error-dark/40 dark:bg-panel-dark dark:text-error-dark dark:hover:bg-error-dark/15 disabled:opacity-60"
-                    >
-                      {usageFetching ? 'Retrying…' : 'Retry usage'}
-                    </button>
+                    <Button variant="secondary" size="sm" onClick={() => refetchSubscription()} loading={subscriptionFetching} loadingText="Retrying…">
+                      Retry subscription
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={() => refetchUsage()} loading={usageFetching} loadingText="Retrying…">
+                      Retry usage
+                    </Button>
                   </div>
                 }
               />
@@ -286,7 +277,7 @@ function PricingContent() {
                   aria-valuemax={usage.summaries_limit}
                 >
                   <div
-                    className="bg-info-light dark:bg-info-dark h-2 rounded-full transition-all"
+                    className="bg-info-light dark:bg-info-dark h-2 rounded-full transition-[width] duration-base"
                     style={{ width: `${(usage.summaries_used / usage.summaries_limit) * 100}%` }}
                   />
                 </div>
@@ -357,26 +348,17 @@ function PricingContent() {
                 ))}
               </ul>
 
-              <button
+              <Button
+                variant={plan.popular ? 'primary' : 'secondary'}
+                size="lg"
+                className="w-full"
                 onClick={() => (plan.priceId ? handleUpgrade(plan.priceId) : router.push('/register'))}
-                disabled={plan.disabled || (isAuthenticated && !plan.priceId) || (plan.priceId !== null && isLoadingCheckout === plan.priceId)}
-                className={`w-full py-3 px-4 rounded-lg font-semibold transition-colors ${
-                  plan.disabled
-                    ? 'bg-border-light text-text-secondary-light dark:bg-white/10 dark:text-text-secondary-dark cursor-not-allowed'
-                    : plan.popular
-                    ? 'bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
-                    : 'bg-text-primary-light text-background-light dark:bg-white/10 dark:text-text-primary-dark hover:opacity-90'
-                }`}
+                disabled={plan.disabled || (isAuthenticated && !plan.priceId)}
+                loading={plan.priceId !== null && isLoadingCheckout === plan.priceId}
+                loadingText="Processing..."
               >
-                {plan.priceId && isLoadingCheckout === plan.priceId ? (
-                  <span className="flex items-center justify-center">
-                    <CircleNotchIcon className="h-5 w-5 animate-spin mr-2" />
-                    Processing...
-                  </span>
-                ) : (
-                  plan.cta
-                )}
-              </button>
+                {plan.cta}
+              </Button>
             </div>
           ))}
         </div>

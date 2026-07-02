@@ -56,7 +56,7 @@ export default function TrendingCompanies() {
             <Link
               key={company.id}
               href={`/company/${company.ticker}`}
-              className="group block p-5 rounded-2xl bg-panel-light dark:bg-white/5 shadow-e1 dark:shadow-none hover:bg-gradient-to-br hover:from-panel-light hover:to-background-light dark:hover:from-white/10 dark:hover:to-white/5 transition-all duration-base border border-border-light dark:border-white/10 hover:border-border-light dark:hover:border-white/20 hover:shadow-lg hover:shadow-gray-900/5 dark:hover:shadow-black/20"
+              className="group block p-5 rounded-2xl bg-panel-light dark:bg-white/5 shadow-e1 dark:shadow-none hover:bg-gradient-to-br hover:from-panel-light hover:to-background-light dark:hover:from-white/10 dark:hover:to-white/5 transition duration-base border border-border-light dark:border-white/10 hover:border-border-light dark:hover:border-white/20 hover:shadow-lg hover:shadow-gray-900/5 dark:hover:shadow-black/20"
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">

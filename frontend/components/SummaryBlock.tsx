@@ -39,7 +39,7 @@ export function SummaryBlock({ type = 'neutral', title, children }: SummaryBlock
 
   return (
     <div className={`
-      relative overflow-hidden rounded-r-lg border-l-4 shadow-sm transition-all hover:shadow-md
+      relative overflow-hidden rounded-r-lg border-l-4 shadow-sm transition hover:shadow-md
       ${style.border} ${style.bg}
       p-5 mb-4
     `}>

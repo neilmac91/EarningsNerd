@@ -98,7 +98,7 @@ export default function ResendShareModal({ link, email, onClose }: ResendShareMo
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border-light bg-transparent px-4 py-2.5 text-sm font-medium text-text-primary-light transition-all hover:bg-black/5 dark:border-white/10 dark:text-text-primary-dark dark:hover:bg-white/5"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-lg border border-border-light bg-transparent px-4 py-2.5 text-sm font-medium text-text-primary-light transition hover:bg-black/5 dark:border-white/10 dark:text-text-primary-dark dark:hover:bg-white/5"
           >
             Done
           </button>

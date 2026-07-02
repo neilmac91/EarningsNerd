@@ -124,7 +124,7 @@ export default function EmailVerificationModal() {
             type="button"
             onClick={handleResend}
             disabled={loading || resent}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-border-light bg-transparent px-4 py-2.5 text-sm font-medium text-text-primary-light transition-all hover:bg-black/5 disabled:opacity-50 dark:border-border-dark dark:text-text-primary-dark dark:hover:bg-white/5"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-border-light bg-transparent px-4 py-2.5 text-sm font-medium text-text-primary-light transition hover:bg-black/5 disabled:opacity-50 dark:border-border-dark dark:text-text-primary-dark dark:hover:bg-white/5"
           >
             {loading && <CircleNotchIcon className="h-4 w-4 animate-spin" />}
             {resent ? 'Link sent' : 'Resend link'}
@@ -132,7 +132,7 @@ export default function EmailVerificationModal() {
           <button
             type="button"
             onClick={handleRefresh}
-            className="flex-1 rounded-lg bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.99]"
+            className="flex-1 rounded-lg bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark px-4 py-2.5 text-sm font-semibold transition active:scale-[0.99]"
           >
             I&apos;ve verified — refresh
           </button>

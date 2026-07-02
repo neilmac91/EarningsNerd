@@ -117,7 +117,7 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
           </div>
           <div className="w-full bg-border-light dark:bg-white/10 rounded-full h-2.5">
             <div
-              className="bg-gradient-to-r from-brand-strong to-brand dark:from-brand-dark dark:to-brand-strong-dark h-2.5 rounded-full transition-all duration-base ease-out"
+              className="bg-gradient-to-r from-brand-strong to-brand dark:from-brand-dark dark:to-brand-strong-dark h-2.5 rounded-full transition-[width] duration-base ease-out"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -133,7 +133,7 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
             return (
               <div
                 key={stage.id}
-                className={`flex items-start space-x-4 p-4 rounded-lg transition-all duration-base ${
+                className={`flex items-start space-x-4 p-4 rounded-lg transition duration-base ${
                   isActive
                     ? 'bg-brand-strong/10 dark:bg-brand-dark/15 border-2 border-brand-border dark:border-brand-dark/30'
                     : isComplete

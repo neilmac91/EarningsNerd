@@ -100,7 +100,7 @@ export default function InviteRow({ invite }: InviteRowProps) {
               onClick={() => resendMutation.mutate()}
               disabled={resendDisabled}
               aria-label={`Resend invite to ${emailLabel}`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-panel-light px-2.5 py-1.5 text-xs font-medium text-text-primary-light shadow-e1 transition-all hover:bg-brand-weak hover:shadow-e2 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:shadow-none dark:hover:bg-white/5"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border-light bg-panel-light px-2.5 py-1.5 text-xs font-medium text-text-primary-light shadow-e1 transition hover:bg-brand-weak hover:shadow-e2 disabled:opacity-50 disabled:cursor-not-allowed dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:shadow-none dark:hover:bg-white/5"
             >
               {resendMutation.isPending ? (
                 <CircleNotchIcon className="h-3.5 w-3.5 animate-spin" />

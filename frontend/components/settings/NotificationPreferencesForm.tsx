@@ -39,7 +39,7 @@ function Toggle({
           {locked && (
             <Link
               href="/pricing"
-              className="inline-flex items-center gap-1 rounded-full bg-brand-strong px-2 py-0.5 text-[11px] font-semibold text-white dark:bg-brand-dark dark:text-background-dark"
+              className="inline-flex items-center gap-1 rounded-full bg-brand-strong px-2 py-0.5 text-xs font-semibold text-white dark:bg-brand-dark dark:text-background-dark"
             >
               <LockSimpleIcon className="h-3 w-3" />
               Pro

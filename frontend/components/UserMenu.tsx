@@ -75,13 +75,13 @@ export default function UserMenu({ user }: { user: MenuUser }) {
         aria-haspopup="true"
         aria-expanded={open}
         aria-label="Account menu"
-        className="flex items-center gap-1.5 rounded-full transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+        className="flex items-center gap-1.5 rounded-full transition-shadow hover:ring-2 hover:ring-brand-border dark:hover:ring-brand-border-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
       >
         <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-full bg-brand-strong/15 text-sm font-semibold text-brand-strong ring-1 ring-brand-border dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:ring-brand-dark/30">
           {getInitials(user.full_name, user.email)}
           {unverified && (
             <span
-              className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-amber-400 ring-2 ring-slate-950"
+              className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-warning-light dark:bg-warning-dark ring-2 ring-background-dark"
               aria-hidden="true"
             />
           )}
@@ -107,7 +107,7 @@ export default function UserMenu({ user }: { user: MenuUser }) {
               href={`/check-email?email=${encodeURIComponent(user.email)}`}
               role="menuitem"
               onClick={() => setOpen(false)}
-              className="mx-1 mb-1 flex items-center gap-2 rounded-lg bg-amber-400/10 px-2.5 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 transition-colors hover:bg-amber-400/20"
+              className="mx-1 mb-1 flex items-center gap-2 rounded-lg bg-warning-light dark:bg-warning-dark/10 px-2.5 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 transition-colors hover:bg-warning-light dark:bg-warning-dark/20"
             >
               <WarningCircleIcon className="h-4 w-4" />
               Verify your email
