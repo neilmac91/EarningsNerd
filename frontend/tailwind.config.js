@@ -69,9 +69,6 @@ module.exports = {
         brand: {
           DEFAULT: '#4F7A63', strong: '#3C6650', emphasis: '#345C48',
           weak: '#ECF2EE', border: '#CFE0D6',
-          light: '#4F7A63',  // deprecated alias of DEFAULT — deleted only at the
-                             // end of the downstream §c sweep (MIGRATION.md);
-                             // do not use in new code
           dark: '#7FB295', 'strong-dark': '#98C5AD', 'fill-dark': '#569272',
           'weak-dark': 'rgba(127,178,149,0.14)', 'border-dark': 'rgba(127,178,149,0.28)',
         },
