@@ -16,19 +16,27 @@ function mockReducedMotion(reduce: boolean) {
   }))
 }
 
+// v2 contract (design-system cutover): the initial state IS the target, so server
+// markup, no-JS, and reduced motion all show the final formatted value — the rAF
+// tween only runs client-side when motion is allowed, re-interpolating 0 → value.
 describe('useCountUp', () => {
   afterEach(() => vi.restoreAllMocks())
 
-  it('snaps straight to the final value when reduced motion is preferred (no tween)', () => {
+  it('shows the final formatted value when reduced motion is preferred (no tween)', () => {
     mockReducedMotion(true)
-    const { result } = renderHook(() => useCountUp(42, 800))
-    expect(result.current).toBe(42)
+    const { result } = renderHook(() => useCountUp(42))
+    expect(result.current).toBe('42')
   })
 
-  it('starts at 0 when motion is allowed (then animates up)', () => {
+  it('renders the final value on first commit even when motion is allowed (SSR/hydration safety)', () => {
     mockReducedMotion(false)
-    // First commit renders 0; the rAF tween advances it afterward (timing not asserted here).
-    const { result } = renderHook(() => useCountUp(42, 800))
-    expect(result.current).toBe(0)
+    const { result } = renderHook(() => useCountUp(42))
+    expect(result.current).toBe('42')
+  })
+
+  it('applies the format option', () => {
+    mockReducedMotion(true)
+    const { result } = renderHook(() => useCountUp(391, { format: (v) => `$${v.toFixed(1)}B` }))
+    expect(result.current).toBe('$391.0B')
   })
 })
