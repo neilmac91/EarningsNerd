@@ -35,12 +35,24 @@ const nextConfig = {
     NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS: process.env.NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS || 'false',
   },
   async headers() {
+    // Site-wide security headers (the API sets its own; these cover the Vercel-served app pages).
+    // Clickjacking is blocked two ways: X-Frame-Options for older browsers and CSP frame-ancestors
+    // for modern ones. A full resource CSP (default-src/script-src/…) is deliberately deferred to a
+    // follow-up so it can roll out report-only first without risking breakage — frame-ancestors
+    // alone only governs who may frame the page, so it is safe to enforce now.
+    // Referrer-Policy strict-origin-when-cross-origin sends only the origin cross-origin, so a
+    // single-use token in a URL (invite / reset / verify) can't leak to a third party via Referer;
+    // this one site-wide policy supersedes the former /register-only no-referrer (kept unambiguous
+    // to avoid Next.js emitting duplicate Referrer-Policy headers when rules overlap).
     return [
       {
-        // Single-use invite links arrive as /register?invite=<token>. Suppress the Referer so
-        // the token can't leak to any third-party assets the page loads.
-        source: '/register',
-        headers: [{ key: 'Referrer-Policy', value: 'no-referrer' }],
+        source: '/(.*)',
+        headers: [
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+        ],
       },
     ]
   },
