@@ -1,5 +1,31 @@
 # Task: Design-system v2 adoption pass (post-migration; PR-per-surface)
 
+## Task #29 — DS v2.2 sync + adoption + brand refresh (four PRs; approved plan)
+**Plan approved by Neil** (full spec: session plan file). Pack = ds-v2.2 upload; new brand = 9
+sage monogram SVGs. Scope decisions: copilot surface upgrades to AskFilingAnswer's DESIGN with a
+ZERO-functionality-loss mandate (CopilotMessage machinery stays); hero search standardizes onto
+inputClasses({leadingIcon}); FULL email retheme to the cream brand.
+- [ ] **PR A — pack sync (guarded):** take Badge(+solid/info/warning)/Card(as)/Chart(barCursor)/
+      Notice(new)/index/AskFilingAnswer(rewrite)/DESIGN_SYSTEM wholesale; Input = pack + re-apply
+      boolean-error guard x4; tailwind = info.text hunk ONLY (no brand.light); globals = .tnum
+      comment only; CLAUDE.md spliced + augmented to v2.2; Button/DataTable KEPT (pack regressions).
+      Grep gates: guard x4, type-default, no brand.light, info.text present.
+- [ ] **PR B — adoption:** StateCard->Notice x12 + delete (+ drop PricingPage.test mock);
+      UnverifiedBadge->Badge warning + delete ("Unverified" literal kept); filing-type chips ->
+      Badge brand/info/neutral; Recommended -> Badge solid x2; leading-icon fields (watchlist +
+      HERO CompanySearch, glow/kbd kept); CopilotComposer -> Textarea composer (handle kept);
+      Card as="section" x6; barCursorProps x2.
+- [ ] **PR C — rebrand:** logo components -> new monogram (currentColor; two-tone wordmark at
+      Header/AuthShell; delete theme file + EinsteinLogo); 9 SVGs + LOGO_README; generate-brand-
+      assets.mjs (sharp+png-to-ico devDeps; Playwright OG w/ committed Inter) -> favicon.ico,
+      apple-touch 180 full-bleed, 192/512 + maskable(0.62), og-image; manifest.ts + icons/
+      themeColor/JSON-LD + ?v=2; FULL email retheme (email_service.py) + rendered screenshots.
+- [ ] **PR D — copilot design upgrade (zero loss):** restyle CopilotMessage/CitationChip to the
+      AskFilingAnswer design (evidence-block chrome, footnote list + TrustBadge, counts footer);
+      popovers/deep-links/analytics/StreamingText perf/ticker/not_disclosed/followups preserved
+      1:1; 9 suites stay the spec (layout-text-only assertion updates); NO deletions.
+**Review:** (filled per PR)
+
 ## Task #28 — Adoption PR 5: Ask-this-Filing (copilot) + final stragglers
 **Scope change vs the original plan (recon finding):** AskFilingAnswer is DEAD pack code — never
 imported, and its data model is incompatible with the shipped copilot API (id vs n, no `verified`,
