@@ -101,7 +101,7 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
         )}
         <Button
           type="button"
-          variant="tertiary"
+          variant="ghost"
           size="sm"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
@@ -125,7 +125,7 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               rows={4}
-              className={inputClasses}
+              className={inputClasses()}
             />
           </div>
 

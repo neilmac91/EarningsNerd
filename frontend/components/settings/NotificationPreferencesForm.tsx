@@ -190,7 +190,7 @@ function PreferenceRows({
           value={prefs.digest}
           disabled={disabled}
           onChange={(e) => save({ digest: e.target.value })}
-          className={clsx(inputClasses, 'w-auto py-1.5 text-sm')}
+          className={clsx(inputClasses(), 'w-auto py-1.5 text-sm')}
         >
           <option value="immediate">Immediate</option>
           <option value="daily">Daily</option>

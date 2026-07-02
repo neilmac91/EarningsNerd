@@ -7,7 +7,7 @@ import { getApiUrl } from '@/lib/api/client'
 import TurnstileWidget from '@/components/auth/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
+import { inputClasses } from '@/components/ui/Input'
 
 type WaitlistSuccess = {
   message?: string
@@ -218,14 +218,16 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
           >
             Email address
           </label>
-          <Input
+          {/* Raw input + inputClasses(): geometry overrides target the field itself,
+              which the v2 <Input> shell no longer exposes via className. */}
+          <input
             id="waitlist-email"
             type="email"
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="you@company.com"
-            className="mt-2 rounded-xl px-4 py-3 text-sm"
+            className={inputClasses({ className: 'mt-2 rounded-xl px-4 py-3 text-sm' })}
           />
         </div>
 
@@ -236,13 +238,13 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
           >
             Full name (optional)
           </label>
-          <Input
+          <input
             id="waitlist-name"
             type="text"
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Jane Doe"
-            className="mt-2 rounded-xl px-4 py-3 text-sm"
+            className={inputClasses({ className: 'mt-2 rounded-xl px-4 py-3 text-sm' })}
           />
         </div>
 

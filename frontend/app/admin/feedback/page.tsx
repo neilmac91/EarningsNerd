@@ -64,7 +64,7 @@ export default function AdminFeedbackPage() {
                 id="filter-status"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as 'all' | FeedbackStatus)}
-                className={`${inputClasses} w-auto`}
+                className={`${inputClasses()} w-auto`}
               >
                 <option value="all">All statuses</option>
                 <option value="new">New</option>
@@ -79,7 +79,7 @@ export default function AdminFeedbackPage() {
                 id="filter-type"
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value as 'all' | FeedbackType)}
-                className={`${inputClasses} w-auto`}
+                className={`${inputClasses()} w-auto`}
               >
                 <option value="all">All types</option>
                 <option value="bug">Bug</option>

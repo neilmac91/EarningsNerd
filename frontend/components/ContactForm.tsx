@@ -194,7 +194,7 @@ export default function ContactForm() {
             required
             disabled={isSubmitting}
             rows={6}
-            className={clsx(inputClasses, 'mt-2')}
+            className={clsx(inputClasses(), 'mt-2')}
             placeholder="Tell us more about your inquiry..."
           />
           <p className="mt-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark">

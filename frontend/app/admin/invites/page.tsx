@@ -228,7 +228,7 @@ export default function AdminInvitesPage() {
                 value={expiryHours}
                 onChange={(e) => setExpiryHours(Number(e.target.value))}
                 disabled={sending}
-                className={inputClasses}
+                className={inputClasses()}
               >
                 {EXPIRY_OPTIONS.map((opt) => (
                   <option key={opt.value} value={opt.value}>
@@ -301,7 +301,7 @@ export default function AdminInvitesPage() {
                 id="filter-status"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value as 'all' | InviteStatus)}
-                className={`${inputClasses} w-auto`}
+                className={`${inputClasses()} w-auto`}
               >
                 <option value="all">All statuses</option>
                 <option value="pending">Pending</option>
@@ -317,7 +317,7 @@ export default function AdminInvitesPage() {
                 id="filter-cohort"
                 value={cohortFilter}
                 onChange={(e) => setCohortFilter(e.target.value)}
-                className={`${inputClasses} w-auto`}
+                className={`${inputClasses()} w-auto`}
               >
                 <option value="all">All cohorts</option>
                 {cohorts.map((c) => (

@@ -13,7 +13,7 @@ import ProfileForm from '@/components/settings/ProfileForm'
 import BillingPanel from '@/components/settings/BillingPanel'
 import ChangePasswordForm from '@/components/settings/ChangePasswordForm'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
+import { inputClasses } from '@/components/ui/Input'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -208,11 +208,13 @@ export default function SettingsPage() {
                 <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
                   Type &quot;delete my account&quot; to confirm:
                 </label>
-                <Input
+                {/* Raw input + inputClasses(): the destructive-confirm field keeps its
+                    error-toned focus, which must style the field, not the v2 shell. */}
+                <input
                   type="text"
                   value={deleteConfirmText}
                   onChange={(e) => setDeleteConfirmText(e.target.value)}
-                  className="focus:border-error-light focus:ring-error-light/40"
+                  className={inputClasses({ className: 'focus:border-error-light focus:shadow-ring-error' })}
                   placeholder="delete my account"
                   disabled={deleteMutation.isPending}
                 />
