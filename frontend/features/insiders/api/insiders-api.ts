@@ -2,7 +2,9 @@ import api from '@/lib/api/client'
 
 // Mirrors the backend `InsiderActivityResponse` (backend/app/schemas/insiders.py),
 // served by GET /api/companies/{ticker}/insiders?window_days={n}.
-export interface InsiderTransaction {
+// A type alias (not an interface) so rows satisfy DataTable's
+// `T extends Record<string, unknown>` constraint via the implied index signature.
+export type InsiderTransaction = {
   insider_name: string | null
   insider_title: string | null
   is_director: boolean | null
