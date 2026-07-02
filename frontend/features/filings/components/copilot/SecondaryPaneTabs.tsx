@@ -58,7 +58,7 @@ export default function SecondaryPaneTabs({
   }
 
   const tabBase =
-    'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-light'
+    'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-light'
   const activeTab = 'bg-panel-light dark:bg-slate-700/70 text-text-primary-light dark:text-text-primary-dark'
   const idleTab = 'text-text-secondary-light dark:text-text-secondary-dark hover:text-text-secondary-light dark:hover:text-text-secondary-dark'
 

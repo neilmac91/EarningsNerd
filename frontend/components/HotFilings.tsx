@@ -106,7 +106,7 @@ export default function HotFilings({
         <button
           type="button"
           onClick={() => refetch()}
-          className="mt-3 inline-flex items-center rounded-md border border-border-light dark:border-white/20 px-3 py-1 text-xs font-medium text-text-primary-light dark:text-text-primary-dark transition hover:bg-brand-weak dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-slate-900"
+          className="mt-3 inline-flex items-center rounded-lg border border-border-light dark:border-white/20 px-3 py-1 text-xs font-medium text-text-primary-light dark:text-text-primary-dark transition hover:bg-brand-weak dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-slate-900"
         >
           Retry
         </button>
@@ -131,7 +131,7 @@ export default function HotFilings({
         return (
           <div
             key={`${filing.filing_id}-${filing.filing_date}`}
-            className="glass-card group rounded-xl p-4 transition-all duration-300"
+            className="glass-card group rounded-xl p-4 transition-all duration-base"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -203,7 +203,7 @@ export default function HotFilings({
           type="button"
           onClick={() => refetch()}
           disabled={isRefetching}
-          className="inline-flex items-center rounded-md border border-border-light dark:border-white/10 px-2 py-1 text-[10px] font-semibold text-text-secondary-light dark:text-text-secondary-dark transition hover:border-brand-strong dark:hover:border-brand-dark hover:text-brand-strong dark:hover:text-brand-strong-dark disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-slate-900"
+          className="inline-flex items-center rounded-lg border border-border-light dark:border-white/10 px-2 py-1 text-[10px] font-semibold text-text-secondary-light dark:text-text-secondary-dark transition hover:border-brand-strong dark:hover:border-brand-dark hover:text-brand-strong dark:hover:text-brand-strong-dark disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-slate-900"
         >
           {isRefetching ? 'Refreshing…' : 'Refresh'}
         </button>

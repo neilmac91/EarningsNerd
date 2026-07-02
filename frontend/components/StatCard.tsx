@@ -48,8 +48,11 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
   const hasValidValue = value != null && Number.isFinite(value)
   const hasValidChange = change != null && Number.isFinite(change)
 
-  // useCountUp expects a number - use 0 for animation when no valid value
-  const displayValue = useCountUp(hasValidValue ? value : 0, 1000)
+  // useCountUp v2 interpolates 0 → value over --duration-slow and returns the
+  // formatted string (reduced motion / SSR render the final value instantly).
+  const displayValue = useCountUp(hasValidValue ? value : 0, {
+    format: (v) => formatValue(v, unit),
+  })
 
   if (isLoading) {
     return <StatCard.Skeleton />
@@ -62,13 +65,13 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
   const sparklineData = trendData?.map((val, i) => ({ i, val })) || []
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark p-5 shadow-e2 dark:shadow-none transition-all duration-200 hover:shadow-md">
+    <div className="relative overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark p-5 shadow-e2 dark:shadow-none transition-all duration-base hover:shadow-md">
       <div className="flex justify-between items-start">
         <div className="space-y-1">
           <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
           <div className="flex items-baseline gap-2">
             <h3 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white font-mono tabular-nums">
-              {hasValidValue ? formatValue(displayValue, unit) : 'N/A'}
+              {hasValidValue ? displayValue : 'N/A'}
             </h3>
           </div>
         </div>

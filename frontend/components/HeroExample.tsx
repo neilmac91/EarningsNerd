@@ -95,7 +95,7 @@ function HeroExample({ example }: { example: ExampleData | null }) {
             <span className="h-3 w-3 rounded-full bg-green-500/70" />
           </div>
           <div className="mx-auto flex-1 max-w-xs">
-            <div className="rounded-md border border-border-light dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1 text-center font-mono text-xs text-text-secondary-light dark:text-text-secondary-dark">
+            <div className="rounded border border-border-light dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1 text-center font-mono text-xs text-text-secondary-light dark:text-text-secondary-dark">
               earningsnerd.io — example summary
             </div>
           </div>

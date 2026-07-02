@@ -138,7 +138,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
 
   if (success) {
     return (
-      <div className="rounded-2xl border border-brand-light/40 bg-white/80 p-6 shadow-lg backdrop-blur-sm transition-all duration-300 dark:border-brand-dark/40 dark:bg-slate-900/60">
+      <div className="rounded-2xl border border-brand-light/40 bg-white/80 p-6 shadow-lg backdrop-blur-sm transition-all duration-base dark:border-brand-dark/40 dark:bg-slate-900/60">
         <div className="flex items-center gap-2 text-brand-strong dark:text-brand-strong-dark">
           <CheckIcon className="h-5 w-5" />
           <span className="text-sm font-semibold uppercase tracking-wide">You&apos;re in</span>

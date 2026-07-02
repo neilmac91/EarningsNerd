@@ -89,7 +89,7 @@ export default function FeedbackWidget() {
               type="button"
               aria-label="Close feedback"
               onClick={() => setOpen(false)}
-              className="rounded-md p-1 text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
+              className="rounded-lg p-1 text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
             >
               <XIcon className="h-4 w-4" />
             </button>
@@ -124,7 +124,7 @@ export default function FeedbackWidget() {
               rows={4}
               maxLength={4000}
               placeholder="What's working, what's broken, or what you'd love to see…"
-              className="w-full resize-none rounded-lg border border-black/10 bg-white/70 px-3 py-2 text-sm text-text-primary-light placeholder:text-text-tertiary-light focus:border-brand-strong focus:outline-none focus:ring-2 focus:ring-brand-strong/30 dark:border-white/15 dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-tertiary-dark"
+              className="w-full resize-none rounded-lg border border-black/10 bg-white/70 px-3 py-2 text-sm text-text-primary-light placeholder:text-text-tertiary-light focus:border-brand-strong focus:outline-none focus:ring-2 focus:ring-brand-strong/30 dark:border-white/15 dark:bg-white/5 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark"
             />
 
             <Button

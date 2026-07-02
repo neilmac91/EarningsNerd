@@ -117,7 +117,7 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
           </div>
           <div className="w-full bg-border-light dark:bg-white/10 rounded-full h-2.5">
             <div
-              className="bg-gradient-to-r from-brand-strong to-brand-light dark:from-brand-dark dark:to-brand-strong-dark h-2.5 rounded-full transition-all duration-300 ease-out"
+              className="bg-gradient-to-r from-brand-strong to-brand-light dark:from-brand-dark dark:to-brand-strong-dark h-2.5 rounded-full transition-all duration-base ease-out"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -133,7 +133,7 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
             return (
               <div
                 key={stage.id}
-                className={`flex items-start space-x-4 p-4 rounded-lg transition-all duration-300 ${
+                className={`flex items-start space-x-4 p-4 rounded-lg transition-all duration-base ${
                   isActive
                     ? 'bg-brand-strong/10 dark:bg-brand-dark/15 border-2 border-brand-light/30 dark:border-brand-dark/30'
                     : isComplete
@@ -175,9 +175,9 @@ export default function SummaryProgress({ isGenerating = true, backendStage, ela
                   </div>
                   {isActive && (
                     <div className="mt-2 flex space-x-1">
-                      <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-bounce motion-reduce:animate-none" />
+                      <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-bounce motion-reduce:animate-none" style={{ animationDelay: 'calc(var(--duration-fast) * 1)' }} />
+                      <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-bounce motion-reduce:animate-none" style={{ animationDelay: 'calc(var(--duration-fast) * 2)' }} />
                     </div>
                   )}
                 </div>

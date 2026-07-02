@@ -82,13 +82,14 @@ describe('CompanySearch dropdown', () => {
     expect(screen.getByText('$150.25')).toBeInTheDocument()
     expect(screen.getByText('$240.10')).toBeInTheDocument()
 
-    // Gain uses the theme-aware gain token; loss uses the loss token.
+    // Delta TEXT uses the 700-level gain.text/loss.text tokens (the 600-level values
+    // are graphic/chip-only — they fail AA as text on cream); dark stays the 400-level.
     const gain = screen.getByText(/\(\+1\.42%\)/)
-    expect(gain.className).toContain('text-gain-light')
+    expect(gain.className).toContain('text-gain-text')
     expect(gain.className).toContain('dark:text-gain-dark')
 
     const loss = screen.getByText(/\(-4\.88%\)/)
-    expect(loss.className).toContain('text-loss-light')
+    expect(loss.className).toContain('text-loss-text')
     expect(loss.className).toContain('dark:text-loss-dark')
 
     // Name + price use theme-aware primary text (never a hardcoded black/white).

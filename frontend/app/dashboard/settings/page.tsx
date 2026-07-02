@@ -12,7 +12,6 @@ import NotificationPreferencesForm from '@/components/settings/NotificationPrefe
 import ProfileForm from '@/components/settings/ProfileForm'
 import BillingPanel from '@/components/settings/BillingPanel'
 import ChangePasswordForm from '@/components/settings/ChangePasswordForm'
-import { FontSwitcher } from '@/components/FontProvider'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
@@ -107,18 +106,6 @@ export default function SettingsPage() {
 
         {/* New-filing alert preferences */}
         <NotificationPreferencesForm />
-
-        {/* Appearance — interface (body) font. Headings and data tables keep their fixed roles. */}
-        <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">
-          <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
-            Appearance
-          </h2>
-          <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
-            Choose the interface font. This changes body &amp; UI text only — headings stay
-            Helvetica and data tables stay monospace so figures keep aligning.
-          </p>
-          <FontSwitcher />
-        </div>
 
         {/* Data Export */}
         <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">

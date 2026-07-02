@@ -217,7 +217,7 @@ function PricingContent() {
                       type="button"
                       onClick={() => refetchSubscription()}
                       disabled={subscriptionFetching}
-                      className="inline-flex items-center rounded-md border border-error-light/40 bg-panel-light px-3 py-1 text-xs font-medium text-error-light transition hover:bg-error-light/10 dark:border-error-dark/40 dark:bg-panel-dark dark:text-error-dark dark:hover:bg-error-dark/15 disabled:opacity-60"
+                      className="inline-flex items-center rounded-lg border border-error-light/40 bg-panel-light px-3 py-1 text-xs font-medium text-error-light transition hover:bg-error-light/10 dark:border-error-dark/40 dark:bg-panel-dark dark:text-error-dark dark:hover:bg-error-dark/15 disabled:opacity-60"
                     >
                       {subscriptionFetching ? 'Retrying…' : 'Retry subscription'}
                     </button>
@@ -225,7 +225,7 @@ function PricingContent() {
                       type="button"
                       onClick={() => refetchUsage()}
                       disabled={usageFetching}
-                      className="inline-flex items-center rounded-md border border-error-light/40 bg-panel-light px-3 py-1 text-xs font-medium text-error-light transition hover:bg-error-light/10 dark:border-error-dark/40 dark:bg-panel-dark dark:text-error-dark dark:hover:bg-error-dark/15 disabled:opacity-60"
+                      className="inline-flex items-center rounded-lg border border-error-light/40 bg-panel-light px-3 py-1 text-xs font-medium text-error-light transition hover:bg-error-light/10 dark:border-error-dark/40 dark:bg-panel-dark dark:text-error-dark dark:hover:bg-error-dark/15 disabled:opacity-60"
                     >
                       {usageFetching ? 'Retrying…' : 'Retry usage'}
                     </button>

@@ -217,7 +217,7 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
         {citations.map((c) => {
           const label = c.section_ref || `Excerpt ${c.n}`
           const rowClass =
-            'flex items-start gap-2 rounded-md px-1.5 py-1 text-xs text-text-secondary-light dark:text-text-secondary-dark'
+            'flex items-start gap-2 rounded px-1.5 py-1 text-xs text-text-secondary-light dark:text-text-secondary-dark'
           const badge = c.verified ? (
             <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-medium text-brand-strong dark:text-brand-strong-dark">
               <CheckCircleIcon className="h-3 w-3" />

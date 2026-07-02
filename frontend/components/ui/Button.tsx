@@ -2,6 +2,11 @@ import { clsx } from 'clsx'
 import { forwardRef } from 'react'
 
 /**
+ * TODO(design-system-v2): this pre-v2 Button (buttonVariants + primary/secondary/
+ * tertiary) was kept at cutover — 20+ importers rely on its API. The v2 spec adds
+ * ghost/destructive/loading and the dark navy-ink primary recipe; port in a
+ * follow-up, then export it from components/ui/index.ts.
+ *
  * Shared button styling for the EarningsNerd design system. Use `<Button>` for real
  * `<button>` elements; for `<Link>`/`<a>` that should look like a button, apply
  * `buttonVariants({ variant })` to its className.

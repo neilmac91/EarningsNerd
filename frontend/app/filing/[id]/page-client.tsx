@@ -589,7 +589,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                    <span className="px-3 py-1 bg-brand-weak dark:bg-white/5 rounded-md font-semibold text-text-secondary-light dark:text-text-secondary-dark">
+                    <span className="px-3 py-1 bg-brand-weak dark:bg-white/5 rounded font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                       {filing.filing_type}
                     </span>
                     <span className="flex items-center space-x-1">
@@ -890,13 +890,13 @@ function StreamingSummaryDisplay({
                   strokeDasharray={`${2 * Math.PI * 60}`}
                   strokeDashoffset={`${2 * Math.PI * 60 * (1 - optimisticProgress / 100)}`}
                   strokeLinecap="round"
-                  className={`transition-all duration-700 ease-out ${isError ? 'text-error-light dark:text-error-dark' : 'text-brand-strong dark:text-brand-strong-dark'}`}
+                  className={`transition-all duration-slow ease-out ${isError ? 'text-error-light dark:text-error-dark' : 'text-brand-strong dark:text-brand-strong-dark'}`}
                 />
               </svg>
 
               {/* Center Heartbeat Orb */}
               <div className="absolute inset-0 flex items-center justify-center">
-                <div className={`relative w-16 h-16 rounded-full flex items-center justify-center transition-colors duration-500 ${isError
+                <div className={`relative w-16 h-16 rounded-full flex items-center justify-center transition-colors duration-slow ${isError
                   ? 'bg-error-light/10 dark:bg-error-dark/10'
                   : 'bg-brand-weak dark:bg-white/5'
                   }`}>
@@ -937,7 +937,7 @@ function StreamingSummaryDisplay({
                   <span className="text-xl">✨</span>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark animate-[fadeIn_0.5s_ease-out]">
+                  <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark animate-fadeIn">
                     {isError
                       ? "We hit a snag, but don't worry."
                       : isStalled
@@ -964,8 +964,8 @@ function StreamingSummaryDisplay({
                   : (displayStageIdx === stepIdx ? 'active' : 'pending')
 
                 return (
-                  <div key={step.stage} className={`flex items-center gap-3 transition-opacity duration-300 ${status === 'pending' ? 'opacity-40' : 'opacity-100'}`}>
-                    <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center border transition-all duration-300 ${status === 'complete'
+                  <div key={step.stage} className={`flex items-center gap-3 transition-opacity duration-base ${status === 'pending' ? 'opacity-40' : 'opacity-100'}`}>
+                    <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center border transition-all duration-base ${status === 'complete'
                       ? 'bg-brand-strong border-brand-strong text-white dark:bg-brand-dark dark:border-brand-dark dark:text-background-dark'
                       : status === 'active'
                         ? 'bg-panel-light dark:bg-panel-dark border-brand-light text-brand-strong dark:text-brand-strong-dark'
@@ -1390,7 +1390,9 @@ function SummaryDisplay({
 
       {debug && rawSummary && (
         <section className="bg-gray-900 rounded-lg border border-gray-800 p-4 text-xs text-gray-100">
-          <h3 className="text-sm font-semibold mb-2">Debug: raw summary payload</h3>
+          {/* Explicit ink: the global h1–h6 --heading-color is theme-aware but not
+              surface-aware — this section is fixed-dark in both themes. */}
+          <h3 className="text-sm font-semibold mb-2 text-gray-100">Debug: raw summary payload</h3>
           <pre className="whitespace-pre-wrap break-all">
             {JSON.stringify(rawSummary, null, 2)}
           </pre>

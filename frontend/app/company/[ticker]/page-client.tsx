@@ -404,7 +404,7 @@ export default function CompanyPageClient() {
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => setFilterType(null)}
-                    className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-md transition-colors ${
+                    className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-lg transition-colors ${
                       filterType === null
                         ? 'bg-text-primary-light dark:bg-text-primary-dark text-panel-light dark:text-background-dark'
                         : 'bg-background-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark hover:bg-brand-weak dark:hover:bg-white/10'
@@ -416,7 +416,7 @@ export default function CompanyPageClient() {
                     <button
                       key={ft}
                       onClick={() => setFilterType(ft)}
-                      className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-md transition-colors ${
+                      className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-lg transition-colors ${
                         filterType === ft
                           ? 'bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
                           : 'bg-brand-weak dark:bg-white/5 text-brand-strong dark:text-brand-strong-dark hover:bg-brand-weak/70 dark:hover:bg-white/10'
@@ -452,7 +452,7 @@ export default function CompanyPageClient() {
                 </div>
                 <Link
                   href={`/filing/${recommendedFiling.id}`}
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2 text-sm font-semibold transition-colors"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2 text-sm font-semibold transition-colors"
                 >
                   Summarize this filing
                   <ArrowRightIcon className="h-4 w-4" />
@@ -475,7 +475,7 @@ export default function CompanyPageClient() {
                 type="button"
                 onClick={() => refetchFilings()}
                 disabled={filingsRefetching}
-                className="mt-3 inline-flex items-center rounded-md border border-error-light/30 bg-panel-light/80 px-3 py-1 text-xs font-medium text-error-light transition hover:bg-panel-light dark:border-error-dark/40 dark:bg-white/10 dark:text-error-dark dark:hover:bg-white/20 disabled:opacity-60"
+                className="mt-3 inline-flex items-center rounded-lg border border-error-light/30 bg-panel-light/80 px-3 py-1 text-xs font-medium text-error-light transition hover:bg-panel-light dark:border-error-dark/40 dark:bg-white/10 dark:text-error-dark dark:hover:bg-white/20 disabled:opacity-60"
               >
                 {filingsRefetching ? 'Retrying…' : 'Retry'}
               </button>
@@ -543,7 +543,7 @@ export default function CompanyPageClient() {
                                       href={filing.sec_url}
                                       target="_blank"
                                       rel="noopener noreferrer"
-                                      className="inline-flex items-center gap-2 px-4 py-2 border border-border-light dark:border-border-dark text-text-secondary-light dark:text-text-secondary-dark text-sm font-medium rounded-md hover:bg-background-light dark:hover:bg-white/5 hover:border-text-tertiary-light dark:hover:border-text-tertiary-dark transition-colors"
+                                      className="inline-flex items-center gap-2 px-4 py-2 border border-border-light dark:border-border-dark text-text-secondary-light dark:text-text-secondary-dark text-sm font-medium rounded-lg hover:bg-background-light dark:hover:bg-white/5 hover:border-text-tertiary-light dark:hover:border-text-tertiary-dark transition-colors"
                                       title="Open original filing on SEC EDGAR"
                                     >
                                       <ArrowSquareOutIcon className="h-4 w-4" />
@@ -552,7 +552,7 @@ export default function CompanyPageClient() {
                                   )}
                                   <Link
                                     href={`/filing/${filing.id}`}
-                                    className="inline-flex items-center px-4 py-2 bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark text-sm font-medium rounded-md transition-colors"
+                                    className="inline-flex items-center px-4 py-2 bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark text-sm font-medium rounded-lg transition-colors"
                                   >
                                     Generate Filing Summary
                                   </Link>

@@ -16,19 +16,30 @@ function mockReducedMotion(reduce: boolean) {
   }))
 }
 
+// v2 contract (design-system cutover): the initial state IS the target, so server
+// markup, no-JS, and reduced motion all show the final formatted value — the rAF
+// tween only runs client-side when motion is allowed, re-interpolating 0 → value.
 describe('useCountUp', () => {
   afterEach(() => vi.restoreAllMocks())
 
-  it('snaps straight to the final value when reduced motion is preferred (no tween)', () => {
+  it('shows the final formatted value when reduced motion is preferred (no tween)', () => {
     mockReducedMotion(true)
-    const { result } = renderHook(() => useCountUp(42, 800))
-    expect(result.current).toBe(42)
+    const { result } = renderHook(() => useCountUp(42))
+    expect(result.current).toBe('42')
   })
 
-  it('starts at 0 when motion is allowed (then animates up)', () => {
+  it('arms the tween from 0 in a pre-paint layout effect when motion is allowed', () => {
     mockReducedMotion(false)
-    // First commit renders 0; the rAF tween advances it afterward (timing not asserted here).
-    const { result } = renderHook(() => useCountUp(42, 800))
-    expect(result.current).toBe(0)
+    const { result } = renderHook(() => useCountUp(42))
+    // The INITIAL state is the final value (that is what SSR markup carries), but the
+    // mount-time layout effect resets to the tween start before the browser paints —
+    // no value→0→value flash. Post-mount the hook reports the start of the count-up.
+    expect(result.current).toBe('0')
+  })
+
+  it('applies the format option', () => {
+    mockReducedMotion(true)
+    const { result } = renderHook(() => useCountUp(391, { format: (v) => `$${v.toFixed(1)}B` }))
+    expect(result.current).toBe('$391.0B')
   })
 })

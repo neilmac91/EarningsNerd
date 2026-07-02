@@ -172,7 +172,7 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
         )}
         {!isLoading && !query && (
           <kbd
-            className="absolute right-4 top-1/2 hidden -translate-y-1/2 rounded-md border border-border-light dark:border-white/15 bg-brand-weak dark:bg-white/5 px-2 py-0.5 font-mono text-xs text-text-tertiary-light dark:text-text-secondary-dark sm:block"
+            className="absolute right-4 top-1/2 hidden -translate-y-1/2 rounded border border-border-light dark:border-white/15 bg-brand-weak dark:bg-white/5 px-2 py-0.5 font-mono text-xs text-text-tertiary-light dark:text-text-secondary-dark sm:block"
             aria-hidden="true"
           >
             /
@@ -201,7 +201,7 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
             </div>
             <button
               onClick={() => refetch()}
-              className="ml-4 rounded-md border border-error-light/30 dark:border-error-dark/30 bg-error-light/10 dark:bg-error-dark/10 px-3 py-1.5 text-sm font-medium text-error-light dark:text-error-dark transition-colors hover:bg-error-light/15 dark:hover:bg-error-dark/20"
+              className="ml-4 rounded-lg border border-error-light/30 dark:border-error-dark/30 bg-error-light/10 dark:bg-error-dark/10 px-3 py-1.5 text-sm font-medium text-error-light dark:text-error-dark transition-colors hover:bg-error-light/15 dark:hover:bg-error-dark/20"
               aria-label="Retry search"
             >
               Try Again

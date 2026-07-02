@@ -59,7 +59,7 @@ function AuthBrandPane() {
         </p>
 
         {/* Showcase card */}
-        <div className="glass-card animate-float mt-10 rounded-2xl p-5">
+        <div className="glass-card mt-10 rounded-2xl p-5">
           <div className="flex items-center gap-2 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
             <FileTextIcon className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
             AAPL · 10-K

@@ -784,18 +784,39 @@ Streaming endpoints (`*stream*`, `*/progress`) are excluded from timeout middlew
 **Canonical reference: `frontend/DESIGN_SYSTEM.md`** — read it before any UI work and link it in
 subagent briefs for UI tasks. Token *definitions* live in `frontend/tailwind.config.js`. Non-negotiables:
 
-- **Brand = sage (light) / slate (dark).** `mint-*`, `emerald-*`, `primary-*` (a back-compat mint alias),
-  and `green/blue/sky/teal/cyan/indigo-*` are **not** brand — never use them as a primary/brand color.
-- **Theme-responsive pairs everywhere** (`bg-x-light dark:bg-x-dark`, etc.) on every shared surface.
+- **Brand = ONE Sage accent in both themes** (the sage/slate split is retired). `mint-*`, `emerald-*`,
+  `primary-*` (back-compat mint alias), and `green/blue/sky/teal/cyan/indigo-*` are **not** brand.
+  `brand.DEFAULT #4F7A63` is a **fill only**; accent text/links = `brand.strong` (light) /
+  `brand.strong-dark` (navy); tints = `brand.weak` bg + `brand.strong` text.
+- **Primary button** — light: white label on `bg-brand`, hover `brand.strong`, active `brand.emphasis`.
+  Dark: **navy-ink label on `brand.dark`**, hover brightens to `strong-dark`, active presses to
+  `fill-dark`. White-on-`fill-dark` is 3.7:1 — never revert to it.
+- **Contrast is audited against the warm cream `#F4F3EE`, not white.** Financial deltas as text use
+  `gain.text #15803D` / `loss.text #B91C1C`; the 600-level `gain.light`/`loss.light` are
+  graphic/chip-only (3:1 non-text floor). State colors: success `#15803D`, warning `#92400E`,
+  error `#B91C1C` + `error.emphasis #991B1B` (destructive hover). Focus-visible =
+  `shadow-ring-brand` / `shadow-ring-brand-dark`; destructive + invalid fields use `shadow-ring-error`.
+- **Type v2 (fixed roles — the font switcher is retired):** headings = Inter WITH the `opsz` axis,
+  weight 600, one theme-aware ink via `--heading-color` (this supersedes the old "no global heading
+  color" rule — the global is now theme-safe by construction); body = `-apple-system → Inter`;
+  data = Geist Mono + `tabular-nums` for all money/%/tickers/excerpts. Figtree and Helvetica retired.
+- **Theme-responsive pairs everywhere** (`bg-x-light dark:bg-x-dark`) on every shared surface.
   Muted text on dark = `secondary`, never `tertiary-dark` (fails WCAG AA).
-- **Headings need an explicit color** (`text-text-primary-light dark:text-text-primary-dark`) — there is
-  no global heading color (a global one painted brown ink on the dark hero).
 - **Cards lift, not tint**: `bg-panel-light dark:bg-panel-dark` + border + `shadow-e2 dark:shadow-none`;
-  `brand-weak` is an accent/tint, not a card fill (it is darker than the cream page).
-- **One global `<ThemeToggle/>`** (in `Header`); no page-level toggles. A pre-paint script in
-  `app/layout.tsx` prevents theme FOUC. Logo uses `mode="auto"`.
-- Status (success/warning/error/info) + financial (gain/loss) are separate semantic tokens; charts use
-  the `chart-1..6` palette with theme-aware axes.
+  hover **brightens**, never darkens; never `hover:opacity`. `brand-weak` is a tint, not a card fill.
+- **Radius scale 4/8/12/16/24** — buttons + inputs 12, chips full, cards 16.
+- **Component layer:** `components/ui/*` (Button, Badge, Input, Card, DataTable, Skeleton, StateCard)
+  + `components/AskFilingAnswer.tsx`. Every component defines default/hover/active/focus-visible/
+  disabled/loading plus the system states (empty, skeleton via the shared shimmer keyframe, error).
+  Compose these — don't restyle raw elements.
+- **Motion = tokens only:** `--duration-fast/base/slow/ambient` (150/200/600/1800ms) +
+  `--ease-standard/pop` — no raw ms/bezier outside `globals.css :root` + the JS mirror `lib/motion.ts`.
+  Count-up is `hooks/useCountUp` (never a fade); skeleton→content = `animate-content-in` on the
+  loading flip; stagger = `animate-fade-up-stagger` + `--stagger-index` (cap 4, first paint only).
+  Every animation has a reduced-motion fallback via `hooks/usePrefersReducedMotion` (static bone /
+  static tint / instant final value). Nothing decorative — `animate-float` is retired.
+- **One global `<ThemeToggle/>`** (in `Header`); no page-level toggles. The pre-paint script in
+  `app/layout.tsx` prevents theme FOUC. No decorative gradients; the only glow is the hero search.
 
 A theme/token change is **app-wide by default** (public + authenticated). Done-gate: a repo-wide grep
 for legacy brand colors returns nothing, and the result is verified in **both themes** on the preview.

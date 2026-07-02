@@ -155,7 +155,7 @@ export default function FullTextSearch() {
           max={endDate || undefined}
           onChange={(e) => setStartDate(e.target.value)}
           aria-label="Filed on or after"
-          className="rounded-md border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/60 px-2 py-1 text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand-light focus:outline-none"
+          className="rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/60 px-2 py-1 text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand-light focus:outline-none"
         />
         <span>and</span>
         <input
@@ -164,7 +164,7 @@ export default function FullTextSearch() {
           min={startDate || undefined}
           onChange={(e) => setEndDate(e.target.value)}
           aria-label="Filed on or before"
-          className="rounded-md border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/60 px-2 py-1 text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand-light focus:outline-none"
+          className="rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/60 px-2 py-1 text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand-light focus:outline-none"
         />
         {(startDate || endDate) && (
           <button
@@ -193,7 +193,7 @@ export default function FullTextSearch() {
           <button
             type="button"
             onClick={() => refetch()}
-            className="rounded-md border border-error-light/40 dark:border-error-dark/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-error-light/10 dark:hover:bg-error-dark/15"
+            className="rounded-lg border border-error-light/40 dark:border-error-dark/40 px-3 py-1 text-xs font-medium transition-colors hover:bg-error-light/10 dark:hover:bg-error-dark/15"
           >
             Retry
           </button>

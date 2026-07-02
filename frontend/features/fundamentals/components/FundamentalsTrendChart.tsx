@@ -150,7 +150,7 @@ export default function FundamentalsTrendChart({
                 type="button"
                 onClick={() => setSelected(f.key)}
                 aria-pressed={f.key === activeKey}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   f.key === activeKey
                     ? 'bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
                     : 'bg-background-light text-text-secondary-light hover:bg-brand-weak dark:bg-white/5 dark:text-text-secondary-dark dark:hover:bg-white/10'
