@@ -18,7 +18,7 @@ subagent briefs for UI work should link here.
 | **Surface** | `background-light #F4F3EE` (cream page) / `panel-light #FBFAF6` (card) | `background-dark #0B1120` / `panel-dark #1F2937` | Page + card backgrounds |
 | **Text** | `text-primary-light #1A1A17` (espresso — heading ink is the SAME value; walnut `#3A2E26` retired) / `secondary #374151` / `tertiary #6B7280` | `text-primary-dark #D7DADC` / `secondary #9CA3AF` | Body + headings (see §4) |
 | **Border** | `border-light #E5E7EB` | `border-dark` / `white/10` | Hairlines |
-| **Status** | success `#15803D` · warning `#92400E` · error `#B91C1C` (+ `error.emphasis #991B1B` destructive hover) · info `#2563EB` | success `#22C55E` · warning `#F59E0B` · error `#F87171` · info `#60A5FA` | Genuine state messages only |
+| **Status** | success `#15803D` · warning `#92400E` · error `#B91C1C` (+ `error.emphasis #991B1B` destructive hover) · info `#2563EB` (in-tint label: `info.text #1D4ED8`) | success `#22C55E` · warning `#F59E0B` · error `#F87171` · info `#60A5FA` | Genuine state messages only |
 | **Financial** | `gain.text #15803D` / `loss.text #B91C1C` for delta **text**; `gain.light #16A34A` / `loss.light #DC2626` are **graphic/chip-only** (3:1 non-text floor); `flat #6B7280` (+ `-soft` tints) | `gain.dark #34D399` / `loss.dark #FB7185` (text-safe on navy) | Money/% direction only — never brand |
 | **Chart** | `chart-1..6`: `#3E8E84` teal · `#B8812F` honey · `#5B7CC0` cornflower · `#CF7159` coral · `#6E7E9C` slate-blue · `#8B7BC0` periwinkle | same hexes (≥3:1 vs both cream and navy) | Chart series — a SEQUENCE, taken 1→N in order, never re-sorted |
 
@@ -52,8 +52,10 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
 - **Body & UI:** `-apple-system → Inter` (system-first; Apple hardware renders SF Pro, everyone
   else falls through to Inter — Inter sits BEFORE generic `system-ui` on purpose).
 - **Data:** Geist Mono + `tabular-nums` — money, %, tickers, XBRL anchors, verbatim excerpts,
-  Ask-this-Filing output. `.tabular` = mono evidence register; `.tnum` = body face + tabular figures
-  (data tables, KPI tiles).
+  Ask-this-Filing output. `.tabular` = mono evidence register; `.tnum` = tabular figures in the
+  CURRENT (body) face — numerals inside prose/UI copy only. Data tables and KPI tiles are **not**
+  `.tnum` surfaces: their numerics render mono (DataTable numeric cells, StatCard figures — the
+  data-role rule).
 - **Editorial serif (Newsreader)** is wired to exactly ONE surface: the real filing viewer
   (**`.filing-reader`**, 19/1.7, opsz auto — Item 1A, MD&A, notes). Serif = the filing's own words.
   **`.markdown-body` is NOT serif**: it carries the same reader *layout* (68ch measure on children,
@@ -73,7 +75,8 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
 ## 4. Canonical component patterns
 
 **Compose the component layer, don't hand-roll** — `components/ui/*` (Button, Badge, Input, Card,
-DataTable, Skeleton, GuidanceCard) + `components/AskFilingAnswer.tsx`. Every component defines
+DataTable, Skeleton, GuidanceCard, Notice) + `components/AskFilingAnswer.tsx` (v2.2: reworked to
+the SHIPPED copilot data model — see below). Every component defines
 default / hover / active / focus-visible / disabled / loading plus the system states (empty,
 skeleton via the shared shimmer keyframe, error).
 
@@ -107,10 +110,45 @@ Input            <Input>  — fill is the BRIGHTEST surface so the field reads o
 Delta text       text-gain-text dark:text-gain-dark  /  text-loss-text dark:text-loss-dark
                  (the 600-level gain/loss are chips + graphics only — the 3:1 non-text floor).
                  lib/financialTone.directionText IS this recipe — route delta text through it.
+
+Solid chip       <Badge variant="solid">  — the primary colorway as a chip (brand.strong fill +
+                 white label; dark: NAVY ink on brand.dark) for brand-weak TINTED grounds where the
+                 tint chips vanish ("Recommended"). <Badge variant="info"> = interim-filing tint
+                 (10-Q/6-K; light label ink = info.text); <Badge variant="warning"> = warning tint
+                 (replaces raw-amber hand-rolls). beat/miss/new double as tonal recipes via icon={null}.
+
+Inline notice    <Notice variant="error|info|success">  — compact icon + title + message + action
+                 for form/auth flows and in-card states (role="alert" on error; action slot takes a
+                 small Button). GuidanceCard is a STANDALONE centered panel — never nest it inside a
+                 Card; inside a Card, Notice is the right scale.
+
+Search field     <Input icon={<Magnifier/>}>  — leading glyph with an explicit pl-11 inset (px-3.5 +
+                 a pl-11 override is Tailwind conflict-order-dependent — don't). Raw fields:
+                 inputClasses({ leadingIcon: true }).
+
+Chat composer    <Textarea variant="composer">  — transparent, auto-growing, chrome-free field; the
+                 app-owned shell carries inputClasses() + focus-within:border-brand +
+                 focus-within:shadow-ring-brand (never double chrome).
+
+Semantic card    <Card as="section">  — same recipe on a semantic element.
+
+Ask answer       <AskFilingAnswer>  — the SHIPPED copilot contract: status reading|streaming|done|error;
+                 answer = GFM markdown (react-markdown + remark-gfm); markers [n] AND [F1]/[f1]/[F 1]
+                 (case/whitespace tolerant) become chips showing the BRACKETED marker; unmatched markers
+                 stay literal text — never a dead button. CopilotCitation = { n, excerpt, section_ref,
+                 verified, fragment_url } — `verified` drives the Verified/Cited trust badge; never ship
+                 a renderer that drops it.
+                 REPO REALITY: this file is the design-system REFERENCE implementation (0 importers).
+                 The wired production renderer is features/filings/components/copilot/CopilotMessage.tsx,
+                 which implements the same contract plus viewer deep-linking, popovers, streaming-perf
+                 rendering and follow-ups — change copilot rendering THERE, styled to this design.
 ```
 
 - **Radius scale is 4 / 8 / 12 / 16 / 24** — buttons + inputs 12 (`rounded-lg`), chips full,
   cards 16 (`rounded-xl`). Config `md` (10px) is legacy off-scale — don't use in new code.
+- **Skeleton a11y (codified v2.2):** `SkeletonText`/`SkeletonStat` carry their OWN `role="status"` +
+  sr-only label — never wrap them in another `role="status"` (double announcement). Raw `<Skeleton>`
+  bones are `aria-hidden` — a wrapper composed of raw bones needs `role="status"` + an sr-only label.
 - **Evidence identity:** the Ask-this-Filing header tile uses the Phosphor `quotes` glyph;
   `sparkle` appears ONLY on the "AI summary" chip.
 - Sortable table headers render as buttons with `aria-sort`, ▲/▼, and the brand focus ring.
@@ -165,6 +203,9 @@ with `directionTone()`/`directionTextTone()` from `ui/Chart.tsx`. Chart chrome (
 crosshair, tooltip) uses the `chart.grid/axis/label/crosshair/ref/tip` sub-tokens — theme-aware via
 `useContext(ThemeContext)?.theme === 'dark'` (not `useTheme()`, which throws in provider-less
 chart unit tests). Axis labels: 11–12px data face + tabular-nums; dark labels use `secondary`.
+Tooltip cursors: `crosshairProps(dark)` on LINE charts; `barCursorProps(dark)` on BAR charts — a
+category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `yAxisProps` width 44
+is a default — currency/ticker labels routinely override: `<YAxis {...yAxisProps(dark)} width={56} />`.
 
 ## 11. Motion — tokens only
 
