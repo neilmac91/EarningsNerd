@@ -17,9 +17,11 @@
    Editorial serif (Newsreader) is opt-in for long-form filing reading only.
 ============================================================================= */
 :root {
-  /* Option A (next/font) per MIGRATION §d.4: --font-inter / --font-geist-mono /
-     --font-newsreader are the self-hosted families emitted on <html> by app/layout.tsx;
-     the literal names remain as fallbacks. */
+  /* Option A (next/font) wiring per the v2 cutover (§d.4): --font-inter /
+     --font-geist-mono / --font-newsreader are the self-hosted families emitted on
+     <html> by app/layout.tsx; the literal names remain as fallbacks. (Re-applied on
+     sync: the v2.1 pack shipped literal-only stacks. --font-system stays dropped —
+     dead var, purged at cutover.) */
   --font-editorial: var(--font-newsreader), 'Newsreader', 'New York', ui-serif, Georgia, serif;
   --font-data: var(--font-geist-mono), 'Geist Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
@@ -31,7 +33,9 @@
   --heading-color: #1A1A17;
 
   /* Tracking ramp — SF-style dynamic tracking: tracked OUT at caption sizes,
-     progressively tighter as display sizes grow. Sign flips near 20px. */
+     progressively tighter as display sizes grow. Sign flips near 20px.
+     SINGLE SOURCE: the fontSize letterSpacing entries in tailwind.config.js
+     reference these vars — change the ramp HERE, never in the config. */
   --track-caption: 0.01em;   /* ≤12px */
   --track-body: 0;           /* 13–19px */
   --track-title3: -0.012em;  /* 20–24px */
@@ -44,10 +48,10 @@
      permanently the body role. Existing `font-sans` usage keeps resolving. */
   --font-active: var(--font-body);
 
-  /* Motion tokens — mirrors tokens/spacing.css; the JS mirror for consumers
-     that need numbers (Recharts, rAF) is lib/motion.ts. This block is the ONLY
-     place raw ms / cubic-bezier values are allowed — everything else references
-     var(--duration-*) / var(--ease-*).
+  /* Motion tokens — the CSS source of truth; the JS mirror for consumers
+     that need numbers (Recharts, rAF) is lib/motion.ts. This block and that
+     file are the ONLY places raw ms / cubic-bezier values are allowed —
+     everything else references var(--duration-*) / var(--ease-*).
        fast    hover + color feedback
        base    crossfades, theme switch, skeleton→content
        slow    entrances, draw-ins, count-up
@@ -146,15 +150,16 @@
   .animate-fadeIn, .animate-check-pop { animation: none; }
 }
 
+/* Hero search glow — the ONE approved glow. Theme pair: light = fill-sage ring;
+   dark = brightened sage rgba(127,178,149,…) — the fill-sage at 20% is sub-3:1
+   on navy. Intensifies on focus-within in both themes. */
 .hero-search-glow {
   box-shadow: 0 0 0 1px rgba(79, 122, 99, 0.20), 0 0 30px -5px rgba(79, 122, 99, 0.15);
-  transition: box-shadow var(--duration-base) var(--ease-standard); /* matches _ds base.css */
+  transition: box-shadow var(--duration-base) var(--ease-standard);
 }
 .hero-search-glow:focus-within {
   box-shadow: 0 0 0 2px rgba(79, 122, 99, 0.40), 0 0 40px -5px rgba(79, 122, 99, 0.25);
 }
-/* Dark: fill-level sage doesn't read on navy — use the brightened brand.dark sage
-   (restored at review; the pack shipped the light ring only). */
 .dark .hero-search-glow {
   box-shadow: 0 0 0 1px rgba(127, 178, 149, 0.28), 0 0 30px -5px rgba(127, 178, 149, 0.18);
 }
@@ -162,14 +167,11 @@
   box-shadow: 0 0 0 2px rgba(127, 178, 149, 0.50), 0 0 40px -5px rgba(127, 178, 149, 0.28);
 }
 
-/* Hero accent word — solid sage ink, not a gradient. brand.strong in light,
-   brand strong-dark on navy. (The legacy `.text-gradient-mint` alias was purged at
-   cutover — the repo scan found zero usage.) */
+/* Hero accent word — solid sage ink, not a gradient. Tokenized: brand.strong
+   in light, brand.strong-dark on navy. The legacy `.text-gradient-mint` alias
+   is PURGED (v2.1 census) — re-point any straggler to this class. */
 .text-accent-strong {
-  color: #3C6650;
-}
-.dark .text-accent-strong {
-  color: #98C5AD;
+  @apply text-brand-strong dark:text-brand-strong-dark;
 }
 
 .animate-on-scroll {
@@ -183,18 +185,18 @@
   .animate-on-scroll { opacity: 1; transform: none; transition: none; }
 }
 
-/* Theme-aware glass card (restored at review — the pack shipped the dark recipe only).
-   Light: white glass + e2 lift on cream. Dark: navy glass, fill-contrast separation,
-   no resting shadow. Hover brightens toward the sage hairline in both themes. */
+/* Glass card — theme pair (switches on .dark, per DESIGN_SYSTEM.md §2):
+   light = bright translucent panel + cool hairline + e2 lift, hover warms the
+   border toward sage; dark = navy glass + white hairline, shadow NONE (dark
+   surfaces separate by fill + hairline), hover = sage hairline + faint glow. */
 .glass-card {
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(16, 24, 40, 0.12);
-  box-shadow: 0 1px 3px 0 rgba(16, 24, 40, 0.10), 0 1px 2px -1px rgba(16, 24, 40, 0.10);
+  @apply shadow-e2;
 }
 .glass-card:hover {
-  border-color: rgba(60, 102, 80, 0.30); /* brand.strong @ 30% */
-  box-shadow: 0 8px 30px -12px rgba(16, 24, 40, 0.18);
+  border-color: rgba(60, 102, 80, 0.30);
 }
 .dark .glass-card {
   background: rgba(15, 23, 42, 0.6);
@@ -202,13 +204,12 @@
   box-shadow: none;
 }
 .dark .glass-card:hover {
-  border-color: rgba(127, 178, 149, 0.28); /* sage — the old slate hover is retired */
+  border-color: rgba(127, 178, 149, 0.28);
   box-shadow: 0 0 30px -10px rgba(127, 178, 149, 0.18);
 }
 
-/* Mockup browser frame — theme-aware, FLAT fills (the decorative gradients are retired;
-   the theme pair was restored at review — the pack shipped navy-only, which painted the
-   hero example's light-theme ink onto navy). */
+/* Mockup frame — flat brand surfaces in BOTH themes (decorative gradients stay
+   retired): light = off-white panel + cool hairline; dark = flat brand navy. */
 .mockup-frame {
   background: #FBFAF6; /* panel.light */
   border: 1px solid rgba(16, 24, 40, 0.10);
@@ -217,10 +218,10 @@
 }
 .mockup-frame-titlebar {
   background: rgba(16, 24, 40, 0.04);
-  border-bottom: 1px solid rgba(16, 24, 40, 0.06);
+  border-bottom: 1px solid rgba(16, 24, 40, 0.08);
 }
 .dark .mockup-frame {
-  background: #0B1120; /* flat brand navy */
+  background: #0B1120; /* background.dark */
   border-color: rgba(255, 255, 255, 0.1);
 }
 .dark .mockup-frame-titlebar {
@@ -228,59 +229,83 @@
   border-bottom-color: rgba(255, 255, 255, 0.06);
 }
 
-/* ===== markdown / filing viewer — the READER (v2) ===========================
-   Long-form filing prose (Item 1A, MD&A, notes). Same tokens, designed for
-   200 pages — see the "Filing Reader" spec DC. Decisions:
-   - MEASURE lives on the reader's CHILDREN (68ch), never globally; tables,
-     figures and pre escape to the 88ch rail.
-   - PROSE wires the editorial role: Newsreader 19/1.7 (opsz auto). This is
-     the serif's ONE opt-in surface — UI, AI summaries and Ask output stay
-     sans/mono, so the serif always means "the filing's own words".
-   - FIGURES in prose (.fig, code): Geist Mono at 0.85em (x-height-matched to
-     the serif) + tabular-nums, weight 500. Deltas stay ink in prose — green/
-     red is a table/chip signal, not a prose voice.
-   - HEADINGS: Inter 600, one ink; space-before ≥ 2.5× space-after so headings
-     mark sections. Stacked headings collapse to 1rem.
+/* ===== filing reader + markdown surfaces (v2.1 — retargeted) ================
+   Long-form filing text — same tokens, designed for 200 pages; see the
+   "Filing Reader" spec DC. TWO classes, ONE layout:
+
+   - .filing-reader — the REAL filing viewer (Item 1A, MD&A, notes). The
+     editorial serif's ONE surface: Newsreader 19/1.7, opsz auto. Serif =
+     the filing's own words.
+   - .markdown-body — markdown that is NOT the filing's own words (its only
+     app consumer today is the AI-generated summary). Body sans, default
+     size — UI, AI summaries and Ask output never render serif, so the
+     serif register stays unambiguous.
+
+   SHARED LAYOUT (both classes):
+   - MEASURE lives on the CHILDREN (68ch), never globally; tables, figures
+     and pre escape to the 88ch rail.
+   - HEADINGS: Inter 600, one ink; space-before ≥ 2.5× space-after so
+     headings mark sections. Stacked headings collapse to 1rem.
    - LISTS: outside markers + 1.375em gutter — wrapped lines align under text.
    - TABLES: DataTable manners — hairline rows (no grids, no header fill),
      12px uppercase header, right-aligned numerics in the data face.
+   - FIGURES in prose (.fig, code): Geist Mono at 0.85em (x-height-matched to
+     the 19px serif; reads correctly against the sans too) + tabular-nums,
+     weight 500. Deltas stay ink in prose — green/red is a table/chip signal.
+
+   OPT-IN HTML HOOKS — nothing emits these automatically; wire the renderer:
+   - .fig      wrap inline money/% tokens ($391.0B, 61.2%) → data face.
+               Inline `code` gets the same treatment without markup.
+   - .num      right-align numeric cells when the pipeline can't emit
+               align="right" (markdown table alignment emits it natively).
+   - tr.total  bold a table's total row (tfoot gets it without the class).
+
    AA both themes: prose = secondary (10.4:1 cream / 7.0:1 navy); header +
    captions = tertiary light / SECONDARY dark (tertiary-dark fails on navy). */
-.markdown-body {
+.markdown-body,
+.filing-reader {
   @apply text-text-primary-light dark:text-text-primary-dark;
   max-width: 88ch;            /* the breakout rail */
   margin-inline: auto;
-  /* Review deviation from the pack: the only .markdown-body consumer in this app is the
-     AI-generated summary, which the DS rules keep sans/mono ("serif = the filing's own
-     words"). The reader LAYOUT (measure, tables, figures) stays; the editorial serif is
-     reserved for the actual filing-reader surface when it adopts these styles. */
-  font-family: var(--font-body);
-  font-size: 1rem;
-  line-height: 1.65;
 }
-.markdown-body > * { max-width: 68ch; margin-left: auto; margin-right: auto; }
-.markdown-body > table, .markdown-body > figure, .markdown-body > pre { max-width: none; }
-.markdown-body > :first-child { margin-top: 0; }
+/* Prose voice — .filing-reader ONLY. */
+.filing-reader {
+  font-family: var(--font-editorial);
+  font-optical-sizing: auto;
+  font-size: 1.1875rem;       /* 19px — Newsreader's x-height needs the bump */
+  line-height: 1.7;
+}
+/* .markdown-body stays on the body sans (the AI summary is not the filing's words). */
+.markdown-body {
+  font-family: var(--font-body);
+  line-height: 1.7;
+}
 
-.markdown-body p { @apply text-text-secondary-light dark:text-text-secondary-dark; margin-top: 0; margin-bottom: 1em; }
+:is(.markdown-body, .filing-reader) > * { max-width: 68ch; margin-left: auto; margin-right: auto; }
+:is(.markdown-body, .filing-reader) > table,
+:is(.markdown-body, .filing-reader) > figure,
+:is(.markdown-body, .filing-reader) > pre { max-width: none; }
+:is(.markdown-body, .filing-reader) > :first-child { margin-top: 0; }
 
-.markdown-body h2, .markdown-body h3, .markdown-body h4 { font-family: var(--font-heading); font-weight: 600; color: var(--heading-color); margin-bottom: 0; }
-.markdown-body h2 { font-size: 1.5rem; line-height: 1.3; letter-spacing: var(--track-title3); margin-top: 4rem; padding-bottom: 1rem; }
-.markdown-body h3 { font-size: 1.25rem; line-height: 1.35; letter-spacing: var(--track-title3); margin-top: 2.5rem; padding-bottom: 0.625rem; }
-.markdown-body h4 { font-size: 1.0625rem; line-height: 1.4; margin-top: 2rem; padding-bottom: 0.5rem; }
-.markdown-body :is(h2, h3, h4) + :is(h2, h3, h4) { margin-top: 1rem; } /* stacked headings collapse */
+:is(.markdown-body, .filing-reader) p { @apply text-text-secondary-light dark:text-text-secondary-dark; margin-top: 0; margin-bottom: 1em; }
 
-.markdown-body ul, .markdown-body ol { list-style-position: outside; padding-left: 1.375em; margin-top: 0; margin-bottom: 1em; }
-.markdown-body ul { list-style-type: disc; }
-.markdown-body ol { list-style-type: decimal; }
-.markdown-body li { padding-left: 0.125em; }
-.markdown-body li + li { margin-top: 0.5em; }
-.markdown-body ::marker { @apply text-text-tertiary-light dark:text-text-secondary-dark; }
-.markdown-body ol > li::marker { font-variant-numeric: tabular-nums; }
+:is(.markdown-body, .filing-reader) :is(h2, h3, h4) { font-family: var(--font-heading); font-weight: 600; color: var(--heading-color); margin-bottom: 0; }
+:is(.markdown-body, .filing-reader) h2 { font-size: 1.5rem; line-height: 1.3; letter-spacing: var(--track-title3); margin-top: 4rem; padding-bottom: 1rem; }
+:is(.markdown-body, .filing-reader) h3 { font-size: 1.25rem; line-height: 1.35; letter-spacing: var(--track-title3); margin-top: 2.5rem; padding-bottom: 0.625rem; }
+:is(.markdown-body, .filing-reader) h4 { font-size: 1.0625rem; line-height: 1.4; margin-top: 2rem; padding-bottom: 0.5rem; }
+:is(.markdown-body, .filing-reader) :is(h2, h3, h4) + :is(h2, h3, h4) { margin-top: 1rem; } /* stacked headings collapse */
 
-/* inline figures — $391.0B, 61.2%, tickers. The renderer wraps money/percent
-   tokens in .fig; inline code gets the same evidence face. */
-.markdown-body .fig, .markdown-body code {
+:is(.markdown-body, .filing-reader) ul, :is(.markdown-body, .filing-reader) ol { list-style-position: outside; padding-left: 1.375em; margin-top: 0; margin-bottom: 1em; }
+:is(.markdown-body, .filing-reader) ul { list-style-type: disc; }
+:is(.markdown-body, .filing-reader) ol { list-style-type: decimal; }
+:is(.markdown-body, .filing-reader) li { padding-left: 0.125em; }
+:is(.markdown-body, .filing-reader) li + li { margin-top: 0.5em; }
+:is(.markdown-body, .filing-reader) ::marker { @apply text-text-tertiary-light dark:text-text-secondary-dark; }
+:is(.markdown-body, .filing-reader) ol > li::marker { font-variant-numeric: tabular-nums; }
+
+/* inline figures — $391.0B, 61.2%, tickers. OPT-IN: the renderer wraps money/
+   percent tokens in .fig; inline code gets the same evidence face for free. */
+:is(.markdown-body, .filing-reader) .fig, :is(.markdown-body, .filing-reader) code {
   font-family: var(--font-data);
   font-size: 0.85em;          /* x-height-matched to the 19px serif */
   font-weight: 500;
@@ -289,7 +314,7 @@
   font-feature-settings: 'tnum' 1;
 }
 
-.markdown-body blockquote {
+:is(.markdown-body, .filing-reader) blockquote {
   @apply border-brand-border dark:border-brand-border-dark text-text-secondary-light dark:text-text-secondary-dark;
   border-left-width: 2px;
   border-left-style: solid;
@@ -299,7 +324,7 @@
 }
 
 /* reader tables — hairlines, not grids (DataTable manners without the component) */
-.markdown-body table {
+:is(.markdown-body, .filing-reader) table {
   @apply w-full border-collapse;
   font-family: var(--font-body);
   font-size: 0.875rem;
@@ -307,7 +332,7 @@
   margin-top: 2rem;
   margin-bottom: 2rem;
 }
-.markdown-body table th {
+:is(.markdown-body, .filing-reader) table th {
   @apply text-text-tertiary-light dark:text-text-secondary-dark border-b border-border-light dark:border-border-dark;
   background: none;
   font-family: var(--font-heading);
@@ -318,22 +343,26 @@
   text-align: left;
   padding: 0.625rem 0.75rem;
 }
-.markdown-body table td {
+:is(.markdown-body, .filing-reader) table td {
   @apply border-b border-border-light dark:border-border-dark px-3 py-2.5 align-top;
   border-left: 0;
   border-right: 0;
   border-top: 0;
 }
 /* numerics: markdown alignment emits align="right"; .num is the HTML-source hook */
-.markdown-body :is(th, td)[align="right"], .markdown-body :is(th, td).num { text-align: right; }
-.markdown-body td[align="right"], .markdown-body td.num {
+:is(.markdown-body, .filing-reader) :is(th, td)[align="right"],
+:is(.markdown-body, .filing-reader) :is(th, td).num { text-align: right; }
+:is(.markdown-body, .filing-reader) td[align="right"],
+:is(.markdown-body, .filing-reader) td.num {
   font-family: var(--font-data);
   font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
   white-space: nowrap;
 }
-.markdown-body tfoot td, .markdown-body tr.total td { font-weight: 600; }
+/* tr.total is the OPT-IN hook; tfoot needs no class. */
+:is(.markdown-body, .filing-reader) tfoot td,
+:is(.markdown-body, .filing-reader) tr.total td { font-weight: 600; }
 /* delta text inside tables uses gain.text / loss.text light, 400-level dark —
    e.g. class="num text-gain-text dark:text-gain-dark" (never the 600-level as text) */
 
