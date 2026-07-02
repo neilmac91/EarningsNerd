@@ -3,18 +3,34 @@
 ## Task #24 — Adoption PR 1: filing summary surface onto the v2 component layer
 **Scope (approved):** recompose the filing page's building blocks on components/ui/* with ZERO
 behavior change — same data, same handlers, new composition. DESIGN_SYSTEM.md is canonical.
-- [ ] StatCard: container onto Card recipe (keep count-up + sparkline + chip API)
-- [ ] StatCard.Skeleton + filing-page ShimmeringLoader sites -> Skeleton/SkeletonText/SkeletonStat
-- [ ] FinancialCharts: Recharts chrome -> Chart factories (grid/axis/crosshair/ChartTooltip,
-      seriesColor sequence, lineProps(usePrefersReducedMotion()))
-- [ ] FinancialMetricsTable -> DataTable (numeric right-align, gain/loss cell tones)
-- [ ] Summary* empty states (ui/EmptyState) -> GuidanceCard variant="empty" (EmptyState itself
-      is deleted later, in PR 4, once admin importers migrate)
-- [ ] page-client error/retry cards -> GuidanceCard variant="error"
-- [ ] FundamentalsTrendChart chrome -> Chart factories (verify which page renders it first)
-- [ ] Gates: typecheck / lint --max-warnings 0 / vitest / build; renderable-surface screenshots
-      both themes; preview checklist for backend-dependent states
-**Review:** (filled in when done)
+- [x] StatCard: container onto Card recipe (keep count-up + sparkline + chip API) — value/label
+      onto type tokens, sparkline -> ui/TrendSparkline (deleted charts/StatCardSparkline.tsx),
+      skeleton -> SkeletonStat inside the Card recipe
+- [x] StatCard.Skeleton + filing-page ShimmeringLoader sites -> Skeleton/SkeletonText/SkeletonStat
+      (page-client: pre-hydration bones, streaming bones, SummarySectionsSkeleton, filings-list bones;
+      also fixed the underscore-cloaked `animate-[shimmer_2s_infinite]` -> `animate-shimmer` token)
+- [x] FinancialCharts: **recon found it ORPHANED** — no page imports it (only its unit spec).
+      Left untouched per surgical-changes; delete component + spec in PR 4 (consolidation).
+      The filing page's real chart is FundamentalsTrendChart (below).
+- [x] FinancialMetricsTable -> DataTable (numeric right-align, gain/loss cell tones, icon carries
+      direction so it never rides on color alone; caption now reflects actual columns)
+- [x] Summary* empty states (ui/EmptyState) -> GuidanceCard variant="empty" via a transitional shim
+      inside EmptyState itself (upgrades all 10 call sites incl. admin at once; shim deleted in PR 4)
+- [x] page-client error/retry cards -> GuidanceCard variant="error" (+ secondary Button retry;
+      warning-toned fallback-summary card intentionally left — it is a warning, not an error)
+- [x] FundamentalsTrendChart chrome -> Chart factories (gridProps/xAxisProps/yAxisProps/ChartTooltip,
+      seriesColor(0) bar fill, Skeleton loading state, Card recipe on semantic <section>)
+- [x] Gates: tsc=0, eslint --max-warnings 0 clean, vitest 237/237 (51 files), production build OK;
+      every touched surface is backend-gated (filing page) or orphaned (StatCard's only importers
+      are the orphaned DashboardPreview + FinancialCharts — noted for PR 4), so visual verification
+      = a throwaway uncommitted harness route rendering each recomposition with fixture data,
+      screenshotted in both themes + preview checklist in the PR body
+**Review:** Zero-behavior-change recomposition of the filing summary surface onto components/ui/*.
+Five files recomposed (FundamentalsTrendChart, FinancialMetricsTable, ui/EmptyState shim,
+filing/[id]/page-client skeletons+error card, StatCard) + one deletion (charts/StatCardSparkline).
+One real finding: the DataTable caption was static and named columns that conditionally don't render —
+the existing no-prior-period spec caught it; fixed with a conditional caption (a11y accuracy win).
+FinancialCharts confirmed orphaned; its deletion and the EmptyState-shim inlining are queued for PR 4.
 
 # Task: Sharpen the AI reports via eval-gated prompt-prose waves (post-council activation)
 
