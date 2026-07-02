@@ -3,13 +3,13 @@
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
-import { CircleNotchIcon } from '@/lib/icons'
 
 import { getPeers, PeerComparisonResponse } from '@/features/peers/api/peers-api'
 import { ApiError } from '@/lib/api/client'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import UnverifiedBadge from '@/components/UnverifiedBadge'
 import { ThemeContext } from '@/components/ThemeProvider'
+import { seriesColor, chartTheme, xAxisProps, yAxisProps, ChartTooltip, Skeleton } from '@/components/ui'
 
 type FmtKind = 'usd' | 'eps' | 'pct'
 
@@ -27,7 +27,6 @@ const METRICS: { key: string; label: string }[] = [
 ]
 
 const MAX_BARS = 10
-const SUBJECT_FILL = '#3E8E84' // chart.1 (teal)
 
 // Any "<ccy>/shares" unit is a per-share metric; "pure" is a ratio; everything else is a
 // monetary amount. Keyed on the suffix (not a literal "USD/shares") so a foreign issuer's
@@ -50,13 +49,13 @@ const formatValue = (value: number, kind: FmtKind, currency = 'USD'): string => 
 
 export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
   // Recharts colours are props, not classes. Read theme off the context (not useTheme) with a
-  // light fallback so provider-less renders/SSR/tests never throw.
+  // light fallback so provider-less renders/SSR/tests never throw. Chrome comes from the
+  // Chart factories (chartTheme/axis props/ChartTooltip) — no local hexes.
   const dark = useContext(ThemeContext)?.theme === 'dark'
-  const axisText = dark ? '#9CA3AF' : '#6B7280'
-  const peerFill = dark ? '#475569' : '#94A3B8'
-  const tooltipBg = dark ? '#1F2937' : '#FBFAF6'
-  const tooltipBorder = dark ? 'rgba(255,255,255,0.1)' : '#E5E7EB'
-  const tooltipText = dark ? '#D7DADC' : '#1A1A17'
+  // De-emphasized peer bars: the theme's neutral grey at partial opacity keeps the
+  // subject (seriesColor(0)) unmistakably THE bar — a magnitude ranking, not deltas.
+  const peerFill = chartTheme(dark).flat
+  // Bar-hover band: BarChart wants a FILL cursor (crosshairProps is for line charts).
   const cursorFill = dark ? 'rgba(62,142,132,0.16)' : 'rgba(62,142,132,0.08)'
 
   const [metric, setMetric] = useState('revenue')
@@ -114,7 +113,9 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
   const subject = data?.subject
 
   return (
-    <section className="mb-8 rounded-lg border border-border-light bg-panel-light p-6 shadow-sm dark:border-border-dark dark:bg-panel-dark">
+    // v2 Card recipe on the semantic <section> (Card renders a div; polymorphic
+    // `as` is a deferred upstream item) — lift via e2 in light, hairline-only in dark.
+    <section className="mb-8 rounded-xl border border-border-light bg-panel-light p-6 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
@@ -149,8 +150,9 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
       </div>
 
       {isLoading ? (
-        <div className="flex h-72 items-center justify-center" aria-label="Loading peer comparison">
-          <CircleNotchIcon className="h-6 w-6 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+        <div role="status" aria-label="Loading peer comparison">
+          <Skeleton className="h-72 w-full rounded-lg" />
+          <span className="sr-only">Loading…</span>
         </div>
       ) : isError ? (
         <p className="py-12 text-center text-sm text-text-tertiary-light dark:text-text-secondary-dark">
@@ -170,35 +172,18 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
             >
               <XAxis
                 type="number"
-                tick={{ fontSize: 12, fill: axisText }}
-                tickLine={false}
-                axisLine={false}
+                {...xAxisProps(dark)}
+                axisLine={false /* horizontal bars: the category labels carry the scale */}
                 tickFormatter={(v: number) => formatValue(v, kind, currency)}
               />
-              <YAxis
-                type="category"
-                dataKey="ticker"
-                tick={{ fontSize: 12, fill: axisText }}
-                tickLine={false}
-                axisLine={false}
-                width={64}
-              />
+              <YAxis type="category" dataKey="ticker" {...yAxisProps(dark)} width={64 /* tickers outgrow the factory's 44px */} />
               <Tooltip
                 cursor={{ fill: cursorFill }}
-                formatter={(v) => [formatValue(Number(v), kind, currency), label]}
-                contentStyle={{
-                  background: tooltipBg,
-                  border: `1px solid ${tooltipBorder}`,
-                  borderRadius: 8,
-                  color: tooltipText,
-                  fontSize: 12,
-                }}
-                labelStyle={{ color: tooltipText }}
-                itemStyle={{ color: tooltipText }}
+                content={<ChartTooltip dark={dark} formatValue={(v) => formatValue(Number(v), kind, currency)} />}
               />
-              <Bar dataKey="value" radius={[0, 4, 4, 0]} maxBarSize={28}>
+              <Bar dataKey="value" name={label} radius={[0, 4, 4, 0]} maxBarSize={28}>
                 {chartData.map((entry) => (
-                  <Cell key={entry.ticker} fill={entry.isSubject ? SUBJECT_FILL : peerFill} fillOpacity={entry.isSubject ? 1 : 0.45} />
+                  <Cell key={entry.ticker} fill={entry.isSubject ? seriesColor(0) : peerFill} fillOpacity={entry.isSubject ? 1 : 0.45} />
                 ))}
               </Bar>
             </BarChart>
