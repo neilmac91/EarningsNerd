@@ -116,6 +116,7 @@ export function DataTable<T extends Record<string, unknown>>({
   const [entered, setEntered] = useState(false)
   useEffect(() => {
     if (wasLoading.current && !loading) setEntered(true)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot skeleton→content crossfade armed on the loading flip; intentional sync with the loading prop
     if (loading) setEntered(false)
     wasLoading.current = loading
   }, [loading])

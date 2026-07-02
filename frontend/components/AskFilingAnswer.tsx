@@ -145,6 +145,7 @@ export function AskFilingAnswer({
   useEffect(() => {
     const isLoading = status === 'loading'
     if (wasLoading.current && !isLoading) setEntered(true)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot skeleton→content crossfade armed on the loading flip; intentional sync with the status prop
     if (isLoading) setEntered(false)
     wasLoading.current = isLoading
   }, [status])
