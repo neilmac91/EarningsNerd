@@ -171,8 +171,29 @@ def test_success_clears_the_lockout(lockout_db):
         login_lockout.record_failure(lockout_db, email)
     assert login_lockout.seconds_until_unlock(lockout_db, email) is not None
     login_lockout.clear_failures(lockout_db, email)  # a successful login resets state
+    lockout_db.commit()  # clear_failures no longer self-commits — the caller (login) owns it
     assert login_lockout.seconds_until_unlock(lockout_db, email) is None
     assert lockout_db.query(LoginAttempt).count() == 0
+
+
+def test_stale_failures_reset_the_window(lockout_db):
+    """A failure older than the lock window starts a fresh count, so occasional mistypes spread
+    over a long time never accumulate to a lockout (matching the old sliding-window limiter)."""
+    email = "forgetful@example.com"
+    for _ in range(login_lockout.LOCKOUT_THRESHOLD - 1):  # 9 failures — one short of a lock
+        login_lockout.record_failure(lockout_db, email)
+    # Backdate the last-failure marker past the window. A bulk update with an explicit updated_at
+    # bypasses the onupdate=func.now() that a normal ORM flush would apply.
+    stale = datetime.now(timezone.utc) - timedelta(seconds=login_lockout.LOCKOUT_SECONDS + 60)
+    lockout_db.query(LoginAttempt).filter(
+        LoginAttempt.email_hash == login_lockout._email_hash(email)
+    ).update({LoginAttempt.updated_at: stale}, synchronize_session=False)
+    lockout_db.commit()
+
+    login_lockout.record_failure(lockout_db, email)  # first failure of a new window
+    row = lockout_db.query(LoginAttempt).one()
+    assert row.failed_count == 1  # reset, not 10
+    assert login_lockout.seconds_until_unlock(lockout_db, email) is None  # not locked
 
 
 def test_distinct_emails_are_independent(lockout_db):

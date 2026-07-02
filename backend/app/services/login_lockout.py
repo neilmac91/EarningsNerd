@@ -72,11 +72,22 @@ def record_failure(db: Session, email: str) -> None:
             row = db.query(LoginAttempt).filter(LoginAttempt.email_hash == email_hash).first()
             if row is None:
                 return
-    # A prior lock that has fully expired starts a fresh window.
+    # Start a fresh window when either (a) a prior lock has fully expired, or (b) the last failure
+    # was longer ago than the lock window. Without (b) failures would accumulate forever, so a user
+    # who mistypes once every few weeks (never logging in successfully between) would eventually
+    # lock — the retired in-memory limiter was a sliding 15-minute window and never did that.
+    # updated_at carries the previous failure's time (onupdate=func.now() bumps it on each commit).
     locked_until = _as_aware(row.locked_until)
+    last_failure = _as_aware(row.updated_at)
     if locked_until is not None and locked_until <= now:
         row.failed_count = 0
         row.locked_until = None
+    elif (
+        locked_until is None
+        and last_failure is not None
+        and (now - last_failure) > timedelta(seconds=LOCKOUT_SECONDS)
+    ):
+        row.failed_count = 0
     row.failed_count = (row.failed_count or 0) + 1
     if row.failed_count >= LOCKOUT_THRESHOLD:
         row.locked_until = now + timedelta(seconds=LOCKOUT_SECONDS)
@@ -84,11 +95,12 @@ def record_failure(db: Session, email: str) -> None:
 
 
 def clear_failures(db: Session, email: str) -> None:
-    """Reset lockout state for ``email`` after a successful login."""
-    deleted = (
-        db.query(LoginAttempt)
-        .filter(LoginAttempt.email_hash == _email_hash(email))
-        .delete(synchronize_session=False)
-    )
-    if deleted:
-        db.commit()
+    """Drop any lockout state for ``email`` after a successful login.
+
+    The DELETE runs in the caller's transaction and is deliberately NOT committed here: ``login``
+    commits it together with ``last_login_at`` in a single round-trip, so the lockout reset and the
+    login timestamp land atomically (two separate commits could half-apply if the server crashed
+    between them, and cost an extra round-trip on every successful login)."""
+    db.query(LoginAttempt).filter(
+        LoginAttempt.email_hash == _email_hash(email)
+    ).delete(synchronize_session=False)
