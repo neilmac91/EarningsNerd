@@ -161,9 +161,13 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
               )}
             </p>
           )}
+          {/* .filing-reader is the serif's ONE surface — the filing's own words
+              (Newsreader 19/1.7, 68ch measure, reader tables). It replaces the
+              Tailwind prose stack per MIGRATION v2.1 §e.1: the two must never
+              coexist (double margins), and the class carries its own measure. */}
           <div
             ref={contentRef}
-            className="prose dark:prose-invert prose-sm min-h-0 max-w-none flex-1 overflow-y-auto break-words px-4 py-4 prose-headings:text-text-primary-light dark:prose-headings:text-text-primary-dark prose-p:text-text-secondary-light dark:prose-p:text-text-secondary-dark prose-li:text-text-secondary-light dark:prose-li:text-text-secondary-dark prose-a:text-brand-strong dark:prose-a:text-brand-strong-dark"
+            className="filing-reader min-h-0 flex-1 overflow-y-auto break-words px-4 py-4"
           >
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{content || ''}</ReactMarkdown>
           </div>

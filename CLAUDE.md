@@ -800,15 +800,19 @@ subagent briefs for UI tasks. Token *definitions* live in `frontend/tailwind.con
   weight 600, one theme-aware ink via `--heading-color` (this supersedes the old "no global heading
   color" rule — the global is now theme-safe by construction); body = `-apple-system → Inter`;
   data = Geist Mono + `tabular-nums` for all money/%/tickers/excerpts. Figtree and Helvetica retired.
+  Serif (Newsreader) belongs to **`.filing-reader`** only — the real filing viewer; `.markdown-body`
+  (the AI summary) shares the reader layout but stays on the body sans.
 - **Theme-responsive pairs everywhere** (`bg-x-light dark:bg-x-dark`) on every shared surface.
   Muted text on dark = `secondary`, never `tertiary-dark` (fails WCAG AA).
 - **Cards lift, not tint**: `bg-panel-light dark:bg-panel-dark` + border + `shadow-e2 dark:shadow-none`;
   hover **brightens**, never darkens; never `hover:opacity`. `brand-weak` is a tint, not a card fill.
 - **Radius scale 4/8/12/16/24** — buttons + inputs 12, chips full, cards 16.
-- **Component layer:** `components/ui/*` (Button, Badge, Input, Card, DataTable, Skeleton, StateCard)
-  + `components/AskFilingAnswer.tsx`. Every component defines default/hover/active/focus-visible/
-  disabled/loading plus the system states (empty, skeleton via the shared shimmer keyframe, error).
-  Compose these — don't restyle raw elements.
+- **Component layer:** `components/ui/*` (Button + `buttonVariants`, Badge, Input + `inputClasses`,
+  Card, DataTable, Skeleton, GuidanceCard) + `components/AskFilingAnswer.tsx`. Every component defines
+  default/hover/active/focus-visible/disabled/loading plus the system states (empty, skeleton via the
+  shared shimmer keyframe, error). Compose these — don't restyle raw elements. Chart `Direction`
+  vocabulary = `lib/financialTone.ts` (`'up' | 'down' | 'flat'`); delta text routes through
+  `financialTone.directionText` (= `gain.text`/`loss.text`).
 - **Motion = tokens only:** `--duration-fast/base/slow/ambient` (150/200/600/1800ms) +
   `--ease-standard/pop` — no raw ms/bezier outside `globals.css :root` + the JS mirror `lib/motion.ts`.
   Count-up is `hooks/useCountUp` (never a fade); skeleton→content = `animate-content-in` on the
