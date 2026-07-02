@@ -15,18 +15,17 @@
    Reduced motion / SSR / no-JS: the FINAL formatted value renders instantly —
    the initial state IS the target, and the rAF loop only starts client-side
    when motion is allowed (same usePrefersReducedMotion as every consumer).
+   The tween is armed in a LAYOUT effect: the start value (0) is committed
+   BEFORE the browser paints, so hydrated mounts never flash value→0→value
+   (a passive effect runs after paint — the final value would be visible for
+   a frame before the tween reset it). Server render uses useEffect (layout
+   effects warn on the server); it never runs there anyway.
    Replaces the retired `animate-count-up` keyframe, which was just a fade.
 ============================================================================= */
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MOTION, easeStandard } from '../lib/motion'
 import { usePrefersReducedMotion } from './usePrefersReducedMotion'
-
-// The tween arms in a LAYOUT effect: the initial state is the final value (SSR/no-JS
-// contract), so the reset to the tween's start must commit before the browser paints —
-// a plain effect ran post-paint and flashed value→0→value on every mount. The server
-// falls back to useEffect (useLayoutEffect warns during SSR and never runs there).
-const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 export interface CountUpOptions {
   /** ms — defaults to the slow token (600). Pass MOTION.* — never a raw number. */
@@ -36,6 +35,10 @@ export interface CountUpOptions {
 }
 
 const defaultFormat = (v: number) => Math.round(v).toLocaleString('en-US')
+
+// Isomorphic layout effect — useLayoutEffect in the browser (pre-paint),
+// useEffect on the server (where it's a no-op and silences the SSR warning).
+const useIsomorphicLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : useEffect
 
 export function useCountUp(
   value: number,
@@ -51,8 +54,6 @@ export function useCountUp(
     if (reduced) {
       animatedRef.current = true
       displayRef.current = value
-      // Reduced-motion path snaps to the final value (WCAG 2.3.3) instead of tweening;
-      // intentional mount-time sync.
       setDisplay(value)
       return
     }
@@ -63,8 +64,8 @@ export function useCountUp(
       setDisplay(value)
       return
     }
-    // Commit the tween's start value in the same pre-paint pass (see the layout-effect
-    // note above) so the first painted frame is the start, not the target.
+    // Commit the start value PRE-PAINT — the SSR markup showed the target, but
+    // the first client paint must already be at `from` or the mount flashes.
     displayRef.current = from
     setDisplay(from)
     let raf = 0

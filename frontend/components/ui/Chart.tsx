@@ -4,7 +4,7 @@
    Chart — components/ui/Chart.tsx
    -----------------------------------------------------------------------------
    The charting layer: chrome sub-tokens + Recharts-style prop factories +
-   a Tooltip content component + a self-contained Sparkline.
+   a Tooltip content component + a self-contained TrendSparkline.
 
    ENCODED RULES (not advisory — the helpers make the wrong thing hard):
      1. Series color comes from CHART_SERIES positionally, 1→N, never skipped
@@ -12,6 +12,9 @@
      2. gain/loss mark DIRECTION only — a sparkline stroke, delta bars around
         a zero line. They are never categorical series colors, so "green line"
         can only ever mean "went up". Use directionTone(), not raw hexes.
+        Direction VOCABULARY is the app's ('up' | 'down' | 'flat', owned by
+        lib/financialTone.ts) — derive it with the app's directionOf(); this
+        file only maps a Direction to its tone.
      3. The sage brand never appears inside a plot area. Nothing in this file
         imports or emits a brand value.
      4. ≥5 series: color stops carrying alone under red-green CVD — add direct
@@ -40,15 +43,17 @@ export function seriesColor(index: number): string {
   if (process.env.NODE_ENV !== 'production' && index >= CHART_SERIES.length) {
     console.warn(`seriesColor(${index}): >6 series — collapse categories or facet the chart.`)
   }
-  // JS % returns negative values for negative inputs — wrap to a safe index so a
-  // bad caller gets a stable color instead of undefined breaking the chart.
-  return CHART_SERIES[((index % CHART_SERIES.length) + CHART_SERIES.length) % CHART_SERIES.length]
+  // Safe modulo — a negative index (reversed loops, delta math) must never
+  // return undefined and silently break every stroke in the chart.
+  const n = CHART_SERIES.length
+  return CHART_SERIES[((index % n) + n) % n]
 }
 
-/** Data face for every number a chart renders — mirrors fontFamily.data. */
+/** Data face for every number a chart renders — mirrors fontFamily.data.
+    Leads with var(--font-geist-mono): next/font self-hosts under a HASHED
+    family name, so the literal "Geist Mono" never resolves in production —
+    without the var, chart text silently falls back to platform mono. */
 export const CHART_FONT =
-  // var first: next/font self-hosts Geist Mono under a hashed family name that only
-  // resolves through --font-geist-mono; the literal name is a fallback.
   'var(--font-geist-mono), "Geist Mono", ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace'
 
 export interface ChartTheme {
@@ -103,23 +108,29 @@ export function chartTheme(dark: boolean): ChartTheme {
       }
 }
 
-export type Direction = 'gain' | 'loss' | 'flat'
+/** Direction vocabulary — IDENTICAL to lib/financialTone.ts's Direction
+    ('up' | 'down' | 'flat'), so the two types are interchangeable at every
+    call site. Derive a Direction with the app's directionOf(); this module
+    deliberately does NOT export its own derivation (two same-named helpers
+    with different vocabularies was the landmine this replaces). */
+export type Direction = 'up' | 'down' | 'flat'
 
-/** Direction from a numeric delta (or first→last of a series). */
-export function direction(delta: number): Direction {
-  return delta > 0 ? 'gain' : delta < 0 ? 'loss' : 'flat'
+/** Internal only — first→last fallback for Sparkline's auto direction. */
+function dirOf(delta: number): Direction {
+  return delta > 0 ? 'up' : delta < 0 ? 'down' : 'flat'
 }
 
 /** GRAPHIC stroke/fill for a direction (sparkline stroke, delta bars). */
 export function directionTone(dir: Direction, dark: boolean): string {
   const t = chartTheme(dark)
-  return dir === 'gain' ? t.gain : dir === 'loss' ? t.loss : t.flat
+  return dir === 'up' ? t.gain : dir === 'down' ? t.loss : t.flat
 }
 
-/** TEXT color for a direction (delta labels next to a chart). */
+/** TEXT color for a direction (delta labels next to a chart) — the same
+    mapping lib/financialTone.directionText makes with Tailwind classes. */
 export function directionTextTone(dir: Direction, dark: boolean): string {
   const t = chartTheme(dark)
-  return dir === 'gain' ? t.gainText : dir === 'loss' ? t.lossText : t.flat
+  return dir === 'up' ? t.gainText : dir === 'down' ? t.lossText : t.flat
 }
 
 /* ---------------------------------------------------------------------------
@@ -261,12 +272,15 @@ export function ChartTooltip({ dark = false, active, label, payload, formatValue
 }
 
 /* ---------------------------------------------------------------------------
-   Sparkline — self-contained SVG, no Recharts. Direction-toned: the stroke is
-   gain/loss/flat GRAPHIC tone from the series' own first→last delta (or an
-   explicit `dir`). Optional draw-in animation, disabled under reduced motion.
+   TrendSparkline — self-contained SVG, no Recharts. Direction-toned: the
+   stroke is up/down/flat GRAPHIC tone from the series' own first→last delta
+   (or an explicit `dir`). Optional draw-in animation, disabled under reduced
+   motion. Named to stay clear of the app's own components/charts/Sparkline
+   (different props) — both can coexist; fold the app's onto this one only
+   when its call sites want direction-toned strokes.
 --------------------------------------------------------------------------- */
 
-export interface SparklineProps {
+export interface TrendSparklineProps {
   data: number[]
   dark?: boolean
   /** Override the auto first→last direction (e.g. "lower is better" metrics). */
@@ -284,7 +298,7 @@ export interface SparklineProps {
   label?: string
 }
 
-export function Sparkline({
+export function TrendSparkline({
   data,
   dark = false,
   dir,
@@ -296,10 +310,10 @@ export function Sparkline({
   className,
   style,
   label,
-}: SparklineProps) {
+}: TrendSparklineProps) {
   const reduced = usePrefersReducedMotion() // before the early return — hooks are unconditional
   if (data.length < 2) return null
-  const d = dir ?? direction(data[data.length - 1] - data[0])
+  const d = dir ?? dirOf(data[data.length - 1] - data[0])
   const stroke = directionTone(d, dark)
   const pad = strokeWidth
   const min = Math.min(...data)
