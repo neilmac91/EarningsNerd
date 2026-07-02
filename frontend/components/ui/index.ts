@@ -1,10 +1,9 @@
-// TODO(design-system-v2): Button and Input are NOT exported here yet. The repo's
-// pre-existing ./Button (buttonVariants + primary/secondary/tertiary) and ./Input
-// (inputClasses string constant) predate the v2 spec and have 20+/8 importers.
-// The v2.1 pack ships port-ready primitives (buttonVariants(), tertiary alias,
-// inputClasses(), Textarea/Select) — the port runs as its own PR per MIGRATION
-// v2.1 §d; until then import the existing ones by path.
+export { Button, buttonVariants, type ButtonProps, type ButtonVariant, type ButtonSize, type ButtonVariantsOptions } from './Button'
 export { Badge, type BadgeProps, type BadgeVariant } from './Badge'
+export {
+  Input, Textarea, Select, inputClasses,
+  type InputProps, type TextareaProps, type SelectProps, type InputClassesOptions,
+} from './Input'
 export { Card, CardHeader, CardTitle, CardBody, CardFooter, type CardProps } from './Card'
 export { DataTable, type DataTableProps, type Column, type CellTone, type SortState, type Density } from './DataTable'
 export { Skeleton, SkeletonText, SkeletonStat } from './Skeleton'

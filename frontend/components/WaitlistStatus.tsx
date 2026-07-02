@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { CircleNotchIcon } from '@/lib/icons'
 import { getApiUrl } from '@/lib/api/client'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
+import { inputClasses } from '@/components/ui/Input'
 
 type StatusData = {
   position: number
@@ -54,12 +54,13 @@ export default function WaitlistStatus() {
         Check your waitlist status
       </h3>
       <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-        <Input
+        {/* Raw input + inputClasses(): geometry overrides target the field itself. */}
+        <input
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="you@company.com"
-          className="rounded-xl px-4 py-3 text-sm"
+          className={inputClasses({ className: 'rounded-xl px-4 py-3 text-sm' })}
         />
         {error && (
           <div className="rounded-xl border border-error-light/40 dark:border-error-dark/40 bg-error-light/10 dark:bg-error-dark/10 px-4 py-3 text-sm text-error-light dark:text-error-dark">

@@ -91,7 +91,7 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
               value={feedback.status}
               disabled={statusMutation.isPending}
               onChange={(e) => statusMutation.mutate(e.target.value as FeedbackStatus)}
-              className={`${inputClasses} w-auto py-1.5 pr-8 text-xs disabled:cursor-not-allowed disabled:opacity-50`}
+              className={`${inputClasses()} w-auto py-1.5 pr-8 text-xs disabled:cursor-not-allowed disabled:opacity-50`}
             >
               {STATUS_OPTIONS.map((s) => (
                 <option key={s} value={s}>

@@ -111,7 +111,7 @@ function LoginContent() {
         {!showEmail ? (
           <Button
             type="button"
-            variant="tertiary"
+            variant="ghost"
             onClick={() => setShowEmail(true)}
             className="w-full py-3 active:scale-[0.99]"
           >

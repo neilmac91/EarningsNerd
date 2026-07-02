@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { EyeIcon, EyeSlashIcon } from '@/lib/icons'
-import { Input } from '@/components/ui/Input'
+import { inputClasses } from '@/components/ui/Input'
 
 type PasswordFieldProps = {
   id: string
@@ -68,7 +68,9 @@ export default function PasswordField({
       </div>
 
       <div className="relative">
-        <Input
+        {/* Raw input + inputClasses(): pr-10 must pad the field itself so typed
+            text clears the eye toggle — the v2 <Input> shell owns className. */}
+        <input
           type={show ? 'text' : 'password'}
           id={id}
           value={value}
@@ -77,7 +79,7 @@ export default function PasswordField({
           minLength={minLength}
           autoComplete={autoComplete}
           autoFocus={autoFocus}
-          className="pr-10"
+          className={inputClasses({ className: 'pr-10' })}
         />
         <button
           type="button"
