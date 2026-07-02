@@ -26,7 +26,7 @@ from app.config import settings
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.pwned_passwords import is_password_pwned
 from app.services.turnstile import enforce_turnstile
-from app.services import audit_service
+from app.services import audit_service, login_lockout
 from app.services.refresh_token_service import (
     create_refresh_token,
     rotate_refresh_token,
@@ -59,12 +59,8 @@ RESEND_VERIFY_LIMITER = RateLimiter(limit=3, window_seconds=3600)   # 3/hr per e
 # single IP can't spray reset/verification mail to thousands of different addresses (Resend cost +
 # domain-reputation abuse). The per-email limiters stop bombing ONE victim; this stops fan-out.
 RESET_RESEND_IP_LIMITER = RateLimiter(limit=20, window_seconds=3600)  # 20/hr per IP, all emails
-# Per-account failed-login throttle: bounds distributed brute-force/password-spray against a
-# single account (the per-IP LOGIN_LIMITER only bounds one source). Keyed by email and charged
-# only on failure. Generous threshold so legitimate users effectively never hit it; recoverable
-# by waiting out the window or using password reset. Trade-off: a determined attacker can briefly
-# lock a known account — acceptable pre-launch and time-bounded.
-ACCOUNT_LOGIN_FAIL_LIMITER = RateLimiter(limit=10, window_seconds=900)  # 10 failures / 15 min
+# Per-account failed-login lockout is now durable + anti-enumeration (services/login_lockout,
+# keyed on the email hash and backed by the DB), replacing the old in-memory RateLimiter here.
 
 EMAIL_VERIFY_EXPIRY_HOURS = 24
 PASSWORD_RESET_EXPIRY_HOURS = 1
@@ -766,15 +762,15 @@ async def login(
         error_detail="Too many login attempts. Please try again in a minute.",
     )
     await enforce_turnstile(request)  # no-op unless Turnstile is configured
-    # Per-account throttle: bounds brute-force/spray against one account across many IPs.
-    # Peek here (no charge); a failure below records a hit.
-    account_key = f"account:{user_data.email}"
-    if ACCOUNT_LOGIN_FAIL_LIMITER.is_exhausted(account_key):
-        retry_after = ACCOUNT_LOGIN_FAIL_LIMITER.retry_after(account_key)
+    # Durable per-account lockout: bounds distributed brute-force/spray against one account across
+    # many IPs, holds across instances/restarts, and is keyed on the email hash so a non-existent
+    # address locks the same as a real one (no 429-vs-401 enumeration). Peek before bcrypt.
+    lock_seconds = login_lockout.seconds_until_unlock(db, user_data.email)
+    if lock_seconds is not None:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many failed login attempts for this account. Please try again later.",
-            headers={"Retry-After": str(retry_after)} if retry_after else None,
+            headers={"Retry-After": str(lock_seconds)},
         )
 
     user = db.query(User).filter(User.email == user_data.email).first()
@@ -793,13 +789,14 @@ async def login(
     # account) into one generic 401 so the response never reveals whether an account exists or
     # is disabled — closing the account-enumeration channel that a distinct 403 opened.
     if not user or not user.hashed_password or not password_ok or not user.is_active:
-        ACCOUNT_LOGIN_FAIL_LIMITER.allow(account_key)  # charge one failure against the account
+        login_lockout.record_failure(db, user_data.email)  # counts against the email (existent or not)
         audit_service.log_failed_login(db, user_data.email, ip_address=hashed_ip)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password"
         )
 
+    login_lockout.clear_failures(db, user_data.email)  # a successful login resets the lockout
     user.last_login_at = datetime.now(timezone.utc)
     db.commit()
     access_token = create_access_token(data={"sub": user.email})

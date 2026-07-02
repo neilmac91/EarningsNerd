@@ -110,6 +110,23 @@ class OAuthState(Base):
     expires_at = Column(DateTime, nullable=False)
 
 
+class LoginAttempt(Base):
+    """Durable failed-login lockout, keyed on a hash of the email — NOT the User row.
+
+    Keying on the email hash means a non-existent address accumulates failures and locks exactly
+    like a real one, so there is no 429-vs-401 difference to reveal which emails have accounts (a
+    user-row lockout would reintroduce that enumeration oracle). Persisted here so the lockout holds
+    across Cloud Run instances and restarts, unlike the in-memory limiter it replaces. The hash is
+    peppered with SECRET_KEY (see services/login_lockout), so raw emails are never stored.
+    """
+    __tablename__ = "login_attempts"
+
+    email_hash = Column(String(64), primary_key=True)
+    failed_count = Column(Integer, nullable=False, default=0, server_default="0")
+    locked_until = Column(DateTime(timezone=True), nullable=True)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+
+
 class Company(Base):
     __tablename__ = "companies"
 

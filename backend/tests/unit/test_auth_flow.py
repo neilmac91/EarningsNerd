@@ -25,20 +25,29 @@ def client():
 
 
 @pytest.fixture(autouse=True)
-def _reset_rate_limiters():
-    """Clear the module-level auth limiters before each test so register/login pressure from
-    one test (or another file in the same process) can't trip another test's request."""
+def _reset_rate_limiters(client):
+    """Clear the module-level auth limiters and the DB-backed per-account lockout before each test,
+    so register/login pressure from one test (or another file in the same process) can't trip
+    another test's request. Depends on ``client`` so the app lifespan has created the tables."""
     from app.routers import auth as auth_module
 
     for lim in (
         auth_module.LOGIN_LIMITER,
         auth_module.REGISTER_LIMITER,
-        auth_module.ACCOUNT_LOGIN_FAIL_LIMITER,
         auth_module.RESET_REQUEST_LIMITER,
         auth_module.RESEND_VERIFY_LIMITER,
         auth_module.RESET_RESEND_IP_LIMITER,
     ):
         lim._hits.clear()
+    # The per-account failed-login lockout is now durable (login_attempts table), not in-memory.
+    from app.database import SessionLocal
+    from app.models import LoginAttempt
+    db = SessionLocal()
+    try:
+        db.query(LoginAttempt).delete()
+        db.commit()
+    finally:
+        db.close()
     yield
 
 
@@ -163,15 +172,18 @@ def test_login_inactive_account_returns_401_not_403(client):
 
 @pytest.mark.requires_db
 def test_repeated_failures_lock_the_account(client):
-    """After enough failed attempts a single account is throttled (429), bounding brute-force.
+    """After enough failed attempts the account is locked (429), bounding brute-force. The email is
+    one that was never registered — a NON-EXISTENT address must lock exactly like a real one, so a
+    429-vs-401 difference can't reveal which emails have accounts (anti-enumeration).
 
-    The per-IP limiter is cleared between attempts so this exercises the *per-account* throttle
-    specifically rather than the per-IP one (both share the same default limit)."""
+    The per-IP limiter is cleared between attempts so this exercises the *per-account* lockout
+    specifically rather than the per-IP one."""
     from app.routers import auth as auth_module
+    from app.services import login_lockout
 
     email = _unique_email()
-    for _ in range(auth_module.ACCOUNT_LOGIN_FAIL_LIMITER.limit):
-        auth_module.LOGIN_LIMITER._hits.clear()  # isolate the account throttle from the IP one
+    for _ in range(login_lockout.LOCKOUT_THRESHOLD):
+        auth_module.LOGIN_LIMITER._hits.clear()  # isolate the account lockout from the IP one
         resp = client.post("/api/auth/login", json={"email": email, "password": VALID_PASSWORD})
         assert resp.status_code == 401
 
