@@ -720,18 +720,13 @@ async def register(
             db.rollback()
             logger.warning("Invite redemption failed for user %s", user.id, exc_info=True)
 
-    # Reverse trial: optionally grant full Pro for a few days, no card required. Behind a flag
-    # (default off) and best-effort — a trial-grant failure must never break account creation.
-    trialed = False
-    if settings.REVERSE_TRIAL_ENABLED:
-        try:
-            from app.services.subscription_sync import start_reverse_trial
-            start_reverse_trial(db, user, settings.REVERSE_TRIAL_DAYS)
-            db.commit()
-            trialed = True
-        except Exception:
-            db.rollback()
-            logger.warning("Failed to start reverse trial for user %s", user.id, exc_info=True)
+    # Reverse trial is NOT granted at registration: the email is still unverified here, so granting
+    # no-card Pro now would hand full features to a disposable/unverified address (repeatable for
+    # free). It is granted on email verification instead (see verify_email), so a real, verified
+    # inbox is required. NB before enabling REVERSE_TRIAL_ENABLED in prod, also add a
+    # one-trial-per-identity guard (a hashed-IP / verified-email record, or require a card so
+    # Stripe's own trial dedup applies) — verification raises the bar but doesn't alone stop an
+    # attacker cycling many disposable-but-verifiable addresses.
 
     await _send_verification_email_safe(db, user)
     audit_service.log_register(db, user.id, user.email, ip_address=_hashed_client_ip(request))
@@ -749,12 +744,7 @@ async def register(
             EVENT_SIGNUP_COMPLETED,
             {"is_beta": bool(user.is_beta), "invited": invite is not None},
         )
-        if trialed:
-            capture_event(
-                str(user.id),
-                EVENT_TRIAL_STARTED,
-                {"source": "reverse_trial", "days": settings.REVERSE_TRIAL_DAYS},
-            )
+        # EVENT_TRIAL_STARTED now fires in verify_email, where the reverse trial is actually granted.
     except Exception:  # pragma: no cover - defensive: telemetry never blocks signup
         logger.warning("Signup funnel telemetry failed for user %s", user.id, exc_info=True)
 
@@ -884,6 +874,28 @@ async def verify_email(
     user.email_verification_token = None
     user.email_verification_expires = None
     db.commit()
+
+    # Grant the reverse trial only now, on verification — so no-card Pro requires a real, verified
+    # inbox rather than being handed to any freshly-registered (unverified) address. Behind the flag
+    # (default off), best-effort, and committed separately so a trial-grant failure can't undo the
+    # verification. start_reverse_trial is idempotent for an already-active/trialing subscription.
+    if settings.REVERSE_TRIAL_ENABLED:
+        try:
+            from app.services.subscription_sync import start_reverse_trial
+            start_reverse_trial(db, user, settings.REVERSE_TRIAL_DAYS)
+            db.commit()
+        except Exception:
+            db.rollback()
+            logger.warning("Failed to start reverse trial for user %s on verify", user.id, exc_info=True)
+        else:
+            try:
+                capture_event(
+                    str(user.id),
+                    EVENT_TRIAL_STARTED,
+                    {"source": "reverse_trial", "days": settings.REVERSE_TRIAL_DAYS},
+                )
+            except Exception:
+                logger.warning("Trial-started telemetry failed for user %s", user.id, exc_info=True)
     return {"message": "Email verified. You can now use all features."}
 
 
