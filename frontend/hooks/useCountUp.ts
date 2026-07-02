@@ -1,48 +1,72 @@
-import { useState, useEffect } from 'react'
+'use client'
 
-const prefersReducedMotion = (): boolean =>
-  typeof window !== 'undefined' &&
-  typeof window.matchMedia === 'function' &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches
+/* =============================================================================
+   useCountUp — hooks/useCountUp.ts
+   -----------------------------------------------------------------------------
+   The count-up signature for financial figures (KPI tiles, executive snapshot).
+   Interpolates 0 → value on first reveal (previous → next on updates) over
+   --duration-slow with the --ease-standard curve, formatted per the content
+   fundamentals ("$391.0B"). Render the result in the data face with
+   tabular-nums (`tnum font-data` or `.tabular`) so width never jitters:
 
-export function useCountUp(end: number, duration: number = 800) {
-  // Initialize to 0 unconditionally so server and first client render agree (no hydration
-  // mismatch); the effect below honors reduced-motion once mounted on the client.
-  const [count, setCount] = useState(0)
+     const revenue = useCountUp(391.0, { format: (v) => `$${v.toFixed(1)}B` })
+     <span className="tnum font-data">{revenue}</span>
+
+   Reduced motion / SSR / no-JS: the FINAL formatted value renders instantly —
+   the initial state IS the target, and the rAF loop only starts client-side
+   when motion is allowed (same usePrefersReducedMotion as every consumer).
+   Replaces the retired `animate-count-up` keyframe, which was just a fade.
+============================================================================= */
+
+import { useEffect, useRef, useState } from 'react'
+import { MOTION, easeStandard } from '../lib/motion'
+import { usePrefersReducedMotion } from './usePrefersReducedMotion'
+
+export interface CountUpOptions {
+  /** ms — defaults to the slow token (600). Pass MOTION.* — never a raw number. */
+  duration?: number
+  /** Format the interpolated number — e.g. (v) => `$${v.toFixed(1)}B`. */
+  format?: (value: number) => string
+}
+
+const defaultFormat = (v: number) => Math.round(v).toLocaleString('en-US')
+
+export function useCountUp(
+  value: number,
+  { duration = MOTION.slow, format = defaultFormat }: CountUpOptions = {},
+): string {
+  const reduced = usePrefersReducedMotion()
+  // SSR markup + no-JS + first client frame all show the final value.
+  const [display, setDisplay] = useState(value)
+  const displayRef = useRef(value) // latest rendered number — restart point mid-animation
+  const animatedRef = useRef(false)
 
   useEffect(() => {
-    // WCAG 2.3.3 (Animation from Interactions): if the user prefers reduced motion, snap to
-    // the final value with no tween instead of running the count-up animation.
-    if (prefersReducedMotion()) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- reduced-motion path snaps to the final value (WCAG 2.3.3) instead of tweening; intentional mount-time sync
-      setCount(end)
+    if (reduced) {
+      animatedRef.current = true
+      displayRef.current = value
+      setDisplay(value)
       return
     }
-
-    let startTime: number | null = null
-    let animationFrame: number
-
-    const animate = (timestamp: number) => {
-      if (!startTime) startTime = timestamp
-      const progress = timestamp - startTime
-      const percentage = Math.min(progress / duration, 1)
-
-      // Ease out quart
-      const easeOut = 1 - Math.pow(1 - percentage, 4)
-
-      setCount(end * easeOut)
-
-      if (progress < duration) {
-        animationFrame = requestAnimationFrame(animate)
-      } else {
-        setCount(end)
-      }
+    // First reveal counts 0 → value; later changes count from what's on screen.
+    const from = animatedRef.current ? displayRef.current : 0
+    animatedRef.current = true
+    if (from === value) {
+      setDisplay(value)
+      return
     }
+    let raf = 0
+    const t0 = performance.now()
+    const tick = (now: number) => {
+      const p = Math.min((now - t0) / duration, 1)
+      const v = p >= 1 ? value : from + (value - from) * easeStandard(p)
+      displayRef.current = v
+      setDisplay(v)
+      if (p < 1) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [value, duration, reduced])
 
-    animationFrame = requestAnimationFrame(animate)
-
-    return () => cancelAnimationFrame(animationFrame)
-  }, [end, duration])
-
-  return count
+  return format(display)
 }
