@@ -59,6 +59,9 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
   **`.markdown-body` is NOT serif**: it carries the same reader *layout* (68ch measure on children,
   88ch table/figure rail, list + heading + table manners) on the **body sans** — its app consumer is
   the AI-generated summary, and AI output never renders in the filing's voice. Ask output stays mono.
+  **Links in both surfaces:** Tailwind preflight strips anchor color AND underline, so a shared
+  globals rule restores them — `:is(.markdown-body, .filing-reader) a` =
+  `text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark`.
 - **Tracking ramp** (`--track-*`): +0.01em ≤12px · 0 at 13–19px · −0.012em 20–24px · −0.016em
   26–32px · −0.02em 34–44px · −0.025em 48px+ · `--track-eyebrow 0.08em` for uppercase micro-labels.
 - 12px UI-type floor (`text-data-xs` 11px only for dense numeric annotations). UPPERCASE tracked
@@ -200,5 +203,11 @@ Recharts/rAF, which need numbers). **No raw ms or bezier strings anywhere else.*
    ```
    grep -rnE '[0-9]+(\.[0-9]+)?m?s\b|cubic-bezier' app components features | grep -v 'var(--'
    ```
-3. **Verify in BOTH themes** on the Vercel preview — green CI ≠ correct visuals.
-4. Run `npm run typecheck`, `npm run lint` (`--max-warnings 0`), `npm run build`, `npm run test`.
+3. **Font-var gate** (repeat offender — missed in BOTH the v2 and v2.1 exports): every
+   `fontFamily` stack in `tailwind.config.js` and every `:root` font var in `globals.css`
+   leads with its `next/font` variable (`var(--font-inter)` / `var(--font-geist-mono)` /
+   `var(--font-newsreader)`; body keeps `-apple-system` first, then the var). next/font
+   self-hosts under hashed family names exposed ONLY as these vars — a literal-only stack
+   silently never resolves.
+4. **Verify in BOTH themes** on the Vercel preview — green CI ≠ correct visuals.
+5. Run `npm run typecheck`, `npm run lint` (`--max-warnings 0`), `npm run build`, `npm run test`.
