@@ -9,7 +9,7 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.config import settings
+from app.config import settings, WEAK_SECRET_KEY_VALUES, MIN_SECRET_KEY_LENGTH
 
 
 def check_environment_variables():
@@ -61,8 +61,21 @@ def check_environment_variables():
         "SECRET_KEY": {
             "required": True,
             "set": bool(settings.SECRET_KEY),
-            "valid": settings.SECRET_KEY != "change-this-secret-key-in-production",
-            "message": "Must be changed from default in production"
+            "valid": bool(
+                settings.SECRET_KEY
+                and settings.SECRET_KEY not in WEAK_SECRET_KEY_VALUES
+                and len(settings.SECRET_KEY) >= MIN_SECRET_KEY_LENGTH
+            ),
+            "message": f"Must be a strong random value (>= {MIN_SECRET_KEY_LENGTH} chars, not a placeholder)"
+        },
+        "TRUSTED_PROXY_HOPS": {
+            # In production the per-IP rate limits and IP hashes must key on the real client IP; a
+            # value < 1 behind a proxy would ignore X-Forwarded-For and collapse everyone onto the
+            # proxy address. Only enforced in production (dev/local runs have no proxy).
+            "required": settings.ENVIRONMENT == "production",
+            "set": True,
+            "valid": (settings.TRUSTED_PROXY_HOPS >= 1) if settings.ENVIRONMENT == "production" else True,
+            "message": "Must be >= 1 in production so per-IP limits use the real client IP (right-most X-Forwarded-For)"
         },
         "DATABASE_URL": {
             "required": True,

@@ -35,7 +35,7 @@ jobs:
       - name: Run pytest
         run: cd backend && python -m pytest
         env:
-          SECRET_KEY: test-secret-key-for-ci
+          SECRET_KEY: test-secret-key-for-ci-not-a-real-secret
 
   frontend-tests:
     runs-on: ubuntu-latest
@@ -371,7 +371,7 @@ jobs:
             --image="$IMAGE:${GITHUB_SHA::7}" \
             --cpu-boost \
             --update-secrets=OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
-            --update-env-vars=OPENAI_BASE_URL=https://api.deepseek.com/v1,AI_DEFAULT_MODEL=deepseek-v4-pro,COOKIE_DOMAIN=.earningsnerd.io,SENTRY_RELEASE=${GITHUB_SHA},TRUSTED_PROXY_HOPS=1,ENABLE_FPI_FILINGS=true,STREAM_SECTION_REVEAL=true \
+            --update-env-vars=ENVIRONMENT=production,OPENAI_BASE_URL=https://api.deepseek.com/v1,AI_DEFAULT_MODEL=deepseek-v4-pro,COOKIE_DOMAIN=.earningsnerd.io,SENTRY_RELEASE=${GITHUB_SHA},TRUSTED_PROXY_HOPS=1,ENABLE_FPI_FILINGS=true,STREAM_SECTION_REVEAL=true \
             --quiet
           # Always route live traffic to the new revision. A prior manual `--no-traffic --tag`
           # deploy can pin traffic to an old revision, which silently makes every CD deploy "dark"

@@ -7,6 +7,17 @@ import os
 # /metrics). Bump on notable releases; also serves as a deploy marker.
 APP_VERSION = "1.1.0"
 
+# SECRET_KEY hardening (shared with scripts/deploy_check.py so the check can't drift).
+# HS256 access tokens are only as strong as this key; a short or publicly-known value is a full
+# authentication-bypass risk (an attacker who recovers it forges a token for any user/admin).
+# Placeholders that must NEVER be accepted — the historical default AND the value shipped in
+# .env.example (which, at 33 chars, would otherwise slip past a length-only check).
+WEAK_SECRET_KEY_VALUES = frozenset({
+    "change-this-secret-key-in-production",
+    "change-me-to-a-long-random-string",
+})
+MIN_SECRET_KEY_LENGTH = 32
+
 class Settings(BaseSettings):
     # Database
     # Using SQLite for development if PostgreSQL is not available
@@ -118,22 +129,35 @@ class Settings(BaseSettings):
 
     # Number of trusted reverse-proxy hops in front of the app, counted from the RIGHT of
     # X-Forwarded-For. The closest proxy appends the real client IP as the right-most entry, so on
-    # Cloud Run's direct ingress `1` selects the genuine client. `0` (default) keeps the legacy
-    # left-most behavior, which is CLIENT-SPOOFABLE — set this to match your ingress (typically 1 for
-    # direct Cloud Run) so per-IP rate limiting / IP hashing can't be defeated with a forged header.
-    TRUSTED_PROXY_HOPS: int = 0
+    # Cloud Run's direct ingress `1` (the default) selects the genuine client. When set to `0` the
+    # app IGNORES X-Forwarded-For entirely and uses the direct socket peer (see rate_limiter.
+    # get_client_ip) — it NEVER trusts the spoofable left-most, client-supplied entry, so a forged
+    # header can't reset a per-IP rate limit or poison an IP hash. Set this to your real hop count.
+    TRUSTED_PROXY_HOPS: int = 1
 
     @field_validator('SECRET_KEY', mode='before')
     @classmethod
-    def check_secret_key(cls, v, values):
-        """Ensure SECRET_KEY is not the default in production"""
-        if values.data.get("ENVIRONMENT") == "production" and v == "change-this-secret-key-in-production":
-            raise ValueError(
-                "CRITICAL: Default 'SECRET_KEY' is in use in a production environment. "
-                "Set a strong, random secret in your environment variables."
-            )
+    def check_secret_key(cls, v):
+        """Reject a missing, placeholder, or too-short SECRET_KEY in EVERY environment.
+
+        Runs unconditionally, not just in production: a weak signing key is never acceptable, and an
+        environment-gated check here is unreliable anyway — a field validator only sees fields
+        validated before it, and ENVIRONMENT is defined after SECRET_KEY, so the old
+        ``values.data.get("ENVIRONMENT")`` was always None (the production branch never fired).
+        """
         if not v:
             raise ValueError("SECRET_KEY must be set.")
+        if v in WEAK_SECRET_KEY_VALUES:
+            raise ValueError(
+                "SECRET_KEY is a known placeholder value and must be changed. Generate a strong "
+                'random secret:  python -c "import secrets; print(secrets.token_urlsafe(48))"'
+            )
+        if len(v) < MIN_SECRET_KEY_LENGTH:
+            raise ValueError(
+                f"SECRET_KEY must be at least {MIN_SECRET_KEY_LENGTH} characters (got {len(v)}). "
+                "Use a long, random value — a short key is brute-forceable and lets an attacker "
+                "forge access tokens."
+            )
         return v
 
     @field_validator('REGISTRATION_MODE', mode='before')

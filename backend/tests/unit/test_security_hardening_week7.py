@@ -18,7 +18,7 @@ from app.config import Settings, settings
 
 
 def _make_settings(**overrides) -> Settings:
-    base = {"SECRET_KEY": "test-secret-key-not-the-default", "ENVIRONMENT": "development"}
+    base = {"SECRET_KEY": "test-secret-key-not-the-default-value", "ENVIRONMENT": "development"}
     base.update(overrides)
     return Settings(**base)
 

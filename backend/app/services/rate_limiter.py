@@ -62,23 +62,24 @@ class RateLimiter:
 
 
 def get_client_ip(request: Request) -> str:
-    """Best-effort client IP for rate-limit keying and IP hashing.
+    """Best-effort, spoofing-resistant client IP for rate-limit keying and IP hashing.
 
-    ``X-Forwarded-For`` is a client-controllable header — only the right-most entries (appended by
-    our own proxies) are trustworthy. ``settings.TRUSTED_PROXY_HOPS`` declares how many proxy hops
-    sit in front of the app, so we take the Nth entry from the right. Default ``0`` preserves the
-    legacy left-most behavior (spoofable) so nothing changes until the hop count is set for the
-    deployment (typically ``1`` for direct Cloud Run ingress).
+    ``X-Forwarded-For`` is a client-controllable header — only the entries appended by our own
+    proxies (the right-most ones) are trustworthy. ``settings.TRUSTED_PROXY_HOPS`` declares how many
+    proxy hops sit in front of the app, so we take the Nth entry from the right (the real client,
+    since the closest proxy appends it last). When the hop count is ``<= 0`` we DO NOT trust the
+    header at all and fall back to the direct socket peer, so a forged ``X-Forwarded-For`` can never
+    reset a per-IP limit or poison an IP hash. The left-most (fully client-supplied) entry is never
+    used.
     """
-    forwarded_for = request.headers.get("x-forwarded-for")
-    if forwarded_for:
-        parts = [p.strip() for p in forwarded_for.split(",") if p.strip()]
-        if parts:
-            hops = settings.TRUSTED_PROXY_HOPS
-            if hops and hops > 0:
+    hops = settings.TRUSTED_PROXY_HOPS
+    if hops and hops > 0:
+        forwarded_for = request.headers.get("x-forwarded-for")
+        if forwarded_for:
+            parts = [p.strip() for p in forwarded_for.split(",") if p.strip()]
+            if parts:
                 # Nth-from-right; clamp so a short/forged chain can't index past the left-most hop.
                 return parts[-min(hops, len(parts))]
-            return parts[0]
     if request.client:
         return request.client.host
     return "unknown"
