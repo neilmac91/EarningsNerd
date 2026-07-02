@@ -11,6 +11,8 @@ import {
   NotificationPreferencesUpdate,
 } from '@/features/notifications/api/notifications-api'
 import { inputClasses } from '@/components/ui/Input'
+import { Card } from '@/components/ui/Card'
+import { SkeletonText } from '@/components/ui/Skeleton'
 
 type BoolPref = 'notify_10k' | 'notify_10q' | 'notify_8k' | 'notify_20f' | 'notify_6k' | 'realtime'
 
@@ -88,7 +90,7 @@ export default function NotificationPreferencesForm() {
   const setBool = (field: BoolPref) => (next: boolean) => save({ [field]: next })
 
   return (
-    <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">
+    <Card className="p-6 mb-6">
       <div className="flex items-center justify-between mb-2">
         <h2 className="flex items-center gap-2 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
           <BellIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
@@ -101,9 +103,7 @@ export default function NotificationPreferencesForm() {
       </p>
 
       {isLoading ? (
-        <div className="flex justify-center py-6">
-          <CircleNotchIcon className="h-6 w-6 animate-spin text-text-tertiary-light dark:text-text-secondary-dark" />
-        </div>
+        <SkeletonText lines={4} className="py-2" />
       ) : isError || !prefs ? (
         <p className="text-sm text-error-light dark:text-error-dark">
           Couldn&apos;t load your alert preferences. Please refresh.
@@ -117,7 +117,7 @@ export default function NotificationPreferencesForm() {
           Couldn&apos;t save that change. Please try again.
         </p>
       )}
-    </div>
+    </Card>
   )
 }
 

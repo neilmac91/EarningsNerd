@@ -14,6 +14,7 @@ import BillingPanel from '@/components/settings/BillingPanel'
 import ChangePasswordForm from '@/components/settings/ChangePasswordForm'
 import { Button } from '@/components/ui/Button'
 import { inputClasses } from '@/components/ui/Input'
+import { Card } from '@/components/ui/Card'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -108,7 +109,7 @@ export default function SettingsPage() {
         <NotificationPreferencesForm />
 
         {/* Data Export */}
-        <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">
+        <Card className="p-6 mb-6">
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
@@ -126,19 +127,11 @@ export default function SettingsPage() {
 
           <Button
             onClick={handleExportData}
-            disabled={exportMutation.isPending}
+            loading={exportMutation.isPending}
+            loadingText="Exporting..."
+            leftIcon={<DownloadSimpleIcon className="h-4 w-4" />}
           >
-            {exportMutation.isPending ? (
-              <>
-                <CircleNotchIcon className="h-4 w-4 animate-spin" />
-                Exporting...
-              </>
-            ) : (
-              <>
-                <DownloadSimpleIcon className="h-4 w-4" />
-                Download My Data
-              </>
-            )}
+            Download My Data
           </Button>
 
           {exportMutation.isSuccess && (
@@ -154,10 +147,10 @@ export default function SettingsPage() {
               Failed to export data. Please try again or contact support.
             </div>
           )}
-        </div>
+        </Card>
 
-        {/* Delete Account */}
-        <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-loss-light/40 dark:border-loss-dark/30 p-6">
+        {/* Delete Account — Card with the border overridden to the loss hairline */}
+        <Card className="border-loss-light/40 p-6 dark:border-loss-dark/30">
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <h2 className="text-xl font-semibold text-error-light dark:text-error-dark mb-2">
@@ -170,13 +163,9 @@ export default function SettingsPage() {
           </div>
 
           {!showDeleteConfirm ? (
-            <button
-              onClick={() => setShowDeleteConfirm(true)}
-              className="inline-flex items-center px-4 py-2 bg-error-light hover:opacity-90 text-white dark:bg-error-dark dark:text-background-dark rounded-lg transition-colors"
-            >
-              <TrashIcon className="h-4 w-4 mr-2" />
+            <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)} leftIcon={<TrashIcon className="h-4 w-4" />}>
               Delete My Account
-            </button>
+            </Button>
           ) : (
             <div className="space-y-4">
               <div className="bg-loss-soft dark:bg-loss-soft-dark border border-loss-light/30 dark:border-loss-dark/30 rounded-lg p-4">
@@ -221,26 +210,18 @@ export default function SettingsPage() {
               </div>
 
               <div className="flex gap-3">
-                <button
+                {/* `loading` (not disabled) while pending — loading keeps the resting
+                    fill and refuses activation; disabled is only for the unmet confirm text. */}
+                <Button
+                  variant="destructive"
                   onClick={handleDeleteAccount}
-                  disabled={
-                    deleteMutation.isPending ||
-                    deleteConfirmText.toLowerCase() !== 'delete my account'
-                  }
-                  className="inline-flex items-center px-4 py-2 bg-error-light hover:opacity-90 text-white dark:bg-error-dark dark:text-background-dark rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={deleteConfirmText.toLowerCase() !== 'delete my account'}
+                  loading={deleteMutation.isPending}
+                  loadingText="Deleting..."
+                  leftIcon={<TrashIcon className="h-4 w-4" />}
                 >
-                  {deleteMutation.isPending ? (
-                    <>
-                      <CircleNotchIcon className="h-4 w-4 mr-2 animate-spin" />
-                      Deleting...
-                    </>
-                  ) : (
-                    <>
-                      <TrashIcon className="h-4 w-4 mr-2" />
-                      Confirm Deletion
-                    </>
-                  )}
-                </button>
+                  Confirm Deletion
+                </Button>
 
                 <Button
                   variant="secondary"
@@ -262,7 +243,7 @@ export default function SettingsPage() {
               )}
             </div>
           )}
-        </div>
+        </Card>
 
         {/* Privacy Notice */}
         <div className="mt-8 text-sm text-text-tertiary-light dark:text-text-secondary-dark text-center">

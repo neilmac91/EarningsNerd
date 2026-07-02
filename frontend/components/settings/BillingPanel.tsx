@@ -10,6 +10,9 @@ import {
 } from '@/features/subscriptions/api/subscriptions-api'
 import { formatLocalDate } from '@/lib/format'
 import { Button, buttonVariants } from '@/components/ui/Button'
+import { Card } from '@/components/ui/Card'
+import { Badge } from '@/components/ui/Badge'
+import { SkeletonText } from '@/components/ui/Skeleton'
 
 function daysUntil(value: string | null): number | null {
   if (!value) return null
@@ -37,7 +40,7 @@ export default function BillingPanel() {
   // subscriber on a transient network error.
   if (isError) {
     return (
-      <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">
+      <Card className="p-6 mb-6">
         <div className="flex items-center gap-3 mb-4">
           <CreditCardIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
           <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Billing</h2>
@@ -45,7 +48,7 @@ export default function BillingPanel() {
         <p className="text-sm text-error-light dark:text-error-dark">
           Failed to load billing information. Please refresh the page or try again later.
         </p>
-      </div>
+      </Card>
     )
   }
 
@@ -55,16 +58,14 @@ export default function BillingPanel() {
   const planLabel = isTrialing ? 'Pro (trial)' : isPro ? 'Pro' : 'Free'
 
   return (
-    <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-sm border border-border-light dark:border-border-dark p-6 mb-6">
+    <Card className="p-6 mb-6">
       <div className="flex items-center gap-3 mb-4">
         <CreditCardIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Billing</h2>
       </div>
 
       {isLoading ? (
-        <div className="flex items-center text-text-tertiary-light dark:text-text-secondary-dark">
-          <CircleNotchIcon className="h-4 w-4 mr-2 animate-spin" /> Loading…
-        </div>
+        <SkeletonText lines={3} />
       ) : (
         <div className="space-y-3">
           {/* Plan, usage & renewal — divided rows keep each label tied to its value */}
@@ -72,16 +73,14 @@ export default function BillingPanel() {
             {/* Plan + status */}
             <div className="flex items-center justify-between gap-4 py-2.5">
               <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">Plan</span>
-              <span
-                className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium ${
-                  isPro
-                    ? 'bg-brand-strong text-white dark:bg-brand-dark dark:text-background-dark'
-                    : 'bg-brand-weak text-text-secondary-light dark:bg-white/5 dark:text-text-secondary-dark'
-                }`}
+              {/* `brand` (not `pro`): the pro variant uppercases, and this label
+                  carries state text like "Pro (trial)" that must stay sentence case. */}
+              <Badge
+                variant={isPro ? 'brand' : 'free'}
+                icon={isPro ? <SparkleIcon className="h-3.5 w-3.5" /> : null}
               >
-                {isPro && <SparkleIcon className="h-3.5 w-3.5" />}
                 {planLabel}
-              </span>
+              </Badge>
             </div>
 
             {/* Usage */}
@@ -153,6 +152,6 @@ export default function BillingPanel() {
           </div>
         </div>
       )}
-    </div>
+    </Card>
   )
 }
