@@ -9,35 +9,41 @@ XBRL chips, GFM). Decision: KEEP CopilotMessage as the renderer, adopt v2 primit
 copilot surface, keep AskFilingAnswer as the DS-documented artifact, and put its rework/retirement
 at the TOP of the upstream ledger.
 ### Copilot surface (primitives only; renderer/parsers/tests untouched)
-- [ ] CopilotComposer: raw textarea -> Textarea/inputClasses (keep aria-label "Ask about this
-      filing" + auto-grow); send -> Button (keep name "Send")
-- [ ] CopilotMessage: error-bubble upgrade/retry buttons -> Button (primary/secondary); citation
-      markers/dense numerics text-[10px]/[11px] -> text-data-xs; UI micro-labels -> text-xs
-- [ ] AskCopilotRail: launcher/upsell/CTA buttons -> Button/buttonVariants; "Scoped to this
-      filing" pill -> Badge; quota lines' type floor fixes; sheet shells shadow-2xl -> e5 dark:none
-- [ ] CopilotTeaser/AskFilingCallout/CopilotCoachmark CTAs -> Button (copy pinned by tests stays)
-- [ ] FilingViewer: error block -> GuidanceCard error (keep "try again" button name);
-      loading -> Skeleton
-- [ ] LEAVE: dark slate sheet fills (sanctioned navy-surface convention), CitationChip popover,
-      FilingWorkspace tabs/resizer (test-pinned roles), all citation/marker logic
+- [x] CopilotComposer: textarea KEPT raw (chat-input pattern — v2 Textarea's shell would double
+      the composer chrome; upstream candidate: composer variant); send -> icon-only Button
+      (name "Send" kept); disclaimer 11px -> xs
+- [x] CopilotMessage: error-bubble upgrade/retry -> Button; [n]/XBRL markers + Verified/Cited
+      badges + excerpt lines -> text-data-xs; Ask next/Sources labels -> text-xs
+- [x] AskCopilotRail: free-taste-exhausted CTA -> Button; "Scoped to this filing" pill -> Badge
+      brand; quota lines -> text-xs; sheet shells shadow-2xl -> shadow-e5 dark:none; launcher kbd
+      chip raw slate-950 -> black-alpha + text-data-xs (launcher FAB itself kept — deliberate)
+- [x] CopilotTeaser/AskFilingCallout/CopilotCoachmark CTAs -> Button (test-pinned copy intact)
+- [x] FilingViewer: loading spinner -> SkeletonText mono (role=status); error actions -> Button
+      secondary ("Try again" name kept) + buttonVariants primary SEC.gov link; error layout kept
+      inline (inside the viewer pane — no nested panel)
+- [x] LEFT: dark slate sheet fills (sanctioned navy convention), CitationChip popover,
+      FilingWorkspace tabs/resizer, ALL citation/marker logic — 52/52 copilot tests pass unmodified
 ### Stragglers
-- [ ] pricing: plan cards -> Card; 3-way CTA ternary -> Button variants (kills hover:opacity-90);
-      StateCard's inner retry buttons -> Button; :289 -> transition-[width]; PRESERVE $390/$290
-      text, role=switch + aria-label "Billing cycle", CTA names, handleUpgrade analytics
-- [ ] transition-all sweep: 7 safe sites -> transition (SummarySections, TrialBanner, PeekLocked,
-      2 auth buttons [surfaces stay per DS §9], EmailVerificationModal x2, SummaryProgress:136,
-      + Header/UpgradeModal/SummaryBlock/TrendingCompanies/admin safe sites);
-      SummaryProgress:120 -> transition-[width]; page-client:895 -> transition-[stroke-dashoffset]
-- [ ] hover:opacity kills: RevokeConfirmModal -> Button destructive-ish token hover; contact page
-      + ContactForm links -> hover:underline (PR-3 precedent); UserMenu avatar -> ring hover
-- [ ] raw gray/slate quick wins: ThemeToggle (global header!) + app/error.tsx + UserMenu amber dot
-      -> tokens. DEFER (documented): CookieConsent + delete-account slate sweeps (large mechanical
-      diffs on sensitive surfaces), crash boundaries (intentionally self-contained)
-- [ ] one-liner type-floor fixes: NotificationBell, Footer, SummaryRisks, NotificationPreferences
-      toggle label, EmailChipsInput -> text-xs
-- [ ] Gates: typecheck / lint / vitest (ALL copilot suites green untouched) / build; both-theme
-      verification of pricing + a copilot-visible filing route render with fixtures
-**Review:** (filled in when done)
+- [x] pricing: CTA ternary -> Button primary/secondary with loading (hover:opacity-90 dead);
+      StateCard retry buttons -> Button; usage bar -> transition-[width]; plan cards KEPT
+      (already tokenized; border-2 emphasis is the deliberate plan treatment); $390/$290, switch,
+      CTA names, checkout flow untouched (spec green)
+- [x] transition-all now EXTINCT repo-wide: safe sites -> transition; width bars ->
+      transition-[width]; the SVG progress ring -> transition-[stroke-dashoffset]
+- [x] hover:opacity now EXTINCT: RevokeConfirmModal -> error-emphasis press; contact/ContactForm
+      links -> underline hover; UserMenu avatar -> brand-border ring hover
+- [x] ThemeToggle + app/error.tsx raw gray -> tokens; UserMenu dot -> warning tokens; DEFERRED
+      (documented): CookieConsent + delete-account slate sweeps, crash boundaries
+- [x] type-floor one-liners: NotificationBell/Footer/SummaryRisks/notification-prefs/
+      EmailChipsInput -> text-data-xs / text-xs
+- [x] Gates: typecheck 0 / full eslint clean / vitest 236/236 / build OK; pricing verified both
+      themes with fixtures; copilot verified by its 9 unmodified suites (52 tests)
+**Review:** The load-bearing recon finding reframed this PR: AskFilingAnswer (the pack's copilot
+renderer) is dead code with a data model incompatible with the shipped API — adopting it would
+regress verified badges, XBRL chips, and markdown. Kept CopilotMessage; adopted primitives around
+it; AskFilingAnswer's rework/retirement is now the TOP upstream ledger item. With the stragglers
+sweep, transition-all and hover:opacity are extinct repo-wide and the sub-floor type in app
+surfaces rides text-data-xs/text-xs. The five-PR adoption pass is complete.
 
 ## Task #27 — Adoption PR 4: marketing home + consolidation
 **Scope (approved pass, PR 4 of 5):** home surface fixes + the deferred consolidation. Deliberate
