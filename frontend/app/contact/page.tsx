@@ -49,14 +49,14 @@ export default function ContactPage() {
             Looking for quick answers? Check out our{' '}
             <a
               href="/privacy"
-              className="font-medium text-brand-strong hover:opacity-80 dark:text-brand-strong-dark"
+              className="font-medium text-brand-strong underline-offset-4 hover:underline dark:text-brand-strong-dark"
             >
               Privacy Policy
             </a>{' '}
             or{' '}
             <a
               href="/security"
-              className="font-medium text-brand-strong hover:opacity-80 dark:text-brand-strong-dark"
+              className="font-medium text-brand-strong underline-offset-4 hover:underline dark:text-brand-strong-dark"
             >
               Security
             </a>{' '}

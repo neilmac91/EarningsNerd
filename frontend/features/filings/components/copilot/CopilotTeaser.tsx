@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 import { CheckCircleIcon, LockSimpleIcon, SparkleIcon } from '@/lib/icons'
 import { analytics } from '@/lib/analytics'
+import { Button } from '@/components/ui'
 
 interface CopilotTeaserProps {
   filingId: number
@@ -58,7 +59,7 @@ export default function CopilotTeaser({
           <div className="rounded-2xl rounded-bl-sm border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-800/60 px-3 py-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
             Revenue rose 8% to $94.0B [1], with gross margin expanding to 46.2% [F1] on a richer
             product mix [2].
-            <div className="mt-2 flex items-center gap-1.5 text-[10px] text-text-secondary-light dark:text-text-secondary-dark">
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
               <CheckCircleIcon className="h-3 w-3 text-brand-strong/70 dark:text-brand-strong-dark/70" /> Grounded in 3 excerpts
             </div>
           </div>
@@ -82,14 +83,9 @@ export default function CopilotTeaser({
       </ul>
 
       {/* Upsell CTA — opens the contextual upgrade modal and records the click. */}
-      <button
-        type="button"
-        onClick={onUpgrade}
-        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2.5 text-sm font-semibold transition-colors"
-      >
-        <SparkleIcon className="h-4 w-4" />
+      <Button className="mt-4 w-full" onClick={onUpgrade} leftIcon={<SparkleIcon className="h-4 w-4" />}>
         Upgrade to Pro
-      </button>
+      </Button>
       {!isAuthenticated && (
         <p className="mt-3 text-center text-xs text-text-secondary-light dark:text-text-secondary-dark">
           Already Pro?{' '}

@@ -65,7 +65,7 @@ export default function Footer() {
           </p>
         </div>
 
-        <p className="mt-4 text-center text-[11px] text-text-tertiary-light dark:text-text-secondary-dark">
+        <p className="mt-4 text-center text-xs text-text-tertiary-light dark:text-text-secondary-dark">
           Company logos by{' '}
           <a
             href="https://logo.dev"

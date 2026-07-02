@@ -101,7 +101,7 @@ export default function RevokeConfirmModal({
             type="button"
             onClick={onConfirm}
             disabled={isPending}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-error-light px-4 py-2.5 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-50 dark:bg-error-dark"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-error-light px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-error-emphasis disabled:opacity-50 dark:bg-error-dark"
           >
             {isPending && <CircleNotchIcon className="h-4 w-4 animate-spin" />}
             Revoke invite
@@ -110,7 +110,7 @@ export default function RevokeConfirmModal({
             type="button"
             onClick={onClose}
             disabled={isPending}
-            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-border-light bg-transparent px-4 py-2.5 text-sm font-medium text-text-primary-light transition-all hover:bg-black/5 disabled:opacity-50 dark:border-white/10 dark:text-text-primary-dark dark:hover:bg-white/5"
+            className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg border border-border-light bg-transparent px-4 py-2.5 text-sm font-medium text-text-primary-light transition hover:bg-black/5 disabled:opacity-50 dark:border-white/10 dark:text-text-primary-dark dark:hover:bg-white/5"
           >
             Keep invite
           </button>

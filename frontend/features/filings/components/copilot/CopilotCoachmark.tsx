@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from 'react'
 import { SparkleIcon, XIcon } from '@/lib/icons'
+import { Button } from '@/components/ui'
 
 interface CopilotCoachmarkProps {
   /** Opens the Copilot rail (also marks the coachmark seen via the parent's `open` effect). */
@@ -43,14 +44,9 @@ export default function CopilotCoachmark({ onTry, onDismiss, style }: CopilotCoa
           <p className="mt-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
             Get plain-English answers, each cited to the exact filing text.
           </p>
-          <button
-            type="button"
-            onClick={onTry}
-            className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
-          >
-            <SparkleIcon className="h-3.5 w-3.5" aria-hidden="true" />
+          <Button size="sm" className="mt-2" onClick={onTry} leftIcon={<SparkleIcon className="h-3.5 w-3.5" aria-hidden="true" />}>
             Try it
-          </button>
+          </Button>
         </div>
       </div>
     </div>

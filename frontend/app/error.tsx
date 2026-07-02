@@ -58,14 +58,14 @@ export default function Error({
           </button>
           <Link
             href="/"
-            className="rounded-lg border border-border-light bg-white px-6 py-3 font-medium text-text-primary-light transition-colors hover:bg-gray-50 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:hover:bg-gray-800"
+            className="rounded-lg border border-border-light bg-white px-6 py-3 font-medium text-text-primary-light transition-colors hover:bg-brand-weak dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:hover:bg-white/10"
           >
             Go home
           </Link>
         </div>
 
         {process.env.NODE_ENV === 'development' && (
-          <div className="mt-8 rounded-lg border border-border-light bg-gray-50 p-4 text-left dark:border-border-dark dark:bg-gray-900">
+          <div className="mt-8 rounded-lg border border-border-light bg-background-light p-4 text-left dark:border-border-dark dark:bg-white/5">
             <h2 className="mb-2 font-mono text-sm font-semibold text-red-600 dark:text-red-400">
               Development Error Details:
             </h2>

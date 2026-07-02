@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { ArrowClockwiseIcon, ArrowSquareOutIcon, CircleNotchIcon, FileTextIcon, XIcon } from '@/lib/icons'
+import { ArrowClockwiseIcon, ArrowSquareOutIcon, FileTextIcon, XIcon } from '@/lib/icons'
 import { fetchFilingContent } from '@/features/filings/api/filing-content-api'
 import { isHttpUrl } from './CitationChip'
 import { useFilingViewer } from './FilingViewerContext'
 import { clearCitationHighlight, highlightExcerptInDom } from './highlightInDom'
+import { Button, buttonVariants, SkeletonText } from '@/components/ui'
 
 interface FilingViewerProps {
   filingId: number
@@ -113,9 +114,10 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
   const inner = (
     <>
       {(status === 'idle' || status === 'loading') && (
-        <p className="flex flex-1 items-center justify-center gap-2 px-6 py-12 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          <CircleNotchIcon className="h-4 w-4 animate-spin text-brand-strong dark:text-brand-strong-dark" /> Loading the filing…
-        </p>
+        // SkeletonText carries its own role="status" — the wrapper stays role-less.
+        <div className="flex-1 space-y-3 px-6 py-8">
+          <SkeletonText lines={6} mono />
+        </div>
       )}
 
       {(status === 'empty' || status === 'error') && (
@@ -127,21 +129,12 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
           </p>
           <div className="flex flex-wrap items-center justify-center gap-2">
             {status === 'error' && (
-              <button
-                type="button"
-                onClick={() => void load()}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-800 px-3 py-2 text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak dark:hover:bg-slate-700"
-              >
-                <ArrowClockwiseIcon className="h-3.5 w-3.5" /> Try again
-              </button>
+              <Button variant="secondary" size="sm" onClick={() => void load()} leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5" />}>
+                Try again
+              </Button>
             )}
             {isHttpUrl(secUrl) && (
-              <a
-                href={secUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-3 py-2 text-xs font-semibold transition-colors"
-              >
+              <a href={secUrl} target="_blank" rel="noopener noreferrer" className={buttonVariants({ variant: 'primary', size: 'sm' })}>
                 Open the original on SEC.gov <ArrowSquareOutIcon className="h-3.5 w-3.5" />
               </a>
             )}
@@ -152,7 +145,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
       {status === 'ready' && (
         <div className="flex min-h-0 flex-1 flex-col">
           {passageMissing && (
-            <p className="border-b border-warning-light/20 dark:border-warning-dark/20 bg-warning-light/10 dark:bg-warning-dark/10 px-4 py-2 text-[11px] text-warning-light dark:text-warning-dark">
+            <p className="border-b border-warning-light/20 dark:border-warning-dark/20 bg-warning-light/10 dark:bg-warning-dark/10 px-4 py-2 text-xs text-warning-light dark:text-warning-dark">
               Couldn’t pinpoint the exact passage — showing the full filing.{' '}
               {isHttpUrl(secUrl) && (
                 <a href={secUrl} target="_blank" rel="noopener noreferrer" className="font-medium underline">

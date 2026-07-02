@@ -892,7 +892,7 @@ function StreamingSummaryDisplay({
                   strokeDasharray={`${2 * Math.PI * 60}`}
                   strokeDashoffset={`${2 * Math.PI * 60 * (1 - optimisticProgress / 100)}`}
                   strokeLinecap="round"
-                  className={`transition-all duration-slow ease-out ${isError ? 'text-error-light dark:text-error-dark' : 'text-brand-strong dark:text-brand-strong-dark'}`}
+                  className={`transition-[stroke-dashoffset] duration-slow ease-out ${isError ? 'text-error-light dark:text-error-dark' : 'text-brand-strong dark:text-brand-strong-dark'}`}
                 />
               </svg>
 
@@ -967,7 +967,7 @@ function StreamingSummaryDisplay({
 
                 return (
                   <div key={step.stage} className={`flex items-center gap-3 transition-opacity duration-base ${status === 'pending' ? 'opacity-40' : 'opacity-100'}`}>
-                    <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center border transition-all duration-base ${status === 'complete'
+                    <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center border transition duration-base ${status === 'complete'
                       ? 'bg-brand-strong border-brand-strong text-white dark:bg-brand-dark dark:border-brand-dark dark:text-background-dark'
                       : status === 'active'
                         ? 'bg-panel-light dark:bg-panel-dark border-brand-border text-brand-strong dark:text-brand-strong-dark'

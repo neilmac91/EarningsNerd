@@ -328,7 +328,7 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  group flex items-center space-x-2 px-4 py-4 text-sm font-medium border-b-2 transition-all duration-base outline-none
+                  group flex items-center space-x-2 px-4 py-4 text-sm font-medium border-b-2 transition duration-base outline-none
                   ${isActive
                     ? 'border-brand-border dark:border-brand-strong-dark text-brand-strong bg-brand-weak dark:text-brand-strong-dark dark:bg-white/5'
                     : 'border-transparent text-text-tertiary-light dark:text-text-secondary-dark hover:text-text-secondary-light dark:hover:text-text-secondary-dark hover:bg-background-light dark:hover:bg-white/5'
