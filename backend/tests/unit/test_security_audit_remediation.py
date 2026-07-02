@@ -11,6 +11,9 @@ Covers:
   - M4: login_lockout is durable (login_attempts table, not per-process memory) and keyed on a
     peppered hash of the email — NOT the User row — so a non-existent address locks exactly like a
     real one (no 429-vs-401 account-enumeration oracle) and the raw email is never stored.
+  - M2b: the guest daily summary cap is durable (guest_daily_usage table, not Redis, which is off
+    in prod) and keyed on a peppered hash of the TRUSTED client IP; it self-resets each UTC day,
+    never gates the first summary, and fails open on any DB error.
 """
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
@@ -22,8 +25,8 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.config import Settings, WEAK_SECRET_KEY_VALUES, MIN_SECRET_KEY_LENGTH
-from app.models import Base, LoginAttempt
-from app.services import login_lockout, rate_limiter
+from app.models import Base, LoginAttempt, GuestDailyUsage
+from app.services import guest_quota, login_lockout, rate_limiter
 
 
 def _settings(**overrides) -> Settings:
@@ -256,3 +259,65 @@ def test_expired_lock_starts_a_fresh_window(lockout_db):
     row = lockout_db.query(LoginAttempt).one()
     assert row.failed_count == 1  # fresh window, not 11
     assert login_lockout.seconds_until_unlock(lockout_db, email) is None
+
+
+# ── M2b: durable, trusted-IP-keyed guest daily summary cap ────────────────────
+
+@pytest.fixture
+def guest_db():
+    """In-memory SQLite session for the guest_daily_usage table."""
+    engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
+    Base.metadata.create_all(bind=engine, tables=[GuestDailyUsage.__table__])
+    session = sessionmaker(bind=engine)()
+    try:
+        yield session
+    finally:
+        session.close()
+
+
+def test_guest_first_summary_is_always_allowed(guest_db):
+    allowed, count = guest_quota.check_and_increment_guest_quota(guest_db, "1.2.3.4", limit=3)
+    assert allowed is True and count == 1
+
+
+def test_guest_cap_blocks_past_the_limit(guest_db):
+    ip, limit = "1.2.3.4", 3
+    for expected in (1, 2, 3):
+        allowed, count = guest_quota.check_and_increment_guest_quota(guest_db, ip, limit)
+        assert allowed is True and count == expected
+    allowed, count = guest_quota.check_and_increment_guest_quota(guest_db, ip, limit)
+    assert allowed is False and count == 4  # the 4th generation of the day is over the cap
+
+
+def test_guest_raw_ip_is_never_stored(guest_db):
+    ip = "203.0.113.7"
+    guest_quota.check_and_increment_guest_quota(guest_db, ip, limit=3)
+    row = guest_db.query(GuestDailyUsage).one()
+    assert len(row.ip_hash) == 64 and ip not in row.ip_hash
+
+
+def test_guest_distinct_ips_are_independent(guest_db):
+    guest_quota.check_and_increment_guest_quota(guest_db, "1.1.1.1", limit=1)
+    guest_quota.check_and_increment_guest_quota(guest_db, "1.1.1.1", limit=1)  # 1.1.1.1 now over
+    allowed, count = guest_quota.check_and_increment_guest_quota(guest_db, "2.2.2.2", limit=1)
+    assert allowed is True and count == 1  # a different IP has its own fresh bucket
+
+
+def test_guest_cap_resets_on_a_new_utc_day(guest_db):
+    ip, limit = "9.9.9.9", 3
+    for _ in range(limit + 1):  # exhaust today (4 hits; the last is blocked)
+        guest_quota.check_and_increment_guest_quota(guest_db, ip, limit)
+    assert guest_quota.check_and_increment_guest_quota(guest_db, ip, limit)[0] is False
+    # Backdate the row to yesterday; the next call is the first hit of a new UTC day → resets to 1.
+    row = guest_db.query(GuestDailyUsage).one()
+    row.usage_date = (datetime.now(timezone.utc) - timedelta(days=1)).date()
+    guest_db.commit()
+    allowed, count = guest_quota.check_and_increment_guest_quota(guest_db, ip, limit)
+    assert allowed is True and count == 1
+
+
+def test_guest_quota_fails_open_on_db_error(guest_db):
+    """A DB failure must never block a guest's summary — the cap fails open (allowed, count 0)."""
+    Base.metadata.drop_all(bind=guest_db.get_bind(), tables=[GuestDailyUsage.__table__])
+    allowed, count = guest_quota.check_and_increment_guest_quota(guest_db, "1.2.3.4", limit=3)
+    assert allowed is True and count == 0

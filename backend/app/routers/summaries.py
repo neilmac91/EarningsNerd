@@ -215,27 +215,32 @@ async def generate_summary_stream(
                 }
             )
 
-    # S5: per-IP daily quota for guests (flagged). Only reached when we're actually going to
-    # generate (a cached summary returned above and is not counted). Never gates the first
-    # summary — a new IP is always under the cap — and fails open if Redis is down.
+    # S5: durable per-IP daily quota for guests (flagged). Only reached when we're actually going to
+    # generate (a cached summary returned above and is not counted). Never gates the first summary —
+    # a new IP is always under the cap — and fails open on any DB error.
     from app.config import settings as _settings
-    # Skip when the client IP is unresolvable ("unknown" from a proxy/network config) — all such
-    # guests would otherwise share one quota key and exhaust the daily limit collectively.
-    if current_user is None and _settings.ENABLE_GUEST_DAILY_QUOTA and client_host != "unknown":
+    if current_user is None and _settings.ENABLE_GUEST_DAILY_QUOTA:
+        from app.services.rate_limiter import get_client_ip
         from app.services.guest_quota import check_and_increment_guest_quota
 
-        allowed, count = await check_and_increment_guest_quota(
-            client_host, _settings.GUEST_DAILY_SUMMARY_LIMIT
-        )
-        if not allowed:
-            logger.info(f"[stream:{filing_id}] Guest {client_host} over daily quota ({count}/{_settings.GUEST_DAILY_SUMMARY_LIMIT})")
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=(
-                    f"You've reached today's free limit of {_settings.GUEST_DAILY_SUMMARY_LIMIT} "
-                    "summaries. Create a free account to generate more."
-                ),
+        # Key on the TRUSTED client IP (real client from X-Forwarded-For), not request.client.host —
+        # behind Cloud Run the latter is the shared Google front-end address, so every guest would
+        # collapse onto one quota key. Skip when it's unresolvable ("unknown"), else all such guests
+        # would likewise share one key and exhaust the daily limit collectively.
+        trusted_ip = get_client_ip(request)
+        if trusted_ip != "unknown":
+            allowed, count = check_and_increment_guest_quota(
+                db, trusted_ip, _settings.GUEST_DAILY_SUMMARY_LIMIT
             )
+            if not allowed:
+                logger.info(f"[stream:{filing_id}] Guest over daily quota ({count}/{_settings.GUEST_DAILY_SUMMARY_LIMIT})")
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=(
+                        f"You've reached today's free limit of {_settings.GUEST_DAILY_SUMMARY_LIMIT} "
+                        "summaries. Create a free account to generate more."
+                    ),
+                )
 
     user_id = current_user.id if current_user else None
     logger.info(f"[stream:{filing_id}] Starting summary stream for user {user_id}")
