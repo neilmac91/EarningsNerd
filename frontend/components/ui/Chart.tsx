@@ -61,6 +61,8 @@ export interface ChartTheme {
   axis: string
   label: string
   crosshair: string
+  /** Bar-hover FILL wash (Tooltip cursor on bar charts) — chart.1 teal @ 8% / 16%. */
+  cursorFill: string
   ref: string
   tipBg: string
   tipBorder: string
@@ -81,6 +83,7 @@ export function chartTheme(dark: boolean): ChartTheme {
         axis: 'rgba(255,255,255,0.10)',
         label: '#9CA3AF', // text.secondary.dark — tertiary fails on navy
         crosshair: 'rgba(156,163,175,0.4)',
+        cursorFill: 'rgba(62,142,132,0.16)',
         ref: '#9CA3AF',
         tipBg: '#1F2937',
         tipBorder: 'rgba(255,255,255,0.10)',
@@ -96,6 +99,7 @@ export function chartTheme(dark: boolean): ChartTheme {
         axis: '#E5E7EB',
         label: '#6B7280', // text.tertiary — 4.6:1 on the card charts sit on
         crosshair: 'rgba(107,114,128,0.45)',
+        cursorFill: 'rgba(62,142,132,0.08)',
         ref: '#6B7280',
         tipBg: '#FBFAF6',
         tipBorder: '#E5E7EB',
@@ -168,14 +172,24 @@ export const yAxisProps = (dark: boolean) => ({
   tickLine: false as const,
   tick: tick(dark),
   tickMargin: 8,
+  // width 44 is a DEFAULT — currency/ticker labels routinely need more; spread
+  // first, then override: <YAxis {...yAxisProps(dark)} width={56} />
   width: 44,
 })
 
-/** Pass as Tooltip's `cursor` — the hover crosshair. */
+/** Pass as Tooltip's `cursor` — the hover crosshair. LINE charts only; a bar
+    hover needs a FILL wash, not a hairline — use barCursorProps. */
 export const crosshairProps = (dark: boolean) => ({
   stroke: chartTheme(dark).crosshair,
   strokeWidth: 1,
   strokeDasharray: '3 3',
+})
+
+/** Pass as Tooltip's `cursor` on BAR charts — the category-band fill wash
+    (chart.1 teal @ 8% light / 16% dark; the wash is a highlight, not a
+    series). Replaces the two hand-rolled rgba(62,142,132,…) app charts (v2.2). */
+export const barCursorProps = (dark: boolean) => ({
+  fill: chartTheme(dark).cursorFill,
 })
 
 /** Zero line for delta/surprise charts (solid). For other references use refLineProps. */

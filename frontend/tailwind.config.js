@@ -99,7 +99,9 @@ module.exports = {
         success: { light: '#15803D', dark: '#22C55E' }, // was #16A34A — 3.3:1 as text; green-700 holds 4.5:1 on cream
         warning: { light: '#92400E', dark: '#F59E0B' }, // was #B45309 — 3.8:1 inside its 13% tint; amber-800 holds 5.2:1 in-tint, 6.4:1 on cream
         error: { light: '#B91C1C', dark: '#F87171', emphasis: '#991B1B' }, // was #DC2626 (white label = 4.4:1); red-700 fill = 6.5:1, emphasis = destructive hover, 8.3:1
-        info: { light: '#2563EB', dark: '#60A5FA' },
+        // info.text (blue-700): the in-tint LABEL ink — #2563EB inside its own 10% tint
+        // is 4.3:1 on cream (icon/graphic only there); #1D4ED8 holds 5.6:1 in-tint, 6.0:1 bare.
+        info: { light: '#2563EB', text: '#1D4ED8', dark: '#60A5FA' },
 
         // ---- Categorical chart palette (subdued, warm-leaning, cohesive) ----
         // SEQUENCE, not a pick-list: series take 1→N in order, never skipped or re-sorted.
