@@ -129,7 +129,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
-  { variant = 'primary', size = 'md', loading = false, loadingText, leftIcon, rightIcon, className, children, onClick, ...rest },
+  { variant = 'primary', size = 'md', loading = false, loadingText, leftIcon, rightIcon, className, children, onClick, type = 'button', ...rest },
   ref,
 ) {
   const handleClick = (e: MouseEvent<HTMLButtonElement>) => {
@@ -143,6 +143,10 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   return (
     <button
       ref={ref}
+      // Default type='button' (the pre-v2 primitive's contract): a typeless
+      // <Button> inside a form must never become an implicit submit. Pass
+      // type="submit" explicitly where submission is intended.
+      type={type}
       onClick={handleClick}
       aria-busy={loading || undefined}
       aria-disabled={loading || undefined}
