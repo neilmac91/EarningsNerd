@@ -1,3 +1,21 @@
+# Task: Design-system v2 adoption pass (post-migration; PR-per-surface)
+
+## Task #24 — Adoption PR 1: filing summary surface onto the v2 component layer
+**Scope (approved):** recompose the filing page's building blocks on components/ui/* with ZERO
+behavior change — same data, same handlers, new composition. DESIGN_SYSTEM.md is canonical.
+- [ ] StatCard: container onto Card recipe (keep count-up + sparkline + chip API)
+- [ ] StatCard.Skeleton + filing-page ShimmeringLoader sites -> Skeleton/SkeletonText/SkeletonStat
+- [ ] FinancialCharts: Recharts chrome -> Chart factories (grid/axis/crosshair/ChartTooltip,
+      seriesColor sequence, lineProps(usePrefersReducedMotion()))
+- [ ] FinancialMetricsTable -> DataTable (numeric right-align, gain/loss cell tones)
+- [ ] Summary* empty states (ui/EmptyState) -> GuidanceCard variant="empty" (EmptyState itself
+      is deleted later, in PR 4, once admin importers migrate)
+- [ ] page-client error/retry cards -> GuidanceCard variant="error"
+- [ ] FundamentalsTrendChart chrome -> Chart factories (verify which page renders it first)
+- [ ] Gates: typecheck / lint --max-warnings 0 / vitest / build; renderable-surface screenshots
+      both themes; preview checklist for backend-dependent states
+**Review:** (filled in when done)
+
 # Task: Sharpen the AI reports via eval-gated prompt-prose waves (post-council activation)
 
 ## Task #23 — Revive YoY amplifier (guarded) — TESTED, DROPPED (no ship)
