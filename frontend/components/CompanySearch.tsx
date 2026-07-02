@@ -186,7 +186,7 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
           id="company-search-error"
           role="alert"
           aria-live="polite"
-          className="absolute z-10 mt-2 w-full rounded-xl border border-error-light/30 dark:border-error-dark/30 bg-panel-light dark:bg-error-dark/10 p-4 shadow-lg backdrop-blur-sm"
+          className="absolute z-10 mt-2 w-full rounded-xl border border-error-light/30 dark:border-error-dark/30 bg-panel-light dark:bg-error-dark/10 p-4 shadow-e3 dark:shadow-none backdrop-blur-sm"
         >
           <div className="flex items-start justify-between">
             <div className="flex-1">
@@ -212,7 +212,7 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
 
       {/* No Results Message */}
       {!isLoading && !isError && companies && companies.length === 0 && debouncedQuery.length > 0 && (
-        <div className="absolute z-10 mt-2 w-full rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/95 p-4 shadow-lg backdrop-blur-sm">
+        <div className="absolute z-10 mt-2 w-full rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/95 p-4 shadow-e3 dark:shadow-none backdrop-blur-sm">
           <div className="text-center text-text-secondary-light dark:text-text-secondary-dark">No companies found matching &quot;{debouncedQuery}&quot;</div>
         </div>
       )}
@@ -223,7 +223,7 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
           id="company-search-results"
           role="listbox"
           aria-label="Company results"
-          className="absolute z-10 mt-2 max-h-96 w-full overflow-y-auto rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/95 shadow-lg backdrop-blur-sm"
+          className="absolute z-10 mt-2 max-h-96 w-full overflow-y-auto rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/95 shadow-e3 dark:shadow-none backdrop-blur-sm"
         >
           {companies.map((company, index) => (
             <button

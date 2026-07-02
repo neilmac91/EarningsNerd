@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { SectionEmpty } from './SectionEmpty'
 import { renderMarkdownValue } from '@/lib/formatters'
 
 interface SummaryMDAProps {
@@ -9,7 +9,7 @@ interface SummaryMDAProps {
 }
 
 export function SummaryMDA({ content }: SummaryMDAProps) {
-  if (!content) return <EmptyState label="Management Discussion" />
+  if (!content) return <SectionEmpty label="Management Discussion" />
 
   return (
     <div className="prose max-w-none prose-slate dark:prose-invert text-text-secondary-light dark:text-text-secondary-dark">

@@ -2,7 +2,7 @@ import React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { SummaryBlock } from '@/components/SummaryBlock'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { SectionEmpty } from './SectionEmpty'
 
 interface SummaryLiquidityProps {
   liquidityContent: string | null
@@ -12,7 +12,7 @@ interface SummaryLiquidityProps {
 export function SummaryLiquidity({ liquidityContent, footnotesContent }: SummaryLiquidityProps) {
   const hasContent = Boolean(liquidityContent || footnotesContent)
   
-  if (!hasContent) return <EmptyState label="Liquidity & Capital" />
+  if (!hasContent) return <SectionEmpty label="Liquidity & Capital" />
 
   return (
     <div className="space-y-6">

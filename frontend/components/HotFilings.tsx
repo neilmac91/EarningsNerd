@@ -2,14 +2,14 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { formatDistanceToNowStrict } from 'date-fns'
-import { ArrowUpRightIcon, CalendarBlankIcon, PulseIcon, WarningIcon } from '@/lib/icons'
-import clsx from 'clsx'
+import { ArrowUpRightIcon, CalendarBlankIcon, PulseIcon } from '@/lib/icons'
 import Link from 'next/link'
 import posthog from 'posthog-js'
 
 import { getApiUrl } from '@/lib/api/client'
 import { FilingPulse, type Pulse } from '@/components/FilingPulse'
 import CompanyLogo from '@/components/CompanyLogo'
+import { Badge, Button, buttonVariants, GuidanceCard, Skeleton } from '@/components/ui'
 
 const API_BASE_URL = getApiUrl().replace(/\/$/, '')
 
@@ -79,46 +79,33 @@ export default function HotFilings({
 
   if (isLoading) {
     return (
-      <div className="space-y-2">
+      <div role="status" aria-label="Loading hot filings" className="space-y-2">
         {skeletonCards.map((_, index) => (
-          <div
-            key={index}
-            className="flex animate-pulse items-center justify-between rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 shadow-e1 dark:shadow-none px-4 py-4"
-          >
-            <div className="flex flex-col space-y-2">
-              <div className="h-4 w-40 rounded bg-brand-weak dark:bg-white/10" />
-              <div className="h-3 w-24 rounded bg-brand-weak dark:bg-white/10" />
-            </div>
-            <div className="h-6 w-16 rounded bg-brand-weak dark:bg-white/10" />
-          </div>
+          <Skeleton key={index} className="h-20 rounded-xl" />
         ))}
+        <span className="sr-only">Loading hot filings…</span>
       </div>
     )
   }
 
   if (error || !data) {
     return (
-      <div className="rounded-lg border border-error-light/40 dark:border-error-dark/40 bg-error-light/10 dark:bg-error-dark/10 p-4 text-sm text-error-light dark:text-error-dark">
-        <div className="flex items-center space-x-2">
-          <WarningIcon className="h-4 w-4" />
-          <p>Unable to load hot filings. Please try again soon.</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          className="mt-3 inline-flex items-center rounded-lg border border-border-light dark:border-white/20 px-3 py-1 text-xs font-medium text-text-primary-light dark:text-text-primary-dark transition hover:bg-brand-weak dark:hover:bg-white/10 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark "
-        >
-          Retry
-        </button>
-      </div>
+      <GuidanceCard
+        variant="error"
+        title="Unable to load hot filings"
+        description="Please try again soon."
+        action={
+          <Button variant="secondary" onClick={() => refetch()} loading={isRefetching} loadingText="Retrying…">
+            Retry
+          </Button>
+        }
+      />
     )
   }
 
   if (!data.filings || data.filings.length === 0) {
     return (
-      <p className="rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 shadow-e1 dark:shadow-none p-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-        No major filings in the last 24 hours.
-      </p>
+      <GuidanceCard variant="empty" title="No major filings" description="No major filings in the last 24 hours." />
     )
   }
 
@@ -131,7 +118,7 @@ export default function HotFilings({
         return (
           <div
             key={`${filing.filing_id}-${filing.filing_date}`}
-            className="glass-card group rounded-xl p-4 transition-all duration-base"
+            className="glass-card group rounded-xl p-4 transition duration-base"
           >
             <div className="flex items-start justify-between gap-4">
               <div>
@@ -158,20 +145,16 @@ export default function HotFilings({
                 <p className="mt-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">Filed {relative}</p>
 
                 {filing.sources?.length ? (
-                  <div className="mt-3 flex flex-wrap gap-2 text-[10px] uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">
+                  <div className="mt-3 flex flex-wrap gap-2">
                     {filing.sources.map((source) => (
-                      <span
+                      // `new` = the warning-tinted chip; icon overrides its pulse dot.
+                      <Badge
                         key={source}
-                        className={clsx(
-                          'inline-flex items-center gap-1 rounded-full border px-2 py-0.5',
-                          source === 'earnings_calendar'
-                            ? 'border-warning-light/30 dark:border-warning-dark/30 bg-warning-light/10 dark:bg-warning-dark/10 text-warning-light dark:text-warning-dark'
-                            : 'border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5'
-                        )}
+                        variant={source === 'earnings_calendar' ? 'new' : 'neutral'}
+                        icon={source === 'earnings_calendar' ? <CalendarBlankIcon className="h-3 w-3" /> : null}
                       >
-                        {source === 'earnings_calendar' && <CalendarBlankIcon className="h-3 w-3" />}
                         {formatSourceLabel(source)}
-                      </span>
+                      </Badge>
                     ))}
                   </div>
                 ) : null}
@@ -186,10 +169,10 @@ export default function HotFilings({
                     symbol: filing.symbol,
                     buzz_score: filing.buzz_score
                   })}
-                  className="mt-4 inline-flex items-center rounded-lg border border-border-light dark:border-white/10 px-3 py-1.5 text-xs font-semibold text-text-primary-light dark:text-text-primary-dark transition hover:border-brand-strong dark:hover:border-brand-dark hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark "
+                  className={buttonVariants({ variant: 'secondary', size: 'sm', className: 'mt-4' })}
                 >
                   View AI Summary
-                  <ArrowUpRightIcon className="ml-1 h-3 w-3" />
+                  <ArrowUpRightIcon className="h-3 w-3" />
                 </Link>
               </div>
             </div>
@@ -197,16 +180,11 @@ export default function HotFilings({
         )
       })}
 
-      <div className="flex items-center justify-between text-[10px] uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">
+      <div className="flex items-center justify-between text-xs uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">
         <span>Updated {formatDistanceToNowStrict(new Date(data.last_updated), { addSuffix: true })}</span>
-        <button
-          type="button"
-          onClick={() => refetch()}
-          disabled={isRefetching}
-          className="inline-flex items-center rounded-lg border border-border-light dark:border-white/10 px-2 py-1 text-[10px] font-semibold text-text-secondary-light dark:text-text-secondary-dark transition hover:border-brand-strong dark:hover:border-brand-dark hover:text-brand-strong dark:hover:text-brand-strong-dark disabled:opacity-60 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark "
-        >
-          {isRefetching ? 'Refreshing…' : 'Refresh'}
-        </button>
+        <Button variant="ghost" size="sm" onClick={() => refetch()} loading={isRefetching} loadingText="Refreshing…">
+          Refresh
+        </Button>
       </div>
     </div>
   )

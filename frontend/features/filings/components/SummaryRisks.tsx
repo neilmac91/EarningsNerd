@@ -1,6 +1,6 @@
 import React from 'react'
 import { SummaryBlock } from '@/components/SummaryBlock'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { SectionEmpty } from './SectionEmpty'
 import { SourceTrace } from '@/components/SourceTrace'
 import type { RiskFactor } from '@/types/summary'
 
@@ -29,7 +29,7 @@ function TraceToSource({ risk }: { risk: RiskFactor }) {
 }
 
 export function SummaryRisks({ risks }: SummaryRisksProps) {
-  if (!risks || risks.length === 0) return <EmptyState label="Risk Factors" />
+  if (!risks || risks.length === 0) return <SectionEmpty label="Risk Factors" />
 
   return (
     <div className="space-y-4">

@@ -2,14 +2,14 @@ import React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { SummaryBlock } from '@/components/SummaryBlock'
-import { EmptyState } from '@/components/ui/EmptyState'
+import { SectionEmpty } from './SectionEmpty'
 
 interface SummaryGuidanceProps {
   content: string | null
 }
 
 export function SummaryGuidance({ content }: SummaryGuidanceProps) {
-  if (!content) return <EmptyState label="Guidance & Outlook" />
+  if (!content) return <SectionEmpty label="Guidance & Outlook" />
 
   return (
     <SummaryBlock type="neutral" title="Forward-Looking Statements">

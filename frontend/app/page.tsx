@@ -15,6 +15,7 @@ import FeatureShowcase from '@/components/FeatureShowcase'
 import AccuracySection from '@/components/AccuracySection'
 import CtaBanner from '@/components/CtaBanner'
 import ExampleCtaLink from '@/components/ExampleCtaLink'
+import { Skeleton } from '@/components/ui'
 import { exampleFilingHref } from '@/lib/featureFlags'
 import {
   fetchExampleData,
@@ -65,16 +66,15 @@ const JSON_LD = {
   ],
 }
 
-// Rule 6.2: Hoist static skeleton components outside
+// Rule 6.2: Hoist static skeleton components outside. v2 Skeleton bones —
+// the old brand-weak bone fill is near-invisible on the cream page (DS §6).
 function HotFilingsSkeleton() {
   return (
     <div className="space-y-3" role="status" aria-live="polite" aria-label="Loading hot filings">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div
-          key={i}
-          className="h-28 animate-pulse rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5"
-        />
+        <Skeleton key={i} className="h-28 rounded-xl" />
       ))}
+      <span className="sr-only">Loading hot filings…</span>
     </div>
   )
 }
@@ -83,17 +83,15 @@ function TrendingTickersSkeleton() {
   return (
     <div role="status" aria-live="polite" aria-label="Loading market movers">
       <div className="mb-4 flex items-center gap-2">
-        <div className="h-5 w-5 animate-pulse rounded bg-brand-weak dark:bg-white/5" />
-        <div className="h-6 w-32 animate-pulse rounded bg-brand-weak dark:bg-white/5" />
+        <Skeleton className="h-5 w-5 rounded" />
+        <Skeleton className="h-6 w-32 rounded" />
       </div>
       <div className="flex gap-4 overflow-x-auto pb-2">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="h-28 w-52 flex-shrink-0 animate-pulse rounded-2xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5"
-          />
+          <Skeleton key={i} className="h-28 w-52 flex-shrink-0 rounded-2xl" />
         ))}
       </div>
+      <span className="sr-only">Loading market movers…</span>
     </div>
   )
 }
