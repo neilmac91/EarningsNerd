@@ -194,6 +194,7 @@ function TickerFilingsView({ ticker }: { ticker: string }) {
                 {Array.from({ length: 4 }).map((_, index) => (
                   <Skeleton key={index} className="h-20 rounded-2xl" />
                 ))}
+                <span className="sr-only">Loading filings…</span>
               </div>
             )}
 
@@ -826,7 +827,9 @@ function StreamingSummaryDisplay({
     return (
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-e2 dark:shadow-none border border-border-light dark:border-white/10 p-8">
-          <div role="status" aria-label="Loading" className="space-y-6">
+          {/* SkeletonText carries its own role="status" — the wrapper must stay
+              role-less so live regions never nest. */}
+          <div className="space-y-6">
             <Skeleton className="h-6 w-1/3" />
             <SkeletonText lines={3} />
             <Skeleton className="h-32 rounded-lg" />
@@ -1387,11 +1390,9 @@ function SummaryDisplay({
 
 function SummarySectionsSkeleton() {
   return (
-    <div
-      role="status"
-      aria-label="Loading summary sections"
-      className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-e2 dark:shadow-none border border-border-light dark:border-white/10 p-6 space-y-4"
-    >
+    // SkeletonText carries its own role="status" — the wrapper must stay
+    // role-less so live regions never nest.
+    <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-e2 dark:shadow-none border border-border-light dark:border-white/10 p-6 space-y-4">
       <Skeleton className="h-4 w-32" />
       <SkeletonText lines={3} />
     </div>
