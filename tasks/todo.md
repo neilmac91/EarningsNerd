@@ -1,5 +1,31 @@
 # Task: Design-system v2 adoption pass (post-migration; PR-per-surface)
 
+## Task #26 — Adoption PR 3: company page onto the v2 component layer
+**Scope (approved pass, PR 3 of 5):** app/company/[ticker]/page-client.tsx + PeerComparisonPanel +
+InsiderActivityPanel, ZERO behavior change. Out of scope (recon): CompanyLogo + UnverifiedBadge
+(shared leaves, high blast radius — UnverifiedBadge's raw amber flagged upstream: Badge needs a
+warning variant), financialTone wiring (already correct), accordion year-toggles + filter chips +
+panel toggles (token-compliant segmented controls; tests pin button roles/names like "1Y").
+- [ ] page-client: filings section + year-groups + filing rows -> Card recipe (rounded-lg->xl,
+      shadow-sm->e2; kill the 10-K row brand-weak fill); recommended banner -> Card e3 (kill the
+      banned gradient + brand-weak-as-fill); header shadow-sm -> e2
+- [ ] page-client: 3 full-page states (invalid ticker / not found / unsupported-foreign) ->
+      GuidanceCard + buttonVariants home actions; filings error/empty (inside the section card) ->
+      inline pattern with role=alert/status; spinners -> Skeleton bones (role=status + sr-only)
+- [ ] page-client: Summarize/Generate/SEC-EDGAR/back-home links -> buttonVariants; Retry -> Button;
+      watchlist star kept raw if token-clean (aria-pressed/label are load-bearing)
+- [ ] page-client: Recommended pills -> Badge; filing-type badges -> Badge tonal map (icon null)
+- [ ] PeerComparisonPanel: section -> Card recipe on semantic <section>; local hexes -> seriesColor/
+      chartTheme/axis factories; hand-built tooltip -> ChartTooltip; spinner -> Skeleton; PRESERVE
+      data-testid="peers-chart", "Sector Peers" h2, rank sentence, Unverified text
+- [ ] InsiderActivityPanel: both sections -> Card recipe; transactions <table> -> DataTable
+      (Shares/Value numeric right, Type tone gain/loss, 10b5-1 -> Badge neutral keeping the literal);
+      spinner -> Skeleton; PRESERVE "1Y" button name, "Jane Doe"/"10b5-1" row text, null-when-empty
+- [ ] Gates: typecheck / lint / vitest (peer + insider specs) / build (with chart+insider flags on);
+      both-theme Playwright render of the real public /company/AAPL route with fixture APIs
+      (filings = BARE array; peers/insiders = {.peers}/{.transactions} envelopes; auth/me user)
+**Review:** (filled in when done)
+
 ## Task #25 — Adoption PR 2: dashboard surface onto the v2 component layer
 **Scope (approved pass, PR 2 of 5):** recompose /dashboard, /dashboard/settings, /dashboard/watchlist
 + components/dashboard/* + components/settings/* + components/watchlist/* onto components/ui/* with
