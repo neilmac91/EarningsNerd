@@ -106,9 +106,12 @@
     font-feature-settings: 'tnum' 1;
   }
 
-  /* Apple-style numeric alignment: SAME face as body, tabular figures.
-     Recommended for data tables + KPI tiles. `.tabular` (mono) keeps the
-     evidence register: tickers, XBRL anchors, verbatim filing excerpts. */
+  /* Apple-style numeric alignment: tabular figures in the CURRENT (body) face —
+     for numerals living inside prose and UI copy (a pricing line, a sentence
+     quoting a figure). NOT the recipe for data tables or KPI tiles: money, %,
+     tickers and data columns take the MONO evidence register (`.tabular` /
+     font-data — DataTable numeric cells and StatCard figures render mono).
+     Data surfaces that are already mono add .tnum only for the tabular flag. */
   .tnum {
     font-variant-numeric: tabular-nums;
     font-feature-settings: 'tnum' 1;

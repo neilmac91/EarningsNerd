@@ -5,6 +5,7 @@ export {
   type InputProps, type TextareaProps, type SelectProps, type InputClassesOptions,
 } from './Input'
 export { Card, CardHeader, CardTitle, CardBody, CardFooter, type CardProps } from './Card'
+export { Notice, type NoticeProps, type NoticeVariant } from './Notice'
 export { DataTable, type DataTableProps, type Column, type CellTone, type SortState, type Density } from './DataTable'
 export { Skeleton, SkeletonText, SkeletonStat } from './Skeleton'
 // v2.1: ui/StateCard renamed → GuidanceCard (collision with the app's own
@@ -16,7 +17,7 @@ export {
   // with the app's directionOf). Sparkline renamed → TrendSparkline (the app
   // owns components/charts/Sparkline.tsx with different props).
   CHART_SERIES, CHART_FONT, seriesColor, chartTheme, directionTone, directionTextTone,
-  gridProps, xAxisProps, yAxisProps, crosshairProps, zeroLineProps, refLineProps, lineProps,
+  gridProps, xAxisProps, yAxisProps, crosshairProps, barCursorProps, zeroLineProps, refLineProps, lineProps,
   ChartTooltip, TrendSparkline,
   type ChartTheme, type Direction, type ChartTooltipProps, type TrendSparklineProps,
 } from './Chart'

@@ -3,67 +3,79 @@
 /* =============================================================================
    AskFilingAnswer — components/AskFilingAnswer.tsx
    -----------------------------------------------------------------------------
-   The "Ask this Filing" answer block. Evidence-first identity: the header tile
-   is the QUOTES glyph (the product's proof marker) — sparkles are reserved for
-   small AI chips elsewhere. The answer body and citation excerpts render in the
-   data face (mono + tabular-nums), matching the .copilot-answer rule in
-   globals.css. `[n]` markers in the answer text become tappable brand-tint
-   chips (brand.weak bg + brand.strong text); every claim deep-links back to
-   the filing. Persistent compliance footer.
-   Citations come in two kinds — verbatim EXCERPTS (quote rail) and XBRL
-   ANCHORS (tag glyph + concept in the data face + tabular value/period,
-   deep-linked to the EDGAR inline viewer). Inline [n] chips are identical
-   regardless of kind; both resolve the same way while streaming.
-   States: loading (mono skeleton) / streaming (caret; citations pending) /
-   complete (answer + evidence footnotes) / error (retry — quota preserved).
+   v2.2 REWORK — rebuilt against the SHIPPED copilot data model. The v2 pack
+   shipped an `id: number`/plain-text model that predated the API and had zero
+   importers; the live renderer (CopilotMessage, pinned by 9 test suites)
+   defines the contract this file now matches:
+
+     - CopilotCitation { n, excerpt, section_ref, verified, fragment_url } —
+       marker ids are `n` (1, 2… for excerpts; "F1"/"F 2" for XBRL facts).
+     - status: 'reading' | 'streaming' | 'done' | 'error'.
+     - answer is GFM MARKDOWN — react-markdown + remark-gfm (already app deps
+       via the live copilot; this file adds no new dependency to the app).
+     - Marker grammar: [n] AND [F1]/[f1]/[F 1] — case/whitespace tolerant.
+       UNMATCHED markers stay literal text (never a dead button). Chips show
+       the bracketed marker "[1]" / "[F1]", not a bare superscript number.
+     - `verified` is the product's TRUST MARKER — never drop it. Each citation
+       carries a Verified badge (brand tint + check: the excerpt re-matched the
+       filing server-side) or a quiet Cited badge (linked, not machine-
+       verified); the footer counts verified claims.
+
+   Evidence-first identity: the header tile is the QUOTES glyph (sparkles stay
+   reserved for the "AI summary" chip). Answer + excerpts render in the data
+   face (mono + tabular-nums; the .copilot-answer rule in globals.css). XBRL
+   facts — `section_ref` starting with "XBRL" — swap the quote rail for the
+   tag glyph + concept anchor. Persistent compliance footer.
+   States: reading (mono skeleton) / streaming (caret; citations pending) /
+   done (markdown + chips + evidence footnotes) / error (retry — quota
+   preserved).
 ============================================================================= */
 
-import { type ReactNode, useEffect, useRef, useState } from 'react'
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+} from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { cx } from './ui/cx'
 import { Badge } from './ui/Badge'
 import { Button } from './ui/Button'
 import { SkeletonText } from './ui/Skeleton'
 
-export type AskFilingStatus = 'loading' | 'streaming' | 'complete' | 'error'
+export type CopilotStatus = 'reading' | 'streaming' | 'done' | 'error'
 
-export interface ExcerptCitation {
-  id: number
-  kind?: 'excerpt'
-  /** Verbatim filing excerpt. */
+export interface CopilotCitation {
+  /** Marker id as the API emits it — 1, 2… for excerpts; "F1" / "F 2" (any
+      case/spacing) for XBRL facts. NOT an `id: number`. */
+  n: number | string
+  /** Verbatim filing excerpt — or the fact's value/period line for XBRL anchors. */
   excerpt: string
-  /** e.g. "10-K · Item 1A · p. 24" */
-  source: string
-  href?: string
+  /** Locator, e.g. "10-K · Item 1A · p. 24". XBRL anchors START WITH "XBRL". */
+  section_ref: string | null
+  /** true = the excerpt re-matched the filing text server-side. Drives the
+      Verified/Cited trust badge — the product's trust marker. */
+  verified: boolean
+  /** EDGAR deep link; null renders a non-linked locator, never a dead anchor. */
+  fragment_url: string | null
 }
-
-export interface XbrlCitation {
-  id: number
-  kind: 'xbrl'
-  /** Tagged concept, e.g. "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax" */
-  concept: string
-  /** Reported value, pre-formatted — e.g. "$130,497M" */
-  value: string
-  /** e.g. "USD" — omit when the formatted value already carries it */
-  unit?: string
-  /** e.g. "FY2025 · 12 mo ended Jan 26, 2025" */
-  period: string
-  /** EDGAR inline-viewer deep link to the tagged fact. */
-  href: string
-}
-
-export type FilingCitation = ExcerptCitation | XbrlCitation
 
 export interface AskFilingAnswerProps {
   question: string
-  status: AskFilingStatus
-  /** Plain text with [1] [2] citation markers. */
+  status: CopilotStatus
+  /** GFM markdown with [n] / [F#] citation markers. */
   answer?: string
-  citations?: FilingCitation[]
+  citations?: CopilotCitation[]
   /** e.g. "NVDA · 10-K · FY2025" */
   filingLabel?: string
   errorMessage?: string
   onRetry?: () => void
-  onCitationClick?: (id: number) => void
+  /** Receives the matched citation's `n` (1 · "F1" · …). */
+  onCitationClick?: (n: CopilotCitation['n']) => void
   className?: string
 }
 
@@ -72,35 +84,173 @@ const CHIP = cx(
   'dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark',
 )
 
-/** Split answer text on [n] markers and render them as citation chips.
-    Guards nullish text — in the streaming state the first token may not have
-    arrived yet (answer undefined/null), which must render as empty, not crash. */
-function renderAnswer(text: string | null | undefined, onCitationClick?: (id: number) => void): ReactNode[] {
-  if (!text) return []
-  return text.split(/(\[\d+\])/g).map((part, i) => {
-    const m = part.match(/^\[(\d+)\]$/)
-    if (!m) return part
-    const id = Number(m[1])
+const LINK = cx(
+  'text-xs font-semibold text-brand-strong underline-offset-4 hover:underline',
+  'focus-visible:outline-none focus-visible:shadow-ring-brand',
+  'dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark',
+)
+
+/* ------------------------------------------------------- marker grammar -- */
+
+/** [1] · [F1] · [f1] · [F 1] — case/whitespace tolerant (split, capturing). */
+const MARKER_SPLIT = /(\[\s*[Ff]?\s*\d+\s*\])/g
+const MARKER_EXACT = /^\[\s*[Ff]?\s*\d+\s*\]$/
+
+/** Normalize both sides of the match: "[F 1]" → "F1", "[3]" → "3". */
+function markerKey(raw: string): string {
+  return raw.replace(/[[\]\s]/g, '').toUpperCase()
+}
+
+type CitationIndex = Map<string, CopilotCitation>
+
+function buildIndex(citations: CopilotCitation[]): CitationIndex {
+  const index: CitationIndex = new Map()
+  for (const c of citations) index.set(markerKey(`[${String(c.n)}]`), c)
+  return index
+}
+
+/** Split a text run on citation markers; matched markers become chips showing
+    the bracketed marker ("[1]" / "[F1]"); unmatched markers stay literal text —
+    never a dead button. */
+function renderMarkers(
+  text: string,
+  index: CitationIndex,
+  onCitationClick?: (n: CopilotCitation['n']) => void,
+): ReactNode {
+  const parts = text.split(MARKER_SPLIT)
+  if (parts.length === 1) return text
+  return parts.map((part, i) => {
+    if (!MARKER_EXACT.test(part)) return part
+    const key = markerKey(part)
+    const c = index.get(key)
+    if (!c) return part
     return (
       <button
         key={i}
         type="button"
-        onClick={() => onCitationClick?.(id)}
-        aria-label={`Citation ${id}`}
+        onClick={() => onCitationClick?.(c.n)}
+        aria-label={`Citation ${key}${c.verified ? ', verified' : ''}`}
         // Inline citation markers fall under the WCAG 2.5.8 "inline" exception
         // (targets within a line of text) — sized 18px for comfort, no fake
         // 44px overlay that would collide with neighboring prose.
         className={cx(
-          'mx-0.5 inline-flex h-[18px] min-w-[18px] -translate-y-0.5 items-center justify-center rounded px-1 align-middle text-[10px] font-semibold',
+          'mx-0.5 inline-flex h-[18px] min-w-[18px] -translate-y-0.5 items-center justify-center rounded px-1 align-middle font-data text-[10px] font-semibold',
           CHIP,
           'hover:bg-brand-border/60 focus-visible:outline-none focus-visible:shadow-ring-brand',
           'dark:hover:bg-brand-border-dark dark:focus-visible:shadow-ring-brand-dark',
         )}
       >
-        {id}
+        {`[${key}]`}
       </button>
     )
   })
+}
+
+/** Map string children (and string items of arrays) through renderMarkers;
+    element children are handled by their own component overrides. */
+function withMarkers(
+  children: ReactNode,
+  index: CitationIndex,
+  onCitationClick?: (n: CopilotCitation['n']) => void,
+): ReactNode {
+  if (typeof children === 'string') return renderMarkers(children, index, onCitationClick)
+  if (Array.isArray(children)) {
+    return children.map((child, i) =>
+      typeof child === 'string' ? (
+        <Fragment key={i}>{renderMarkers(child, index, onCitationClick)}</Fragment>
+      ) : (
+        child
+      ),
+    )
+  }
+  return children
+}
+
+/* --------------------------------------------------- markdown components -- */
+
+type MdExtra = { node?: unknown }
+
+/** GFM answer manners inside the mono register: quiet block rhythm, reader-
+    style hairline tables, brand links. Every text-bearing element routes its
+    string children through the marker grammar. Markers inside `code` stay
+    literal by design (verbatim register). */
+function buildMdComponents(index: CitationIndex, onCitationClick?: (n: CopilotCitation['n']) => void) {
+  const marked = (children: ReactNode) => withMarkers(children, index, onCitationClick)
+  return {
+    p: ({ node: _n, children, ...rest }: ComponentProps<'p'> & MdExtra) => (
+      <p {...rest} className="mb-3 last:mb-0">
+        {marked(children)}
+      </p>
+    ),
+    ul: ({ node: _n, children, ...rest }: ComponentProps<'ul'> & MdExtra) => (
+      <ul {...rest} className="mb-3 list-disc space-y-1 pl-5 last:mb-0">
+        {children}
+      </ul>
+    ),
+    ol: ({ node: _n, children, ...rest }: ComponentProps<'ol'> & MdExtra) => (
+      <ol {...rest} className="tnum mb-3 list-decimal space-y-1 pl-5 last:mb-0">
+        {children}
+      </ol>
+    ),
+    li: ({ node: _n, children, ...rest }: ComponentProps<'li'> & MdExtra) => (
+      <li {...rest}>{marked(children)}</li>
+    ),
+    strong: ({ node: _n, children, ...rest }: ComponentProps<'strong'> & MdExtra) => (
+      <strong {...rest} className="font-semibold">
+        {marked(children)}
+      </strong>
+    ),
+    em: ({ node: _n, children, ...rest }: ComponentProps<'em'> & MdExtra) => (
+      <em {...rest}>{marked(children)}</em>
+    ),
+    del: ({ node: _n, children, ...rest }: ComponentProps<'del'> & MdExtra) => (
+      <del {...rest}>{marked(children)}</del>
+    ),
+    a: ({ node: _n, children, ...rest }: ComponentProps<'a'> & MdExtra) => (
+      <a {...rest} className={cx(LINK, 'text-sm underline')}>
+        {marked(children)}
+      </a>
+    ),
+    blockquote: ({ node: _n, children, ...rest }: ComponentProps<'blockquote'> & MdExtra) => (
+      <blockquote
+        {...rest}
+        className="mb-3 border-l-2 border-brand-border pl-3 text-text-secondary-light last:mb-0 dark:border-brand-border-dark dark:text-text-secondary-dark"
+      >
+        {children}
+      </blockquote>
+    ),
+    table: ({ node: _n, children, ...rest }: ComponentProps<'table'> & MdExtra) => (
+      <table {...rest} className="mb-3 w-full border-collapse text-xs last:mb-0">
+        {children}
+      </table>
+    ),
+    th: ({ node: _n, children, ...rest }: ComponentProps<'th'> & MdExtra) => (
+      // Reader-table manners: hairline rows only, 12px-register uppercase header.
+      <th
+        {...rest}
+        className="border-b border-border-light px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-text-tertiary-light dark:border-border-dark dark:text-text-secondary-dark"
+      >
+        {marked(children)}
+      </th>
+    ),
+    td: ({ node: _n, children, ...rest }: ComponentProps<'td'> & MdExtra) => (
+      // GFM column alignment arrives as the `align` attribute via ...rest.
+      <td {...rest} className="tnum border-b border-border-light px-2 py-1.5 align-top dark:border-border-dark">
+        {marked(children)}
+      </td>
+    ),
+  }
+}
+
+/* ------------------------------------------------------------------ svg -- */
+
+function QuotesIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4" aria-hidden="true">
+      <path d="M10.4 7.2c-3 .8-4.9 3-4.9 6.1 0 2 1.3 3.5 3.1 3.5 1.6 0 2.9-1.2 2.9-2.9 0-1.5-1-2.6-2.5-2.8.3-1.2 1.3-2.2 2.7-2.7l-1.3-1.2z" />
+      <path d="M18.4 7.2c-3 .8-4.9 3-4.9 6.1 0 2 1.3 3.5 3.1 3.5 1.6 0 2.9-1.2 2.9-2.9 0-1.5-1-2.6-2.5-2.8.3-1.2 1.3-2.2 2.7-2.7l-1.3-1.2z" />
+    </svg>
+  )
 }
 
 /** XBRL anchor marker — outline tag, matches Phosphor regular weight. */
@@ -118,14 +268,38 @@ function TagIcon() {
   )
 }
 
-function QuotesIcon() {
+function CheckIcon() {
   return (
-    <svg viewBox="0 0 24 24" fill="currentColor" className="h-4 w-4" aria-hidden="true">
-      <path d="M10.4 7.2c-3 .8-4.9 3-4.9 6.1 0 2 1.3 3.5 3.1 3.5 1.6 0 2.9-1.2 2.9-2.9 0-1.5-1-2.6-2.5-2.8.3-1.2 1.3-2.2 2.7-2.7l-1.3-1.2z" />
-      <path d="M18.4 7.2c-3 .8-4.9 3-4.9 6.1 0 2 1.3 3.5 3.1 3.5 1.6 0 2.9-1.2 2.9-2.9 0-1.5-1-2.6-2.5-2.8.3-1.2 1.3-2.2 2.7-2.7l-1.3-1.2z" />
+    <svg viewBox="0 0 24 24" fill="none" className="h-2.5 w-2.5" aria-hidden="true">
+      <path d="m5 12.5 4.5 4.5L19 7.5" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
+
+/** The trust marker. Verified = the excerpt re-matched the filing (brand tint —
+    trust reads as evidence, not success-green); Cited = linked, not machine-
+    verified (quiet chip). */
+function TrustBadge({ verified }: { verified: boolean }) {
+  return verified ? (
+    <span className={cx('inline-flex items-center gap-1 rounded-full border px-2 py-px text-[10.5px] font-semibold', CHIP)}>
+      <CheckIcon />
+      Verified
+    </span>
+  ) : (
+    <span className="inline-flex items-center rounded-full border border-border-light bg-white px-2 py-px text-[10.5px] font-medium text-text-secondary-light dark:border-border-dark dark:bg-white/5 dark:text-text-secondary-dark">
+      Cited
+    </span>
+  )
+}
+
+/* ------------------------------------------------------------ component -- */
+
+/** Streaming caret, kept INLINE at the end of the last markdown block. */
+const STREAM_CARET = cx(
+  "[&>:last-child]:after:ml-1 [&>:last-child]:after:inline-block [&>:last-child]:after:h-4 [&>:last-child]:after:w-[7px] [&>:last-child]:after:translate-y-0.5 [&>:last-child]:after:content-['']",
+  '[&>:last-child]:after:animate-pulse motion-reduce:[&>:last-child]:after:animate-none',
+  '[&>:last-child]:after:bg-brand-strong dark:[&>:last-child]:after:bg-brand-strong-dark',
+)
 
 export function AskFilingAnswer({
   question,
@@ -138,21 +312,25 @@ export function AskFilingAnswer({
   onCitationClick,
   className,
 }: AskFilingAnswerProps) {
-  const busy = status === 'loading' || status === 'streaming'
+  const busy = status === 'reading' || status === 'streaming'
 
   // Skeleton→content handoff (same pattern as DataTable): when status leaves
-  // 'loading', the replacing body — answer or error card — crossfades in at
+  // 'reading', the replacing body — answer or error card — crossfades in at
   // duration-base / ease-standard; instant under reduced motion.
-  const wasLoading = useRef(status === 'loading')
+  const wasReading = useRef(status === 'reading')
   const [entered, setEntered] = useState(false)
   useEffect(() => {
-    const isLoading = status === 'loading'
-    if (wasLoading.current && !isLoading) setEntered(true)
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot skeleton→content crossfade armed on the loading flip; intentional sync with the status prop
-    if (isLoading) setEntered(false)
-    wasLoading.current = isLoading
+    const isReading = status === 'reading'
+    if (wasReading.current && !isReading) setEntered(true)
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot skeleton→content crossfade armed on the reading flip; intentional sync
+    if (isReading) setEntered(false)
+    wasReading.current = isReading
   }, [status])
   const enterClass = entered ? 'animate-content-in motion-reduce:animate-none' : undefined
+
+  const index = useMemo(() => buildIndex(citations), [citations])
+  const mdComponents = useMemo(() => buildMdComponents(index, onCitationClick), [index, onCitationClick])
+  const verifiedCount = citations.filter((c) => c.verified).length
 
   return (
     <section
@@ -179,22 +357,19 @@ export function AskFilingAnswer({
       <div className="flex-1 px-5 py-4">
         <p className="mb-3 text-sm font-semibold">{question}</p>
 
-        {status === 'loading' ? <SkeletonText lines={4} mono /> : null}
+        {status === 'reading' ? <SkeletonText lines={4} mono /> : null}
 
-        {status === 'streaming' || status === 'complete' ? (
+        {status === 'streaming' || status === 'done' ? (
           <div
             className={cx(
               'copilot-answer tnum font-data text-sm leading-7 text-text-primary-light dark:text-text-primary-dark',
+              status === 'streaming' ? STREAM_CARET : undefined,
               enterClass,
             )}
           >
-            {renderAnswer(answer, onCitationClick)}
-            {status === 'streaming' ? (
-              <span
-                aria-hidden="true"
-                className="ml-0.5 inline-block h-4 w-[7px] translate-y-0.5 animate-pulse bg-brand-strong motion-reduce:animate-none dark:bg-brand-strong-dark"
-              />
-            ) : null}
+            <ReactMarkdown remarkPlugins={[remarkGfm]} components={mdComponents}>
+              {answer}
+            </ReactMarkdown>
           </div>
         ) : null}
 
@@ -204,68 +379,68 @@ export function AskFilingAnswer({
           </p>
         ) : null}
 
-        {status === 'complete' && citations.length > 0 ? (
+        {status === 'done' && citations.length > 0 ? (
           <ol className="mt-4 space-y-3 border-t border-border-light pt-4 dark:border-border-dark">
-            {citations.map((c) => (
-              <li key={c.id} className="flex gap-2.5">
-                <span
-                  className={cx(
-                    'flex h-[18px] w-[18px] flex-none items-center justify-center rounded border text-[10px] font-semibold',
-                    CHIP,
-                  )}
-                >
-                  {c.id}
-                </span>
-                {c.kind === 'xbrl' ? (
-                  <div className="min-w-0">
-                    {/* Same brand-tint rail as excerpts; tag glyph replaces the quote register. */}
-                    <div className="border-l-2 border-brand-border pl-3 dark:border-brand-border-dark">
-                      <div className="flex items-start gap-1.5">
-                        <span className="mt-px text-brand-strong dark:text-brand-strong-dark">
-                          <TagIcon />
-                        </span>
-                        <span className="min-w-0 break-all font-data text-data-xs text-text-secondary-light dark:text-text-secondary-dark">
-                          {c.concept}
-                        </span>
+            {citations.map((c, i) => {
+              const key = markerKey(`[${String(c.n)}]`)
+              const xbrl = c.section_ref?.startsWith('XBRL') ?? false
+              return (
+                <li key={`${key}-${i}`} className="flex gap-2.5">
+                  <span
+                    className={cx(
+                      'flex h-[18px] min-w-[18px] flex-none items-center justify-center rounded border px-1 font-data text-[10px] font-semibold',
+                      CHIP,
+                    )}
+                  >
+                    {`[${key}]`}
+                  </span>
+                  {xbrl ? (
+                    <div className="min-w-0">
+                      {/* Same brand-tint rail as excerpts; tag glyph replaces the quote register. */}
+                      <div className="border-l-2 border-brand-border pl-3 dark:border-brand-border-dark">
+                        <div className="flex items-start gap-1.5">
+                          <span className="mt-px text-brand-strong dark:text-brand-strong-dark">
+                            <TagIcon />
+                          </span>
+                          <span className="min-w-0 break-all font-data text-data-xs text-text-secondary-light dark:text-text-secondary-dark">
+                            {c.section_ref}
+                          </span>
+                        </div>
+                        <p className="tnum mt-1 font-data text-xs leading-relaxed text-text-primary-light dark:text-text-primary-dark">
+                          {c.excerpt}
+                        </p>
                       </div>
-                      <p className="tnum mt-1 font-data text-xs leading-relaxed text-text-primary-light dark:text-text-primary-dark">
-                        {c.value}
-                        {c.unit ? (
-                          <span className="text-text-tertiary-light dark:text-text-secondary-dark"> {c.unit}</span>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        {c.fragment_url ? (
+                          <a href={c.fragment_url} onClick={() => onCitationClick?.(c.n)} className={LINK}>
+                            XBRL · EDGAR viewer ↗
+                          </a>
                         ) : null}
-                        <span className="text-text-tertiary-light dark:text-text-secondary-dark"> · {c.period}</span>
-                      </p>
+                        <TrustBadge verified={c.verified} />
+                      </div>
                     </div>
-                    <a
-                      href={c.href}
-                      onClick={() => onCitationClick?.(c.id)}
-                      className="mt-1 inline-block text-xs font-semibold text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
-                    >
-                      XBRL · EDGAR viewer ↗
-                    </a>
-                  </div>
-                ) : (
-                <div className="min-w-0">
-                  <blockquote className="border-l-2 border-brand-border pl-3 font-data text-xs leading-relaxed text-text-secondary-light dark:border-brand-border-dark dark:text-text-secondary-dark">
-                    “{c.excerpt}”
-                  </blockquote>
-                  {c.href ? (
-                    <a
-                      href={c.href}
-                      onClick={() => onCitationClick?.(c.id)}
-                      className="mt-1 inline-block text-xs font-semibold text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
-                    >
-                      {c.source} ↗
-                    </a>
                   ) : (
-                    <span className="mt-1 inline-block text-xs font-medium text-text-tertiary-light dark:text-text-secondary-dark">
-                      {c.source}
-                    </span>
+                    <div className="min-w-0">
+                      <blockquote className="border-l-2 border-brand-border pl-3 font-data text-xs leading-relaxed text-text-secondary-light dark:border-brand-border-dark dark:text-text-secondary-dark">
+                        “{c.excerpt}”
+                      </blockquote>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        {c.fragment_url ? (
+                          <a href={c.fragment_url} onClick={() => onCitationClick?.(c.n)} className={LINK}>
+                            {c.section_ref ?? 'View in filing'} ↗
+                          </a>
+                        ) : c.section_ref ? (
+                          <span className="text-xs font-medium text-text-tertiary-light dark:text-text-secondary-dark">
+                            {c.section_ref}
+                          </span>
+                        ) : null}
+                        <TrustBadge verified={c.verified} />
+                      </div>
+                    </div>
                   )}
-                </div>
-                )}
-              </li>
-            ))}
+                </li>
+              )
+            })}
           </ol>
         ) : null}
 
@@ -291,9 +466,9 @@ export function AskFilingAnswer({
 
       <footer className="flex items-center justify-between gap-3 border-t border-border-light px-5 py-2.5 text-[11px] text-text-tertiary-light dark:border-border-dark dark:text-text-secondary-dark">
         <span>Data sourced from SEC EDGAR. Not investment advice.</span>
-        {status === 'complete' && citations.length > 0 ? (
+        {status === 'done' && citations.length > 0 ? (
           <span className="font-data">
-            {citations.length} citation{citations.length === 1 ? '' : 's'}
+            {citations.length} citation{citations.length === 1 ? '' : 's'} · {verifiedCount} verified
           </span>
         ) : null}
       </footer>

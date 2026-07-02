@@ -7,10 +7,13 @@
    — and never hover:opacity. Focus-visible = brand ring for keyboard users.
 ============================================================================= */
 
-import { type HTMLAttributes } from 'react'
+import { type ElementType, type HTMLAttributes } from 'react'
 import { cx } from './cx'
 
-export interface CardProps extends HTMLAttributes<HTMLDivElement> {
+export interface CardProps extends HTMLAttributes<HTMLElement> {
+  /** Semantic element to render — `<Card as="section">` (v2.2: three app sites
+      hand-copied the recipe onto <section>/<article> before this existed). */
+  as?: ElementType
   /** Hover/active/focus affordances for clickable cards (wrap in <a>/<button> for semantics). */
   interactive?: boolean
   elevation?: 'e1' | 'e2' | 'e3'
@@ -18,9 +21,9 @@ export interface CardProps extends HTMLAttributes<HTMLDivElement> {
 
 const ELEVATION = { e1: 'shadow-e1', e2: 'shadow-e2', e3: 'shadow-e3' } as const
 
-export function Card({ interactive = false, elevation = 'e2', className, ...rest }: CardProps) {
+export function Card({ as: Tag = 'div', interactive = false, elevation = 'e2', className, ...rest }: CardProps) {
   return (
-    <div
+    <Tag
       className={cx(
         'rounded-xl border border-border-light bg-panel-light',
         ELEVATION[elevation],

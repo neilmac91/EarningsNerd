@@ -1,5 +1,52 @@
 # Task: Design-system v2 adoption pass (post-migration; PR-per-surface)
 
+## Task #29 — DS v2.2 sync + adoption + brand refresh (four PRs; approved plan)
+**Plan approved by Neil** (full spec: session plan file). Pack = ds-v2.2 upload; new brand = 9
+sage monogram SVGs. Scope decisions: copilot surface upgrades to AskFilingAnswer's DESIGN with a
+ZERO-functionality-loss mandate (CopilotMessage machinery stays); hero search standardizes onto
+inputClasses({leadingIcon}); FULL email retheme to the cream brand.
+- [x] **PR A — pack sync (guarded):** take Badge(+solid/info/warning)/Card(as)/Chart(barCursor)/
+      Notice(new)/index/AskFilingAnswer(rewrite)/DESIGN_SYSTEM wholesale; Input = pack + re-apply
+      boolean-error guard x4; tailwind = info.text hunk ONLY (no brand.light); globals = .tnum
+      comment only; CLAUDE.md spliced + augmented to v2.2; Button/DataTable KEPT (pack regressions).
+      Grep gates: guard x4, type-default, no brand.light, info.text present.
+- [ ] **PR B — adoption:** StateCard->Notice x12 + delete (+ drop PricingPage.test mock);
+      UnverifiedBadge->Badge warning + delete ("Unverified" literal kept); filing-type chips ->
+      Badge brand/info/neutral; Recommended -> Badge solid x2; leading-icon fields (watchlist +
+      HERO CompanySearch, glow/kbd kept); CopilotComposer -> Textarea composer (handle kept);
+      Card as="section" x6; barCursorProps x2.
+- [ ] **PR C — rebrand:** logo components -> new monogram (currentColor; two-tone wordmark at
+      Header/AuthShell; delete theme file + EinsteinLogo); 9 SVGs + LOGO_README; generate-brand-
+      assets.mjs (sharp+png-to-ico devDeps; Playwright OG w/ committed Inter) -> favicon.ico,
+      apple-touch 180 full-bleed, 192/512 + maskable(0.62), og-image; manifest.ts + icons/
+      themeColor/JSON-LD + ?v=2; FULL email retheme (email_service.py) + rendered screenshots.
+- [ ] **PR D — copilot design upgrade (zero loss):** restyle CopilotMessage/CitationChip to the
+      AskFilingAnswer design (evidence-block chrome, footnote list + TrustBadge, counts footer);
+      popovers/deep-links/analytics/StreamingText perf/ticker/not_disclosed/followups preserved
+      1:1; 9 suites stay the spec (layout-text-only assertion updates); NO deletions.
+**Review:**
+- *PR A (pack sync):* per-file strategy byte-verified (KEEP files == HEAD; TAKE files == pack;
+  Input == pack + exactly the 4 guards). NEW pack regression found by the build and fixed:
+  Input.tsx v2.2 gained client-only hooks (useRef/useLayoutEffect for composer auto-grow) but the
+  pack dropped `'use client'` — next build fails when a server component reaches it via ui/index.
+  Docs given a repo-reality note (DESIGN_SYSTEM.md + CLAUDE.md): AskFilingAnswer = DS reference
+  implementation, 0 importers; production renderer = CopilotMessage.tsx. 3-agent adversarial
+  verify: primitives-delta CLEAN (no existing-variant/export regressions); guard semantics
+  confirmed correct across Input/Textarea/Select incl. boolean-error+hint interplay.
+  Gates green: typecheck / eslint 0 / vitest 236 / build / all 6 greps.
+  **Upstream ledger (report to Claude Design):** (1) Button type='button' default dropped AGAIN;
+  (2) Input boolean-error guard dropped x4; (3) brand.light re-added; (4) NEW — Input.tsx missing
+  'use client' with client-only hooks (build-breaking downstream); (5) MIGRATION.md not
+  regenerated (still v2.1); (6) AskFilingAnswer re-parses markdown per streaming token (perf —
+  do not adopt for streaming); (7) minor, now FIXED in-repo (verify + Gemini agreed; pack still
+  has them): Select px/pr conflict-order gamble its own header forbids -> explicit per-side
+  padding; Notice description lacks break-words (unbroken URL/accession overflows);
+  AskFilingAnswer citation-list React keys collide on duplicate `n` -> index-suffixed.
+  **PR B port notes (from verify):** composer must stay CONTROLLED (value prop) so prefill
+  triggers the layout-effect grow — imperative el.value alone fires nothing; cap height via
+  style={{maxHeight:120, overflowY:'auto'}} (className styles the Shell, not the textarea);
+  pass className="min-w-0 flex-1" so the Shell flex item fills the composer row.
+
 ## Task #28 — Adoption PR 5: Ask-this-Filing (copilot) + final stragglers
 **Scope change vs the original plan (recon finding):** AskFilingAnswer is DEAD pack code — never
 imported, and its data model is incompatible with the shipped copilot API (id vs n, no `verified`,

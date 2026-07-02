@@ -807,12 +807,18 @@ subagent briefs for UI tasks. Token *definitions* live in `frontend/tailwind.con
 - **Cards lift, not tint**: `bg-panel-light dark:bg-panel-dark` + border + `shadow-e2 dark:shadow-none`;
   hover **brightens**, never darkens; never `hover:opacity`. `brand-weak` is a tint, not a card fill.
 - **Radius scale 4/8/12/16/24** — buttons + inputs 12, chips full, cards 16.
-- **Component layer:** `components/ui/*` (Button + `buttonVariants`, Badge, Input + `inputClasses`,
-  Card, DataTable, Skeleton, GuidanceCard) + `components/AskFilingAnswer.tsx`. Every component defines
-  default/hover/active/focus-visible/disabled/loading plus the system states (empty, skeleton via the
-  shared shimmer keyframe, error). Compose these — don't restyle raw elements. Chart `Direction`
-  vocabulary = `lib/financialTone.ts` (`'up' | 'down' | 'flat'`); delta text routes through
-  `financialTone.directionText` (= `gain.text`/`loss.text`).
+- **Component layer (v2.2):** `components/ui/*` (Button + `buttonVariants`, Badge — incl.
+  `solid`/`info`/`warning`, Input + `inputClasses({leadingIcon})` + leading-`icon` slot,
+  Textarea `variant="composer"`, Card — polymorphic `as`, DataTable, Skeleton, GuidanceCard,
+  Notice — the inline form notice, error/info/success) + `components/AskFilingAnswer.tsx`
+  (DS reference implementation of the copilot contract; the wired production renderer is
+  `features/filings/components/copilot/CopilotMessage.tsx`).
+  Every component defines default/hover/active/focus-visible/disabled/loading plus the system
+  states (empty, skeleton via the shared shimmer keyframe, error). Compose these — don't restyle
+  raw elements. GuidanceCard is a standalone centered panel — never nest it inside a Card; inside
+  a Card or form flow use Notice. Chart `Direction` vocabulary = `lib/financialTone.ts`
+  (`'up' | 'down' | 'flat'`); delta text routes through `financialTone.directionText`
+  (= `gain.text`/`loss.text`); bar-chart hover cursors use `barCursorProps(dark)`.
 - **Motion = tokens only:** `--duration-fast/base/slow/ambient` (150/200/600/1800ms) +
   `--ease-standard/pop` — no raw ms/bezier outside `globals.css :root` + the JS mirror `lib/motion.ts`.
   Count-up is `hooks/useCountUp` (never a fade); skeleton→content = `animate-content-in` on the
