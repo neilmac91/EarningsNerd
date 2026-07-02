@@ -57,7 +57,7 @@ export default function DashboardPreview() {
             Showing key metrics from the latest annual filing
           </p>
         </div>
-        <Link href="/company/AAPL" className="text-sm font-medium text-brand-strong hover:text-brand-light dark:text-brand-strong-dark dark:hover:text-brand-dark">
+        <Link href="/company/AAPL" className="text-sm font-medium text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-dark">
           View Full Analysis &rarr;
         </Link>
       </div>

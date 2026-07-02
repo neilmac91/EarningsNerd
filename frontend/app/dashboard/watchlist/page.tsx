@@ -102,7 +102,7 @@ export default function WatchlistDashboardPage() {
           ENABLE_COMPARE ? (
             <Link
               href="/compare"
-              className="inline-flex items-center rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2 text-sm font-semibold transition-colors"
+              className="inline-flex items-center rounded-lg bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2 text-sm font-semibold transition-colors"
             >
               <SparkleIcon className="h-4 w-4 mr-2" />
               Compare filings
@@ -141,7 +141,7 @@ export default function WatchlistDashboardPage() {
               return (
                 <div
                   key={insight.company.id}
-                  className="bg-panel-light dark:bg-panel-dark border border-border-light dark:border-border-dark rounded-xl shadow-sm p-6 transition hover:border-brand-light/30"
+                  className="bg-panel-light dark:bg-panel-dark border border-border-light dark:border-border-dark rounded-xl shadow-sm p-6 transition hover:border-brand-border"
                 >
                   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div>
@@ -178,7 +178,7 @@ export default function WatchlistDashboardPage() {
                       )}
                       <Link
                         href={`/company/${insight.company.ticker}`}
-                        className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark transition-colors"
+                        className="inline-flex items-center px-3 py-2 text-sm font-medium rounded-lg bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark transition-colors"
                       >
                         <ArrowsCounterClockwiseIcon className="h-4 w-4 mr-2" />
                         Manage coverage

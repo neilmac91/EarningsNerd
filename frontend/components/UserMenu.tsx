@@ -75,9 +75,9 @@ export default function UserMenu({ user }: { user: MenuUser }) {
         aria-haspopup="true"
         aria-expanded={open}
         aria-label="Account menu"
-        className="flex items-center gap-1.5 rounded-full transition-opacity hover:opacity-90 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+        className="flex items-center gap-1.5 rounded-full transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
       >
-        <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-full bg-brand-strong/15 text-sm font-semibold text-brand-strong ring-1 ring-brand-light/30 dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:ring-brand-dark/30">
+        <span className="relative inline-flex h-9 w-9 items-center justify-center rounded-full bg-brand-strong/15 text-sm font-semibold text-brand-strong ring-1 ring-brand-border dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:ring-brand-dark/30">
           {getInitials(user.full_name, user.email)}
           {unverified && (
             <span

@@ -96,7 +96,7 @@ function FollowupChips({
             key={`${q}-${i}`}
             type="button"
             onClick={() => onFollowup(q)}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border-light dark:border-white/10 bg-brand-weak dark:bg-slate-800/40 px-2.5 py-1.5 text-left text-xs text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-light/30 hover:bg-brand-weak/70 dark:hover:bg-slate-800"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border-light dark:border-white/10 bg-brand-weak dark:bg-slate-800/40 px-2.5 py-1.5 text-left text-xs text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:bg-brand-weak/70 dark:hover:bg-slate-800"
           >
             <SparkleIcon className="h-3 w-3 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
             {q}
@@ -297,7 +297,7 @@ export default function CopilotMessage({
   if (message.role === 'user') {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-brand-weak dark:bg-white/5 px-3.5 py-2 text-sm text-text-primary-light dark:text-text-primary-dark ring-1 ring-brand-light/30">
+        <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-brand-weak dark:bg-white/5 px-3.5 py-2 text-sm text-text-primary-light dark:text-text-primary-dark ring-1 ring-brand-border">
           {message.content}
         </div>
       </div>
@@ -315,7 +315,7 @@ export default function CopilotMessage({
               <button
                 type="button"
                 onClick={onUpgrade}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-3 py-1.5 text-xs font-semibold transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-3 py-1.5 text-xs font-semibold transition-colors"
               >
                 <SparkleIcon className="h-3.5 w-3.5" />
                 Upgrade to Pro

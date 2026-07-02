@@ -45,7 +45,7 @@ export default function ReportingThisWeek({
             <Link
               key={company.ticker}
               href={`/company/${company.ticker}`}
-              className="group flex flex-col items-center gap-2 rounded-xl border border-border-light bg-panel-light p-4 text-center shadow-e1 transition-all duration-base hover:-translate-y-1 hover:border-brand-strong hover:shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none dark:hover:border-brand-dark focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-background-dark"
+              className="group flex flex-col items-center gap-2 rounded-xl border border-border-light bg-panel-light p-4 text-center shadow-e1 transition-all duration-base hover:-translate-y-1 hover:border-brand-strong hover:shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none dark:hover:border-brand-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark "
               data-testid={`reporting-this-week-${company.ticker}`}
             >
               <CompanyLogo ticker={company.ticker} name={company.name} size={40} />

@@ -225,7 +225,7 @@ export default function CompareResultPage() {
           <div className="flex items-center space-x-3">
             <button
               onClick={() => router.push('/compare')}
-              className="inline-flex items-center px-4 py-2 bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light text-sm font-medium rounded-lg transition-colors"
+              className="inline-flex items-center px-4 py-2 bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark text-sm font-medium rounded-lg transition-colors"
             >
               Start a new comparison
             </button>
@@ -347,7 +347,7 @@ export default function CompareResultPage() {
 
         {/* Delta Highlights */}
         {deltaHighlights.length > 0 && (
-          <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-e2 dark:shadow-none border border-brand-light/40 dark:border-brand-dark/40 p-6 mb-6">
+          <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-e2 dark:shadow-none border border-brand-border dark:border-brand-dark/40 p-6 mb-6">
             <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-3">Key Movements</h2>
             <div className="grid md:grid-cols-2 gap-4">
               {deltaHighlights.map((item, idx) => {

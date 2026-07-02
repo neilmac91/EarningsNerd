@@ -111,7 +111,7 @@ export default function BillingPanel() {
 
           {/* Trial countdown */}
           {isTrialing && trialDays !== null && (
-            <div className="rounded-lg border border-brand-light/30 bg-brand-weak dark:bg-white/5 px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+            <div className="rounded-lg border border-brand-border bg-brand-weak dark:bg-white/5 px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
               <strong>{trialDays} {trialDays === 1 ? 'day' : 'days'} left</strong> in your Pro trial
               {sub?.trial_end ? ` · ends ${formatLocalDate(sub.trial_end, 'MMM d, yyyy')}` : ''}.
             </div>

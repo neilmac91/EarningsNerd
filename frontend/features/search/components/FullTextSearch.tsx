@@ -119,7 +119,7 @@ export default function FullTextSearch() {
           onChange={(e) => setInput(e.target.value)}
           placeholder="Search the full text of filings…"
           aria-label="Search the full text of SEC filings"
-          className="w-full rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/60 py-4 pl-12 pr-4 text-lg text-text-primary-light dark:text-text-primary-dark placeholder:text-text-tertiary-light dark:placeholder:text-text-secondary-dark backdrop-blur-sm focus:border-brand-light focus:outline-none"
+          className="w-full rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/60 py-4 pl-12 pr-4 text-lg text-text-primary-light dark:text-text-primary-dark placeholder:text-text-tertiary-light dark:placeholder:text-text-secondary-dark backdrop-blur-sm focus:border-brand focus:outline-none"
         />
         {isFetching && (
           <CircleNotchIcon className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />
@@ -137,7 +137,7 @@ export default function FullTextSearch() {
               aria-pressed={active}
               className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
                 active
-                  ? 'border-brand-light/40 dark:border-brand-dark/40 bg-brand-weak dark:bg-brand-dark/15 text-brand-strong dark:text-brand-strong-dark'
+                  ? 'border-brand-border dark:border-brand-dark/40 bg-brand-weak dark:bg-brand-dark/15 text-brand-strong dark:text-brand-strong-dark'
                   : 'border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark hover:bg-black/[0.03] dark:hover:bg-white/10'
               }`}
             >
@@ -155,7 +155,7 @@ export default function FullTextSearch() {
           max={endDate || undefined}
           onChange={(e) => setStartDate(e.target.value)}
           aria-label="Filed on or after"
-          className="rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/60 px-2 py-1 text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand-light focus:outline-none"
+          className="rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/60 px-2 py-1 text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand focus:outline-none"
         />
         <span>and</span>
         <input
@@ -164,7 +164,7 @@ export default function FullTextSearch() {
           min={startDate || undefined}
           onChange={(e) => setEndDate(e.target.value)}
           aria-label="Filed on or before"
-          className="rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/60 px-2 py-1 text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand-light focus:outline-none"
+          className="rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/60 px-2 py-1 text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand focus:outline-none"
         />
         {(startDate || endDate) && (
           <button

@@ -191,7 +191,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                       type="checkbox"
                       checked={true}
                       disabled
-                      className="h-5 w-5 rounded border-slate-300 text-brand-strong focus:ring-brand-light opacity-50 cursor-not-allowed"
+                      className="h-5 w-5 rounded border-slate-300 text-brand-strong focus:shadow-ring-brand opacity-50 cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -217,7 +217,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                       onChange={(e) =>
                         setPreferences({ ...preferences, analytics: e.target.checked })
                       }
-                      className="h-5 w-5 rounded border-slate-300 text-brand-strong focus:ring-brand-light"
+                      className="h-5 w-5 rounded border-slate-300 text-brand-strong focus:shadow-ring-brand"
                     />
                   </div>
                 </div>
@@ -243,7 +243,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                       onChange={(e) =>
                         setPreferences({ ...preferences, sessionRecording: e.target.checked })
                       }
-                      className="h-5 w-5 rounded border-slate-300 text-brand-strong focus:ring-brand-light"
+                      className="h-5 w-5 rounded border-slate-300 text-brand-strong focus:shadow-ring-brand"
                     />
                   </div>
                 </div>
@@ -253,7 +253,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
             <div className="mt-6 flex gap-3">
               <button
                 onClick={handleSavePreferences}
-                className="flex-1 bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light font-medium py-2 px-4 rounded-lg transition-colors"
+                className="flex-1 bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark font-medium py-2 px-4 rounded-lg transition-colors"
               >
                 Save Preferences
               </button>
@@ -313,7 +313,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
             </button>
             <button
               onClick={handleAcceptAll}
-              className="px-4 py-2 bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light rounded-lg transition-colors font-medium"
+              className="px-4 py-2 bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark rounded-lg transition-colors font-medium"
             >
               Accept All
             </button>

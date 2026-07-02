@@ -251,7 +251,7 @@ function PricingContent() {
                   analytics.billingCycleToggled(billingCycle, nextCycle)
                   setBillingCycle(nextCycle)
                 }}
-                className="relative inline-flex h-6 w-11 items-center rounded-full bg-brand-strong dark:bg-brand-dark transition-colors focus:outline-none focus:ring-2 focus:ring-brand-light focus:ring-offset-2"
+                className="relative inline-flex h-6 w-11 items-center rounded-full bg-brand-strong dark:bg-brand-dark transition-colors focus:outline-none focus:shadow-ring-brand "
               >
                 <span
                   className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
@@ -364,7 +364,7 @@ function PricingContent() {
                   plan.disabled
                     ? 'bg-border-light text-text-secondary-light dark:bg-white/10 dark:text-text-secondary-dark cursor-not-allowed'
                     : plan.popular
-                    ? 'bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light'
+                    ? 'bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
                     : 'bg-text-primary-light text-background-light dark:bg-white/10 dark:text-text-primary-dark hover:opacity-90'
                 }`}
               >

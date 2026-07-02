@@ -64,7 +64,7 @@ export default function CopilotTeaser({
           </div>
         </div>
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-panel-light dark:bg-slate-900/80 ring-1 ring-brand-light/30">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-panel-light dark:bg-slate-900/80 ring-1 ring-brand-border">
             <LockSimpleIcon className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
           </span>
         </div>
@@ -85,7 +85,7 @@ export default function CopilotTeaser({
       <button
         type="button"
         onClick={onUpgrade}
-        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2.5 text-sm font-semibold transition-colors"
+        className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2.5 text-sm font-semibold transition-colors"
       >
         <SparkleIcon className="h-4 w-4" />
         Upgrade to Pro

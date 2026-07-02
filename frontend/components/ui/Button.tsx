@@ -22,7 +22,7 @@ export type ButtonSize = 'sm' | 'md'
 
 const BASE =
   'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all ' +
-  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light ' +
+  'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ' +
   'disabled:opacity-50 disabled:cursor-not-allowed'
 
 const SIZES: Record<ButtonSize, string> = {
@@ -32,7 +32,7 @@ const SIZES: Record<ButtonSize, string> = {
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary:
-    'bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark',
+    'bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark',
   secondary:
     'border border-border-light bg-panel-light text-text-primary-light shadow-e1 hover:bg-brand-weak hover:shadow-e2 ' +
     'dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark dark:shadow-none dark:hover:bg-white/5',

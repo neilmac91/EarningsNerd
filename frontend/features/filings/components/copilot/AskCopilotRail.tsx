@@ -375,7 +375,7 @@ export default function AskCopilotRail({
                   key={q}
                   type="button"
                   onClick={() => handleSubmit(q)}
-                  className="rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-slate-800/40 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-light/30 hover:bg-brand-weak/70 dark:hover:bg-slate-800"
+                  className="rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-slate-800/40 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:bg-brand-weak/70 dark:hover:bg-slate-800"
                 >
                   {q}
                 </button>
@@ -431,7 +431,7 @@ export default function AskCopilotRail({
             <button
               type="button"
               onClick={() => handleUpgrade('copilot_free_taste_exhausted')}
-              className="mt-1 inline-flex items-center rounded-full bg-brand-strong px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark"
+              className="mt-1 inline-flex items-center rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark"
             >
               Upgrade to Pro for unlimited questions
             </button>
@@ -470,7 +470,7 @@ export default function AskCopilotRail({
         aria-haspopup="dialog"
         aria-expanded={false}
         style={{ bottom: 'max(1.25rem, env(safe-area-inset-bottom))', right: 'max(1.25rem, env(safe-area-inset-right))' }}
-        className="fixed z-40 inline-flex items-center gap-2 rounded-full bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-3 text-sm font-semibold shadow-e3 dark:shadow-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+        className="fixed z-40 inline-flex items-center gap-2 rounded-full bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-3 text-sm font-semibold shadow-e3 dark:shadow-none transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
         aria-label="Ask this Filing"
       >
         <SparkleIcon className="h-4 w-4" />
@@ -506,7 +506,7 @@ export default function AskCopilotRail({
           <div className="flex min-w-0 items-center gap-2">
             <SparkleIcon className="h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" />
             <h2 className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Ask this Filing</h2>
-            <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-brand-weak dark:bg-white/5 px-2 py-0.5 text-[11px] font-medium text-brand-strong dark:text-brand-strong-dark ring-1 ring-brand-light/30 sm:inline-flex">
+            <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-brand-weak dark:bg-white/5 px-2 py-0.5 text-[11px] font-medium text-brand-strong dark:text-brand-strong-dark ring-1 ring-brand-border sm:inline-flex">
               <span className="h-1.5 w-1.5 rounded-full bg-brand-strong dark:bg-brand-strong-dark" aria-hidden="true" />
               Scoped to this filing
             </span>

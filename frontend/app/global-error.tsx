@@ -32,7 +32,7 @@ export default function GlobalError({
                         <div className="flex justify-center gap-4">
                             <button
                                 onClick={() => reset()}
-                                className="rounded-lg bg-brand-strong px-4 py-2 font-medium text-white transition-colors hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light focus:ring-offset-2"
+                                className="rounded-lg bg-brand px-4 py-2 font-medium text-white transition-colors hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark focus:outline-none focus:shadow-ring-brand "
                             >
                                 Try again
                             </button>

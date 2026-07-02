@@ -191,7 +191,7 @@ export default function FilingWorkspace({
                   aria-haspopup="dialog"
                   aria-expanded={false}
                   style={LAUNCHER_OFFSET}
-                  className="fixed z-40 inline-flex items-center gap-2 rounded-full bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-3 text-sm font-semibold shadow-e3 dark:shadow-none transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+                  className="fixed z-40 inline-flex items-center gap-2 rounded-full bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-3 text-sm font-semibold shadow-e3 dark:shadow-none transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                   aria-label="Ask this Filing"
                 >
                   <SparkleIcon className="h-4 w-4" />

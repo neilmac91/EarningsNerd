@@ -82,7 +82,7 @@ export default function NotificationBell() {
         aria-haspopup="true"
         aria-expanded={open}
         aria-label={unread > 0 ? `Notifications (${unread} unread)` : 'Notifications'}
-        className="relative flex h-9 w-9 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+        className="relative flex h-9 w-9 items-center justify-center rounded-full text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-white/5 hover:text-text-primary-light dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
       >
         <BellIcon className="h-5 w-5" />
         {unread > 0 && (

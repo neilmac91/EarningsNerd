@@ -146,7 +146,7 @@ export default async function Home() {
                 <ExampleCtaLink
                   href={exampleFilingHref('hero_example')}
                   placement="hero"
-                  className="inline-flex items-center gap-1 font-medium text-brand-strong dark:text-brand-strong-dark underline underline-offset-4 decoration-brand-strong/40 transition-colors hover:decoration-brand-strong dark:decoration-brand-dark/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+                  className="inline-flex items-center gap-1 font-medium text-brand-strong dark:text-brand-strong-dark underline underline-offset-4 decoration-brand-strong/40 transition-colors hover:decoration-brand-strong dark:decoration-brand-dark/40 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                 >
                   See a live example →
                 </ExampleCtaLink>

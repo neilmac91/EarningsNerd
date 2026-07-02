@@ -30,7 +30,7 @@ export default function CopilotCoachmark({ onTry, onDismiss, style }: CopilotCoa
         type="button"
         onClick={onDismiss}
         aria-label="Dismiss"
-        className="absolute right-2 top-2 rounded-lg p-1 text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+        className="absolute right-2 top-2 rounded-lg p-1 text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
       >
         <XIcon className="h-4 w-4" />
       </button>
@@ -46,7 +46,7 @@ export default function CopilotCoachmark({ onTry, onDismiss, style }: CopilotCoa
           <button
             type="button"
             onClick={onTry}
-            className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-brand-strong px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+            className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-brand px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
             <SparkleIcon className="h-3.5 w-3.5" aria-hidden="true" />
             Try it

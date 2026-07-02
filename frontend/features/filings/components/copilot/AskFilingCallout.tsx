@@ -24,7 +24,7 @@ export default function AskFilingCallout({ filingType, subjectLabel, onAsk }: As
   return (
     <section
       aria-labelledby="ask-filing-callout-heading"
-      className="rounded-xl border border-brand-light/30 bg-brand-weak dark:bg-white/5 p-6"
+      className="rounded-xl border border-brand-border bg-brand-weak dark:bg-white/5 p-6"
     >
       <div className="flex items-start gap-3">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-strong text-white dark:bg-brand-dark dark:text-background-dark">
@@ -46,7 +46,7 @@ export default function AskFilingCallout({ filingType, subjectLabel, onAsk }: As
                 key={q}
                 type="button"
                 onClick={() => onAsk(q, 'summary_starter')}
-                className="rounded-full border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-800/40 px-3 py-1.5 text-left text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-light/40 hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+                className="rounded-full border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-800/40 px-3 py-1.5 text-left text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
               >
                 {q}
               </button>
@@ -55,7 +55,7 @@ export default function AskFilingCallout({ filingType, subjectLabel, onAsk }: As
           <button
             type="button"
             onClick={() => onAsk('', 'summary_cta')}
-            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-brand-strong px-4 py-2 text-sm font-semibold text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
             <SparkleIcon className="h-4 w-4" aria-hidden="true" />
             Ask this filing
