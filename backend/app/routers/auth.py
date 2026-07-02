@@ -1031,9 +1031,11 @@ async def change_password(
     current_user.hashed_password = await asyncio.to_thread(get_password_hash, payload.new_password)
     # A password change must evict every existing session (a stolen/old refresh token must not
     # survive it). Revoke all, then re-issue for THIS device so the acting user isn't logged out
-    # moments later when their short-lived access token expires.
+    # moments later when their short-lived access token expires. No intermediate commit: the
+    # password change, the revocation, and the new token are committed together by
+    # _issue_refresh_token, so a failure there rolls the whole change back (no
+    # password-changed-but-500 inconsistency) and saves a commit round-trip.
     revoke_all_for_user(db, current_user.id)
-    db.commit()
     access_token = create_access_token(data={"sub": current_user.email})
     _set_auth_cookie(response, access_token)
     _issue_refresh_token(db, current_user, request, response)
