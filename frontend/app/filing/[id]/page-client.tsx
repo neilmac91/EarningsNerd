@@ -154,7 +154,7 @@ function TickerFilingsView({ ticker }: { ticker: string }) {
           )}
           <Link
             href="/"
-            className="mt-6 inline-flex items-center rounded-full bg-brand-strong px-5 py-2 text-sm font-semibold text-white transition hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark"
+            className="mt-6 inline-flex items-center rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white transition hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark"
           >
             Back to home
           </Link>
@@ -175,7 +175,7 @@ function TickerFilingsView({ ticker }: { ticker: string }) {
           </div>
           <Link
             href={`/company/${company.ticker}`}
-            className="inline-flex items-center rounded-full border border-border-light dark:border-white/20 bg-panel-light dark:bg-white/5 px-4 py-2 text-sm font-medium text-text-primary-light dark:text-text-primary-dark transition hover:border-brand-light/60 hover:bg-brand-weak dark:hover:border-white/40 dark:hover:bg-white/10"
+            className="inline-flex items-center rounded-full border border-border-light dark:border-white/20 bg-panel-light dark:bg-white/5 px-4 py-2 text-sm font-medium text-text-primary-light dark:text-text-primary-dark transition hover:border-brand-border hover:bg-brand-weak dark:hover:border-white/40 dark:hover:bg-white/10"
           >
             View company dashboard
           </Link>
@@ -214,7 +214,7 @@ function TickerFilingsView({ ticker }: { ticker: string }) {
                   <Link
                     key={filing.id}
                     href={`/filing/${filing.id}`}
-                    className="group flex flex-col gap-3 rounded-2xl border border-border-light dark:border-white/10 bg-panel-light hover:bg-brand-weak dark:bg-slate-900/50 dark:hover:bg-slate-900/80 p-5 transition hover:border-brand-light/60 dark:hover:border-brand-dark/60"
+                    className="group flex flex-col gap-3 rounded-2xl border border-border-light dark:border-white/10 bg-panel-light hover:bg-brand-weak dark:bg-slate-900/50 dark:hover:bg-slate-900/80 p-5 transition hover:border-brand-border dark:hover:border-brand-dark/60"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-4">
                       <div>
@@ -616,7 +616,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
             </div>
 
             {/* Tech badge */}
-            <div className="hidden md:flex items-center space-x-2 px-4 py-2 bg-brand-weak dark:bg-white/5 rounded-lg border border-brand-light/30">
+            <div className="hidden md:flex items-center space-x-2 px-4 py-2 bg-brand-weak dark:bg-white/5 rounded-lg border border-brand-border">
               <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-pulse"></div>
               <span className="text-xs font-semibold text-brand-strong dark:text-brand-strong-dark">AI Analysis</span>
             </div>
@@ -907,7 +907,7 @@ function StreamingSummaryDisplay({
 
                   {/* Ripple effect */}
                   {isGenerating && !isError && (
-                    <div className="absolute inset-0 rounded-full border border-brand-light/30 animate-ping" />
+                    <div className="absolute inset-0 rounded-full border border-brand-border animate-ping" />
                   )}
                 </div>
               </div>
@@ -968,7 +968,7 @@ function StreamingSummaryDisplay({
                     <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center border transition-all duration-base ${status === 'complete'
                       ? 'bg-brand-strong border-brand-strong text-white dark:bg-brand-dark dark:border-brand-dark dark:text-background-dark'
                       : status === 'active'
-                        ? 'bg-panel-light dark:bg-panel-dark border-brand-light text-brand-strong dark:text-brand-strong-dark'
+                        ? 'bg-panel-light dark:bg-panel-dark border-brand-border text-brand-strong dark:text-brand-strong-dark'
                         : 'bg-background-light dark:bg-background-dark border-border-light dark:border-border-dark'
                       }`}>
                       {status === 'complete' && (
@@ -1007,7 +1007,7 @@ function StreamingSummaryDisplay({
                 {onRetry && (
                   <button
                     onClick={onRetry}
-                    className="inline-flex items-center px-4 py-2 bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark rounded-lg text-sm font-medium transition-colors"
+                    className="inline-flex items-center px-4 py-2 bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark rounded-lg text-sm font-medium transition-colors"
                   >
                     Retry generation
                   </button>
@@ -1300,7 +1300,7 @@ function SummaryDisplay({
                       title={quality.reasons && quality.reasons.length ? quality.reasons.join('; ') : undefined}
                       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${
                         quality.tier === 'full'
-                          ? 'bg-brand-weak dark:bg-white/5 text-brand-strong dark:text-brand-strong-dark ring-brand-light/30'
+                          ? 'bg-brand-weak dark:bg-white/5 text-brand-strong dark:text-brand-strong-dark ring-brand-border'
                           : 'bg-warning-light/10 dark:bg-warning-dark/10 text-warning-light dark:text-warning-dark ring-warning-light/30'
                       }`}
                     >
@@ -1362,7 +1362,7 @@ function SummaryDisplay({
       )}
 
       {metadata?.action_items && Array.isArray(metadata.action_items) && metadata.action_items.length > 0 && (
-        <section className="bg-panel-light dark:bg-panel-dark rounded-lg shadow border border-brand-light/30 p-6">
+        <section className="bg-panel-light dark:bg-panel-dark rounded-lg shadow border border-brand-border p-6">
           <h3 className="text-lg font-semibold text-brand-strong dark:text-brand-strong-dark mb-1">Suggested Follow-Ups</h3>
           <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-3">Tap a question to ask the Copilot.</p>
           <ul className="space-y-2">
@@ -1371,7 +1371,7 @@ function SummaryDisplay({
                 <button
                   type="button"
                   onClick={() => onAsk(item, 'followup')}
-                  className="group flex w-full items-start gap-2 rounded-lg border border-border-light dark:border-white/10 bg-background-light/60 dark:bg-white/5 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-light/40 hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+                  className="group flex w-full items-start gap-2 rounded-lg border border-border-light dark:border-white/10 bg-background-light/60 dark:bg-white/5 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
                 >
                   <SparkleIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
                   <span>{item}</span>

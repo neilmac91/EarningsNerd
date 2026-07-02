@@ -133,7 +133,7 @@ export default function EmailChipsInput({
       case 'invited':
         return 'border-border-light bg-black/[0.04] text-text-tertiary-light dark:border-white/10 dark:bg-white/5 dark:text-text-secondary-dark'
       default:
-        return 'border-brand-light/40 bg-brand-strong/10 text-brand-strong dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark'
+        return 'border-brand-border bg-brand-strong/10 text-brand-strong dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark'
     }
   }
 

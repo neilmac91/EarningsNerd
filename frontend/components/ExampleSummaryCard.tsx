@@ -34,7 +34,7 @@ function ExampleSummaryCard({ example }: { example: ExampleData | null }) {
     <ExampleCtaLink
       href={exampleFilingHref('hero_mobile_example')}
       placement="hero_mobile_card"
-      className="group block rounded-2xl border border-border-light bg-panel-light p-4 transition-colors hover:border-brand-strong/30 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-brand-dark/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+      className="group block rounded-2xl border border-border-light bg-panel-light p-4 transition-colors hover:border-brand-strong/30 dark:border-white/10 dark:bg-white/[0.03] dark:hover:border-brand-dark/30 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
     >
       <div className="flex items-center justify-between">
         <div className="flex min-w-0 items-center gap-2">

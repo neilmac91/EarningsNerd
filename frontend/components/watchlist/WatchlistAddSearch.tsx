@@ -74,7 +74,7 @@ export default function WatchlistAddSearch() {
           onFocus={() => setOpen(true)}
           placeholder="Add a company to your watchlist (e.g., AAPL, Apple)…"
           aria-label="Search for a company to add to your watchlist"
-          className="w-full rounded-xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark py-3 pl-11 pr-4 text-text-primary-light dark:text-text-primary-dark placeholder:text-text-tertiary-light dark:placeholder:text-text-secondary-dark shadow-sm focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/40"
+          className="w-full rounded-xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark py-3 pl-11 pr-4 text-text-primary-light dark:text-text-primary-dark placeholder:text-text-tertiary-light dark:placeholder:text-text-secondary-dark shadow-sm focus:border-brand focus:outline-none focus:shadow-ring-brand"
         />
         {(isLoading || addMutation.isPending) && (
           <CircleNotchIcon className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />

@@ -225,7 +225,7 @@ function SourceTraceInner({
   const triggerCommon = {
     ref: triggerRef as React.RefObject<HTMLButtonElement> & React.RefObject<HTMLAnchorElement>,
     'aria-label': `Source: ${chipLabel}`,
-    className: `inline-flex items-center gap-1 rounded px-1 py-0.5 text-[11px] font-medium leading-none align-baseline transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-light ${chipClass}`,
+    className: `inline-flex items-center gap-1 rounded px-1 py-0.5 text-[11px] font-medium leading-none align-baseline transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark ${chipClass}`,
     onMouseEnter: isCoarse ? undefined : openPanel,
     onMouseLeave: isCoarse ? undefined : scheduleClose,
     onFocus: isCoarse ? undefined : openPanel,

@@ -76,7 +76,7 @@ export default function DeleteAccountPage() {
               <p className="mt-1 text-sm text-green-700 dark:text-green-400">
                 Your account and associated personal data have been permanently deleted.
               </p>
-              <Link href="/" className="mt-3 inline-block text-sm font-medium text-brand-strong hover:text-brand-light dark:text-brand-strong-dark">
+              <Link href="/" className="mt-3 inline-block text-sm font-medium text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark">
                 Return to home
               </Link>
             </div>

@@ -138,7 +138,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
 
   if (success) {
     return (
-      <div className="rounded-2xl border border-brand-light/40 bg-white/80 p-6 shadow-lg backdrop-blur-sm transition-all duration-base dark:border-brand-dark/40 dark:bg-slate-900/60">
+      <div className="rounded-2xl border border-brand-border bg-white/80 p-6 shadow-lg backdrop-blur-sm transition-all duration-base dark:border-brand-dark/40 dark:bg-slate-900/60">
         <div className="flex items-center gap-2 text-brand-strong dark:text-brand-strong-dark">
           <CheckIcon className="h-5 w-5" />
           <span className="text-sm font-semibold uppercase tracking-wide">You&apos;re in</span>
@@ -161,7 +161,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
             <button
               type="button"
               onClick={handleCopy}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-brand-light/40 bg-white px-4 py-2 text-sm font-semibold text-brand-strong transition hover:border-brand-light/60 hover:text-brand-light dark:border-brand-dark/40 dark:bg-slate-900 dark:text-brand-strong-dark"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-brand-border bg-white px-4 py-2 text-sm font-semibold text-brand-strong transition hover:border-brand-border hover:text-brand-emphasis dark:border-brand-dark/40 dark:bg-slate-900 dark:text-brand-strong-dark"
             >
               {copied ? <CheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
               {copied ? 'Copied' : 'Copy'}
@@ -179,7 +179,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
               href={shareLinks.twitter}
               target="_blank"
               rel="noreferrer"
-              className="rounded-full border border-border-light bg-background-light px-4 py-2 text-sm font-medium text-text-primary-light transition hover:border-brand-light/40 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
+              className="rounded-full border border-border-light bg-background-light px-4 py-2 text-sm font-medium text-text-primary-light transition hover:border-brand-border dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
             >
               Share on Twitter
             </a>
@@ -187,7 +187,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
               href={shareLinks.linkedIn}
               target="_blank"
               rel="noreferrer"
-              className="rounded-full border border-border-light bg-background-light px-4 py-2 text-sm font-medium text-text-primary-light transition hover:border-brand-light/40 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
+              className="rounded-full border border-border-light bg-background-light px-4 py-2 text-sm font-medium text-text-primary-light transition hover:border-brand-border dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
             >
               Share on LinkedIn
             </a>
@@ -195,7 +195,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
               href={shareLinks.whatsapp}
               target="_blank"
               rel="noreferrer"
-              className="rounded-full border border-border-light bg-background-light px-4 py-2 text-sm font-medium text-text-primary-light transition hover:border-brand-light/40 dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
+              className="rounded-full border border-border-light bg-background-light px-4 py-2 text-sm font-medium text-text-primary-light transition hover:border-brand-border dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
             >
               Share on WhatsApp
             </a>

@@ -143,8 +143,8 @@ export default function ComparePage() {
                       onClick={() => toggleFiling(filing.id!)}
                       className={`p-4 border-2 rounded-lg cursor-pointer transition-colors ${
                         selectedFilings.includes(filing.id!)
-                          ? 'border-brand-light dark:border-brand-dark bg-brand-weak dark:bg-brand-dark/15'
-                          : 'border-border-light hover:border-brand-light/40 dark:border-white/10 dark:hover:border-brand-dark/40 bg-panel-light dark:bg-background-dark'
+                          ? 'border-brand-border dark:border-brand-dark bg-brand-weak dark:bg-brand-dark/15'
+                          : 'border-border-light hover:border-brand-border dark:border-white/10 dark:hover:border-brand-dark/40 bg-panel-light dark:bg-background-dark'
                       }`}
                     >
                       <div className="flex items-center justify-between">

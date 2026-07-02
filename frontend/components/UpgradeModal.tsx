@@ -63,7 +63,7 @@ export default function UpgradeModal({ open, onClose, feature, title, message }:
           <button
             type="button"
             onClick={() => router.push('/pricing')}
-            className="flex-1 rounded-lg bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.99]"
+            className="flex-1 rounded-lg bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark px-4 py-2.5 text-sm font-semibold transition-all active:scale-[0.99]"
           >
             See plans
           </button>

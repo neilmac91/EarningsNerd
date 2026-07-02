@@ -57,7 +57,7 @@ export default function WaitlistPage() {
               <ExampleCtaLink
                 href={exampleFilingHref('waitlist_example')}
                 placement="waitlist"
-                className="inline-flex items-center gap-1 font-semibold text-brand-strong underline underline-offset-4 transition-colors hover:text-brand-light dark:text-brand-strong-dark dark:hover:text-brand-strong-dark"
+                className="inline-flex items-center gap-1 font-semibold text-brand-strong underline underline-offset-4 transition-colors hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark"
               >
                 Try a live example summary
                 <ArrowRightIcon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -105,12 +105,12 @@ export default function WaitlistPage() {
                     </ul>
                   </div>
                 </div>
-                <div className="rounded-2xl border border-brand-light/40 bg-brand-weak px-4 py-3 text-sm text-brand-strong dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark">
+                <div className="rounded-2xl border border-brand-border bg-brand-weak px-4 py-3 text-sm text-brand-strong dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark">
                   See key metrics, risks, and highlights in one concise report.
                 </div>
               </div>
             </div>
-            <div className="absolute -bottom-6 -right-6 hidden h-24 w-24 rounded-full bg-brand-light/30 blur-2xl dark:bg-brand-dark/30 lg:block" />
+            <div className="absolute -bottom-6 -right-6 hidden h-24 w-24 rounded-full bg-brand/30 blur-2xl dark:bg-brand-dark/30 lg:block" />
           </div>
         </div>
       </section>
@@ -157,7 +157,7 @@ export default function WaitlistPage() {
             </div>
             <a
               href="#waitlist"
-              className="inline-flex items-center justify-center rounded-full border border-brand-light/40 bg-brand-weak px-4 py-2 text-sm font-semibold text-brand-strong transition hover:border-brand-light/60 dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark"
+              className="inline-flex items-center justify-center rounded-full border border-brand-border bg-brand-weak px-4 py-2 text-sm font-semibold text-brand-strong transition hover:border-brand-border dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark"
             >
               Join the waitlist
             </a>

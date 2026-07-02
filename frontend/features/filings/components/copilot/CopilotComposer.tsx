@@ -71,7 +71,7 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
       }}
       className="border-t border-border-light bg-panel-light dark:border-white/10 dark:bg-slate-900 p-3"
     >
-      <div className="flex items-end gap-2 rounded-xl border border-border-light bg-panel-light dark:border-white/10 dark:bg-slate-950/60 p-2 focus-within:border-brand-light/50">
+      <div className="flex items-end gap-2 rounded-xl border border-border-light bg-panel-light dark:border-white/10 dark:bg-slate-950/60 p-2 focus-within:border-brand-border">
         <textarea
           ref={textareaRef}
           value={value}
@@ -92,7 +92,7 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
           type="submit"
           disabled={!canSend}
           aria-label="Send"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark transition-colors disabled:cursor-not-allowed disabled:bg-border-light disabled:text-text-secondary-light dark:disabled:bg-white/10 dark:disabled:text-text-secondary-dark"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark transition-colors disabled:cursor-not-allowed disabled:bg-border-light disabled:text-text-secondary-light dark:disabled:bg-white/10 dark:disabled:text-text-secondary-dark"
         >
           <PaperPlaneTiltIcon className="h-4 w-4" />
         </button>

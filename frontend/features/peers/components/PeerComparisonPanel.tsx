@@ -138,7 +138,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
               aria-pressed={m.key === metric}
               className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                 m.key === metric
-                  ? 'bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
+                  ? 'bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
                   : 'bg-background-light text-text-secondary-light hover:bg-brand-weak dark:bg-white/5 dark:text-text-secondary-dark dark:hover:bg-white/10'
               }`}
             >

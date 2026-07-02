@@ -17,7 +17,7 @@ import { forwardRef } from 'react'
 export const inputClasses =
   'w-full rounded-lg border border-border-light bg-white px-3 py-2 ' +
   'text-text-primary-light placeholder:text-text-tertiary-light transition-colors ' +
-  'focus:border-brand-light focus:outline-none focus:ring-2 focus:ring-brand-light/40 ' +
+  'focus:border-brand focus:outline-none focus:shadow-ring-brand ' +
   'disabled:opacity-50 disabled:cursor-not-allowed ' +
   'dark:border-white/10 dark:bg-slate-900/60 dark:text-text-primary-dark dark:placeholder:text-text-secondary-dark'
 

@@ -40,7 +40,7 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
     <Link
       href={`/filing/${item.filing_id}`}
       onClick={() => analytics.dashboardFeedClicked(item.filing_id, company.ticker, item.filing_type)}
-      className="block rounded-xl border border-border-light bg-panel-light p-5 transition hover:border-brand-light/30 hover:shadow-sm dark:border-border-dark dark:bg-panel-dark"
+      className="block rounded-xl border border-border-light bg-panel-light p-5 transition hover:border-brand-border hover:shadow-sm dark:border-border-dark dark:bg-panel-dark"
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">

@@ -103,7 +103,7 @@ function TrendingTickerCard({
     <Link
       href={`/company/${ticker.symbol}`}
       onClick={handleClick}
-      className="flex min-w-[240px] flex-col gap-2 rounded-2xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 p-4 shadow-e2 dark:shadow-none transition-all duration-base hover:-translate-y-1 hover:bg-white dark:hover:bg-white/10 hover:shadow-e2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-slate-900"
+      className="flex min-w-[240px] flex-col gap-2 rounded-2xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 p-4 shadow-e2 dark:shadow-none transition-all duration-base hover:-translate-y-1 hover:bg-white dark:hover:bg-white/10 hover:shadow-e2 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark "
     >
       {/* Header: Logo + Symbol + Price */}
       <div className="flex items-start justify-between gap-2">
@@ -285,7 +285,7 @@ export default function TrendingTickers({
           )}
           <button
             onClick={() => refetch()}
-            className="inline-flex items-center gap-2 rounded-full border border-border-light dark:border-white/20 bg-panel-light dark:bg-white/5 px-3 py-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark shadow-e1 dark:shadow-none transition hover:border-brand-strong/40 dark:hover:border-white/40 hover:bg-white dark:hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-light focus-visible:ring-offset-2 focus-visible:ring-offset-background-light dark:focus-visible:ring-offset-slate-900"
+            className="inline-flex items-center gap-2 rounded-full border border-border-light dark:border-white/20 bg-panel-light dark:bg-white/5 px-3 py-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark shadow-e1 dark:shadow-none transition hover:border-brand-strong/40 dark:hover:border-white/40 hover:bg-white dark:hover:bg-white/10 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark "
             disabled={isFetching}
             type="button"
           >

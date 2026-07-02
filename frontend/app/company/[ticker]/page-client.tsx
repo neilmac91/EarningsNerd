@@ -262,7 +262,7 @@ export default function CompanyPageClient() {
           </p>
           <Link
             href="/"
-            className="mt-6 inline-flex items-center rounded-full bg-brand-strong px-5 py-2 text-sm font-semibold text-white transition hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark"
+            className="mt-6 inline-flex items-center rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white transition hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark"
           >
             Back to home
           </Link>
@@ -418,7 +418,7 @@ export default function CompanyPageClient() {
                       onClick={() => setFilterType(ft)}
                       className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-lg transition-colors ${
                         filterType === ft
-                          ? 'bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
+                          ? 'bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
                           : 'bg-brand-weak dark:bg-white/5 text-brand-strong dark:text-brand-strong-dark hover:bg-brand-weak/70 dark:hover:bg-white/10'
                       }`}
                     >
@@ -431,7 +431,7 @@ export default function CompanyPageClient() {
           </div>
 
           {ENABLE_RECOMMENDED_FILING && !filingsLoading && !filingsError && recommendedFiling && (
-            <div className="mb-6 rounded-xl border border-brand-light/30 dark:border-brand-light/30 bg-gradient-to-r from-brand-weak to-panel-light dark:from-white/5 dark:to-panel-dark p-4 sm:p-5">
+            <div className="mb-6 rounded-xl border border-brand-border dark:border-brand-border-dark bg-gradient-to-r from-brand-weak to-panel-light dark:from-white/5 dark:to-panel-dark p-4 sm:p-5">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-start gap-3">
                   <SparkleIcon className="mt-0.5 h-5 w-5 flex-shrink-0 text-brand-strong dark:text-brand-strong-dark" />
@@ -452,7 +452,7 @@ export default function CompanyPageClient() {
                 </div>
                 <Link
                   href={`/filing/${recommendedFiling.id}`}
-                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2 text-sm font-semibold transition-colors"
+                  className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2 text-sm font-semibold transition-colors"
                 >
                   Summarize this filing
                   <ArrowRightIcon className="h-4 w-4" />
@@ -552,7 +552,7 @@ export default function CompanyPageClient() {
                                   )}
                                   <Link
                                     href={`/filing/${filing.id}`}
-                                    className="inline-flex items-center px-4 py-2 bg-brand-strong hover:bg-brand-light text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark text-sm font-medium rounded-lg transition-colors"
+                                    className="inline-flex items-center px-4 py-2 bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark text-sm font-medium rounded-lg transition-colors"
                                   >
                                     Generate Filing Summary
                                   </Link>

@@ -238,7 +238,7 @@ export default function PrivacyPage() {
           <ul className="list-disc space-y-2 pl-6 text-text-secondary-light dark:text-text-secondary-dark">
             <li>
               <strong>Right to Access:</strong> You can access and view your account information at any time through your{' '}
-              <Link href="/dashboard" className="text-brand-strong hover:text-brand-light dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+              <Link href="/dashboard" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
                 account dashboard
               </Link>
               .
@@ -248,14 +248,14 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Right to Erasure (GDPR Article 17):</strong> You can delete your account and all associated data instantly through your{' '}
-              <Link href="/dashboard/settings" className="text-brand-strong hover:text-brand-light dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+              <Link href="/dashboard/settings" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
                 account settings page
               </Link>
               . This will permanently delete your profile, search history, saved summaries, watchlist, and usage data. Payment records will be retained for 7 years for tax compliance.
             </li>
             <li>
               <strong>Right to Data Portability (GDPR Article 20):</strong> You can download a complete copy of your data in JSON format from your{' '}
-              <Link href="/dashboard/settings" className="text-brand-strong hover:text-brand-light dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+              <Link href="/dashboard/settings" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
                 account settings page
               </Link>
               . This includes your profile, search history, saved summaries, watchlist, and usage statistics.
@@ -265,7 +265,7 @@ export default function PrivacyPage() {
             </li>
             <li>
               <strong>Right to Restrict Processing:</strong> You can request that we limit how we use your data by contacting us at{' '}
-              <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong hover:text-brand-light dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+              <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
                 privacy@earningsnerd.io
               </a>
               .
@@ -279,7 +279,7 @@ export default function PrivacyPage() {
           </ul>
           <p className="mt-4 text-text-secondary-light dark:text-text-secondary-dark">
             <strong>For EEA, UK, and Swiss Residents:</strong> If you believe we have not adequately addressed your privacy concerns, you have the right to lodge a complaint with your local data protection supervisory authority. A list of EU supervisory authorities can be found at{' '}
-            <a href="https://edpb.europa.eu/about-edpb/board/members_en" target="_blank" rel="noopener noreferrer" className="text-brand-strong hover:text-brand-light dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+            <a href="https://edpb.europa.eu/about-edpb/board/members_en" target="_blank" rel="noopener noreferrer" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
               EDPB Members
             </a>
             .
@@ -305,7 +305,7 @@ export default function PrivacyPage() {
             Our services are not directed to individuals under the age of 13 (or 16 in the EEA). We do not knowingly collect personal
             information from children under these ages. If you become aware that a child has provided us with personal
             information without parental consent, please contact us at{' '}
-            <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong hover:text-brand-light dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+            <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
               privacy@earningsnerd.io
             </a>
             , and we will take immediate steps to delete such information.
@@ -345,19 +345,19 @@ export default function PrivacyPage() {
           <ul className="list-none space-y-2 text-text-secondary-light dark:text-text-secondary-dark mt-4">
             <li>
               <strong>Privacy Inquiries:</strong>{' '}
-              <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong hover:text-brand-light dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+              <a href="mailto:privacy@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
                 privacy@earningsnerd.io
               </a>
             </li>
             <li>
               <strong>General Support:</strong>{' '}
-              <a href="mailto:hello@earningsnerd.io" className="text-brand-strong hover:text-brand-light dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+              <a href="mailto:hello@earningsnerd.io" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
                 hello@earningsnerd.io
               </a>
             </li>
             <li>
               <strong>Data Deletion or Export:</strong> Use your{' '}
-              <Link href="/dashboard/settings" className="text-brand-strong hover:text-brand-light dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
+              <Link href="/dashboard/settings" className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark">
                 account settings
               </Link>
               {' '}for instant self-service
@@ -371,7 +371,7 @@ export default function PrivacyPage() {
         <div className="mt-12 border-t border-border-light pt-8 dark:border-border-dark">
           <Link
             href="/"
-            className="text-brand-strong hover:text-brand-light dark:text-brand-strong-dark dark:hover:text-brand-strong-dark"
+            className="text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-strong-dark"
           >
             ← Back to Home
           </Link>

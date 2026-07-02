@@ -47,7 +47,7 @@ export default function CompanyLogo({
     <span
       role="img"
       aria-label={label}
-      className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-strong/15 ring-1 ring-brand-light/30 dark:bg-brand-dark/15 dark:ring-brand-dark/30 ${className}`}
+      className={`relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-brand-strong/15 ring-1 ring-brand-border dark:bg-brand-dark/15 dark:ring-brand-dark/30 ${className}`}
       style={{ width: size, height: size }}
     >
       <span

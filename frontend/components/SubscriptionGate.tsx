@@ -65,7 +65,7 @@ export default function SubscriptionGate({
             </p>
             <Link
               href="/pricing"
-              className="inline-flex items-center px-4 py-2 bg-brand-strong text-white rounded-lg hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-brand-light transition-colors font-medium"
+              className="inline-flex items-center px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark transition-colors font-medium"
             >
               <SparkleIcon className="h-4 w-4 mr-2" />
               Upgrade to Pro

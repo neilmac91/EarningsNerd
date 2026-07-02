@@ -96,9 +96,9 @@ export default function CitationChip({ citation }: CitationChipProps) {
   // ringed, monospace tabular-figure treatment vs. the plain filled chip. Same mint hue (on-brand).
   const isFact = isXbrlCitation(citation)
   const chipBase =
-    'inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded px-1 text-[11px] font-semibold leading-none align-baseline transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-brand-light'
+    'inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded px-1 text-[11px] font-semibold leading-none align-baseline transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
   const chipClass = isFact
-    ? `${chipBase} bg-brand-strong/10 font-mono tabular-nums text-brand-strong ring-1 ring-inset ring-brand-light/40 hover:bg-brand-strong/20 dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:ring-brand-dark/40 dark:hover:bg-brand-dark/25`
+    ? `${chipBase} bg-brand-strong/10 font-mono tabular-nums text-brand-strong ring-1 ring-inset ring-brand-border hover:bg-brand-strong/20 dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:ring-brand-dark/40 dark:hover:bg-brand-dark/25`
     : `${chipBase} bg-brand-strong/10 text-brand-strong hover:bg-brand-strong/20 dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:hover:bg-brand-dark/25`
 
   const triggerHandlers = {

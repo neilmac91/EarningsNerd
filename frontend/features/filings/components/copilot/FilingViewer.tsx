@@ -140,7 +140,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
                 href={secUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand-strong text-white hover:bg-brand-light dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-3 py-2 text-xs font-semibold transition-colors"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-3 py-2 text-xs font-semibold transition-colors"
               >
                 Open the original on SEC.gov <ArrowSquareOutIcon className="h-3.5 w-3.5" />
               </a>

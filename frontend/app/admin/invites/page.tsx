@@ -245,7 +245,7 @@ export default function AdminInvitesPage() {
               checked={sendEmail}
               onChange={(e) => setSendEmail(e.target.checked)}
               disabled={sending}
-              className="h-4 w-4 rounded border-border-light text-brand-strong focus:ring-brand-light/40 dark:border-white/10 dark:bg-slate-900/60"
+              className="h-4 w-4 rounded border-border-light text-brand-strong focus:shadow-ring-brand dark:border-white/10 dark:bg-slate-900/60"
             />
             <span className="inline-flex items-center gap-1.5">
               <EnvelopeSimpleIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />

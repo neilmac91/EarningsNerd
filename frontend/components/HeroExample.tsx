@@ -163,7 +163,7 @@ function HeroExample({ example }: { example: ExampleData | null }) {
           <ExampleCtaLink
             href={exampleFilingHref('hero_visual_example')}
             placement="hero_visual"
-            className="group flex items-center justify-between rounded-xl border border-brand-strong/25 dark:border-brand-dark/30 bg-brand-strong/10 dark:bg-brand-dark/15 px-4 py-3 transition-colors hover:border-brand-strong/40 dark:hover:border-brand-dark/40 hover:bg-brand-strong/15 dark:hover:bg-brand-dark/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-light"
+            className="group flex items-center justify-between rounded-xl border border-brand-strong/25 dark:border-brand-dark/30 bg-brand-strong/10 dark:bg-brand-dark/15 px-4 py-3 transition-colors hover:border-brand-strong/40 dark:hover:border-brand-dark/40 hover:bg-brand-strong/15 dark:hover:bg-brand-dark/20 focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
           >
             <span className="text-xs font-medium text-brand-strong dark:text-brand-strong-dark">
               Read the full example summary
