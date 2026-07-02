@@ -12,13 +12,13 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import { toast } from 'sonner'
 import SecondaryHeader from '@/components/SecondaryHeader'
-import StateCard from '@/components/StateCard'
 import TrialBanner from '@/components/TrialBanner'
 import CompanySearch from '@/components/CompanySearch'
 import FilingFeed from '@/components/dashboard/FilingFeed'
 import EarningsCalendar from '@/components/dashboard/EarningsCalendar'
 import { ENABLE_CALENDAR } from '@/lib/featureFlags'
 import analytics from '@/lib/analytics'
+import { Badge, Button, buttonVariants, Card, GuidanceCard, Skeleton } from '@/components/ui'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -135,27 +135,19 @@ export default function DashboardPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-panel-light dark:bg-background-dark px-4">
         <div className="max-w-md w-full">
-          <StateCard
+          <GuidanceCard
             variant="error"
             title="Unable to load your dashboard"
-            message={userErrorData instanceof Error ? userErrorData.message : 'Please try again in a moment.'}
+            description={userErrorData instanceof Error ? userErrorData.message : 'Please try again in a moment.'}
             action={
-              <div className="flex gap-3 mt-2">
-                <button
-                  type="button"
-                  onClick={() => refetchUser()}
-                  disabled={userFetching}
-                  className="inline-flex items-center rounded-lg border border-border-light px-4 py-2 text-sm font-medium text-text-secondary-light transition hover:bg-panel-light dark:border-border-dark dark:text-text-secondary-dark dark:hover:bg-panel-dark disabled:opacity-60"
-                >
-                  {userFetching ? 'Retrying…' : 'Retry'}
-                </button>
-                <Link
-                  href="/login"
-                  className="inline-flex items-center rounded-lg bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2 text-sm font-medium transition"
-                >
+              <>
+                <Button variant="secondary" onClick={() => refetchUser()} loading={userFetching} loadingText="Retrying…">
+                  Retry
+                </Button>
+                <Link href="/login" className={buttonVariants({ variant: 'primary' })}>
                   Go to login
                 </Link>
-              </div>
+              </>
             }
           />
         </div>
@@ -198,100 +190,84 @@ export default function DashboardPage() {
         {/* Phase 3 hero: quick search + personalised "what changed" feed + (optional) calendar.
             The plan/usage cards below become a compact secondary strip. */}
         <div className="mb-10 space-y-6">
-          <div className="rounded-2xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark p-5 shadow-sm">
+          <Card className="p-5">
             <p className="mb-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">Jump to any company</p>
             <CompanySearch />
-          </div>
+          </Card>
           <FilingFeed enabled={!!user} />
           {ENABLE_CALENDAR && <EarningsCalendar enabled={!!user} />}
         </div>
 
         {/* Subscription Status */}
         <div className="grid md:grid-cols-2 gap-6 mb-8">
-          <div className="bg-panel-light rounded-lg shadow-sm border border-border-light p-6 dark:bg-panel-dark dark:border-border-dark">
+          <Card className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Subscription</h2>
               {subscription?.is_pro ? (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-brand-weak text-brand-strong dark:bg-white/5 dark:text-brand-strong-dark">
-                  <SparkleIcon className="h-4 w-4 mr-1" />
-                  Pro
-                </span>
+                <Badge variant="brand" icon={<SparkleIcon className="h-4 w-4" />}>Pro</Badge>
               ) : (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-panel-light text-text-secondary-light dark:bg-panel-dark dark:text-text-secondary-dark border border-border-light dark:border-border-dark">
-                  Free
-                </span>
+                <Badge variant="free">Free</Badge>
               )}
             </div>
             {subscriptionError ? (
-              <StateCard
-                variant="error"
-                title="Unable to load subscription"
-                message={subscriptionErrorData instanceof Error ? subscriptionErrorData.message : 'Please retry.'}
-                action={
-                  <button
-                    type="button"
-                    onClick={() => refetchSubscription()}
-                    disabled={subscriptionFetching}
-                    className="mt-2 inline-flex items-center rounded-lg border border-loss-light/30 bg-loss-soft px-3 py-1 text-xs font-medium text-error-light transition hover:border-loss-light/60 disabled:opacity-60 dark:hover:border-loss-dark/60 dark:bg-loss-soft-dark dark:border-loss-dark/30 dark:text-error-dark"
-                  >
-                    {subscriptionFetching ? 'Retrying…' : 'Retry'}
-                  </button>
-                }
-              />
+              // Inline error (not GuidanceCard) — this state lives INSIDE the section
+              // card, and nesting a guidance panel in a panel stacks borders/shadows.
+              <div role="alert" className="space-y-2">
+                <p className="flex items-center gap-2 text-sm font-medium text-error-light dark:text-error-dark">
+                  <WarningCircleIcon className="h-4 w-4 flex-shrink-0" />
+                  Unable to load subscription
+                </p>
+                <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                  {subscriptionErrorData instanceof Error ? subscriptionErrorData.message : 'Please retry.'}
+                </p>
+                <Button variant="secondary" size="sm" onClick={() => refetchSubscription()} loading={subscriptionFetching} loadingText="Retrying…">
+                  Retry
+                </Button>
+              </div>
             ) : subscription?.is_pro ? (
               <div className="space-y-3">
                 <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   You&apos;re on the Pro plan with unlimited access.
                 </p>
-                <button
+                <Button
+                  variant="secondary"
+                  className="w-full"
                   onClick={() => portalMutation.mutate()}
-                  disabled={portalMutation.isPending}
-                  className="w-full px-4 py-2 bg-panel-light text-text-primary-light border border-border-light rounded-lg hover:bg-brand-weak transition-colors font-medium dark:bg-background-dark dark:text-text-primary-dark dark:border-border-dark dark:hover:bg-white/5"
+                  loading={portalMutation.isPending}
+                  loadingText="Loading..."
                 >
-                  {portalMutation.isPending ? (
-                    <span className="flex items-center justify-center">
-                      <CircleNotchIcon className="h-4 w-4 animate-spin mr-2" />
-                      Loading...
-                    </span>
-                  ) : (
-                    'Manage Subscription'
-                  )}
-                </button>
+                  Manage Subscription
+                </Button>
               </div>
             ) : (
               <div className="space-y-3">
                 <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Upgrade to Pro for unlimited summaries and advanced features.
                 </p>
-                <Link
-                  href="/pricing"
-                  className="block w-full text-center px-4 py-2 bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark rounded-lg transition-colors font-medium"
-                >
+                <Link href="/pricing" className={buttonVariants({ variant: 'primary', className: 'w-full' })}>
                   Upgrade to Pro
                 </Link>
               </div>
             )}
-          </div>
+          </Card>
 
           {/* Usage Stats */}
-          <div className="bg-panel-light rounded-lg shadow-sm border border-border-light p-6 dark:bg-panel-dark dark:border-border-dark">
+          <Card className="p-6">
             <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">Usage This Month</h2>
             {usageError ? (
-              <StateCard
-                variant="error"
-                title="Unable to load usage data"
-                message={usageErrorData instanceof Error ? usageErrorData.message : 'Please retry.'}
-                action={
-                  <button
-                    type="button"
-                    onClick={() => refetchUsage()}
-                    disabled={usageFetching}
-                    className="mt-2 inline-flex items-center rounded-lg border border-loss-light/30 bg-loss-soft px-3 py-1 text-xs font-medium text-error-light transition hover:border-loss-light/60 disabled:opacity-60 dark:hover:border-loss-dark/60 dark:bg-loss-soft-dark dark:border-loss-dark/30 dark:text-error-dark"
-                  >
-                    {usageFetching ? 'Retrying…' : 'Retry'}
-                  </button>
-                }
-              />
+              // Inline error — same in-card composition rule as the subscription error.
+              <div role="alert" className="space-y-2">
+                <p className="flex items-center gap-2 text-sm font-medium text-error-light dark:text-error-dark">
+                  <WarningCircleIcon className="h-4 w-4 flex-shrink-0" />
+                  Unable to load usage data
+                </p>
+                <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                  {usageErrorData instanceof Error ? usageErrorData.message : 'Please retry.'}
+                </p>
+                <Button variant="secondary" size="sm" onClick={() => refetchUsage()} loading={usageFetching} loadingText="Retrying…">
+                  Retry
+                </Button>
+              </div>
             ) : usage?.is_pro ? (
               <div className="flex items-center space-x-2">
                 <CheckCircleIcon className="h-5 w-5 text-success-light dark:text-success-dark" />
@@ -312,7 +288,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="w-full bg-panel-light rounded-full h-3 border border-border-light dark:bg-background-dark dark:border-border-dark">
                   <div
-                    className={`h-full rounded-full transition-all ${
+                    className={`h-full rounded-full transition-[width] duration-base ${
                       usagePercentage >= 100
                         ? 'bg-error-light dark:bg-error-dark'
                         : usagePercentage >= 80
@@ -339,84 +315,74 @@ export default function DashboardPage() {
                 )}
               </div>
             )}
-          </div>
+          </Card>
         </div>
 
-        {/* Quick Actions */}
+        {/* Quick Actions — interactive Cards wrapped in Links for semantics;
+            the focus ring rides on the Link (the actual focusable element). */}
         <div className="grid md:grid-cols-3 gap-6">
-          <Link
-            href="/"
-            className="bg-panel-light rounded-lg shadow-sm border border-border-light p-6 hover:shadow-md transition-shadow dark:bg-panel-dark dark:border-border-dark"
-          >
-            <div className="flex items-center space-x-3 mb-3">
-              <div className="p-2 bg-brand-weak rounded-lg dark:bg-white/5">
-                <FileTextIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
-              </div>
-              <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Search Companies</h3>
-            </div>
-            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              Find and analyze SEC filings for any public company
-            </p>
-          </Link>
-
-          <Link
-            href="/pricing"
-            className="bg-panel-light rounded-lg shadow-sm border border-border-light p-6 hover:shadow-md transition-shadow dark:bg-panel-dark dark:border-border-dark"
-          >
-            <div className="flex items-center space-x-3 mb-3">
-              <div className="p-2 bg-brand-weak rounded-lg dark:bg-white/5">
-                <SparkleIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
-              </div>
-              <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">View Plans</h3>
-            </div>
-            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              Compare features and upgrade your plan
-            </p>
-          </Link>
-
-          <Link
-            href="/dashboard/watchlist"
-            className="bg-panel-light rounded-lg shadow-sm border border-border-light p-6 hover:shadow-md transition-shadow dark:bg-panel-dark dark:border-border-dark"
-          >
-            <div className="flex items-center space-x-3 mb-3">
-              <div className="p-2 bg-brand-weak rounded-lg dark:bg-white/5">
-                <ChartBarIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
-              </div>
-              <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Watchlist Insights</h3>
-            </div>
-            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              Monitor summary readiness across your tracked companies
-            </p>
-          </Link>
+          {(
+            [
+              {
+                href: '/',
+                icon: <FileTextIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />,
+                title: 'Search Companies',
+                description: 'Find and analyze SEC filings for any public company',
+              },
+              {
+                href: '/pricing',
+                icon: <SparkleIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />,
+                title: 'View Plans',
+                description: 'Compare features and upgrade your plan',
+              },
+              {
+                href: '/dashboard/watchlist',
+                icon: <ChartBarIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />,
+                title: 'Watchlist Insights',
+                description: 'Monitor summary readiness across your tracked companies',
+              },
+            ] as const
+          ).map((action) => (
+            <Link
+              key={action.href}
+              href={action.href}
+              className="block rounded-xl focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+            >
+              <Card interactive className="h-full p-6">
+                <div className="flex items-center space-x-3 mb-3">
+                  <div className="p-2 bg-brand-weak rounded-lg dark:bg-white/5">{action.icon}</div>
+                  <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">{action.title}</h3>
+                </div>
+                <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{action.description}</p>
+              </Card>
+            </Link>
+          ))}
         </div>
 
         {/* Saved Summaries */}
         <div className="mt-8">
           <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">Saved Summaries</h2>
           {savedLoading ? (
-            <div className="flex justify-center py-12">
-              <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+            <div role="status" aria-label="Loading saved summaries" className="grid md:grid-cols-2 gap-4">
+              <Skeleton className="h-28 rounded-xl" />
+              <Skeleton className="h-28 rounded-xl" />
+              <span className="sr-only">Loading saved summaries…</span>
             </div>
           ) : savedError ? (
-            <StateCard
+            <GuidanceCard
               variant="error"
               title="Unable to load saved summaries"
-              message={savedErrorData instanceof Error ? savedErrorData.message : 'Please retry.'}
+              description={savedErrorData instanceof Error ? savedErrorData.message : 'Please retry.'}
               action={
-                <button
-                  type="button"
-                  onClick={() => refetchSavedSummaries()}
-                  disabled={savedFetching}
-                  className="mt-2 inline-flex items-center rounded-lg border border-loss-light/30 bg-loss-soft px-3 py-1 text-xs font-medium text-error-light transition hover:border-loss-light/60 disabled:opacity-60 dark:hover:border-loss-dark/60 dark:bg-loss-soft-dark dark:border-loss-dark/30 dark:text-error-dark"
-                >
-                  {savedFetching ? 'Retrying…' : 'Retry'}
-                </button>
+                <Button variant="secondary" onClick={() => refetchSavedSummaries()} loading={savedFetching} loadingText="Retrying…">
+                  Retry
+                </Button>
               }
             />
           ) : savedSummaries && savedSummaries.length > 0 ? (
             <div className="grid md:grid-cols-2 gap-4">
               {savedSummaries.map((item: SavedSummary) => (
-                <div key={item.id} className="bg-panel-light rounded-lg shadow-sm border border-border-light p-4 dark:bg-panel-dark dark:border-border-dark">
+                <Card key={item.id} className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <Link
@@ -443,14 +409,14 @@ export default function DashboardPage() {
                       <TrashIcon className="h-5 w-5" />
                     </button>
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           ) : (
-            <StateCard
-              variant="info"
+            <GuidanceCard
+              variant="empty"
               title="No saved summaries yet"
-              message="Save summaries from filing pages to access them here."
+              description="Save summaries from filing pages to access them here."
             />
           )}
         </div>
@@ -459,29 +425,27 @@ export default function DashboardPage() {
         <div className="mt-8">
           <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">Watchlist</h2>
           {watchlistLoading ? (
-            <div className="flex justify-center py-12">
-              <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+            <div role="status" aria-label="Loading watchlist" className="grid md:grid-cols-3 gap-4">
+              <Skeleton className="h-20 rounded-xl" />
+              <Skeleton className="h-20 rounded-xl" />
+              <Skeleton className="h-20 rounded-xl" />
+              <span className="sr-only">Loading watchlist…</span>
             </div>
           ) : watchlistError ? (
-            <StateCard
+            <GuidanceCard
               variant="error"
               title="Unable to load watchlist"
-              message={watchlistErrorData instanceof Error ? watchlistErrorData.message : 'Please retry.'}
+              description={watchlistErrorData instanceof Error ? watchlistErrorData.message : 'Please retry.'}
               action={
-                <button
-                  type="button"
-                  onClick={() => refetchWatchlist()}
-                  disabled={watchlistFetching}
-                  className="mt-2 inline-flex items-center rounded-lg border border-loss-light/30 bg-loss-soft px-3 py-1 text-xs font-medium text-error-light transition hover:border-loss-light/60 disabled:opacity-60 dark:hover:border-loss-dark/60 dark:bg-loss-soft-dark dark:border-loss-dark/30 dark:text-error-dark"
-                >
-                  {watchlistFetching ? 'Retrying…' : 'Retry'}
-                </button>
+                <Button variant="secondary" onClick={() => refetchWatchlist()} loading={watchlistFetching} loadingText="Retrying…">
+                  Retry
+                </Button>
               }
             />
           ) : watchlist && watchlist.length > 0 ? (
             <div className="grid md:grid-cols-3 gap-4">
               {watchlist.map((item: WatchlistItem) => (
-                <div key={item.id} className="bg-panel-light rounded-lg shadow-sm border border-border-light p-4 dark:bg-panel-dark dark:border-border-dark">
+                <Card key={item.id} className="p-4">
                   <div className="flex items-center justify-between">
                     <Link
                       href={`/company/${item.company.ticker}`}
@@ -501,14 +465,14 @@ export default function DashboardPage() {
                       <XIcon className="h-5 w-5" />
                     </button>
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           ) : (
-            <StateCard
-              variant="info"
+            <GuidanceCard
+              variant="empty"
               title="Your watchlist is empty"
-              message="Add companies to your watchlist from company pages."
+              description="Add companies to your watchlist from company pages."
             />
           )}
         </div>
