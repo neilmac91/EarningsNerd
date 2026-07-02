@@ -319,6 +319,44 @@ def test_logout_all_revokes_every_session(client, registered_user):
 
 
 @pytest.mark.requires_db
+def test_change_password_revokes_existing_sessions(client):
+    """Changing the password evicts every existing session (M3): a pre-change refresh token can no
+    longer refresh, while the acting device is re-issued a fresh, working session (not logged out).
+    Uses a dedicated account so it doesn't disturb the module-shared registered_user."""
+    client.cookies.clear()
+    email = _unique_email()
+    old_pw, new_pw = VALID_PASSWORD, VALID_PASSWORD + "9z"  # both satisfy the strength policy
+
+    assert client.post(
+        "/api/auth/register", json={"email": email, "password": old_pw}
+    ).status_code == 200
+    client.cookies.clear()
+
+    # Log in — this is the session we expect the password change to evict.
+    login = client.post("/api/auth/login", json={"email": email, "password": old_pw})
+    assert login.status_code == 200, login.text
+    stale_refresh = client.cookies.get("earningsnerd_refresh_token")
+    assert stale_refresh
+
+    # Change the password while authenticated (via the login cookie jar).
+    changed = client.post(
+        "/api/auth/change-password",
+        json={"current_password": old_pw, "new_password": new_pw},
+    )
+    assert changed.status_code == 200, changed.text
+    # The acting device is re-issued a *different* refresh token — it stays logged in.
+    reissued = client.cookies.get("earningsnerd_refresh_token")
+    assert reissued and reissued != stale_refresh
+
+    # The pre-change refresh token is revoked: replaying it (via body) is rejected.
+    client.cookies.clear()
+    assert client.post(
+        "/api/auth/refresh", json={"refresh_token": stale_refresh}
+    ).status_code == 401
+    client.cookies.clear()
+
+
+@pytest.mark.requires_db
 def test_connections_lists_password_account(client, registered_user):
     """A password account reports has_password=True and no linked OAuth providers."""
     client.cookies.clear()
