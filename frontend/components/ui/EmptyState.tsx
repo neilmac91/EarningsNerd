@@ -1,21 +1,28 @@
 import React from 'react'
 import { QuestionIcon } from '@/lib/icons'
+import { GuidanceCard } from './GuidanceCard'
 
 interface EmptyStateProps {
   label: string
   message?: string
 }
 
+/**
+ * TRANSITIONAL SHIM (design-system v2 adoption): delegates to GuidanceCard so every
+ * empty state renders the v2 surface, while call sites keep the label-composition
+ * API they were built against. Inline GuidanceCard at the call sites and delete
+ * this file in the marketing/consolidation adoption PR.
+ */
 export function EmptyState({ label, message }: EmptyStateProps) {
   return (
-    <div className="flex flex-col items-center justify-center py-12 text-center">
-      <div className="bg-panel-light dark:bg-white/5 p-4 rounded-full mb-4">
-        <QuestionIcon className="h-8 w-8 text-text-secondary-light dark:text-text-secondary-dark" />
-      </div>
-      <h3 className="text-lg font-medium text-text-primary-light dark:text-text-primary-dark">No {label} Found</h3>
-      <p className="text-text-secondary-light dark:text-text-secondary-dark max-w-sm mt-2">
-        {message || "The AI couldn't extract this specific section from the filing. This usually means the company didn't report it in standard format."}
-      </p>
-    </div>
+    <GuidanceCard
+      variant="empty"
+      icon={<QuestionIcon className="h-5 w-5" />}
+      title={`No ${label} Found`}
+      description={
+        message ||
+        "The AI couldn't extract this specific section from the filing. This usually means the company didn't report it in standard format."
+      }
+    />
   )
 }
