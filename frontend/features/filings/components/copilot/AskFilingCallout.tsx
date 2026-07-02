@@ -2,6 +2,7 @@
 
 import { SparkleIcon } from '@/lib/icons'
 import { starterQuestions } from './starterQuestions'
+import { Button } from '@/components/ui'
 
 interface AskFilingCalloutProps {
   filingType: string
@@ -52,14 +53,9 @@ export default function AskFilingCallout({ filingType, subjectLabel, onAsk }: As
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            onClick={() => onAsk('', 'summary_cta')}
-            className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
-          >
-            <SparkleIcon className="h-4 w-4" aria-hidden="true" />
+          <Button className="mt-4" onClick={() => onAsk('', 'summary_cta')} leftIcon={<SparkleIcon className="h-4 w-4" aria-hidden="true" />}>
             Ask this filing
-          </button>
+          </Button>
         </div>
       </div>
     </section>

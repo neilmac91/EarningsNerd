@@ -3,6 +3,7 @@
 import { Children, cloneElement, Fragment, isValidElement, type ReactElement, type ReactNode } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
+import { Button } from '@/components/ui'
 import remarkGfm from 'remark-gfm'
 import { ArrowClockwiseIcon, ArrowRightIcon, ArrowSquareOutIcon, CheckCircleIcon, CircleNotchIcon, MinusIcon, ProhibitIcon, SparkleIcon } from '@/lib/icons'
 import { isXbrlCitation, xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
@@ -36,7 +37,7 @@ function ActivityTicker({ steps }: { steps: CopilotStep[] }) {
   return (
     <ul className="mb-2 space-y-1" aria-label="Working">
       {steps.map((s, i) => (
-        <li key={`${s.label}-${i}`} className="flex items-center gap-2 text-[12px]">
+        <li key={`${s.label}-${i}`} className="flex items-center gap-2 text-xs">
           {!s.done ? (
             <CircleNotchIcon className="h-3.5 w-3.5 shrink-0 animate-spin text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
           ) : s.ok ? (
@@ -89,7 +90,7 @@ function FollowupChips({
 }) {
   return (
     <div className="mt-3 border-t border-border-light dark:border-white/10 pt-2.5">
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">Ask next</p>
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">Ask next</p>
       <div className="flex flex-col gap-1.5">
         {followups.map((q, i) => (
           <button
@@ -212,19 +213,19 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
   if (!citations.length) return null
   return (
     <div className="mt-3 border-t border-border-light dark:border-white/10 pt-2.5">
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">Sources</p>
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">Sources</p>
       <ul className="space-y-1">
         {citations.map((c) => {
           const label = c.section_ref || `Excerpt ${c.n}`
           const rowClass =
             'flex items-start gap-2 rounded px-1.5 py-1 text-xs text-text-secondary-light dark:text-text-secondary-dark'
           const badge = c.verified ? (
-            <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-medium text-brand-strong dark:text-brand-strong-dark">
+            <span className="inline-flex shrink-0 items-center gap-0.5 text-data-xs font-medium text-brand-strong dark:text-brand-strong-dark">
               <CheckCircleIcon className="h-3 w-3" />
               Verified
             </span>
           ) : (
-            <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] font-medium text-text-secondary-light dark:text-text-secondary-dark">
+            <span className="inline-flex shrink-0 items-center gap-0.5 text-data-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
               <ArrowSquareOutIcon className="h-3 w-3" />
               Cited
             </span>
@@ -236,28 +237,28 @@ function SourcesList({ citations }: { citations: CopilotCitation[] }) {
           // the prose excerpt treatment used for filing-text citations.
           const content = isFact ? (
             <>
-              <span className="mt-px font-mono text-[11px] font-semibold text-brand-strong dark:text-brand-strong-dark">[{c.n}]</span>
+              <span className="mt-px font-mono text-data-xs font-semibold text-brand-strong dark:text-brand-strong-dark">[{c.n}]</span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate font-mono text-[12px] tabular-nums text-text-primary-light dark:text-text-primary-dark">
+                  <span className="min-w-0 flex-1 truncate font-mono text-xs tabular-nums text-text-primary-light dark:text-text-primary-dark">
                     {c.excerpt}
                   </span>
                   {badge}
                 </span>
                 {tag && (
-                  <span className="mt-0.5 block truncate font-mono text-[10px] text-text-secondary-light dark:text-text-secondary-dark">{tag}</span>
+                  <span className="mt-0.5 block truncate font-mono text-data-xs text-text-secondary-light dark:text-text-secondary-dark">{tag}</span>
                 )}
               </span>
             </>
           ) : (
             <>
-              <span className="mt-px font-mono text-[11px] font-semibold text-brand-strong dark:text-brand-strong-dark">[{c.n}]</span>
+              <span className="mt-px font-mono text-data-xs font-semibold text-brand-strong dark:text-brand-strong-dark">[{c.n}]</span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
                   <span className="min-w-0 flex-1 truncate">{label}</span>
                   {badge}
                 </span>
-                <span className="mt-0.5 block line-clamp-2 text-[11px] text-text-secondary-light dark:text-text-secondary-dark">{c.excerpt}</span>
+                <span className="mt-0.5 block line-clamp-2 text-data-xs text-text-secondary-light dark:text-text-secondary-dark">{c.excerpt}</span>
               </span>
             </>
           )
@@ -312,25 +313,15 @@ export default function CopilotMessage({
         <div className="mt-2.5">
           {isPaywallError ? (
             onUpgrade && (
-              <button
-                type="button"
-                onClick={onUpgrade}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-3 py-1.5 text-xs font-semibold transition-colors"
-              >
-                <SparkleIcon className="h-3.5 w-3.5" />
+              <Button size="sm" onClick={onUpgrade} leftIcon={<SparkleIcon className="h-3.5 w-3.5" />}>
                 Upgrade to Pro
-              </button>
+              </Button>
             )
           ) : (
             onRetry && (
-              <button
-                type="button"
-                onClick={onRetry}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border-light dark:border-white/15 bg-panel-light dark:bg-white/5 px-3 py-1.5 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:bg-brand-weak dark:hover:bg-white/10"
-              >
-                <ArrowClockwiseIcon className="h-3.5 w-3.5" />
+              <Button variant="secondary" size="sm" onClick={onRetry} leftIcon={<ArrowClockwiseIcon className="h-3.5 w-3.5" />}>
                 Retry
-              </button>
+              </Button>
             )
           )}
         </div>
@@ -413,7 +404,7 @@ export default function CopilotMessage({
           {message.status === 'done' && (
             <>
               {typeof message.grounded === 'number' && message.grounded > 0 && (
-                <p className="mt-2.5 flex items-center gap-1.5 text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
+                <p className="mt-2.5 flex items-center gap-1.5 text-data-xs text-text-secondary-light dark:text-text-secondary-dark">
                   <CheckCircleIcon className="h-3.5 w-3.5 text-brand-strong/70 dark:text-brand-strong-dark/70" />
                   Grounded in {message.grounded} excerpt{message.grounded === 1 ? '' : 's'}
                 </p>

@@ -2,6 +2,7 @@
 
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import { PaperPlaneTiltIcon } from '@/lib/icons'
+import { Button } from '@/components/ui'
 
 interface CopilotComposerProps {
   onSubmit: (question: string) => void
@@ -71,6 +72,9 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
       }}
       className="border-t border-border-light bg-panel-light dark:border-white/10 dark:bg-slate-900 p-3"
     >
+      {/* Chat-composer wrapper: the raw textarea stays transparent inside this
+          field-recipe shell (v2 Textarea's own chrome would double up here —
+          upstream candidate: a composer variant). */}
       <div className="flex items-end gap-2 rounded-xl border border-border-light bg-panel-light dark:border-white/10 dark:bg-slate-950/60 p-2 focus-within:border-brand-border">
         <textarea
           ref={textareaRef}
@@ -88,16 +92,13 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
           aria-label="Ask about this filing"
           className="max-h-[120px] flex-1 resize-none bg-transparent px-1 py-1 text-sm text-text-primary-light dark:text-text-primary-dark placeholder:text-text-secondary-light dark:placeholder:text-text-secondary-dark focus:outline-none"
         />
-        <button
-          type="submit"
-          disabled={!canSend}
-          aria-label="Send"
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark transition-colors disabled:cursor-not-allowed disabled:bg-border-light disabled:text-text-secondary-light dark:disabled:bg-white/10 dark:disabled:text-text-secondary-dark"
-        >
+        {/* Icon-only primary Button — sm height with the horizontal padding
+            zeroed so it stays a square send affordance. */}
+        <Button type="submit" size="sm" disabled={!canSend} aria-label="Send" className="w-8 shrink-0 px-0">
           <PaperPlaneTiltIcon className="h-4 w-4" />
-        </button>
+        </Button>
       </div>
-      <p className="mt-2 px-1 text-[11px] leading-snug text-text-secondary-light dark:text-text-secondary-dark">
+      <p className="mt-2 px-1 text-xs leading-snug text-text-secondary-light dark:text-text-secondary-dark">
         Avoid entering personal or confidential information — your question is sent to our AI
         provider to generate an answer.
       </p>

@@ -10,6 +10,7 @@ import {
   type CopilotTurn,
 } from '@/features/filings/api/copilot-api'
 import CopilotComposer, { type CopilotComposerHandle } from './CopilotComposer'
+import { Badge, Button } from '@/components/ui'
 import CopilotMessage, { type CopilotMessageData } from './CopilotMessage'
 import CopilotTeaser from './CopilotTeaser'
 import { useFilingViewer } from './FilingViewerContext'
@@ -48,7 +49,7 @@ interface AskCopilotRailProps {
 // Open-panel container classes per layout variant. Mobile (bottom-sheet) is identical; they differ
 // only at lg+: overlay docks fixed on the right, pane fills the FilingWorkspace grid cell.
 const PANEL_BASE =
-  'fixed inset-x-0 bottom-0 z-40 flex max-h-[80vh] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-slate-900 dark:text-text-primary-dark shadow-2xl'
+  'fixed inset-x-0 bottom-0 z-40 flex max-h-[80vh] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-slate-900 dark:text-text-primary-dark shadow-e5 dark:shadow-none'
 const PANEL_VARIANT: Record<'overlay' | 'pane', string> = {
   overlay:
     'lg:inset-x-auto lg:bottom-0 lg:right-0 lg:top-16 lg:max-h-none lg:w-[420px] lg:rounded-none lg:border-y-0 lg:border-l',
@@ -366,7 +367,7 @@ export default function AskCopilotRail({
               Ask anything about {subjectLabel}’s {filingType}. Answers are grounded in the filing and
               cite the excerpts they came from.
             </p>
-            <p className="mt-4 mb-2 text-[11px] font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">
+            <p className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">
               Try asking
             </p>
             <div className="flex flex-col gap-2">
@@ -406,14 +407,14 @@ export default function AskCopilotRail({
       {/* Honest usage line. PRO: a calm monthly count. FREE: the lifetime taste balance, then a
           gentle upsell at exhaustion (the conversation above stays put). */}
       {isPro && usage && (
-        <p className="px-4 pb-2 text-center text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
+        <p className="px-4 pb-2 text-center text-xs text-text-secondary-light dark:text-text-secondary-dark">
           {Math.max(usage.qa_limit - usage.qa_used, 0).toLocaleString()} of{' '}
           {usage.qa_limit.toLocaleString()} questions left this month
         </p>
       )}
       {!isPro && usage && freeTasteTotal > 0 && (
         freeTasteRemaining > 0 ? (
-          <p className="px-4 pb-2 text-center text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
+          <p className="px-4 pb-2 text-center text-xs text-text-secondary-light dark:text-text-secondary-dark">
             {freeTasteRemaining} of {freeTasteTotal} free question{freeTasteTotal === 1 ? '' : 's'} left ·{' '}
             <button
               type="button"
@@ -425,16 +426,12 @@ export default function AskCopilotRail({
           </p>
         ) : (
           <div className="px-4 pb-3 pt-1 text-center">
-            <p className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
+            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
               You’ve used your {freeTasteTotal} free Copilot question{freeTasteTotal === 1 ? '' : 's'}.
             </p>
-            <button
-              type="button"
-              onClick={() => handleUpgrade('copilot_free_taste_exhausted')}
-              className="mt-1 inline-flex items-center rounded-full bg-brand px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark"
-            >
+            <Button size="sm" className="mt-1" onClick={() => handleUpgrade('copilot_free_taste_exhausted')}>
               Upgrade to Pro for unlimited questions
-            </button>
+            </Button>
           </div>
         )
       )}
@@ -475,7 +472,7 @@ export default function AskCopilotRail({
       >
         <SparkleIcon className="h-4 w-4" />
         Ask this Filing
-        <kbd className="ml-1 hidden rounded border border-slate-950/25 bg-slate-950/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none sm:inline-block">
+        <kbd className="ml-1 hidden rounded border border-black/25 bg-black/10 px-1.5 py-0.5 text-data-xs font-semibold leading-none sm:inline-block">
           ⌘K
         </kbd>
       </button>
@@ -506,10 +503,13 @@ export default function AskCopilotRail({
           <div className="flex min-w-0 items-center gap-2">
             <SparkleIcon className="h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" />
             <h2 className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Ask this Filing</h2>
-            <span className="hidden shrink-0 items-center gap-1.5 rounded-full bg-brand-weak dark:bg-white/5 px-2 py-0.5 text-[11px] font-medium text-brand-strong dark:text-brand-strong-dark ring-1 ring-brand-border sm:inline-flex">
-              <span className="h-1.5 w-1.5 rounded-full bg-brand-strong dark:bg-brand-strong-dark" aria-hidden="true" />
+            <Badge
+              variant="brand"
+              className="hidden shrink-0 sm:inline-flex"
+              icon={<span className="h-1.5 w-1.5 rounded-full bg-current" aria-hidden="true" />}
+            >
               Scoped to this filing
-            </span>
+            </Badge>
           </div>
           <button
             type="button"
