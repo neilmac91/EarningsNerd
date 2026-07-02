@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { NewspaperIcon } from '@/lib/icons'
 import { getDashboardFeed } from '@/features/dashboard/api/dashboard-api'
-import StateCard from '@/components/StateCard'
+import { Button, GuidanceCard, Skeleton } from '@/components/ui'
 import WhatChangedCard from './WhatChangedCard'
 
 export default function FilingFeed({ enabled = true }: { enabled?: boolean }) {
@@ -24,35 +24,28 @@ export default function FilingFeed({ enabled = true }: { enabled?: boolean }) {
       </div>
 
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div role="status" aria-label="Loading feed" className="grid gap-4 sm:grid-cols-2">
           {[0, 1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="h-28 animate-pulse rounded-xl border border-border-light bg-panel-light dark:border-border-dark dark:bg-panel-dark"
-            />
+            <Skeleton key={i} className="h-28 rounded-xl" />
           ))}
+          <span className="sr-only">Loading feed…</span>
         </div>
       ) : isError ? (
-        <StateCard
+        <GuidanceCard
           variant="error"
           title="Couldn't load your feed"
-          message="Please retry in a moment."
+          description="Please retry in a moment."
           action={
-            <button
-              type="button"
-              onClick={() => refetch()}
-              disabled={isFetching}
-              className="mt-2 inline-flex items-center rounded-lg bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark px-4 py-2 text-sm font-medium transition disabled:opacity-60"
-            >
-              {isFetching ? 'Retrying…' : 'Retry'}
-            </button>
+            <Button variant="secondary" onClick={() => refetch()} loading={isFetching} loadingText="Retrying…">
+              Retry
+            </Button>
           }
         />
       ) : !data || data.length === 0 ? (
-        <StateCard
-          variant="info"
+        <GuidanceCard
+          variant="empty"
           title="No new filings yet"
-          message="Add companies to your watchlist — when they file a 10-K or 10-Q, you'll see what changed here first."
+          description="Add companies to your watchlist — when they file a 10-K or 10-Q, you'll see what changed here first."
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">
