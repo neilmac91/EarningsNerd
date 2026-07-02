@@ -157,8 +157,10 @@ module.exports = {
         // next/font self-hosts under HASHED family names exposed ONLY as CSS vars
         // (--font-inter / --font-geist-mono / --font-newsreader — see layout.tsx Option A), so
         // every stack LEADS with its next/font variable; the literals are fallbacks (Option B /
-        // non-Next consumers). PACKAGING GATE: every fontFamily stack and :root font var leads
-        // with its next/font variable — this wiring was missed in BOTH the v2 and v2.1 exports.
+        // non-Next consumers). EXCEPTION: `body` is system-first BY DESIGN — -apple-system stays
+        // first and the var precedes generic system-ui; do not "fix" it to lead. PACKAGING GATE:
+        // every fontFamily stack and :root font var leads with its next/font variable (body: the
+        // var leads the WEBFONT portion) — this wiring was missed in BOTH the v2 and v2.1 exports.
         // Headings: Inter loaded WITH the variable opsz axis — font-optical-sizing:auto gives the
         // SF-style Text↔Display optical cuts. ONE display weight: 600.
         heading: ['var(--font-inter)', 'Inter', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],

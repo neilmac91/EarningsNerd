@@ -20,9 +20,12 @@
   /* next/font self-hosts under HASHED family names exposed ONLY as CSS vars
      (--font-inter / --font-geist-mono / --font-newsreader — layout.tsx Option A):
      every stack LEADS with its next/font variable, literals are fallbacks
-     (Option B <link> / non-Next consumers). PACKAGING GATE: every fontFamily
-     stack and :root font var leads with its next/font variable.
-     --font-system was purged at the v2 cutover — do not reintroduce. */
+     (Option B <link> / non-Next consumers). EXCEPTION: --font-body is
+     system-first BY DESIGN — -apple-system stays first (Apple hardware renders
+     SF Pro, zero bytes) and the var sits before generic system-ui; do not
+     "fix" it to lead. PACKAGING GATE: every fontFamily stack and :root font
+     var leads with its next/font variable (body: the var leads the WEBFONT
+     portion). --font-system was purged at the v2 cutover — do not reintroduce. */
   --font-editorial: var(--font-newsreader), 'Newsreader', 'New York', ui-serif, Georgia, serif;
   --font-data: var(--font-geist-mono), 'Geist Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
 
