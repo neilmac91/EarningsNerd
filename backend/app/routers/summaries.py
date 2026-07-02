@@ -19,7 +19,7 @@ from app.models import (
 )
 from app.routers.auth import get_current_user_optional
 from app.dependencies import require_copilot_or_taste
-from app.services.entitlements import get_entitlements
+from app.services.entitlements import get_entitlements, is_pro_user
 from app.services.export_service import export_service
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.subscription_service import (
@@ -150,14 +150,21 @@ async def generate_summary_stream(
         error_detail="Too many summary requests. Please try again shortly.",
     )
 
-    # Regeneration deletes the filing's shared summary + XBRL and kicks off a fresh, paid LLM run.
-    # Gate it behind auth so an anonymous caller can't drive denial-of-wallet or wipe a popular
-    # filing's summary for everyone. Guests can still read and generate (just not force-regenerate).
-    if force and current_user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Please sign in to regenerate this analysis.",
-        )
+    # Regeneration deletes the filing's shared summary + XBRL and kicks off a fresh, paid LLM run,
+    # so it's Pro-only: an anonymous caller could otherwise drive denial-of-wallet or wipe a popular
+    # filing's summary for everyone. Resolved via the entitlements SSoT (not the is_pro mirror) so a
+    # lagging mirror can't wrongly grant/deny it. Guests/Free users can still read and generate.
+    if force:
+        if current_user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Please sign in to regenerate this analysis.",
+            )
+        if not is_pro_user(current_user):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Regenerating an analysis is a Pro feature.",
+            )
 
     # Eagerly load content_cache and company relationship to avoid detached session issues
     filing = db.query(Filing).options(
