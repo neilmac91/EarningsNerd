@@ -4,37 +4,42 @@
 **Scope (approved pass, PR 4 of 5):** home surface fixes + the deferred consolidation. Deliberate
 marketing chrome (glass-card, mockup-frame, hero-search glow, lift pills, CTA pill shape) STAYS.
 ### Home surface (drift + states only)
-- [ ] app/page.tsx: HotFilings/TrendingTickers skeletons -> Skeleton family (kill brand-weak-as-
-      bone-fill on cream; keep role=status wrappers)
-- [ ] HotFilings: loading bones -> Skeleton; error -> GuidanceCard error + Button retry; empty ->
-      GuidanceCard empty; source chips -> Badge (new/neutral, icon null); View-AI-Summary ->
-      buttonVariants; Refresh -> Button ghost; text-[10px] -> text-xs; transition-all -> transition
-- [ ] TrendingTickers: orange flame -> warning tokens (DS bans the orange accent); bones ->
-      Skeleton; error/stale/empty -> GuidanceCard/inline; Refresh -> Button ghost;
-      transition-all -> transition on ticker cards (lift affordance stays)
-- [ ] CompanySearch: dropdown shadow-lg -> shadow-e3 dark:shadow-none (hero glow + input pattern
-      stay); SocialProofStrip + FilingPulse raw slate fills -> tokens; FilingPulse 10px -> xs
-- [ ] HeroExample: remove the second decorative glow (DS §7: the ONLY glow is the hero search);
-      mockup chrome + traffic lights stay (marketing mock UI)
-- [ ] QuickAccessBar/HowItWorks/FeatureShowcase/ReportingThisWeek/CtaBanner: transition-all ->
-      transition; ReportingThisWeek 10px pill -> Badge/text-xs; testids/aria PRESERVED
-      (QuickAccessBar test pins data-testid/region name; e2e pins h1 + search placeholder + footer)
+- [x] app/page.tsx: both page-level skeletons -> Skeleton family (brand-weak bone fill killed;
+      role=status wrappers kept, sr-only added)
+- [x] HotFilings: bones -> Skeleton (+role=status); error/empty -> GuidanceCard (+loading Button
+      retry); source chips -> Badge (new = warning tint for earnings-soon, neutral otherwise);
+      View-AI-Summary -> buttonVariants secondary sm; Refresh -> Button ghost; 10px -> xs;
+      transition-all -> transition
+- [x] TrendingTickers: flame orange -> warning tokens; bones -> Skeleton; error/empty ->
+      GuidanceCard; stale/unavailable notice kept inline (status notice accompanying content);
+      Refresh -> Button ghost w/ leftIcon; ticker-card transition-all -> transition (lift stays)
+- [x] CompanySearch dropdowns shadow-lg -> e3 dark:none (hero glow/input + slate-900 hero fills
+      stay — deliberate pattern); SocialProofStrip + FilingPulse slate -> white-alpha tokens;
+      FilingPulse 10/11px -> xs, meter -> transition-[width]
+- [x] HeroExample: second ambient glow REMOVED (DS §7); mockup chrome + traffic lights stay
+- [x] QuickAccessBar/HowItWorks/FeatureShowcase/ReportingThisWeek/CtaBanner: transition-all ->
+      transition; ReportingThisWeek 10px -> xs (pill kept — day/time chip, Badge shape unneeded);
+      testids/aria untouched (QuickAccessBar spec + e2e green)
 ### Consolidation
-- [ ] Migrate 3 admin ShimmeringLoader sites (layout, invites, feedback) -> Skeleton; DELETE
-      components/ShimmeringLoader.tsx
-- [ ] Inline GuidanceCard at the 9 EmptyState sites (7 Summary* + admin invites/feedback);
-      DELETE components/ui/EmptyState.tsx (shim, zero barrel exports — all direct imports)
-- [ ] DELETE orphans: DashboardPreview, FinancialCharts (+ its spec — FinancialMetricsTable
-      assertions move into a table-only spec), StatCard (transitively orphaned),
-      charts/DeltaBar, charts/Sparkline
-- [ ] KEEP: useCountUp (+spec — DS §11 canonical primitive), TrendSparkline (v2 barrel API),
-      StateCard (remaining 12 usages are compact FORM notices on auth/pricing/compare — wrong
-      ergonomics for GuidanceCard's full panel; upstream candidate: ui/Notice). Optional clean fit:
-      compare page's empty-prompt -> GuidanceCard empty
-- [ ] Gates: typecheck / lint / vitest / build; repo-wide greps: transition-all, text-orange,
-      ShimmeringLoader, EmptyState, StatCard all return nothing (scoped); both-theme home
-      screenshots (client-fetch interception where SSR data is absent)
-**Review:** (filled in when done)
+- [x] 3 admin ShimmeringLoader sites -> Skeleton (role=status + sr-only); ShimmeringLoader DELETED
+- [x] EmptyState shim DELETED: 7 Summary* sites -> new feature-scoped SectionEmpty (composes
+      GuidanceCard; section copy lives with the filings feature, ui layer stays pure); 2 admin
+      sites inline GuidanceCard with their filter-aware copy
+- [x] Orphans DELETED: DashboardPreview, FinancialCharts (+ spec's chart half — table assertions
+      kept), StatCard (transitively orphaned), charts/DeltaBar, charts/Sparkline (-622 lines)
+- [x] KEPT: useCountUp (+spec, DS §11 primitive), TrendSparkline (v2 barrel API), StateCard
+      (remaining 12 usages = compact form notices on auth/pricing/compare — wrong ergonomics for
+      GuidanceCard's panel; upstream candidate: ui/Notice). Compare-page empty-prompt left with
+      StateCard for the same reason (single consistent notice component per surface)
+- [x] Gates: typecheck 0 / eslint clean / vitest 236/236 (was 237; one FinancialCharts test
+      deleted with its component) / build OK; greps clean in scope (remaining transition-all
+      sites are filing-page/auth chrome — PR 5 note); both-theme home screenshots
+**Review:** Two-part PR. Consolidation: six dead files deleted (-622 lines), ShimmeringLoader and
+the EmptyState shim retired with their importers migrated onto Skeleton/GuidanceCard, and the
+PR-1-era orphan chain (DashboardPreview -> StatCard -> charts/*) fully removed. Home: marketing
+chrome untouched, but every loading/error/empty state now rides the v2 system, source chips are
+Badges, the off-palette orange and second glow are gone, and banned utilities (transition-all,
+sub-floor type, raw slate, shadow-lg) are cleared from the home surface.
 
 ## Task #26 — Adoption PR 3: company page onto the v2 component layer
 **Scope (approved pass, PR 3 of 5):** app/company/[ticker]/page-client.tsx + PeerComparisonPanel +
