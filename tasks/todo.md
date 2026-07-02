@@ -1,5 +1,32 @@
 # Task: Design-system v2 adoption pass (post-migration; PR-per-surface)
 
+## Task #25 — Adoption PR 2: dashboard surface onto the v2 component layer
+**Scope (approved pass, PR 2 of 5):** recompose /dashboard, /dashboard/settings, /dashboard/watchlist
++ components/dashboard/* + components/settings/* + components/watchlist/* onto components/ui/* with
+ZERO behavior change. Recon: container layer is 0% adopted (atoms partially in settings); no Recharts,
+no ShimmeringLoader, no orphans in scope; only BillingPanel has a unit test (preserve its
+link /subscribe|upgrade/ + button /manage billing/ roles).
+- [ ] settings/* (5 comps, 8 identical hand-rolled cards) -> Card (+Header/Title); spinner-cards ->
+      Skeleton bones; ConnectedAccounts unlink + settings/page delete buttons -> Button destructive
+      (kills the 3 banned hover:opacity sites)
+- [ ] dashboard/page.tsx: 7 hand-rolled cards -> Card recipe (rounded-lg/shadow-sm drift -> xl/e2);
+      5 StateCard errors + 2 empties -> GuidanceCard (+Button retry); raw buttons/Links ->
+      Button/buttonVariants; Pro/Free pill -> Badge; section spinners -> Skeleton bones
+      (route-gate auth spinner stays); transition-all on usage meter -> transition-[width]
+- [ ] dashboard/error.tsx: two bespoke panels + hand-drawn SVGs + raw buttons -> GuidanceCard error
+      + Button/buttonVariants
+- [ ] watchlist/page.tsx: insight card -> Card recipe; getStatusBadge map -> Badge; StateCard ->
+      GuidanceCard; 3 Links-as-buttons -> buttonVariants
+- [ ] WatchlistAddSearch: raw input -> inputClasses() (custom combobox keeps its wiring)
+- [ ] FilingFeed: animate-pulse cards -> Skeleton; StateCard error/empty -> GuidanceCard + Button retry
+- [ ] EarningsCalendar: cream-as-card-fill bug -> panel Card recipe (ul list stays; weak DataTable fit)
+- [ ] WhatChangedCard: route direction chips through lib/financialTone directionChip IF that recipe
+      is the same calm treatment (brand up / muted down); else keep + document the exception
+- [ ] Gates: npm run typecheck / lint --max-warnings 0 / vitest (BillingPanel roles) / build;
+      both-theme verification via fixture harness (uncommitted) with API interception; preview
+      checklist for auth-gated states
+**Review:** (filled in when done)
+
 ## Task #24 — Adoption PR 1: filing summary surface onto the v2 component layer
 **Scope (approved):** recompose the filing page's building blocks on components/ui/* with ZERO
 behavior change — same data, same handlers, new composition. DESIGN_SYSTEM.md is canonical.
