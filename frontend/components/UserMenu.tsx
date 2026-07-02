@@ -107,7 +107,7 @@ export default function UserMenu({ user }: { user: MenuUser }) {
               href={`/check-email?email=${encodeURIComponent(user.email)}`}
               role="menuitem"
               onClick={() => setOpen(false)}
-              className="mx-1 mb-1 flex items-center gap-2 rounded-lg bg-warning-light dark:bg-warning-dark/10 px-2.5 py-2 text-sm font-medium text-amber-700 dark:text-amber-300 transition-colors hover:bg-warning-light dark:bg-warning-dark/20"
+              className="mx-1 mb-1 flex items-center gap-2 rounded-lg bg-warning-light/10 dark:bg-warning-dark/10 px-2.5 py-2 text-sm font-medium text-warning-light dark:text-warning-dark transition-colors hover:bg-warning-light/20 dark:hover:bg-warning-dark/20"
             >
               <WarningCircleIcon className="h-4 w-4" />
               Verify your email

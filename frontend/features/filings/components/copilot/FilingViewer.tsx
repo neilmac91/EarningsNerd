@@ -114,9 +114,9 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
   const inner = (
     <>
       {(status === 'idle' || status === 'loading') && (
-        <div role="status" aria-label="Loading the filing" className="flex-1 space-y-3 px-6 py-8">
+        // SkeletonText carries its own role="status" — the wrapper stays role-less.
+        <div className="flex-1 space-y-3 px-6 py-8">
           <SkeletonText lines={6} mono />
-          <span className="sr-only">Loading the filing…</span>
         </div>
       )}
 

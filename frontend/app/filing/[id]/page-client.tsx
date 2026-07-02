@@ -892,7 +892,7 @@ function StreamingSummaryDisplay({
                   strokeDasharray={`${2 * Math.PI * 60}`}
                   strokeDashoffset={`${2 * Math.PI * 60 * (1 - optimisticProgress / 100)}`}
                   strokeLinecap="round"
-                  className={`transition duration-slow ease-out ${isError ? 'text-error-light dark:text-error-dark' : 'text-brand-strong dark:text-brand-strong-dark'}`}
+                  className={`transition-[stroke-dashoffset] duration-slow ease-out ${isError ? 'text-error-light dark:text-error-dark' : 'text-brand-strong dark:text-brand-strong-dark'}`}
                 />
               </svg>
 
