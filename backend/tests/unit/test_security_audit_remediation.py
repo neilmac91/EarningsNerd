@@ -196,6 +196,33 @@ def test_stale_failures_reset_the_window(lockout_db):
     assert login_lockout.seconds_until_unlock(lockout_db, email) is None  # not locked
 
 
+def test_stale_reset_from_single_failure_still_advances(lockout_db):
+    """Regression: a stale-window reset when failed_count is exactly 1 nets 1 -> 0 -> 1, i.e. NO
+    change to failed_count. The failure time must still be written; if it stayed stale, every later
+    attempt would keep resetting to 1 and the account could NEVER lock — an infinite-brute-force
+    bypass. Asserts both the fresh timestamp and its consequence (the account can still lock)."""
+    email = "paced-attacker@example.com"
+    login_lockout.record_failure(lockout_db, email)  # failed_count = 1
+    stale = datetime.now(timezone.utc) - timedelta(seconds=login_lockout.LOCKOUT_SECONDS + 60)
+    lockout_db.query(LoginAttempt).filter(
+        LoginAttempt.email_hash == login_lockout._email_hash(email)
+    ).update({LoginAttempt.updated_at: stale}, synchronize_session=False)
+    lockout_db.commit()
+
+    login_lockout.record_failure(lockout_db, email)  # 1 -> 0 -> 1: net-zero count change
+    row = lockout_db.query(LoginAttempt).one()
+    assert row.failed_count == 1
+    # updated_at must be fresh, not frozen at the stale value.
+    age = (datetime.now(timezone.utc) - login_lockout._as_aware(row.updated_at)).total_seconds()
+    assert age < 10
+
+    # Consequence: because the window is no longer stuck stale, rapid subsequent failures now
+    # accumulate and the account locks (they would each reset to 1 forever under the bug).
+    for _ in range(login_lockout.LOCKOUT_THRESHOLD - 1):
+        login_lockout.record_failure(lockout_db, email)
+    assert login_lockout.seconds_until_unlock(lockout_db, email) is not None
+
+
 def test_distinct_emails_are_independent(lockout_db):
     a, b = "alice@example.com", "bob@example.com"
     for _ in range(login_lockout.LOCKOUT_THRESHOLD):
