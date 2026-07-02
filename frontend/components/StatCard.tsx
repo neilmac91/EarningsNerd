@@ -1,15 +1,11 @@
 'use client'
 
+import { useContext } from 'react'
 import { ArrowDownRightIcon, ArrowUpRightIcon, MinusIcon } from '@/lib/icons'
-import dynamic from 'next/dynamic'
 import { useCountUp } from '../hooks/useCountUp'
 import { directionOf, directionChip } from '../lib/financialTone'
-
-const StatCardSparkline = dynamic(
-  () => import('./charts/StatCardSparkline'),
-  { ssr: false }
-)
-import { ShimmeringLoader } from './ShimmeringLoader'
+import { ThemeContext } from './ThemeProvider'
+import { TrendSparkline, SkeletonStat } from './ui'
 
 interface StatCardProps {
   label: string
@@ -53,6 +49,9 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
   const displayValue = useCountUp(hasValidValue ? value : 0, {
     format: (v) => formatValue(v, unit),
   })
+  // TrendSparkline colours are SVG props — read theme off the context (not useTheme)
+  // so provider-less renders never throw.
+  const dark = useContext(ThemeContext)?.theme === 'dark'
 
   if (isLoading) {
     return <StatCard.Skeleton />
@@ -62,25 +61,29 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
   const dir = hasValidChange ? directionOf(change) : 'flat'
   const ChangeIcon = dir === 'up' ? ArrowUpRightIcon : dir === 'down' ? ArrowDownRightIcon : MinusIcon
 
-  const sparklineData = trendData?.map((val, i) => ({ i, val })) || []
-
   return (
-    <div className="relative overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark p-5 shadow-e2 dark:shadow-none transition-all duration-base hover:shadow-md">
+    <div className="relative overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark p-5 shadow-e2 dark:shadow-none">
       <div className="flex justify-between items-start">
         <div className="space-y-1">
-          <p className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{label}</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.08em] text-text-tertiary-light dark:text-text-secondary-dark">{label}</p>
           <div className="flex items-baseline gap-2">
-            <h3 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white font-mono tabular-nums">
+            <h3 className="tabular text-2xl font-semibold tracking-tight text-text-primary-light dark:text-text-primary-dark">
               {hasValidValue ? displayValue : 'N/A'}
             </h3>
           </div>
         </div>
 
         {/* Sparkline */}
-        {sparklineData.length > 1 && (
-          <div className="h-10 w-24 opacity-50">
-            <StatCardSparkline data={sparklineData} direction={dir} />
-          </div>
+        {(trendData?.length ?? 0) > 1 && (
+          <TrendSparkline
+            data={trendData as number[]}
+            dir={dir}
+            dark={dark}
+            width={96}
+            height={40}
+            className="opacity-70"
+            label={`${label} trend`}
+          />
         )}
       </div>
 
@@ -94,11 +97,11 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
             <ChangeIcon className="h-3 w-3" />
             <span>{hasValidChange ? `${Math.abs(change).toFixed(1)}%` : 'N/A'}</span>
           </div>
-          <span className="text-xs text-slate-400 dark:text-slate-500">vs prior period</span>
+          <span className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">vs prior period</span>
         </div>
       ) : (
         <div className="mt-3">
-          <span className="text-xs text-slate-400 dark:text-slate-500">Data not available</span>
+          <span className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">Data not available</span>
         </div>
       )}
     </div>
@@ -107,13 +110,8 @@ export function StatCard({ label, value, unit = 'number', change, trendData, isL
 
 StatCard.Skeleton = function StatCardSkeleton() {
   return (
-    <div className="rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark p-5">
-      <ShimmeringLoader className="mb-2 h-4 w-1/3" />
-      <ShimmeringLoader className="h-8 w-2/3 mb-4" />
-      <div className="flex gap-2">
-        <ShimmeringLoader className="h-5 w-16 rounded-full" />
-        <ShimmeringLoader className="h-5 w-24" />
-      </div>
+    <div className="rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark p-5 shadow-e2 dark:shadow-none">
+      <SkeletonStat />
     </div>
   )
 }
