@@ -16,11 +16,17 @@ from app.config import Settings, WEAK_SECRET_KEY_VALUES, MIN_SECRET_KEY_LENGTH
 from app.services import rate_limiter
 
 
+def _settings(**overrides) -> Settings:
+    # _env_file=None isolates these config tests from a developer's local backend/.env, which
+    # would otherwise supply values (e.g. TRUSTED_PROXY_HOPS) and break the defaults assertion.
+    return Settings(_env_file=None, **overrides)
+
+
 # ── H1: SECRET_KEY strength enforcement ───────────────────────────────────────
 
 def test_secret_key_rejects_empty():
     with pytest.raises(ValidationError):
-        Settings(SECRET_KEY="")
+        _settings(SECRET_KEY="")
 
 
 @pytest.mark.parametrize("placeholder", sorted(WEAK_SECRET_KEY_VALUES))
@@ -28,17 +34,17 @@ def test_secret_key_rejects_known_placeholders(placeholder):
     # The .env.example placeholder is 33 chars — over the length floor — so it must be rejected by
     # name, not just by length. This is the exact "copy the example and forget to change it" case.
     with pytest.raises(ValidationError):
-        Settings(SECRET_KEY=placeholder)
+        _settings(SECRET_KEY=placeholder)
 
 
 def test_secret_key_rejects_short_keys():
     with pytest.raises(ValidationError):
-        Settings(SECRET_KEY="a" * (MIN_SECRET_KEY_LENGTH - 1))
+        _settings(SECRET_KEY="a" * (MIN_SECRET_KEY_LENGTH - 1))
 
 
 def test_secret_key_accepts_strong_key():
     strong = "s3cure-random-" + "r" * 40  # 54 chars, not a placeholder
-    assert Settings(SECRET_KEY=strong).SECRET_KEY == strong
+    assert _settings(SECRET_KEY=strong).SECRET_KEY == strong
 
 
 # ── M8: spoofing-resistant client IP ──────────────────────────────────────────

@@ -9,7 +9,15 @@ from pathlib import Path
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from app.config import settings, WEAK_SECRET_KEY_VALUES, MIN_SECRET_KEY_LENGTH
+# Settings validates strictly on instantiation (which happens at import of app.config), so a
+# missing/weak/placeholder SECRET_KEY — or an invalid production config — would otherwise abort this
+# diagnostic script with a raw traceback before any check runs. Fail with a clean message instead.
+try:
+    from app.config import settings, WEAK_SECRET_KEY_VALUES, MIN_SECRET_KEY_LENGTH
+except Exception as e:  # pydantic ValidationError, etc.
+    print("❌ CRITICAL: Configuration validation failed during import!")
+    print(f"   {e}")
+    sys.exit(1)
 
 
 def check_environment_variables():
