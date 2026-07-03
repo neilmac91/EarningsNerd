@@ -20,7 +20,7 @@ inputClasses({leadingIcon}); FULL email retheme to the cream brand.
       assets.mjs (sharp+png-to-ico devDeps; Playwright OG w/ committed Inter) -> favicon.ico,
       apple-touch 180 full-bleed, 192/512 + maskable(0.62), og-image; manifest.ts + icons/
       themeColor/JSON-LD + ?v=2; FULL email retheme (email_service.py) + rendered screenshots.
-- [ ] **PR D — copilot design upgrade (zero loss):** restyle CopilotMessage/CitationChip to the
+- [x] **PR D — copilot design upgrade (zero loss):** restyle CopilotMessage/CitationChip to the
       AskFilingAnswer design (evidence-block chrome, footnote list + TrustBadge, counts footer);
       popovers/deep-links/analytics/StreamingText perf/ticker/not_disclosed/followups preserved
       1:1; 9 suites stay the spec (layout-text-only assertion updates); NO deletions.
@@ -67,6 +67,18 @@ inputClasses({leadingIcon}); FULL email retheme to the cream brand.
   found send_invite too) with rendered screenshots, legacy palette greps clean, email render
   tests 3/3. Gates: typecheck / eslint 0 / vitest 236 / build; favicon/manifest/head tags
   verified live on the prod server; both-theme home + auth screenshots.
+- *PR D (copilot design, zero loss):* CopilotMessage + CitationChip restyled to the v2.2
+  evidence-block language — panel card chrome (lift, not tint), mono answer register
+  (.copilot-answer/font-data per the DS type roles) with v2.2 GFM manners (mb-3 rhythm,
+  hairline tnum tables), brand-tint bordered marker chips, footnote evidence rows (brand-rail
+  excerpts w/ pseudo-element curly quotes so exact-text queries keep passing, XBRL tag rows,
+  TrustBadge Verified/Cited), compliance row = grounded copy + "{n} citations · {m} verified".
+  ALL machinery preserved 1:1: chips/popovers/deep-links/analytics/StreamingText fast path/
+  ticker/not_disclosed/followups/paywall — 236/236 green with ZERO test edits (incl. every
+  copilot suite). BONUS BUG the visual pass caught: composer auto-grow measured scrollHeight 0
+  in a hidden pane and pinned height:0px (invisible composer once opened) — ui/Input.tsx grow()
+  now skips unmeasurable elements (upstream ledger item for the pack Textarea). Verified with a
+  full filing-page fixture (scripted SSE answer): reading/answer/popover states, both themes.
 **PR B port notes (from verify):** composer must stay CONTROLLED (value prop) so prefill
   triggers the layout-effect grow — imperative el.value alone fires nothing; cap height via
   style={{maxHeight:120, overflowY:'auto'}} (className styles the Shell, not the textarea);

@@ -219,6 +219,11 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
     const el = innerRef.current
     if (!el) return
     el.style.height = 'auto'
+    // A hidden composer (display:none pane — a closed workspace/sheet) measures
+    // scrollHeight 0; pinning height:0px would leave the field invisible after
+    // the pane opens (the effect only re-runs on value change). Keep natural
+    // rows-based height until it's measurable.
+    if (el.scrollHeight === 0) return
     el.style.height = `${el.scrollHeight}px`
   }
   // Controlled composers resize on value change; uncontrolled ones via onInput.
