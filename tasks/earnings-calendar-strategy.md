@@ -334,13 +334,36 @@ labelled "usually …"), `dmh`/unknown rendered in a small middle/unspecified gr
 honest version of what earningswhispers.com shows.
 
 **Earnings-day alerts — reuse the Phase-2 alert machinery, don't build a parallel one.**
-- **Preference:** one new flag on `NotificationPreferences` (e.g. `notify_earnings_calendar`,
-  default off, one-click enable from the watchlist page — same pattern as the existing filing-alert
-  prefs).
+Available to **all users** (free and Pro); it is a per-company opt-in, capped per plan (see below).
+- **Subscription model — per company, not a global toggle.** A user turns earnings alerts on for a
+  *specific* watched company (a bell on the watchlist row / company page). Model it as one new
+  column `Watchlist.earnings_alert BOOLEAN NOT NULL DEFAULT false` rather than a new table: an
+  earnings alert only makes sense for a company you watch, and "how many am I subscribed to" is then
+  a filtered count on rows the user already owns. (Free watchlists stay **unlimited** — the existing
+  deliberate `watchlist_limit=None` value loop — so this caps alert fan-out without touching
+  discovery.)
+- **Per-plan cap (the new entitlement).** Add `earnings_alert_limit: Optional[int]` to
+  `Entitlements` — **Free = 3, Pro = 100** — enforced when a user *enables* an alert:
+  `POST /api/watchlist/{ticker}/earnings-alert` counts current `earnings_alert=true` rows for the
+  user and rejects the toggle if it is already at the limit (disabling and re-enabling elsewhere is
+  always allowed). Enforce in one helper (`entitlements.assert_can_add_earnings_alert(user, count)`)
+  so the rule has a single home, mirroring how `monthly_summary_limit` is enforced today.
+  - **Free (3): a visible limit + upsell.** Return `403` with a machine-readable
+    `code: "earnings_alert_limit"` so the frontend shows "Free includes earnings alerts for 3
+    companies — upgrade to Pro for more." This is a natural conversion surface, so surfacing it is
+    intended.
+  - **Pro (100): an invisible guardrail.** Nothing in the UI advertises, counts down, or hints at
+    100 — no "97/100", no disabled state, no upsell. The cap exists only as an anti-abuse / email-
+    size backstop (a user subscribing to thousands of tickers would get an unusable daily digest and
+    bloat the fan-out). Only when a Pro user tries to enable the **101st** do they get a terse
+    generic error (`403`, message e.g. "You've reached the maximum number of earnings alerts." — no
+    number disclosed proactively, no upgrade copy). The frontend must **not** special-case or
+    pre-empt this: it just renders whatever error the API returns for Pro.
 - **Trigger:** job step 5, same 05:30 ET run: select `earnings_events` with `event_date = today`
-  joined to `Watchlist` and opted-in users → **one batched email per user** ("Your watchlist
-  reports today: JPM — before open · NVDA — after close"), via the existing `email_service`/Resend
-  templates. One email per user per day, never per company — inbox respect.
+  joined to `Watchlist` rows where `earnings_alert = true`, grouped by user → **one batched email
+  per user** ("Your watchlist reports today: JPM — before open · NVDA — after close"), via the
+  existing `email_service`/Resend templates. One email per user per day, never per company. The
+  per-plan cap bounds each digest at ≤100 lines by construction.
 - **Dedup:** a small ledger mirroring `NotificationLog`'s design, keyed
   `UNIQUE (user_id, earnings_event_id, event_date, channel)`. Including `event_date` in the key is
   deliberate: if a company moves its date after an alert went out, the new date re-alerts; the old
@@ -350,9 +373,6 @@ honest version of what earningswhispers.com shows.
   (`filing_scan_service`) already emails watchers when the 8-K actually lands. Morning heads-up
   ("reports today") + existing results alert ("the 8-K is out — read the analysis") is the complete
   retention loop with only the morning half being new work.
-- **Entitlements:** cheapest sensible default — available to all watchers (it is at most one email
-  per user per day); if alerts should stay a Pro carrot, gate it in `evaluate_delivery` like
-  real-time filing alerts. Product call, one-line change either way.
 
 ---
 
@@ -376,9 +396,10 @@ provider outages, and honestly label estimates — already ahead of the FMP desi
 
 ### Enhancements (in order)
 
-- **P2 — earnings-day alerts (§3.7):** the retention half, and the smallest lift — MVP data plus
-  one `NotificationPreferences` flag, the dedup ledger, an email template, and job step 5. Ship
-  right after the MVP; it needs nothing from P3.
+- **P2 — earnings-day alerts (§3.7):** the retention half, and the smallest lift — MVP data plus a
+  `Watchlist.earnings_alert` column, the per-company toggle endpoint with the plan cap
+  (`earnings_alert_limit` = Free 3 / Pro 100, the latter an invisible guardrail), the dedup ledger,
+  an email template, and job step 5. Ship right after the MVP; it needs nothing from P3.
 - **P3 — pattern estimator + backfill:** quarterly submissions backfill (historical 2.02 dates +
   acceptance hours + `EntityPublicFloat`) → own estimates beyond AV's 3-month horizon, habitual
   bmo/amc slots for estimated rows, `anticipation_score` v1, confidence from snapshot stability,
