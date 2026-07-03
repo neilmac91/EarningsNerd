@@ -7,9 +7,9 @@ import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 
 import { getPeers, PeerComparisonResponse } from '@/features/peers/api/peers-api'
 import { ApiError } from '@/lib/api/client'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
-import UnverifiedBadge from '@/components/UnverifiedBadge'
+import { WarningIcon } from '@/lib/icons'
 import { ThemeContext } from '@/components/ThemeProvider'
-import { seriesColor, chartTheme, xAxisProps, yAxisProps, ChartTooltip, Skeleton } from '@/components/ui'
+import { Badge, Card, seriesColor, chartTheme, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton } from '@/components/ui'
 
 type FmtKind = 'usd' | 'eps' | 'pct'
 
@@ -55,8 +55,6 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
   // De-emphasized peer bars: the theme's neutral grey at partial opacity keeps the
   // subject (seriesColor(0)) unmistakably THE bar — a magnitude ranking, not deltas.
   const peerFill = chartTheme(dark).flat
-  // Bar-hover band: BarChart wants a FILL cursor (crosshairProps is for line charts).
-  const cursorFill = dark ? 'rgba(62,142,132,0.16)' : 'rgba(62,142,132,0.08)'
 
   const [metric, setMetric] = useState('revenue')
   const { data, isLoading, isError } = useQuery<PeerComparisonResponse>({
@@ -113,14 +111,20 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
   const subject = data?.subject
 
   return (
-    // v2 Card recipe on the semantic <section> (Card renders a div; polymorphic
-    // `as` is a deferred upstream item) — lift via e2 in light, hairline-only in dark.
-    <section className="mb-8 rounded-xl border border-border-light bg-panel-light p-6 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
+    <Card as="section" className="mb-8 p-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Sector Peers</h2>
-            {hasUnverified && <UnverifiedBadge />}
+            {hasUnverified && (
+              <Badge
+                variant="warning"
+                icon={<WarningIcon className="h-3 w-3" aria-hidden="true" />}
+                title="Some figures here are machine-extracted from XBRL and failed an automated sanity check (e.g. an unusual period-over-period swing). Treat them with caution and verify against the filing."
+              >
+                Unverified
+              </Badge>
+            )}
           </div>
           {meaningful && subject?.rank != null && (
             <p className="mt-1 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
@@ -178,7 +182,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
               />
               <YAxis type="category" dataKey="ticker" {...yAxisProps(dark)} width={64 /* tickers outgrow the factory's 44px */} />
               <Tooltip
-                cursor={{ fill: cursorFill }}
+                cursor={barCursorProps(dark)}
                 content={<ChartTooltip dark={dark} formatValue={(v) => formatValue(Number(v), kind, currency)} />}
               />
               <Bar dataKey="value" name={label} radius={[0, 4, 4, 0]} maxBarSize={28}>
@@ -194,6 +198,6 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
       <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
         Same-SIC peers, most recent annual {label} from SEC filings. Coverage grows over time.
       </p>
-    </section>
+    </Card>
   )
 }
