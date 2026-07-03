@@ -16,7 +16,7 @@ Enforced in one place (`set_earnings_alert`) so the rule has a single home, mirr
 from __future__ import annotations
 
 import logging
-from datetime import date, datetime, timezone
+from datetime import date
 from typing import Awaitable, Callable, Optional
 
 from sqlalchemy import func

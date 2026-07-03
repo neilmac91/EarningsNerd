@@ -1,6 +1,6 @@
 """HTTP-level tests: public /api/calendar, the alert toggle + tiered 403 bodies, and AV CSV parse."""
 import uuid
-from datetime import date, timedelta
+from datetime import date
 
 import pytest
 from fastapi.testclient import TestClient

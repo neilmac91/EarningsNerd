@@ -28,11 +28,9 @@ from sqlalchemy.orm import Session
 from app.models import Company, EarningsEvent, Watchlist
 from app.models.earnings import (
     CONFIDENCE_HIGH,
-    CONFIDENCE_LOW,
     CONFIDENCE_MEDIUM,
     SOURCE_ALPHA_VANTAGE,
     SOURCE_EDGAR_8K,
-    STATUS_CONFIRMED,
     STATUS_ESTIMATED,
     STATUS_REPORTED,
     TIME_AMC,
