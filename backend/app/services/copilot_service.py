@@ -100,7 +100,11 @@ IF THE FILING DOES NOT DISCLOSE THE ANSWER, do NOT write prose or citations. Ins
 {_NOT_DISCLOSED_SENTINEL}
 <one sentence stating what is missing and why this filing would not contain it>
 then the {_FOLLOWUPS_SENTINEL} line and a JSON array of 2-3 questions this filing CAN answer, so \
-the user has a productive next step."""
+the user has a productive next step. For example:
+{_NOT_DISCLOSED_SENTINEL}
+Quarterly gross margin detail is not in this annual filing; only full-year figures are reported.
+{_FOLLOWUPS_SENTINEL}
+["How did annual gross margin trend?", "What drove operating expenses?"]"""
 
 
 def _select_source_text(filing: Any) -> Optional[str]:
