@@ -15,7 +15,7 @@ inputClasses({leadingIcon}); FULL email retheme to the cream brand.
       Badge brand/info/neutral; Recommended -> Badge solid x2; leading-icon fields (watchlist +
       HERO CompanySearch, glow/kbd kept); CopilotComposer -> Textarea composer (handle kept);
       Card as="section" x6; barCursorProps x2.
-- [ ] **PR C — rebrand:** logo components -> new monogram (currentColor; two-tone wordmark at
+- [x] **PR C — rebrand:** logo components -> new monogram (currentColor; two-tone wordmark at
       Header/AuthShell; delete theme file + EinsteinLogo); 9 SVGs + LOGO_README; generate-brand-
       assets.mjs (sharp+png-to-ico devDeps; Playwright OG w/ committed Inter) -> favicon.ico,
       apple-touch 180 full-bleed, 192/512 + maskable(0.62), og-image; manifest.ts + icons/
@@ -56,6 +56,17 @@ inputClasses({leadingIcon}); FULL email retheme to the cream brand.
   barCursorProps x2. Gates: typecheck / eslint 0 / vitest 236 / build / retirement greps == 0.
   Both-theme fixture screenshots (flag-enabled build): login Notice, company page, peers
   Unverified, watchlist, hero.
+- *PR C (rebrand):* landed after the rollback recovery — the 9 sage SVGs were reconstructed
+  from Bash outputs in the surviving /root/.claude session transcripts, then byte-verified
+  against Neil's re-uploaded zip (all 9 identical). Logo components rewritten (currentColor
+  monogram, hook-free mode, server-renderable; theme file + EinsteinLogo deleted); two-tone
+  wordmark at Header/AuthShell/full lockup; generate-brand-assets.mjs (sharp + png-to-ico
+  devDeps, committed Inter variable woff2 + OFL) -> favicon.ico, apple-touch 180 full-bleed,
+  icons 192/512 + maskable(0.62), og-image 1200x630; manifest.ts + icons/themeColor pair +
+  JSON-LD raster logo + ?v=2 OG cache-bust; FULL email retheme (9 templates, not 8 — agent
+  found send_invite too) with rendered screenshots, legacy palette greps clean, email render
+  tests 3/3. Gates: typecheck / eslint 0 / vitest 236 / build; favicon/manifest/head tags
+  verified live on the prod server; both-theme home + auth screenshots.
 **PR B port notes (from verify):** composer must stay CONTROLLED (value prop) so prefill
   triggers the layout-effect grow — imperative el.value alone fires nothing; cap height via
   style={{maxHeight:120, overflowY:'auto'}} (className styles the Shell, not the textarea);

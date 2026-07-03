@@ -45,7 +45,8 @@ const JSON_LD = {
       '@id': `${SITE_URL}/#organization`,
       name: 'EarningsNerd',
       url: SITE_URL,
-      logo: `${SITE_URL}/assets/earningsnerd-icon-dark.svg`,
+      // Google requires a raster logo ≥112px for the Organization rich result.
+      logo: `${SITE_URL}/icons/icon-512.png`,
       description: 'AI-powered SEC filing analysis. 10-K and 10-Q summaries sourced from SEC EDGAR.',
     },
     {

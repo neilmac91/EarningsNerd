@@ -10,28 +10,28 @@ _DEFAULT_FOOTER = "You are receiving this email because you joined the EarningsN
 _ALERT_FOOTER = (
     "You are receiving this because you track companies on EarningsNerd. "
     f'Manage alerts in your <a href="{settings.FRONTEND_URL}/dashboard/settings" '
-    'style="color:#a7f3d0;">notification settings</a>.'
+    'style="color:#3C6650;">notification settings</a>.'
 )
 
 
 def _wrap_html(body: str, footer: str = _DEFAULT_FOOTER) -> str:
     return f"""
     <html>
-      <body style="margin:0;padding:0;background:#0b0f14;font-family:Inter,Arial,sans-serif;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0b0f14;padding:32px 12px;">
+      <body style="margin:0;padding:0;background:#F4F3EE;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F4F3EE;padding:32px 12px;">
           <tr>
             <td align="center">
-              <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111827;border-radius:16px;padding:32px;color:#f9fafb;">
+              <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#FBFAF6;border:1px solid #E5E1D8;border-radius:16px;padding:32px;color:#1A1A17;">
                 <tr>
-                  <td style="font-size:22px;font-weight:700;color:#a7f3d0;">EarningsNerd</td>
+                  <td style="font-size:22px;font-weight:700;color:#1A1A17;">Earnings<em style="color:#3C6650;font-style:italic;">Nerd</em></td>
                 </tr>
                 <tr>
-                  <td style="padding-top:16px;font-size:16px;line-height:1.6;color:#e5e7eb;">
+                  <td style="padding-top:16px;font-size:16px;line-height:1.6;color:#1A1A17;">
                     {body}
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding-top:32px;font-size:12px;color:#9ca3af;">
+                  <td style="padding-top:32px;font-size:12px;color:#6B7280;">
                     {footer}
                   </td>
                 </tr>
@@ -60,11 +60,11 @@ def render_welcome_email(
       Share your referral link to move up the list. Each successful referral bumps you up <strong>5 spots</strong>.
     </p>
     <p style="margin:0 0 20px;">
-      <a href="{referral_link}" style="color:#34d399;">{referral_link}</a>
+      <a href="{referral_link}" style="color:#3C6650;">{referral_link}</a>
     </p>
     <p style="margin:0 0 24px;">
       Please verify your email to secure your place:
-      <a href="{verification_link}" style="color:#a7f3d0;font-weight:600;">Verify email</a>
+      <a href="{verification_link}" style="color:#3C6650;font-weight:600;">Verify email</a>
     </p>
     <p style="margin:0;">We'll keep you posted as we open up access.</p>
     """
@@ -93,7 +93,7 @@ def render_referral_success_email(
     <p style="margin:0 0 16px;">Your new position: <strong>#{new_position}</strong></p>
     <p style="margin:0 0 20px;">
       Keep sharing your referral link to climb even faster:
-      <a href="{referral_link}" style="color:#34d399;">{referral_link}</a>
+      <a href="{referral_link}" style="color:#3C6650;">{referral_link}</a>
     </p>
     <p style="margin:0;">Thanks for spreading the word.</p>
     """
@@ -159,10 +159,10 @@ async def send_verification_email(
     <p style="margin:0 0 16px;">{greeting}</p>
     <p style="margin:0 0 16px;">Thanks for creating an EarningsNerd account. Please verify your email address to unlock AI-powered SEC filing summaries.</p>
     <p style="margin:0 0 24px;">
-      <a href="{verification_link}" style="display:inline-block;background:#34d399;color:#0b0f14;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px;text-decoration:none;">Verify my email</a>
+      <a href="{verification_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Verify my email</a>
     </p>
-    <p style="margin:0 0 12px;font-size:14px;color:#9ca3af;">This link expires in 24 hours. If you didn&apos;t create an account, you can safely ignore this email.</p>
-    <p style="margin:0;font-size:12px;color:#6b7280;">Can&apos;t click the button? Copy this link:<br>{verification_link}</p>
+    <p style="margin:0 0 12px;font-size:14px;color:#6B7280;">This link expires in 24 hours. If you didn&apos;t create an account, you can safely ignore this email.</p>
+    <p style="margin:0;font-size:12px;color:#6B7280;">Can&apos;t click the button? Copy this link:<br>{verification_link}</p>
     """
     text_body = (
         f"{greeting}\n\nPlease verify your email address to unlock EarningsNerd.\n\n"
@@ -188,10 +188,10 @@ async def send_invite_email(
     <p style="margin:0 0 16px;">{greeting}</p>
     <p style="margin:0 0 16px;">You're invited to the EarningsNerd private beta — full Pro access, on us.</p>
     <p style="margin:0 0 24px;">
-      <a href="{magic_link}" style="display:inline-block;background:#34d399;color:#0b0f14;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px;text-decoration:none;">Accept your invite</a>
+      <a href="{magic_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Accept your invite</a>
     </p>
-    <p style="margin:0 0 12px;font-size:14px;color:#9ca3af;">This is a single-use invite link. No credit card required.</p>
-    <p style="margin:0;font-size:12px;color:#6b7280;">Can&apos;t click the button? Copy this link:<br>{magic_link}</p>
+    <p style="margin:0 0 12px;font-size:14px;color:#6B7280;">This is a single-use invite link. No credit card required.</p>
+    <p style="margin:0;font-size:12px;color:#6B7280;">Can&apos;t click the button? Copy this link:<br>{magic_link}</p>
     """
     text_body = (
         f"{greeting}\n\nYou're invited to the EarningsNerd private beta — full Pro access, on us.\n\n"
@@ -215,10 +215,10 @@ async def send_password_reset_email(
     <p style="margin:0 0 16px;">{greeting}</p>
     <p style="margin:0 0 16px;">We received a request to reset your EarningsNerd password.</p>
     <p style="margin:0 0 24px;">
-      <a href="{reset_link}" style="display:inline-block;background:#34d399;color:#0b0f14;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px;text-decoration:none;">Reset my password</a>
+      <a href="{reset_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Reset my password</a>
     </p>
-    <p style="margin:0 0 12px;font-size:14px;color:#9ca3af;">This link expires in 1 hour and can only be used once. If you didn&apos;t request a reset, no action is needed.</p>
-    <p style="margin:0;font-size:12px;color:#6b7280;">Can&apos;t click the button? Copy this link:<br>{reset_link}</p>
+    <p style="margin:0 0 12px;font-size:14px;color:#6B7280;">This link expires in 1 hour and can only be used once. If you didn&apos;t request a reset, no action is needed.</p>
+    <p style="margin:0;font-size:12px;color:#6B7280;">Can&apos;t click the button? Copy this link:<br>{reset_link}</p>
     """
     text_body = (
         f"{greeting}\n\nReset your EarningsNerd password:\n\n"
@@ -245,8 +245,8 @@ async def send_oauth_linked_email(
     html_body = f"""
     <p style="margin:0 0 16px;">{greeting}</p>
     <p style="margin:0 0 16px;">A <strong>{provider}</strong> sign-in was just linked to your EarningsNerd account.</p>
-    <p style="margin:0 0 12px;font-size:14px;color:#9ca3af;">If this was you, no action is needed — you can now sign in with {provider}.</p>
-    <p style="margin:0;font-size:14px;color:#fca5a5;">If this <strong>wasn&apos;t</strong> you, please reset your password immediately and contact support.</p>
+    <p style="margin:0 0 12px;font-size:14px;color:#6B7280;">If this was you, no action is needed — you can now sign in with {provider}.</p>
+    <p style="margin:0;font-size:14px;color:#B91C1C;">If this <strong>wasn&apos;t</strong> you, please reset your password immediately and contact support.</p>
     """
     text_body = (
         f"{greeting}\n\nA {provider} sign-in was just linked to your EarningsNerd account.\n\n"
@@ -273,10 +273,10 @@ async def send_account_exists_email(
     <p style="margin:0 0 16px;">{greeting}</p>
     <p style="margin:0 0 16px;">Someone tried to create an EarningsNerd account using this email address, but you already have one.</p>
     <p style="margin:0 0 8px;">
-      <a href="{login_link}" style="display:inline-block;background:#34d399;color:#0b0f14;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px;text-decoration:none;">Log in to your account</a>
+      <a href="{login_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Log in to your account</a>
     </p>
-    <p style="margin:16px 0 0;font-size:14px;color:#9ca3af;">Forgot your password?
-      <a href="{reset_link}" style="color:#a7f3d0;">Reset it here</a>.
+    <p style="margin:16px 0 0;font-size:14px;color:#6B7280;">Forgot your password?
+      <a href="{reset_link}" style="color:#3C6650;">Reset it here</a>.
       If this wasn&apos;t you, no action is needed.</p>
     """
     text_body = (
@@ -322,9 +322,9 @@ def render_new_filing_alert(
     <p style="margin:0 0 16px;"><strong>{e_company} ({e_ticker})</strong> just filed a
       <strong>{e_type}</strong> with the SEC ({e_date}).</p>
     <p style="margin:0 0 24px;">
-      <a href="{url}" style="display:inline-block;background:#34d399;color:#0b0f14;font-weight:700;font-size:15px;padding:12px 28px;border-radius:8px;text-decoration:none;">Read the AI summary</a>
+      <a href="{url}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Read the AI summary</a>
     </p>
-    <p style="margin:0;font-size:13px;color:#9ca3af;">We summarise what changed so you don&apos;t have to read the whole filing.</p>
+    <p style="margin:0;font-size:13px;color:#6B7280;">We summarise what changed so you don&apos;t have to read the whole filing.</p>
     """
     text_body = (
         f"{greeting}\n\n{company_name} ({ticker}) just filed a {filing_type} with the SEC "
@@ -344,10 +344,10 @@ def render_daily_digest(
     rows_html = "".join(
         f"""
         <tr>
-          <td style="padding:10px 0;border-bottom:1px solid #1f2937;">
+          <td style="padding:10px 0;border-bottom:1px solid #E5E1D8;">
             <strong>{html.escape(it['company_name'])} ({html.escape(it['ticker'])})</strong> — {html.escape(it['filing_type'])}
-            <span style="color:#9ca3af;">· {html.escape(it['filing_date'])}</span><br>
-            <a href="{_filing_url(it.get('filing_id'), it.get('filing_url'))}" style="color:#34d399;">Read the summary →</a>
+            <span style="color:#6B7280;">· {html.escape(it['filing_date'])}</span><br>
+            <a href="{_filing_url(it.get('filing_id'), it.get('filing_url'))}" style="color:#3C6650;">Read the summary →</a>
           </td>
         </tr>"""
         for it in items

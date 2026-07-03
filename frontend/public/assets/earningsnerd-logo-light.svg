@@ -1,56 +1,7 @@
-<svg viewBox="0 0 260 80" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <radialGradient id="haloLight" cx="50%" cy="45%" r="55%">
-      <stop offset="10%" stop-color="rgba(20, 184, 166, 0.22)" stop-opacity="0.7" />
-      <stop offset="70%" stop-color="rgba(14, 116, 144, 0.18)" stop-opacity="0.4" />
-      <stop offset="100%" stop-color="transparent" />
-    </radialGradient>
-    <linearGradient id="ringLight" x1="28%" y1="0%" x2="78%" y2="98%">
-      <stop offset="0%" stop-color="#1e293b" />
-      <stop offset="100%" stop-color="#0f172a" />
-    </linearGradient>
-    <linearGradient id="accentLight" x1="0%" y1="80%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#0f766e" />
-      <stop offset="60%" stop-color="#14b8a6" />
-      <stop offset="100%" stop-color="#f59e0b" />
-    </linearGradient>
-    <radialGradient id="innerLight" cx="50%" cy="35%" r="65%">
-      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.92" />
-      <stop offset="60%" stop-color="#ffffff" stop-opacity="0.78" />
-      <stop offset="100%" stop-color="#f8fafc" stop-opacity="0.85" />
-    </radialGradient>
-    <linearGradient id="wordGradientLight" x1="0%" y1="0%" x2="100%" y2="0%">
-      <stop offset="0%" stop-color="#14b8a6" />
-      <stop offset="85%" stop-color="#f59e0b" />
-    </linearGradient>
-  </defs>
-
-  <g transform="translate(0, 8)">
-    <circle cx="32" cy="32" r="30" fill="url(#haloLight)" />
-    <circle cx="32" cy="32" r="26.5" fill="#f8fafc" stroke="url(#ringLight)" stroke-width="1.6" />
-    <circle cx="32" cy="32" r="22" fill="url(#innerLight)" stroke="rgba(15, 23, 42, 0.12)" stroke-width="0.6" />
-
-    <path d="M17 25c3-8 10-13 15-13s11.5 5.2 15 13" stroke="#475569" stroke-width="1.4" stroke-linecap="round" fill="none" opacity="0.55" />
-
-    <path d="M18 40 L26.5 28.5 L33.5 34 L46 22" stroke="url(#accentLight)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" fill="none" />
-    <circle cx="18" cy="40" r="2.3" fill="#f97316" opacity="0.9" />
-    <circle cx="26.5" cy="28.5" r="2.3" fill="#f97316" opacity="0.9" />
-    <circle cx="33.5" cy="34" r="2.3" fill="#f97316" opacity="0.9" />
-    <circle cx="46" cy="22" r="2.3" fill="#f97316" opacity="0.9" />
-
-    <circle cx="24" cy="34" r="6" fill="#ffffff" stroke="#0f766e" stroke-width="2.2" />
-    <circle cx="40" cy="34" r="6" fill="#ffffff" stroke="#0f766e" stroke-width="2.2" />
-    <path d="M30 33.7h4" stroke="#14b8a6" stroke-width="2" stroke-linecap="round" />
-    <path d="M18.5 34c-1.2 0-2.2 0.8-2.2 2" stroke="#475569" stroke-width="1.6" stroke-linecap="round" fill="none" opacity="0.4" />
-    <path d="M45.5 34c1.2 0 2.2 0.8 2.2 2" stroke="#475569" stroke-width="1.6" stroke-linecap="round" fill="none" opacity="0.4" />
-
-    <path d="M42 17l1.1 2.3 2.3 1.1-2.3 1.1-1.1 2.3-1.1-2.3-2.3-1.1 2.3-1.1z" fill="#f59e0b" opacity="0.85" />
+<svg viewBox="0 0 416 74" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="EarningsNerd">
+  <g transform="translate(0,-14.8)">
+    <path d="M2.8 28L26.2 28Q29 28 29 30.8L29 36.2Q29 39 26.2 39L12.9 39Q11.5 39 11.5 40.4L11.5 42.1Q11.5 43.5 12.9 43.5L23.2 43.5Q26 43.5 26 46.3L26 51.7Q26 54.5 23.2 54.5L12.9 54.5Q11.5 54.5 11.5 55.9L11.5 57.6Q11.5 59 12.9 59L26.2 59Q29 59 29 61.8L29 67.2Q29 70 26.2 70L2.8 70Q0 70 0 67.2L0 30.8Q0 28 2.8 28Z" fill="#3C6650"></path>
+    <g transform="translate(0.92,6.98) scale(0.9193)"><path d="M36.98 84.42L49.76 58.87Q50.65 57.08 51.54 58.87L65.21 86.2Q66.11 88 68.13 88L68.57 88Q70.59 88 71.49 86.2L93.87 41.43Q95.66 37.86 92.09 36.07L84.21 32.13Q80.64 30.34 78.85 33.92L69.24 53.13Q68.35 54.92 67.46 53.13L53.79 25.8Q52.89 24 50.87 24L50.43 24Q48.41 24 47.51 25.8L18.2 84.42Q16.41 88 20.41 88L31.19 88Q35.19 88 36.98 84.42Z" fill="#3C6650"></path><path d="M101.76 42.95L101.05 12.49Q100.96 8.49 97.7 10.81L72.91 28.53Q69.65 30.85 73.23 32.64L98.27 45.16Q101.85 46.95 101.76 42.95Z" fill="#3C6650"></path></g>
   </g>
-
-  <g transform="translate(100, 23)">
-    <text x="0" y="12" font-family="'Inter', 'Space Grotesk', 'IBM Plex Sans', sans-serif" font-size="13" font-weight="600" letter-spacing="5" fill="#1f2937" text-rendering="geometricPrecision">EARNINGS</text>
-    <text x="0" y="38" font-family="'Inter', 'Space Grotesk', 'IBM Plex Sans', sans-serif" font-size="28" font-weight="700" letter-spacing="4" fill="url(#wordGradientLight)">NERD</text>
-    <text x="0" y="57" font-family="'Inter', 'Space Grotesk', 'IBM Plex Sans', sans-serif" font-size="9" font-weight="600" letter-spacing="4" fill="#475569">AI EARNINGS INTELLIGENCE</text>
-  </g>
+  <text x="114" y="59" font-family="Inter, &#39;Helvetica Neue&#39;, -apple-system, Arial, sans-serif" font-size="44" font-weight="700" letter-spacing="-0.8" fill="#1A1A17">Earnings<tspan font-style="italic" fill="#3C6650">Nerd</tspan></text>
 </svg>
-

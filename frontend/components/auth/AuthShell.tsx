@@ -19,7 +19,7 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
           <Link href="/" className="flex items-center gap-2.5">
             <EarningsNerdLogoIcon className="h-8 w-8" />
             <span className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
-              EarningsNerd
+              Earnings<em className="italic text-brand-strong dark:text-brand-dark">Nerd</em>
             </span>
           </Link>
           <div className="flex items-center gap-2">
