@@ -179,6 +179,7 @@ CREATE TABLE IF NOT EXISTS earnings_events (
     source            TEXT NOT NULL,                 -- 'alpha_vantage' | 'edgar_8k' | 'pattern' | ...
     accession_number  TEXT,                          -- set when status='reported' → deep-link the 8-K
     anticipation_score NUMERIC NOT NULL DEFAULT 0,   -- ranking for "most anticipated" surfaces (§3.7)
+    signals           JSONB,                         -- raw ranking inputs per source (§3.7)
     prior_event_date  DATE,                          -- previous value when the date moved
     date_changed_at   TIMESTAMPTZ,                   -- when it moved (stability = confidence input)
     first_seen_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -306,7 +307,26 @@ signals we own — which is also more defensible product-wise:
 Computed daily in job step 4 as a simple weighted sum stored on the row; the formula can evolve
 without schema or API changes. "Top 5 per day" is then
 `ORDER BY anticipation_score DESC LIMIT 5` per day (index `ix_earnings_events_day_rank`), with a
-"+N more" affordance later rather than ever cramming the day cell.
+"+N more" affordance later rather than ever cramming the day cell. Raw per-source inputs
+(`ew_total`, public float, watch count, …) live in a nullable `signals JSONB` column so new ranking
+inputs never need a migration.
+
+**Optional pre-launch input: tracking EarningsWhispers' anticipation rank.** EW's
+`/api/caldata/{YYYYMMDD}` (Referer-gated; verified live 2026-07-03) exposes a numeric `total` per
+company — almost certainly their watcher count, i.e. the signal behind their "most anticipated"
+ordering — plus `confirmDate` and `releaseTime`. A 14-request daily pull can (i) feed
+`normalize(ew_total)` into the score with a dominant weight `w_ew`, reproducing EW's top-5 ordering
+while the feed works, and (ii) populate `status='confirmed'` from `confirmDate` — the only free
+confirmed-flag anywhere. Design rules that make this survivable: **blend, never hard-mirror** (the
+UI orders by our score, never directly by their response); **auto-degrade** — if the last
+successful pull is >48h old or the shape changes, `w_ew → 0` and the calendar continues on owned
+signals. Classification is the same **(b) bridge** as AV, with worse fragility (EW already retired
+the `?type=hot` endpoint this repo calls, and the Referer gate signals an active anti-bot posture)
+and their usage terms require written consent for reuse — which also names the launch-grade path:
+email EW about licensing the feed before building anything permanent on it. Expect convergence on
+mega-cap days regardless (any size-based score picks the same top 5 when AAPL/NVDA report); EW's
+real edge is the retail-buzz mid-cap tail, partially recoverable licence-clean via the existing
+Stocktwits trending integration.
 
 **Lanes.** `event_time` drives the Before Open / After Close split: actual acceptance-hour slot on
 `reported` rows, the company's habitual slot on `estimated` rows (§3.3 note — right ~3 times in 4,
