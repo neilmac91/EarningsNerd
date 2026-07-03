@@ -275,6 +275,14 @@
   max-width: 88ch;            /* the breakout rail */
   margin-inline: auto;
 }
+/* The AI summary renders inside a wide CARD/pane, not a dedicated reader page —
+   the centered two-tier measure floated there as an island of dead space on
+   both sides (field report, 2026-07). LEFT-ANCHOR it on one 88ch measure:
+   prose starts at the card's padding and rags naturally on the right. The
+   real reader (.filing-reader) keeps the centered editorial measure. */
+.markdown-body {
+  margin-inline: 0;
+}
 /* Prose voice — .filing-reader ONLY. */
 .filing-reader {
   font-family: var(--font-editorial);
@@ -289,6 +297,7 @@
 }
 
 :is(.markdown-body, .filing-reader) > * { max-width: 68ch; margin-left: auto; margin-right: auto; }
+.markdown-body > * { max-width: none; margin-left: 0; margin-right: 0; }
 :is(.markdown-body, .filing-reader) > table,
 :is(.markdown-body, .filing-reader) > figure,
 :is(.markdown-body, .filing-reader) > pre { max-width: none; }
