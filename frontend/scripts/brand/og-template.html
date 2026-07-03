@@ -1,0 +1,60 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<style>
+  /* Committed Inter variable font (latin subset) — deterministic render on any
+     machine; no system-font or network dependency. License: fonts/OFL.txt. */
+  @font-face {
+    font-family: 'Inter';
+    font-style: normal;
+    font-weight: 100 900;
+    src: url('./fonts/Inter-Variable-latin.woff2') format('woff2');
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    width: 1200px;
+    height: 630px;
+    background: #F4F3EE;
+    font-family: 'Inter', sans-serif;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 72px 80px 64px;
+    overflow: hidden;
+  }
+  .lockup { display: flex; align-items: center; gap: 20px; }
+  .lockup svg { height: 56px; width: auto; }
+  .wordmark { font-size: 40px; font-weight: 700; letter-spacing: -0.8px; color: #1A1A17; }
+  .wordmark em { font-style: italic; color: #3C6650; }
+  .headline {
+    font-size: 88px;
+    font-weight: 700;
+    letter-spacing: -2.4px;
+    line-height: 1.04;
+    color: #1A1A17;
+    max-width: 1000px;
+  }
+  .headline .accent { color: #3C6650; }
+  .meta { display: flex; align-items: center; gap: 28px; font-size: 26px; font-weight: 500; color: #6B7280; }
+  .meta .dot { width: 6px; height: 6px; border-radius: 50%; background: #CFE0D6; }
+</style>
+</head>
+<body>
+  <div class="lockup">
+    <svg viewBox="0 0 94.6 73.2" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <g transform="translate(0,-14.8)" fill="#3C6650">
+        <path d="M2.8 28L26.2 28Q29 28 29 30.8L29 36.2Q29 39 26.2 39L12.9 39Q11.5 39 11.5 40.4L11.5 42.1Q11.5 43.5 12.9 43.5L23.2 43.5Q26 43.5 26 46.3L26 51.7Q26 54.5 23.2 54.5L12.9 54.5Q11.5 54.5 11.5 55.9L11.5 57.6Q11.5 59 12.9 59L26.2 59Q29 59 29 61.8L29 67.2Q29 70 26.2 70L2.8 70Q0 70 0 67.2L0 30.8Q0 28 2.8 28Z"/>
+        <g transform="translate(0.92,6.98) scale(0.9193)"><path d="M36.98 84.42L49.76 58.87Q50.65 57.08 51.54 58.87L65.21 86.2Q66.11 88 68.13 88L68.57 88Q70.59 88 71.49 86.2L93.87 41.43Q95.66 37.86 92.09 36.07L84.21 32.13Q80.64 30.34 78.85 33.92L69.24 53.13Q68.35 54.92 67.46 53.13L53.79 25.8Q52.89 24 50.87 24L50.43 24Q48.41 24 47.51 25.8L18.2 84.42Q16.41 88 20.41 88L31.19 88Q35.19 88 36.98 84.42Z"/><path d="M101.76 42.95L101.05 12.49Q100.96 8.49 97.7 10.81L72.91 28.53Q69.65 30.85 73.23 32.64L98.27 45.16Q101.85 46.95 101.76 42.95Z"/></g>
+      </g>
+    </svg>
+    <div class="wordmark">Earnings<em>Nerd</em></div>
+  </div>
+  <div class="headline">Understand any <span class="accent">SEC filing</span> in minutes.</div>
+  <div class="meta">
+    <span>AI summaries</span><span class="dot"></span>
+    <span>10-K &amp; 10-Q</span><span class="dot"></span>
+    <span>Sourced from SEC EDGAR</span>
+  </div>
+</body>
+</html>
