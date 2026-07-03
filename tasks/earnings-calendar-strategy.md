@@ -35,6 +35,11 @@ sources are cited inline. Live-test details are in the [Verification log](#appen
 5. Total incremental cost: **≈ CHF 0.1/month** (one more Cloud Scheduler job). Unblocks the roadmap
    item `ENABLE_CALENDAR → on` (docs/competitive-strategy-roadmap-2026.md, "NOW" tier) that was
    deferred on 2026-06-28 specifically because it needed a paid FMP key.
+6. **Product end-state** (see §3.7): an EarningsWhispers-style week/month view of the **most
+   anticipated** earnings — max 5 companies per day, split into Before Open / After Close lanes —
+   plus **earnings-day email alerts** for watchlisted companies. The same `earnings_events` table
+   powers both; ranking and the bmo/amc lanes come from signals we own (watchlist counts, EDGAR
+   public-float, each company's own habitual reporting slot), not from a provider field.
 
 Two production bugs found during this audit, worth fixing regardless of this strategy:
 - `earnings_whispers.py` calls `https://www.earningswhispers.com/api?type=hot`, which now returns
@@ -173,6 +178,7 @@ CREATE TABLE IF NOT EXISTS earnings_events (
     eps_actual        NUMERIC,
     source            TEXT NOT NULL,                 -- 'alpha_vantage' | 'edgar_8k' | 'pattern' | ...
     accession_number  TEXT,                          -- set when status='reported' → deep-link the 8-K
+    anticipation_score NUMERIC NOT NULL DEFAULT 0,   -- ranking for "most anticipated" surfaces (§3.7)
     prior_event_date  DATE,                          -- previous value when the date moved
     date_changed_at   TIMESTAMPTZ,                   -- when it moved (stability = confidence input)
     first_seen_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -182,6 +188,8 @@ CREATE TABLE IF NOT EXISTS earnings_events (
 );
 CREATE INDEX IF NOT EXISTS ix_earnings_events_event_date ON earnings_events (event_date);
 CREATE INDEX IF NOT EXISTS ix_earnings_events_ticker     ON earnings_events (ticker);
+-- top-N-per-day queries for the anticipated-earnings view (§3.7)
+CREATE INDEX IF NOT EXISTS ix_earnings_events_day_rank   ON earnings_events (event_date, anticipation_score DESC);
 ```
 
 Notes:
@@ -196,6 +204,12 @@ Notes:
   latest calendar quarter-end. (If this ever needs relaxing, Postgres 15 supports
   `UNIQUE NULLS NOT DISTINCT` — but deriving the period is the cleaner invariant.)
 - Volume is trivial: ~6.5k companies × 4 quarters ≈ 26k rows/year.
+- `event_time` on **estimated** rows = the company's *habitual* slot, derived from its own past 8-K
+  acceptance hours (the pattern backfill captures them). Firms are sticky here — only ~25.6% change
+  their before/during/after-market session in a given year (deHaan et al. 2015) — so the habitual
+  slot is right roughly 3 times in 4 and the UI words it honestly ("usually reports after close").
+  On **reported** rows it is the actual slot from the 8-K acceptance timestamp. This removes the
+  dependency on AV's sparse `timeOfTheDay` (~23% populated even near-term) for the bmo/amc lanes.
 - SQLAlchemy model added alongside (schema auto-created at startup per project convention;
   the SQL file documents the migration for prod).
 
@@ -204,7 +218,7 @@ Notes:
 Reuses the exact operational pattern already in production for filing-scan/digest:
 
 ```
-Cloud Scheduler (daily 06:00 UTC, before US pre-market releases)
+Cloud Scheduler (daily 05:30, timeZone=America/New_York — DST-safe, before pre-market releases)
   └─ POST /internal/jobs/earnings-calendar-refresh   (X-Internal-Token, 202 + background task)
        1. EDGAR sweep (yesterday, ~5–10 requests):
           EFTS q="Results of Operations and Financial Condition", forms=8-K, hits=100, paginate;
@@ -219,6 +233,9 @@ Cloud Scheduler (daily 06:00 UTC, before US pre-market releases)
           upsert estimated rows on (ticker, fiscalDateEnding); never overwrite status='reported';
           if event_date changed → prior_event_date + date_changed_at.
        3. Recompute confidence for open rows; mark rows unseen for 14 snapshots as low/hidden.
+       4. Recompute anticipation_score for open rows (§3.7).
+       5. Send earnings-day alerts (§3.7): one batched email per opted-in user whose watched
+          companies have event_date = today, then record the ledger rows.
 Existing hourly filing_scan (watched companies): when an upserted 8-K has "2.02" in items,
   upsert the reported event immediately → intraday freshness where users actually look.
 Quarterly (or one-off backfill) job: per-CIK submissions JSON for calendar tickers
@@ -267,6 +284,56 @@ truth) at CHF 0 — fully owned, slightly softer far-future dates; or (iii) a li
 (e.g. Polygon/Benzinga earnings add-on with real `confirmed/projected` status) once revenue exists.
 The schema and reconciliation don't change in any branch — that's the point of the design.
 
+### 3.7 Product surfaces: the anticipated-earnings calendar and earnings-day alerts
+
+**End-state (product goal):** an EarningsWhispers-style calendar for the week/month ahead showing
+the **most anticipated** earnings — **max 5 companies per day**, split into **Before Open / After
+Close** lanes — plus opt-in **earnings-day alerts** for watchlisted companies. Both are pure reads
+over `earnings_events`; neither changes the source strategy. Staged delivery (see §4) because the
+full month view is more than the site needs at its current stage.
+
+**Ranking — `anticipation_score`.** No free provider exposes an "anticipation" field licence-cleanly
+(EarningsWhispers' popularity rank and Nasdaq's analyst counts are both (b)-class), so rank from
+signals we own — which is also more defensible product-wise:
+
+| Signal | Source | Licence | Notes |
+|---|---|---|---|
+| Company size | `dei:EntityPublicFloat` from EDGAR companyfacts (grabbed by the same quarterly backfill), fallback: latest revenue in `financial_fact` | (a) | log-scaled base term — size is the strongest anticipation proxy |
+| Own-user demand | `Watchlist` count per company | (a) — our data | direct "our users care" signal; also exactly the alert audience |
+| Analyst coverage | AV `estimate` present for the row | (b) bridge | cheap proxy while AV is wired; drop with AV |
+| Mega-cap floor | existing `CURATED_TICKERS` (~60 names) | (a) — our list | guarantees AAPL/NVDA-class names never rank below noise |
+
+Computed daily in job step 4 as a simple weighted sum stored on the row; the formula can evolve
+without schema or API changes. "Top 5 per day" is then
+`ORDER BY anticipation_score DESC LIMIT 5` per day (index `ix_earnings_events_day_rank`), with a
+"+N more" affordance later rather than ever cramming the day cell.
+
+**Lanes.** `event_time` drives the Before Open / After Close split: actual acceptance-hour slot on
+`reported` rows, the company's habitual slot on `estimated` rows (§3.3 note — right ~3 times in 4,
+labelled "usually …"), `dmh`/unknown rendered in a small middle/unspecified group, exactly the
+honest version of what earningswhispers.com shows.
+
+**Earnings-day alerts — reuse the Phase-2 alert machinery, don't build a parallel one.**
+- **Preference:** one new flag on `NotificationPreferences` (e.g. `notify_earnings_calendar`,
+  default off, one-click enable from the watchlist page — same pattern as the existing filing-alert
+  prefs).
+- **Trigger:** job step 5, same 05:30 ET run: select `earnings_events` with `event_date = today`
+  joined to `Watchlist` and opted-in users → **one batched email per user** ("Your watchlist
+  reports today: JPM — before open · NVDA — after close"), via the existing `email_service`/Resend
+  templates. One email per user per day, never per company — inbox respect.
+- **Dedup:** a small ledger mirroring `NotificationLog`'s design, keyed
+  `UNIQUE (user_id, earnings_event_id, event_date, channel)`. Including `event_date` in the key is
+  deliberate: if a company moves its date after an alert went out, the new date re-alerts; the old
+  one can't double-send. (`NotificationLog` itself is keyed on `filing_id`, which doesn't exist for
+  future events — hence the sibling table rather than overloading it.)
+- **The loop closes with what's already built:** the existing real-time filing alert
+  (`filing_scan_service`) already emails watchers when the 8-K actually lands. Morning heads-up
+  ("reports today") + existing results alert ("the 8-K is out — read the analysis") is the complete
+  retention loop with only the morning half being new work.
+- **Entitlements:** cheapest sensible default — available to all watchers (it is at most one email
+  per user per day); if alerts should stay a Pro carrot, gate it in `evaluate_delivery` like
+  real-time filing alerts. Product call, one-line change either way.
+
 ---
 
 ## 4. Minimal first version → full build
@@ -289,15 +356,23 @@ provider outages, and honestly label estimates — already ahead of the FMP desi
 
 ### Enhancements (in order)
 
-- **P2 — pattern estimator + backfill:** quarterly submissions backfill (historical 2.02 dates) →
-  own estimates beyond AV's 3-month horizon and for AV-missing tickers; confidence scoring from
-  snapshot stability; watched-company intraday `reported` via the existing hourly filing_scan.
-- **P3 — the discovery surface:** public `/calendar` week view (`GET /api/calendar?from=&to=`),
-  grouped by day with bmo/amc lanes, linking to company pages; per-day SEO pages. This is the
-  roadmap's `ENABLE_CALENDAR` "NOW" item, fully unblocked.
-- **P4 — launch licensing gate (before first paying customer):** decide AV-commercial vs
-  EDGAR-only vs licensed feed (§3.6). Also fix/remove the dead EarningsWhispers hot endpoint and
-  decide trending's post-FMP fate (separate issue).
+- **P2 — earnings-day alerts (§3.7):** the retention half, and the smallest lift — MVP data plus
+  one `NotificationPreferences` flag, the dedup ledger, an email template, and job step 5. Ship
+  right after the MVP; it needs nothing from P3.
+- **P3 — pattern estimator + backfill:** quarterly submissions backfill (historical 2.02 dates +
+  acceptance hours + `EntityPublicFloat`) → own estimates beyond AV's 3-month horizon, habitual
+  bmo/amc slots for estimated rows, `anticipation_score` v1, confidence from snapshot stability,
+  and watched-company intraday `reported` via the existing hourly filing_scan.
+- **P4 — the anticipated-earnings week view (§3.7):** dashboard-first `GET /api/calendar?from=&to=`
+  week strip — top-5 per day by `anticipation_score`, Before Open / After Close lanes, "+N more",
+  "Est./Reported" chips, linking to company pages. Switch `ReportingThisWeek` to score-ranked DB
+  reads (retiring the hardcoded 60-ticker intersect). This is the roadmap's `ENABLE_CALENDAR`
+  "NOW" item, fully unblocked.
+- **P5 — the end-state calendar:** month-ahead view on the same query (still max 5/day), public
+  per-day SEO pages, full-market browse behind the top-5 cut.
+- **Launch licensing gate (before first paying customer):** decide AV-commercial vs EDGAR-only vs
+  licensed feed (§3.6). Also fix/remove the dead EarningsWhispers hot endpoint and decide
+  trending's post-FMP fate (separate issue).
 
 ---
 
