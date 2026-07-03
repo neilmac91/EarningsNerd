@@ -201,8 +201,19 @@ async def send_earnings_day_alerts(
                 .first()
             )
             if existing is not None:
-                if existing.status != "sent":
-                    claimed.append((ticker, ev, existing))  # retry a prior failed/pending attempt
+                # Take over ONLY committed 'failed' rows, and claim atomically: the UPDATE's WHERE
+                # re-evaluates under the row lock, so of two concurrent runs exactly one gets
+                # rowcount=1 and sends; the other sees 0 and skips. ('pending' rows are never
+                # committed — the claim transaction commits only after the send resolves — so a
+                # visible 'pending' is unreachable today and deliberately NOT retried.)
+                if existing.status == "failed":
+                    took_over = (
+                        db.query(EarningsAlertLog)
+                        .filter(EarningsAlertLog.id == existing.id, EarningsAlertLog.status == "failed")
+                        .update({"status": "pending"}, synchronize_session=False)
+                    )
+                    if took_over:
+                        claimed.append((ticker, ev, existing))
                 continue
             log = EarningsAlertLog(
                 user_id=user_id, earnings_event_id=ev.id, event_date=today,

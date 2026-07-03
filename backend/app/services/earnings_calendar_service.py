@@ -119,6 +119,10 @@ class RefreshStats:
     edgar_hits: int = 0
     edgar_reported: int = 0
     scored: int = 0
+    # True when the final commit failed and the run was rolled back — the other counters then
+    # describe work that was DISCARDED. Surfaced in the job log for monitoring (the job itself
+    # deliberately never raises, matching filing_scan's contract).
+    commit_failed: bool = False
 
     def as_dict(self) -> dict:
         return {
@@ -127,6 +131,7 @@ class RefreshStats:
             "edgar_hits": self.edgar_hits,
             "edgar_reported": self.edgar_reported,
             "scored": self.scored,
+            "commit_failed": self.commit_failed,
         }
 
 
@@ -359,13 +364,15 @@ async def run_refresh(db: Session, *, av_client=None, efts_client=None) -> Refre
         logger.exception("Anticipation-score recompute failed")
 
     # Guard the single commit: if any in-run duplicate slipped past the per-insert flush, a rollback
-    # keeps the DB consistent (previous good snapshot) rather than half-applying. Errors are logged,
-    # not raised — a failed daily job must not page anyone; the next run re-ingests.
+    # keeps the DB consistent (previous good snapshot) rather than half-applying. Errors are logged
+    # and surfaced via stats.commit_failed, not raised — a failed daily job must not page anyone;
+    # the next run re-ingests.
     try:
         db.commit()
     except Exception:
         logger.exception("Earnings refresh commit failed; rolling back this run")
         db.rollback()
+        stats.commit_failed = True
     return stats
 
 

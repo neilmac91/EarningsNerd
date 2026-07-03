@@ -252,6 +252,44 @@ async def test_digest_retries_after_a_failed_send():
 
 
 @pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_digest_does_not_retry_pending_rows():
+    """A committed 'pending' row (another run's in-flight claim, or a future code path) is NOT
+    taken over — only 'failed' is retryable. Prevents concurrent double-sends by construction."""
+    from app.database import SessionLocal
+    from app.models import Company, EarningsAlertLog, EarningsEvent, Watchlist
+
+    uid = _mk_user(is_pro=False)
+    today = date.today()
+    db = SessionLocal()
+    c = Company(cik=f"pd-{uuid.uuid4().hex[:10]}", ticker="PNDG", name="Pending Inc")
+    db.add(c)
+    db.flush()
+    db.add(Watchlist(user_id=uid, company_id=c.id, earnings_alert=True))
+    ev = EarningsEvent(
+        ticker="PNDG", company_name="Pending Inc", fiscal_period_end=date(2026, 3, 31),
+        event_date=today, event_time="amc", status="estimated", confidence="medium",
+        anticipation_score=5.0, source="alpha_vantage",
+    )
+    db.add(ev)
+    db.flush()
+    db.add(EarningsAlertLog(
+        user_id=uid, earnings_event_id=ev.id, event_date=today, channel="email", status="pending",
+    ))
+    db.commit()
+
+    sent = []
+
+    async def _sender(*, to_email, name, items):
+        sent.append(to_email)
+
+    stats = await alerts.send_earnings_day_alerts(db, today=today, sender=_sender)
+    assert stats["emails"] == 0
+    assert sent == []
+    db.close()
+
+
+@pytest.mark.requires_db
 def test_cap_counts_distinct_companies_not_rows():
     """Duplicate watchlist rows (no UNIQUE(user_id, company_id)) must not inflate the cap count."""
     from app.database import SessionLocal
