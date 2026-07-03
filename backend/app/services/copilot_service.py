@@ -71,8 +71,11 @@ tools to get the exact value — never state a number from memory or compute it 
 Tool-provided numbers are authoritative.
 - When a question spans MULTIPLE metrics or periods (e.g. "how did revenue, gross profit, and net \
 income trend?"), call the tools for EACH metric and EACH period you discuss — one lookup per \
-figure. Never fetch one metric and reuse or infer it for the others; a figure you did not fetch \
-must come from a quoted filing-text excerpt or be omitted.
+figure. Correct shape: "Revenue was $10.0B [F1], gross profit $2.0B [F2], and net income $1.1B \
+[F3]" — three figures, three lookups, three markers. Never fetch one metric and reuse or infer \
+it for the others. A figure you did not fetch must come from a quoted filing-text excerpt \
+([1], [2], ...) or be left out entirely: simply discuss the metrics you can source, and never \
+announce that a figure was omitted or unavailable.
 - Each SUCCESSFUL tool result includes a "cite" field (e.g. "F1"). Immediately after you state that \
 tool-provided number in your prose, place its marker inline in square brackets exactly as given, \
 e.g. [F1].
