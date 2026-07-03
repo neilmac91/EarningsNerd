@@ -1,49 +1,53 @@
-'use client'
+import React from 'react'
 
-import React, { useId } from 'react'
-import { earningsNerdColorSchemes, LogoMode, useResolvedLogoMode } from './earningsNerdLogoTheme'
+/* The sage "EN" monogram (rising-arrow N) — single source of the mark's
+   geometry, drawn in currentColor so theme/context sets the ink. Canonical
+   renditions for external surfaces live in public/assets/ (see LOGO_README).
+   Server-renderable by design: no hooks, no client directive. */
+
+export type LogoMode = 'auto' | 'light' | 'dark'
+
+/* Brand ink per surface: sage brand.strong on light, brand.dark on navy —
+   the same values as the icon-light/icon-dark asset renditions. */
+const MODE_CLASSES: Record<LogoMode, string> = {
+  auto: 'text-brand-strong dark:text-brand-dark',
+  light: 'text-brand-strong',
+  dark: 'text-brand-dark',
+}
 
 interface EarningsNerdLogoIconProps {
   className?: string
+  /** 'auto' follows the theme; 'light'/'dark' pin one ink (e.g. on a fixed-color surface). */
   mode?: LogoMode
 }
 
 export default function EarningsNerdLogoIcon({
-  className = 'h-10 w-10',
+  className = 'h-8 w-8',
   mode = 'auto',
 }: EarningsNerdLogoIconProps) {
-  const resolvedMode = useResolvedLogoMode(mode)
-  const palette = earningsNerdColorSchemes[resolvedMode]
-  const baseId = useId()
-  const accentGradientId = `${baseId}-accent`
-
   return (
     <svg
-      viewBox="0 0 64 64"
-      className={className}
-      role="img"
+      viewBox="0 0 94.6 73.2"
+      className={`${MODE_CLASSES[mode]} ${className}`}
       aria-hidden="true"
       xmlns="http://www.w3.org/2000/svg"
     >
-      <defs>
-        <linearGradient id={accentGradientId} x1="0%" y1="80%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor={palette.primary} />
-          <stop offset="60%" stopColor={palette.primaryBright} />
-          <stop offset="100%" stopColor={palette.accent} />
-        </linearGradient>
-      </defs>
-
-      <circle cx="32" cy="32" r="26" fill={palette.surface} stroke={palette.ringOuter} strokeWidth="2" />
-      <path
-        d="M18 40 L28 30 L36 35 L46 22"
-        stroke={`url(#${accentGradientId})`}
-        strokeWidth="2.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        fill="none"
-      />
-      <circle cx="46" cy="22" r="3.2" fill={palette.accentBright} />
+      <g transform="translate(0,-14.8)">
+        <path
+          d="M2.8 28L26.2 28Q29 28 29 30.8L29 36.2Q29 39 26.2 39L12.9 39Q11.5 39 11.5 40.4L11.5 42.1Q11.5 43.5 12.9 43.5L23.2 43.5Q26 43.5 26 46.3L26 51.7Q26 54.5 23.2 54.5L12.9 54.5Q11.5 54.5 11.5 55.9L11.5 57.6Q11.5 59 12.9 59L26.2 59Q29 59 29 61.8L29 67.2Q29 70 26.2 70L2.8 70Q0 70 0 67.2L0 30.8Q0 28 2.8 28Z"
+          fill="currentColor"
+        />
+        <g transform="translate(0.92,6.98) scale(0.9193)">
+          <path
+            d="M36.98 84.42L49.76 58.87Q50.65 57.08 51.54 58.87L65.21 86.2Q66.11 88 68.13 88L68.57 88Q70.59 88 71.49 86.2L93.87 41.43Q95.66 37.86 92.09 36.07L84.21 32.13Q80.64 30.34 78.85 33.92L69.24 53.13Q68.35 54.92 67.46 53.13L53.79 25.8Q52.89 24 50.87 24L50.43 24Q48.41 24 47.51 25.8L18.2 84.42Q16.41 88 20.41 88L31.19 88Q35.19 88 36.98 84.42Z"
+            fill="currentColor"
+          />
+          <path
+            d="M101.76 42.95L101.05 12.49Q100.96 8.49 97.7 10.81L72.91 28.53Q69.65 30.85 73.23 32.64L98.27 45.16Q101.85 46.95 101.76 42.95Z"
+            fill="currentColor"
+          />
+        </g>
+      </g>
     </svg>
   )
 }
-
