@@ -8,7 +8,7 @@
       "accession_number": "0000320193-25-000079",
       "document_url": "https://www.sec.gov/Archives/edgar/data/320193/000032019325000079/aapl-20250927.htm",
       "verified": false,
-      "notes": "Operator: confirm each case's `disclosed` flag + `expected_facts` against the filing before trusting scores. Filing + content cache + financial_fact rows must be ingested for the runner.",
+      "notes": "Operator: confirm each case's `disclosed` flag + `expected_facts` against the filing before trusting scores. Filing + content cache + financial_fact rows must be ingested for the runner. The citation-placement cases additionally need financial_fact rows for gross_profit / operating_income / net_income (FY2025), not just revenue.",
       "qa": [
         {
           "question": "How did total net sales (revenue) change in the most recent fiscal year?",
@@ -30,6 +30,125 @@
           "question": "How many employees does Samsung have, according to this filing?",
           "disclosed": false,
           "notes": "Out of scope for an Apple filing — must refuse rather than answer from outside knowledge."
+        },
+        {
+          "question": "How did revenue, gross profit, and net income each perform in fiscal 2025?",
+          "disclosed": true,
+          "expected_facts": [
+            { "metric": "revenue", "value": 416161000000.0, "unit": "USD" },
+            { "metric": "gross_profit", "value": 195201000000.0, "unit": "USD" },
+            { "metric": "net_income", "value": 112010000000.0, "unit": "USD" }
+          ],
+          "expected_section": "Item 8 — Financial Statements",
+          "notes": "Round-4 bait: multi-metric question. The failure mode is fetching one metric via tools and reusing its marker on the others — the ADJACENCY gate and stripped-misplacement counter are the graded signals here, alongside recall of all three figures."
+        },
+        {
+          "question": "What was operating income in fiscal 2025, and how does it compare to net income?",
+          "disclosed": true,
+          "expected_facts": [
+            { "metric": "operating_income", "value": 133050000000.0, "unit": "USD" },
+            { "metric": "net_income", "value": 112010000000.0, "unit": "USD" }
+          ],
+          "expected_section": "Item 8 — Financial Statements",
+          "notes": "Wrong-label bait: two adjacent profit metrics in one answer — a chip for one must not decorate the other's figure."
+        },
+        {
+          "question": "What was the gross margin in fiscal 2025?",
+          "disclosed": true,
+          "expected_facts": [
+            { "metric": "gross_profit", "value": 195201000000.0, "unit": "USD" }
+          ],
+          "expected_section": "Item 8 — Financial Statements",
+          "notes": "Percent-rendering case: the margin should come from compute_metric (server arithmetic); the percent figure is checked by the adjacency gate, not numeric recall — the absolute gross profit is the recall target."
+        },
+        {
+          "question": "What was revenue in each individual fiscal quarter of 2025?",
+          "disclosed": false,
+          "notes": "Quarterly revenue breakdown is not in the annual income statement (Item 5's quarterly data requirement was removed by the SEC). Operator: eyeball the filing — if selected quarterly data IS present, flip disclosed to true."
+        }
+      ]
+    },
+    {
+      "ticker": "TSLA",
+      "cik": "1318605",
+      "company_name": "Tesla, Inc.",
+      "filing_type": "10-K",
+      "accession_number": "0001628280-25-003063",
+      "document_url": "https://www.sec.gov/Archives/edgar/data/1318605/000162828025003063/tsla-20241231.htm",
+      "verified": false,
+      "notes": "The round-4 field-report filing (revenue trio 81.462/96.773/97.690B matches the production screenshots). Operator: confirm ingestion (filing + content cache + financial_fact rows for revenue/gross_profit/operating_income/net_income across FY2022-FY2024) and each `disclosed` flag before trusting scores. XBRL values below pulled from this accession via SEC companyconcept API.",
+      "qa": [
+        {
+          "question": "How did revenue, gross profit, and net income trend over the last three fiscal years?",
+          "disclosed": true,
+          "expected_facts": [
+            { "metric": "revenue", "value": 97690000000.0, "unit": "USD" },
+            { "metric": "gross_profit", "value": 17450000000.0, "unit": "USD" },
+            { "metric": "net_income", "value": 7091000000.0, "unit": "USD" }
+          ],
+          "expected_section": "Item 8 — Financial Statements",
+          "notes": "THE round-4 field case, verbatim shape: in production the model fetched only the three revenue facts and reused their markers as year labels on gross-profit/net-income figures. Latest-FY absolutes are the recall targets; placement is graded by the ADJACENCY gate + stripped counter."
+        },
+        {
+          "question": "For fiscal 2024, what were revenue, gross profit, operating income, and net income?",
+          "disclosed": true,
+          "expected_facts": [
+            { "metric": "revenue", "value": 97690000000.0, "unit": "USD" },
+            { "metric": "gross_profit", "value": 17450000000.0, "unit": "USD" },
+            { "metric": "operating_income", "value": 7076000000.0, "unit": "USD" },
+            { "metric": "net_income", "value": 7091000000.0, "unit": "USD" }
+          ],
+          "expected_section": "Item 8 — Financial Statements",
+          "notes": "Four-metric single-year variant of the round-4 bait: one tool call per metric is the correct behavior; marker reuse across the four figures is the failure."
+        },
+        {
+          "question": "How did operating income compare to net income in fiscal 2024?",
+          "disclosed": true,
+          "expected_facts": [
+            { "metric": "operating_income", "value": 7076000000.0, "unit": "USD" },
+            { "metric": "net_income", "value": 7091000000.0, "unit": "USD" }
+          ],
+          "expected_section": "Item 8 — Financial Statements",
+          "notes": "Near-collision wrong-label bait: FY2024 operating income ($7,076M) and net income ($7,091M) differ by $15M and BOTH round-render as $7.1B — numeric recall cannot catch a swapped chip here; only the concept-adjacency gate can. The highest-value placement case in the set."
+        },
+        {
+          "question": "What was Tesla's gross margin in fiscal 2024, and how did it change from 2023?",
+          "disclosed": true,
+          "expected_facts": [
+            { "metric": "gross_profit", "value": 17450000000.0, "unit": "USD" }
+          ],
+          "expected_section": "Item 7 — MD&A",
+          "notes": "Margin trend case: expects compute_metric (margin) for 2024 and 2023 — percent figures graded by adjacency, the absolute by recall."
+        },
+        {
+          "question": "What was revenue in fiscal 2022, 2023, and 2024?",
+          "disclosed": true,
+          "expected_facts": [
+            { "metric": "revenue", "value": 97690000000.0, "unit": "USD" },
+            { "metric": "revenue_fy2023", "value": 96773000000.0, "unit": "USD" },
+            { "metric": "revenue_fy2022", "value": 81462000000.0, "unit": "USD" }
+          ],
+          "expected_section": "Item 8 — Financial Statements",
+          "notes": "Single-metric multi-year control — the exact trio the tool fetched in round 4. All three values must appear AND each marker must sit on its own year's figure (adjacency); a healthy run scores 1.0 on both. Metric keys suffixed _fy2023/_fy2022 are labels only — the scorer matches on value rendering."
+        },
+        {
+          "question": "How has net income changed over the three years covered by this filing?",
+          "disclosed": true,
+          "expected_facts": [
+            { "metric": "net_income", "value": 7091000000.0, "unit": "USD" }
+          ],
+          "expected_section": "Item 8 — Financial Statements",
+          "notes": "Catches revenue-default fetching: a model that reflexively fetches revenue for any trend question will have no legitimate net-income markers — every fact chip in the answer should be concept net_income."
+        },
+        {
+          "question": "What was revenue in the fourth quarter of 2024 alone?",
+          "disclosed": false,
+          "notes": "Q4-only revenue is not separately stated in the annual income statement — must refuse, not derive or fabricate. Operator: confirm no quarterly breakout exists in this 10-K."
+        },
+        {
+          "question": "What was the CEO's total compensation for 2024, according to this filing?",
+          "disclosed": false,
+          "notes": "Executive compensation lives in the proxy statement (DEF 14A), incorporated by reference — this 10-K's provided content cannot answer it. Must refuse with a pointer, not guess."
         }
       ]
     }
