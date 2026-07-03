@@ -3,7 +3,7 @@
 -- Idempotent: safe to re-run.
 
 CREATE TABLE IF NOT EXISTS earnings_events (
-    id                 BIGSERIAL PRIMARY KEY,
+    id                 SERIAL PRIMARY KEY,   -- matches the model's Integer PK (create_all runs first in prod)
     ticker             VARCHAR(16) NOT NULL,
     cik                VARCHAR(10),
     company_name       TEXT,
@@ -31,7 +31,7 @@ CREATE INDEX IF NOT EXISTS ix_earnings_events_ticker     ON earnings_events (tic
 CREATE INDEX IF NOT EXISTS ix_earnings_events_day_rank   ON earnings_events (event_date, anticipation_score);
 
 CREATE TABLE IF NOT EXISTS earnings_alert_log (
-    id                BIGSERIAL PRIMARY KEY,
+    id                SERIAL PRIMARY KEY,
     user_id           INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     earnings_event_id INTEGER NOT NULL REFERENCES earnings_events(id) ON DELETE CASCADE,
     event_date        DATE NOT NULL,
@@ -42,8 +42,10 @@ CREATE TABLE IF NOT EXISTS earnings_alert_log (
         UNIQUE (user_id, earnings_event_id, event_date, channel)
 );
 
-CREATE INDEX IF NOT EXISTS ix_earnings_alert_log_user  ON earnings_alert_log (user_id);
-CREATE INDEX IF NOT EXISTS ix_earnings_alert_log_event ON earnings_alert_log (earnings_event_id);
+-- Index names match the ones SQLAlchemy generates from index=True (create_all path), so running
+-- both this migration and create_all does not create duplicate indexes.
+CREATE INDEX IF NOT EXISTS ix_earnings_alert_log_user_id           ON earnings_alert_log (user_id);
+CREATE INDEX IF NOT EXISTS ix_earnings_alert_log_earnings_event_id ON earnings_alert_log (earnings_event_id);
 
 -- Per-company earnings-day alert opt-in on the existing watchlist rows.
 ALTER TABLE watchlist ADD COLUMN IF NOT EXISTS earnings_alert BOOLEAN NOT NULL DEFAULT false;

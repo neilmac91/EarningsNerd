@@ -59,12 +59,12 @@ class EarningsEvent(Base):
     fiscal_period_end = Column(Date, nullable=False)
     event_date = Column(Date, nullable=False, index=True)            # America/New_York calendar day
     event_time = Column(String(3), nullable=True)                    # bmo | amc | dmh | None
-    status = Column(String(10), nullable=False, default=STATUS_ESTIMATED)
-    confidence = Column(String(10), nullable=False, default=CONFIDENCE_MEDIUM)
+    status = Column(String(10), nullable=False, default=STATUS_ESTIMATED, server_default=STATUS_ESTIMATED)
+    confidence = Column(String(10), nullable=False, default=CONFIDENCE_MEDIUM, server_default=CONFIDENCE_MEDIUM)
     eps_estimate = Column(Numeric, nullable=True)
     eps_actual = Column(Numeric, nullable=True)
     anticipation_score = Column(Numeric, nullable=False, default=0, server_default="0")
-    source = Column(String(20), nullable=False, default=SOURCE_PATTERN)
+    source = Column(String(20), nullable=False, default=SOURCE_PATTERN, server_default=SOURCE_PATTERN)
     accession_number = Column(String(25), nullable=True)             # set on reported → deep-link 8-K
     prior_event_date = Column(Date, nullable=True)                   # previous value when date moved
     date_changed_at = Column(DateTime(timezone=True), nullable=True) # when it moved (stability input)
@@ -90,9 +90,11 @@ class EarningsAlertLog(Base):
     # Denormalised event_date is part of the dedup key (a date change must re-alert; the old send
     # must not fire twice). Kept on the row so the ledger is self-describing without a join.
     event_date = Column(Date, nullable=False)
-    channel = Column(String(20), nullable=False, default="email")
-    status = Column(String(20), nullable=False, default="sent")     # sent | failed | skipped
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    channel = Column(String(20), nullable=False, default="email", server_default="email")
+    # sent | failed | pending — pending is a claim placeholder written before the send (the unique
+    # constraint acts as the send lock); it becomes sent/failed once the send returns.
+    status = Column(String(20), nullable=False, default="sent", server_default="sent")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     __table_args__ = (
         UniqueConstraint(

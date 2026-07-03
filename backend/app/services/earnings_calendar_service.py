@@ -31,6 +31,7 @@ from app.models.earnings import (
     CONFIDENCE_MEDIUM,
     SOURCE_ALPHA_VANTAGE,
     SOURCE_EDGAR_8K,
+    STATUS_CONFIRMED,
     STATUS_ESTIMATED,
     STATUS_REPORTED,
     TIME_AMC,
@@ -41,6 +42,12 @@ from app.models.earnings import (
 logger = logging.getLogger(__name__)
 
 _NY_TZ = ZoneInfo("America/New_York")
+
+# event_date is an America/New_York calendar day, so "today" for the ingest/alert jobs must be the
+# NY date — Cloud Run runs UTC, and date.today() there would query the wrong day near the ET/UTC
+# midnight boundary.
+def today_eastern() -> date:
+    return datetime.now(_NY_TZ).date()
 
 # Curated large caps that should never rank below noise on their reporting day. Reused from the
 # homepage feature to keep one canonical list; a mega-cap floor in the anticipation score.
@@ -151,9 +158,11 @@ def ingest_alpha_vantage(db: Session, rows: Iterable) -> int:
             .filter(EarningsEvent.ticker == ticker, EarningsEvent.fiscal_period_end == fpe)
             .first()
         )
-        if existing is not None and existing.status == STATUS_REPORTED:
+        # Precedence: a provider estimate must never overwrite ground truth (reported) OR a
+        # confirmed row (a source with a real confirmation flag outranks an AV estimate).
+        if existing is not None and existing.status in (STATUS_REPORTED, STATUS_CONFIRMED):
             existing.last_seen_at = now
-            continue  # ground truth — never overwrite
+            continue
         new_date = getattr(row, "report_date", None)
         if new_date is None:
             continue
@@ -173,6 +182,11 @@ def ingest_alpha_vantage(db: Session, rows: Iterable) -> int:
                     last_seen_at=now,
                 )
             )
+            # Flush so this row is visible to later existence checks in the SAME transaction —
+            # SessionLocal is autoflush=False, so without this the EDGAR pass (and a repeated
+            # (ticker, fpe) later in this run) wouldn't see it and would INSERT a duplicate, making
+            # the final commit raise on the unique constraint and lose the whole day's ingest.
+            db.flush()
         else:
             if existing.event_date != new_date:
                 existing.prior_event_date = existing.event_date
@@ -228,9 +242,13 @@ def ingest_edgar_reported(db: Session, hits: Iterable) -> int:
             existing.confidence = CONFIDENCE_HIGH
             existing.source = SOURCE_EDGAR_8K
             existing.accession_number = accession
-            existing.reported_at = acceptance or now
+            # Only set reported_at when we actually have the 8-K acceptance timestamp — the
+            # market-wide EFTS sweep carries only the filing DATE, so fabricating the job clock here
+            # would be misleading. When acceptance is known, derive the bmo/amc slot from it; when
+            # not, keep the company's habitual slot (the estimate's) rather than blanking it.
+            existing.reported_at = acceptance
             slot = infer_event_time(acceptance)
-            if slot:  # keep the habitual slot if we can't time this filing
+            if slot:
                 existing.event_time = slot
             if not existing.cik:
                 existing.cik = getattr(hit, "cik", None)
@@ -243,7 +261,24 @@ def ingest_edgar_reported(db: Session, hits: Iterable) -> int:
                 .first()
             )
             if dup is not None:
-                # A reported row already exists for this fiscal period — don't create a second.
+                # A row already exists for this fiscal period but fell outside the attach window
+                # above (e.g. its estimated date was far from the filing). Flip it to reported
+                # rather than dropping this genuine 8-K or inserting a duplicate (ticker, fpe).
+                if dup.status != STATUS_REPORTED:
+                    if dup.event_date != filed:
+                        dup.prior_event_date = dup.event_date
+                        dup.date_changed_at = now
+                    dup.event_date = filed
+                    dup.status = STATUS_REPORTED
+                    dup.confidence = CONFIDENCE_HIGH
+                    dup.source = SOURCE_EDGAR_8K
+                    dup.accession_number = accession
+                    dup.reported_at = acceptance
+                    slot = infer_event_time(acceptance)
+                    if slot:
+                        dup.event_time = slot
+                    dup.last_seen_at = now
+                    reported += 1
                 continue
             db.add(
                 EarningsEvent(
@@ -257,11 +292,12 @@ def ingest_edgar_reported(db: Session, hits: Iterable) -> int:
                     confidence=CONFIDENCE_HIGH,
                     source=SOURCE_EDGAR_8K,
                     accession_number=accession,
-                    reported_at=acceptance or now,
+                    reported_at=acceptance,
                     first_seen_at=now,
                     last_seen_at=now,
                 )
             )
+            db.flush()  # visible to later in-run existence checks (autoflush=False)
         reported += 1
     return reported
 
@@ -294,7 +330,9 @@ async def run_refresh(db: Session, *, av_client=None, efts_client=None) -> Refre
         av_client = alpha_vantage_client
     if efts_client is None:
         from app.integrations.sec_api import sec_full_text_search_client
-        efts_client = efts_client or sec_full_text_search_client
+        efts_client = sec_full_text_search_client
+
+    today = today_eastern()
 
     # 1. Alpha Vantage bulk estimates.
     try:
@@ -306,7 +344,6 @@ async def run_refresh(db: Session, *, av_client=None, efts_client=None) -> Refre
 
     # 2. EDGAR 8-K Item 2.02 sweep for the last two days (covers weekend/holiday gaps).
     try:
-        today = date.today()
         start = (today - timedelta(days=2)).isoformat()
         end = today.isoformat()
         hits = await _sweep_edgar_2_02(efts_client, start, end)
@@ -317,29 +354,40 @@ async def run_refresh(db: Session, *, av_client=None, efts_client=None) -> Refre
 
     # 3. Rescore the forward window.
     try:
-        stats.scored = recompute_scores(db, only_from=date.today() - timedelta(days=7))
+        stats.scored = recompute_scores(db, only_from=today - timedelta(days=7))
     except Exception:
         logger.exception("Anticipation-score recompute failed")
 
-    db.commit()
+    # Guard the single commit: if any in-run duplicate slipped past the per-insert flush, a rollback
+    # keeps the DB consistent (previous good snapshot) rather than half-applying. Errors are logged,
+    # not raised — a failed daily job must not page anyone; the next run re-ingests.
+    try:
+        db.commit()
+    except Exception:
+        logger.exception("Earnings refresh commit failed; rolling back this run")
+        db.rollback()
     return stats
 
 
-async def _sweep_edgar_2_02(efts_client, start: str, end: str, *, max_pages: int = 20) -> list:
+async def _sweep_edgar_2_02(efts_client, start: str, end: str, *, max_pages: int = 40) -> list:
     """Page through 8-Ks whose text contains the Item 2.02 heading, keeping only true 2.02 hits.
 
     The phrase query narrows the result set server-side; the definitive filter is client-side on
     each hit's ``items`` (the `&items=` request param is undocumented/inconsistent — strategy appendix).
+    EFTS returns 100 hits/page by default, so max_pages=40 covers ~4000 phrase-matching 8-Ks — well
+    above a heavy 2-day window (~700). If the cap is ever hit we log it rather than truncating silently.
     """
     query = '"Results of Operations and Financial Condition"'
     collected: list = []
     seen: set[str] = set()
     offset = 0
+    total = 0
     for _ in range(max_pages):
         result = await efts_client.search(
             query=query, forms="8-K", start_date=start, end_date=end, from_offset=offset
         )
         page = getattr(result, "hits", []) or []
+        total = getattr(result, "total", 0)
         if not page:
             break
         for hit in page:
@@ -350,8 +398,15 @@ async def _sweep_edgar_2_02(efts_client, start: str, end: str, *, max_pages: int
                 seen.add(key)
                 collected.append(hit)
         offset += len(page)
-        if offset >= getattr(result, "total", 0):
+        if offset >= total:
             break
+    else:
+        # Loop exhausted max_pages without reaching `total` — surface the truncation.
+        if offset < total:
+            logger.warning(
+                "EDGAR 2.02 sweep hit the page cap (%s of %s hits scanned, %s..%s); some reported "
+                "flips may be deferred to the next run.", offset, total, start, end,
+            )
     return collected
 
 

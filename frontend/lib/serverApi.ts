@@ -147,7 +147,9 @@ export interface ReportingCompany {
   ticker: string
   name: string
   earnings_date: string
-  time: 'bmo' | 'amc' | null
+  // 'dmh' = during market hours; the earnings engine can emit it alongside bmo/amc. The
+  // ReportingThisWeek renderer only labels bmo/amc and shows no chip for dmh/null.
+  time: 'bmo' | 'amc' | 'dmh' | null
 }
 
 export interface ReportingThisWeekResponse {
