@@ -140,7 +140,13 @@ export default function AskCopilotRail({
   const lastStatus = lastMessage?.role === 'assistant' ? lastMessage.status : undefined
   useEffect(() => {
     const el = scrollRef.current
-    if (!el || messages.length === 0) return
+    if (!el) return
+    // Defensive: no in-place clear exists today (filing switches remount via key={filing.id}),
+    // but re-arming on empty keeps the initial-scroll invariant local to this effect.
+    if (messages.length === 0) {
+      didInitialScrollRef.current = false
+      return
+    }
     if (lastStatus === 'reading' || !didInitialScrollRef.current) {
       el.scrollTop = el.scrollHeight
       didInitialScrollRef.current = true
