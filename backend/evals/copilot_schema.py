@@ -78,10 +78,12 @@ class CopilotAnswerScore:
     refusal_correct: bool
     citation_faithfulness: float  # fraction of text citations that verify verbatim in the filing
     unverified_excerpts: List[str]
+    fact_adjacency: float  # fraction of fact-backed markers sitting adjacent to their own figure
+    misplaced_fact_citations: List[str]
     numeric_recall: float  # fraction of expected_facts present in the answer (1.0 when none expected)
     missing_metrics: List[str]
     grounded: int
-    gate_failures: List[str]  # hard vetoes: REFUSAL / CITATION / NUMERIC
+    gate_failures: List[str]  # hard vetoes: REFUSAL / CITATION / ADJACENCY / NUMERIC
 
     @property
     def passed(self) -> bool:
@@ -94,6 +96,8 @@ class CopilotAnswerScore:
             "refusal_correct": self.refusal_correct,
             "citation_faithfulness": self.citation_faithfulness,
             "unverified_excerpts": self.unverified_excerpts,
+            "fact_adjacency": self.fact_adjacency,
+            "misplaced_fact_citations": self.misplaced_fact_citations,
             "numeric_recall": self.numeric_recall,
             "missing_metrics": self.missing_metrics,
             "grounded": self.grounded,

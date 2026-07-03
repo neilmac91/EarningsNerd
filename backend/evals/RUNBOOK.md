@@ -372,6 +372,51 @@ filings). Hand-fill is fine for double-tagged filers (ASML tags revenue twice �
 + €32.7B rounded — which the extractor correctly drops as ambiguous; the AI still reads it from the
 filing text).
 
+## Copilot citation-fidelity audit — can users trust the chips?
+
+The Copilot's promise is that every inline citation chip opens provenance for **exactly the claim
+it decorates**. Four layers protect that promise; audit them together whenever a prompt, model, or
+`copilot_service` resolver change touches the Q&A path (field precedent: legit revenue fact chips
+reused as year labels on gross-profit/net-income figures).
+
+**What's enforced automatically, per answer, in production** (`copilot_service._resolve_citations`):
+
+| Layer | Citation kind | Check | On failure |
+|---|---|---|---|
+| Excerpt verification | text `[n]` | excerpt found verbatim in the filing (`verify_excerpt_in_text`) | chip renders unverified ("Cited", no badge) |
+| Marker resolution | both | every inline marker resolves to a declared source | unresolvable F-marker stripped from prose |
+| Value adjacency | fact `[Fn]` | a figure matching the fact's value (display-rounding tolerance) must sit in the claim span before the marker — bounded by the previous marker | occurrence stripped, counted as misplaced |
+| Telemetry | fact | `misplaced_fact_markers` on the complete event + a `copilot: stripped N misplaced fact marker(s)` warning log | — |
+
+**Offline gates (CI, free, every PR):** `pytest tests/unit/test_copilot.py tests/unit/test_copilot_evals.py -q`
+— covers the resolver's strip/keep behavior and the eval scorers (including `score_fact_marker_adjacency`,
+which re-runs the SAME production matcher + window rule over the final answer, so a resolver
+regression can't hide from the harness).
+
+**Live eval (operator, needs model API + ingested filings):**
+```bash
+cd backend && python -m evals.copilot_runner --limit 3
+```
+Read `evals/reports/copilot_eval_*.md`:
+- `Cite faithful` < 1.00 → a text excerpt shipped that isn't verbatim filing text. Hard stop.
+- `Fact adj` < 1.00 → a fact chip shipped on the wrong figure — the adjacency guard regressed. Hard stop.
+- `Fact adj … (−N stripped)` → the guard caught N misplacements. Answers are safe, but a rising N
+  means the model's placement discipline is degrading — tighten the prompt's one-marker-one-figure
+  rule before it finds a shape the guard can't falsify.
+- Gate this the same way as the summary bake-off: run before/after any change to
+  `prompts` in `copilot_service.py`, `AI_DEFAULT_MODEL`, or the resolver, and require no regression.
+
+**Production watch:** the `misplaced_fact_markers` warning in Cloud Run logs is the live counter
+(`resource.type="cloud_run_revision" textPayload:"misplaced fact marker"`). Baseline it after
+deploy; a step-change tracks a model/prompt drift even with zero user reports.
+
+**Manual spot-check protocol (quarterly, or after any model swap):** take 3 recent real answers
+with fact chips; for each chip, open the popover and confirm (a) the excerpt's metric+period matches
+the sentence the chip sits on, and (b) the figure matches the filing's XBRL (`financial_fact` row).
+Ten minutes, catches what tolerance-based checks can't (e.g. right value, wrong concept label).
+
+---
+
 ## Gotchas
 | Issue | Mitigation |
 |---|---|

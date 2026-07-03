@@ -55,22 +55,28 @@ def _snapshot_for_case(case: CopilotGoldenCase):
         db.close()
 
 
-async def _answer(filing_snap, question: str) -> Tuple[str, List[dict], str]:
-    """Drive the SSE generator to completion and return (answer, citations, kind)."""
-    answer, citations, kind = "", [], "answer"
+async def _answer(filing_snap, question: str) -> Tuple[str, List[dict], str, int]:
+    """Drive the SSE generator to completion and return (answer, citations, kind, stripped).
+
+    ``stripped`` is the complete event's ``misplaced_fact_markers`` — fact markers the production
+    resolver removed for sitting on the wrong figure. The scorer's adjacency gate checks what
+    SHIPPED; this counter tracks how often the model *attempted* a misplacement (a prompt/model
+    placement-quality signal even when every violation was caught)."""
+    answer, citations, kind, stripped = "", [], "answer", 0
     async for event in answer_filing_question(filing=filing_snap, question=question):
         etype = event.get("type")
         if etype == "complete":
             answer = event.get("answer", "")
             citations = event.get("citations", []) or []
             kind = event.get("kind", "answer")
+            stripped = int(event.get("misplaced_fact_markers", 0) or 0)
         elif etype == "not_disclosed":
             kind = "not_disclosed"
             answer = event.get("answer", "")
         elif etype == "error":
             kind = "error"
             answer = event.get("message", "")
-    return answer, citations, kind
+    return answer, citations, kind, stripped
 
 
 def _source_text(filing_snap) -> str:
@@ -96,7 +102,7 @@ async def run(limit: Optional[int] = None) -> Dict[str, Any]:
             continue
         source = _source_text(snap)
         for qa in case.qa:
-            ans, cites, kind = await _answer(snap, qa.question)
+            ans, cites, kind, stripped = await _answer(snap, qa.question)
             if kind == "error":
                 results.append({"ticker": case.ticker, "question": qa.question, "error": ans})
                 continue
@@ -105,7 +111,9 @@ async def run(limit: Optional[int] = None) -> Dict[str, Any]:
             )
             answered += 1
             passed += 1 if score.passed else 0
-            results.append({"ticker": case.ticker, **score.to_dict()})
+            results.append(
+                {"ticker": case.ticker, **score.to_dict(), "stripped_misplaced_markers": stripped}
+            )
 
     summary = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -128,18 +136,22 @@ def _write_report(summary: Dict[str, Any]) -> Path:
         "",
         f"**Pass rate: {summary['pass_rate']:.0%}** ({summary['passed']}/{summary['answered']} answered)",
         "",
-        "| Ticker | Question | Kind | Refusal✓ | Cite faithful | Numeric | Gates |",
-        "| --- | --- | --- | --- | --- | --- | --- |",
+        "| Ticker | Question | Kind | Refusal✓ | Cite faithful | Fact adj | Numeric | Gates |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for r in summary["results"]:
         if "skipped" in r or "error" in r:
-            lines.append(f"| {r.get('ticker','?')} | {r.get('question','—')} | — | — | — | — | {r.get('skipped') or r.get('error')} |")
+            lines.append(f"| {r.get('ticker','?')} | {r.get('question','—')} | — | — | — | — | — | {r.get('skipped') or r.get('error')} |")
             continue
         q = (r["question"][:48] + "…") if len(r["question"]) > 49 else r["question"]
         gates = ", ".join(r["gate_failures"]) or "✓ pass"
+        # Surface stripped-misplacement attempts next to the shipped-output adjacency score.
+        adj = f"{r['fact_adjacency']:.2f}"
+        if r.get("stripped_misplaced_markers"):
+            adj += f" (−{r['stripped_misplaced_markers']} stripped)"
         lines.append(
             f"| {r['ticker']} | {q} | {r['kind']} | {'✓' if r['refusal_correct'] else '✗'} "
-            f"| {r['citation_faithfulness']:.2f} | {r['numeric_recall']:.2f} | {gates} |"
+            f"| {r['citation_faithfulness']:.2f} | {adj} | {r['numeric_recall']:.2f} | {gates} |"
         )
     md_path = REPORTS_DIR / f"copilot_eval_{stamp}.md"
     md_path.write_text("\n".join(lines) + "\n")
