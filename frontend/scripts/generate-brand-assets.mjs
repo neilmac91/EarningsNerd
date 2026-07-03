@@ -51,7 +51,9 @@ async function markSvg(fill) {
 async function fullBleedTile(size, scale) {
   const markW = Math.round(size * scale)
   const markH = Math.round(markW * MARK_RATIO)
-  const mark = await sharp(await markSvg(CREAM)).resize(markW, markH).png().toBuffer()
+  // density matters: without it sharp rasterizes at the 94.6px viewBox size and
+  // upscales (blurry at the 317px mark inside the 512 maskable tile).
+  const mark = await sharp(await markSvg(CREAM), { density: 300 }).resize(markW, markH).png().toBuffer()
   return sharp({ create: { width: size, height: size, channels: 4, background: SAGE } })
     .composite([{ input: mark, gravity: 'center' }])
     .png()
