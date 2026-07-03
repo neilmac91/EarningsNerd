@@ -5,6 +5,7 @@ import { CircleNotchIcon, MagnifyingGlassIcon } from '@/lib/icons'
 import { useQuery } from '@tanstack/react-query'
 import { searchCompanies, Company } from '@/features/companies/api/companies-api'
 import CompanyLogo from '@/components/CompanyLogo'
+import { inputClasses } from '@/components/ui'
 import { ApiError } from '@/lib/api/client'
 import { useRouter } from 'next/navigation'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
@@ -146,8 +147,13 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
 
   return (
     <div className="relative">
-      <div className="relative">
-        <MagnifyingGlassIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark" />
+      {/* Glow keys on :focus-within, so it lives on the wrapper (rounded-lg matches
+          the field radius) — keeps its box-shadow off the input's focus ring. */}
+      <div className="hero-search-glow relative rounded-lg">
+        <MagnifyingGlassIcon
+          aria-hidden="true"
+          className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark"
+        />
         <input
           ref={inputRef}
           id="company-search"
@@ -165,7 +171,7 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
           aria-label="Search for a company"
           aria-describedby={isError ? "company-search-error" : undefined}
           aria-autocomplete="list"
-          className="hero-search-glow w-full rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/80 py-4 pl-12 pr-4 text-lg text-text-primary-light dark:text-text-primary-dark placeholder:text-text-tertiary-light dark:placeholder:text-text-secondary-dark backdrop-blur-sm focus:border-brand-strong/40 dark:focus:border-brand-dark/40 focus:outline-none"
+          className={inputClasses({ leadingIcon: true })}
         />
         {isLoading && (
           <CircleNotchIcon className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />

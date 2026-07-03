@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { ArrowSquareOutIcon, CircleNotchIcon, MagnifyingGlassIcon, WarningIcon } from '@/lib/icons'
 import { searchFullText, type FullTextSearchHit } from '@/features/search/api/search-api'
+import { inputClasses } from '@/components/ui'
 
 // EFTS is a global SEC index (independent of our ENABLE_FPI_FILINGS discovery flag), so the
 // foreign-issuer forms are always searchable. EFTS matches on root_form, which folds amendments
@@ -113,13 +114,16 @@ export default function FullTextSearch() {
       </div>
 
       <div className="relative">
-        <MagnifyingGlassIcon className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark" aria-hidden />
+        <MagnifyingGlassIcon
+          aria-hidden
+          className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark"
+        />
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Search the full text of filings…"
           aria-label="Search the full text of SEC filings"
-          className="w-full rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/60 py-4 pl-12 pr-4 text-lg text-text-primary-light dark:text-text-primary-dark placeholder:text-text-tertiary-light dark:placeholder:text-text-secondary-dark backdrop-blur-sm focus:border-brand focus:outline-none"
+          className={inputClasses({ leadingIcon: true })}
         />
         {isFetching && (
           <CircleNotchIcon className="absolute right-4 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />

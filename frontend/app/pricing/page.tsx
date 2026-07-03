@@ -8,8 +8,7 @@ import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { CheckIcon, CircleNotchIcon } from '@/lib/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
 import SecondaryHeader from '@/components/SecondaryHeader'
-import StateCard from '@/components/StateCard'
-import { Button } from '@/components/ui'
+import { Button, Notice } from '@/components/ui'
 import analytics from '@/lib/analytics'
 import { useFeatureFlagVariantKey } from 'posthog-js/react'
 import posthog from 'posthog-js'
@@ -202,10 +201,10 @@ function PricingContent() {
 
           {(subscriptionError || usageError) && (
             <div className="mt-6 mx-auto max-w-2xl text-left">
-              <StateCard
+              <Notice
                 variant="error"
                 title="We couldn't load all pricing details"
-                message={
+                description={
                   subscriptionErrorData instanceof Error
                     ? subscriptionErrorData.message
                     : usageErrorData instanceof Error
@@ -213,14 +212,14 @@ function PricingContent() {
                     : 'Please retry.'
                 }
                 action={
-                  <div className="flex flex-wrap items-center gap-2">
+                  <>
                     <Button variant="secondary" size="sm" onClick={() => refetchSubscription()} loading={subscriptionFetching} loadingText="Retrying…">
                       Retry subscription
                     </Button>
                     <Button variant="secondary" size="sm" onClick={() => refetchUsage()} loading={usageFetching} loadingText="Retrying…">
                       Retry usage
                     </Button>
-                  </div>
+                  </>
                 }
               />
             </div>

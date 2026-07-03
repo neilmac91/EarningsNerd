@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query'
 import { CalendarDotsIcon } from '@/lib/icons'
 import { getUpcomingCalendar } from '@/features/dashboard/api/dashboard-api'
 import { formatLocalDate } from '@/lib/format'
+import { Card } from '@/components/ui'
 
 const TIME_LABEL: Record<string, string> = { bmo: 'Before open', amc: 'After close' }
 
@@ -19,9 +20,7 @@ export default function EarningsCalendar({ enabled = true }: { enabled?: boolean
   if (isLoading || !data || data.length === 0) return null
 
   return (
-    // Card recipe: cards lift off the cream with panel-light + e2 (DS §6) —
-    // this previously used bg-background-light (the page color) as its fill.
-    <section className="rounded-xl border border-border-light bg-panel-light p-5 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
+    <Card as="section" className="p-5">
       <div className="mb-3 flex items-center gap-2">
         <CalendarDotsIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
         <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -48,6 +47,6 @@ export default function EarningsCalendar({ enabled = true }: { enabled?: boolean
           </li>
         ))}
       </ul>
-    </section>
+    </Card>
   )
 }

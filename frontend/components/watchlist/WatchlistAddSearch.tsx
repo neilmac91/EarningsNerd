@@ -7,6 +7,7 @@ import { searchCompanies, Company } from '@/features/companies/api/companies-api
 import { addToWatchlist } from '@/features/watchlist/api/watchlist-api'
 import analytics from '@/lib/analytics'
 import CompanyLogo from '@/components/CompanyLogo'
+import { inputClasses } from '@/components/ui'
 
 /**
  * Add-from-search for the watchlist page: type a company, pick it, and it's tracked — without
@@ -63,7 +64,10 @@ export default function WatchlistAddSearch() {
   return (
     <div ref={containerRef} className="relative">
       <div className="relative">
-        <MagnifyingGlassIcon className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark" />
+        <MagnifyingGlassIcon
+          aria-hidden="true"
+          className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-text-tertiary-light dark:text-text-secondary-dark"
+        />
         <input
           type="text"
           value={query}
@@ -74,7 +78,7 @@ export default function WatchlistAddSearch() {
           onFocus={() => setOpen(true)}
           placeholder="Add a company to your watchlist (e.g., AAPL, Apple)…"
           aria-label="Search for a company to add to your watchlist"
-          className="w-full rounded-xl border border-border-light dark:border-border-dark bg-panel-light dark:bg-panel-dark py-3 pl-11 pr-4 text-text-primary-light dark:text-text-primary-dark placeholder:text-text-tertiary-light dark:placeholder:text-text-secondary-dark focus:border-brand focus:outline-none focus:shadow-ring-brand"
+          className={inputClasses({ leadingIcon: true })}
         />
         {(isLoading || addMutation.isPending) && (
           <CircleNotchIcon className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-brand-strong dark:text-brand-strong-dark" />

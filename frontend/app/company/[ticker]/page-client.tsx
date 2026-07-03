@@ -9,7 +9,7 @@ import { getSummary } from '@/features/summaries/api/summaries-api'
 import { addToWatchlist, removeFromWatchlist, getWatchlist, WatchlistItem } from '@/features/watchlist/api/watchlist-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { ArrowRightIcon, ArrowSquareOutIcon, CaretDownIcon, CircleNotchIcon, FileTextIcon, FunnelIcon, SparkleIcon, StarIcon, WarningCircleIcon } from '@/lib/icons'
-import { Button, buttonVariants, GuidanceCard, Skeleton } from '@/components/ui'
+import { Badge, Button, buttonVariants, Card, GuidanceCard, Skeleton } from '@/components/ui'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { format } from 'date-fns'
@@ -313,9 +313,8 @@ export default function CompanyPageClient() {
           bgColor: 'bg-brand-weak dark:bg-white/5',
           hoverBg: 'hover:bg-brand-weak dark:hover:bg-white/10',
           iconColor: 'text-brand-strong dark:text-brand-strong-dark',
-          badgeBg: 'bg-brand-weak dark:bg-white/10',
-          badgeText: 'text-brand-strong dark:text-brand-strong-dark',
-        }
+          badgeVariant: 'brand',
+        } as const
       case '10-Q':
       case '6-K':
         return {
@@ -323,18 +322,16 @@ export default function CompanyPageClient() {
           bgColor: 'bg-info-light/10 dark:bg-info-dark/10',
           hoverBg: 'hover:bg-info-light/15 dark:hover:bg-info-dark/15',
           iconColor: 'text-info-light dark:text-info-dark',
-          badgeBg: 'bg-info-light/10 dark:bg-info-dark/15',
-          badgeText: 'text-info-light dark:text-info-dark',
-        }
+          badgeVariant: 'info',
+        } as const
       default:
         return {
           borderColor: 'border-l-border-light dark:border-l-border-dark',
           bgColor: 'bg-background-light dark:bg-background-dark',
           hoverBg: 'hover:bg-background-light dark:hover:bg-background-dark',
           iconColor: 'text-text-tertiary-light dark:text-text-secondary-dark',
-          badgeBg: 'bg-background-light dark:bg-white/5',
-          badgeText: 'text-text-secondary-light dark:text-text-secondary-dark',
-        }
+          badgeVariant: 'neutral',
+        } as const
     }
   }
 
@@ -409,8 +406,8 @@ export default function CompanyPageClient() {
           />
         )}
 
-        {/* Filings Section — v2 Card recipe on the semantic <section> */}
-        <section className="rounded-xl border border-border-light bg-panel-light p-6 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
+        {/* Filings Section */}
+        <Card as="section" className="p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
             <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">SEC Filings</h2>
             {filings && filings.length > 0 && availableFilingTypes.length > 1 && (
@@ -455,10 +452,8 @@ export default function CompanyPageClient() {
                   <div>
                     <div className="flex items-center gap-2">
                       {/* Solid emphasis chip (primary-button colorway) — the tint Badge would
-                          vanish against this brand-weak banner. Upstream: Badge solid variant. */}
-                      <span className="inline-flex items-center rounded-full bg-brand-strong dark:bg-brand-dark px-2 py-0.5 text-xs font-semibold text-white dark:text-background-dark">
-                        Recommended
-                      </span>
+                          vanish against this brand-weak banner. */}
+                      <Badge variant="solid">Recommended</Badge>
                       <span className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                         {recommendedFiling.filing_type} · {format(new Date(recommendedFiling.filing_date), 'MMM d, yyyy')}
                       </span>
@@ -539,16 +534,13 @@ export default function CompanyPageClient() {
                                     <FileTextIcon className={`h-5 w-5 ${styles.iconColor}`} />
                                     <div>
                                       <div className="flex items-center space-x-2">
-                                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold ${styles.badgeBg} ${styles.badgeText}`}>
-                                          {filing.filing_type}
-                                        </span>
+                                        <Badge variant={styles.badgeVariant}>{filing.filing_type}</Badge>
                                         {ENABLE_RECOMMENDED_FILING && recommendedFiling?.id === filing.id && (
                                           /* Solid emphasis chip — sits on the row's brand-weak tint,
                                              where the tint Badge would vanish (see banner note). */
-                                          <span className="inline-flex items-center gap-1 rounded-full bg-brand-strong dark:bg-brand-dark px-2 py-0.5 text-xs font-semibold text-white dark:text-background-dark">
-                                            <SparkleIcon className="h-3 w-3" />
+                                          <Badge variant="solid" icon={<SparkleIcon className="h-3 w-3" />}>
                                             Recommended
-                                          </span>
+                                          </Badge>
                                         )}
                                         <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
                                           {format(new Date(filing.filing_date), 'MMM d, yyyy')}
@@ -591,7 +583,7 @@ export default function CompanyPageClient() {
               <p className="text-text-tertiary-light dark:text-text-secondary-dark">No filings found for this company.</p>
             </div>
           )}
-        </section>
+        </Card>
       </main>
     </div>
   )

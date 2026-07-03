@@ -12,7 +12,7 @@ import {
 import { ApiError } from '@/lib/api/client'
 import { fmtCurrency, fmtScale } from '@/lib/format'
 import { directionText } from '@/lib/financialTone'
-import { Badge, DataTable, Skeleton, type Column } from '@/components/ui'
+import { Badge, Card, DataTable, Skeleton, type Column } from '@/components/ui'
 
 const WINDOWS: { days: number; label: string }[] = [
   { days: 90, label: '90D' },
@@ -112,13 +112,13 @@ export default function InsiderActivityPanel({
   // panel (the live SEC read is disabled for FPIs via `enabled` above).
   if (isFpi) {
     return (
-      <section className="mb-8 rounded-xl border border-border-light bg-panel-light p-6 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
+      <Card as="section" className="mb-8 p-6">
         <h2 className="mb-3 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Insider Activity</h2>
         <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
           Insider (Form&nbsp;4) reporting is not generally required for foreign private issuers, so
           no open-market insider trades are available for this company.
         </p>
-      </section>
+      </Card>
     )
   }
 
@@ -148,8 +148,7 @@ export default function InsiderActivityPanel({
   const signalMagnitude = signalIsValue ? fmtMoney(signalValue) : `${fmtShares(signalValue)} shares`
 
   return (
-    // v2 Card recipe on the semantic <section> — lift via e2 in light, hairline-only in dark.
-    <section className="mb-8 rounded-xl border border-border-light bg-panel-light p-6 shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none">
+    <Card as="section" className="mb-8 p-6">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Insider Activity</h2>
         <div className="flex flex-wrap gap-2" role="group" aria-label="Select window">
@@ -241,6 +240,6 @@ export default function InsiderActivityPanel({
       <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
         Open-market Form 4 trades from SEC EDGAR. 10b5-1 marks pre-scheduled trades (weaker signal).
       </p>
-    </section>
+    </Card>
   )
 }

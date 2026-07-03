@@ -6,7 +6,6 @@ import { getCurrentUser, login } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
 import { CircleNotchIcon, EnvelopeSimpleIcon } from '@/lib/icons'
-import StateCard from '@/components/StateCard'
 import analytics from '@/lib/analytics'
 import AuthShell from '@/components/auth/AuthShell'
 import SocialAuthButtons from '@/components/auth/SocialAuthButtons'
@@ -14,8 +13,7 @@ import AuthDivider from '@/components/auth/AuthDivider'
 import PasswordField from '@/components/auth/PasswordField'
 import TurnstileWidget from '@/components/auth/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
+import { Button, Input, Notice } from '@/components/ui'
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
   google_denied: 'Google sign-in was cancelled.',
@@ -89,17 +87,17 @@ function LoginContent() {
 
       {oauthError && (
         <div className="mt-6">
-          <StateCard
+          <Notice
             variant="error"
             title="Sign-in failed"
-            message={OAUTH_ERROR_MESSAGES[oauthError] ?? 'Sign-in failed. Please try again.'}
+            description={OAUTH_ERROR_MESSAGES[oauthError] ?? 'Sign-in failed. Please try again.'}
           />
         </div>
       )}
 
       {error && (
         <div className="mt-6">
-          <StateCard variant="error" title="Login failed" message={error} />
+          <Notice variant="error" title="Login failed" description={error} />
         </div>
       )}
 

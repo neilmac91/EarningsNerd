@@ -5,10 +5,8 @@ import { forgotPassword } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
 import { CircleNotchIcon, EnvelopeSimpleOpenIcon } from '@/lib/icons'
-import StateCard from '@/components/StateCard'
 import AuthShell from '@/components/auth/AuthShell'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
+import { Button, Input, Notice } from '@/components/ui'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
@@ -43,7 +41,7 @@ export default function ForgotPasswordPage() {
 
           {error && (
             <div className="mt-6">
-              <StateCard variant="error" title="Error" message={error} />
+              <Notice variant="error" title="Error" description={error} />
             </div>
           )}
 

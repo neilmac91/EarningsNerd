@@ -2,7 +2,7 @@
 
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react'
 import { PaperPlaneTiltIcon } from '@/lib/icons'
-import { Button } from '@/components/ui'
+import { Button, Textarea, cx, inputClasses } from '@/components/ui'
 
 interface CopilotComposerProps {
   onSubmit: (question: string) => void
@@ -33,11 +33,10 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
         setValue(text)
         const el = textareaRef.current
         if (!el) return
-        // Set the DOM value synchronously so scrollHeight + caret are accurate immediately (React
-        // state catches up on the next render) — avoids an rAF race / layout flicker.
+        // Set the DOM value synchronously so the caret position is accurate immediately (React
+        // state catches up on the next render; height comes from the controlled path — Textarea's
+        // layout effect re-grows on the value change).
         el.value = text
-        el.style.height = 'auto'
-        el.style.height = `${Math.min(el.scrollHeight, 120)}px`
         el.focus()
         el.setSelectionRange(text.length, text.length)
       },
@@ -52,8 +51,6 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
     if (!canSend) return
     onSubmit(trimmed)
     setValue('')
-    // Reset the auto-grown height after sending.
-    if (textareaRef.current) textareaRef.current.style.height = 'auto'
   }
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -72,25 +69,27 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
       }}
       className="border-t border-border-light bg-panel-light dark:border-white/10 dark:bg-slate-900 p-3"
     >
-      {/* Chat-composer wrapper: the raw textarea stays transparent inside this
-          field-recipe shell (v2 Textarea's own chrome would double up here —
-          upstream candidate: a composer variant). */}
-      <div className="flex items-end gap-2 rounded-xl border border-border-light bg-panel-light dark:border-white/10 dark:bg-slate-950/60 p-2 focus-within:border-brand-border">
-        <textarea
+      {/* DS "Chat composer" pattern: the shell carries the field recipe + focus-within
+          ring; the composer-variant Textarea inside stays chrome-free. */}
+      <div
+        className={cx(
+          inputClasses({ className: 'flex items-end gap-2' }),
+          'focus-within:border-brand focus-within:shadow-ring-brand',
+          'dark:focus-within:border-brand-dark dark:focus-within:shadow-ring-brand-dark',
+        )}
+      >
+        <Textarea
+          variant="composer"
           ref={textareaRef}
           value={value}
-          onChange={(e) => {
-            setValue(e.target.value)
-            // Auto-grow up to a few lines.
-            const el = e.target
-            el.style.height = 'auto'
-            el.style.height = `${Math.min(el.scrollHeight, 120)}px`
-          }}
+          onChange={(e) => setValue(e.target.value)}
           onKeyDown={onKeyDown}
-          rows={1}
           placeholder="Ask about this filing…"
           aria-label="Ask about this filing"
-          className="max-h-[120px] flex-1 resize-none bg-transparent px-1 py-1 text-sm text-text-primary-light dark:text-text-primary-dark placeholder:text-text-secondary-light dark:placeholder:text-text-secondary-dark focus:outline-none"
+          // className styles the shell wrapper (a flex item), not the <textarea>;
+          // the height cap must ride `style`, which spreads onto the element.
+          className="min-w-0 flex-1"
+          style={{ maxHeight: 120, overflowY: 'auto' }}
         />
         {/* Icon-only primary Button — sm height with the horizontal padding
             zeroed so it stays a square send affordance. */}

@@ -6,10 +6,9 @@ import { resetPassword } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
 import { CheckCircleIcon, CircleNotchIcon } from '@/lib/icons'
-import StateCard from '@/components/StateCard'
 import AuthShell from '@/components/auth/AuthShell'
 import PasswordField from '@/components/auth/PasswordField'
-import { Button } from '@/components/ui/Button'
+import { Button, Notice } from '@/components/ui'
 
 function ResetPasswordContent() {
   const searchParams = useSearchParams()
@@ -78,16 +77,16 @@ function ResetPasswordContent() {
 
       {error && (
         <div className="mt-6">
-          <StateCard variant="error" title="Error" message={error} />
+          <Notice variant="error" title="Error" description={error} />
         </div>
       )}
 
       {!token && (
         <div className="mt-6">
-          <StateCard
+          <Notice
             variant="error"
             title="Invalid link"
-            message="This reset link is invalid. Please request a new one."
+            description="This reset link is invalid. Please request a new one."
           />
         </div>
       )}
