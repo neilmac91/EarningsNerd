@@ -1319,6 +1319,29 @@ def test_count_uncited_figures_classifies_tokens():
 
 
 @pytest.mark.unit
+def test_count_uncited_figures_ignores_literal_brackets_beyond_valid_count():
+    """A literal leftover bracket (quoted filing content, e.g. footnote '[7]') beyond the
+    resolved-citation count must not grant coverage credit — but its digits still aren't a
+    figure."""
+    answer = "Revenue was $97.69B [1]. Gross profit was $17.45B, see note [7]."
+    # Without valid_count the literal [7] wrongly covers the gross-profit figure...
+    assert copilot_service.count_uncited_figures(answer) == (2, 0)
+    # ...with valid_count=1 only [1] creates a claim span.
+    assert copilot_service.count_uncited_figures(answer, valid_count=1) == (2, 1)
+
+
+@pytest.mark.unit
+def test_concept_guard_normalizes_curly_apostrophes():
+    """Model prose uses typographic apostrophes ("stockholders’ equity") — the own-metric match
+    must still hit the straight-quote synonym, or a correct chip gets falsely stripped when
+    another metric is named in the clause."""
+    fact = {"concept": "stockholders_equity", "value": 62_000_000_000.0}
+    assert copilot_service._fact_matches_adjacent_concept(
+        fact, "stockholders’ equity exceeded total liabilities at $62.0B "
+    )
+
+
+@pytest.mark.unit
 @pytest.mark.asyncio
 async def test_service_complete_event_carries_coverage_counters(monkeypatch):
     """The complete event ships the coverage trio for telemetry: figure_count / uncited_figures

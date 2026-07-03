@@ -106,17 +106,18 @@ def score_fact_marker_adjacency(answer: str, citations: List[dict]) -> Tuple[flo
     return round((checked - len(violations)) / checked, 4), violations
 
 
-def score_figure_coverage(answer: str) -> Tuple[float, int, int]:
+def score_figure_coverage(answer: str, valid_count: Optional[int] = None) -> Tuple[float, int, int]:
     """Fraction of financial-looking figures in the final answer that sit inside some citation's
     claim span — ``(coverage_ratio, figure_count, uncited_count)``, 1.0 when there are no figures.
 
-    Reuses the production ``count_uncited_figures`` (single definition of "figure" and "covered").
-    WARN-level, not a hard gate: legitimate uncited numbers exist (a count in prose, a rounding
-    restatement), but a *falling* coverage ratio after a prompt/model change means the model is
-    stating more figures than it sources — the failure mode the misplacement guards convert into
-    silent uncited prose.
+    Reuses the production ``count_uncited_figures`` (single definition of "figure" and "covered");
+    ``valid_count`` = the resolved citations count, so literal leftover brackets don't grant
+    coverage credit. WARN-level, not a hard gate: legitimate uncited numbers exist (a count in
+    prose, a rounding restatement), but a *falling* coverage ratio after a prompt/model change
+    means the model is stating more figures than it sources — the failure mode the misplacement
+    guards convert into silent uncited prose.
     """
-    figure_count, uncited = count_uncited_figures(answer)
+    figure_count, uncited = count_uncited_figures(answer, valid_count)
     if not figure_count:
         return 1.0, 0, 0
     return round((figure_count - uncited) / figure_count, 4), figure_count, uncited
@@ -156,7 +157,7 @@ def score_copilot_answer(
     refusal_correct = score_refusal(kind, qa.disclosed)
     faithfulness, unverified = score_citation_faithfulness(citations, normalized_source)
     adjacency, misplaced = score_fact_marker_adjacency(answer, citations)
-    figure_coverage, figure_count, uncited_figures = score_figure_coverage(answer)
+    figure_coverage, figure_count, uncited_figures = score_figure_coverage(answer, len(citations))
 
     # Numeric recall only applies to a disclosed question that was actually answered.
     if qa.disclosed and kind != "not_disclosed":

@@ -472,7 +472,9 @@ def _fact_matches_adjacent_concept(fact: dict, window: str) -> bool:
     own = _CONCEPT_PATTERNS.get(concept)
     if own is None:
         return True  # unknown concept — not checkable
-    low = window.lower()
+    # Curly apostrophes are common in model prose ("stockholders’ equity") — normalize so the
+    # straight-quote synonyms match; a missed OWN match is a false-strip vector.
+    low = window.lower().replace("’", "'")
     if own.search(low):
         return True
     clause = _CLAUSE_BOUNDARY.split(low)[-1]
@@ -482,7 +484,7 @@ def _fact_matches_adjacent_concept(fact: dict, window: str) -> bool:
     return True
 
 
-def count_uncited_figures(answer: str) -> tuple[int, int]:
+def count_uncited_figures(answer: str, valid_count: Optional[int] = None) -> tuple[int, int]:
     """Count financial-looking figures in a FINAL answer and how many lack a citation.
 
     Returns ``(figure_count, uncited_count)``. A figure is "cited" when it falls inside some
@@ -494,13 +496,20 @@ def count_uncited_figures(answer: str) -> tuple[int, int]:
     "Financial-looking" is deliberately narrower than the guards' matcher: a token counts only
     with a $ sign, a scale/percent suffix, a decimal point, or a non-year integer >= 1000 —
     so counts like "3 segments" and years never inflate the denominator.
+
+    ``valid_count`` (the length of the resolved citations list) filters literal leftover
+    brackets: the resolver numbers real citations 1..N, so a surviving ``[n]`` with n > N is
+    quoted filing content, not a citation — it must not grant coverage credit. Its digits are
+    still excluded from figure counting either way (bracketed digits are never figures).
     """
-    markers = list(re.finditer(r"\[(F?\s*\d+)\]", answer, re.IGNORECASE))
-    marker_spans = [(m.start(), m.end()) for m in markers]
+    brackets = list(re.finditer(r"\[(F?\s*\d+)\]", answer, re.IGNORECASE))
+    marker_spans = [(m.start(), m.end()) for m in brackets]
     claim_spans: list[tuple[int, int]] = []
     prev_end = 0
-    for m in markers:
-        claim_spans.append((_claim_span_start(m.start(), prev_end), m.start()))
+    for m in brackets:
+        digits = re.sub(r"\D", "", m.group(1))
+        if valid_count is None or (digits and int(digits) <= valid_count):
+            claim_spans.append((_claim_span_start(m.start(), prev_end), m.start()))
         prev_end = m.end()
 
     def _within(spans: list[tuple[int, int]], pos: int) -> bool:
@@ -836,7 +845,7 @@ async def answer_filing_question(
         # COVERAGE telemetry, the counterpart signal: stripping misplaced markers (and model
         # laziness) leaves figures with no citation at all. Counted on the FINAL answer — what
         # the user actually sees.
-        figure_count, uncited_figures = count_uncited_figures(full_answer)
+        figure_count, uncited_figures = count_uncited_figures(full_answer, len(verified_citations))
         if uncited_figures:
             logger.warning(
                 "copilot: answer shipped %d uncited figure(s) of %d total",
