@@ -45,8 +45,10 @@ class CompanyNotResolvable(Exception):
 
 
 def count_enabled(db: Session, user_id: int) -> int:
+    # Count DISTINCT companies, not rows: the watchlist table has no UNIQUE(user_id, company_id),
+    # so a duplicate row must not inflate the cap accounting.
     return (
-        db.query(func.count(Watchlist.id))
+        db.query(func.count(func.distinct(Watchlist.company_id)))
         .filter(Watchlist.user_id == user_id, Watchlist.earnings_alert.is_(True))
         .scalar()
         or 0
@@ -79,9 +81,18 @@ def _get_or_create_company(db: Session, ticker: str) -> Company:
     )
     if ev is None or not ev.cik:
         raise CompanyNotResolvable(ticker)
-    company = Company(cik=str(ev.cik), ticker=ticker, name=ev.company_name or ticker)
-    db.add(company)
-    db.flush()  # assign company.id without ending the transaction
+    cik = str(ev.cik)
+    company = Company(cik=cik, ticker=ticker, name=ev.company_name or ticker)
+    try:
+        with db.begin_nested():  # SAVEPOINT so a unique-CIK clash doesn't poison the transaction
+            db.add(company)
+            db.flush()
+    except IntegrityError:
+        # The CIK already exists under a different ticker (e.g. a ticker rename). Reuse that row
+        # rather than 500-ing on the unique constraint.
+        company = db.query(Company).filter(Company.cik == cik).first()
+        if company is None:
+            raise CompanyNotResolvable(ticker)
     return company
 
 
@@ -140,22 +151,14 @@ async def send_earnings_day_alerts(
     """Send one batched email per opted-in user whose watched companies report today, then record
     the dedup ledger. Injectable ``sender`` keeps this unit-testable with no live Resend."""
     if today is None:
-        today = date.today()
+        from app.services.earnings_calendar_service import today_eastern
+        today = today_eastern()  # event_date is an ET calendar day; don't use the server's UTC date
     if sender is None:
         from app.services.email_service import send_earnings_day_alert
         sender = send_earnings_day_alert
 
-    todays = db.query(EarningsEvent).filter(EarningsEvent.event_date == today).all()
-    if not todays:
-        return {"users": 0, "emails": 0, "events": 0}
-    events_by_ticker: dict[str, EarningsEvent] = {}
-    for ev in todays:
-        # If a ticker somehow has two rows today, prefer the reported/highest-anticipation one.
-        cur = events_by_ticker.get(ev.ticker)
-        if cur is None or float(ev.anticipation_score or 0) > float(cur.anticipation_score or 0):
-            events_by_ticker[ev.ticker] = ev
-
-    # Users with an enabled alert on a company reporting today.
+    # Users with an enabled alert on a company reporting today. Exclude users with no usable email —
+    # otherwise they'd hit a guaranteed send failure that then permanently dedups as handled.
     rows = (
         db.query(User, Company.ticker, EarningsEvent)
         .join(Watchlist, Watchlist.user_id == User.id)
@@ -165,6 +168,8 @@ async def send_earnings_day_alerts(
             Watchlist.earnings_alert.is_(True),
             EarningsEvent.event_date == today,
             User.is_active.is_(True),
+            User.email.isnot(None),
+            func.trim(User.email) != "",
         )
         .all()
     )
@@ -178,11 +183,14 @@ async def send_earnings_day_alerts(
     events_sent = 0
     for user_id, bucket in per_user.items():
         user = bucket["user"]
-        pairs = list(bucket["events"].values())
-        # Dedup: skip events already logged for this (user, event, date); only send if something new.
-        fresh: list = []
-        for ticker, ev in pairs:
-            already = (
+        # Claim each (user, event, today) send before sending, using the unique constraint as the
+        # lock: a freshly-inserted 'pending' row that raises IntegrityError means a concurrent run
+        # already owns this send, so we skip it (no double-send). An EXISTING non-'sent' row is a
+        # prior run's failed/pending attempt — we take it over and retry (a transient failure must
+        # not silently lose a time-sensitive alert). Only a 'sent' row is terminal.
+        claimed: list = []  # (ticker, ev, log_row)
+        for ticker, ev in bucket["events"].values():
+            existing = (
                 db.query(EarningsAlertLog)
                 .filter(
                     EarningsAlertLog.user_id == user_id,
@@ -192,42 +200,52 @@ async def send_earnings_day_alerts(
                 )
                 .first()
             )
-            if already is None:
-                fresh.append((ticker, ev))
-        if not fresh:
+            if existing is not None:
+                # Take over ONLY committed 'failed' rows, and claim atomically: the UPDATE's WHERE
+                # re-evaluates under the row lock, so of two concurrent runs exactly one gets
+                # rowcount=1 and sends; the other sees 0 and skips. ('pending' rows are never
+                # committed — the claim transaction commits only after the send resolves — so a
+                # visible 'pending' is unreachable today and deliberately NOT retried.)
+                if existing.status == "failed":
+                    took_over = (
+                        db.query(EarningsAlertLog)
+                        .filter(EarningsAlertLog.id == existing.id, EarningsAlertLog.status == "failed")
+                        .update({"status": "pending"}, synchronize_session=False)
+                    )
+                    if took_over:
+                        claimed.append((ticker, ev, existing))
+                continue
+            log = EarningsAlertLog(
+                user_id=user_id, earnings_event_id=ev.id, event_date=today,
+                channel=CHANNEL_EMAIL, status="pending",
+            )
+            try:
+                with db.begin_nested():  # SAVEPOINT: an IntegrityError rolls back only this insert
+                    db.add(log)
+                    db.flush()
+                claimed.append((ticker, ev, log))
+            except IntegrityError:
+                # A concurrent run just claimed this exact send — let it own it; we skip.
+                continue
+
+        if not claimed:
             continue
 
         items = [
-            {
-                "ticker": ticker,
-                "company_name": ev.company_name or ticker,
-                "time": ev.event_time,
-                "status": ev.status,
-            }
-            for ticker, ev in sorted(fresh, key=lambda p: -float(p[1].anticipation_score or 0))
+            {"ticker": t, "company_name": ev.company_name or t, "time": ev.event_time, "status": ev.status}
+            for t, ev, _ in sorted(claimed, key=lambda c: -float(c[1].anticipation_score or 0))
         ]
         try:
             await sender(to_email=user.email, name=getattr(user, "full_name", None), items=items)
             status = "sent"
             emails += 1
+            events_sent += len(claimed)
         except Exception:
             logger.exception("Earnings-day alert send failed for user %s", user_id)
-            status = "failed"
+            status = "failed"  # ledger keeps the claim as non-terminal → retried next run
 
-        for ticker, ev in fresh:
-            db.add(
-                EarningsAlertLog(
-                    user_id=user_id,
-                    earnings_event_id=ev.id,
-                    event_date=today,
-                    channel=CHANNEL_EMAIL,
-                    status=status,
-                )
-            )
-            events_sent += 1
-        try:
-            db.commit()
-        except IntegrityError:
-            db.rollback()  # concurrent run already logged these — the unique constraint backstops
+        for _t, _ev, log in claimed:
+            log.status = status
+        db.commit()
 
     return {"users": len(per_user), "emails": emails, "events": events_sent}

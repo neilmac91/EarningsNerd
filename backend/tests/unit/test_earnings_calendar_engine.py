@@ -179,6 +179,77 @@ def test_non_2_02_8k_ignored():
 
 
 @pytest.mark.requires_db
+def test_in_run_duplicate_does_not_break_commit():
+    """Regression for the critical ingest bug: an AV row and an EDGAR 8-K that resolve to the same
+    (ticker, fiscal_period_end) within ONE un-flushed transaction must not double-INSERT and blow
+    up the final commit (SessionLocal is autoflush=False)."""
+    from app.database import SessionLocal
+    from app.models import EarningsEvent
+
+    _clear("DUPE")
+    db = SessionLocal()
+    # AV estimate for Q2 with a far-off date, then a same-day 8-K whose derived quarter-end == the
+    # AV row's fiscal_period_end. Without the per-insert flush the EDGAR path can't see the pending
+    # AV row and inserts a second (DUPE, 2026-06-30), making commit() raise on the unique constraint.
+    svc.ingest_alpha_vantage(db, [_av_row("DUPE", date(2026, 1, 5), date(2026, 6, 30))])
+    hit = SimpleNamespace(
+        items=["2.02"], ticker="DUPE", filed_date="2026-07-31",
+        accession_no="dupe-acc", cik="0009", company="Dupe Inc", acceptance_datetime=None,
+    )
+    svc.ingest_edgar_reported(db, [hit])
+    db.commit()  # must NOT raise
+    rows = db.query(EarningsEvent).filter(EarningsEvent.ticker == "DUPE").all()
+    assert len(rows) == 1  # single row, flipped to reported
+    assert rows[0].status == STATUS_REPORTED
+    db.close()
+    _clear("DUPE")
+
+
+@pytest.mark.requires_db
+def test_reported_at_not_fabricated_without_acceptance():
+    """When the sweep has no acceptance timestamp, reported_at stays NULL (not the job clock)."""
+    from app.database import SessionLocal
+    from app.models import EarningsEvent
+
+    _clear("NOACC")
+    db = SessionLocal()
+    hit = SimpleNamespace(
+        items=["2.02"], ticker="NOACC", filed_date="2026-07-30",
+        accession_no="noacc", cik="0010", company="NoAcc Inc", acceptance_datetime=None,
+    )
+    svc.ingest_edgar_reported(db, [hit])
+    db.commit()
+    ev = db.query(EarningsEvent).filter(EarningsEvent.ticker == "NOACC").one()
+    assert ev.status == STATUS_REPORTED
+    assert ev.reported_at is None  # honest: no fabricated timestamp
+    db.close()
+    _clear("NOACC")
+
+
+@pytest.mark.requires_db
+def test_av_does_not_overwrite_confirmed():
+    from app.database import SessionLocal
+    from app.models import EarningsEvent
+
+    _clear("CONF")
+    db = SessionLocal()
+    db.add(EarningsEvent(
+        ticker="CONF", company_name="Conf Inc", fiscal_period_end=date(2026, 3, 31),
+        event_date=date(2026, 4, 20), status="confirmed", confidence="high",
+        source="earnings_whispers",
+    ))
+    db.commit()
+    svc.ingest_alpha_vantage(db, [_av_row("CONF", date(2026, 4, 28), date(2026, 3, 31), eps=9.9)])
+    db.commit()
+    ev = db.query(EarningsEvent).filter(EarningsEvent.ticker == "CONF").one()
+    assert ev.status == "confirmed"
+    assert ev.event_date == date(2026, 4, 20)  # AV did not overwrite the confirmed date
+    assert ev.source == "earnings_whispers"
+    db.close()
+    _clear("CONF")
+
+
+@pytest.mark.requires_db
 def test_events_in_range_serializes_contract():
     from app.database import SessionLocal
     from app.models import EarningsEvent

@@ -203,3 +203,106 @@ async def test_digest_sends_once_and_dedups():
     assert stats2["emails"] == 0
     assert len(sent) == 1
     db.close()
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_digest_retries_after_a_failed_send():
+    """A transient send failure must NOT permanently dedup the alert — the next run retries it."""
+    from app.database import SessionLocal
+    from app.models import Company, EarningsAlertLog, EarningsEvent, Watchlist
+
+    uid = _mk_user(is_pro=False)
+    today = date.today()
+    db = SessionLocal()
+    c = Company(cik=f"rt-{uuid.uuid4().hex[:10]}", ticker="RTRY", name="Retry Inc")
+    db.add(c)
+    db.flush()
+    db.add(Watchlist(user_id=uid, company_id=c.id, earnings_alert=True))
+    db.add(EarningsEvent(
+        ticker="RTRY", company_name="Retry Inc", fiscal_period_end=date(2026, 3, 31),
+        event_date=today, event_time="amc", status="estimated", confidence="medium",
+        anticipation_score=5.0, source="alpha_vantage",
+    ))
+    db.commit()
+
+    calls = {"n": 0}
+
+    async def _flaky_sender(*, to_email, name, items):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            raise RuntimeError("transient resend failure")
+
+    # First run fails to send; the ledger row must be non-terminal (not 'sent').
+    stats1 = await alerts.send_earnings_day_alerts(db, today=today, sender=_flaky_sender)
+    assert stats1["emails"] == 0
+    log = db.query(EarningsAlertLog).filter(EarningsAlertLog.user_id == uid).one()
+    assert log.status == "failed"
+
+    # Second run retries and succeeds.
+    stats2 = await alerts.send_earnings_day_alerts(db, today=today, sender=_flaky_sender)
+    assert stats2["emails"] == 1
+    db.refresh(log)
+    assert log.status == "sent"
+
+    # Third run does not re-send (now terminal).
+    stats3 = await alerts.send_earnings_day_alerts(db, today=today, sender=_flaky_sender)
+    assert stats3["emails"] == 0
+    db.close()
+
+
+@pytest.mark.requires_db
+@pytest.mark.asyncio
+async def test_digest_does_not_retry_pending_rows():
+    """A committed 'pending' row (another run's in-flight claim, or a future code path) is NOT
+    taken over — only 'failed' is retryable. Prevents concurrent double-sends by construction."""
+    from app.database import SessionLocal
+    from app.models import Company, EarningsAlertLog, EarningsEvent, Watchlist
+
+    uid = _mk_user(is_pro=False)
+    today = date.today()
+    db = SessionLocal()
+    c = Company(cik=f"pd-{uuid.uuid4().hex[:10]}", ticker="PNDG", name="Pending Inc")
+    db.add(c)
+    db.flush()
+    db.add(Watchlist(user_id=uid, company_id=c.id, earnings_alert=True))
+    ev = EarningsEvent(
+        ticker="PNDG", company_name="Pending Inc", fiscal_period_end=date(2026, 3, 31),
+        event_date=today, event_time="amc", status="estimated", confidence="medium",
+        anticipation_score=5.0, source="alpha_vantage",
+    )
+    db.add(ev)
+    db.flush()
+    db.add(EarningsAlertLog(
+        user_id=uid, earnings_event_id=ev.id, event_date=today, channel="email", status="pending",
+    ))
+    db.commit()
+
+    sent = []
+
+    async def _sender(*, to_email, name, items):
+        sent.append(to_email)
+
+    stats = await alerts.send_earnings_day_alerts(db, today=today, sender=_sender)
+    assert stats["emails"] == 0
+    assert sent == []
+    db.close()
+
+
+@pytest.mark.requires_db
+def test_cap_counts_distinct_companies_not_rows():
+    """Duplicate watchlist rows (no UNIQUE(user_id, company_id)) must not inflate the cap count."""
+    from app.database import SessionLocal
+    from app.models import Company, Watchlist
+
+    uid = _mk_user(is_pro=False)
+    db = SessionLocal()
+    c = Company(cik=f"dc-{uuid.uuid4().hex[:10]}", ticker="DCNT", name="Dcnt Inc")
+    db.add(c)
+    db.flush()
+    # Two rows for the SAME company both enabled — count_enabled must report 1, not 2.
+    db.add(Watchlist(user_id=uid, company_id=c.id, earnings_alert=True))
+    db.add(Watchlist(user_id=uid, company_id=c.id, earnings_alert=True))
+    db.commit()
+    assert alerts.count_enabled(db, uid) == 1
+    db.close()
