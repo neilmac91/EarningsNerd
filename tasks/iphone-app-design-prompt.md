@@ -97,8 +97,10 @@ audited the hard way (contrast is measured against the warm cream, not white).
 ### 3.1 Color
 
 **One brand accent: Sage. In both themes.** Sage is identity, never data: it must never
-indicate price direction, and never appears inside a chart plot area. No other green, no
-mint, no blue/teal/indigo as brand. No decorative gradients anywhere.
+indicate price direction, and never appears inside a chart plot area (a rising revenue
+delta renders in gain text `#15803D`, never sage; a chart line uses the chart sequence,
+never sage). No other green, no mint, no blue/teal/indigo as brand. No decorative
+gradients anywhere.
 
 | Role | Light | Dark | Rules |
 |---|---|---|---|
@@ -152,8 +154,8 @@ get Dynamic Type for free; do not embed Inter, Geist, or Newsreader.
 |---|---|---|
 | Headings | Inter w/ optical sizing, single weight 600 | **SF Pro, Semibold (one display weight)**, Dynamic Type styles (Large Title 34 → Headline 17). Heading ink = text primary. Hierarchy via size/weight only. |
 | Body & UI | `-apple-system` → Inter | **SF Pro Text** via Dynamic Type: Body 17, Callout 16, Subheadline 15, Footnote 13, Caption 12/11. |
-| Data | Geist Mono + `tabular-nums` | **SF Mono with monospaced digits** (already the web stack's Apple fallback). Mandatory for **every** money value, %, ticker symbol, XBRL figure, and verbatim filing excerpt — the "evidence register" is a core brand signature. 11 pt floor for dense numeric annotations. |
-| Editorial serif | Newsreader (fallback "New York") | **New York**, in the **filing reader only** — serif marks the filing's own words. AI output is never serif; copilot answers stay body sans, excerpts stay mono. |
+| Data | Geist Mono + `tabular-nums` | **SF Mono with monospaced digits** (already the web stack's Apple fallback). Mandatory for **every** money value, %, ticker symbol, XBRL figure, verbatim filing excerpt, and Ask-this-Filing answer — the "evidence register" is a core brand signature. 11 pt floor for dense numeric annotations. |
+| Editorial serif | Newsreader (fallback "New York") | **New York**, in the **filing reader only** — serif marks the filing's own words. AI output is never serif; copilot answers render in the mono data face (matching web — Ask output stays mono), excerpts stay mono; the AI summary reads in body sans. |
 
 UPPERCASE tracked eyebrows only for tiny metric labels — never card titles (card titles are
 sentence case, semibold). 12 pt UI-type floor. Support Dynamic Type fully, including AX
@@ -304,7 +306,8 @@ one with a sentence on why. Starting territories (diverge if you find better):
   2–3 filled overlapping shapes.
 
 Rules: filled overlapping shapes, no words (a single-letter mnemonic at most), no photos,
-no screenshots, no thin strokes that die at 29 pt. Sage `#4F7A63`/cream/navy family only —
+no screenshots, no thin strokes that die at 29 pt (a hairline chart line dies; a filled
+three-bar silhouette survives). Sage `#4F7A63`/cream/navy family only —
 and because tinted/clear modes strip color, **the silhouette alone must carry the brand**.
 Dark variant is designed (subdued, navy-at-home), not auto-inverted. 1024×1024 canvas.
 
@@ -330,7 +333,11 @@ Dark variant is designed (subdued, navy-at-home), not auto-inverted. 1024×1024 
 You have everything you need — act. Where the brief leaves latitude (tab set, icon
 direction, widget subject, haptic map), make the call and record it in the decisions note
 rather than asking. If you're weighing a choice, give a recommendation, not a survey.
-Don't add screens, features, or flourishes beyond the brief; the restraint is the brand.
-Never use generic AI-app aesthetics — purple gradients, glassmorphism cards, sparkle
-confetti, dark-mode-only fintech noir. This product is warm cream, sage, espresso ink, and
-monospaced evidence; its confidence is quiet.
+Don't add screens, features, or flourishes beyond the brief; the restraint is the brand
+(e.g. no live stock-price tickers, portfolio trackers, or social feeds — EarningsNerd is
+filings intelligence, not a brokerage). Populate mockups with realistic data — real
+tickers (AAPL, NVDA, COST), plausible figures and deltas ("$391.0B", "+3.4%") — never
+lorem ipsum or `$123,456` placeholders. Never use generic AI-app aesthetics — purple
+gradients, glassmorphism cards, sparkle confetti, dark-mode-only fintech noir. This
+product is warm cream, sage, espresso ink, and monospaced evidence; its confidence is
+quiet.
