@@ -92,14 +92,16 @@ export default function CitationChip({ citation }: CitationChipProps) {
     }
   }, [pos])
 
-  // XBRL figure chips ([F1]) read as hard data, distinct from filing-text excerpt chips ([1]): a
-  // ringed, monospace tabular-figure treatment vs. the plain filled chip. Same mint hue (on-brand).
+  // XBRL figure chips ([F1]) read as hard data, distinct from filing-text excerpt chips ([1]):
+  // the same bordered brand-tint chip (the v2.2 marker treatment), with the mono/tabular register
+  // marking figures. Inline markers fall under the WCAG 2.5.8 inline-target exception (18px).
   const isFact = isXbrlCitation(citation)
   const chipBase =
-    'inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded px-1 text-[11px] font-semibold leading-none align-baseline transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
-  const chipClass = isFact
-    ? `${chipBase} bg-brand-strong/10 font-mono tabular-nums text-brand-strong ring-1 ring-inset ring-brand-border hover:bg-brand-strong/20 dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:ring-brand-dark/40 dark:hover:bg-brand-dark/25`
-    : `${chipBase} bg-brand-strong/10 text-brand-strong hover:bg-brand-strong/20 dark:bg-brand-dark/15 dark:text-brand-strong-dark dark:hover:bg-brand-dark/25`
+    'inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded border px-1 font-data text-[10px] font-semibold leading-none align-baseline transition-colors ' +
+    'border-brand-border bg-brand-weak text-brand-strong hover:bg-brand-border/60 ' +
+    'dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark dark:hover:bg-brand-border-dark ' +
+    'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
+  const chipClass = isFact ? `${chipBase} tabular-nums` : chipBase
 
   const triggerHandlers = {
     ref: (el: HTMLElement | null) => {
@@ -150,12 +152,12 @@ export default function CitationChip({ citation }: CitationChipProps) {
             onFocus={clearCloseTimer}
             onBlur={scheduleClose}
             style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, transform: 'translateX(-50%)' }}
-            className="z-[60] block w-64 rounded-lg border border-border-light bg-panel-light p-3 text-left shadow-xl dark:border-white/10 dark:bg-slate-900"
+            className="z-[60] block w-64 rounded-lg border border-border-light bg-panel-light p-3 text-left shadow-e5 dark:border-white/10 dark:bg-slate-900 dark:shadow-none"
           >
             <span className="block text-[11px] font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark break-words">
               {header}
             </span>
-            <span className="mt-1.5 block max-h-40 overflow-y-auto border-l-2 border-brand-strong/50 dark:border-brand-dark/50 pl-2 text-xs italic text-text-secondary-light dark:text-text-secondary-dark break-words">
+            <span className="mt-1.5 block max-h-40 overflow-y-auto border-l-2 border-brand-border dark:border-brand-border-dark pl-2 font-data text-xs text-text-secondary-light dark:text-text-secondary-dark break-words">
               {excerpt}
             </span>
             {verified ? (

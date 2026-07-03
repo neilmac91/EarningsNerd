@@ -1,6 +1,6 @@
 'use client'
 
-import { Children, cloneElement, Fragment, isValidElement, type ReactElement, type ReactNode } from 'react'
+import { Children, cloneElement, Fragment, isValidElement, type ComponentProps, type ReactElement, type ReactNode } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui'
@@ -8,6 +8,15 @@ import remarkGfm from 'remark-gfm'
 import { ArrowClockwiseIcon, ArrowRightIcon, ArrowSquareOutIcon, CheckCircleIcon, CircleNotchIcon, MinusIcon, ProhibitIcon, SparkleIcon } from '@/lib/icons'
 import { isXbrlCitation, xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import CitationChip, { isHttpUrl } from './CitationChip'
+
+/* Visual language: the v2.2 "Ask answer" evidence block (see
+   components/AskFilingAnswer.tsx, the DS reference implementation) — panel
+   card chrome, mono answer register (.copilot-answer — DS type roles put
+   Ask-this-Filing output in the data face), brand-tint bracket markers,
+   footnote evidence rows with the Verified/Cited trust badge, and the
+   citations · verified compliance counts. The MACHINERY here (streaming fast
+   path, citation-chip injection, viewer deep-links, ticker, follow-ups) is
+   the shipped contract pinned by the copilot test suites — restyle only. */
 
 // A single "show the work" step (a numeric/XBRL tool call) shown live while the answer is forming.
 export interface CopilotStep {
@@ -31,6 +40,15 @@ export interface CopilotMessageData {
   // 2-3 suggested next questions, shown as tappable chips under the latest answer.
   followups?: string[]
 }
+
+/* The brand-tint chip recipe shared by footnote markers (mirrors the DS CHIP). */
+const CHIP =
+  'border border-brand-border bg-brand-weak text-brand-strong dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark'
+
+/* The assistant evidence-block chrome: cards lift, not tint (panel + hairline
+   + e2; dark drops the shadow). rounded-bl-sm keeps the thread tail. */
+const ANSWER_CARD =
+  'rounded-xl rounded-bl-sm border border-border-light bg-panel-light shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none px-4 py-3 text-sm'
 
 // Live "show the work" ticker: the numeric tools the assistant is calling as it grounds its answer.
 function ActivityTicker({ steps }: { steps: CopilotStep[] }) {
@@ -108,10 +126,91 @@ function FollowupChips({
   )
 }
 
+/* --------------------------------------------------- markdown components -- */
+
+type MdExtra = { node?: unknown }
+
+/** v2.2 GFM manners for the mono answer register: mb-3 block rhythm, tnum
+    numerals, reader-style hairline tables, brand links. `inject` routes a
+    text-bearing element's children through the citation-chip walker — the
+    SAME coverage set as before the restyle (p/li/strong/em/td); everything
+    else is style-only. */
+function buildMdComponents(inject: (children: ReactNode) => ReactNode) {
+  return {
+    p: ({ node: _n, children, ...rest }: ComponentProps<'p'> & MdExtra) => (
+      <p {...rest} className="mb-3 last:mb-0">
+        {inject(children)}
+      </p>
+    ),
+    ul: ({ node: _n, children, ...rest }: ComponentProps<'ul'> & MdExtra) => (
+      <ul {...rest} className="mb-3 list-disc space-y-1 pl-5 last:mb-0">
+        {children}
+      </ul>
+    ),
+    ol: ({ node: _n, children, ...rest }: ComponentProps<'ol'> & MdExtra) => (
+      <ol {...rest} className="tnum mb-3 list-decimal space-y-1 pl-5 last:mb-0">
+        {children}
+      </ol>
+    ),
+    li: ({ node: _n, children, ...rest }: ComponentProps<'li'> & MdExtra) => (
+      <li {...rest}>{inject(children)}</li>
+    ),
+    strong: ({ node: _n, children, ...rest }: ComponentProps<'strong'> & MdExtra) => (
+      <strong {...rest} className="font-semibold text-text-primary-light dark:text-text-primary-dark">
+        {inject(children)}
+      </strong>
+    ),
+    em: ({ node: _n, children, ...rest }: ComponentProps<'em'> & MdExtra) => (
+      <em {...rest}>{inject(children)}</em>
+    ),
+    a: ({ node: _n, children, ...rest }: ComponentProps<'a'> & MdExtra) => (
+      <a
+        {...rest}
+        className="font-semibold text-brand-strong underline underline-offset-4 dark:text-brand-strong-dark"
+      >
+        {children}
+      </a>
+    ),
+    blockquote: ({ node: _n, children, ...rest }: ComponentProps<'blockquote'> & MdExtra) => (
+      <blockquote
+        {...rest}
+        className="mb-3 border-l-2 border-brand-border pl-3 text-text-secondary-light last:mb-0 dark:border-brand-border-dark dark:text-text-secondary-dark"
+      >
+        {children}
+      </blockquote>
+    ),
+    table: ({ node: _n, children, ...rest }: ComponentProps<'table'> & MdExtra) => (
+      <table {...rest} className="mb-3 w-full border-collapse text-xs last:mb-0">
+        {children}
+      </table>
+    ),
+    th: ({ node: _n, children, ...rest }: ComponentProps<'th'> & MdExtra) => (
+      <th
+        {...rest}
+        className="border-b border-border-light px-2 py-1.5 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-text-tertiary-light dark:border-border-dark dark:text-text-secondary-dark"
+      >
+        {children}
+      </th>
+    ),
+    td: ({ node: _n, children, ...rest }: ComponentProps<'td'> & MdExtra) => (
+      <td {...rest} className="tnum border-b border-border-light px-2 py-1.5 align-top dark:border-border-dark">
+        {inject(children)}
+      </td>
+    ),
+  }
+}
+
+/* The mono answer register — DS type roles render Ask-this-Filing output in
+   the data face (.copilot-answer in globals.css). */
+const ANSWER_REGISTER =
+  'copilot-answer tnum break-words font-data text-sm leading-7 text-text-primary-light dark:text-text-primary-dark'
+
 function MarkdownProse({ children }: { children: string }) {
   return (
-    <div className="prose dark:prose-invert prose-sm max-w-none break-words text-text-secondary-light dark:text-text-secondary-dark prose-p:my-2 prose-headings:text-text-primary-light dark:prose-headings:text-text-primary-dark prose-strong:text-text-primary-light dark:prose-strong:text-text-primary-dark prose-a:text-brand-strong dark:prose-a:text-brand-strong-dark">
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{children}</ReactMarkdown>
+    <div className={ANSWER_REGISTER}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]} components={buildMdComponents((c) => c)}>
+        {children}
+      </ReactMarkdown>
     </div>
   )
 }
@@ -122,11 +221,7 @@ function MarkdownProse({ children }: { children: string }) {
 // O(n²) cost the streaming view used to pay; a plain text node is a near-free update. `pre-wrap`
 // keeps paragraph breaks readable mid-stream; the formatted answer snaps in when the stream ends.
 function StreamingText({ children }: { children: string }) {
-  return (
-    <div className="whitespace-pre-wrap break-words text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
-      {children}
-    </div>
-  )
+  return <div className={`whitespace-pre-wrap ${ANSWER_REGISTER}`}>{children}</div>
 }
 
 // Walk a react-markdown subtree and replace inline `[n]` markers with interactive CitationChips.
@@ -192,16 +287,10 @@ function MarkdownProseWithCitations({
   citations: CopilotCitation[]
 }) {
   return (
-    <div className="prose dark:prose-invert prose-sm max-w-none break-words text-text-secondary-light dark:text-text-secondary-dark prose-p:my-2 prose-headings:text-text-primary-light dark:prose-headings:text-text-primary-dark prose-strong:text-text-primary-light dark:prose-strong:text-text-primary-dark prose-a:text-brand-strong dark:prose-a:text-brand-strong-dark">
+    <div className={ANSWER_REGISTER}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        components={{
-          p: ({ children: c }) => <p>{injectCitations(c, citations)}</p>,
-          li: ({ children: c }) => <li>{injectCitations(c, citations)}</li>,
-          strong: ({ children: c }) => <strong>{injectCitations(c, citations)}</strong>,
-          em: ({ children: c }) => <em>{injectCitations(c, citations)}</em>,
-          td: ({ children: c }) => <td>{injectCitations(c, citations)}</td>,
-        }}
+        components={buildMdComponents((c) => injectCitations(c, citations))}
       >
         {children}
       </ReactMarkdown>
@@ -209,78 +298,110 @@ function MarkdownProseWithCitations({
   )
 }
 
+
+/** XBRL anchor marker — outline tag matching Phosphor regular weight (mirrors
+    the DS reference; not in lib/icons). */
+function TagIcon({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <path
+        d="M11.6 3.4h6.2a1.8 1.8 0 0 1 1.8 1.8v6.2c0 .48-.19.94-.53 1.27l-7.4 7.4a1.8 1.8 0 0 1-2.54 0l-6.2-6.2a1.8 1.8 0 0 1 0-2.54l7.4-7.4c.33-.34.79-.53 1.27-.53Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <circle cx="15.2" cy="8.8" r="1.4" fill="currentColor" />
+    </svg>
+  )
+}
+
+/** The trust marker (v2.2): Verified = the excerpt re-matched the filing
+    server-side (brand tint — trust reads as evidence, not success-green);
+    Cited = linked, not machine-verified (quiet pill). */
+function TrustBadge({ verified }: { verified: boolean }) {
+  return verified ? (
+    <span className={`inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-px text-[10.5px] font-semibold ${CHIP}`}>
+      <CheckCircleIcon className="h-2.5 w-2.5" aria-hidden="true" />
+      Verified
+    </span>
+  ) : (
+    <span className="inline-flex shrink-0 items-center rounded-full border border-border-light bg-white px-2 py-px text-[10.5px] font-medium text-text-secondary-light dark:border-border-dark dark:bg-white/5 dark:text-text-secondary-dark">
+      Cited
+    </span>
+  )
+}
+
+/* Footnote evidence rows (v2.2): bracket marker chip + brand-rail excerpt
+   blockquote (XBRL facts swap the quote register for the tag glyph + concept
+   anchor + tabular figure) + locator link + trust badge. The decorative curly
+   quotes are pseudo-elements so the excerpt stays an exact text node. */
 function SourcesList({ citations }: { citations: CopilotCitation[] }) {
   if (!citations.length) return null
+  const linkClass =
+    'text-xs font-semibold text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark'
   return (
     <div className="mt-3 border-t border-border-light dark:border-white/10 pt-2.5">
-      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">Sources</p>
-      <ul className="space-y-1">
-        {citations.map((c) => {
-          const label = c.section_ref || `Excerpt ${c.n}`
-          const rowClass =
-            'flex items-start gap-2 rounded px-1.5 py-1 text-xs text-text-secondary-light dark:text-text-secondary-dark'
-          const badge = c.verified ? (
-            <span className="inline-flex shrink-0 items-center gap-0.5 text-data-xs font-medium text-brand-strong dark:text-brand-strong-dark">
-              <CheckCircleIcon className="h-3 w-3" />
-              Verified
-            </span>
-          ) : (
-            <span className="inline-flex shrink-0 items-center gap-0.5 text-data-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
-              <ArrowSquareOutIcon className="h-3 w-3" />
-              Cited
-            </span>
-          )
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">Sources</p>
+      <ol className="space-y-3">
+        {citations.map((c, i) => {
           const isFact = isXbrlCitation(c)
           const tag = isFact ? xbrlTag(c) : null
-          // XBRL facts are figures, not quotes — render them as a dense data row: the value in
-          // monospace tabular figures (so digits align) with the source tag beneath, rather than
-          // the prose excerpt treatment used for filing-text citations.
-          const content = isFact ? (
-            <>
-              <span className="mt-px font-mono text-data-xs font-semibold text-brand-strong dark:text-brand-strong-dark">[{c.n}]</span>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate font-mono text-xs tabular-nums text-text-primary-light dark:text-text-primary-dark">
-                    {c.excerpt}
-                  </span>
-                  {badge}
-                </span>
-                {tag && (
-                  <span className="mt-0.5 block truncate font-mono text-data-xs text-text-secondary-light dark:text-text-secondary-dark">{tag}</span>
-                )}
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="mt-px font-mono text-data-xs font-semibold text-brand-strong dark:text-brand-strong-dark">[{c.n}]</span>
-              <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2">
-                  <span className="min-w-0 flex-1 truncate">{label}</span>
-                  {badge}
-                </span>
-                <span className="mt-0.5 block line-clamp-2 text-data-xs text-text-secondary-light dark:text-text-secondary-dark">{c.excerpt}</span>
-              </span>
-            </>
-          )
           return (
-            <li key={c.n}>
-              {isHttpUrl(c.fragment_url) ? (
-                <a
-                  href={c.fragment_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`${rowClass} transition-colors hover:bg-brand-weak hover:text-text-primary-light dark:hover:bg-white/5 dark:hover:text-text-primary-dark`}
-                >
-                  {content}
-                  <ArrowSquareOutIcon className="mt-0.5 h-3 w-3 shrink-0 text-text-secondary-light dark:text-text-secondary-dark" />
-                </a>
+            <li key={`${c.n}-${i}`} className="flex gap-2.5 text-xs">
+              <span
+                className={`flex h-[18px] min-w-[18px] flex-none items-center justify-center rounded border px-1 font-data text-[10px] font-semibold ${CHIP}`}
+              >
+                [{String(c.n).toUpperCase()}]
+              </span>
+              {isFact ? (
+                <div className="min-w-0 flex-1">
+                  <div className="border-l-2 border-brand-border pl-3 dark:border-brand-border-dark">
+                    {tag && (
+                      <div className="flex items-start gap-1.5">
+                        <span className="mt-px text-brand-strong dark:text-brand-strong-dark">
+                          <TagIcon className="h-3.5 w-3.5 flex-none" />
+                        </span>
+                        <span className="min-w-0 break-all font-data text-data-xs text-text-secondary-light dark:text-text-secondary-dark">{tag}</span>
+                      </div>
+                    )}
+                    <p className="tnum mt-1 font-data text-xs leading-relaxed text-text-primary-light dark:text-text-primary-dark">
+                      {c.excerpt}
+                    </p>
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    {isHttpUrl(c.fragment_url) ? (
+                      <a href={c.fragment_url} target="_blank" rel="noopener noreferrer" className={linkClass}>
+                        {c.section_ref ?? 'XBRL'} · EDGAR ↗
+                      </a>
+                    ) : c.section_ref ? (
+                      <span className="font-medium text-text-tertiary-light dark:text-text-secondary-dark">{c.section_ref}</span>
+                    ) : null}
+                    <TrustBadge verified={c.verified} />
+                  </div>
+                </div>
               ) : (
-                <div className={rowClass}>{content}</div>
+                <div className="min-w-0 flex-1">
+                  <blockquote className="border-l-2 border-brand-border pl-3 font-data text-xs leading-relaxed text-text-secondary-light before:content-['“'] after:content-['”'] dark:border-brand-border-dark dark:text-text-secondary-dark">
+                    {c.excerpt}
+                  </blockquote>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    {isHttpUrl(c.fragment_url) ? (
+                      <a href={c.fragment_url} target="_blank" rel="noopener noreferrer" className={linkClass}>
+                        {c.section_ref ?? 'View in filing'} ↗
+                      </a>
+                    ) : c.section_ref ? (
+                      <span className="font-medium text-text-tertiary-light dark:text-text-secondary-dark">{c.section_ref}</span>
+                    ) : (
+                      <span className="font-medium text-text-tertiary-light dark:text-text-secondary-dark">Excerpt {c.n}</span>
+                    )}
+                    <TrustBadge verified={c.verified} />
+                  </div>
+                </div>
               )}
             </li>
           )
         })}
-      </ul>
+      </ol>
     </div>
   )
 }
@@ -308,8 +429,11 @@ export default function CopilotMessage({
   // --- Assistant: error bubble ---
   if (message.status === 'error') {
     return (
-      <div className="rounded-2xl rounded-bl-sm border border-error-light/30 dark:border-error-dark/30 bg-error-light/10 dark:bg-error-dark/10 px-3.5 py-3 text-sm">
-        <p className="text-error-light dark:text-error-dark">{message.error || 'Something went wrong.'}</p>
+      <div
+        role="alert"
+        className="rounded-xl rounded-bl-sm border border-error-light/25 bg-error-light/[0.06] px-4 py-3 text-sm dark:border-error-dark/25 dark:bg-error-dark/10"
+      >
+        <p className="font-medium text-error-light dark:text-error-dark">{message.error || 'Something went wrong.'}</p>
         <div className="mt-2.5">
           {isPaywallError ? (
             onUpgrade && (
@@ -329,11 +453,11 @@ export default function CopilotMessage({
     )
   }
 
-  // --- Assistant: "not disclosed" card (visually distinct: slate, no mint) ---
+  // --- Assistant: "not disclosed" card (distinct state: quiet panel, no brand tint) ---
   if (message.kind === 'not_disclosed') {
     const hint = notDisclosedHint(filingType)
     return (
-      <div className="rounded-2xl rounded-bl-sm border border-border-light dark:border-white/10 bg-brand-weak dark:bg-slate-800/60 px-3.5 py-3 text-sm">
+      <div className={ANSWER_CARD}>
         <div className="mb-1.5 flex items-center gap-2 text-text-secondary-light dark:text-text-secondary-dark">
           <ProhibitIcon className="h-4 w-4" />
           <span className="text-xs font-semibold uppercase tracking-wide">Not disclosed in this filing</span>
@@ -369,9 +493,10 @@ export default function CopilotMessage({
   const steps = message.steps ?? []
   // Show the live work ticker while the answer is forming (reading or streaming), not once done.
   const showTicker = (isReading || isStreaming) && steps.length > 0
+  const verifiedCount = citations?.filter((c) => c.verified).length ?? 0
 
   return (
-    <div className="rounded-2xl rounded-bl-sm border border-border-light dark:border-white/10 bg-brand-weak dark:bg-slate-800/40 px-3.5 py-3 text-sm">
+    <div className={ANSWER_CARD}>
       {showTicker && <ActivityTicker steps={steps} />}
       {isReading ? (
         steps.length > 0 ? null : (
@@ -404,9 +529,18 @@ export default function CopilotMessage({
           {message.status === 'done' && (
             <>
               {typeof message.grounded === 'number' && message.grounded > 0 && (
-                <p className="mt-2.5 flex items-center gap-1.5 text-data-xs text-text-secondary-light dark:text-text-secondary-dark">
-                  <CheckCircleIcon className="h-3.5 w-3.5 text-brand-strong/70 dark:text-brand-strong-dark/70" />
-                  Grounded in {message.grounded} excerpt{message.grounded === 1 ? '' : 's'}
+                // The compliance row (v2.2 footer-counts treatment): grounding
+                // on the left, citations · verified tally on the right.
+                <p className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-data-xs text-text-secondary-light dark:text-text-secondary-dark">
+                  <span className="flex items-center gap-1.5">
+                    <CheckCircleIcon className="h-3.5 w-3.5 text-brand-strong/70 dark:text-brand-strong-dark/70" />
+                    Grounded in {message.grounded} excerpt{message.grounded === 1 ? '' : 's'}
+                  </span>
+                  {!!citations?.length && (
+                    <span className="ml-auto font-data">
+                      {citations.length} citation{citations.length === 1 ? '' : 's'} · {verifiedCount} verified
+                    </span>
+                  )}
                 </p>
               )}
               {message.citations && <SourcesList citations={message.citations} />}
