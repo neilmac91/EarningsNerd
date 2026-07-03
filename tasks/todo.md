@@ -1,5 +1,25 @@
 # Task: Design-system v2 adoption pass (post-migration; PR-per-surface)
 
+## Task #30 — filing/118 field report: copilot F-citation noise + summary whitespace
+**Two production findings from Neil (earningsnerd.io/filing/118):**
+- [x] **Copilot [F#] noise:** the model fabricated [F1]..[F12] markers for figures it read from
+      filing text (or after failed tool lookups); the server resolver correctly refused to invent
+      sources but left the dead markers as literal prose noise. ROOT-CAUSE FIX, two layers:
+      (1) `_resolve_citations` now STRIPS unresolvable F-markers from the answer (an unmatched
+      F-marker can only be a tool artifact; spacing tidied, plain unmatched [n] stays literal per
+      the quoted-content contract); (2) SYSTEM_PROMPT hardened — never write an [F#] not returned
+      in a tool `cite` field this conversation; on tool error, cite filing text with plain [n].
+      +3 regression tests (33/33 green).
+- [x] **Summary whitespace:** `.markdown-body`'s reader layout (centered 88ch rail + centered
+      68ch children) floats as a dead-space island inside the wide summary pane. Per Neil's call
+      (option: left-anchor at 88ch): `.markdown-body` now left-anchors ONE 88ch measure
+      (margin-inline 0, children fill the rail); `.filing-reader` keeps the centered editorial
+      measure. DESIGN_SYSTEM.md + CLAUDE.md reader-layout clauses updated; fixture screenshot
+      verified. Upstream ledger: reader-layout doc should note the card-context variant.
+**Review:** both fixes verified (backend 33/33 incl. new tests; frontend 236/236 + build +
+fixture screenshot). Root causes, not band-aids: fabrication prevented at the prompt, guaranteed
+harmless at the resolver; layout fixed at the CSS source with docs aligned.
+
 ## Task #29 — DS v2.2 sync + adoption + brand refresh (four PRs; approved plan)
 **Plan approved by Neil** (full spec: session plan file). Pack = ds-v2.2 upload; new brand = 9
 sage monogram SVGs. Scope decisions: copilot surface upgrades to AskFilingAnswer's DESIGN with a

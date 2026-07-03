@@ -58,8 +58,9 @@ shared surface (it caused white-on-cream and dark-on-cream bugs across the app).
   data-role rule).
 - **Editorial serif (Newsreader)** is wired to exactly ONE surface: the real filing viewer
   (**`.filing-reader`**, 19/1.7, opsz auto — Item 1A, MD&A, notes). Serif = the filing's own words.
-  **`.markdown-body` is NOT serif**: it carries the same reader *layout* (68ch measure on children,
-  88ch table/figure rail, list + heading + table manners) on the **body sans** — its app consumer is
+  **`.markdown-body` is NOT serif**: it carries the reader's list + heading + table manners on the
+  **body sans**, but LEFT-ANCHORS a single 88ch measure (no centered 68ch island — it renders inside
+  a card/pane, where the centered editorial measure reads as dead space) — its app consumer is
   the AI-generated summary, and AI output never renders in the filing's voice. Ask output stays mono.
   **Links in both surfaces:** Tailwind preflight strips anchor color AND underline, so a shared
   globals rule restores them — `:is(.markdown-body, .filing-reader) a` =
