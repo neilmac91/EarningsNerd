@@ -19,10 +19,19 @@ system. Approved decisions: concept guard STRIPS; GCP email alerting; golden set
       so ALL prod JSON logs land as DEFAULT severity and any severity filter would never match —
       added `severity` to `logging_service.py`. RUNBOOK + beta-monitoring.md updated.
 **PR 2 — selection pressure on the model (eval-gated):**
-- [ ] Prompt clause: multi-metric questions must fetch EACH metric via tools.
-- [ ] Golden set: 16 questions / AAPL+TSLA authored from live XBRL (incl. TSLA FY2024 op income
-      $7,076M vs net income $7,091M near-collision wrong-label bait) — staged in scratchpad.
-- [ ] Gate: offline suites in CI + operator `python -m evals.copilot_runner` before/after.
+- [x] Prompt clause: multi-metric questions must fetch EACH metric and period via tools — one
+      lookup per figure; unfetched figures need a text excerpt or must be omitted.
+- [x] Golden set: 2 cases / 16 questions (8 AAPL + 8 TSLA) from live XBRL via SEC companyconcept
+      API — round-4 bait verbatim (TSLA revenue trio 81.462/96.773/97.690B), four-metric variant,
+      the FY2024 op-income $7,076M vs net-income $7,091M near-collision wrong-label bait (both
+      render $7.1B — only the concept-adjacency gate can catch a swap), margin/percent cases,
+      revenue-default-fetch catcher, 5 refusals. Both cases verified:false pending operator
+      confirmation of ingestion. (Scratchpad staging was lost to a container rollback; re-authored
+      from the research agent's reported values.)
+- [ ] Gate (operator, Neil): ingest AAPL/TSLA filings + facts, then
+      `cd backend && python -m evals.copilot_runner` — require Fact adj = 1.00 and Cite
+      faithful = 1.00 on all answered rows; watch Coverage and `(−N stripped)` as the
+      placement-discipline signal for the new prompt clause.
 
 ## Task #33 — field report round 4: fact citations on the WRONG figures (trust)
 **Neil sanity-checked citations: revenue fact chips ([1] $81.46B FY2022, [2] $96.77B FY2023,
