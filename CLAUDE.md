@@ -404,7 +404,7 @@ ENABLE_FPI_FILINGS=false                      # Foreign private issuer (ADR) fil
 
 # Copilot ("Ask this Filing" — Pro-only grounded Q&A)
 COPILOT_MONTHLY_QUESTION_CAP=1000
-COPILOT_MAX_TOKENS=1200
+COPILOT_MAX_TOKENS=2400
 COPILOT_CONTEXT_CHAR_CAP=120000
 
 # Auth & Security
@@ -801,8 +801,8 @@ subagent briefs for UI tasks. Token *definitions* live in `frontend/tailwind.con
   color" rule — the global is now theme-safe by construction); body = `-apple-system → Inter`;
   data = Geist Mono + `tabular-nums` for all money/%/tickers/excerpts. Figtree and Helvetica retired.
   Serif (Newsreader) belongs to **`.filing-reader`** only — the real filing viewer; `.markdown-body`
-  (the AI summary) stays on the body sans and LEFT-ANCHORS one 88ch measure
-  (it lives in a card/pane, where the reader's centered measure floats as dead space).
+  (the AI summary) stays on the body sans and FILLS its pane — no reading-measure cap
+  (it lives in a card/pane, where any capped measure reads as dead space; field-tested).
 - **Theme-responsive pairs everywhere** (`bg-x-light dark:bg-x-dark`) on every shared surface.
   Muted text on dark = `secondary`, never `tertiary-dark` (fails WCAG AA).
 - **Cards lift, not tint**: `bg-panel-light dark:bg-panel-dark` + border + `shadow-e2 dark:shadow-none`;

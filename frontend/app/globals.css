@@ -276,11 +276,12 @@
   margin-inline: auto;
 }
 /* The AI summary renders inside a wide CARD/pane, not a dedicated reader page —
-   the centered two-tier measure floated there as an island of dead space on
-   both sides (field report, 2026-07). LEFT-ANCHOR it on one 88ch measure:
-   prose starts at the card's padding and rags naturally on the right. The
-   real reader (.filing-reader) keeps the centered editorial measure. */
+   any capped measure there reads as dead space (field reports, 2026-07: first
+   the centered island, then the 88ch right gutter). It FILLS its pane; the
+   pane/card is the measure. The real reader (.filing-reader) keeps the
+   centered editorial measure. */
 .markdown-body {
+  max-width: none;
   margin-inline: 0;
 }
 /* Prose voice — .filing-reader ONLY. */

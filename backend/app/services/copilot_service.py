@@ -84,8 +84,11 @@ support: [1], [2] for filing-text excerpts, and [F1], [F2] for tool-provided fig
 {_CITATIONS_SENTINEL}
 3. Then output a JSON array of citation objects, one per marker you used, e.g.:
 [{{"n": 1, "excerpt": "<verbatim quote copied exactly from the filing>", "section": "Item 7 — MD&A"}}]
-   - "excerpt" MUST be copied verbatim from the filing content (so it can be verified).
+   - "excerpt" MUST be copied verbatim from the filing content (so it can be verified). Keep each
+     excerpt to the SHORTEST span that supports the claim — one sentence, at most ~30 words.
    - "section" is the filing section it came from (e.g. "Item 1A — Risk Factors").
+   - Keep the citation list tight: cite each distinct source once and reuse its marker; never pad
+     the list. ALWAYS finish with step 4 — an answer without the followups block is incomplete.
 4. Finally, output a line containing exactly:
 {_FOLLOWUPS_SENTINEL}
    then a JSON array of 2-3 short, specific follow-up questions the user is likely to ask next about \

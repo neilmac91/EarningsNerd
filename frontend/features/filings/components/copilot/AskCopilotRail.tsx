@@ -130,11 +130,22 @@ export default function AskCopilotRail({
   const freeHasTaste = isAuthenticated && !isPro && freeTasteRemaining > 0
   const canAsk = isPro || freeHasTaste
 
-  // Auto-scroll to the newest message as content streams in.
+  // Anchor each turn ONCE, at ask time: the question + "Reading…" placeholder scroll into view,
+  // which is exactly where the answer will start. Deliberately NOT bottom-following the stream —
+  // that parked the reader at the sources list when the answer completed, forcing a scroll back
+  // up to read from the start (field report). The reader scrolls at their own pace. One initial
+  // scroll still runs when a restored history hydrates, so reopening shows the latest exchange.
+  const didInitialScrollRef = useRef(false)
+  const lastMessage = messages[messages.length - 1]
+  const lastStatus = lastMessage?.role === 'assistant' ? lastMessage.status : undefined
   useEffect(() => {
     const el = scrollRef.current
-    if (el) el.scrollTop = el.scrollHeight
-  }, [messages])
+    if (!el || messages.length === 0) return
+    if (lastStatus === 'reading' || !didInitialScrollRef.current) {
+      el.scrollTop = el.scrollHeight
+      didInitialScrollRef.current = true
+    }
+  }, [messages, lastStatus])
 
   // In the embedded layout the Copilot shares the pane with the filing view; only focus the composer
   // when the Copilot view is actually active (focusing it while the Filing tab is shown would steal

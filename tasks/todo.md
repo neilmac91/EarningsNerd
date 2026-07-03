@@ -1,5 +1,22 @@
 # Task: Design-system v2 adoption pass (post-migration; PR-per-surface)
 
+## Task #31 — Tesla-filing field report, round 2 (three findings)
+- [x] **Summary right-side whitespace (again):** the 88ch left-anchored measure still left a
+      gutter Neil reads as dead space. `.markdown-body` now FILLS its pane (max-width none;
+      the pane/card is the measure); `.filing-reader` keeps the editorial measure. Docs updated
+      (second field iteration on this rule — recorded so it doesn't regress toward a cap).
+- [x] **Copilot rail bottom-follows the stream:** `[messages]` effect pinned scrollTop to
+      scrollHeight per token, parking readers at the sources when answers complete. Now anchors
+      ONCE at ask time (last assistant status === 'reading') + one initial scroll when restored
+      history hydrates; the reader scrolls at their own pace.
+- [x] **No follow-up questions on long answers:** COPILOT_MAX_TOKENS default 1200 truncated
+      long multi-citation completions BEFORE the ===FOLLOWUPS=== block (8 verbatim excerpts in
+      the citations JSON ate the budget). Default bumped to 2400 (+ config comment); prompt now
+      caps excerpts at ~30 words, forbids padded citation lists, and declares an answer without
+      the followups block incomplete. NOTE for prod: if COPILOT_MAX_TOKENS is pinned in Secret
+      Manager env, raise/unset it or the default bump is inert.
+**Review:** backend 33/33, frontend 236/236, build green; compiled CSS verified.
+
 ## Task #30 — filing/118 field report: copilot F-citation noise + summary whitespace
 **Two production findings from Neil (earningsnerd.io/filing/118):**
 - [x] **Copilot [F#] noise:** the model fabricated [F1]..[F12] markers for figures it read from

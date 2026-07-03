@@ -322,13 +322,16 @@ class Settings(BaseSettings):
 
     # "Ask this Filing" Copilot (A2 / P1). Pro-only grounded single-filing Q&A.
     #   COPILOT_MONTHLY_QUESTION_CAP — fair-use soft cap per Pro user per month (degrade, not punish).
-    #   COPILOT_MAX_TOKENS           — max completion tokens for an answer (answer + citations JSON).
+    #   COPILOT_MAX_TOKENS           — max completion tokens for an answer (answer + citations JSON
+    #                                    + followups). 1200 truncated long multi-citation answers
+    #                                    BEFORE the followups block (field report: 8 verbatim
+    #                                    excerpts consumed the budget) — keep headroom above 2000.
     #   COPILOT_CONTEXT_CHAR_CAP     — hard cap on filing excerpt chars stuffed into context.
     #   COPILOT_HISTORY_TURNS        — number of prior conversation turns kept for follow-ups.
     #   COPILOT_HISTORY_MAX_ITEMS    — hard cap on accepted history array length (prompt-stuffing/abuse guard).
     #   COPILOT_HISTORY_ITEM_CHAR_CAP— per-turn content char cap (the question field is already capped).
     COPILOT_MONTHLY_QUESTION_CAP: int = 1000
-    COPILOT_MAX_TOKENS: int = 1200
+    COPILOT_MAX_TOKENS: int = 2400
     COPILOT_CONTEXT_CHAR_CAP: int = 120000
     COPILOT_HISTORY_TURNS: int = 6
     COPILOT_HISTORY_MAX_ITEMS: int = 50
