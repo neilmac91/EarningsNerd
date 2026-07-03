@@ -304,3 +304,11 @@ any token, grep ALL its variants first (`/opacity` suffixes, `hover:`/`dark:`
 prefixes, template literals) and handle each explicitly; (c) after a sweep, grep
 the RESULT for impossible combinations (e.g. a solid fill next to a `/10` dark
 pair) — the bug shows up as nonsense class adjacency.
+
+## git add is atomic across pathspecs (2026-07-03)
+A multi-path `git add a b c` stages NOTHING if any single pathspec is invalid — the
+summary-layout commit shipped docs without its actual CSS because a bad root-relative
+path poisoned the whole add (caught by the stop hook, not by me). Rule: after every
+commit intended to complete a change, run `git status --short` and require EMPTY
+before pushing or opening/updating a PR; never chain `git add bad-path || true`-style
+recovery — fix the path.

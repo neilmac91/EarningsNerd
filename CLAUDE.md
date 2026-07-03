@@ -801,7 +801,8 @@ subagent briefs for UI tasks. Token *definitions* live in `frontend/tailwind.con
   color" rule — the global is now theme-safe by construction); body = `-apple-system → Inter`;
   data = Geist Mono + `tabular-nums` for all money/%/tickers/excerpts. Figtree and Helvetica retired.
   Serif (Newsreader) belongs to **`.filing-reader`** only — the real filing viewer; `.markdown-body`
-  (the AI summary) shares the reader layout but stays on the body sans.
+  (the AI summary) stays on the body sans and LEFT-ANCHORS one 88ch measure
+  (it lives in a card/pane, where the reader's centered measure floats as dead space).
 - **Theme-responsive pairs everywhere** (`bg-x-light dark:bg-x-dark`) on every shared surface.
   Muted text on dark = `secondary`, never `tertiary-dark` (fails WCAG AA).
 - **Cards lift, not tint**: `bg-panel-light dark:bg-panel-dark` + border + `shadow-e2 dark:shadow-none`;
