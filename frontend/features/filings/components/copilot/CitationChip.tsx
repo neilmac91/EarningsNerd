@@ -101,7 +101,9 @@ export default function CitationChip({ citation }: CitationChipProps) {
     'border-brand-border bg-brand-weak text-brand-strong hover:bg-brand-border/60 ' +
     'dark:border-brand-border-dark dark:bg-brand-weak-dark dark:text-brand-strong-dark dark:hover:bg-brand-border-dark ' +
     'focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
-  const chipClass = isFact ? `${chipBase} tabular-nums` : chipBase
+  // chipBase is already mono (font-data); .tnum adds only the tabular flag —
+  // the DS spelling for data surfaces that already carry the data face.
+  const chipClass = isFact ? `${chipBase} tnum` : chipBase
 
   const triggerHandlers = {
     ref: (el: HTMLElement | null) => {
