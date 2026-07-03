@@ -106,10 +106,15 @@ def capture_copilot_inference(
     kind: Optional[str] = None,
     grounded: Optional[int] = None,
     is_free_taste: Optional[bool] = None,
+    misplaced_fact_markers: Optional[int] = None,
+    figure_count: Optional[int] = None,
+    uncited_figures: Optional[int] = None,
 ) -> None:
     """Capture a Copilot answer's token usage + estimated inference cost. Never raises —
     telemetry must not break or slow the answer stream. ``is_free_taste`` tags answers served on a
-    Free user's lifetime taste (roadmap 2.2) so that spend can be isolated from Pro spend."""
+    Free user's lifetime taste (roadmap 2.2) so that spend can be isolated from Pro spend.
+    The citation-quality trio (``misplaced_fact_markers`` / ``figure_count`` / ``uncited_figures``)
+    tracks placement drift per answer — the dashboard counterpart to the Cloud Run log alerts."""
     properties: dict = {
         "model": model,
         "prompt_tokens": prompt_tokens,
@@ -123,6 +128,9 @@ def capture_copilot_inference(
         "kind": kind,
         "grounded": grounded,
         "is_free_taste": is_free_taste,
+        "misplaced_fact_markers": misplaced_fact_markers,
+        "figure_count": figure_count,
+        "uncited_figures": uncited_figures,
     }
     properties = {k: v for k, v in properties.items() if v is not None}
     try:

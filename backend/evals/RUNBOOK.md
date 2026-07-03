@@ -375,7 +375,7 @@ filing text).
 ## Copilot citation-fidelity audit — can users trust the chips?
 
 The Copilot's promise is that every inline citation chip opens provenance for **exactly the claim
-it decorates**. Four layers protect that promise; audit them together whenever a prompt, model, or
+it decorates**. Six layers protect that promise; audit them together whenever a prompt, model, or
 `copilot_service` resolver change touches the Q&A path (field precedent: legit revenue fact chips
 reused as year labels on gross-profit/net-income figures).
 
@@ -386,7 +386,9 @@ reused as year labels on gross-profit/net-income figures).
 | Excerpt verification | text `[n]` | excerpt found verbatim in the filing (`verify_excerpt_in_text`) | chip renders unverified ("Cited", no badge) |
 | Marker resolution | both | every inline marker resolves to a declared source | unresolvable F-marker stripped from prose |
 | Value adjacency | fact `[Fn]` | a figure matching the fact's value (display-rounding tolerance) must sit in the claim span before the marker — bounded by the previous marker | occurrence stripped, counted as misplaced |
-| Telemetry | fact | `misplaced_fact_markers` on the complete event + a `copilot: stripped N misplaced fact marker(s)` warning log | — |
+| Concept adjacency | fact `[Fn]` | the claim span must not name a *different* curated metric while never naming the fact's own (right value, wrong label — `_CONCEPT_SYNONYMS`) | occurrence stripped, counted as misplaced |
+| Figure coverage | — | `count_uncited_figures`: financial figures outside every citation's claim span (the misplacement guards convert wrong chips into *uncited* prose — this counts what shipped naked) | counted, never modified |
+| Telemetry | — | `misplaced_fact_markers` / `figure_count` / `uncited_figures` on the complete event, both warning logs, and the same trio on the PostHog `copilot_inference_cost` event | — |
 
 **Offline gates (CI, free, every PR):** `pytest tests/unit/test_copilot.py tests/unit/test_copilot_evals.py -q`
 — covers the resolver's strip/keep behavior and the eval scorers (including `score_fact_marker_adjacency`,
@@ -406,14 +408,25 @@ Read `evals/reports/copilot_eval_*.md`:
 - Gate this the same way as the summary bake-off: run before/after any change to
   `prompts` in `copilot_service.py`, `AI_DEFAULT_MODEL`, or the resolver, and require no regression.
 
-**Production watch:** the `misplaced_fact_markers` warning in Cloud Run logs is the live counter
-(`resource.type="cloud_run_revision" textPayload:"misplaced fact marker"`). Baseline it after
-deploy; a step-change tracks a model/prompt drift even with zero user reports.
+**Production watch — alerting (one-time setup):** don't rely on reading logs; make drift find you:
+```bash
+bash backend/scripts/setup_citation_alerts.sh you@example.com
+```
+Idempotent (re-runs reuse existing resources). Prerequisites: authenticated `gcloud` for project
+`earnings-nerd` with the `alpha` + `beta` components, and a deployed backend that includes the JSON
+formatter's `severity` field (shipped with the script). Creates log-based metrics
+`copilot_misplaced_fact_markers` + `copilot_uncited_figures` (matching the resolver's WARNING lines
+in `jsonPayload.message` or `textPayload`), an "EarningsNerd Alerts" email channel, and two policies:
+misplaced markers fire on ANY occurrence per hour; uncited figures on > 5/hour (occasional uncited
+numbers are normal — the alert is for elevation). The same counters ride the PostHog
+`copilot_inference_cost` event for dashboard trends. Baseline both after each deploy; a step-change
+tracks model/prompt drift even with zero user reports.
 
 **Manual spot-check protocol (quarterly, or after any model swap):** take 3 recent real answers
 with fact chips; for each chip, open the popover and confirm (a) the excerpt's metric+period matches
 the sentence the chip sits on, and (b) the figure matches the filing's XBRL (`financial_fact` row).
-Ten minutes, catches what tolerance-based checks can't (e.g. right value, wrong concept label).
+Ten minutes, catches what the automated checks still can't: a mislabel phrased outside
+`_CONCEPT_SYNONYMS`, a wrong *period* with the right value, or a concept outside the curated map.
 
 ---
 

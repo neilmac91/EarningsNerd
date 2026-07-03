@@ -1,5 +1,29 @@
 # Task: Design-system v2 adoption pass (post-migration; PR-per-surface)
 
+## Task #34 — citation-trust hardening plan (post-round-4 review; Neil-approved, two PRs)
+**Origin:** principal-engineer review of the round-4 fix surfaced three residual concerns:
+(1) stripped chips leave figures UNCITED (trust downgraded silently), (2) value-match ≠
+concept-match (right value, wrong label keeps its chip), (3) no alerting — Neil is the alerting
+system. Approved decisions: concept guard STRIPS; GCP email alerting; golden set AAPL+TSLA; both PRs.
+**PR 1 — measure + close the blind spot (no model-behavior change):**
+- [x] Coverage telemetry: `count_uncited_figures` on the final answer (financial-looking tokens
+      vs citation claim spans); `figure_count`/`uncited_figures` on the complete event, in the
+      PostHog `copilot_inference_cost` event, and as a warning log.
+- [x] Concept-adjacency guard: `_CONCEPT_SYNONYMS` (11 curated concepts) +
+      `_fact_matches_adjacent_concept` — falsification-only (strip only when the span names a
+      DIFFERENT metric and never the fact's own); unknown concepts always keep.
+- [x] Eval harness: `score_figure_coverage` (WARN) + concept check folded into the ADJACENCY hard
+      gate; `concept` shipped on fact citations; runner gains Coverage column.
+- [x] Alerting: `scripts/setup_citation_alerts.sh` (2 log-based metrics, email channel, 2 policies;
+      idempotent) + **root-cause find:** the JSON log formatter emitted `level` but not `severity`,
+      so ALL prod JSON logs land as DEFAULT severity and any severity filter would never match —
+      added `severity` to `logging_service.py`. RUNBOOK + beta-monitoring.md updated.
+**PR 2 — selection pressure on the model (eval-gated):**
+- [ ] Prompt clause: multi-metric questions must fetch EACH metric via tools.
+- [ ] Golden set: 16 questions / AAPL+TSLA authored from live XBRL (incl. TSLA FY2024 op income
+      $7,076M vs net income $7,091M near-collision wrong-label bait) — staged in scratchpad.
+- [ ] Gate: offline suites in CI + operator `python -m evals.copilot_runner` before/after.
+
 ## Task #33 — field report round 4: fact citations on the WRONG figures (trust)
 **Neil sanity-checked citations: revenue fact chips ([1] $81.46B FY2022, [2] $96.77B FY2023,
 [3] $97.69B FY2024) attached to gross-profit/operating-income/net-income figures — the chip

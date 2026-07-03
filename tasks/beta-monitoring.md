@@ -70,6 +70,23 @@ All three are best-effort: wrapped so telemetry can never break or slow registra
 2. In Sentry, the issue should show the user id, `beta: true`, and a `release` matching the deployed
    SHA. Filtering `beta:true` should surface it.
 
+## Copilot citation-quality alerting (Google Cloud Monitoring)
+
+The only push-based alerting in the stack (PostHog/Sentry above are pull/dashboard). One-time,
+idempotent setup from an authenticated `gcloud` shell (alpha + beta components):
+
+```bash
+bash backend/scripts/setup_citation_alerts.sh you@example.com
+```
+
+Creates log-based metrics `copilot_misplaced_fact_markers` / `copilot_uncited_figures` (the
+citation resolver's WARNING lines on the `earningsnerd-backend` Cloud Run service), an
+"EarningsNerd Alerts" email channel, and two alert policies (misplaced: any occurrence/hour;
+uncited: > 5/hour). Requires the deploy carrying the JSON formatter's `severity` field (same PR
+as the script). The same counters also ride the PostHog `copilot_inference_cost` event
+(`misplaced_fact_markers` / `figure_count` / `uncited_figures`) for dashboard trends. Full audit
+procedure: `backend/evals/RUNBOOK.md` → "Copilot citation-fidelity audit".
+
 ## Required env vars (set in prod at go-live — Week 8)
 
 | Var | Where | Value |

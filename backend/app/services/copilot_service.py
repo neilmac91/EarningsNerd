@@ -335,11 +335,16 @@ _NUMBER_TOKEN = re.compile(
 )
 
 
+def _claim_span_start(marker_start: int, prev_marker_end: int) -> int:
+    """Where a marker's claim span begins: up to ``_ADJACENCY_WINDOW_CHARS`` back, bounded by the
+    previous citation marker (a marker vouches for the claim SINCE the last citation). THE single
+    window rule — shared by the adjacency guards, the coverage counter, and the eval scorer."""
+    return max(0, marker_start - _ADJACENCY_WINDOW_CHARS, prev_marker_end)
+
+
 def _adjacency_window(text: str, marker_start: int, prev_marker_end: int) -> str:
-    """The claim span a fact marker vouches for: up to ``_ADJACENCY_WINDOW_CHARS`` back from the
-    marker, bounded by the previous citation marker (a marker vouches for the claim SINCE the last
-    citation). Shared by the resolver and the eval harness's adjacency scorer — one window rule."""
-    return text[max(0, marker_start - _ADJACENCY_WINDOW_CHARS, prev_marker_end):marker_start]
+    """The claim span a fact marker vouches for (see :func:`_claim_span_start`)."""
+    return text[_claim_span_start(marker_start, prev_marker_end):marker_start]
 
 
 def _fact_matches_adjacent_number(fact: dict, window: str) -> bool:
@@ -405,6 +410,122 @@ def _fact_matches_adjacent_number(fact: dict, window: str) -> bool:
     return False
 
 
+# How prose names each standardized concept — the vocabulary for the CONCEPT adjacency check.
+# Phrase-containment, lowercase. Deliberately curated and conservative: a paraphrase missing from
+# a fact's own list can only cause a KEPT marker (the check is falsification-only), never a strip.
+# Margin phrasings live under their numerator concept (compute_metric results carry the numerator
+# as ``concept``). Unknown concepts aren't checkable and always keep their marker.
+_CONCEPT_SYNONYMS: dict[str, tuple[str, ...]] = {
+    "revenue": ("revenue", "net sales", "total sales", "sales", "top line", "top-line", "turnover"),
+    "net_income": (
+        "net income", "net earnings", "net profit", "net loss", "bottom line", "bottom-line",
+        "net margin", "profit margin",
+    ),
+    "gross_profit": ("gross profit", "gross margin", "gross income", "gross loss"),
+    "operating_income": (
+        "operating income", "operating profit", "operating loss", "income from operations",
+        "operating margin", "ebit",
+    ),
+    "total_assets": ("total assets",),
+    "total_liabilities": ("total liabilities",),
+    "stockholders_equity": (
+        "stockholders' equity", "stockholders equity", "shareholders' equity",
+        "shareholders equity", "total equity", "book value",
+    ),
+    "cash_and_equivalents": (
+        "cash and cash equivalents", "cash and equivalents", "cash & equivalents",
+        "cash position", "cash balance",
+    ),
+    "eps_basic": ("earnings per share", "eps", "per share", "loss per share"),
+    "eps_diluted": ("earnings per share", "eps", "per share", "per diluted share", "loss per share"),
+    "shares_outstanding": (
+        "shares outstanding", "share count", "outstanding shares", "weighted average shares",
+    ),
+}
+
+
+# Word-boundary alternations per concept — bare substring containment false-matches constantly in
+# earnings prose ("ebit" in EBITDA/debit, "eps" in steps/keeps, "sales" in Salesforce).
+_CONCEPT_PATTERNS: dict[str, re.Pattern] = {
+    concept: re.compile(r"\b(?:" + "|".join(re.escape(p) for p in phrases) + r")\b")
+    for concept, phrases in _CONCEPT_SYNONYMS.items()
+}
+# Clause boundaries: only the FINAL clause of the claim span names the figure the marker sits on;
+# earlier clauses are context ("Driven by strong sales, the company earned $7.09B [F1]" — "sales"
+# is a driver mention, not the figure's label). A period/comma followed by a digit is inside a
+# number ("$96.77B", "1,023"), not a boundary.
+_CLAUSE_BOUNDARY = re.compile(r"[;:()—–]|[.,](?![0-9])")
+
+
+def _fact_matches_adjacent_concept(fact: dict, window: str) -> bool:
+    """True unless the figure's own clause names a DIFFERENT known metric and the span never
+    names the fact's own.
+
+    The companion to the VALUE check: value adjacency can't catch a chip whose value matches but
+    whose claim mislabels the metric ("operating income was $96.77B [F2]" where [F2] is the
+    same-valued REVENUE fact) — right number, wrong label, and the chip would still open the wrong
+    provenance. Falsification-only, doubly conservative: the fact's own concept must be absent
+    from the WHOLE span, and another curated concept must be named (word-boundary match) in the
+    figure's own final clause. Ambiguous or paraphrased claims keep their marker.
+    """
+    concept = str(fact.get("concept") or "").lower()
+    own = _CONCEPT_PATTERNS.get(concept)
+    if own is None:
+        return True  # unknown concept — not checkable
+    low = window.lower()
+    if own.search(low):
+        return True
+    clause = _CLAUSE_BOUNDARY.split(low)[-1]
+    for other, pattern in _CONCEPT_PATTERNS.items():
+        if other != concept and pattern.search(clause):
+            return False
+    return True
+
+
+def count_uncited_figures(answer: str) -> tuple[int, int]:
+    """Count financial-looking figures in a FINAL answer and how many lack a citation.
+
+    Returns ``(figure_count, uncited_count)``. A figure is "cited" when it falls inside some
+    marker's claim span (the same ``_adjacency_window`` rule the placement guards use). This is
+    the COVERAGE telemetry: the misplacement guards convert wrongly-cited figures into UNCITED
+    ones, so trust monitoring needs both counters — misplaced (stripped) and uncited (shipped
+    without provenance).
+
+    "Financial-looking" is deliberately narrower than the guards' matcher: a token counts only
+    with a $ sign, a scale/percent suffix, a decimal point, or a non-year integer >= 1000 —
+    so counts like "3 segments" and years never inflate the denominator.
+    """
+    markers = list(re.finditer(r"\[(F?\s*\d+)\]", answer, re.IGNORECASE))
+    marker_spans = [(m.start(), m.end()) for m in markers]
+    claim_spans: list[tuple[int, int]] = []
+    prev_end = 0
+    for m in markers:
+        claim_spans.append((_claim_span_start(m.start(), prev_end), m.start()))
+        prev_end = m.end()
+
+    def _within(spans: list[tuple[int, int]], pos: int) -> bool:
+        return any(s <= pos < e for s, e in spans)
+
+    figures = 0
+    uncited = 0
+    for tok in _NUMBER_TOKEN.finditer(answer):
+        if _within(marker_spans, tok.start()):
+            continue  # the digits of a [12] marker, not a figure
+        dollar, raw, suffix = tok.group(1), tok.group(2).replace(",", ""), (tok.group(3) or "")
+        try:
+            num = float(raw)
+        except ValueError:
+            continue
+        if num.is_integer() and 1900 <= num <= 2100 and not dollar and not suffix:
+            continue  # a year, not a figure
+        if not dollar and not suffix and "." not in raw and num < 1000:
+            continue  # a small bare count ("3 segments"), not a financial figure
+        figures += 1
+        if not _within(claim_spans, tok.start()):
+            uncited += 1
+    return figures, uncited
+
+
 def _resolve_citations(
     full_answer: str,
     text_citations_by_marker: dict[str, dict],
@@ -447,16 +568,19 @@ def _resolve_citations(
     for match in re.finditer(r"\[(F?\s*\d+)\]", full_answer, re.IGNORECASE):
         key = re.sub(r"\s+", "", match.group(1)).upper()
 
-        # Value-adjacency guard for FACT-backed markers, on EVERY occurrence: the model reusing
-        # a legit marker on a different figure is exactly as misleading as inventing one
-        # (field report: revenue markers reused as year markers across other metrics). The
-        # window starts after the PREVIOUS marker — the already-cited figure of the prior
-        # claim ("$81.46B [F1]. Gross profit fell to $20.85B [F1]") must not vouch for a
-        # reused marker sitting on a different number.
+        # Adjacency guards for FACT-backed markers, on EVERY occurrence: the model reusing a
+        # legit marker on a different figure — or mislabeling the metric a matching figure
+        # belongs to — is exactly as misleading as inventing one (field report: revenue markers
+        # reused as year markers across other metrics). VALUE: the adjacent figure must match
+        # the fact. CONCEPT: the claim must not name a different metric. The window starts
+        # after the PREVIOUS marker — the already-cited figure of the prior claim
+        # ("$81.46B [F1]. Gross profit fell to $20.85B [F1]") must not vouch for a reuse.
         fact = facts_by_marker.get(key) if key not in text_citations_by_marker else None
         if fact is not None:
             window = _adjacency_window(full_answer, match.start(), prev_marker_end)
-            if not _fact_matches_adjacent_number(fact, window):
+            if not _fact_matches_adjacent_number(fact, window) or not _fact_matches_adjacent_concept(
+                fact, window
+            ):
                 misplaced += 1
                 pieces.append(full_answer[cursor:match.start()].rstrip(" "))
                 cursor = match.end()
@@ -709,6 +833,15 @@ async def answer_filing_question(
             # Trust telemetry: a nonzero rate here means the model is attaching fact markers to
             # figures they don't support — watch this after any prompt/model change.
             logger.warning("copilot: stripped %d misplaced fact marker(s) from answer", misplaced)
+        # COVERAGE telemetry, the counterpart signal: stripping misplaced markers (and model
+        # laziness) leaves figures with no citation at all. Counted on the FINAL answer — what
+        # the user actually sees.
+        figure_count, uncited_figures = count_uncited_figures(full_answer)
+        if uncited_figures:
+            logger.warning(
+                "copilot: answer shipped %d uncited figure(s) of %d total",
+                uncited_figures, figure_count,
+            )
 
         yield {
             "type": "complete",
@@ -718,6 +851,8 @@ async def answer_filing_question(
             "kind": "answer",
             "followups": followups,
             "misplaced_fact_markers": misplaced,
+            "figure_count": figure_count,
+            "uncited_figures": uncited_figures,
             "usage": usage_payload,
         }
     except Exception as e:  # noqa: BLE001 — never raise out of the SSE generator

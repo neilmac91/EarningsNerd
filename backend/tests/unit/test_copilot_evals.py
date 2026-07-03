@@ -11,6 +11,7 @@ from evals.copilot_scorers import (
     score_citation_faithfulness,
     score_copilot_answer,
     score_fact_marker_adjacency,
+    score_figure_coverage,
     score_numeric_recall,
     score_refusal,
 )
@@ -35,7 +36,7 @@ def _xbrl_cite():
     return {"n": "F1", "excerpt": "Revenue = $391.04B USD", "section_ref": "XBRL · us-gaap:Revenue", "verified": True}
 
 
-def _fact_cite(n, value, *, excerpt="Revenue = $391.04B USD (FY2024)", value_kind=None):
+def _fact_cite(n, value, *, excerpt="Revenue = $391.04B USD (FY2024)", value_kind=None, concept=None):
     return {
         "n": n,
         "excerpt": excerpt,
@@ -43,6 +44,7 @@ def _fact_cite(n, value, *, excerpt="Revenue = $391.04B USD (FY2024)", value_kin
         "verified": True,
         "value": value,
         "value_kind": value_kind,
+        "concept": concept,
     }
 
 
@@ -134,6 +136,38 @@ def test_fact_adjacency_skips_text_citations_and_valueless_facts():
         [_text_cite(VERIFIED_EXCERPT), _fact_cite(2, None)],
     )
     assert ratio == 1.0 and violations == []
+
+
+@pytest.mark.unit
+def test_fact_adjacency_flags_mislabeled_metric():
+    # Right value, wrong label: the value matches but the claim names a different metric — the
+    # concept check catches what the value check can't.
+    ratio, violations = score_fact_marker_adjacency(
+        "Operating income was $391.04 billion [1].",
+        [_fact_cite(1, 391_040_000_000.0, concept="revenue")],
+    )
+    assert ratio == 0.0 and len(violations) == 1
+
+    # Claim naming the fact's own metric passes, even with another metric in the span.
+    ratio, violations = score_fact_marker_adjacency(
+        "Revenue (which drives operating income) was $391.04 billion [1].",
+        [_fact_cite(1, 391_040_000_000.0, concept="revenue")],
+    )
+    assert ratio == 1.0 and violations == []
+
+
+# --- figure coverage (WARN, not gated) ---------------------------------------------------------
+
+@pytest.mark.unit
+def test_figure_coverage_counts_uncited_figures():
+    coverage, figures, uncited = score_figure_coverage(
+        "Revenue was $391.04 billion [1]. Gross profit was $195.20 billion and margins hit 46.9%."
+    )
+    assert figures == 3 and uncited == 2
+    assert coverage == round(1 / 3, 4)
+
+    # No figures at all → nothing to falsify.
+    assert score_figure_coverage("Risk factors focus on supply chain and regulation. [1]") == (1.0, 0, 0)
 
 
 # --- numeric recall ----------------------------------------------------------------------------

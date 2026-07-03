@@ -136,12 +136,12 @@ def _write_report(summary: Dict[str, Any]) -> Path:
         "",
         f"**Pass rate: {summary['pass_rate']:.0%}** ({summary['passed']}/{summary['answered']} answered)",
         "",
-        "| Ticker | Question | Kind | Refusal✓ | Cite faithful | Fact adj | Numeric | Gates |",
-        "| --- | --- | --- | --- | --- | --- | --- | --- |",
+        "| Ticker | Question | Kind | Refusal✓ | Cite faithful | Fact adj | Coverage | Numeric | Gates |",
+        "| --- | --- | --- | --- | --- | --- | --- | --- | --- |",
     ]
     for r in summary["results"]:
         if "skipped" in r or "error" in r:
-            lines.append(f"| {r.get('ticker','?')} | {r.get('question','—')} | — | — | — | — | — | {r.get('skipped') or r.get('error')} |")
+            lines.append(f"| {r.get('ticker','?')} | {r.get('question','—')} | — | — | — | — | — | — | {r.get('skipped') or r.get('error')} |")
             continue
         q = (r["question"][:48] + "…") if len(r["question"]) > 49 else r["question"]
         gates = ", ".join(r["gate_failures"]) or "✓ pass"
@@ -149,9 +149,13 @@ def _write_report(summary: Dict[str, Any]) -> Path:
         adj = f"{r['fact_adjacency']:.2f}"
         if r.get("stripped_misplaced_markers"):
             adj += f" (−{r['stripped_misplaced_markers']} stripped)"
+        # Coverage is WARN-level: shown per row (uncited/total figures), never a gate.
+        cov = f"{r['figure_coverage']:.2f}"
+        if r.get("uncited_figures"):
+            cov += f" ({r['uncited_figures']}/{r['figure_count']} uncited)"
         lines.append(
             f"| {r['ticker']} | {q} | {r['kind']} | {'✓' if r['refusal_correct'] else '✗'} "
-            f"| {r['citation_faithfulness']:.2f} | {adj} | {r['numeric_recall']:.2f} | {gates} |"
+            f"| {r['citation_faithfulness']:.2f} | {adj} | {cov} | {r['numeric_recall']:.2f} | {gates} |"
         )
     md_path = REPORTS_DIR / f"copilot_eval_{stamp}.md"
     md_path.write_text("\n".join(lines) + "\n")

@@ -1184,3 +1184,160 @@ async def test_service_adjacency_keeps_qualitative_placements(monkeypatch):
     assert len(complete["citations"]) == 1
     assert "[1]" in complete["answer"]
     assert complete["misplaced_fact_markers"] == 0
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_strips_fact_marker_on_mislabeled_metric(monkeypatch):
+    """The CONCEPT guard: a chip whose value matches but whose claim names a DIFFERENT metric
+    still opens the wrong provenance — right number, wrong label. Value adjacency alone can't
+    catch it; the concept check strips it."""
+    facts = [_revenue_fact(96_770_000_000.0, 2023)]
+    calls = iter(facts)
+    monkeypatch.setattr(
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id: dict(next(calls))
+    )
+    answer = "Operating income was $96.77B [F1]. ===CITATIONS===\n[]"
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _tools_stream(facts, answer)
+    )
+
+    events = await _collect(_fake_filing(), "What was operating income?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    assert "[1]" not in complete["answer"]
+    assert "Operating income was $96.77B." in complete["answer"]
+    assert complete["misplaced_fact_markers"] == 1
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_concept_guard_keeps_own_metric_alongside_another(monkeypatch):
+    """A claim that names the fact's OWN metric keeps its chip even when another metric is also
+    named in the span ('gross margin ... of revenue') — the check is falsification-only."""
+    margin_fact = {
+        "concept": "gross_profit", "value": 0.179, "unit": "pure", "kind": "margin",
+        "period_end": "2024-12-31", "fiscal_year": 2024, "fiscal_period": "FY",
+        "raw_tag": "us-gaap:GrossProfit", "accession": "a-2024",
+    }
+    monkeypatch.setattr(
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id: dict(margin_fact)
+    )
+    answer = "Gross margin was 17.9% of revenue [F1]. ===CITATIONS===\n[]"
+
+    def _fake_stream(messages, tools, run_tool, **_kwargs):
+        async def _gen():
+            run_tool("compute_metric", {"kind": "margin", "concept": "gross_profit"})
+            yield answer
+        return _gen()
+
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", _fake_stream)
+
+    events = await _collect(_fake_filing(), "What was gross margin?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    assert "[1]" in complete["answer"]
+    assert complete["misplaced_fact_markers"] == 0
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_concept_guard_skips_unknown_concepts(monkeypatch):
+    """A concept outside the curated synonym map isn't checkable — its marker is kept (the
+    guard must never strip what it can't falsify)."""
+    fact = {
+        "concept": "free_cash_flow", "value": 3_580_000_000.0, "unit": "USD",
+        "period_end": "2024-12-31", "fiscal_year": 2024, "fiscal_period": "FY",
+        "raw_tag": "custom:FreeCashFlow", "accession": "a-2024",
+    }
+    facts = [fact]
+    calls = iter(facts)
+    monkeypatch.setattr(
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id: dict(next(calls))
+    )
+    answer = "Free cash flow reached $3.58B [F1]. ===CITATIONS===\n[]"
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _tools_stream(facts, answer)
+    )
+
+    events = await _collect(_fake_filing(), "What was free cash flow?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    assert "[1]" in complete["answer"]
+    assert complete["misplaced_fact_markers"] == 0
+
+
+@pytest.mark.unit
+def test_concept_guard_ignores_context_and_substring_mentions():
+    """Review-confirmed false-strip shapes: other metrics mentioned as CONTEXT (in an earlier
+    clause) or as substrings of ordinary words must not falsify a correct placement. Only a
+    different metric named in the figure's own clause strips."""
+    ni = {"concept": "net_income", "value": 7_090_000_000.0}
+    # "sales" is a driver mention in an earlier clause, not the figure's label.
+    assert copilot_service._fact_matches_adjacent_concept(
+        ni, "Driven by strong sales, the company earned $7.09B "
+    )
+    # "ebit" must not match inside EBITDA (word boundary).
+    assert copilot_service._fact_matches_adjacent_concept(
+        ni, "Adjusted EBITDA aside, the firm delivered $7.09B "
+    )
+    # "eps" must not match inside "steps"; "sales" not inside "Salesforce".
+    rev = {"concept": "revenue", "value": 97_690_000_000.0}
+    assert copilot_service._fact_matches_adjacent_concept(
+        rev, "Management took several steps and output hit $97.69B "
+    )
+    assert copilot_service._fact_matches_adjacent_concept(
+        rev, "Salesforce integration boosted output to $97.69B "
+    )
+    # The true positive still strips: a different metric named in the figure's own clause.
+    assert not copilot_service._fact_matches_adjacent_concept(
+        rev, "Operating income was $96.77B "
+    )
+
+
+@pytest.mark.unit
+def test_concept_synonyms_cover_every_curated_concept():
+    """Drift guard: the synonym map (mislabel guard) and the label map (citation excerpts) hold
+    the same curated concept set — a concept added to one but not the other silently weakens the
+    wrong-label check or ships unlabeled excerpts."""
+    from app.services import copilot_tools
+
+    assert set(copilot_service._CONCEPT_SYNONYMS) == set(copilot_tools._CONCEPT_LABELS)
+
+
+@pytest.mark.unit
+def test_count_uncited_figures_classifies_tokens():
+    """Coverage counter: cited figure inside a claim span, uncited financial figures, and
+    non-figures (years, small bare counts, marker digits) all classified correctly."""
+    answer = (
+        "Revenue was $97.69B [1]. Gross profit fell to $17.45B and margins were 17.9%. "
+        "In 2024 we opened 3 stores."
+    )
+    figures, uncited = copilot_service.count_uncited_figures(answer)
+    assert figures == 3  # $97.69B, $17.45B, 17.9% — not 2024, not 3, not the [1] digit
+    assert uncited == 2  # $17.45B and 17.9% sit outside any claim span
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_complete_event_carries_coverage_counters(monkeypatch):
+    """The complete event ships the coverage trio for telemetry: figure_count / uncited_figures
+    alongside misplaced_fact_markers."""
+    facts = [_revenue_fact(97_690_000_000.0, 2024)]
+    calls = iter(facts)
+    monkeypatch.setattr(
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id: dict(next(calls))
+    )
+    answer = (
+        "Revenue was $97.69B [F1]. Gross profit was $17.45B. ===CITATIONS===\n[]"
+    )
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _tools_stream(facts, answer)
+    )
+
+    events = await _collect(_fake_filing(), "How did revenue trend?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    assert complete["figure_count"] == 2
+    assert complete["uncited_figures"] == 1  # the naked gross-profit figure
+    assert complete["misplaced_fact_markers"] == 0
