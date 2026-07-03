@@ -7,9 +7,13 @@ Four reproducible, no-network checks that encode the feature's core promises:
   hallucination the feature claims to prevent, so it's a hard gate. XBRL/tool citations are exempt
   (their provenance is the ``financial_fact`` table, not the filing prose)...
 * **Fact-marker adjacency** — ...but XBRL citations get their own gate: every inline marker backed by
-  a tool fact must sit adjacent to a figure matching that fact's value (field report: revenue markers
-  reused as year labels on other metrics' figures). Reuses the production matcher + window rule from
-  ``copilot_service`` — one definition of "adjacent" and "matches".
+  a tool fact must sit adjacent to a figure matching that fact's value AND must not sit on a claim
+  naming a different metric (field report: revenue markers reused as year labels on other metrics'
+  figures). Reuses the production matchers + window rule from ``copilot_service`` — one definition
+  of "adjacent", "matches", and "mislabeled".
+* **Figure coverage** (WARN, not gated) — fraction of financial figures in the final answer that sit
+  inside some citation's claim span. The misplacement guards convert wrongly-cited figures into
+  UNCITED ones, so falling coverage after a prompt/model change is the drift signal to watch.
 * **Refusal calibration** — a question the filing does not disclose must be refused ("not disclosed"),
   and a disclosed one must be answered. Measures honest "I don't know" behaviour both ways.
 * **Numeric accuracy** — for targeted numeric questions, the expected figure must appear in the answer
@@ -22,7 +26,12 @@ from __future__ import annotations
 import re
 from typing import List, Optional, Tuple
 
-from app.services.copilot_service import _adjacency_window, _fact_matches_adjacent_number
+from app.services.copilot_service import (
+    _adjacency_window,
+    _fact_matches_adjacent_concept,
+    _fact_matches_adjacent_number,
+    count_uncited_figures,
+)
 from app.services.provenance_service import normalize_for_match, verify_excerpt_in_text
 from evals.copilot_schema import CopilotAnswerScore, CopilotQACase
 from evals.scorers import score_numeric_accuracy
@@ -55,14 +64,15 @@ def score_citation_faithfulness(
 
 
 def score_fact_marker_adjacency(answer: str, citations: List[dict]) -> Tuple[float, List[str]]:
-    """Independently re-verify VALUE ADJACENCY for every fact-backed marker in the final answer.
+    """Independently re-verify VALUE + CONCEPT adjacency for every fact-backed marker in the
+    final answer.
 
     The production resolver strips misplaced fact markers before the answer ships, so a violation
     here means the invariant regressed (or a prompt/model change found a new way to break it) —
-    the shipped chip opens provenance for a different figure than the claim it decorates. Like
-    ``score_citation_faithfulness``, this does not trust the pipeline: it re-runs the same matcher
-    (``_fact_matches_adjacent_number``) and window rule (``_adjacency_window``) the product uses,
-    over the answer the user actually sees.
+    the shipped chip opens provenance for a different figure or metric than the claim it
+    decorates. Like ``score_citation_faithfulness``, this does not trust the pipeline: it re-runs
+    the same matchers (``_fact_matches_adjacent_number`` / ``_fact_matches_adjacent_concept``) and
+    window rule (``_adjacency_window``) the product uses, over the answer the user actually sees.
 
     Returns ``(ratio_ok, violations)`` where each violation names the marker and its excerpt.
     Citations without a machine-readable ``value`` (older payloads) can't be checked and are
@@ -86,12 +96,31 @@ def score_fact_marker_adjacency(answer: str, citations: List[dict]) -> Tuple[flo
         if cite is None:
             continue
         checked += 1
-        fact = {"value": cite["value"], "kind": cite.get("value_kind")}
-        if not _fact_matches_adjacent_number(fact, window):
+        fact = {"value": cite["value"], "kind": cite.get("value_kind"), "concept": cite.get("concept")}
+        if not _fact_matches_adjacent_number(fact, window) or not _fact_matches_adjacent_concept(
+            fact, window
+        ):
             violations.append(f"[{match.group(1)}] {cite.get('excerpt', '')}".strip())
     if not checked:
         return 1.0, []
     return round((checked - len(violations)) / checked, 4), violations
+
+
+def score_figure_coverage(answer: str, valid_count: Optional[int] = None) -> Tuple[float, int, int]:
+    """Fraction of financial-looking figures in the final answer that sit inside some citation's
+    claim span — ``(coverage_ratio, figure_count, uncited_count)``, 1.0 when there are no figures.
+
+    Reuses the production ``count_uncited_figures`` (single definition of "figure" and "covered");
+    ``valid_count`` = the resolved citations count, so literal leftover brackets don't grant
+    coverage credit. WARN-level, not a hard gate: legitimate uncited numbers exist (a count in
+    prose, a rounding restatement), but a *falling* coverage ratio after a prompt/model change
+    means the model is stating more figures than it sources — the failure mode the misplacement
+    guards convert into silent uncited prose.
+    """
+    figure_count, uncited = count_uncited_figures(answer, valid_count)
+    if not figure_count:
+        return 1.0, 0, 0
+    return round((figure_count - uncited) / figure_count, 4), figure_count, uncited
 
 
 def score_refusal(kind: str, disclosed: bool) -> bool:
@@ -128,6 +157,7 @@ def score_copilot_answer(
     refusal_correct = score_refusal(kind, qa.disclosed)
     faithfulness, unverified = score_citation_faithfulness(citations, normalized_source)
     adjacency, misplaced = score_fact_marker_adjacency(answer, citations)
+    figure_coverage, figure_count, uncited_figures = score_figure_coverage(answer, len(citations))
 
     # Numeric recall only applies to a disclosed question that was actually answered.
     if qa.disclosed and kind != "not_disclosed":
@@ -157,6 +187,9 @@ def score_copilot_answer(
         unverified_excerpts=unverified,
         fact_adjacency=adjacency,
         misplaced_fact_citations=misplaced,
+        figure_coverage=figure_coverage,
+        figure_count=figure_count,
+        uncited_figures=uncited_figures,
         numeric_recall=numeric_recall,
         missing_metrics=missing,
         grounded=sum(1 for c in citations if c.get("verified")),

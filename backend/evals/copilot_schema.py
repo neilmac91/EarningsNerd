@@ -80,6 +80,9 @@ class CopilotAnswerScore:
     unverified_excerpts: List[str]
     fact_adjacency: float  # fraction of fact-backed markers sitting adjacent to their own figure
     misplaced_fact_citations: List[str]
+    figure_coverage: float  # fraction of financial figures inside a citation's claim span (WARN, not gated)
+    figure_count: int
+    uncited_figures: int
     numeric_recall: float  # fraction of expected_facts present in the answer (1.0 when none expected)
     missing_metrics: List[str]
     grounded: int
@@ -98,6 +101,9 @@ class CopilotAnswerScore:
             "unverified_excerpts": self.unverified_excerpts,
             "fact_adjacency": self.fact_adjacency,
             "misplaced_fact_citations": self.misplaced_fact_citations,
+            "figure_coverage": self.figure_coverage,
+            "figure_count": self.figure_count,
+            "uncited_figures": self.uncited_figures,
             "numeric_recall": self.numeric_recall,
             "missing_metrics": self.missing_metrics,
             "grounded": self.grounded,

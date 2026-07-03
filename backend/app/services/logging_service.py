@@ -77,9 +77,13 @@ class StructuredLogFormatter(logging.Formatter):
     """
 
     def format(self, record: logging.LogRecord) -> str:
-        # Base log structure
+        # Base log structure. "severity" is the field Cloud Logging recognizes as the entry's
+        # log level (Python's levelnames map 1:1) — without it every JSON log lands as DEFAULT,
+        # which breaks severity>=WARNING filters (log-based alert metrics rely on them).
+        # "level" is kept for existing dashboards/queries.
         log_data = {
             "timestamp": datetime.utcnow().isoformat() + "Z",
+            "severity": record.levelname,
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),

@@ -337,6 +337,9 @@ def _emit_copilot_cost_best_effort(
             kind=event.get("kind"),
             grounded=event.get("grounded"),
             is_free_taste=is_free_taste,
+            misplaced_fact_markers=event.get("misplaced_fact_markers"),
+            figure_count=event.get("figure_count"),
+            uncited_figures=event.get("uncited_figures"),
         )
     except Exception:  # noqa: BLE001 — telemetry must not break the answer stream
         logger.warning("Failed to emit Copilot cost telemetry for user %s", user_id, exc_info=True)
