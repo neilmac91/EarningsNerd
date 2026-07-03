@@ -1,5 +1,24 @@
 # Task: Design-system v2 adoption pass (post-migration; PR-per-surface)
 
+## Task #32 — filing/210 field report, round 3 (copilot conversation quality)
+- [x] **Inter-tool narration streams as the answer** ("Let me gather the key financial
+      figures…Now let me get the margin computations…"): stream_chat_with_tools yielded every
+      round's delta.content, and narration rounds end in tool calls the user never needed to
+      see. The wrapper now HOLDS BACK each round's prose until its nature is known: first
+      tool-call delta -> tool round, held prose dropped from the stream (still rides the
+      assistant message for model context); prose crossing the 240-char hold-back cap -> real
+      answer, flushed + streamed live; short final answers flush at round end. Wrapper-level
+      regression test added.
+- [x] **Follow-ups suggest unanswerable questions** ("…by quarter?" on a 10-K -> not
+      disclosed): prompt now constrains suggestions to questions THIS filing's content can
+      answer (with the annual/quarterly example).
+- [x] **Dead end offers no next step**: the NOT_DISCLOSED output contract now carries a
+      followups block (questions the filing CAN answer); service parses it out of the verdict
+      buffer and ships it on complete; the not-disclosed card renders the Ask-next chips.
+      Backend + frontend tests added (35/35 · 237/237).
+**Review:** root causes in the streaming wrapper + output contract, not the UI; the narration
+fix benefits every tool round, and dead ends now redirect productively.
+
 ## Task #31 — Tesla-filing field report, round 2 (three findings)
 - [x] **Summary right-side whitespace (again):** the 88ch left-anchored measure still left a
       gutter Neil reads as dead space. `.markdown-body` now FILLS its pane (max-width none;

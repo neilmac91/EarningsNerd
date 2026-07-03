@@ -978,3 +978,81 @@ async def test_service_strips_fabricated_marker_between_words(monkeypatch):
     complete = next(e for e in events if e["type"] == "complete")
 
     assert complete["answer"].startswith("Revenue doubled this year.")
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_not_disclosed_carries_followups(monkeypatch):
+    """A not-disclosed verdict may carry a trailing followups block (questions the filing CAN
+    answer) — parsed out of the verdict text and surfaced on the complete event, so a dead end
+    still offers a productive next step (field report)."""
+    chunks = [
+        "===NOT_DISCLOSED===\nQuarterly gross margin detail is not in this annual filing. "
+        '===FOLLOWUPS===\n["How did annual gross margin trend?", "What drove operating expenses?"]'
+    ]
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
+    )
+
+    events = await _collect(_fake_filing(), "How did margin trend by quarter?")
+    nd = next(e for e in events if e["type"] == "not_disclosed")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    assert complete["kind"] == "not_disclosed"
+    assert "FOLLOWUPS" not in nd["answer"] and "FOLLOWUPS" not in complete["answer"]
+    assert complete["followups"] == [
+        "How did annual gross margin trend?",
+        "What drove operating expenses?",
+    ]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_stream_chat_with_tools_suppresses_tool_round_narration(monkeypatch):
+    """Prose the model emits in a round that goes on to call tools ("Let me gather the
+    figures…") is inter-tool narration — it must never reach the stream (field report: it
+    opened the visible answer). The final round's prose still streams; short final answers
+    that never cross the hold-back cap are flushed at round end."""
+    from types import SimpleNamespace as NS
+
+    from app.services.openai_service import openai_service as svc
+
+    def _chunk(content=None, tool_call=None):
+        delta = NS(content=content, tool_calls=[tool_call] if tool_call else None)
+        return NS(choices=[NS(delta=delta)])
+
+    async def _round(chunks):
+        for c in chunks:
+            yield c
+
+    rounds = [
+        # Round 1: narration then a tool call — the narration must be suppressed.
+        _round([
+            _chunk(content="Let me gather the key figures first."),
+            _chunk(tool_call=NS(index=0, id="c1", function=NS(name="get_financial_fact", arguments='{"concept":"revenue"}'))),
+        ]),
+        # Round 2: the real (short) answer, no tool calls.
+        _round([_chunk(content="Revenue was $10B "), _chunk(content="[F1].")]),
+    ]
+    calls = iter(rounds)
+
+    async def _fake_create(**_kwargs):
+        return next(calls)
+
+    monkeypatch.setattr(svc, "client", NS(chat=NS(completions=NS(create=_fake_create))))
+
+    out: list[str] = []
+    async for delta in svc.stream_chat_with_tools(
+        [{"role": "user", "content": "q"}],
+        [{"type": "function", "function": {"name": "get_financial_fact"}}],
+        lambda name, args: {"value": 1, "cite": "F1"},
+    ):
+        out.append(delta)
+
+    from app.services.openai_service import STREAM_ACTIVITY_SENTINEL
+
+    prose = [d for d in out if not d.startswith(STREAM_ACTIVITY_SENTINEL)]
+    assert "".join(prose) == "Revenue was $10B [F1]."
+    assert all("Let me gather" not in d for d in out)
+    # The tool-activity events still flow (start + done).
+    assert sum(1 for d in out if d.startswith(STREAM_ACTIVITY_SENTINEL)) == 2
