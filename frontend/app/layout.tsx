@@ -49,7 +49,8 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: '/og-image.png',
+        // ?v=2 cache-busts scrapers that cached the pre-rebrand card by URL.
+        url: '/og-image.png?v=2',
         width: 1200,
         height: 630,
         alt: 'EarningsNerd - SEC filing summaries in minutes',
@@ -60,11 +61,17 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: 'EarningsNerd - AI-Powered SEC Filing Analysis',
     description: 'Transform dense SEC filings into clear, actionable insights using AI.',
-    images: ['/og-image.png'],
+    images: ['/og-image.png?v=2'],
   },
   icons: {
-    icon: '/assets/earningsnerd-icon-dark.svg',
-    apple: '/assets/earningsnerd-icon-light.svg',
+    // favicon.ico carries 16/32/48; the self-backgrounded appicon SVG scales
+    // crisply and is legible on both light and dark tab chrome.
+    icon: [
+      { url: '/favicon.ico', sizes: '48x48' },
+      { url: '/assets/earningsnerd-appicon.svg', type: 'image/svg+xml' },
+    ],
+    // Apple ignores SVG touch icons — this must be the PNG tile.
+    apple: '/apple-touch-icon.png',
   },
 }
 
@@ -74,6 +81,12 @@ export const viewport: Viewport = {
   // Extend the layout under the notch / home indicator so env(safe-area-inset-*) reports real values.
   // The bottom-anchored floating buttons (Ask, Feedback) use those insets to clear system UI.
   viewportFit: 'cover',
+  // Browser chrome tint follows the OS scheme (a known limitation: it tracks
+  // prefers-color-scheme, not the app's own theme toggle).
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#F4F3EE' },
+    { media: '(prefers-color-scheme: dark)', color: '#0B1120' },
+  ],
 }
 
 export default function RootLayout({
