@@ -9,7 +9,7 @@ import { getSummary } from '@/features/summaries/api/summaries-api'
 import { addToWatchlist, removeFromWatchlist, getWatchlist, WatchlistItem } from '@/features/watchlist/api/watchlist-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { ArrowRightIcon, ArrowSquareOutIcon, CaretDownIcon, CircleNotchIcon, FileTextIcon, FunnelIcon, SparkleIcon, StarIcon, WarningCircleIcon } from '@/lib/icons'
-import { Badge, type BadgeVariant, Button, buttonVariants, Card, GuidanceCard, Skeleton } from '@/components/ui'
+import { Badge, Button, buttonVariants, Card, GuidanceCard, Skeleton } from '@/components/ui'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { format } from 'date-fns'
@@ -313,8 +313,8 @@ export default function CompanyPageClient() {
           bgColor: 'bg-brand-weak dark:bg-white/5',
           hoverBg: 'hover:bg-brand-weak dark:hover:bg-white/10',
           iconColor: 'text-brand-strong dark:text-brand-strong-dark',
-          badgeVariant: 'brand' as BadgeVariant,
-        }
+          badgeVariant: 'brand',
+        } as const
       case '10-Q':
       case '6-K':
         return {
@@ -322,16 +322,16 @@ export default function CompanyPageClient() {
           bgColor: 'bg-info-light/10 dark:bg-info-dark/10',
           hoverBg: 'hover:bg-info-light/15 dark:hover:bg-info-dark/15',
           iconColor: 'text-info-light dark:text-info-dark',
-          badgeVariant: 'info' as BadgeVariant,
-        }
+          badgeVariant: 'info',
+        } as const
       default:
         return {
           borderColor: 'border-l-border-light dark:border-l-border-dark',
           bgColor: 'bg-background-light dark:bg-background-dark',
           hoverBg: 'hover:bg-background-light dark:hover:bg-background-dark',
           iconColor: 'text-text-tertiary-light dark:text-text-secondary-dark',
-          badgeVariant: 'neutral' as BadgeVariant,
-        }
+          badgeVariant: 'neutral',
+        } as const
     }
   }
 
