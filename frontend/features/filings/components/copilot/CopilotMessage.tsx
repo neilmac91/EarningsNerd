@@ -477,6 +477,11 @@ export default function CopilotMessage({
             )}
           </div>
         )}
+        {/* A dead end without a next step strands the user — surface the "questions this
+            filing CAN answer" follow-ups the backend now sends with not_disclosed verdicts. */}
+        {showFollowups && onFollowup && message.followups && message.followups.length > 0 && (
+          <FollowupChips followups={message.followups} onFollowup={onFollowup} />
+        )}
       </div>
     )
   }

@@ -93,10 +93,14 @@ support: [1], [2] for filing-text excerpts, and [F1], [F2] for tool-provided fig
 {_FOLLOWUPS_SENTINEL}
    then a JSON array of 2-3 short, specific follow-up questions the user is likely to ask next about \
 THIS filing (each under 12 words), e.g. ["How did operating margin trend?", "What are the top risks?"].
+   Suggest ONLY questions this filing's provided content can actually answer — never questions \
+requiring data it lacks (e.g. quarterly breakdowns in an annual filing, or undisclosed segment detail).
 
 IF THE FILING DOES NOT DISCLOSE THE ANSWER, do NOT write prose or citations. Instead output exactly:
 {_NOT_DISCLOSED_SENTINEL}
-<one sentence stating what is missing and why this filing would not contain it>"""
+<one sentence stating what is missing and why this filing would not contain it>
+then the {_FOLLOWUPS_SENTINEL} line and a JSON array of 2-3 questions this filing CAN answer, so \
+the user has a productive next step."""
 
 
 def _select_source_text(filing: Any) -> Optional[str]:
@@ -547,7 +551,15 @@ async def answer_filing_question(
             yield {"type": "token", "text": pending}
 
         if mode == "not_disclosed":
-            answer = "".join(not_disclosed_parts).strip() or "This filing does not disclose the requested information."
+            # The not-disclosed verdict may carry a trailing followups block (questions this
+            # filing CAN answer) — a dead end without a next step just strands the user.
+            nd_raw = "".join(not_disclosed_parts)
+            nd_followups: list[str] = []
+            nd_match = re.search(r"===\s*FOLLOW-?UPS\s*===", nd_raw, re.IGNORECASE)
+            if nd_match:
+                nd_followups = _parse_followups(nd_raw[nd_match.end():])
+                nd_raw = nd_raw[: nd_match.start()]
+            answer = nd_raw.strip() or "This filing does not disclose the requested information."
             yield {"type": "not_disclosed", "answer": answer}
             yield {
                 "type": "complete",
@@ -555,6 +567,7 @@ async def answer_filing_question(
                 "citations": [],
                 "grounded": 0,
                 "kind": "not_disclosed",
+                "followups": nd_followups,
                 "usage": usage_payload,
             }
             return

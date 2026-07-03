@@ -55,6 +55,10 @@ STREAM_ERROR_SENTINEL = "\x00\x00__OPENAI_STREAM_ERROR__\x00\x00"
 # model output, so this is unambiguous vs. answer prose.
 STREAM_ACTIVITY_SENTINEL = "\x00\x00__OPENAI_STREAM_ACTIVITY__\x00\x00"
 
+# Hold back this many chars of a tool round's prose before deciding it is a real answer —
+# inter-tool narration is short ("Let me compute the margins…"); real answers blow past it.
+_TOOL_ROUND_HOLDBACK_CHARS = 240
+
 _PLACEHOLDER_STRINGS = {
     "",
     "n/a",
@@ -3161,6 +3165,17 @@ Do not include any additional keys or text outside the JSON object."""
                 # tool calls were assembled (not finish_reason) drives the round's branch below.
                 tool_calls: Dict[int, Dict[str, str]] = {}
                 content_parts: List[str] = []
+                # Models narrate between tool rounds ("Let me gather the figures…") — chatter the
+                # user must never see (field report: it streamed as the answer's opening lines).
+                # A round's content is HELD BACK until the round's nature is known: the first
+                # tool-call delta marks a tool round and its held content is dropped from the
+                # stream (it still rides the assistant message below, so the model keeps its own
+                # context); content that outgrows the hold-back cap is a real answer — flush and
+                # stream live from there. A short final answer that never hits the cap flushes
+                # when the round ends without tool calls.
+                held: List[str] = []
+                held_len = 0
+                streaming_live = False
 
                 async for chunk in stream:
                     if not chunk.choices:
@@ -3192,7 +3207,16 @@ Do not include any additional keys or text outside the JSON object."""
                         continue
                     if delta.content:
                         content_parts.append(delta.content)
-                        yield delta.content
+                        if streaming_live:
+                            yield delta.content
+                        elif not tool_calls:
+                            held.append(delta.content)
+                            held_len += len(delta.content)
+                            if held_len >= _TOOL_ROUND_HOLDBACK_CHARS:
+                                streaming_live = True
+                                yield "".join(held)
+                                held = []
+                        # else: a tool round's narration — dropped from the stream.
                     for tc in (delta.tool_calls or []):
                         slot = tool_calls.setdefault(tc.index, {"id": "", "name": "", "arguments": ""})
                         if tc.id:
@@ -3203,8 +3227,11 @@ Do not include any additional keys or text outside the JSON object."""
                             if tc.function.arguments:
                                 slot["arguments"] += tc.function.arguments
 
-                # No tool calls → the streamed content was the final answer; we're done.
+                # No tool calls → this round's content was the final answer; flush anything the
+                # hold-back was still sitting on (a short answer that never crossed the cap).
                 if not tool_calls:
+                    if held:
+                        yield "".join(held)
                     return
 
                 # Append the assistant tool-call turn, then run each call and append its result, so

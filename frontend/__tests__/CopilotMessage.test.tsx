@@ -142,6 +142,22 @@ describe('CopilotMessage not-disclosed redirect', () => {
     expect(screen.getByText(/most recent 10-Q/i)).toBeInTheDocument()
     expect(screen.queryByRole('link', { name: /other filings/i })).not.toBeInTheDocument()
   })
+
+  it('offers follow-up chips on a dead end so the user has a next step', () => {
+    const onFollowup = vi.fn()
+    render(
+      <CopilotMessage
+        message={notDisclosed({ followups: ['How did annual gross margin trend?'] })}
+        ticker="TSLA"
+        filingType="10-K"
+        onFollowup={onFollowup}
+        showFollowups
+      />,
+    )
+    expect(screen.getByText('Ask next')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /annual gross margin/i }))
+    expect(onFollowup).toHaveBeenCalledWith('How did annual gross margin trend?')
+  })
 })
 
 describe('CopilotMessage XBRL fact sources', () => {
