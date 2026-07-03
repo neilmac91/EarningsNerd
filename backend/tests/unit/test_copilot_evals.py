@@ -10,6 +10,7 @@ from evals.copilot_schema import CopilotQACase
 from evals.copilot_scorers import (
     score_citation_faithfulness,
     score_copilot_answer,
+    score_fact_marker_adjacency,
     score_numeric_recall,
     score_refusal,
 )
@@ -32,6 +33,17 @@ def _text_cite(excerpt, verified=True):
 
 def _xbrl_cite():
     return {"n": "F1", "excerpt": "Revenue = $391.04B USD", "section_ref": "XBRL · us-gaap:Revenue", "verified": True}
+
+
+def _fact_cite(n, value, *, excerpt="Revenue = $391.04B USD (FY2024)", value_kind=None):
+    return {
+        "n": n,
+        "excerpt": excerpt,
+        "section_ref": "XBRL · us-gaap:Revenues",
+        "verified": True,
+        "value": value,
+        "value_kind": value_kind,
+    }
 
 
 # --- refusal calibration -----------------------------------------------------------------------
@@ -68,6 +80,60 @@ def test_citation_faithfulness_exempts_xbrl_and_handles_empty():
     assert ratio == 1.0 and unverified == []
     # No citations at all → nothing to falsify.
     assert score_citation_faithfulness([], NORM) == (1.0, [])
+
+
+# --- fact-marker adjacency ---------------------------------------------------------------------
+
+@pytest.mark.unit
+def test_fact_adjacency_passes_marker_on_its_own_figure():
+    ratio, violations = score_fact_marker_adjacency(
+        "Revenue was $391.04 billion in fiscal 2024 [1].", [_fact_cite(1, 391_040_000_000.0)]
+    )
+    assert ratio == 1.0 and violations == []
+
+
+@pytest.mark.unit
+def test_fact_adjacency_flags_marker_on_wrong_figure():
+    # The field case shape: a revenue-backed chip decorating a different metric's figure.
+    ratio, violations = score_fact_marker_adjacency(
+        "Revenue was $391.04 billion [1]. Net income fell to $93.74 billion [1].",
+        [_fact_cite(1, 391_040_000_000.0)],
+    )
+    assert ratio == 0.5
+    assert len(violations) == 1 and violations[0].startswith("[1]")
+
+
+@pytest.mark.unit
+def test_fact_adjacency_window_bounded_by_previous_marker():
+    # The correct figure sits just before the PREVIOUS marker — it must not vouch for the reuse.
+    ratio, violations = score_fact_marker_adjacency(
+        "Revenue was $391.04B [1], and $93.74B [1].", [_fact_cite(1, 391_040_000_000.0)]
+    )
+    assert ratio == 0.5 and len(violations) == 1
+
+
+@pytest.mark.unit
+def test_fact_adjacency_percent_kind_and_qualitative_skip():
+    # Margin fact (fraction) matches its percent rendering...
+    ratio, _ = score_fact_marker_adjacency(
+        "Gross margin was 46.2% [1].", [_fact_cite(1, 0.462, value_kind="margin")]
+    )
+    assert ratio == 1.0
+    # ...and a figure-free window (years don't count) can't falsify the placement.
+    ratio, _ = score_fact_marker_adjacency(
+        "Revenue growth stalled in 2024 [1].", [_fact_cite(1, 391_040_000_000.0)]
+    )
+    assert ratio == 1.0
+
+
+@pytest.mark.unit
+def test_fact_adjacency_skips_text_citations_and_valueless_facts():
+    # Text citations and fact citations without a machine-readable value aren't checkable.
+    ratio, violations = score_fact_marker_adjacency(
+        "A special dividend was announced [1]; revenue context [2].",
+        [_text_cite(VERIFIED_EXCERPT), _fact_cite(2, None)],
+    )
+    assert ratio == 1.0 and violations == []
 
 
 # --- numeric recall ----------------------------------------------------------------------------
@@ -129,6 +195,21 @@ def test_score_answer_unverified_citation_fails_citation_gate():
                                  citations=[_text_cite(FABRICATED_EXCERPT)], kind="answer", filing_text=FILING)
     assert not score.passed
     assert any(g.startswith("CITATION") for g in score.gate_failures)
+
+
+@pytest.mark.unit
+def test_score_answer_misplaced_fact_marker_fails_adjacency_gate():
+    qa = CopilotQACase(question="How did revenue and profit trend?", disclosed=True)
+    score = score_copilot_answer(
+        qa,
+        answer="Revenue was $391.04 billion [1]. Net income fell to $93.74 billion [1].",
+        citations=[_fact_cite(1, 391_040_000_000.0)],
+        kind="answer",
+        filing_text=FILING,
+    )
+    assert not score.passed
+    assert any(g.startswith("ADJACENCY") for g in score.gate_failures)
+    assert score.fact_adjacency == 0.5
 
 
 @pytest.mark.unit

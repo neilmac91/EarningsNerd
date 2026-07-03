@@ -1056,3 +1056,131 @@ async def test_stream_chat_with_tools_suppresses_tool_round_narration(monkeypatc
     assert all("Let me gather" not in d for d in out)
     # The tool-activity events still flow (start + done).
     assert sum(1 for d in out if d.startswith(STREAM_ACTIVITY_SENTINEL)) == 2
+
+
+def _revenue_fact(value: float, year: int) -> dict:
+    return {
+        "concept": "revenue", "value": value, "unit": "USD",
+        "period_end": f"{year}-12-31", "fiscal_year": year, "fiscal_period": "FY",
+        "raw_tag": "us-gaap:Revenues", "accession": f"a-{year}",
+    }
+
+
+def _tools_stream(facts, answer):
+    """Fake stream that registers `facts` as tool results, then yields `answer`."""
+    def _fake_stream(messages, tools, run_tool, **_kwargs):
+        async def _gen():
+            for _ in facts:
+                run_tool("get_financial_fact", {"concept": "revenue"})
+            yield answer
+        return _gen()
+    return _fake_stream
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_strips_fact_marker_reused_on_wrong_figure(monkeypatch):
+    """The field case: legit fact markers reused as YEAR labels on other metrics' figures. The
+    value-adjacency guard keeps the marker where the adjacent figure matches the fact and strips
+    every occurrence sitting on a different number — a chip must never open provenance for a
+    different metric than the claim it decorates."""
+    facts = [_revenue_fact(81_460_000_000.0, 2022)]
+    calls = iter(facts)
+    monkeypatch.setattr(
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id: dict(next(calls))
+    )
+    answer = (
+        "Total revenues were $81.46B in 2022 [F1]. "
+        "Gross profit fell to $20.85B [F1]. ===CITATIONS===\n[]"
+    )
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _tools_stream(facts, answer)
+    )
+
+    events = await _collect(_fake_filing(), "How did revenue and profit trend?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    # First occurrence (adjacent $81.46B == the fact) survives as [1]; the reuse on $20.85B is
+    # stripped — no marker, no doubled space, and the misplacement is counted for telemetry.
+    assert complete["answer"].count("[1]") == 1
+    assert "Gross profit fell to $20.85B." in complete["answer"]
+    assert len(complete["citations"]) == 1
+    assert complete["misplaced_fact_markers"] == 1
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_keeps_fact_markers_on_matching_figures(monkeypatch):
+    """Correct placements pass the adjacency guard: multiple facts, each marker on its own
+    figure, all resolve with zero misplacements."""
+    facts = [_revenue_fact(81_460_000_000.0, 2022), _revenue_fact(96_770_000_000.0, 2023)]
+    calls = iter(facts)
+    monkeypatch.setattr(
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id: dict(next(calls))
+    )
+    answer = "Revenues were $81.46B in 2022 [F1] and $96.77B in 2023 [F2]. ===CITATIONS===\n[]"
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _tools_stream(facts, answer)
+    )
+
+    events = await _collect(_fake_filing(), "How did revenue trend?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    assert [c["n"] for c in complete["citations"]] == [1, 2]
+    assert complete["misplaced_fact_markers"] == 0
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_adjacency_checks_percent_facts(monkeypatch):
+    """A margin fact (fraction value) matches its percent rendering in prose — and is stripped
+    when the adjacent percent belongs to a different metric."""
+    margin_fact = {
+        "concept": "gross_profit", "value": 0.179, "unit": "pure", "kind": "margin",
+        "period_end": "2024-12-31", "fiscal_year": 2024, "fiscal_period": "FY",
+        "raw_tag": "us-gaap:GrossProfit", "accession": "a-2024",
+        "numerator_value": 17_450_000_000.0, "denominator_concept": "revenue",
+        "denominator_value": 97_690_000_000.0,
+    }
+    monkeypatch.setattr(
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id: dict(margin_fact)
+    )
+    answer = "Gross margin was 17.9% in 2024 [F1], down from 25.6% [F1]. ===CITATIONS===\n[]"
+
+    def _fake_stream(messages, tools, run_tool, **_kwargs):
+        async def _gen():
+            run_tool("compute_metric", {"kind": "margin", "concept": "gross_profit"})
+            yield answer
+        return _gen()
+
+    monkeypatch.setattr(copilot_service.openai_service, "stream_chat_with_tools", _fake_stream)
+
+    events = await _collect(_fake_filing(), "What was gross margin?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    assert complete["answer"].count("[1]") == 1
+    assert "down from 25.6%." in complete["answer"]
+    assert complete["misplaced_fact_markers"] == 1
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_adjacency_keeps_qualitative_placements(monkeypatch):
+    """A window with no figure (years don't count) can't falsify the placement — qualitative
+    mentions keep their marker rather than over-stripping."""
+    facts = [_revenue_fact(81_460_000_000.0, 2022)]
+    calls = iter(facts)
+    monkeypatch.setattr(
+        copilot_service.copilot_tools, "run_tool", lambda name, args, company_id: dict(next(calls))
+    )
+    answer = "Revenue growth stalled in 2024 [F1]. ===CITATIONS===\n[]"
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _tools_stream(facts, answer)
+    )
+
+    events = await _collect(_fake_filing(), "How did revenue trend?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    assert len(complete["citations"]) == 1
+    assert "[1]" in complete["answer"]
+    assert complete["misplaced_fact_markers"] == 0

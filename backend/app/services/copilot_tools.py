@@ -445,4 +445,9 @@ def fact_to_citation(fact_dict: dict[str, Any]) -> dict[str, Any]:
         "section_ref": f"XBRL · {raw_tag}",
         "verified": True,
         "fragment_url": None,
+        # Machine-readable value the chip vouches for (the excerpt only carries the display
+        # rendering) — lets the eval harness re-verify value adjacency on the final answer
+        # without parsing formatted strings. The frontend ignores the extra keys.
+        "value": float(value) if isinstance(value, (int, float)) else None,
+        "value_kind": kind,
     }

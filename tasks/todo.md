@@ -1,5 +1,34 @@
 # Task: Design-system v2 adoption pass (post-migration; PR-per-surface)
 
+## Task #33 — field report round 4: fact citations on the WRONG figures (trust)
+**Neil sanity-checked citations: revenue fact chips ([1] $81.46B FY2022, [2] $96.77B FY2023,
+[3] $97.69B FY2024) attached to gross-profit/operating-income/net-income figures — the chip
+opened provenance for a different metric than the claim.**
+- [x] **Root cause:** nothing verified fact-marker PLACEMENT. Text citations verify by excerpt
+      matching; fact citations were provenance-verified (value real, from financial_fact) but the
+      model reuses legit markers as year labels ("net income fell to $20.85B in 2022 [F1]" where
+      [F1] = revenue FY2022). Round-1's "never invent F-markers" hardening likely pushed it
+      toward reusing existing ones.
+- [x] **Value-adjacency guard** in `_resolve_citations` (falsification-only, EVERY occurrence
+      incl. reuse): a figure matching the fact's value (display-rounding tolerance; money at
+      raw/K/M/B scalings; margin/growth fractions vs percent; bare years ignored) must appear in
+      the claim span before the marker — bounded by the PREVIOUS marker (a marker vouches for the
+      claim since the last citation; window cap 64 chars). Mismatch -> occurrence stripped +
+      `misplaced_fact_markers` counted on the complete event + warning log.
+- [x] **Prompt:** one-marker-one-figure rule (never reuse a marker on a different number/metric/
+      year; markers are not year labels).
+- [x] **Quality-audit harness (the "how do we trust citations" ask):**
+      `fact_to_citation` now ships machine-readable `value`/`value_kind`;
+      `score_fact_marker_adjacency` in copilot_scorers re-runs the SAME production matcher +
+      window rule (imported, single source of truth) over the final answer — new ADJACENCY hard
+      gate in `score_copilot_answer`; runner reports `Fact adj` + `(−N stripped)` attempts;
+      RUNBOOK gained a "Copilot citation-fidelity audit" section (4 protection layers, live eval
+      procedure, Cloud Run log watch, quarterly manual spot-check protocol).
+- [x] **Tests:** +4 resolver adjacency tests (strip wrong-figure reuse, keep matching, percent
+      facts, qualitative placements) + 6 eval-scorer tests (39 + 23 = 62 green).
+**Review:** trust enforced at the resolver (guard), discouraged at the prompt, audited in the
+eval harness and in prod telemetry — the same figure-adjacency definition in all layers.
+
 ## Task #32 — filing/210 field report, round 3 (copilot conversation quality)
 - [x] **Inter-tool narration streams as the answer** ("Let me gather the key financial
       figures…Now let me get the margin computations…"): stream_chat_with_tools yielded every

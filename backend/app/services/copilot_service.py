@@ -73,7 +73,9 @@ Tool-provided numbers are authoritative.
 tool-provided number in your prose, place its marker inline in square brackets exactly as given, \
 e.g. [F1].
 - NEVER write an [F#] marker that was not returned in a tool result's "cite" field in THIS \
-conversation — do not invent, renumber, or extrapolate them. If a tool returned an error (or you \
+conversation — do not invent, renumber, or extrapolate them. Each marker names ONE figure \
+(one concept, one period): place it ONLY immediately after that exact figure, and NEVER reuse \
+it on a different number, metric, or year (markers are not year labels). If a tool returned an error (or you \
 did not call one) and you state a number quoted from the filing text instead, cite it with a plain \
 filing-text excerpt marker ([1], [2], ...) backed by a verbatim excerpt — never an [F#] marker.
 
@@ -324,12 +326,91 @@ def _verify_citations(citations: list[dict], filing: Any, normalized_source: str
     return by_marker
 
 
+# How far back (chars) to look for the figure a fact marker claims to support.
+_ADJACENCY_WINDOW_CHARS = 64
+
+_NUMBER_TOKEN = re.compile(
+    r"(\$)?\s*([0-9][\d,]*(?:\.\d+)?)\s*(billion|million|thousand|bn|[bmk%])?",
+    re.IGNORECASE,
+)
+
+
+def _adjacency_window(text: str, marker_start: int, prev_marker_end: int) -> str:
+    """The claim span a fact marker vouches for: up to ``_ADJACENCY_WINDOW_CHARS`` back from the
+    marker, bounded by the previous citation marker (a marker vouches for the claim SINCE the last
+    citation). Shared by the resolver and the eval harness's adjacency scorer — one window rule."""
+    return text[max(0, marker_start - _ADJACENCY_WINDOW_CHARS, prev_marker_end):marker_start]
+
+
+def _fact_matches_adjacent_number(fact: dict, window: str) -> bool:
+    """True when the fact's value plausibly matches a figure stated just before its marker.
+
+    The trust guard for TOOL citations (field report: the model reused revenue fact markers
+    [F1]/[F2]/[F3] as year markers on gross-profit/operating-income/net-income figures, so
+    chips opened provenance for a DIFFERENT metric than the claim). Text citations verify by
+    excerpt matching; fact citations verify by VALUE ADJACENCY: some number in the preceding
+    window must equal the fact's value (at display-rounding tolerance).
+
+    Falsification-only: a window with NO number tokens can't be checked — the marker is kept
+    (qualitative placements like "margins compressed [F1]" exist). Bare 4-digit integers that
+    read as years (1900-2100, no $, no scale suffix) are ignored as context, not figures.
+
+    The caller bounds ``window`` at the previous citation marker: a marker vouches for the
+    claim SINCE the last citation, so a matching figure from the preceding, already-cited
+    claim must not vouch for a reused marker sitting on a different number.
+    """
+    try:
+        value = float(fact.get("value"))
+    except (TypeError, ValueError):
+        return True
+    percent_like = fact.get("kind") in ("yoy_growth", "margin")
+    # Prior markers in the window ([2], [F1]) are citations, not figures — scrub them.
+    scrubbed = re.sub(r"\[\s*F?\s*\d+\s*\]", " ", window, flags=re.IGNORECASE)
+
+    candidates: list[tuple[str, float]] = []
+    saw_token = False
+    for m in _NUMBER_TOKEN.finditer(scrubbed):
+        dollar, raw, suffix = m.group(1), m.group(2).replace(",", ""), (m.group(3) or "").lower()
+        try:
+            num = float(raw)
+        except ValueError:
+            continue
+        if not dollar and not suffix and num.is_integer() and 1900 <= num <= 2100:
+            continue  # a year, not a figure
+        saw_token = True
+        scale = {"billion": 1e9, "bn": 1e9, "b": 1e9, "million": 1e6, "m": 1e6, "thousand": 1e3, "k": 1e3}.get(suffix)
+        if suffix == "%":
+            candidates.append(("pct", num))
+        elif scale:
+            candidates.append(("abs", num * scale))
+        else:
+            candidates.append(("plain", num))
+    if not saw_token:
+        return True
+
+    def _close(a: float, b: float, *, rel: float = 0.01, absolute: float = 0.011) -> bool:
+        return abs(a - b) <= max(rel * max(abs(a), abs(b)), absolute)
+
+    for token_kind, num in candidates:
+        if percent_like:
+            # Prose states percents ("17.9%" or bare "17.9"); the fact value is a fraction.
+            if token_kind in ("pct", "plain") and _close(num, abs(value) * 100.0, absolute=0.11):
+                return True
+        else:
+            if token_kind == "pct":
+                continue
+            # Match the raw value or any display scaling of it ("$81.46B" / "81.46" / "$2.04").
+            if any(_close(num, abs(value) / d) for d in (1.0, 1e3, 1e6, 1e9)):
+                return True
+    return False
+
+
 def _resolve_citations(
     full_answer: str,
     text_citations_by_marker: dict[str, dict],
     used_facts: list[dict],
     filing_url: Optional[str],
-) -> tuple[str, list[dict], int]:
+) -> tuple[str, list[dict], int, int]:
     """Single source of truth for citation numbering — the answer text and the Sources list can
     never disagree, because both come from this one left-to-right pass over ``full_answer``.
 
@@ -346,6 +427,12 @@ def _resolve_citations(
     same number is substituted back into the returned answer text. A marker with no matching
     candidate is left as literal text (the same "unmatched marker" contract the frontend already
     implements, now enforced server-side too, uniformly for both citation kinds).
+
+    FACT markers additionally pass a value-adjacency guard on EVERY occurrence (including
+    repeat mentions): the figure stated just before the marker must match the fact's value, or
+    that occurrence is stripped as MISPLACED — a chip must never open provenance for a different
+    metric than the claim it sits on. Returns the misplaced count as the 4th element for
+    telemetry.
     """
     facts_by_marker = {f["_marker"]: f for f in used_facts if f.get("_marker")}
 
@@ -354,9 +441,28 @@ def _resolve_citations(
     pieces: list[str] = []
     cursor = 0
     grounded = 0
+    misplaced = 0
+    prev_marker_end = 0
 
     for match in re.finditer(r"\[(F?\s*\d+)\]", full_answer, re.IGNORECASE):
         key = re.sub(r"\s+", "", match.group(1)).upper()
+
+        # Value-adjacency guard for FACT-backed markers, on EVERY occurrence: the model reusing
+        # a legit marker on a different figure is exactly as misleading as inventing one
+        # (field report: revenue markers reused as year markers across other metrics). The
+        # window starts after the PREVIOUS marker — the already-cited figure of the prior
+        # claim ("$81.46B [F1]. Gross profit fell to $20.85B [F1]") must not vouch for a
+        # reused marker sitting on a different number.
+        fact = facts_by_marker.get(key) if key not in text_citations_by_marker else None
+        if fact is not None:
+            window = _adjacency_window(full_answer, match.start(), prev_marker_end)
+            if not _fact_matches_adjacent_number(fact, window):
+                misplaced += 1
+                pieces.append(full_answer[cursor:match.start()].rstrip(" "))
+                cursor = match.end()
+                prev_marker_end = match.end()
+                continue
+        prev_marker_end = match.end()
 
         # A marker cited more than once (e.g. "[F1]" mentioned twice) just reuses the number from
         # its first appearance — skip straight to rewriting, no need to re-resolve it.
@@ -369,7 +475,6 @@ def _resolve_citations(
 
         citation = text_citations_by_marker.get(key)
         if citation is None:
-            fact = facts_by_marker.get(key)
             if fact is not None:
                 citation = {**copilot_tools.fact_to_citation(fact), "fragment_url": filing_url}
         if citation is None:
@@ -399,7 +504,7 @@ def _resolve_citations(
     # strip() guards a stripped F-marker at the very start/end leaving stray whitespace.
     rewritten_answer = "".join(pieces).strip()
     citations = [{"n": i + 1, **c} for i, c in enumerate(resolved)]
-    return rewritten_answer, citations, grounded
+    return rewritten_answer, citations, grounded, misplaced
 
 
 async def answer_filing_question(
@@ -597,9 +702,13 @@ async def answer_filing_question(
         # match — so the answer text and the returned citations list can never disagree, and a
         # declared-but-never-cited source can never leak into the Sources panel.
         filing_url = getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or None
-        full_answer, verified_citations, grounded = _resolve_citations(
+        full_answer, verified_citations, grounded, misplaced = _resolve_citations(
             full_answer, text_citations_by_marker, used_facts, filing_url
         )
+        if misplaced:
+            # Trust telemetry: a nonzero rate here means the model is attaching fact markers to
+            # figures they don't support — watch this after any prompt/model change.
+            logger.warning("copilot: stripped %d misplaced fact marker(s) from answer", misplaced)
 
         yield {
             "type": "complete",
@@ -608,6 +717,7 @@ async def answer_filing_question(
             "grounded": grounded,
             "kind": "answer",
             "followups": followups,
+            "misplaced_fact_markers": misplaced,
             "usage": usage_payload,
         }
     except Exception as e:  # noqa: BLE001 — never raise out of the SSE generator
