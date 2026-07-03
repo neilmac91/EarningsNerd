@@ -161,18 +161,18 @@ One row per company-quarter, mutated in place as knowledge improves:
 -- migrations/2026xxxx_create_earnings_events.sql
 CREATE TABLE IF NOT EXISTS earnings_events (
     id                BIGSERIAL PRIMARY KEY,
-    ticker            VARCHAR(12) NOT NULL,          -- normalised upper-case
-    cik               VARCHAR(10),                   -- zero-padded; NULL until mapped
+    ticker            TEXT NOT NULL,                 -- normalised upper-case
+    cik               TEXT,                          -- zero-padded; NULL until mapped
     company_name      TEXT,
-    fiscal_period_end DATE,                          -- quarter being reported (AV fiscalDateEnding / XBRL)
+    fiscal_period_end DATE NOT NULL,                 -- quarter being reported (AV fiscalDateEnding / derived; see note)
     event_date        DATE NOT NULL,                 -- the calendar date (US/Eastern calendar day)
-    event_time        VARCHAR(3),                    -- 'bmo' | 'amc' | 'dmh' | NULL
-    status            VARCHAR(10) NOT NULL DEFAULT 'estimated',  -- 'estimated' | 'confirmed' | 'reported'
-    confidence        VARCHAR(6)  NOT NULL DEFAULT 'medium',     -- 'high' | 'medium' | 'low'
+    event_time        TEXT,                          -- 'bmo' | 'amc' | 'dmh' | NULL
+    status            TEXT NOT NULL DEFAULT 'estimated',  -- 'estimated' | 'confirmed' | 'reported'
+    confidence        TEXT NOT NULL DEFAULT 'medium',     -- 'high' | 'medium' | 'low'
     eps_estimate      NUMERIC,
     eps_actual        NUMERIC,
-    source            VARCHAR(20) NOT NULL,          -- 'alpha_vantage' | 'edgar_8k' | 'pattern' | ...
-    accession_number  VARCHAR(25),                   -- set when status='reported' → deep-link the 8-K
+    source            TEXT NOT NULL,                 -- 'alpha_vantage' | 'edgar_8k' | 'pattern' | ...
+    accession_number  TEXT,                          -- set when status='reported' → deep-link the 8-K
     prior_event_date  DATE,                          -- previous value when the date moved
     date_changed_at   TIMESTAMPTZ,                   -- when it moved (stability = confidence input)
     first_seen_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -185,8 +185,16 @@ CREATE INDEX IF NOT EXISTS ix_earnings_events_ticker     ON earnings_events (tic
 ```
 
 Notes:
-- `UNIQUE (ticker, fiscal_period_end)` is the upsert key. AV's CSV carries `fiscalDateEnding`
-  per row; pattern-derived rows compute it from the company's fiscal calendar (`Filing.period_end_date`).
+- `UNIQUE (ticker, fiscal_period_end)` is the upsert key, and `fiscal_period_end` is `NOT NULL`
+  deliberately: Postgres treats NULLs as distinct in unique constraints, so a nullable column here
+  would silently allow duplicate `(ticker, NULL)` rows and break the one-row-per-company-quarter
+  invariant. Every source can supply the period: AV's CSV carries `fiscalDateEnding` per row;
+  pattern-derived rows compute it from the company's fiscal calendar (`Filing.period_end_date`);
+  for `edgar_8k` reported events (an 8-K's own "period of report" is the *event* date, not the
+  quarter end) the ingest matches the open row with the greatest `fiscal_period_end` ≤ event date,
+  else derives the most recent quarter-end on the company's fiscal grid, else falls back to the
+  latest calendar quarter-end. (If this ever needs relaxing, Postgres 15 supports
+  `UNIQUE NULLS NOT DISTINCT` — but deriving the period is the cleaner invariant.)
 - Volume is trivial: ~6.5k companies × 4 quarters ≈ 26k rows/year.
 - SQLAlchemy model added alongside (schema auto-created at startup per project convention;
   the SQL file documents the migration for prod).
@@ -204,7 +212,8 @@ Cloud Scheduler (daily 06:00 UTC, before US pre-market releases)
           param is undocumented and flaky; do not rely on it);
           map CIK→ticker via cached company_tickers.json;
           upsert status='reported', event_date=file_date (event date), reported_at=acceptance,
-          event_time from acceptance hour (accepted ≤ 13:30 UTC ≈ bmo; ≥ 20:00 UTC ≈ amc).
+          event_time from the acceptance timestamp converted to America/New_York (DST-safe:
+          local time ≤ 09:30 ≈ bmo; ≥ 16:00 ≈ amc; between ≈ dmh).
        2. Alpha Vantage snapshot (1 request):
           GET EARNINGS_CALENDAR&horizon=3month → CSV (~6.3k rows);
           upsert estimated rows on (ticker, fiscalDateEnding); never overwrite status='reported';
