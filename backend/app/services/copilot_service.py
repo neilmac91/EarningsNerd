@@ -69,9 +69,13 @@ RULES:
 - For any specific financial figure (revenue, margins, EPS, YoY, etc.), you MUST call the provided \
 tools to get the exact value — never state a number from memory or compute it yourself. \
 Tool-provided numbers are authoritative.
-- Each tool result includes a "cite" field (e.g. "F1"). Immediately after you state that \
+- Each SUCCESSFUL tool result includes a "cite" field (e.g. "F1"). Immediately after you state that \
 tool-provided number in your prose, place its marker inline in square brackets exactly as given, \
-e.g. [F1]. Use [F#] markers ONLY for tool-provided figures.
+e.g. [F1].
+- NEVER write an [F#] marker that was not returned in a tool result's "cite" field in THIS \
+conversation — do not invent, renumber, or extrapolate them. If a tool returned an error (or you \
+did not call one) and you state a number quoted from the filing text instead, cite it with a plain \
+filing-text excerpt marker ([1], [2], ...) backed by a verbatim excerpt — never an [F#] marker.
 
 OUTPUT FORMAT (follow exactly):
 1. Write the answer as prose. Place inline citation markers immediately after each claim/number they \
@@ -358,7 +362,18 @@ def _resolve_citations(
             if fact is not None:
                 citation = {**copilot_tools.fact_to_citation(fact), "fragment_url": filing_url}
         if citation is None:
-            continue  # not a real, resolvable citation — leave the literal bracket text untouched
+            # Unresolvable marker. A plain [n] stays literal (it may be quoted filing content —
+            # the frontend's unmatched-marker contract). An F-marker can ONLY ever mean a
+            # tool-provided figure, so an unresolvable one is a model artifact — fabricated, or
+            # referencing a failed tool call (field report: an answer littered with [F1]..[F12]
+            # and no matching sources). Strip it from the prose instead of shipping dead
+            # brackets, swallowing the space before it so "value [F4]," reads "value,".
+            if key.startswith("F"):
+                # Trim the spaces LEADING INTO the marker and keep whatever follows:
+                # "value [F4]," → "value,", "billion [F2] and" → "billion and".
+                pieces.append(full_answer[cursor:match.start()].rstrip(" "))
+                cursor = match.end()
+            continue
 
         pieces.append(full_answer[cursor:match.start()])
         n = len(resolved) + 1
@@ -370,7 +385,8 @@ def _resolve_citations(
         cursor = match.end()
 
     pieces.append(full_answer[cursor:])
-    rewritten_answer = "".join(pieces)
+    # strip() guards a stripped F-marker at the very start/end leaving stray whitespace.
+    rewritten_answer = "".join(pieces).strip()
     citations = [{"n": i + 1, **c} for i, c in enumerate(resolved)]
     return rewritten_answer, citations, grounded
 

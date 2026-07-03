@@ -917,3 +917,64 @@ def test_describe_tool_call_labels():
     assert copilot_tools.describe_tool_call("mystery_tool", None)  # safe fallback, no raise
     # Non-dict args must not raise (a malformed tool-args payload is coerced to {}).
     assert copilot_tools.describe_tool_call("get_financial_fact", ["not", "a", "dict"])
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_strips_fabricated_fact_markers(monkeypatch):
+    """[F#] markers with NO backing tool result are stripped from the answer, not left as dead
+    literal brackets (field report: an answer littered with [F1]..[F12] and only text sources).
+    Spacing around the stripped marker collapses so prose reads naturally."""
+    citations_json = '[{"n":1,"excerpt":"' + _KNOWN_SENTENCE + '","section":"Item 7 — MD&A"}]'
+    chunks = [
+        "Revenue grew 15% to $402.8 billion [F1], up from $350.0 billion [F2] and "
+        "$307.4 billion [F3]. Margins held at 32% [1]. ===CITATIONS===\n" + citations_json
+    ]
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
+    )
+
+    events = await _collect(_fake_filing(), "How did revenue trend?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    # The fabricated F-markers are gone from the prose — no dead brackets, no doubled spaces,
+    # commas hug the value they follow.
+    assert "[F" not in complete["answer"]
+    assert "billion ," not in complete["answer"]
+    assert "  " not in complete["answer"]
+    assert "$402.8 billion, up from $350.0 billion and $307.4 billion." in complete["answer"]
+    # The real text citation still resolves and renumbers normally.
+    assert len(complete["citations"]) == 1
+    assert "[1]" in complete["answer"]
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_keeps_plain_unmatched_markers_literal(monkeypatch):
+    """A plain [n] with no matching citation stays literal text (it may be quoted filing
+    content) — only F-markers get stripped, per the unmatched-marker contract."""
+    chunks = ["See footnote [14] of the notes. ===CITATIONS===\n[]"]
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
+    )
+
+    events = await _collect(_fake_filing(), "Anything odd?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    assert "[14]" in complete["answer"]
+    assert complete["citations"] == []
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_service_strips_fabricated_marker_between_words(monkeypatch):
+    """Stripping an F-marker that sits between two words keeps exactly one space."""
+    chunks = ["Revenue [F7] doubled this year. ===CITATIONS===\n[]"]
+    monkeypatch.setattr(
+        copilot_service.openai_service, "stream_chat_with_tools", _chunks_to_async_gen(chunks)
+    )
+
+    events = await _collect(_fake_filing(), "How did revenue do?")
+    complete = next(e for e in events if e["type"] == "complete")
+
+    assert complete["answer"].startswith("Revenue doubled this year.")
