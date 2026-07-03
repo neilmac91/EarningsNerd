@@ -10,7 +10,7 @@ inputClasses({leadingIcon}); FULL email retheme to the cream brand.
       boolean-error guard x4; tailwind = info.text hunk ONLY (no brand.light); globals = .tnum
       comment only; CLAUDE.md spliced + augmented to v2.2; Button/DataTable KEPT (pack regressions).
       Grep gates: guard x4, type-default, no brand.light, info.text present.
-- [ ] **PR B — adoption:** StateCard->Notice x12 + delete (+ drop PricingPage.test mock);
+- [x] **PR B — adoption:** StateCard->Notice x12 + delete (+ drop PricingPage.test mock);
       UnverifiedBadge->Badge warning + delete ("Unverified" literal kept); filing-type chips ->
       Badge brand/info/neutral; Recommended -> Badge solid x2; leading-icon fields (watchlist +
       HERO CompanySearch, glow/kbd kept); CopilotComposer -> Textarea composer (handle kept);
@@ -42,7 +42,21 @@ inputClasses({leadingIcon}); FULL email retheme to the cream brand.
   has them): Select px/pr conflict-order gamble its own header forbids -> explicit per-side
   padding; Notice description lacks break-words (unbroken URL/accession overflows);
   AskFilingAnswer citation-list React keys collide on duplicate `n` -> index-suffixed.
-  **PR B port notes (from verify):** composer must stay CONTROLLED (value prop) so prefill
+  - *PR B (adoption):* all 8 items landed via 5 file-disjoint agents; implemented TWICE — a
+  container rollback mid-task wiped the first (uncommitted) implementation while the remote
+  stayed intact, so the branch was re-reset to origin/main and the workflow re-run with the
+  first run's port notes baked in. Results identical: 12 StateCard->Notice + delete (+ test
+  mock dropped); UnverifiedBadge->Badge warning x2 + delete ("Unverified" literal + tooltip
+  kept, peer/fundamentals specs pass unmodified); filing-type chips -> Badge brand/info/neutral
+  via getFilingTypeStyles badgeVariant (row tints untouched); Recommended -> Badge solid x2;
+  leading-icon fields x3 (watchlist + HERO + FullTextSearch — glow moved to wrapper,
+  placeholder unchanged, hero drops to standard field sizing per Neil's decision);
+  CopilotComposer -> Textarea composer (controlled value, style maxHeight cap, min-w-0 flex-1,
+  shell = documented DS pattern; 15 copilot suites green UNMODIFIED); Card as="section" x6;
+  barCursorProps x2. Gates: typecheck / eslint 0 / vitest 236 / build / retirement greps == 0.
+  Both-theme fixture screenshots (flag-enabled build): login Notice, company page, peers
+  Unverified, watchlist, hero.
+**PR B port notes (from verify):** composer must stay CONTROLLED (value prop) so prefill
   triggers the layout-effect grow — imperative el.value alone fires nothing; cap height via
   style={{maxHeight:120, overflowY:'auto'}} (className styles the Shell, not the textarea);
   pass className="min-w-0 flex-1" so the Shell flex item fills the composer row.

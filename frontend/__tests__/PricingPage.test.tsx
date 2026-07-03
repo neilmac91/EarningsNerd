@@ -40,7 +40,6 @@ vi.mock('@/lib/analytics', () => ({
 // Trim chrome/icon deps so the test stays focused on pricing logic.
 vi.mock('@/components/ThemeToggle', () => ({ ThemeToggle: () => null }))
 vi.mock('@/components/SecondaryHeader', () => ({ default: () => null }))
-vi.mock('@/components/StateCard', () => ({ default: () => null }))
 
 function renderPricing() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })

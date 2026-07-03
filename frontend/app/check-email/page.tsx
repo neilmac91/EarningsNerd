@@ -6,8 +6,8 @@ import { resendVerification } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
 import { CircleNotchIcon, EnvelopeSimpleIcon } from '@/lib/icons'
-import StateCard from '@/components/StateCard'
 import AuthShell from '@/components/auth/AuthShell'
+import { Notice } from '@/components/ui'
 
 const RESEND_COOLDOWN_SECONDS = 30
 
@@ -66,12 +66,12 @@ function CheckEmailContent() {
 
       {resendStatus === 'sent' && (
         <div className="mt-6">
-          <StateCard variant="success" title="Email resent" message="Check your inbox again." />
+          <Notice variant="success" title="Email resent" description="Check your inbox again." />
         </div>
       )}
       {resendStatus === 'error' && (
         <div className="mt-6">
-          <StateCard variant="error" title="Resend failed" message={errorMessage} />
+          <Notice variant="error" title="Resend failed" description={errorMessage} />
         </div>
       )}
 

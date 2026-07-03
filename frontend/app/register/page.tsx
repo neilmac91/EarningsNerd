@@ -6,7 +6,6 @@ import { register } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
 import { CircleNotchIcon, EnvelopeSimpleIcon } from '@/lib/icons'
-import StateCard from '@/components/StateCard'
 import analytics from '@/lib/analytics'
 import AuthShell from '@/components/auth/AuthShell'
 import SocialAuthButtons from '@/components/auth/SocialAuthButtons'
@@ -14,8 +13,7 @@ import AuthDivider from '@/components/auth/AuthDivider'
 import PasswordField from '@/components/auth/PasswordField'
 import TurnstileWidget from '@/components/auth/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
+import { Button, Input, Notice } from '@/components/ui'
 
 function RegisterContent() {
   const router = useRouter()
@@ -94,7 +92,7 @@ function RegisterContent() {
 
       {error && (
         <div className="mt-6">
-          <StateCard variant="error" title="Registration failed" message={error} />
+          <Notice variant="error" title="Registration failed" description={error} />
         </div>
       )}
 

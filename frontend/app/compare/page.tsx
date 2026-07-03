@@ -9,9 +9,7 @@ import Link from 'next/link'
 import { format } from 'date-fns'
 import SubscriptionGate from '@/components/SubscriptionGate'
 import SecondaryHeader from '@/components/SecondaryHeader'
-import StateCard from '@/components/StateCard'
-import { Button, buttonVariants } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
+import { Button, buttonVariants, Input, Notice } from '@/components/ui'
 
 export default function ComparePage() {
   const router = useRouter()
@@ -108,10 +106,10 @@ export default function ComparePage() {
               </div>
               {searchError && (
                 <div className="mt-3">
-                  <StateCard
+                  <Notice
                     variant="error"
                     title="Search Failed"
-                    message={searchError}
+                    description={searchError}
                   />
                 </div>
               )}
@@ -119,10 +117,10 @@ export default function ComparePage() {
 
             {compareMutation.isError && (
               <div className="mb-6">
-                <StateCard
+                <Notice
                   variant="error"
                   title="Comparison failed"
-                  message={
+                  description={
                     compareMutation.error instanceof Error
                       ? compareMutation.error.message
                       : 'Please try again in a moment.'
@@ -189,9 +187,9 @@ export default function ComparePage() {
 
             {!companyFilings.length && !searchError && !isSearching && (
               <div className="mt-6">
-                <StateCard
+                <Notice
                   title="Start a comparison"
-                  message="Search for a ticker to begin building a comparison set."
+                  description="Search for a ticker to begin building a comparison set."
                   action={
                     <Link
                       href="/company/AAPL"
