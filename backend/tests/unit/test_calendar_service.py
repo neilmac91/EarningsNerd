@@ -1,8 +1,7 @@
-"""Upcoming-earnings calendar: filtered to watched tickers, graceful when FMP is unconfigured."""
+"""Upcoming-earnings calendar: DB-backed (earnings_events), filtered to watched tickers, in-window."""
 import uuid
 from contextlib import contextmanager
-from datetime import date
-from types import SimpleNamespace
+from datetime import date, timedelta
 
 import pytest
 
@@ -18,20 +17,9 @@ def _tables():
     yield
 
 
-class _FakeFMP:
-    def __init__(self, events):
-        self._events = events
-
-    async def fetch_upcoming_earnings(self, days_ahead=14):
-        return self._events
-
-
-def _event(d, time="amc", eps=1.0, rev=1e9):
-    return SimpleNamespace(earnings_date=d, time=time, eps_estimated=eps, revenue_estimated=rev)
-
-
 @contextmanager
 def _user_watching(tickers):
+    """Create a user watching `tickers` (companies created too). Yields (uid, cleanup-tracked)."""
     from app.database import SessionLocal
     from app.models import Company, User, Watchlist
 
@@ -64,35 +52,93 @@ def _user_watching(tickers):
         db.close()
 
 
+def _seed_event(ticker, event_date, *, eps=1.0, time="amc"):
+    from app.database import SessionLocal
+    from app.models import EarningsEvent
+
+    db = SessionLocal()
+    ev = EarningsEvent(
+        ticker=ticker.upper(),
+        company_name=f"{ticker} Inc",
+        fiscal_period_end=date(2026, 3, 31),
+        event_date=event_date,
+        event_time=time,
+        status="estimated",
+        confidence="medium",
+        eps_estimate=eps,
+        source="alpha_vantage",
+    )
+    db.add(ev)
+    db.commit()
+    db.close()
+
+
+def _clear_events(*tickers):
+    from app.database import SessionLocal
+    from app.models import EarningsEvent
+
+    db = SessionLocal()
+    db.query(EarningsEvent).filter(EarningsEvent.ticker.in_([t.upper() for t in tickers])).delete(
+        synchronize_session=False
+    )
+    db.commit()
+    db.close()
+
+
 @pytest.mark.asyncio
 @pytest.mark.requires_db
 async def test_only_watched_tickers_returned_sorted():
     from app.database import SessionLocal
 
-    fmp = _FakeFMP({
-        "AAPL": _event(date(2026, 7, 10)),
-        "MSFT": _event(date(2026, 7, 2)),   # watched, sooner
-        "ZZZZ": _event(date(2026, 7, 5)),   # not watched
-    })
-    with _user_watching(["AAPL", "MSFT"]) as uid:
-        db = SessionLocal()
-        events = await upcoming_for_user(db, uid, fmp=fmp, days_ahead=30)
-        db.close()
+    today = date.today()
+    _clear_events("AAPL", "MSFT", "ZZZZ")
+    _seed_event("AAPL", today + timedelta(days=10))
+    _seed_event("MSFT", today + timedelta(days=2))   # watched, sooner
+    _seed_event("ZZZZ", today + timedelta(days=5))   # not watched
+    try:
+        with _user_watching(["AAPL", "MSFT"]) as uid:
+            db = SessionLocal()
+            events = await upcoming_for_user(db, uid, days_ahead=30)
+            db.close()
 
-    tickers = [e["ticker"] for e in events]
-    assert tickers == ["MSFT", "AAPL"]  # filtered to watched, soonest first
-    assert all(e["ticker"] != "ZZZZ" for e in events)
-    assert events[0]["earnings_date"] == "2026-07-02"
+        tickers = [e["ticker"] for e in events]
+        assert tickers == ["MSFT", "AAPL"]  # filtered to watched, soonest first
+        assert all(e["ticker"] != "ZZZZ" for e in events)
+        assert events[0]["earnings_date"] == (today + timedelta(days=2)).isoformat()
+        # Contract preserved: revenue_estimated key still present (always None now).
+        assert events[0]["revenue_estimated"] is None
+        assert events[0]["eps_estimated"] == 1.0
+    finally:
+        _clear_events("AAPL", "MSFT", "ZZZZ")
 
 
 @pytest.mark.asyncio
 @pytest.mark.requires_db
-async def test_empty_when_fmp_unconfigured():
+async def test_out_of_window_excluded():
     from app.database import SessionLocal
 
+    today = date.today()
+    _clear_events("AAPL")
+    _seed_event("AAPL", today + timedelta(days=40))  # beyond a 30-day horizon
+    try:
+        with _user_watching(["AAPL"]) as uid:
+            db = SessionLocal()
+            events = await upcoming_for_user(db, uid, days_ahead=30)
+            db.close()
+        assert events == []
+    finally:
+        _clear_events("AAPL")
+
+
+@pytest.mark.asyncio
+@pytest.mark.requires_db
+async def test_empty_when_no_events():
+    from app.database import SessionLocal
+
+    _clear_events("AAPL")
     with _user_watching(["AAPL"]) as uid:
         db = SessionLocal()
-        events = await upcoming_for_user(db, uid, fmp=_FakeFMP({}), days_ahead=30)
+        events = await upcoming_for_user(db, uid, days_ahead=30)
         db.close()
     assert events == []
 
@@ -109,7 +155,7 @@ async def test_empty_when_no_watchlist():
     db.commit()
     uid = user.id
     try:
-        events = await upcoming_for_user(db, uid, fmp=_FakeFMP({"AAPL": _event(date(2026, 7, 10))}))
+        events = await upcoming_for_user(db, uid)
         assert events == []
     finally:
         db.query(User).filter(User.id == uid).delete()

@@ -21,6 +21,7 @@ export {
   CalendarDotsIcon,
   CaretDownIcon,
   CaretLeftIcon,
+  CaretRightIcon,
   ChartBarIcon,
   ChatCircleDotsIcon,
   ChatTextIcon,

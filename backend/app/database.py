@@ -54,6 +54,9 @@ def get_db():
 _ADDITIVE_COLUMNS: list[tuple[str, str, str]] = [
     ("notification_preferences", "notify_20f", "BOOLEAN NOT NULL DEFAULT TRUE"),
     ("notification_preferences", "notify_6k", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    # Per-company earnings-day alert opt-in (strategy §3.7). Prod has no Alembic, so an existing
+    # watchlist table gets this column added at startup (create_all won't ALTER it).
+    ("watchlist", "earnings_alert", "BOOLEAN NOT NULL DEFAULT FALSE"),
 ]
 
 

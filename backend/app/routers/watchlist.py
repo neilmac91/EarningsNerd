@@ -131,11 +131,71 @@ async def remove_from_watchlist(
     
     if not watchlist_item:
         raise HTTPException(status_code=404, detail="Company not in watchlist")
-    
+
     db.delete(watchlist_item)
     db.commit()
-    
+
     return {"status": "success"}
+
+
+# --------------------------------------------------------------------------- earnings-day alerts
+
+@router.get("/earnings-alerts")
+async def get_earnings_alert_tickers(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Tickers the user has earnings-day alerts enabled for (feeds the calendar's bell state)."""
+    from app.services.earnings_alert_service import enabled_tickers
+    return {"tickers": enabled_tickers(db, current_user.id)}
+
+
+@router.post("/{ticker}/earnings-alert")
+async def enable_earnings_alert(
+    ticker: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Enable the earnings-day alert for a company (per-plan cap enforced here).
+
+    On the cap, returns 403 with a tier-appropriate body: Free carries the machine-readable
+    ``code='earnings_alert_limit'`` (a visible upsell surface); Pro gets a terse, code-less message
+    (the 100 cap is an invisible guardrail — the frontend renders whatever we return, verbatim)."""
+    from app.services.earnings_alert_service import (
+        CompanyNotResolvable,
+        EarningsAlertLimitError,
+        set_earnings_alert,
+    )
+    try:
+        set_earnings_alert(db, current_user, ticker, enabled=True)
+    except EarningsAlertLimitError as exc:
+        if exc.plan_is_pro:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"detail": "You've reached the maximum number of earnings alerts."},
+            )
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={
+                "detail": f"Free includes earnings alerts for {exc.limit} companies — upgrade to Pro for more.",
+                "code": "earnings_alert_limit",
+            },
+        )
+    except CompanyNotResolvable:
+        raise HTTPException(status_code=404, detail=f"We can't set an alert for {ticker.upper()} yet.")
+    return {"status": "enabled", "ticker": ticker.upper()}
+
+
+@router.delete("/{ticker}/earnings-alert")
+async def disable_earnings_alert(
+    ticker: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Disable the earnings-day alert for a company. Always allowed."""
+    from app.services.earnings_alert_service import set_earnings_alert
+    set_earnings_alert(db, current_user, ticker, enabled=False)
+    return {"status": "disabled", "ticker": ticker.upper()}
 
 
 class WatchlistCompany(BaseModel):

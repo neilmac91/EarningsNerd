@@ -119,6 +119,10 @@ class EftsHit:
     document: Optional[str]
     sec_url: Optional[str]
     document_url: Optional[str]
+    # 8-K item numbers from `_source.items` (e.g. ["2.02", "9.01"]). Used to precisely detect
+    # earnings-results 8-Ks (Item 2.02) — the request-side `&items=` EFTS param is undocumented and
+    # behaves inconsistently, so we filter these client-side (strategy §appendix).
+    items: List[str] = None  # type: ignore[assignment]  # defaulted to [] in _parse_hit
 
 
 @dataclass
@@ -249,6 +253,9 @@ class SECFullTextSearchClient:
         company, ticker = _parse_display_name(_first_str(source.get("display_names")))
         sec_url, document_url = _build_urls(cik, accession_no, document)
 
+        raw_items = source.get("items")
+        items = [str(i).strip() for i in raw_items if str(i).strip()] if isinstance(raw_items, list) else []
+
         return EftsHit(
             accession_no=accession_no,
             form=form,
@@ -260,6 +267,7 @@ class SECFullTextSearchClient:
             document=document,
             sec_url=sec_url,
             document_url=document_url,
+            items=items,
         )
 
 

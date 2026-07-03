@@ -29,6 +29,12 @@ from app.models import User
 # backwards compatibility with existing imports.
 FREE_TIER_SUMMARY_LIMIT = 5
 
+# Earnings-day alert caps (strategy §3.7). Free is a VISIBLE product surface (a conversion
+# upsell); Pro's 100 is an INVISIBLE anti-abuse guardrail — nothing surfaces it, and only the
+# attempt to enable the 101st returns a terse generic error.
+FREE_EARNINGS_ALERT_LIMIT = 3
+PRO_EARNINGS_ALERT_LIMIT = 100
+
 # Statuses that grant Pro. Mirrors ``app.models.subscription.ACTIVE_STATUSES`` (kept local to avoid
 # importing the model layer for a constant); ``trialing`` is the 7-day reverse trial.
 _ACTIVE_STATUSES = frozenset({"active", "trialing"})
@@ -47,6 +53,9 @@ class Entitlements:
     can_export: bool
     can_save_summaries: bool
     watchlist_limit: Optional[int]  # None == unlimited
+    # Max companies a user may have earnings-day alerts enabled for. Free 3 (visible upsell) /
+    # Pro 100 (invisible guardrail). None would mean unlimited — deliberately not used.
+    earnings_alert_limit: int = FREE_EARNINGS_ALERT_LIMIT
     # Forward-looking flags (Phases 2–4). Defaults keep older constructors valid.
     realtime_alerts: bool = False
     eightk_coverage: bool = False
@@ -73,6 +82,7 @@ _FREE = Entitlements(
     # Unlimited watchlist on free is deliberate (discovery/habit drives the value loop); Pro
     # captures volume/depth/speed/breadth instead. See IMPLEMENTATION_PLAN §8.
     watchlist_limit=None,
+    earnings_alert_limit=FREE_EARNINGS_ALERT_LIMIT,
     realtime_alerts=False,
     eightk_coverage=False,
     history_retention_days=90,
@@ -89,6 +99,7 @@ _PRO = Entitlements(
     can_export=True,
     can_save_summaries=True,
     watchlist_limit=None,
+    earnings_alert_limit=PRO_EARNINGS_ALERT_LIMIT,
     realtime_alerts=True,
     eightk_coverage=True,
     history_retention_days=None,

@@ -76,6 +76,7 @@ from app.routers import (
     search,
     peers,
     insiders,
+    calendar,
 )
 from app.config import settings, APP_VERSION
 
@@ -353,6 +354,7 @@ app.include_router(webhooks.router, prefix="/api", tags=["Webhooks"])
 app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 app.include_router(internal.router, prefix="/internal", tags=["Internal"])
 app.include_router(dashboard.router, prefix="/api/dashboard", tags=["Dashboard"])
+app.include_router(calendar.router, prefix="/api/calendar", tags=["Calendar"])
 
 
 # SEC EDGAR circuit-breaker handler: when the breaker is open we are deliberately

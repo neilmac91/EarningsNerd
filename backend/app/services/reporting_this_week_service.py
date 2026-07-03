@@ -1,10 +1,10 @@
-"""Curated large-cap earnings for the current US market week (public, no-auth homepage feature).
+"""Most-anticipated large-cap earnings for the current US market week (public homepage feature).
 
-Reuses the existing FMP earnings-calendar integration (date-range based, not user-scoped) and
-intersects it against a hardcoded curated ticker allowlist. Caching is in-memory only (L1) —
-Redis is off in production (SKIP_REDIS_INIT=true) — since this is a cheap, idempotent derived
-computation rather than an expensive multi-source aggregation. Never raises; degrades to an
-empty result on any FMP failure, so the homepage section can simply omit itself.
+Now served from the owned `earnings_events` table (strategy §3.7): the week's events ranked by
+`anticipation_score` (which carries a mega-cap floor from `CURATED_TICKERS`), replacing the old
+FMP ∩ hardcoded-allowlist intersect. Caching is in-memory only (L1) — Redis is off in production
+(SKIP_REDIS_INIT=true) — since this is a cheap, idempotent DB read. Never raises; degrades to an
+empty result on any failure, so the homepage section can simply omit itself.
 """
 from __future__ import annotations
 
@@ -14,7 +14,9 @@ from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
-from app.integrations.fmp import FMPClient, fmp_client
+from sqlalchemy.orm import Session
+
+from app.models import EarningsEvent
 
 logger = logging.getLogger(__name__)
 
@@ -87,8 +89,7 @@ class ReportingThisWeekService:
 
     _cache_ttl = timedelta(hours=6)
 
-    def __init__(self, fmp: Optional[FMPClient] = None) -> None:
-        self._fmp = fmp or fmp_client
+    def __init__(self) -> None:
         # Caches the FULL matched list (unlimited) so different callers requesting different
         # `limit` values within the same cache window each get correctly sliced results —
         # caching the already-limited response would let a small-limit request poison the
@@ -98,13 +99,10 @@ class ReportingThisWeekService:
         self._cache_week: Optional[tuple[date, date]] = None
 
     async def get_reporting_this_week(
-        self, *, limit: int = 16, force_refresh: bool = False
+        self, db: Session, *, limit: int = 16, force_refresh: bool = False
     ) -> Dict[str, Any]:
-        """Return curated large-caps reporting this week, soonest first.
-
-        Always returns a dict with a `companies` list (possibly empty) and a `status` field
-        (`ok` | `empty`). Never raises.
-        """
+        """Return the week's most-anticipated large-caps, ranked. Always returns a dict with a
+        `companies` list (possibly empty) and a `status` field (`ok` | `empty`). Never raises."""
         monday, friday = current_market_week()
         now = datetime.utcnow()
 
@@ -117,7 +115,7 @@ class ReportingThisWeekService:
         ):
             companies = self._cache_companies
         else:
-            companies = await self._fetch(monday, friday)
+            companies = self._fetch(db, monday, friday)
             self._cache_companies = companies
             self._cache_timestamp = now
             self._cache_week = (monday, friday)
@@ -132,30 +130,31 @@ class ReportingThisWeekService:
             "timestamp": self._cache_timestamp.isoformat() + "Z",
         }
 
-    async def _fetch(self, monday: date, friday: date) -> List[ReportingCompany]:
+    def _fetch(self, db: Session, monday: date, friday: date) -> List[ReportingCompany]:
+        """The week's events, most-anticipated first (the anticipation score already carries the
+        CURATED_TICKERS mega-cap floor, so no allowlist intersect is needed)."""
         try:
-            events = await self._fmp.fetch_earnings_calendar(from_date=monday, to_date=friday)
-        except Exception as exc:  # never let a flaky integration break the homepage
-            logger.warning("Reporting-this-week FMP fetch failed: %s", exc)
+            events = (
+                db.query(EarningsEvent)
+                .filter(EarningsEvent.event_date >= monday, EarningsEvent.event_date <= friday)
+                .order_by(EarningsEvent.anticipation_score.desc(), EarningsEvent.event_date.asc())
+                .all()
+            )
+        except Exception as exc:  # never let a query hiccup break the homepage
+            logger.warning("Reporting-this-week fetch failed: %s", exc)
             return []
 
         matches: List[ReportingCompany] = []
-        for symbol, event in (events or {}).items():
-            sym = symbol.upper()
-            name = CURATED_TICKERS.get(sym)
-            if not name:
+        for ev in events:
+            if not ev.event_date:
                 continue
-            earnings_date = getattr(event, "earnings_date", None)
-            if not earnings_date:
-                continue
+            name = ev.company_name or CURATED_TICKERS.get(ev.ticker) or ev.ticker
             matches.append(ReportingCompany(
-                ticker=sym,
+                ticker=ev.ticker,
                 name=name,
-                earnings_date=earnings_date,
-                time=getattr(event, "time", None),
+                earnings_date=ev.event_date,
+                time=ev.event_time,
             ))
-
-        matches.sort(key=lambda c: (c.earnings_date, c.ticker))
         return matches
 
 
