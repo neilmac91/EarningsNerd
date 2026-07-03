@@ -1,26 +1,31 @@
-"""Upcoming earnings calendar for a user's watched companies (Phase 3).
+"""Upcoming earnings calendar for a user's watched companies (dashboard).
 
-Backed by FMP (`fmp_client.fetch_upcoming_earnings`), filtered to the tickers the user tracks. The
-FMP client is injectable for tests and returns ``{}`` when ``FMP_API_KEY`` is unset, so this
-degrades to an empty calendar in CI / before a key is provisioned — never raising on the render path.
+Now served from the owned `earnings_events` table (strategy §3.2) — the FMP calendar path is retired.
+Reads are DB-only (no provider call on the render path) and filtered to the tickers the user tracks;
+degrades to an empty calendar if the table isn't seeded yet, never raising on the render path.
+
+Response shape is unchanged from the FMP era (dashboard.py's CalendarEvent contract), so the
+frontend needs no change: ``eps_estimated`` comes from the event, ``revenue_estimated`` is always
+None (the engine doesn't carry a revenue estimate).
 """
 from __future__ import annotations
 
 import logging
+from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.models import Company, Watchlist
+from app.models import Company, EarningsEvent, Watchlist
 
 logger = logging.getLogger(__name__)
 
 
-async def upcoming_for_user(db: Session, user_id: int, *, fmp=None, days_ahead: int = 14) -> list[dict]:
-    """Return upcoming earnings events for the user's watched tickers, soonest first."""
-    if fmp is None:
-        from app.integrations.fmp import fmp_client
-        fmp = fmp_client
+async def upcoming_for_user(db: Session, user_id: int, *, days_ahead: int = 14, **_ignored) -> list[dict]:
+    """Return upcoming earnings events for the user's watched tickers, soonest first.
 
+    ``**_ignored`` keeps the old ``fmp=`` keyword accepted (some callers/tests still pass it) without
+    doing anything — the FMP dependency is gone.
+    """
     rows = (
         db.query(Company.ticker, Company.name)
         .join(Watchlist, Watchlist.company_id == Company.id)
@@ -29,27 +34,36 @@ async def upcoming_for_user(db: Session, user_id: int, *, fmp=None, days_ahead: 
     )
     if not rows:
         return []
-    name_by_ticker = {ticker.upper(): name for ticker, name in rows if ticker}
+    name_by_ticker = {t.upper(): n for t, n in rows if t}
+    tickers = list(name_by_ticker.keys())
 
+    today = date.today()
+    horizon = today + timedelta(days=days_ahead)
     try:
-        events = await fmp.fetch_upcoming_earnings(days_ahead=days_ahead)
-    except Exception as e:  # never let a flaky integration break the dashboard
+        events = (
+            db.query(EarningsEvent)
+            .filter(
+                EarningsEvent.ticker.in_(tickers),
+                EarningsEvent.event_date >= today,
+                EarningsEvent.event_date <= horizon,
+            )
+            .order_by(EarningsEvent.event_date.asc())
+            .all()
+        )
+    except Exception as e:  # never let a query hiccup break the dashboard
         logger.warning("Upcoming earnings fetch failed: %s", e)
         return []
 
     out: list[dict] = []
-    for symbol, event in (events or {}).items():
-        sym = symbol.upper()
-        if sym not in name_by_ticker:
-            continue
-        earnings_date = getattr(event, "earnings_date", None)
+    for ev in events:
+        eps = ev.eps_estimate
         out.append({
-            "ticker": sym,
-            "company_name": name_by_ticker[sym],
-            "earnings_date": earnings_date.isoformat() if earnings_date else None,
-            "time": getattr(event, "time", None),
-            "eps_estimated": getattr(event, "eps_estimated", None),
-            "revenue_estimated": getattr(event, "revenue_estimated", None),
+            "ticker": ev.ticker,
+            "company_name": name_by_ticker.get(ev.ticker, ev.company_name or ev.ticker),
+            "earnings_date": ev.event_date.isoformat() if ev.event_date else None,
+            "time": ev.event_time,
+            "eps_estimated": float(eps) if eps is not None else None,
+            "revenue_estimated": None,
         })
     out.sort(key=lambda e: e["earnings_date"] or "9999")
     return out

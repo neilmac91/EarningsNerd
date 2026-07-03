@@ -10,6 +10,7 @@ from app.models.audit_log import AuditLog
 from app.models.refresh_token import RefreshToken
 from app.models.subscription import Subscription, StripeEvent, ACTIVE_STATUSES
 from app.models.notifications import NotificationPreferences, NotificationLog
+from app.models.earnings import EarningsEvent, EarningsAlertLog
 from app.models.financial_fact import FinancialFact
 from app.models.invite import InviteCode
 from app.models.feedback import Feedback
@@ -173,6 +174,10 @@ class Watchlist(Base):
     # Prevents re-alerting and bounds the "what's new since you started watching" window.
     last_alerted_accession = Column(String, nullable=True)
     last_alerted_at = Column(DateTime(timezone=True), nullable=True)
+    # Per-company earnings-day alert opt-in (strategy §3.7). Distinct from the filing-alert prefs:
+    # watchlists stay unlimited, but the per-plan cap on how many companies may have this ON is
+    # enforced at toggle time (entitlements.earnings_alert_limit — Free 3 / Pro 100).
+    earnings_alert = Column(Boolean, nullable=False, default=False, server_default="0")
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     user = relationship("User", back_populates="watchlist")

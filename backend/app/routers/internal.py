@@ -74,6 +74,48 @@ async def trigger_filing_digest(background: BackgroundTasks):
     return {"status": "accepted", "job": "filing-digest"}
 
 
+async def _run_earnings_refresh() -> None:
+    from app.database import SessionLocal
+    from app.services import earnings_calendar_service
+
+    db = SessionLocal()
+    try:
+        stats = await earnings_calendar_service.run_refresh(db)
+        logger.info("Earnings-calendar refresh (internal trigger) complete: %s", stats.as_dict())
+    except Exception:
+        logger.exception("Earnings-calendar refresh (internal trigger) failed")
+    finally:
+        db.close()
+
+
+async def _run_earnings_alerts() -> None:
+    from app.database import SessionLocal
+    from app.services import earnings_alert_service
+
+    db = SessionLocal()
+    try:
+        stats = await earnings_alert_service.send_earnings_day_alerts(db)
+        logger.info("Earnings-day alerts (internal trigger) complete: %s", stats)
+    except Exception:
+        logger.exception("Earnings-day alerts (internal trigger) failed")
+    finally:
+        db.close()
+
+
+@router.post("/jobs/earnings-calendar-refresh", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
+async def trigger_earnings_refresh(background: BackgroundTasks):
+    """Daily ingest: Alpha Vantage bulk estimates + EDGAR 8-K Item 2.02 sweep + rescore."""
+    background.add_task(_run_earnings_refresh)
+    return {"status": "accepted", "job": "earnings-calendar-refresh"}
+
+
+@router.post("/jobs/earnings-day-alerts", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
+async def trigger_earnings_alerts(background: BackgroundTasks):
+    """Send one batched email per opted-in user whose watched companies report today."""
+    background.add_task(_run_earnings_alerts)
+    return {"status": "accepted", "job": "earnings-day-alerts"}
+
+
 def _run_backfill_facts() -> None:
     # Sync (CPU/DB-bound) → FastAPI runs it in a threadpool, off the event loop.
     from app.database import SessionLocal

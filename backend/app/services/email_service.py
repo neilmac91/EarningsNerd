@@ -366,6 +366,65 @@ def render_daily_digest(
     return _wrap_html(html_body, footer=_ALERT_FOOTER), text_body
 
 
+_TIME_LABEL = {"bmo": "before open", "amc": "after close", "dmh": "during market hours"}
+
+
+def render_earnings_day_alert(
+    *,
+    name: str | None,
+    items: list[dict],
+) -> tuple[str, str]:
+    """`items`: dicts with ticker, company_name, and optional time (bmo|amc|dmh) + status."""
+    greeting = f"Hi {html.escape(name)}," if name else "Hi there,"
+    rows_html = ""
+    for it in items:
+        ticker = html.escape(str(it.get("ticker", "")))
+        company = html.escape(str(it.get("company_name") or it.get("ticker") or ""))
+        slot = _TIME_LABEL.get((it.get("time") or "").lower())
+        when = f'<span style="color:#6B7280;"> · {slot}</span>' if slot else ""
+        reported = (it.get("status") == "reported")
+        tail = " (results are out)" if reported else ""
+        rows_html += f"""
+        <tr>
+          <td style="padding:10px 0;border-bottom:1px solid #E5E1D8;">
+            <strong>{company} ({ticker})</strong> reports today{when}{html.escape(tail)}<br>
+            <a href="{settings.FRONTEND_URL}/company/{ticker}" style="color:#3C6650;">View {ticker} →</a>
+          </td>
+        </tr>"""
+    html_body = f"""
+    <p style="margin:0 0 16px;">{greeting}</p>
+    <p style="margin:0 0 16px;">Companies you follow report earnings today:</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">{rows_html}</table>
+    <p style="margin:16px 0 0;font-size:13px;color:#6B7280;">We'll have the AI summary ready shortly after they file.</p>
+    """
+    text_lines = "\n".join(
+        f"- {it.get('company_name') or it.get('ticker')} ({it.get('ticker')}) reports today"
+        + (f" ({_TIME_LABEL[(it.get('time') or '').lower()]})" if (it.get('time') or '').lower() in _TIME_LABEL else "")
+        for it in items
+    )
+    text_body = f"{greeting}\n\nCompanies you follow report earnings today:\n{text_lines}"
+    return _wrap_html(html_body, footer=_ALERT_FOOTER), text_body
+
+
+async def send_earnings_day_alert(
+    *,
+    to_email: str,
+    name: str | None,
+    items: list[dict],
+) -> None:
+    html_body, text = render_earnings_day_alert(name=name, items=items)
+    n = len(items)
+    if n == 1:
+        subject = f"{items[0].get('ticker')} reports earnings today"
+    else:
+        subject = f"{n} companies you follow report earnings today"
+    await send_email(
+        to=[to_email],
+        subject=subject,
+        html=f"{html_body}<pre style=\"display:none\">{text}</pre>",
+    )
+
+
 async def send_new_filing_alert(
     *,
     to_email: str,

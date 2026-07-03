@@ -1,8 +1,18 @@
 # Earnings Calendar Strategy — from a dead FMP dependency to an owned EDGAR-core pipeline
 
-**Date:** 2026-07-03 · **Status:** Recommendation (no code changes in this PR)
+**Date:** 2026-07-03 · **Status:** Recommendation + MVP implemented on this branch
 **Scope:** How to deliver a best-in-class US earnings-date calendar (all ~6,000+ US-listed companies,
 confirmed + estimated dates) on the existing FastAPI / Postgres / GCP stack, within ~CHF 10/month.
+
+> **Implemented (this PR):** the MVP + the alert layer + the designed `/calendar` page. Backend:
+> `earnings_events`/`earnings_alert_log` models + migration; Alpha Vantage bulk client + EDGAR 8-K
+> Item 2.02 sweep + reconciliation + anticipation score (`earnings_calendar_service.py`); the
+> per-company alert toggle with the Free-3 (visible) / Pro-100 (invisible) caps + earnings-day
+> digest (`earnings_alert_service.py`); public `GET /api/calendar`; the two existing surfaces
+> rewired to read the DB (FMP left the calendar path); daily job triggers under `/internal/jobs/*`.
+> Frontend: the `features/calendar/` week/month view + `AlertBell`, gated on
+> `NEXT_PUBLIC_ENABLE_CALENDAR`. Still to seed before flipping the flag on: run the refresh job once.
+> The pattern-estimator + companyfacts public-float score input remain the documented P3 follow-ups.
 
 Every factual claim below was verified against live endpoints or live policy pages on 2026-07-03;
 sources are cited inline. Live-test details are in the [Verification log](#appendix--verification-log).

@@ -245,6 +245,14 @@ class Settings(BaseSettings):
     FMP_TIMEOUT_SECONDS: float = 6.0
     FMP_MAX_CONCURRENCY: int = 4
 
+    # Alpha Vantage — bulk US earnings calendar (one CSV call = whole market, 3mo forward).
+    # Bridge source (personal-use free tier; see tasks/earnings-calendar-strategy.md §3.6): the
+    # earnings engine still works with no key (EDGAR-only), so this stays unset until licensed.
+    ALPHA_VANTAGE_API_KEY: str = ""
+    ALPHA_VANTAGE_API_BASE: str = "https://www.alphavantage.co/query"
+    ALPHA_VANTAGE_TIMEOUT_SECONDS: float = 20.0  # the CSV is ~6k rows / ~400KB
+    ALPHA_VANTAGE_HORIZON: str = "3month"  # 3month | 6month | 12month
+
     # Cache Settings
     XBRL_CACHE_TTL_HOURS: int = 24  # XBRL data changes only quarterly
     STRUCTURED_EXTRACTION_CACHE_TTL_SECONDS: int = 3600  # 1 hour for retry window
