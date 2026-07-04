@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
-import { CaretDownIcon, ChatTextIcon, GearIcon, ShieldIcon, SignOutIcon, SquaresFourIcon, StarIcon, WarningCircleIcon } from '@/lib/icons'
+import { CalendarDotsIcon, CaretDownIcon, ChatTextIcon, GearIcon, ShieldIcon, SignOutIcon, SquaresFourIcon, StarIcon, WarningCircleIcon } from '@/lib/icons'
 import { logout } from '@/features/auth/api/auth-api'
+import { ENABLE_CALENDAR } from '@/lib/featureFlags'
 
 export type MenuUser = {
   email: string
@@ -25,8 +26,10 @@ function getInitials(name?: string | null, email?: string): string {
 const MENU_LINKS = [
   { href: '/dashboard', label: 'Dashboard', icon: SquaresFourIcon },
   { href: '/dashboard/watchlist', label: 'Watchlist', icon: StarIcon },
+  // Gated like the header nav: /calendar 404s while NEXT_PUBLIC_ENABLE_CALENDAR is off.
+  ...(ENABLE_CALENDAR ? [{ href: '/calendar', label: 'Calendar', icon: CalendarDotsIcon }] : []),
   { href: '/dashboard/settings', label: 'Settings', icon: GearIcon },
-] as const
+]
 
 export default function UserMenu({ user }: { user: MenuUser }) {
   const [open, setOpen] = useState(false)

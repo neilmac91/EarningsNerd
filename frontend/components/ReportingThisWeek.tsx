@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import CompanyLogo from '@/components/CompanyLogo'
+import { ArrowRightIcon } from '@/lib/icons'
+import { ENABLE_CALENDAR } from '@/lib/featureFlags'
 import type { ReportingThisWeekResponse } from '@/lib/serverApi'
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
@@ -39,6 +41,15 @@ export default function ReportingThisWeek({
           <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark">
             <span aria-hidden="true">📅</span> Reporting This Week
           </h2>
+          {ENABLE_CALENDAR && (
+            <Link
+              href="/calendar"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-brand-strong transition-colors hover:text-brand-emphasis dark:text-brand-strong-dark dark:hover:text-brand-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+            >
+              View full calendar
+              <ArrowRightIcon aria-hidden="true" className="h-4 w-4" />
+            </Link>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
           {companies.map((company) => (
