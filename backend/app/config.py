@@ -308,6 +308,17 @@ class Settings(BaseSettings):
     # their own form sets until a later phase. Toggle with ENABLE_FPI_FILINGS=true.
     ENABLE_FPI_FILINGS: bool = False
 
+    # Restrict the public earnings calendar (and homepage "Reporting This Week" strip) to companies
+    # in the S&P 500 or Nasdaq 100 — a tight, defensible, high-signal universe (~515 tickers) instead
+    # of the full Alpha Vantage long tail. Membership is the committed app/data/index_membership.json
+    # (auditable, un-corruptable by a bad API response); the filter fails OPEN (serves unfiltered) if
+    # that list is missing/short, so it can only ever hide tail names, never empty the calendar. Gates
+    # BOTH serve and ingest, so flipping it off lets the next daily refresh re-populate non-members —
+    # fully reversible within ~1 day. A user's explicitly watchlisted company is NOT filtered (their
+    # dashboard "upcoming" + alerts still fire). Ships off; flip CALENDAR_INDEX_FILTER_ENABLED=true on
+    # the Cloud Run service after the one-time purge (scripts/purge_non_index_earnings.py).
+    CALENDAR_INDEX_FILTER_ENABLED: bool = False
+
     # Roadmap 2.6: richer cited financials. When True, XBRL extraction also pulls the full cash-flow
     # statement (investing + financing flows) and working-capital lines (current assets/liabilities →
     # derived working_capital + current_ratio), which flow into financial_fact, the filing-scoped trend

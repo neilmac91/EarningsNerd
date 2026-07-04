@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.models import EarningsEvent
 from app.models.earnings import STATUS_REPORTED
+from app.services import index_membership_service
 
 logger = logging.getLogger(__name__)
 
@@ -146,16 +147,19 @@ class ReportingThisWeekService:
         CURATED_TICKERS mega-cap floor, so no allowlist intersect is needed). Days already behind
         us serve facts only — a past-dated estimate is either already reported or was wrong."""
         try:
-            events = (
-                db.query(EarningsEvent)
-                .filter(
-                    EarningsEvent.event_date >= monday,
-                    EarningsEvent.event_date <= friday,
-                    or_(EarningsEvent.status == STATUS_REPORTED, EarningsEvent.event_date >= today),
-                )
-                .order_by(EarningsEvent.anticipation_score.desc(), EarningsEvent.event_date.asc())
-                .all()
+            query = db.query(EarningsEvent).filter(
+                EarningsEvent.event_date >= monday,
+                EarningsEvent.event_date <= friday,
+                or_(EarningsEvent.status == STATUS_REPORTED, EarningsEvent.event_date >= today),
             )
+            # Discovery surface: restrict to the S&P 500 / Nasdaq 100 universe when the filter is on
+            # (None = unfiltered, so an unhealthy list can't blank the homepage strip).
+            members = index_membership_service.active_member_filter()
+            if members is not None:
+                query = query.filter(EarningsEvent.ticker.in_(members))
+            events = query.order_by(
+                EarningsEvent.anticipation_score.desc(), EarningsEvent.event_date.asc()
+            ).all()
         except Exception as exc:  # never let a query hiccup break the homepage
             logger.warning("Reporting-this-week fetch failed: %s", exc)
             return []

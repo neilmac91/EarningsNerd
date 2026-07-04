@@ -563,3 +563,75 @@ async def test_run_refresh_sweep_window_override_and_new_stats():
     assert efts.calls[-1]["end_date"] == today.isoformat()
     db.close()
     _clear("RSTL")
+
+
+# ---- index-membership filter ---------------------------------------------
+
+@pytest.mark.requires_db
+def test_index_filter_skips_non_members_on_ingest_and_serve(monkeypatch):
+    """With the filter on, AV ingest skips non-member tickers (the only INSERT site, counted on
+    stats) and the serve path excludes them; members pass through unchanged."""
+    from app.database import SessionLocal
+    from app.models import EarningsEvent
+    from app.config import settings
+    from app.services import index_membership_service as idx
+
+    _clear("MEMBERX", "OUTSIDR")
+    monkeypatch.setattr(idx, "_MEMBER_TICKERS", frozenset({"MEMBERX"}))
+    monkeypatch.setattr(settings, "CALENDAR_INDEX_FILTER_ENABLED", True)
+
+    fpe = date(2026, 6, 30)
+    db = SessionLocal()
+    stats = svc.RefreshStats()
+    n = svc.ingest_alpha_vantage(
+        db,
+        [_av_row("MEMBERX", date(2026, 7, 20), fpe), _av_row("OUTSIDR", date(2026, 7, 21), fpe)],
+        today=date(2026, 7, 1), stats=stats,
+    )
+    db.commit()
+    assert n == 1 and stats.skipped_non_member == 1  # only the member upserted
+    stored = {
+        t for (t,) in db.query(EarningsEvent.ticker)
+        .filter(EarningsEvent.ticker.in_(["MEMBERX", "OUTSIDR"]))
+    }
+    assert stored == {"MEMBERX"}
+
+    # Directly seed a non-member row and confirm the serve path hides it too.
+    db.add(EarningsEvent(
+        ticker="OUTSIDR", company_name="x", fiscal_period_end=fpe, event_date=date(2026, 7, 20),
+        status=STATUS_ESTIMATED, confidence="medium", source=SOURCE_ALPHA_VANTAGE,
+    ))
+    db.commit()
+    served = {
+        r["ticker"]
+        for r in svc.events_in_range(db, date(2026, 7, 1), date(2026, 7, 31), today=date(2026, 7, 1))
+        if r["ticker"] in {"MEMBERX", "OUTSIDR"}
+    }
+    assert served == {"MEMBERX"}
+    db.close()
+    _clear("MEMBERX", "OUTSIDR")
+
+
+@pytest.mark.requires_db
+def test_index_filter_off_is_a_noop(monkeypatch):
+    """Flag off (default): a non-member ticker ingests and serves exactly as before — no filtering."""
+    from app.database import SessionLocal
+    from app.config import settings
+
+    _clear("TAILONLY")
+    monkeypatch.setattr(settings, "CALENDAR_INDEX_FILTER_ENABLED", False)
+    fpe = date(2026, 6, 30)
+    db = SessionLocal()
+    stats = svc.RefreshStats()
+    n = svc.ingest_alpha_vantage(
+        db, [_av_row("TAILONLY", date(2026, 7, 20), fpe)], today=date(2026, 7, 1), stats=stats
+    )
+    db.commit()
+    assert n == 1 and stats.skipped_non_member == 0
+    served = {
+        r["ticker"]
+        for r in svc.events_in_range(db, date(2026, 7, 1), date(2026, 7, 31), today=date(2026, 7, 1))
+    }
+    assert "TAILONLY" in served
+    db.close()
+    _clear("TAILONLY")

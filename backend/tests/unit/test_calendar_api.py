@@ -198,3 +198,23 @@ def test_alpha_vantage_csv_parse():
     assert aapl.event_time == "amc"
     assert rows[1].event_time == "bmo"
     assert rows[1].eps_estimate is None
+
+
+def test_calendar_endpoint_filters_to_index_when_enabled(client, monkeypatch):
+    """With the index filter on, /api/calendar returns only S&P 500 / Nasdaq 100 members."""
+    from app.config import settings
+    from app.services import index_membership_service as idx
+
+    monkeypatch.setattr(idx, "_MEMBER_TICKERS", frozenset({"MEMBX"}))
+    monkeypatch.setattr(settings, "CALENDAR_INDEX_FILTER_ENABLED", True)
+
+    d = date.today() + timedelta(days=30)
+    _seed_event("MEMBX", d)
+    _seed_event("TAILX", d)  # non-member: must be filtered out
+    resp = client.get("/api/calendar", params={
+        "from": (d - timedelta(days=5)).isoformat(),
+        "to": (d + timedelta(days=5)).isoformat(),
+    })
+    assert resp.status_code == 200
+    tickers = {e["ticker"] for e in resp.json()["events"]}
+    assert "MEMBX" in tickers and "TAILX" not in tickers

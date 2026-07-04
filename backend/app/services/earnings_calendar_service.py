@@ -41,6 +41,7 @@ from app.models.earnings import (
     TIME_BMO,
     TIME_DMH,
 )
+from app.services import index_membership_service
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +154,10 @@ class RefreshStats:
     skipped_non_earnings: int = 0
     # 2.02 hits with no prior calendar row — the market-wide sweep is flip-only, never insert.
     skipped_no_prior: int = 0
+    # Rows skipped because their ticker is outside the S&P 500 / Nasdaq 100 universe (only nonzero
+    # when CALENDAR_INDEX_FILTER_ENABLED is on). AV estimates for non-members are never inserted, and
+    # a stray non-member row is never flipped by the EDGAR sweep.
+    skipped_non_member: int = 0
     # Past-dated estimates downgraded to low confidence by the staleness pass.
     stale_downgraded: int = 0
     scored: int = 0
@@ -169,6 +174,7 @@ class RefreshStats:
             "edgar_reported": self.edgar_reported,
             "skipped_non_earnings": self.skipped_non_earnings,
             "skipped_no_prior": self.skipped_no_prior,
+            "skipped_non_member": self.skipped_non_member,
             "stale_downgraded": self.stale_downgraded,
             "scored": self.scored,
             "commit_failed": self.commit_failed,
@@ -188,20 +194,34 @@ def _watch_counts(db: Session) -> dict[str, int]:
     return {(t or "").upper(): int(n) for t, n in rows if t}
 
 
-def ingest_alpha_vantage(db: Session, rows: Iterable, *, today: Optional[date] = None) -> int:
+def ingest_alpha_vantage(
+    db: Session,
+    rows: Iterable,
+    *,
+    today: Optional[date] = None,
+    stats: Optional[RefreshStats] = None,
+) -> int:
     """Upsert provider estimates. Reported rows are never touched (terminal); a changed date is
     recorded on the row. Past-dated provider rows are skipped — a stale snapshot date must not
     create or overwrite calendar rows (it would also be flip-bait for the EDGAR sweep's 100-day
-    attach window). Returns the number of rows created or updated."""
+    attach window). When the index filter is on, tickers outside the S&P 500 / Nasdaq 100 universe
+    are skipped here (the only INSERT site) and counted on ``stats.skipped_non_member``. Returns the
+    number of rows created or updated."""
     now = datetime.now(timezone.utc)
     if today is None:
         today = today_eastern()
+    if stats is None:
+        stats = RefreshStats()  # solo callers/tests: keep the counter bumps unconditional
+    members = index_membership_service.active_member_filter()
     upserted = 0
     for row in rows:
         ticker = (getattr(row, "symbol", "") or "").upper()
         fpe = getattr(row, "fiscal_period_end", None)
         if not ticker or fpe is None:
             continue  # need a fiscal period to key on (uniqueness invariant)
+        if members is not None and index_membership_service.normalize_ticker(ticker) not in members:
+            stats.skipped_non_member += 1
+            continue  # outside the S&P 500 / Nasdaq 100 universe (index filter on)
         new_date = getattr(row, "report_date", None)
         if new_date is None or new_date < today:
             continue
@@ -266,6 +286,7 @@ def ingest_edgar_reported(
     now = datetime.now(timezone.utc)
     if stats is None:
         stats = RefreshStats()  # keeps the counter bumps unconditional; discarded for solo callers
+    members = index_membership_service.active_member_filter()
     reported = 0
     for hit in hits:
         items = getattr(hit, "items", None) or []
@@ -274,6 +295,11 @@ def ingest_edgar_reported(
         ticker = (getattr(hit, "ticker", None) or "").upper()
         filed = _as_date(getattr(hit, "filed_date", None))
         if not ticker or filed is None:
+            continue
+        if members is not None and index_membership_service.normalize_ticker(ticker) not in members:
+            # Non-member: never flip a stray legacy row, and skip the DB lookups entirely. AV ingest
+            # already keeps non-members out, so this is belt-and-suspenders + a cheap early-out.
+            stats.skipped_non_member += 1
             continue
         accession = getattr(hit, "accession_no", None)
         acceptance = _as_datetime(getattr(hit, "acceptance_datetime", None))
@@ -410,7 +436,7 @@ async def run_refresh(
     try:
         av_rows = await av_client.fetch_earnings_calendar()
         stats.av_rows = len(av_rows)
-        stats.av_upserted = ingest_alpha_vantage(db, av_rows, today=today)
+        stats.av_upserted = ingest_alpha_vantage(db, av_rows, today=today, stats=stats)
     except Exception:  # never let the bridge break the engine
         logger.exception("Alpha Vantage ingest failed")
 
@@ -554,14 +580,17 @@ def events_in_range(
     and rendering it on a past day would misstate history."""
     if today is None:
         today = today_eastern()
-    rows = (
-        db.query(EarningsEvent)
-        .filter(
-            EarningsEvent.event_date >= from_date,
-            EarningsEvent.event_date <= to_date,
-            or_(EarningsEvent.status == STATUS_REPORTED, EarningsEvent.event_date >= today),
-        )
-        .order_by(EarningsEvent.event_date.asc(), EarningsEvent.anticipation_score.desc())
-        .all()
+    query = db.query(EarningsEvent).filter(
+        EarningsEvent.event_date >= from_date,
+        EarningsEvent.event_date <= to_date,
+        or_(EarningsEvent.status == STATUS_REPORTED, EarningsEvent.event_date >= today),
     )
+    # Discovery surface: restrict to the S&P 500 / Nasdaq 100 universe when the filter is on. None
+    # means "unfiltered" (flag off or list unhealthy), so a bad list can never empty the calendar.
+    members = index_membership_service.active_member_filter()
+    if members is not None:
+        query = query.filter(EarningsEvent.ticker.in_(members))
+    rows = query.order_by(
+        EarningsEvent.event_date.asc(), EarningsEvent.anticipation_score.desc()
+    ).all()
     return [_event_to_dict(ev) for ev in rows]

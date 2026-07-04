@@ -161,3 +161,28 @@ async def test_empty_when_no_watchlist():
         db.query(User).filter(User.id == uid).delete()
         db.commit()
         db.close()
+
+
+@pytest.mark.asyncio
+@pytest.mark.requires_db
+async def test_upcoming_not_filtered_by_index_membership(monkeypatch):
+    """Decision: the index filter is a DISCOVERY-surface concern only. A company a user has
+    explicitly watchlisted still shows in their dashboard 'upcoming' even when it's outside the
+    S&P 500 / Nasdaq 100 and the filter is on."""
+    from app.database import SessionLocal
+    from app.config import settings
+    from app.services import index_membership_service as idx
+
+    monkeypatch.setattr(idx, "_MEMBER_TICKERS", frozenset({"BIGCAPX"}))  # TAILWCH is NOT a member
+    monkeypatch.setattr(settings, "CALENDAR_INDEX_FILTER_ENABLED", True)
+
+    _clear_events("TAILWCH")
+    with _user_watching(["TAILWCH"]) as uid:
+        _seed_event("TAILWCH", date.today() + timedelta(days=5))
+        db = SessionLocal()
+        try:
+            events = await upcoming_for_user(db, uid, days_ahead=30)
+        finally:
+            db.close()
+        assert any(e["ticker"] == "TAILWCH" for e in events), "watched non-member must still appear"
+    _clear_events("TAILWCH")
