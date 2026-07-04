@@ -37,7 +37,10 @@ export default function DeleteAccountPage() {
     enabled: !deleteMutation.isSuccess,
   })
 
-  const canDelete = confirmText.trim().toLowerCase() === CONFIRM_PHRASE && !deleteMutation.isPending
+  // Gate on the confirmation phrase only — the Button's `loading` state (below) already refuses
+  // activation while the mutation is pending, so folding `isPending` into `disabled` here would just
+  // swap the DS loading look for the dimmed disabled look.
+  const canDelete = confirmText.trim().toLowerCase() === CONFIRM_PHRASE
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8">
@@ -83,8 +86,10 @@ export default function DeleteAccountPage() {
           <CircleNotchIcon className="h-4 w-4 animate-spin" /> Checking your sign-in status…
         </div>
       ) : user ? (
-        /* Signed in — confirm + delete */
-        <Card as="section" className="mt-6 p-6 border-error-light/30 dark:border-error-dark/30">
+        /* Signed in — confirm + delete. Danger emphasis via ring (not a border override): cx is a
+           plain class join, so a className `border-error-*` would clash nondeterministically with
+           Card's own hairline. */
+        <Card as="section" className="mt-6 p-6 ring-1 ring-inset ring-error-light/30 dark:ring-error-dark/30">
           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
             Signed in as <strong className="text-text-primary-light dark:text-text-primary-dark">{user.email}</strong>.
             To confirm, type <strong>{CONFIRM_PHRASE}</strong> below.
