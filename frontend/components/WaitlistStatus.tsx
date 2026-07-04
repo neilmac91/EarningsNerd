@@ -1,10 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { CircleNotchIcon } from '@/lib/icons'
 import { getApiUrl } from '@/lib/api/client'
-import { Button } from '@/components/ui/Button'
-import { inputClasses } from '@/components/ui/Input'
+import { Button, Card, Input, Notice } from '@/components/ui'
 
 type StatusData = {
   position: number
@@ -23,6 +21,9 @@ export default function WaitlistStatus() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    // The Button uses `loading` (aria-disabled, not native disabled), so Enter can still fire this
+    // mid-request — guard against a concurrent status check.
+    if (loading) return
     setError(null)
     setStatus(null)
     if (!email.trim()) {
@@ -49,45 +50,34 @@ export default function WaitlistStatus() {
   }
 
   return (
-    <div className="rounded-2xl border border-border-light bg-panel-light p-6 shadow-e2 dark:shadow-none dark:border-border-dark dark:bg-panel-dark">
+    <Card className="p-6">
       <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
         Check your waitlist status
       </h3>
       <form onSubmit={handleSubmit} className="mt-4 space-y-4">
-        {/* Raw input + inputClasses(): geometry overrides target the field itself. */}
-        <input
+        <Input
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="you@company.com"
-          className={inputClasses({ className: 'rounded-xl px-4 py-3 text-sm' })}
         />
-        {error && (
-          <div className="rounded-xl border border-error-light/40 dark:border-error-dark/40 bg-error-light/10 dark:bg-error-dark/10 px-4 py-3 text-sm text-error-light dark:text-error-dark">
-            {error}
-          </div>
-        )}
-        <Button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-full px-6 py-3 font-semibold"
-        >
-          {loading && <CircleNotchIcon className="h-4 w-4 animate-spin" />}
-          {loading ? 'Checking...' : 'Check status'}
+        {error && <Notice variant="error" title={error} />}
+        <Button type="submit" loading={loading} loadingText="Checking..." className="w-full">
+          Check status
         </Button>
       </form>
 
       {status && (
         <div className="mt-6 space-y-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
           <div>
-            Position: <span className="font-semibold">#{status.position}</span>
+            Position: <span className="tnum font-data font-semibold">#{status.position}</span>
           </div>
           <div>
-            Referrals: <span className="font-semibold">{status.referrals_count}</span>
+            Referrals: <span className="tnum font-data font-semibold">{status.referrals_count}</span>
           </div>
           <div>
             Positions gained:{' '}
-            <span className="font-semibold">{status.positions_gained}</span>
+            <span className="tnum font-data font-semibold">{status.positions_gained}</span>
           </div>
           <div>
             Email verified:{' '}
@@ -98,11 +88,11 @@ export default function WaitlistStatus() {
           <div className="pt-2 text-xs uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
             Your referral link
           </div>
-          <div className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
+          <div className="break-all text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
             {status.referral_link}
           </div>
         </div>
       )}
-    </div>
+    </Card>
   )
 }

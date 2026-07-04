@@ -1,14 +1,11 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getApiUrl } from '@/lib/api/client'
-
-const formatCount = (value: number) => value.toLocaleString()
+import { useCountUp } from '@/hooks/useCountUp'
 
 export default function WaitlistCounter() {
   const [target, setTarget] = useState<number | null>(null)
-  const [display, setDisplay] = useState(0)
-  const displayRef = useRef(0)
 
   useEffect(() => {
     let active = true
@@ -31,42 +28,24 @@ export default function WaitlistCounter() {
     }
   }, [])
 
-  useEffect(() => {
-    displayRef.current = display
-  }, [display])
-
-  useEffect(() => {
-    if (target === null) return
-    const start = performance.now()
-    const duration = 900
-    const startValue = displayRef.current
-    let rafId = 0
-
-    const animate = (now: number) => {
-      const progress = Math.min(1, (now - start) / duration)
-      const nextValue = Math.round(startValue + (target - startValue) * progress)
-      setDisplay(nextValue)
-      if (progress < 1) {
-        rafId = requestAnimationFrame(animate)
-      }
-    }
-
-    rafId = requestAnimationFrame(animate)
-    return () => {
-      if (rafId) cancelAnimationFrame(rafId)
-    }
-  }, [target])
-
-  const label = useMemo(() => {
-    if (target === null) {
-      return 'Join the waitlist'
-    }
-    return `Join ${formatCount(display)}+ others on the waitlist`
-  }, [display, target])
+  // DS count-up (rAF, --duration-slow, reduced-motion + SSR safe) replacing the prior
+  // hand-rolled raw-900ms tween; rendered in the data face so the width never jitters.
+  const count = useCountUp(target ?? 0, { format: (v) => Math.round(v).toLocaleString() })
 
   return (
     <div className="inline-flex items-center justify-center rounded-full border border-brand-border bg-brand-weak px-4 py-2 text-sm font-medium text-brand-strong shadow-e1 dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark">
-      {label}
+      {/* Single inline child: the pill is a flex container, which strips whitespace-only
+          text nodes *between* flex items — so the count + its surrounding spaces must live
+          inside one element to keep "Join 1,234+ others" from collapsing to "Join1,234+". */}
+      <span>
+        {target === null ? (
+          'Join the waitlist'
+        ) : (
+          <>
+            Join <span className="tnum font-data">{count}</span>+ others on the waitlist
+          </>
+        )}
+      </span>
     </div>
   )
 }
