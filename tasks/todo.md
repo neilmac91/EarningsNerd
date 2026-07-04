@@ -1,5 +1,29 @@
 # Task: Design-system v2 adoption pass (post-migration; PR-per-surface)
 
+## Task #35 — live-eval findings: guard window bypass (CONFIRMED + fixed) + N-run gating
+**Origin:** first-ever live run of the copilot eval (sandbox: local PG + real SEC ingestion +
+DeepSeek). Baseline main held Fact adj 1.00 across all draws (guard stripped 6-8 attempts/draw —
+the round-4 fix does real work). But the approved coverage-prompt experiment was NEGATIVE and
+surfaced a real bug:
+- [x] **Negative result (nothing shipped from it):** identical prompts scored 62%↔81% pass
+      run-to-run; the "cite every figure / compute_metric for derived numbers" clause made
+      placement WORSE (model fetched growth metrics then reused their chips across other
+      metrics' growth figures). Prompt reverted; coverage stays WARN-level telemetry.
+- [x] **CONFIRMED GUARD BYPASS (deterministic repro, exists on main):** in a dense marker run
+      ("surged 19.4% [F3] to $15.00B [F2] in 2023 [F3]"), stripped markers bounded the next
+      marker's adjacency window → the survivor got a year-only, unfalsifiable window and shipped
+      on the wrong metric's figure while its neighbors vanished. FIX: stripped markers no longer
+      advance `prev_marker_end` — windows are judged against the FINAL text (kept-literal [n]
+      still bounds). Replay regression test + production/scorer parity test added (68 green).
+- [x] **`copilot_runner --runs N`:** per-run reports + cross-run aggregate (mean/min/max pass
+      rate; TRUST line = rows with Fact adj < 1.0 in any run; total guard catches).
+- [x] **Scorer polish:** figure-coverage skipped on refusals (explanation sentences aren't
+      uncited-figure noise).
+- [x] **RUNBOOK:** two-standard gating rule (resolver = deterministic offline; prompt/model =
+      --runs 3+ aggregates) + the negative result recorded so it isn't re-attempted blind.
+**Review:** the eval harness caught a trust regression before it shipped and converted a live
+flake into a deterministic, unit-tested fix — exactly the audit loop the round-4 plan promised.
+
 ## Task #34 — citation-trust hardening plan (post-round-4 review; Neil-approved, two PRs)
 **Origin:** principal-engineer review of the round-4 fix surfaced three residual concerns:
 (1) stripped chips leave figures UNCITED (trust downgraded silently), (2) value-match ≠

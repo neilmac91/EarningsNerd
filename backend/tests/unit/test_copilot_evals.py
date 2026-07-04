@@ -156,6 +156,35 @@ def test_fact_adjacency_flags_mislabeled_metric():
     assert ratio == 1.0 and violations == []
 
 
+@pytest.mark.unit
+def test_fact_adjacency_agrees_with_production_resolver_on_dense_marker_runs():
+    """Production/scorer parity pin: the resolver judges windows against the FINAL text (stripped
+    markers don't bound claim spans), so what the resolver ships must score 1.0 here. This is the
+    dense-marker-run shape that used to slip reused growth chips past the resolver while the
+    scorer (reading the final text) flagged them."""
+    from app.services.copilot_service import _resolve_citations
+
+    def fact(marker, value, year, kind=None, unit="USD"):
+        return {"concept": "revenue", "kind": kind, "value": value, "unit": unit,
+                "fiscal_year": year, "fiscal_period": "FY", "raw_tag": "us-gaap:Revenues",
+                "accession": f"a-{year}", "_marker": marker}
+
+    facts = [
+        fact("F1", 81_462_000_000.0, 2022),
+        fact("F2", 96_773_000_000.0, 2023),
+        fact("F3", 0.18795, 2023, kind="yoy_growth", unit="pure"),
+    ]
+    raw = (
+        "Revenue was $81.46 billion in 2022 [F1], rising 18.8% [F3] to $96.77 billion [F2]. "
+        "Net income surged 19.4% [F3] to $15.00 billion [F2] in 2023 [F3]."
+    )
+    answer, citations, _grounded, misplaced = _resolve_citations(raw, {}, facts, None)
+    assert misplaced == 3  # every net-income reuse stripped, including the year-adjacent one
+
+    ratio, violations = score_fact_marker_adjacency(answer, citations)
+    assert ratio == 1.0 and violations == []
+
+
 # --- figure coverage (WARN, not gated) ---------------------------------------------------------
 
 @pytest.mark.unit
