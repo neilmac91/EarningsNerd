@@ -25,6 +25,10 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(function Switch
   return (
     <button
       ref={ref}
+      // Spread first so the switch's own load-bearing attributes (role, aria-checked, type,
+      // onClick) can't be clobbered by a consumer's ...rest; legit props (aria-label, id,
+      // data-*) still pass through since className/onClick/disabled are destructured out above.
+      {...rest}
       type="button"
       role="switch"
       aria-checked={checked}
@@ -40,7 +44,6 @@ export const Switch = forwardRef<HTMLButtonElement, SwitchProps>(function Switch
         checked ? 'bg-brand-strong dark:bg-brand-dark' : 'bg-border-light dark:bg-white/15',
         className,
       )}
-      {...rest}
     >
       <span
         aria-hidden="true"

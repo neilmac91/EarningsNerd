@@ -134,22 +134,24 @@ describe('PricingPage', () => {
 
   // --- Fake-door $39-vs-$29 price test (roadmap 2.3) ---
 
-  it('control arm (flag unset) shows the $390 anchor', async () => {
+  it('control arm (flag unset) shows the $32.50/mo anchor', async () => {
     mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
     renderPricing()
 
-    // Default billing cycle is yearly; control = $390. The $29 arm's $290 must not appear.
-    expect(await screen.findByText('$390')).toBeInTheDocument()
-    expect(screen.queryByText('$290')).not.toBeInTheDocument()
+    // Default billing cycle is yearly; the card now shows the effective MONTHLY cost.
+    // Control $390/yr → $32.50/mo. The $29 arm's $24.17/mo must not appear.
+    expect(await screen.findByText('$32.50')).toBeInTheDocument()
+    expect(screen.queryByText('$24.17')).not.toBeInTheDocument()
   })
 
-  it('price_29 arm lowers the displayed anchor to $290', async () => {
+  it('price_29 arm lowers the displayed anchor to $24.17/mo', async () => {
     mockUseFeatureFlagVariantKey.mockReturnValue('price_29')
     mockGetSubscriptionStatus.mockResolvedValue({ ...baseSub })
     renderPricing()
 
-    expect(await screen.findByText('$290')).toBeInTheDocument()
-    expect(screen.queryByText('$390')).not.toBeInTheDocument()
+    // $290/yr → $24.17/mo.
+    expect(await screen.findByText('$24.17')).toBeInTheDocument()
+    expect(screen.queryByText('$32.50')).not.toBeInTheDocument()
   })
 
   it('checkout_started carries the arm price + variant when Upgrade is clicked', async () => {

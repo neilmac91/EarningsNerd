@@ -321,9 +321,9 @@ function PricingContent() {
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">{plan.name}</h3>
                 <div className="flex items-baseline justify-center gap-2">
-                  <span className="tnum font-data text-5xl font-semibold text-text-primary-light dark:text-text-primary-dark">{plan.price}</span>
+                  <span className="tabular text-5xl font-semibold text-text-primary-light dark:text-text-primary-dark">{plan.price}</span>
                   {plan.betaOriginal ? (
-                    <span className="tnum font-data text-2xl font-medium text-text-secondary-light line-through dark:text-text-secondary-dark">{plan.betaOriginal}/mo</span>
+                    <span className="tabular text-2xl font-medium text-text-secondary-light line-through dark:text-text-secondary-dark">{plan.betaOriginal}/mo</span>
                   ) : (
                     plan.period !== 'forever' && (
                       <span className="text-text-secondary-light dark:text-text-secondary-dark">/month</span>
