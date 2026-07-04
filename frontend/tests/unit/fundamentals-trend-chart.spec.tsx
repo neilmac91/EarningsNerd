@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 vi.mock('recharts', () => ({
   ResponsiveContainer: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   BarChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  Bar: () => null,
+  Bar: ({ fill }: { fill?: string }) => <div data-testid="trend-bar" data-fill={fill} />,
   XAxis: () => null,
   YAxis: () => null,
   CartesianGrid: () => null,
@@ -19,6 +19,7 @@ vi.mock('@/features/fundamentals/api/fundamentals-api', () => ({
 }))
 
 import FundamentalsTrendChart from '@/features/fundamentals/components/FundamentalsTrendChart'
+import { CHART_SERIES } from '@/components/ui'
 
 function renderChart(filingId = 285, subtitle?: string) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
@@ -93,6 +94,52 @@ describe('FundamentalsTrendChart', () => {
 
     expect(netMargin).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('button', { name: 'Revenue' })).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('rotates the bar color per metric — positional across the visible tabs', async () => {
+    getFilingFundamentals.mockResolvedValue(RESP)
+    renderChart()
+
+    // Revenue is available[0] → chart series color 1 (teal). The unfeatured concept is
+    // filtered out, so Net Margin is available[1] → color 2 (honey).
+    await screen.findByRole('button', { name: 'Revenue' })
+    expect(screen.getByTestId('trend-bar')).toHaveAttribute('data-fill', CHART_SERIES[0])
+
+    fireEvent.click(screen.getByRole('button', { name: 'Net Margin' }))
+    expect(screen.getByTestId('trend-bar')).toHaveAttribute('data-fill', CHART_SERIES[1])
+  })
+
+  it('walks the full 6-color palette in tab order and wraps at the 7th metric', async () => {
+    // 7 featured concepts, in FEATURED order → visible tabs at indices 0..6.
+    getFilingFundamentals.mockResolvedValue({
+      ticker: 'LLY',
+      company_name: 'Eli Lilly',
+      concepts: [
+        { concept: 'revenue', unit: 'USD', points: [point(2023, 34, 'USD')] },
+        { concept: 'net_income', unit: 'USD', points: [point(2023, 5, 'USD')] },
+        { concept: 'gross_profit', unit: 'USD', points: [point(2023, 26, 'USD')] },
+        { concept: 'operating_income', unit: 'USD', points: [point(2023, 10, 'USD')] },
+        { concept: 'operating_cash_flow', unit: 'USD', points: [point(2023, 8, 'USD')] },
+        { concept: 'investing_cash_flow', unit: 'USD', points: [point(2023, -5, 'USD')] },
+        { concept: 'financing_cash_flow', unit: 'USD', points: [point(2023, -3, 'USD')] },
+      ],
+    })
+    renderChart()
+
+    const walk: [string, string][] = [
+      ['Revenue', CHART_SERIES[0]],
+      ['Net Income', CHART_SERIES[1]],
+      ['Gross Profit', CHART_SERIES[2]],
+      ['Operating Income', CHART_SERIES[3]],
+      ['Operating Cash Flow', CHART_SERIES[4]],
+      ['Investing Cash Flow', CHART_SERIES[5]],
+      ['Financing Cash Flow', CHART_SERIES[0]], // index 6 wraps back to color 1
+    ]
+    await screen.findByRole('button', { name: 'Revenue' })
+    for (const [label, color] of walk) {
+      fireEvent.click(screen.getByRole('button', { name: label }))
+      expect(screen.getByTestId('trend-bar')).toHaveAttribute('data-fill', color)
+    }
   })
 
   it('renders nothing once loaded for a filing with no facts', async () => {

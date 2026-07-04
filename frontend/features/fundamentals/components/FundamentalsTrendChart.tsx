@@ -12,7 +12,7 @@ import { ApiError } from '@/lib/api/client'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { WarningIcon } from '@/lib/icons'
 import { ThemeContext } from '@/components/ThemeProvider'
-import { Badge, Card, seriesColor, gridProps, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton } from '@/components/ui'
+import { Badge, Card, seriesColor, CHART_SERIES, gridProps, xAxisProps, yAxisProps, barCursorProps, ChartTooltip, Skeleton } from '@/components/ui'
 
 type FmtKind = 'usd' | 'eps' | 'pct' | 'ratio'
 
@@ -98,6 +98,13 @@ export default function FundamentalsTrendChart({
   const activeCurrency = currencyFromUnit(
     data?.concepts.find((c) => c.concept === activeKey)?.unit
   )
+  // Rotate the bar color per metric so each series reads distinctly as you tab through
+  // them — positional 1→N across the visible tabs (DESIGN_SYSTEM §10), never re-sorted.
+  // Pre-mod by the palette length so a 7th+ metric wraps in range without tripping
+  // seriesColor's ">6 series" dev warning (that targets simultaneous series; here one
+  // shows at a time and cycling is intentional). -1 (unfound) guards to color 1 (teal).
+  const activeIndex =
+    Math.max(0, available.findIndex((a) => a.key === activeKey)) % CHART_SERIES.length
 
   const chartData = useMemo(() => {
     if (!data || !activeKey) return []
@@ -197,7 +204,7 @@ export default function FundamentalsTrendChart({
               <Bar
                 dataKey="value"
                 name={active?.label ?? 'Value'}
-                fill={seriesColor(0)}
+                fill={seriesColor(activeIndex)}
                 radius={[4, 4, 0, 0]}
                 maxBarSize={56}
               />
