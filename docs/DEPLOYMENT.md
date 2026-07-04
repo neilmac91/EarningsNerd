@@ -293,6 +293,36 @@ gcloud run jobs execute earningsnerd-earnings-calendar-refresh --region=us-west1
   --args="scripts/earnings_calendar_job.py,--sweep-from,2026-06-28,--sweep-to,2026-07-04" --wait
 ```
 
+**Index universe restriction (S&P 500 / Nasdaq 100).** The calendar filter is gated by
+`CALENDAR_INDEX_FILTER_ENABLED` (ships off) and reads the committed
+`backend/app/data/index_membership.json` (~515 tickers, S&P 500 ∪ Nasdaq 100). It fails **open** —
+a missing/short list serves the calendar unfiltered rather than empty, so it can only ever hide
+long-tail names, never blank the page. First rollout:
+
+```bash
+# 1. Purge the long-tail rows already in the table (dry-run first; add ,--execute to apply). The
+#    purge REFUSES to run if the committed list is short — it can never delete the whole calendar.
+gcloud run jobs execute earningsnerd-earnings-calendar-refresh --region=us-west1 \
+  --args="scripts/purge_non_index_earnings.py" --wait           # dry run: prints what it would delete
+gcloud run jobs execute earningsnerd-earnings-calendar-refresh --region=us-west1 \
+  --args="scripts/purge_non_index_earnings.py,--execute" --wait
+# 2. Turn the filter on (serve + ingest). Instantly reversible: set it back to false and the next
+#    daily refresh re-populates non-members (AV returns the full calendar).
+gcloud run services update earningsnerd-backend --region=us-west1 \
+  --update-env-vars=CALENDAR_INDEX_FILTER_ENABLED=true
+# 3. Probe: peak days now show only large caps; spot-check BRK.B / GOOGL present.
+#    curl "https://api.earningsnerd.io/api/calendar?from=2026-07-27&to=2026-07-31"
+```
+
+**Quarterly: refresh the membership list** (the indexes rebalance ~quarterly). Regenerate, review the
+diff in a PR, merge — the served universe only ever changes via a reviewed commit, never a live fetch:
+
+```bash
+cd backend && FMP_API_KEY=… python scripts/refresh_index_membership.py   # or --source wikipedia (keyless)
+#   Prints the added/removed tickers and rewrites app/data/index_membership.json; commit it via PR.
+#   Aborts without writing if the fetch yields < 450 tickers (never truncates the committed list).
+```
+
 The `/internal/jobs/earnings-calendar-refresh` and `/internal/jobs/earnings-day-alerts` HTTP triggers
 still exist and are useful for an ad-hoc manual kick (e.g. re-seeding after a schema change) — just
 don't put the recurring schedule on them.
