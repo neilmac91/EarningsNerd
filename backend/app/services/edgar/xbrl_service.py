@@ -36,7 +36,9 @@ from .instance_extractor import (
     INSTANT_CONCEPTS,
     RICHER_DURATION_CONCEPTS,
     RICHER_INSTANT_CONCEPTS,
+    duration_series_currency_concept,
     duration_series_with_currency,
+    extract_financial_statement_metrics,
     instant_series_with_currency,
     normalize_form,
 )
@@ -52,7 +54,9 @@ set_identity(EDGAR_IDENTITY)
 # entries written by the previous logic cannot be served under the same key.
 # v2: accession-aware primary path (issue #240); v1 entries could hold the
 # latest 10-K's figures for any accession and must age out unread.
-_XBRL_CACHE_VERSION = "v2"
+# v3: financial-institution revenue via the as-reported income statement (filing 528 / MCB fix) —
+# v2 entries can hold a bank's fee-income-only "revenue" subset and must age out unread.
+_XBRL_CACHE_VERSION = "v3"
 
 # Module-level cache for XBRL data (L1 - in-memory with LRU eviction)
 # Key: "{cik}:{accession_number}"
@@ -263,16 +267,61 @@ def _extract_from_filing_instance_sync(
         duration_concepts = {**DURATION_CONCEPTS, **RICHER_DURATION_CONCEPTS}
         instant_concepts = {**INSTANT_CONCEPTS, **RICHER_INSTANT_CONCEPTS}
 
+    # Financial institutions: "revenue" has no single generic tag (a bank's ASC-606 fee-income tag
+    # is only a subset). Read the industry-correct revenue/component lines from the AS-REPORTED
+    # income statement and suppress the generic keys they replace. Non-financial filers are
+    # untouched, and any failure falls back to the generic fact-query path below.
+    fin_suppress = set()
+    fin_metrics = {}
+    if settings.USE_STATEMENT_FINANCIALS:
+        sic = getattr(company, "sic", None)
+        try:
+            fin = extract_financial_statement_metrics(xb, company, sic, base_form, period_of_report)
+        except Exception as exc:  # noqa: BLE001 - never let the statement path break extraction
+            logger.warning(f"Financial statement extraction failed for {accession_number}: {exc}")
+            fin = None
+        if fin is not None:
+            profile_key, fin_metrics, suppress = fin
+            fin_suppress = set(suppress)
+            logger.info(
+                f"Statement-based financial revenue for {accession_number} (profile={profile_key}, "
+                f"metrics={sorted(fin_metrics)})"
+            )
+
     for metric, concepts in duration_concepts.items():
-        series, currency = duration_series_with_currency(xb, concepts, base_form, period_of_report)
-        result[metric] = [
-            {"period": end, "value": value, "form": form, "accn": accession_number, "currency": currency}
-            for end, value in series
-        ]
+        if metric in fin_suppress or metric in fin_metrics:
+            continue  # the as-reported statement supplies (or intentionally omits) this metric
+        if metric == "revenue":
+            # Record the winning concept as raw_tag so a revenue concept that FLIPS between filings
+            # can be detected downstream (the −53.8% apples-to-oranges class of bug).
+            series, currency, concept = duration_series_currency_concept(
+                xb, concepts, base_form, period_of_report
+            )
+            raw_tag = f"us-gaap:{concept}" if concept else None
+            result[metric] = [
+                {"period": end, "value": value, "form": form, "accn": accession_number,
+                 "currency": currency, "raw_tag": raw_tag}
+                for end, value in series
+            ]
+        else:
+            series, currency = duration_series_with_currency(xb, concepts, base_form, period_of_report)
+            result[metric] = [
+                {"period": end, "value": value, "form": form, "accn": accession_number, "currency": currency}
+                for end, value in series
+            ]
         # EPS is per-share (currency-per-share), so it shouldn't sway the headline reporting
         # currency vote; weight revenue/net_income (true monetary totals) instead.
         if metric not in ("earnings_per_share", "eps_diluted"):
             _record_currency(currency, len(series))
+
+    # Emit the statement-derived financial metrics (revenue and/or bank components), each carrying
+    # its raw_tag. Values are in the filer's own reporting currency (domestic financials = USD).
+    for key, (fin_series, raw_tag) in fin_metrics.items():
+        result[key] = [
+            {"period": end, "value": value, "form": form, "accn": accession_number,
+             "currency": None, "raw_tag": raw_tag}
+            for end, value in fin_series
+        ]
     for metric, concepts in instant_concepts.items():
         series, currency = instant_series_with_currency(xb, concepts, period_of_report)
         result[metric] = [
@@ -294,8 +343,11 @@ def _extract_from_filing_instance_sync(
 
     # Anchor requirement: at least one income-statement metric for the
     # filing's own period — otherwise this instance is unusable and the
-    # accession-aware companyfacts fallback should take over.
-    if not any(result[key] for key in ("revenue", "net_income", "earnings_per_share")):
+    # accession-aware companyfacts fallback should take over. Banks report no single "revenue"
+    # (it is suppressed), so their net-interest/non-interest income components anchor instead.
+    anchor_keys = ("revenue", "net_income", "earnings_per_share",
+                   "net_interest_income", "noninterest_income")
+    if not any(result.get(key) for key in anchor_keys):
         logger.info(f"No usable consolidated facts in instance for {accession_number}")
         return None
     return result
@@ -948,6 +1000,10 @@ class EdgarXBRLService:
                     "value": entry.get("value"),
                     "form": entry.get("form"),
                     "currency": entry.get("currency"),
+                    # raw_tag rides through so financial_fact records which XBRL concept a value came
+                    # from (audit trail) and the change report can detect a concept that flips
+                    # between filings. None for legacy/pre-fix series.
+                    "raw_tag": entry.get("raw_tag"),
                 })
             return cleaned
 
@@ -1004,7 +1060,11 @@ class EdgarXBRLService:
                     "operating_income", "total_assets", "cash_and_equivalents",
                     "shareholders_equity", "long_term_debt",
                     "investing_cash_flow", "financing_cash_flow",
-                    "current_assets", "current_liabilities"):
+                    "current_assets", "current_liabilities",
+                    # Financial-institution revenue components/totals (filing 528 / MCB fix). Only
+                    # present for banks/insurers/BDCs; inert (empty series → skipped) otherwise.
+                    "net_interest_income", "noninterest_income",
+                    "premiums_earned", "net_investment_income"):
             series = normalise_series(xbrl_data.get(key, []))
             if series:
                 metrics[key] = build_metric_entry(series)

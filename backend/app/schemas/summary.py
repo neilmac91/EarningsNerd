@@ -107,6 +107,17 @@ def _infer_xbrl_metric(metric_name: str) -> Optional[str]:
     if not metric_name:
         return None
     lowered = metric_name.lower()
+    # Financial-institution components/totals FIRST — they all contain "income", so they must be
+    # matched before the generic "income → net_income" branch below (else they'd mis-backfill the
+    # prior period from the wrong series).
+    if "net interest income" in lowered:
+        return "net_interest_income"
+    if "non-interest income" in lowered or "noninterest income" in lowered:
+        return "noninterest_income"
+    if "net investment income" in lowered:
+        return "net_investment_income"
+    if "premiums earned" in lowered or "premium earned" in lowered:
+        return "premiums_earned"
     if "revenue" in lowered or "sales" in lowered or "turnover" in lowered:
         return "revenue"
     if "net income" in lowered or ("income" in lowered and "per share" not in lowered) or "profit" in lowered:

@@ -20,6 +20,12 @@ type FmtKind = 'usd' | 'eps' | 'pct' | 'ratio'
 // `concept` keys match the backend's standardized vocabulary (facts_service._CONCEPT_UNITS).
 const FEATURED: { key: string; label: string; fmt: FmtKind }[] = [
   { key: 'revenue', label: 'Revenue', fmt: 'usd' },
+  // Financial-institution revenue lines (only present for banks/insurers/BDCs — a bank shows these
+  // instead of a single Revenue; insurers add these alongside their reported total revenue).
+  { key: 'net_interest_income', label: 'Net Interest Income', fmt: 'usd' },
+  { key: 'noninterest_income', label: 'Non-Interest Income', fmt: 'usd' },
+  { key: 'premiums_earned', label: 'Premiums Earned', fmt: 'usd' },
+  { key: 'net_investment_income', label: 'Net Investment Income', fmt: 'usd' },
   { key: 'net_income', label: 'Net Income', fmt: 'usd' },
   { key: 'gross_profit', label: 'Gross Profit', fmt: 'usd' },
   { key: 'operating_income', label: 'Operating Income', fmt: 'usd' },

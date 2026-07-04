@@ -17,7 +17,7 @@ rename, omit, or reorder fields.
 ## Standard metrics — populate these from the quarterly financial statements
 | Metric | Where to find it |
 |--------|------------------|
-| Revenue | Condensed income statement — "Net sales" / "Total revenue" |
+| Revenue | Condensed income statement — "Net sales" / "Total revenue". **Financial institutions:** a bank has NO single revenue line — report "Net interest income" and "Non-interest income" as SEPARATE metrics, never summed into one "Revenue". When the XBRL STANDARDIZED FINANCIAL DATA block provides these figures, quote them verbatim rather than recomputing. |
 | Net Income | Income statement bottom line — "Net income" / "Net earnings" |
 | EPS (diluted) | Income statement — "Earnings per share — Diluted" |
 | Operating Cash Flow | Cash-flow statement — "Net cash provided by operating activities" |

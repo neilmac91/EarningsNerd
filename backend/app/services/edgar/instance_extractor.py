@@ -323,21 +323,23 @@ def _series_from_values(
     return series[:max_items]
 
 
-def duration_series_with_currency(
+def duration_series_currency_concept(
     xb: Any,
     concepts: List[str],
     form: str,
     period_of_report: str,
     max_items: int = 5,
-) -> Tuple[List[Tuple[str, float]], Optional[str]]:
-    """Income-statement series + reporting currency from the filing's instance.
+) -> Tuple[List[Tuple[str, float]], Optional[str], Optional[str]]:
+    """Income-statement series + reporting currency + the winning concept.
 
     The first candidate concept with an unambiguous, undimensioned fact of the form's standard
     duration ending on period_of_report wins; its facts for earlier period ends (the filing's own
     comparatives) follow, newest first. Facts are filtered to the issuer's reporting currency
     (so a USD convenience translation alongside a CNY/EUR figure for the same period is NOT treated
     as an ambiguous duplicate, which previously dropped the whole period). Concepts are never mixed
-    within one series. Returns (series, currency); currency is None when facts carry no currency.
+    within one series. Returns (series, currency, concept); currency is None when facts carry no
+    currency, and concept is the winning us-gaap/ifrs candidate (recorded as a ``raw_tag`` so
+    downstream can detect a concept that flips between filings). Both are None when nothing resolves.
     """
     for concept in concepts:
         candidates: List[Tuple[str, float, Optional[str], float]] = []
@@ -359,8 +361,22 @@ def duration_series_with_currency(
             values_by_end.setdefault(end, []).append((round(value, 4), dec))
         series = _series_from_values(values_by_end, period_of_report, max_items)
         if series:
-            return series, currency
-    return [], None
+            return series, currency, concept
+    return [], None, None
+
+
+def duration_series_with_currency(
+    xb: Any,
+    concepts: List[str],
+    form: str,
+    period_of_report: str,
+    max_items: int = 5,
+) -> Tuple[List[Tuple[str, float]], Optional[str]]:
+    """Back-compat wrapper: income-statement series + currency (drops the winning concept)."""
+    series, currency, _concept = duration_series_currency_concept(
+        xb, concepts, form, period_of_report, max_items
+    )
+    return series, currency
 
 
 def instant_series_with_currency(
@@ -419,3 +435,266 @@ def instant_series(
 ) -> List[Tuple[str, float]]:
     """Back-compat wrapper returning only the value series (drops the currency)."""
     return instant_series_with_currency(xb, concepts, period_of_report, max_items)[0]
+
+
+# ---------------------------------------------------------------------------
+# Industry-aware revenue for FINANCIAL INSTITUTIONS (filing 528 / MCB fix).
+#
+# A generic revenue tag is wrong for a financial institution: a bank rarely tags a `Revenues`
+# top line, so the flat priority list falls through to `RevenueFromContractWithCustomer…`, which
+# under ASC 606 is only fee/non-interest income (a subset). EdgarTools' own standardization shares
+# this blind spot (it maps that fee tag to a generic "Revenue"). The reliable fix is to read the
+# filing's AS-REPORTED income statement (`xb.statements.income_statement()`), which renders the
+# filer's actual line items, and select the industry-correct line(s) by concept + statement
+# structure. Non-financial filers keep the generic fact-query path unchanged.
+#
+# Empirically validated against real filings (MCB bank, MET insurer, BLK asset manager, ARCC BDC):
+#   • the total/component rows carry a set `standard_concept`, while disaggregation sub-lines under
+#     the same us-gaap concept carry a null one — so (concept anchor + expected standard_concept)
+#     uniquely identifies the total line even when a concept appears on several presentation rows;
+#   • `standard_concept == "Revenue"` is attached to a bank's $11M fee-income row, so it must NOT be
+#     trusted for banks — the specific concept anchors are what make banks correct;
+#   • some financial filers (e.g. ARCC) carry a blank SIC, so `is_financial_institution()` is the
+#     gate and concept-presence is the sub-type signal.
+# ---------------------------------------------------------------------------
+
+# Broad financial-services SIC band, used only as a fallback gate when `is_financial_institution()`
+# is unavailable/False. Sub-typing is by concept presence, not SIC (robust to blank/mis-set SIC).
+FINANCIAL_SIC_LOW, FINANCIAL_SIC_HIGH = 6000, 6799
+
+# Ordered financial-institution profiles. `detect` = concept locals whose presence sub-types the
+# filer (empty = catch-all). Each selector = (standardized_key, anchor concept locals in priority
+# order, expected standard_concept marking the total/component row). `suppress` = generic keys to
+# OMIT (banks emit components, never a single conflated "revenue").
+FINANCIAL_PROFILES: List[Dict[str, Any]] = [
+    {
+        "key": "bank",
+        "detect": ("InterestIncomeExpenseNet", "NoninterestIncome"),
+        "selectors": [
+            ("net_interest_income", ("InterestIncomeExpenseNet",), "NetInterestIncome"),
+            ("noninterest_income", ("NoninterestIncome",), "NonInterestIncome"),
+        ],
+        "suppress": ("revenue",),
+    },
+    {
+        "key": "insurer",
+        "detect": ("PremiumsEarnedNet",),
+        "selectors": [
+            ("revenue", ("Revenues",), "Revenue"),
+            ("premiums_earned", ("PremiumsEarnedNet",), "Revenue"),
+            ("net_investment_income", ("NetInvestmentIncome",), "Revenue"),
+        ],
+        "suppress": (),
+    },
+    {
+        # BDC / closed-end fund: "revenue" is TOTAL investment income (gross, before expenses) —
+        # `GrossInvestmentIncomeOperating`. Net investment income is after expenses (≈ a BDC's "net
+        # income"), and its standard_concept is misleadingly "Revenue", so anchor on the gross total.
+        "key": "bdc",
+        "detect": ("GrossInvestmentIncomeOperating", "InvestmentIncomeOperating", "InvestmentIncomeNet"),
+        "selectors": [
+            ("revenue", ("GrossInvestmentIncomeOperating", "InvestmentIncomeOperating",
+                         "InvestmentIncomeOperatingNet", "InvestmentIncomeNet", "Revenues"), "Revenue"),
+        ],
+        "suppress": (),
+    },
+    {
+        # Catch-all for financial institutions not sub-typed above (asset managers, broker-dealers):
+        # read their genuine as-reported total-revenue line instead of a guessed tag.
+        "key": "financial_generic",
+        "detect": (),
+        "selectors": [
+            ("revenue", ("Revenues", "RevenueFromContractWithCustomerExcludingAssessedTax",
+                         "RevenueFromContractWithCustomerIncludingAssessedTax"), "Revenue"),
+        ],
+        "suppress": (),
+    },
+]
+
+
+def _concept_local(concept: Any) -> str:
+    """Local name of an as-reported ``concept`` cell: ``us-gaap_InterestIncomeExpenseNet`` -> the
+    part after the namespace ``_`` (``mcb_Foo`` -> ``Foo``). Namespace/local are joined by a single
+    underscore; us-gaap/ifrs local names themselves carry none."""
+    text = str(concept or "")
+    return text.split("_", 1)[1] if "_" in text else text
+
+
+def is_financial_institution(company: Any, sic: Optional[str]) -> bool:
+    """True when the filer is a bank/insurer/investment-manager/BDC.
+
+    Primary signal is edgartools' ``company.is_financial_institution()`` (True even when SIC is
+    blank, e.g. ARCC); the broad financial-services SIC band is only a fallback when that is
+    unavailable. Duck-typed so unit tests can pass a lightweight fake.
+    """
+    probe = getattr(company, "is_financial_institution", None)
+    try:
+        if callable(probe) and bool(probe()):
+            return True
+    except Exception as exc:  # noqa: BLE001 - any failure just falls back to SIC
+        logger.debug(f"is_financial_institution() probe failed: {exc}")
+    try:
+        code = int(str(sic)[:4]) if sic not in (None, "") else None
+    except (TypeError, ValueError):
+        code = None
+    return code is not None and FINANCIAL_SIC_LOW <= code <= FINANCIAL_SIC_HIGH
+
+
+def income_statement_dataframe(xb: Any) -> Any:
+    """The filing's as-reported income statement as a face-value DataFrame, or None.
+
+    Uses ``view="standard"`` (undimensioned face values — the filing document view; the successor
+    to the deprecated ``include_dimensions=False``). Fully defensive: any failure in the statement
+    machinery returns None so the caller falls back to the generic fact-query path and extraction
+    never hard-fails.
+    """
+    try:
+        statement = xb.statements.income_statement()
+        if statement is None:
+            return None
+        try:
+            df = statement.to_dataframe(view="standard")
+        except TypeError:
+            df = statement.to_dataframe()  # older signatures without `view`
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"income_statement() unavailable: {exc}")
+        return None
+    if df is None or getattr(df, "empty", True):
+        return None
+    return df
+
+
+def _statement_period_columns(df: Any, form: str) -> List[Tuple[str, Any]]:
+    """[(period_end_iso, column)] for the statement's dated period columns, newest first.
+
+    Columns look like ``"2025-12-31 (FY)"``. For annual forms we require the ``(FY)`` marker so a
+    quarterly/YTD column can never be mistaken for the fiscal-year figure.
+    """
+    annual = normalize_form(form) in ("10-K", "20-F", "40-F")
+    cols: List[Tuple[str, Any]] = []
+    for col in df.columns:
+        text = str(col)
+        end = _iso_date(text[:10])
+        if end is None:
+            continue
+        if annual and "(FY)" not in text:
+            continue
+        cols.append((end, col))
+    cols.sort(key=lambda pc: pc[0], reverse=True)
+    return cols
+
+
+def _truthy_flag(value: Any) -> bool:
+    """Normalize a statement flag cell to a bool. The as-reported DataFrame carries ``abstract`` /
+    ``is_breakdown`` / ``dimension`` as booleans for face rows (``False``), but older/other views may
+    use NaN or a dimension-axis string. NaN/None/"" → False; a real bool passes through; any other
+    non-empty value (e.g. an axis name) → True."""
+    if isinstance(value, bool):
+        return value
+    if value is None:
+        return False
+    if isinstance(value, float) and value != value:  # NaN
+        return False
+    return bool(str(value).strip())
+
+
+def _row_is_face_value(row: Any) -> bool:
+    """A usable statement line: not an abstract header, not a dimensional breakdown member."""
+    return not (
+        _truthy_flag(row.get("abstract"))
+        or _truthy_flag(row.get("is_breakdown"))
+        or _truthy_flag(row.get("dimension"))
+    )
+
+
+def _select_statement_series(
+    df: Any,
+    anchors: Tuple[str, ...],
+    expected_std: Optional[str],
+    period_cols: List[Tuple[str, Any]],
+    period_of_report: str,
+    max_items: int = 5,
+) -> Tuple[List[Tuple[str, float]], Optional[str]]:
+    """Series + winning us-gaap tag for the total/component row of the first resolving anchor.
+
+    For each anchor concept (priority order), take the face-value rows whose local concept matches.
+    When several rows share the concept (a total plus disaggregation sub-lines), the total is the
+    one whose ``standard_concept`` equals ``expected_std`` — the marker the as-reported statement
+    puts only on the recognized line. Reads that row's value from every dated period column and
+    requires an anchor at ``period_of_report`` (proving it is the figure this filing reports).
+    """
+    records = df.to_dict("records")
+    for anchor in anchors:
+        matches = [r for r in records if _concept_local(r.get("concept")) == anchor and _row_is_face_value(r)]
+        if not matches:
+            continue
+        chosen = None
+        if len(matches) == 1:
+            chosen = matches[0]
+        elif expected_std:
+            marked = [r for r in matches if str(r.get("standard_concept") or "") == expected_std]
+            if len(marked) == 1:
+                chosen = marked[0]
+        if chosen is None:
+            continue  # genuinely ambiguous — don't guess
+        series: List[Tuple[str, float]] = []
+        for end, col in period_cols:
+            if end > period_of_report:
+                continue
+            value = _numeric(chosen.get(col))
+            if value is not None:
+                series.append((end, value))
+        if series and series[0][0] == period_of_report:
+            return series[:max_items], f"us-gaap:{anchor}"
+    return [], None
+
+
+def match_financial_profile(df: Any) -> Optional[Dict[str, Any]]:
+    """The financial-institution profile for an as-reported income statement, by concept presence."""
+    present = {
+        _concept_local(r.get("concept"))
+        for r in df.to_dict("records")
+        if _row_is_face_value(r)
+    }
+    for profile in FINANCIAL_PROFILES:
+        detect = profile["detect"]
+        if not detect or present.intersection(detect):
+            return profile
+    return None
+
+
+def extract_financial_statement_metrics(
+    xb: Any,
+    company: Any,
+    sic: Optional[str],
+    form: str,
+    period_of_report: str,
+    max_items: int = 5,
+) -> Optional[Tuple[str, Dict[str, Tuple[List[Tuple[str, float]], str]], Tuple[str, ...]]]:
+    """Industry-correct revenue for a financial institution, from its as-reported income statement.
+
+    Returns ``(profile_key, {standardized_key: (series, raw_tag)}, suppress_keys)`` or None when the
+    filer isn't a financial institution, the statement is unavailable, or nothing resolves — in
+    every None case the caller keeps the unchanged generic fact-query extraction.
+    """
+    if not is_financial_institution(company, sic):
+        return None
+    df = income_statement_dataframe(xb)
+    if df is None:
+        return None
+    period_cols = _statement_period_columns(df, form)
+    if not period_cols:
+        return None
+    profile = match_financial_profile(df)
+    if profile is None:
+        return None
+    metrics: Dict[str, Tuple[List[Tuple[str, float]], str]] = {}
+    for key, anchors, expected_std in profile["selectors"]:
+        series, raw_tag = _select_statement_series(
+            df, anchors, expected_std, period_cols, period_of_report, max_items
+        )
+        if series and raw_tag:
+            metrics[key] = (series, raw_tag)
+    if not metrics:
+        return None
+    return profile["key"], metrics, tuple(profile["suppress"])

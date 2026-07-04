@@ -227,7 +227,14 @@ def _normalize_risk_factors(raw_risks: Any) -> list[dict[str, str]]:
 # RICHER_FINANCIALS_ENABLED was on at extraction time, so the prompt is byte-for-byte unchanged
 # otherwise. Order mirrors the financial statements (CF flows by operating CF; liquidity by assets).
 _XBRL_NARRATIVE_SPEC: list[tuple[str, str, str]] = [
-    ("Revenue", "revenue", "usd"), ("Gross Profit", "gross_profit", "usd"),
+    ("Revenue", "revenue", "usd"),
+    # Financial-institution revenue components/totals (self-gating — only present for banks/insurers/
+    # BDCs). A bank shows Net Interest Income + Non-Interest Income and NO single "Revenue".
+    ("Net Interest Income", "net_interest_income", "usd"),
+    ("Non-Interest Income", "noninterest_income", "usd"),
+    ("Premiums Earned (Net)", "premiums_earned", "usd"),
+    ("Net Investment Income", "net_investment_income", "usd"),
+    ("Gross Profit", "gross_profit", "usd"),
     ("Operating Income", "operating_income", "usd"), ("Net Income", "net_income", "usd"),
     ("EPS (Basic)", "earnings_per_share", "eps"), ("EPS (Diluted)", "eps_diluted", "eps"),
     ("Gross Margin", "gross_margin", "pct"),
@@ -318,6 +325,15 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
         return ""
     header = "XBRL STANDARDIZED FINANCIAL DATA (SEC-verified; quote these figures verbatim):"
     body = header + "\n" + "\n".join(rows)
+    # Financial-institution guard: a bank has no single "revenue" line (its generic revenue tag is
+    # only fee income), so the model must report the components separately instead of inventing a
+    # conflated composite — the root of the cross-section revenue mismatch this addresses.
+    if any(isinstance(xbrl_metrics.get(k), dict) for k in ("net_interest_income", "noninterest_income")):
+        body += (
+            "\nNOTE — financial institution: there is NO single revenue line here. Report Net "
+            "Interest Income and Non-Interest Income as the SEPARATE figures given above; do NOT sum "
+            'them into, or invent, a single "Revenue" number.'
+        )
     # Foreign (non-USD) filers: name the reporting currency emphatically, right next to the figures.
     # The generic "don't render non-USD as $" rule in the analyst system prompt is intermittently
     # ignored for less-common currencies (observed ~1/3 on DKK/Novo Nordisk — figures rendered as

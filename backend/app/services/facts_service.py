@@ -18,9 +18,18 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Filing, FinancialFact
+from app.models import Company, Filing, FinancialFact
 
 logger = logging.getLogger(__name__)
+
+# Financial-institution revenue concepts affected by the as-reported-statement fix (filing 528).
+# When remediating, the stale rows under these concepts (e.g. a bank's fee-income-only "revenue")
+# are deleted and re-inserted from the corrected extraction — raw_tag is NOT in the identity key,
+# so a plain re-upsert would skip them.
+AFFECTED_FINANCIAL_CONCEPTS: tuple[str, ...] = (
+    "revenue", "net_interest_income", "noninterest_income",
+    "premiums_earned", "net_investment_income",
+)
 
 # Standardized concept (from xbrl_service.extract_standardized_metrics) → DEFAULT unit, used only
 # when the fact carries no reporting currency (domestic US filers). When a fact carries a currency
@@ -43,6 +52,13 @@ _CONCEPT_UNITS: dict[str, str] = {
     "net_margin": "pure",
     "gross_margin": "pure",
     "operating_margin": "pure",
+    # Financial-institution revenue components/totals (filing 528 / MCB fix). All monetary totals;
+    # deliberately NOT in NON_NEGATIVE_CONCEPTS (net interest income / net investment income can be
+    # negative), and NOT in HEADLINE_GAAP_TAGS so the companyfacts cross-check leaves them alone.
+    "net_interest_income": "USD",
+    "noninterest_income": "USD",
+    "premiums_earned": "USD",
+    "net_investment_income": "USD",
     # Roadmap 2.6: full cash-flow statement + working-capital lines (flag-gated extraction).
     "investing_cash_flow": "USD",
     "financing_cash_flow": "USD",
@@ -143,6 +159,9 @@ def normalize_standardized_to_facts(
                     "company_id": company_id,
                     "filing_id": filing_id,
                     "concept": concept,
+                    # The underlying XBRL tag this value came from (e.g. "us-gaap:InterestIncomeExpenseNet").
+                    # Recorded for audit + so a concept that flips between filings can be detected.
+                    "raw_tag": point.get("raw_tag"),
                     # Derived monetary metrics (e.g. free_cash_flow, computed from OCF − capex)
                     # don't carry a per-point currency, so fall back to the filing's overall
                     # reporting currency rather than silently defaulting to USD.
@@ -647,6 +666,89 @@ def backfill_facts(
         "facts_rejected": rejected,
         "extract_errors": errors,
     }
+
+
+def _is_financial_sic(sic: Any) -> bool:
+    """True when a SIC code falls in the broad financial-services band (6000–6799)."""
+    try:
+        code = int(str(sic)[:4]) if sic not in (None, "") else None
+    except (TypeError, ValueError):
+        return False
+    return code is not None and 6000 <= code <= 6799
+
+
+def remediate_industry_facts(
+    db: Session,
+    *,
+    refetch,
+    tickers: Optional[list[str]] = None,
+    limit: Optional[int] = None,
+    dry_run: bool = False,
+) -> dict[str, int]:
+    """Re-extract & re-normalize FINANCIAL-INSTITUTION filings so persisted ``xbrl_data`` and
+    ``financial_fact`` carry the industry-correct revenue/components (filing 528 / MCB fix).
+
+    Existing bank filings hold a fee-income-only "revenue" subset. Because ``raw_tag`` is not in the
+    fact identity key, a plain re-upsert would SKIP the stale rows, so we delete the affected
+    concepts for each filing and re-insert from the corrected extraction.
+
+    ``refetch(company, filing) -> Optional[dict]`` returns fresh ``xbrl_data`` (or None to skip) — it
+    is injected so this function stays network-free and unit-testable; the CLI wires the real
+    (statement-aware) XBRL extractor. Filings are processed **oldest-first per company** so corrected
+    current values reconcile against corrected priors (avoiding false magnitude flags), and the
+    newest filing wins ``is_latest``. Cross-check is intentionally OFF (authoritative=None): SEC
+    companyfacts has no single authoritative tag for a bank's components/total.
+    """
+    companies_q = db.query(Company)
+    if tickers:
+        companies_q = companies_q.filter(Company.ticker.in_([t.upper() for t in tickers]))
+    companies = [c for c in companies_q.all() if tickers or _is_financial_sic(getattr(c, "sic", None))]
+
+    stats = {"companies": 0, "filings_refetched": 0, "filings_skipped": 0,
+             "facts_deleted": 0, "facts_inserted": 0, "errors": 0}
+    processed = 0
+    for company in companies:
+        filings = (
+            db.query(Filing)
+            .filter(Filing.company_id == company.id, Filing.xbrl_data.isnot(None))
+            .order_by(Filing.filing_date.asc())
+            .all()
+        )
+        if not filings:
+            continue
+        stats["companies"] += 1
+        for filing in filings:
+            if limit is not None and processed >= limit:
+                return stats
+            try:
+                fresh = refetch(company, filing)
+            except Exception:
+                logger.exception("remediate: refetch failed for filing %s", filing.id)
+                stats["errors"] += 1
+                continue
+            if not fresh:
+                stats["filings_skipped"] += 1
+                continue
+            processed += 1
+            stats["filings_refetched"] += 1
+            if dry_run:
+                continue
+            filing.xbrl_data = fresh
+            deleted = (
+                db.query(FinancialFact)
+                .filter(
+                    FinancialFact.company_id == company.id,
+                    FinancialFact.accession == filing.accession_number,
+                    FinancialFact.concept.in_(AFFECTED_FINANCIAL_CONCEPTS),
+                )
+                .delete(synchronize_session=False)
+            )
+            stats["facts_deleted"] += deleted or 0
+            db.commit()
+            result = process_filing_facts(db, filing)  # cross_check off (authoritative=None)
+            if result is not None:
+                stats["facts_inserted"] += result["inserted"]
+    return stats
 
 
 def _fundamentals_payload(ticker: str, company_name: str, rows) -> dict[str, Any]:

@@ -17,7 +17,7 @@ rename, omit, or reorder fields.
 ## Standard metrics — these exist in essentially every 10-K; find and populate them
 | Metric | Where to find it |
 |--------|------------------|
-| Revenue | Item 8 income statement — "Net sales" / "Total revenue" |
+| Revenue | Item 8 income statement — "Net sales" / "Total revenue". **Financial institutions:** a bank has NO single revenue line — report "Net interest income" and "Non-interest income" as SEPARATE metrics, never summed into one "Revenue". When the XBRL STANDARDIZED FINANCIAL DATA block provides these figures, quote them verbatim rather than recomputing. |
 | Net Income | Income statement bottom line — "Net income" / "Net earnings" |
 | EPS (diluted) | Income statement — "Earnings per share — Diluted" |
 | Total Assets | Balance sheet |

@@ -317,6 +317,15 @@ class Settings(BaseSettings):
     # to fall back to the legacy concept set.
     RICHER_FINANCIALS_ENABLED: bool = True
 
+    # Financial-institution revenue via the AS-REPORTED income statement (filing 528 / MCB fix).
+    # A generic revenue tag is wrong for a bank (it resolves to the ASC-606 fee-income subset), so
+    # when True, XBRL extraction reads industry-correct revenue/component lines
+    # (net interest income + non-interest income for banks; the reported total-revenue line for
+    # insurers/asset-managers/BDCs) from `xbrl.statements.income_statement()` for financial
+    # institutions only. Non-financial filers are unaffected. Default False until the eval bake-off
+    # confirms no regression; set USE_STATEMENT_FINANCIALS=true to enable, then remediate persisted data.
+    USE_STATEMENT_FINANCIALS: bool = False
+
     # Anonymous (guest) daily summary quota (roadmap S5). Guests currently have no daily/monthly
     # cap (only 5/60s per IP), so one IP could trigger thousands of AI calls/month. A small daily
     # cap keeps free activation sustainable WITHOUT ever gating the first summary (a brand-new IP

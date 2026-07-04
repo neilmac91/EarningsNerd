@@ -53,6 +53,33 @@ def get_peers(
 
     concept = (concept or DEFAULT_CONCEPT).strip() or DEFAULT_CONCEPT
 
+    # Financial institutions report no single "revenue" fact (a bank stores net-interest / non-
+    # interest income components instead). When the default revenue ranking is requested for such a
+    # subject, fall back to net interest income so the peer panel stays meaningful (same-SIC bank
+    # peers likewise carry it) rather than collapsing to an empty cohort.
+    if concept == DEFAULT_CONCEPT:
+        has_revenue = (
+            db.query(FinancialFact.id)
+            .filter(
+                FinancialFact.company_id == company.id,
+                FinancialFact.concept == DEFAULT_CONCEPT,
+                FinancialFact.is_latest.is_(True),
+            )
+            .first()
+        )
+        if not has_revenue:
+            has_nii = (
+                db.query(FinancialFact.id)
+                .filter(
+                    FinancialFact.company_id == company.id,
+                    FinancialFact.concept == "net_interest_income",
+                    FinancialFact.is_latest.is_(True),
+                )
+                .first()
+            )
+            if has_nii:
+                concept = "net_interest_income"
+
     # Currency guard: a ranking is only meaningful within ONE currency — a CNY revenue is
     # ~7x a USD one, so a foreign private issuer (which now stores native-currency facts,
     # e.g. unit="CNY") must never be ranked head-to-head against USD filers in the same SIC.
