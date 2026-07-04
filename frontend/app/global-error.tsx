@@ -38,7 +38,7 @@ export default function GlobalError({
                             </button>
                             <button
                                 onClick={() => window.location.reload()}
-                                className="rounded-lg border border-border-light bg-white px-4 py-2 font-medium text-text-secondary-light transition-colors hover:bg-background-light focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 dark:border-border-dark dark:bg-background-dark dark:text-text-secondary-dark dark:hover:bg-background-dark"
+                                className="rounded-lg border border-border-light bg-white px-4 py-2 font-medium text-text-secondary-light transition-colors hover:bg-background-light focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 dark:border-border-dark dark:bg-panel-dark dark:text-text-secondary-dark dark:hover:bg-white/5"
                             >
                                 Reload Page
                             </button>

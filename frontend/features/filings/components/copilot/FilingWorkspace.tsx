@@ -199,13 +199,10 @@ export default function FilingWorkspace({
                   <kbd className="ml-1 hidden rounded border border-border-light bg-background-light px-1.5 py-0.5 text-[10px] font-semibold leading-none sm:inline-block">
                     ⌘K
                   </kbd>
-                  {/* First-run "new" dot: the ping ring animates only when motion is allowed; the dot
-                      itself is the static fallback for prefers-reduced-motion (WCAG 2.3.3). */}
+                  {/* First-run "new" dot — static (the decorative ping ring was removed for
+                      reduced-motion parity; the solid dot is the attention affordance). */}
                   {showAttention && (
-                    <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5">
-                      <span className="absolute inline-flex h-full w-full rounded-full bg-white/70 opacity-75" />
-                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white ring-2 ring-brand-strong dark:ring-brand-dark" />
-                    </span>
+                    <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-white ring-2 ring-brand-strong dark:ring-brand-dark" />
                   )}
                 </button>
                 {showAttention && (
