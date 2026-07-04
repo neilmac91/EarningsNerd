@@ -278,6 +278,21 @@ gcloud run jobs execute earningsnerd-earnings-calendar-refresh --region=us-west1
 gcloud run jobs execute earningsnerd-earnings-day-alerts       --region=us-west1
 ```
 
+**One-shot maintenance runs (repair / re-sweep):** `gcloud run jobs execute --args=…` overrides the
+arguments for THAT execution only — the job definition keeps `--command=python`, and the next
+scheduled run is unaffected. Since the DB is only reachable from Cloud Run, this is also the way to
+run any `backend/scripts/*` maintenance script against prod. Used for the 2026-07 false-"reported"
+cleanup (unguarded 8-K 2.02 flips — BIIB shown as reported on its pre-announcement day):
+
+```bash
+# 1. Re-classify the poisoned window (dry-run first; add ,--execute to apply)
+gcloud run jobs execute earningsnerd-earnings-calendar-refresh --region=us-west1 \
+  --args="scripts/repair_false_reported_earnings.py,--from,2026-06-28,--to,2026-07-04" --wait
+# 2. Guarded re-sweep of the same window to re-flip the genuine releases the old code dropped
+gcloud run jobs execute earningsnerd-earnings-calendar-refresh --region=us-west1 \
+  --args="scripts/earnings_calendar_job.py,--sweep-from,2026-06-28,--sweep-to,2026-07-04" --wait
+```
+
 The `/internal/jobs/earnings-calendar-refresh` and `/internal/jobs/earnings-day-alerts` HTTP triggers
 still exist and are useful for an ad-hoc manual kick (e.g. re-seeding after a schema change) — just
 don't put the recurring schedule on them.

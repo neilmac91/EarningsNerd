@@ -279,6 +279,27 @@ Conflict & hygiene rules:
 - A date that slips past its estimate is a mild bad-news signal (Bagnoli et al. 2002; deHaan et al.
   2015) — future product surface ("delayed vs usual schedule" chip), free differentiation.
 
+**Implemented 2026-07 (post-incident hardening).** The 2026-07-01 BIIB pre-announcement showed that
+"8-K Item 2.02 = reported" is unsound — 2.02 covers *any* results-of-operations disclosure. The
+reconciliation now enforces:
+
+- **Timing-plausibility guard** (`is_probable_earnings_release`) on every reported flip: pass iff
+  `10 ≤ (filed − fiscal_period_end).days ≤ 90` (the real reporting window) **or**
+  `|filed − expected_date| ≤ 7` (on-estimate release). Rejected hits are logged + counted
+  (`skipped_non_earnings`), and the estimate stands.
+- **Flip-only market sweep**: a 2.02 hit with no prior calendar row is skipped
+  (`skipped_no_prior`), never inserted — the item code alone can't establish an earnings event
+  (royalty-trust distribution 8-Ks). Future extension: corroborate no-prior hits via the filer's
+  submissions JSON.
+- **Stale-estimate downgrade** (the rule above, now built): each refresh drops past-dated
+  `estimated` rows to `confidence='low'` (`stale_downgraded`).
+- **Facts-only past days at serve time**: `/api/calendar` and reporting-this-week hide past-dated
+  estimates — a past day shows only `reported` rows (an unreported estimate on a past day would
+  misstate history either way).
+- **Repair path**: `scripts/repair_false_reported_earnings.py` re-classifies historical `edgar_8k`
+  reported rows with the same guard (keep / restore-to-prior-estimate / delete), and
+  `scripts/earnings_calendar_job.py --sweep-from/--sweep-to` re-sweeps a window under the guard.
+
 ### 3.6 Cost
 
 | Item | Monthly |

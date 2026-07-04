@@ -14,9 +14,11 @@ from datetime import date, datetime, timedelta
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models import EarningsEvent
+from app.models.earnings import STATUS_REPORTED
 
 logger = logging.getLogger(__name__)
 
@@ -96,29 +98,36 @@ class ReportingThisWeekService:
         # cache for a later, larger-limit request in the same window.
         self._cache_companies: Optional[List[ReportingCompany]] = None
         self._cache_timestamp: Optional[datetime] = None
-        self._cache_week: Optional[tuple[date, date]] = None
+        self._cache_week: Optional[tuple[date, date, date]] = None
 
     async def get_reporting_this_week(
-        self, db: Session, *, limit: int = 16, force_refresh: bool = False
+        self, db: Session, *, limit: int = 16, force_refresh: bool = False,
+        today: Optional[date] = None,
     ) -> Dict[str, Any]:
         """Return the week's most-anticipated large-caps, ranked. Always returns a dict with a
         `companies` list (possibly empty) and a `status` field (`ok` | `empty`). Never raises."""
-        monday, friday = current_market_week()
+        # NY-today is resolved locally rather than via earnings_calendar_service.today_eastern():
+        # that module imports CURATED_TICKERS from THIS one, and the reverse import would close a
+        # cycle its defensive try/except silently swallows — zeroing out curated scoring.
+        today_ny = today if today is not None else datetime.now(_NY_TZ).date()
+        monday, friday = current_market_week(today_ny)
         now = datetime.utcnow()
 
+        # today_ny is part of the cache key so the past-day filter rolls at ET midnight rather
+        # than whenever the 6h TTL happens to lapse.
         if (
             not force_refresh
             and self._cache_companies is not None
             and self._cache_timestamp is not None
-            and self._cache_week == (monday, friday)
+            and self._cache_week == (monday, friday, today_ny)
             and now - self._cache_timestamp < self._cache_ttl
         ):
             companies = self._cache_companies
         else:
-            companies = self._fetch(db, monday, friday)
+            companies = self._fetch(db, monday, friday, today_ny)
             self._cache_companies = companies
             self._cache_timestamp = now
-            self._cache_week = (monday, friday)
+            self._cache_week = (monday, friday, today_ny)
 
         status = "ok" if len(companies) >= MIN_COMPANIES else "empty"
         sliced = companies[:limit] if status == "ok" else []
@@ -130,13 +139,18 @@ class ReportingThisWeekService:
             "timestamp": self._cache_timestamp.isoformat() + "Z",
         }
 
-    def _fetch(self, db: Session, monday: date, friday: date) -> List[ReportingCompany]:
+    def _fetch(self, db: Session, monday: date, friday: date, today: date) -> List[ReportingCompany]:
         """The week's events, most-anticipated first (the anticipation score already carries the
-        CURATED_TICKERS mega-cap floor, so no allowlist intersect is needed)."""
+        CURATED_TICKERS mega-cap floor, so no allowlist intersect is needed). Days already behind
+        us serve facts only — a past-dated estimate is either already reported or was wrong."""
         try:
             events = (
                 db.query(EarningsEvent)
-                .filter(EarningsEvent.event_date >= monday, EarningsEvent.event_date <= friday)
+                .filter(
+                    EarningsEvent.event_date >= monday,
+                    EarningsEvent.event_date <= friday,
+                    or_(EarningsEvent.status == STATUS_REPORTED, EarningsEvent.event_date >= today),
+                )
                 .order_by(EarningsEvent.anticipation_score.desc(), EarningsEvent.event_date.asc())
                 .all()
             )

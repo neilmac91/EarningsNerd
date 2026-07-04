@@ -579,3 +579,22 @@ LLM judge for qualitative dims). Full plan: `~/.claude/plans/act-as-an-expert-ad
 - Eval-gate every wave (deterministic no-regression + judge hold-or-improve). Re-pin baseline on a locked gain.
 - Run the FULL pytest AND `ruff check .` before pushing (lessons.md).
 - Surgical edits; keep directives lean (over-prescription → formulaic prose risk).
+
+## False-"reported" earnings dates fix (BIIB 7/1 → real 7/29) — 2026-07-04
+Root cause: unguarded ingest treated ANY 8-K Item 2.02 as an earnings release (BIIB pre-announcement
+7/1 flipped the 7/29 estimate; TSLA delivery 8-K; MVO distribution notices inserted fresh rows).
+Plan approved (plans/please-see-the-attached-magical-rain.md); decisions locked: flip-only sweep,
+facts-only past days.
+- [x] `is_probable_earnings_release` guard (gap 10–90d OR delta ≤7d) on BOTH flip paths; unified
+      single flip site; insert path deleted (`skipped_no_prior`); new RefreshStats counters.
+- [x] Past-date hygiene: AV ingest skips past-dated rows; `downgrade_stale_estimates` in refresh;
+      `events_in_range` + reporting-this-week serve facts-only past days; dashboard calendar on ET day.
+- [x] `scripts/repair_false_reported_earnings.py` (keep/restore/delete, dry-run default, shares the
+      engine guard) + `earnings_calendar_job.py --sweep-from/--sweep-to` guarded re-sweep.
+- [x] Tests: guard thresholds + BIIB/TSLA shapes, flip-only, AV past-skip, facts-only serving,
+      stale downgrade, sweep-window override, repair classification/mutation; time-bombs defused
+      (fixed `today=` injection).
+- [x] Docs: strategy §3.5 implemented-rules block, DEPLOYMENT one-shot `--args` runbook, lessons.md.
+- [ ] Verify: targeted pytest → full unit suite → ruff; push; draft PR.
+- [ ] Prod (user, after merge+deploy): repair dry-run → --execute → guarded re-sweep → probe
+      /api/calendar (BIIB on 7/29 estimated, not 7/1 reported).

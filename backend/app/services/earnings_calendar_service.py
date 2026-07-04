@@ -4,6 +4,8 @@ The calendar is served entirely from Postgres (`earnings_events`); providers tou
 the daily refresh job, never the render path. Sources and precedence:
 
   reported (edgar_8k)  — 8-K Item 2.02 ground truth; TERMINAL, overrides everything, never overwritten
+                         (flips are guarded by timing plausibility — `is_probable_earnings_release` —
+                         and the market-wide sweep never inserts rows, it only flips known ones)
   provider (alpha_vantage) — forward estimates for not-yet-reported quarters
   pattern              — per-company history estimate (P3; the fallback for provider-missing rows)
 
@@ -22,12 +24,13 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Iterable, Optional
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.models import Company, EarningsEvent, Watchlist
 from app.models.earnings import (
     CONFIDENCE_HIGH,
+    CONFIDENCE_LOW,
     CONFIDENCE_MEDIUM,
     SOURCE_ALPHA_VANTAGE,
     SOURCE_EDGAR_8K,
@@ -93,6 +96,33 @@ def most_recent_quarter_end(d: date) -> date:
     return max(eligible)
 
 
+# 8-K Item 2.02 covers ANY "Results of Operations" disclosure — pre-announcements (BIIB 2026-07-01),
+# delivery numbers (TSLA), royalty-trust distribution notices (MVO) — not only earnings releases.
+# A 2.02 hit may therefore only flip a calendar row when its TIMING corroborates it: either the
+# filing lands in the window where companies actually close and report a quarter, or it lands on
+# (±) the date the provider expected the release.
+EARNINGS_RELEASE_MIN_GAP_DAYS = 10   # real reporters close books ≥~12d after quarter end (JPM ~14d)
+EARNINGS_RELEASE_MAX_GAP_DAYS = 90   # beyond a quarter, the matched row is a stale leftover, not this filing's quarter
+EARNINGS_RELEASE_MAX_DELTA_DAYS = 7  # the vast majority of real dates land within ±7d of the provider estimate
+
+
+def is_probable_earnings_release(filed: date, *, fiscal_period_end: date, event_date: date) -> bool:
+    """Timing-plausibility guard for a 2.02 8-K against the calendar row it would flip.
+
+    ``gap`` = days from the row's fiscal quarter end to the filing (earnings releases cluster in
+    [10, 90]); ``delta`` = distance from the row's expected date (a release on the expected day is
+    plausible even with an off fiscal-period guess). BIIB's pre-announcement (gap 1, delta 28) and
+    TSLA's delivery 8-K (gap 2, delta ~20) fail both arms; JPM-style releases (gap ~14) and
+    on-estimate releases (delta ≤ 7) pass.
+    """
+    gap = (filed - fiscal_period_end).days
+    delta = abs((filed - event_date).days)
+    return (
+        EARNINGS_RELEASE_MIN_GAP_DAYS <= gap <= EARNINGS_RELEASE_MAX_GAP_DAYS
+        or delta <= EARNINGS_RELEASE_MAX_DELTA_DAYS
+    )
+
+
 def compute_anticipation_score(*, is_curated: bool, watch_count: int, has_estimate: bool) -> float:
     """Owned anticipation ranking (strategy §3.7). v1 uses only signals we control:
 
@@ -118,6 +148,13 @@ class RefreshStats:
     av_upserted: int = 0
     edgar_hits: int = 0
     edgar_reported: int = 0
+    # 2.02 hits rejected by the timing-plausibility guard (pre-announcements etc.) — nonzero on a
+    # normal week; a sudden zero with high edgar_hits means the guard stopped being applied.
+    skipped_non_earnings: int = 0
+    # 2.02 hits with no prior calendar row — the market-wide sweep is flip-only, never insert.
+    skipped_no_prior: int = 0
+    # Past-dated estimates downgraded to low confidence by the staleness pass.
+    stale_downgraded: int = 0
     scored: int = 0
     # True when the final commit failed and the run was rolled back — the other counters then
     # describe work that was DISCARDED. Surfaced in the job log for monitoring (the job itself
@@ -130,6 +167,9 @@ class RefreshStats:
             "av_upserted": self.av_upserted,
             "edgar_hits": self.edgar_hits,
             "edgar_reported": self.edgar_reported,
+            "skipped_non_earnings": self.skipped_non_earnings,
+            "skipped_no_prior": self.skipped_no_prior,
+            "stale_downgraded": self.stale_downgraded,
             "scored": self.scored,
             "commit_failed": self.commit_failed,
         }
@@ -148,16 +188,23 @@ def _watch_counts(db: Session) -> dict[str, int]:
     return {(t or "").upper(): int(n) for t, n in rows if t}
 
 
-def ingest_alpha_vantage(db: Session, rows: Iterable) -> int:
+def ingest_alpha_vantage(db: Session, rows: Iterable, *, today: Optional[date] = None) -> int:
     """Upsert provider estimates. Reported rows are never touched (terminal); a changed date is
-    recorded on the row. Returns the number of rows created or updated."""
+    recorded on the row. Past-dated provider rows are skipped — a stale snapshot date must not
+    create or overwrite calendar rows (it would also be flip-bait for the EDGAR sweep's 100-day
+    attach window). Returns the number of rows created or updated."""
     now = datetime.now(timezone.utc)
+    if today is None:
+        today = today_eastern()
     upserted = 0
     for row in rows:
         ticker = (getattr(row, "symbol", "") or "").upper()
         fpe = getattr(row, "fiscal_period_end", None)
         if not ticker or fpe is None:
             continue  # need a fiscal period to key on (uniqueness invariant)
+        new_date = getattr(row, "report_date", None)
+        if new_date is None or new_date < today:
+            continue
         existing = (
             db.query(EarningsEvent)
             .filter(EarningsEvent.ticker == ticker, EarningsEvent.fiscal_period_end == fpe)
@@ -167,9 +214,6 @@ def ingest_alpha_vantage(db: Session, rows: Iterable) -> int:
         # confirmed row (a source with a real confirmation flag outranks an AV estimate).
         if existing is not None and existing.status in (STATUS_REPORTED, STATUS_CONFIRMED):
             existing.last_seen_at = now
-            continue
-        new_date = getattr(row, "report_date", None)
-        if new_date is None:
             continue
         if existing is None:
             db.add(
@@ -209,11 +253,19 @@ def ingest_alpha_vantage(db: Session, rows: Iterable) -> int:
     return upserted
 
 
-def ingest_edgar_reported(db: Session, hits: Iterable) -> int:
-    """Flip events to ``reported`` from 8-K Item 2.02 hits (ground truth). Attaches to the open
-    estimate for that ticker whose fiscal period precedes the event, else inserts a fresh reported
-    row keyed on the most-recent calendar quarter-end. Returns the number of reported rows written."""
+def ingest_edgar_reported(
+    db: Session, hits: Iterable, *, stats: Optional[RefreshStats] = None
+) -> int:
+    """Flip events to ``reported`` from 8-K Item 2.02 hits (ground truth), guarded by timing
+    plausibility. Attaches to the open estimate for that ticker whose fiscal period precedes the
+    event, falling back to the row keyed on the most-recent calendar quarter-end; a hit only flips
+    a row when `is_probable_earnings_release` corroborates it (2.02 also covers pre-announcements
+    and other interim disclosures). The market-wide sweep is flip-only: hits with no prior calendar
+    row are counted and skipped, never inserted. Returns the number of reported rows written;
+    per-skip reasons land on ``stats`` when provided."""
     now = datetime.now(timezone.utc)
+    if stats is None:
+        stats = RefreshStats()  # keeps the counter bumps unconditional; discarded for solo callers
     reported = 0
     for hit in hits:
         items = getattr(hit, "items", None) or []
@@ -227,7 +279,7 @@ def ingest_edgar_reported(db: Session, hits: Iterable) -> int:
         acceptance = _as_datetime(getattr(hit, "acceptance_datetime", None))
         # Attach to the open row this 8-K reports: the nearest not-yet-reported event for the ticker
         # whose fiscal period is on/before the filing and whose date is within a quarter of it.
-        existing = (
+        target = (
             db.query(EarningsEvent)
             .filter(
                 EarningsEvent.ticker == ticker,
@@ -238,73 +290,79 @@ def ingest_edgar_reported(db: Session, hits: Iterable) -> int:
             .order_by(EarningsEvent.fiscal_period_end.desc())
             .first()
         )
-        if existing is not None:
-            if existing.event_date != filed:
-                existing.prior_event_date = existing.event_date
-                existing.date_changed_at = now
-            existing.event_date = filed
-            existing.status = STATUS_REPORTED
-            existing.confidence = CONFIDENCE_HIGH
-            existing.source = SOURCE_EDGAR_8K
-            existing.accession_number = accession
-            # Only set reported_at when we actually have the 8-K acceptance timestamp — the
-            # market-wide EFTS sweep carries only the filing DATE, so fabricating the job clock here
-            # would be misleading. When acceptance is known, derive the bmo/amc slot from it; when
-            # not, keep the company's habitual slot (the estimate's) rather than blanking it.
-            existing.reported_at = acceptance
-            slot = infer_event_time(acceptance)
-            if slot:
-                existing.event_time = slot
-            if not existing.cik:
-                existing.cik = getattr(hit, "cik", None)
-            existing.last_seen_at = now
-        else:
-            fpe = most_recent_quarter_end(filed)
+        if target is None:
+            # Fall back to the row keyed on the calendar quarter — it may sit outside the attach
+            # window above (e.g. its estimated date was far from the filing).
             dup = (
                 db.query(EarningsEvent)
-                .filter(EarningsEvent.ticker == ticker, EarningsEvent.fiscal_period_end == fpe)
+                .filter(
+                    EarningsEvent.ticker == ticker,
+                    EarningsEvent.fiscal_period_end == most_recent_quarter_end(filed),
+                )
                 .first()
             )
-            if dup is not None:
-                # A row already exists for this fiscal period but fell outside the attach window
-                # above (e.g. its estimated date was far from the filing). Flip it to reported
-                # rather than dropping this genuine 8-K or inserting a duplicate (ticker, fpe).
-                if dup.status != STATUS_REPORTED:
-                    if dup.event_date != filed:
-                        dup.prior_event_date = dup.event_date
-                        dup.date_changed_at = now
-                    dup.event_date = filed
-                    dup.status = STATUS_REPORTED
-                    dup.confidence = CONFIDENCE_HIGH
-                    dup.source = SOURCE_EDGAR_8K
-                    dup.accession_number = accession
-                    dup.reported_at = acceptance
-                    slot = infer_event_time(acceptance)
-                    if slot:
-                        dup.event_time = slot
-                    dup.last_seen_at = now
-                    reported += 1
+            if dup is None:
+                # Flip-only sweep: a 2.02 hit with no prior calendar row is skipped, never
+                # inserted — the item code alone can't establish an earnings event (royalty-trust
+                # distribution 8-Ks and the like would pollute the calendar). Extension point:
+                # corroborate no-prior hits via the filer's submissions JSON before trusting them.
+                stats.skipped_no_prior += 1
                 continue
-            db.add(
-                EarningsEvent(
-                    ticker=ticker,
-                    cik=getattr(hit, "cik", None),
-                    company_name=getattr(hit, "company", None),
-                    fiscal_period_end=fpe,
-                    event_date=filed,
-                    event_time=infer_event_time(acceptance),
-                    status=STATUS_REPORTED,
-                    confidence=CONFIDENCE_HIGH,
-                    source=SOURCE_EDGAR_8K,
-                    accession_number=accession,
-                    reported_at=acceptance,
-                    first_seen_at=now,
-                    last_seen_at=now,
-                )
+            if dup.status == STATUS_REPORTED:
+                continue  # terminal — already flipped (possibly by an earlier hit this run)
+            target = dup
+        if not is_probable_earnings_release(
+            filed, fiscal_period_end=target.fiscal_period_end, event_date=target.event_date
+        ):
+            # Timing matches neither the quarter-close reporting window nor the expected date:
+            # a pre-announcement / interim 2.02, not the earnings release. The estimate stands.
+            logger.info(
+                "Skipping implausible 2.02 hit for %s (%s): gap=%sd delta=%sd",
+                ticker,
+                accession,
+                (filed - target.fiscal_period_end).days,
+                abs((filed - target.event_date).days),
             )
-            db.flush()  # visible to later in-run existence checks (autoflush=False)
+            stats.skipped_non_earnings += 1
+            continue
+        if target.event_date != filed:
+            target.prior_event_date = target.event_date
+            target.date_changed_at = now
+        target.event_date = filed
+        target.status = STATUS_REPORTED
+        target.confidence = CONFIDENCE_HIGH
+        target.source = SOURCE_EDGAR_8K
+        target.accession_number = accession
+        # Only set reported_at when we actually have the 8-K acceptance timestamp — the
+        # market-wide EFTS sweep carries only the filing DATE, so fabricating the job clock here
+        # would be misleading. When acceptance is known, derive the bmo/amc slot from it; when
+        # not, keep the company's habitual slot (the estimate's) rather than blanking it.
+        target.reported_at = acceptance
+        slot = infer_event_time(acceptance)
+        if slot:
+            target.event_time = slot
+        if not target.cik:
+            target.cik = getattr(hit, "cik", None)
+        target.last_seen_at = now
         reported += 1
     return reported
+
+
+def downgrade_stale_estimates(db: Session, *, today: date) -> int:
+    """Estimates whose date has passed without a reported flip are stale — the date was wrong or
+    the 8-K wasn't seen (strategy §3.5). Drop them to low confidence so the UI can frame the date
+    as "may move" if the row resurfaces; they stay ``estimated`` and a later provider pass or 8-K
+    still updates them. Bulk UPDATE; returns the number of rows downgraded."""
+    updated = (
+        db.query(EarningsEvent)
+        .filter(
+            EarningsEvent.status == STATUS_ESTIMATED,
+            EarningsEvent.event_date < today,
+            EarningsEvent.confidence != CONFIDENCE_LOW,
+        )
+        .update({"confidence": CONFIDENCE_LOW}, synchronize_session=False)
+    )
+    return int(updated or 0)
 
 
 def recompute_scores(db: Session, *, only_from: Optional[date] = None) -> int:
@@ -325,9 +383,18 @@ def recompute_scores(db: Session, *, only_from: Optional[date] = None) -> int:
     return scored
 
 
-async def run_refresh(db: Session, *, av_client=None, efts_client=None) -> RefreshStats:
+async def run_refresh(
+    db: Session,
+    *,
+    av_client=None,
+    efts_client=None,
+    sweep_from: Optional[date] = None,
+    sweep_to: Optional[date] = None,
+) -> RefreshStats:
     """Daily ingest: Alpha Vantage bulk estimates + EDGAR 8-K Item 2.02 sweep (yesterday→today),
-    then rescore. Commits once at the end. Never raises on a provider failure."""
+    then stale-estimate downgrade and rescore. Commits once at the end. Never raises on a provider
+    failure. ``sweep_from``/``sweep_to`` widen the EFTS window for a one-shot re-sweep of past days
+    (e.g. after a data repair); the scheduled job uses the trailing 2-day default."""
     stats = RefreshStats()
 
     if av_client is None:
@@ -343,21 +410,27 @@ async def run_refresh(db: Session, *, av_client=None, efts_client=None) -> Refre
     try:
         av_rows = await av_client.fetch_earnings_calendar()
         stats.av_rows = len(av_rows)
-        stats.av_upserted = ingest_alpha_vantage(db, av_rows)
+        stats.av_upserted = ingest_alpha_vantage(db, av_rows, today=today)
     except Exception:  # never let the bridge break the engine
         logger.exception("Alpha Vantage ingest failed")
 
     # 2. EDGAR 8-K Item 2.02 sweep for the last two days (covers weekend/holiday gaps).
     try:
-        start = (today - timedelta(days=2)).isoformat()
-        end = today.isoformat()
+        start = (sweep_from or today - timedelta(days=2)).isoformat()
+        end = (sweep_to or today).isoformat()
         hits = await _sweep_edgar_2_02(efts_client, start, end)
         stats.edgar_hits = len(hits)
-        stats.edgar_reported = ingest_edgar_reported(db, hits)
+        stats.edgar_reported = ingest_edgar_reported(db, hits, stats=stats)
     except Exception:
         logger.exception("EDGAR 8-K sweep failed")
 
-    # 3. Rescore the forward window.
+    # 3. Downgrade past-dated estimates that never got their reported flip.
+    try:
+        stats.stale_downgraded = downgrade_stale_estimates(db, today=today)
+    except Exception:
+        logger.exception("Stale-estimate downgrade failed")
+
+    # 4. Rescore the forward window.
     try:
         stats.scored = recompute_scores(db, only_from=today - timedelta(days=7))
     except Exception:
@@ -471,11 +544,23 @@ def _event_to_dict(ev: EarningsEvent) -> dict:
     }
 
 
-def events_in_range(db: Session, from_date: date, to_date: date) -> list[dict]:
-    """All earnings events in [from_date, to_date], highest anticipation first (public /api/calendar)."""
+def events_in_range(
+    db: Session, from_date: date, to_date: date, *, today: Optional[date] = None
+) -> list[dict]:
+    """All earnings events in [from_date, to_date], highest anticipation first (public /api/calendar).
+
+    Past days serve facts only: an estimate whose date has passed is suppressed — either the
+    company already reported (the reported row is what should show) or the estimate was wrong,
+    and rendering it on a past day would misstate history."""
+    if today is None:
+        today = today_eastern()
     rows = (
         db.query(EarningsEvent)
-        .filter(EarningsEvent.event_date >= from_date, EarningsEvent.event_date <= to_date)
+        .filter(
+            EarningsEvent.event_date >= from_date,
+            EarningsEvent.event_date <= to_date,
+            or_(EarningsEvent.status == STATUS_REPORTED, EarningsEvent.event_date >= today),
+        )
         .order_by(EarningsEvent.event_date.asc(), EarningsEvent.anticipation_score.desc())
         .all()
     )
