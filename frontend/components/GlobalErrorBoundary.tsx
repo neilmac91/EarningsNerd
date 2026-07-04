@@ -2,6 +2,7 @@
 
 import React, { Component, ErrorInfo, ReactNode } from 'react'
 import { ArrowsClockwiseIcon, HouseIcon, WarningIcon } from '@/lib/icons'
+import { Button, GuidanceCard } from '@/components/ui'
 
 interface Props {
   children: ReactNode
@@ -59,48 +60,37 @@ export class GlobalErrorBoundary extends Component<Props, State> {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center p-4">
-          <div className="max-w-md w-full bg-panel-light dark:bg-panel-dark rounded-xl shadow-e2 dark:shadow-none p-8 text-center">
-            <div className="mx-auto w-16 h-16 bg-error-light/10 dark:bg-error-dark/10 rounded-full flex items-center justify-center mb-6">
-              <WarningIcon className="w-8 h-8 text-error-light dark:text-error-dark" />
-            </div>
-
-            <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
-              Something went wrong
-            </h1>
-
-            <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">
-              We encountered an unexpected error. Our team has been notified and is working to fix it.
-            </p>
+          <div className="w-full max-w-md space-y-4">
+            <GuidanceCard
+              variant="error"
+              icon={<WarningIcon className="h-5 w-5" />}
+              title="Something went wrong"
+              description="We encountered an unexpected error. Our team has been notified and is working to fix it."
+              action={
+                <>
+                  <Button onClick={this.handleRetry}>
+                    <ArrowsClockwiseIcon className="h-4 w-4" />
+                    Try again
+                  </Button>
+                  <Button variant="secondary" onClick={this.handleGoHome}>
+                    <HouseIcon className="h-4 w-4" />
+                    Go home
+                  </Button>
+                </>
+              }
+            />
 
             {process.env.NODE_ENV === 'development' && this.state.error && (
-              <div className="mb-6 p-4 bg-background-light dark:bg-background-dark rounded-lg text-left overflow-auto max-h-40">
-                <p className="text-xs font-mono text-error-light dark:text-error-dark break-all">
+              <div className="max-h-40 overflow-auto rounded-lg border border-border-light bg-background-light p-4 text-left dark:border-border-dark dark:bg-white/5">
+                <p className="break-all font-mono text-xs text-error-light dark:text-error-dark">
                   {this.state.error.message}
                 </p>
               </div>
             )}
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <button
-                onClick={this.handleRetry}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark font-medium rounded-lg transition-colors"
-              >
-                <ArrowsClockwiseIcon className="w-4 h-4" />
-                Try Again
-              </button>
-
-              <button
-                onClick={this.handleGoHome}
-                className="inline-flex items-center justify-center gap-2 px-4 py-2 border border-border-light dark:border-border-dark text-text-secondary-light dark:text-text-secondary-dark hover:bg-background-light dark:hover:bg-background-dark font-medium rounded-lg transition-colors"
-              >
-                <HouseIcon className="w-4 h-4" />
-                Go Home
-              </button>
-            </div>
-
-            <p className="mt-6 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+            <p className="text-center text-xs text-text-secondary-light dark:text-text-secondary-dark">
               If this problem persists, please contact{' '}
-              <a href="mailto:support@earningsnerd.io" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
+              <a href="mailto:support@earningsnerd.io" className="text-brand-strong hover:underline dark:text-brand-strong-dark">
                 support@earningsnerd.io
               </a>
             </p>
