@@ -11,6 +11,7 @@ import NotificationBell from '@/components/NotificationBell'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { getCurrentUserSafe, logout } from '@/features/auth/api/auth-api'
 import { ENABLE_CALENDAR, ENABLE_COMPARE } from '@/lib/featureFlags'
+import { buttonVariants, Skeleton } from '@/components/ui'
 
 const NAV_LINKS = [
   { href: '/search', label: 'Search' },
@@ -66,9 +67,6 @@ export default function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border-light bg-background-light/80 backdrop-blur-xl dark:border-white/[0.06] dark:bg-background-dark/80">
-      {/* Subtle gradient accent line at top */}
-      <div className="h-px bg-gradient-to-r from-transparent via-brand-strong/40 to-transparent dark:via-brand-dark/50" aria-hidden="true" />
-
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         {/* Left: Logo */}
         <div className="flex items-center">
@@ -103,16 +101,10 @@ export default function Header() {
             </>
           ) : user === null ? (
             <>
-              <Link
-                href="/login"
-                className="rounded-full px-5 py-2 text-sm font-medium text-text-secondary-light transition-colors hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
-              >
+              <Link href="/login" className={buttonVariants({ variant: 'ghost', size: 'md' })}>
                 Log In
               </Link>
-              <Link
-                href="/register"
-                className="inline-flex items-center gap-1.5 rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white shadow-e2 transition hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
-              >
+              <Link href="/register" className={buttonVariants({ variant: 'primary', size: 'md' })}>
                 Get Started
                 <ArrowRightIcon className="h-3.5 w-3.5" />
               </Link>
@@ -121,7 +113,7 @@ export default function Header() {
             // user === undefined: auth not yet resolved (loading or a transient error). Hold the
             // skeleton rather than asserting logged-out, so a slow/cold backend never flashes the
             // "Log In" CTAs to a user who is actually signed in.
-            <div className="h-9 w-9 animate-pulse motion-reduce:animate-none rounded-full bg-border-light dark:bg-white/10" aria-hidden="true" />
+            <Skeleton className="h-9 w-9 rounded-full" />
           )}
         </div>
 
@@ -212,7 +204,7 @@ export default function Header() {
                 // Auth not yet resolved (loading or a transient error): show a skeleton bar
                 // rather than leaving the bordered container empty (a stray divider + gap), so
                 // the mobile menu matches the desktop header's loading state.
-                <div className="h-9 w-full animate-pulse motion-reduce:animate-none rounded-lg bg-border-light dark:bg-white/10" aria-hidden="true" />
+                <Skeleton className="h-9 w-full rounded-lg" />
               )}
             </div>
           </nav>
