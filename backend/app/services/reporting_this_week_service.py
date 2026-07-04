@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
@@ -111,7 +111,7 @@ class ReportingThisWeekService:
         # cycle its defensive try/except silently swallows — zeroing out curated scoring.
         today_ny = today if today is not None else datetime.now(_NY_TZ).date()
         monday, friday = current_market_week(today_ny)
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
 
         # today_ny is part of the cache key so the past-day filter rolls at ET midnight rather
         # than whenever the 6h TTL happens to lapse.
@@ -136,7 +136,9 @@ class ReportingThisWeekService:
             "week_start": monday.isoformat(),
             "week_end": friday.isoformat(),
             "status": status,
-            "timestamp": self._cache_timestamp.isoformat() + "Z",
+            # isoformat() already carries the +00:00 offset (now that the timestamp is tz-aware);
+            # appending "Z" too would malform it.
+            "timestamp": self._cache_timestamp.isoformat(),
         }
 
     def _fetch(self, db: Session, monday: date, friday: date, today: date) -> List[ReportingCompany]:

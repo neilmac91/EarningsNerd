@@ -51,7 +51,6 @@ from app.services.earnings_calendar_service import (
     is_probable_earnings_release,
 )
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -166,5 +165,8 @@ def main() -> int:
 if __name__ == "__main__":
     import os
 
+    # basicConfig lives here, not at module level, so importing this module in tests doesn't
+    # reconfigure the root logger as an import side-effect.
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
     os.environ.setdefault("SKIP_REDIS_INIT", "true")
     sys.exit(main())
