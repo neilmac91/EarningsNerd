@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import * as Sentry from '@sentry/nextjs'
 import Link from 'next/link'
+import { Button, buttonVariants, GuidanceCard } from '@/components/ui'
 
 export default function Error({
   error,
@@ -19,53 +20,32 @@ export default function Error({
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
-      <div className="mx-auto max-w-md text-center">
-        <div className="mb-8">
-          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-error-light/10 dark:bg-error-dark/10">
-            <svg
-              className="h-10 w-10 text-error-light dark:text-error-dark"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-          </div>
-          <h1 className="mb-2 text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-            Something went wrong
-          </h1>
-          <p className="text-text-secondary-light dark:text-text-secondary-dark">
-            We encountered an unexpected error. This has been logged and we&apos;ll look into it.
-          </p>
-          {error.digest && (
-            <p className="mt-2 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-              Error ID: {error.digest}
-            </p>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <button
-            onClick={reset}
-            className="rounded-lg bg-brand px-6 py-3 font-medium text-white transition-colors hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
-          >
-            Try again
-          </button>
-          <Link
-            href="/"
-            className="rounded-lg border border-border-light bg-white px-6 py-3 font-medium text-text-primary-light transition-colors hover:bg-brand-weak dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark dark:hover:bg-white/10"
-          >
-            Go home
-          </Link>
-        </div>
+      <div className="w-full max-w-md space-y-4">
+        <GuidanceCard
+          variant="error"
+          title="Something went wrong"
+          description={
+            <>
+              We encountered an unexpected error. This has been logged and we&apos;ll look into it.
+              {error.digest && (
+                <span className="mt-2 block text-text-tertiary-light dark:text-text-secondary-dark">
+                  Error ID: {error.digest}
+                </span>
+              )}
+            </>
+          }
+          action={
+            <>
+              <Button onClick={reset}>Try again</Button>
+              <Link href="/" className={buttonVariants({ variant: 'secondary' })}>
+                Go home
+              </Link>
+            </>
+          }
+        />
 
         {process.env.NODE_ENV === 'development' && (
-          <div className="mt-8 rounded-lg border border-border-light bg-background-light p-4 text-left dark:border-border-dark dark:bg-white/5">
+          <div className="rounded-lg border border-border-light bg-background-light p-4 text-left dark:border-border-dark dark:bg-white/5">
             <h2 className="mb-2 font-mono text-sm font-semibold text-error-light dark:text-error-dark">
               Development Error Details:
             </h2>

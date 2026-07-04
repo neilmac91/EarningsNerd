@@ -75,7 +75,7 @@ function VerifyEmailContent() {
         {status === 'error' && (
           <>
             <div className="mb-4 flex justify-center">
-              <XCircleIcon className="h-12 w-12 text-error-light" />
+              <XCircleIcon className="h-12 w-12 text-error-light dark:text-error-dark" />
             </div>
             <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
               Verification failed
