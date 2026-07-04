@@ -113,4 +113,31 @@ describe('askFilingStream token coalescing', () => {
     expect(h.onNotDisclosed).toHaveBeenCalledWith('Not disclosed in this filing.')
     expect(h.onToken).not.toHaveBeenCalled()
   })
+
+  it('silently ignores backend tool-activity frames (never surfaced to the user)', async () => {
+    // The backend still emits `activity` events for its numeric tool calls; the client no longer
+    // handles them. They must fall through harmlessly — no throw, no onError, answer unaffected.
+    const chunks = [
+      sse({ type: 'activity', label: 'Looking up revenue', phase: 'start', ok: true }),
+      sse({ type: 'activity', label: 'Looking up revenue', phase: 'done', ok: true }),
+      sse({
+        type: 'complete',
+        answer: 'Revenue grew 8%.',
+        citations: [],
+        grounded: 0,
+        kind: 'answer',
+        followups: [],
+      }),
+    ]
+    global.fetch = vi.fn(async () => ({ ok: true, body: bodyFrom(chunks) })) as unknown as typeof fetch
+
+    const h = handlers()
+    await askFilingStream(1, 'q', [], h)
+    vi.runAllTimers()
+
+    expect(h.onComplete).toHaveBeenCalledWith(
+      expect.objectContaining({ answer: 'Revenue grew 8%.' }),
+    )
+    expect(h.onError).not.toHaveBeenCalled()
+  })
 })
