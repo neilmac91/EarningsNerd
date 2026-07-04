@@ -53,7 +53,7 @@ export default function VerificationBanner() {
   }
 
   return (
-    <div className="border-b border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200">
+    <div className="border-b border-warning-light/30 bg-warning-light/10 text-warning-light dark:border-warning-dark/20 dark:bg-warning-dark/10 dark:text-warning-dark">
       <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2.5 text-sm sm:px-6 lg:px-8">
         <WarningCircleIcon className="h-4 w-4 shrink-0" />
         <p className="flex-1">
@@ -78,7 +78,7 @@ export default function VerificationBanner() {
           type="button"
           onClick={handleDismiss}
           aria-label="Dismiss"
-          className="shrink-0 rounded p-1 transition-colors hover:bg-amber-500/15"
+          className="shrink-0 rounded p-1 transition-colors hover:bg-warning-dark/15"
         >
           <XIcon className="h-4 w-4" />
         </button>

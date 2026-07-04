@@ -18,8 +18,8 @@ export default function AuthShell({ children }: { children: React.ReactNode }) {
         <div className="flex items-center justify-between px-6 py-6 sm:px-10">
           <Link href="/" className="flex items-center gap-2.5">
             <EarningsNerdLogoIcon className="h-8 w-8" />
-            <span className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
-              Earnings<em className="italic text-brand-strong dark:text-brand-dark">Nerd</em>
+            <span className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
+              Earnings<em className="italic text-brand-strong dark:text-brand-strong-dark">Nerd</em>
             </span>
           </Link>
           <div className="flex items-center gap-2">
@@ -49,7 +49,7 @@ function AuthBrandPane() {
   return (
     <div className="hidden overflow-hidden bg-brand-weak dark:bg-panel-dark lg:flex lg:flex-col lg:items-center lg:justify-center">
       <div className="w-full max-w-md px-12">
-        <h2 className="text-3xl font-bold leading-tight text-text-primary-light dark:text-text-primary-dark">
+        <h2 className="text-3xl font-semibold leading-tight text-text-primary-light dark:text-text-primary-dark">
           Decode any filing
           <br />
           in minutes.
@@ -72,7 +72,7 @@ function AuthBrandPane() {
           <div className="mt-4 flex items-end justify-between border-t border-border-light pt-4 dark:border-white/10">
             <div>
               <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">Revenue</p>
-              <p className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">$383.3B</p>
+              <p className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">$383.3B</p>
             </div>
             <div className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${directionChip.up}`}>
               +2.8% YoY

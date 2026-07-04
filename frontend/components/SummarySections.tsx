@@ -274,7 +274,7 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
     const summaryContent = getSimplifiedSummaryContent()
 
     return (
-      <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden">
+      <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-e1 dark:shadow-none border border-border-light dark:border-border-dark overflow-hidden">
         <div className="border-b border-border-light dark:border-border-dark px-6 py-4">
           <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark flex items-center gap-2">
             <FileTextIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
@@ -285,7 +285,7 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
           <div className="prose prose-slate dark:prose-invert prose-sm max-w-none">
             <ReactMarkdown
               components={{
-                h1: ({ children }) => <h1 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark mt-6 mb-3">{children}</h1>,
+                h1: ({ children }) => <h1 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark mt-6 mb-3">{children}</h1>,
                 h2: ({ children }) => <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mt-5 mb-2">{children}</h2>,
                 h3: ({ children }) => <h3 className="text-base font-medium text-text-secondary-light dark:text-text-secondary-dark mt-4 mb-2">{children}</h3>,
                 p: ({ children }) => <p className="text-text-secondary-light dark:text-text-secondary-dark mb-3 leading-relaxed">{children}</p>,
@@ -315,7 +315,7 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
 
   // LEGACY TABBED VIEW: Original multi-section UI (when ENABLE_SECTION_TABS is true)
   return (
-    <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-sm border border-border-light dark:border-border-dark overflow-hidden">
+    <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-e1 dark:shadow-none border border-border-light dark:border-border-dark overflow-hidden">
       {/* Scrollable Tabs Container */}
       <div className="border-b border-border-light dark:border-border-dark overflow-x-auto">
         <nav className="flex min-w-max px-2" aria-label="Tabs">

@@ -158,7 +158,7 @@ export default function ComparePage() {
                         </div>
                         {selectedFilings.includes(filing.id!) && (
                           <div className="w-6 h-6 bg-brand-strong dark:bg-brand-dark rounded-full flex items-center justify-center">
-                            <span className="text-white dark:text-background-dark text-sm font-bold">✓</span>
+                            <span className="text-white dark:text-background-dark text-sm font-semibold">✓</span>
                           </div>
                         )}
                       </div>

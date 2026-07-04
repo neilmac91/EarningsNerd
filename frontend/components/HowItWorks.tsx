@@ -26,7 +26,7 @@ function HowItWorks() {
   return (
     <section className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
       <div className="text-center">
-        <h2 className="text-3xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-4xl">
+        <h2 className="text-3xl font-semibold tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-4xl">
           How it works
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-lg text-text-secondary-light dark:text-text-secondary-dark">
@@ -43,7 +43,7 @@ function HowItWorks() {
               className="glass-card group relative rounded-2xl p-6 transition duration-base"
             >
               {/* Step number */}
-              <div className="mb-4 text-xs font-bold uppercase tracking-widest text-brand-strong dark:text-brand-strong-dark">
+              <div className="mb-4 text-xs font-semibold uppercase tracking-widest text-brand-strong dark:text-brand-strong-dark">
                 Step {step.number}
               </div>
 

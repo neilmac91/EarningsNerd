@@ -38,7 +38,7 @@ export default function ReportingThisWeek({
     <section id="reporting-this-week" className="py-20 sm:py-24">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8 flex items-center justify-between">
-          <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark">
+          <h2 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-text-primary-light dark:text-text-primary-dark">
             <span aria-hidden="true">📅</span> Reporting This Week
           </h2>
           {ENABLE_CALENDAR && (
@@ -56,11 +56,11 @@ export default function ReportingThisWeek({
             <Link
               key={company.ticker}
               href={`/company/${company.ticker}`}
-              className="group flex flex-col items-center gap-2 rounded-xl border border-border-light bg-panel-light p-4 text-center shadow-e1 transition duration-base hover:-translate-y-1 hover:border-brand-strong hover:shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none dark:hover:border-brand-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark "
+              className="group flex flex-col items-center gap-2 rounded-xl border border-border-light bg-panel-light p-4 text-center shadow-e1 transition duration-base hover:-translate-y-1 motion-reduce:hover:translate-y-0 hover:border-brand-strong hover:shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none dark:hover:border-brand-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark "
               data-testid={`reporting-this-week-${company.ticker}`}
             >
               <CompanyLogo ticker={company.ticker} name={company.name} size={40} />
-              <div className="font-bold text-text-primary-light dark:text-text-primary-dark">
+              <div className="font-semibold text-text-primary-light dark:text-text-primary-dark">
                 {company.ticker}
               </div>
               <div className="truncate w-full text-xs text-text-secondary-light dark:text-text-secondary-dark">

@@ -49,7 +49,7 @@ function CheckEmailContent() {
         </div>
       </div>
 
-      <h1 className="mt-6 text-center text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+      <h1 className="mt-6 text-center text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
         Check your inbox
       </h1>
       <p className="mt-2 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">

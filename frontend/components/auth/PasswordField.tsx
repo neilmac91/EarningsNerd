@@ -22,9 +22,9 @@ type PasswordFieldProps = {
 
 const STRENGTH_LABELS = ['Too short', 'Weak', 'Fair', 'Good', 'Strong']
 const STRENGTH_COLORS = [
-  'bg-red-500',
-  'bg-orange-500',
-  'bg-yellow-500',
+  'bg-error-light',
+  'bg-warning-light',
+  'bg-warning-light',
   'bg-brand-strong',
   'bg-brand',
 ]

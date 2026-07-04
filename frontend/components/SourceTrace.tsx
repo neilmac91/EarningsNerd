@@ -292,7 +292,7 @@ function SourceTraceInner({
           />
           <div
             id={panelId}
-            className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-border-light bg-background-light p-4 pb-6 shadow-2xl dark:border-border-dark dark:bg-panel-dark"
+            className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl border-t border-border-light bg-background-light p-4 pb-6 shadow-e5 dark:shadow-none dark:border-border-dark dark:bg-panel-dark"
           >
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-border-light dark:bg-border-dark" />
             <button
@@ -317,7 +317,7 @@ function SourceTraceInner({
           onMouseEnter={clearCloseTimer}
           onMouseLeave={scheduleClose}
           style={{ position: 'fixed', left: pos.left, top: pos.top, bottom: pos.bottom, transform: 'translateX(-50%)' }}
-          className="z-[60] block w-72 rounded-lg border border-border-light bg-background-light p-3 text-left shadow-xl dark:border-border-dark dark:bg-panel-dark"
+          className="z-[60] block w-72 rounded-lg border border-border-light bg-background-light p-3 text-left shadow-e4 dark:shadow-none dark:border-border-dark dark:bg-panel-dark"
         >
           {panelBody}
         </span>,

@@ -32,7 +32,7 @@ export default function ForgotPasswordPage() {
     <AuthShell>
       {!submitted ? (
         <>
-          <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+          <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
             Reset your password
           </h1>
           <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
@@ -87,7 +87,7 @@ export default function ForgotPasswordPage() {
               <EnvelopeSimpleOpenIcon className="h-8 w-8 text-brand-strong dark:text-brand-strong-dark" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+          <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
             Check your email
           </h1>
           <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">

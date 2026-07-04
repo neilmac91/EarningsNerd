@@ -194,7 +194,7 @@ function PricingContent() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="text-center mb-12">
-          <h2 className="text-4xl font-bold text-text-heading-light dark:text-text-heading-dark mb-4">Pricing</h2>
+          <h2 className="text-4xl font-semibold text-text-heading-light dark:text-text-heading-dark mb-4">Pricing</h2>
           <p className="text-lg text-text-secondary-light dark:text-text-secondary-dark max-w-2xl mx-auto">
             Choose the plan that works for you. Upgrade or downgrade at any time.
           </p>
@@ -321,9 +321,9 @@ function PricingContent() {
               )}
 
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-text-heading-light dark:text-text-heading-dark mb-2">{plan.name}</h3>
+                <h3 className="text-2xl font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">{plan.name}</h3>
                 <div className="flex items-baseline justify-center gap-2">
-                  <span className="text-5xl font-bold text-text-primary-light dark:text-text-primary-dark">{plan.price}</span>
+                  <span className="text-5xl font-semibold text-text-primary-light dark:text-text-primary-dark">{plan.price}</span>
                   {plan.betaOriginal ? (
                     <span className="text-2xl font-medium text-text-secondary-light line-through dark:text-text-secondary-dark">{plan.betaOriginal}/{plan.period === 'per month' ? 'mo' : 'yr'}</span>
                   ) : (
@@ -364,7 +364,7 @@ function PricingContent() {
 
         {/* FAQ */}
         <div className="mt-16 max-w-3xl mx-auto">
-          <h2 className="text-2xl font-bold text-text-heading-light dark:text-text-heading-dark mb-8 text-center">Frequently Asked Questions</h2>
+          <h2 className="text-2xl font-semibold text-text-heading-light dark:text-text-heading-dark mb-8 text-center">Frequently Asked Questions</h2>
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">
@@ -401,7 +401,7 @@ export default function PricingPage() {
   return (
     <Suspense fallback={
       <div className="min-h-screen bg-background-light dark:bg-background-dark flex items-center justify-center">
-        <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-dark" />
+        <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
       </div>
     }>
       <PricingContent />

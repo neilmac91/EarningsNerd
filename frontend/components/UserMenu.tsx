@@ -96,7 +96,7 @@ export default function UserMenu({ user }: { user: MenuUser }) {
         <div
           role="menu"
           aria-label="Account"
-          className="absolute right-0 z-50 mt-2 w-60 origin-top-right rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900 p-1 shadow-e2 dark:shadow-none"
+          className="absolute right-0 z-50 mt-2 w-60 origin-top-right rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark p-1 shadow-e2 dark:shadow-none"
         >
           <div className="px-3 py-2.5">
             <p className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">

@@ -49,7 +49,7 @@ function VerifyEmailContent() {
         {status === 'loading' && (
           <>
             <CircleNotchIcon className="mx-auto mb-4 h-10 w-10 animate-spin text-brand-strong dark:text-brand-strong-dark" />
-            <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+            <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
               Verifying your email…
             </h1>
           </>
@@ -60,7 +60,7 @@ function VerifyEmailContent() {
             <div className="mb-4 flex justify-center">
               <CheckCircleIcon className="animate-check-pop h-12 w-12 text-brand-strong dark:text-brand-strong-dark" />
             </div>
-            <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+            <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
               Email verified!
             </h1>
             <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
@@ -75,9 +75,9 @@ function VerifyEmailContent() {
         {status === 'error' && (
           <>
             <div className="mb-4 flex justify-center">
-              <XCircleIcon className="h-12 w-12 text-red-500" />
+              <XCircleIcon className="h-12 w-12 text-error-light" />
             </div>
-            <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+            <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
               Verification failed
             </h1>
             <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">

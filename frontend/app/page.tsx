@@ -124,7 +124,7 @@ export default async function Home() {
           <div className="grid items-center gap-12 lg:grid-cols-[1.1fr_0.9fr] lg:gap-16">
             {/* Left: Copy + Search */}
             <div>
-              <h1 className="text-4xl font-extrabold leading-[1.1] tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-5xl lg:text-6xl">
+              <h1 className="text-4xl font-semibold leading-[1.1] tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-5xl lg:text-6xl">
                 Understand any{' '}
                 <span className="text-brand-strong dark:text-brand-strong-dark">SEC filing</span>{' '}
                 in minutes
@@ -187,7 +187,7 @@ export default async function Home() {
       <section id="hot-filings" className="py-20 sm:py-24">
         <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
           <div className="mb-8 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark">
+            <h2 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-text-primary-light dark:text-text-primary-dark">
               <span aria-hidden="true">🔥</span> Trending Filings
             </h2>
           </div>

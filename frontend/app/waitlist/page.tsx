@@ -23,7 +23,7 @@ export default function WaitlistPage() {
       <section className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="grid items-center gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
           <div className="text-center lg:text-left">
-            <h1 className="text-4xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-5xl md:text-6xl">
+            <h1 className="text-4xl font-semibold tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-5xl md:text-6xl">
               Read a 10-K in{' '}
               <span className="text-brand-strong dark:text-brand-strong-dark">5 minutes</span>, not 5 hours.
             </h1>
@@ -39,7 +39,7 @@ export default function WaitlistPage() {
             <div id="waitlist" className="mt-8 max-w-xl lg:mx-0">
               <Suspense
                 fallback={
-                  <div className="rounded-2xl border border-border-light bg-white/90 p-6 shadow-lg dark:border-border-dark dark:bg-slate-900/70">
+                  <div className="rounded-2xl border border-border-light bg-panel-light p-6 shadow-e2 dark:shadow-none dark:border-border-dark dark:bg-panel-dark">
                     Loading…
                   </div>
                 }
@@ -66,7 +66,7 @@ export default function WaitlistPage() {
           </div>
 
           <div className="relative">
-            <div className="rounded-3xl border border-border-light bg-white/90 p-6 shadow-xl backdrop-blur-sm dark:border-border-dark dark:bg-slate-900/80">
+            <div className="rounded-3xl border border-border-light bg-panel-light p-6 shadow-e4 dark:shadow-none backdrop-blur-sm dark:border-border-dark dark:bg-panel-dark">
               <div className="flex items-center justify-between text-sm text-text-tertiary-light dark:text-text-secondary-dark">
                 <span className="font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                   Product preview
@@ -133,7 +133,7 @@ export default function WaitlistPage() {
           ].map((item) => (
             <div
               key={item.title}
-              className="rounded-2xl border border-border-light bg-white/90 p-6 shadow-sm dark:border-border-dark dark:bg-slate-900/70"
+              className="rounded-2xl border border-border-light bg-panel-light p-6 shadow-e1 dark:shadow-none dark:border-border-dark dark:bg-panel-dark"
             >
               <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                 {item.title}
@@ -145,7 +145,7 @@ export default function WaitlistPage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="rounded-3xl border border-border-light bg-white/90 p-8 shadow-lg dark:border-border-dark dark:bg-slate-900/70 md:p-10">
+        <div className="rounded-3xl border border-border-light bg-panel-light p-8 shadow-e2 dark:shadow-none dark:border-border-dark dark:bg-panel-dark md:p-10">
           <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
             <div>
               <h2 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -224,7 +224,7 @@ export default function WaitlistPage() {
           ].map((item) => (
             <div
               key={item.title}
-              className="rounded-2xl border border-border-light bg-white/90 p-6 shadow-sm dark:border-border-dark dark:bg-slate-900/70"
+              className="rounded-2xl border border-border-light bg-panel-light p-6 shadow-e1 dark:shadow-none dark:border-border-dark dark:bg-panel-dark"
             >
               <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                 {item.title}
@@ -236,7 +236,7 @@ export default function WaitlistPage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-        <div className="rounded-3xl border border-border-light bg-white/90 p-8 shadow-lg dark:border-border-dark dark:bg-slate-900/70 md:p-10">
+        <div className="rounded-3xl border border-border-light bg-panel-light p-8 shadow-e2 dark:shadow-none dark:border-border-dark dark:bg-panel-dark md:p-10">
           <h2 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">
             Built for trust and transparency
           </h2>

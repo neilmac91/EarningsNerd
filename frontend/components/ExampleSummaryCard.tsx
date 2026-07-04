@@ -51,7 +51,7 @@ function ExampleSummaryCard({ example }: { example: ExampleData | null }) {
         {metrics.map((metric) => (
           <div key={metric.label}>
             <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{metric.label}</div>
-            <div className="text-sm font-bold tabular-nums text-text-primary-light dark:text-text-primary-dark">{metric.value}</div>
+            <div className="text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">{metric.value}</div>
           </div>
         ))}
       </div>

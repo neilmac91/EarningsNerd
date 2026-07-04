@@ -54,7 +54,7 @@ function MetricCell({ metric, isFallback }: { metric: ExampleMetric; isFallback:
       title={isFallback ? FALLBACK_CONCEPTS[metric.label] : 'Reported in the filing’s XBRL data'}
     >
       <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{metric.label}</div>
-      <div className="mt-1 text-sm font-bold tabular-nums text-text-primary-light dark:text-text-primary-dark">{metric.value}</div>
+      <div className="mt-1 text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark">{metric.value}</div>
       {delta && (
         <div
           className={`mt-0.5 text-xs font-medium tabular-nums ${
@@ -83,7 +83,7 @@ function HeroExample({ example }: { example: ExampleData | null }) {
   return (
     <div className="relative">
       {/* Browser frame — no ambient glow: DS §7, the only glow is the hero search. */}
-      <div className="mockup-frame relative shadow-2xl">
+      <div className="mockup-frame relative shadow-e5 dark:shadow-none">
         {/* Title bar */}
         <div className="mockup-frame-titlebar flex items-center gap-2 px-4 py-3">
           <div className="flex gap-1.5" aria-hidden="true">

@@ -22,7 +22,7 @@ export function WhatChanged({ report }: { report: ChangeReport }) {
   const { metrics, risks, key_changes: keyChanges, comparison_basis: basis, prior_filing: prior } = report
 
   return (
-    <section className="rounded-lg border border-border-light bg-panel-light p-6 shadow-sm dark:border-border-dark dark:bg-panel-dark">
+    <section className="rounded-lg border border-border-light bg-panel-light p-6 shadow-e1 dark:shadow-none dark:border-border-dark dark:bg-panel-dark">
       <div className="mb-4 flex items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <GitDiffIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" aria-hidden />

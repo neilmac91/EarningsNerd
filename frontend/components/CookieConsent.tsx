@@ -141,7 +141,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
 
   if (!showBanner && !showSettings) {
     return saved ? (
-      <div className="fixed bottom-4 right-4 z-50 bg-success-light dark:bg-success-dark text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 animate-slide-up">
+      <div className="fixed bottom-4 right-4 z-50 bg-success-light dark:bg-success-dark text-white px-4 py-2 rounded-lg shadow-e2 flex items-center gap-2 animate-fade-up">
         <CheckCircleIcon className="h-5 w-5" />
         <span>Cookie preferences saved</span>
       </div>
@@ -151,37 +151,37 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
   if (showSettings) {
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-slate-800 rounded-lg shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-e5 dark:shadow-none max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <div className="p-6">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
                 <CookieIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
-                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
                   Cookie Preferences
                 </h2>
               </div>
               <button
                 onClick={() => setShowSettings(false)}
-                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300"
+                className="text-text-tertiary-light hover:text-text-secondary-light dark:hover:text-text-secondary-dark"
               >
                 <XIcon className="h-6 w-6" />
               </button>
             </div>
 
-            <p className="text-slate-600 dark:text-slate-400 mb-6">
+            <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">
               We use cookies to enhance your experience, analyze site traffic, and provide
               personalized content. Choose which cookies you&apos;re comfortable with.
             </p>
 
             <div className="space-y-4">
               {/* Essential Cookies */}
-              <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+              <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h3 className="font-semibold text-slate-900 dark:text-white mb-2">
+                    <h3 className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
                       Essential Cookies
                     </h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                       Required for the website to function properly. These include authentication,
                       security, and basic functionality. Cannot be disabled.
                     </p>
@@ -191,20 +191,20 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                       type="checkbox"
                       checked={true}
                       disabled
-                      className="h-5 w-5 rounded border-slate-300 text-brand-strong focus:shadow-ring-brand opacity-50 cursor-not-allowed"
+                      className="h-5 w-5 rounded border-border-light text-brand-strong focus:shadow-ring-brand opacity-50 cursor-not-allowed"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Analytics Cookies */}
-              <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+              <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h3 className="font-semibold text-slate-900 dark:text-white mb-2">
+                    <h3 className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
                       Analytics Cookies
                     </h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                       Help us understand how visitors interact with our website by collecting
                       anonymous usage statistics (PostHog). This helps us improve the user
                       experience.
@@ -217,20 +217,20 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                       onChange={(e) =>
                         setPreferences({ ...preferences, analytics: e.target.checked })
                       }
-                      className="h-5 w-5 rounded border-slate-300 text-brand-strong focus:shadow-ring-brand"
+                      className="h-5 w-5 rounded border-border-light text-brand-strong focus:shadow-ring-brand"
                     />
                   </div>
                 </div>
               </div>
 
               {/* Session Recording */}
-              <div className="border border-slate-200 dark:border-slate-700 rounded-lg p-4">
+              <div className="border border-border-light dark:border-border-dark rounded-lg p-4">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h3 className="font-semibold text-slate-900 dark:text-white mb-2">
+                    <h3 className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
                       Session Recording
                     </h3>
-                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                       Records your interactions with the site to help us identify and fix bugs.
                       Sensitive information (passwords, payment details) is always masked. This is
                       more invasive and is opt-in only.
@@ -243,7 +243,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
                       onChange={(e) =>
                         setPreferences({ ...preferences, sessionRecording: e.target.checked })
                       }
-                      className="h-5 w-5 rounded border-slate-300 text-brand-strong focus:shadow-ring-brand"
+                      className="h-5 w-5 rounded border-border-light text-brand-strong focus:shadow-ring-brand"
                     />
                   </div>
                 </div>
@@ -259,13 +259,13 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
               </button>
               <button
                 onClick={() => setShowSettings(false)}
-                className="px-4 py-2 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200"
+                className="px-4 py-2 text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark"
               >
                 Cancel
               </button>
             </div>
 
-            <p className="mt-4 text-xs text-slate-500 dark:text-slate-400">
+            <p className="mt-4 text-xs text-text-secondary-light dark:text-text-secondary-dark">
               For more information, see our{' '}
               <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
                 Privacy Policy
@@ -279,16 +279,16 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
   }
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-700 shadow-2xl">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-panel-light dark:bg-panel-dark border-t border-border-light dark:border-border-dark shadow-e5 dark:shadow-none">
       <div className="max-w-7xl mx-auto p-4 sm:p-6">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <div className="flex items-start gap-3 flex-1">
             <CookieIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark flex-shrink-0 mt-0.5" />
             <div>
-              <h3 className="font-semibold text-slate-900 dark:text-white mb-1">
+              <h3 className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-1">
                 We value your privacy
               </h3>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
+              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                 We use cookies to enhance your experience and analyze site usage. You can choose
                 which cookies to accept.{' '}
                 <Link href="/privacy" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
@@ -301,13 +301,13 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
           <div className="flex flex-wrap gap-3 w-full sm:w-auto">
             <button
               onClick={handleOpenSettings}
-              className="px-4 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors border border-slate-300 dark:border-slate-600"
+              className="px-4 py-2 text-text-secondary-light dark:text-text-secondary-dark hover:bg-background-light dark:hover:bg-panel-dark rounded-lg transition-colors border border-border-light dark:border-border-dark"
             >
               Customize
             </button>
             <button
               onClick={handleRejectAll}
-              className="px-4 py-2 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+              className="px-4 py-2 text-text-secondary-light dark:text-text-secondary-dark hover:bg-background-light dark:hover:bg-panel-dark rounded-lg transition-colors"
             >
               Reject All
             </button>

@@ -86,7 +86,7 @@ export default function NotificationBell() {
       >
         <BellIcon className="h-5 w-5" />
         {unread > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-strong text-white dark:bg-brand-dark dark:text-background-dark px-1 text-data-xs font-bold ring-2 ring-background-light dark:ring-background-dark">
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-brand-strong text-white dark:bg-brand-dark dark:text-background-dark px-1 text-data-xs font-semibold ring-2 ring-background-light dark:ring-background-dark">
             {unread > 9 ? '9+' : unread}
           </span>
         )}
@@ -96,7 +96,7 @@ export default function NotificationBell() {
         <div
           role="menu"
           aria-label="Notifications"
-          className="absolute right-0 z-50 mt-2 w-80 origin-top-right overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900 shadow-e2 dark:shadow-none"
+          className="absolute right-0 z-50 mt-2 w-80 origin-top-right overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none"
         >
           <div className="border-b border-border-light dark:border-white/10 px-3 py-2.5">
             <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Notifications</p>

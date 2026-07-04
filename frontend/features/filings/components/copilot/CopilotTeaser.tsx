@@ -49,14 +49,14 @@ export default function CopilotTeaser({
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4">
       {/* Blurred sample answer — conveys the value without giving it away. Decorative (aria-hidden). */}
-      <div className="relative overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-slate-800/40 p-3">
+      <div className="relative overflow-hidden rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 p-3">
         <div aria-hidden="true" className="pointer-events-none select-none space-y-2 blur-[3px]">
           <div className="flex justify-end">
             <div className="max-w-[85%] rounded-2xl rounded-br-sm bg-panel-light dark:bg-white/5 px-3 py-1.5 text-xs text-text-primary-light dark:text-text-primary-dark">
               How did revenue and margins trend?
             </div>
           </div>
-          <div className="rounded-2xl rounded-bl-sm border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-800/60 px-3 py-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+          <div className="rounded-2xl rounded-bl-sm border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/[0.07] px-3 py-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
             Revenue rose 8% to $94.0B [1], with gross margin expanding to 46.2% [F1] on a richer
             product mix [2].
             <div className="mt-2 flex items-center gap-1.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
@@ -65,7 +65,7 @@ export default function CopilotTeaser({
           </div>
         </div>
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-panel-light dark:bg-slate-900/80 ring-1 ring-brand-border">
+          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-panel-light dark:bg-panel-dark ring-1 ring-brand-border">
             <LockSimpleIcon className="h-4 w-4 text-brand-strong dark:text-brand-strong-dark" />
           </span>
         </div>

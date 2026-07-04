@@ -21,12 +21,12 @@ export default function GlobalError({
     return (
         <html lang="en" className={inter.className}>
             <body>
-                <div className="flex min-h-screen flex-col items-center justify-center bg-white p-4 text-center dark:bg-slate-900">
+                <div className="flex min-h-screen flex-col items-center justify-center bg-background-light p-4 text-center dark:bg-background-dark">
                     <div className="mx-auto max-w-md space-y-4">
-                        <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+                        <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
                             Something went wrong!
                         </h2>
-                        <p className="text-slate-600 dark:text-slate-400">
+                        <p className="text-text-secondary-light dark:text-text-secondary-dark">
                             We apologize for the inconvenience. An unexpected error has occurred.
                         </p>
                         <div className="flex justify-center gap-4">
@@ -38,13 +38,13 @@ export default function GlobalError({
                             </button>
                             <button
                                 onClick={() => window.location.reload()}
-                                className="rounded-lg border border-slate-300 bg-white px-4 py-2 font-medium text-slate-700 transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                                className="rounded-lg border border-border-light bg-white px-4 py-2 font-medium text-text-secondary-light transition-colors hover:bg-background-light focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 dark:border-border-dark dark:bg-background-dark dark:text-text-secondary-dark dark:hover:bg-background-dark"
                             >
                                 Reload Page
                             </button>
                         </div>
                         {process.env.NODE_ENV === 'development' && (
-                            <div className="mt-8 overflow-auto rounded-lg bg-red-50 p-4 text-left text-sm text-red-900 dark:bg-red-900/20 dark:text-red-200">
+                            <div className="mt-8 overflow-auto rounded-lg bg-error-light/10 p-4 text-left text-sm text-error-light dark:bg-error-dark/10 dark:text-error-dark">
                                 <p className="font-mono">{error.message}</p>
                                 {error.digest && <p className="mt-2 font-mono text-xs">Digest: {error.digest}</p>}
                             </div>

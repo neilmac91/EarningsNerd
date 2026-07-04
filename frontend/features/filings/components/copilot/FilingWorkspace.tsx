@@ -53,7 +53,7 @@ function readStoredWidth(): number {
 // the grid cell; PaneResizer + the sticky cell wrapper provide width/height). One element, two CSS
 // personalities — so each body mounts exactly once across breakpoints.
 const SHELL_CLASSES =
-  'fixed inset-x-0 bottom-0 z-40 flex max-h-[85vh] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-slate-900 dark:text-text-primary-dark shadow-2xl lg:static lg:inset-auto lg:z-auto lg:h-full lg:max-h-none lg:w-full lg:rounded-none lg:border-y-0 lg:shadow-none'
+  'fixed inset-x-0 bottom-0 z-40 flex max-h-[85vh] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none lg:static lg:inset-auto lg:z-auto lg:h-full lg:max-h-none lg:w-full lg:rounded-none lg:border-y-0 lg:shadow-none'
 
 interface FilingWorkspaceProps {
   /** Whether the Copilot pane is open (drives the two-column desktop layout + launcher). */
@@ -196,14 +196,14 @@ export default function FilingWorkspace({
                 >
                   <SparkleIcon className="h-4 w-4" />
                   Ask this Filing
-                  <kbd className="ml-1 hidden rounded border border-slate-950/25 bg-slate-950/10 px-1.5 py-0.5 text-[10px] font-semibold leading-none sm:inline-block">
+                  <kbd className="ml-1 hidden rounded border border-border-light bg-background-light px-1.5 py-0.5 text-[10px] font-semibold leading-none sm:inline-block">
                     ⌘K
                   </kbd>
                   {/* First-run "new" dot: the ping ring animates only when motion is allowed; the dot
                       itself is the static fallback for prefers-reduced-motion (WCAG 2.3.3). */}
                   {showAttention && (
                     <span aria-hidden="true" className="absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5">
-                      <span className="absolute inline-flex h-full w-full rounded-full bg-white/70 opacity-75 motion-safe:animate-ping" />
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-white/70 opacity-75" />
                       <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white ring-2 ring-brand-strong dark:ring-brand-dark" />
                     </span>
                   )}

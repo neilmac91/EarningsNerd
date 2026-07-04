@@ -21,9 +21,9 @@ export default function Error({
     <div className="flex min-h-screen flex-col items-center justify-center bg-background-light px-4 dark:bg-background-dark">
       <div className="mx-auto max-w-md text-center">
         <div className="mb-8">
-          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20">
+          <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-error-light/10 dark:bg-error-dark/10">
             <svg
-              className="h-10 w-10 text-red-600 dark:text-red-400"
+              className="h-10 w-10 text-error-light dark:text-error-dark"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -36,7 +36,7 @@ export default function Error({
               />
             </svg>
           </div>
-          <h1 className="mb-2 text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+          <h1 className="mb-2 text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
             Something went wrong
           </h1>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
@@ -66,7 +66,7 @@ export default function Error({
 
         {process.env.NODE_ENV === 'development' && (
           <div className="mt-8 rounded-lg border border-border-light bg-background-light p-4 text-left dark:border-border-dark dark:bg-white/5">
-            <h2 className="mb-2 font-mono text-sm font-semibold text-red-600 dark:text-red-400">
+            <h2 className="mb-2 font-mono text-sm font-semibold text-error-light dark:text-error-dark">
               Development Error Details:
             </h2>
             <pre className="overflow-x-auto text-xs text-text-secondary-light dark:text-text-secondary-dark">
