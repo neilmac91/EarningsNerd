@@ -1186,6 +1186,46 @@ async def test_service_adjacency_keeps_qualitative_placements(monkeypatch):
     assert complete["misplaced_fact_markers"] == 0
 
 
+def _growth_fact(value: float, year: int, marker: str) -> dict:
+    return {
+        "concept": "revenue", "kind": "yoy_growth", "value": value, "unit": "pure",
+        "fiscal_year": year, "fiscal_period": "FY", "raw_tag": "derived",
+        "accession": f"a-{year}", "_marker": marker,
+    }
+
+
+@pytest.mark.unit
+def test_resolver_stripped_markers_do_not_shield_survivors():
+    """CONFIRMED BYPASS (live eval replay, TSLA trend question): in a dense marker run the
+    stripped markers used to bound the NEXT marker's adjacency window, leaving a surviving reused
+    marker with a year-only, unfalsifiable window — while the final text (strips removed) put it
+    right beside figures it never vouched for ("surged 19.4% to $15.00B in 2023 [3]" where [3] =
+    Revenue YoY growth 18.8%). Windows must be judged against what SHIPS: stripped markers no
+    longer advance the boundary, so every reused marker in the net-income sentence is stripped."""
+    facts = [
+        {**_revenue_fact(81_462_000_000.0, 2022), "_marker": "F1"},
+        {**_revenue_fact(96_773_000_000.0, 2023), "_marker": "F2"},
+        _growth_fact(0.18795, 2023, "F3"),
+        {**_revenue_fact(97_690_000_000.0, 2024), "_marker": "F4"},
+        _growth_fact(0.009476, 2024, "F5"),
+    ]
+    raw = (
+        "Revenue rose from $81.46 billion in 2022 [F1] to $96.77 billion in 2023 [F2] — "
+        "an increase of 18.8% [F3] — then edged up to $97.69 billion in 2024 [F4], "
+        "a modest 0.9% gain [F5]. "
+        "Net income was $12.56 billion in 2022 [F1], surged 19.4% [F3] to $15.00 billion [F2] "
+        "in 2023 [F3], then fell 52.7% [F5] to $7.09 billion [F4] in 2024 [F5]."
+    )
+    answer, citations, grounded, misplaced = copilot_service._resolve_citations(raw, {}, facts, None)
+
+    # All five revenue-paragraph placements survive; all seven net-income reuses are stripped.
+    assert misplaced == 7
+    assert len(citations) == 5
+    net_income_part = answer[answer.index("Net income"):]
+    assert "[" not in net_income_part  # not a single chip on the wrong metric's sentence
+    assert answer.count("[3]") == 1  # the growth chip lives only on its own 18.8% figure
+
+
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_service_strips_fact_marker_on_mislabeled_metric(monkeypatch):

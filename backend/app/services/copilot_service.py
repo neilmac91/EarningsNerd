@@ -589,8 +589,16 @@ def _resolve_citations(
         # belongs to — is exactly as misleading as inventing one (field report: revenue markers
         # reused as year markers across other metrics). VALUE: the adjacent figure must match
         # the fact. CONCEPT: the claim must not name a different metric. The window starts
-        # after the PREVIOUS marker — the already-cited figure of the prior claim
+        # after the previous KEPT marker — the already-cited figure of the prior claim
         # ("$81.46B [F1]. Gross profit fell to $20.85B [F1]") must not vouch for a reuse.
+        #
+        # STRIPPED markers must NOT bound the window: they vanish from the final text, so in a
+        # dense run ("surged 19.4% [F3] to $15.00B [F2] in 2023 [F3]") letting the two strips
+        # delimit the survivor would leave it a year-only, unfalsifiable window — while the
+        # user-visible text puts it right next to figures it never vouched for (a confirmed
+        # bypass: reused growth chips shipping on another metric's growth figures). Windows are
+        # judged against what the FINAL answer will show; `_fact_matches_adjacent_number` scrubs
+        # any stripped markers' leftover bracket text from the window.
         fact = facts_by_marker.get(key) if key not in text_citations_by_marker else None
         if fact is not None:
             window = _adjacency_window(full_answer, match.start(), prev_marker_end)
@@ -600,9 +608,7 @@ def _resolve_citations(
                 misplaced += 1
                 pieces.append(full_answer[cursor:match.start()].rstrip(" "))
                 cursor = match.end()
-                prev_marker_end = match.end()
                 continue
-        prev_marker_end = match.end()
 
         # A marker cited more than once (e.g. "[F1]" mentioned twice) just reuses the number from
         # its first appearance — skip straight to rewriting, no need to re-resolve it.
@@ -611,6 +617,7 @@ def _resolve_citations(
             pieces.append(full_answer[cursor:match.start()])
             pieces.append(f"[{n}]")
             cursor = match.end()
+            prev_marker_end = match.end()
             continue
 
         citation = text_citations_by_marker.get(key)
@@ -629,6 +636,9 @@ def _resolve_citations(
                 # "value [F4]," → "value,", "billion [F2] and" → "billion and".
                 pieces.append(full_answer[cursor:match.start()].rstrip(" "))
                 cursor = match.end()
+            else:
+                # Kept as literal text — it stays in the final answer, so it bounds claim spans.
+                prev_marker_end = match.end()
             continue
 
         pieces.append(full_answer[cursor:match.start()])
@@ -639,6 +649,7 @@ def _resolve_citations(
             grounded += 1
         pieces.append(f"[{n}]")
         cursor = match.end()
+        prev_marker_end = match.end()
 
     pieces.append(full_answer[cursor:])
     # strip() guards a stripped F-marker at the very start/end leaving stray whitespace.

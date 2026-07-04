@@ -397,16 +397,28 @@ regression can't hide from the harness).
 
 **Live eval (operator, needs model API + ingested filings):**
 ```bash
-cd backend && python -m evals.copilot_runner --limit 3
+cd backend && python -m evals.copilot_runner --runs 3
 ```
-Read `evals/reports/copilot_eval_*.md`:
+Read `evals/reports/copilot_eval_*.md` (one per run) + the printed cross-run aggregate:
 - `Cite faithful` < 1.00 → a text excerpt shipped that isn't verbatim filing text. Hard stop.
 - `Fact adj` < 1.00 → a fact chip shipped on the wrong figure — the adjacency guard regressed. Hard stop.
 - `Fact adj … (−N stripped)` → the guard caught N misplacements. Answers are safe, but a rising N
   means the model's placement discipline is degrading — tighten the prompt's one-marker-one-figure
   rule before it finds a shape the guard can't falsify.
-- Gate this the same way as the summary bake-off: run before/after any change to
-  `prompts` in `copilot_service.py`, `AI_DEFAULT_MODEL`, or the resolver, and require no regression.
+
+**Gating rule — two different standards (July 2026, learned the hard way):**
+- **Resolver/guard changes** gate DETERMINISTICALLY: the offline suites replay real failure shapes
+  through `_resolve_citations` with no model in the loop (`pytest tests/unit/test_copilot.py
+  tests/unit/test_copilot_evals.py`). Never gate a resolver change on a live run alone.
+- **Prompt/model changes** gate on `--runs 3` (or more) AGGREGATES, never a single draw. Measured
+  spread on IDENTICAL prompts reached 62%↔81% pass rate run-to-run — a single before/after is
+  noise. The aggregate's TRUST line (rows with `Fact adj` < 1.0 across any run) is the hard veto.
+- **Negative result on record:** pushing citation-density via prompt ("EVERY figure must carry a
+  marker", "call compute_metric for derived numbers") made placement *worse* — the model fetched
+  growth metrics it then reused across other metrics' growth figures, and dense marker runs
+  produced the window-shielding bypass (since fixed in the resolver: stripped markers no longer
+  bound adjacency windows). Coverage stays a WARN-level telemetry signal; do not re-attempt
+  density-forcing prompts without a `--runs 5` aggregate showing the TRUST line clean.
 
 **Production watch — alerting (one-time setup):** don't rely on reading logs; make drift find you:
 ```bash

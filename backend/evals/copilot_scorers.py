@@ -157,7 +157,12 @@ def score_copilot_answer(
     refusal_correct = score_refusal(kind, qa.disclosed)
     faithfulness, unverified = score_citation_faithfulness(citations, normalized_source)
     adjacency, misplaced = score_fact_marker_adjacency(answer, citations)
-    figure_coverage, figure_count, uncited_figures = score_figure_coverage(answer, len(citations))
+    # Coverage only applies to answered questions: a refusal's explanation sentence carries no
+    # citations by design, so counting its figures as "uncited" is pure noise in the report.
+    if kind != "not_disclosed":
+        figure_coverage, figure_count, uncited_figures = score_figure_coverage(answer, len(citations))
+    else:
+        figure_coverage, figure_count, uncited_figures = 1.0, 0, 0
 
     # Numeric recall only applies to a disclosed question that was actually answered.
     if qa.disclosed and kind != "not_disclosed":

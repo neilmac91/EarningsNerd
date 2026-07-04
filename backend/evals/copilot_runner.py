@@ -162,14 +162,42 @@ def _write_report(summary: Dict[str, Any]) -> Path:
     return md_path
 
 
+def _print_aggregate(summaries: List[Dict[str, Any]]) -> None:
+    """Cross-run aggregate for --runs N. The model's citation placement is highly stochastic —
+    measured pass-rate spread on identical prompts reached 19 points — so a single draw must
+    never gate a prompt/model change. The TRUST line is the hard signal: any row with
+    fact_adjacency < 1.0 in ANY run means a wrong chip shipped."""
+    rates = [s["pass_rate"] for s in summaries]
+    rows = [r for s in summaries for r in s["results"] if "fact_adjacency" in r]
+    trust_violations = [r for r in rows if r["fact_adjacency"] < 1.0]
+    stripped = sum(r.get("stripped_misplaced_markers", 0) for r in rows)
+    print(f"\n=== Aggregate over {len(summaries)} runs ===")
+    print(f"pass rate: mean {sum(rates)/len(rates):.0%}  min {min(rates):.0%}  max {max(rates):.0%}")
+    print(f"TRUST: rows with fact_adjacency < 1.0: {len(trust_violations)}"
+          + (f"  ← wrong chip(s) SHIPPED: {[(r['ticker'], r['question'][:40]) for r in trust_violations]}"
+             if trust_violations else "  (no wrong chip shipped in any run)"))
+    print(f"guard catches (stripped misplaced markers, all runs): {stripped}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run the Ask-this-Filing Copilot eval.")
     parser.add_argument("--limit", type=int, default=None, help="Only run the first N filings.")
+    parser.add_argument(
+        "--runs", type=int, default=1,
+        help="Independent draws of the full set (gate prompt/model changes on >= 3; a single "
+        "draw is inside the model's run-to-run noise).",
+    )
     args = parser.parse_args()
 
-    summary = asyncio.run(run(limit=args.limit))
-    report = _write_report(summary)
-    print(f"Pass rate: {summary['pass_rate']:.0%} ({summary['passed']}/{summary['answered']}) → {report}")
+    summaries: List[Dict[str, Any]] = []
+    for i in range(max(1, args.runs)):
+        summary = asyncio.run(run(limit=args.limit))
+        report = _write_report(summary)
+        summaries.append(summary)
+        print(f"run {i + 1}/{args.runs}: pass rate {summary['pass_rate']:.0%} "
+              f"({summary['passed']}/{summary['answered']}) → {report}")
+    if len(summaries) > 1:
+        _print_aggregate(summaries)
 
 
 if __name__ == "__main__":
