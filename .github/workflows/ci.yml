@@ -385,12 +385,12 @@ jobs:
             --update-secrets=OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
             --update-env-vars=OPENAI_BASE_URL=https://api.deepseek.com/v1,AI_DEFAULT_MODEL=deepseek-v4-pro \
             --quiet
-      - name: Update filing-scan + digest + backfill-facts job images
+      - name: Update filing-scan + digest + backfill-facts + earnings-calendar job images
         if: steps.changes.outputs.backend == 'true'
         # The jobs + their Cloud Scheduler triggers are created once out-of-band (see DEPLOYMENT.md);
         # CI only bumps the image. Skip each gracefully if it hasn't been created yet so CD never fails.
         run: |
-          for job in earningsnerd-filing-scan earningsnerd-filing-digest earningsnerd-backfill-facts; do
+          for job in earningsnerd-filing-scan earningsnerd-filing-digest earningsnerd-backfill-facts earningsnerd-earnings-calendar-refresh earningsnerd-earnings-day-alerts; do
             if gcloud run jobs describe "$job" --region=us-west1 >/dev/null 2>&1; then
               gcloud run jobs update "$job" --region=us-west1 \
                 --image="$IMAGE:${GITHUB_SHA::7}" \
