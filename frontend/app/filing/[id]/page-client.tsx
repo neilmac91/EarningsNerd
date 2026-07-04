@@ -15,7 +15,7 @@ import { getSubscriptionStatus } from '@/features/subscriptions/api/subscription
 import { getCompany, Company } from '@/features/companies/api/companies-api'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getApiUrl } from '@/lib/api/client'
-import { BookmarkSimpleIcon, CircleNotchIcon, DownloadSimpleIcon, FileArrowDownIcon, FileTextIcon, SparkleIcon, WarningCircleIcon } from '@/lib/icons'
+import { BookmarkSimpleIcon, CheckCircleIcon, CircleNotchIcon, DownloadSimpleIcon, FileArrowDownIcon, FileTextIcon, SparkleIcon } from '@/lib/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
@@ -33,48 +33,10 @@ import { getEntryPoint } from '@/lib/entryPoint'
 import { ENABLE_FINANCIAL_CHARTS } from '@/lib/featureFlags'
 import { sanitizeFilename } from '@/lib/format'
 import { Button } from '@/components/ui/Button'
-import { GuidanceCard, Skeleton, SkeletonText } from '@/components/ui'
+import { Badge, Card, GuidanceCard, Skeleton, SkeletonText } from '@/components/ui'
+import StreamingSummaryDisplay from './StreamingSummaryDisplay'
 
-// --- Constants ---
-
-const WHIMSY_MESSAGES = [
-  "Turning caffeine into investments insights...",
-  "Teaching the AI to read between the lines...",
-  "Scanning 400 pages of footnotes so you don't have to...",
-  "Cross-referencing historical data with crystal ball predictions...",
-  "Translating 'Corporate Speak' into plain English...",
-  "Wait for it... the good stuff is coming...",
-  "Analyzing the fine print size 8 font...",
-  "Reviewing the obscure 'Other' section...",
-  "Decrypting the CEO's optimism...",
-  "Looking for hidden gems in the appendix..."
-]
-
-// Ordered list of the real pipeline stages the backend streams over SSE
-// (see backend/app/services/summary_pipeline.py). Step status is derived from the
-// live stage below — not from a timer — so the log reflects what is actually happening.
-const STAGE_ORDER = ['initializing', 'queued', 'fetching', 'parsing', 'analyzing', 'summarizing', 'completed'] as const
-
-// Honest progress steps mapped to real backend stages. The filing-type label is
-// derived from the actual filing (no more hard-coded "10-Q"), and there is no
-// "vectorizing"/"semantic analysis" step because the summary path does no embedding.
-const buildLoadingSteps = (filingType: string) => [
-  { stage: 'fetching', label: `Retrieving ${filingType || 'SEC'} filing from EDGAR` },
-  { stage: 'parsing', label: 'Extracting financial statements, risk factors & MD&A' },
-  { stage: 'analyzing', label: 'Cross-referencing standardized XBRL financials' },
-  { stage: 'summarizing', label: 'Generating investment analysis' },
-]
-
-const STAGE_PROGRESS_MAP: Record<string, number> = {
-  'queued': 5,
-  'fetching': 10,
-  'parsing': 25,
-  'analyzing': 45,
-  'summarizing': 75,
-  'completed': 100,
-  'error': 0,
-  'initializing': 0
-}
+// StreamingSummaryDisplay + its stage constants live in ./StreamingSummaryDisplay.
 
 // --- Helper Functions ---
 
@@ -216,7 +178,7 @@ function TickerFilingsView({ ticker }: { ticker: string }) {
                   <Link
                     key={filing.id}
                     href={`/filing/${filing.id}`}
-                    className="group flex flex-col gap-3 rounded-2xl border border-border-light dark:border-white/10 bg-panel-light hover:bg-brand-weak dark:bg-slate-900/50 dark:hover:bg-slate-900/80 p-5 transition hover:border-brand-border dark:hover:border-brand-dark/60"
+                    className="group flex flex-col gap-3 rounded-xl border border-border-light dark:border-white/10 bg-panel-light hover:bg-white dark:bg-panel-dark dark:hover:bg-white/[0.06] shadow-e2 dark:shadow-none p-5 transition-colors duration-fast hover:border-brand-border dark:hover:border-brand-border-dark"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-4">
                       <div>
@@ -225,9 +187,7 @@ function TickerFilingsView({ ticker }: { ticker: string }) {
                           {filing.filing_date ? format(new Date(filing.filing_date), 'MMM dd, yyyy') : 'Date TBD'}
                         </p>
                       </div>
-                      <span className="rounded-full bg-brand-strong/10 px-3 py-1 text-xs font-medium text-brand-strong dark:bg-brand-dark/15 dark:text-brand-strong-dark">
-                        Generate AI summary
-                      </span>
+                      <Badge variant="brand">Generate AI summary</Badge>
                     </div>
                     <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark">Accession: {filing.accession_number}</div>
                   </Link>
@@ -546,7 +506,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
         <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4 text-text-primary-light dark:text-text-primary-dark">Filing not found</h1>
+          <h1 className="text-2xl font-semibold mb-4 text-text-primary-light dark:text-text-primary-dark">Filing not found</h1>
           <Link href="/" className="text-brand-strong dark:text-brand-strong-dark hover:underline">
             Go back home
           </Link>
@@ -564,7 +524,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
     >
     <div className="min-h-screen bg-background-light dark:bg-background-dark">
       {/* Header */}
-      <header className="bg-panel-light dark:bg-panel-dark shadow-lg border-b border-border-light dark:border-border-dark">
+      <header className="bg-panel-light dark:bg-panel-dark border-b border-border-light dark:border-border-dark">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
             <button
@@ -582,18 +542,18 @@ function FilingDetailView({ filingId }: { filingId: number }) {
                 <>
                   <div className="flex flex-wrap items-center gap-3 mb-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h1 className="text-3xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">
+                      <h1 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark tracking-tight">
                         {filing.company.name}
                       </h1>
-                      <span className="px-3 py-1 bg-brand-strong text-white dark:bg-brand-dark dark:text-background-dark text-sm font-bold rounded-lg shadow-sm">
+                      <Badge variant="solid" className="text-sm">
                         {filing.company.ticker}
-                      </span>
+                      </Badge>
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                    <span className="px-3 py-1 bg-brand-weak dark:bg-white/5 rounded font-semibold text-text-secondary-light dark:text-text-secondary-dark">
+                    <Badge variant={/10-Q|6-K/i.test(filing.filing_type) ? 'info' : 'neutral'}>
                       {filing.filing_type}
-                    </span>
+                    </Badge>
                     <span className="flex items-center space-x-1">
                       <span>Filed:</span>
                       <span className="font-medium">{format(new Date(filing.filing_date), 'MMMM dd, yyyy')}</span>
@@ -607,7 +567,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
                 </>
               ) : (
                 <>
-                  <h1 className="text-3xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight mb-2">
+                  <h1 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark tracking-tight mb-2">
                     {filing.filing_type} Summary
                   </h1>
                   <p className="text-text-secondary-light dark:text-text-secondary-dark">
@@ -618,10 +578,10 @@ function FilingDetailView({ filingId }: { filingId: number }) {
             </div>
 
             {/* Tech badge */}
-            <div className="hidden md:flex items-center space-x-2 px-4 py-2 bg-brand-weak dark:bg-white/5 rounded-lg border border-brand-border">
-              <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full animate-pulse"></div>
-              <span className="text-xs font-semibold text-brand-strong dark:text-brand-strong-dark">AI Analysis</span>
-            </div>
+            <Badge variant="brand" className="hidden md:inline-flex">
+              <SparkleIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              AI analysis
+            </Badge>
           </div>
         </div>
       </header>
@@ -703,369 +663,6 @@ function FilingDetailView({ filingId }: { filingId: number }) {
         onAsk={handleAskAboutSelection}
       />
     </FilingViewerProvider>
-  )
-}
-
-function StreamingSummaryDisplay({
-  streamingText,
-  stage,
-  message,
-  filing,
-  error,
-  onRetry,
-  elapsedSeconds = 0,
-}: {
-  streamingText: string
-  stage: string
-  message: string
-  filing: Filing
-  error?: string | null
-  onRetry?: () => void
-  elapsedSeconds?: number
-}) {
-  const [isClient, setIsClient] = useState(false)
-  const [whimsyMessage, setWhimsyMessage] = useState('')
-  const [showWhimsy, setShowWhimsy] = useState(false)
-  const [optimisticProgress, setOptimisticProgress] = useState(0)
-
-  const isError = stage === 'error' || !!error
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- mount-time client detection to gate SSR-unsafe rendering (avoids hydration mismatch)
-    setIsClient(true)
-  }, [])
-
-  // Whimsy rotation effect
-  useEffect(() => {
-    if (stage === 'completed' || isError) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs whimsy-message visibility to the async streaming generation stage
-      setShowWhimsy(false)
-      return
-    }
-
-    setShowWhimsy(true)
-    // Initial random message
-    setWhimsyMessage(WHIMSY_MESSAGES[Math.floor(Math.random() * WHIMSY_MESSAGES.length)])
-
-    const intervalId = setInterval(() => {
-      setWhimsyMessage(WHIMSY_MESSAGES[Math.floor(Math.random() * WHIMSY_MESSAGES.length)])
-    }, 4000)
-
-    return () => clearInterval(intervalId)
-  }, [stage, isError])
-
-  // Stalled state detection
-  const [isStalled, setIsStalled] = useState(false)
-
-  useEffect(() => {
-    // Normal generation runs ~30-60s; only flag a genuine stall well past that window
-    // so we never signal "failure" during a healthy run (was 15s — inside the normal window).
-    if (elapsedSeconds > 45 && stage !== 'completed' && stage !== 'summarizing' && !isError) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- derives a stall flag from async streaming elapsed time + generation stage
-      setIsStalled(true)
-    } else {
-      setIsStalled(false)
-    }
-  }, [elapsedSeconds, stage, isError])
-
-  // Optimistic progress effect - uses real elapsed time from backend but asymptotic approach
-  useEffect(() => {
-    if (stage === 'completed') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs optimistic progress bar to the async streaming generation stage
-      setOptimisticProgress(100)
-      return
-    }
-    if (isError) return
-
-    // Get base progress for current stage
-    const baseProgress = STAGE_PROGRESS_MAP[stage] || 0
-
-    // Calculate next stage target using map for cleaner code
-    const NEXT_TARGET_MAP: Record<string, number> = {
-      'initializing': 10,
-      'queued': 10,
-      'fetching': 25,
-      'parsing': 45,
-      'analyzing': 75,
-      'summarizing': 98, // Allow getting very close to 100%
-    }
-    const nextTarget = NEXT_TARGET_MAP[stage] || 95
-
-    // Use elapsed time from backend for smoother progress within stage
-    // Each stage gets a time bonus based on how long it's been running
-    const stageRange = nextTarget - baseProgress
-    const timeBonus = Math.min(stageRange * 0.6, elapsedSeconds * 1.5) // Faster initial ramp
-
-    // Set target to approach
-    const targetProgress = Math.min(nextTarget, baseProgress + timeBonus)
-
-    setOptimisticProgress(prev => Math.max(prev, targetProgress))
-
-    // Fallback: Asymptotic approach to nextTarget if backend assumes silence
-    // Instead of hard stop at nextTarget - 1, we asymptotically approach nextTarget
-    const interval = setInterval(() => {
-      setOptimisticProgress(current => {
-        // Asymptotic formula: move 5% of the remaining distance every tick
-        const dist = nextTarget - current
-        if (dist < 0.1) return current // Stop if very close
-        return current + (dist * 0.05)
-      })
-    }, 200)
-
-    return () => clearInterval(interval)
-  }, [stage, isError, elapsedSeconds])
-
-  // Clean up progress when complete
-  useEffect(() => {
-    if (stage === 'completed') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- finalizes progress to 100% when the async streaming generation completes
-      setOptimisticProgress(100)
-    }
-  }, [stage])
-
-  if (!isClient) {
-    return (
-      <div className="max-w-4xl mx-auto space-y-6">
-        <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-e2 dark:shadow-none border border-border-light dark:border-white/10 p-8">
-          {/* SkeletonText carries its own role="status" — the wrapper must stay
-              role-less so live regions never nest. */}
-          <div className="space-y-6">
-            <Skeleton className="h-6 w-1/3" />
-            <SkeletonText lines={3} />
-            <Skeleton className="h-32 rounded-lg" />
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  const displayText = streamingText || ''
-  const isGenerating = !isError && (stage === 'summarizing' || displayText.length > 0 || optimisticProgress < 100)
-
-  // Use whimsy message if available and generation is active but not showing text yet
-  // or if we are in a long running state.
-  // Actually, let's show whimsy message as a sub-text or rotating label
-  const activeMessage = error || message || stage
-
-  // Honest, backend-driven progress log: steps reflect the real streamed stage.
-  const loadingSteps = buildLoadingSteps(filing.filing_type)
-  const currentStageIdx = STAGE_ORDER.indexOf(stage as (typeof STAGE_ORDER)[number])
-  // On the error path `stage` becomes 'error' (not in STAGE_ORDER → index -1). Fall back to the
-  // furthest stage the persisted progress implies so the step log keeps its completed steps instead
-  // of collapsing to all-pending — staying consistent with the circular indicator, which also
-  // retains its last value on error.
-  const displayStageIdx = currentStageIdx > -1
-    ? currentStageIdx
-    : STAGE_ORDER.reduce((acc, s, i) => ((STAGE_PROGRESS_MAP[s] ?? 0) <= optimisticProgress ? i : acc), -1)
-
-  return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      {/* Progress Header */}
-      <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark p-8 relative overflow-hidden">
-        {/* Shimmer overlay for active generation */}
-        {isGenerating && (
-          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full animate-shimmer motion-reduce:animate-none" />
-        )}
-
-        <div className="flex flex-col md:flex-row gap-8 relative z-10">
-          {/* Left: Heartbeat Indicator */}
-          <div className="flex flex-col items-center justify-center space-y-4 md:w-1/3 border-b md:border-b-0 md:border-r border-border-light dark:border-border-dark pb-6 md:pb-0 md:pr-6">
-            <div className="relative w-32 h-32 flex-shrink-0">
-              {/* Outer Ring */}
-              <svg className="w-32 h-32 transform -rotate-90" viewBox="0 0 128 128">
-                <circle
-                  cx="64"
-                  cy="64"
-                  r="60"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="6"
-                  className="text-border-light dark:text-border-dark"
-                />
-                <circle
-                  cx="64"
-                  cy="64"
-                  r="60"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="6"
-                  strokeDasharray={`${2 * Math.PI * 60}`}
-                  strokeDashoffset={`${2 * Math.PI * 60 * (1 - optimisticProgress / 100)}`}
-                  strokeLinecap="round"
-                  className={`transition-[stroke-dashoffset] duration-slow ease-out ${isError ? 'text-error-light dark:text-error-dark' : 'text-brand-strong dark:text-brand-strong-dark'}`}
-                />
-              </svg>
-
-              {/* Center Heartbeat Orb */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className={`relative w-16 h-16 rounded-full flex items-center justify-center transition-colors duration-slow ${isError
-                  ? 'bg-error-light/10 dark:bg-error-dark/10'
-                  : 'bg-brand-weak dark:bg-white/5'
-                  }`}>
-                  <div className={`w-8 h-8 rounded-full ${isError
-                    ? 'bg-error-light dark:bg-error-dark'
-                    : 'bg-brand-strong dark:bg-brand-strong-dark'
-                    } ${isGenerating && !isError ? 'animate-pulse' : ''} shadow-lg shadow-brand-strong/20`} />
-
-                  {/* Ripple effect */}
-                  {isGenerating && !isError && (
-                    <div className="absolute inset-0 rounded-full border border-brand-border animate-ping" />
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="text-center">
-              <h3 className={`text-lg font-semibold ${isError ? 'text-error-light dark:text-error-dark' : 'text-text-primary-light dark:text-text-primary-dark'}`}>
-                {Math.round(optimisticProgress)}% Complete
-              </h3>
-              <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">
-                {filing.filing_type} • {isError ? 'Failed' : isGenerating ? 'Processing...' : 'Ready'}
-              </p>
-              {isGenerating && !isError && (
-                <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark mt-1">
-                  This usually takes 30–60 seconds
-                </p>
-              )}
-            </div>
-          </div>
-
-          {/* Right: Live Log & Whimsy */}
-          <div className="flex-1 flex flex-col justify-center min-w-0">
-            {/* Whimsy Message Area */}
-            <div className="mb-6 bg-background-light dark:bg-background-dark rounded-lg p-4 border border-border-light dark:border-border-dark">
-              <div className="flex items-start gap-3">
-                <div className="mt-1">
-                  <span className="text-xl">✨</span>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark animate-fadeIn">
-                    {isError
-                      ? "We hit a snag, but don't worry."
-                      : isStalled
-                        ? "Taking longer than usual, but we're still working on it..."
-                        : (showWhimsy ? whimsyMessage : "Initializing...")
-                    }
-                  </p>
-                  <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-                    {isStalled ? "Complex filing detected" : "AI Analyst System"}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Vertical Live Log */}
-            <div className="flex flex-col space-y-4 relative">
-              <div className="absolute left-3 top-2 bottom-2 w-0.5 bg-border-light dark:bg-border-dark lg:block hidden" />
-
-              {/* Dynamically generate log steps based on progress */}
-              {loadingSteps.map((step) => {
-                const stepIdx = STAGE_ORDER.indexOf(step.stage as (typeof STAGE_ORDER)[number])
-                const status = (stage === 'completed' || (displayStageIdx > -1 && displayStageIdx > stepIdx))
-                  ? 'complete'
-                  : (displayStageIdx === stepIdx ? 'active' : 'pending')
-
-                return (
-                  <div key={step.stage} className={`flex items-center gap-3 transition-opacity duration-base ${status === 'pending' ? 'opacity-40' : 'opacity-100'}`}>
-                    <div className={`relative z-10 w-6 h-6 rounded-full flex items-center justify-center border transition duration-base ${status === 'complete'
-                      ? 'bg-brand-strong border-brand-strong text-white dark:bg-brand-dark dark:border-brand-dark dark:text-background-dark'
-                      : status === 'active'
-                        ? 'bg-panel-light dark:bg-panel-dark border-brand-border text-brand-strong dark:text-brand-strong-dark'
-                        : 'bg-background-light dark:bg-background-dark border-border-light dark:border-border-dark'
-                      }`}>
-                      {status === 'complete' && (
-                        <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      )}
-                      {status === 'active' && (
-                        <div className="w-2 h-2 rounded-full bg-brand-strong dark:bg-brand-strong-dark animate-pulse" />
-                      )}
-                    </div>
-                    <span className={`text-sm ${status === 'active' ? 'font-medium text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
-                      {step.label}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Streaming Content */}
-      {isError && (
-        <GuidanceCard
-          variant="error"
-          title="Generation interrupted"
-          description={error || message || 'Generation timed out. Please retry to continue.'}
-          action={
-            onRetry ? (
-              // Secondary, per the GuidanceCard convention (error retry is never the page's primary action)
-              <Button variant="secondary" onClick={onRetry}>
-                Retry generation
-              </Button>
-            ) : undefined
-          }
-        />
-      )}
-
-      {displayText && (
-        <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-lg border border-border-light dark:border-border-dark p-8">
-          <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-border-light dark:border-border-dark">
-            <div className="w-2 h-2 bg-brand-strong dark:bg-brand-strong-dark rounded-full"></div>
-            <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">AI-Generated Summary</h2>
-            {isGenerating && (
-              <span className="px-2.5 py-1 text-xs font-semibold text-brand-strong dark:text-brand-strong-dark bg-brand-weak dark:bg-white/5 rounded-full">
-                Live
-              </span>
-            )}
-          </div>
-          <div className="prose prose-lg dark:prose-invert max-w-none">
-            <div className="text-text-secondary-light dark:text-text-secondary-dark whitespace-pre-wrap leading-relaxed font-sans">
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  h1: ({ node, ...props }) => <h1 className="text-2xl font-bold mt-6 mb-4" {...props} />,
-                  h2: ({ node, ...props }) => <h2 className="text-xl font-bold mt-5 mb-3" {...props} />,
-                  h3: ({ node, ...props }) => <h3 className="text-lg font-bold mt-4 mb-2" {...props} />,
-                  p: ({ node, ...props }) => <p className="mb-4" {...props} />,
-                  ul: ({ node, ...props }) => <ul className="list-disc pl-5 mb-4" {...props} />,
-                  ol: ({ node, ...props }) => <ol className="list-decimal pl-5 mb-4" {...props} />,
-                  li: ({ node, ...props }) => <li className="mb-1" {...props} />,
-                }}
-              >
-                {displayText}
-              </ReactMarkdown>
-              {isGenerating && (
-                <span className="inline-block w-0.5 h-5 bg-brand-strong dark:bg-brand-strong-dark ml-1 align-middle animate-pulse"></span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {!displayText && !isError && (
-        <div className="bg-panel-light dark:bg-panel-dark rounded-xl p-8 border border-border-light dark:border-border-dark shadow-lg">
-          <div className="flex items-start space-x-4">
-            <div className="flex-shrink-0">
-              <CircleNotchIcon className="h-8 w-8 text-brand-strong dark:text-brand-strong-dark animate-spin" />
-            </div>
-            <div className="flex-1">
-              <p className="text-text-primary-light dark:text-text-primary-dark font-semibold text-lg mb-1">
-                {activeMessage}
-              </p>
-              <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm">
-                Analyzing risk factors, financials &amp; management discussion for investment insights...
-              </p>
-            </div>
-          </div>
-
-          {/* Streaming placeholder — mono rhythm (the summary streams into the data face) */}
-          <SkeletonText lines={5} mono className="mt-6" />
-        </div>
-      )}
-    </div>
   )
 }
 
@@ -1229,14 +826,12 @@ function SummaryDisplay({
           <div>
             {summary && summary.id && (
               isSaved ? (
-                <button
-                  onClick={() => saveMutation.mutate(summary.id)}
-                  disabled={saveMutation.isPending || isSaved}
-                  className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-medium transition-colors bg-success-light/10 text-success-light dark:bg-success-dark/10 dark:text-success-dark cursor-not-allowed"
-                >
-                  <BookmarkSimpleIcon className="h-4 w-4 mr-2" />
+                // Terminal confirmation — a static success chip (no success Badge variant exists;
+                // DS §9 reserves success for a genuine done-state, which "Saved" is).
+                <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold bg-success-light/10 text-success-light dark:bg-success-dark/10 dark:text-success-dark">
+                  <CheckCircleIcon className="h-4 w-4" aria-hidden="true" />
                   Saved
-                </button>
+                </span>
               ) : (
                 <Button
                   variant="secondary"
@@ -1266,14 +861,22 @@ function SummaryDisplay({
       </div>
 
       {isError ? (
-        <div className="bg-warning-light/10 dark:bg-warning-dark/10 border border-warning-light/30 rounded-lg p-6">
-          <WarningCircleIcon className="h-6 w-6 text-warning-light dark:text-warning-dark mb-2" />
-          <p className="text-warning-light dark:text-warning-dark">{fallbackMessage}</p>
-        </div>
+        <GuidanceCard
+          variant="error"
+          title="Summary temporarily unavailable"
+          description={fallbackMessage}
+          action={
+            onRetry ? (
+              <Button variant="secondary" onClick={onRetry}>
+                Retry
+              </Button>
+            ) : undefined
+          }
+        />
       ) : (
         <>
           {hasPolishedMarkdown && (
-            <section className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-md p-6">
+            <Card as="section" className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center space-x-2">
                   <FileTextIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
@@ -1282,18 +885,14 @@ function SummaryDisplay({
                       Suppressed in demo mode so a first-time visitor never meets "Partial" on the
                       curated example (plan item 1.3) — the badge still shows on user-chosen filings. */}
                   {!demoMode && ENABLE_QUALITY_BADGE && quality?.tier && (
-                    <span
+                    <Badge
+                      variant={quality.tier === 'full' ? 'brand' : 'warning'}
                       title={quality.reasons && quality.reasons.length ? quality.reasons.join('; ') : undefined}
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${
-                        quality.tier === 'full'
-                          ? 'bg-brand-weak dark:bg-white/5 text-brand-strong dark:text-brand-strong-dark ring-brand-border'
-                          : 'bg-warning-light/10 dark:bg-warning-dark/10 text-warning-light dark:text-warning-dark ring-warning-light/30'
-                      }`}
                     >
                       {quality.tier === 'full'
                         ? 'Full summary'
                         : `Partial${quality.reasons && quality.reasons.length ? ` — ${quality.reasons[0]}` : ''}`}
-                    </span>
+                    </Badge>
                   )}
                 </div>
                 {/* Regenerate button - shown for partial results or fallback summaries. Pro-only:
@@ -1312,7 +911,7 @@ function SummaryDisplay({
                   {cleanedMarkdown}
                 </ReactMarkdown>
               </div>
-            </section>
+            </Card>
           )}
 
           {/* A5: What Changed vs the prior comparable filing */}
@@ -1351,8 +950,8 @@ function SummaryDisplay({
       )}
 
       {metadata?.action_items && Array.isArray(metadata.action_items) && metadata.action_items.length > 0 && (
-        <section className="bg-panel-light dark:bg-panel-dark rounded-lg shadow border border-brand-border p-6">
-          <h3 className="text-lg font-semibold text-brand-strong dark:text-brand-strong-dark mb-1">Suggested Follow-Ups</h3>
+        <Card as="section" className="p-6">
+          <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-1">Suggested follow-ups</h3>
           <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-3">Tap a question to ask the Copilot.</p>
           <ul className="space-y-2">
             {metadata.action_items.map((item: string, index: number) => (
@@ -1368,7 +967,7 @@ function SummaryDisplay({
               </li>
             ))}
           </ul>
-        </section>
+        </Card>
       )}
 
       {/* End-of-summary discovery surface: turn the just-finished read into the next action. Hidden on

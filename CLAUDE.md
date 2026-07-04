@@ -331,7 +331,7 @@ Modular ETL pipeline for SEC filing data (see `backend/docs/plan_sec_pipeline.md
 | Component | Purpose |
 |-----------|---------|
 | `SummarySections.tsx` | Summary display with collapsible sections |
-| `SummaryProgress.tsx` | Real-time progress for summary generation |
+| `app/filing/[id]/StreamingSummaryDisplay.tsx` | Live summary-generation experience (progress card + step log + streamed markdown) on the filing page |
 | `CompanyLogo.tsx` | Ticker-keyed company logo (Logo.dev) with an initials-monogram fallback — reused on every surface that shows a company; never a broken image or layout shift |
 | `HotFilings.tsx` | Trending/hot SEC filings display |
 | `TrendingCompanies.tsx` | List of trending companies |
