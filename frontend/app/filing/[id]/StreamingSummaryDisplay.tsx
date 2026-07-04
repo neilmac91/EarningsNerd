@@ -226,14 +226,6 @@ export default function StreamingSummaryDisplay({
     return () => clearInterval(interval)
   }, [stage, isError, elapsedSeconds])
 
-  // Clean up progress when complete
-  useEffect(() => {
-    if (stage === 'completed') {
-      // eslint-disable-next-line react-hooks/set-state-in-effect -- finalizes progress to 100% when the async streaming generation completes
-      setOptimisticProgress(100)
-    }
-  }, [stage])
-
   // Count-up the percent from the ROUNDED integer (no sub-percent re-tweening) and
   // render it in the data face so its width never jitters. SSR/reduced-motion safe.
   const roundedProgress = Math.round(optimisticProgress)
@@ -267,8 +259,9 @@ export default function StreamingSummaryDisplay({
     ? currentStageIdx
     : STAGE_ORDER.reduce((acc, s, i) => ((STAGE_PROGRESS_MAP[s] ?? 0) <= optimisticProgress ? i : acc), -1)
 
-  // Whimsy copy: rotating quip while healthy, a reassuring line when stalled, hidden on error
-  // (the GuidanceCard below owns the failure message — one error surface, not two).
+  // Whimsy copy: rotating quip while healthy, a reassuring line when stalled. Only rendered
+  // inside the progress card, which is itself hidden on error — so the GuidanceCard is the
+  // single failure surface (one error surface, not two).
   const whimsyText = isStalled
     ? "Taking longer than usual — this looks like a complex filing. Still working on it."
     : showWhimsy && whimsyMessage
@@ -278,52 +271,53 @@ export default function StreamingSummaryDisplay({
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Progress card — one calm focus */}
-      <Card className="p-6 sm:p-8">
-        {/* Header: title + live status + count-up percent */}
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-start gap-3 min-w-0">
-            <SparkleIcon className={`mt-0.5 h-5 w-5 flex-none ${isError ? 'text-error-light dark:text-error-dark' : 'text-brand-strong dark:text-brand-strong-dark'}`} aria-hidden="true" />
-            <div className="min-w-0">
-              <h2 className={`text-lg font-semibold ${isError ? 'text-error-light dark:text-error-dark' : 'text-text-primary-light dark:text-text-primary-dark'}`}>
-                {isError ? 'Generation interrupted' : 'Generating your analysis'}
-              </h2>
-              <p className="mt-0.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                {filing.filing_type} • {isError ? 'Failed' : 'Processing…'}
-              </p>
+      {/* Progress card — one calm focus. Hidden on error: the GuidanceCard below is the single
+          error surface, so the bar/steps/whimsy never duplicate the failure state. */}
+      {!isError && (
+        <Card className="p-6 sm:p-8">
+          {/* Header: title + live status + count-up percent */}
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3 min-w-0">
+              <SparkleIcon className="mt-0.5 h-5 w-5 flex-none text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
+              <div className="min-w-0">
+                <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
+                  Generating your analysis
+                </h2>
+                <p className="mt-0.5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                  {filing.filing_type} • Processing…
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-col items-end flex-none">
+              <span className="tnum font-data text-2xl font-semibold leading-none text-text-primary-light dark:text-text-primary-dark">
+                {pctLabel}
+              </span>
+              {isGenerating && (
+                <span className="mt-1 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+                  Usually 30–60s
+                </span>
+              )}
             </div>
           </div>
-          <div className="flex flex-col items-end flex-none">
-            <span className={`tnum font-data text-2xl font-semibold leading-none ${isError ? 'text-error-light dark:text-error-dark' : 'text-text-primary-light dark:text-text-primary-dark'}`}>
-              {pctLabel}
-            </span>
-            {isGenerating && (
-              <span className="mt-1 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-                Usually 30–60s
-              </span>
-            )}
-          </div>
-        </div>
 
-        {/* Horizontal progress bar (replaces the ring/orb/glow) */}
-        <div
-          className="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-border-light dark:bg-white/10"
-          role="progressbar"
-          aria-valuenow={roundedProgress}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-label="Summary generation progress"
-        >
+          {/* Horizontal progress bar (replaces the ring/orb/glow) */}
           <div
-            className={`h-full rounded-full transition-[width] duration-slow ease-standard motion-reduce:transition-none ${isError ? 'bg-error-light dark:bg-error-dark' : 'bg-brand-strong dark:bg-brand-dark'}`}
-            style={{ width: `${roundedProgress}%` }}
-          />
-        </div>
+            className="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-border-light dark:bg-white/10"
+            role="progressbar"
+            aria-valuenow={roundedProgress}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Summary generation progress"
+          >
+            <div
+              className="h-full rounded-full bg-brand-strong dark:bg-brand-dark transition-[width] duration-slow ease-standard motion-reduce:transition-none"
+              style={{ width: `${roundedProgress}%` }}
+            />
+          </div>
 
-        {/* Polished whimsy — Notice nested in the Card (DS-sanctioned). Hidden on error.
-            aria-hidden: it's decorative flavor that rotates; the progressbar + step log
-            carry the real, accessible status, so we don't spam SR with rotating quips. */}
-        {!isError && (
+          {/* Polished whimsy — Notice nested in the Card (DS-sanctioned).
+              aria-hidden: it's decorative flavor that rotates; the progressbar + step log
+              carry the real, accessible status, so we don't spam SR with rotating quips. */}
           <div aria-hidden="true" className="mt-6">
             <Notice
               variant="info"
@@ -332,16 +326,16 @@ export default function StreamingSummaryDisplay({
               description={whimsyAttribution}
             />
           </div>
-        )}
 
-        {/* Honest step log */}
-        <div className="mt-6">
-          <StepList filingType={filing.filing_type} stage={stage} displayStageIdx={displayStageIdx} />
-        </div>
+          {/* Honest step log */}
+          <div className="mt-6">
+            <StepList filingType={filing.filing_type} stage={stage} displayStageIdx={displayStageIdx} />
+          </div>
 
-        {/* Streaming placeholder — mono rhythm, folded into this card until text arrives */}
-        {!displayText && !isError && <SkeletonText lines={4} mono className="mt-6" />}
-      </Card>
+          {/* Streaming placeholder — mono rhythm, folded into this card until text arrives */}
+          {!displayText && <SkeletonText lines={4} mono className="mt-6" />}
+        </Card>
+      )}
 
       {/* Error surface — the single failure message + retry */}
       {isError && (
