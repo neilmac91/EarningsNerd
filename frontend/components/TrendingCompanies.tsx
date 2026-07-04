@@ -48,7 +48,7 @@ export default function TrendingCompanies() {
         <div className="rounded-xl bg-brand-strong/10 p-2.5 dark:bg-brand-dark/15">
           <TrendUpIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
         </div>
-        <h3 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">Trending Companies</h3>
+        <h3 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark tracking-tight">Trending Companies</h3>
       </div>
       {trendingCompanies && trendingCompanies.length > 0 ? (
         <div className="space-y-3">
@@ -72,7 +72,7 @@ export default function TrendingCompanies() {
                 </div>
                 {company.stock_quote?.price !== undefined && company.stock_quote?.price !== null && (
                   <div className="text-right">
-                    <div className="text-text-primary-light dark:text-text-primary-dark font-bold text-lg">
+                    <div className="text-text-primary-light dark:text-text-primary-dark font-semibold text-lg">
                       {fmtCurrency(company.stock_quote.price, { digits: 2, compact: false })}
                     </div>
                     {company.stock_quote.change_percent !== undefined && company.stock_quote.change_percent !== null && (

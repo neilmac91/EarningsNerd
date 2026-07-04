@@ -49,7 +49,7 @@ interface AskCopilotRailProps {
 // Open-panel container classes per layout variant. Mobile (bottom-sheet) is identical; they differ
 // only at lg+: overlay docks fixed on the right, pane fills the FilingWorkspace grid cell.
 const PANEL_BASE =
-  'fixed inset-x-0 bottom-0 z-40 flex max-h-[80vh] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-slate-900 dark:text-text-primary-dark shadow-e5 dark:shadow-none'
+  'fixed inset-x-0 bottom-0 z-40 flex max-h-[80vh] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none'
 const PANEL_VARIANT: Record<'overlay' | 'pane', string> = {
   overlay:
     'lg:inset-x-auto lg:bottom-0 lg:right-0 lg:top-16 lg:max-h-none lg:w-[420px] lg:rounded-none lg:border-y-0 lg:border-l',
@@ -393,7 +393,7 @@ export default function AskCopilotRail({
                   key={q}
                   type="button"
                   onClick={() => handleSubmit(q)}
-                  className="rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-slate-800/40 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:bg-brand-weak/70 dark:hover:bg-slate-800"
+                  className="rounded-xl border border-border-light dark:border-white/10 bg-brand-weak dark:bg-white/5 px-3 py-2 text-left text-sm text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:bg-brand-weak/70 dark:hover:bg-white/10"
                 >
                   {q}
                 </button>

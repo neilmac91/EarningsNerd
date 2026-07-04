@@ -74,8 +74,8 @@ export default function Header() {
         <div className="flex items-center">
           <Link href="/" className="flex items-center gap-2.5">
             <EarningsNerdLogo variant="icon-only" iconClassName="h-8 w-8" mode="auto" />
-            <span className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
-              Earnings<em className="italic text-brand-strong dark:text-brand-dark">Nerd</em>
+            <span className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
+              Earnings<em className="italic text-brand-strong dark:text-brand-strong-dark">Nerd</em>
             </span>
           </Link>
         </div>
@@ -121,7 +121,7 @@ export default function Header() {
             // user === undefined: auth not yet resolved (loading or a transient error). Hold the
             // skeleton rather than asserting logged-out, so a slow/cold backend never flashes the
             // "Log In" CTAs to a user who is actually signed in.
-            <div className="h-9 w-9 animate-pulse rounded-full bg-border-light dark:bg-white/10" aria-hidden="true" />
+            <div className="h-9 w-9 animate-pulse motion-reduce:animate-none rounded-full bg-border-light dark:bg-white/10" aria-hidden="true" />
           )}
         </div>
 
@@ -212,7 +212,7 @@ export default function Header() {
                 // Auth not yet resolved (loading or a transient error): show a skeleton bar
                 // rather than leaving the bordered container empty (a stray divider + gap), so
                 // the mobile menu matches the desktop header's loading state.
-                <div className="h-9 w-full animate-pulse rounded-lg bg-border-light dark:bg-white/10" aria-hidden="true" />
+                <div className="h-9 w-full animate-pulse motion-reduce:animate-none rounded-lg bg-border-light dark:bg-white/10" aria-hidden="true" />
               )}
             </div>
           </nav>

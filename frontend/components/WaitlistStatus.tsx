@@ -49,7 +49,7 @@ export default function WaitlistStatus() {
   }
 
   return (
-    <div className="rounded-2xl border border-border-light bg-white/90 p-6 shadow-lg dark:border-border-dark dark:bg-slate-900/70">
+    <div className="rounded-2xl border border-border-light bg-panel-light p-6 shadow-e2 dark:shadow-none dark:border-border-dark dark:bg-panel-dark">
       <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
         Check your waitlist status
       </h3>

@@ -40,7 +40,7 @@ export default function UpgradeModal({ open, onClose, feature, title, message }:
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-md rounded-2xl border border-border-light bg-background-light p-6 shadow-xl dark:border-border-dark dark:bg-background-dark"
+        className="relative w-full max-w-md rounded-2xl border border-border-light bg-background-light p-6 shadow-e4 dark:shadow-none dark:border-border-dark dark:bg-background-dark"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -56,7 +56,7 @@ export default function UpgradeModal({ open, onClose, feature, title, message }:
           <SparkleIcon className="h-5 w-5" />
         </div>
 
-        <h2 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">{heading}</h2>
+        <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">{heading}</h2>
         <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">{body}</p>
 
         <div className="mt-6 flex flex-col gap-2 sm:flex-row">

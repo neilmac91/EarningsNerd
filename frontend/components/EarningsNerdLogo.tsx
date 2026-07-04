@@ -17,10 +17,10 @@ interface EarningsNerdLogoProps {
 const WORDMARK_INK: Record<LogoMode, { name: string; accent: string }> = {
   auto: {
     name: 'text-text-primary-light dark:text-text-primary-dark',
-    accent: 'text-brand-strong dark:text-brand-dark',
+    accent: 'text-brand-strong dark:text-brand-strong-dark',
   },
   light: { name: 'text-text-primary-light', accent: 'text-brand-strong' },
-  dark: { name: 'text-text-primary-dark', accent: 'text-brand-dark' },
+  dark: { name: 'text-text-primary-dark', accent: 'text-brand-strong-dark' },
 }
 
 export default function EarningsNerdLogo({
@@ -37,7 +37,7 @@ export default function EarningsNerdLogo({
   return (
     <span className={`inline-flex items-center gap-2.5 ${className}`}>
       <EarningsNerdLogoIcon className={iconClassName} mode={mode} />
-      <span className={`text-lg font-bold leading-none ${ink.name}`}>
+      <span className={`text-lg font-semibold leading-none ${ink.name}`}>
         Earnings
         <em className={`italic ${ink.accent}`}>Nerd</em>
       </span>

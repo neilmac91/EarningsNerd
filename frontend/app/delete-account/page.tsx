@@ -42,20 +42,20 @@ export default function DeleteAccountPage() {
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-12 sm:px-6 lg:px-8">
-      <h1 className="text-3xl font-bold text-slate-900 dark:text-white">Delete your account</h1>
-      <p className="mt-3 text-slate-600 dark:text-slate-400">
+      <h1 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">Delete your account</h1>
+      <p className="mt-3 text-text-secondary-light dark:text-text-secondary-dark">
         This permanently deletes your EarningsNerd account and the personal data associated with it.
         <strong className="font-semibold"> This action cannot be undone.</strong>
       </p>
 
-      <section className="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
-        <h2 className="text-lg font-semibold text-slate-900 dark:text-white">What gets deleted</h2>
-        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-400">
+      <section className="mt-6 rounded-lg border border-border-light bg-panel-light p-6 shadow-e1 dark:shadow-none dark:border-border-dark dark:bg-panel-dark">
+        <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">What gets deleted</h2>
+        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-text-secondary-light dark:text-text-secondary-dark">
           <li>Your profile (name, email) and login credentials</li>
           <li>Your watchlists, saved summaries, notes, and search history</li>
           <li>Your notification preferences and usage records</li>
         </ul>
-        <p className="mt-3 text-sm text-slate-500 dark:text-slate-400">
+        <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
           Some records may be retained where the law requires it (e.g. billing records for tax
           purposes). Deleting your account does <strong>not</strong> automatically cancel an active
           subscription billed through the Apple App Store or Google Play — cancel it in your Apple ID
@@ -66,14 +66,14 @@ export default function DeleteAccountPage() {
 
       {/* Success */}
       {deleteMutation.isSuccess ? (
-        <section className="mt-6 rounded-lg border border-green-200 bg-green-50 p-6 dark:border-green-900 dark:bg-green-950/30">
+        <section className="mt-6 rounded-lg border border-success-light/30 bg-success-light/10 p-6 dark:border-success-dark/30 dark:bg-success-dark/10">
           <div className="flex items-start gap-3">
-            <CheckCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-green-600 dark:text-green-400" />
+            <CheckCircleIcon className="mt-0.5 h-5 w-5 shrink-0 text-success-light dark:text-success-dark" />
             <div>
-              <h2 className="font-semibold text-green-800 dark:text-green-300">
+              <h2 className="font-semibold text-success-light dark:text-success-dark">
                 Your account has been deleted
               </h2>
-              <p className="mt-1 text-sm text-green-700 dark:text-green-400">
+              <p className="mt-1 text-sm text-success-light dark:text-success-dark">
                 Your account and associated personal data have been permanently deleted.
               </p>
               <Link href="/" className="mt-3 inline-block text-sm font-medium text-brand-strong hover:text-brand-emphasis dark:text-brand-strong-dark">
@@ -83,12 +83,12 @@ export default function DeleteAccountPage() {
           </div>
         </section>
       ) : isLoading ? (
-        <div className="mt-6 flex items-center gap-2 text-sm text-slate-500">
+        <div className="mt-6 flex items-center gap-2 text-sm text-text-secondary-light">
           <CircleNotchIcon className="h-4 w-4 animate-spin" /> Checking your sign-in status…
         </div>
       ) : user ? (
         /* Signed in — confirm + delete */
-        <section className="mt-6 rounded-lg border border-red-200 bg-white p-6 shadow-sm dark:border-red-900 dark:bg-slate-800">
+        <section className="mt-6 rounded-lg border border-error-light/30 bg-panel-light p-6 shadow-e1 dark:shadow-none dark:border-error-dark/30 dark:bg-panel-dark">
           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
             Signed in as <strong className="text-text-primary-light dark:text-text-primary-dark">{user.email}</strong>.
             To confirm, type <strong>{CONFIRM_PHRASE}</strong> below.
@@ -105,7 +105,7 @@ export default function DeleteAccountPage() {
           <button
             onClick={() => deleteMutation.mutate()}
             disabled={!canDelete}
-            className="mt-4 inline-flex items-center rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-4 inline-flex items-center rounded-lg bg-error-light px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-error-emphasis disabled:cursor-not-allowed disabled:opacity-50"
           >
             {deleteMutation.isPending ? (
               <>
@@ -118,7 +118,7 @@ export default function DeleteAccountPage() {
             )}
           </button>
           {deleteMutation.isError && (
-            <div className="mt-4 flex items-center gap-2 text-sm text-red-600 dark:text-red-400">
+            <div className="mt-4 flex items-center gap-2 text-sm text-error-light dark:text-error-dark">
               <WarningCircleIcon className="h-4 w-4" /> Deletion failed. Please try again or email{' '}
               <a href="mailto:privacy@earningsnerd.io" className="underline">privacy@earningsnerd.io</a>.
             </div>
@@ -126,12 +126,12 @@ export default function DeleteAccountPage() {
         </section>
       ) : (
         /* Not signed in — sign-in CTA + email fallback */
-        <section className="mt-6 rounded-lg border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+        <section className="mt-6 rounded-lg border border-border-light bg-panel-light p-6 shadow-e1 dark:shadow-none dark:border-border-dark dark:bg-panel-dark">
           <div className="flex items-start gap-3">
-            <ShieldWarningIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-500" />
+            <ShieldWarningIcon className="mt-0.5 h-5 w-5 shrink-0 text-warning-light" />
             <div>
-              <h2 className="font-semibold text-slate-900 dark:text-white">Sign in to delete your account</h2>
-              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              <h2 className="font-semibold text-text-primary-light dark:text-text-primary-dark">Sign in to delete your account</h2>
+              <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                 For your security, you need to sign in before we can delete your account.
               </p>
               <Link
@@ -140,7 +140,7 @@ export default function DeleteAccountPage() {
               >
                 Sign in to continue
               </Link>
-              <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+              <p className="mt-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                 Can&apos;t sign in? Email{' '}
                 <a href="mailto:privacy@earningsnerd.io" className="underline">privacy@earningsnerd.io</a>{' '}
                 from your account email address and we&apos;ll process your deletion request.

@@ -40,7 +40,7 @@ export default function PeekLocked({ children, feature, pill = 'Pro', onUpgradeC
         <button
           type="button"
           onClick={handleClick}
-          className="rounded-lg bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark px-4 py-2 text-sm font-semibold shadow transition active:scale-[0.99]"
+          className="rounded-lg bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark px-4 py-2 text-sm font-semibold shadow-e2 transition active:scale-[0.99]"
         >
           Upgrade to unlock
         </button>

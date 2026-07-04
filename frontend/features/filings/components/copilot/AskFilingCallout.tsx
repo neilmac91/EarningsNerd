@@ -47,7 +47,7 @@ export default function AskFilingCallout({ filingType, subjectLabel, onAsk }: As
                 key={q}
                 type="button"
                 onClick={() => onAsk(q, 'summary_starter')}
-                className="rounded-full border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-800/40 px-3 py-1.5 text-left text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
+                className="rounded-full border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 px-3 py-1.5 text-left text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark transition-colors hover:border-brand-border hover:text-brand-strong dark:hover:text-brand-strong-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
               >
                 {q}
               </button>

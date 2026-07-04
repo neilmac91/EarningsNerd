@@ -67,7 +67,7 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
         e.preventDefault()
         submit()
       }}
-      className="border-t border-border-light bg-panel-light dark:border-white/10 dark:bg-slate-900 p-3"
+      className="border-t border-border-light bg-panel-light dark:border-white/10 dark:bg-panel-dark p-3"
     >
       {/* DS "Chat composer" pattern: the shell carries the field recipe + focus-within
           ring; the composer-variant Textarea inside stays chrome-free. */}

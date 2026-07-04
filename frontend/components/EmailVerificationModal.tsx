@@ -76,12 +76,12 @@ export default function EmailVerificationModal() {
       onClick={() => setOpen(false)}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-border-light bg-panel-light p-6 shadow-xl dark:border-border-dark dark:bg-panel-dark"
+        className="w-full max-w-md rounded-2xl border border-border-light bg-panel-light p-6 shadow-e4 dark:shadow-none dark:border-border-dark dark:bg-panel-dark"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between">
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-400/15">
-            <WarningCircleIcon className="h-5 w-5 text-amber-500" />
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-warning-dark/15">
+            <WarningCircleIcon className="h-5 w-5 text-warning-light dark:text-warning-dark" />
           </div>
           <button
             type="button"
@@ -95,7 +95,7 @@ export default function EmailVerificationModal() {
 
         <h2
           id="verify-modal-title"
-          className="mt-4 text-lg font-bold text-text-primary-light dark:text-text-primary-dark"
+          className="mt-4 text-lg font-semibold text-text-primary-light dark:text-text-primary-dark"
         >
           Verify your email to continue
         </h2>

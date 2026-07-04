@@ -138,7 +138,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
 
   if (success) {
     return (
-      <div className="rounded-2xl border border-brand-border bg-white/80 p-6 shadow-lg backdrop-blur-sm transition duration-base dark:border-brand-dark/40 dark:bg-slate-900/60">
+      <div className="rounded-2xl border border-brand-border bg-panel-light p-6 shadow-e2 dark:shadow-none backdrop-blur-sm transition duration-base dark:border-brand-dark/40 dark:bg-panel-dark">
         <div className="flex items-center gap-2 text-brand-strong dark:text-brand-strong-dark">
           <CheckIcon className="h-5 w-5" />
           <span className="text-sm font-semibold uppercase tracking-wide">You&apos;re in</span>
@@ -161,7 +161,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
             <button
               type="button"
               onClick={handleCopy}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-brand-border bg-white px-4 py-2 text-sm font-semibold text-brand-strong transition hover:border-brand-border hover:text-brand-emphasis dark:border-brand-dark/40 dark:bg-slate-900 dark:text-brand-strong-dark"
+              className="inline-flex items-center justify-center gap-2 rounded-full border border-brand-border bg-panel-light px-4 py-2 text-sm font-semibold text-brand-strong transition hover:border-brand-border hover:text-brand-emphasis dark:border-brand-dark/40 dark:bg-panel-dark dark:text-brand-strong-dark"
             >
               {copied ? <CheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
               {copied ? 'Copied' : 'Copy'}
@@ -208,7 +208,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
   return (
     <form
       onSubmit={handleSubmit}
-      className="rounded-2xl border border-border-light bg-white/90 p-6 shadow-lg backdrop-blur-sm dark:border-border-dark dark:bg-slate-900/70"
+      className="rounded-2xl border border-border-light bg-panel-light p-6 shadow-e2 dark:shadow-none backdrop-blur-sm dark:border-border-dark dark:bg-panel-dark"
     >
       <div className="flex flex-col gap-4">
         <div>

@@ -10,9 +10,9 @@ export type LogoMode = 'auto' | 'light' | 'dark'
 /* Brand ink per surface: sage brand.strong on light, brand.dark on navy —
    the same values as the icon-light/icon-dark asset renditions. */
 const MODE_CLASSES: Record<LogoMode, string> = {
-  auto: 'text-brand-strong dark:text-brand-dark',
+  auto: 'text-brand-strong dark:text-brand-strong-dark',
   light: 'text-brand-strong',
-  dark: 'text-brand-dark',
+  dark: 'text-brand-strong-dark',
 }
 
 interface EarningsNerdLogoIconProps {

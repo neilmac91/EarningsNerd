@@ -51,7 +51,7 @@ export default function ResendShareModal({ link, email, onClose }: ResendShareMo
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-border-light bg-panel-light p-6 shadow-xl dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
+        className="w-full max-w-md rounded-2xl border border-border-light bg-panel-light p-6 shadow-e4 dark:border-white/10 dark:bg-panel-dark dark:shadow-none"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between">
@@ -71,7 +71,7 @@ export default function ResendShareModal({ link, email, onClose }: ResendShareMo
 
         <h2
           id="resend-share-modal-title"
-          className="mt-4 text-lg font-bold text-text-primary-light dark:text-text-primary-dark"
+          className="mt-4 text-lg font-semibold text-text-primary-light dark:text-text-primary-dark"
         >
           Invite re-sent — share the new link
         </h2>

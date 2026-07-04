@@ -159,7 +159,7 @@ export default function FullTextSearch() {
           max={endDate || undefined}
           onChange={(e) => setStartDate(e.target.value)}
           aria-label="Filed on or after"
-          className="rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/60 px-2 py-1 text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand focus:outline-none"
+          className="rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark px-2 py-1 text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand focus:outline-none"
         />
         <span>and</span>
         <input
@@ -168,7 +168,7 @@ export default function FullTextSearch() {
           min={startDate || undefined}
           onChange={(e) => setEndDate(e.target.value)}
           aria-label="Filed on or before"
-          className="rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-slate-900/60 px-2 py-1 text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand focus:outline-none"
+          className="rounded-lg border border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark px-2 py-1 text-text-primary-light dark:text-text-primary-dark dark:[color-scheme:dark] focus:border-brand focus:outline-none"
         />
         {(startDate || endDate) && (
           <button

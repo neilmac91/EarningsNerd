@@ -52,7 +52,7 @@ function ResetPasswordContent() {
           <div className="mb-4 flex justify-center">
             <CheckCircleIcon className="animate-check-pop h-12 w-12 text-brand-strong dark:text-brand-strong-dark" />
           </div>
-          <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+          <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
             Password updated!
           </h1>
           <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
@@ -68,7 +68,7 @@ function ResetPasswordContent() {
 
   return (
     <AuthShell>
-      <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+      <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
         Choose a new password
       </h1>
       <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">

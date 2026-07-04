@@ -348,7 +348,7 @@ export default function CompanyPageClient() {
               <div className="border-l-0 sm:border-l border-border-light dark:border-border-dark sm:pl-4 flex-1">
                 <div className="flex items-center space-x-3">
                   <CompanyLogo ticker={companyData.ticker} name={companyData.name} size={40} priority />
-                  <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">{companyData.name}</h1>
+                  <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">{companyData.name}</h1>
                   {currentUser && (
                     <button
                       onClick={() => watchlistMutation.mutate({ ticker: normalizedTicker, shouldAdd: !isInWatchlist })}

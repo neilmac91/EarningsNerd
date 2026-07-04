@@ -85,7 +85,7 @@ export default function SettingsPage() {
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
             Back to Dashboard
           </Link>
-          <h1 className="text-3xl font-bold text-text-primary-light dark:text-text-primary-dark">
+          <h1 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">
             Account Settings
           </h1>
           <p className="text-text-secondary-light dark:text-text-secondary-dark mt-2">

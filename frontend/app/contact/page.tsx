@@ -12,7 +12,7 @@ export default function ContactPage() {
       <div className="mx-auto max-w-3xl">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-4xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-5xl">
+          <h1 className="text-4xl font-semibold tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-5xl">
             Contact Us
           </h1>
           <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark">

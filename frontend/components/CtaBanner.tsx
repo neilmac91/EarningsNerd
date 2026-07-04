@@ -9,7 +9,7 @@ function CtaBanner() {
     <section className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
       <div className="overflow-hidden rounded-3xl border border-border-light bg-panel-light shadow-e3 p-10 dark:border-white/10 dark:bg-panel-dark sm:p-14">
         <div className="text-center">
-          <h2 className="text-3xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-4xl">
+          <h2 className="text-3xl font-semibold tracking-tight text-text-primary-light dark:text-text-primary-dark sm:text-4xl">
             Ready to decode your next filing?
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-lg text-text-secondary-light dark:text-text-secondary-dark">

@@ -59,7 +59,7 @@ export default function SecondaryPaneTabs({
 
   const tabBase =
     'inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark'
-  const activeTab = 'bg-panel-light dark:bg-slate-700/70 text-text-primary-light dark:text-text-primary-dark'
+  const activeTab = 'bg-panel-light dark:bg-white/10 text-text-primary-light dark:text-text-primary-dark'
   const idleTab = 'text-text-secondary-light dark:text-text-secondary-dark hover:text-text-secondary-light dark:hover:text-text-secondary-dark'
 
   return (
@@ -68,7 +68,7 @@ export default function SecondaryPaneTabs({
         role="tablist"
         aria-label="Copilot panel views"
         onKeyDown={onKeyDown}
-        className="flex items-center gap-1 rounded-lg bg-brand-weak dark:bg-slate-950/40 p-0.5"
+        className="flex items-center gap-1 rounded-lg bg-brand-weak dark:bg-white/5 p-0.5"
       >
         <button
           ref={answerRef}
