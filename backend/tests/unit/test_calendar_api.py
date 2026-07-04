@@ -1,6 +1,6 @@
 """HTTP-level tests: public /api/calendar, the alert toggle + tiered 403 bodies, and AV CSV parse."""
 import uuid
-from datetime import date
+from datetime import date, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -59,13 +59,17 @@ def test_calendar_endpoint_public_returns_events(client):
     from app.database import SessionLocal
     from app.models import EarningsEvent
 
-    d = date(2026, 8, 12)
+    # Relative-future so the estimated row stays ahead of the serve-time past-day filter forever.
+    d = date.today() + timedelta(days=30)
     _seed_event("PUBX", d)
     try:
-        resp = client.get("/api/calendar", params={"from": "2026-08-01", "to": "2026-08-31"})
+        resp = client.get("/api/calendar", params={
+            "from": (d - timedelta(days=10)).isoformat(),
+            "to": (d + timedelta(days=10)).isoformat(),
+        })
         assert resp.status_code == 200
         body = resp.json()
-        assert any(e["ticker"] == "PUBX" and e["event_date"] == "2026-08-12" for e in body["events"])
+        assert any(e["ticker"] == "PUBX" and e["event_date"] == d.isoformat() for e in body["events"])
     finally:
         db = SessionLocal()
         db.query(EarningsEvent).filter(EarningsEvent.ticker == "PUBX").delete()

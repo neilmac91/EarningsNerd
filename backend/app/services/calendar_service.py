@@ -11,11 +11,12 @@ None (the engine doesn't carry a revenue estimate).
 from __future__ import annotations
 
 import logging
-from datetime import date, timedelta
+from datetime import timedelta
 
 from sqlalchemy.orm import Session
 
 from app.models import Company, EarningsEvent, Watchlist
+from app.services.earnings_calendar_service import today_eastern
 
 logger = logging.getLogger(__name__)
 
@@ -37,7 +38,9 @@ async def upcoming_for_user(db: Session, user_id: int, *, days_ahead: int = 14, 
     name_by_ticker = {t.upper(): n for t, n in rows if t}
     tickers = list(name_by_ticker.keys())
 
-    today = date.today()
+    # ET calendar day, matching event_date semantics — UTC date.today() is a day ahead of the US
+    # evening, which would drop a company reporting "today" from the upcoming list near midnight.
+    today = today_eastern()
     horizon = today + timedelta(days=days_ahead)
     try:
         events = (
