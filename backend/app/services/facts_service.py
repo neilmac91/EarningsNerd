@@ -668,15 +668,6 @@ def backfill_facts(
     }
 
 
-def _is_financial_sic(sic: Any) -> bool:
-    """True when a SIC code falls in the broad financial-services band (6000–6799)."""
-    try:
-        code = int(str(sic)[:4]) if sic not in (None, "") else None
-    except (TypeError, ValueError):
-        return False
-    return code is not None and 6000 <= code <= 6799
-
-
 def remediate_industry_facts(
     db: Session,
     *,
@@ -702,7 +693,13 @@ def remediate_industry_facts(
     companies_q = db.query(Company)
     if tickers:
         companies_q = companies_q.filter(Company.ticker.in_([t.upper() for t in tickers]))
-    companies = [c for c in companies_q.all() if tickers or _is_financial_sic(getattr(c, "sic", None))]
+    else:
+        # Filter the financial-services SIC band (6000–6799) in SQL rather than loading every
+        # company and filtering in Python. `Company.sic` is a String column of 4-digit codes, so a
+        # lexical BETWEEN is correct here (and NULL/blank SIC is excluded, as it should be — a
+        # blank-SIC filer is remediated by passing it explicitly via --tickers).
+        companies_q = companies_q.filter(Company.sic.between("6000", "6799"))
+    companies = companies_q.all()
 
     stats = {"companies": 0, "filings_refetched": 0, "filings_skipped": 0,
              "facts_deleted": 0, "facts_inserted": 0, "errors": 0}
