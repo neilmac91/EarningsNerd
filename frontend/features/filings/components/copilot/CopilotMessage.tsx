@@ -5,7 +5,7 @@ import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui'
 import remarkGfm from 'remark-gfm'
-import { ArrowClockwiseIcon, ArrowRightIcon, ArrowSquareOutIcon, CheckCircleIcon, CircleNotchIcon, MinusIcon, ProhibitIcon, SparkleIcon } from '@/lib/icons'
+import { ArrowClockwiseIcon, ArrowRightIcon, CheckCircleIcon, ProhibitIcon, SparkleIcon } from '@/lib/icons'
 import { isXbrlCitation, xbrlTag, type CopilotCitation } from '@/features/filings/api/copilot-api'
 import CitationChip, { isHttpUrl } from './CitationChip'
 
@@ -15,15 +15,10 @@ import CitationChip, { isHttpUrl } from './CitationChip'
    Ask-this-Filing output in the data face), brand-tint bracket markers,
    footnote evidence rows with the Verified/Cited trust badge, and the
    citations · verified compliance counts. The MACHINERY here (streaming fast
-   path, citation-chip injection, viewer deep-links, ticker, follow-ups) is
-   the shipped contract pinned by the copilot test suites — restyle only. */
-
-// A single "show the work" step (a numeric/XBRL tool call) shown live while the answer is forming.
-export interface CopilotStep {
-  label: string
-  done: boolean
-  ok: boolean
-}
+   path, citation-chip injection, viewer deep-links, follow-ups) is
+   the shipped contract pinned by the copilot test suites — restyle only.
+   The assistant's background tool activity is deliberately never surfaced:
+   the reading state shows a single calm indicator, then the clean answer. */
 
 export interface CopilotMessageData {
   id: string
@@ -35,8 +30,6 @@ export interface CopilotMessageData {
   // 'reading' (pre-token), 'streaming' (tokens arriving), 'done', 'error'
   status?: 'reading' | 'streaming' | 'done' | 'error'
   error?: string
-  // Live tool-activity steps ("Looking up revenue… ✓"), surfaced while reading/streaming.
-  steps?: CopilotStep[]
   // 2-3 suggested next questions, shown as tappable chips under the latest answer.
   followups?: string[]
 }
@@ -49,30 +42,6 @@ const CHIP =
    + e2; dark drops the shadow). rounded-bl-sm keeps the thread tail. */
 const ANSWER_CARD =
   'rounded-xl rounded-bl-sm border border-border-light bg-panel-light shadow-e2 dark:border-white/10 dark:bg-panel-dark dark:shadow-none px-4 py-3 text-sm'
-
-// Live "show the work" ticker: the numeric tools the assistant is calling as it grounds its answer.
-function ActivityTicker({ steps }: { steps: CopilotStep[] }) {
-  return (
-    <ul className="mb-2 space-y-1" aria-label="Working">
-      {steps.map((s, i) => (
-        <li key={`${s.label}-${i}`} className="flex items-center gap-2 text-xs">
-          {!s.done ? (
-            <CircleNotchIcon className="h-3.5 w-3.5 shrink-0 animate-spin text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
-          ) : s.ok ? (
-            <CheckCircleIcon className="h-3.5 w-3.5 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
-          ) : (
-            <MinusIcon className="h-3.5 w-3.5 shrink-0 text-text-secondary-light dark:text-text-secondary-dark" aria-hidden="true" />
-          )}
-          <span className={s.done ? 'text-text-secondary-light dark:text-text-secondary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}>
-            {s.label}
-            {s.done ? '' : '…'}
-            <span className="sr-only">{s.done ? (s.ok ? ' (completed)' : ' (failed)') : ' (in progress)'}</span>
-          </span>
-        </li>
-      ))}
-    </ul>
-  )
-}
 
 interface CopilotMessageProps {
   message: CopilotMessageData
@@ -495,21 +464,17 @@ export default function CopilotMessage({
   // (The not_disclosed branch already returned above, so this is always an `answer`.)
   const citations = message.citations
   const showChips = isDone && !!citations && citations.length > 0
-  const steps = message.steps ?? []
-  // Show the live work ticker while the answer is forming (reading or streaming), not once done.
-  const showTicker = (isReading || isStreaming) && steps.length > 0
   const verifiedCount = citations?.filter((c) => c.verified).length ?? 0
 
   return (
     <div className={ANSWER_CARD}>
-      {showTicker && <ActivityTicker steps={steps} />}
       {isReading ? (
-        steps.length > 0 ? null : (
-          <p className="flex items-center gap-2 text-text-secondary-light dark:text-text-secondary-dark">
-            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-brand-strong dark:bg-brand-strong-dark" />
-            Reading the filing…
-          </p>
-        )
+        // A single calm indicator while the answer is grounded — the assistant's
+        // background tool activity is deliberately not surfaced to the user.
+        <p className="flex items-center gap-2 text-text-secondary-light dark:text-text-secondary-dark">
+          <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-brand-strong dark:bg-brand-strong-dark" />
+          Reading the filing…
+        </p>
       ) : (
         <>
           <div className="flex items-start">

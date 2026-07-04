@@ -184,33 +184,21 @@ describe('CopilotMessage XBRL fact sources', () => {
   })
 })
 
-describe('CopilotMessage activity ticker', () => {
-  it('shows in-progress and completed steps while reading', () => {
+describe('CopilotMessage reading state', () => {
+  it('shows only a calm "Reading the filing…" indicator while grounding — no tool activity', () => {
     const reading = doneMessage({
       status: 'reading',
       content: '',
       citations: undefined,
       grounded: undefined,
       kind: undefined,
-      steps: [
-        { label: 'Looking up revenue', done: true, ok: true },
-        { label: 'Computing gross margin', done: false, ok: true },
-      ],
     })
     render(<CopilotMessage message={reading} />)
-    expect(screen.getByText('Looking up revenue')).toBeInTheDocument()
-    // In-progress step shows an ellipsis affordance.
-    expect(screen.getByText(/Computing gross margin/)).toBeInTheDocument()
-    // The generic "Reading the filing…" line is replaced by the work ticker.
-    expect(screen.queryByText(/Reading the filing/)).not.toBeInTheDocument()
-  })
-
-  it('hides the ticker once the answer is done', () => {
-    const done = doneMessage({
-      steps: [{ label: 'Looking up revenue', done: true, ok: true }],
-    })
-    render(<CopilotMessage message={done} />)
-    expect(screen.queryByText('Looking up revenue')).not.toBeInTheDocument()
+    // The single calm indicator is the entire reading-state UI.
+    expect(screen.getByText(/Reading the filing/)).toBeInTheDocument()
+    // The assistant's background tool activity is never surfaced to the user.
+    expect(screen.queryByText(/Looking up/i)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Computing/i)).not.toBeInTheDocument()
   })
 })
 
