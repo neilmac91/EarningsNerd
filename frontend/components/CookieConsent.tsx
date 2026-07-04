@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { CheckCircleIcon, CookieIcon, XIcon } from '@/lib/icons'
 import Link from 'next/link'
+import { Button } from '@/components/ui'
 
 export interface CookiePreferences {
   essential: boolean
@@ -151,7 +152,7 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
   if (showSettings) {
     return (
       <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-panel-light dark:bg-panel-dark rounded-lg shadow-e5 dark:shadow-none max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-e5 dark:shadow-none max-w-2xl w-full max-h-[90vh] overflow-y-auto">
           <div className="p-6">
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
@@ -251,18 +252,12 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
             </div>
 
             <div className="mt-6 flex gap-3">
-              <button
-                onClick={handleSavePreferences}
-                className="flex-1 bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark font-medium py-2 px-4 rounded-lg transition-colors"
-              >
+              <Button onClick={handleSavePreferences} className="flex-1">
                 Save Preferences
-              </button>
-              <button
-                onClick={() => setShowSettings(false)}
-                className="px-4 py-2 text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark"
-              >
+              </Button>
+              <Button variant="ghost" onClick={() => setShowSettings(false)}>
                 Cancel
-              </button>
+              </Button>
             </div>
 
             <p className="mt-4 text-xs text-text-secondary-light dark:text-text-secondary-dark">
@@ -299,24 +294,15 @@ export default function CookieConsent({ onPreferencesChanged }: CookieConsentPro
           </div>
 
           <div className="flex flex-wrap gap-3 w-full sm:w-auto">
-            <button
-              onClick={handleOpenSettings}
-              className="px-4 py-2 text-text-secondary-light dark:text-text-secondary-dark hover:bg-background-light dark:hover:bg-panel-dark rounded-lg transition-colors border border-border-light dark:border-border-dark"
-            >
+            <Button variant="secondary" onClick={handleOpenSettings}>
               Customize
-            </button>
-            <button
-              onClick={handleRejectAll}
-              className="px-4 py-2 text-text-secondary-light dark:text-text-secondary-dark hover:bg-background-light dark:hover:bg-panel-dark rounded-lg transition-colors"
-            >
+            </Button>
+            <Button variant="ghost" onClick={handleRejectAll}>
               Reject All
-            </button>
-            <button
-              onClick={handleAcceptAll}
-              className="px-4 py-2 bg-brand text-white hover:bg-brand-strong active:bg-brand-emphasis dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark rounded-lg transition-colors font-medium"
-            >
+            </Button>
+            <Button onClick={handleAcceptAll}>
               Accept All
-            </button>
+            </Button>
           </div>
         </div>
       </div>
