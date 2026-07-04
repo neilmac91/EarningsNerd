@@ -8,7 +8,7 @@ import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { CheckIcon, CircleNotchIcon } from '@/lib/icons'
 import { useRouter, useSearchParams } from 'next/navigation'
 import SecondaryHeader from '@/components/SecondaryHeader'
-import { Button, Notice } from '@/components/ui'
+import { Badge, Button, Card, Notice, Switch } from '@/components/ui'
 import analytics from '@/lib/analytics'
 import { useFeatureFlagVariantKey } from 'posthog-js/react'
 import posthog from 'posthog-js'
@@ -141,6 +141,14 @@ function PricingContent() {
   // Reframe the Pro card so they don't bounce off the $390 sticker — they pay $0 with no card.
   const showBetaOffer = Boolean(currentUser?.is_beta) && !isPaidPro
 
+  // Claude-style pricing: always surface the effective MONTHLY cost, with a "Billed monthly/annually"
+  // sub-note. The actual charge (priceConfig.monthly/.yearly + the priceId) is unchanged — this only
+  // reframes the DISPLAY so users compare one per-month number across cycles.
+  const fmtUsd = (n: number) => (Number.isInteger(n) ? `$${n}` : `$${n.toFixed(2)}`)
+  const proMonthlyEquivalent = billingCycle === 'monthly' ? priceConfig.monthly : priceConfig.yearly / 12
+  const proPriceDisplay = fmtUsd(proMonthlyEquivalent)
+  const billingNote = billingCycle === 'monthly' ? 'Billed monthly' : 'Billed annually'
+
   const plans = [
     {
       name: 'Free',
@@ -160,12 +168,14 @@ function PricingContent() {
       disabled: isAuthenticated,
       priceId: null,
       betaOriginal: null,
+      billingNote: null,
     },
     {
       name: 'Pro',
-      price: showBetaOffer ? '$0' : (billingCycle === 'monthly' ? priceConfig.monthlyDisplay : priceConfig.yearlyDisplay),
-      period: billingCycle === 'monthly' ? 'per month' : 'per year',
-      betaOriginal: showBetaOffer ? (billingCycle === 'monthly' ? priceConfig.monthlyDisplay : priceConfig.yearlyDisplay) : null,
+      price: showBetaOffer ? '$0' : proPriceDisplay,
+      period: 'per month',
+      betaOriginal: showBetaOffer ? proPriceDisplay : null,
+      billingNote: showBetaOffer ? null : billingNote,
       description: 'For professionals who need unlimited access',
       features: [
         'Unlimited summaries',
@@ -231,24 +241,15 @@ function PricingContent() {
               <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
                 Monthly
               </span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={billingCycle === 'yearly'}
+              <Switch
+                checked={billingCycle === 'yearly'}
                 aria-label="Billing cycle"
-                onClick={() => {
-                  const nextCycle = billingCycle === 'monthly' ? 'yearly' : 'monthly'
+                onCheckedChange={(next) => {
+                  const nextCycle = next ? 'yearly' : 'monthly'
                   analytics.billingCycleToggled(billingCycle, nextCycle)
                   setBillingCycle(nextCycle)
                 }}
-                className="relative inline-flex h-6 w-11 items-center rounded-full bg-brand-strong dark:bg-brand-dark transition-colors focus:outline-none focus:shadow-ring-brand "
-              >
-                <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    billingCycle === 'yearly' ? 'translate-x-6' : 'translate-x-1'
-                  }`}
-                />
-              </button>
+              />
               <span className={`text-sm font-medium ${billingCycle === 'yearly' ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
                 Yearly <span className="text-success-light dark:text-success-dark">(2 months free)</span>
               </span>
@@ -304,34 +305,34 @@ function PricingContent() {
         {/* Pricing Cards */}
         <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           {plans.map((plan) => (
-            <div
+            <Card
               key={plan.name}
-              className={`relative rounded-2xl border-2 p-8 ${
-                plan.popular
-                  ? 'border-brand-strong dark:border-brand-dark bg-panel-light dark:bg-panel-dark shadow-e3 dark:shadow-none'
-                  : 'border-border-light dark:border-white/10 bg-panel-light dark:bg-panel-dark shadow-e2 dark:shadow-none'
+              elevation={plan.popular ? 'e3' : 'e2'}
+              className={`relative p-8 ${
+                plan.popular ? 'ring-1 ring-inset ring-brand-strong dark:ring-brand-dark' : ''
               }`}
             >
               {plan.popular && (
-                <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                  <span className="bg-brand-strong text-white dark:bg-brand-dark dark:text-background-dark px-4 py-1 rounded-full text-sm font-medium">
-                    Most Popular
-                  </span>
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <Badge variant="solid">Most Popular</Badge>
                 </div>
               )}
 
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">{plan.name}</h3>
                 <div className="flex items-baseline justify-center gap-2">
-                  <span className="text-5xl font-semibold text-text-primary-light dark:text-text-primary-dark">{plan.price}</span>
+                  <span className="tabular text-5xl font-semibold text-text-primary-light dark:text-text-primary-dark">{plan.price}</span>
                   {plan.betaOriginal ? (
-                    <span className="text-2xl font-medium text-text-secondary-light line-through dark:text-text-secondary-dark">{plan.betaOriginal}/{plan.period === 'per month' ? 'mo' : 'yr'}</span>
+                    <span className="tabular text-2xl font-medium text-text-secondary-light line-through dark:text-text-secondary-dark">{plan.betaOriginal}/mo</span>
                   ) : (
                     plan.period !== 'forever' && (
-                      <span className="text-text-secondary-light dark:text-text-secondary-dark ml-2">/{plan.period}</span>
+                      <span className="text-text-secondary-light dark:text-text-secondary-dark">/month</span>
                     )
                   )}
                 </div>
+                {plan.billingNote && (
+                  <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">{plan.billingNote}</p>
+                )}
                 {plan.betaOriginal && (
                   <p className="mt-1 text-sm font-semibold text-brand-strong dark:text-brand-strong-dark">Free for beta members · no card required</p>
                 )}
@@ -358,7 +359,7 @@ function PricingContent() {
               >
                 {plan.cta}
               </Button>
-            </div>
+            </Card>
           ))}
         </div>
 

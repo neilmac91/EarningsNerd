@@ -6,6 +6,7 @@ export {
 } from './Input'
 export { Card, CardHeader, CardTitle, CardBody, CardFooter, type CardProps } from './Card'
 export { Notice, type NoticeProps, type NoticeVariant } from './Notice'
+export { Switch, type SwitchProps } from './Switch'
 export { DataTable, type DataTableProps, type Column, type CellTone, type SortState, type Density } from './DataTable'
 export { Skeleton, SkeletonText, SkeletonStat } from './Skeleton'
 // v2.1: ui/StateCard renamed → GuidanceCard (collision with the app's own
