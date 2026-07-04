@@ -40,6 +40,12 @@ describe('getErrorStatus', () => {
     expect(getErrorStatus('nope')).toBeUndefined()
     expect(getErrorStatus({})).toBeUndefined()
   })
+
+  it('ignores non-integer statuses (NaN / Infinity) rather than treating them as valid codes', () => {
+    expect(getErrorStatus({ status: NaN })).toBeUndefined()
+    expect(getErrorStatus({ status: Infinity })).toBeUndefined()
+    expect(getErrorStatus({ response: { status: NaN } })).toBeUndefined()
+  })
 })
 
 describe('getCurrentUserSafe', () => {

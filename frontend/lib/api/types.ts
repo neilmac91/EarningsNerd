@@ -52,8 +52,11 @@ export function isApiError(error: unknown): error is ApiErrorResponse {
 export function getErrorStatus(error: unknown): number | undefined {
   if (typeof error !== 'object' || error === null) return undefined;
   const e = error as { status?: unknown; response?: { status?: unknown } };
-  if (typeof e.status === 'number') return e.status;
-  if (typeof e.response?.status === 'number') return e.response.status;
+  // HTTP status codes are always integers — Number.isInteger() rejects NaN/Infinity so a
+  // malformed status never leaks through as a "valid" code.
+  if (Number.isInteger(e.status)) return e.status as number;
+  const nested = e.response?.status;
+  if (Number.isInteger(nested)) return nested as number;
   return undefined;
 }
 
