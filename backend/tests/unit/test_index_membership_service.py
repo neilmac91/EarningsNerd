@@ -46,7 +46,7 @@ def test_active_member_filter_fails_open_on_empty_list(monkeypatch):
 def test_committed_membership_list_is_healthy():
     """Guard the data file itself: enough tickers, all normalized, unique, with the tricky dual-class
     names present in AV/dot format."""
-    payload = json.loads(idx._DATA_PATH.read_text())
+    payload = json.loads(idx._DATA_PATH.read_text(encoding="utf-8"))
     members = payload["members"]
     tickers = [m["ticker"] for m in members]
 

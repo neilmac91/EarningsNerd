@@ -42,7 +42,7 @@ def normalize_ticker(raw: str) -> str:
 
 def _load() -> frozenset[str]:
     try:
-        payload = json.loads(_DATA_PATH.read_text())
+        payload = json.loads(_DATA_PATH.read_text(encoding="utf-8"))
         tickers = {
             normalize_ticker(m["ticker"])
             for m in payload.get("members", [])

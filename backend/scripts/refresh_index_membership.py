@@ -148,7 +148,7 @@ def _load_existing(path: Path) -> List[dict]:
     if not path.exists():
         return []
     try:
-        return json.loads(path.read_text()).get("members", [])
+        return json.loads(path.read_text(encoding="utf-8")).get("members", [])
     except Exception:
         return []
 
@@ -200,7 +200,7 @@ def run(source: str, *, check: bool, path: Path = _DATA_PATH) -> int:
         "members": entries,
     }
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+    path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     logger.info("wrote %d members -> %s", len(entries), path)
     return 0
 
