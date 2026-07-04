@@ -68,12 +68,10 @@ export class GlobalErrorBoundary extends Component<Props, State> {
               description="We encountered an unexpected error. Our team has been notified and is working to fix it."
               action={
                 <>
-                  <Button onClick={this.handleRetry}>
-                    <ArrowsClockwiseIcon className="h-4 w-4" />
+                  <Button onClick={this.handleRetry} leftIcon={<ArrowsClockwiseIcon className="h-4 w-4" />}>
                     Try again
                   </Button>
-                  <Button variant="secondary" onClick={this.handleGoHome}>
-                    <HouseIcon className="h-4 w-4" />
+                  <Button variant="secondary" onClick={this.handleGoHome} leftIcon={<HouseIcon className="h-4 w-4" />}>
                     Go home
                   </Button>
                 </>
