@@ -90,7 +90,8 @@ describe('Header auth state', () => {
       await vi.advanceTimersByTimeAsync(30_000) // past the full retry backoff (~1s+2s+4s)
 
       expect(queryClient.getQueryState(['current-user'])?.status).toBe('error')
-      expect(container.querySelector('.animate-pulse')).toBeInTheDocument()
+      // The auth-loading bone is now the DS <Skeleton> (shimmer sweep), not a raw animate-pulse.
+      expect(container.querySelector('.animate-shimmer')).toBeInTheDocument()
       expect(screen.queryByRole('link', { name: /log in/i })).not.toBeInTheDocument()
       expect(screen.queryByRole('link', { name: /get started/i })).not.toBeInTheDocument()
       expect(screen.queryByTestId('user-menu')).not.toBeInTheDocument()
