@@ -76,12 +76,25 @@ describe('Header auth state', () => {
     expect(screen.queryByTestId('user-menu')).not.toBeInTheDocument()
   })
 
-  // Core regression guard: a transient/cold-start failure must NEVER flash the logged-out CTAs
-  // to a user who is actually signed in. The header holds the loading skeleton instead.
-  it('holds the skeleton (never the logged-out CTAs) when the auth check fails', async () => {
+  // While the auth check is still in flight (pending, including retry backoff) we hold the
+  // skeleton — never flash the logged-out CTAs to a user who may actually be signed in.
+  it('holds the skeleton while the auth check is pending', () => {
+    // A promise that never resolves keeps the query pending.
+    vi.mocked(getCurrentUserSafe).mockReturnValue(new Promise<never>(() => {}))
+    const { container } = renderHeader()
+
+    // The auth-loading bone is the DS <Skeleton> (shimmer sweep), not a raw animate-pulse.
+    expect(container.querySelector('.animate-shimmer')).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /log in/i })).not.toBeInTheDocument()
+    expect(screen.queryByTestId('user-menu')).not.toBeInTheDocument()
+  })
+
+  // Safety net: once the check has *settled* into an error (non-401 failure, all retries
+  // exhausted), the header degrades to the logged-out CTAs so the user is never trapped on a
+  // dead placeholder circle — the bug that hid the account menu behind a stuck skeleton.
+  it('falls back to the logged-out CTAs once the auth check settles in error', async () => {
     // The query retries with backoff (retry: 3); drive fake timers to exhaust the retries so we
-    // assert the settled *error* state — not the (also-skeleton) pending state that would pass
-    // even on the old bug.
+    // assert the settled *error* state, not the (still-skeleton) pending state.
     vi.useFakeTimers()
     try {
       vi.mocked(getCurrentUserSafe).mockRejectedValue(new Error('timeout of 30000ms exceeded'))
@@ -90,10 +103,9 @@ describe('Header auth state', () => {
       await vi.advanceTimersByTimeAsync(30_000) // past the full retry backoff (~1s+2s+4s)
 
       expect(queryClient.getQueryState(['current-user'])?.status).toBe('error')
-      // The auth-loading bone is now the DS <Skeleton> (shimmer sweep), not a raw animate-pulse.
-      expect(container.querySelector('.animate-shimmer')).toBeInTheDocument()
-      expect(screen.queryByRole('link', { name: /log in/i })).not.toBeInTheDocument()
-      expect(screen.queryByRole('link', { name: /get started/i })).not.toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /log in/i })).toBeInTheDocument()
+      expect(screen.getByRole('link', { name: /get started/i })).toBeInTheDocument()
+      expect(container.querySelector('.animate-shimmer')).not.toBeInTheDocument()
       expect(screen.queryByTestId('user-menu')).not.toBeInTheDocument()
     } finally {
       vi.useRealTimers()

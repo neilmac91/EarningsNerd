@@ -42,11 +42,18 @@ export function isApiError(error: unknown): error is ApiErrorResponse {
 /**
  * Safely extract status code from an error.
  * Returns undefined if the error doesn't have a status.
+ *
+ * Handles both error shapes in play: the custom `ApiError` thrown by the axios
+ * interceptor (`lib/api/client.ts`) exposes the HTTP status at the top level
+ * (`error.status`), while a raw axios error nests it under `error.response.status`.
+ * Reading only the nested shape silently returns `undefined` for every intercepted
+ * error — which broke the logged-out (401) detection behind the account avatar.
  */
 export function getErrorStatus(error: unknown): number | undefined {
-  if (isApiError(error)) {
-    return error.response?.status;
-  }
+  if (typeof error !== 'object' || error === null) return undefined;
+  const e = error as { status?: unknown; response?: { status?: unknown } };
+  if (typeof e.status === 'number') return e.status;
+  if (typeof e.response?.status === 'number') return e.response.status;
   return undefined;
 }
 

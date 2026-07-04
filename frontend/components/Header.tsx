@@ -38,7 +38,10 @@ export default function Header() {
   // `user` is tri-state: a user object (logged in), `null` (definitive 401 → logged out), or
   // `undefined` (still resolving, or errored with no data). getCurrentUserSafe returns `null`
   // for a 401 rather than throwing, so a "not logged in" answer never triggers a retry.
-  const { data: user } = useQuery({
+  // `isError` is the safety net: once the check has *settled* into an error (non-401 failure,
+  // all retries exhausted) we degrade to the logged-out CTAs rather than trapping the user on a
+  // dead placeholder circle. See the fallback branches below.
+  const { data: user, isError } = useQuery({
     queryKey: ['current-user'],
     queryFn: getCurrentUserSafe,
     // Retry only real failures (cold-start timeouts, network blips, 5xx) — these throw. A 401
@@ -99,7 +102,7 @@ export default function Header() {
               <NotificationBell />
               <UserMenu user={user} />
             </>
-          ) : user === null ? (
+          ) : user === null || isError ? (
             <>
               <Link href="/login" className={buttonVariants({ variant: 'ghost', size: 'md' })}>
                 Log In
@@ -110,9 +113,10 @@ export default function Header() {
               </Link>
             </>
           ) : (
-            // user === undefined: auth not yet resolved (loading or a transient error). Hold the
-            // skeleton rather than asserting logged-out, so a slow/cold backend never flashes the
-            // "Log In" CTAs to a user who is actually signed in.
+            // Auth still resolving (pending, including retry backoff): hold the skeleton so a
+            // slow/cold backend never flashes the "Log In" CTAs to a user who is actually signed
+            // in. Once the query *settles* — `null` (logged out) or `isError` (gave up) — one of
+            // the branches above renders, so the user is never trapped on this placeholder.
             <Skeleton className="h-9 w-9 rounded-full" />
           )}
         </div>
@@ -183,7 +187,7 @@ export default function Header() {
                     Log out
                   </button>
                 </>
-              ) : user === null ? (
+              ) : user === null || isError ? (
                 <>
                   <Link
                     href="/login"
@@ -201,9 +205,10 @@ export default function Header() {
                   </Link>
                 </>
               ) : (
-                // Auth not yet resolved (loading or a transient error): show a skeleton bar
-                // rather than leaving the bordered container empty (a stray divider + gap), so
-                // the mobile menu matches the desktop header's loading state.
+                // Auth still resolving (pending): show a skeleton bar rather than leaving the
+                // bordered container empty (a stray divider + gap), matching the desktop header's
+                // loading state. A settled error falls through to the Log In / Get Started links
+                // above (via `isError`), so the mobile menu is never stuck on this placeholder.
                 <Skeleton className="h-9 w-full rounded-lg" />
               )}
             </div>
