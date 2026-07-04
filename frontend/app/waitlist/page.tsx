@@ -65,7 +65,7 @@ export default function WaitlistPage() {
             </p>
           </div>
 
-          <div className="relative">
+          <div>
             <div className="rounded-3xl border border-border-light bg-panel-light p-6 shadow-e4 dark:shadow-none backdrop-blur-sm dark:border-border-dark dark:bg-panel-dark">
               <div className="flex items-center justify-between text-sm text-text-tertiary-light dark:text-text-secondary-dark">
                 <span className="font-semibold text-text-secondary-light dark:text-text-secondary-dark">
@@ -110,7 +110,6 @@ export default function WaitlistPage() {
                 </div>
               </div>
             </div>
-            <div className="absolute -bottom-6 -right-6 hidden h-24 w-24 rounded-full bg-brand/30 blur-2xl dark:bg-brand-dark/30 lg:block" />
           </div>
         </div>
       </section>
@@ -155,6 +154,8 @@ export default function WaitlistPage() {
                 From SEC filing to actionable insight in minutes.
               </p>
             </div>
+            {/* Server component — buttonVariants() can't be called here (it's a client export),
+                so this CTA stays a token-clean hand-rolled secondary pill. */}
             <a
               href="#waitlist"
               className="inline-flex items-center justify-center rounded-full border border-brand-border bg-brand-weak px-4 py-2 text-sm font-semibold text-brand-strong transition hover:border-brand-border dark:border-brand-dark/40 dark:bg-brand-dark/15 dark:text-brand-strong-dark"

@@ -2,12 +2,11 @@
 
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { CheckIcon, CircleNotchIcon, CopyIcon } from '@/lib/icons'
+import { CheckIcon, CopyIcon } from '@/lib/icons'
 import { getApiUrl } from '@/lib/api/client'
 import TurnstileWidget from '@/components/auth/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
-import { Button } from '@/components/ui/Button'
-import { inputClasses } from '@/components/ui/Input'
+import { Button, Card, Input, Notice, buttonVariants } from '@/components/ui'
 
 type WaitlistSuccess = {
   message?: string
@@ -138,7 +137,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
 
   if (success) {
     return (
-      <div className="rounded-2xl border border-brand-border bg-panel-light p-6 shadow-e2 dark:shadow-none backdrop-blur-sm transition duration-base dark:border-brand-dark/40 dark:bg-panel-dark">
+      <Card className="p-6">
         <div className="flex items-center gap-2 text-brand-strong dark:text-brand-strong-dark">
           <CheckIcon className="h-5 w-5" />
           <span className="text-sm font-semibold uppercase tracking-wide">You&apos;re in</span>
@@ -147,7 +146,7 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
           {success.message || 'You&apos;re on the waitlist!'}
         </h3>
         <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          Your current position is <span className="font-semibold">#{success.position}</span>.
+          Your current position is <span className="tnum font-data font-semibold">#{success.position}</span>.
         </p>
 
         <div className="mt-5 rounded-xl border border-border-light bg-background-light px-4 py-3 dark:border-border-dark dark:bg-background-dark">
@@ -155,17 +154,19 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
             Your referral link
           </div>
           <div className="mt-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
+            <span className="break-all text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
               {success.referral_link}
             </span>
-            <button
+            <Button
               type="button"
+              variant="secondary"
+              size="sm"
               onClick={handleCopy}
-              className="inline-flex items-center justify-center gap-2 rounded-full border border-brand-border bg-panel-light px-4 py-2 text-sm font-semibold text-brand-strong transition hover:border-brand-border hover:text-brand-emphasis dark:border-brand-dark/40 dark:bg-panel-dark dark:text-brand-strong-dark"
+              leftIcon={copied ? <CheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
+              className="shrink-0"
             >
-              {copied ? <CheckIcon className="h-4 w-4" /> : <CopyIcon className="h-4 w-4" />}
               {copied ? 'Copied' : 'Copy'}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -175,41 +176,23 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
 
         {shareLinks && (
           <div className="mt-4 flex flex-wrap gap-3">
-            <a
-              href={shareLinks.twitter}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-full border border-border-light bg-background-light px-4 py-2 text-sm font-medium text-text-primary-light transition hover:border-brand-border dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
-            >
+            <a href={shareLinks.twitter} target="_blank" rel="noreferrer" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
               Share on Twitter
             </a>
-            <a
-              href={shareLinks.linkedIn}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-full border border-border-light bg-background-light px-4 py-2 text-sm font-medium text-text-primary-light transition hover:border-brand-border dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
-            >
+            <a href={shareLinks.linkedIn} target="_blank" rel="noreferrer" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
               Share on LinkedIn
             </a>
-            <a
-              href={shareLinks.whatsapp}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-full border border-border-light bg-background-light px-4 py-2 text-sm font-medium text-text-primary-light transition hover:border-brand-border dark:border-border-dark dark:bg-background-dark dark:text-text-primary-dark"
-            >
+            <a href={shareLinks.whatsapp} target="_blank" rel="noreferrer" className={buttonVariants({ variant: 'secondary', size: 'sm' })}>
               Share on WhatsApp
             </a>
           </div>
         )}
-      </div>
+      </Card>
     )
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="rounded-2xl border border-border-light bg-panel-light p-6 shadow-e2 dark:shadow-none backdrop-blur-sm dark:border-border-dark dark:bg-panel-dark"
-    >
+    <Card as="form" onSubmit={handleSubmit} className="p-6">
       <div className="flex flex-col gap-4">
         <div>
           <label
@@ -218,16 +201,14 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
           >
             Email address
           </label>
-          {/* Raw input + inputClasses(): geometry overrides target the field itself,
-              which the v2 <Input> shell no longer exposes via className. */}
-          <input
+          <Input
             id="waitlist-email"
             type="email"
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
             placeholder="you@company.com"
-            className={inputClasses({ className: 'mt-2 rounded-xl px-4 py-3 text-sm' })}
+            className="mt-2"
           />
         </div>
 
@@ -238,13 +219,13 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
           >
             Full name (optional)
           </label>
-          <input
+          <Input
             id="waitlist-name"
             type="text"
             value={name}
             onChange={(event) => setName(event.target.value)}
             placeholder="Jane Doe"
-            className={inputClasses({ className: 'mt-2 rounded-xl px-4 py-3 text-sm' })}
+            className="mt-2"
           />
         </div>
 
@@ -258,23 +239,20 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
           onChange={(event) => setHoneypot(event.target.value)}
         />
 
-        {error && (
-          <div className="rounded-xl border border-error-light/40 dark:border-error-dark/40 bg-error-light/10 dark:bg-error-dark/10 px-4 py-3 text-sm text-error-light dark:text-error-dark">
-            {error}
-          </div>
-        )}
+        {error && <Notice variant="error" title={error} />}
 
         <TurnstileWidget onToken={setTurnstileToken} />
 
         <Button
           type="submit"
-          disabled={isSubmitting || (TURNSTILE_ENABLED && !turnstileToken)}
-          className="w-full rounded-full px-6 py-3 font-semibold"
+          loading={isSubmitting}
+          loadingText="Joining waitlist..."
+          disabled={TURNSTILE_ENABLED && !turnstileToken}
+          className="w-full"
         >
-          {isSubmitting && <CircleNotchIcon className="h-4 w-4 animate-spin" />}
-          {isSubmitting ? 'Joining waitlist...' : 'Join the waitlist'}
+          Join the waitlist
         </Button>
       </div>
-    </form>
+    </Card>
   )
 }
