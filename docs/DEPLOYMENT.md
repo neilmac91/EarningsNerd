@@ -220,6 +220,68 @@ Scheduler at those instead. Set `INTERNAL_JOB_TOKEN` in Secret Manager to enable
 endpoints return 503). Note the backfill can be long-running; the dedicated Cloud Run job above is
 preferred over the in-process endpoint for a large first pass.
 
+### 11. Earnings calendar refresh + alerts
+
+Two Cloud Run Jobs run `scripts/earnings_calendar_job.py` to ingest the earnings calendar (Alpha
+Vantage bulk estimates + EDGAR 8-K Item 2.02 sweep + reconciliation) and send the earnings-day alert
+digest: `earningsnerd-earnings-calendar-refresh` (default pass) and `earningsnerd-earnings-day-alerts`
+(the `--alerts` pass). **These must run as dedicated jobs, not via the `/internal/jobs/*` HTTP
+triggers below** — a FastAPI `BackgroundTasks` callback only keeps running as long as the serving
+Cloud Run *instance* stays alive after the response is sent, and the instance can be reclaimed
+(scale-to-zero) before the callback finishes; a live outage confirmed this (the endpoint returned
+`202` instantly but the table never populated — only cold-start log lines appeared, no completion
+log). The CD pipeline keeps both job images in sync **once they exist** (skips gracefully otherwise).
+Create them once, with one Cloud Scheduler trigger each:
+
+```bash
+# Same connector + secrets + scheduler SA as the filing-scan section above.
+CONN=earnings-nerd:us-west1:earningsnerd-db
+SA="$(gcloud projects describe earnings-nerd --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
+SECRETS=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest,ALPHA_VANTAGE_API_KEY=ALPHA_VANTAGE_API_KEY:latest
+ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true"
+
+# Daily refresh job
+gcloud run jobs create earningsnerd-earnings-calendar-refresh --region=us-west1 \
+  --image=us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:latest \
+  --cpu=1 --memory=1Gi --task-timeout=1800 \
+  --set-cloudsql-instances="$CONN" --set-secrets="$SECRETS" --set-env-vars="$ENVV" \
+  --command=python --args=scripts/earnings_calendar_job.py
+
+# Daily alerts job (same script, --alerts baked in)
+gcloud run jobs create earningsnerd-earnings-day-alerts --region=us-west1 \
+  --image=us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:latest \
+  --cpu=1 --memory=1Gi --task-timeout=1800 \
+  --set-cloudsql-instances="$CONN" --set-secrets="$SECRETS" --set-env-vars="$ENVV" \
+  --command=python --args=scripts/earnings_calendar_job.py,--alerts
+
+gcloud projects add-iam-policy-binding earnings-nerd \
+  --member="serviceAccount:${SA}" --role="roles/run.invoker"
+
+# 05:30 America/New_York — before the US pre-market earnings window. Cloud Scheduler's
+# --time-zone handles the EST/EDT switch; no DST math needed.
+gcloud scheduler jobs create http earnings-calendar-refresh-daily --location=us-west1 \
+  --schedule="30 5 * * *" --time-zone="America/New_York" \
+  --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-earnings-calendar-refresh:run" \
+  --http-method=POST --oauth-service-account-email="${SA}"
+
+# 06:00 America/New_York — 30 min after the refresh, so today's reporters are already in
+# the table before the digest reads them.
+gcloud scheduler jobs create http earnings-day-alerts-daily --location=us-west1 \
+  --schedule="0 6 * * *" --time-zone="America/New_York" \
+  --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-earnings-day-alerts:run" \
+  --http-method=POST --oauth-service-account-email="${SA}"
+```
+
+Smoke-test each before trusting the schedule:
+```bash
+gcloud run jobs execute earningsnerd-earnings-calendar-refresh --region=us-west1
+gcloud run jobs execute earningsnerd-earnings-day-alerts       --region=us-west1
+```
+
+The `/internal/jobs/earnings-calendar-refresh` and `/internal/jobs/earnings-day-alerts` HTTP triggers
+still exist and are useful for an ad-hoc manual kick (e.g. re-seeding after a schema change) — just
+don't put the recurring schedule on them.
+
 > **Migrations for Phase 2:** the alert tables auto-create, but the new **columns** on `watchlist`
 > and `companies` do not (`create_all` never alters existing tables). Apply
 > `backend/migrations/20260618_phase2_alerts.sql` against the prod DB **before/with** the deploy that
