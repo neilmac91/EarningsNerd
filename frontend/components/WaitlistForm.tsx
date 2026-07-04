@@ -58,6 +58,9 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    // The submit Button uses `loading` (aria-disabled, not native disabled) to keep its resting
+    // fill, so Enter in a field can still fire this while a request is in flight — guard explicitly.
+    if (isSubmitting) return
     setError(null)
     setCopied(false)
 

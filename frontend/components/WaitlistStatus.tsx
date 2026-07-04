@@ -21,6 +21,9 @@ export default function WaitlistStatus() {
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
+    // The Button uses `loading` (aria-disabled, not native disabled), so Enter can still fire this
+    // mid-request — guard against a concurrent status check.
+    if (loading) return
     setError(null)
     setStatus(null)
     if (!email.trim()) {
@@ -57,7 +60,6 @@ export default function WaitlistStatus() {
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="you@company.com"
-          className="text-sm"
         />
         {error && <Notice variant="error" title={error} />}
         <Button type="submit" loading={loading} loadingText="Checking..." className="w-full">

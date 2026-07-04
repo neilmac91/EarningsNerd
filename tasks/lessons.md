@@ -342,3 +342,17 @@ Server Component, either keep a token-clean hand-rolled `<a>` or extract a small
 you cannot call `buttonVariants()` there, and `<Button>` renders a native `<button>` (not an
 anchor) so it can't be a link. (c) `tsc` + `eslint` do NOT catch the server/client boundary —
 always run `next build` before shipping a change that moves DS primitives across page files.
+
+## `<Button loading>` sets aria-disabled, NOT native disabled — forms need a handler guard (2026-07-04)
+Recomposing the waitlist forms, I replaced `<Button disabled={isSubmitting}>` + a manual spinner with
+`<Button loading={isSubmitting}>`. The DS Button keeps its resting fill while loading and uses
+`aria-disabled` + an onClick guard — it does NOT set the native `disabled` attribute (by design). But
+a form's implicit submit (Enter in a field) bypasses the button's onClick and fires `onSubmit`
+directly, and a non-native-disabled submit button no longer blocks implicit submission. Net: swapping
+`disabled` → `loading` silently reopened concurrent/duplicate submits (Gemini caught it).
+
+**Rule:** any form whose submit button relies on `loading` (not native `disabled`) MUST guard its
+submit handler with an early return (`if (isSubmitting) return` / `if (loading) return`) right after
+`preventDefault()`. Don't rely on the button's disabled look to prevent re-entry. (Also: `className`
+on `<Input>` lands on the outer shell, and `text-sm` is already in the field defaults — don't re-pass
+it.)
