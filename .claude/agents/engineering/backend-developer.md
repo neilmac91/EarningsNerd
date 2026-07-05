@@ -28,7 +28,6 @@
   backend/app/config.py
   backend/main.py
   backend/requirements.txt
-  backend/pipeline/**/*.py
   ```
 * **Forbidden Actions:**
   - Never expose internal error details to API responses in production

@@ -1,5 +1,11 @@
 # SEC 10-K Filing Pipeline Architecture Plan
 
+> **SUPERSEDED (Wave 1, D2).** The standalone `backend/pipeline/` package this document described was
+> verified-dead and removed. Production XBRL extraction lives in `backend/app/services/edgar/`
+> (`xbrl_service.py`, `instance_extractor.py`, `statement_parser.py`) and summary generation in
+> `summary_pipeline.py` / `summary_generation_service.py` / `openai_service.py`. Kept for historical
+> context only — do not treat as current architecture.
+
 ## Executive Summary
 
 This document outlines the architecture for a production-grade SEC 10-K filing pipeline that integrates with EarningsNerd's existing backend infrastructure. The design leverages the existing 10-Q pipeline patterns, extending them for 10-K specific requirements.
