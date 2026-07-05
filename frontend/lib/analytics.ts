@@ -192,6 +192,16 @@ export const analytics = {
     })
   },
 
+  /** Multi-Period Analysis: a Pro user kicked off a run (dataset + narrative). */
+  analysisRun: (props: { ticker: string; mode: string; start: string; end: string }) => {
+    safeCapture('analysis_generated', {
+      ticker: props.ticker,
+      mode: props.mode,
+      start_period: props.start,
+      end_period: props.end,
+    })
+  },
+
   copilotAnswerCompleted: (props: {
     filingId: number
     ticker: string | null

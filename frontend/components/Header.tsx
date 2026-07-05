@@ -10,13 +10,14 @@ import UserMenu from '@/components/UserMenu'
 import NotificationBell from '@/components/NotificationBell'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { getCurrentUserSafe, logout } from '@/features/auth/api/auth-api'
-import { ENABLE_CALENDAR, ENABLE_COMPARE } from '@/lib/featureFlags'
+import { ENABLE_ANALYSIS, ENABLE_CALENDAR, ENABLE_COMPARE } from '@/lib/featureFlags'
 import { buttonVariants, Skeleton } from '@/components/ui'
 
 const NAV_LINKS = [
   { href: '/search', label: 'Search' },
-  // Gated like Compare: the /calendar route 404s while the flag is off, so the
-  // nav entry appears only when the calendar goes live.
+  // Gated like Compare: the /analysis and /calendar routes 404 while their flags are off, so
+  // the nav entries appear only when the features go live.
+  ...(ENABLE_ANALYSIS ? [{ href: '/analysis', label: 'Analysis' }] : []),
   ...(ENABLE_CALENDAR ? [{ href: '/calendar', label: 'Calendar' }] : []),
   ...(ENABLE_COMPARE ? [{ href: '/compare', label: 'Compare' }] : []),
   { href: '/pricing', label: 'Pricing' },

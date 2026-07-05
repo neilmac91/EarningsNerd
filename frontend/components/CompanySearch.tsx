@@ -22,7 +22,18 @@ const isTypingTarget = (el: EventTarget | null): boolean => {
   )
 }
 
-export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusDesktop?: boolean }) {
+export default function CompanySearch({
+  autoFocusDesktop = false,
+  onSelect,
+}: {
+  autoFocusDesktop?: boolean
+  /**
+   * Override the pick behaviour (default navigates to /company/{ticker}). Used by surfaces that
+   * consume the selection in place — e.g. the Multi-Period Analysis picker. Enter on a
+   * ticker-shaped query with no results still navigates only in the default mode.
+   */
+  onSelect?: (ticker: string) => void
+}) {
   const [query, setQuery] = useState('')
   const [debouncedQuery, setDebouncedQuery] = useState('')
   const [highlightIndex, setHighlightIndex] = useState(-1)
@@ -81,6 +92,11 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
   // Navigate to a result and record the search→click so search→company conversion is causal.
   const goToResult = (ticker: string, position: number) => {
     analytics.companySearchResultClicked(debouncedQuery || query, ticker, position)
+    if (onSelect) {
+      setQuery('')
+      onSelect(ticker)
+      return
+    }
     router.push(`/company/${ticker}`)
   }
 
@@ -126,7 +142,12 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
         // junk /company/ URLs.
         const typed = query.trim().toUpperCase()
         if (/^[A-Z]{1,5}(-[A-Z])?$/.test(typed)) {
-          router.push(`/company/${typed}`)
+          if (onSelect) {
+            setQuery('')
+            onSelect(typed)
+          } else {
+            router.push(`/company/${typed}`)
+          }
         }
       }
     }

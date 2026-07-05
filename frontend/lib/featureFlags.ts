@@ -126,3 +126,14 @@ export const ENABLE_FEEDBACK_WIDGET =
  */
 export const ENABLE_COMPARE =
   process.env.NEXT_PUBLIC_ENABLE_COMPARE === 'true'
+
+/**
+ * Show Multi-Period Analysis — the Pro flagship: pick a company, pick up to 10 fiscal years or
+ * 12 quarters, get charts + a metrics grid + a streamed AI trend narrative with verifiable
+ * citations. The /analysis route 404s while off (same gate pattern as Compare), so it ships dark
+ * until the backend has been verified in prod and the companyfacts cache is warmed.
+ * Flip NEXT_PUBLIC_ENABLE_ANALYSIS='true' to launch.
+ * Default: disabled.
+ */
+export const ENABLE_ANALYSIS =
+  process.env.NEXT_PUBLIC_ENABLE_ANALYSIS === 'true'
