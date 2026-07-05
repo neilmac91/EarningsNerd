@@ -27,7 +27,7 @@ def test_free_user_has_free_entitlements():
     assert ent.plan is Plan.FREE
     assert ent.monthly_summary_limit == 5
     assert ent.can_export is False
-    assert ent.can_compare_filings is True
+    assert ent.can_analyze_trends is False
     assert ent.watchlist_limit is None  # unlimited on free, by design
     assert ent.realtime_alerts is False
     assert ent.eightk_coverage is False
@@ -40,6 +40,7 @@ def test_is_pro_mirror_grants_pro_when_no_subscription_row():
     assert ent.plan is Plan.PRO
     assert ent.monthly_summary_limit is None
     assert ent.can_export is True
+    assert ent.can_analyze_trends is True
     assert ent.realtime_alerts is True
     assert ent.eightk_coverage is True
     assert ent.history_retention_days is None

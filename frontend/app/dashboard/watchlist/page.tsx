@@ -11,7 +11,7 @@ import { getWatchlistInsights, WatchlistInsight } from '@/features/watchlist/api
 import SecondaryHeader from '@/components/SecondaryHeader'
 import WatchlistAddSearch from '@/components/watchlist/WatchlistAddSearch'
 import CompanyLogo from '@/components/CompanyLogo'
-import { ENABLE_COMPARE } from '@/lib/featureFlags'
+import { ENABLE_ANALYSIS } from '@/lib/featureFlags'
 import { Badge, buttonVariants, Card, GuidanceCard, type BadgeVariant } from '@/components/ui'
 
 function useAuthGate() {
@@ -97,10 +97,10 @@ export default function WatchlistDashboardPage() {
         backHref="/dashboard"
         backLabel="Back to dashboard"
         actions={
-          ENABLE_COMPARE ? (
-            <Link href="/compare" className={buttonVariants({ variant: 'primary' })}>
+          ENABLE_ANALYSIS ? (
+            <Link href="/analysis" className={buttonVariants({ variant: 'primary' })}>
               <SparkleIcon className="h-4 w-4" />
-              Compare filings
+              Analyze trends
             </Link>
           ) : undefined
         }

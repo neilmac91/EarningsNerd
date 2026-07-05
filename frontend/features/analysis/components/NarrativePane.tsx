@@ -4,7 +4,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 import { Badge, Button, Card, Notice } from '@/components/ui'
-import { ArrowClockwiseIcon, CircleNotchIcon } from '@/lib/icons'
+import { ArrowClockwiseIcon, CircleNotchIcon, DownloadSimpleIcon } from '@/lib/icons'
 import type { AnalysisCitation, AnalysisCompletion } from '@/features/analysis/api/analysis-api'
 
 export interface NarrativeState {
@@ -55,11 +55,14 @@ export default function NarrativePane({
   state,
   onRefresh,
   refreshDisabled,
+  onExport,
 }: {
   state: NarrativeState
   /** The force-regenerate button (metered server-side; hidden when absent). */
   onRefresh?: () => void
   refreshDisabled?: boolean
+  /** PDF download (Pro can_export; hidden when absent or before a persisted completion). */
+  onExport?: () => void
 }) {
   if (state.status === 'idle') return null
 
@@ -90,11 +93,21 @@ export default function NarrativePane({
             </Badge>
           )}
         </div>
-        {state.status === 'done' && onRefresh && !notEnoughData && (
-          <Button size="sm" variant="secondary" onClick={onRefresh} disabled={refreshDisabled}>
-            <ArrowClockwiseIcon className="h-3.5 w-3.5" aria-hidden="true" />
-            Refresh analysis
-          </Button>
+        {state.status === 'done' && !notEnoughData && (
+          <div className="flex items-center gap-2">
+            {onExport && completion?.analysis_id != null && (
+              <Button size="sm" variant="secondary" onClick={onExport}>
+                <DownloadSimpleIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                Export PDF
+              </Button>
+            )}
+            {onRefresh && (
+              <Button size="sm" variant="secondary" onClick={onRefresh} disabled={refreshDisabled}>
+                <ArrowClockwiseIcon className="h-3.5 w-3.5" aria-hidden="true" />
+                Refresh analysis
+              </Button>
+            )}
+          </div>
         )}
       </div>
 

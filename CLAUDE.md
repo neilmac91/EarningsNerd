@@ -129,7 +129,7 @@ docker-compose down                   # Stop databases
 │   ├── forgot-password/, reset-password/, check-email/, verify-email/  # Password reset + email verification flows
 │   ├── company/[ticker]/ # Company detail pages
 │   ├── filing/[id]/      # Filing summary pages
-│   ├── compare/result/   # Filing comparison pages
+│   ├── analysis/         # Multi-Period Analysis (Pro flagship, flag-gated)
 │   ├── dashboard/        # User dashboard (settings/, watchlist/ subroutes)
 │   ├── search/           # Global filing search page
 │   ├── contact/          # Contact form page
@@ -151,7 +151,6 @@ docker-compose down                   # Stop databases
 │   ├── formatters.ts, format.ts  # Formatting utilities
 │   ├── entryPoint.ts     # Entry-point config
 │   ├── analytics.ts      # Analytics integration
-│   ├── QualityGate.ts    # Summary quality gating
 │   └── stripInternalNotices.ts  # Strip internal AI notices from output
 ├── hooks/                # Custom React hooks (useCountUp)
 └── types/                # Shared TypeScript types (summary.ts)
@@ -186,7 +185,8 @@ docker-compose down                   # Stop databases
 | `backend/app/services/copilot_tools.py` | Numeric XBRL tool-use for Copilot — exact values from `financial_fact` for calculations |
 | `backend/app/services/provenance_service.py` | Trace-to-Source provenance: verifies AI excerpts and builds deep-link citations |
 | `backend/app/services/change_report_service.py` | Period-over-period change report (financial deltas + risk-factor diffs) |
-| `backend/app/services/facts_service.py` | Normalizes/upserts standardized XBRL metrics into the queryable `financial_fact` table |
+| `backend/app/services/facts_service.py` | Normalizes/upserts standardized XBRL metrics into `financial_fact`; ingests SEC companyfacts as the multi-period source (FY/Q1–Q4 labelling, derived Q4) |
+| `backend/app/services/trend_analysis_service.py` | Multi-Period Analysis engine: N-period dataset (YoY/QoQ/CAGR, inflection signals, F# citation markers) + cached streamed AI narrative |
 | `backend/app/services/peers_service.py` | Cross-company peer comparison using `financial_fact` indexed by SIC |
 | `backend/app/services/insider_service.py` | Form 4 insider-activity orchestration (open-market trades, Rule 10b5-1 split) |
 | `backend/app/services/ownership_extractor.py` | Form 4 transaction extraction from EdgarTools (defensive against version variance) |
@@ -238,7 +238,7 @@ docker-compose down                   # Stop databases
 | `auth.py` | `/api/auth` | Authentication (login, register, refresh, OAuth, password reset) |
 | `users.py` | `/api/users` | User profile, preferences, export, deletion |
 | `admin.py` | `/api/admin` | Admin endpoints for data management |
-| `compare.py` | `/api/compare` | Filing comparison endpoints (Pro, entitlement-gated) |
+| `analysis.py` | `/api/analysis` | Multi-Period Analysis: coverage (auth), dataset + SSE narrative + PDF export (Pro `can_analyze_trends`) |
 | `contact.py` | `/api/contact` | Contact form submission (rate-limited, Turnstile) |
 | `email.py` | `/api/email` | Email management endpoints |
 | `search.py` | `/api/search` | SEC full-text search via EFTS (`GET /full-text`) |
@@ -249,7 +249,7 @@ docker-compose down                   # Stop databases
 | `saved_summaries.py` | `/api/saved-summaries` | Save/manage summaries |
 | `watchlist.py` | `/api/watchlist`, `/api/waitlist` | Company watchlist + waitlist signup (`waitlist_router`) |
 | `webhooks.py` | `/api` | Resend webhook handler (`POST /api/webhooks/resend`) |
-| `internal.py` | `/internal` | Token-gated job triggers for Cloud Scheduler (`POST /internal/jobs/filing-scan`, `/internal/jobs/filing-digest`, `/internal/jobs/backfill-facts`) |
+| `internal.py` | `/internal` | Token-gated job triggers for Cloud Scheduler (`POST /internal/jobs/filing-scan`, `/internal/jobs/filing-digest`, `/internal/jobs/backfill-facts`, `/internal/jobs/sync-companyfacts`) |
 | `sitemap.py` | `/` | XML sitemap generation (`GET /sitemap.xml`) |
 
 ### Other Key Files
@@ -320,7 +320,6 @@ docker-compose down                   # Stop databases
 | `TrendingTickers.tsx` | List of trending stock tickers |
 | `FinancialCharts.tsx` | Financial data visualization |
 | `FinancialMetricsTable.tsx` | Table display for financial metrics |
-| `ComparisonMetricChart.tsx` | Filing comparison visualizations |
 | `ContactForm.tsx` | Contact form component |
 | `CookieConsent.tsx` | Cookie consent banner |
 | `GlobalErrorBoundary.tsx` | App-wide error boundary with Sentry |
@@ -340,6 +339,7 @@ Tables in `backend/app/models/` (core models live in `__init__.py`; the rest in 
 - `UserUsage` - Per-month summary/QA generation count for rate limiting
 - `UserSearch` - User search history tracking
 - `FinancialFact` - Normalized standardized XBRL metrics for peer/time-series queries (`financial_fact.py`)
+- `TrendAnalysis` - Cached Multi-Period Analysis runs (dataset + narrative + citations) keyed by company/mode/period range (`trend_analysis.py`)
 - `NotificationPreferences` / `NotificationLog` - New-filing alert opt-ins + dedup ledger (`notifications.py`)
 - `Subscription` / `StripeEvent` - Billing state (Stripe sync) + webhook idempotency ledger (`subscription.py`)
 - `WaitlistSignup` - Waitlist signups with referral codes and priority scoring (`waitlist.py`)
@@ -399,6 +399,13 @@ TURNSTILE_SECRET_KEY=...          # Cloudflare Turnstile bot defense (no-op/dark
 INTERNAL_JOB_TOKEN=...            # Shared secret for /internal/jobs/* (endpoints 503 when unset)
 ENABLE_GUEST_DAILY_QUOTA=false    # Per-IP daily summary cap for anonymous users (fails open)
 GUEST_DAILY_SUMMARY_LIMIT=3
+
+# Multi-Period Analysis (Pro flagship)
+ANALYSIS_MONTHLY_CAP=100          # Fair-use cap on fresh AI narratives/month (cached re-serves free)
+ANALYSIS_MAX_TOKENS=3200
+ANALYSIS_MAX_ANNUAL_PERIODS=10
+ANALYSIS_MAX_QUARTERLY_PERIODS=12
+COMPANYFACTS_SYNC_TTL_HOURS=24    # Freshness of the per-company SEC companyfacts ingest
 
 # OAuth (Google + Apple Sign In)
 GOOGLE_CLIENT_ID=...
@@ -465,7 +472,7 @@ NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS=true|false
 NEXT_PUBLIC_ENABLE_SECTION_TABS=true|false
 NEXT_PUBLIC_ENABLE_CALENDAR=true|false             # Earnings calendar (requires FMP_API_KEY)
 NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY=true|false     # Form 4 insider activity panel
-NEXT_PUBLIC_ENABLE_COMPARE=true|false              # Multi-filing Compare (off: nav/CTA hidden + /compare routes 404)
+NEXT_PUBLIC_ENABLE_ANALYSIS=true|false             # Multi-Period Analysis (off: nav/CTA hidden + /analysis route 404s)
 NEXT_PUBLIC_REQUIRE_AUTH_FOR_SUMMARY=true|false    # Gate summary generation behind auth
 WAITLIST_MODE=...                                  # Server-side waitlist gating (not NEXT_PUBLIC_)
 ```
@@ -498,7 +505,8 @@ Custom pytest markers defined in `backend/pytest.ini` (the single source of test
 - `test_openai_service_retry.py` - OpenAI service retry logic and error handling
 - `test_stocktwits_fmp.py` - Stocktwits and FMP integration tests
 - Newer feature coverage: `test_copilot.py`, `test_copilot_tools.py`, `test_entitlements.py`,
-  `test_facts_service.py`, `test_peers_service.py`, `test_insider_service.py`,
+  `test_facts_service.py`, `test_companyfacts_ingest.py`, `test_trend_analysis_service.py`,
+  `test_analysis_stream.py`, `test_peers_service.py`, `test_insider_service.py`,
   `test_notification_service.py`, `test_filing_scan.py`, `test_guest_quota.py`,
   `test_turnstile.py`, `test_stripe_webhook.py`, `test_auth_flow.py`, `test_apple_signin.py`,
   `test_sec_full_text_search.py`, `test_dashboard_feed.py`, `test_provenance_service.py`

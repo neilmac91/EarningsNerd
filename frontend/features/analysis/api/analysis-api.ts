@@ -138,6 +138,10 @@ export const getAnalysisDataset = async (
   return response.data
 }
 
+/** URL for the Pro PDF export of a completed analysis (fetched with credentials, blob download). */
+export const analysisPdfUrl = (analysisId: number): string =>
+  `${getApiUrl()}/api/analysis/export/${analysisId}/pdf`
+
 const parseErrorDetail = async (response: Response, fallback: string): Promise<string> => {
   try {
     const data = await response.json()

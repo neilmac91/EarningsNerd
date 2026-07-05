@@ -19,9 +19,9 @@ export const getEntryPoint = (): string => {
     if (ref.pathname === '/') return 'homepage'
     if (ref.pathname === '/waitlist') return 'waitlist'
     if (ref.pathname.startsWith('/company/')) return 'company_page'
-    // Exact-or-subpath so '/compared' / '/compare-plans' don't false-match (consistent with
-    // the '/company/' check above).
-    if (ref.pathname === '/compare' || ref.pathname.startsWith('/compare/')) return 'compare'
+    // Exact-or-subpath so '/analysis-foo' doesn't false-match (consistent with the
+    // '/company/' check above).
+    if (ref.pathname === '/analysis' || ref.pathname.startsWith('/analysis/')) return 'analysis'
     return 'internal'
   } catch {
     return 'unknown'

@@ -13,6 +13,7 @@ import { ApiError } from '@/lib/api/client'
 import analytics from '@/lib/analytics'
 
 import {
+  analysisPdfUrl,
   getAnalysisCoverage,
   getAnalysisDataset,
   isAnalysisPaywallError,
@@ -156,6 +157,28 @@ export default function AnalysisPageClient() {
   // Abort any in-flight stream on unmount.
   useEffect(() => () => abortRef.current?.abort(), [])
 
+  // Blob download with credentials (bearer/cookie ride the fetch) — the filing-page export pattern.
+  const exportPdf = useCallback(() => {
+    const analysisId = narrative.completion?.analysis_id
+    if (analysisId == null || !ticker) return
+    void fetch(analysisPdfUrl(analysisId), { credentials: 'include' })
+      .then((response) => {
+        if (!response.ok) throw new Error(`Export failed (${response.status})`)
+        return response.blob()
+      })
+      .then((blob) => {
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${ticker}_multi_period_analysis.pdf`
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        window.URL.revokeObjectURL(url)
+      })
+      .catch(() => setDatasetError('PDF export failed. Please try again.'))
+  }, [narrative.completion?.analysis_id, ticker])
+
   const unsupported = coverage && !coverage.supported
   const paywalled = narrative.status === 'error' && isAnalysisPaywallError(narrative.error || '')
 
@@ -285,6 +308,7 @@ export default function AnalysisPageClient() {
             state={narrative}
             onRefresh={() => startNarrative(true)}
             refreshDisabled={narrative.status === 'streaming'}
+            onExport={exportPdf}
           />
           <MetricsTable dataset={dataset} />
           <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">

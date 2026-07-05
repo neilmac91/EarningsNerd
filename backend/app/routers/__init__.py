@@ -1,7 +1,6 @@
 from . import analysis
 from . import auth
 from . import companies
-from . import compare
 from . import contact
 from . import email
 from . import filings
@@ -18,7 +17,6 @@ __all__ = [
     'analysis',
     'auth',
     'companies',
-    'compare',
     'contact',
     'email',
     'filings',

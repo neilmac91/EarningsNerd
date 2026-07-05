@@ -73,7 +73,7 @@ def require_entitlement(flag: str, feature_label: str | None = None) -> Callable
 
     Example::
 
-        @router.post("/", dependencies=[Depends(require_entitlement("can_compare_filings"))])
+        @router.post("/", dependencies=[Depends(require_entitlement("can_analyze_trends"))])
 
     or capture the user::
 

@@ -12,9 +12,9 @@ dependency in ``app.dependencies``) rather than reading ``is_pro`` directly. Add
 new gated capability is then a change to this module plus Stripe price wiring — not a hunt through
 scattered ``if user.is_pro`` checks.
 
-Note: ``monthly_summary_limit``, ``can_export`` and ``can_compare_filings`` are enforced today.
-The remaining flags (alerts, 8-K, history, priority model) are forward-looking and consumed by
-later phases; they intentionally do not yet change behaviour on their own.
+Note: ``monthly_summary_limit``, ``can_export``, ``copilot`` and ``can_analyze_trends`` are
+enforced today. The remaining flags (alerts, 8-K, history, priority model) are forward-looking and
+consumed by later phases; they intentionally do not yet change behaviour on their own.
 """
 from __future__ import annotations
 
@@ -49,7 +49,6 @@ class Plan(str, Enum):
 class Entitlements:
     plan: Plan
     monthly_summary_limit: Optional[int]  # None == unlimited
-    can_compare_filings: bool
     can_export: bool
     can_save_summaries: bool
     watchlist_limit: Optional[int]  # None == unlimited
@@ -80,7 +79,6 @@ class Entitlements:
 _FREE = Entitlements(
     plan=Plan.FREE,
     monthly_summary_limit=FREE_TIER_SUMMARY_LIMIT,
-    can_compare_filings=True,
     can_export=False,
     can_save_summaries=True,
     # Unlimited watchlist on free is deliberate (discovery/habit drives the value loop); Pro
@@ -99,7 +97,6 @@ _FREE = Entitlements(
 _PRO = Entitlements(
     plan=Plan.PRO,
     monthly_summary_limit=None,
-    can_compare_filings=True,
     can_export=True,
     can_save_summaries=True,
     watchlist_limit=None,

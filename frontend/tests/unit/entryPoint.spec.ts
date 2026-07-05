@@ -41,21 +41,21 @@ describe('getEntryPoint', () => {
     expect(getEntryPoint()).toBe('company_page')
   })
 
-  it('maps the exact /compare route to "compare"', () => {
+  it('maps the exact /analysis route to "analysis"', () => {
     setLocation('')
-    setReferrer('https://www.earningsnerd.io/compare')
-    expect(getEntryPoint()).toBe('compare')
+    setReferrer('https://www.earningsnerd.io/analysis')
+    expect(getEntryPoint()).toBe('analysis')
   })
 
-  it('maps a /compare/ subpath to "compare"', () => {
+  it('maps an /analysis/ subpath to "analysis"', () => {
     setLocation('')
-    setReferrer('https://www.earningsnerd.io/compare/result')
-    expect(getEntryPoint()).toBe('compare')
+    setReferrer('https://www.earningsnerd.io/analysis/AAPL')
+    expect(getEntryPoint()).toBe('analysis')
   })
 
-  it('does not false-match a /compare-prefixed route to "compare"', () => {
+  it('does not false-match an /analysis-prefixed route to "analysis"', () => {
     setLocation('')
-    setReferrer('https://www.earningsnerd.io/compare-plans')
+    setReferrer('https://www.earningsnerd.io/analysis-tools')
     expect(getEntryPoint()).toBe('internal')
   })
 

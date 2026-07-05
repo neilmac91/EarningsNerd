@@ -15,6 +15,7 @@ import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import Response as FastAPIResponse
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
@@ -284,4 +285,44 @@ async def stream_analysis(
             "Connection": "keep-alive",
             "X-Accel-Buffering": "no",  # Disable buffering for Cloud Run/nginx
         },
+    )
+
+
+@router.get("/export/{analysis_id}/pdf")
+async def export_analysis_pdf(
+    analysis_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Export a completed analysis as PDF (Pro `can_export`, the summaries export pattern)."""
+    from app.models import TrendAnalysis
+    from app.services.entitlements import get_entitlements
+    from app.services.export_service import export_service
+
+    if not get_entitlements(current_user).can_export:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="PDF export is a Pro feature. Upgrade to Pro to access this feature.",
+        )
+    analysis = db.get(TrendAnalysis, analysis_id)
+    if analysis is None or not analysis.narrative_md:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found")
+    company = db.get(Company, analysis.company_id)
+    if company is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
+
+    try:
+        pdf_bytes = await export_service.export_analysis_pdf(analysis, company)
+    except Exception:
+        logger.exception("Analysis PDF export failed for analysis %s", analysis_id)
+        raise HTTPException(
+            status_code=500, detail="Failed to generate PDF. Please try again later."
+        )
+    filename = f"{company.ticker}_multi_period_{analysis.mode}_{analysis.period_key}.pdf".replace(
+        "..", "-"
+    )
+    return FastAPIResponse(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
