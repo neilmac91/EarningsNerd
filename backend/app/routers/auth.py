@@ -14,7 +14,6 @@ import hashlib
 import json
 import secrets
 import logging
-import time
 
 import httpx
 import bcrypt
@@ -27,6 +26,7 @@ from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.pwned_passwords import is_password_pwned
 from app.services.turnstile import enforce_turnstile
 from app.services import audit_service, login_lockout
+from app.services.oauth_verify import _verify_apple_id_token, _verify_google_id_token
 from app.services.refresh_token_service import (
     create_refresh_token,
     rotate_refresh_token,
@@ -86,28 +86,18 @@ def validate_password_strength(value: str) -> str:
         raise ValueError(f"Password must be at most {PASSWORD_MAX_LENGTH} characters.")
     return value
 
-# Google OAuth (OIDC) endpoints
+# Google/Apple OAuth FLOW endpoints (the redirect + Google token-exchange run in this router). The
+# JWKS fetch + id-token verification moved to app.services.oauth_verify (roadmap S3) and are
+# re-imported below so the callbacks still call them by name.
 _GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 _GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
-# Identity is taken from the cryptographically-verified id_token (below), not the userinfo
-# endpoint, so a forged/replayed access token cannot impersonate a user.
-_GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs"
-_GOOGLE_ISSUERS = {"https://accounts.google.com", "accounts.google.com"}
 _OAUTH_STATE_COOKIE = "oauth_state"
 _OAUTH_STATE_MAX_AGE = 600  # 10 minutes
 
-_google_jwks_cache: dict | None = None
-_google_jwks_cache_expires: float = 0.0
-
-# Apple Sign In constants and module-level caches.
-# Authentication uses the id_token delivered directly in Apple's form_post
-# callback (response_type="code id_token"), so no authorization-code exchange
-# and no ES256 client secret are required — only the JWKS for signature checks.
+# Apple authentication uses the id_token delivered directly in Apple's form_post callback
+# (response_type="code id_token"), so no authorization-code exchange / ES256 client secret is
+# required — only Apple's JWKS for signature checks (handled in oauth_verify).
 _APPLE_AUTH_URL = "https://appleid.apple.com/auth/authorize"
-_APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
-
-_apple_jwks_cache: dict | None = None
-_apple_jwks_cache_expires: float = 0.0
 
 
 # ─── Pydantic schemas ─────────────────────────────────────────────────────────
@@ -518,107 +508,6 @@ async def _send_oauth_linked_email_safe(user: User, provider: str) -> None:
         await send_oauth_linked_email(to_email=user.email, name=user.full_name, provider=provider)
     except Exception as e:
         logger.warning(f"OAuth-linked notification not sent: {e.__class__.__name__}: {e}")
-
-
-async def _get_apple_jwks() -> dict:
-    """Fetch (or return 1-hour-cached) Apple JWKS for id_token verification."""
-    global _apple_jwks_cache, _apple_jwks_cache_expires
-    now = time.time()
-    if _apple_jwks_cache and now < _apple_jwks_cache_expires:
-        return _apple_jwks_cache
-    async with httpx.AsyncClient(timeout=10.0) as hx:
-        resp = await hx.get(_APPLE_JWKS_URL)
-        resp.raise_for_status()
-        _apple_jwks_cache = resp.json()
-        _apple_jwks_cache_expires = now + 3600
-    return _apple_jwks_cache
-
-
-async def _verify_apple_id_token(id_token: str, raw_nonce: str) -> dict:
-    """Verify Apple id_token against Apple's JWKS; check nonce.
-
-    python-jose does not reliably auto-select a key from a JWKS dict, so we
-    extract the kid from the unverified header and select the matching key
-    explicitly before calling jwt.decode.
-    """
-    jwks = await _get_apple_jwks()
-    try:
-        kid = jwt.get_unverified_header(id_token).get("kid")
-        public_key = next(
-            (k for k in jwks.get("keys", []) if k.get("kid") == kid), None
-        )
-        if not public_key:
-            raise ValueError("Matching key not found in Apple JWKS")
-        claims = jwt.decode(
-            id_token,
-            public_key,
-            algorithms=["RS256"],
-            audience=settings.APPLE_CLIENT_ID,
-            issuer="https://appleid.apple.com",
-            # Require the claims we rely on to be present (defense-in-depth; the RS256 signature
-            # against Apple's JWKS is the real gate). nonce is additionally checked below. Leeway
-            # absorbs clock skew between Apple's servers and ours, same as our own token decode.
-            options={"require": ["exp", "aud", "iss", "sub", "nonce"], "leeway": settings.JWT_LEEWAY_SECONDS},
-        )
-    except JWTError as exc:
-        raise ValueError(f"Apple id_token invalid: {exc}")
-
-    # Nonce binding is mandatory: we always send sha256(raw_nonce), so a
-    # compliant id_token always echoes it back. A missing or mismatched nonce
-    # means the token isn't bound to this auth request (replay/injection) — reject.
-    token_nonce = claims.get("nonce")
-    expected = hashlib.sha256(raw_nonce.encode()).hexdigest()
-    if not token_nonce or not secrets.compare_digest(token_nonce, expected):
-        raise ValueError("Apple id_token nonce missing or mismatched")
-
-    return claims
-
-
-async def _get_google_jwks() -> dict:
-    """Fetch (or return 1-hour-cached) Google JWKS for id_token verification."""
-    global _google_jwks_cache, _google_jwks_cache_expires
-    now = time.time()
-    if _google_jwks_cache and now < _google_jwks_cache_expires:
-        return _google_jwks_cache
-    async with httpx.AsyncClient(timeout=10.0) as hx:
-        resp = await hx.get(_GOOGLE_JWKS_URL)
-        resp.raise_for_status()
-        _google_jwks_cache = resp.json()
-        _google_jwks_cache_expires = now + 3600
-    return _google_jwks_cache
-
-
-async def _verify_google_id_token(id_token: str) -> dict:
-    """Verify a Google OIDC id_token and return its claims.
-
-    Checks the RS256 signature against Google's JWKS, that the audience is our client_id, that
-    the token is unexpired, and that the issuer is Google. This replaces trusting the /userinfo
-    response, which only proves possession of an access token, not that it was minted for us.
-    """
-    jwks = await _get_google_jwks()
-    try:
-        kid = jwt.get_unverified_header(id_token).get("kid")
-        public_key = next(
-            (k for k in jwks.get("keys", []) if k.get("kid") == kid), None
-        )
-        if not public_key:
-            raise ValueError("Matching key not found in Google JWKS")
-        # Google issues id_tokens with iss "https://accounts.google.com" or "accounts.google.com";
-        # validate the issuer manually against both rather than via jose's single-string check.
-        claims = jwt.decode(
-            id_token,
-            public_key,
-            algorithms=["RS256"],
-            audience=settings.GOOGLE_CLIENT_ID,
-            options={"require": ["exp", "aud", "sub", "iss"]},
-        )
-    except JWTError as exc:
-        raise ValueError(f"Google id_token invalid: {exc}")
-
-    if claims.get("iss") not in _GOOGLE_ISSUERS:
-        raise ValueError("Google id_token has unexpected issuer")
-
-    return claims
 
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────────
