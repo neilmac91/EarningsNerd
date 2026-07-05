@@ -219,3 +219,65 @@ def test_subscription_deleted_downgrades_to_free(client):
         assert status == "canceled"
 
         _delete_events(checkout["id"], deleted["id"])
+
+
+def _resolved_plan(user_id):
+    """Resolve the plan through the REAL entitlements resolver (subscription row first).
+
+    Distinct from _fetch, which reads the denormalised User.is_pro mirror + raw row fields: this
+    exercises get_plan() against the actual webhook-written Subscription, proving Pro is revoked
+    end-to-end and not merely in the mirror.
+    """
+    from app.database import SessionLocal
+    from app.models import User
+    from app.services.entitlements import get_plan
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        return get_plan(user).value if user else None
+    finally:
+        db.close()
+
+
+@pytest.mark.requires_db
+def test_subscription_past_due_downgrades_to_free(client):
+    """Money-OFF via customer.subscription.updated -> past_due (delinquent payment).
+
+    Closes a founder-review gap: the deleted/canceled path is covered by
+    test_subscription_deleted_downgrades_to_free, but the *past_due* money-OFF path had NO
+    webhook-level test (the only past_due coverage was a resolver-level parametrize over a
+    SimpleNamespace in test_entitlements.py, never a webhook through the handler). If status
+    mirroring regressed to downgrade only on canceled/deleted, a delinquent subscriber would keep
+    Pro indefinitely and nothing would fail. This posts a real past_due update through the actual
+    webhook handler for a currently-Pro user and asserts the money is off.
+    """
+    with _temp_user(is_pro=False) as user_id:
+        # Link ids + grant Pro via checkout (user is now Pro/active), then go delinquent.
+        checkout = _checkout_event(user_id, "sub_pastdue_1", "cus_pastdue_1")
+        assert _post_event(client, checkout).status_code == 200
+        assert _fetch(user_id)[0] is True
+
+        past_due = {
+            "id": f"evt_{uuid.uuid4().hex}",
+            "type": "customer.subscription.updated",
+            "data": {
+                "object": {
+                    "id": "sub_pastdue_1",
+                    "customer": "cus_pastdue_1",
+                    "status": "past_due",
+                    "cancel_at_period_end": False,
+                    "items": {"data": [{"price": {"id": "price_x"}}]},
+                }
+            },
+        }
+        assert _post_event(client, past_due).status_code == 200
+
+        is_pro, plan, status, _ = _fetch(user_id)
+        assert is_pro is False          # denormalised User.is_pro mirror cleared
+        assert plan == "free"           # subscription row downgraded off Pro
+        assert status == "past_due"     # ...but status faithfully mirrors the delinquency
+        # Entitlements resolver (not just the mirror) revokes Pro end-to-end.
+        assert _resolved_plan(user_id) == "free"
+
+        _delete_events(checkout["id"], past_due["id"])
