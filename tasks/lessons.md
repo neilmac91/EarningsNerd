@@ -397,7 +397,7 @@ rotted. Before "adopting" one, run it in isolation AND in-suite; if it fails or 
 as dead (delete — git preserves it) or a fresh rewrite. Don't assume a plan's "adopt" framing
 survives contact with the code; deleting an uncollected test loses no coverage.
 
-## 2026-07-05 — Moving a test file silently breaks its __file__-relative shims
+## 2026-07-05 — Moving a test file silently breaks its `__file__`-relative shims
 `test_startup.py` moved from `scripts/` to `tests/smoke/`. Its
 `sys.path.insert(0, Path(__file__).parent.parent)` had resolved to `backend/` from `scripts/`; from
 `tests/smoke/` it now inserts `backend/tests/` (no `app` package). It passed anyway under
