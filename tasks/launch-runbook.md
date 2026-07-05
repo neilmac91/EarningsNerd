@@ -1,6 +1,6 @@
 # Launch Runbook — Gate Flip & Phase 4 Measurement
 
-*Companion to `tasks/homepage-redesign-v2.md` (Phases 0–3 shipped in PR #241).
+*Companion to `tasks/archive/homepage-redesign-v2.md` (Phases 0–3 shipped in PR #241).
 Every code prerequisite is done; the steps below are operator actions.*
 
 ## A. Pre-flip (do in order)
