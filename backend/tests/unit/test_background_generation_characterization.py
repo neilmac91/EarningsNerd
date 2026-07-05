@@ -1,30 +1,72 @@
 """T2 — characterization of ``generate_summary_background`` (the S1 "before photo").
 
-This is the anchor that pins the *current* behavior of the background/cron generation path so the
-Wave-2 S1 unification (routing it through ``stream_filing_summary``) can't silently change it. It
-drives the REAL function against a seeded SQLite DB (the ``test_inflight_dedup`` pattern) — no
-MagicMock DB.
+This is the anchor that pins the *current* behavior of the background/cron/precompute generation
+path so the Wave-2 S1 unification (routing it through ``stream_filing_summary``) can't silently
+change it. It drives the REAL function against a seeded SQLite DB (no MagicMock DB) using the shared
+harness (``CANONICAL_PAYLOAD`` / ``background_boundaries`` / ``seed_company_filing`` from
+``tests.support.summary_stream_harness``), so the boundary mocks stay in lockstep with the SSE
+anchors.
 
-This first slice covers the early-return branches, which reach a decision *before* the generation
-core and so need no service mocking:
-  - filing not found → no-op (no Summary row);
-  - ``OPENAI_API_KEY`` unset → a placeholder Summary is persisted;
-  - a Summary already exists → no regeneration.
+What is pinned here (the full T2 divergence record):
 
-The full-path assertions the plan also calls for — the ``previous_filings`` divergence (10-K gets
-prior-10-K context, other forms ``None``), the 9-vs-7 coverage taxonomy, the ``determine_result_type``
-verdict, no-row-on-partial, usage/quota, and zero PostHog funnel events on precompute — are the next
-increment (they require mocking the fetch/XBRL/AI boundaries in this module's namespace; template:
-``tests/integration/test_summaries_flow.py``).
+  Early-return branches (reach a decision before the generation core, need no service mocks):
+    - filing not found -> no-op (no Summary row);
+    - ``OPENAI_API_KEY`` unset -> a placeholder Summary is persisted (NOT a failure);
+    - a Summary already exists -> no regeneration (cron idempotence).
+
+  ``previous_filings`` divergence — the core S1 gap. The background path injects the prior 10-K as
+  year-over-year context for a 10-K and passes ``None`` for a 10-Q; the SSE path hardcodes
+  ``previous_filings=None``. Two tests pin both arms.
+
+  Coverage taxonomy (9-vs-7) — the background path DUAL-WRITES two different coverage taxonomies:
+  the 9-section ``openai_service`` ``coverage_snapshot`` (``_TRACKED_STRUCTURED_SECTIONS``) is
+  persisted VERBATIM to ``SummaryGenerationProgress.section_coverage`` (passed through from
+  ``raw_summary.section_coverage``), while the full/partial VERDICT and the ``sections_unavailable``
+  metadata are computed independently by ``calculate_section_coverage`` over the 7
+  ``HIDEABLE_SECTIONS``. S1 collapsing these into one taxonomy breaks the taxonomy test.
+
+  Verdict function — the background verdict comes from ``determine_result_type`` (a section-coverage
+  gate ONLY; no XBRL-grounding check), NOT ``assess_quality``. A payload that clears the 3/7
+  coverage threshold is cached "full" even when its financials don't match the SEC XBRL metrics;
+  ``assess_quality`` (the SSE path's verdict) would mark the identical payload "partial". Pinned
+  end-to-end so an S1 swap to ``assess_quality`` fails here.
+
+  Usage / quota — ``increment_user_usage`` is called exactly once on a successful full result WITH
+  a ``user_id``; it is NOT called on the partial-discard path (a partial consumes no quota, even
+  for a signed-in user).
+
+  Partial discard — a low-coverage result verdicts "partial" and writes NO Summary row (the SSE
+  path persists partials with a quality tier — S1 must reconcile).
+
+  Zero PostHog on precompute — a precompute run (``user_id=None``) captures ZERO funnel events. The
+  funnel seam (``capture_funnel_event``) is not even imported into this module; funnel telemetry
+  lives ONLY on the SSE path (``summary_pipeline``). Pinned both statically and end-to-end (via the
+  ``summary_pipeline`` seam S1's unification would route through).
+
+What remains (NOT yet characterized here): the global-timeout and generic-exception handlers
+(``summary_generation_service.py:852-910``) each record a "partial" progress row and discard — a
+future increment could pin those two error arms directly.
 """
 import uuid
-from datetime import datetime, timezone
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.database import SessionLocal
+from app.models import Summary, SummaryGenerationProgress, User
 from app.services import summary_generation_service
-from app.services.summary_generation_service import generate_summary_background
+from app.services.summary_generation_service import (
+    HIDEABLE_SECTIONS,
+    assess_quality,
+    calculate_section_coverage,
+    determine_result_type,
+    generate_summary_background,
+)
+from tests.support.summary_stream_harness import (
+    CANONICAL_PAYLOAD,
+    background_boundaries,
+    seed_company_filing,
+)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -36,37 +78,21 @@ def _tables():
     yield
 
 
-def _seed_filing(filing_type: str = "10-K") -> int:
-    """Seed a Company + Filing (unique, to avoid cross-test collisions) and return the filing id."""
-    from app.database import SessionLocal
-    from app.models import Company, Filing
-
-    suffix = uuid.uuid4().hex[:8]
+def _seed_user() -> int:
+    """Seed a unique User row (email is the only NOT NULL field) and return its id."""
     with SessionLocal() as db:
-        company = Company(cik=f"cik{suffix}", ticker=f"BG{suffix[:4].upper()}", name="Background Co")
-        db.add(company)
+        user = User(email=f"bg-{uuid.uuid4().hex[:8]}@example.com")
+        db.add(user)
         db.commit()
-        db.refresh(company)
-        filing = Filing(
-            company_id=company.id,
-            accession_number=f"acc-{suffix}",
-            filing_type=filing_type,
-            filing_date=datetime(2026, 1, 15, tzinfo=timezone.utc),
-            document_url=f"https://sec.example/{suffix}/d.htm",
-            sec_url=f"https://sec.example/{suffix}/",
-        )
-        db.add(filing)
-        db.commit()
-        db.refresh(filing)
-        return filing.id
+        db.refresh(user)
+        return user.id
 
+
+# --- early-return branches --------------------------------------------------------------------
 
 @pytest.mark.asyncio
 async def test_missing_filing_is_a_noop():
     """A filing_id that doesn't exist returns without writing anything."""
-    from app.database import SessionLocal
-    from app.models import Summary
-
     missing_id = 990_500_000  # far above any autoincrement id the suite creates
     await generate_summary_background(missing_id, None)
 
@@ -78,10 +104,7 @@ async def test_missing_filing_is_a_noop():
 async def test_no_api_key_persists_a_placeholder_summary(monkeypatch):
     """With OPENAI_API_KEY unset, the background path persists a placeholder Summary (current
     behavior) rather than failing — S1 must preserve or consciously change this."""
-    from app.database import SessionLocal
-    from app.models import Summary
-
-    filing_id = _seed_filing()
+    filing_id = seed_company_filing()
     monkeypatch.setattr(summary_generation_service.settings, "OPENAI_API_KEY", "")
 
     await generate_summary_background(filing_id, None)
@@ -95,26 +118,17 @@ async def test_no_api_key_persists_a_placeholder_summary(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_existing_summary_is_not_regenerated():
-    """If a Summary already exists for the filing, the background path returns without creating a
-    second one (idempotence on the cron path)."""
-    from app.database import SessionLocal
-    from app.models import Summary
-
-    filing_id = _seed_filing()
+    """If a Summary already exists for the filing, the background path returns without reaching the
+    AI boundary or creating a second row (cron idempotence)."""
+    filing_id = seed_company_filing()
     with SessionLocal() as db:
         db.add(Summary(filing_id=filing_id, business_overview="EXISTING SUMMARY"))
         db.commit()
 
-    # Guard: summarize_filing must NOT be reached on the existing-summary path.
-    called = MagicMock()
-    original = summary_generation_service.openai_service.summarize_filing
-    summary_generation_service.openai_service.summarize_filing = called
-    try:
+    with background_boundaries() as summarize:
         await generate_summary_background(filing_id, None)
-    finally:
-        summary_generation_service.openai_service.summarize_filing = original
 
-    called.assert_not_called()
+    summarize.assert_not_called()  # the generation core is never reached
     with SessionLocal() as db:
         assert db.query(Summary).filter(Summary.filing_id == filing_id).count() == 1
 
@@ -122,70 +136,15 @@ async def test_existing_summary_is_not_regenerated():
 # --- previous_filings divergence (the core S1 "before photo") ---------------------------------
 # The background path injects the prior 10-K as year-over-year context for a 10-K, and passes None
 # for other forms. The SSE path hardcodes previous_filings=None. S1 unification must not silently
-# resolve this difference — these tests pin it.
-
-_SUMMARY_DATA = {
-    "status": "complete",
-    "business_overview": "A technology company that designs and sells consumer electronics worldwide.",
-    "financial_highlights": {"revenue": "1B", "notes": "Revenue increased 12% year over year."},
-    "risk_factors": [{"summary": "Supply-chain constraints may impact production.", "supporting_evidence": "Item 1A."}],
-    "management_discussion": "MD&A covers results of operations and financial condition.",
-    "key_changes": "Higher R&D investment and expanded manufacturing capacity.",
-    "raw_summary": {"sections": {"x": "y"}, "section_coverage": {"covered_count": 5, "total_count": 7}},
-}
-
-
-def _mock_generation_boundaries(monkeypatch):
-    """Patch the network/AI/excerpt boundaries (in this module's namespace) so the generation core
-    runs offline; return the summarize_filing AsyncMock so the caller can inspect its kwargs."""
-    monkeypatch.setattr(
-        summary_generation_service.sec_edgar_service, "get_filing_document",
-        AsyncMock(return_value="FILING DOCUMENT TEXT " * 40),
-    )
-    monkeypatch.setattr(
-        summary_generation_service.xbrl_service, "get_xbrl_data", AsyncMock(return_value=None),
-    )
-    monkeypatch.setattr(
-        summary_generation_service.xbrl_service, "get_filing_sections", AsyncMock(return_value=None),
-    )
-    # Bypass excerpt construction (BeautifulSoup/cache) — not what these tests characterize.
-    monkeypatch.setattr(
-        summary_generation_service, "get_or_cache_excerpt", lambda *a, **k: "EXCERPT",
-    )
-    summarize = AsyncMock(return_value=_SUMMARY_DATA)
-    monkeypatch.setattr(summary_generation_service.openai_service, "summarize_filing", summarize)
-    return summarize
-
+# resolve this difference — these two tests pin both arms.
 
 @pytest.mark.asyncio
-async def test_10k_injects_prior_10k_as_previous_filings(monkeypatch):
+async def test_10k_injects_prior_10k_as_previous_filings():
     """A 10-K with a prior 10-K passes that prior to summarize_filing as previous_filings context."""
-    from app.database import SessionLocal
-    from app.models import Company, Filing
+    current_id = seed_company_filing(filing_type="10-K", prior=True)
 
-    suffix = uuid.uuid4().hex[:8]
-    with SessionLocal() as db:
-        company = Company(cik=f"cik{suffix}", ticker=f"YY{suffix[:4].upper()}", name="YoY Co")
-        db.add(company)
-        db.commit()
-        db.refresh(company)
-        prior = Filing(
-            company_id=company.id, accession_number=f"acc-prior-{suffix}", filing_type="10-K",
-            filing_date=datetime(2025, 1, 15, tzinfo=timezone.utc),
-            document_url=f"https://sec.example/{suffix}/prior.htm", sec_url=f"https://sec.example/{suffix}/p/",
-        )
-        current = Filing(
-            company_id=company.id, accession_number=f"acc-cur-{suffix}", filing_type="10-K",
-            filing_date=datetime(2026, 1, 15, tzinfo=timezone.utc),
-            document_url=f"https://sec.example/{suffix}/cur.htm", sec_url=f"https://sec.example/{suffix}/c/",
-        )
-        db.add_all([prior, current])
-        db.commit()
-        db.refresh(current)
-        current_id = current.id
-
-    summarize = _mock_generation_boundaries(monkeypatch)
-    await generate_summary_background(current_id, None)
+    with background_boundaries() as summarize:
+        await generate_summary_background(current_id, None)
 
     summarize.assert_called_once()
     previous = summarize.call_args.kwargs["previous_filings"]
@@ -194,60 +153,213 @@ async def test_10k_injects_prior_10k_as_previous_filings(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_10q_passes_no_previous_filings(monkeypatch):
+async def test_10q_passes_no_previous_filings():
     """A 10-Q does not fetch prior filings — summarize_filing receives previous_filings=None."""
-    from app.database import SessionLocal
-    from app.models import Company, Filing
+    filing_id = seed_company_filing(filing_type="10-Q")
 
-    suffix = uuid.uuid4().hex[:8]
-    with SessionLocal() as db:
-        company = Company(cik=f"cik{suffix}", ticker=f"QQ{suffix[:4].upper()}", name="Quarterly Co")
-        db.add(company)
-        db.commit()
-        db.refresh(company)
-        current = Filing(
-            company_id=company.id, accession_number=f"acc-q-{suffix}", filing_type="10-Q",
-            filing_date=datetime(2026, 4, 15, tzinfo=timezone.utc),
-            document_url=f"https://sec.example/{suffix}/q.htm", sec_url=f"https://sec.example/{suffix}/q/",
-        )
-        db.add(current)
-        db.commit()
-        db.refresh(current)
-        current_id = current.id
-
-    summarize = _mock_generation_boundaries(monkeypatch)
-    await generate_summary_background(current_id, None)
+    with background_boundaries() as summarize:
+        await generate_summary_background(filing_id, None)
 
     summarize.assert_called_once()
     assert summarize.call_args.kwargs["previous_filings"] is None
 
 
+# --- coverage taxonomy (9-vs-7) ---------------------------------------------------------------
+
 @pytest.mark.asyncio
-async def test_partial_result_is_discarded_not_persisted(monkeypatch):
-    """A low-coverage result verdicts as 'partial' and is DISCARDED — the background path never
-    writes a Summary for a partial (summary_generation_service.py:763-799). The SSE path, by
-    contrast, persists partials with a quality tier; S1 unification must reconcile this."""
-    from app.database import SessionLocal
-    from app.models import Summary
+async def test_progress_persists_9_section_snapshot_while_verdict_uses_7_section_hideable():
+    """The background path DUAL-WRITES two coverage taxonomies:
 
-    filing_id = _seed_filing("10-Q")
-    _mock_generation_boundaries(monkeypatch)
-    # Empty sections ⇒ section coverage below the full-result threshold ⇒ determine_result_type
-    # returns "partial".
-    monkeypatch.setattr(
-        summary_generation_service.openai_service, "summarize_filing",
-        AsyncMock(return_value={
-            "status": "complete",
-            "business_overview": "",
-            "financial_highlights": None,
-            "risk_factors": [],
-            "management_discussion": "",
-            "key_changes": "",
-            "raw_summary": {"sections": {}, "section_coverage": {"covered_count": 0, "total_count": 7}},
-        }),
-    )
+      * the 9-section ``openai_service`` snapshot (``raw_summary.section_coverage``) is persisted
+        VERBATIM to ``SummaryGenerationProgress.section_coverage`` — passed through, not recomputed;
+      * the full/partial verdict and the ``sections_unavailable`` metadata are computed
+        independently by ``calculate_section_coverage`` over the 7 ``HIDEABLE_SECTIONS``.
 
-    await generate_summary_background(filing_id, None)
+    S1 collapsing these into a single taxonomy (persisting the 7-count to progress, or gating the
+    verdict on the persisted 9-snapshot) would break one of the assertions below.
+    """
+    filing_id = seed_company_filing(filing_type="10-Q")
+
+    # A distinctive 9-section snapshot (openai_service._TRACKED_STRUCTURED_SECTIONS shape):
+    # total_count=9, and "missing" names that never appear in the 7 HIDEABLE_SECTIONS.
+    nine_snapshot = {
+        "per_section": {"segment_performance": True, "three_year_trend": False},
+        "covered": [
+            "executive_snapshot", "financial_highlights", "risk_factors",
+            "management_discussion_insights", "segment_performance",
+            "liquidity_capital_structure", "guidance_outlook", "notable_footnotes",
+        ],
+        "missing": ["three_year_trend"],
+        "covered_count": 8,
+        "total_count": 9,
+        "coverage_ratio": 8 / 9,
+    }
+    payload = {
+        **CANONICAL_PAYLOAD,
+        "raw_summary": {
+            "sections": CANONICAL_PAYLOAD["raw_summary"]["sections"],
+            "section_coverage": nine_snapshot,
+        },
+    }
+
+    with background_boundaries(payload=payload):
+        await generate_summary_background(filing_id, None)
+
+    with SessionLocal() as db:
+        # (1) The taxonomy PERSISTED to progress is the 9-section snapshot, passed through unchanged.
+        progress = (
+            db.query(SummaryGenerationProgress)
+            .filter(SummaryGenerationProgress.filing_id == filing_id)
+            .first()
+        )
+        assert progress is not None
+        assert progress.stage == "completed"
+        assert progress.section_coverage == nine_snapshot
+        assert progress.section_coverage["total_count"] == 9  # NOT the 7-section HIDEABLE count
+
+        # (2) The verdict + its metadata use the 7-section HIDEABLE taxonomy.
+        summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
+        assert summary is not None  # 4/7 HIDEABLE sections clears the "full" threshold
+        raw = summary.raw_summary
+        assert raw["result_type"] == "full"
+        assert raw["section_coverage"]["total_count"] == 9  # 9-snapshot preserved in the cache too
+        unavailable = {note["section"] for note in raw["sections_unavailable"]}
+        assert unavailable == {"risk_factors", "forward_guidance", "additional_disclosures"}
+        assert unavailable <= set(HIDEABLE_SECTIONS)
+        assert "three_year_trend" not in unavailable  # a 9-taxonomy-only name never leaks in
+
+    # (3) The two taxonomies really are different counts on the same input (7 for the gate, 9 for
+    #     the persisted snapshot) — not one shared number.
+    covered7, total7, _, _ = calculate_section_coverage(CANONICAL_PAYLOAD)
+    assert (covered7, total7) == (4, 7)
+    assert nine_snapshot["total_count"] == 9
+
+
+# --- verdict function (determine_result_type, NOT assess_quality) -----------------------------
+
+@pytest.mark.asyncio
+async def test_verdict_uses_determine_result_type_ignoring_xbrl_grounding():
+    """The background verdict comes from ``determine_result_type`` — a section-coverage gate that
+    never runs an XBRL-grounding check. A payload clearing the 3/7 threshold is cached FULL even
+    when its financial figures appear nowhere in the SEC XBRL metrics. ``assess_quality`` (the SSE
+    path's verdict) would mark the identical (payload, xbrl) pair "partial". Pinned end-to-end: if
+    S1 swaps ``determine_result_type`` for ``assess_quality`` here, the summary would be discarded
+    and ``assert summary is not None`` would fail.
+    """
+    filing_id = seed_company_filing(filing_type="10-Q")
+
+    # XBRL values that appear NOWHERE in CANONICAL_PAYLOAD's business_overview / financial_highlights.
+    ungrounded = {
+        "revenue": {"current": {"value": 987654321.0}},
+        "net_income": {"current": {"value": 123456789.0}},
+    }
+    from app.services import facts_service
+
+    with background_boundaries():  # summarize -> CANONICAL_PAYLOAD (4/7 -> clears full threshold)
+        with patch.object(
+            summary_generation_service.xbrl_service,
+            "get_xbrl_data",
+            AsyncMock(return_value={"facts": "present"}),
+        ), patch.object(
+            summary_generation_service.xbrl_service,
+            "extract_standardized_metrics",
+            lambda data: ungrounded,
+        ), patch.object(facts_service, "process_filing_facts", MagicMock()):
+            await generate_summary_background(filing_id, None)
+
+    with SessionLocal() as db:
+        summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
+        assert summary is not None  # FULL result cached despite ungrounded financials
+        assert summary.raw_summary["result_type"] == "full"
+
+    # Divergence proof: on the identical (payload, xbrl) pair the two verdict functions disagree,
+    # which is exactly what makes the end-to-end assertion above sensitive to an S1 swap.
+    assert determine_result_type(CANONICAL_PAYLOAD)[0] == "full"
+    grounded_verdict = assess_quality(CANONICAL_PAYLOAD, ungrounded)
+    assert grounded_verdict["tier"] == "partial"
+    assert grounded_verdict["numeric_grounded"] is False
+
+
+# --- usage / quota semantics ------------------------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_usage_incremented_once_on_full_success_with_user_id():
+    """A successful full result for a signed-in user consumes quota exactly once:
+    ``increment_user_usage`` is called a single time with ``(user.id, current_month, session)``."""
+    user_id = _seed_user()
+    filing_id = seed_company_filing(filing_type="10-Q")
+
+    spy = MagicMock()
+    with background_boundaries(), patch.object(
+        summary_generation_service, "increment_user_usage", spy
+    ):
+        await generate_summary_background(filing_id, user_id)
+
+    with SessionLocal() as db:
+        assert db.query(Summary).filter(Summary.filing_id == filing_id).first() is not None
+    spy.assert_called_once()
+    called_user_id, called_month, _session = spy.call_args.args
+    assert called_user_id == user_id
+    assert called_month == summary_generation_service.get_current_month()
+
+
+@pytest.mark.asyncio
+async def test_partial_result_is_discarded_and_consumes_no_usage():
+    """A low-coverage result verdicts "partial" and is DISCARDED: no Summary row is written, and —
+    even for a signed-in user — ``increment_user_usage`` is NOT called (the partial ``return`` at
+    summary_generation_service.py:799 preempts the increment at :846-850, so a partial consumes no
+    quota). The SSE path persists partials with a quality tier; S1 unification must reconcile this.
+    """
+    user_id = _seed_user()
+    filing_id = seed_company_filing(filing_type="10-Q")
+
+    # Empty sections => 0/7 coverage => determine_result_type returns "partial".
+    partial_payload = {
+        "status": "complete",
+        "business_overview": "",
+        "financial_highlights": None,
+        "risk_factors": [],
+        "management_discussion": "",
+        "key_changes": "",
+        "raw_summary": {"sections": {}, "section_coverage": {"covered_count": 0, "total_count": 7}},
+    }
+    spy = MagicMock()
+    with background_boundaries(payload=partial_payload), patch.object(
+        summary_generation_service, "increment_user_usage", spy
+    ):
+        await generate_summary_background(filing_id, user_id)
 
     with SessionLocal() as db:
         assert db.query(Summary).filter(Summary.filing_id == filing_id).first() is None
+    spy.assert_not_called()
+
+
+# --- zero PostHog funnel events on precompute -------------------------------------------------
+
+@pytest.mark.asyncio
+async def test_precompute_emits_zero_posthog_funnel_events():
+    """A precompute run (``user_id=None``) captures ZERO PostHog funnel events. Funnel telemetry
+    lives ONLY on the SSE path (``summary_pipeline.capture_funnel_event``, 4 call sites); the
+    background path does not import or call the seam at all. Two guards pin this:
+      (1) static — ``capture_funnel_event`` is not even a name in this module;
+      (2) end-to-end — no funnel event fires during the run, including via the ``summary_pipeline``
+          seam that S1's unification would route precompute through.
+    If S1 routes precompute through ``stream_filing_summary``, funnel events would fire for an
+    anonymous precompute and both guards would trip.
+    """
+    # (1) Static guard: the funnel seam is not imported into the background module.
+    assert not hasattr(summary_generation_service, "capture_funnel_event")
+
+    from app.services import posthog_client, summary_pipeline
+
+    filing_id = seed_company_filing(filing_type="10-Q")
+    spy = MagicMock()
+    with background_boundaries(), patch.object(
+        summary_pipeline, "capture_funnel_event", spy
+    ), patch.object(posthog_client, "capture_funnel_event", spy):
+        await generate_summary_background(filing_id, None)
+
+    # (2) End-to-end guard: no funnel event fired for the anonymous precompute.
+    spy.assert_not_called()
+    with SessionLocal() as db:
+        assert db.query(Summary).filter(Summary.filing_id == filing_id).first() is not None
