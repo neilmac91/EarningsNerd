@@ -1,3 +1,4 @@
+from . import analysis
 from . import auth
 from . import companies
 from . import compare
@@ -14,6 +15,7 @@ from . import watchlist
 from . import webhooks
 
 __all__ = [
+    'analysis',
     'auth',
     'companies',
     'compare',
