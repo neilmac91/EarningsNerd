@@ -116,6 +116,7 @@ async def stream_filing_summary(
     telemetry_distinct_id: str,
     telemetry_entry_point: Optional[str],
     telemetry_ctx: dict,
+    emit_funnel_telemetry: bool = True,
 ) -> AsyncIterator[dict]:
     """Run the summary pipeline for ``filing_id``, yielding event dicts.
 
@@ -127,7 +128,13 @@ async def stream_filing_summary(
     stage_started_at = pipeline_started_at
     stage_timings: List[tuple[str, float]] = []
 
-    capture_funnel_event(
+    def emit_funnel(*args, **kwargs):
+        # Suppressed when the background/cron path drains this generator headless — a precompute
+        # run must emit ZERO funnel events (S1, T2 pin). The user-facing SSE path leaves it on.
+        if emit_funnel_telemetry:
+            capture_funnel_event(*args, **kwargs)
+
+    emit_funnel(
         telemetry_distinct_id,
         EVENT_GENERATION_STARTED,
         entry_point=telemetry_entry_point,
@@ -250,7 +257,7 @@ async def stream_filing_summary(
                 if not can_generate:
                     logger.warning(f"[stream:{filing_id}] User {user_id} exceeded monthly summary limit ({limit}).")
                     # Demand/pricing signal: record when a free user hits the wall.
-                    capture_funnel_event(
+                    emit_funnel(
                         telemetry_distinct_id,
                         EVENT_PAYWALL_HIT,
                         entry_point=telemetry_entry_point,
@@ -767,7 +774,7 @@ async def stream_filing_summary(
 
             # A persisted result with status "error" means only fallback content was
             # produced — count it as a failure in the funnel, not a success.
-            capture_funnel_event(
+            emit_funnel(
                 telemetry_distinct_id,
                 EVENT_GENERATION_SUCCEEDED if summary_status != "error" else EVENT_GENERATION_FAILED,
                 duration_ms=elapsed_ms(),
@@ -788,7 +795,7 @@ async def stream_filing_summary(
     except TimeoutError:
         # Pipeline hard timeout reached
         logger.warning(f"[stream:{filing_id}] Pipeline timeout after {PIPELINE_TIMEOUT_SECONDS}s")
-        capture_funnel_event(
+        emit_funnel(
             telemetry_distinct_id,
             EVENT_GENERATION_TIMED_OUT,
             duration_ms=elapsed_ms(),
@@ -811,7 +818,7 @@ async def stream_filing_summary(
     except Exception as e:
         logger.error(f"[stream:{filing_id}] Error in streaming summary: {str(e)}", exc_info=True)
         error_msg = str(e)
-        capture_funnel_event(
+        emit_funnel(
             telemetry_distinct_id,
             EVENT_GENERATION_FAILED,
             duration_ms=elapsed_ms(),

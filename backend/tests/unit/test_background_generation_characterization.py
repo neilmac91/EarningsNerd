@@ -65,7 +65,9 @@ from app.services.summary_generation_service import (
 from tests.support.summary_stream_harness import (
     CANONICAL_PAYLOAD,
     background_boundaries,
+    reset_inflight,
     seed_company_filing,
+    stream_boundaries,
 )
 
 
@@ -361,5 +363,62 @@ async def test_precompute_emits_zero_posthog_funnel_events():
 
     # (2) End-to-end guard: no funnel event fired for the anonymous precompute.
     spy.assert_not_called()
+    with SessionLocal() as db:
+        assert db.query(Summary).filter(Summary.filing_id == filing_id).first() is not None
+
+
+# --- S1 decision A: flag-ON, generate_summary_background DRAINS stream_filing_summary -----------
+# The pins above characterize the UNCHANGED legacy body (flag off = today's prod). These pin the
+# NEW drained path — the reconciliation semantics (filing-only, zero-funnel, partial-persistence)
+# are INHERITED from the SSE orchestrator and only apply when the flag is on. The legacy body's
+# YoY/verdict/discard code is untouched here; its deletion rides the post-soak old-path removal.
+
+@pytest.mark.asyncio
+async def test_flag_on_drains_pipeline_filing_only_and_zero_funnel(monkeypatch):
+    """Flag ON: generate_summary_background drains stream_filing_summary headless, so a 10-K (even
+    with a prior filing on record) is FILING-ONLY — the SSE path passes previous_filings=None — a
+    Summary is persisted, and a precompute run (user_id=None) emits ZERO funnel events (the drain
+    suppresses funnel telemetry via emit_funnel_telemetry=False)."""
+    from app.services import summary_pipeline
+
+    monkeypatch.setattr(summary_generation_service.settings, "USE_PIPELINE_FOR_BACKGROUND", True)
+    reset_inflight()
+    filing_id = seed_company_filing(filing_type="10-K", prior=True)
+
+    funnel_spy = MagicMock()
+    with stream_boundaries() as summarize, patch.object(
+        summary_pipeline, "capture_funnel_event", funnel_spy
+    ):
+        await generate_summary_background(filing_id, None)
+
+    assert summarize.call_args.kwargs.get("previous_filings") is None  # filing-only, even for a 10-K
+    funnel_spy.assert_not_called()                                     # zero funnel on the drain
+    with SessionLocal() as db:
+        assert db.query(Summary).filter(Summary.filing_id == filing_id).first() is not None
+
+
+@pytest.mark.asyncio
+async def test_flag_on_persists_partial(monkeypatch):
+    """Flag ON: the drained pipeline PERSISTS partials (AI_QUALITY_GATE always saves the row with a
+    quality tier), reconciling the legacy body's discard-on-partial (pinned above under flag-off).
+    A 2/9 structured snapshot is partial under the flag-on 4/9 bar, yet the row is still written."""
+    monkeypatch.setattr(summary_generation_service.settings, "USE_PIPELINE_FOR_BACKGROUND", True)
+    reset_inflight()
+    filing_id = seed_company_filing(filing_type="10-Q")
+
+    partial = {
+        **CANONICAL_PAYLOAD,
+        "raw_summary": {
+            "sections": {},
+            "section_coverage": {
+                "per_section": {"executive_snapshot": True, "financial_highlights": True},
+                "covered_count": 2,
+                "total_count": 9,
+            },
+        },
+    }
+    with stream_boundaries(payload=partial):
+        await generate_summary_background(filing_id, None)
+
     with SessionLocal() as db:
         assert db.query(Summary).filter(Summary.filing_id == filing_id).first() is not None

@@ -456,6 +456,30 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                 db.rollback()
             return
         
+        if settings.USE_PIPELINE_FOR_BACKGROUND:
+            # S1 (decision A): the background/cron/pregenerate path drains the ONE orchestrator
+            # (stream_filing_summary) headless — inheriting its filing-only generation, the
+            # 9-section assess_quality verdict, partial-persistence, and filing_id-conflict
+            # handling. Funnel telemetry is suppressed (a precompute run emits ZERO funnel events
+            # — T2 pin); current_user=None skips the user-facing paywall gate, while usage still
+            # increments for a signed-in user_id on a full result via the pipeline's own
+            # count_usage. The existing-summary short-circuit above is the caller's job here (the
+            # pipeline does not re-check it). Deletions of the now-dead legacy body below ride the
+            # post-soak old-path removal, not this dark PR.
+            from app.services.summary_pipeline import stream_filing_summary
+
+            async for _event in stream_filing_summary(
+                filing_id=filing_id,
+                current_user=None,
+                user_id=user_id,
+                telemetry_distinct_id=str(user_id) if user_id else "precompute",
+                telemetry_entry_point=None,
+                telemetry_ctx={},
+                emit_funnel_telemetry=False,
+            ):
+                pass
+            return
+
         start_time = time.time()
 
         # Increased timeouts to accommodate API retries (3 attempts with exponential backoff).

@@ -67,6 +67,9 @@ async def test_generate_summary_background_success():
         
         # Configure Mocks
         mock_settings.OPENAI_API_KEY = "sk-test"
+        # Exercise the legacy body (a bare MagicMock attribute is truthy, which would route this
+        # into the S1 flag-on drain and bypass these summary_generation_service mocks).
+        mock_settings.USE_PIPELINE_FOR_BACKGROUND = False
         mock_sec.get_filing_document = AsyncMock(return_value="Filing Text Content")
         mock_openai.extract_critical_sections = MagicMock(return_value="Critical Excerpt")
         mock_xbrl.get_xbrl_data = AsyncMock(return_value=None) # Skip XBRL for simplicity
