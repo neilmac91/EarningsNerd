@@ -220,3 +220,34 @@ async def test_10q_passes_no_previous_filings(monkeypatch):
 
     summarize.assert_called_once()
     assert summarize.call_args.kwargs["previous_filings"] is None
+
+
+@pytest.mark.asyncio
+async def test_partial_result_is_discarded_not_persisted(monkeypatch):
+    """A low-coverage result verdicts as 'partial' and is DISCARDED — the background path never
+    writes a Summary for a partial (summary_generation_service.py:763-799). The SSE path, by
+    contrast, persists partials with a quality tier; S1 unification must reconcile this."""
+    from app.database import SessionLocal
+    from app.models import Summary
+
+    filing_id = _seed_filing("10-Q")
+    _mock_generation_boundaries(monkeypatch)
+    # Empty sections ⇒ section coverage below the full-result threshold ⇒ determine_result_type
+    # returns "partial".
+    monkeypatch.setattr(
+        summary_generation_service.openai_service, "summarize_filing",
+        AsyncMock(return_value={
+            "status": "complete",
+            "business_overview": "",
+            "financial_highlights": None,
+            "risk_factors": [],
+            "management_discussion": "",
+            "key_changes": "",
+            "raw_summary": {"sections": {}, "section_coverage": {"covered_count": 0, "total_count": 7}},
+        }),
+    )
+
+    await generate_summary_background(filing_id, None)
+
+    with SessionLocal() as db:
+        assert db.query(Summary).filter(Summary.filing_id == filing_id).first() is None
