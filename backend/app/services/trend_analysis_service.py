@@ -660,3 +660,277 @@ def marker_index(dataset: dict[str, Any]) -> dict[str, dict[str, Any]]:
                     "percent": series["percent"],
                 }
     return index
+
+
+# --- AI narrative pipeline (M3) ----------------------------------------------------------------
+
+NOT_ENOUGH_DATA_SENTINEL = "===NOT_ENOUGH_DATA==="
+
+_MARKER_RE = re.compile(r"\[\s*F\s*(\d+)\s*\]", re.IGNORECASE)
+
+
+def _point_citation(n: int, point: dict[str, Any]) -> dict[str, Any]:
+    """Render a dataset point as a citation dict in the Copilot citation shape ({n, excerpt,
+    section_ref, verified, fragment_url}) so the existing frontend citation UI renders it as-is."""
+    value_str = _format_value(point["value"], point.get("unit") or "USD", bool(point.get("percent")))
+    excerpt = f"{point['label']} = {value_str} ({point['period']})"
+    if point.get("derived"):
+        excerpt += " — derived Q4"
+    return {
+        "n": n,
+        "excerpt": excerpt,
+        "section_ref": f"XBRL · {point.get('raw_tag') or point['concept']}",
+        "verified": True,
+        "fragment_url": None,
+        "concept": point["concept"],
+        "value": point["value"],
+        "period": point["period"],
+        "derived": bool(point.get("derived")),
+    }
+
+
+def resolve_narrative_citations(
+    text: str, index: dict[str, dict[str, Any]]
+) -> tuple[str, list[dict[str, Any]], int]:
+    """One left-to-right pass over the narrative: each ``[F#]`` marker resolves against the
+    dataset's marker index and is renumbered ``[1]``, ``[2]``, ... in first-appearance order
+    (repeat mentions reuse their number). A marker the dataset never issued can ONLY be a model
+    artifact — it is stripped, swallowing the space before it, instead of shipping dead brackets
+    (the ``_resolve_citations`` contract from Copilot). Returns (final_text, citations, grounded).
+    """
+    citations: list[dict[str, Any]] = []
+    assigned: dict[str, int] = {}
+    pieces: list[str] = []
+    cursor = 0
+    for match in _MARKER_RE.finditer(text):
+        key = f"F{match.group(1)}"
+        point = index.get(key)
+        if point is None:
+            pieces.append(text[cursor:match.start()].rstrip(" "))
+            cursor = match.end()
+            continue
+        n = assigned.get(key)
+        if n is None:
+            n = len(citations) + 1
+            assigned[key] = n
+            citations.append(_point_citation(n, point))
+        pieces.append(text[cursor:match.start()])
+        pieces.append(f"[{n}]")
+        cursor = match.end()
+    pieces.append(text[cursor:])
+    return "".join(pieces), citations, len(citations)
+
+
+def _load_cached_analysis(db: Session, company_id: int, mode: str, key: str):
+    from app.models import TrendAnalysis
+
+    return (
+        db.query(TrendAnalysis)
+        .filter(
+            TrendAnalysis.company_id == company_id,
+            TrendAnalysis.mode == mode,
+            TrendAnalysis.period_key == key,
+        )
+        .first()
+    )
+
+
+def _persist_analysis(
+    *,
+    company_id: int,
+    mode: str,
+    key: str,
+    fingerprint: str,
+    dataset: dict[str, Any],
+    narrative: str,
+    citations: list[dict[str, Any]],
+    model: Optional[str],
+    grounded: int,
+    user_id: Optional[int],
+) -> Optional[int]:
+    """Upsert the cached analysis row on (company, mode, period_key) in a fresh session (the SSE
+    generator outlives the request session). Best-effort: a persistence failure must never break
+    the stream the user already received — it only costs the next request a regeneration."""
+    from sqlalchemy.exc import IntegrityError
+
+    from app.database import SessionLocal
+    from app.models import TrendAnalysis
+
+    db = SessionLocal()
+    try:
+        def _apply(row: "TrendAnalysis") -> None:
+            row.prompt_version = PROMPT_VERSION
+            row.dataset_fingerprint = fingerprint
+            row.dataset_json = dataset
+            row.narrative_md = narrative
+            row.citations_json = citations
+            row.model = model
+            row.grounded = grounded
+            row.created_by_user_id = user_id
+
+        row = _load_cached_analysis(db, company_id, mode, key)
+        if row is None:
+            row = TrendAnalysis(company_id=company_id, mode=mode, period_key=key)
+            _apply(row)
+            db.add(row)
+            try:
+                db.commit()
+            except IntegrityError:
+                # A concurrent generation won the unique key — update its row instead.
+                db.rollback()
+                row = _load_cached_analysis(db, company_id, mode, key)
+                if row is None:
+                    return None
+                _apply(row)
+                db.commit()
+        else:
+            _apply(row)
+            db.commit()
+        return row.id
+    except Exception:  # noqa: BLE001 - cache write is best-effort
+        logger.exception("failed to persist trend analysis for company %s", company_id)
+        return None
+    finally:
+        db.close()
+
+
+async def stream_trend_narrative(
+    *,
+    company_id: int,
+    mode: str,
+    start_period: str,
+    end_period: str,
+    force: bool = False,
+    user_id: Optional[int] = None,
+):
+    """Transport-agnostic narrative pipeline: yields plain event dicts for the SSE route.
+
+    Event contract (the Copilot shapes, so frontend consumers share plumbing):
+      {"type": "progress", "stage", "message", "percent"}
+      {"type": "token", "text"}                              (fresh generations only)
+      {"type": "complete", "kind": "analysis" | "not_enough_data", "analysis_id", "narrative",
+       "citations", "grounded", "cached", "n_periods", "usage"}
+      {"type": "error", "message"}
+
+    Cache-first (D4): if a row matches (company, mode, period_key) with the same prompt_version
+    AND dataset_fingerprint, its narrative is re-served instantly — no model call, no meter (the
+    router meters only non-cached "analysis" completions). ``force`` always regenerates.
+    Opens its own sessions: the request's session is gone by the time this generator runs.
+    """
+    from app.database import SessionLocal
+    from app.services.openai_service import STREAM_ERROR_SENTINEL, openai_service
+    from app.services.prompt_loader import get_named_prompt
+
+    yield {"type": "progress", "stage": "assembling", "message": "Assembling the numbers…", "percent": 10}
+
+    db = SessionLocal()
+    try:
+        company = db.get(Company, company_id)
+        if company is None:
+            yield {"type": "error", "message": "Company not found."}
+            return
+        ticker = company.ticker
+        try:
+            dataset = build_dataset(db, company, mode, start_period, end_period)
+        except ValueError as exc:
+            yield {"type": "error", "message": str(exc)}
+            return
+        fingerprint = dataset_fingerprint(dataset)
+        key = dataset["period_key"]
+        cached = _load_cached_analysis(db, company_id, mode, key)
+        if (
+            not force
+            and cached is not None
+            and cached.narrative_md
+            and cached.prompt_version == PROMPT_VERSION
+            and cached.dataset_fingerprint == fingerprint
+        ):
+            yield {
+                "type": "complete",
+                "kind": "analysis",
+                "analysis_id": cached.id,
+                "narrative": cached.narrative_md,
+                "citations": cached.citations_json or [],
+                "grounded": cached.grounded,
+                "cached": True,
+                "n_periods": len(dataset["periods"]),
+                "usage": {},
+            }
+            return
+    finally:
+        # Never hold a DB connection through the model call.
+        db.close()
+
+    yield {"type": "progress", "stage": "writing", "message": "Writing the analysis…", "percent": 30}
+
+    prompt = get_named_prompt("trends-analyst-agent")
+    messages = [
+        {"role": "system", "content": prompt.raw},
+        {
+            "role": "user",
+            "content": (
+                compact_dataset_for_prompt(dataset)
+                + "\nWrite the multi-period trend analysis now, following the Output Format exactly."
+            ),
+        },
+    ]
+
+    usage_sink: dict[str, int] = {}
+    model_name = openai_service.model
+    parts: list[str] = []
+    async for chunk in openai_service.stream_chat(
+        messages,
+        max_tokens=settings.ANALYSIS_MAX_TOKENS,
+        temperature=0.2,
+        usage_sink=usage_sink,
+    ):
+        if chunk.startswith(STREAM_ERROR_SENTINEL):
+            detail = chunk[len(STREAM_ERROR_SENTINEL):]
+            logger.warning("trend narrative stream failed for %s: %s", ticker, detail)
+            yield {"type": "error", "message": "The analysis could not be generated. Please try again."}
+            return
+        parts.append(chunk)
+        yield {"type": "token", "text": chunk}
+
+    full_text = "".join(parts).strip()
+    if not full_text:
+        yield {"type": "error", "message": "The analysis could not be generated. Please try again."}
+        return
+    if NOT_ENOUGH_DATA_SENTINEL in full_text:
+        yield {
+            "type": "complete",
+            "kind": "not_enough_data",
+            "analysis_id": None,
+            "narrative": "",
+            "citations": [],
+            "grounded": 0,
+            "cached": False,
+            "n_periods": len(dataset["periods"]),
+            "usage": {**usage_sink, "model": model_name},
+        }
+        return
+
+    narrative, citations, grounded = resolve_narrative_citations(full_text, marker_index(dataset))
+    analysis_id = _persist_analysis(
+        company_id=company_id,
+        mode=mode,
+        key=key,
+        fingerprint=fingerprint,
+        dataset=dataset,
+        narrative=narrative,
+        citations=citations,
+        model=model_name,
+        grounded=grounded,
+        user_id=user_id,
+    )
+    yield {
+        "type": "complete",
+        "kind": "analysis",
+        "analysis_id": analysis_id,
+        "narrative": narrative,
+        "citations": citations,
+        "grounded": grounded,
+        "cached": False,
+        "n_periods": len(dataset["periods"]),
+        "usage": {**usage_sink, "model": model_name},
+    }

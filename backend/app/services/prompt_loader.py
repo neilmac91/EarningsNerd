@@ -98,6 +98,24 @@ def get_prompt(filing_type: str) -> PromptTemplate:
     return prompt
 
 
+def get_named_prompt(name: str) -> PromptTemplate:
+    """Load a prompt file by name (e.g. ``"trends-analyst-agent"``), split on the same Output
+    Format markers as the filing-type prompts. For prompts that aren't keyed by filing type —
+    the filing-type map above must not be overloaded with non-filing keys. Cached per name."""
+    cached = _NAMED_PROMPTS.get(name)
+    if cached is not None:
+        return cached
+    prompts_dir = Path(__file__).resolve().parents[2] / "prompts"
+    raw = (prompts_dir / f"{name}.md").read_text(encoding="utf-8")
+    system, user = _split_prompt(raw)
+    template = PromptTemplate(system=system, user=user, raw=raw)
+    _NAMED_PROMPTS[name] = template
+    return template
+
+
+_NAMED_PROMPTS: Dict[str, PromptTemplate] = {}
+
+
 def get_structured_prompt(filing_type: str) -> str:
     """Schema-first system prompt (no narrative-format block) for USE_STRUCTURED_OUTPUT mode."""
     key = _normalize_filing_type(filing_type)

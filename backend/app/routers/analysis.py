@@ -15,6 +15,8 @@ import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -29,13 +31,23 @@ from app.schemas.analysis import (
     StreamRequest,
 )
 from app.services import facts_service, trend_analysis_service
+from app.services.llm_pricing import estimate_inference_cost_usd
+from app.services.posthog_client import capture_analysis_inference
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
+from app.services.subscription_service import (
+    check_analysis_limit,
+    get_current_month,
+    increment_user_analysis,
+)
+from app.services.summary_pipeline import to_sse
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 COVERAGE_LIMITER = RateLimiter(limit=30, window_seconds=60)
 DATASET_LIMITER = RateLimiter(limit=30, window_seconds=60)
+# Fresh narrative generations hit the model; cached re-serves are cheap but ride the same route.
+STREAM_LIMITER = RateLimiter(limit=10, window_seconds=60)
 
 # How long the coverage request waits for a first-touch companyfacts sync before answering
 # `syncing: true` and letting the fetch finish in the background (frontend budget is ~30s).
@@ -160,3 +172,116 @@ async def get_dataset(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return dataset
+
+
+def _meter_analysis_best_effort(user_id: int) -> None:
+    """Meter one FRESH analysis generation in a fresh DB session (best-effort — a metering failure
+    must never break the stream the user already received)."""
+    from app.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        increment_user_analysis(user_id, get_current_month(), db)
+    except Exception:  # noqa: BLE001 - metering must not break the stream
+        logger.warning("Failed to meter analysis for user %s", user_id, exc_info=True)
+    finally:
+        db.close()
+
+
+def _emit_analysis_cost_best_effort(user_id: int, ticker: str, mode: str, event: dict) -> None:
+    """Per-generation inference-cost telemetry (PostHog). Best-effort, never breaks the stream."""
+    try:
+        usage = event.get("usage") or {}
+        if not usage:
+            return
+        capture_analysis_inference(
+            distinct_id=str(user_id),
+            model=usage.get("model"),
+            prompt_tokens=usage.get("prompt_tokens"),
+            completion_tokens=usage.get("completion_tokens"),
+            total_tokens=usage.get("total_tokens"),
+            cache_hit_tokens=usage.get("cache_hit_tokens"),
+            cache_miss_tokens=usage.get("cache_miss_tokens"),
+            cost_usd=estimate_inference_cost_usd(
+                usage.get("prompt_tokens"),
+                usage.get("completion_tokens"),
+                cache_hit_tokens=usage.get("cache_hit_tokens"),
+                cache_miss_tokens=usage.get("cache_miss_tokens"),
+            ),
+            ticker=ticker,
+            mode=mode,
+            n_periods=event.get("n_periods"),
+            grounded=event.get("grounded"),
+        )
+    except Exception:  # noqa: BLE001 - telemetry must not break the stream
+        logger.warning("Failed to emit analysis cost telemetry for user %s", user_id, exc_info=True)
+
+
+@router.post("/{ticker}/stream")
+async def stream_analysis(
+    ticker: str,
+    body: StreamRequest,
+    request: Request,
+    current_user: User = Depends(require_entitlement("can_analyze_trends", "Multi-Period Analysis")),
+    db: Session = Depends(get_db),
+):
+    """Streamed (SSE) AI trend narrative over the deterministic dataset.
+
+    Cache-first: a stored narrative whose prompt_version + dataset fingerprint still match is
+    re-served instantly (no model call, no meter); ``force`` regenerates. Metering counts only
+    fresh "analysis" completions against the monthly fair-use cap — a failed or aborted generation
+    never burns quota. Excluded from the timeout middleware by the ``*stream*`` name rule.
+    """
+    enforce_rate_limit(
+        request,
+        STREAM_LIMITER,
+        f"analysis-stream:{current_user.id}",
+        error_detail="Too many analysis generations. Please retry in a minute.",
+    )
+    company = _get_company(db, ticker)
+
+    allowed, _count, cap = check_analysis_limit(current_user, db)
+    if not allowed:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=(
+                f"You've reached this month's fair-use limit of {cap} analyses. "
+                "It resets at the start of next month."
+            ),
+        )
+
+    # Snapshot everything the generator needs — it runs after this request's session is gone.
+    company_id = company.id
+    ticker_value = company.ticker
+    user_id = current_user.id
+
+    async def event_stream():
+        metered = False
+        async for event in trend_analysis_service.stream_trend_narrative(
+            company_id=company_id,
+            mode=body.mode,
+            start_period=body.start_period,
+            end_period=body.end_period,
+            force=body.force,
+            user_id=user_id,
+        ):
+            if (
+                not metered
+                and event.get("type") == "complete"
+                and event.get("kind") == "analysis"
+                and not event.get("cached")
+            ):
+                await run_in_threadpool(_meter_analysis_best_effort, user_id)
+                metered = True
+                _emit_analysis_cost_best_effort(user_id, ticker_value, body.mode, event)
+            yield to_sse(event)
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",  # Disable buffering for Cloud Run/nginx
+        },
+    )
