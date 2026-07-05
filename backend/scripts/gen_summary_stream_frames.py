@@ -1,21 +1,30 @@
 """Regenerate ``tests/fixtures/summary_stream_frames.json`` — the recorded SSE frame sequence that
-pins the producer/consumer contract shared by the backend stream test (T1) and the frontend parser
-test (T10). Run from ``backend/``:
+pins the producer/consumer contract shared by the backend stream test (T1,
+``tests/integration/test_summary_stream_contract.py``) and the frontend parser test (T10).
+
+Run from ``backend/`` (self-bootstraps ``backend`` onto ``sys.path``, so no ``PYTHONPATH`` needed)::
 
     python scripts/gen_summary_stream_frames.py
 
 It drives the REAL ``stream_filing_summary`` generator with the SEC/XBRL/AI/excerpt boundaries
-mocked (offline), then writes the frames with volatile fields (``summary_id``, timing) normalized.
+mocked offline via the SHARED harness (``tests.support.summary_stream_harness``) — the exact same
+``stream_boundaries`` / ``seed_company_filing`` / ``CANONICAL_PAYLOAD`` the T1 test drives, so the
+recorded fixture can never drift from what the anchors assert. Volatile fields (``summary_id``,
+``elapsed_seconds``) are masked by ``normalize_frame`` so a re-run reproduces a byte-identical file.
+
+``normalize_frame`` is imported by the T1 test: the recorded fixture and the test's live parity
+check mask with ONE function, so ``masked-live == recorded`` holds by construction.
 """
 import asyncio
 import json
 import os
-import uuid
-from datetime import datetime, timezone
+import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
 
-# This runs OUTSIDE pytest/conftest, so set the same mock env before importing the app.
+# This runs OUTSIDE pytest/conftest. Put ``backend`` on sys.path (running ``scripts/foo.py`` only
+# adds ``scripts/`` — not the backend root — so ``app`` and ``tests`` would not import) and set the
+# same mock env conftest would, before importing the app.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 os.environ.setdefault("SECRET_KEY", "test-secret-key-must-be-long-enough-123")
 os.environ.setdefault("OPENAI_API_KEY", "sk-test-key-for-mocking")
 os.environ.setdefault("STRIPE_SECRET_KEY", "sk_test_mock_stripe_key_12345")
@@ -23,71 +32,56 @@ os.environ.setdefault("STRIPE_WEBHOOK_SECRET", "whsec_mock_stripe_webhook_12345"
 os.environ.setdefault("SKIP_REDIS_INIT", "true")
 os.environ.setdefault("PWNED_PASSWORD_CHECK_ENABLED", "false")
 
-from app.database import SessionLocal, engine  # noqa: E402
-from app.models import Base, Company, Filing  # noqa: E402
-from app.services import summary_pipeline  # noqa: E402
+from app.database import engine  # noqa: E402
+from app.models import Base  # noqa: E402
+from app.services.summary_pipeline import stream_filing_summary  # noqa: E402
+from tests.support.summary_stream_harness import (  # noqa: E402
+    reset_inflight,
+    seed_company_filing,
+    stream_boundaries,
+)
 
 FIXTURE = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "summary_stream_frames.json"
 
-_PAYLOAD = {
-    "status": "complete",
-    "business_overview": "# Summary\n\nAcme Corp designs and sells widgets worldwide.",
-    "financial_highlights": {"revenue": "1B", "notes": "Revenue increased 12% year over year."},
-    "risk_factors": [{"summary": "Supply-chain risk.", "supporting_evidence": "Item 1A."}],
-    "management_discussion": "MD&A covers results of operations and financial condition.",
-    "key_changes": "Higher R&D investment.",
-    "raw_summary": {
-        "sections": {"business_overview": "Acme Corp designs and sells widgets."},
-        "section_coverage": {"covered_count": 5, "total_count": 7},
-    },
-}
+
+def normalize_frame(event: dict) -> dict:
+    """Mask ONLY the volatile fields so a re-run reproduces a byte-identical fixture and the T1
+    parity test can compare live frames field-by-field against it.
+
+    Masked: ``summary_id`` (a DB autoincrement id) and ``elapsed_seconds`` (a wall-clock counter).
+    Everything structural — ``type``, ``stage``, ``message``, ``percent``, and the key set itself —
+    is preserved verbatim, so a renamed message, a changed percent, or an added/dropped key is a
+    hard failure rather than something the mask quietly absorbs.
+    """
+    masked = dict(event)
+    if "summary_id" in masked:
+        masked["summary_id"] = 12345
+    if "elapsed_seconds" in masked:
+        masked["elapsed_seconds"] = 0
+    return masked
 
 
-def _seed() -> int:
+async def record_frames() -> list[dict]:
+    """Drive the real generator offline through the shared harness; return the masked frame list.
+
+    Kept separate from ``main`` (which only handles file I/O) so the recording is a pure function
+    of the harness — the same seams the T1 test asserts against.
+    """
     Base.metadata.create_all(bind=engine)
-    suffix = uuid.uuid4().hex[:8]
-    with SessionLocal() as db:
-        company = Company(cik=f"cik{suffix}", ticker=f"GEN{suffix[:3].upper()}", name="Frames Gen Co")
-        db.add(company)
-        db.commit()
-        db.refresh(company)
-        filing = Filing(
-            company_id=company.id, accession_number=f"acc-{suffix}", filing_type="10-K",
-            filing_date=datetime(2026, 1, 15, tzinfo=timezone.utc),
-            document_url=f"https://sec.example/{suffix}/d.htm", sec_url=f"https://sec.example/{suffix}/",
-        )
-        db.add(filing)
-        db.commit()
-        db.refresh(filing)
-        return filing.id
-
-
-def _normalize(event: dict) -> dict:
-    event = dict(event)
-    if "summary_id" in event:
-        event["summary_id"] = 12345
-    if "elapsed_seconds" in event:
-        event["elapsed_seconds"] = 0
-    return event
-
-
-async def main() -> None:
-    summary_pipeline._inflight_generations.clear()
-    filing_id = _seed()
-    with patch.object(summary_pipeline.sec_edgar_service, "get_filing_document", AsyncMock(return_value="FILING DOCUMENT TEXT " * 40)), \
-         patch.object(summary_pipeline.xbrl_service, "get_xbrl_data", AsyncMock(return_value=None)), \
-         patch.object(summary_pipeline.xbrl_service, "get_filing_sections", AsyncMock(return_value=None)), \
-         patch.object(summary_pipeline, "get_or_cache_excerpt", lambda *a, **k: "EXCERPT"), \
-         patch.object(summary_pipeline, "check_usage_limit", lambda user, session: (True, 0, None)), \
-         patch.object(summary_pipeline.openai_service, "summarize_filing", AsyncMock(return_value=_PAYLOAD)), \
-         patch.object(summary_pipeline.settings, "STREAM_HEARTBEAT_INTERVAL", 999):
-        frames = [
-            _normalize(ev)
-            async for ev in summary_pipeline.stream_filing_summary(
+    reset_inflight()
+    with stream_boundaries():
+        filing_id = seed_company_filing()
+        return [
+            normalize_frame(ev)
+            async for ev in stream_filing_summary(
                 filing_id=filing_id, current_user=None, user_id=None,
                 telemetry_distinct_id="t", telemetry_entry_point=None, telemetry_ctx={},
             )
         ]
+
+
+async def main() -> None:
+    frames = await record_frames()
     FIXTURE.parent.mkdir(parents=True, exist_ok=True)
     FIXTURE.write_text(json.dumps(frames, indent=2) + "\n")
     print(f"wrote {len(frames)} frames to {FIXTURE}")
