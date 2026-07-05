@@ -251,6 +251,43 @@ reconciliation semantics, so the flag-OFF path stays byte-for-byte today's produ
      retires/flips the T2 flag-OFF pins** (they characterize a body that no longer exists). S4's
      remaining scope is unchanged.
 
+**Wave 2 · S2 — split `openai_service.py` behind a re-export façade (this PR).** Behavior-preserving
+"pure moves": the 3,060-line god module → a **1,044-line façade** over a new `app/services/ai/`
+package (9 cohesive modules, ~2,220 LOC). Zero caller churn — `app.services.openai_service` stays the
+single import surface via re-imports + a bottom-of-file `__all__`.
+- **Grouping.** 4 leaf function-modules (`xbrl_narrative`, `model_flags`, `normalize`, `bank_guards`)
+  + 5 method-group mixins (`_JsonRepairMixin`, `_MarkdownRenderMixin`, `_ExtractionMixin`,
+  `_SectionRecoveryMixin`, `_CopilotChatMixin`). `OpenAIService` composes the 5 mixins and KEEPS the
+  orchestration core (`__init__`, `get_model_for_filing/task`, `_parse_and_clean_text`,
+  `generate_structured_summary`, `_assemble_structured_summary`, `_stream_collect`,
+  `_partial_markdown_preview`, `summarize_filing`).
+- **Why mixins, not module functions.** The private methods are part of the tested surface (tests call
+  `openai_service._accept_section`, `._build_structured_markdown`, `._stream_collect`, `._get_type_config`,
+  …) and resolve through `self`; mixins preserve both with zero test/caller edits. Converting to module
+  functions would have forced rewriting every `self._foo()` call site + its tests — the opposite of a
+  pure move.
+- **Load-bearing constraint.** Because every call is `self.method()`, methods resolve through the MRO
+  regardless of which mixin holds them — so mixin membership is organizational; only module-level
+  (non-`self`) name references are load-bearing, and those were mapped up front.
+- **Kept LOCAL (re-exported):** `_TRACKED_STRUCTURED_SECTIONS` (the coverage taxonomy
+  `summary_generation_service` imports — a contract, not an AI helper). `model_flags` is a leaf so both
+  the façade and `copilot_chat` import `_thinking_disabled_model` with no cycle; `bank_guards` keeps its
+  `provenance_service` import function-level. Re-export surface pinned in `__all__`: `openai_service`,
+  `OpenAIService`, `STREAM_ERROR_SENTINEL`, `STREAM_ACTIVITY_SENTINEL`, `_TRACKED_STRUCTURED_SECTIONS`,
+  `build_xbrl_narrative_section`, `_XBRL_NARRATIVE_SPEC`, `_format_xbrl_metric_value`,
+  `_is_no_total_bank`, `_sanitize_bank_financial_highlights`.
+- **Anti-PII guard extended (S2 blueprint finalize):** `test_llm_no_pii` gains
+  `test_no_ai_submodule_imports_user_model`, which walks `pkgutil.iter_modules(app.services.ai)` — the
+  façade-only `hasattr` check went blind once prompt-building code moved into submodules.
+- **Discipline:** one green commit per extraction (steps 1–9), ruff + targeted tests after each. The
+  ruff **F821** gate caught a real near-miss — the copilot splice's end-anchor swept up
+  `_TRACKED_STRUCTURED_SECTIONS` (it sat between the sentinels and the class); re-added before the step
+  landed. The 12-file AI subset stayed green through it (that line isn't exercised there), so the linter,
+  not the tests, was the catch — the reason the per-step gate runs both.
+- **Gate:** `ruff check .` clean, `bandit -r app -ll` clean, **1150 passed / 2 deselected** (full
+  fast-lane suite). No behavior change — the flag-off production path is byte-for-byte unchanged;
+  frontend untouched (backend only).
+
 _(Deltas from later waves will be appended here as they are executed.)_
 
 ---
