@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 # Cohesive helpers/mixins extracted from this module (roadmap S2 façade split). Imported here so
 # ``app.services.openai_service`` stays the single import surface for every existing caller; the
 # re-exported public names are pinned in ``__all__`` at the bottom of this module.
+from app.services.ai.bank_guards import _is_no_total_bank, _sanitize_bank_financial_highlights
 from app.services.ai.model_flags import _thinking_disabled_model
 from app.services.ai.normalize import (
     _normalize_risk_factors,
@@ -70,54 +71,6 @@ _TRACKED_STRUCTURED_SECTIONS = (
     "notable_footnotes",
     "three_year_trend",
 )
-
-
-def _is_no_total_bank(xbrl_metrics: Optional[dict]) -> bool:
-    """True when the filer is a bank that reports NO single revenue line — i.e. the standardized
-    metrics carry net/non-interest income components but NO populated ``revenue`` total. This is the
-    only case where an LLM-authored single "Revenue" row is illegitimate (a bank WITH a reported
-    total, e.g. JPM, keeps ``revenue`` populated, so its row is legitimate and left alone)."""
-    if not isinstance(xbrl_metrics, dict):
-        return False
-    has_components = any(
-        isinstance(xbrl_metrics.get(k), dict) for k in ("net_interest_income", "noninterest_income")
-    )
-    rev = xbrl_metrics.get("revenue")
-    has_revenue = (
-        isinstance(rev, dict)
-        and isinstance(rev.get("current"), dict)
-        and rev["current"].get("value") is not None
-    )
-    return has_components and not has_revenue
-
-
-def _sanitize_bank_financial_highlights(
-    financial_section: Any, xbrl_metrics: Optional[dict]
-) -> Any:
-    """Drop any LLM-authored highlights row that maps to a ``revenue`` metric when the filer is a
-    no-total bank (:func:`_is_no_total_bank`). The AI is *asked* not to synthesize a single bank
-    revenue (grounding directive), but that is advisory; this makes it deterministic so a conflated
-    or fabricated number can never be persisted or rendered in prose. No-op for every other filer,
-    and for banks that legitimately report a total (their ``revenue`` is populated → not a no-total
-    bank → this returns the section untouched)."""
-    if not isinstance(financial_section, dict) or not _is_no_total_bank(xbrl_metrics):
-        return financial_section
-    table = financial_section.get("table")
-    if not isinstance(table, list):
-        return financial_section
-    # Local import avoids any import-time cycle; the mapper is the same one provenance uses, so the
-    # generation guard and the read-time provenance net evolve together.
-    from app.services.provenance_service import map_metric_to_xbrl_key
-
-    kept = []
-    for row in table:
-        metric = row.get("metric") if isinstance(row, dict) else None
-        mapped = map_metric_to_xbrl_key(metric)
-        if mapped and mapped[0] == "revenue":
-            logger.info("Dropped conflated bank 'revenue' highlights row: %r", metric)
-            continue
-        kept.append(row)
-    return {**financial_section, "table": kept}
 
 
 class OpenAIService:
@@ -2785,5 +2738,7 @@ __all__ = [
     "build_xbrl_narrative_section",
     "_XBRL_NARRATIVE_SPEC",
     "_format_xbrl_metric_value",
+    "_is_no_total_bank",
+    "_sanitize_bank_financial_highlights",
 ]
 
