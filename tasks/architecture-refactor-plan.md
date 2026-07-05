@@ -251,6 +251,61 @@ reconciliation semantics, so the flag-OFF path stays byte-for-byte today's produ
      retires/flips the T2 flag-OFF pins** (they characterize a body that no longer exists). S4's
      remaining scope is unchanged.
 
+**Wave 2 · S2 — split `openai_service.py` behind a re-export façade (this PR).** Behavior-preserving
+"pure moves": the 3,060-line god module → a **1,044-line façade** over a new `app/services/ai/`
+package (9 cohesive modules, ~2,220 LOC). Zero caller churn — `app.services.openai_service` stays the
+single import surface via re-imports + a bottom-of-file `__all__`.
+- **Grouping.** 4 leaf function-modules (`xbrl_narrative`, `model_flags`, `normalize`, `bank_guards`)
+  + 5 method-group mixins (`_JsonRepairMixin`, `_MarkdownRenderMixin`, `_ExtractionMixin`,
+  `_SectionRecoveryMixin`, `_CopilotChatMixin`). `OpenAIService` composes the 5 mixins and KEEPS the
+  orchestration core (`__init__`, `get_model_for_filing/task`, `_parse_and_clean_text`,
+  `generate_structured_summary`, `_assemble_structured_summary`, `_stream_collect`,
+  `_partial_markdown_preview`, `summarize_filing`).
+- **Why mixins, not module functions.** The private methods are part of the tested surface (tests call
+  `openai_service._accept_section`, `._build_structured_markdown`, `._stream_collect`, `._get_type_config`,
+  …) and resolve through `self`; mixins preserve both with zero test/caller edits. Converting to module
+  functions would have forced rewriting every `self._foo()` call site + its tests — the opposite of a
+  pure move.
+- **Load-bearing constraint.** Because every call is `self.method()`, methods resolve through the MRO
+  regardless of which mixin holds them — so mixin membership is organizational; only module-level
+  (non-`self`) name references are load-bearing, and those were mapped up front.
+- **Kept LOCAL (re-exported):** `_TRACKED_STRUCTURED_SECTIONS` (the coverage taxonomy
+  `summary_generation_service` imports — a contract, not an AI helper). `model_flags` is a leaf so both
+  the façade and `copilot_chat` import `_thinking_disabled_model` with no cycle; `bank_guards` keeps its
+  `provenance_service` import function-level. Re-export surface pinned in `__all__`: `openai_service`,
+  `OpenAIService`, `STREAM_ERROR_SENTINEL`, `STREAM_ACTIVITY_SENTINEL`, `_TRACKED_STRUCTURED_SECTIONS`,
+  `build_xbrl_narrative_section`, `_XBRL_NARRATIVE_SPEC`, `_format_xbrl_metric_value`,
+  `_is_no_total_bank`, `_sanitize_bank_financial_highlights`.
+- **Anti-PII guard extended (S2 blueprint finalize):** `test_llm_no_pii` gains
+  `test_no_ai_submodule_imports_user_model`, which walks `pkgutil.iter_modules(app.services.ai)` — the
+  façade-only `hasattr` check went blind once prompt-building code moved into submodules.
+- **Discipline:** one green commit per extraction (steps 1–9), ruff + targeted tests after each. The
+  ruff **F821** gate caught a real near-miss — the copilot splice's end-anchor swept up
+  `_TRACKED_STRUCTURED_SECTIONS` (it sat between the sentinels and the class); re-added before the step
+  landed. The 12-file AI subset stayed green through it (that line isn't exercised there), so the linter,
+  not the tests, was the catch — the reason the per-step gate runs both.
+- **Gate:** `ruff check .` clean, `bandit -r app -ll` clean, **1150 passed / 2 deselected** (full
+  fast-lane suite). No behavior change — the flag-off production path is byte-for-byte unchanged;
+  frontend untouched (backend only).
+- **Review-response hardening (founder-approved deviation from pure-move; PR #550, Gemini review).**
+  Gemini flagged 6 issues, all in code S2 moved verbatim — 1 **real pre-existing bug** + 5 defensive
+  guards. Founder chose "fix all here" over deferring, so this PR carries a small, **tested** behavior
+  change on top of the move:
+  1. **`extract_financial_data` segments crash (real).** `data['segments']` holds `(name, value)`
+     tuples (its patterns have two capture groups; the downstream prompt line unpacks `seg[0]/seg[1]`),
+     but the top-5 sort keyed off `str.replace` → `AttributeError` on a tuple. Any Apple-class filing
+     whose segment patterns matched (iPhone/Mac/Services/Americas/…) crashed extraction → degraded to
+     the fallback summary. Fixed with a `_numeric_sort_value` helper that reads the value from tuple
+     **or** string and sorts unparseable entries last.
+  2. **5 `isinstance(..., dict)` guards** in the `_build_structured_markdown` fallback renderer +
+     `_apply_structured_fallbacks.metric_entry` (exec/financials/mgmt/outlook sections + metric/
+     current/prior) — `or {}` let a *truthy* non-dict slip to `.get()` and crash the very renderer
+     that exists to save a failed generation.
+  Regression tests: `test_extract_financial_data_sorts_segment_tuples_without_crashing`,
+  `test_malformed_nondict_sections_do_not_crash_renderer`,
+  `test_apply_structured_fallbacks_tolerates_nondict_metric_payloads`. Gate re-run: **1153 passed /
+  2 deselected**, ruff + bandit clean.
+
 _(Deltas from later waves will be appended here as they are executed.)_
 
 ---
@@ -405,7 +460,7 @@ may run in Batch B. **Batch C (serial, after B): F2 → F4 → F3 → S5.**
 | F1 | Frontend: ONE `ApiError` (kill the interface/class name collision, `types.ts:2` vs `client.ts:6`), `lib/queryKeys.ts` registry, reconcile `['user']`/`['current-user']`/`['subscription']`(also `['subscription', id]`)/`['usage']` to canonical keys | vitest + tsc + build; grep-gate: no string-literal query keys outside `queryKeys.ts` for reconciled entities. |
 | F2 | Decompose `app/filing/[id]/page-client.tsx` (1,016 LOC): `useSummaryGeneration` hook → `features/summaries`; the 2 export `fetch()`s (`:753,:789`) → feature api on the shared axios client; presentational subcomponents | After F1 (imports queryKeys). Guarded by T10 + e2e filing-page spec. **Latent bug L1 (poll-forever on `partial`) is fixed HERE as an explicit decision** — the poller must treat `partial` as terminal and render `partial_data`. |
 | F4 | Route stray `fetch()` through the shared client: `WaitlistForm/Counter/Status`, `HotFilings` | After F1, BEFORE F3 (F3 moves these files). |
-| F3 | `components/` → `features/` (~25 root components + 4 duplicate subdirs), one domain per commit; merge test dirs to ONE home + suffix | Last frontend task (mass import-path rewrite). tsc + vitest + build after EACH domain batch. |
+| F3 | `components/` → `features/` (~25 root components + 4 duplicate subdirs), one domain per commit; merge test dirs to ONE home + suffix | Last frontend task (mass import-path rewrite). tsc + vitest + build after EACH domain batch. **Prove the pure move** with a per-export content-hash / sorted-declaration (or `tsc`-emit) diff before vs after — the TS analogue of S2's AST-normalized per-symbol diff (see `tasks/lessons.md`, 2026-07-05 arch-* lesson); the residual must equal the disclosed changes (empty). |
 | S5 | Mechanical backend sweeps, serialized LAST (touch files S1/S3 rewrote): one aware-`utcnow()` helper replacing 36 naive sites (+delete ~6 `tzinfo` patches); config bypasses → Settings (`users.py` Stripe/PostHog, raw `ENVIRONMENT` reads, `IP_HASH_SALT`); ONE placeholder-pattern module (3 today); ONE `FilingContentCache` write helper; ONE `_coerce_float` util; the single stray `green-*` class in `HeroExample.tsx` | Each sweep = its own commit + grep-gate (`rg 'datetime.utcnow'` → 0 in app/; `rg 'os.getenv'` → allow-list only). |
 
 **Explicit NON-goals (do not build):** no Alembic; no async-SQLAlchemy migration; no Redis-backed
