@@ -468,7 +468,9 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
             # post-soak old-path removal, not this dark PR.
             from app.services.summary_pipeline import stream_filing_summary
 
-            async for _event in stream_filing_summary(
+            drain_started = time.time()
+            terminal_event: Optional[Dict[str, Any]] = None
+            async for terminal_event in stream_filing_summary(
                 filing_id=filing_id,
                 current_user=None,
                 user_id=user_id,
@@ -478,6 +480,15 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                 emit_funnel_telemetry=False,
             ):
                 pass
+            # With funnel telemetry suppressed for cron, this is the drain's ONLY per-filing signal
+            # in the Cloud Run job logs — parity with the legacy body's per-filing success/error
+            # lines, and what makes the 24-48h soak grep-able. Crucially, the pipeline converts
+            # exceptions into terminal error EVENTS (the job still exits 0), so a failing pregenerate
+            # batch would otherwise look identical to a successful one.
+            terminal_type = (terminal_event or {}).get("type", "none")
+            drain_secs = time.time() - drain_started
+            log = logger.warning if terminal_type == "error" else logger.info
+            log(f"[{filing_id}] drain terminal={terminal_type} duration={drain_secs:.1f}s")
             return
 
         start_time = time.time()
