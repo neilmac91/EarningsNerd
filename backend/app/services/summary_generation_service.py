@@ -141,6 +141,20 @@ def _xbrl_value_appears(value: float, haystack_lower: str) -> bool:
     return any(c.lower() in haystack_lower for c in candidates if len(c.replace(",", "")) >= 2)
 
 
+def _verdict_coverage(summary_data: Dict[str, Any]) -> Tuple[int, int]:
+    """(covered, total) for the quality verdict. Prefers the 9-section structured coverage snapshot
+    the AI already computes (``raw_summary.section_coverage``) — S1's single taxonomy — and falls
+    back to the 7 ``HIDEABLE_SECTIONS`` for payloads that lack it (fallback / deterministic
+    summaries)."""
+    snapshot = (summary_data.get("raw_summary") or {}).get("section_coverage") or {}
+    covered = snapshot.get("covered_count")
+    total = snapshot.get("total_count")
+    if isinstance(covered, int) and isinstance(total, int) and total > 0:
+        return covered, total
+    covered, total, _, _ = calculate_section_coverage(summary_data)
+    return covered, total
+
+
 def assess_quality(
     summary_data: Dict[str, Any], xbrl_metrics: Optional[Dict[str, Any]] = None
 ) -> Dict[str, Any]:
@@ -149,7 +163,11 @@ def assess_quality(
     Returns {tier: "full"|"partial", reasons, numeric_grounded, covered_count, total_count}.
     "partial" means thin section coverage OR financials that don't match the SEC-verified XBRL —
     the signal the UI surfaces honestly (quality badge) instead of silently stripping notices."""
-    covered, total, _, _ = calculate_section_coverage(summary_data)
+    covered, total = _verdict_coverage(summary_data)
+    # The "full" bar is a coverage RATIO (the legacy 3/7 ≈ 0.43), applied to whichever taxonomy the
+    # payload carries — integer-ceil'd to 4/9 for the 9-section structured snapshot or 3/7 for the
+    # HIDEABLE fallback. This is S1's conscious recalibration of the old absolute-3 threshold.
+    min_full = -(-total * MINIMUM_SECTIONS_FOR_FULL_RESULT // len(HIDEABLE_SECTIONS))
     reasons: List[str] = []
 
     numeric_grounded = True
@@ -173,10 +191,10 @@ def assess_quality(
             if not numeric_grounded:
                 reasons.append("financial figures not grounded in SEC XBRL data")
 
-    if covered < MINIMUM_SECTIONS_FOR_FULL_RESULT:
+    if covered < min_full:
         reasons.append(f"only {covered}/{total} sections populated")
 
-    tier = "full" if (covered >= MINIMUM_SECTIONS_FOR_FULL_RESULT and numeric_grounded) else "partial"
+    tier = "full" if (covered >= min_full and numeric_grounded) else "partial"
     return {
         "tier": tier,
         "reasons": reasons,
