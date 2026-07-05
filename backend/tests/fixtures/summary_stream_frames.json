@@ -1,0 +1,66 @@
+[
+  {
+    "type": "progress",
+    "stage": "initializing",
+    "message": "Initializing...",
+    "percent": 0
+  },
+  {
+    "type": "progress",
+    "stage": "fetching",
+    "message": "Step 1: File Validation - Confirming document is accessible and parsable...",
+    "percent": 5,
+    "elapsed_seconds": 0
+  },
+  {
+    "type": "progress",
+    "stage": "fetching",
+    "message": "File validated and fetched successfully",
+    "percent": 15
+  },
+  {
+    "type": "progress",
+    "stage": "parsing",
+    "message": "Starting parsing...",
+    "percent": 15
+  },
+  {
+    "type": "progress",
+    "stage": "parsing",
+    "message": "Step 2: Section Parsing - Extracting major sections (Item 1A: Risk Factors, Item 7: MD&A)...",
+    "percent": 20
+  },
+  {
+    "type": "progress",
+    "stage": "parsing",
+    "message": "Parsing complete...",
+    "percent": 25
+  },
+  {
+    "type": "progress",
+    "stage": "analyzing",
+    "message": "Step 3: Content Analysis - Analyzing risk factors...",
+    "percent": 35
+  },
+  {
+    "type": "progress",
+    "stage": "analyzing",
+    "message": "Step 4: Generating financial overview...",
+    "percent": 45
+  },
+  {
+    "type": "progress",
+    "stage": "summarizing",
+    "message": "Step 5: Generating investor-focused summary...",
+    "percent": 50
+  },
+  {
+    "type": "chunk",
+    "content": "# Summary\n\nAcme Corp designs and sells widgets worldwide."
+  },
+  {
+    "type": "complete",
+    "summary_id": 12345,
+    "percent": 100
+  }
+]

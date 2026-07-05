@@ -1,0 +1,120 @@
+{
+  "cik": 1789012,
+  "entityName": "MERIDIAN LOGISTICS CORP",
+  "facts": {
+    "dei": {
+      "EntityCommonStockSharesOutstanding": {
+        "label": "Entity Common Stock, Shares Outstanding",
+        "description": "Indicate number of shares or other units outstanding of each of registrant's classes of capital or common stock.",
+        "units": {
+          "shares": [
+            {"end": "2023-01-31", "val": 492000000, "accn": "0001789012-23-000019", "fy": 2022, "fp": "FY", "form": "10-K", "filed": "2023-02-16"},
+            {"end": "2024-01-31", "val": 494500000, "accn": "0001789012-24-000031", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-15", "frame": "CY2024Q1I"}
+          ]
+        }
+      }
+    },
+    "us-gaap": {
+      "RevenueFromContractWithCustomerExcludingAssessedTax": {
+        "label": "Revenue from Contract with Customer, Excluding Assessed Tax",
+        "description": "Amount, excluding tax collected from customer, of revenue from satisfaction of performance obligation by transferring promised good or service to customer.",
+        "units": {
+          "USD": [
+            {"start": "2020-01-01", "end": "2020-12-31", "val": 15110000000, "accn": "0001789012-23-000019", "fy": 2022, "fp": "FY", "form": "10-K", "filed": "2023-02-16"},
+            {"start": "2021-01-01", "end": "2021-12-31", "val": 18225000000, "accn": "0001789012-23-000019", "fy": 2022, "fp": "FY", "form": "10-K", "filed": "2023-02-16"},
+            {"start": "2022-01-01", "end": "2022-12-31", "val": 21704000000, "accn": "0001789012-23-000019", "fy": 2022, "fp": "FY", "form": "10-K", "filed": "2023-02-16"},
+            {"start": "2021-01-01", "end": "2021-12-31", "val": 18225000000, "accn": "0001789012-24-000031", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-15"},
+            {"start": "2022-01-01", "end": "2022-12-31", "val": 21704000000, "accn": "0001789012-24-000031", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-15"},
+            {"start": "2023-01-01", "end": "2023-12-31", "val": 24318000000, "accn": "0001789012-24-000031", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-15", "frame": "CY2023"}
+          ]
+        }
+      },
+      "Revenues": {
+        "label": "Revenues",
+        "description": "Amount of revenue recognized from goods sold, services rendered, insurance premiums, or other activities that constitute an earning process (legacy pre-ASC606 tag).",
+        "units": {
+          "USD": [
+            {"start": "2018-01-01", "end": "2018-12-31", "val": 11020000000, "accn": "0001789012-19-000003", "fy": 2018, "fp": "FY", "form": "10-K", "filed": "2019-02-19"},
+            {"start": "2019-01-01", "end": "2019-12-31", "val": 12880000000, "accn": "0001789012-20-000005", "fy": 2019, "fp": "FY", "form": "10-K", "filed": "2020-02-18"}
+          ]
+        }
+      },
+      "NetIncomeLoss": {
+        "label": "Net Income (Loss) Attributable to Parent",
+        "description": "The portion of profit or loss for the period, net of income taxes, which is attributable to the parent.",
+        "units": {
+          "USD": [
+            {"start": "2020-01-01", "end": "2020-12-31", "val": 1455000000, "accn": "0001789012-23-000019", "fy": 2022, "fp": "FY", "form": "10-K", "filed": "2023-02-16"},
+            {"start": "2021-01-01", "end": "2021-12-31", "val": 2001000000, "accn": "0001789012-23-000019", "fy": 2022, "fp": "FY", "form": "10-K", "filed": "2023-02-16"},
+            {"start": "2022-01-01", "end": "2022-12-31", "val": 2588000000, "accn": "0001789012-23-000019", "fy": 2022, "fp": "FY", "form": "10-K", "filed": "2023-02-16"},
+            {"start": "2021-01-01", "end": "2021-12-31", "val": 2001000000, "accn": "0001789012-24-000031", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-15"},
+            {"start": "2022-01-01", "end": "2022-12-31", "val": 2588000000, "accn": "0001789012-24-000031", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-15"},
+            {"start": "2023-01-01", "end": "2023-12-31", "val": 3142000000, "accn": "0001789012-24-000031", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-15", "frame": "CY2023"}
+          ]
+        }
+      },
+      "Assets": {
+        "label": "Assets",
+        "description": "Sum of the carrying amounts as of the balance sheet date of all assets that are recognized.",
+        "units": {
+          "USD": [
+            {"end": "2021-12-31", "val": 30110000000, "accn": "0001789012-23-000019", "fy": 2022, "fp": "FY", "form": "10-K", "filed": "2023-02-16"},
+            {"end": "2022-12-31", "val": 34220000000, "accn": "0001789012-23-000019", "fy": 2022, "fp": "FY", "form": "10-K", "filed": "2023-02-16"},
+            {"end": "2022-12-31", "val": 34220000000, "accn": "0001789012-24-000031", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-15"},
+            {"end": "2023-12-31", "val": 38905000000, "accn": "0001789012-24-000031", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-15", "frame": "CY2023Q4I"}
+          ]
+        }
+      },
+      "Liabilities": {
+        "label": "Liabilities",
+        "description": "Sum of the carrying amounts as of the balance sheet date of all liabilities that are recognized.",
+        "units": {
+          "USD": [
+            {"end": "2021-12-31", "val": 18760000000, "accn": "0001789012-23-000019", "fy": 2022, "fp": "FY", "form": "10-K", "filed": "2023-02-16"},
+            {"end": "2022-12-31", "val": 20880000000, "accn": "0001789012-23-000019", "fy": 2022, "fp": "FY", "form": "10-K", "filed": "2023-02-16"},
+            {"end": "2022-12-31", "val": 20880000000, "accn": "0001789012-24-000031", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-15"},
+            {"end": "2023-12-31", "val": 22540000000, "accn": "0001789012-24-000031", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-15", "frame": "CY2023Q4I"}
+          ]
+        }
+      },
+      "CashAndCashEquivalentsAtCarryingValue": {
+        "label": "Cash and Cash Equivalents, at Carrying Value",
+        "description": "Amount of currency on hand as well as demand deposits with banks or financial institutions.",
+        "units": {
+          "USD": [
+            {"end": "2022-12-31", "val": 4760000000, "accn": "0001789012-24-000031", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-15"},
+            {"end": "2023-12-31", "val": 5120000000, "accn": "0001789012-24-000031", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-15", "frame": "CY2023Q4I"}
+          ]
+        }
+      },
+      "EarningsPerShareBasic": {
+        "label": "Earnings Per Share, Basic",
+        "description": "The amount of net income or loss for the period per each share of common stock outstanding during the reporting period.",
+        "units": {
+          "USD/shares": [
+            {"start": "2020-01-01", "end": "2020-12-31", "val": 2.90, "accn": "0001789012-23-000019", "fy": 2022, "fp": "FY", "form": "10-K", "filed": "2023-02-16"},
+            {"start": "2021-01-01", "end": "2021-12-31", "val": 4.01, "accn": "0001789012-23-000019", "fy": 2022, "fp": "FY", "form": "10-K", "filed": "2023-02-16"},
+            {"start": "2022-01-01", "end": "2022-12-31", "val": 5.20, "accn": "0001789012-23-000019", "fy": 2022, "fp": "FY", "form": "10-K", "filed": "2023-02-16"},
+            {"start": "2021-01-01", "end": "2021-12-31", "val": 4.01, "accn": "0001789012-24-000031", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-15"},
+            {"start": "2022-01-01", "end": "2022-12-31", "val": 5.20, "accn": "0001789012-24-000031", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-15"},
+            {"start": "2023-01-01", "end": "2023-12-31", "val": 6.34, "accn": "0001789012-24-000031", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-15", "frame": "CY2023"}
+          ]
+        }
+      },
+      "EarningsPerShareDiluted": {
+        "label": "Earnings Per Share, Diluted",
+        "description": "The amount of net income or loss for the period per each diluted share of common stock outstanding during the reporting period.",
+        "units": {
+          "USD/shares": [
+            {"start": "2020-01-01", "end": "2020-12-31", "val": 2.84, "accn": "0001789012-23-000019", "fy": 2022, "fp": "FY", "form": "10-K", "filed": "2023-02-16"},
+            {"start": "2021-01-01", "end": "2021-12-31", "val": 3.92, "accn": "0001789012-23-000019", "fy": 2022, "fp": "FY", "form": "10-K", "filed": "2023-02-16"},
+            {"start": "2022-01-01", "end": "2022-12-31", "val": 5.09, "accn": "0001789012-23-000019", "fy": 2022, "fp": "FY", "form": "10-K", "filed": "2023-02-16"},
+            {"start": "2021-01-01", "end": "2021-12-31", "val": 3.92, "accn": "0001789012-24-000031", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-15"},
+            {"start": "2022-01-01", "end": "2022-12-31", "val": 5.09, "accn": "0001789012-24-000031", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-15"},
+            {"start": "2023-01-01", "end": "2023-12-31", "val": 6.21, "accn": "0001789012-24-000031", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2024-02-15", "frame": "CY2023"}
+          ]
+        }
+      }
+    }
+  }
+}

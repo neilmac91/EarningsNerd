@@ -383,3 +383,47 @@ tickers match the *event source's* exact format against live data — AV emits `
 uses `BRK-B` (dash); a format mismatch silently HIDES a mega-cap, the inverse of the bug you're
 preventing. (Here: normalize `-`→`.`, and cross-checked the 515-ticker list against the live AV
 universe — which also surfaced 2 non-trading spin-off artifacts, FDXF/HONA, to prune.)
+
+## 2026-07-05 — Orphaned/uncollected tests are usually bit-rotted; verify before adopting
+A plan item said to "adopt" 6 repo-root `/tests/` files into the CI-collected suite. All 6 were in
+fact bit-rotted — they had never been collected (CI runs `cd backend && pytest`, so a repo-root
+`/tests/` is invisible), so nothing kept them honest: one tested a class deleted in a refactor
+(`XBRLService._parse_xbrl_xml`), the rest failed current validation (a 15-char `SECRET_KEY` vs the
+≥32 rule) and polluted global state (module-level `dependency_overrides`, `importlib.reload` of
+config). "Adopting" them would have meant rewriting them.
+
+**Rule:** a test outside the CI collection path provides ZERO coverage and has almost certainly
+rotted. Before "adopting" one, run it in isolation AND in-suite; if it fails or pollutes, treat it
+as dead (delete — git preserves it) or a fresh rewrite. Don't assume a plan's "adopt" framing
+survives contact with the code; deleting an uncollected test loses no coverage.
+
+## 2026-07-05 — Moving a test file silently breaks its `__file__`-relative shims
+`test_startup.py` moved from `scripts/` to `tests/smoke/`. Its
+`sys.path.insert(0, Path(__file__).parent.parent)` had resolved to `backend/` from `scripts/`; from
+`tests/smoke/` it now inserts `backend/tests/` (no `app` package). It passed anyway under
+`cd backend && pytest` only because cwd is already on `sys.path` — masking the break until someone
+runs it as a standalone script.
+
+**Rule:** when relocating a test/script, audit every `__file__`-relative path, `sys.path` shim, and
+fixture-relative reference (cwd-on-sys.path masks a broken shim under pytest). If the file is now a
+pytest test, delete the script scaffolding (`sys.path` shim, `if __name__ == "__main__"` runner)
+rather than repair it — pick one identity.
+
+## 2026-07-05 — A deselected pytest marker with no CI run-path is a silent skip
+`pytest.ini` deselected both `performance` AND `slow` by default, but CI only re-ran `-m performance`.
+A future `@pytest.mark.slow` test would be skipped by the fast lane AND absent from the perf step —
+green in CI while never executing (same class as perf tests that lacked the marker entirely).
+
+**Rule:** every marker you deselect in `addopts` needs an explicit CI execution path, or don't
+deselect it. Prefer structural enforcement — a directory-scoped `pytest_collection_modifyitems`
+(e.g. `tests/performance/conftest.py`) that auto-stamps the marker so a new file can't forget it.
+
+## 2026-07-05 — Single-source config canonizes any false promise; moving files breaks out-of-diff refs
+Making `pytest.ini` the single source of test config carried over a marker description that lied
+(`requires_db: ... skips gracefully` — nothing implements the skip). And moving
+`test_edgar_services.py` into `tests/unit/` broke `evals/RUNBOOK.md` Step A (pytest hard-errors on a
+missing path before collecting anything) plus 5 CLAUDE.md statements.
+
+**Rule:** when you canonize config, make every description literally true (or reword it). When you
+move or delete a file, grep the WHOLE repo (docs, runbooks, CLAUDE.md, CI) for its old path/symbol
+and fix the refs in the same change — "fix drift now where it misleads" applies to the moves you make.

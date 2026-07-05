@@ -1,0 +1,26 @@
+summary_stream_frames.json — GENERATED, DO NOT HAND-EDIT
+========================================================
+
+This file is a recorded, masked snapshot of the SSE frame sequence emitted by the real
+`stream_filing_summary` generator (the user-facing summary-stream path). It is the ONE artifact
+shared by two contract tests, so the producer and its consumers can never silently drift apart:
+
+  * backend  — tests/integration/test_summary_stream_contract.py
+               (T1: field-by-field parity against a live drive)
+  * frontend — frontend/tests/unit/summaryStream.contract.spec.ts
+               (T10: the SSE parser is fed these exact frames; it reads the file as a raw JSON array)
+
+Shape: a raw JSON array of frame objects. Do NOT wrap it in an envelope or change the top-level
+type — the frontend T10 spec parses it as an array.
+
+Regenerate (NEVER edit by hand):
+
+    cd backend
+    python scripts/gen_summary_stream_frames.py
+
+The script drives the real generator offline through the shared harness
+(tests/support/summary_stream_harness.py — the same boundary mocks + canonical AI payload the T1
+test asserts against) and masks only the volatile fields (`summary_id`, `elapsed_seconds`) via
+`normalize_frame`, so a re-run reproduces a byte-identical file. The T1 test imports that same
+`normalize_frame`, so `masked-live == recorded` holds by construction; if the producer's frames
+change, T1 fails until you regenerate this file.
