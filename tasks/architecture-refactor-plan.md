@@ -203,6 +203,46 @@ eslint** clean. Test count unchanged at 1146 (every deletion was dead code; the 
 two name-list entries, keeping both tests). Green at **`f27c53b`** (this delta entry is docs-only, on
 top). NON-goals held: entitlements/billing, refresh_token_service, and the design system were untouched.
 
+**Wave 2 — S1: unify the two summary orchestrators (PR #549, dark / flag-gated).** Behind
+`USE_PIPELINE_FOR_BACKGROUND` (default off); ships dark, flips only after a 24–48h PostHog/Sentry soak.
+Founder-signed-off decisions, and the key architectural call (**decision A**): flag gates ALL
+reconciliation semantics, so the flag-OFF path stays byte-for-byte today's production.
+
+- **Foundation.** The flag (default off); an idempotent `20260705_summary_filing_id_unique.sql`
+  (dedup dupe summaries + repoint `saved_summaries` (the only FK) + dedup now-identical saved rows +
+  add `uq_summaries_filing_id` if absent) paired with the ORM `Summary.__table_args__` UniqueConstraint;
+  and `IntegrityError → return the existing row` at every `Summary` insert (SSE + background). The
+  background handler re-queries and re-raises a misattributed `FilingContentCache` PK conflict (→ the
+  generic handler records terminal error progress, retryable) and drives the shared progress row to
+  `completed` on bow-out (latent bug L1). **Decision #3 closed.**
+- **Decision #2 (verdict) — flag-gated.** `assess_quality` verdicts on the FIXED 9-section taxonomy
+  (`_TRACKED_STRUCTURED_SECTIONS`, intersected with the snapshot's `per_section` so stray model keys
+  can't move the count) at a named literal `MINIMUM_STRUCTURED_SECTIONS_FOR_FULL = 4` — but ONLY when
+  the flag is on; flag-off is byte-for-byte the legacy 7-`HIDEABLE_SECTIONS` / 3-of-7 bar. (A #549
+  review caught that an earlier cut of this shipped the 4/9 bar live on the SSE path with the flag
+  off — assess_quality's only caller — changing quota decisions ahead of the soak; now gated.)
+- **Decision A (the drain).** Flag-ON, `generate_summary_background` **drains `stream_filing_summary`
+  headless** (collapsing the two orchestrators). Cron thereby INHERITS filing-only (SSE passes
+  `previous_filings=None`), the 9-section verdict, partial-persistence, and the filing_id-conflict
+  handling. Flag-OFF, the legacy body is untouched (YoY injection, `determine_result_type`, discards
+  partials). Funnel telemetry: `stream_filing_summary` gains `emit_funnel_telemetry` (default True);
+  its 5 `capture_funnel_event` sites route through a guard, and the drain passes False, so a precompute
+  run emits ZERO funnel events (T2 pin). `current_user=None` skips the paywall; usage still increments
+  for a signed-in `user_id` on a full result.
+- **Decision #1 (filing-only) — realized by inheritance, deletions deferred.** Filing-only is a
+  PROPERTY of the drained SSE path (not a legacy-body edit), so the YoY plumbing + prompt block +
+  `determine_result_type` + the duplicate `FilingContentCache` writes are NOT deleted in this dark PR
+  — deleting them would change flag-off behavior. They ride the **post-soak old-path removal**.
+  "Never invent prior-period figures" stays in the system prompt.
+- **T2 contract.** Keeps its flag-OFF legacy pins (unchanged) and GAINS flag-ON pins (filing-only +
+  zero-funnel; partial-persistence). The 9-section flag-gated verdict is pinned in `test_quality_assessment`.
+- **Gate:** ruff + bandit clean; **1149 passed / 2 deselected + 2 performance** (T1 SSE + T2-legacy
+  unchanged; +2 flag-on drain pins, +2 flag-gated verdict pins). Frontend untouched (backend/docs only).
+  Green at **`e0c36e9`** (this delta entry is docs-only, on top).
+- **NOT in this PR (post-soak follow-ups):** the 24–48h soak (generation success/quality + p50/p95
+  latency + per-summary token cost) → flag flip → delete the legacy body (YoY plumbing, prompt block,
+  `determine_result_type`, duplicate cache writes). S4's remaining scope is unchanged.
+
 _(Deltas from later waves will be appended here as they are executed.)_
 
 ---
