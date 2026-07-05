@@ -807,9 +807,10 @@ class EdgarXBRLService:
 
             # Route through the SEC rate limiter (10 req/s token bucket + backoff on 429) — this
             # data.sec.gov call previously bypassed it. raise_for_status turns a non-200 into an
-            # exception, preserving the original "non-200 -> None" via the outer except.
-            async def _do_request() -> httpx.Response:
-                async with httpx.AsyncClient() as client:
+            # exception, preserving the original "non-200 -> None" via the outer except. The client
+            # is created ONCE outside the retryable closure so retries reuse the connection pool.
+            async with httpx.AsyncClient() as client:
+                async def _do_request() -> httpx.Response:
                     resp = await client.get(
                         facts_url,
                         headers={"User-Agent": EDGAR_IDENTITY},
@@ -818,9 +819,9 @@ class EdgarXBRLService:
                     resp.raise_for_status()
                     return resp
 
-            response = await sec_rate_limiter.execute_with_backoff(_do_request)
-            data = response.json()
-            return self._parse_company_facts(data, accession_number)
+                response = await sec_rate_limiter.execute_with_backoff(_do_request)
+                data = response.json()
+                return self._parse_company_facts(data, accession_number)
 
         except Exception as e:
             logger.error(f"Error in company facts fallback: {e}")

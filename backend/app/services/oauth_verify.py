@@ -10,6 +10,7 @@ Verification takes only the id_token (and, for Apple, the raw nonce) — never a
 """
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import secrets
 import time
@@ -30,22 +31,47 @@ _APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
 
 _google_jwks_cache: dict | None = None
 _google_jwks_cache_expires: float = 0.0
+_google_jwks_lock: asyncio.Lock | None = None
 
 _apple_jwks_cache: dict | None = None
 _apple_jwks_cache_expires: float = 0.0
+_apple_jwks_lock: asyncio.Lock | None = None
+
+
+def _get_google_jwks_lock() -> asyncio.Lock:
+    # Lazy init so the lock binds to the running event loop, not import time (the codebase's
+    # event-loop-safety pattern — see the two-tier cache). The None-check + assignment is atomic
+    # under asyncio (no await between them), so concurrent first-callers can't create two locks.
+    global _google_jwks_lock
+    if _google_jwks_lock is None:
+        _google_jwks_lock = asyncio.Lock()
+    return _google_jwks_lock
+
+
+def _get_apple_jwks_lock() -> asyncio.Lock:
+    global _apple_jwks_lock
+    if _apple_jwks_lock is None:
+        _apple_jwks_lock = asyncio.Lock()
+    return _apple_jwks_lock
 
 
 async def _get_apple_jwks() -> dict:
-    """Fetch (or return 1-hour-cached) Apple JWKS for id_token verification."""
+    """Fetch (or return 1-hour-cached) Apple JWKS for id_token verification.
+
+    A lazily-initialized lock serializes the cold-cache fetch so concurrent logins don't stampede
+    Apple's JWKS endpoint; the second check inside the lock returns what the winning fetch cached.
+    """
     global _apple_jwks_cache, _apple_jwks_cache_expires
-    now = time.time()
-    if _apple_jwks_cache and now < _apple_jwks_cache_expires:
+    if _apple_jwks_cache and time.time() < _apple_jwks_cache_expires:
         return _apple_jwks_cache
-    async with httpx.AsyncClient(timeout=10.0) as hx:
-        resp = await hx.get(_APPLE_JWKS_URL)
-        resp.raise_for_status()
-        _apple_jwks_cache = resp.json()
-        _apple_jwks_cache_expires = now + 3600
+    async with _get_apple_jwks_lock():
+        if _apple_jwks_cache and time.time() < _apple_jwks_cache_expires:
+            return _apple_jwks_cache
+        async with httpx.AsyncClient(timeout=10.0) as hx:
+            resp = await hx.get(_APPLE_JWKS_URL)
+            resp.raise_for_status()
+            _apple_jwks_cache = resp.json()
+            _apple_jwks_cache_expires = time.time() + 3600
     return _apple_jwks_cache
 
 
@@ -90,16 +116,22 @@ async def _verify_apple_id_token(id_token: str, raw_nonce: str) -> dict:
 
 
 async def _get_google_jwks() -> dict:
-    """Fetch (or return 1-hour-cached) Google JWKS for id_token verification."""
+    """Fetch (or return 1-hour-cached) Google JWKS for id_token verification.
+
+    Lock-serialized cold-cache fetch (see ``_get_apple_jwks``) so concurrent logins don't stampede
+    Google's JWKS endpoint.
+    """
     global _google_jwks_cache, _google_jwks_cache_expires
-    now = time.time()
-    if _google_jwks_cache and now < _google_jwks_cache_expires:
+    if _google_jwks_cache and time.time() < _google_jwks_cache_expires:
         return _google_jwks_cache
-    async with httpx.AsyncClient(timeout=10.0) as hx:
-        resp = await hx.get(_GOOGLE_JWKS_URL)
-        resp.raise_for_status()
-        _google_jwks_cache = resp.json()
-        _google_jwks_cache_expires = now + 3600
+    async with _get_google_jwks_lock():
+        if _google_jwks_cache and time.time() < _google_jwks_cache_expires:
+            return _google_jwks_cache
+        async with httpx.AsyncClient(timeout=10.0) as hx:
+            resp = await hx.get(_GOOGLE_JWKS_URL)
+            resp.raise_for_status()
+            _google_jwks_cache = resp.json()
+            _google_jwks_cache_expires = time.time() + 3600
     return _google_jwks_cache
 
 

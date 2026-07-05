@@ -68,9 +68,10 @@ class SECEdgarServiceCompat:
         try:
             async with edgar_circuit_breaker:
                 # Route the sec.gov GET through the rate limiter (10 req/s + 429 backoff); it carried
-                # the breaker but bypassed the limiter. Breaker + cache logic below are unchanged.
-                async def _do_request() -> httpx.Response:
-                    async with httpx.AsyncClient() as client:
+                # the breaker but bypassed the limiter. The client is created ONCE outside the
+                # retryable closure so execute_with_backoff reuses the pool across retries.
+                async with httpx.AsyncClient() as client:
+                    async def _do_request() -> httpx.Response:
                         resp = await client.get(
                             "https://www.sec.gov/files/company_tickers.json",
                             headers={"User-Agent": EDGAR_IDENTITY},
@@ -79,16 +80,16 @@ class SECEdgarServiceCompat:
                         resp.raise_for_status()
                         return resp
 
-                response = await sec_rate_limiter.execute_with_backoff(_do_request)
-                data = response.json()
+                    response = await sec_rate_limiter.execute_with_backoff(_do_request)
+                    data = response.json()
 
-                # Update both cache tiers
-                SECEdgarServiceCompat._tickers_cache = data
-                SECEdgarServiceCompat._tickers_cache_time = datetime.now()
-                await self._set_tickers_to_redis(redis_key, data)
+                    # Update both cache tiers
+                    SECEdgarServiceCompat._tickers_cache = data
+                    SECEdgarServiceCompat._tickers_cache_time = datetime.now()
+                    await self._set_tickers_to_redis(redis_key, data)
 
-                logger.debug("SEC tickers fetched and cached (L1+L2)")
-                return data
+                    logger.debug("SEC tickers fetched and cached (L1+L2)")
+                    return data
         except CircuitOpenError as e:
             if self._tickers_cache is not None:
                 logger.warning("SEC circuit breaker open, serving stale cache: %s", e)
