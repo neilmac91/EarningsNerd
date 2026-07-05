@@ -16,7 +16,6 @@ import secrets
 import logging
 
 import httpx
-import bcrypt
 from jose import JWTError, jwt
 
 from app.database import get_db
@@ -27,6 +26,12 @@ from app.services.pwned_passwords import is_password_pwned
 from app.services.turnstile import enforce_turnstile
 from app.services import audit_service, login_lockout
 from app.services.oauth_verify import _verify_apple_id_token, _verify_google_id_token
+from app.services.password_utils import (
+    _DUMMY_PASSWORD_HASH,
+    get_password_hash,
+    validate_password_strength,
+    verify_password,
+)
 from app.services.refresh_token_service import (
     create_refresh_token,
     rotate_refresh_token,
@@ -64,27 +69,6 @@ RESET_RESEND_IP_LIMITER = RateLimiter(limit=20, window_seconds=3600)  # 20/hr pe
 
 EMAIL_VERIFY_EXPIRY_HOURS = 24
 PASSWORD_RESET_EXPIRY_HOURS = 1
-
-# bcrypt work factor — pinned explicitly rather than relying on the library default so the cost
-# is visible and stable across bcrypt upgrades.
-BCRYPT_ROUNDS = 12
-# Generous upper bound (NIST 800-63B: accept long passphrases). Note: bcrypt only considers the
-# first 72 bytes of the password; longer inputs are silently truncated by the algorithm.
-PASSWORD_MAX_LENGTH = 128
-
-
-def validate_password_strength(value: str) -> str:
-    """Validate a password against policy.
-
-    NIST 800-63B-aligned: enforce length, not arbitrary composition rules (no forced
-    upper/lower/digit). Breach screening (HaveIBeenPwned) is done in the endpoints because a
-    synchronous Pydantic validator cannot perform the async network call.
-    """
-    if len(value) < settings.PASSWORD_MIN_LENGTH:
-        raise ValueError(f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters.")
-    if len(value) > PASSWORD_MAX_LENGTH:
-        raise ValueError(f"Password must be at most {PASSWORD_MAX_LENGTH} characters.")
-    return value
 
 # Google/Apple OAuth FLOW endpoints (the redirect + Google token-exchange run in this router). The
 # JWKS fetch + id-token verification moved to app.services.oauth_verify (roadmap S3) and are
@@ -186,36 +170,6 @@ class ChangePasswordRequest(BaseModel):
     @classmethod
     def validate_password(cls, value: str) -> str:
         return validate_password_strength(value)
-
-
-# ─── Password helpers (bcrypt) ──────────────────────────────────────────────────
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password - supports both bcrypt and passlib formats"""
-    if not hashed_password:
-        return False
-    try:
-        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
-    except Exception:
-        try:
-            from passlib.context import CryptContext
-            pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-            return pwd_context.verify(plain_password, hashed_password)
-        except Exception:
-            return False
-
-
-def get_password_hash(password: str) -> str:
-    """Hash password using bcrypt with an explicitly-pinned work factor."""
-    salt = bcrypt.gensalt(rounds=BCRYPT_ROUNDS)
-    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
-    return hashed.decode('utf-8')
-
-
-# A fixed bcrypt hash of a random value. On login for an unknown email we verify the supplied
-# password against this so the request does the same expensive bcrypt work as a known-email
-# request — removing the timing side-channel that would otherwise reveal whether an email exists.
-_DUMMY_PASSWORD_HASH = get_password_hash(secrets.token_urlsafe(32))
 
 
 # ─── Token helpers ──────────────────────────────────────────────────────────────
