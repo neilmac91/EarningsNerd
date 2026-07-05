@@ -1,13 +1,12 @@
-#!/usr/bin/env python3
 """
 Test backend startup and validate configuration.
 Simulates the startup process to catch configuration issues.
-"""
-import sys
-from pathlib import Path
 
-# Add parent directory to path
-sys.path.insert(0, str(Path(__file__).parent.parent))
+This is a pytest smoke test (``test_startup_validation``); it no longer doubles as a
+standalone script, so the ``sys.path`` shim and the ``__main__`` runner were removed
+(the old shim resolved relative to ``scripts/`` and broke when the file moved here).
+"""
+
 
 def check_startup_validation():
     """Test startup validation logic"""
@@ -79,8 +78,3 @@ def check_startup_validation():
 
 def test_startup_validation():
     assert check_startup_validation() is True
-
-
-if __name__ == "__main__":
-    success = check_startup_validation()
-    sys.exit(0 if success else 1)

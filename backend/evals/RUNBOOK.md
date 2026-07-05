@@ -316,7 +316,7 @@ form, not an FPI 20-F.) An entry's `ads_ratio` (ordinary shares per ADS) drives 
 ### Step A — offline (no API spend, no network)
 ```bash
 cd backend
-pytest tests/unit/test_fpi_currency.py tests/unit/test_fpi_summary.py tests/test_edgar_services.py -q
+pytest tests/unit/test_fpi_currency.py tests/unit/test_fpi_summary.py tests/unit/test_edgar_services.py -q
 ```
 Covers reporting-currency capture (native vs USD-convenience), the `*_per_share` scorer, 20-F
 prompt selection, and the `FilingType` enum.

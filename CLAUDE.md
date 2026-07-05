@@ -74,8 +74,8 @@ pip install -r requirements.txt                    # Install dependencies
 # Schema is created at startup (Base.metadata.create_all in main.py's lifespan);
 # one-off SQL migrations live in migrations/ and are applied manually.
 uvicorn main:app --reload --host 0.0.0.0 --port 8000  # Dev server
-pytest tests/                                      # Run all tests
-pytest tests/unit/                                 # Unit tests only
+pytest                                             # Fast lane: performance suite deselected (run all: pytest -m "")
+pytest tests/unit/                                 # Unit tests only (still perf-deselected via pytest.ini)
 pytest tests/smoke/ -v                             # Smoke tests (critical paths)
 python3 scripts/deploy_check.py                    # Pre-deploy validation
 python3 scripts/validate_db_performance.py         # PostgreSQL performance check
@@ -498,12 +498,12 @@ WAITLIST_MODE=...                                  # Server-side waitlist gating
 
 ### Test Markers
 
-Custom pytest markers defined in `backend/tests/conftest.py`:
+Custom pytest markers defined in `backend/pytest.ini` (the single source of test config):
 - `@pytest.mark.smoke` - Critical path validation tests
 - `@pytest.mark.unit` - Unit tests
 - `@pytest.mark.integration` - Integration tests
 - `@pytest.mark.performance` - Performance tests
-- `@pytest.mark.requires_db` - Tests requiring database (skip gracefully if unavailable)
+- `@pytest.mark.requires_db` - Needs a database; NO auto-skip (the marked test must handle unavailability itself)
 - `@pytest.mark.slow` - Long-running tests
 
 ### Key Test Files
@@ -534,8 +534,8 @@ Custom pytest markers defined in `backend/tests/conftest.py`:
 - `test_concurrent_streams.py` - Concurrent SSE stream load testing
 
 **Other Tests:**
-- `backend/tests/test_summary_quality.py` - Output quality validation
-- `backend/tests/test_edgar_services.py` - EDGAR service tests
+- `backend/tests/unit/test_summary_quality.py` - Output quality validation
+- `backend/tests/unit/test_edgar_services.py` - EDGAR service tests
 - `frontend/__tests__/guards.test.ts` - Route guard tests
 - `frontend/tests/e2e/` - Playwright E2E specs (auth, dashboard, filing render)
 - `frontend/tests/unit/` - Vitest unit specs (formatters, summary stream, markdown rendering)
@@ -545,7 +545,9 @@ Custom pytest markers defined in `backend/tests/conftest.py`:
 The `backend/tests/conftest.py` automatically:
 - Sets mock environment variables for tests
 - Sets `SKIP_REDIS_INIT=true` to bypass Redis initialization
-- Registers custom pytest markers
+
+Custom pytest markers are registered in `backend/pytest.ini` (the single source of test config),
+NOT in conftest.py.
 
 ### Verification Scripts
 
@@ -555,7 +557,6 @@ Located in `backend/scripts/`:
 - `verify_extraction_standalone.py` - Test XBRL extraction against live SEC data
 - `verify_extraction_mock.py` - Tests XBRL extraction with mock data
 - `verify_startup_config.py` - Detailed startup configuration verification
-- `test_startup.py` - Validates application startup configuration
 - `debug_extraction.py` - Debug regex patterns for extraction
 - `fix_null_sec_urls.py` - Repair filings with NULL sec_url values (see Data Integrity below)
 - `backfill_facts.py` - Backfill the `financial_fact` table from cached/parsed XBRL

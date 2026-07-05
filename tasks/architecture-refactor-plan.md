@@ -49,6 +49,25 @@ waves append their deltas here rather than editing the plan body in place.
   there is no source to import from. Left test-local — an app-side copy the app never uses would be
   dead code.
 
+**Wave 0a — review follow-ups (PR #546, founder review):**
+- **Two deleted-coverage invariants promoted into the anchor set (this PR):** the security headers
+  `main.py` sets → `backend/tests/unit/test_security_headers.py`; the Stripe price-allowlist
+  rejection (unknown `price_id` → 400) → new case in `tests/unit/test_checkout_session.py`. These
+  were the only tests covering those invariants; recreated fresh against current fixtures.
+- **T11 (waitlist) + T12 (contact) — concrete follow-ups** for the remaining unique deleted coverage
+  (join / duplicate / invalid-referral / position math; submission + 3/hour rate limit). Zero
+  replacement in `backend/tests` today; to be written hermetically (route-level) in a follow-up.
+- **Marker discipline hardened:** `pytest.ini` deselects only `performance` (not `slow`) — `slow`
+  had no separate CI path, so slow-marked tests now run in the default lane instead of being silently
+  skipped. `tests/performance/conftest.py` auto-stamps `performance` by directory (a new perf file
+  can't miss the marker). `requires_db`'s description corrected (no auto-skip). The CI perf step is
+  path-scoped and the inert per-step `SECRET_KEY` env (conftest overrides it) was dropped.
+- **Doc drift fixed in-PR:** `backend/evals/RUNBOOK.md` Step A path and CLAUDE.md's 5 false
+  statements (markers now in `pytest.ini`; the 3 moved file paths; the misleading `pytest tests/`).
+- **Known/expected:** running `pytest` from the **repo root** now errors on the 3 remaining
+  `/tests/` pipeline tests (their `backend.pipeline` imports lost the deleted root-conftest shim).
+  Expected until Wave 1's `rm -rf tests/` — do NOT restore the shim. CI is unaffected (`cd backend`).
+
 _(Deltas from Wave 0b and later waves will be appended here as they are executed.)_
 
 ---

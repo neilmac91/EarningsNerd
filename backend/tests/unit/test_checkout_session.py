@@ -133,3 +133,20 @@ def test_beta_promo_id_accepts_promo_id_and_empty():
     """A 'promo_…' Promotion Code id is valid; empty (feature off) is valid."""
     assert Settings(STRIPE_BETA_PROMO_CODE_ID="promo_123").STRIPE_BETA_PROMO_CODE_ID == "promo_123"
     assert Settings(STRIPE_BETA_PROMO_CODE_ID="").STRIPE_BETA_PROMO_CODE_ID == ""
+
+
+def test_unknown_price_id_is_rejected_with_400(client):
+    """Allowlist negative path: an unsupported price_id → 400 (guards ``_resolve_price_id`` → None).
+
+    Promoted into the Wave 0 anchor set (PR #546 review): the deleted orphan
+    ``test_security_controls.py`` was the only test covering this rejection, so loosening the
+    allowlist would otherwise ship silently. The autouse fixture provides a verified user with a
+    Stripe customer; conftest sets ``STRIPE_SECRET_KEY``, so the endpoint reaches the price check
+    rather than the not-configured 500.
+    """
+    resp = client.post(
+        "/api/subscriptions/create-checkout-session",
+        params={"price_id": "price_not_on_the_allowlist"},
+    )
+    assert resp.status_code == 400
+    assert "Invalid price_id" in resp.json()["detail"]
