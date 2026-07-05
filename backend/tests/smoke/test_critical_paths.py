@@ -278,3 +278,33 @@ class TestCORS:
 
 # Marker for smoke tests
 pytestmark = pytest.mark.smoke
+
+
+class TestAnalysisEndpoints:
+    """Multi-Period Analysis critical path: routes registered + gated correctly."""
+
+    def test_coverage_requires_auth(self, client):
+        response = client.get("/api/analysis/AAPL/coverage")
+        assert response.status_code == 401
+
+    def test_dataset_requires_auth(self, client):
+        response = client.post(
+            "/api/analysis/AAPL/dataset",
+            json={"mode": "annual", "start_period": "FY2020", "end_period": "FY2024"},
+        )
+        assert response.status_code == 401
+
+    def test_stream_requires_auth(self, client):
+        response = client.post(
+            "/api/analysis/AAPL/stream",
+            json={"mode": "annual", "start_period": "FY2020", "end_period": "FY2024"},
+        )
+        assert response.status_code == 401
+
+    def test_export_requires_auth(self, client):
+        assert client.get("/api/analysis/export/1/pdf").status_code == 401
+
+    def test_compare_router_is_gone(self, client):
+        # M5 teardown: the dark Compare feature is fully retired, not just hidden.
+        response = client.post("/api/compare/", json={"filing_ids": [1, 2]})
+        assert response.status_code == 404
