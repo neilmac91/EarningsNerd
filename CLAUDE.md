@@ -112,15 +112,14 @@ docker-compose down                   # Stop databases
 │   │   └── openai_service.py    # AI summarization logic
 │   ├── models/           # SQLAlchemy ORM models (User/Company/Filing/Summary in __init__.py; FinancialFact, notifications, refresh_token, subscription, waitlist, contact, audit_log in submodules)
 │   ├── schemas/          # Pydantic validation schemas (summary, contact, fundamentals, insiders, peers, search)
-│   ├── integrations/     # External APIs (finnhub, earnings_whispers, fmp, stocktwits, sec_api)
+│   ├── integrations/     # External APIs (finnhub, fmp, stocktwits, sec_api)
 │   ├── config.py         # Pydantic Settings (env validation)
 │   └── database.py       # DB session management
-├── pipeline/             # SEC data pipeline (extract, validate, quality, schema, write)
 ├── evals/                # AI eval harness (golden sets, judge, copilot scorers) — see evals/RUNBOOK.md
 ├── tests/                # pytest tests (unit/, integration/, performance/, smoke/)
 ├── prompts/              # AI system prompts (10k/10q analyst-agent.md + 10k/10q structured-agent.md)
 ├── scripts/              # Verification and debug scripts
-├── docs/                 # Design docs (plan_sec_pipeline.md)
+├── docs/                 # Design & deployment docs
 ├── migrations/           # One-off SQL migrations (applied manually; no Alembic)
 └── main.py               # FastAPI app entry point
 
@@ -173,7 +172,7 @@ docker-compose down                   # Stop databases
 | `backend/app/services/resend_service.py` | Low-level Resend API client |
 | `backend/app/services/fallback_summary.py` | Generates deterministic summaries when AI generation fails |
 | `backend/app/services/prompt_loader.py` | Loads AI prompts from markdown files |
-| `backend/app/services/hot_filings.py` | Identifies trending SEC filings using Finnhub/EarningsWhispers signals |
+| `backend/app/services/hot_filings.py` | Identifies trending SEC filings using Finnhub/FMP signals |
 | `backend/app/services/trending_service.py` | Trending tickers with keyword sentiment analysis |
 | `backend/app/services/export_service.py` | PDF/HTML export of summaries and filings |
 | `backend/app/services/waitlist_service.py` | Waitlist signups with referral codes and priority scoring |
@@ -223,22 +222,9 @@ docker-compose down                   # Stop databases
 | File | Purpose |
 |------|---------|
 | `finnhub.py` | News sentiment analysis (buzz_ratio, articles_in_last_week, bullish_percent) |
-| `earnings_whispers.py` | Earnings surprise signals and company earnings data |
 | `fmp.py` | Financial Modeling Prep: stock symbol validation, price data, earnings calendar |
 | `stocktwits.py` | Stocktwits trending symbols API for social sentiment signals |
 | `sec_api.py` | SEC EDGAR full-text search (EFTS) — keyless filing/exhibit text index since 2001 |
-
-### SEC Data Pipeline (`backend/pipeline/`)
-
-Modular ETL pipeline for SEC filing data (see `backend/docs/plan_sec_pipeline.md`):
-
-| File | Purpose |
-|------|---------|
-| `extract.py` | Extraction logic for filing data |
-| `validate.py` | Validation of extracted data |
-| `quality.py` | Data quality checks |
-| `schema.py` | Schema definitions for pipeline data |
-| `write.py` | Persist/write pipeline output |
 
 ### API Routers (`backend/app/routers/`)
 
@@ -310,10 +296,6 @@ Modular ETL pipeline for SEC filing data (see `backend/docs/plan_sec_pipeline.md
   - L2: Redis cache for persistence and cross-instance sharing
   - Graceful fallback to stale L1 cache on Redis/network failures
   - `get_xbrl_cache_stats()` returns both `l1_*` and legacy keys for compatibility
-- **Thread-Safe Metrics:** Request metrics use `threading.RLock` for safe concurrent access:
-  - Reentrant lock allows nested property calls without deadlock
-  - All metric properties (`average_latency_ms`, `error_rate`, `requests_per_minute`) are protected
-  - `record_request()` and `to_dict()` are fully thread-safe
 - **Event Loop Safety:** Redis connections handle event loop changes gracefully:
   - `_reset_on_loop_change()` detects when running in a new event loop
   - Automatically resets pool/client/lock to prevent hangs on stale connections
@@ -448,9 +430,6 @@ FINNHUB_API_KEY=...               # Required for sentiment analysis
 FINNHUB_API_BASE=https://finnhub.io/api/v1
 FINNHUB_TIMEOUT_SECONDS=6.0       # Timeout for Finnhub API calls
 FINNHUB_MAX_CONCURRENCY=4         # Max concurrent Finnhub requests
-
-# External APIs - EarningsWhispers
-EARNINGS_WHISPERS_API_BASE=https://www.earningswhispers.com/api
 
 # External APIs - Financial Modeling Prep (FMP)
 FMP_API_KEY=...                   # Stock validation, price data, earnings calendar
@@ -649,13 +628,6 @@ python scripts/fix_null_sec_urls.py --ticker BMRN --execute
 {
   "timestamp": "2024-01-29T12:34:56Z",
   "app": {"name": "EarningsNerd API", "version": "1.0.0", "environment": "production"},
-  "requests": {
-    "total_requests": 5432,
-    "successful_requests": 5201,
-    "average_latency_ms": 45.23,
-    "error_rate_percent": 4.25,
-    "requests_per_minute": 12
-  },
   "circuit_breaker": {"sec_edgar": {"state": "closed", "stats": {...}}},
   "cache": {
     "redis": {"healthy": true, "hit_rate": 84.75, "hits": 1200, "misses": 215},
@@ -722,7 +694,6 @@ python scripts/fix_null_sec_urls.py --ticker BMRN --execute
 | `RuntimeError: Lock bound to different event loop` | asyncio.Lock created in wrong loop | Use lazy lock initialization pattern |
 | High memory usage | L1 cache unbounded | Check `_cache_max_size` is set (default 1000) |
 | Slow health checks | Sync DB check blocking event loop | Use `run_in_executor()` for DB operations |
-| Metrics deadlock | Using `threading.Lock` with nested calls | Use `threading.RLock` for reentrant locking |
 
 ### Performance Tuning
 
@@ -751,7 +722,6 @@ EDGAR_THREAD_POOL_SIZE = 4  # Increase for more concurrent SEC API calls
 | `cache.xbrl_l1.utilization_percent` | > 80% | > 95% |
 | `cache.redis.healthy` | - | `false` |
 | `circuit_breaker.sec_edgar.state` | `half_open` | `open` |
-| `requests.error_rate_percent` | > 5% | > 15% |
 | `database.checked_out` | > 8 | = pool_size |
 
 ## Request Timeout Configuration

@@ -6,7 +6,6 @@ Aggregates metrics from various services:
 - Circuit breaker status
 - Cache statistics
 - Database connection pool stats
-- Request counts and latencies
 
 Usage:
     from app.services.metrics_service import get_all_metrics
@@ -15,9 +14,7 @@ Usage:
 """
 
 import asyncio
-import threading
 import time
-from dataclasses import dataclass, field
 from typing import Dict, Any
 import logging
 
@@ -26,124 +23,6 @@ from app.config import APP_VERSION
 logger = logging.getLogger(__name__)
 
 
-@dataclass
-class RequestMetrics:
-    """Metrics for HTTP request tracking."""
-
-    total_requests: int = 0
-    successful_requests: int = 0  # 2xx responses
-    client_errors: int = 0  # 4xx responses
-    server_errors: int = 0  # 5xx responses
-    total_latency_ms: float = 0.0
-
-    # Per-endpoint tracking (top endpoints)
-    endpoint_counts: Dict[str, int] = field(default_factory=dict)
-
-    # Recent request timestamps for rate calculation
-    _recent_timestamps: list = field(default_factory=list)
-
-    # Reentrant lock (RLock) for thread-safe access to mutable state.
-    # WHY RLock instead of Lock: The to_dict() method acquires the lock and then
-    # calls properties like average_latency_ms, error_rate, and requests_per_minute.
-    # These properties also need the lock for thread safety. With a regular Lock,
-    # this would deadlock because the same thread cannot acquire a Lock twice.
-    # RLock allows the same thread to acquire the lock multiple times (reentrant).
-    _lock: threading.RLock = field(default_factory=threading.RLock)
-
-    @property
-    def average_latency_ms(self) -> float:
-        """Calculate average request latency (thread-safe)."""
-        with self._lock:
-            if self.total_requests == 0:
-                return 0.0
-            return self.total_latency_ms / self.total_requests
-
-    @property
-    def error_rate(self) -> float:
-        """Calculate error rate as a percentage (thread-safe)."""
-        with self._lock:
-            if self.total_requests == 0:
-                return 0.0
-            errors = self.client_errors + self.server_errors
-            return errors / self.total_requests * 100
-
-    @property
-    def requests_per_minute(self) -> float:
-        """Calculate recent requests per minute (thread-safe)."""
-        now = time.time()
-        cutoff = now - 60  # Last minute
-
-        with self._lock:
-            # Clean old timestamps
-            self._recent_timestamps = [
-                ts for ts in self._recent_timestamps if ts > cutoff
-            ]
-            return len(self._recent_timestamps)
-
-    def record_request(
-        self,
-        endpoint: str,
-        status_code: int,
-        latency_ms: float,
-    ) -> None:
-        """Record a completed request (thread-safe)."""
-        with self._lock:
-            self.total_requests += 1
-            self.total_latency_ms += latency_ms
-            self._recent_timestamps.append(time.time())
-
-            # Categorize by status code
-            if 200 <= status_code < 300:
-                self.successful_requests += 1
-            elif 400 <= status_code < 500:
-                self.client_errors += 1
-            elif status_code >= 500:
-                self.server_errors += 1
-
-            # Track top endpoints
-            if endpoint not in self.endpoint_counts:
-                self.endpoint_counts[endpoint] = 0
-            self.endpoint_counts[endpoint] += 1
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert metrics to dictionary (thread-safe)."""
-        with self._lock:
-            # Get top 10 endpoints by request count
-            top_endpoints = sorted(
-                self.endpoint_counts.items(),
-                key=lambda x: x[1],
-                reverse=True
-            )[:10]
-
-            return {
-                "total_requests": self.total_requests,
-                "successful_requests": self.successful_requests,
-                "client_errors": self.client_errors,
-                "server_errors": self.server_errors,
-                "average_latency_ms": round(self.average_latency_ms, 2),
-                "error_rate_percent": round(self.error_rate, 2),
-                "requests_per_minute": self.requests_per_minute,
-                "top_endpoints": dict(top_endpoints),
-            }
-
-
-# Global request metrics instance
-_request_metrics = RequestMetrics()
-
-
-def get_request_metrics() -> RequestMetrics:
-    """Get the global request metrics instance."""
-    return _request_metrics
-
-
-def record_request(
-    endpoint: str,
-    status_code: int,
-    latency_ms: float,
-) -> None:
-    """Record a completed request in global metrics."""
-    _request_metrics.record_request(endpoint, status_code, latency_ms)
-
 
 async def get_all_metrics() -> Dict[str, Any]:
     """
@@ -151,7 +30,6 @@ async def get_all_metrics() -> Dict[str, Any]:
 
     Returns a dictionary with metrics from all services:
     - app: Application-level metrics (uptime, version)
-    - requests: HTTP request metrics
     - circuit_breaker: SEC EDGAR circuit breaker status
     - cache: Redis cache statistics
     - database: Database connection pool stats
@@ -167,7 +45,6 @@ async def get_all_metrics() -> Dict[str, Any]:
             "python_version": sys.version.split()[0],
             "environment": _get_environment(),
         },
-        "requests": _request_metrics.to_dict(),
     }
 
     # Circuit breaker metrics

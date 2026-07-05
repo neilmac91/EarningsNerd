@@ -14,9 +14,7 @@ _PII_PARAM_NAMES = {"user", "current_user", "email", "user_id", "user_email", "u
 # The methods that actually build prompts / call the model.
 _LLM_ENTRYPOINTS = [
     "summarize_filing",
-    "summarize_filing_stream",
     "generate_structured_summary",
-    "generate_editorial_markdown",
 ]
 
 

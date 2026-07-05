@@ -41,7 +41,7 @@ system. Approved decisions: concept guard STRIPS; GCP email alerting; golden set
 - [x] Alerting: `scripts/setup_citation_alerts.sh` (2 log-based metrics, email channel, 2 policies;
       idempotent) + **root-cause find:** the JSON log formatter emitted `level` but not `severity`,
       so ALL prod JSON logs land as DEFAULT severity and any severity filter would never match —
-      added `severity` to `logging_service.py`. RUNBOOK + beta-monitoring.md updated.
+      added `severity` to `logging_service.py`. RUNBOOK + tasks/archive/beta-monitoring.md updated.
 **PR 2 — selection pressure on the model (eval-gated):**
 - [x] Prompt clause: multi-metric questions must fetch EACH metric and period via tools — one
       lookup per figure; unfetched figures need a text excerpt or must be omitted.
@@ -569,7 +569,7 @@ LLM judge for qualitative dims). Full plan: `~/.claude/plans/act-as-an-expert-ad
   Raised cap to 200k; verified faithfulness 2→4, insight 3→4 on the same summary. **The pipeline was
   never hallucinating; the judge was under-contexted.**
 
-## GLM-5.2 vs DeepSeek bake-off — COMPLETE (see tasks/glm-5.2-bakeoff.md)
+## GLM-5.2 vs DeepSeek bake-off — COMPLETE (see tasks/archive/glm-5.2-bakeoff.md)
 - [x] Full-pipeline env-swap, judge-on, identical Wave-2 prompts. **Quality dead-heat** (deltas within
       noise; both perfect on precision/coverage/gates; 0/78 errors). DeepSeek ~48% faster, ~3.5×
       cheaper. **Decision: stay on DeepSeek; keep GLM-5.2 as a validated env-swap failover.**

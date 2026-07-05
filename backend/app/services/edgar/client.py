@@ -14,9 +14,6 @@ Usage:
 
     # Get latest 10-K filing
     filing = await client.get_latest_filing("AAPL", FilingType.FORM_10K)
-
-    # Get XBRL financial data
-    xbrl = await client.get_xbrl_data("AAPL", accession_number="...")
 """
 
 import asyncio
@@ -27,7 +24,7 @@ from urllib.parse import urljoin
 
 from edgar import Company as EdgarCompany, set_identity, find as edgar_find
 
-from .async_executor import run_in_executor, run_in_executor_with_timeout
+from .async_executor import run_in_executor_with_timeout
 from .config import EDGAR_IDENTITY, FilingType, EDGAR_DEFAULT_TIMEOUT_SECONDS, EDGAR_THREAD_POOL_SIZE
 from .exceptions import (
     CompanyNotFoundError,
@@ -38,8 +35,7 @@ from .exceptions import (
     EdgarRateLimitError,
     translate_edgartools_exception,
 )
-from .models import Company, Filing, XBRLData, FinancialMetric
-from .statement_parser import extract_metric_values, statement_dataframe
+from .models import Company, Filing
 
 logger = logging.getLogger(__name__)
 
@@ -282,54 +278,6 @@ class EdgarClient:
 
         return filings[0]
 
-    async def get_xbrl_data(
-        self,
-        ticker: str,
-        accession_number: Optional[str] = None,
-    ) -> Optional[XBRLData]:
-        """
-        Get XBRL financial data for a company.
-
-        Args:
-            ticker: Stock ticker symbol
-            accession_number: Optional specific filing accession number.
-                            If not provided, uses the latest 10-K or 10-Q.
-
-        Returns:
-            XBRLData object with financial metrics, or None if not available
-
-        Raises:
-            CompanyNotFoundError: If the ticker is not found
-            EdgarError: For other errors
-        """
-        ticker = ticker.upper().strip()
-        logger.debug(f"Getting XBRL data for {ticker}")
-
-        try:
-            edgar_company = await run_in_executor_with_timeout(
-                lambda: EdgarCompany(ticker),
-                timeout=self.timeout,
-            )
-
-            # Get financials via EdgarTools (5.x exposes get_financials();
-            # there is no `financials` property)
-            financials = await run_in_executor_with_timeout(
-                edgar_company.get_financials,
-                timeout=self.timeout,
-            )
-
-            if not financials:
-                logger.warning(f"No financials available for {ticker}")
-                return None
-
-            return await self._extract_xbrl_data(financials, accession_number)
-
-        except Exception as exc:
-            if "not found" in str(exc).lower():
-                raise CompanyNotFoundError(ticker, cause=exc)
-            logger.error(f"Error getting XBRL data for {ticker}: {exc}")
-            return None
-
     async def get_filing_html(
         self,
         ticker: str,
@@ -494,60 +442,6 @@ class EdgarClient:
             document_url=document_url,
             sec_url=sec_url,
         )
-
-    async def _extract_xbrl_data(
-        self,
-        financials,
-        accession_number: Optional[str] = None,
-    ) -> Optional[XBRLData]:
-        """Extract XBRL data from EdgarTools financials object."""
-
-        xbrl_data = XBRLData()
-
-        try:
-            # Get income statement
-            df = await run_in_executor(lambda: statement_dataframe(financials, "income_statement"))
-            if df is not None and not df.empty:
-                xbrl_data.revenue = self._extract_metric_series(df, ["RevenueFromContractWithCustomerExcludingAssessedTax", "Revenues", "Revenue", "TotalRevenue", "NetSales"], accession_number)
-                xbrl_data.net_income = self._extract_metric_series(df, ["NetIncomeLoss", "ProfitLoss", "NetIncome"], accession_number)
-                xbrl_data.earnings_per_share = self._extract_metric_series(df, ["EarningsPerShareBasic", "BasicEarningsPerShare", "EarningsPerShareDiluted"], accession_number)
-
-            # Get balance sheet
-            df = await run_in_executor(lambda: statement_dataframe(financials, "balance_sheet"))
-            if df is not None and not df.empty:
-                xbrl_data.total_assets = self._extract_metric_series(df, ["Assets", "TotalAssets"], accession_number)
-                xbrl_data.total_liabilities = self._extract_metric_series(df, ["Liabilities", "TotalLiabilities"], accession_number)
-                xbrl_data.cash_and_equivalents = self._extract_metric_series(df, ["CashAndCashEquivalentsAtCarryingValue", "Cash", "CashAndCashEquivalents"], accession_number)
-
-        except Exception as exc:
-            logger.warning(f"Error extracting XBRL data: {exc}")
-
-        return xbrl_data if not xbrl_data.is_empty() else None
-
-    def _extract_metric_series(
-        self,
-        df,
-        candidates: List[str],
-        accession_number: Optional[str],
-    ) -> List[FinancialMetric]:
-        """Extract a metric series from an EdgarTools statement DataFrame."""
-        from datetime import date as date_type
-
-        matched_concept, values = extract_metric_values(df, candidates)
-        metrics = []
-        for period_iso, value in values[:5]:
-            try:
-                period_end = date_type.fromisoformat(period_iso)
-            except (ValueError, TypeError):
-                logger.debug(f"Skipping metric with unparseable date: {period_iso}")
-                continue
-            metrics.append(FinancialMetric(
-                name=matched_concept,
-                value=value,
-                period_end=period_end,
-                accession_number=accession_number,
-            ))
-        return metrics
 
 
 # Singleton instance for convenience

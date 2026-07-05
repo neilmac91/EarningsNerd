@@ -21,12 +21,12 @@
 * **Key Files to Watch:**
   ```
   backend/app/services/openai_service.py
-  backend/pipeline/extract.py
-  backend/pipeline/quality.py
-  backend/pipeline/schema.py
+  backend/app/services/summary_generation_service.py
+  backend/app/services/edgar/xbrl_service.py
+  backend/app/services/summary_pipeline.py
   backend/app/routers/summaries.py
   backend/app/schemas/summary.py
-  prompts/**/*.txt (if exists)
+  backend/prompts/**/*.md
   ```
 * **Forbidden Actions:**
   - Never return AI-generated financial figures without source verification
@@ -55,7 +55,7 @@ When receiving an AI feature task:
 * **Token Counting:** `tiktoken` library for accurate token estimation
 * **Pattern Search:** Use `Grep` to find existing prompts: `pattern: "system.*message|prompt"`
 * **Service Review:** Read `backend/app/services/openai_service.py` for current implementation
-* **Quality Metrics:** Review `backend/pipeline/quality.py` for validation patterns
+* **Quality Metrics:** Review `backend/app/services/summary_generation_service.py` (`calculate_section_coverage`, `determine_result_type`, `assess_quality`) for validation patterns
 
 ### 3. Execution
 ```python
