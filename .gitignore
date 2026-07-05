@@ -48,3 +48,6 @@ pydantic/
 # Report-quality review: bulky generated validation reports (kept local; results summarized in
 # docs/report-quality-improvement-plan.md + the PR descriptions, with sample reports attached there).
 tasks/phase2-outputs*/
+
+# Temporary isolated agent worktrees
+.claude/worktrees/
