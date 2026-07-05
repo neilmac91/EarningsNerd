@@ -347,16 +347,37 @@ def _hashed_client_ip(request: Request) -> Optional[str]:
     return hashlib.sha256(f"{ip}:{settings.SECRET_KEY}".encode("utf-8")).hexdigest()
 
 
-def _issue_refresh_token(db: Session, user: User, request: Request, response: Response) -> None:
-    """Mint a refresh token, persist it, and set the HttpOnly refresh cookie."""
-    _, raw_token = create_refresh_token(
-        db,
-        user,
-        user_agent=request.headers.get("user-agent"),
-        ip=_client_ip(request),
-    )
-    db.commit()
-    _set_refresh_cookie(response, raw_token)
+def issue_session(
+    db: Session,
+    user: User,
+    response: Response,
+    request: Request,
+    *,
+    refresh_token: Optional[str] = None,
+    commit: bool = True,
+) -> str:
+    """Issue a full session on ``response``: set the access + presence cookies and the refresh cookie.
+
+    The single mint point for the login paths. By default a NEW refresh token is minted and committed
+    (login, change-password, OAuth callbacks). Pass ``refresh_token=`` with ``commit=False`` when the
+    caller already rotated + committed one (the ``/refresh`` endpoint). ``create_refresh_token`` can
+    raise ``IntegrityError`` on a concurrent OAuth first-login, so callers that need the OAuth conflict
+    redirect wrap this in their own try/except; every other caller lets it propagate. Returns the raw
+    access token (body responses echo it).
+    """
+    access_token = create_access_token(data={"sub": user.email})
+    _set_auth_cookie(response, access_token)
+    if refresh_token is None:
+        _, refresh_token = create_refresh_token(
+            db,
+            user,
+            user_agent=request.headers.get("user-agent"),
+            ip=_client_ip(request),
+        )
+        if commit:
+            db.commit()
+    _set_refresh_cookie(response, refresh_token)
+    return access_token
 
 
 def _get_token_from_request(
@@ -688,9 +709,7 @@ async def login(
     login_lockout.clear_failures(db, user_data.email)  # a successful login resets the lockout
     user.last_login_at = datetime.now(timezone.utc)
     db.commit()
-    access_token = create_access_token(data={"sub": user.email})
-    _set_auth_cookie(response, access_token)
-    _issue_refresh_token(db, user, request, response)
+    access_token = issue_session(db, user, response, request)
     audit_service.log_login_success(db, user.id, user.email, ip_address=hashed_ip)
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -735,9 +754,7 @@ async def refresh(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = create_access_token(data={"sub": user.email})
-    _set_auth_cookie(response, access_token)
-    _set_refresh_cookie(response, new_refresh_token)
+    access_token = issue_session(db, user, response, request, refresh_token=new_refresh_token, commit=False)
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -938,9 +955,7 @@ async def change_password(
     # _issue_refresh_token, so a failure there rolls the whole change back (no
     # password-changed-but-500 inconsistency) and saves a commit round-trip.
     revoke_all_for_user(db, current_user.id)
-    access_token = create_access_token(data={"sub": current_user.email})
-    _set_auth_cookie(response, access_token)
-    _issue_refresh_token(db, current_user, request, response)
+    issue_session(db, current_user, response, request)
     return {"message": "Password updated."}
 
 
@@ -1056,18 +1071,12 @@ async def google_callback(
 
     redirect = RedirectResponse(url=frontend_url, status_code=302)
     redirect.delete_cookie(_OAUTH_STATE_COOKIE)
-    access_token = create_access_token(data={"sub": user.email})
-    _set_auth_cookie(redirect, access_token)
     try:
-        _, raw_refresh = create_refresh_token(
-            db, user, user_agent=request.headers.get("user-agent"), ip=_client_ip(request),
-        )
-        db.commit()
+        issue_session(db, user, redirect, request)
     except IntegrityError:
         db.rollback()
         logger.warning("Google OAuth IntegrityError for sub=%s", google_sub)
         return RedirectResponse(f"{frontend_url}/login?error=google_account_conflict", status_code=302)
-    _set_refresh_cookie(redirect, raw_refresh)
 
     hashed_ip = _hashed_client_ip(request)
     audit_service.log_oauth_login(db, user.id, user.email, provider="google", ip_address=hashed_ip)
@@ -1218,20 +1227,12 @@ async def apple_callback(
 
     user_obj.last_login_at = datetime.now(timezone.utc)
     redirect = RedirectResponse(url=frontend_url, status_code=302)
-    access_token = create_access_token(data={"sub": user_obj.email})
-    _set_auth_cookie(redirect, access_token)
     try:
-        _, raw_refresh = create_refresh_token(
-            db, user_obj,
-            user_agent=request.headers.get("user-agent"),
-            ip=_client_ip(request),
-        )
-        db.commit()
+        issue_session(db, user_obj, redirect, request)
     except IntegrityError:
         db.rollback()
         logger.warning("Apple OAuth IntegrityError for sub=%s", apple_sub)
         return RedirectResponse(f"{frontend_url}/login?error=apple_account_conflict", status_code=302)
-    _set_refresh_cookie(redirect, raw_refresh)
 
     hashed_ip = _hashed_client_ip(request)
     audit_service.log_oauth_login(db, user_obj.id, user_obj.email, provider="apple", ip_address=hashed_ip)
