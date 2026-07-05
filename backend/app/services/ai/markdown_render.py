@@ -1,0 +1,424 @@
+"""Deterministic structured-summary rendering + fallbacks for OpenAIService (roadmap S2 façade split).
+
+``_MarkdownRenderMixin`` holds the NON-LLM output path: render Markdown directly from structured
+data (``_build_structured_markdown``), coerce a loose payload to a dict (``_coerce_summary_dict``),
+and fill any sections the model left empty with deterministic, XBRL-grounded fallbacks
+(``_apply_structured_fallbacks``). Mixed into ``OpenAIService``; methods resolve through ``self``.
+Extracted verbatim.
+"""
+from __future__ import annotations
+
+from typing import Any, Dict, List, Optional
+
+from app.services.ai.normalize import _PLACEHOLDER_STRINGS
+
+
+class _MarkdownRenderMixin:
+    """Deterministic structured→markdown rendering + section fallbacks, mixed into OpenAIService."""
+
+    def _build_structured_markdown(
+        self,
+        structured_summary: Dict[str, Any],
+        failure_reason: Optional[str] = None,
+    ) -> str:
+        """Fallback: render Markdown directly from structured data when the writer LLM output fails validation."""
+        metadata = structured_summary.get("metadata", {}) or {}
+        sections = structured_summary.get("sections", {}) or {}
+
+        company_name = metadata.get("company_name") or "The company"
+        filing_type = metadata.get("filing_type") or "filing"
+        reporting_period = metadata.get("reporting_period") or metadata.get("reportingPeriod") or "the reporting period"
+
+        lines: list[str] = []
+        if failure_reason:
+            lines.append(f"*Auto-generated from structured data because the writer output failed validation ({failure_reason}).*")
+
+        # Executive Summary
+        exec_section = sections.get("executive_snapshot") or {}
+        headline = exec_section.get("headline")
+        key_points = exec_section.get("key_points") or exec_section.get("keyPoints") or []
+        tone = exec_section.get("tone")
+
+        lines.append("## Executive Summary")
+        summary_bits: list[str] = []
+        if headline:
+            summary_bits.append(headline.strip())
+        else:
+            summary_bits.append(f"{company_name} filed its {filing_type.upper()} covering {reporting_period}.")
+        # Only surface tone when it carries signal — "neutral" is the uninformative default and
+        # reads as filler, so it is omitted (report-quality Phase 0).
+        if tone and str(tone).strip().lower() not in ("neutral", ""):
+            summary_bits.append(f"Management's disclosed tone was {str(tone).strip().lower()}.")
+        if key_points:
+            cleaned_points = "; ".join(point.strip() for point in key_points if point)
+            if cleaned_points:
+                summary_bits.append(cleaned_points)
+        lines.append(" ".join(summary_bits).strip())
+
+        # Financials
+        financials = sections.get("financial_highlights") or {}
+        table_rows = financials.get("table") or []
+        profitability = financials.get("profitability") or []
+        cash_flow = financials.get("cash_flow") or financials.get("cashFlow") or []
+        balance_sheet = financials.get("balance_sheet") or financials.get("balanceSheet") or []
+
+        lines.append("\n## Financials")
+        financial_lines_added = False
+        if table_rows:
+            for row in table_rows:
+                if not isinstance(row, dict):
+                    continue
+                metric = row.get("metric")
+                if not metric:
+                    continue
+                current_period = row.get("current_period") or row.get("currentPeriod") or "Not disclosed"
+                prior_period = row.get("prior_period") or row.get("priorPeriod")
+                change = row.get("change")
+                commentary = (row.get("commentary") or "").replace("\n", " ").strip()
+
+                # Bold the metric label + current figure so a reader scanning the page lands on the
+                # numbers (render-safe markdown; substring-matchable so eval numeric scorers are
+                # unaffected). Only a real value is bolded — never a placeholder ("Not disclosed",
+                # "N/A", "—", …), checked against the canonical _PLACEHOLDER_STRINGS set.
+                current_disp = (
+                    f"**{current_period}**"
+                    if isinstance(current_period, str)
+                    and current_period.strip().lower() not in _PLACEHOLDER_STRINGS
+                    else current_period
+                )
+                bullet = f"- **{metric}:** {current_disp}"
+                if prior_period and prior_period != "Not disclosed":
+                    bullet += f" vs. {prior_period}"
+                if change and change != "Not disclosed":
+                    bullet += f" ({change})"
+                if commentary:
+                    bullet += f" – {commentary}"
+                lines.append(bullet)
+                financial_lines_added = True
+        if profitability:
+            lines.append("- Profitability: " + "; ".join(item.strip() for item in profitability if item))
+            financial_lines_added = True
+        if cash_flow:
+            lines.append("- Cash flow: " + "; ".join(item.strip() for item in cash_flow if item))
+            financial_lines_added = True
+        if balance_sheet:
+            lines.append("- Balance sheet: " + "; ".join(item.strip() for item in balance_sheet if item))
+            financial_lines_added = True
+        if not financial_lines_added:
+            lines.append("- Key financial metrics were not disclosed in the structured extract.")
+
+        # Risks
+        lines.append("\n## Risks")
+        risks = sections.get("risk_factors") or []
+        if risks:
+            for risk in risks:
+                if not isinstance(risk, dict):
+                    continue
+                summary = (risk.get("summary") or risk.get("title") or "Risk factor not specified").strip()
+                evidence = risk.get("supporting_evidence") or risk.get("supportingEvidence")
+                bullet = f"- {summary}"
+                if evidence:
+                    bullet += f" (Evidence: {evidence})"
+                lines.append(bullet)
+        else:
+            lines.append("- No material incremental risks were highlighted beyond routine disclosures.")
+
+        # Management Commentary
+        lines.append("\n## Management Commentary")
+        mgmt = sections.get("management_discussion_insights") or {}
+        themes = mgmt.get("themes") or []
+        capital_allocation = mgmt.get("capital_allocation") or mgmt.get("capitalAllocation") or []
+        quotes = mgmt.get("quotes") or []
+        mgmt_added = False
+        if themes:
+            lines.append("- Themes: " + "; ".join(item.strip() for item in themes if item))
+            mgmt_added = True
+        if capital_allocation:
+            lines.append("- Capital allocation: " + "; ".join(item.strip() for item in capital_allocation if item))
+            mgmt_added = True
+        if quotes:
+            for quote in quotes:
+                if isinstance(quote, dict):
+                    text = (quote.get("quote") or "").strip()
+                    speaker = (quote.get("speaker") or "").strip()
+                    if text:
+                        mgmt_added = True
+                        if speaker:
+                            lines.append(f'> "{text}" – {speaker}')
+                        else:
+                            lines.append(f'> "{text}"')
+        if not mgmt_added:
+            lines.append("- Management commentary was limited in the structured extract.")
+
+        # Outlook
+        lines.append("\n## Outlook")
+        outlook = sections.get("guidance_outlook") or {}
+        guidance = outlook.get("guidance")
+        tone = outlook.get("tone")
+        drivers = outlook.get("drivers") or []
+        watch_items = outlook.get("watch_items") or outlook.get("watchItems") or []
+
+        outlook_points: list[str] = []
+        if guidance and guidance != "Not disclosed":
+            outlook_points.append(f"Guidance: {guidance}")
+        if tone:
+            outlook_points.append(f"Tone: {tone}")
+        if drivers:
+            outlook_points.append("Drivers: " + "; ".join(item.strip() for item in drivers if item))
+        if watch_items:
+            outlook_points.append("Watch items: " + "; ".join(item.strip() for item in watch_items if item))
+
+        if outlook_points:
+            for point in outlook_points:
+                lines.append(f"- {point}")
+        else:
+            lines.append("- Guidance was not disclosed; monitor subsequent updates for direction.")
+
+        return "\n".join(lines).strip()
+
+    @staticmethod
+    def _coerce_summary_dict(data: Any) -> Dict[str, Any]:
+        """Normalize parsed model JSON to the expected object shape.
+
+        Some models (especially without a strict schema) return a top-level array, or a
+        single-element array wrapping the object. Without this guard, ``data.get(...)`` raises
+        ``'list' object has no attribute 'get'`` and the whole summary fails with the user-facing
+        "Unable to retrieve this filing" error. Coercing here keeps the pipeline alive so the
+        structured fallbacks can fill any gaps instead of crashing.
+        """
+        if isinstance(data, dict):
+            return data
+        if isinstance(data, list):
+            for item in data:  # prefer an element that looks like the summary object
+                if isinstance(item, dict) and ("sections" in item or "metadata" in item):
+                    return item
+            for item in data:
+                if isinstance(item, dict):
+                    return item
+        return {}
+
+    def _apply_structured_fallbacks(
+        self,
+        sections: Dict[str, Any],
+        metadata: Dict[str, Any],
+        xbrl_metrics: Optional[Dict[str, Any]],
+    ) -> None:
+        def format_currency(value: Optional[float]) -> Optional[str]:
+            if value is None:
+                return None
+            try:
+                abs_value = abs(value)
+                if abs_value >= 1_000_000_000:
+                    return f"${value / 1_000_000_000:.1f}B"
+                if abs_value >= 1_000_000:
+                    return f"${value / 1_000_000:.1f}M"
+                if abs_value >= 1_000:
+                    return f"${value / 1_000:.1f}K"
+                return f"${value:,.0f}"
+            except Exception:
+                return None
+
+        def format_percent(value: Optional[float]) -> Optional[str]:
+            if value is None:
+                return None
+            try:
+                return f"{value:.1f}%"
+            except Exception:
+                return None
+
+        def metric_entry(metric_key: str) -> Dict[str, Any]:
+            metric = (xbrl_metrics or {}).get(metric_key) or {}
+            current = metric.get("current") or {}
+            prior = metric.get("prior") or {}
+            formatted_current = format_currency(current.get("value")) if metric_key != "net_margin" else format_percent(current.get("value"))
+            formatted_prior = format_currency(prior.get("value")) if metric_key != "net_margin" else format_percent(prior.get("value"))
+            return {
+                "current": formatted_current,
+                "current_period": current.get("period"),
+                "prior": formatted_prior,
+                "prior_period": prior.get("period"),
+            }
+
+        metadata = metadata or {}
+        company_name = metadata.get("company_name", "The company")
+        reporting_period = metadata.get("reporting_period", "the reported period")
+
+        revenue_info = metric_entry("revenue")
+        income_info = metric_entry("net_income")
+        margin_info = metric_entry("net_margin")
+
+        if self._section_is_empty(sections.get("executive_snapshot")):
+            headline_parts: List[str] = []
+            if revenue_info["current"] and revenue_info["current_period"]:
+                headline_parts.append(
+                    f"Revenue at {revenue_info['current']} for {revenue_info['current_period']}"
+                )
+            if income_info["current"] and income_info["current_period"]:
+                headline_parts.append(
+                    f"Net income reported at {income_info['current']}"
+                )
+            headline = (
+                f"{company_name} filing highlights standardized metrics" if headline_parts else f"{company_name} filing provided limited qualitative detail"
+            )
+            key_points: List[str] = []
+            if headline_parts:
+                key_points.extend(headline_parts)
+            else:
+                key_points.append("Core filing excerpts offered minimal narrative detail; review standardized data for context.")
+            if margin_info["current"]:
+                key_points.append(f"Net margin {margin_info['current']} (from XBRL data).")
+            sections["executive_snapshot"] = {
+                "headline": headline,
+                "key_points": key_points,
+                "tone": "neutral",
+            }
+
+        if self._section_is_empty(sections.get("financial_highlights")):
+            table: List[Dict[str, Any]] = []
+            if revenue_info["current"]:
+                table.append(
+                    {
+                        "metric": "Revenue",
+                        "current_period": revenue_info["current"],
+                        "prior_period": revenue_info["prior"] or "Not disclosed",
+                        "change": "Not disclosed",
+                        "commentary": f"Reported for {revenue_info['current_period'] or reporting_period}.",
+                    }
+                )
+            if income_info["current"]:
+                table.append(
+                    {
+                        "metric": "Net Income",
+                        "current_period": income_info["current"],
+                        "prior_period": income_info["prior"] or "Not disclosed",
+                        "change": "Not disclosed",
+                        "commentary": f"Latest standardized value for {income_info['current_period'] or reporting_period}.",
+                    }
+                )
+            if margin_info["current"]:
+                table.append(
+                    {
+                        "metric": "Net Margin",
+                        "current_period": margin_info["current"],
+                        "prior_period": margin_info["prior"] or "Not disclosed",
+                        "change": "Not disclosed",
+                        "commentary": "Derived from aligned revenue and income figures.",
+                    }
+                )
+            if not table:
+                table.append(
+                    {
+                        "metric": "Summary",
+                        "current_period": "Not disclosed",
+                        "prior_period": "Not disclosed",
+                        "change": "Not disclosed",
+                        "commentary": "Filing excerpts omitted detailed financial metrics; rely on management updates for figures.",
+                    }
+                )
+            sections["financial_highlights"] = {
+                "table": table,
+                "profitability": [
+                    margin_info["current"]
+                    and f"Net margin approximately {margin_info['current']} based on standardized data."
+                    or "Profitability commentary unavailable in provided excerpts."
+                ],
+                "cash_flow": [
+                    "Cash flow figures were not captured from this filing's extracted text."
+                ],
+                "balance_sheet": [
+                    "Balance sheet figures were not captured from this filing's extracted text."
+                ],
+            }
+
+        if self._section_is_empty(sections.get("risk_factors")):
+            # If no new risks extracted, provide more helpful context
+            sections["risk_factors"] = [
+                {
+                    "summary": "Risk factors were not extracted from this filing.",
+                    "supporting_evidence": "",
+                    "materiality": "unknown",
+                    "source_section_ref": "Item 1A. Risk Factors",
+                }
+            ]
+
+        if self._section_is_empty(sections.get("management_discussion_insights")):
+            # Provide more useful fallback that still offers value
+            sections["management_discussion_insights"] = {
+                "themes": [
+                    "Management discussion was not extracted from this filing."
+                ],
+                "quotes": [],
+                "capital_allocation": [
+                    "Capital allocation detail was not extracted from this filing."
+                ],
+                "source_section_ref": "Item 2. MD&A",
+            }
+
+        if self._section_is_empty(sections.get("segment_performance")):
+            sections["segment_performance"] = [
+                {
+                    "segment": "Company-wide",
+                    "revenue": revenue_info["current"] or "Not disclosed",
+                    "change": "Not disclosed",
+                    "commentary": "Segment detail was not present; investors should review full filing tables.",
+                    "source_section_ref": "Segment disclosures (not surfaced in sampled excerpts)",
+                }
+            ]
+
+        if self._section_is_empty(sections.get("liquidity_capital_structure")):
+            liquidity_line = "Liquidity figures were not captured from this filing's extracted text."
+            sections["liquidity_capital_structure"] = {
+                "leverage": "Debt and leverage commentary not captured in sampled passages.",
+                "liquidity": liquidity_line,
+                "shareholder_returns": [
+                    "No explicit reference to dividends or buybacks within the excerpted text."
+                ],
+                "source_section_ref": "Liquidity and capital resources (not surfaced in sampled excerpts)",
+            }
+
+        if self._section_is_empty(sections.get("guidance_outlook")):
+            sections["guidance_outlook"] = {
+                "guidance": "Guidance was not extracted from this filing.",
+                "tone": "neutral",
+                "drivers": [
+                    "Guidance drivers were not extracted from this filing."
+                ],
+                "watch_items": [
+                    "Earnings call transcript may contain forward-looking commentary not included in SEC filings."
+                ],
+                "source_section_ref": "Forward-looking statements",
+            }
+
+        if self._section_is_empty(sections.get("notable_footnotes")):
+            sections["notable_footnotes"] = [
+                {
+                    "item": "No specific footnotes surfaced in the extracted passages.",
+                    "impact": "Review the full filing footnotes for accounting nuances or adjustments.",
+                    "source_section_ref": "Footnotes (not surfaced in sampled excerpts)",
+                }
+            ]
+
+        if self._section_is_empty(sections.get("three_year_trend")):
+            trend_summary = (
+                revenue_info["current"]
+                and f"Latest standardized revenue of {revenue_info['current']} anchors the recent trajectory."
+                or "Trend commentary unavailable from excerpts."
+            )
+            sections["three_year_trend"] = {
+                "trend_summary": trend_summary,
+                "inflections": [
+                    margin_info["current"]
+                    and f"Net margin currently at {margin_info['current']} per standardized data."
+                    or "No clear inflection points identified from provided text."
+                ],
+                "compare_prior_period": {
+                    "available": bool(revenue_info["prior"] or income_info["prior"]),
+                    "insights": [
+                        revenue_info["prior"]
+                        and f"Prior revenue reference point: {revenue_info['prior']}"
+                        or "Prior-period disclosures were not captured.",
+                    ],
+                },
+                "source_section_ref": "Trend discussion (not surfaced in sampled excerpts)",
+            }
+
