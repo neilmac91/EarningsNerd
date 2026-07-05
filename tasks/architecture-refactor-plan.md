@@ -306,6 +306,45 @@ single import surface via re-imports + a bottom-of-file `__all__`.
   `test_apply_structured_fallbacks_tolerates_nondict_metric_payloads`. Gate re-run: **1153 passed /
   2 deselected**, ruff + bandit clean.
 
+**Wave 2 · S3 — auth extraction (backend Batch B).** Behavior-preserving; Set-Cookie byte-identical.
+Three extractions out of the 1,462-line `routers/auth.py`:
+1. **`app/services/oauth_verify.py`** — Google/Apple JWKS fetch + id-token verification (the identity
+   crypto) + JWKS URLs/issuers/caches. auth.py re-imports the two verifiers (callbacks call them by
+   name). Forced ONE disclosed test change: `test_apple_signin`'s 5 internal-verify tests repoint from
+   `auth_module.{jwt,_get_apple_jwks}` to `oauth_verify.*`; the callback-level patches are unchanged.
+2. **`issue_session(db, user, response, request, *, refresh_token=None, commit=True)`** — the single
+   mint point for all 5 login paths (login, change-password, /refresh, Google + Apple callbacks).
+   Default mints+commits a new refresh token; /refresh passes its pre-rotated token with commit=False;
+   the OAuth callbacks keep their own try/except IntegrityError→conflict-redirect around it.
+3. **`app/services/password_utils.py`** — bcrypt hashing + policy (verify/get_password_hash,
+   validate_password_strength, _DUMMY_PASSWORD_HASH), re-exported from auth.py.
+   The cookie primitives (`_set_auth_cookie`/`_set_refresh_cookie`) STAY in the router (already clean,
+   heavily bound), so cookies are byte-identical by construction. Anchors: 44 tests green (auth_flow,
+   refresh_replay, auth_cookies, apple_signin, password_and_profile).
+
+**Wave 2 · S4 — ingestion hardening (backend Batch B).** Resilience wiring onto SEC fetch paths that
+bypassed it; behavior-preserving except the added throttle/breaker/timeout.
+- **Circuit breaker** on the 15 unwrapped edgartools primary-path calls (client.py ×10, xbrl_service
+  ×4, `sixk_extractor.py:117` — the review addendum): `run_in_executor_with_timeout` →
+  `run_with_circuit_breaker` (timeout + thread pool were already present).
+- **Rate limiter** on the 3 async raw-httpx sec.gov GETs (xbrl companyfacts fallback; BOTH compat.py
+  calls — tickers + document-fetch — the review addendum), via `sec_rate_limiter`; compat keeps its
+  breaker (limiter nested inside).
+- **Timeouts** on the 3 bare `run_in_executor` DataFrame calls (xbrl 677/711/743).
+- **Guard**: `test_circuit_breaker` gains a wrapper-level assertion that an OPEN breaker short-circuits
+  `run_with_circuit_breaker` before `func` runs.
+- **Plan-count corrections (verified by the S4 map):** breaker sites = **15**, not ~17; bare-executor
+  timeouts = **3**, not 5 (`client.py:509/516` don't exist); the #6 concept lists live in
+  instance_extractor / xbrl_service / facts_service, NOT statement_parser / client (which take
+  candidates as a param / have none).
+- **DEFERRED — behavior-change risk, not mechanical (each needs its own fixture-gated PR):** the
+  concept-list unification (#6) + companyfacts-parser collapse (#7) — the three revenue lists
+  deliberately differ in ORDERING (`Revenues`-first vs contract-revenue-first), so a naive merge
+  changes which tag wins on multi-tagged filers (T9 + test_statement_extraction would catch it, but
+  it must not ride a resilience PR); and `facts_service._fetch_companyfacts_sync`'s limiter wiring +
+  `sleep(0.2)` removal — it is synchronous (backfill cron) and the limiter is async-only, so it needs
+  an async restructure through `backfill_facts`. 161 edgar/facts/breaker tests green.
+
 _(Deltas from later waves will be appended here as they are executed.)_
 
 ---
