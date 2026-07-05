@@ -13,6 +13,7 @@ from bs4 import BeautifulSoup
 # Cohesive helpers/mixins extracted from this module (roadmap S2 façade split). Imported here so
 # ``app.services.openai_service`` stays the single import surface for every existing caller; the
 # re-exported public names are pinned in ``__all__`` at the bottom of this module.
+from app.services.ai.model_flags import _thinking_disabled_model
 from app.services.ai.xbrl_narrative import (
     build_xbrl_narrative_section,
     _XBRL_NARRATIVE_SPEC,
@@ -29,24 +30,6 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-
-def _thinking_disabled_model(model_name: Optional[str], base_url: Optional[str]) -> bool:
-    """True for reasoning models that default to a "thinking" mode we want OFF for the
-    deterministic extraction/summary task, AND that accept the OpenAI-compatible
-    ``extra_body={"thinking": {"type": "disabled"}}`` switch.
-
-    Covers DeepSeek V4 (api.deepseek.com) and Zhipu GLM served via the z.ai
-    OpenAI-compatible endpoint. For these we pass the switch and keep full max_tokens
-    headroom; for everything else the caller clamps max_tokens to the Gemini-safe ceiling.
-    Detection is by model id OR base URL so an env-swap (OPENAI_BASE_URL/AI_DEFAULT_MODEL)
-    is enough — no per-call wiring."""
-    m = (model_name or "").lower()
-    b = (base_url or "").lower()
-    return (
-        "deepseek" in m or "deepseek" in b
-        or m.startswith("glm") or "glm-" in m
-        or "z.ai" in b or "bigmodel" in b
-    )
 
 # Distinct failure signal for the transport-agnostic streaming wrappers (``stream_chat`` /
 # ``stream_chat_with_tools``). On an upstream/model error they yield a single chunk prefixed with
