@@ -737,10 +737,22 @@ class _ExtractionMixin:
             matches = re.findall(pattern, text_content, re.IGNORECASE)
             data['guidance'].extend(matches)
 
-        # Clean and deduplicate
+        # Clean and deduplicate, then keep the top 5 by numeric value per key.
+        # `segments` entries are (name, value) TUPLES — their patterns carry two capture groups —
+        # while every other key holds bare value-strings. The sort key must read the numeric value
+        # from BOTH shapes: the previous `x.replace(',', '')` raised AttributeError on a tuple, so a
+        # single matched segment (e.g. an Apple 10-K's "iPhone net sales $…") crashed extraction and
+        # degraded the whole summary to the fallback path. Unparseable values sort last (0.0).
+        def _numeric_sort_value(item: Any) -> float:
+            raw = item[1] if isinstance(item, tuple) else item
+            try:
+                return float(str(raw).replace(',', ''))
+            except (ValueError, TypeError):
+                return 0.0
+
         for key in data:
             data[key] = list(set(data[key]))  # Remove duplicates
-            data[key] = sorted(data[key], key=lambda x: float(x.replace(',', '')), reverse=True)[:5]  # Top 5 by value
+            data[key] = sorted(data[key], key=_numeric_sort_value, reverse=True)[:5]  # Top 5 by value
 
         return data
 

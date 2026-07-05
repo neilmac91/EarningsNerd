@@ -34,7 +34,12 @@ class _MarkdownRenderMixin:
             lines.append(f"*Auto-generated from structured data because the writer output failed validation ({failure_reason}).*")
 
         # Executive Summary
-        exec_section = sections.get("executive_snapshot") or {}
+        # Guard: a malformed LLM payload can make a section a truthy non-dict (list/str), which
+        # `or {}` would pass straight through to `.get()` and crash the fallback renderer. isinstance
+        # is the stricter floor.
+        exec_section = sections.get("executive_snapshot")
+        if not isinstance(exec_section, dict):
+            exec_section = {}
         headline = exec_section.get("headline")
         key_points = exec_section.get("key_points") or exec_section.get("keyPoints") or []
         tone = exec_section.get("tone")
@@ -56,7 +61,9 @@ class _MarkdownRenderMixin:
         lines.append(" ".join(summary_bits).strip())
 
         # Financials
-        financials = sections.get("financial_highlights") or {}
+        financials = sections.get("financial_highlights")
+        if not isinstance(financials, dict):
+            financials = {}
         table_rows = financials.get("table") or []
         profitability = financials.get("profitability") or []
         cash_flow = financials.get("cash_flow") or financials.get("cashFlow") or []
@@ -125,7 +132,9 @@ class _MarkdownRenderMixin:
 
         # Management Commentary
         lines.append("\n## Management Commentary")
-        mgmt = sections.get("management_discussion_insights") or {}
+        mgmt = sections.get("management_discussion_insights")
+        if not isinstance(mgmt, dict):
+            mgmt = {}
         themes = mgmt.get("themes") or []
         capital_allocation = mgmt.get("capital_allocation") or mgmt.get("capitalAllocation") or []
         quotes = mgmt.get("quotes") or []
@@ -152,7 +161,9 @@ class _MarkdownRenderMixin:
 
         # Outlook
         lines.append("\n## Outlook")
-        outlook = sections.get("guidance_outlook") or {}
+        outlook = sections.get("guidance_outlook")
+        if not isinstance(outlook, dict):
+            outlook = {}
         guidance = outlook.get("guidance")
         tone = outlook.get("tone")
         drivers = outlook.get("drivers") or []
@@ -227,9 +238,17 @@ class _MarkdownRenderMixin:
                 return None
 
         def metric_entry(metric_key: str) -> Dict[str, Any]:
-            metric = (xbrl_metrics or {}).get(metric_key) or {}
-            current = metric.get("current") or {}
-            prior = metric.get("prior") or {}
+            # Guard each level: a truthy non-dict metric/current/prior (malformed metrics payload)
+            # would slip past `or {}` and crash `.get()`.
+            metric = (xbrl_metrics or {}).get(metric_key)
+            if not isinstance(metric, dict):
+                metric = {}
+            current = metric.get("current")
+            if not isinstance(current, dict):
+                current = {}
+            prior = metric.get("prior")
+            if not isinstance(prior, dict):
+                prior = {}
             formatted_current = format_currency(current.get("value")) if metric_key != "net_margin" else format_percent(current.get("value"))
             formatted_prior = format_currency(prior.get("value")) if metric_key != "net_margin" else format_percent(prior.get("value"))
             return {

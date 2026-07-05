@@ -35,6 +35,23 @@ def test_10k_extraction_skips_toc_and_captures_real_item8():
     assert "ITEM 8 - FINANCIAL STATEMENTS" in result
 
 
+def test_extract_financial_data_sorts_segment_tuples_without_crashing():
+    """Regression (PR #550 review): data['segments'] holds (name, value) TUPLES because the segment
+    patterns carry two capture groups. The top-5 sort keyed off ``str.replace`` used to crash on
+    those tuples (AttributeError), so any Apple-class filing whose segments matched degraded the
+    whole summary to the fallback path. The sort must read the numeric value from tuples and
+    value-strings alike."""
+    text = "iPhone net sales $50,000 and Services sales $25,000 for the period."
+
+    data = openai_service.extract_financial_data(text)  # must not raise on the tuple sort
+
+    assert data["segments"], "expected the segment patterns to match"
+    assert all(isinstance(s, tuple) and len(s) == 2 for s in data["segments"])
+    names = [s[0] for s in data["segments"]]
+    # Ranked by numeric value, descending: iPhone (50,000) before Services (25,000).
+    assert names.index("iPhone") < names.index("Services")
+
+
 # ---------------------------------------------------------------------------
 # edgartools section assembler (report-quality fix). The regex extractor above
 # silently returns ~0 chars on modern element-fragmented 10-K HTML; the product

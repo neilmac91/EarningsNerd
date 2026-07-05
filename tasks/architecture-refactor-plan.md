@@ -287,6 +287,24 @@ single import surface via re-imports + a bottom-of-file `__all__`.
 - **Gate:** `ruff check .` clean, `bandit -r app -ll` clean, **1150 passed / 2 deselected** (full
   fast-lane suite). No behavior change — the flag-off production path is byte-for-byte unchanged;
   frontend untouched (backend only).
+- **Review-response hardening (founder-approved deviation from pure-move; PR #550, Gemini review).**
+  Gemini flagged 6 issues, all in code S2 moved verbatim — 1 **real pre-existing bug** + 5 defensive
+  guards. Founder chose "fix all here" over deferring, so this PR carries a small, **tested** behavior
+  change on top of the move:
+  1. **`extract_financial_data` segments crash (real).** `data['segments']` holds `(name, value)`
+     tuples (its patterns have two capture groups; the downstream prompt line unpacks `seg[0]/seg[1]`),
+     but the top-5 sort keyed off `str.replace` → `AttributeError` on a tuple. Any Apple-class filing
+     whose segment patterns matched (iPhone/Mac/Services/Americas/…) crashed extraction → degraded to
+     the fallback summary. Fixed with a `_numeric_sort_value` helper that reads the value from tuple
+     **or** string and sorts unparseable entries last.
+  2. **5 `isinstance(..., dict)` guards** in the `_build_structured_markdown` fallback renderer +
+     `_apply_structured_fallbacks.metric_entry` (exec/financials/mgmt/outlook sections + metric/
+     current/prior) — `or {}` let a *truthy* non-dict slip to `.get()` and crash the very renderer
+     that exists to save a failed generation.
+  Regression tests: `test_extract_financial_data_sorts_segment_tuples_without_crashing`,
+  `test_malformed_nondict_sections_do_not_crash_renderer`,
+  `test_apply_structured_fallbacks_tolerates_nondict_metric_payloads`. Gate re-run: **1153 passed /
+  2 deselected**, ruff + bandit clean.
 
 _(Deltas from later waves will be appended here as they are executed.)_
 
