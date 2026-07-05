@@ -2,6 +2,7 @@ import asyncio
 import time
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any, List, Tuple, Literal
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from app.models import Filing, Summary, SummaryGenerationProgress, User, FilingContentCache
 # EdgarTools migration: Using new edgar module for SEC services
@@ -414,7 +415,12 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                 raw_summary={"error": "OpenAI API key not configured"}
             )
             db.add(summary)
-            db.commit()
+            try:
+                db.commit()
+            except IntegrityError:
+                # A real summary already exists for this filing (filing_id UNIQUE) — the placeholder
+                # is unnecessary; don't error the cron job (S1 decision #3).
+                db.rollback()
             return
         
         start_time = time.time()
@@ -834,7 +840,14 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                     )
                     db.add(cache)
 
-                db.commit()
+                try:
+                    db.commit()
+                except IntegrityError:
+                    # A concurrent writer persisted this filing's summary first (filing_id UNIQUE) —
+                    # the winner's row + usage increment stand; this writer bows out (S1 decision #3).
+                    db.rollback()
+                    logger.info(f"[{filing_id}] Summary already persisted by a concurrent writer; skipping duplicate.")
+                    return
 
                 total_time = time.time() - start_time
                 logger.info(

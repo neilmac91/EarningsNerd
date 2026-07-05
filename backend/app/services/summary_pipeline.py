@@ -21,6 +21,7 @@ from datetime import timedelta
 from typing import AsyncIterator, List, Optional
 
 from fastapi.concurrency import run_in_threadpool
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import joinedload
 
 from app import database
@@ -730,8 +731,18 @@ async def stream_filing_summary(
                         cache = FilingContentCache(filing_id=filing_id, critical_excerpt=excerpt)
                         session.add(cache)
 
-                session.commit()
-                return summary.id
+                try:
+                    session.commit()
+                    return summary.id
+                except IntegrityError:
+                    # A concurrent writer (cron / another instance) persisted this filing's summary
+                    # first — filing_id is UNIQUE. Serve the winner's row instead of erroring the
+                    # user's stream (S1 decision #3).
+                    session.rollback()
+                    existing = session.query(Summary).filter(Summary.filing_id == filing_id).first()
+                    if existing is None:
+                        raise
+                    return existing.id
 
             saved_summary_id = await run_sync_db(save_summary_sync)
 

@@ -44,7 +44,8 @@ WHERE s.id = r.id AND r.rn > 1;
 DO $$
 BEGIN
     IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint WHERE conname = 'uq_summaries_filing_id'
+        SELECT 1 FROM pg_constraint
+        WHERE conname = 'uq_summaries_filing_id' AND conrelid = 'summaries'::regclass
     ) THEN
         ALTER TABLE summaries ADD CONSTRAINT uq_summaries_filing_id UNIQUE (filing_id);
     END IF;
