@@ -310,10 +310,6 @@ Modular ETL pipeline for SEC filing data (see `backend/docs/plan_sec_pipeline.md
   - L2: Redis cache for persistence and cross-instance sharing
   - Graceful fallback to stale L1 cache on Redis/network failures
   - `get_xbrl_cache_stats()` returns both `l1_*` and legacy keys for compatibility
-- **Thread-Safe Metrics:** Request metrics use `threading.RLock` for safe concurrent access:
-  - Reentrant lock allows nested property calls without deadlock
-  - All metric properties (`average_latency_ms`, `error_rate`, `requests_per_minute`) are protected
-  - `record_request()` and `to_dict()` are fully thread-safe
 - **Event Loop Safety:** Redis connections handle event loop changes gracefully:
   - `_reset_on_loop_change()` detects when running in a new event loop
   - Automatically resets pool/client/lock to prevent hangs on stale connections
@@ -649,13 +645,6 @@ python scripts/fix_null_sec_urls.py --ticker BMRN --execute
 {
   "timestamp": "2024-01-29T12:34:56Z",
   "app": {"name": "EarningsNerd API", "version": "1.0.0", "environment": "production"},
-  "requests": {
-    "total_requests": 5432,
-    "successful_requests": 5201,
-    "average_latency_ms": 45.23,
-    "error_rate_percent": 4.25,
-    "requests_per_minute": 12
-  },
   "circuit_breaker": {"sec_edgar": {"state": "closed", "stats": {...}}},
   "cache": {
     "redis": {"healthy": true, "hit_rate": 84.75, "hits": 1200, "misses": 215},
@@ -722,7 +711,6 @@ python scripts/fix_null_sec_urls.py --ticker BMRN --execute
 | `RuntimeError: Lock bound to different event loop` | asyncio.Lock created in wrong loop | Use lazy lock initialization pattern |
 | High memory usage | L1 cache unbounded | Check `_cache_max_size` is set (default 1000) |
 | Slow health checks | Sync DB check blocking event loop | Use `run_in_executor()` for DB operations |
-| Metrics deadlock | Using `threading.Lock` with nested calls | Use `threading.RLock` for reentrant locking |
 
 ### Performance Tuning
 
