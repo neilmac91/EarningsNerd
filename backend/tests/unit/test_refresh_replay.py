@@ -35,27 +35,16 @@ def client():
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limiters(client):
-    """Clear the module-level auth limiters and the DB-backed per-account lockout before each test,
-    so register/login pressure from another test (or another file in the same process) can't trip
-    this test's requests. Depends on ``client`` so the app lifespan has created the tables."""
-    from app.routers import auth as auth_module
+    """Clear the auth limiters + the DB-backed per-account lockout before each test, so register/
+    login pressure from another test (or another file in the same process) can't trip this test's
+    requests. Depends on ``client`` so the app lifespan has created the tables.
 
-    for lim in (
-        auth_module.LOGIN_LIMITER,
-        auth_module.REGISTER_LIMITER,
-        auth_module.RESET_REQUEST_LIMITER,
-        auth_module.RESEND_VERIFY_LIMITER,
-        auth_module.RESET_RESEND_IP_LIMITER,
-    ):
-        lim._hits.clear()
-    from app.database import SessionLocal
-    from app.models import LoginAttempt
-    db = SessionLocal()
-    try:
-        db.query(LoginAttempt).delete()
-        db.commit()
-    finally:
-        db.close()
+    Routes through the shared ``reset_rate_limiters()`` seam rather than reaching into five private
+    ``_hits`` attributes — so when S3 (auth extraction) relocates those limiter singletons, only the
+    one helper changes, not this locked anchor (per the PR #547 review)."""
+    from tests.support.summary_stream_harness import reset_rate_limiters
+
+    reset_rate_limiters()
     yield
 
 
@@ -66,9 +55,9 @@ def _unique_email() -> str:
 @pytest.fixture(scope="module")
 def registered_user(client):
     """Register one user for the module (register is rate-limited to 5/min/IP)."""
-    from app.routers import auth as auth_module
+    from tests.support.summary_stream_harness import reset_rate_limiters
 
-    auth_module.REGISTER_LIMITER._hits.clear()  # module fixtures run before the autouse reset
+    reset_rate_limiters()  # module fixtures run before the autouse reset
     email = _unique_email()
     resp = client.post(
         "/api/auth/register",

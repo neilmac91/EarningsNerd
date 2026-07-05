@@ -16,14 +16,14 @@ exists → return cached" early-return. So a *second* request for the SAME filin
 the gate and never increments the counter. Each request below therefore targets a DISTINCT freshly
 seeded filing, which is how the per-IP counter actually advances in production.
 
-Hermetic: the SEC/XBRL/AI/excerpt boundaries are mocked in ``summary_pipeline``'s namespace exactly as
-the committed stream anchors do (``test_summary_stream_contract`` / ``test_stream_latency``), so the
-"allowed" requests run the real route + real guest-quota DB writes offline and instantly.
+Hermetic: the SEC/XBRL/AI/excerpt boundaries are mocked in ``summary_pipeline``'s namespace via the
+shared ``tests.support.summary_stream_harness`` (the ONE seam set the stream anchors + the frames-regen
+script also use), so the "allowed" requests run the real route + real guest-quota DB writes offline and
+instantly — and a renamed boundary is a single-file edit, not four in lockstep (per the PR #547 review).
 """
 import uuid
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -42,23 +42,9 @@ from app.models import (
     UserUsage,
 )
 from app.routers.auth import get_current_user_optional
-from app.services import guest_quota, summary_pipeline
+from app.services import guest_quota
 
 GENERATE_URL = "/api/summaries/filing/{fid}/generate-stream"
-
-# Payload the mocked ``summarize_filing`` returns — a completed summary (copied from the T1 anchor).
-_PAYLOAD = {
-    "status": "complete",
-    "business_overview": "# Summary\n\nAcme Corp designs and sells widgets worldwide.",
-    "financial_highlights": {"revenue": "1B", "notes": "Revenue increased 12% year over year."},
-    "risk_factors": [{"summary": "Supply-chain risk.", "supporting_evidence": "Item 1A."}],
-    "management_discussion": "MD&A covers results of operations and financial condition.",
-    "key_changes": "Higher R&D investment.",
-    "raw_summary": {
-        "sections": {"business_overview": "Acme Corp designs and sells widgets."},
-        "section_coverage": {"covered_count": 5, "total_count": 7},
-    },
-}
 
 
 # ── fixtures ──────────────────────────────────────────────────────────────────
@@ -80,9 +66,11 @@ def client():
 @pytest.fixture(autouse=True)
 def _reset_inflight():
     """A leaked in-flight slot would reroute the next generation down the dedup (join) path."""
-    summary_pipeline._inflight_generations.clear()
+    from tests.support.summary_stream_harness import reset_inflight
+
+    reset_inflight()
     yield
-    summary_pipeline._inflight_generations.clear()
+    reset_inflight()
 
 
 @pytest.fixture(autouse=True)
@@ -91,6 +79,18 @@ def _clear_overrides():
     and silently skip the guest gate. Always clear it after every test."""
     yield
     app.dependency_overrides.pop(get_current_user_optional, None)
+
+
+@pytest.fixture
+def boundaries():
+    """Mock the SEC/XBRL/AI/excerpt seams (in ``summary_pipeline``'s namespace) via the shared
+    harness, so an ALLOWED request runs the real route offline + instantly. ``check_usage_limit`` is
+    left patched-open (default) — this file pins the GUEST gate, not the usage gate. Single-sourced
+    with the stream anchors + the frames-regen script."""
+    from tests.support.summary_stream_harness import stream_boundaries
+
+    with stream_boundaries() as summarize:
+        yield summarize
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -104,20 +104,6 @@ def _unique_ip() -> str:
     reruns (no leftover row can pre-exhaust the cap).
     """
     return f"guest-ip-{uuid.uuid4().hex}"
-
-
-def _mock_boundaries(monkeypatch):
-    """Mock the generation boundaries so an ALLOWED request runs the real route offline + instantly
-    (same seams the committed stream anchors patch)."""
-    monkeypatch.setattr(summary_pipeline.sec_edgar_service, "get_filing_document",
-                        AsyncMock(return_value="FILING DOCUMENT TEXT " * 40))
-    monkeypatch.setattr(summary_pipeline.xbrl_service, "get_xbrl_data", AsyncMock(return_value=None))
-    monkeypatch.setattr(summary_pipeline.xbrl_service, "get_filing_sections", AsyncMock(return_value=None))
-    monkeypatch.setattr(summary_pipeline, "get_or_cache_excerpt", lambda *a, **k: "EXCERPT")
-    monkeypatch.setattr(summary_pipeline, "check_usage_limit", lambda user, session: (True, 0, None))
-    monkeypatch.setattr(summary_pipeline.openai_service, "summarize_filing", AsyncMock(return_value=_PAYLOAD))
-    # instant fake ⇒ no heartbeat frames ⇒ the stream terminates immediately
-    monkeypatch.setattr(summary_pipeline.settings, "STREAM_HEARTBEAT_INTERVAL", 999)
 
 
 def _enable_guest_cap(monkeypatch, limit: int):
@@ -233,9 +219,8 @@ def seed():
 # ── tests ─────────────────────────────────────────────────────────────────────
 
 @pytest.mark.requires_db
-def test_guest_served_up_to_limit_then_blocked(client, monkeypatch, seed):
+def test_guest_served_up_to_limit_then_blocked(client, monkeypatch, seed, boundaries):
     """Anonymous caller: served ``limit`` generations, then the next is blocked 429 at the route."""
-    _mock_boundaries(monkeypatch)
     _enable_guest_cap(monkeypatch, limit=2)
     ip = seed.note_ip(_unique_ip())
 
@@ -250,9 +235,10 @@ def test_guest_served_up_to_limit_then_blocked(client, monkeypatch, seed):
     blocked = _generate(client, seed.filing(), ip)
     assert blocked.status_code == 429
     detail = blocked.json()["detail"]
-    assert "today's free limit of 2 summaries" in detail
-    assert "free account" in detail
-    # Not the sliding-window rate-limiter's message — this is specifically the daily quota gate.
+    # Copy-stable assertions only: the gate surfaces the configured limit (2) and is the daily-quota
+    # gate, NOT the sliding-window rate limiter. The exact upsell wording is intentionally NOT pinned,
+    # so a marketing copy tweak can't redden this locked anchor (per the PR #547 review).
+    assert "2" in detail
     assert "Too many summary requests" not in detail
 
     # All three requests incremented the per-IP counter (the blocked one still counted).
@@ -261,9 +247,8 @@ def test_guest_served_up_to_limit_then_blocked(client, monkeypatch, seed):
 
 
 @pytest.mark.requires_db
-def test_authenticated_user_bypasses_guest_cap(client, monkeypatch, seed):
+def test_authenticated_user_bypasses_guest_cap(client, monkeypatch, seed, boundaries):
     """An authenticated user is served even when that IP's guest bucket is already exhausted."""
-    _mock_boundaries(monkeypatch)
     _enable_guest_cap(monkeypatch, limit=1)
     ip = seed.note_ip(_unique_ip())
 
@@ -292,9 +277,8 @@ def test_authenticated_user_bypasses_guest_cap(client, monkeypatch, seed):
 
 
 @pytest.mark.requires_db
-def test_guest_cap_resets_on_new_utc_day(client, monkeypatch, seed):
+def test_guest_cap_resets_on_new_utc_day(client, monkeypatch, seed, boundaries):
     """Route-level mirror of the service reset test: a blocked IP is served again the next UTC day."""
-    _mock_boundaries(monkeypatch)
     _enable_guest_cap(monkeypatch, limit=1)
     ip = seed.note_ip(_unique_ip())
 
