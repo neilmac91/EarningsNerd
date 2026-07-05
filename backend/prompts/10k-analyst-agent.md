@@ -22,7 +22,7 @@ Your summary should read like a professional equity research note - informative,
 
 | Metric | WHERE TO FIND IT |
 |--------|------------------|
-| **Revenue** | Item 8: "Consolidated Statements of Operations/Income" - look for "Net sales", "Total revenue", "Total net sales" |
+| **Revenue** | Item 8: "Consolidated Statements of Operations/Income" - look for "Net sales", "Total revenue", "Total net sales". **Financial institutions:** a bank has NO single revenue line — report "Net interest income" and "Non-interest income" as SEPARATE figures, never combined into one "Revenue"; quote the XBRL STANDARDIZED FINANCIAL DATA figures verbatim |
 | **Net Income** | Same location - "Net income", "Net earnings" - BOTTOM LINE of income statement |
 | **EPS** | Same location - "Earnings per share - Diluted" |
 | **Total Assets** | Item 8: "Consolidated Balance Sheets" |

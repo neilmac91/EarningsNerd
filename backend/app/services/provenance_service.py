@@ -39,6 +39,13 @@ _QUOTED_RE = re.compile(r"[\"“”]([^\"“”]{8,})[\"“”]")
 # EPS and margins are intentionally excluded — the value-in-text check below is only reliable for
 # large dollar figures, so we never claim "verified" for small/derived numbers (honest labeling).
 _METRIC_XBRL_PATTERNS: list[tuple[re.Pattern, str, str]] = [
+    # Financial-institution revenue components/totals FIRST, so "Net interest income" /
+    # "Non-interest income" verify against their own XBRL concept and are never shadowed by the
+    # generic net-income / revenue patterns below.
+    (re.compile(r"\bnet\s+interest\s+income\b"), "net_interest_income", "Net interest income"),
+    (re.compile(r"\bnon[-\s]?interest\s+income\b"), "noninterest_income", "Non-interest income"),
+    (re.compile(r"\bnet\s+investment\s+income\b"), "net_investment_income", "Net investment income"),
+    (re.compile(r"\bpremiums?\s+earned\b"), "premiums_earned", "Premiums earned"),
     (re.compile(r"\bnet\s+(income|earnings|profit)\b"), "net_income", "Net income"),
     (re.compile(r"\bgross\s+profit\b"), "gross_profit", "Gross profit"),
     (re.compile(r"\boperating\s+income\b"), "operating_income", "Operating income"),

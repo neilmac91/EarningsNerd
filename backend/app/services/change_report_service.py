@@ -195,18 +195,19 @@ def build_change_report(db: Session, filing: Filing) -> dict[str, Any]:
     """Find the filing's prior comparable filing + both summaries, then assemble the change report.
 
     The prior is the most recent same-company, same-form filing strictly older than this one
-    (10-Q → prior 10-Q = QoQ, 10-K → prior 10-K = YoY) — a single query, xbrl included.
+    (10-Q → prior 10-Q = QoQ, 10-K → prior 10-K = YoY) — a single query, xbrl included. We require a
+    strictly-earlier reporting PERIOD (not just an earlier filing date) so a later amendment or
+    restatement of the SAME period is never differenced against the original — an apples-to-oranges
+    comparison that produces spurious deltas.
     """
-    prior = (
-        db.query(Filing)
-        .filter(
-            Filing.company_id == filing.company_id,
-            Filing.filing_type == filing.filing_type,
-            Filing.filing_date < filing.filing_date,
-        )
-        .order_by(desc(Filing.filing_date))
-        .first()
+    prior_q = db.query(Filing).filter(
+        Filing.company_id == filing.company_id,
+        Filing.filing_type == filing.filing_type,
+        Filing.filing_date < filing.filing_date,
     )
+    if filing.period_end_date is not None:
+        prior_q = prior_q.filter(Filing.period_end_date < filing.period_end_date)
+    prior = prior_q.order_by(desc(Filing.filing_date)).first()
     current_summary = _latest_summary(db, filing.id)
     prior_summary = _latest_summary(db, prior.id) if prior is not None else None
     return assemble_report(filing, prior, current_summary, prior_summary)

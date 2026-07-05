@@ -42,9 +42,13 @@ def _feed_form_types() -> tuple[str, ...]:
         return FEED_FORM_TYPES + FEED_FPI_ANNUAL_FORM_TYPES
     return FEED_FORM_TYPES
 
-# (xbrl_data key, human label) in headline priority order.
+# (xbrl_data key, human label) in headline priority order. The financial-institution component keys
+# are self-gating: a bank's xbrl_data carries net/non-interest income (not "revenue"), while a
+# non-financial filer carries "revenue" (not the components), so only the applicable rows render.
 _DELTA_METRICS = [
     ("revenue", "Revenue"),
+    ("net_interest_income", "Net interest income"),
+    ("noninterest_income", "Non-interest income"),
     ("net_income", "Net income"),
     ("earnings_per_share", "EPS"),
 ]
@@ -60,9 +64,13 @@ _DIRECTION_WORD = {"increase": "up", "decrease": "down", "unchanged": "flat"}
 
 # --------------------------------------------------------------------------- pure delta
 
-def _series_desc(xbrl: Optional[dict], metric: str) -> list[tuple[str, float]]:
-    """Return [(period, value)] for a metric, newest period first, skipping unusable entries."""
-    out: list[tuple[str, float]] = []
+def _series_desc(xbrl: Optional[dict], metric: str) -> list[tuple[str, float, Optional[str]]]:
+    """Return [(period, value, raw_tag)] for a metric, newest period first, skipping unusable entries.
+
+    ``raw_tag`` is the underlying XBRL concept the value came from (None for legacy/pre-fix series);
+    it lets the caller detect a concept that flips between filings (the apples-to-oranges delta bug).
+    """
+    out: list[tuple[str, float, Optional[str]]] = []
     series = (xbrl or {}).get(metric) if isinstance(xbrl, dict) else None
     if isinstance(series, list):
         for entry in series:
@@ -71,15 +79,15 @@ def _series_desc(xbrl: Optional[dict], metric: str) -> list[tuple[str, float]]:
             period, value = entry.get("period"), entry.get("value")
             if period is None or not isinstance(value, (int, float)) or isinstance(value, bool):
                 continue
-            out.append((str(period), float(value)))
+            out.append((str(period), float(value), entry.get("raw_tag")))
     out.sort(key=lambda pv: pv[0], reverse=True)
     return out
 
 
 def _current_and_prior(
     current_xbrl: Optional[dict], prior_xbrl: Optional[dict], metric: str
-) -> tuple[Optional[float], Optional[str], Optional[float]]:
-    """(current_value, current_period, prior_value) for a metric.
+) -> tuple[Optional[float], Optional[str], Optional[float], Optional[str], Optional[str]]:
+    """(current_value, current_period, prior_value, current_raw_tag, prior_raw_tag) for a metric.
 
     Prior prefers the prior filing's series; falls back to the current filing's own in-instance
     comparative (a strictly-older period in the same series). Only periods strictly older than the
@@ -87,33 +95,46 @@ def _current_and_prior(
     """
     current = _series_desc(current_xbrl, metric)
     if not current:
-        return None, None, None
-    cur_period, cur_value = current[0]
+        return None, None, None, None, None
+    cur_period, cur_value, cur_tag = current[0]
 
     prior_value: Optional[float] = None
-    for period, value in _series_desc(prior_xbrl, metric):
+    prior_tag: Optional[str] = None
+    for period, value, tag in _series_desc(prior_xbrl, metric):
         if period < cur_period:
-            prior_value = value
+            prior_value, prior_tag = value, tag
             break
     if prior_value is None:  # fallback: same filing's comparative period
-        for period, value in current[1:]:
+        for period, value, tag in current[1:]:
             if period < cur_period:
-                prior_value = value
+                prior_value, prior_tag = value, tag
                 break
-    return cur_value, cur_period, prior_value
+    return cur_value, cur_period, prior_value, cur_tag, prior_tag
 
 
 def compute_what_changed(current_xbrl: Optional[dict], prior_xbrl: Optional[dict]) -> Optional[dict]:
     """Deterministic period-over-period headline from stored XBRL. None if nothing usable."""
     data: dict[str, tuple[float, Optional[float]]] = {}
+    tags: dict[str, tuple[Optional[str], Optional[str]]] = {}
     for metric, _label in _DELTA_METRICS:
-        cur, _period, prior = _current_and_prior(current_xbrl, prior_xbrl, metric)
+        cur, _period, prior, cur_tag, prior_tag = _current_and_prior(current_xbrl, prior_xbrl, metric)
         if cur is not None:
             data[metric] = (cur, prior)
+            tags[metric] = (cur_tag, prior_tag)
     if not data:
         return None
 
     data_quality = "ok"
+
+    # Invariant 0 (concept-flip guard): never difference two periods whose values came from DIFFERENT
+    # XBRL concepts (e.g. a bank whose current filing resolved fee income and prior resolved a total)
+    # — that apples-to-oranges delta is the −53.8% class of bug. Only fires when BOTH sides carry a
+    # raw_tag and they disagree, so legacy series (no tag) are unaffected.
+    for metric in list(data):
+        cur_tag, prior_tag = tags.get(metric, (None, None))
+        if cur_tag and prior_tag and cur_tag != prior_tag:
+            del data[metric]
+            data_quality = "partial"
 
     # Invariant 1: revenue must be ≥ 0 — in BOTH periods (a negative prior corrupts the delta too).
     if "revenue" in data:
