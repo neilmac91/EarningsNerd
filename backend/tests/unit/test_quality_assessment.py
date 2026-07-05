@@ -76,3 +76,54 @@ def test_million_scale_decimals_are_grounded():
     verdict = assess_quality(summary, xbrl)
     assert verdict["numeric_grounded"] is True
     assert verdict["tier"] == "full"
+
+
+# --- S1 decision #2: the 9-section taxonomy verdict is FLAG-GATED + pinned to a fixed literal bar --
+
+_STRUCTURED_SECTIONS = (
+    "executive_snapshot", "financial_highlights", "risk_factors",
+    "management_discussion_insights", "segment_performance",
+    "liquidity_capital_structure", "guidance_outlook", "notable_footnotes", "three_year_trend",
+)
+
+
+def _snapshot_payload(covered_names, *, extra_covered=None):
+    """A payload whose raw_summary.section_coverage carries a 9-section per_section map (+ optional
+    stray keys), mirroring what openai_service attaches. business_overview is substantive so the
+    legacy 7-section fallback still resolves — isolating the taxonomy switch to the flag."""
+    per_section = {s: (s in covered_names) for s in _STRUCTURED_SECTIONS}
+    for k in (extra_covered or []):
+        per_section[k] = True
+    return {
+        "business_overview": "A detailed multi-paragraph overview of the business and its annual results this period.",
+        "financial_highlights": {"revenue": "$1B"},
+        "raw_summary": {"section_coverage": {"per_section": per_section}},
+    }
+
+
+def test_flag_on_verdicts_on_fixed_9_section_taxonomy_at_4(monkeypatch):
+    """Flag ON: verdict on the FIXED 9-section taxonomy at a literal 4/9 bar. >=4 covered -> full,
+    <4 -> partial, and a stray extra covered key can't move the bar (total is pinned to the 9
+    _TRACKED_STRUCTURED_SECTIONS, never the payload's floating total_count)."""
+    from app.services import summary_generation_service as svc
+    monkeypatch.setattr(svc.settings, "USE_PIPELINE_FOR_BACKGROUND", True)
+
+    v = svc.assess_quality(_snapshot_payload(_STRUCTURED_SECTIONS[:4]), None)
+    assert v["tier"] == "full" and (v["covered_count"], v["total_count"]) == (4, 9)
+
+    v = svc.assess_quality(_snapshot_payload(_STRUCTURED_SECTIONS[:3]), None)
+    assert v["tier"] == "partial" and (v["covered_count"], v["total_count"]) == (3, 9)
+
+    v = svc.assess_quality(_snapshot_payload(_STRUCTURED_SECTIONS[:3], extra_covered=["hallucinated"]), None)
+    assert (v["covered_count"], v["total_count"]) == (3, 9)  # stray key ignored
+
+
+def test_flag_off_ignores_snapshot_uses_legacy_7_section(monkeypatch):
+    """Flag OFF (current production): the 9-snapshot branch is inert — assess_quality verdicts on the
+    legacy 7 HIDEABLE_SECTIONS, so the user-facing SSE verdict is unchanged until the soak flips the
+    flag. total_count == 7 proves the snapshot was ignored."""
+    from app.services import summary_generation_service as svc
+    monkeypatch.setattr(svc.settings, "USE_PIPELINE_FOR_BACKGROUND", False)
+
+    v = svc.assess_quality(_snapshot_payload(_STRUCTURED_SECTIONS[:4]), None)
+    assert v["total_count"] == 7

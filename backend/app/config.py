@@ -297,6 +297,14 @@ class Settings(BaseSettings):
     # metadata). Enabled (report-quality Phase 0): users are not charged quota for partial results.
     AI_QUALITY_GATE: bool = True
 
+    # S1 (architecture refactor): route the background/cron/pregenerate path through the SSE
+    # orchestrator (stream_filing_summary) instead of its own generate_summary_background logic,
+    # collapsing the two orchestrators into one. Default OFF — the old background path runs until a
+    # 24-48h PostHog/Sentry soak (generation success/quality + p50/p95 latency + per-summary token
+    # cost) clears the flip. When ON, the unified path is filing-only (no previous_filings), verdicts
+    # via assess_quality (XBRL grounding applied to cron too), on the 9-section taxonomy.
+    USE_PIPELINE_FOR_BACKGROUND: bool = False
+
     # Foreign Private Issuer (FPI) filing support (roadmap: tasks/fpi-support-roadmap.md).
     # Foreign issuers (ADRs like Alibaba/$BABA, TSM, ASML) file 20-F (annual) and 6-K (interim)
     # instead of 10-K/10-Q, so the company page shows "no filings" for them today. When True, the

@@ -219,7 +219,13 @@ class Filing(Base):
 
 class Summary(Base):
     __tablename__ = "summaries"
-    
+    __table_args__ = (
+        # One summary per filing (S1 decision #3). Fresh DBs get it here via create_all; existing
+        # DBs via migrations/20260705_summary_filing_id_unique.sql. Concurrent writers catch the
+        # IntegrityError and return the existing row rather than erroring the user.
+        UniqueConstraint("filing_id", name="uq_summaries_filing_id"),
+    )
+
     id = Column(Integer, primary_key=True, index=True)
     filing_id = Column(Integer, ForeignKey("filings.id"), nullable=False)
     business_overview = Column(Text, nullable=True)
