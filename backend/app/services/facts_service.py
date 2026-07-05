@@ -813,34 +813,43 @@ def backfill_company_sic(
         "scanned": 0, "updated": 0, "skipped": 0, "errors": 0,
         "updated_ids": [], "skipped_ids": [],
     }
+    # Commit in small batches so a mid-run crash of this long, SEC-rate-limited pass loses only the
+    # uncommitted tail (it's resumable — re-running only re-selects still-blank rows). Disable
+    # expire-on-commit for the loop so each batch commit doesn't expire the pending Company rows and
+    # force an N+1 reload of ``company.cik`` on the next ``fetch_sic``; restore the prior setting after.
+    prior_expire_on_commit = db.expire_on_commit
+    db.expire_on_commit = False
     pending = 0
-    for company in companies_q.all():
-        stats["scanned"] += 1
-        try:
-            result = fetch_sic(company)
-        except Exception:
-            logger.exception("backfill_company_sic: fetch failed for company %s", company.id)
-            stats["errors"] += 1
-            continue
-        sic = result[0] if result else None
-        industry = result[1] if result and len(result) > 1 else None
-        if not sic:  # EdgarTools returned no SIC (e.g. some BDCs) — leave as-is, surface it
-            stats["skipped"] += 1
-            stats["skipped_ids"].append(company.id)
-            continue
-        stats["updated"] += 1
-        stats["updated_ids"].append(company.id)
-        if dry_run:
-            continue
-        company.sic = str(sic)
-        if industry:
-            company.industry = industry
-        pending += 1
-        if pending >= 100:  # commit in small batches
+    try:
+        for company in companies_q.all():
+            stats["scanned"] += 1
+            try:
+                result = fetch_sic(company)
+            except Exception:
+                logger.exception("backfill_company_sic: fetch failed for company %s", company.id)
+                stats["errors"] += 1
+                continue
+            sic = result[0] if result else None
+            industry = result[1] if result and len(result) > 1 else None
+            if not sic:  # EdgarTools returned no SIC (e.g. some BDCs) — leave as-is, surface it
+                stats["skipped"] += 1
+                stats["skipped_ids"].append(company.id)
+                continue
+            stats["updated"] += 1
+            stats["updated_ids"].append(company.id)
+            if dry_run:
+                continue
+            company.sic = str(sic)
+            if industry:
+                company.industry = industry
+            pending += 1
+            if pending >= 100:  # commit in small batches
+                db.commit()
+                pending = 0
+        if not dry_run and pending:
             db.commit()
-            pending = 0
-    if not dry_run and pending:
-        db.commit()
+    finally:
+        db.expire_on_commit = prior_expire_on_commit
     return stats
 
 

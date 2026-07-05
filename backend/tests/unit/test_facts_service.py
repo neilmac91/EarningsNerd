@@ -810,3 +810,27 @@ class TestBackfillCompanySic:
         db.expire_all()
         assert db.get(Company, m1.id).sic is None  # dry-run persisted nothing
         db.close()
+
+    def test_batch_commit_boundary_persists_and_restores_session(self):
+        """>100 companies crosses the 100-row batch-commit boundary. Every row (incl. those in the
+        second batch, whose fetch runs after the first commit) must be written, and the loop must
+        restore the session's expire_on_commit so the batch commits don't leave it disabled."""
+        from app.database import SessionLocal
+        from app.models import Company
+
+        db = SessionLocal()
+        assert db.expire_on_commit is True  # default before the call
+        ids = [self._company(db).id for _ in range(105)]  # NULL sic → all selected; crosses batch 100
+
+        # fetch_sic reads company.cik on every call — including after the batch commit at row 100;
+        # the fix keeps those rows unexpired so this doesn't N+1-reload, and the write still lands.
+        stats = svc.backfill_company_sic(
+            db, fetch_sic=lambda c: ("6021", "Banks") if c.cik else None
+        )
+
+        # Assert only about our own rows (other tests may leave NULL-sic rows in the shared DB).
+        assert set(ids).issubset(set(stats["updated_ids"]))
+        assert db.expire_on_commit is True  # restored after the batched run
+        db.expire_all()
+        assert all(db.get(Company, cid).sic == "6021" for cid in ids)  # incl. second-batch rows
+        db.close()
