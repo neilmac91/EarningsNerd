@@ -260,14 +260,3 @@ async def test_ai_error_status_records_error_progress():
             )
     finally:
         app.dependency_overrides.clear()
-
-
-@pytest.mark.asyncio
-async def test_heartbeat_events_emitted_at_interval():
-    """
-    Verify that heartbeat events are emitted approximately every 5 seconds.
-    Placeholder / Redundant with test_stream_heartbeat_during_long_ai_operation which tests actual logic.
-    """
-    # This test was a placeholder and is now covered by test_stream_heartbeat_during_long_ai_operation
-    # We can keep it simple or minimal.
-    assert True

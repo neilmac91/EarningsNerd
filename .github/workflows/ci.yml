@@ -33,9 +33,13 @@ jobs:
           # Scan app directory, skipping tests
           cd backend && bandit -r app -ll
       - name: Run pytest
+        # Fast lane: pytest.ini deselects the performance suite by default (slow-marked tests run
+        # here in the default lane). conftest.py sets SECRET_KEY at import, so no env is needed.
         run: cd backend && python -m pytest
-        env:
-          SECRET_KEY: test-secret-key-for-ci-not-a-real-secret
+      - name: Run performance tests
+        # Explicit step (same job, so it stays inside the deploy gate's `needs:` list). Clear the
+        # ini addopts and scope to the performance dir so it doesn't collect the whole tree.
+        run: cd backend && python -m pytest -o addopts= -m performance tests/performance
 
   frontend-tests:
     runs-on: ubuntu-latest
