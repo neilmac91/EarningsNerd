@@ -7,6 +7,7 @@ import { verifyEmail } from '@/features/auth/api/auth-api'
 import Link from 'next/link'
 import { CheckCircleIcon, CircleNotchIcon, XCircleIcon } from '@/lib/icons'
 import AuthShell from '@/components/auth/AuthShell'
+import { queryKeys } from '@/lib/queryKeys'
 
 function VerifyEmailContent() {
   const searchParams = useSearchParams()
@@ -28,8 +29,8 @@ function VerifyEmailContent() {
       .then(() => {
         setStatus('success')
         // Refresh cached identity so the banner/avatar dot clear immediately
-        queryClient.invalidateQueries({ queryKey: ['current-user'] })
-        queryClient.invalidateQueries({ queryKey: ['user'] })
+        queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
+        queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
         setTimeout(() => router.push('/'), 3000)
       })
       .catch((err: unknown) => {

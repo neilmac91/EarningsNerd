@@ -7,6 +7,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { CalendarDotsIcon, CaretDownIcon, ChatTextIcon, GearIcon, ShieldIcon, SignOutIcon, SquaresFourIcon, StarIcon, WarningCircleIcon } from '@/lib/icons'
 import { logout } from '@/features/auth/api/auth-api'
 import { ENABLE_CALENDAR } from '@/lib/featureFlags'
+import { queryKeys } from '@/lib/queryKeys'
 
 export type MenuUser = {
   email: string
@@ -64,8 +65,8 @@ export default function UserMenu({ user }: { user: MenuUser }) {
     } catch {
       // ignore — clear local state regardless
     }
-    queryClient.setQueryData(['current-user'], null)
-    queryClient.invalidateQueries({ queryKey: ['user'] })
+    queryClient.setQueryData(queryKeys.currentUser(), null)
+    queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
     router.push('/')
     router.refresh()
   }

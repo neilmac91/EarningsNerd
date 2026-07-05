@@ -306,6 +306,83 @@ single import surface via re-imports + a bottom-of-file `__all__`.
   `test_apply_structured_fallbacks_tolerates_nondict_metric_payloads`. Gate re-run: **1153 passed /
   2 deselected**, ruff + bandit clean.
 
+**Wave 2 · S3 — auth extraction (backend Batch B).** Behavior-preserving; Set-Cookie byte-identical.
+Three extractions out of the 1,462-line `routers/auth.py`:
+1. **`app/services/oauth_verify.py`** — Google/Apple JWKS fetch + id-token verification (the identity
+   crypto) + JWKS URLs/issuers/caches. auth.py re-imports the two verifiers (callbacks call them by
+   name). Forced ONE disclosed test change: `test_apple_signin`'s 5 internal-verify tests repoint from
+   `auth_module.{jwt,_get_apple_jwks}` to `oauth_verify.*`; the callback-level patches are unchanged.
+2. **`issue_session(db, user, response, request, *, refresh_token=None, commit=True)`** — the single
+   mint point for all 5 login paths (login, change-password, /refresh, Google + Apple callbacks).
+   Default mints+commits a new refresh token; /refresh passes its pre-rotated token with commit=False;
+   the OAuth callbacks keep their own try/except IntegrityError→conflict-redirect around it.
+3. **`app/services/password_utils.py`** — bcrypt hashing + policy (verify/get_password_hash,
+   validate_password_strength, _DUMMY_PASSWORD_HASH), re-exported from auth.py.
+   The cookie primitives (`_set_auth_cookie`/`_set_refresh_cookie`) STAY in the router (already clean,
+   heavily bound), so cookies are byte-identical by construction. Anchors: 44 tests green (auth_flow,
+   refresh_replay, auth_cookies, apple_signin, password_and_profile).
+
+**Wave 2 · S4 — ingestion hardening (backend Batch B).** Resilience wiring onto SEC fetch paths that
+bypassed it; behavior-preserving except the added throttle/breaker/timeout.
+- **Circuit breaker** on the 15 unwrapped edgartools primary-path calls (client.py ×10, xbrl_service
+  ×4, `sixk_extractor.py:117` — the review addendum): `run_in_executor_with_timeout` →
+  `run_with_circuit_breaker` (timeout + thread pool were already present).
+- **Rate limiter** on the 3 async raw-httpx sec.gov GETs (xbrl companyfacts fallback; BOTH compat.py
+  calls — tickers + document-fetch — the review addendum), via `sec_rate_limiter`; compat keeps its
+  breaker (limiter nested inside).
+- **Timeouts** on the 3 bare `run_in_executor` DataFrame calls (xbrl 677/711/743).
+- **Guard**: `test_circuit_breaker` gains a wrapper-level assertion that an OPEN breaker short-circuits
+  `run_with_circuit_breaker` before `func` runs.
+- **Plan-count corrections (verified by the S4 map):** breaker sites = **15**, not ~17; bare-executor
+  timeouts = **3**, not 5 (`client.py:509/516` don't exist); the #6 concept lists live in
+  instance_extractor / xbrl_service / facts_service, NOT statement_parser / client (which take
+  candidates as a param / have none).
+- **DEFERRED — behavior-change risk, not mechanical (each needs its own fixture-gated PR):** the
+  concept-list unification (#6) + companyfacts-parser collapse (#7) — the three revenue lists
+  deliberately differ in ORDERING (`Revenues`-first vs contract-revenue-first), so a naive merge
+  changes which tag wins on multi-tagged filers (T9 + test_statement_extraction would catch it, but
+  it must not ride a resilience PR); and `facts_service._fetch_companyfacts_sync`'s limiter wiring +
+  `sleep(0.2)` removal — it is synchronous (backfill cron) and the limiter is async-only, so it needs
+  an async restructure through `backfill_facts`. 161 edgar/facts/breaker tests green.
+
+**Wave 2 · F1 — ApiError unification + queryKeys registry (PR #551, frontend-only commit).**
+Behavior-preserving except deliberate cache-coherence fixes. Delete the dead `ApiError` interface
+(zero importers; the CLASS in `lib/api/client.ts` is canonical). Add `lib/queryKeys.ts` (one registry:
+constants + `as const` factories; admin-feedback keeps its prefix for partial-match invalidation).
+Reconcile the split keys to ONE key + ONE fetcher each: currentUser `['user']`+`['current-user']` →
+`['current-user']` + `getCurrentUserSafe` (fixes a split-brain cache — sites wrote one key and
+invalidated the other); subscription drops the never-fetched-on `user?.id`; usage folds
+`['copilot-usage']` (same `/usage` endpoint, so a copilot answer no longer leaves the dashboard usage
+view stale). Gate: tsc(ci)/eslint(--max-warnings 0)/vitest(248)/next-build green; grep-gate = zero
+reconciled literals outside the registry.
+
+**#551 review response (founder, plan author).** S3 verified byte-identical; S4 resilience sound;
+count corrections + the concept-list-ordering deferral endorsed. Four findings, all applied:
+1. **Reverted the JWKS cache-stampede locks** (the earlier Gemini-suggested #551 fix) to lock-free
+   verbatim — a lazily-bound module-level `asyncio.Lock` is the repo's documented event-loop footgun
+   (binds to the first loop; `RuntimeError` under a later one; CLAUDE.md Common Issues), and it was
+   undisclosed + untested. The herd-guard moves to its own disclosed follow-up (task below).
+2. **Exempted the 4 xbrl_service parse-heavy sites from the breaker** (back to plain
+   `run_in_executor_with_timeout`): big filings legitimately parse 20-40s, so their timeouts are a
+   CPU-cost signal that must not open the shared network-health breaker. client.py + compat still give
+   it a clean SEC-health signal.
+3. **Bounded the user-facing cold-path backoff** to a single token wait (`execute`, not
+   `execute_with_backoff`) on compat tickers + the xbrl companyfacts fallback — fail-fast + stale-cache
+   fallback instead of a ~8-min worker-hold; the cron-shaped doc-fetch keeps its bounded 3-iteration loop.
+4. Repointed the `change_password` atomicity comment at `issue_session`.
+
+**Deferred follow-up tasks (durable record, per the #551 review — do NOT let these ride an unrelated PR):**
+- **[S4-followup-a] Concept-list unification + companyfacts-parser collapse.** The three revenue concept
+  lists differ in ORDERING (tag priority), so a merge changes which tag wins on multi-tagged filers. Own
+  PR, gated by T9 + `test_statement_extraction` (pin the winning tag per multi-tagged fixture). Sites:
+  `edgar/instance_extractor.py`, `edgar/xbrl_service.py`, `services/facts_service.py`.
+- **[S4-followup-b] Async restructure for the `facts_service` companyfacts limiter.** `_fetch_companyfacts_sync`
+  is synchronous (backfill cron) and the limiter is async-only; make the fetch async through
+  `backfill_facts`/`process_filing_facts`, wire `sec_rate_limiter`, drop the `sleep(0.2)`.
+- **[oauth-followup] JWKS thundering-herd guard.** Reintroduce the cold-cache fetch lock WITH a
+  `redis_service`-style loop-identity rebind (`_reset_on_loop_change`) + a test driving the real fetcher
+  (JWKS HTTP mocked) across two event loops. Disclosed, guarded, tested.
+
 _(Deltas from later waves will be appended here as they are executed.)_
 
 ---

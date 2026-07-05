@@ -20,6 +20,7 @@ from .xbrl_service import edgar_xbrl_service, clear_xbrl_cache, get_xbrl_cache_s
 from .exceptions import EdgarError
 from .config import FilingType, EDGAR_IDENTITY
 from .circuit_breaker import edgar_circuit_breaker, CircuitOpenError
+from app.services.sec_rate_limiter import sec_rate_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -66,13 +67,22 @@ class SECEdgarServiceCompat:
         # Fetch from SEC EDGAR
         try:
             async with edgar_circuit_breaker:
+                # Route the sec.gov GET through the rate limiter with a SINGLE token wait (execute,
+                # NOT execute_with_backoff): this is a user-facing cold path (first search after a
+                # restart), so it must fail-fast and fall back to the stale cache below rather than
+                # sleep through the 5-attempt / Retry-After-120s ladder — that belongs to cron-shaped
+                # callers (S4 review #3). It carried the breaker but bypassed the limiter.
                 async with httpx.AsyncClient() as client:
-                    response = await client.get(
-                        "https://www.sec.gov/files/company_tickers.json",
-                        headers={"User-Agent": EDGAR_IDENTITY},
-                        timeout=15.0,
-                    )
-                    response.raise_for_status()
+                    async def _do_request() -> httpx.Response:
+                        resp = await client.get(
+                            "https://www.sec.gov/files/company_tickers.json",
+                            headers={"User-Agent": EDGAR_IDENTITY},
+                            timeout=15.0,
+                        )
+                        resp.raise_for_status()
+                        return resp
+
+                    response = await sec_rate_limiter.execute(_do_request)
                     data = response.json()
 
                     # Update both cache tiers
@@ -301,15 +311,22 @@ class SECEdgarServiceCompat:
         try:
             async with edgar_circuit_breaker:
                 async with httpx.AsyncClient() as client:
+                    # Each attempt acquires a limiter token before hitting sec.gov (the fetch carried
+                    # the breaker but bypassed the limiter). The manual exponential backoff below owns
+                    # retries, so use execute() (token wait) not execute_with_backoff.
+                    async def _do_get() -> httpx.Response:
+                        resp = await client.get(
+                            document_url,
+                            headers={"User-Agent": EDGAR_IDENTITY},
+                            timeout=timeout,
+                            follow_redirects=True,
+                        )
+                        resp.raise_for_status()
+                        return resp
+
                     for attempt in range(max_retries):
                         try:
-                            response = await client.get(
-                                document_url,
-                                headers={"User-Agent": EDGAR_IDENTITY},
-                                timeout=timeout,
-                                follow_redirects=True,
-                            )
-                            response.raise_for_status()
+                            response = await sec_rate_limiter.execute(_do_get)
                             return response.text
                         except Exception:
                             if attempt == max_retries - 1:

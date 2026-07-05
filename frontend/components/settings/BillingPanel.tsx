@@ -13,6 +13,7 @@ import { Button, buttonVariants } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { SkeletonText } from '@/components/ui/Skeleton'
+import { queryKeys } from '@/lib/queryKeys'
 
 function daysUntil(value: string | null): number | null {
   if (!value) return null
@@ -23,11 +24,11 @@ function daysUntil(value: string | null): number | null {
 
 export default function BillingPanel() {
   const { data: sub, isLoading, isError } = useQuery({
-    queryKey: ['subscription'],
+    queryKey: queryKeys.subscription(),
     queryFn: getSubscriptionStatus,
     retry: false,
   })
-  const { data: usage } = useQuery({ queryKey: ['usage'], queryFn: getUsage, retry: false })
+  const { data: usage } = useQuery({ queryKey: queryKeys.usage(), queryFn: getUsage, retry: false })
 
   const portal = useMutation({
     mutationFn: createPortalSession,

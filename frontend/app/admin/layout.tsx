@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query'
 import { ChatTextIcon, EnvelopeSimpleIcon } from '@/lib/icons'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { Skeleton } from '@/components/ui'
+import { queryKeys } from '@/lib/queryKeys'
 
 const ADMIN_NAV = [
   { href: '/admin/invites', label: 'Invites', icon: EnvelopeSimpleIcon },
@@ -56,7 +57,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router = useRouter()
 
   const { data: user, isLoading } = useQuery({
-    queryKey: ['current-user'],
+    queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
     staleTime: 60_000,

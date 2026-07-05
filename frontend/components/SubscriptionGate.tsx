@@ -6,6 +6,7 @@ import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
 import Link from 'next/link'
 import { LockSimpleIcon, SparkleIcon } from '@/lib/icons'
+import { queryKeys } from '@/lib/queryKeys'
 
 interface SubscriptionGateProps {
   children: ReactNode
@@ -19,13 +20,13 @@ export default function SubscriptionGate({
   requirePro = false 
 }: SubscriptionGateProps) {
   const { data: user, isLoading: userLoading } = useQuery({
-    queryKey: ['current-user'],
+    queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
   })
 
   const { data: subscription, isLoading } = useQuery({
-    queryKey: ['subscription', user?.id],
+    queryKey: queryKeys.subscription(),
     queryFn: getSubscriptionStatus,
     retry: false,
     enabled: Boolean(user),

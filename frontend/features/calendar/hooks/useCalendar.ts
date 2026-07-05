@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { hasActiveSession } from '@/lib/api/session'
 import { getUsage } from '@/features/subscriptions/api/subscriptions-api'
+import { queryKeys } from '@/lib/queryKeys'
 import {
   getCalendar,
   getEarningsAlertTickers,
@@ -47,7 +48,7 @@ export interface CalendarViewer {
 
 export function useViewer(): CalendarViewer {
   const signedIn = typeof window !== 'undefined' && hasActiveSession()
-  const usage = useQuery({ queryKey: ['usage'], queryFn: getUsage, enabled: signedIn, staleTime: 60_000 })
+  const usage = useQuery({ queryKey: queryKeys.usage(), queryFn: getUsage, enabled: signedIn, staleTime: 60_000 })
   const alerts = useQuery({
     queryKey: ['earnings-alert-tickers'],
     queryFn: getEarningsAlertTickers,

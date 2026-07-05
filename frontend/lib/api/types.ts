@@ -1,9 +1,7 @@
-// Common API types
-export interface ApiError {
-  message: string
-  status?: number
-  code?: string
-}
+// Common API types.
+// NOTE: the canonical `ApiError` is the CLASS in `lib/api/client.ts` (thrown by the axios
+// interceptor; consumers use `instanceof`). The dead structural interface that used to live here
+// had zero importers and was removed in F1 to end the name collision.
 
 /**
  * Type-safe representation of API error responses.

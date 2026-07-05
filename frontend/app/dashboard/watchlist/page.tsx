@@ -13,11 +13,12 @@ import WatchlistAddSearch from '@/components/watchlist/WatchlistAddSearch'
 import CompanyLogo from '@/components/CompanyLogo'
 import { ENABLE_COMPARE } from '@/lib/featureFlags'
 import { Badge, buttonVariants, Card, GuidanceCard, type BadgeVariant } from '@/components/ui'
+import { queryKeys } from '@/lib/queryKeys'
 
 function useAuthGate() {
   const router = useRouter()
   const { data: user, isLoading } = useQuery({
-    queryKey: ['current-user'],
+    queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
   })

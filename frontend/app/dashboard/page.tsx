@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getCurrentUser, logout } from '@/features/auth/api/auth-api'
+import { getCurrentUserSafe, logout } from '@/features/auth/api/auth-api'
 import { getUsage, getSubscriptionStatus, createPortalSession } from '@/features/subscriptions/api/subscriptions-api'
 import { getSavedSummaries, deleteSavedSummary, SavedSummary } from '@/features/summaries/api/summaries-api'
 import { getWatchlist, removeFromWatchlist, WatchlistItem } from '@/features/watchlist/api/watchlist-api'
@@ -19,25 +19,26 @@ import EarningsCalendar from '@/components/dashboard/EarningsCalendar'
 import { ENABLE_CALENDAR } from '@/lib/featureFlags'
 import analytics from '@/lib/analytics'
 import { Badge, Button, buttonVariants, Card, GuidanceCard, Skeleton } from '@/components/ui'
+import { queryKeys } from '@/lib/queryKeys'
 
 export default function DashboardPage() {
   const router = useRouter()
 
   const { data: user, isLoading: userLoading, isError: userError, error: userErrorData, refetch: refetchUser, isFetching: userFetching } = useQuery({
-    queryKey: ['user'],
-    queryFn: getCurrentUser,
+    queryKey: queryKeys.currentUser(),
+    queryFn: getCurrentUserSafe,
     retry: false,
   })
 
   const { data: usage, isLoading: usageLoading, isError: usageError, error: usageErrorData, refetch: refetchUsage, isFetching: usageFetching } = useQuery({
-    queryKey: ['usage'],
+    queryKey: queryKeys.usage(),
     queryFn: getUsage,
     retry: false,
     enabled: !!user,
   })
 
   const { data: subscription, isLoading: subscriptionLoading, isError: subscriptionError, error: subscriptionErrorData, refetch: refetchSubscription, isFetching: subscriptionFetching } = useQuery({
-    queryKey: ['subscription'],
+    queryKey: queryKeys.subscription(),
     queryFn: getSubscriptionStatus,
     retry: false,
     enabled: !!user,
