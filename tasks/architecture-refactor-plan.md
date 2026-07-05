@@ -172,7 +172,13 @@ suite green), just serialized. Cumulative: **61 files, −2625 LOC** (exceeds th
   usage-check:** the initial line-range included the module-level `edgar_client = EdgarClient()`
   singleton (used by `edgar/__init__` + `compat.py`); re-scoped to preserve it. `earnings_whispers`
   module + its `integrations/__init__` exports removed (superseded by FMP; the calendar test's
-  `"earnings_whispers"` is a string label, not a module ref).
+  `"earnings_whispers"` is a string label, not a module ref). **S4 impact (forward bookkeeping):**
+  deleting `_extract_metric_series`/`_extract_xbrl_data` also consumed part of S4's enumerated
+  inventory — client.py's revenue/net-income concept-list literals (formerly `:511–512`) and 2 of the
+  "5 bare executor DataFrame calls" (formerly `client.py:509,516`). **S4's remaining scope is now
+  `xbrl_service.py` ×3 executor calls + ~5 concept-list sites**, so the S4 row and the "~6 files"
+  concept-list count in the plan body below are stale by exactly that — a Wave-2 engineer should not
+  hunt client.py for the removed lines.
 - **D4 — the RequestMetrics theater (−154).** `record_request` had **zero callers** (no middleware
   fed it), so the `/metrics` "requests" block always reported zeros. Removed the dataclass, the
   singleton, `get_request_metrics`, the module `record_request`, and the "requests" key (kept the real

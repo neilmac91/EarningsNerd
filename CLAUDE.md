@@ -112,15 +112,14 @@ docker-compose down                   # Stop databases
 │   │   └── openai_service.py    # AI summarization logic
 │   ├── models/           # SQLAlchemy ORM models (User/Company/Filing/Summary in __init__.py; FinancialFact, notifications, refresh_token, subscription, waitlist, contact, audit_log in submodules)
 │   ├── schemas/          # Pydantic validation schemas (summary, contact, fundamentals, insiders, peers, search)
-│   ├── integrations/     # External APIs (finnhub, earnings_whispers, fmp, stocktwits, sec_api)
+│   ├── integrations/     # External APIs (finnhub, fmp, stocktwits, sec_api)
 │   ├── config.py         # Pydantic Settings (env validation)
 │   └── database.py       # DB session management
-├── pipeline/             # SEC data pipeline (extract, validate, quality, schema, write)
 ├── evals/                # AI eval harness (golden sets, judge, copilot scorers) — see evals/RUNBOOK.md
 ├── tests/                # pytest tests (unit/, integration/, performance/, smoke/)
 ├── prompts/              # AI system prompts (10k/10q analyst-agent.md + 10k/10q structured-agent.md)
 ├── scripts/              # Verification and debug scripts
-├── docs/                 # Design docs (plan_sec_pipeline.md)
+├── docs/                 # Design & deployment docs
 ├── migrations/           # One-off SQL migrations (applied manually; no Alembic)
 └── main.py               # FastAPI app entry point
 
@@ -173,7 +172,7 @@ docker-compose down                   # Stop databases
 | `backend/app/services/resend_service.py` | Low-level Resend API client |
 | `backend/app/services/fallback_summary.py` | Generates deterministic summaries when AI generation fails |
 | `backend/app/services/prompt_loader.py` | Loads AI prompts from markdown files |
-| `backend/app/services/hot_filings.py` | Identifies trending SEC filings using Finnhub/EarningsWhispers signals |
+| `backend/app/services/hot_filings.py` | Identifies trending SEC filings using Finnhub/FMP signals |
 | `backend/app/services/trending_service.py` | Trending tickers with keyword sentiment analysis |
 | `backend/app/services/export_service.py` | PDF/HTML export of summaries and filings |
 | `backend/app/services/waitlist_service.py` | Waitlist signups with referral codes and priority scoring |
@@ -223,22 +222,9 @@ docker-compose down                   # Stop databases
 | File | Purpose |
 |------|---------|
 | `finnhub.py` | News sentiment analysis (buzz_ratio, articles_in_last_week, bullish_percent) |
-| `earnings_whispers.py` | Earnings surprise signals and company earnings data |
 | `fmp.py` | Financial Modeling Prep: stock symbol validation, price data, earnings calendar |
 | `stocktwits.py` | Stocktwits trending symbols API for social sentiment signals |
 | `sec_api.py` | SEC EDGAR full-text search (EFTS) — keyless filing/exhibit text index since 2001 |
-
-### SEC Data Pipeline (`backend/pipeline/`)
-
-Modular ETL pipeline for SEC filing data (see `backend/docs/plan_sec_pipeline.md`):
-
-| File | Purpose |
-|------|---------|
-| `extract.py` | Extraction logic for filing data |
-| `validate.py` | Validation of extracted data |
-| `quality.py` | Data quality checks |
-| `schema.py` | Schema definitions for pipeline data |
-| `write.py` | Persist/write pipeline output |
 
 ### API Routers (`backend/app/routers/`)
 
@@ -444,9 +430,6 @@ FINNHUB_API_KEY=...               # Required for sentiment analysis
 FINNHUB_API_BASE=https://finnhub.io/api/v1
 FINNHUB_TIMEOUT_SECONDS=6.0       # Timeout for Finnhub API calls
 FINNHUB_MAX_CONCURRENCY=4         # Max concurrent Finnhub requests
-
-# External APIs - EarningsWhispers
-EARNINGS_WHISPERS_API_BASE=https://www.earningswhispers.com/api
 
 # External APIs - Financial Modeling Prep (FMP)
 FMP_API_KEY=...                   # Stock validation, price data, earnings calendar
@@ -739,7 +722,6 @@ EDGAR_THREAD_POOL_SIZE = 4  # Increase for more concurrent SEC API calls
 | `cache.xbrl_l1.utilization_percent` | > 80% | > 95% |
 | `cache.redis.healthy` | - | `false` |
 | `circuit_breaker.sec_edgar.state` | `half_open` | `open` |
-| `requests.error_rate_percent` | > 5% | > 15% |
 | `database.checked_out` | > 8 | = pool_size |
 
 ## Request Timeout Configuration

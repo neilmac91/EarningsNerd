@@ -6,7 +6,6 @@ Aggregates metrics from various services:
 - Circuit breaker status
 - Cache statistics
 - Database connection pool stats
-- Request counts and latencies
 
 Usage:
     from app.services.metrics_service import get_all_metrics
@@ -31,7 +30,6 @@ async def get_all_metrics() -> Dict[str, Any]:
 
     Returns a dictionary with metrics from all services:
     - app: Application-level metrics (uptime, version)
-    - requests: HTTP request metrics
     - circuit_breaker: SEC EDGAR circuit breaker status
     - cache: Redis cache statistics
     - database: Database connection pool stats

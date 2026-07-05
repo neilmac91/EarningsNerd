@@ -47,7 +47,7 @@ def test_explicit_recovery_overrides_fast_model(monkeypatch):
     assert svc.get_model_for_task("section_recovery") == FLASH
 
 
-@pytest.mark.parametrize("task", ["structured_extraction", "editorial_writer"])
+@pytest.mark.parametrize("task", ["structured_extraction"])
 def test_quality_tasks_stay_on_pro_even_with_fast_model(monkeypatch, task):
     svc = _fresh_service(monkeypatch, fast=FLASH, recovery=FLASH)
     assert svc.get_model_for_task(task) == PRO

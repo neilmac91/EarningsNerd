@@ -230,7 +230,6 @@ class Settings(BaseSettings):
     HOT_FILINGS_USER_AGENT: str = (
         "EarningsNerdBot/1.0 (+https://earningsnerd.com/contact)"
     )
-    EARNINGS_WHISPERS_API_BASE: str = "https://www.earningswhispers.com/api"
     FINNHUB_API_BASE: str = "https://finnhub.io/api/v1"
     FINNHUB_API_KEY: str = ""
     FINNHUB_TIMEOUT_SECONDS: float = 6.0

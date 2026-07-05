@@ -443,7 +443,6 @@ class OpenAIService:
         self._task_models = {
             "structured_extraction": self._MODEL_GEMINI_3_PRO,   # Needs high accuracy
             "section_recovery": _section_recovery_model,         # Cheaper-model candidate (A11)
-            "editorial_writer": self._MODEL_GEMINI_3_PRO,        # High quality final output
         }
         # Concurrency control for parallel section recovery
         # Limits concurrent API calls to prevent rate limiting
@@ -468,7 +467,6 @@ class OpenAIService:
         Task types:
         - structured_extraction: Primary JSON extraction (needs highest accuracy)
         - section_recovery: Fill missing sections (simpler; opt-in cheaper model via config — A11)
-        - editorial_writer: Convert to markdown (creative, use Pro)
 
         Falls back to filing-type model if task not recognized.
         """
