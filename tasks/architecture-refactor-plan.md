@@ -150,6 +150,53 @@ the same anchor pins. (A follow-up could add a watermark-level dedup mutation fo
 clean. Green at **`00653e5`** (this delta entry is docs-only, committed on top). Count moved 1135 →
 1146 (+11), fully explained by the round-2 additions: T1 +4, T2 +4, T5 +2, T4 +1.
 
+**Wave 1 — deletions (this PR).** Six file-disjoint deletions. The plan called for six parallel PRs;
+the execution branch is bound to a single branch, so they ship as six file-disjoint commits in one
+Wave 1 PR — same isolation, same per-deletion gate (rg the removed symbols → 0; ruff + bandit + full
+suite green), just serialized. Cumulative: **61 files, −2625 LOC** (exceeds the ~2,200 estimate).
+
+- **D1 — openai_service dead editorial cluster (−652).** `generate_editorial_markdown` (its caller
+  `summarize_filing` was long ago rewired to deterministic rendering) + its only-callees
+  `_validate_editorial_markdown` / `_validate_editorial_numbers` / `_collect_structured_number_strings`
+  + the `_writer_models` init block + the separately-dead `summarize_filing_stream`. Coupled in the
+  same commit: dropped the two now-dangling `_LLM_ENTRYPOINTS` names in `test_llm_no_pii.py` (the test
+  `getattr`s each) and the `stream_chat` docstring mention. `openai_service.py` 3715 → 3063.
+- **D2 — `backend/pipeline/` package (−784) + orphaned root `/tests/`.** Never imported by app code —
+  only by the 3 root pipeline tests CI never collected. Deleted the package + the whole root `/tests/`
+  tree; repointed the two subagent docs (`.claude/agents/engineering/*`) off `backend/pipeline/*`;
+  banner-marked `plan_sec_pipeline.md` SUPERSEDED. Resolves the Wave 0a "repo-root pytest errors"
+  known-issue. Also removed the 9 finished agent worktrees.
+- **D3 — dead EdgarClient XBRL path (−260) + `earnings_whispers`.** `EdgarClient.get_xbrl_data` +
+  `_extract_xbrl_data` + `_extract_metric_series` (every live XBRL caller goes through
+  `EdgarXBRLService`/compat — not this variant). **Near-miss caught by a dry-run print + a
+  usage-check:** the initial line-range included the module-level `edgar_client = EdgarClient()`
+  singleton (used by `edgar/__init__` + `compat.py`); re-scoped to preserve it. `earnings_whispers`
+  module + its `integrations/__init__` exports removed (superseded by FMP; the calendar test's
+  `"earnings_whispers"` is a string label, not a module ref).
+- **D4 — the RequestMetrics theater (−154).** `record_request` had **zero callers** (no middleware
+  fed it), so the `/metrics` "requests" block always reported zeros. Removed the dataclass, the
+  singleton, `get_request_metrics`, the module `record_request`, and the "requests" key (kept the real
+  circuit_breaker/cache/db sections). `/health/detailed`'s request counts are circuit-breaker stats —
+  untouched. Purged the CLAUDE.md advertisement (Thread-Safe Metrics bullet, the example block, the
+  moot "Metrics deadlock" row).
+- **D5 — repo-root strays + dead one-offs.** `inspect_db.py`, `templates/{index,results}.html` (no
+  code serves them), `scripts/fix_contact_column.py` (**confirmed** the Cloud Run start command is
+  `CMD uvicorn main:app …` in `backend/Dockerfile` — not this Render relic), `scripts/update_contact_schema.py`
+  (superseded by the ContactSubmission ORM model + create_all, NOT a migration — and its deletion makes
+  the CLAUDE.md:844 / ADR-0001 "was removed" claims finally true). Kept `cleanup-branches.sh`,
+  `performance-comparison.sh`, `test_resend_simple.py`.
+- **D6 — archived 34 finished tasks/ docs.** Top-level `tasks/*.md` 43 → 9. Kept: the active plan +
+  `todo.md`, `lessons.md`, the operational runbooks (gcp-deploy/launch/security_privacy), and the docs
+  cited by live surfaces (council-prep/earnings-calendar-strategy/fpi-support-roadmap). Link-check: the
+  3 live pointers into the finished-cluster were repointed to `tasks/archive/` paths; every `tasks/*.md`
+  reference now resolves — 0 danglers.
+
+**Baseline (Wave 1):** backend **1146 passed / 2 deselected (47s)** + **2 performance (18s)**, `ruff` +
+`bandit -ll` clean; frontend untouched (all changes backend/docs) and still green — **248 vitest / tsc /
+eslint** clean. Test count unchanged at 1146 (every deletion was dead code; the only test edit trimmed
+two name-list entries, keeping both tests). Green at **`f27c53b`** (this delta entry is docs-only, on
+top). NON-goals held: entitlements/billing, refresh_token_service, and the design system were untouched.
+
 _(Deltas from later waves will be appended here as they are executed.)_
 
 ---
