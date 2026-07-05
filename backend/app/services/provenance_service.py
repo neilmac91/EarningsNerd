@@ -245,6 +245,26 @@ def enrich_risk_list(
     return enriched
 
 
+def _is_no_total_bank(xbrl_standardized: Optional[dict]) -> bool:
+    """True when the standardized metrics describe a bank that reports NO single revenue line —
+    net/non-interest income components present but no populated ``revenue`` total. Mirrors
+    ``openai_service._is_no_total_bank`` (kept as a small independent copy to avoid import coupling);
+    both gate the drop of a conflated bank "Revenue" row."""
+    if not isinstance(xbrl_standardized, dict):
+        return False
+    has_components = any(
+        isinstance(xbrl_standardized.get(k), dict)
+        for k in ("net_interest_income", "noninterest_income")
+    )
+    rev = xbrl_standardized.get("revenue")
+    has_revenue = (
+        isinstance(rev, dict)
+        and isinstance(rev.get("current"), dict)
+        and rev["current"].get("value") is not None
+    )
+    return has_components and not has_revenue
+
+
 def enrich_financial_highlights(
     financial_highlights: Optional[dict],
     filing: Any,
@@ -253,7 +273,9 @@ def enrich_financial_highlights(
     """Return a deep-copied ``financial_highlights`` with per-row provenance on ``table`` entries.
 
     Tolerant of a missing/empty ``table``; returns the input unchanged when there is nothing to
-    enrich. The block-level ``source_section_ref`` is propagated to each row.
+    enrich. The block-level ``source_section_ref`` is propagated to each row. As a read-time safety
+    net for summaries generated before the generation-time guard shipped, a conflated ``revenue`` row
+    is dropped for a no-total bank (:func:`_is_no_total_bank`) so a wrong figure never renders.
     """
     if not isinstance(financial_highlights, dict) or not isinstance(
         financial_highlights.get("table"), list
@@ -265,8 +287,17 @@ def enrich_financial_highlights(
         or financial_highlights.get("sourceSectionRef")
     )
     result = copy.deepcopy(financial_highlights)
+    rows = result["table"]
+    if _is_no_total_bank(xbrl_standardized):
+        rows = [
+            r for r in rows
+            if not (
+                isinstance(r, dict)
+                and (map_metric_to_xbrl_key(r.get("metric")) or (None,))[0] == "revenue"
+            )
+        ]
     enriched_rows: list[Any] = []
-    for row in result["table"]:
+    for row in rows:
         if isinstance(row, dict):
             row.update(build_metric_source(row, filing, xbrl_standardized, section_ref))
         enriched_rows.append(row)

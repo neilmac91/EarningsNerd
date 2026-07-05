@@ -516,3 +516,35 @@ def test_currency_incidental_bare_dollar_amid_native_scores_high():
         _CNY_GT)
     assert score >= 0.6   # 3 RMB / (3 RMB + 1 bare-$) = 0.75
     assert viol
+
+
+# --------------------------------------------------------------------------- G5 bank revenue integrity
+
+_NII = GroundTruthFact(metric="net_interest_income", value=303_235_000.0, unit="USD")
+_NONI = GroundTruthFact(metric="noninterest_income", value=11_871_000.0, unit="USD")
+
+
+def test_bank_integrity_inert_without_component_facts():
+    from evals.scorers import score_bank_revenue_integrity, compute_gate_failures
+    # No component ground truth (the current golden set) → always passes, gate stays dormant.
+    assert score_bank_revenue_integrity("anything at all", [REVENUE, NET_INCOME]) == (1.0, [])
+    assert compute_gate_failures({}, [], [REVENUE]) == compute_gate_failures({}, [])
+
+
+def test_bank_integrity_passes_when_both_components_surfaced():
+    from evals.scorers import score_bank_revenue_integrity
+    hay = json.dumps({"table": [
+        {"metric": "Net Interest Income", "current_period": "$303.2M"},
+        {"metric": "Non-Interest Income", "current_period": "$11.9M"},
+    ]})
+    assert score_bank_revenue_integrity(hay, [_NII, _NONI]) == (1.0, [])
+
+
+def test_bank_integrity_gate_fires_when_component_missing():
+    from evals.scorers import compute_gate_failures
+    payload = {"financial_highlights": {"table": [
+        {"metric": "Net Interest Income", "current_period": "$303.2M"},
+        # Non-interest income dropped → G5 must fire.
+    ]}}
+    gates = compute_gate_failures(payload, [], [_NII, _NONI])
+    assert any("G5 bank revenue" in g and "noninterest_income" in g for g in gates)

@@ -339,12 +339,48 @@ def detect_hygiene_violations(payload: Dict[str, Any]) -> List[str]:
     return violations
 
 
+def score_bank_revenue_integrity(
+    haystack: str, ground_truth: List[GroundTruthFact]
+) -> Tuple[float, List[str]]:
+    """Bank revenue integrity (deterministic, Artifact-1 gate G5).
+
+    ACTIVE only when the ground truth carries bank COMPONENT facts
+    (``net_interest_income`` / ``noninterest_income``) — i.e. a bank that reports no single revenue
+    line. In that case both components must appear separately in the candidate's financial text, so a
+    summary that dropped them or replaced them with one conflated "revenue" fails. Returns
+    ``(score, failures)``; ``(1.0, [])`` for every non-bank filing, so a golden set that carries no
+    component facts is unaffected (this gate stays dormant until the golden set adds a no-total bank,
+    e.g. MCB). The generation-time sanitizer guarantees the *negative* (no fabricated total) in
+    production; this gate protects the *positive* (components surfaced) in the bake-off."""
+    components = [
+        f for f in ground_truth
+        if f.metric in ("net_interest_income", "noninterest_income")
+    ]
+    if not components:
+        return 1.0, []
+    hay = haystack.lower()
+    failures: List[str] = []
+    matched = 0
+    for fact in components:
+        if any(r.lower() in hay for r in _fact_renderings(fact)):
+            matched += 1
+        else:
+            failures.append(f"bank component not surfaced separately: {fact.metric}")
+    return round(matched / len(components), 4), failures
+
+
 def compute_gate_failures(
-    payload: Dict[str, Any], contradictions: List[str]
+    payload: Dict[str, Any], contradictions: List[str],
+    ground_truth: Optional[List[GroundTruthFact]] = None,
 ) -> List[str]:
     """Combine Artifact-1 deterministic hard gates into a single veto list."""
     failures = [f"G1 numeric fidelity — {c}" for c in contradictions]
     failures += [f"G4 output hygiene — {h}" for h in detect_hygiene_violations(payload)]
+    # G5 (bank revenue integrity) is inert unless the ground truth carries bank component facts.
+    _bank_score, bank_failures = score_bank_revenue_integrity(
+        _financial_haystack(payload), ground_truth or []
+    )
+    failures += [f"G5 bank revenue — {m}" for m in bank_failures]
     return failures
 
 
@@ -531,7 +567,7 @@ def score_summary(
         financial_depth=depth,
         specificity=specificity,
         currency_consistency=currency_consistency,
-        gate_failures=compute_gate_failures(payload, contradictions),
+        gate_failures=compute_gate_failures(payload, contradictions, ground_truth),
         missing_sections=missing_sections,
         matched_facts=matched,
         missing_facts=missing_facts,

@@ -5,8 +5,9 @@ import pytest
 
 from app.services.facts_service import normalize_standardized_to_facts
 from app.services.dashboard_feed_service import compute_what_changed
-from app.services.provenance_service import map_metric_to_xbrl_key
+from app.services.provenance_service import map_metric_to_xbrl_key, enrich_financial_highlights
 from app.schemas.summary import _infer_xbrl_metric
+from app.services.openai_service import _sanitize_bank_financial_highlights, _is_no_total_bank
 
 pytestmark = pytest.mark.unit
 
@@ -109,3 +110,50 @@ def test_provenance_metric_mapping(name, expected_key):
 ])
 def test_summary_infer_xbrl_metric(name, expected):
     assert _infer_xbrl_metric(name) == expected
+
+
+# --------------------------------------------------------------------------- bank-revenue guards (#4)
+
+_NO_TOTAL_BANK = {
+    "net_interest_income": {"current": {"value": 303_000_000.0}},
+    "noninterest_income": {"current": {"value": 11_000_000.0}},
+}
+_TOTAL_BANK = {**_NO_TOTAL_BANK, "revenue": {"current": {"value": 182_000_000_000.0}}}
+_NON_FINANCIAL = {"revenue": {"current": {"value": 50_000_000_000.0}}}
+
+
+def _highlights():
+    return {"table": [
+        {"metric": "Revenue", "current_period": "$527.1M"},
+        {"metric": "Net Interest Income", "current_period": "$303.2M"},
+        {"metric": "Net Income", "current_period": "$71.1M"},
+    ]}
+
+
+def test_is_no_total_bank():
+    assert _is_no_total_bank(_NO_TOTAL_BANK) is True
+    assert _is_no_total_bank(_TOTAL_BANK) is False        # has a reported revenue total (JPM)
+    assert _is_no_total_bank(_NON_FINANCIAL) is False     # no components
+    assert _is_no_total_bank(None) is False
+
+
+def test_sanitizer_drops_revenue_row_only_for_no_total_bank():
+    metrics = {m["metric"] for m in _sanitize_bank_financial_highlights(_highlights(), _NO_TOTAL_BANK)["table"]}
+    assert metrics == {"Net Interest Income", "Net Income"}  # conflated Revenue row dropped
+
+
+def test_sanitizer_keeps_revenue_for_total_bank_and_non_financial():
+    for metrics in (_TOTAL_BANK, _NON_FINANCIAL):
+        rows = {m["metric"] for m in _sanitize_bank_financial_highlights(_highlights(), metrics)["table"]}
+        assert "Revenue" in rows and len(rows) == 3
+
+
+def test_provenance_net_drops_conflated_bank_revenue_at_read_time():
+    class _Filing:
+        document_url = "https://sec.gov/x"
+        sec_url = "https://sec.gov/x"
+    out = enrich_financial_highlights(_highlights(), _Filing(), _NO_TOTAL_BANK)
+    assert {r["metric"] for r in out["table"]} == {"Net Interest Income", "Net Income"}
+    # A bank WITH a reported total keeps its (verifiable) revenue row.
+    out2 = enrich_financial_highlights(_highlights(), _Filing(), _TOTAL_BANK)
+    assert "Revenue" in {r["metric"] for r in out2["table"]}
