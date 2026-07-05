@@ -660,3 +660,100 @@ class TestGetFilingFundamentals:
         rev = next(c for c in out["concepts"] if c["concept"] == "revenue")
         assert [p["value"] for p in rev["points"]] == [500.0]
         db.close()
+
+
+@pytest.mark.requires_db
+class TestRemediateIndustryFacts:
+    """The one-time financial-institution remediation: delete the stale affected-concept rows and
+    re-insert the corrected extraction, atomically, surfacing skips."""
+
+    def _bank_filing(self, db, acc, xbrl_data):
+        from datetime import datetime
+        from app.models import Company, Filing
+
+        suffix = uuid.uuid4().hex[:8]
+        company = Company(cik=suffix, ticker=("R" + suffix[:4]).upper(),
+                          name=f"Bank {suffix}", sic="6022")
+        db.add(company)
+        db.commit()
+        db.refresh(company)
+        filing = Filing(
+            company_id=company.id, accession_number=acc, filing_type="10-K",
+            filing_date=datetime(2025, 3, 1),
+            document_url="https://sec.example/x.htm", sec_url="https://sec.example/",
+            xbrl_data=xbrl_data,
+        )
+        db.add(filing)
+        db.commit()
+        db.refresh(filing)
+        return company, filing
+
+    _STALE = {
+        "revenue": [{"period": "2024-12-31", "value": 11_100_000.0,
+                     "raw_tag": "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax"}],
+        "net_income": [{"period": "2024-12-31", "value": 71_000_000.0}],
+    }
+    _CORRECTED = {
+        "revenue": [],  # bank: generic revenue suppressed
+        "net_interest_income": [{"period": "2024-12-31", "value": 303_000_000.0,
+                                 "raw_tag": "us-gaap:InterestIncomeExpenseNet"}],
+        "noninterest_income": [{"period": "2024-12-31", "value": 11_900_000.0,
+                                "raw_tag": "us-gaap:NoninterestIncome"}],
+        "net_income": [{"period": "2024-12-31", "value": 71_000_000.0}],  # preserved by targeted merge
+    }
+
+    def test_remediate_replaces_stale_bank_revenue_with_components(self):
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        company, filing = self._bank_filing(db, f"REM-{uuid.uuid4().hex[:8]}", dict(self._STALE))
+        svc.process_filing_facts(db, filing)  # seed the WRONG revenue fact ($11.1M subset)
+        assert db.query(FinancialFact).filter_by(
+            company_id=company.id, concept="revenue", is_latest=True).count() == 1
+
+        stats = svc.remediate_industry_facts(
+            db, refetch=lambda c, f: dict(self._CORRECTED), tickers=[company.ticker]
+        )
+        assert filing.id in stats["remediated_ids"]
+        latest = {
+            f.concept: f
+            for f in db.query(FinancialFact).filter_by(company_id=company.id, is_latest=True).all()
+        }
+        assert "revenue" not in latest  # stale fee-income revenue gone
+        assert float(latest["net_interest_income"].value) == 303_000_000.0
+        assert float(latest["noninterest_income"].value) == 11_900_000.0
+        assert float(latest["net_income"].value) == 71_000_000.0  # non-affected concept preserved
+        db.refresh(filing)
+        assert filing.xbrl_data["revenue"] == []
+        assert filing.xbrl_data["net_interest_income"][0]["value"] == 303_000_000.0
+        db.close()
+
+    def test_remediate_dry_run_writes_nothing(self):
+        from app.database import SessionLocal
+        from app.models import FinancialFact
+
+        db = SessionLocal()
+        company, filing = self._bank_filing(db, f"DRY-{uuid.uuid4().hex[:8]}", dict(self._STALE))
+        svc.process_filing_facts(db, filing)
+        stats = svc.remediate_industry_facts(
+            db, refetch=lambda c, f: dict(self._CORRECTED), tickers=[company.ticker], dry_run=True
+        )
+        assert stats["filings_refetched"] == 1 and stats["remediated_ids"] == []
+        db.refresh(filing)
+        assert filing.xbrl_data["revenue"][0]["value"] == 11_100_000.0  # untouched
+        assert db.query(FinancialFact).filter_by(
+            company_id=company.id, concept="revenue", is_latest=True).count() == 1
+        db.close()
+
+    def test_remediate_surfaces_skipped_when_refetch_returns_none(self):
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        company, filing = self._bank_filing(db, f"SKIP-{uuid.uuid4().hex[:8]}", dict(self._STALE))
+        stats = svc.remediate_industry_facts(
+            db, refetch=lambda c, f: None, tickers=[company.ticker]
+        )
+        assert filing.id in stats["skipped_ids"] and stats["filings_skipped"] == 1
+        assert stats["remediated_ids"] == []
+        db.close()

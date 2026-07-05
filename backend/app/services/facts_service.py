@@ -472,6 +472,7 @@ def upsert_facts(
     period_of_report: Optional[date] = None,
     reconcile: bool = True,
     authoritative: Optional[dict[tuple[str, date], float]] = None,
+    commit: bool = True,
 ) -> dict[str, int]:
     """Insert fact rows, maintaining ``is_latest`` and the reconciliation flag.
 
@@ -533,7 +534,8 @@ def upsert_facts(
         db.add(FinancialFact(**fact, is_latest=True, reconciled=reconciled))
         inserted += 1
 
-    db.commit()
+    if commit:  # commit=False lets a caller fold this into one per-filing transaction (remediation)
+        db.commit()
     return {"inserted": inserted, "skipped": skipped, "rejected": rejected}
 
 
@@ -544,6 +546,7 @@ def process_filing_facts(
     extract=None,
     standardized: Optional[dict] = None,
     authoritative: Optional[dict[tuple[str, date], float]] = None,
+    commit: bool = True,
 ) -> Optional[dict[str, int]]:
     """Normalize ONE filing's stored ``xbrl_data`` into ``financial_fact`` (extract → normalize →
     upsert → stamp ``processed_facts_at``). The per-filing core shared by ``backfill_facts`` (the
@@ -567,14 +570,19 @@ def process_filing_facts(
     facts = normalize_standardized_to_facts(
         filing.company_id, filing.id, filing.accession_number, filing.filing_type, standardized
     )
+    # upsert never commits here — this function owns the single commit so the fact rows and the
+    # ``processed_facts_at`` stamp land together (and a caller can defer it with commit=False for a
+    # larger per-filing transaction, e.g. remediation's xbrl_data write + delete + re-insert).
     result = upsert_facts(
         db,
         facts,
         period_of_report=getattr(filing, "period_of_report", None),
         authoritative=authoritative,
+        commit=False,
     )
     filing.processed_facts_at = datetime.now(timezone.utc)
-    db.commit()
+    if commit:
+        db.commit()
     return result
 
 
@@ -675,7 +683,7 @@ def remediate_industry_facts(
     tickers: Optional[list[str]] = None,
     limit: Optional[int] = None,
     dry_run: bool = False,
-) -> dict[str, int]:
+) -> dict[str, Any]:
     """Re-extract & re-normalize FINANCIAL-INSTITUTION filings so persisted ``xbrl_data`` and
     ``financial_fact`` carry the industry-correct revenue/components (filing 528 / MCB fix).
 
@@ -687,22 +695,32 @@ def remediate_industry_facts(
     is injected so this function stays network-free and unit-testable; the CLI wires the real
     (statement-aware) XBRL extractor. Filings are processed **oldest-first per company** so corrected
     current values reconcile against corrected priors (avoiding false magnitude flags), and the
-    newest filing wins ``is_latest``. Cross-check is intentionally OFF (authoritative=None): SEC
-    companyfacts has no single authoritative tag for a bank's components/total.
+    newest filing wins ``is_latest`` — this holds only when EVERY filing that reports an overlapping
+    period is remediated, so each filing is **atomic** (xbrl_data write + fact delete + re-insert in
+    one transaction, rolled back on failure) and any skip is surfaced (``skipped_ids``) rather than
+    silently left stale. Cross-check is intentionally OFF (authoritative=None): SEC companyfacts has
+    no single authoritative tag for a bank's components/total.
+
+    Returns stats including ``remediated_ids`` (for the regeneration companion) and ``skipped_ids``.
+
+    Coverage note: the default cohort is the financial-services SIC band (6000–6799) in SQL. A
+    blank/NULL-SIC financial filer (e.g. some BDCs) is NOT auto-selected — the edgartools
+    ``is_financial_institution()`` probe the extractor uses isn't available at the DB layer — so pass
+    such filers explicitly via ``tickers``.
     """
     companies_q = db.query(Company)
     if tickers:
         companies_q = companies_q.filter(Company.ticker.in_([t.upper() for t in tickers]))
     else:
-        # Filter the financial-services SIC band (6000–6799) in SQL rather than loading every
-        # company and filtering in Python. `Company.sic` is a String column of 4-digit codes, so a
-        # lexical BETWEEN is correct here (and NULL/blank SIC is excluded, as it should be — a
-        # blank-SIC filer is remediated by passing it explicitly via --tickers).
+        # `Company.sic` is a String column of 4-digit codes, so a lexical BETWEEN is correct here.
         companies_q = companies_q.filter(Company.sic.between("6000", "6799"))
     companies = companies_q.all()
 
-    stats = {"companies": 0, "filings_refetched": 0, "filings_skipped": 0,
-             "facts_deleted": 0, "facts_inserted": 0, "errors": 0}
+    stats: dict[str, Any] = {
+        "companies": 0, "filings_refetched": 0, "filings_skipped": 0,
+        "facts_deleted": 0, "facts_inserted": 0, "errors": 0,
+        "remediated_ids": [], "skipped_ids": [],
+    }
     processed = 0
     for company in companies:
         filings = (
@@ -722,29 +740,43 @@ def remediate_industry_facts(
             except Exception:
                 logger.exception("remediate: refetch failed for filing %s", filing.id)
                 stats["errors"] += 1
+                stats["skipped_ids"].append(filing.id)
                 continue
             if not fresh:
                 stats["filings_skipped"] += 1
+                stats["skipped_ids"].append(filing.id)
                 continue
-            processed += 1
             stats["filings_refetched"] += 1
+            processed += 1
             if dry_run:
                 continue
-            filing.xbrl_data = fresh
-            deleted = (
-                db.query(FinancialFact)
-                .filter(
-                    FinancialFact.company_id == company.id,
-                    FinancialFact.accession == filing.accession_number,
-                    FinancialFact.concept.in_(AFFECTED_FINANCIAL_CONCEPTS),
+            # One atomic transaction per filing: overwrite the blob, delete the stale affected-concept
+            # rows (raw_tag isn't in the identity, so a plain re-upsert would skip them), re-insert the
+            # corrected facts, then commit. On any failure roll back so we never leave xbrl_data
+            # updated with facts deleted-but-not-reinserted.
+            try:
+                filing.xbrl_data = fresh
+                deleted = (
+                    db.query(FinancialFact)
+                    .filter(
+                        FinancialFact.company_id == company.id,
+                        FinancialFact.accession == filing.accession_number,
+                        FinancialFact.concept.in_(AFFECTED_FINANCIAL_CONCEPTS),
+                    )
+                    .delete(synchronize_session=False)
                 )
-                .delete(synchronize_session=False)
-            )
+                result = process_filing_facts(db, filing, commit=False)  # cross_check off
+                db.commit()
+            except Exception:
+                db.rollback()
+                logger.exception("remediate: write failed for filing %s", filing.id)
+                stats["errors"] += 1
+                stats["skipped_ids"].append(filing.id)
+                continue
             stats["facts_deleted"] += deleted or 0
-            db.commit()
-            result = process_filing_facts(db, filing)  # cross_check off (authoritative=None)
             if result is not None:
                 stats["facts_inserted"] += result["inserted"]
+            stats["remediated_ids"].append(filing.id)
     return stats
 
 

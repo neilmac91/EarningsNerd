@@ -11,6 +11,8 @@ from app.services.edgar.instance_extractor import (
     extract_financial_statement_metrics,
     is_financial_institution,
     match_financial_profile,
+    _period_marker,
+    _statement_period_columns,
     _truthy_flag,
 )
 
@@ -317,3 +319,82 @@ def test_sync_extraction_routes_bank_to_statement_path(monkeypatch):
     assert result["net_interest_income"][0]["raw_tag"] == "us-gaap:InterestIncomeExpenseNet"
     assert result["noninterest_income"][0]["value"] == 11871000.0
     assert result["net_income"][0]["value"] == 71098000.0  # still via the generic path
+
+
+# --------------------------------------------------------------------------- P0 #2/#3 fixes
+
+def test_bank_with_reported_total_emits_revenue_and_components():
+    """A large bank (JPM shape) that publishes a consolidated 'Total net revenue' emits the reported
+    total AS WELL AS the two components (product decision: components + reported total)."""
+    rows = _BANK_ROWS + [
+        {"concept": "us-gaap_Revenues", "label": "Total net revenue", "std": "Revenue",
+         "values": [182450000000, 158100000000, 128600000000]},
+    ]
+    result = extract_financial_statement_metrics(
+        _FakeXBRL(_stmt_df(rows)), _FakeCompany(sic="6021"), "6021", "10-K", "2025-12-31"
+    )
+    assert result is not None
+    key, metrics, suppress = result
+    assert key == "bank"
+    assert suppress == ("revenue",)  # the GENERIC revenue is still never used
+    assert set(metrics) == {"net_interest_income", "noninterest_income", "revenue"}
+    assert metrics["revenue"][0][0] == ("2025-12-31", 182450000000.0)
+    assert metrics["revenue"][1] == "us-gaap:Revenues"
+
+
+def test_nii_only_filer_falls_through_to_financial_generic():
+    """An asset-manager/broker (SCHW/KKR shape) that tags a net-interest line but has NO
+    non-interest-income total must NOT stick to the bank profile — it falls through to its reported
+    total, and revenue is NOT suppressed."""
+    rows = [
+        {"concept": "us-gaap_InterestIncomeExpenseNet", "label": "Net interest revenue",
+         "std": "NetInterestIncome", "values": [11750000000, 10900000000, 9800000000]},
+        {"concept": "us-gaap_RevenueFromContractWithCustomerExcludingAssessedTax", "label": "Total net revenues",
+         "std": "Revenue", "values": [23920000000, 21000000000, 18800000000]},
+    ]
+    result = extract_financial_statement_metrics(
+        _FakeXBRL(_stmt_df(rows)), _FakeCompany(sic="6211"), "6211", "10-K", "2025-12-31"
+    )
+    assert result is not None
+    key, metrics, suppress = result
+    assert key == "financial_generic"      # not "bank"
+    assert suppress == ()
+    assert set(metrics) == {"revenue"}
+    assert metrics["revenue"][0][0] == ("2025-12-31", 23920000000.0)
+
+
+# --------------------------------------------------------------------------- P0 #1 fixes
+
+def test_period_marker():
+    assert _period_marker("2025-09-30 (Q3)") == "Q3"
+    assert _period_marker("2025-12-31 (FY)") == "FY"
+    assert _period_marker("2025-09-30 (YTD)") == "YTD"
+    assert _period_marker("2025-09-30") == ""
+
+
+def test_statement_period_columns_10q_keeps_quarter_drops_ytd():
+    # A Q3 statement with the YTD column listed FIRST (the ARCC repro) — the quarter must win.
+    df = _stmt_df(
+        [{"concept": "us-gaap_GrossInvestmentIncomeOperating", "label": "Total investment income",
+          "std": "Revenue", "values": [2259000000, 782000000, 2100000000, 763000000]}],
+        periods=("2025-09-30 (YTD)", "2025-09-30 (Q3)", "2024-09-30 (YTD)", "2024-09-30 (Q3)"),
+    )
+    cols = _statement_period_columns(df, "10-Q")
+    # Only the (Qn) columns survive, newest first — no YTD leaks in.
+    assert [c for _, c in cols] == ["2025-09-30 (Q3)", "2024-09-30 (Q3)"]
+
+
+def test_10q_reversed_column_order_selects_quarter_not_ytd():
+    """End-to-end: a BDC 10-Q whose income statement lists the 9-month YTD column before the quarter
+    (ARCC's real ordering) must return the QUARTER ($782M), never the YTD ($2.259B)."""
+    df = _stmt_df(
+        [{"concept": "us-gaap_GrossInvestmentIncomeOperating", "label": "Total investment income",
+          "std": "Revenue", "values": [2259000000, 782000000, 2100000000, 763000000]}],
+        periods=("2025-09-30 (YTD)", "2025-09-30 (Q3)", "2024-09-30 (YTD)", "2024-09-30 (Q3)"),
+    )
+    result = extract_financial_statement_metrics(
+        _FakeXBRL(df), _FakeCompany(sic=None), None, "10-Q", "2025-09-30"
+    )
+    assert result is not None
+    _key, metrics, _ = result
+    assert metrics["revenue"][0][0] == ("2025-09-30", 782000000.0)  # the quarter, not $2.259B YTD

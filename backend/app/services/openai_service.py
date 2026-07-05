@@ -355,6 +355,54 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
     return body
 
 
+def _is_no_total_bank(xbrl_metrics: Optional[dict]) -> bool:
+    """True when the filer is a bank that reports NO single revenue line — i.e. the standardized
+    metrics carry net/non-interest income components but NO populated ``revenue`` total. This is the
+    only case where an LLM-authored single "Revenue" row is illegitimate (a bank WITH a reported
+    total, e.g. JPM, keeps ``revenue`` populated, so its row is legitimate and left alone)."""
+    if not isinstance(xbrl_metrics, dict):
+        return False
+    has_components = any(
+        isinstance(xbrl_metrics.get(k), dict) for k in ("net_interest_income", "noninterest_income")
+    )
+    rev = xbrl_metrics.get("revenue")
+    has_revenue = (
+        isinstance(rev, dict)
+        and isinstance(rev.get("current"), dict)
+        and rev["current"].get("value") is not None
+    )
+    return has_components and not has_revenue
+
+
+def _sanitize_bank_financial_highlights(
+    financial_section: Any, xbrl_metrics: Optional[dict]
+) -> Any:
+    """Drop any LLM-authored highlights row that maps to a ``revenue`` metric when the filer is a
+    no-total bank (:func:`_is_no_total_bank`). The AI is *asked* not to synthesize a single bank
+    revenue (grounding directive), but that is advisory; this makes it deterministic so a conflated
+    or fabricated number can never be persisted or rendered in prose. No-op for every other filer,
+    and for banks that legitimately report a total (their ``revenue`` is populated → not a no-total
+    bank → this returns the section untouched)."""
+    if not isinstance(financial_section, dict) or not _is_no_total_bank(xbrl_metrics):
+        return financial_section
+    table = financial_section.get("table")
+    if not isinstance(table, list):
+        return financial_section
+    # Local import avoids any import-time cycle; the mapper is the same one provenance uses, so the
+    # generation guard and the read-time provenance net evolve together.
+    from app.services.provenance_service import map_metric_to_xbrl_key
+
+    kept = []
+    for row in table:
+        metric = row.get("metric") if isinstance(row, dict) else None
+        mapped = map_metric_to_xbrl_key(metric)
+        if mapped and mapped[0] == "revenue":
+            logger.info("Dropped conflated bank 'revenue' highlights row: %r", metric)
+            continue
+        kept.append(row)
+    return {**financial_section, "table": kept}
+
+
 class OpenAIService:
     def __init__(self):
         # Use Google AI Studio base URL if configured
@@ -3385,6 +3433,13 @@ Do not include any additional keys or text outside the JSON object."""
 
         sections_info = structured_summary.get("sections", {}) or {}
         financial_section = sections_info.get("financial_highlights")
+        # Deterministic guard: for a bank that reports no single revenue line, drop any LLM-authored
+        # conflated "Revenue" row so it can never ship in the table, prose, or stored payload.
+        # `sections_info` is the same object every downstream consumer reads, so reassigning it here
+        # covers the markdown, "Financial Overview", raw payload, and the response column at once.
+        financial_section = _sanitize_bank_financial_highlights(financial_section, xbrl_metrics)
+        if isinstance(sections_info, dict):
+            sections_info["financial_highlights"] = financial_section
 
         raw_risk_section = sections_info.get("risk_factors")
         if isinstance(raw_risk_section, str):

@@ -51,11 +51,37 @@ period (`"2025-12-31 (FY)"`).
 
 | Industry | Detect (concept present) | Emitted metric(s) | Anchor concept(s) |
 |---|---|---|---|
-| Bank / thrift | `InterestIncomeExpenseNet` / `NoninterestIncome` | `net_interest_income`, `noninterest_income` (**no** single revenue) | `InterestIncomeExpenseNet`; `NoninterestIncome` |
+| Bank / thrift | `InterestIncomeExpenseNet` **and** `NoninterestIncome` both resolve | `net_interest_income`, `noninterest_income`, **plus `revenue`** when the bank reports a consolidated total (JPM/GS/MS) | `InterestIncomeExpenseNet`; `NoninterestIncome`; `Revenues`/`RevenuesNetOfInterestExpense` |
 | Insurer | `PremiumsEarnedNet` | `revenue` (total) + `premiums_earned`, `net_investment_income` | `Revenues`; `PremiumsEarnedNet`; `NetInvestmentIncome` |
 | BDC / closed-end fund | `GrossInvestmentIncomeOperating` | `revenue` = total investment income | `GrossInvestmentIncomeOperating` (gross, before expenses) |
 | Investment mgr / broker-dealer | (catch-all financial) | `revenue` (reported total) | `Revenues` / `RevenueFromContractWithCustomer…` (the `is_total`/`standard_concept="Revenue"` row) |
 | Non-financial | — | unchanged | generic fact-query path |
+
+## Robustness rules (learned from ~40 live probes)
+
+- **Accept the first profile whose *required* metrics RESOLVE**, not merely one whose detect-concept
+  is present. A bank must yield BOTH interest components — an asset-manager/broker-dealer (KKR, SCHW)
+  that only tags a net-interest line falls through to its reported total instead of collapsing to NII.
+- **10-Q period columns: take the discrete `(Qn)` quarter, never the same-dated `(YTD)` column.** A
+  Q2/Q3 statement carries both; selecting by column order leaks the 6-/9-month cumulative in as the
+  "quarter" (ARCC: $2.259B 9-month vs the $782M quarter). `_statement_period_columns` enforces this.
+- **The generic revenue tag is never used for a bank** (`suppress=("revenue",)`); a bank's `revenue`
+  comes only from its own reported total line, so small banks (MCB) correctly show components only.
+
+## Rollout & remediation sequencing (operational)
+
+1. **Enable the flag in prod FIRST:** set `USE_STATEMENT_FINANCIALS=true` on the Cloud Run service.
+   If it stays off, summary regeneration / the scheduled `backfill_facts` re-fetch via the generic
+   (flag-off) path and **re-corrupt** the data — the single highest-impact sequencing risk.
+2. **Dry-run scope:** `python scripts/backfill_facts.py --remediate-financials --dry-run`
+   (blank-SIC financials, e.g. some BDCs, are not auto-selected — pass them via `--tickers`).
+3. **Apply in bounded batches** (`--limit`); each filing is atomic (rolls back on failure) and the
+   run returns `remediated_ids` + `skipped_ids` for review. Verify a bank end-to-end (stale revenue
+   gone; components + any reported total `is_latest`; `net_income`/assets/EPS periods intact in both
+   `financial_fact` and `xbrl_data`).
+4. **Regenerate summaries** for the remediated filers via the existing admin reset
+   (`POST /api/admin/summaries/reset-all`, per-ticker) — FK-safe and chunked; they lazily rebuild on
+   next view with the corrected `xbrl_data`. Do this only with the flag ON. Canary per RUNBOOK.
 
 ## APIs worth adopting later (not yet used)
 

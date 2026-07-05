@@ -60,10 +60,17 @@ def _remediate(*, tickers: list[str] | None, limit: int | None, dry_run: bool) -
         fresh = _extract_from_filing_instance_sync(cik.zfill(10), accession)
         if not fresh:
             return None
-        # Merge over the stored blob so keys the instance path doesn't carry are preserved; the
-        # overlapping keys (incl. a bank's now-empty "revenue" and the new components) are corrected.
-        old = filing.xbrl_data if isinstance(filing.xbrl_data, dict) else {}
-        return {**old, **fresh}
+        # TARGETED merge: overwrite ONLY the revenue/component keys (+ reporting_currency) from the
+        # fresh instance extraction, preserving every other key in the stored blob. `fresh` is
+        # instance-only and can be THINNER than the production blob (whose net_income/assets/EPS/
+        # cash-flow periods may have come from the companyfacts fallback the instance path can't
+        # reproduce) — a whole-blob replace would silently drop those. This corrects revenue/
+        # components (incl. a bank's now-empty "revenue") without degrading anything else.
+        old = dict(filing.xbrl_data) if isinstance(filing.xbrl_data, dict) else {}
+        for key in (*facts_service.AFFECTED_FINANCIAL_CONCEPTS, "reporting_currency"):
+            if key in fresh:
+                old[key] = fresh[key]
+        return old
 
     db = SessionLocal()
     try:
