@@ -3,7 +3,7 @@
 ``test_entitlements.py::test_trialing_subscription_with_expired_trial_is_free`` pins the *resolver*
 truth: a ``Subscription`` with ``status="trialing"`` whose ``trial_end`` is in the past resolves to
 ``Plan.FREE``. This module pins the *consequence at the HTTP boundary*: such a user is treated as
-Free by the real Pro-gated routes and rejected, exactly as if they had no subscription.
+Free by the real Pro-gated routes, exactly as if they had no subscription.
 
 Unlike ``test_entitlements.py`` (which hands the resolver a ``SimpleNamespace``) and
 ``test_copilot.py`` (which overrides auth with an ``is_pro`` stand-in), this seeds a **real
@@ -16,7 +16,16 @@ How expired-trial → FREE is decided:
 a non-null ``trial_end`` grants Pro only if ``_is_in_future(trial_end)`` (lines 111-118); an elapsed
 trial returns ``False`` → ``get_plan`` returns ``Plan.FREE`` (line 147).
 
-Two routes are covered:
+Three routes are covered — and the SHAPE of the block differs by route, which is the whole point:
+
+* Generation ``POST /api/summaries/filing/{id}/generate-stream`` — the PRIMARY revenue surface, and
+  the subtlest gate. It is NOT a hard 403: the usage gate lives in ``check_usage_limit``
+  (``summary_pipeline.py`` ~L248), so an expired-trial user is simply treated as FREE and hits the
+  FREE-tier monthly summary cap (``FREE_TIER_SUMMARY_LIMIT``). The block therefore surfaces IN-BAND as
+  an SSE ``{"type": "error", ...}`` paywall frame on a **200** stream — not an HTTP error. Seeding the
+  same user's ``UserUsage`` at the Free cap and flipping ``trial_end`` past→future flips the outcome:
+  past → the paywall frame (downgraded to Free, capped); future → a ``complete`` frame (still Pro,
+  unlimited) at the SAME usage count — isolating the trial expiry as the downgrade cause.
 * Copilot ``POST /api/summaries/filing/{id}/ask-stream`` (dep ``require_copilot_or_taste``). NB this
   is NOT a pure Pro gate: a Free user still gets a 3-question lifetime "free taste" (roadmap 2.2), so
   an expired-trial user is only rejected here once that taste is spent. Holding the taste spent and
@@ -24,6 +33,10 @@ Two routes are covered:
 * Export ``GET /api/summaries/filing/{id}/export/pdf`` — a *pure* ``can_export`` Pro gate: an
   expired-trial user is rejected outright; a future-trial user clears the gate (then 404s on the
   absent summary), proving the gate — not the route — is what the expiry moves.
+
+Lock-friction (#7b): the upsell/paywall assertions below pin the guarded HTTP status (or SSE frame
+type) plus a stable minimal substring (``"Upgrade to Pro"`` / the numeric Free cap), NOT the exact
+marketing sentence — a copy tweak must not redden a contract test whose guarded behaviour is unchanged.
 """
 import uuid
 from contextlib import contextmanager
@@ -36,6 +49,12 @@ from sqlalchemy.orm import joinedload
 from main import app
 from app.routers.auth import get_current_user, get_current_user_optional
 from app.dependencies import _resolve_current_user
+from app.services.subscription_service import FREE_TIER_SUMMARY_LIMIT
+from tests.support.summary_stream_harness import (
+    reset_inflight,
+    seed_company_filing,
+    stream_boundaries,
+)
 
 _FAKE_SOURCE = "Item 7 — MD&A. Revenue increased to 391.0 billion driven by strong iPhone demand."
 
@@ -57,17 +76,20 @@ def client():
 
 
 @contextmanager
-def _as_trial_user(trial_end, *, taste_used=0):
+def _as_trial_user(trial_end, *, taste_used=0, summaries_used=0):
     """Seed a real User + a real ``Subscription(status='trialing', trial_end=...)`` and override the
     auth dependencies to return that (real, detached) user.
 
     The user is reloaded with the subscription eagerly populated, then expunged (not committed) so
     the entitlements resolver can read ``user.subscription.{status,trial_end}`` after this session
     closes — no lazy load, no ``DetachedInstanceError``. ``copilot_free_taste_used`` seeds the
-    lifetime Copilot free-taste counter so the copilot route's taste allowance can be exercised.
+    lifetime Copilot free-taste counter so the copilot route's taste allowance can be exercised;
+    ``summaries_used`` seeds this month's ``UserUsage.summary_count`` so the generate-stream Free-tier
+    summary cap can be exercised right at the boundary (the pipeline reads it on its own session).
     """
     from app.database import SessionLocal
     from app.models import Subscription, User, UserUsage
+    from app.services.subscription_service import get_current_month
 
     db = SessionLocal()
     user = User(
@@ -79,6 +101,8 @@ def _as_trial_user(trial_end, *, taste_used=0):
     db.refresh(user)
     uid = user.id
     db.add(Subscription(user_id=uid, plan="pro", status="trialing", trial_end=trial_end))
+    if summaries_used:
+        db.add(UserUsage(user_id=uid, month=get_current_month(), summary_count=summaries_used))
     db.commit()
     user = (
         db.query(User).options(joinedload(User.subscription)).filter(User.id == uid).first()
@@ -88,7 +112,7 @@ def _as_trial_user(trial_end, *, taste_used=0):
     db.close()
 
     # Override every auth entry point a Pro-gated route might inject: require_copilot_or_taste
-    # resolves through _resolve_current_user; the export routes use get_current_user_optional.
+    # resolves through _resolve_current_user; the export + generate routes use get_current_user_optional.
     app.dependency_overrides[get_current_user] = lambda: user
     app.dependency_overrides[_resolve_current_user] = lambda: user
     app.dependency_overrides[get_current_user_optional] = lambda: user
@@ -145,8 +169,87 @@ def _seed_filing():
         db.close()
 
 
+@contextmanager
+def _seed_generatable_filing():
+    """Seed a Company + Filing with **no** content cache — so the generate-stream pipeline takes the
+    clean non-cached path (document fetched inline, no fire-and-forget background refresh task),
+    keeping the run deterministic. Reuses the shared harness seed, then tears down everything the
+    pipeline may persist for this filing (summary, progress, and any content cache it writes)."""
+    from app.database import SessionLocal
+    from app.models import Company, Filing, FilingContentCache, Summary, SummaryGenerationProgress
+
+    fid = seed_company_filing()
+    try:
+        yield fid
+    finally:
+        db = SessionLocal()
+        cid = db.query(Filing.company_id).filter(Filing.id == fid).scalar()
+        db.query(FilingContentCache).filter(FilingContentCache.filing_id == fid).delete()
+        db.query(Summary).filter(Summary.filing_id == fid).delete()
+        db.query(SummaryGenerationProgress).filter(SummaryGenerationProgress.filing_id == fid).delete()
+        db.query(Filing).filter(Filing.id == fid).delete()
+        if cid is not None:
+            db.query(Company).filter(Company.id == cid).delete()
+        db.commit()
+        db.close()
+
+
 async def _fake_answer(*, filing, question, history=None):
     yield {"type": "complete", "answer": "ok", "citations": [], "grounded": 0, "kind": "answer"}
+
+
+# --- Generation route (generate-stream): the PRIMARY revenue surface ---------------------------
+# Expired trial is NOT hard-403'd here — it is DOWNGRADED to Free and hits the Free monthly cap.
+
+@pytest.mark.requires_db
+def test_generate_stream_downgrades_expired_trial_to_free_cap(client):
+    """Expired trial → treated as FREE. With this month's usage already AT the Free cap, the
+    generate-stream endpoint opens a **200** event-stream whose terminal frame is the in-band paywall
+    ``{"type": "error", ...}`` from ``check_usage_limit`` (``summary_pipeline`` ~L248) — no summary is
+    produced. This is the money-surface consequence of the resolver's expired-trial downgrade: not a
+    hard reject, but a silent drop to the Free quota.
+
+    ``patch_usage_limit=False`` keeps the REAL usage gate in place (the harness would otherwise stub
+    it to always-allow); the other seams are mocked so the run is offline + instant.
+    """
+    reset_inflight()  # a leaked in-flight slot would reroute this down the dedup/join path
+    with (
+        _as_trial_user(_past(), summaries_used=FREE_TIER_SUMMARY_LIMIT),
+        _seed_generatable_filing() as fid,
+        stream_boundaries(patch_usage_limit=False),
+    ):
+        resp = client.post(f"/api/summaries/filing/{fid}/generate-stream")
+
+    # A stream is opened (200) — the block is delivered IN-BAND as an SSE frame, not an HTTP error.
+    assert resp.status_code == 200, resp.text
+    assert resp.headers["content-type"].startswith("text/event-stream")
+    # Paywall frame, pinned by frame-type + stable minimal substrings (#7b: not the exact copy):
+    assert '"type": "error"' in resp.text
+    assert "Upgrade to Pro" in resp.text                        # the stable upsell CTA
+    assert f"{FREE_TIER_SUMMARY_LIMIT} summaries" in resp.text  # blocked specifically by the Free cap
+    # And generation did NOT proceed — nothing was streamed back.
+    assert '"type": "complete"' not in resp.text
+    assert '"type": "chunk"' not in resp.text
+
+
+@pytest.mark.requires_db
+def test_generate_stream_allows_future_trial_at_same_usage(client):
+    """Contrast that isolates the expiry as the cause: the SAME user at the SAME usage count
+    (``FREE_TIER_SUMMARY_LIMIT``) but with ``trial_end`` in the FUTURE is still Pro, so the real
+    ``check_usage_limit`` returns unlimited and generate-stream runs to a ``complete`` frame with no
+    paywall. Only ``trial_end`` moved past→future — flipping a Free-cap block into an unlimited Pro
+    generation at an identical usage count proves it's the trial expiry (not the usage) that gates."""
+    reset_inflight()
+    with (
+        _as_trial_user(_future(), summaries_used=FREE_TIER_SUMMARY_LIMIT),
+        _seed_generatable_filing() as fid,
+        stream_boundaries(patch_usage_limit=False),
+    ):
+        resp = client.post(f"/api/summaries/filing/{fid}/generate-stream")
+
+    assert resp.status_code == 200, resp.text
+    assert '"type": "complete"' in resp.text  # generation proceeded — Pro is unlimited
+    assert "Upgrade to Pro" not in resp.text   # no paywall frame at the same usage count
 
 
 # --- Copilot route (require_copilot_or_taste) --------------------------------------------------
@@ -161,10 +264,9 @@ def test_copilot_route_gates_expired_trial_when_taste_spent(client):
         resp = client.post(f"/api/summaries/filing/{fid}/ask-stream", json={"question": "Hi?"})
 
     assert resp.status_code == 403
-    # Exact upsell body from require_copilot_or_taste (dependencies.py) for a spent free taste.
-    assert resp.json()["detail"] == (
-        "You've used your 3 free Copilot questions. Upgrade to Pro to access this feature."
-    )
+    # #7b: status + stable upsell substring, NOT the exact "You've used your 3 free Copilot
+    # questions..." sentence — a marketing-copy tweak must not redden this locked gate contract.
+    assert "Upgrade to Pro" in resp.json()["detail"]
 
 
 @pytest.mark.requires_db
@@ -209,9 +311,8 @@ def test_export_pdf_gates_expired_trial(client):
         resp = client.get("/api/summaries/filing/999999/export/pdf")
 
     assert resp.status_code == 403
-    assert resp.json()["detail"] == (
-        "PDF export is a Pro feature. Upgrade to Pro to access this feature."
-    )
+    # #7b: status + stable upsell substring, NOT the exact "PDF export is a Pro feature..." sentence.
+    assert "Upgrade to Pro" in resp.json()["detail"]
 
 
 @pytest.mark.requires_db
