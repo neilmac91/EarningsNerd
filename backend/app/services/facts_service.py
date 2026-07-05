@@ -12,13 +12,14 @@ and cross-source backfill (companyfacts / FSDS / Frames) remain later waves.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
-from datetime import date, datetime, timezone
-from typing import Any, Optional
+from datetime import date, datetime, timedelta, timezone
+from typing import Any, Callable, Optional
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.models import Company, Filing, FinancialFact
+from app.models import Company, Filing, FinancialFact, Watchlist
 
 logger = logging.getLogger(__name__)
 
@@ -915,3 +916,712 @@ def get_filing_fundamentals(db: Session, filing_id: int) -> Optional[dict[str, A
         (company.name if company else "") or "",
         rows,
     )
+
+
+# --- Multi-Period Analysis (M1): SEC companyfacts as a first-class period source ---------------
+#
+# One request to https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json returns a company's
+# ENTIRE fact history (every year and quarter for every tag it ever filed) — the only viable way to
+# serve 10 fiscal years + 12 quarters per company without N per-filing XBRL parses (thread pool of
+# 4, ~5-15s each). The functions below classify that history into properly-labelled FY / Q1..Q4
+# rows and upsert them into `financial_fact` alongside the per-filing `edgar_xbrl` rows.
+#
+# CRITICAL companyfacts semantics (verified against tests/fixtures/companyfacts_sample.json): each
+# item's `fy`/`fp` label the REPORTING FILING, not the fact's own period — the FY2022 comparative
+# revenue inside the FY2023 10-K carries fy=2023/fp="FY". Labels are therefore derived from the
+# period itself (duration windows + fiscal-year-window containment), never trusted from `fp` —
+# except for one safe case: a quarter not yet inside any completed FY window (the in-progress
+# fiscal year), whose EARLIEST-filed item is the original 10-Q that reported it as its own current
+# period.
+
+# Duration windows shared with the per-filing extractor (instance_extractor.DURATION_WINDOWS):
+# 52/53-week fiscal years run 364-371 days, fiscal quarters 84-98 (incl. 14-week quarters).
+# Anything else (26-week half, 39-week YTD) is the wrong slice and is never stored.
+_CF_ANNUAL_WINDOW = (320, 390)
+_CF_QUARTER_WINDOW = (75, 105)
+
+_QUARTER_PERIODS = ("Q1", "Q2", "Q3", "Q4")
+
+# us-gaap tag candidates per standardized concept, in priority order. Ordering follows
+# HEADLINE_GAAP_TAGS for the shared concepts (companyfacts context: the ASC-606 revenue tag first).
+# Periods are merged ACROSS tags (first tag with data wins per period), so a filer that migrated
+# tags (SalesRevenueNet → RevenueFromContractWithCustomer...) keeps its full history. us-gaap only:
+# IFRS filers (ifrs-full) are detected and reported unsupported (v1 scope).
+COMPANYFACTS_DURATION_TAGS: dict[str, tuple[str, ...]] = {
+    "revenue": (
+        "RevenueFromContractWithCustomerExcludingAssessedTax",
+        "Revenues",
+        "RevenueFromContractWithCustomerIncludingAssessedTax",
+        "SalesRevenueNet",
+        "NetSales",
+    ),
+    "net_income": ("NetIncomeLoss", "ProfitLoss", "NetIncomeLossAvailableToCommonStockholdersBasic"),
+    "gross_profit": ("GrossProfit",),
+    "operating_income": ("OperatingIncomeLoss",),
+    "operating_cash_flow": (
+        "NetCashProvidedByUsedInOperatingActivities",
+        "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+    ),
+    "capital_expenditures": (
+        "PaymentsToAcquirePropertyPlantAndEquipment",
+        "PaymentsToAcquireProductiveAssets",
+    ),
+    "investing_cash_flow": (
+        "NetCashProvidedByUsedInInvestingActivities",
+        "NetCashProvidedByUsedInInvestingActivitiesContinuingOperations",
+    ),
+    "financing_cash_flow": (
+        "NetCashProvidedByUsedInFinancingActivities",
+        "NetCashProvidedByUsedInFinancingActivitiesContinuingOperations",
+    ),
+    "earnings_per_share": ("EarningsPerShareBasic", "EarningsPerShareBasicAndDiluted"),
+    "eps_diluted": ("EarningsPerShareDiluted", "EarningsPerShareBasicAndDiluted"),
+    # Financial-institution components/totals — exact tags, safe for banks/insurers (unlike the
+    # generic revenue tags, which resolve to the ASC-606 fee-income subset for a bank — the
+    # filing 528 / MCB bug — hence the `financial_sic` guard in normalize_companyfacts).
+    "net_interest_income": ("InterestIncomeExpenseNet",),
+    "noninterest_income": ("NoninterestIncome",),
+    "premiums_earned": ("PremiumsEarnedNet",),
+    "net_investment_income": ("NetInvestmentIncome",),
+}
+
+COMPANYFACTS_INSTANT_TAGS: dict[str, tuple[str, ...]] = {
+    "total_assets": ("Assets",),
+    "cash_and_equivalents": (
+        "CashAndCashEquivalentsAtCarryingValue",
+        "CashCashEquivalentsAndShortTermInvestments",
+        "Cash",
+    ),
+    "shareholders_equity": (
+        "StockholdersEquity",
+        "StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+    ),
+    "long_term_debt": ("LongTermDebtNoncurrent", "LongTermDebt"),
+    "current_assets": ("AssetsCurrent",),
+    "current_liabilities": ("LiabilitiesCurrent",),
+}
+
+# Generic revenue tags are WRONG for banks/insurers (fee-income subset — the MCB fix would be
+# undone by re-ingesting them); the exact FI component tags above carry their top line instead.
+_FI_SKIPPED_CONCEPTS: frozenset[str] = frozenset({"revenue"})
+
+
+def _classify_duration(start: date, end: date) -> Optional[str]:
+    """"FY" for an annual slice, "Q" for a discrete quarter, None for anything else (YTD)."""
+    days = (end - start).days
+    if _CF_ANNUAL_WINDOW[0] <= days <= _CF_ANNUAL_WINDOW[1]:
+        return "FY"
+    if _CF_QUARTER_WINDOW[0] <= days <= _CF_QUARTER_WINDOW[1]:
+        return "Q"
+    return None
+
+
+def _collect_companyfacts_values(
+    usgaap: dict, tags: tuple[str, ...], unit_key: str, *, instant: bool
+) -> dict[tuple[date, str], dict[str, Any]]:
+    """Winning item per (period_end, klass) for one concept, across its candidate tags.
+
+    klass is "FY"/"Q" for durations, "I" for instants. Within a tag the LATEST-`filed` item wins a
+    period (restatement-aware; `filed` is ISO so lexical compare is safe, and a later list item wins
+    ties — companyfacts lists in filing order). Across tags, the FIRST tag with data wins a period
+    (priority order), so tag migrations merge into one continuous history without a stale tag
+    shadowing a newer one. Each winner also carries the EARLIEST-filed item's `fp`/`fy` — the one
+    case where those fields are trustworthy (the original filing that reported the period as its
+    own current period), used only as the in-progress-year quarter fallback.
+    """
+    claimed: dict[tuple[date, str], dict[str, Any]] = {}
+    for tag in tags:
+        node = usgaap.get(tag)
+        units = node.get("units") if isinstance(node, dict) else None
+        items = units.get(unit_key) if isinstance(units, dict) else None
+        if not isinstance(items, list):
+            continue
+        tag_best: dict[tuple[date, str], dict[str, Any]] = {}
+        for item in items:
+            if not isinstance(item, dict):
+                continue
+            value = item.get("val")
+            if not isinstance(value, (int, float)) or isinstance(value, bool):
+                continue
+            end = _parse_date(item.get("end"))
+            if end is None:
+                continue
+            start: Optional[date] = None
+            if instant:
+                klass = "I"
+            else:
+                start = _parse_date(item.get("start"))
+                if start is None:
+                    continue
+                klass = _classify_duration(start, end)
+                if klass is None:
+                    continue
+            filed = str(item.get("filed") or "")
+            record = {
+                "value": float(value),
+                "period_start": start,
+                "period_end": end,
+                "accession": item.get("accn"),
+                "form": item.get("form"),
+                "filed": filed,
+                "raw_tag": f"us-gaap:{tag}",
+                "fp": item.get("fp"),
+                "fy": item.get("fy"),
+            }
+            key = (end, klass)
+            best = tag_best.get(key)
+            if best is None:
+                record["first_fp"] = record["fp"]
+                record["first_fy"] = record["fy"]
+                record["first_filed"] = filed
+                tag_best[key] = record
+                continue
+            # Track the earliest filer's fp/fy on whatever record ends up winning.
+            if filed < best["first_filed"]:
+                first_fp, first_fy, first_filed = record["fp"], record["fy"], filed
+            else:
+                first_fp, first_fy, first_filed = (
+                    best["first_fp"], best["first_fy"], best["first_filed"]
+                )
+            winner = record if filed >= best["filed"] else best
+            winner.update(first_fp=first_fp, first_fy=first_fy, first_filed=first_filed)
+            tag_best[key] = winner
+        for key, record in tag_best.items():
+            claimed.setdefault(key, record)
+    return claimed
+
+
+def _fiscal_year_windows(
+    duration_values: dict[str, dict[tuple[date, str], dict[str, Any]]]
+) -> list[tuple[date, date]]:
+    """Distinct completed fiscal-year [start, end] windows across all concepts' FY-class facts.
+
+    Per end date the widest observed start wins (tags occasionally disagree by a day). Sorted by
+    end ascending.
+    """
+    by_end: dict[date, date] = {}
+    for per_concept in duration_values.values():
+        for (end, klass), record in per_concept.items():
+            if klass != "FY" or record["period_start"] is None:
+                continue
+            start = record["period_start"]
+            if end not in by_end or start < by_end[end]:
+                by_end[end] = start
+    return [(start, end) for end, start in sorted(by_end.items())]
+
+
+_VALID_FP = frozenset(_QUARTER_PERIODS)
+
+
+def _label_quarters(
+    duration_values: dict[str, dict[tuple[date, str], dict[str, Any]]],
+    fy_windows: list[tuple[date, date]],
+) -> dict[date, tuple[str, int]]:
+    """period_end -> (Q1..Q4, fiscal_year) for every discrete-quarter period.
+
+    Calendar-agnostic AND gap-tolerant: a quarter belongs to the FY window containing it, and its
+    number comes from its distance to the window END (~91.3 days per quarter back from fiscal year
+    end), so a missing sibling quarter (IPO year, edge of companyfacts history) can never shift the
+    label the way a sorted-position scheme would. A discrete Q4 ends AT the window end (distance 0
+    → Q4). fiscal_year = the window end's year, so Jan-FYE filers group Q rows with the right FY
+    rows. Quarters outside any completed window (the in-progress fiscal year) fall back to the
+    earliest filer's `fp`/`fy` — the original 10-Q, the one place those fields are reliable (a
+    LATER filer's fp/fy describe its own filing, not this period). Unlabelable quarters are
+    dropped rather than guessed.
+    """
+    q_records: dict[date, dict[str, Any]] = {}
+    for per_concept in duration_values.values():
+        for (end, klass), record in per_concept.items():
+            if klass != "Q":
+                continue
+            existing = q_records.get(end)
+            # Keep the record with the earliest original filer for the fp/fy fallback.
+            if existing is None or record["first_filed"] < existing["first_filed"]:
+                q_records[end] = record
+
+    labels: dict[date, tuple[str, int]] = {}
+    for end, record in q_records.items():
+        window = next(((ws, we) for ws, we in fy_windows if ws <= end <= we), None)
+        if window is not None:
+            window_end = window[1]
+            index = 4 - round((window_end - end).days / 91.3)
+            if 1 <= index <= 4:
+                labels[end] = (f"Q{index}", window_end.year)
+                continue
+            logger.debug("companyfacts: quarter end %s at odd offset in FY window %s", end, window_end)
+        fp = record.get("first_fp")
+        if fp in _VALID_FP:
+            fy = record.get("first_fy")
+            labels[end] = (fp, fy if isinstance(fy, int) else end.year)
+    return labels
+
+
+def normalize_companyfacts(
+    company_id: int, companyfacts: Any, *, financial_sic: bool = False
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Classify a raw companyfacts payload into labelled fact dicts (pure; unit-testable).
+
+    Returns ``(facts, meta)`` where meta carries ``unsupported_ifrs`` (an ifrs-full-only filer —
+    out of v1 scope) . Emits FY rows, positionally-labelled Q1..Q4 rows, derived Q4 rows
+    (``derive_q4_facts``) and same-period derived metrics (``derive_same_period_metrics``); YTD
+    slices are never stored. Direct rows are ``source="companyfacts", reconciled=True`` — this is
+    SEC's own structured data, the same authority `cross_check_facts` treats as ground truth — with
+    only the NON_NEGATIVE hard-reject applied (a negative revenue/assets is corrupt regardless of
+    source). ``financial_sic`` skips the generic revenue concept (fee-income subset for banks — the
+    filing 528 / MCB class); the exact FI component tags still ingest.
+    """
+    meta: dict[str, Any] = {"unsupported_ifrs": False}
+    facts_root = companyfacts.get("facts") if isinstance(companyfacts, dict) else None
+    usgaap = facts_root.get("us-gaap") if isinstance(facts_root, dict) else None
+    if not isinstance(usgaap, dict) or not usgaap:
+        if isinstance(facts_root, dict) and isinstance(facts_root.get("ifrs-full"), dict):
+            meta["unsupported_ifrs"] = True
+        return [], meta
+
+    duration_values: dict[str, dict[tuple[date, str], dict[str, Any]]] = {}
+    for concept, tags in COMPANYFACTS_DURATION_TAGS.items():
+        if financial_sic and concept in _FI_SKIPPED_CONCEPTS:
+            continue
+        unit_key = "USD/shares" if _CONCEPT_UNITS.get(concept, "USD").endswith("/shares") else "USD"
+        values = _collect_companyfacts_values(usgaap, tags, unit_key, instant=False)
+        if values:
+            duration_values[concept] = values
+
+    instant_values: dict[str, dict[tuple[date, str], dict[str, Any]]] = {}
+    for concept, tags in COMPANYFACTS_INSTANT_TAGS.items():
+        values = _collect_companyfacts_values(usgaap, tags, "USD", instant=True)
+        if values:
+            instant_values[concept] = values
+
+    fy_windows = _fiscal_year_windows(duration_values)
+    fy_ends = {end for _start, end in fy_windows}
+    quarter_labels = _label_quarters(duration_values, fy_windows)
+
+    def _base_fact(concept: str, record: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "company_id": company_id,
+            "filing_id": None,  # companyfacts rows may precede any Filing row for that accession
+            "concept": concept,
+            "raw_tag": record["raw_tag"],
+            "unit": _CONCEPT_UNITS.get(concept, "USD"),
+            "period_start": record["period_start"],
+            "period_end": record["period_end"],
+            "value": record["value"],
+            "form": record["form"],
+            "accession": record["accession"] or "companyfacts",
+            "source": "companyfacts",
+            "reconciled": True,
+        }
+
+    facts: list[dict[str, Any]] = []
+    for concept, values in duration_values.items():
+        for (end, klass), record in values.items():
+            if klass == "FY":
+                facts.append(
+                    {**_base_fact(concept, record), "fiscal_year": end.year, "fiscal_period": "FY"}
+                )
+            else:
+                label = quarter_labels.get(end)
+                if label is None:
+                    continue  # unlabelable quarter — dropped rather than guessed
+                fiscal_period, fiscal_year = label
+                facts.append(
+                    {
+                        **_base_fact(concept, record),
+                        "fiscal_year": fiscal_year,
+                        "fiscal_period": fiscal_period,
+                    }
+                )
+
+    for concept, values in instant_values.items():
+        for (end, _klass), record in values.items():
+            # A fiscal-year-end balance sheet IS the Q4 instant: store it once, labelled FY —
+            # quarterly readers select instants by period_end, never by label (D2c).
+            if end in fy_ends:
+                fiscal_period, fiscal_year = "FY", end.year
+            elif end in quarter_labels:
+                fiscal_period, fiscal_year = quarter_labels[end]
+            elif record.get("first_fp") == "FY":
+                # FY-end balance sheet older than the earliest FY duration window; the original
+                # 10-K reported it as its own year end. end.year keeps the FY-row convention.
+                fiscal_period, fiscal_year = "FY", end.year
+            elif record.get("first_fp") in _VALID_FP:
+                fy = record.get("first_fy")
+                fiscal_period = record["first_fp"]
+                fiscal_year = fy if isinstance(fy, int) else end.year
+            else:
+                continue
+            facts.append(
+                {**_base_fact(concept, record), "fiscal_year": fiscal_year, "fiscal_period": fiscal_period}
+            )
+
+    facts.extend(derive_q4_facts(facts))
+    facts.extend(derive_same_period_metrics(facts))
+
+    # NON_NEGATIVE hard-reject (the only gate — see docstring) + in-batch identity dedup.
+    kept: list[dict[str, Any]] = []
+    seen: set[tuple] = set()
+    for fact in facts:
+        value = fact.get("value")
+        if fact["concept"] in NON_NEGATIVE_CONCEPTS and isinstance(value, (int, float)) and value < 0:
+            logger.warning(
+                "companyfacts_reject concept=%s period=%s value=%s reason=negative",
+                fact["concept"], fact["period_end"], value,
+            )
+            continue
+        identity = (
+            fact["concept"], fact["period_end"], fact["fiscal_period"], fact["unit"], fact["accession"]
+        )
+        if identity in seen:
+            continue
+        seen.add(identity)
+        kept.append(fact)
+    return kept, meta
+
+
+def derive_q4_facts(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Q4 = FY − (Q1+Q2+Q3) for flow (duration, monetary) concepts where no discrete Q4 exists.
+
+    Companies report Q4 only inside the 10-K's full-year figure, so quarterly mode would otherwise
+    always miss the fourth bar. Derived rows mix vintages (FY accession vs three 10-Qs) and are
+    marked ``source="derived", reconciled=False`` so the UI badges them. NEVER derived for
+    per-share or ratio units — weighted-average shares move between quarters, so EPS subtraction
+    is simply wrong (Q4 EPS renders "—" instead).
+    """
+    groups: dict[tuple[str, Any], dict[str, dict[str, Any]]] = {}
+    for fact in facts:
+        if fact.get("unit") != "USD" or fact.get("period_start") is None:
+            continue  # flows only: monetary durations
+        groups.setdefault((fact["concept"], fact.get("fiscal_year")), {})[fact["fiscal_period"]] = fact
+
+    derived: list[dict[str, Any]] = []
+    for (_concept, _fy), by_period in groups.items():
+        fy_fact = by_period.get("FY")
+        if fy_fact is None or "Q4" in by_period:
+            continue
+        quarters = [by_period.get(q) for q in ("Q1", "Q2", "Q3")]
+        if any(q is None for q in quarters):
+            continue
+        q3 = quarters[2]
+        derived.append(
+            {
+                **fy_fact,
+                "value": fy_fact["value"] - sum(q["value"] for q in quarters),
+                "period_start": q3["period_end"] + timedelta(days=1),
+                "fiscal_period": "Q4",
+                "source": "derived",
+                "reconciled": False,
+            }
+        )
+    return derived
+
+
+def derive_same_period_metrics(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Same-period derived metrics per (fiscal_year, fiscal_period) group.
+
+    Margins ×100 (unit "pure"), free_cash_flow = OCF − |capex|, working_capital = CA − CL,
+    current_ratio = CA ÷ CL — the exact formulas the per-filing extractor uses
+    (xbrl_service.extract_standardized_metrics), so companyfacts- and filing-sourced rows agree.
+    Same-period arithmetic on SEC values is ``reconciled=True`` unless an input was itself
+    unreconciled (a derived Q4 chain propagates its badge). Skipped when the group already carries
+    the concept.
+    """
+    groups: dict[tuple[Any, Any], dict[str, dict[str, Any]]] = {}
+    for fact in facts:
+        key = (fact.get("fiscal_year"), fact.get("fiscal_period"))
+        groups.setdefault(key, {})[fact["concept"]] = fact
+
+    def _make(
+        concept: str, value: float, template: dict[str, Any], inputs: list[dict[str, Any]]
+    ) -> dict[str, Any]:
+        return {
+            **template,
+            "concept": concept,
+            "raw_tag": None,
+            "unit": _CONCEPT_UNITS.get(concept, "USD"),
+            "value": value,
+            "source": "derived",
+            "reconciled": all(f.get("reconciled", False) for f in inputs),
+        }
+
+    derived: list[dict[str, Any]] = []
+    for by_concept in groups.values():
+        revenue = by_concept.get("revenue")
+        if revenue and revenue["value"]:
+            for margin_key, numerator_key in (
+                ("net_margin", "net_income"),
+                ("gross_margin", "gross_profit"),
+                ("operating_margin", "operating_income"),
+            ):
+                numerator = by_concept.get(numerator_key)
+                if (
+                    margin_key not in by_concept
+                    and numerator is not None
+                    and numerator["period_end"] == revenue["period_end"]
+                ):
+                    derived.append(
+                        _make(
+                            margin_key,
+                            (numerator["value"] / revenue["value"]) * 100,
+                            revenue,
+                            [revenue, numerator],
+                        )
+                    )
+
+        ocf, capex = by_concept.get("operating_cash_flow"), by_concept.get("capital_expenditures")
+        if (
+            "free_cash_flow" not in by_concept
+            and ocf is not None
+            and capex is not None
+            and ocf["period_end"] == capex["period_end"]
+        ):
+            derived.append(
+                _make("free_cash_flow", ocf["value"] - abs(capex["value"]), ocf, [ocf, capex])
+            )
+
+        ca, cl = by_concept.get("current_assets"), by_concept.get("current_liabilities")
+        if (
+            ca is not None
+            and cl is not None
+            and ca["period_end"] == cl["period_end"]
+            and ca["value"] >= 0
+            and cl["value"] >= 0
+        ):
+            if "working_capital" not in by_concept:
+                derived.append(_make("working_capital", ca["value"] - cl["value"], ca, [ca, cl]))
+            if "current_ratio" not in by_concept and cl["value"] > 0:
+                derived.append(_make("current_ratio", ca["value"] / cl["value"], ca, [ca, cl]))
+    return derived
+
+
+def upsert_facts_bulk(
+    db: Session, facts: list[dict[str, Any]], *, commit: bool = True
+) -> dict[str, int]:
+    """Batched writer with ``upsert_facts`` semantics for a full-history companyfacts batch.
+
+    A full ingest is ~23 concepts × up to ~50 periods — the per-row two-query loop in
+    ``upsert_facts`` would be thousands of round trips. This prefetches the company's existing
+    rows once, then applies the same rules in memory: identity skip (idempotent), ``is_latest``
+    demotion per (concept, period_end, fiscal_period, unit), plus the D1 rule — a labelled
+    Q1..Q4 row demotes the legacy NULL-``fiscal_period`` twin for the same period so a quarter
+    never has two current rows. Facts must already carry ``reconciled`` (no gate runs here —
+    see ``normalize_companyfacts``).
+    """
+    if not facts:
+        return {"inserted": 0, "skipped": 0, "demoted": 0}
+    company_id = facts[0]["company_id"]
+    concepts = {f["concept"] for f in facts}
+    rows = (
+        db.query(FinancialFact)
+        .filter(FinancialFact.company_id == company_id, FinancialFact.concept.in_(list(concepts)))
+        .all()
+    )
+    existing_identity: set[tuple] = set()
+    latest_by_key: dict[tuple, list[FinancialFact]] = {}
+    null_fp_latest: dict[tuple, list[FinancialFact]] = {}
+    for row in rows:
+        existing_identity.add(
+            (row.concept, row.period_end, row.fiscal_period, row.unit, row.accession)
+        )
+        if row.is_latest:
+            latest_by_key.setdefault(
+                (row.concept, row.period_end, row.fiscal_period, row.unit), []
+            ).append(row)
+            if row.fiscal_period is None:
+                null_fp_latest.setdefault((row.concept, row.period_end, row.unit), []).append(row)
+
+    inserted = skipped = demoted = 0
+    for fact in facts:
+        fact = dict(fact)
+        reconciled = bool(fact.pop("reconciled", False))
+        identity = (
+            fact["concept"], fact["period_end"], fact["fiscal_period"], fact["unit"], fact["accession"]
+        )
+        if identity in existing_identity:
+            skipped += 1
+            continue
+        existing_identity.add(identity)
+
+        for row in latest_by_key.pop(
+            (fact["concept"], fact["period_end"], fact["fiscal_period"], fact["unit"]), []
+        ):
+            if row.is_latest:
+                row.is_latest = False
+                demoted += 1
+        if fact["fiscal_period"] in _QUARTER_PERIODS:
+            for row in null_fp_latest.pop((fact["concept"], fact["period_end"], fact["unit"]), []):
+                if row.is_latest:
+                    row.is_latest = False
+                    demoted += 1
+
+        db.add(FinancialFact(**fact, is_latest=True, reconciled=reconciled))
+        inserted += 1
+
+    if commit:
+        db.commit()
+    return {"inserted": inserted, "skipped": skipped, "demoted": demoted}
+
+
+async def _fetch_companyfacts_async(cik: str) -> Optional[dict]:
+    """Async companyfacts fetch through the SEC rate limiter (the REQUEST-PATH fetcher).
+
+    Unlike the backfill's ``_fetch_companyfacts_sync`` (single cron worker, self-throttled sleep),
+    this one is user-triggerable via the coverage endpoint, so it MUST share the token bucket +
+    exponential backoff in ``sec_rate_limiter``. Returns ``None`` on any failure.
+    """
+    import httpx
+
+    from app.config import settings
+    from app.services.sec_rate_limiter import sec_rate_limiter
+
+    cik_padded = str(cik).lstrip("0").zfill(10)
+    url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik_padded}.json"
+    headers = {"User-Agent": settings.SEC_USER_AGENT, "Accept": "application/json"}
+
+    async def _get() -> Any:
+        async with httpx.AsyncClient(timeout=20.0) as client:
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+            return response.json()
+
+    try:
+        data = await sec_rate_limiter.execute_with_backoff(_get)
+        return data if isinstance(data, dict) else None
+    except Exception as exc:  # noqa: BLE001 - the caller degrades gracefully (no stamp, retry later)
+        logger.warning("companyfacts async fetch failed for CIK %s: %s", cik, exc)
+        return None
+
+
+def _is_financial_sic(sic: Optional[str]) -> bool:
+    """Financial-services SIC band (6000-6799) — lexical compare on the 4-digit String column,
+    same convention as ``remediate_industry_facts``."""
+    return bool(sic) and "6000" <= str(sic) <= "6799"
+
+
+# Per-company in-flight sync dedup (the summary_pipeline._claim_inflight pattern): concurrent
+# coverage requests for the same company collapse into one SEC fetch. Process-local is the right
+# scope — prod is a single Cloud Run instance with Redis off.
+_inflight_syncs: dict[int, asyncio.Event] = {}
+COMPANYFACTS_INFLIGHT_WAIT_SECONDS = 25.0
+
+
+async def ingest_companyfacts(
+    db: Session,
+    company: Company,
+    *,
+    force: bool = False,
+    fetcher: Optional[Callable[[str], Any]] = None,
+) -> dict[str, Any]:
+    """Sync one company's companyfacts history into ``financial_fact`` (TTL-guarded, deduped).
+
+    Freshness: a sync newer than ``COMPANYFACTS_SYNC_TTL_HOURS`` is a no-op UNLESS a Filing row
+    newer than the stamp exists (a fresh filing shouldn't wait out the TTL) or ``force`` is set.
+    ``facts_synced_at`` is stamped even for empty/IFRS-only results so unsupported filers aren't
+    refetched hourly; a FAILED fetch does not stamp (retry on next touch). ``fetcher`` is
+    injectable for tests (async ``cik -> dict | None``).
+    """
+    synced_at = company.facts_synced_at
+    if synced_at is not None and synced_at.tzinfo is None:
+        synced_at = synced_at.replace(tzinfo=timezone.utc)  # SQLite returns naive datetimes
+    if not force and synced_at is not None:
+        from app.config import settings
+
+        if datetime.now(timezone.utc) - synced_at < timedelta(
+            hours=settings.COMPANYFACTS_SYNC_TTL_HOURS
+        ):
+            newer_filing = (
+                db.query(Filing.id)
+                .filter(Filing.company_id == company.id, Filing.filing_date > synced_at)
+                .first()
+            )
+            if newer_filing is None:
+                return {"synced": True, "refreshed": False, "inserted": 0, "skipped": 0,
+                        "demoted": 0, "unsupported_ifrs": False}
+
+    inflight = _inflight_syncs.get(company.id)
+    if inflight is not None:
+        try:
+            await asyncio.wait_for(inflight.wait(), timeout=COMPANYFACTS_INFLIGHT_WAIT_SECONDS)
+        except asyncio.TimeoutError:
+            pass
+        db.expire(company)  # pick up the leader's facts_synced_at
+        return {"synced": company.facts_synced_at is not None, "refreshed": False, "inserted": 0,
+                "skipped": 0, "demoted": 0, "unsupported_ifrs": False, "waited": True}
+
+    event = asyncio.Event()
+    _inflight_syncs[company.id] = event
+    try:
+        fetch = fetcher or _fetch_companyfacts_async
+        payload = await fetch(company.cik)
+        if payload is None:
+            return {"synced": False, "refreshed": False, "inserted": 0, "skipped": 0, "demoted": 0,
+                    "unsupported_ifrs": False, "error": "fetch_failed"}
+        facts, meta = normalize_companyfacts(
+            company.id, payload, financial_sic=_is_financial_sic(company.sic)
+        )
+        result = (
+            upsert_facts_bulk(db, facts, commit=False)
+            if facts
+            else {"inserted": 0, "skipped": 0, "demoted": 0}
+        )
+        company.facts_synced_at = datetime.now(timezone.utc)
+        db.commit()
+        logger.info(
+            "companyfacts_sync company=%s inserted=%s skipped=%s demoted=%s ifrs=%s",
+            company.id, result["inserted"], result["skipped"], result["demoted"],
+            meta["unsupported_ifrs"],
+        )
+        return {"synced": True, "refreshed": True, **result,
+                "unsupported_ifrs": meta["unsupported_ifrs"]}
+    finally:
+        if _inflight_syncs.get(company.id) is event:
+            _inflight_syncs.pop(company.id, None)
+        event.set()
+
+
+async def sync_companyfacts_batch(
+    db: Session,
+    *,
+    tickers: Optional[list[str]] = None,
+    watchlist_only: bool = False,
+    limit: Optional[int] = None,
+    force: bool = False,
+    fetcher: Optional[Callable[[str], Any]] = None,
+) -> dict[str, Any]:
+    """Warm the companyfacts cache for a cohort (ops path: internal job / CLI script).
+
+    Cohort: explicit ``tickers`` > ``watchlist_only`` (every company on any user's watchlist) >
+    all companies. Serial on purpose — the rate limiter paces the fetches; a company's failure
+    never stops the walk.
+    """
+    query = db.query(Company)
+    if tickers:
+        query = query.filter(Company.ticker.in_([t.upper() for t in tickers]))
+    elif watchlist_only:
+        watched_ids = db.query(Watchlist.company_id).distinct()
+        query = query.filter(Company.id.in_(watched_ids))
+    query = query.order_by(Company.id.asc())
+    if limit is not None:
+        query = query.limit(limit)
+
+    stats: dict[str, Any] = {"companies": 0, "refreshed": 0, "fresh": 0, "failed": 0,
+                             "unsupported_ifrs": 0, "inserted": 0}
+    for company in query.all():
+        stats["companies"] += 1
+        try:
+            result = await ingest_companyfacts(db, company, force=force, fetcher=fetcher)
+        except Exception:  # noqa: BLE001 - one bad company must not stop the walk
+            logger.exception("companyfacts sync failed for company %s", company.id)
+            db.rollback()
+            stats["failed"] += 1
+            continue
+        if not result.get("synced"):
+            stats["failed"] += 1
+        elif result.get("refreshed"):
+            stats["refreshed"] += 1
+            stats["inserted"] += result.get("inserted", 0)
+        else:
+            stats["fresh"] += 1
+        if result.get("unsupported_ifrs"):
+            stats["unsupported_ifrs"] += 1
+    return stats

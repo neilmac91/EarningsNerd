@@ -33,6 +33,9 @@ class Settings(BaseSettings):
     SEC_RATE_LIMIT_PER_SECOND: int = 10
     SEC_MAX_RETRIES: int = 5
     SEC_BASE_BACKOFF_SECONDS: float = 1.0
+    # Multi-Period Analysis: how long a company's ingested companyfacts history stays fresh before
+    # the coverage endpoint re-syncs it (a Filing row newer than the stamp overrides the TTL).
+    COMPANYFACTS_SYNC_TTL_HOURS: int = 24
     # EDGAR full-text search (EFTS) — searches filing/exhibit text since 2001, keyless.
     SEC_EFTS_BASE_URL: str = "https://efts.sec.gov/LATEST/search-index"
     SEC_EFTS_TIMEOUT_SECONDS: float = 8.0
@@ -371,6 +374,17 @@ class Settings(BaseSettings):
     COPILOT_HISTORY_TURNS: int = 6
     COPILOT_HISTORY_MAX_ITEMS: int = 50
     COPILOT_HISTORY_ITEM_CHAR_CAP: int = 8000
+
+    # Multi-Period Analysis (Pro flagship): N-period trend datasets + grounded AI narrative.
+    #   ANALYSIS_MONTHLY_CAP          — fair-use soft cap on FRESH generations per Pro user per month
+    #                                     (cached re-serves are free and unmetered; Copilot philosophy).
+    #   ANALYSIS_MAX_TOKENS           — max completion tokens for the narrative.
+    #   ANALYSIS_MAX_ANNUAL_PERIODS   — most fiscal years selectable in annual mode.
+    #   ANALYSIS_MAX_QUARTERLY_PERIODS— most quarters selectable in quarterly mode.
+    ANALYSIS_MONTHLY_CAP: int = 100
+    ANALYSIS_MAX_TOKENS: int = 3200
+    ANALYSIS_MAX_ANNUAL_PERIODS: int = 10
+    ANALYSIS_MAX_QUARTERLY_PERIODS: int = 12
     # Inference-cost estimate for Copilot telemetry ($ per 1M tokens) for the configured AI model
     # (default deepseek-v4-pro). DeepSeek prices INPUT tokens differently on a context-cache HIT vs
     # MISS (~120x apart), so the two input rates are tracked separately and the response's hit/miss

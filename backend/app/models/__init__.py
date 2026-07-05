@@ -12,6 +12,7 @@ from app.models.subscription import Subscription, StripeEvent, ACTIVE_STATUSES
 from app.models.notifications import NotificationPreferences, NotificationLog
 from app.models.earnings import EarningsEvent, EarningsAlertLog
 from app.models.financial_fact import FinancialFact
+from app.models.trend_analysis import TrendAnalysis
 from app.models.invite import InviteCode
 from app.models.feedback import Feedback
 
@@ -158,6 +159,11 @@ class Company(Base):
     industry = Column(String, nullable=True)
     # When the new-filing scanner last checked this company (used to honour the scan cadence).
     last_filings_check_at = Column(DateTime(timezone=True), nullable=True)
+    # When this company's SEC companyfacts history was last ingested into financial_fact
+    # (multi-period analysis). Null = never; re-sync when older than COMPANYFACTS_SYNC_TTL_HOURS
+    # or when a newer Filing row exists. Stamped even for unsupported (IFRS-only) filers so we
+    # don't refetch them hourly.
+    facts_synced_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
@@ -273,6 +279,9 @@ class UserUsage(Base):
     summary_count = Column(Integer, default=0, nullable=False)
     # "Ask this Filing" Copilot (A2) monthly question count, metered separately from summaries.
     qa_count = Column(Integer, default=0, nullable=False)
+    # Multi-Period Analysis monthly generation count (fresh AI narratives only — cached re-serves
+    # are free). Fair-use cap: settings.ANALYSIS_MONTHLY_CAP.
+    analysis_count = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
@@ -327,6 +336,7 @@ __all__ = [
     "Subscription",
     "Summary",
     "SummaryGenerationProgress",
+    "TrendAnalysis",
     "User",
     "UserSearch",
     "UserUsage",

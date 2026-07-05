@@ -116,3 +116,48 @@ def check_qa_limit(user: User, db: Session) -> tuple[bool, int, int]:
     month = get_current_month()
     current_count = get_user_qa_count(user.id, month, db)
     return current_count < cap, current_count, cap
+
+
+def get_user_analysis_count(user_id: int, month: str, db: Session) -> int:
+    """Get user's Multi-Period Analysis generation count for the given month."""
+    usage = db.query(UserUsage).filter(
+        UserUsage.user_id == user_id,
+        UserUsage.month == month
+    ).first()
+
+    return (usage.analysis_count or 0) if usage else 0
+
+
+def increment_user_analysis(user_id: int, month: str, db: Session) -> None:
+    """Increment user's Multi-Period Analysis generation count for the given month."""
+    usage = db.query(UserUsage).filter(
+        UserUsage.user_id == user_id,
+        UserUsage.month == month
+    ).first()
+
+    if usage:
+        usage.analysis_count = (usage.analysis_count or 0) + 1
+        usage.updated_at = datetime.now(timezone.utc)
+    else:
+        usage = UserUsage(
+            user_id=user_id,
+            month=month,
+            summary_count=0,
+            analysis_count=1,
+        )
+        db.add(usage)
+
+    db.commit()
+
+
+def check_analysis_limit(user: User, db: Session) -> tuple[bool, int, int]:
+    """Check if a Pro user is under the Multi-Period Analysis monthly cap.
+
+    Same shape and philosophy as ``check_qa_limit``: ``(allowed, current_count, cap)``, a fair-use
+    soft limit (``ANALYSIS_MONTHLY_CAP``) behind the ``can_analyze_trends`` entitlement — cached
+    re-serves are never metered, so this only bounds fresh AI generations.
+    """
+    cap = settings.ANALYSIS_MONTHLY_CAP
+    month = get_current_month()
+    current_count = get_user_analysis_count(user.id, month, db)
+    return current_count < cap, current_count, cap

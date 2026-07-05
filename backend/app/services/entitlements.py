@@ -63,6 +63,10 @@ class Entitlements:
     priority_model: bool = False
     # "Ask this Filing" Copilot (A2). Pro-only grounded single-filing Q&A.
     copilot: bool = False
+    # Multi-Period Analysis: N-period trend datasets + grounded AI narrative (Pro flagship).
+    # Free users see the page with a locked demo teaser; the dataset/stream/export endpoints gate
+    # on this flag (fair-use cap: settings.ANALYSIS_MONTHLY_CAP, metered like Copilot).
+    can_analyze_trends: bool = False
     # Free "taste" of Copilot (roadmap 2.2): a lifetime allowance of grounded questions for users
     # without the full `copilot` entitlement, after which they hit the upsell. 0 = no taste (Pro
     # doesn't need one — it's unlimited via `copilot=True`).
@@ -105,6 +109,7 @@ _PRO = Entitlements(
     history_retention_days=None,
     priority_model=True,
     copilot=True,
+    can_analyze_trends=True,
 )
 
 
