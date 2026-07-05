@@ -3,15 +3,16 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircleIcon, CircleNotchIcon, UserIcon } from '@/lib/icons'
-import { getCurrentUser, updateProfile } from '@/features/auth/api/auth-api'
+import { getCurrentUserSafe, updateProfile } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
+import { queryKeys } from '@/lib/queryKeys'
 
 export default function ProfileForm() {
   const queryClient = useQueryClient()
-  const { data: user } = useQuery({ queryKey: ['user'], queryFn: getCurrentUser, retry: false })
+  const { data: user } = useQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, retry: false })
 
   const [name, setName] = useState('')
   // Seed the input once the user loads (and whenever the canonical value changes).
@@ -23,8 +24,8 @@ export default function ProfileForm() {
   const mutation = useMutation({
     mutationFn: () => updateProfile(name.trim() || null),
     onSuccess: (updated) => {
-      queryClient.setQueryData(['user'], updated)
-      queryClient.invalidateQueries({ queryKey: ['current-user'] })
+      queryClient.setQueryData(queryKeys.currentUser(), updated)
+      queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
     },
   })
 

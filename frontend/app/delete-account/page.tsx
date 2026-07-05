@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { CircleNotchIcon, ShieldWarningIcon, TrashIcon } from '@/lib/icons'
 import { getCurrentUserSafe, deleteUserAccount } from '@/features/auth/api/auth-api'
 import { Button, Card, Input, Notice, buttonVariants } from '@/components/ui'
+import { queryKeys } from '@/lib/queryKeys'
 
 const CONFIRM_PHRASE = 'delete my account'
 
@@ -31,7 +32,7 @@ export default function DeleteAccountPage() {
   // Once the account is deleted, stop querying the (now-gone) user so clearing the cache doesn't
   // fire an immediate redundant /api/auth/me request that would just 401.
   const { data: user, isLoading } = useQuery({
-    queryKey: ['user'],
+    queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
     enabled: !deleteMutation.isSuccess,

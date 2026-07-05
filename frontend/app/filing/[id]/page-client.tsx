@@ -35,6 +35,7 @@ import { sanitizeFilename } from '@/lib/format'
 import { Button } from '@/components/ui/Button'
 import { Badge, Card, GuidanceCard, Skeleton, SkeletonText } from '@/components/ui'
 import StreamingSummaryDisplay from './StreamingSummaryDisplay'
+import { queryKeys } from '@/lib/queryKeys'
 
 // StreamingSummaryDisplay + its stage constants live in ./StreamingSummaryDisplay.
 
@@ -224,7 +225,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   const entryPoint = useMemo(() => getEntryPoint(), [])
 
   const { data: currentUser } = useQuery({
-    queryKey: ['current-user'],
+    queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
   })
@@ -294,7 +295,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   })
 
   const { data: subscription } = useQuery({
-    queryKey: ['subscription'],
+    queryKey: queryKeys.subscription(),
     queryFn: getSubscriptionStatus,
     retry: false,
     enabled: !!isAuthenticated,

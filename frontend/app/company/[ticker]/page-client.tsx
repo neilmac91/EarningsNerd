@@ -21,6 +21,7 @@ import { ENABLE_RECOMMENDED_FILING, ENABLE_FINANCIAL_CHARTS, ENABLE_INSIDER_ACTI
 import PeerComparisonPanel from '@/features/peers/components/PeerComparisonPanel'
 import CompanyLogo from '@/components/CompanyLogo'
 import InsiderActivityPanel from '@/features/insiders/components/InsiderActivityPanel'
+import { queryKeys } from '@/lib/queryKeys'
 
 // Annual reports: 10-K (domestic) plus the foreign-issuer equivalents 20-F / 40-F. Used to pick
 // the "Recommended" filing and to label it as an annual report. See tasks/fpi-support-roadmap.md.
@@ -57,7 +58,7 @@ export default function CompanyPageClient() {
   })
 
   const { data: currentUser } = useQuery({
-    queryKey: ['current-user'],
+    queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
   })
