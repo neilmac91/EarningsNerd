@@ -73,14 +73,19 @@ period (`"2025-12-31 (FY)"`).
 1. **Enable the flag in prod FIRST:** set `USE_STATEMENT_FINANCIALS=true` on the Cloud Run service.
    If it stays off, summary regeneration / the scheduled `backfill_facts` re-fetch via the generic
    (flag-off) path and **re-corrupt** the data — the single highest-impact sequencing risk.
-2. **Dry-run scope:** `python scripts/backfill_facts.py --remediate-financials --dry-run`
-   (blank-SIC financials, e.g. some BDCs, are not auto-selected — pass them via `--tickers`).
-3. **Apply in bounded batches** (`--limit`); each filing is atomic (rolls back on failure) and the
+2. **Backfill `Company.sic` (prerequisite):** no ingestion path populated it, so it is NULL in prod —
+   which makes the SIC-band remediation match **zero** companies (and collapses the Peers cohort).
+   Run `python scripts/backfill_facts.py --backfill-company-sic --dry-run` then without `--dry-run`.
+   Idempotent (fills only blanks); re-run periodically to catch new companies.
+3. **Dry-run scope:** `python scripts/backfill_facts.py --remediate-financials --dry-run` — should now
+   report a non-zero `companies` count (blank-SIC financials, e.g. some BDCs, still aren't
+   auto-selected — pass them via `--tickers`).
+4. **Apply in bounded batches** (`--limit`); each filing is atomic (rolls back on failure) and the
    run returns `remediated_ids` + `skipped_ids` for review. Verify a bank end-to-end (stale revenue
    gone; components + any reported total `is_latest`; `net_income`/assets/EPS periods intact in both
-   `financial_fact` and `xbrl_data`).
-4. **Regenerate summaries** for the remediated filers via the existing admin reset
-   (`POST /api/admin/summaries/reset-all`, per-ticker) — FK-safe and chunked; they lazily rebuild on
+   `financial_fact` and `xbrl_data`), and confirm the **Peers** panel now shows a same-SIC cohort.
+5. **Regenerate summaries** for the remediated filers via the existing admin reset
+   (`POST /api/admin/summaries/reset-all`) — FK-safe and chunked; they lazily rebuild on
    next view with the corrected `xbrl_data`. Do this only with the flag ON. Canary per RUNBOOK.
 
 ## APIs worth adopting later (not yet used)

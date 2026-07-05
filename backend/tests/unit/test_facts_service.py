@@ -757,3 +757,56 @@ class TestRemediateIndustryFacts:
         assert filing.id in stats["skipped_ids"] and stats["filings_skipped"] == 1
         assert stats["remediated_ids"] == []
         db.close()
+
+
+@pytest.mark.requires_db
+class TestBackfillCompanySic:
+    """Populate Company.sic from an injected fetcher — repairs Peers + unblocks remediation."""
+
+    def _company(self, db, sic=None):
+        from app.models import Company
+        suffix = uuid.uuid4().hex[:8]
+        c = Company(cik=suffix, ticker=("S" + suffix[:4]).upper(), name=f"Co {suffix}", sic=sic)
+        db.add(c)
+        db.commit()
+        db.refresh(c)
+        return c
+
+    def test_default_fills_only_missing_sic(self):
+        from app.database import SessionLocal
+        from app.models import Company
+
+        db = SessionLocal()
+        missing = self._company(db)             # sic is NULL
+        populated = self._company(db, "6022")   # already has sic
+        fake = {missing.id: ("6021", "National Commercial Banks"),
+                populated.id: ("9999", "should not be used")}
+        stats = svc.backfill_company_sic(db, fetch_sic=lambda c: fake.get(c.id))
+
+        assert missing.id in stats["updated_ids"]
+        assert populated.id not in stats["updated_ids"]  # non-NULL sic → never selected
+        db.expire_all()
+        assert db.get(Company, missing.id).sic == "6021"
+        assert db.get(Company, missing.id).industry == "National Commercial Banks"
+        assert db.get(Company, populated.id).sic == "6022"  # untouched
+        db.close()
+
+    def test_dry_run_writes_nothing_and_skip_surfaced(self):
+        from app.database import SessionLocal
+        from app.models import Company
+
+        db = SessionLocal()
+        m1 = self._company(db)
+        m2 = self._company(db)
+
+        # m1 resolves a SIC; m2 resolves nothing (e.g. a blank-SIC BDC).
+        def fetch(c):
+            return ("6021", "Banks") if c.id == m1.id else None
+
+        stats = svc.backfill_company_sic(
+            db, fetch_sic=fetch, tickers=[m1.ticker, m2.ticker], dry_run=True
+        )
+        assert m1.id in stats["updated_ids"] and m2.id in stats["skipped_ids"]
+        db.expire_all()
+        assert db.get(Company, m1.id).sic is None  # dry-run persisted nothing
+        db.close()
