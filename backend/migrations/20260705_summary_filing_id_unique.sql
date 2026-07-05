@@ -32,6 +32,16 @@ SET summary_id = d.keep_id
 FROM dupes d
 WHERE ss.summary_id = d.dup_id;
 
+-- 1b. The repoint above can leave a user who saved BOTH duplicates of one filing with two identical
+--     (user_id, summary_id) rows (SavedSummary has no uniqueness on that pair). Collapse to one,
+--     keeping the lowest id. Cheap insurance for a file that re-applies every deploy.
+DELETE FROM saved_summaries ss
+USING (
+    SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id, summary_id ORDER BY id ASC) AS rn
+    FROM saved_summaries
+) r
+WHERE ss.id = r.id AND r.rn > 1;
+
 -- 2. Delete the now-orphaned duplicate summary rows (keep MAX(id) per filing_id).
 DELETE FROM summaries s
 USING (

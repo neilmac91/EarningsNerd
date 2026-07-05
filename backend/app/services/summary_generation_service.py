@@ -141,18 +141,37 @@ def _xbrl_value_appears(value: float, haystack_lower: str) -> bool:
     return any(c.lower() in haystack_lower for c in candidates if len(c.replace(",", "")) >= 2)
 
 
-def _verdict_coverage(summary_data: Dict[str, Any]) -> Tuple[int, int]:
-    """(covered, total) for the quality verdict. Prefers the 9-section structured coverage snapshot
-    the AI already computes (``raw_summary.section_coverage``) — S1's single taxonomy — and falls
-    back to the 7 ``HIDEABLE_SECTIONS`` for payloads that lack it (fallback / deterministic
-    summaries)."""
-    snapshot = (summary_data.get("raw_summary") or {}).get("section_coverage") or {}
-    covered = snapshot.get("covered_count")
-    total = snapshot.get("total_count")
-    if isinstance(covered, int) and isinstance(total, int) and total > 0:
-        return covered, total
+# The full/partial bar for the 9-section structured taxonomy (S1 decision #2). A named LITERAL,
+# not derived from the payload's ``total_count`` — that count floats, because openai unions
+# ``_TRACKED_STRUCTURED_SECTIONS`` with whatever keys the model emitted, so a stray key would silently
+# raise the bar. This is the conscious recalibration of the legacy 3/7 (~0.43) threshold for the
+# fixed 9-section taxonomy.
+MINIMUM_STRUCTURED_SECTIONS_FOR_FULL = 4
+
+
+def _verdict_coverage(summary_data: Dict[str, Any]) -> Tuple[int, int, int]:
+    """(covered, total, min_full) for the quality verdict.
+
+    Gated on the S1 flag so the taxonomy/verdict semantics flip ATOMICALLY with the rest of the
+    unification at soak time — never ahead of it:
+
+    * flag ON: coverage over the FIXED 9-section structured taxonomy (``_TRACKED_STRUCTURED_SECTIONS``,
+      intersected with the snapshot's ``per_section`` so stray model keys can't move the count),
+      gated at the literal ``MINIMUM_STRUCTURED_SECTIONS_FOR_FULL`` (4/9);
+    * flag OFF (current production): byte-for-byte the legacy 7 ``HIDEABLE_SECTIONS`` coverage at
+      the 3/7 bar — assess_quality's only caller is the user-facing SSE stream, so flag-off must be
+      unchanged.
+    """
+    if settings.USE_PIPELINE_FOR_BACKGROUND:
+        from app.services.openai_service import _TRACKED_STRUCTURED_SECTIONS
+
+        snapshot = (summary_data.get("raw_summary") or {}).get("section_coverage") or {}
+        per_section = snapshot.get("per_section")
+        if isinstance(per_section, dict):
+            covered = sum(1 for s in _TRACKED_STRUCTURED_SECTIONS if per_section.get(s))
+            return covered, len(_TRACKED_STRUCTURED_SECTIONS), MINIMUM_STRUCTURED_SECTIONS_FOR_FULL
     covered, total, _, _ = calculate_section_coverage(summary_data)
-    return covered, total
+    return covered, total, MINIMUM_SECTIONS_FOR_FULL_RESULT
 
 
 def assess_quality(
@@ -163,11 +182,7 @@ def assess_quality(
     Returns {tier: "full"|"partial", reasons, numeric_grounded, covered_count, total_count}.
     "partial" means thin section coverage OR financials that don't match the SEC-verified XBRL —
     the signal the UI surfaces honestly (quality badge) instead of silently stripping notices."""
-    covered, total = _verdict_coverage(summary_data)
-    # The "full" bar is a coverage RATIO (the legacy 3/7 ≈ 0.43), applied to whichever taxonomy the
-    # payload carries — integer-ceil'd to 4/9 for the 9-section structured snapshot or 3/7 for the
-    # HIDEABLE fallback. This is S1's conscious recalibration of the old absolute-3 threshold.
-    min_full = -(-total * MINIMUM_SECTIONS_FOR_FULL_RESULT // len(HIDEABLE_SECTIONS))
+    covered, total, min_full = _verdict_coverage(summary_data)
     reasons: List[str] = []
 
     numeric_grounded = True
@@ -862,9 +877,20 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                     db.commit()
                 except IntegrityError:
                     # A concurrent writer persisted this filing's summary first (filing_id UNIQUE) —
-                    # the winner's row + usage increment stand; this writer bows out (S1 decision #3).
+                    # bow out and let the winner stand (S1 decision #3). But re-query to confirm it
+                    # WAS the summary conflict: this same transaction also inserts FilingContentCache,
+                    # whose PK can lose a TOCTOU race and raise the identical IntegrityError while no
+                    # summary row exists — we must not silently drop the full summary just generated.
                     db.rollback()
-                    logger.info(f"[{filing_id}] Summary already persisted by a concurrent writer; skipping duplicate.")
+                    existing = (
+                        db.query(Summary).filter(Summary.filing_id == filing_id).first()
+                    )
+                    if existing is None:
+                        raise
+                    # The progress row is shared by both writers; still drive it terminal or the
+                    # frontend poller (only completed/error are terminal — latent bug L1) hangs.
+                    record_progress(db, filing_id, "completed")
+                    logger.info(f"[{filing_id}] Summary already persisted by a concurrent writer; served the winner's row.")
                     return
 
                 total_time = time.time() - start_time
