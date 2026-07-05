@@ -18,25 +18,7 @@ os.environ["SKIP_REDIS_INIT"] = "true"
 # Disable the HaveIBeenPwned network call in tests so the suite stays hermetic and offline.
 os.environ["PWNED_PASSWORD_CHECK_ENABLED"] = "false"
 
-
-def pytest_configure(config):
-    """Register custom markers."""
-    config.addinivalue_line(
-        "markers", "smoke: mark test as a smoke test (critical path validation)"
-    )
-    config.addinivalue_line(
-        "markers", "integration: mark test as an integration test"
-    )
-    config.addinivalue_line(
-        "markers", "performance: mark test as a performance test"
-    )
-    config.addinivalue_line(
-        "markers", "slow: mark test as slow-running"
-    )
-    config.addinivalue_line(
-        "markers", "requires_db: mark test as requiring database (skips gracefully if not available)"
-    )
-    config.addinivalue_line(
-        "markers", "unit: mark test as a unit test"
-    )
+# NOTE: custom markers are registered in backend/pytest.ini (single source of test config).
+# Shared fixtures are added below as the Wave 0 characterization anchors are written and a
+# fixture is repeated across ≥2 of them.
 

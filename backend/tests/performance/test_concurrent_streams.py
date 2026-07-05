@@ -15,6 +15,11 @@ from main import app
 from app.routers.auth import get_current_user
 from app.database import get_db
 
+# The whole file is the performance suite (real-sleep timing tests). It is deselected by
+# default via pytest.ini `addopts` and run explicitly in CI's dedicated performance step.
+pytestmark = pytest.mark.performance
+
+
 @pytest.mark.asyncio
 async def test_heartbeat_events_emitted_at_interval():
     """

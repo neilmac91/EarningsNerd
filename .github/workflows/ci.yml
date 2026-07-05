@@ -33,7 +33,14 @@ jobs:
           # Scan app directory, skipping tests
           cd backend && bandit -r app -ll
       - name: Run pytest
+        # Fast lane: pytest.ini deselects the performance/slow suites by default.
         run: cd backend && python -m pytest
+        env:
+          SECRET_KEY: test-secret-key-for-ci-not-a-real-secret
+      - name: Run performance tests
+        # Explicit step (same job, so it stays inside the deploy gate's `needs:` list).
+        # Override addopts to run ONLY the performance suite.
+        run: cd backend && python -m pytest -o addopts= -m performance
         env:
           SECRET_KEY: test-secret-key-for-ci-not-a-real-secret
 
