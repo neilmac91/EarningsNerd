@@ -1,5 +1,6 @@
 'use client'
 
+import { queryKeys } from '@/lib/queryKeys'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ChatTextIcon } from '@/lib/icons'
@@ -30,7 +31,7 @@ export default function AdminFeedbackPage() {
     error,
   } = useQuery({
     // Filtering is server-side, so the active filters are part of the cache key.
-    queryKey: ['admin-feedback', filters],
+    queryKey: queryKeys.adminFeedback.list(filters),
     queryFn: () => listFeedback(filters),
     retry: false,
   })

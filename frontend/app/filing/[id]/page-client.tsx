@@ -83,13 +83,13 @@ function TickerFilingsView({ ticker }: { ticker: string }) {
   const normalizedTicker = ticker.toUpperCase()
 
   const { data: company, isLoading: companyLoading, error: companyError } = useQuery<Company>({
-    queryKey: ['ticker-company', normalizedTicker],
+    queryKey: queryKeys.tickerCompany(normalizedTicker),
     queryFn: () => getCompany(normalizedTicker),
     retry: 1,
   })
 
   const { data: filings, isLoading: filingsLoading, error: filingsError } = useQuery<Filing[]>({
-    queryKey: ['ticker-filings', normalizedTicker],
+    queryKey: queryKeys.tickerFilings(normalizedTicker),
     queryFn: () => getCompanyFilings(normalizedTicker),
     enabled: !!company,
     retry: 1,
@@ -232,7 +232,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   const isAuthenticated = Boolean(currentUser)
 
   const { data: filing, isLoading: filingLoading } = useQuery<Filing>({
-    queryKey: ['filing', filingId],
+    queryKey: queryKeys.filing(filingId),
     queryFn: () => getFiling(filingId),
   })
 
@@ -288,7 +288,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   }
 
   const { data: summary, isLoading: summaryLoading, refetch, error: summaryError } = useQuery<Summary | null>({
-    queryKey: ['summary', filingId],
+    queryKey: queryKeys.summary(filingId),
     queryFn: () => getSummary(filingId),
     retry: false,
     enabled: !!filing,
@@ -302,7 +302,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   })
 
   const { data: savedSummaries } = useQuery<SavedSummary[]>({
-    queryKey: ['saved-summaries'],
+    queryKey: queryKeys.savedSummaries(),
     queryFn: getSavedSummaries,
     retry: false,
     enabled: !!isAuthenticated,
@@ -316,7 +316,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
 
   // Progress data is used for polling side-effect, not displayed directly
   useQuery<SummaryProgressData>({
-    queryKey: ['summary-progress', filingId],
+    queryKey: queryKeys.summaryProgress(filingId),
     queryFn: () => getSummaryProgress(filingId),
     enabled: !!filing && !!isGenerating,
     refetchInterval: (query) => {
@@ -332,7 +332,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   const saveMutation = useMutation({
     mutationFn: (summaryId: number) => saveSummary(summaryId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['saved-summaries'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.savedSummaries() })
       if (summary?.filing_id) {
         analytics.summarySaved(summary.filing_id, filing?.company?.ticker ?? null)
       }
@@ -387,7 +387,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
           setGenerationError(null)
           // Refetch the summary to get the full structured data
           refetch()
-          queryClient.invalidateQueries({ queryKey: ['summary', filingId] })
+          queryClient.invalidateQueries({ queryKey: queryKeys.summary(filingId) })
           setIsStreaming(false)
         },
         (errorMessage: string) => {
@@ -711,7 +711,7 @@ function SummaryDisplay({
   // A5 "What Changed": deterministic period-over-period diff (metric deltas, risk changes, key
   // changes). DB-only/cheap on the backend; only renders when there's something material to report.
   const { data: changeReport } = useQuery({
-    queryKey: ['what-changed', filing.id],
+    queryKey: queryKeys.whatChanged(filing.id),
     queryFn: () => getWhatChanged(filing.id),
     staleTime: 10 * 60 * 1000,
   })

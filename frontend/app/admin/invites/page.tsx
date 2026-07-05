@@ -1,5 +1,6 @@
 'use client'
 
+import { queryKeys } from '@/lib/queryKeys'
 import { useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -87,7 +88,7 @@ export default function AdminInvitesPage() {
     isError,
     error,
   } = useQuery({
-    queryKey: ['admin-invites'],
+    queryKey: queryKeys.adminInvites(),
     queryFn: listInvites,
     retry: false,
   })
@@ -170,7 +171,7 @@ export default function AdminInvitesPage() {
       toast.error(`${failedCount} invite${failedCount === 1 ? '' : 's'} failed`)
     }
 
-    queryClient.invalidateQueries({ queryKey: ['admin-invites'] })
+    queryClient.invalidateQueries({ queryKey: queryKeys.adminInvites() })
   }
 
   return (

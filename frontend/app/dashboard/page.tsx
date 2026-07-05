@@ -45,14 +45,14 @@ export default function DashboardPage() {
   })
 
   const { data: savedSummaries, isLoading: savedLoading, isError: savedError, error: savedErrorData, refetch: refetchSavedSummaries, isFetching: savedFetching } = useQuery({
-    queryKey: ['saved-summaries'],
+    queryKey: queryKeys.savedSummaries(),
     queryFn: getSavedSummaries,
     retry: false,
     enabled: !!user,
   })
 
   const { data: watchlist, isLoading: watchlistLoading, isError: watchlistError, error: watchlistErrorData, refetch: refetchWatchlist, isFetching: watchlistFetching } = useQuery({
-    queryKey: ['watchlist'],
+    queryKey: queryKeys.watchlist(),
     queryFn: getWatchlist,
     retry: false,
     enabled: !!user,
@@ -63,7 +63,7 @@ export default function DashboardPage() {
   const deleteSummaryMutation = useMutation({
     mutationFn: deleteSavedSummary,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['saved-summaries'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.savedSummaries() })
       toast.success('Saved summary removed')
     },
     onError: (error) => {
@@ -74,7 +74,7 @@ export default function DashboardPage() {
   const removeWatchlistMutation = useMutation({
     mutationFn: removeFromWatchlist,
     onSuccess: (_data, ticker) => {
-      queryClient.invalidateQueries({ queryKey: ['watchlist'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.watchlist() })
       analytics.watchlistRemoved(ticker)
       toast.success(`${ticker} removed from your watchlist`)
     },

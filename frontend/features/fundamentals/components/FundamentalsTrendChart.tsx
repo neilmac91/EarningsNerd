@@ -1,5 +1,6 @@
 'use client'
 
+import { queryKeys } from '@/lib/queryKeys'
 import { useContext, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
@@ -80,7 +81,7 @@ export default function FundamentalsTrendChart({
   const dark = useContext(ThemeContext)?.theme === 'dark'
 
   const { data, isLoading, isError } = useQuery<FundamentalsResponse>({
-    queryKey: ['filing-fundamentals', filingId],
+    queryKey: queryKeys.filingFundamentals(filingId),
     queryFn: () => getFilingFundamentals(filingId),
     retry: (failureCount, err) =>
       err instanceof ApiError && err.isRetryable ? failureCount < 2 : false,

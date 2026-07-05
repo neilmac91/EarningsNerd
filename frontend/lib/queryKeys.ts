@@ -39,7 +39,7 @@ export const queryKeys = {
   insiders: (ticker: string, windowDays: number) => ['insiders', ticker, windowDays] as const,
   peers: (ticker: string, metric: string) => ['peers', ticker, metric] as const,
   calendar: (from: string, to: string) => ['calendar', from, to] as const,
-  fullTextSearch: (query: string, forms: string, startDate: string, endDate: string) =>
+  fullTextSearch: (query: string, forms: string | undefined, startDate: string, endDate: string) =>
     ['full-text-search', query, forms, startDate, endDate] as const,
   filingFundamentals: (filingId: string | number) => ['filing-fundamentals', filingId] as const,
   // admin-feedback keeps a shared prefix so the prefix-invalidation in FeedbackRow catches every

@@ -1,5 +1,6 @@
 'use client'
 
+import { queryKeys } from '@/lib/queryKeys'
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -48,7 +49,7 @@ export default function InviteRow({ invite }: InviteRowProps) {
       toast.success(result.emailed ? `Invite re-sent to ${result.email}` : 'Fresh invite link minted')
       // Surface the fresh link in a dialog so the admin can copy/share it right away.
       setResendShare({ link: result.invite_link, email: result.email })
-      queryClient.invalidateQueries({ queryKey: ['admin-invites'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminInvites() })
     },
     onError: (err: unknown) => {
       toast.error(isApiError(err) ? getErrorMessage(err) : 'Could not resend that invite.')
@@ -60,7 +61,7 @@ export default function InviteRow({ invite }: InviteRowProps) {
     onSuccess: () => {
       setConfirmOpen(false)
       toast.success('Invite revoked')
-      queryClient.invalidateQueries({ queryKey: ['admin-invites'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminInvites() })
     },
     onError: (err: unknown) => {
       toast.error(isApiError(err) ? getErrorMessage(err) : 'Could not revoke that invite.')

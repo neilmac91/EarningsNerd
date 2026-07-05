@@ -44,14 +44,14 @@ export default function CompanyPageClient() {
   const hasTrackedCompanyView = useRef(false)
 
   const { data: company, isLoading: companyLoading, error: companyError } = useQuery<Company>({
-    queryKey: ['company', normalizedTicker],
+    queryKey: queryKeys.company(normalizedTicker),
     queryFn: () => getCompany(normalizedTicker),
     retry: 1,
     enabled: !!normalizedTicker,
   })
 
   const { data: filings, isLoading: filingsLoading, isError: filingsError, error: filingsErrorData, refetch: refetchFilings, isFetching: filingsRefetching } = useQuery<Filing[]>({
-    queryKey: ['filings', normalizedTicker],
+    queryKey: queryKeys.companyFilings(normalizedTicker),
     queryFn: () => getCompanyFilings(normalizedTicker),
     enabled: !!company && !!normalizedTicker,
     retry: 1,
@@ -64,7 +64,7 @@ export default function CompanyPageClient() {
   })
 
   const { data: watchlist } = useQuery({
-    queryKey: ['watchlist'],
+    queryKey: queryKeys.watchlist(),
     queryFn: getWatchlist,
     retry: false,
     enabled: !!currentUser,
@@ -86,9 +86,9 @@ export default function CompanyPageClient() {
     },
     // Optimistic toggle: flip the star instantly, then reconcile with the server.
     onMutate: async ({ ticker: tickerToToggle, shouldAdd }) => {
-      await queryClient.cancelQueries({ queryKey: ['watchlist'] })
-      const previous = queryClient.getQueryData<WatchlistItem[]>(['watchlist'])
-      queryClient.setQueryData<WatchlistItem[]>(['watchlist'], (old) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.watchlist() })
+      const previous = queryClient.getQueryData<WatchlistItem[]>(queryKeys.watchlist())
+      queryClient.setQueryData<WatchlistItem[]>(queryKeys.watchlist(), (old) => {
         const list = old ?? []
         if (shouldAdd) {
           if (!company || list.some((w) => w.company.ticker === tickerToToggle)) return list
@@ -109,7 +109,7 @@ export default function CompanyPageClient() {
     onError: (_error, _variables, context) => {
       // Roll back to the pre-click snapshot and explain why the star didn't stick.
       if (context?.previous !== undefined) {
-        queryClient.setQueryData(['watchlist'], context.previous)
+        queryClient.setQueryData(queryKeys.watchlist(), context.previous)
       }
       toast.error("Couldn't update your watchlist. Please try again.")
     },
@@ -124,7 +124,7 @@ export default function CompanyPageClient() {
     },
     // Always refetch so the temporary optimistic row is replaced by the canonical server row.
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['watchlist'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.watchlist() })
     },
   })
 
@@ -203,7 +203,7 @@ export default function CompanyPageClient() {
     if (!recommendedFiling?.id || prefetchedFilingIdRef.current === recommendedFiling.id) return
     prefetchedFilingIdRef.current = recommendedFiling.id
     queryClient.prefetchQuery({
-      queryKey: ['summary', recommendedFiling.id],
+      queryKey: queryKeys.summary(recommendedFiling.id),
       queryFn: () => getSummary(recommendedFiling.id),
       staleTime: 60_000,
     })

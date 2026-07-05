@@ -1,5 +1,6 @@
 'use client'
 
+import { queryKeys } from '@/lib/queryKeys'
 import { useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
@@ -58,7 +59,7 @@ export default function PeerComparisonPanel({ ticker }: { ticker: string }) {
 
   const [metric, setMetric] = useState('revenue')
   const { data, isLoading, isError } = useQuery<PeerComparisonResponse>({
-    queryKey: ['peers', ticker, metric],
+    queryKey: queryKeys.peers(ticker, metric),
     queryFn: () => getPeers(ticker, metric),
     enabled: !!ticker,
     retry: (failureCount, err) =>

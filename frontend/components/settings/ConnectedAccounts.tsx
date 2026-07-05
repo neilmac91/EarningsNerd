@@ -1,5 +1,6 @@
 'use client'
 
+import { queryKeys } from '@/lib/queryKeys'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
@@ -27,7 +28,7 @@ export default function ConnectedAccounts() {
   const [error, setError] = useState('')
 
   const { data, isLoading, isError, error: queryError } = useQuery({
-    queryKey: ['auth-connections'],
+    queryKey: queryKeys.authConnections(),
     queryFn: getConnections,
     retry: false,
   })
@@ -36,7 +37,7 @@ export default function ConnectedAccounts() {
     mutationFn: (provider: string) => unlinkProvider(provider),
     onSuccess: () => {
       setError('')
-      queryClient.invalidateQueries({ queryKey: ['auth-connections'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.authConnections() })
     },
     onError: (err: unknown) => {
       setError(

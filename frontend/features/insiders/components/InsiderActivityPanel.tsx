@@ -1,5 +1,6 @@
 'use client'
 
+import { queryKeys } from '@/lib/queryKeys'
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
@@ -88,7 +89,7 @@ export default function InsiderActivityPanel({
 }) {
   const [windowDays, setWindowDays] = useState(90)
   const { data, isLoading, isError } = useQuery<InsiderActivityResponse>({
-    queryKey: ['insiders', ticker, windowDays],
+    queryKey: queryKeys.insiders(ticker, windowDays),
     queryFn: () => getInsiderActivity(ticker, windowDays),
     // Foreign private issuers don't file Form 4s — skip the (slow) live SEC read entirely. While
     // filings are still loading isFpi is undefined, so only enable the query once we KNOW the
