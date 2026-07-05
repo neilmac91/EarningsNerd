@@ -239,9 +239,17 @@ reconciliation semantics, so the flag-OFF path stays byte-for-byte today's produ
 - **Gate:** ruff + bandit clean; **1149 passed / 2 deselected + 2 performance** (T1 SSE + T2-legacy
   unchanged; +2 flag-on drain pins, +2 flag-gated verdict pins). Frontend untouched (backend/docs only).
   Green at **`e0c36e9`** (this delta entry is docs-only, on top).
-- **NOT in this PR (post-soak follow-ups):** the 24–48h soak (generation success/quality + p50/p95
-  latency + per-summary token cost) → flag flip → delete the legacy body (YoY plumbing, prompt block,
-  `determine_result_type`, duplicate cache writes). S4's remaining scope is unchanged.
+- **NOT in this PR — post-merge flip protocol (founder-specified in the #549 approval):**
+  1. **Before flipping**, run the eval baseline (`backend/evals/RUNBOOK.md`) with the flag **ON**.
+  2. **Soak (24–48h)** watches: `quality_verdict` distribution + `three_year_trend` coverage on
+     pregenerated 10-Ks (**expected to shift by design** — filing-only + the 9-section/4 bar) as
+     acceptance signals, plus p50/p95 stream latency + per-summary token cost (**should improve**,
+     since the hot path drops the prior-filing fetch + its prompt tokens).
+  3. **Flip** `USE_PIPELINE_FOR_BACKGROUND=true`.
+  4. **Old-path-removal PR** deletes the now-dead legacy body (YoY plumbing, the prompt block,
+     `determine_result_type`, the duplicate `FilingContentCache` writes) **and, in the SAME commit,
+     retires/flips the T2 flag-OFF pins** (they characterize a body that no longer exists). S4's
+     remaining scope is unchanged.
 
 _(Deltas from later waves will be appended here as they are executed.)_
 
