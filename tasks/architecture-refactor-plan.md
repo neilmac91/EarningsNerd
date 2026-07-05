@@ -345,6 +345,44 @@ bypassed it; behavior-preserving except the added throttle/breaker/timeout.
   `sleep(0.2)` removal — it is synchronous (backfill cron) and the limiter is async-only, so it needs
   an async restructure through `backfill_facts`. 161 edgar/facts/breaker tests green.
 
+**Wave 2 · F1 — ApiError unification + queryKeys registry (PR #551, frontend-only commit).**
+Behavior-preserving except deliberate cache-coherence fixes. Delete the dead `ApiError` interface
+(zero importers; the CLASS in `lib/api/client.ts` is canonical). Add `lib/queryKeys.ts` (one registry:
+constants + `as const` factories; admin-feedback keeps its prefix for partial-match invalidation).
+Reconcile the split keys to ONE key + ONE fetcher each: currentUser `['user']`+`['current-user']` →
+`['current-user']` + `getCurrentUserSafe` (fixes a split-brain cache — sites wrote one key and
+invalidated the other); subscription drops the never-fetched-on `user?.id`; usage folds
+`['copilot-usage']` (same `/usage` endpoint, so a copilot answer no longer leaves the dashboard usage
+view stale). Gate: tsc(ci)/eslint(--max-warnings 0)/vitest(248)/next-build green; grep-gate = zero
+reconciled literals outside the registry.
+
+**#551 review response (founder, plan author).** S3 verified byte-identical; S4 resilience sound;
+count corrections + the concept-list-ordering deferral endorsed. Four findings, all applied:
+1. **Reverted the JWKS cache-stampede locks** (the earlier Gemini-suggested #551 fix) to lock-free
+   verbatim — a lazily-bound module-level `asyncio.Lock` is the repo's documented event-loop footgun
+   (binds to the first loop; `RuntimeError` under a later one; CLAUDE.md Common Issues), and it was
+   undisclosed + untested. The herd-guard moves to its own disclosed follow-up (task below).
+2. **Exempted the 4 xbrl_service parse-heavy sites from the breaker** (back to plain
+   `run_in_executor_with_timeout`): big filings legitimately parse 20-40s, so their timeouts are a
+   CPU-cost signal that must not open the shared network-health breaker. client.py + compat still give
+   it a clean SEC-health signal.
+3. **Bounded the user-facing cold-path backoff** to a single token wait (`execute`, not
+   `execute_with_backoff`) on compat tickers + the xbrl companyfacts fallback — fail-fast + stale-cache
+   fallback instead of a ~8-min worker-hold; the cron-shaped doc-fetch keeps its bounded 3-iteration loop.
+4. Repointed the `change_password` atomicity comment at `issue_session`.
+
+**Deferred follow-up tasks (durable record, per the #551 review — do NOT let these ride an unrelated PR):**
+- **[S4-followup-a] Concept-list unification + companyfacts-parser collapse.** The three revenue concept
+  lists differ in ORDERING (tag priority), so a merge changes which tag wins on multi-tagged filers. Own
+  PR, gated by T9 + `test_statement_extraction` (pin the winning tag per multi-tagged fixture). Sites:
+  `edgar/instance_extractor.py`, `edgar/xbrl_service.py`, `services/facts_service.py`.
+- **[S4-followup-b] Async restructure for the `facts_service` companyfacts limiter.** `_fetch_companyfacts_sync`
+  is synchronous (backfill cron) and the limiter is async-only; make the fetch async through
+  `backfill_facts`/`process_filing_facts`, wire `sec_rate_limiter`, drop the `sleep(0.2)`.
+- **[oauth-followup] JWKS thundering-herd guard.** Reintroduce the cold-cache fetch lock WITH a
+  `redis_service`-style loop-identity rebind (`_reset_on_loop_change`) + a test driving the real fetcher
+  (JWKS HTTP mocked) across two event loops. Disclosed, guarded, tested.
+
 _(Deltas from later waves will be appended here as they are executed.)_
 
 ---

@@ -905,9 +905,10 @@ async def change_password(
     # A password change must evict every existing session (a stolen/old refresh token must not
     # survive it). Revoke all, then re-issue for THIS device so the acting user isn't logged out
     # moments later when their short-lived access token expires. No intermediate commit: the
-    # password change, the revocation, and the new token are committed together by
-    # _issue_refresh_token, so a failure there rolls the whole change back (no
-    # password-changed-but-500 inconsistency) and saves a commit round-trip.
+    # password change, the revocation, and the new token are committed together by the single
+    # db.commit() inside issue_session (called with the default commit=True), so a failure there
+    # rolls the whole change back (no password-changed-but-500 inconsistency) and saves a commit
+    # round-trip. This atomicity is the reason the pw-hash write above is NOT committed on its own.
     revoke_all_for_user(db, current_user.id)
     issue_session(db, current_user, response, request)
     return {"message": "Password updated."}

@@ -67,9 +67,11 @@ class SECEdgarServiceCompat:
         # Fetch from SEC EDGAR
         try:
             async with edgar_circuit_breaker:
-                # Route the sec.gov GET through the rate limiter (10 req/s + 429 backoff); it carried
-                # the breaker but bypassed the limiter. The client is created ONCE outside the
-                # retryable closure so execute_with_backoff reuses the pool across retries.
+                # Route the sec.gov GET through the rate limiter with a SINGLE token wait (execute,
+                # NOT execute_with_backoff): this is a user-facing cold path (first search after a
+                # restart), so it must fail-fast and fall back to the stale cache below rather than
+                # sleep through the 5-attempt / Retry-After-120s ladder — that belongs to cron-shaped
+                # callers (S4 review #3). It carried the breaker but bypassed the limiter.
                 async with httpx.AsyncClient() as client:
                     async def _do_request() -> httpx.Response:
                         resp = await client.get(
@@ -80,7 +82,7 @@ class SECEdgarServiceCompat:
                         resp.raise_for_status()
                         return resp
 
-                    response = await sec_rate_limiter.execute_with_backoff(_do_request)
+                    response = await sec_rate_limiter.execute(_do_request)
                     data = response.json()
 
                     # Update both cache tiers
