@@ -757,3 +757,80 @@ class TestRemediateIndustryFacts:
         assert filing.id in stats["skipped_ids"] and stats["filings_skipped"] == 1
         assert stats["remediated_ids"] == []
         db.close()
+
+
+@pytest.mark.requires_db
+class TestBackfillCompanySic:
+    """Populate Company.sic from an injected fetcher — repairs Peers + unblocks remediation."""
+
+    def _company(self, db, sic=None):
+        from app.models import Company
+        suffix = uuid.uuid4().hex[:8]
+        c = Company(cik=suffix, ticker=("S" + suffix[:4]).upper(), name=f"Co {suffix}", sic=sic)
+        db.add(c)
+        db.commit()
+        db.refresh(c)
+        return c
+
+    def test_default_fills_only_missing_sic(self):
+        from app.database import SessionLocal
+        from app.models import Company
+
+        db = SessionLocal()
+        missing = self._company(db)             # sic is NULL
+        populated = self._company(db, "6022")   # already has sic
+        fake = {missing.id: ("6021", "National Commercial Banks"),
+                populated.id: ("9999", "should not be used")}
+        stats = svc.backfill_company_sic(db, fetch_sic=lambda c: fake.get(c.id))
+
+        assert missing.id in stats["updated_ids"]
+        assert populated.id not in stats["updated_ids"]  # non-NULL sic → never selected
+        db.expire_all()
+        assert db.get(Company, missing.id).sic == "6021"
+        assert db.get(Company, missing.id).industry == "National Commercial Banks"
+        assert db.get(Company, populated.id).sic == "6022"  # untouched
+        db.close()
+
+    def test_dry_run_writes_nothing_and_skip_surfaced(self):
+        from app.database import SessionLocal
+        from app.models import Company
+
+        db = SessionLocal()
+        m1 = self._company(db)
+        m2 = self._company(db)
+
+        # m1 resolves a SIC; m2 resolves nothing (e.g. a blank-SIC BDC).
+        def fetch(c):
+            return ("6021", "Banks") if c.id == m1.id else None
+
+        stats = svc.backfill_company_sic(
+            db, fetch_sic=fetch, tickers=[m1.ticker, m2.ticker], dry_run=True
+        )
+        assert m1.id in stats["updated_ids"] and m2.id in stats["skipped_ids"]
+        db.expire_all()
+        assert db.get(Company, m1.id).sic is None  # dry-run persisted nothing
+        db.close()
+
+    def test_batch_commit_boundary_persists_and_restores_session(self):
+        """>100 companies crosses the 100-row batch-commit boundary. Every row (incl. those in the
+        second batch, whose fetch runs after the first commit) must be written, and the loop must
+        restore the session's expire_on_commit so the batch commits don't leave it disabled."""
+        from app.database import SessionLocal
+        from app.models import Company
+
+        db = SessionLocal()
+        assert db.expire_on_commit is True  # default before the call
+        ids = [self._company(db).id for _ in range(105)]  # NULL sic → all selected; crosses batch 100
+
+        # fetch_sic reads company.cik on every call — including after the batch commit at row 100;
+        # the fix keeps those rows unexpired so this doesn't N+1-reload, and the write still lands.
+        stats = svc.backfill_company_sic(
+            db, fetch_sic=lambda c: ("6021", "Banks") if c.cik else None
+        )
+
+        # Assert only about our own rows (other tests may leave NULL-sic rows in the shared DB).
+        assert set(ids).issubset(set(stats["updated_ids"]))
+        assert db.expire_on_commit is True  # restored after the batched run
+        db.expire_all()
+        assert all(db.get(Company, cid).sic == "6021" for cid in ids)  # incl. second-batch rows
+        db.close()

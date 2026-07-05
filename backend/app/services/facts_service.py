@@ -780,6 +780,79 @@ def remediate_industry_facts(
     return stats
 
 
+def backfill_company_sic(
+    db: Session,
+    *,
+    fetch_sic,
+    tickers: Optional[list[str]] = None,
+    limit: Optional[int] = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Populate ``Company.sic`` (+ ``industry``) for companies missing it.
+
+    No ingestion path wrote ``Company.sic`` (the transformer used non-existent ``sic_code`` columns),
+    so it is NULL in prod — which collapses the Peers cohort (``peers_service`` falls back to the
+    subject alone) and makes the financial-remediation SIC-band selection match nothing. This fills
+    the blanks.
+
+    ``fetch_sic(company) -> (sic, industry) | None`` is injected so the core stays network-free and
+    unit-testable; the CLI wires an EdgarTools lookup. Idempotent + resumable: by default only
+    companies with a NULL/empty ``sic`` are selected, so it can be re-run (and scheduled) to catch
+    newly-ingested rows. Pass ``tickers`` to (re)fill a specific set. Returns counts +
+    ``updated_ids``/``skipped_ids``.
+    """
+    companies_q = db.query(Company)
+    if tickers:
+        companies_q = companies_q.filter(Company.ticker.in_([t.upper() for t in tickers]))
+    else:
+        companies_q = companies_q.filter((Company.sic.is_(None)) | (Company.sic == ""))
+    if limit is not None:
+        companies_q = companies_q.limit(limit)
+
+    stats: dict[str, Any] = {
+        "scanned": 0, "updated": 0, "skipped": 0, "errors": 0,
+        "updated_ids": [], "skipped_ids": [],
+    }
+    # Commit in small batches so a mid-run crash of this long, SEC-rate-limited pass loses only the
+    # uncommitted tail (it's resumable — re-running only re-selects still-blank rows). Disable
+    # expire-on-commit for the loop so each batch commit doesn't expire the pending Company rows and
+    # force an N+1 reload of ``company.cik`` on the next ``fetch_sic``; restore the prior setting after.
+    prior_expire_on_commit = db.expire_on_commit
+    db.expire_on_commit = False
+    pending = 0
+    try:
+        for company in companies_q.all():
+            stats["scanned"] += 1
+            try:
+                result = fetch_sic(company)
+            except Exception:
+                logger.exception("backfill_company_sic: fetch failed for company %s", company.id)
+                stats["errors"] += 1
+                continue
+            sic = result[0] if result else None
+            industry = result[1] if result and len(result) > 1 else None
+            if not sic:  # EdgarTools returned no SIC (e.g. some BDCs) — leave as-is, surface it
+                stats["skipped"] += 1
+                stats["skipped_ids"].append(company.id)
+                continue
+            stats["updated"] += 1
+            stats["updated_ids"].append(company.id)
+            if dry_run:
+                continue
+            company.sic = str(sic)
+            if industry:
+                company.industry = industry
+            pending += 1
+            if pending >= 100:  # commit in small batches
+                db.commit()
+                pending = 0
+        if not dry_run and pending:
+            db.commit()
+    finally:
+        db.expire_on_commit = prior_expire_on_commit
+    return stats
+
+
 def _fundamentals_payload(ticker: str, company_name: str, rows) -> dict[str, Any]:
     """Group flat ``FinancialFact`` rows into the FundamentalsResponse shape (per-concept series, in
     the order queried — oldest→newest). Shared by the company- and filing-scoped readers."""

@@ -14,6 +14,11 @@ Usage:
   python scripts/backfill_facts.py --only-new      # incremental: only un-normalized filings
   python scripts/backfill_facts.py --limit 500     # cap the number of filings processed
 
+  # Populate Company.sic from EdgarTools (run FIRST — no ingestion path writes it, so it is NULL,
+  # which breaks Peers and the financial-remediation SIC selection). Requires network (SEC).
+  python scripts/backfill_facts.py --backfill-company-sic --dry-run     # preview
+  python scripts/backfill_facts.py --backfill-company-sic               # fill all missing SIC
+
   # One-time remediation of financial-institution revenue (filing 528 / MCB fix): re-extract the
   # as-reported revenue/components and rewrite xbrl_data + financial_fact. Requires network (SEC).
   python scripts/backfill_facts.py --remediate-financials --dry-run     # preview scope
@@ -82,6 +87,35 @@ def _remediate(*, tickers: list[str] | None, limit: int | None, dry_run: bool) -
         db.close()
 
 
+def _backfill_sic(*, tickers: list[str] | None, limit: int | None, dry_run: bool) -> None:
+    """Populate Company.sic/industry from EdgarTools for companies missing it. No ingestion path
+    wrote it, so it was NULL in prod — which collapses the Peers cohort and makes the financial
+    remediation's SIC-band selection match nothing. Idempotent (only fills blanks by default)."""
+    from app.database import SessionLocal
+    from app.services import facts_service
+    from edgar import Company as EdgarCompany, set_identity
+
+    set_identity(os.environ.get("EDGAR_IDENTITY", "EarningsNerd support@earningsnerd.io"))
+
+    def fetch_sic(company):
+        cik = str(getattr(company, "cik", "") or "").strip()
+        if not cik:
+            return None
+        ec = EdgarCompany(cik)
+        sic = getattr(ec, "sic", None)
+        industry = getattr(ec, "industry", None)
+        return (str(sic), industry) if sic else None
+
+    db = SessionLocal()
+    try:
+        stats = facts_service.backfill_company_sic(
+            db, fetch_sic=fetch_sic, tickers=tickers, limit=limit, dry_run=dry_run
+        )
+        logger.info("Company SIC backfill complete (dry_run=%s): %s", dry_run, stats)
+    finally:
+        db.close()
+
+
 if __name__ == "__main__":
     os.environ.setdefault("SKIP_REDIS_INIT", "true")
     os.environ.setdefault("EDGAR_IDENTITY", "EarningsNerd support@earningsnerd.io")
@@ -101,20 +135,29 @@ if __name__ == "__main__":
              "rewrite xbrl_data + financial_fact (filing 528 / MCB fix). Requires network (SEC).",
     )
     parser.add_argument(
+        "--backfill-company-sic",
+        action="store_true",
+        help="Populate Company.sic/industry from EdgarTools for companies missing it (repairs Peers "
+             "and unblocks --remediate-financials). Requires network (SEC). Run this FIRST.",
+    )
+    parser.add_argument(
         "--tickers",
         type=str,
         default=None,
-        help="Comma-separated tickers to remediate (default: all financial-SIC filers).",
+        help="Comma-separated tickers to remediate / backfill (default: all financial-SIC filers / "
+             "all companies missing SIC).",
     )
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="With --remediate-financials: report scope without writing.",
+        help="With --remediate-financials or --backfill-company-sic: report scope without writing.",
     )
     args = parser.parse_args()
 
-    if args.remediate_financials:
-        tickers = [t.strip() for t in args.tickers.split(",")] if args.tickers else None
+    tickers = [t.strip() for t in args.tickers.split(",")] if args.tickers else None
+    if args.backfill_company_sic:
+        _backfill_sic(tickers=tickers, limit=args.limit, dry_run=args.dry_run)
+    elif args.remediate_financials:
         _remediate(tickers=tickers, limit=args.limit, dry_run=args.dry_run)
     else:
         _main(only_unprocessed=args.only_new, limit=args.limit)

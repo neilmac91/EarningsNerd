@@ -430,8 +430,11 @@ class EdgarClient:
             cik=edgar_company.cik,
             ticker=ticker,
             name=edgar_company.name,
-            sic_code=str(edgar_company.sic) if hasattr(edgar_company, 'sic') and edgar_company.sic else None,
-            sic_description=edgar_company.industry if hasattr(edgar_company, 'industry') else None,
+            # NOTE: the model columns are `sic`/`industry`. The previous `sic_code`/`sic_description`
+            # kwargs were not valid columns, so this raised and SIC was never populated — which broke
+            # the Peers cohort and the financial-remediation SIC selection. Write the real columns.
+            sic=str(edgar_company.sic) if getattr(edgar_company, 'sic', None) else None,
+            industry=edgar_company.industry if getattr(edgar_company, 'industry', None) else None,
             exchange=None,  # EdgarTools doesn't provide this directly
         )
 
