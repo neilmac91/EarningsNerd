@@ -21,6 +21,38 @@ implementation"), whose addenda are verified and folded in below (marked ⊕).
 
 ---
 
+## Implementation Notes / Deltas (recorded during execution)
+
+Where execution diverges from the plan below, it is logged here. The plan text is preserved as the
+original proposal; **these notes are authoritative for what actually shipped** (see PR #546). Later
+waves append their deltas here rather than editing the plan body in place.
+
+**Wave 0a — test consolidation:**
+- **Orphaned `/tests/` adoption → deletion (verified, user-approved).** The plan assumed the 6
+  repo-root `/tests/` files could be adopted with import rewrites. Verified reality: all 6 are
+  bit-rotted and provided **zero** CI coverage (never collected — CI runs `cd backend && pytest`).
+  `test_xbrl_fallback.py` tested `XBRLService._parse_xbrl_xml`, removed when the XBRL layer became
+  `EdgarXBRLService`. The other 5 (`test_endpoint_security`, `test_security_controls`,
+  `test_waitlist`, `test_summarize_filing`, `test_contact_submission`) fail and/or pollute the shared
+  suite (stale `<32`-char `SECRET_KEY` predating the ≥32 validation; dead `backend.*` imports; a fake
+  `_Settings` missing `AI_DEFAULT_MODEL`; an uncleaned module-level `dependency_overrides[get_db]`).
+  All 6 were **deleted** (git preserves them; zero CI coverage lost); the coverage areas
+  (endpoint-auth, security-controls, waitlist, summarize_filing, contact) are logged as rewrite
+  candidates. The 3 pipeline tests + `fixtures/` remain at `/tests/` for Wave 1's `rm`.
+- **D1 (Wave 1) simplified:** because `test_summarize_filing.py` was deleted here, D1 no longer needs
+  to remove its `generate_editorial_markdown` monkeypatch. The `test_llm_no_pii.py` `_LLM_ENTRYPOINTS`
+  coupling still applies.
+- **`test_summary_quality.py` `FORBIDDEN_WORDS` refactor is moot:** the file already imports the gate
+  logic from source (`calculate_section_coverage`, `determine_result_type`,
+  `MINIMUM_SECTIONS_FOR_FULL_RESULT`, `HIDEABLE_SECTIONS`); `FORBIDDEN_WORDS` /
+  `check_for_subjective_language` exist only in the test (the app enforces no such word list), so
+  there is no source to import from. Left test-local — an app-side copy the app never uses would be
+  dead code.
+
+_(Deltas from Wave 0b and later waves will be appended here as they are executed.)_
+
+---
+
 ## What changed from the reviewed version (verified corrections folded in)
 
 The original plan is accurate: under adversarial caller-hunting **no "dead code" claim was refuted**,
