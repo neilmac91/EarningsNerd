@@ -27,7 +27,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from edgar import Company as EdgarCompany, set_identity
 
-from .async_executor import run_in_executor, run_in_executor_with_timeout
+from .async_executor import run_in_executor_with_timeout, run_with_circuit_breaker
+from app.services.sec_rate_limiter import sec_rate_limiter
 from .config import EDGAR_IDENTITY, EDGAR_DEFAULT_TIMEOUT_SECONDS
 from .ads_ratios import ads_ratio_for_cik, build_per_ads_eps
 from .instance_extractor import (
@@ -584,7 +585,7 @@ class EdgarXBRLService:
     ) -> Optional[Dict[str, Any]]:
         """Accession-aware primary path: the requested filing's own XBRL instance."""
         try:
-            return await run_in_executor_with_timeout(
+            return await run_with_circuit_breaker(
                 lambda: _extract_from_filing_instance_sync(cik_padded, accession_number),
                 timeout=self.timeout,
             )
@@ -614,7 +615,7 @@ class EdgarXBRLService:
         # reports are larger still (a BABA 20-F parses Item 3/5/18 in ~17.5s). (B3)
         section_timeout = max(self.timeout, 40.0) if base_form == "20-F" else max(self.timeout, 30.0)
         try:
-            return await run_in_executor_with_timeout(
+            return await run_with_circuit_breaker(
                 lambda: _extract_sections_sync(cik_padded, accession_number, base_form),
                 timeout=section_timeout,
             )
@@ -637,7 +638,7 @@ class EdgarXBRLService:
         """
         try:
             # Get company via EdgarTools
-            edgar_company = await run_in_executor_with_timeout(
+            edgar_company = await run_with_circuit_breaker(
                 lambda: EdgarCompany(cik_padded),
                 timeout=self.timeout,
             )
@@ -645,7 +646,7 @@ class EdgarXBRLService:
             # Get financials. EdgarTools 5.x exposes Company.get_financials()
             # (there is no `financials` property; attribute access raises and
             # silently forced every request onto the company-facts fallback).
-            financials = await run_in_executor_with_timeout(
+            financials = await run_with_circuit_breaker(
                 edgar_company.get_financials,
                 timeout=self.timeout,
             )
@@ -674,7 +675,7 @@ class EdgarXBRLService:
 
             # Try to get income statement
             try:
-                df = await run_in_executor(lambda: statement_dataframe(financials, "income_statement"))
+                df = await run_in_executor_with_timeout(lambda: statement_dataframe(financials, "income_statement"), timeout=self.timeout)
                 if df is not None and not df.empty:
                     result["revenue"] = self._extract_from_dataframe(
                         df,
@@ -708,7 +709,7 @@ class EdgarXBRLService:
 
             # Try to get balance sheet
             try:
-                df = await run_in_executor(lambda: statement_dataframe(financials, "balance_sheet"))
+                df = await run_in_executor_with_timeout(lambda: statement_dataframe(financials, "balance_sheet"), timeout=self.timeout)
                 if df is not None and not df.empty:
                     result["total_assets"] = self._extract_from_dataframe(
                         df,
@@ -740,7 +741,7 @@ class EdgarXBRLService:
 
             # Try to get cash-flow statement (P1.1 depth: operating CF + capex -> free cash flow)
             try:
-                df = await run_in_executor(lambda: statement_dataframe(financials, "cash_flow_statement"))
+                df = await run_in_executor_with_timeout(lambda: statement_dataframe(financials, "cash_flow_statement"), timeout=self.timeout)
                 if df is not None and not df.empty:
                     result["operating_cash_flow"] = self._extract_from_dataframe(
                         df,
@@ -804,19 +805,22 @@ class EdgarXBRLService:
         try:
             facts_url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
 
-            async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    facts_url,
-                    headers={"User-Agent": EDGAR_IDENTITY},
-                    timeout=30.0
-                )
+            # Route through the SEC rate limiter (10 req/s token bucket + backoff on 429) — this
+            # data.sec.gov call previously bypassed it. raise_for_status turns a non-200 into an
+            # exception, preserving the original "non-200 -> None" via the outer except.
+            async def _do_request() -> httpx.Response:
+                async with httpx.AsyncClient() as client:
+                    resp = await client.get(
+                        facts_url,
+                        headers={"User-Agent": EDGAR_IDENTITY},
+                        timeout=30.0,
+                    )
+                    resp.raise_for_status()
+                    return resp
 
-                if response.status_code != 200:
-                    logger.warning(f"Company facts API returned {response.status_code}")
-                    return None
-
-                data = response.json()
-                return self._parse_company_facts(data, accession_number)
+            response = await sec_rate_limiter.execute_with_backoff(_do_request)
+            data = response.json()
+            return self._parse_company_facts(data, accession_number)
 
         except Exception as e:
             logger.error(f"Error in company facts fallback: {e}")

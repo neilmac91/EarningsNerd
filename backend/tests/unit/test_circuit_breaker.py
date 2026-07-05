@@ -273,3 +273,36 @@ class TestCircuitBreakerConcurrency:
                 pass
 
         await task1
+
+
+class TestRunWithCircuitBreaker:
+    """The `run_with_circuit_breaker` wrapper is what S4 routes the primary edgartools calls
+    (edgar client/xbrl/sixk) through. An OPEN breaker must short-circuit the wrapper BEFORE it
+    dispatches `func` to the thread pool — that's the resilience guarantee those sites now inherit."""
+
+    @pytest.mark.asyncio
+    async def test_open_breaker_short_circuits_without_running_func(self, monkeypatch):
+        from app.services.edgar import async_executor
+
+        breaker = CircuitBreaker(
+            "test_wrapper",
+            config=CircuitBreakerConfig(failure_threshold=1, recovery_timeout=60.0),
+        )
+        # Trip it open (one tripping failure at threshold=1).
+        with pytest.raises(EdgarTimeoutError):
+            async with breaker:
+                raise EdgarTimeoutError("boom")
+        assert breaker.is_open
+        # run_with_circuit_breaker reads the module-level singleton; point it at our open breaker.
+        monkeypatch.setattr(async_executor, "edgar_circuit_breaker", breaker)
+
+        ran = False
+
+        def _func():
+            nonlocal ran
+            ran = True
+            return "should not run"
+
+        with pytest.raises(CircuitOpenError):
+            await async_executor.run_with_circuit_breaker(_func, timeout=5.0)
+        assert ran is False  # short-circuited before touching the thread pool
