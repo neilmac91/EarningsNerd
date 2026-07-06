@@ -49,6 +49,7 @@
     "label": "Revenue",
     "unit": "USD",
     "percent": false,
+    "tone": "normal",
     "cagr": 0.0849,
     "points": [
      {
@@ -148,6 +149,7 @@
     "label": "Net income",
     "unit": "USD",
     "percent": false,
+    "tone": "normal",
     "cagr": 0.1115,
     "points": [
      {
@@ -247,6 +249,7 @@
     "label": "Net margin",
     "unit": "pure",
     "percent": true,
+    "tone": "normal",
     "cagr": null,
     "window_pp": 2.73,
     "window_pp_range": "FY2019..FY2024",
@@ -348,6 +351,7 @@
     "label": "EPS (diluted)",
     "unit": "USD/shares",
     "percent": false,
+    "tone": "normal",
     "cagr": 0.1541,
     "points": [
      {
@@ -447,6 +451,7 @@
     "label": "Operating cash flow",
     "unit": "USD",
     "percent": false,
+    "tone": "normal",
     "cagr": 0.1125,
     "points": [
      {
@@ -546,6 +551,7 @@
     "label": "Capital expenditures",
     "unit": "USD",
     "percent": false,
+    "tone": "neutral",
     "cagr": -0.0208,
     "points": [
      {
@@ -645,6 +651,7 @@
     "label": "Free cash flow",
     "unit": "USD",
     "percent": false,
+    "tone": "normal",
     "cagr": 0.1306,
     "points": [
      {
@@ -744,6 +751,7 @@
     "label": "Total assets",
     "unit": "USD",
     "percent": false,
+    "tone": "normal",
     "cagr": 0.0152,
     "points": [
      {
@@ -843,6 +851,7 @@
     "label": "Long-term debt",
     "unit": "USD",
     "percent": false,
+    "tone": "inverted",
     "cagr": -0.0136,
     "points": [
      {
@@ -942,6 +951,7 @@
     "label": "Shareholders' equity",
     "unit": "USD",
     "percent": false,
+    "tone": "normal",
     "cagr": -0.0884,
     "points": [
      {

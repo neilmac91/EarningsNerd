@@ -40,6 +40,12 @@ export interface AnalysisCoverage {
  *  finance convention "n/m", rendered as such rather than a nonsensical number. */
 export type GrowthValue = number | 'nm'
 
+/** Display valence for a series' deltas, shipped by the backend (single source of truth, like
+ *  `percent` — trend_analysis_service._SERIES_TONE): "inverted" = an increase reads as a
+ *  cost/risk signal (debt/liabilities), "neutral" = no fixed valence (capex, investing/financing
+ *  swings), "normal" = up is good. */
+export type SeriesTone = 'normal' | 'inverted' | 'neutral'
+
 export interface AnalysisPoint {
   period: string
   value: number | null
@@ -66,6 +72,8 @@ export interface AnalysisSeries {
   /** Values are ×100 percentages (margins) — render "24.3%", not "$24.30"; YoY/QoQ deltas on
    *  these series are percentage points, not relative growth (see AnalysisPoint.yoy). */
   percent: boolean
+  /** Optional only for fixtures/deploy skew — every fresh dataset ships it. Missing = 'normal'. */
+  tone?: SeriesTone | null
   cagr: number | null
   /** Percentage-point change over the series' valued endpoints (annual mode, `percent` series
    *  only) — the CAGR counterpart for a percentage, where compounding doesn't apply. */

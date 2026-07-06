@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { formatGrowth } from '@/features/analysis/lib/growth'
-import { toneForConcept } from '@/features/analysis/lib/tonePolicy'
+import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
+import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
+import type { GrowthValue } from '@/features/analysis/api/analysis-api'
 
 describe('formatGrowth', () => {
   it('renders a relative-growth series as a signed percentage (×100)', () => {
@@ -19,6 +20,16 @@ describe('formatGrowth', () => {
     expect(formatGrowth('nm', true)).toEqual({ text: 'n/m', direction: 'flat' })
   })
 
+  it('degrades ANY unexpected string to "n/m" — never a garbage figure', () => {
+    // The sentinel is a bare string over the wire (convention, not schema). If the backend ever
+    // renamed it, the safe failure is an honest "n/m", not formatting the string as a number.
+    expect(formatGrowth('n/m' as GrowthValue, false)).toEqual({ text: 'n/m', direction: 'flat' })
+    expect(formatGrowth('not_meaningful' as GrowthValue, true)).toEqual({
+      text: 'n/m',
+      direction: 'flat',
+    })
+  })
+
   it('renders nothing for null/undefined (no prior period)', () => {
     expect(formatGrowth(null, false)).toEqual({ text: '', direction: 'flat' })
     expect(formatGrowth(undefined, false)).toEqual({ text: '', direction: 'flat' })
@@ -30,26 +41,52 @@ describe('formatGrowth', () => {
   })
 })
 
-describe('toneForConcept', () => {
-  it('inverts tone for debt/liabilities — an increase reads as loss, a decrease as gain', () => {
-    expect(toneForConcept('long_term_debt', 'up')).toBe('down')
-    expect(toneForConcept('long_term_debt', 'down')).toBe('up')
-    expect(toneForConcept('current_liabilities', 'up')).toBe('down')
+describe('windowGrowth', () => {
+  it('resolves CAGR for monetary/per-share series', () => {
+    expect(windowGrowth({ percent: false, cagr: 0.134, window_pp: null })).toEqual({
+      value: 0.134,
+      isPercent: false,
+      label: 'CAGR',
+    })
   })
 
-  it('flattens tone for capex/investing/financing — direction implies no fixed valence', () => {
-    expect(toneForConcept('capital_expenditures', 'up')).toBe('flat')
-    expect(toneForConcept('investing_cash_flow', 'down')).toBe('flat')
-    expect(toneForConcept('financing_cash_flow', 'up')).toBe('flat')
+  it('resolves the window pp change for percent-unit series (CAGR is always null there)', () => {
+    expect(windowGrowth({ percent: true, cagr: null, window_pp: 13.6 })).toEqual({
+      value: 13.6,
+      isPercent: true,
+      label: 'Chg',
+    })
   })
 
-  it('passes through the sign-based direction for every other concept', () => {
-    expect(toneForConcept('revenue', 'up')).toBe('up')
-    expect(toneForConcept('net_income', 'down')).toBe('down')
+  it('returns null (renders as —) when the window figure is genuinely absent', () => {
+    expect(windowGrowth({ percent: false, cagr: null }).value).toBeNull()
+    expect(windowGrowth({ percent: true, cagr: null, window_pp: null }).value).toBeNull()
+  })
+})
+
+describe('applySeriesTone', () => {
+  it('inverts tone when the dataset ships tone="inverted" (debt/liabilities)', () => {
+    expect(applySeriesTone('inverted', 'up')).toBe('down')
+    expect(applySeriesTone('inverted', 'down')).toBe('up')
+  })
+
+  it('flattens tone when the dataset ships tone="neutral" (capex/investing/financing)', () => {
+    expect(applySeriesTone('neutral', 'up')).toBe('flat')
+    expect(applySeriesTone('neutral', 'down')).toBe('flat')
+  })
+
+  it('passes through the sign-based direction for tone="normal"', () => {
+    expect(applySeriesTone('normal', 'up')).toBe('up')
+    expect(applySeriesTone('normal', 'down')).toBe('down')
+  })
+
+  it('defaults a missing tone (old fixture, deploy skew) to the sign-based reading', () => {
+    expect(applySeriesTone(undefined, 'up')).toBe('up')
+    expect(applySeriesTone(null, 'down')).toBe('down')
   })
 
   it('never overrides an already-flat direction', () => {
-    expect(toneForConcept('long_term_debt', 'flat')).toBe('flat')
-    expect(toneForConcept('capital_expenditures', 'flat')).toBe('flat')
+    expect(applySeriesTone('inverted', 'flat')).toBe('flat')
+    expect(applySeriesTone('neutral', 'flat')).toBe('flat')
   })
 })

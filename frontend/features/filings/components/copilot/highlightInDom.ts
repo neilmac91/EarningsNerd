@@ -9,10 +9,9 @@
  * Returns true when a passage was located and highlighted.
  */
 import { findExcerptMatch } from './excerptMatch'
+import { flashElement } from '@/lib/citationFlash'
 
 const HIGHLIGHT_NAME = 'copilot-citation'
-const FLASH_CLASS = 'citation-flash'
-const FLASH_MS = 1500
 
 interface NodeSpan {
   node: Text
@@ -48,11 +47,7 @@ function flashBlock(node: Node) {
     el = el.parentElement
   }
   if (!el) return
-  el.classList.remove(FLASH_CLASS)
-  // Force reflow so re-adding the class restarts the animation on repeat clicks.
-  void el.offsetWidth
-  el.classList.add(FLASH_CLASS)
-  window.setTimeout(() => el?.classList.remove(FLASH_CLASS), FLASH_MS)
+  flashElement(el)
 }
 
 export function clearCitationHighlight(): void {

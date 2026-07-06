@@ -4,8 +4,8 @@ import { useMemo } from 'react'
 import { Badge, Card, DataTable, type Column } from '@/components/ui'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { directionText } from '@/lib/financialTone'
-import { formatGrowth } from '@/features/analysis/lib/growth'
-import { toneForConcept } from '@/features/analysis/lib/tonePolicy'
+import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
+import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 
 const currencyFromUnit = (unit: string | undefined): string => {
@@ -45,7 +45,7 @@ export default function MetricsTable({ dataset }: { dataset: AnalysisDataset }) 
         const growth = dataset.mode === 'quarterly' ? point.qoq ?? point.yoy : point.yoy
         const growthLabel = dataset.mode === 'quarterly' && point.qoq !== undefined ? 'QoQ' : 'YoY'
         const { text: growthText, direction } = formatGrowth(growth, row.series.percent)
-        const tone = toneForConcept(row.series.concept, direction)
+        const tone = applySeriesTone(row.series.tone, direction)
         return (
           <div className="flex flex-col items-end gap-0.5">
             <span className="flex items-center gap-1">
@@ -90,10 +90,23 @@ export default function MetricsTable({ dataset }: { dataset: AnalysisDataset }) 
       align: 'right' as const,
       numeric: true,
       render: (row: Row) => {
-        const { text, direction } = formatGrowth(row.series.cagr ?? null, false)
-        const tone = toneForConcept(row.series.concept, direction)
+        // Shared window-growth rule (growth.ts): CAGR for monetary/per-share rows, the window's
+        // pp change for percent-unit rows (margins) — the same resolution the KPI strip uses,
+        // so a margin row shows its window figure here instead of a permanently dead "—".
+        const win = windowGrowth(row.series)
+        const { text, direction } = formatGrowth(win.value, win.isPercent)
+        const tone = applySeriesTone(row.series.tone, direction)
         return text ? (
-          <span className={directionText[tone]}>{text}</span>
+          <span
+            className={win.isPercent ? `cursor-help ${directionText[tone]}` : directionText[tone]}
+            title={
+              win.isPercent && row.series.window_pp_range
+                ? `Percentage-point change over ${row.series.window_pp_range} — CAGR doesn't apply to a percent-unit series.`
+                : undefined
+            }
+          >
+            {text}
+          </span>
         ) : (
           <span className="text-text-tertiary-light dark:text-text-secondary-dark">—</span>
         )

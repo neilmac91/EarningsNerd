@@ -50,6 +50,19 @@ INSTANT_CONCEPTS: frozenset[str] = frozenset(
 # Margin concepts are stored ×100 (percent); current_ratio is a plain ratio.
 _PERCENT_CONCEPTS: frozenset[str] = frozenset({"net_margin", "gross_margin", "operating_margin"})
 
+# Display valence per concept, shipped on each series as `tone` — the same dataset-as-source-of-
+# truth pattern as `percent`, so the frontend never re-derives which concepts read inverted or
+# neutral. "inverted": an increase is a cost/risk signal (the same judgment detect_debt_build
+# encodes); "neutral": the direction is a strategic choice (a capex ramp, an investing/financing
+# swing), not inherently good or bad. Everything else defaults to "normal" (up = good).
+_SERIES_TONE: dict[str, str] = {
+    "long_term_debt": "inverted",
+    "current_liabilities": "inverted",
+    "capital_expenditures": "neutral",
+    "investing_cash_flow": "neutral",
+    "financing_cash_flow": "neutral",
+}
+
 # Display order for the dataset grid (missing concepts are simply omitted).
 DATASET_CONCEPT_ORDER: tuple[str, ...] = (
     "revenue",
@@ -232,6 +245,22 @@ def _cagr(first: float, last: float, years: int) -> Optional[float]:
     if years < 1 or first <= 0 or last <= 0:
         return None
     return (last / first) ** (1.0 / years) - 1.0
+
+
+def _valued_endpoints(
+    periods: list[dict[str, Any]], points: list[dict[str, Any]]
+) -> Optional[tuple[tuple[int, float], tuple[int, float]]]:
+    """First/last ``(fiscal_year, value)`` over a series' non-null points — the ONE endpoint-
+    selection rule for every annual window figure (CAGR and window_pp), so the two can't drift.
+    Returns ``None`` when fewer than two valued points exist (no window to measure)."""
+    valued = [
+        (bucket["fiscal_year"], point["value"])
+        for bucket, point in zip(periods, points)
+        if point["value"] is not None
+    ]
+    if len(valued) < 2:
+        return None
+    return valued[0], valued[-1]
 
 
 def build_dataset(
@@ -418,31 +447,23 @@ def build_dataset(
         cagr = None
         cagr_window = None
         if mode == "annual" and unit != "pure":
-            valued = [
-                (bucket["fiscal_year"], point["value"])
-                for bucket, point in zip(periods, points)
-                if point["value"] is not None
-            ]
-            if len(valued) >= 2:
-                (first_fy, first), (last_fy, last) = valued[0], valued[-1]
+            endpoints = _valued_endpoints(periods, points)
+            if endpoints:
+                (first_fy, first), (last_fy, last) = endpoints
                 cagr = _cagr(first, last, last_fy - first_fy)
                 if cagr is not None:
                     cagr_window = f"FY{first_fy}..FY{last_fy}"
 
-        # Window pp change over the series' VALUED endpoints — the percent-series counterpart to
-        # CAGR (compounding doesn't apply to a percentage), so the annual KPI strip has a window
-        # sub-metric for margin concepts even though CAGR itself is always null for them
+        # Window pp change over the same valued endpoints — the percent-series counterpart to
+        # CAGR (compounding doesn't apply to a percentage), so the annual KPI strip/table has a
+        # window figure for margin concepts even though CAGR itself is always null for them
         # (unit == "pure" excludes them from the CAGR block above).
         window_pp = None
         window_pp_range = None
         if mode == "annual" and is_percent:
-            valued_pp = [
-                (bucket["fiscal_year"], point["value"])
-                for bucket, point in zip(periods, points)
-                if point["value"] is not None
-            ]
-            if len(valued_pp) >= 2:
-                (first_fy, first_v), (last_fy, last_v) = valued_pp[0], valued_pp[-1]
+            endpoints = _valued_endpoints(periods, points)
+            if endpoints:
+                (first_fy, first_v), (last_fy, last_v) = endpoints
                 window_pp = last_v - first_v
                 window_pp_range = f"FY{first_fy}..FY{last_fy}"
 
@@ -451,7 +472,8 @@ def build_dataset(
                 "concept": concept,
                 "label": concept_label(concept),
                 "unit": unit,
-                "percent": concept in _PERCENT_CONCEPTS,
+                "percent": is_percent,
+                "tone": _SERIES_TONE.get(concept, "normal"),
                 "cagr": cagr,
                 "cagr_window": cagr_window,
                 "window_pp": window_pp,

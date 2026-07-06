@@ -4,15 +4,20 @@ import { Card } from '@/components/ui'
 import { useCountUp } from '@/hooks/useCountUp'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { directionText } from '@/lib/financialTone'
-import { formatGrowth } from '@/features/analysis/lib/growth'
-import { toneForConcept } from '@/features/analysis/lib/tonePolicy'
-import type { AnalysisDataset, AnalysisSeries, GrowthValue } from '@/features/analysis/api/analysis-api'
+import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
+import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
+import type {
+  AnalysisDataset,
+  AnalysisSeries,
+  GrowthValue,
+  SeriesTone,
+} from '@/features/analysis/api/analysis-api'
 
 interface Kpi {
   label: string
   value: number
   format: (v: number) => string
-  concept: string
+  tone: SeriesTone | null | undefined
   isPercent: boolean
   /** Window growth: CAGR (annual, non-percent series), window pp change (annual, percent
    *  series — CAGR doesn't apply to a percentage), or same-quarter YoY (quarterly). */
@@ -32,7 +37,7 @@ const latestPoint = (series: AnalysisSeries | undefined) => {
 function KpiTile({ kpi }: { kpi: Kpi }) {
   const animated = useCountUp(kpi.value, { format: kpi.format })
   const { text, direction } = formatGrowth(kpi.growth, kpi.isPercent)
-  const tone = toneForConcept(kpi.concept, direction)
+  const tone = applySeriesTone(kpi.tone, direction)
   return (
     <Card className="p-4">
       <div className="text-xs font-medium uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
@@ -68,17 +73,17 @@ export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
     const point = latestPoint(series)
     if (!series || !point) continue
     const isAnnual = dataset.mode === 'annual'
-    const growth: GrowthValue | null = isAnnual
-      ? (series.percent ? series.window_pp : series.cagr) ?? null
-      : point.yoy ?? null
+    // Shared window-growth rule (growth.ts) — same resolution as the metrics table's window column.
+    const win = windowGrowth(series)
+    const growth: GrowthValue | null = isAnnual ? win.value : point.yoy ?? null
     kpis.push({
       label: `${series.label} (${point.period})`,
       value: point.value as number,
       format: spec.format ?? ((v: number) => fmtCurrency(v, { compact: true })),
-      concept: series.concept,
+      tone: series.tone,
       isPercent: series.percent,
       growth,
-      growthLabel: isAnnual ? (series.percent ? 'Chg' : 'CAGR') : 'YoY',
+      growthLabel: isAnnual ? win.label : 'YoY',
     })
   }
   if (kpis.length === 0) return null

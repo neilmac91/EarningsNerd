@@ -84,7 +84,10 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
         label: 'Net margin',
         unit: 'pure',
         percent: true,
+        tone: 'normal',
         cagr: null,
+        window_pp: -9.0,
+        window_pp_range: 'FY2023..FY2024',
         points: [
           { period: 'FY2023', value: 47.3, marker: 'F1' },
           { period: 'FY2024', value: 38.3, marker: 'F2', yoy: -9.0 },
@@ -95,6 +98,7 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
         label: 'Long-term debt',
         unit: 'USD',
         percent: false,
+        tone: 'inverted',
         cagr: -0.05,
         points: [
           { period: 'FY2023', value: 42_000_000_000, marker: 'F3' },
@@ -106,6 +110,7 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
         label: 'Investing cash flow',
         unit: 'USD',
         percent: false,
+        tone: 'neutral',
         cagr: null,
         points: [
           { period: 'FY2023', value: 503_000_000, marker: 'F5' },
@@ -132,5 +137,13 @@ describe('MetricsTable — annual mode: CAGR column, pp deltas, tone policy', ()
     render(<MetricsTable dataset={annualDataset} />)
     const delta = screen.getByText(/YoY -25\.2%/)
     expect(delta.className).toMatch(/gain/)
+  })
+
+  it('shows the window pp change in the CAGR column for a percent-unit row (never a dead —)', () => {
+    render(<MetricsTable dataset={annualDataset} />)
+    // net_margin: cagr is always null (unit "pure"), so the column resolves window_pp instead —
+    // the same rule the KPI strip uses (windowGrowth). The tooltip names the basis window.
+    const cell = screen.getByText('-9.0pp')
+    expect(cell).toHaveAttribute('title', expect.stringContaining('FY2023..FY2024'))
   })
 })

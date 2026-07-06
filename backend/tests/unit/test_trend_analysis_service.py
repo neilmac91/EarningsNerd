@@ -343,6 +343,30 @@ class TestBuildDataset:
         assert icf["2023Q4"]["qoq"] == svc.NOT_MEANINGFUL
         db.close()
 
+    def test_series_tone_is_shipped_from_the_dataset(self):
+        """The display valence (inverted for debt, neutral for capex/investing/financing swings)
+        ships on each series as `tone` — like `percent`, the dataset is the single source of
+        truth so the frontend never hardcodes concept lists."""
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        company = _seed_company(db)
+        for fy, revenue, debt, capex in [(2022, 1000.0, 500.0, 50.0), (2023, 1200.0, 800.0, 90.0)]:
+            end = date(fy, 12, 31)
+            _seed_fact(db, company.id, "revenue", revenue, fy=fy, fp="FY", end=end,
+                       start=date(fy, 1, 1))
+            _seed_fact(db, company.id, "capital_expenditures", capex, fy=fy, fp="FY", end=end,
+                       start=date(fy, 1, 1))
+            _seed_fact(db, company.id, "long_term_debt", debt, fy=fy, fp="FY", end=end)
+        db.commit()
+
+        dataset = svc.build_dataset(db, company, "annual", "FY2022", "FY2023")
+        tones = {s["concept"]: s["tone"] for s in dataset["series"]}
+        assert tones["revenue"] == "normal"
+        assert tones["long_term_debt"] == "inverted"
+        assert tones["capital_expenditures"] == "neutral"
+        db.close()
+
     def test_window_pp_is_the_cagr_counterpart_for_percent_series(self):
         """Annual mode, percent-unit series: CAGR is always null (unit == "pure" excludes it),
         so the KPI strip needs a window pp change instead (F1 fix)."""

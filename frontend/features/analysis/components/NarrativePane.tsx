@@ -1,28 +1,25 @@
 'use client'
 
-import { type ComponentProps, type ReactNode } from 'react'
+import { useMemo, type ComponentProps, type ElementType, type ReactNode } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
 import { Badge, Button, Card, Notice } from '@/components/ui'
 import { ArrowClockwiseIcon, CircleNotchIcon, DownloadSimpleIcon } from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
+import { flashElement } from '@/lib/citationFlash'
 import type { AnalysisCitation, AnalysisCompletion } from '@/features/analysis/api/analysis-api'
 
 const SOURCE_ROW_ID = (n: number | string) => `analysis-source-${n}`
-const FLASH_MS = 1500
 
-/** Scroll a Sources-list row into view and re-trigger its `.citation-flash` pulse (the same
- *  ambient token/technique the copilot filing-viewer highlight uses) so clicking an inline
+/** Scroll a Sources-list row into view and re-trigger its `.citation-flash` pulse (the shared
+ *  flashElement helper the copilot filing-viewer highlight also uses) so clicking an inline
  *  citation chip visibly connects the figure to its Sources entry. */
 function flashAndScrollToSource(n: number | string) {
   const el = document.getElementById(SOURCE_ROW_ID(n))
   if (!el) return
   el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-  el.classList.remove('citation-flash')
-  void el.offsetWidth // force reflow so a repeat click restarts the animation
-  el.classList.add('citation-flash')
-  window.setTimeout(() => el.classList.remove('citation-flash'), FLASH_MS)
+  flashElement(el)
 }
 
 /** An inline `[n]` citation chip: no filing viewer to highlight into (unlike Copilot), so
@@ -45,6 +42,7 @@ function NarrativeCitationChip({ citation }: { citation: AnalysisCitation }) {
 }
 
 type MdExtra = { node?: unknown }
+type NarrativeTag = 'p' | 'li' | 'strong' | 'em' | 'td'
 
 /** Text-bearing element overrides that route their children through the citation-chip injector —
  *  no className overrides, since `.markdown-body`'s global CSS (globals.css) targets the plain
@@ -54,15 +52,16 @@ function buildNarrativeComponents(citations: AnalysisCitation[]) {
     injectCitationMarkers(children, citations, (citation, key) => (
       <NarrativeCitationChip key={key} citation={citation} />
     ))
-  return {
-    p: ({ node: _n, children, ...rest }: ComponentProps<'p'> & MdExtra) => <p {...rest}>{inject(children)}</p>,
-    li: ({ node: _n, children, ...rest }: ComponentProps<'li'> & MdExtra) => <li {...rest}>{inject(children)}</li>,
-    strong: ({ node: _n, children, ...rest }: ComponentProps<'strong'> & MdExtra) => (
-      <strong {...rest}>{inject(children)}</strong>
-    ),
-    em: ({ node: _n, children, ...rest }: ComponentProps<'em'> & MdExtra) => <em {...rest}>{inject(children)}</em>,
-    td: ({ node: _n, children, ...rest }: ComponentProps<'td'> & MdExtra) => <td {...rest}>{inject(children)}</td>,
+  // The five overrides differ only in tag name — one factory (strip react-markdown's `node`,
+  // spread the rest, inject the children) instead of five hand-copied wrappers.
+  const wrap = (tag: NarrativeTag) => {
+    const Tag = tag as ElementType
+    const MdTag = ({ node: _n, children, ...rest }: ComponentProps<NarrativeTag> & MdExtra) => (
+      <Tag {...rest}>{inject(children)}</Tag>
+    )
+    return MdTag
   }
+  return { p: wrap('p'), li: wrap('li'), strong: wrap('strong'), em: wrap('em'), td: wrap('td') }
 }
 
 export interface NarrativeState {
@@ -132,9 +131,20 @@ export default function NarrativePane({
   /** PDF download (Pro can_export; hidden when absent or before a persisted completion). */
   onExport?: () => void
 }) {
+  const completion = state.completion
+  // Stable components-map identity across re-renders — a fresh object every render would make
+  // react-markdown treat each element type as new and remount the whole narrative subtree
+  // (losing e.g. focus on a citation chip) instead of reconciling it.
+  const narrativeComponents = useMemo(
+    () =>
+      completion && completion.citations.length > 0
+        ? buildNarrativeComponents(completion.citations)
+        : undefined,
+    [completion]
+  )
+
   if (state.status === 'idle') return null
 
-  const completion = state.completion
   const notEnoughData = completion?.kind === 'not_enough_data'
 
   return (
@@ -194,10 +204,7 @@ export default function NarrativePane({
         <>
           <div className="markdown-body" aria-live={state.status === 'streaming' ? 'polite' : undefined}>
             {state.status === 'done' && completion && completion.citations.length > 0 ? (
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={buildNarrativeComponents(completion.citations)}
-              >
+              <ReactMarkdown remarkPlugins={[remarkGfm]} components={narrativeComponents}>
                 {state.text}
               </ReactMarkdown>
             ) : (

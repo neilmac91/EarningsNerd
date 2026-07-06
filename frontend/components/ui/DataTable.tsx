@@ -220,11 +220,26 @@ export function DataTable<T extends Record<string, unknown>>({
           {loading
             ? Array.from({ length: skeletonRows }).map((_, r) => (
                 <tr key={r}>
-                  {columns.map((c) => (
-                    <td key={c.key} className={cx('px-3', d.skelY, rowBorder(r))}>
-                      <Skeleton className={cx(d.skelBar, c.align === 'right' ? 'ml-auto w-14' : 'w-24')} />
-                    </td>
-                  ))}
+                  {columns.map((c, colIndex) => {
+                    // Skeleton rows keep the same sticky first-column treatment as real rows, so
+                    // a loading table scrolled right doesn't snap the label column into place
+                    // when data lands.
+                    const isFirstCol = colIndex === 0 && stickyFirstColumn
+                    return (
+                      <td
+                        key={c.key}
+                        className={cx(
+                          'px-3',
+                          d.skelY,
+                          rowBorder(r),
+                          isFirstCol && STICKY_COL_BASE,
+                          bodyZIndex(isFirstCol)
+                        )}
+                      >
+                        <Skeleton className={cx(d.skelBar, c.align === 'right' ? 'ml-auto w-14' : 'w-24')} />
+                      </td>
+                    )
+                  })}
                 </tr>
               ))
             : null}

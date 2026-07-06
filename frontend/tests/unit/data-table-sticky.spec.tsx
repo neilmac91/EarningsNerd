@@ -65,6 +65,21 @@ describe('DataTable stickyFirstColumn', () => {
     expect(zClasses).toEqual(['z-20'])
   })
 
+  it('keeps the first column sticky in loading-skeleton rows (no snap when data lands)', () => {
+    const { container } = render(
+      <DataTable<Row> columns={columns} rows={[]} rowKey={(r) => r.id} stickyFirstColumn loading />
+    )
+    const skeletonCells = container.querySelectorAll('tbody tr td')
+    expect(skeletonCells.length).toBeGreaterThan(0)
+    const firstCell = skeletonCells[0]
+    expect(firstCell).toHaveClass('sticky')
+    expect(firstCell).toHaveClass('left-0')
+    expect(firstCell).toHaveClass('bg-panel-light')
+    expect(firstCell).toHaveClass('z-[5]')
+    // Only the first column — the second stays plain, same as real rows.
+    expect(skeletonCells[1]).not.toHaveClass('sticky')
+  })
+
   it('gives the sticky body cell a group-hover fill so it repaints on row hover', () => {
     const { container } = render(
       <DataTable<Row> columns={columns} rows={rows} rowKey={(r) => r.id} stickyFirstColumn />

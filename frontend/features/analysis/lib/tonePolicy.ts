@@ -1,27 +1,20 @@
 import type { Direction } from '@/lib/financialTone'
-
-// Metrics where an INCREASE is conventionally a cost/risk signal, not good news — invert so up
-// reads as loss (red) and down reads as gain (green). Debt/liabilities growth is the textbook
-// case the product's own deterministic signals already treat as a red flag (detect_debt_build).
-const INVERTED_CONCEPTS = new Set<string>(['long_term_debt', 'current_liabilities'])
-
-// Metrics with no fixed valence — a capex ramp, an investing swing, or a financing-activity
-// change is a strategic choice (growth investment, buyback, refinancing), not inherently good or
-// bad. Coloring these by sign alone would imply a judgment the data doesn't support, so they stay
-// neutral regardless of direction.
-const NEUTRAL_CONCEPTS = new Set<string>([
-  'capital_expenditures',
-  'investing_cash_flow',
-  'financing_cash_flow',
-])
+import type { SeriesTone } from '@/features/analysis/api/analysis-api'
 
 /**
- * Map a sign-based direction to the tone actually displayed for a given metric concept.
- * Everything not listed keeps the default sign-based reading (up = gain, down = loss).
+ * Map a sign-based direction to the tone actually displayed for a series. The valence judgment
+ * (debt up = cost/risk → inverted; capex/investing/financing = strategic choice → neutral) is
+ * the DATASET's, shipped per series as `tone` by the backend (trend_analysis_service's
+ * _SERIES_TONE) — the same source-of-truth pattern as `percent` — so the concept lists live in
+ * exactly one place. A missing or unknown tone (old fixture, deploy skew) keeps the default
+ * sign-based reading; an already-flat direction is never overridden.
  */
-export function toneForConcept(concept: string, direction: Direction): Direction {
+export function applySeriesTone(
+  tone: SeriesTone | null | undefined,
+  direction: Direction
+): Direction {
   if (direction === 'flat') return 'flat'
-  if (NEUTRAL_CONCEPTS.has(concept)) return 'flat'
-  if (INVERTED_CONCEPTS.has(concept)) return direction === 'up' ? 'down' : 'up'
+  if (tone === 'neutral') return 'flat'
+  if (tone === 'inverted') return direction === 'up' ? 'down' : 'up'
   return direction
 }
