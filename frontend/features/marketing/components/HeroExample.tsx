@@ -1,5 +1,5 @@
 import { format, parseISO } from 'date-fns'
-import ExampleCtaLink from '@/components/ExampleCtaLink'
+import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
 import CompanyLogo from '@/components/CompanyLogo'
 import { exampleFilingHref } from '@/lib/featureFlags'
 import { directionText } from '@/lib/financialTone'

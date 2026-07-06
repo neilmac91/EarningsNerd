@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { ArrowRightIcon } from '@/lib/icons'
 import WaitlistForm from '@/features/waitlist/components/WaitlistForm'
 import WaitlistCounter from '@/features/waitlist/components/WaitlistCounter'
-import ExampleCtaLink from '@/components/ExampleCtaLink'
+import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
 import { exampleFilingHref } from '@/lib/featureFlags'
 
 // While the waitlist gate is up, this page is the de-facto homepage — it needs
