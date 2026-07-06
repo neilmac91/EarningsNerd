@@ -151,6 +151,15 @@ class TestPdfHtml:
 
 
 class TestCsv:
+    def test_opens_with_brand_rows(self, service):
+        """The CSV masthead: two brand rows, then a blank, then the document title."""
+        summary, filing = _make_summary_and_filing(_full_sections())
+        lines = service.generate_csv(summary, filing).splitlines()
+        assert lines[0] == "EarningsNerd — AI-Powered SEC Filing Analysis"
+        assert lines[1] == "earningsnerd.io"
+        assert lines[2] == ""
+        assert "BIOGEN INC." in lines[3]
+
     def test_includes_all_sections(self, service):
         summary, filing = _make_summary_and_filing(_full_sections())
         csv_out = service.generate_csv(summary, filing)

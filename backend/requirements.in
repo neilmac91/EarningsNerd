@@ -29,6 +29,9 @@ passlib[bcrypt]==1.7.4
 python-dateutil==2.9.0.post0
 stripe==15.3.0
 weasyprint==69.0
+# Branded Excel workbook export (analysis xlsx endpoint) — openpyxl over xlsxwriter: it also
+# READS workbooks (the pytest read-back verification), and images/styles ride the pinned pillow.
+openpyxl>=3.1,<4
 # EdgarTools - unified SEC filing library (replaced arelle-release and
 # sec-edgar-downloader, both removed after verifying zero imports — issue #244)
 edgartools>=5.40.1

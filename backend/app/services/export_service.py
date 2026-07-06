@@ -100,6 +100,12 @@ class ExportService:
         output = io.StringIO()
         writer = csv.writer(output)
 
+        # Brand rows first (owner request, export overhaul): a CSV carries no styling, so the
+        # masthead is two plain rows saying who made it before the document title.
+        writer.writerow(["EarningsNerd — AI-Powered SEC Filing Analysis"])
+        writer.writerow(["earningsnerd.io"])
+        writer.writerow([])
+
         # Header
         writer.writerow([f"{filing.company.name} - {filing.filing_type} Summary"])
         writer.writerow([f"Filing Date: {filing.filing_date.strftime('%Y-%m-%d') if filing.filing_date else 'N/A'}"])

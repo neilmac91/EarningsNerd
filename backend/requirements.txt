@@ -56,6 +56,8 @@ edgartools==5.40.1
     # via -r requirements.in
 email-validator==2.3.0
     # via -r requirements.in
+et-xmlfile==2.0.0
+    # via openpyxl
 fastapi==0.139.0
     # via
     #   -r requirements.in
@@ -115,6 +117,8 @@ numpy==2.4.6
     #   pandas
     #   rank-bm25
 openai==2.44.0
+    # via -r requirements.in
+openpyxl==3.1.5
     # via -r requirements.in
 orjson==3.11.9
     # via edgartools
