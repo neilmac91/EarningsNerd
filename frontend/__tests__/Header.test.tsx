@@ -17,7 +17,7 @@ vi.mock('next/navigation', () => ({
 // Stub chrome/children so the test isolates Header's auth-state branching.
 vi.mock('@/components/ThemeToggle', () => ({ ThemeToggle: () => null }))
 vi.mock('@/components/EarningsNerdLogo', () => ({ default: () => null }))
-vi.mock('@/components/NotificationBell', () => ({
+vi.mock('@/features/notifications/components/NotificationBell', () => ({
   default: () => <div data-testid="notification-bell" />,
 }))
 vi.mock('@/components/UserMenu', () => ({

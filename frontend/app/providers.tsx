@@ -7,7 +7,7 @@ import { IconContext, type IconProps } from '@phosphor-icons/react'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { PostHogProvider } from './posthog-provider'
 import { GlobalErrorBoundary } from '@/components/GlobalErrorBoundary'
-import FeedbackWidget from '@/components/FeedbackWidget'
+import FeedbackWidget from '@/features/feedback/components/FeedbackWidget'
 import { usePostHogUserIdentification } from '@/hooks/usePostHogUserIdentification'
 
 // Sets `is_pro`/`plan` PostHog person properties app-wide once the user + subscription resolve

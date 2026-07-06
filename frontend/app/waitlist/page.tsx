@@ -1,8 +1,8 @@
 import { Suspense } from 'react'
 import type { Metadata } from 'next'
 import { ArrowRightIcon } from '@/lib/icons'
-import WaitlistForm from '@/components/WaitlistForm'
-import WaitlistCounter from '@/components/WaitlistCounter'
+import WaitlistForm from '@/features/waitlist/components/WaitlistForm'
+import WaitlistCounter from '@/features/waitlist/components/WaitlistCounter'
 import ExampleCtaLink from '@/components/ExampleCtaLink'
 import { exampleFilingHref } from '@/lib/featureFlags'
 

@@ -2,7 +2,7 @@ import { Suspense } from 'react'
 import type { Metadata } from 'next'
 
 // Rule 2.1: Direct imports, no barrel files
-import CompanySearch from '@/components/CompanySearch'
+import CompanySearch from '@/features/companies/components/CompanySearch'
 import QuickAccessBar from '@/components/QuickAccessBar'
 import HotFilings from '@/components/HotFilings'
 import TrendingTickers from '@/components/TrendingTickers'

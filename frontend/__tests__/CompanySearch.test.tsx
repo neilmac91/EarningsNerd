@@ -16,7 +16,7 @@ vi.mock('@/lib/analytics', () => ({
   default: { companySearched: vi.fn(), companySearchResultClicked: vi.fn() },
 }))
 
-import CompanySearch from '@/components/CompanySearch'
+import CompanySearch from '@/features/companies/components/CompanySearch'
 import { searchCompanies, type Company } from '@/features/companies/api/companies-api'
 
 const company = (over: Partial<Company>): Company => ({
