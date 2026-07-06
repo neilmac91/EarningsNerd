@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { CheckIcon, CopyIcon } from '@/lib/icons'
 import { ApiError } from '@/lib/api/client'
 import { joinWaitlist } from '@/features/waitlist/api/waitlist-api'
-import TurnstileWidget from '@/components/auth/TurnstileWidget'
+import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 import { Button, Card, Input, Notice, buttonVariants } from '@/components/ui'
 

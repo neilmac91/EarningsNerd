@@ -20,7 +20,7 @@ vi.mock('@/components/EarningsNerdLogo', () => ({ default: () => null }))
 vi.mock('@/features/notifications/components/NotificationBell', () => ({
   default: () => <div data-testid="notification-bell" />,
 }))
-vi.mock('@/components/UserMenu', () => ({
+vi.mock('@/features/auth/components/UserMenu', () => ({
   default: ({ user }: { user: { email: string } }) => <div data-testid="user-menu">{user.email}</div>,
 }))
 

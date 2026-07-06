@@ -6,8 +6,8 @@ import { resetPassword } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
 import { CheckCircleIcon, CircleNotchIcon } from '@/lib/icons'
-import AuthShell from '@/components/auth/AuthShell'
-import PasswordField from '@/components/auth/PasswordField'
+import AuthShell from '@/features/auth/components/AuthShell'
+import PasswordField from '@/features/auth/components/PasswordField'
 import { Button, Notice } from '@/components/ui'
 
 function ResetPasswordContent() {

@@ -5,7 +5,7 @@ import { forgotPassword } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
 import { CircleNotchIcon, EnvelopeSimpleOpenIcon } from '@/lib/icons'
-import AuthShell from '@/components/auth/AuthShell'
+import AuthShell from '@/features/auth/components/AuthShell'
 import { Button, Input, Notice } from '@/components/ui'
 
 export default function ForgotPasswordPage() {
