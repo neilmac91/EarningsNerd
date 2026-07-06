@@ -339,6 +339,50 @@ don't put the recurring schedule on them.
 > `notification_log` rows the scan writes, so it needs no extra cron; it lights up once the scan
 > jobs above are running.
 
+### 12. Notable filings scan (homepage discovery)
+
+One Cloud Run Job runs `scripts/notable_filings_job.py` to sweep EDGAR full-text search for
+market-wide notable filings into the `notable_filings` table (the homepage "Notable filings"
+section; replaces the retired own-DB Trending Filings — see
+`tasks/homepage-sections-review-findings.md`). **Same rule as §11: a dedicated job, not the
+`/internal/jobs/notable-filings-scan` HTTP trigger** — `BackgroundTasks` callbacks die with
+scale-to-zero; the endpoint is for one-off manual kicks only. EDGAR is keyless, so the job needs
+only the DB secrets. The CD pipeline keeps the job image in sync once it exists (skips gracefully
+otherwise). Create it once, with one Cloud Scheduler trigger:
+
+```bash
+CONN=earnings-nerd:us-west1:earningsnerd-db
+SA="$(gcloud projects describe earnings-nerd --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
+SECRETS=DATABASE_URL=DATABASE_URL:latest,SECRET_KEY=SECRET_KEY:latest
+ENVV="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true"
+
+gcloud run jobs create earningsnerd-notable-filings --region=us-west1 \
+  --image=us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend:latest \
+  --cpu=1 --memory=1Gi --task-timeout=900 \
+  --set-cloudsql-instances="$CONN" --set-secrets="$SECRETS" --set-env-vars="$ENVV" \
+  --command=python --args=scripts/notable_filings_job.py
+
+# 08:30 + 18:30 America/New_York — after the BMO (~06:00-08:30 ET) and AMC (~16:05-17:30 ET)
+# filing waves; EFTS indexes within minutes. No collision with the §10/§11 job slots.
+gcloud scheduler jobs create http notable-filings-scan --location=us-west1 \
+  --schedule="30 8,18 * * *" --time-zone="America/New_York" \
+  --uri="https://us-west1-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/earnings-nerd/jobs/earningsnerd-notable-filings:run" \
+  --http-method=POST --oauth-service-account-email="${SA}"
+```
+
+First rollout (the section ships dark):
+```bash
+# 1. Smoke-test, then seed a full week so the section isn't empty on day one:
+gcloud run jobs execute earningsnerd-notable-filings --region=us-west1 --wait
+gcloud run jobs execute earningsnerd-notable-filings --region=us-west1 \
+  --args="scripts/notable_filings_job.py,--days,7" --wait
+# 2. Flip serving on (the scan runs regardless; the flag gates the API only):
+gcloud run services update earningsnerd-backend --region=us-west1 \
+  --update-env-vars=NOTABLE_FILINGS_ENABLED=true
+# 3. Probe, then check the homepage (ISR revalidates within ~15 min):
+#    curl "https://api.earningsnerd.io/api/notable_filings?limit=8"
+```
+
 ---
 
 ## Troubleshooting

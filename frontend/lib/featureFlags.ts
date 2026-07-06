@@ -92,6 +92,16 @@ export const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || 
 export const TURNSTILE_ENABLED = TURNSTILE_SITE_KEY.length > 0
 
 /**
+ * Show the homepage "Market Movers" section (Stocktwits/FMP trending tickers).
+ * Ships OFF: the FMP validation path is dead (legacy API cut off 2025-08-31) and no license-clean
+ * $0 replacement exists, so prod was serving a hardcoded fallback with an internal error string —
+ * see tasks/homepage-sections-review-findings.md (verdict: hide now; backend teardown follows in
+ * a later PR). Flip NEXT_PUBLIC_ENABLE_MARKET_MOVERS='true' only with a licensed data source.
+ */
+export const ENABLE_MARKET_MOVERS =
+  process.env.NEXT_PUBLIC_ENABLE_MARKET_MOVERS === 'true'
+
+/**
  * Show the dashboard earnings calendar (upcoming earnings for watched companies).
  * Ships off by default — the backend `/api/dashboard/calendar/upcoming` returns empty until an
  * FMP_API_KEY is provisioned, so the widget stays dark until both are ready.

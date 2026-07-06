@@ -42,6 +42,34 @@ def test_valid_token_triggers_scan(client, monkeypatch):
     mock_scan.assert_awaited_once()
 
 
+def test_notable_filings_scan_requires_token(client, monkeypatch):
+    monkeypatch.setattr(settings, "INTERNAL_JOB_TOKEN", "s3cret-token")
+    assert client.post("/internal/jobs/notable-filings-scan").status_code == 401
+
+
+def test_valid_token_triggers_notable_filings_scan(client, monkeypatch):
+    monkeypatch.setattr(settings, "INTERNAL_JOB_TOKEN", "s3cret-token")
+
+    class _Stats:
+        def as_dict(self):
+            return {}
+
+    with patch(
+        "app.services.notable_filings_service.run_scan", new=AsyncMock(return_value=_Stats())
+    ) as mock_scan:
+        resp = client.post(
+            "/internal/jobs/notable-filings-scan",
+            headers={"X-Internal-Token": "s3cret-token"},
+            json={"days": 7},
+        )
+    assert resp.status_code == 202
+    assert resp.json()["job"] == "notable-filings-scan"
+    assert resp.json()["days"] == 7
+    mock_scan.assert_awaited_once()
+    # The widened seed window is forwarded to the service.
+    assert mock_scan.await_args.kwargs.get("days") == 7
+
+
 def test_valid_token_triggers_digest(client, monkeypatch):
     monkeypatch.setattr(settings, "INTERNAL_JOB_TOKEN", "s3cret-token")
     with patch(

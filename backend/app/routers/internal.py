@@ -137,6 +137,40 @@ async def trigger_backfill_facts(background: BackgroundTasks):
     return {"status": "accepted", "job": "backfill-facts"}
 
 
+class NotableFilingsScanRequest(BaseModel):
+    """One-off manual kick of the notable-filings EDGAR scan (e.g. the first seed run).
+
+    ``days`` widens the trailing window beyond NOTABLE_FILINGS_SCAN_DAYS. The recurring schedule
+    rides the dedicated Cloud Run job (scripts/notable_filings_job.py), not this endpoint.
+    """
+
+    days: Optional[int] = Field(default=None, ge=0, le=14)
+
+
+async def _run_notable_filings_scan(days: Optional[int]) -> None:
+    from app.database import SessionLocal
+    from app.services import notable_filings_service
+
+    db = SessionLocal()
+    try:
+        stats = await notable_filings_service.run_scan(db, days=days)
+        logger.info("Notable-filings scan (internal trigger) complete: %s", stats.as_dict())
+    except Exception:
+        logger.exception("Notable-filings scan (internal trigger) failed")
+    finally:
+        db.close()
+
+
+@router.post("/jobs/notable-filings-scan", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
+async def trigger_notable_filings_scan(
+    background: BackgroundTasks, req: NotableFilingsScanRequest | None = None
+):
+    """Sweep EDGAR full-text search for notable filings into the notable_filings table."""
+    days = req.days if req else None
+    background.add_task(_run_notable_filings_scan, days)
+    return {"status": "accepted", "job": "notable-filings-scan", "days": days}
+
+
 class SyncCompanyfactsRequest(BaseModel):
     """Multi-Period Analysis (M1): warm the companyfacts-backed period history for a cohort.
 

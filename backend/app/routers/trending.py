@@ -25,10 +25,13 @@ class PriceRefreshResponse(BaseModel):
 @router.get("/trending_tickers")
 async def get_trending_tickers():
     """
-    Return trending tickers from Stocktwits with FMP validation.
+    LEGACY: return trending tickers from Stocktwits with FMP validation.
 
-    Filters out crypto, forex, ETFs, and funds to show only stocks.
-    Price data included when available.
+    The homepage surface is flag-hidden (NEXT_PUBLIC_ENABLE_MARKET_MOVERS, default off): FMP's
+    legacy API is dead for this account (every call 403s → the curated fallback always serves)
+    and no license-clean $0 replacement exists — see tasks/homepage-sections-review-findings.md.
+    Endpoint + service are tombstoned pending the teardown PR (importer allowlist:
+    tests/unit/test_dead_integrations_allowlist.py).
     """
     data = await trending_service.get_trending_tickers()
 

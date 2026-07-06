@@ -324,6 +324,18 @@ class Settings(BaseSettings):
     # the Cloud Run service after the one-time purge (scripts/purge_non_index_earnings.py).
     CALENDAR_INDEX_FILTER_ENABLED: bool = False
 
+    # Homepage "Notable filings" — market-wide EDGAR-native discovery surface (replaces the retired
+    # own-DB "Trending Filings"; see tasks/homepage-sections-review-findings.md). The scan job
+    # (scripts/notable_filings_job.py, Cloud Run job + Scheduler) populates notable_filings from
+    # EDGAR full-text search regardless of this flag; the flag gates SERVING only, so the section
+    # ships dark and is flipped on after the one-time job setup + seed run (DEPLOYMENT.md). When
+    # False (default), GET /api/notable_filings returns an empty list and the homepage section
+    # self-omits.
+    NOTABLE_FILINGS_ENABLED: bool = False
+    # Trailing window (calendar days back from today, inclusive) each scheduled scan sweeps. The
+    # seed run overrides this via the job's --days argument.
+    NOTABLE_FILINGS_SCAN_DAYS: int = 2
+
     # Roadmap 2.6: richer cited financials. When True, XBRL extraction also pulls the full cash-flow
     # statement (investing + financing flows) and working-capital lines (current assets/liabilities →
     # derived working_capital + current_ratio), which flow into financial_fact, the filing-scoped trend

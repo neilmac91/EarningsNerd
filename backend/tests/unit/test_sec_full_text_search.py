@@ -171,6 +171,15 @@ class TestBuildParams:
             "q": "test"
         }
 
+    def test_query_omitted_when_empty(self):
+        # Query-less forms+date listings (notable-filings scan) must not send an empty q=.
+        params = SECFullTextSearchClient._build_params(
+            None, "SC 13D", "2026-07-06", "2026-07-06", None, 0
+        )
+        assert "q" not in params
+        assert params == {"forms": "SC 13D", "startdt": "2026-07-06", "enddt": "2026-07-06"}
+        assert "q" not in SECFullTextSearchClient._build_params("", None, None, None, None, 0)
+
     def test_full(self):
         params = SECFullTextSearchClient._build_params(
             "test", "10-K,10-Q", "2023-01-01", "2023-12-31", "0000320193", 20
@@ -221,6 +230,32 @@ class TestSearchAsync:
         assert "forms=10-K" in captured["url"]
         assert "from=10" in captured["url"]
         assert captured["user_agent"]  # SEC-required descriptive UA present
+
+    @pytest.mark.asyncio
+    async def test_queryless_search_sends_no_q_param(self):
+        captured = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            captured["url"] = str(request.url)
+            return httpx.Response(200, json=SAMPLE_PAYLOAD)
+
+        client = SECFullTextSearchClient(transport=httpx.MockTransport(handler))
+        result = await client.search(forms="S-1", start_date="2026-07-06", end_date="2026-07-06")
+
+        assert result.total == 2
+        assert result.query == ""
+        assert "q=" not in captured["url"]
+        assert "forms=S-1" in captured["url"]
+
+    @pytest.mark.asyncio
+    async def test_queryless_pagination_rejected(self):
+        # EFTS returns HTTP 500 for from>0 without a query term (observed live 2026-07-06) —
+        # the client refuses the combination up front.
+        client = SECFullTextSearchClient(
+            transport=httpx.MockTransport(lambda request: httpx.Response(200, json={}))
+        )
+        with pytest.raises(ValueError):
+            await client.search(forms="S-1", from_offset=10)
 
     @pytest.mark.asyncio
     async def test_raises_on_server_error(self):

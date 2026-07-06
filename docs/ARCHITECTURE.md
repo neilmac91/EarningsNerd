@@ -127,7 +127,8 @@ frontend/
 | `change_report_service.py` | Period-over-period change report (financial deltas + risk diffs) |
 | `peers_service.py` / `insider_service.py` | Peer comparison by SIC; Form 4 insider activity (`ownership_extractor.py` parses the Form 4 tables DEFENSIVELY — EdgarTools' DataFrame column casing varies across versions; don't "simplify" the guards) |
 | `dashboard_feed_service.py` / `calendar_service.py` / `filing_scan_service.py` / `notification_service.py` | Personalized feed; earnings calendar; new-filing alerts (dedup); alert prefs |
-| `hot_filings.py` / `trending_service.py` / `pulse_service.py` | Trending/hot filings + tickers; Filing Pulse buzz gauge |
+| `notable_filings_service.py` | Homepage "Notable filings": market-wide EFTS scan (8-K item materiality + form weights + owned demand), serve-from-Postgres, self-omitting |
+| `hot_filings.py` / `trending_service.py` / `pulse_service.py` | LEGACY (surfaces retired/flag-hidden 2026-07; teardown PR pending — see tasks/homepage-sections-review-findings.md); Filing Pulse gauge kept for roadmap A3 |
 | `guest_quota.py` / `turnstile.py` / `pwned_passwords.py` | Per-IP guest cap (fail-open); Turnstile bot defense (dark when unset, fails OPEN on Cloudflare infra errors); breached-password screening |
 | `fallback_summary.py` | Deterministic summary when AI fails |
 | `export_service.py` | PDF/HTML export (summaries + analysis) |
@@ -153,9 +154,12 @@ period), `statement_parser.py` (pure DataFrame helpers), `sixk_extractor.py`, pl
 
 ### Integrations (`app/integrations/`)
 
-`finnhub` (news sentiment: buzz_ratio, bullish_percent), `fmp` (symbol validation, prices,
-earnings calendar), `alpha_vantage` (earnings calendar data), `stocktwits` (trending,
-keyless), `sec_api` (EFTS full-text search, keyless, index since 2001).
+`sec_api` (EFTS full-text search, keyless, index since 2001 — feeds `/api/search`, the earnings
+8-K sweep, and the notable-filings scan), `alpha_vantage` (earnings calendar data; personal-use
+bridge tier), `stocktwits` (trending, keyless; unused pending a license — Apr 2026 ToS §5 bars
+automated extraction), `fmp` + `finnhub` (**tombstoned** — FMP's legacy API is dead and both ToS
+prohibit this use; importer allowlist enforced by `test_dead_integrations_allowlist.py`, teardown
+PR pending).
 
 ## API routers
 
@@ -170,11 +174,12 @@ keyless), `sec_api` (EFTS full-text search, keyless, index since 2001).
 | `watchlist.py` | `/api/watchlist` + `/api/waitlist` | exports both routers |
 | `dashboard.py` / `calendar.py` | `/api/dashboard`, `/api/calendar` | feed, upcoming calendar |
 | `search.py` | `/api/search` | SEC full-text search (EFTS) |
-| `hot_filings.py` / `trending.py` / `reporting_this_week.py` | `/api` | discovery surfaces |
+| `notable_filings.py` / `reporting_this_week.py` | `/api` | discovery surfaces (serve-from-DB, self-omitting) |
+| `hot_filings.py` / `trending.py` | `/api` | LEGACY discovery endpoints (frontend unmounted/flag-hidden; teardown PR pending) |
 | `saved_summaries.py` / `contact.py` / `feedback.py` / `email.py` | `/api/...` | saved items, forms (rate-limited + Turnstile), email mgmt |
 | `webhooks.py` | `/api` | Resend webhook (`POST /api/webhooks/resend`, Svix-verified) |
 | `admin.py` | `/api/admin` | admin surface (see docs/OPERATIONS.md) |
-| `internal.py` | `/internal` | token-gated Cloud Scheduler jobs: filing-scan, filing-digest, backfill-facts, sync-companyfacts, precompute |
+| `internal.py` | `/internal` | token-gated Cloud Scheduler jobs: filing-scan, filing-digest, backfill-facts, sync-companyfacts, precompute, notable-filings-scan |
 | `sitemap.py` | `/` | sitemap.xml |
 
 ## Frontend architecture

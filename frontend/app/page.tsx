@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 // Rule 2.1: Direct imports, no barrel files
 import CompanySearch from '@/features/companies/components/CompanySearch'
 import QuickAccessBar from '@/features/marketing/components/QuickAccessBar'
-import HotFilings from '@/features/filings/components/HotFilings'
+import NotableFilings from '@/features/filings/components/NotableFilings'
 import TrendingTickers from '@/features/companies/components/TrendingTickers'
 import HeroExample from '@/features/marketing/components/HeroExample'
 import ExampleSummaryCard from '@/features/marketing/components/ExampleSummaryCard'
@@ -16,10 +16,10 @@ import AccuracySection from '@/features/marketing/components/AccuracySection'
 import CtaBanner from '@/features/marketing/components/CtaBanner'
 import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
 import { Skeleton } from '@/components/ui'
-import { exampleFilingHref } from '@/lib/featureFlags'
+import { ENABLE_MARKET_MOVERS, exampleFilingHref } from '@/lib/featureFlags'
 import {
   fetchExampleData,
-  fetchHotFilingsInitial,
+  fetchNotableFilings,
   fetchTrendingInitial,
   fetchReportingThisWeek,
 } from '@/lib/serverApi'
@@ -69,17 +69,6 @@ const JSON_LD = {
 
 // Rule 6.2: Hoist static skeleton components outside. v2 Skeleton bones —
 // the old brand-weak bone fill is near-invisible on the cream page (DS §6).
-function HotFilingsSkeleton() {
-  return (
-    <div className="space-y-3" role="status" aria-live="polite" aria-label="Loading hot filings">
-      {Array.from({ length: 4 }).map((_, i) => (
-        <Skeleton key={i} className="h-28 rounded-xl" />
-      ))}
-      <span className="sr-only">Loading hot filings…</span>
-    </div>
-  )
-}
-
 function TrendingTickersSkeleton() {
   return (
     <div role="status" aria-live="polite" aria-label="Loading market movers">
@@ -103,10 +92,11 @@ export default async function Home() {
   // Live data is fetched server-side so the first paint shows the real
   // product; every fetcher returns null on failure and the page falls back
   // to static content.
-  const [example, hotInitial, trendingInitial, reportingThisWeek] = await Promise.all([
+  const [example, notable, trendingInitial, reportingThisWeek] = await Promise.all([
     fetchExampleData(),
-    fetchHotFilingsInitial(4),
-    fetchTrendingInitial(),
+    fetchNotableFilings(),
+    // Market Movers is flag-hidden (dead data path — findings review); skip its prefetch too.
+    ENABLE_MARKET_MOVERS ? fetchTrendingInitial() : Promise.resolve(null),
     fetchReportingThisWeek(),
   ])
 
@@ -182,20 +172,9 @@ export default async function Home() {
       <ReportingThisWeek data={reportingThisWeek} />
 
       {/* ═══════════════════════════════════════════════════════════
-          HOT FILINGS
+          NOTABLE FILINGS — market-wide EDGAR discovery; omits itself when empty
           ═══════════════════════════════════════════════════════════ */}
-      <section id="hot-filings" className="py-20 sm:py-24">
-        <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-8 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-text-primary-light dark:text-text-primary-dark">
-              <span aria-hidden="true">🔥</span> Trending Filings
-            </h2>
-          </div>
-          <Suspense fallback={<HotFilingsSkeleton />}>
-            <HotFilings limit={4} initialData={hotInitial ?? undefined} />
-          </Suspense>
-        </div>
-      </section>
+      <NotableFilings data={notable} />
 
       {/* ═══════════════════════════════════════════════════════════
           HOW IT WORKS
@@ -219,15 +198,19 @@ export default async function Home() {
       </section>
 
       {/* ═══════════════════════════════════════════════════════════
-          MARKET MOVERS / TRENDING TICKERS
+          MARKET MOVERS / TRENDING TICKERS — flag-hidden (dead FMP path;
+          no license-clean $0 source — findings review). Backend teardown
+          follows in a separate PR.
           ═══════════════════════════════════════════════════════════ */}
-      <section id="trending" className="py-20 sm:py-24">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
-          <Suspense fallback={<TrendingTickersSkeleton />}>
-            <TrendingTickers initialData={trendingInitial ?? undefined} />
-          </Suspense>
-        </div>
-      </section>
+      {ENABLE_MARKET_MOVERS && (
+        <section id="trending" className="py-20 sm:py-24">
+          <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+            <Suspense fallback={<TrendingTickersSkeleton />}>
+              <TrendingTickers initialData={trendingInitial ?? undefined} />
+            </Suspense>
+          </div>
+        </section>
+      )}
 
       {/* ═══════════════════════════════════════════════════════════
           FINAL CTA
