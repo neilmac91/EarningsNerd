@@ -14,7 +14,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.services import earnings_calendar_service
+from app.services import earnings_calendar_service, index_membership_service
+from app.services.index_membership_service import UniverseLabel
 
 router = APIRouter()
 
@@ -36,6 +37,9 @@ class CalendarEventOut(BaseModel):
 
 class CalendarResponse(BaseModel):
     events: List[CalendarEventOut]
+    # Which universe these events were filtered to: "sp500_nasdaq100" when the index filter is
+    # active, else "all". A Literal so Pydantic enforces it and the OpenAPI schema documents the enum.
+    universe: UniverseLabel
 
 
 @router.get("", response_model=CalendarResponse)
@@ -51,4 +55,7 @@ def get_calendar(
         raise HTTPException(status_code=400, detail="`to` must be on or after `from`.")
     if (to - from_) > timedelta(days=_MAX_RANGE_DAYS):
         raise HTTPException(status_code=400, detail=f"Range too wide (max {_MAX_RANGE_DAYS} days).")
-    return {"events": earnings_calendar_service.events_in_range(db, from_, to)}
+    return {
+        "events": earnings_calendar_service.events_in_range(db, from_, to),
+        "universe": index_membership_service.active_universe_label(),
+    }

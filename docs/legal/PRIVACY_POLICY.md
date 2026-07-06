@@ -85,7 +85,7 @@ help us run the Service, under appropriate contractual protections:
 | **Google / Apple** | Optional social sign-in | Authentication identifiers | USA |
 | **Have I Been Pwned** | Breached-password screening | Only the first five characters of a password hash (k-anonymity) | USA / global |
 
-Market-data and SEC sources we query (Finnhub, FMP, Stocktwits, EarningsWhispers, SEC EDGAR) receive
+Market-data and SEC sources we query (Finnhub, FMP, Stocktwits, Alpha Vantage, SEC EDGAR) receive
 only tickers/identifiers, **not your personal data**.
 
 > **Note on the AI provider:** the default provider is **DeepSeek (China)**. For summaries, only

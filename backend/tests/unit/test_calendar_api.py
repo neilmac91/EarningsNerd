@@ -70,6 +70,7 @@ def test_calendar_endpoint_public_returns_events(client):
         assert resp.status_code == 200
         body = resp.json()
         assert any(e["ticker"] == "PUBX" and e["event_date"] == d.isoformat() for e in body["events"])
+        assert body["universe"] == "all"  # filter ships off by default
     finally:
         db = SessionLocal()
         db.query(EarningsEvent).filter(EarningsEvent.ticker == "PUBX").delete()
@@ -216,5 +217,7 @@ def test_calendar_endpoint_filters_to_index_when_enabled(client, monkeypatch):
         "to": (d + timedelta(days=5)).isoformat(),
     })
     assert resp.status_code == 200
-    tickers = {e["ticker"] for e in resp.json()["events"]}
+    body = resp.json()
+    tickers = {e["ticker"] for e in body["events"]}
     assert "MEMBX" in tickers and "TAILX" not in tickers
+    assert body["universe"] == "sp500_nasdaq100"  # UI shows the coverage caption only for this

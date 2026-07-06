@@ -225,7 +225,7 @@ def generate_apple_client_secret(
     key_id: str,
     private_key_pem: str,
 ) -> str:
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)  # tz-aware; see lessons/ + app/utils/datetimes.py
     payload = {
         "iss": team_id,
         "iat": int(now.timestamp()),

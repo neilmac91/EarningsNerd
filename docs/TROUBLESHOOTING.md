@@ -194,3 +194,33 @@ If you encounter an issue not covered here:
    - Error message and stack trace
    - Steps to reproduce
    - Environment details (OS, Node version, Python version)
+
+## Production / backend runtime issues
+
+Moved from CLAUDE.md (July 2026, Wave 3). Operational context (caches, breaker, metrics)
+is in docs/OPERATIONS.md.
+
+### Common backend issues
+
+| Symptom | Likely Cause | Resolution |
+|---------|--------------|------------|
+| Tests hang for 30+ minutes | Stale Redis connections from previous event loop | Fixed by `_reset_on_loop_change()` - update to latest code |
+| `RuntimeError: Lock bound to different event loop` | asyncio.Lock created in wrong loop | Use lazy lock initialization pattern |
+| High memory usage | L1 cache unbounded | Check `_cache_max_size` is set (default 1000) |
+| Slow health checks | Sync DB check blocking event loop | Use `run_in_executor()` for DB operations |
+
+### Fixing corrupt filing data (NULL sec_url)
+
+If filings with NULL `sec_url` exist (causes `PendingRollbackError`), run:
+
+```bash
+# Dry run - see what would be fixed
+python scripts/fix_null_sec_urls.py
+
+# Apply fixes
+python scripts/fix_null_sec_urls.py --execute
+
+# Fix specific ticker
+python scripts/fix_null_sec_urls.py --ticker BMRN --execute
+```
+

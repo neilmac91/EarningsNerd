@@ -167,9 +167,16 @@ export const getAnalysisDataset = async (
   return response.data
 }
 
-/** URL for the Pro PDF export of a completed analysis (fetched with credentials, blob download). */
-export const analysisPdfUrl = (analysisId: number): string =>
-  `${getApiUrl()}/api/analysis/export/${analysisId}/pdf`
+/** Pro PDF export of a completed analysis. Routed through the shared axios client so it inherits
+ *  auth-refresh + `withCredentials` (the F4 export pattern — same as `exportSummaryPdf`); a raw
+ *  `fetch` here would fail for a Pro user whose access token just expired instead of silently
+ *  refreshing and retrying. */
+export const exportAnalysisPdf = async (analysisId: number): Promise<Blob> => {
+  const response = await api.get(`/api/analysis/export/${analysisId}/pdf`, {
+    responseType: 'blob',
+  })
+  return response.data
+}
 
 const parseErrorDetail = async (response: Response, fallback: string): Promise<string> => {
   try {

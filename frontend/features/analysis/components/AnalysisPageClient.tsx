@@ -13,8 +13,10 @@ import { ApiError } from '@/lib/api/client'
 import { queryKeys } from '@/lib/queryKeys'
 import analytics from '@/lib/analytics'
 
+import { downloadBlob } from '@/lib/downloadBlob'
+
 import {
-  analysisPdfUrl,
+  exportAnalysisPdf,
   getAnalysisCoverage,
   getAnalysisDataset,
   isAnalysisPaywallError,
@@ -162,25 +164,13 @@ export default function AnalysisPageClient() {
   // Abort any in-flight stream on unmount.
   useEffect(() => () => abortRef.current?.abort(), [])
 
-  // Blob download with credentials (bearer/cookie ride the fetch) — the filing-page export pattern.
+  // Blob export via the shared axios client (auth-refresh + withCredentials — the filing-page
+  // export pattern, F4); DOM download plumbing via the shared downloadBlob helper.
   const exportPdf = useCallback(() => {
     const analysisId = narrative.completion?.analysis_id
     if (analysisId == null || !ticker) return
-    void fetch(analysisPdfUrl(analysisId), { credentials: 'include' })
-      .then((response) => {
-        if (!response.ok) throw new Error(`Export failed (${response.status})`)
-        return response.blob()
-      })
-      .then((blob) => {
-        const url = window.URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${ticker}_multi_period_analysis.pdf`
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-        window.URL.revokeObjectURL(url)
-      })
+    void exportAnalysisPdf(analysisId)
+      .then((blob) => downloadBlob(blob, `${ticker}_multi_period_analysis.pdf`))
       .catch(() => setDatasetError('PDF export failed. Please try again.'))
   }, [narrative.completion?.analysis_id, ticker])
 

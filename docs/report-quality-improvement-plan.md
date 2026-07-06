@@ -5,6 +5,11 @@
 > honest-but-rare degradation; objective single-filing summaries (diffing stays deferred). Phase-0
 > code changes (A1–A6) are now on `claude/nice-curie-ugassy` with tests green; before/after validation
 > below. Phases 1–2 / Track B remain unstarted and await go-ahead.
+>
+> **July 2026 refactor note:** the pipeline diagram below is the 2026-06-14 snapshot. Since then
+> `generate_editorial_markdown()` (the 2nd LLM call) and `summarize_filing_stream` (the dead code
+> this doc flagged — confirmed and deleted) were removed (D1/S2), and `openai_service.py` is now a
+> façade over `app/services/ai/`. Treat the diagram as historical.
 
 **Author:** report-quality review engagement · **Date:** 2026-06-14 · **Branch:** `claude/nice-curie-ugassy`
 

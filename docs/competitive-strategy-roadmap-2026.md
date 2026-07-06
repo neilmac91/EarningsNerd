@@ -65,7 +65,7 @@ Verified against the codebase, not just `CLAUDE.md`. Notable constraints and lat
   bullish spread vs. sector); `trending_service.py` blends Stocktwits watchers + FMP; Finnhub gives
   `buzz_ratio` / `bullish_percent`. **None of this is presented as a first-class, sourced "Pulse" —
   it's plumbing.**
-- **Comparison engine exists.** `compare.py` does 2–5-way side-by-side of financial metrics + risk
+- **Comparison engine exists.** *(Since removed — the compare feature was retired July 2026.)* `compare.py` did 2–5-way side-by-side of financial metrics + risk
   factors (Pro-gated). `dashboard/WhatChangedCard.tsx` hints at a diff narrative that isn't yet a
   headline feature.
 - **A real design system, dark-first.** Tailwind `darkMode: 'class'`, `ThemeProvider` with
@@ -279,7 +279,7 @@ no infinite scroll. Curated, thoughtful, editorial.
 **A5. "What Changed" as a headline feature.** Promote the latent diff capability into a first-class,
 narrated **quarter-over-quarter / year-over-year change report** ("revenue mix shifted X→Y; a new
 risk factor on supply concentration appeared; guidance language softened").
-- *Hook:* `compare.py` (2–5-way) + `dashboard/WhatChangedCard.tsx` already exist.
+- *Hook:* `change_report_service.py` + `features/dashboard/components/WhatChangedCard.tsx` already exist (`compare.py` since removed).
 - *Learning:* this is *our* answer to both competitors — neither leads with a narrated fundamental
   diff; it's a uniquely "filing-native" hook.
 - *Brand:* signal over noise; we tell you what matters.
@@ -489,6 +489,7 @@ Partial" chip, not a warning banner. Craft the loading (`SummaryProgress`) and e
 
 ## Appendix — Sources
 
+*(Paths below are as reviewed June 2026 — `earnings_whispers`, `compare`, and several root `components/` files have since been removed or moved to `features/`.)*
 **Codebase (Phase 1):** `backend/app/services/summary_generation_service.py`,
 `backend/app/services/hot_filings.py`, `backend/app/services/trending_service.py`,
 `backend/app/integrations/{finnhub,stocktwits,earnings_whispers,fmp}.py`,
