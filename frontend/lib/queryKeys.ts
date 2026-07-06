@@ -48,6 +48,7 @@ export const queryKeys = {
     all: () => ['admin-feedback'] as const,
     list: (filters: unknown) => ['admin-feedback', filters] as const,
   },
+  analysisCoverage: (ticker: string | null) => ['analysis-coverage', ticker] as const,
   tickerCompany: (ticker: string) => ['ticker-company', ticker] as const,
   tickerFilings: (ticker: string) => ['ticker-filings', ticker] as const,
   filing: (filingId: string | number) => ['filing', filingId] as const,

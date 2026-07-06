@@ -10,6 +10,7 @@ import { Badge, Button, Card, Notice, Skeleton } from '@/components/ui'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
 import { ApiError } from '@/lib/api/client'
+import { queryKeys } from '@/lib/queryKeys'
 import analytics from '@/lib/analytics'
 
 import {
@@ -51,9 +52,11 @@ export default function AnalysisPageClient() {
   const queryClient = useQueryClient()
 
   // Tri-state auth: undefined = resolving, null = guest, object = signed in (Header's contract).
-  const { data: user } = useQuery({ queryKey: ['current-user'], queryFn: getCurrentUserSafe, staleTime: 60_000 })
+  // Keys come from the F1 registry so this page shares the Header's auth/subscription cache and can
+  // never drift into a split-brain key.
+  const { data: user } = useQuery({ queryKey: queryKeys.currentUser(), queryFn: getCurrentUserSafe, staleTime: 60_000 })
   const { data: subscription } = useQuery({
-    queryKey: ['subscription'],
+    queryKey: queryKeys.subscription(),
     queryFn: getSubscriptionStatus,
     enabled: !!user,
     staleTime: 60_000,
@@ -66,7 +69,7 @@ export default function AnalysisPageClient() {
     isLoading: coverageLoading,
     error: coverageError,
   } = useQuery<AnalysisCoverage>({
-    queryKey: ['analysis-coverage', ticker],
+    queryKey: queryKeys.analysisCoverage(ticker),
     queryFn: () => getAnalysisCoverage(ticker as string),
     enabled: !!ticker && !!user,
     // First-touch server sync can answer `syncing: true` — poll until the periods arrive.
@@ -118,7 +121,7 @@ export default function AnalysisPageClient() {
             setNarrative({ status: 'done', text: completion.narrative, completion })
             setRunning(false)
             // A fresh generation consumed quota — keep the settings usage meter honest.
-            if (!completion.cached) void queryClient.invalidateQueries({ queryKey: ['usage'] })
+            if (!completion.cached) void queryClient.invalidateQueries({ queryKey: queryKeys.usage() })
           },
           onError: (message) => {
             setNarrative({ status: 'error', text: '', error: message })
