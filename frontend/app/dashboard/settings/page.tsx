@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getCurrentUser, exportUserData, deleteUserAccount } from '@/features/auth/api/auth-api'
+import { getCurrentUserSafe, exportUserData, deleteUserAccount } from '@/features/auth/api/auth-api'
 import { useRouter } from 'next/navigation'
 import { ArrowLeftIcon, CheckCircleIcon, CircleNotchIcon, DownloadSimpleIcon, TrashIcon, WarningCircleIcon } from '@/lib/icons'
 import Link from 'next/link'
@@ -15,6 +15,7 @@ import ChangePasswordForm from '@/components/settings/ChangePasswordForm'
 import { Button } from '@/components/ui/Button'
 import { inputClasses } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
+import { queryKeys } from '@/lib/queryKeys'
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -23,8 +24,8 @@ export default function SettingsPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
 
   const { data: user, isLoading: userLoading } = useQuery({
-    queryKey: ['user'],
-    queryFn: getCurrentUser,
+    queryKey: queryKeys.currentUser(),
+    queryFn: getCurrentUserSafe,
     retry: false,
   })
 

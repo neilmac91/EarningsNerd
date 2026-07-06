@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { CircleNotchIcon, WarningCircleIcon, XIcon } from '@/lib/icons'
 import { getCurrentUserSafe, resendVerification } from '@/features/auth/api/auth-api'
 import { isAuthRoute } from '@/components/SiteChrome'
+import { queryKeys } from '@/lib/queryKeys'
 
 const DISMISS_KEY = 'verifyBannerDismissed'
 
@@ -16,7 +17,7 @@ const DISMISS_KEY = 'verifyBannerDismissed'
 export default function VerificationBanner() {
   const pathname = usePathname()
   const { data: user } = useQuery({
-    queryKey: ['current-user'],
+    queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
     staleTime: 60_000,

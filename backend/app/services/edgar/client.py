@@ -24,7 +24,7 @@ from urllib.parse import urljoin
 
 from edgar import Company as EdgarCompany, set_identity, find as edgar_find
 
-from .async_executor import run_in_executor_with_timeout
+from .async_executor import run_with_circuit_breaker
 from .config import EDGAR_IDENTITY, FilingType, EDGAR_DEFAULT_TIMEOUT_SECONDS, EDGAR_THREAD_POOL_SIZE
 from .exceptions import (
     CompanyNotFoundError,
@@ -88,7 +88,7 @@ class EdgarClient:
         logger.debug(f"Getting company info for {ticker}")
 
         try:
-            edgar_company = await run_in_executor_with_timeout(
+            edgar_company = await run_with_circuit_breaker(
                 lambda: EdgarCompany(ticker),
                 timeout=self.timeout,
             )
@@ -135,7 +135,7 @@ class EdgarClient:
 
         # Use EdgarTools find() for fuzzy company name search
         try:
-            search_results = await run_in_executor_with_timeout(
+            search_results = await run_with_circuit_breaker(
                 lambda: edgar_find(query),
                 timeout=self.timeout,
             )
@@ -198,7 +198,7 @@ class EdgarClient:
         logger.debug(f"Getting {filing_type.value} filings for {ticker}")
 
         try:
-            edgar_company = await run_in_executor_with_timeout(
+            edgar_company = await run_with_circuit_breaker(
                 lambda: EdgarCompany(ticker),
                 timeout=self.timeout,
             )
@@ -222,7 +222,7 @@ class EdgarClient:
                 is_amended_form = form_type.endswith("/A")
                 # Use islice to limit filings BEFORE materializing full list
                 # This prevents OOM when companies have 80+ years of filings
-                form_filings = await run_in_executor_with_timeout(
+                form_filings = await run_with_circuit_breaker(
                     lambda ft=form_type, amd=is_amended_form, lim=per_form_limit: list(
                         islice(edgar_company.get_filings(form=ft, amendments=amd), lim)
                     ),
@@ -299,13 +299,13 @@ class EdgarClient:
         ticker = ticker.upper().strip()
 
         try:
-            edgar_company = await run_in_executor_with_timeout(
+            edgar_company = await run_with_circuit_breaker(
                 lambda: EdgarCompany(ticker),
                 timeout=self.timeout,
             )
 
             # Find the specific filing
-            filings = await run_in_executor_with_timeout(
+            filings = await run_with_circuit_breaker(
                 lambda: list(edgar_company.get_filings()),
                 timeout=self.timeout,
             )
@@ -313,7 +313,7 @@ class EdgarClient:
             target_accession = accession_number.replace("-", "")
             for filing in filings:
                 if filing.accession_number.replace("-", "") == target_accession:
-                    html = await run_in_executor_with_timeout(
+                    html = await run_with_circuit_breaker(
                         lambda f=filing: f.html(),
                         timeout=self.timeout * 2,  # HTML can be large
                     )
@@ -344,12 +344,12 @@ class EdgarClient:
         ticker = ticker.upper().strip()
 
         try:
-            edgar_company = await run_in_executor_with_timeout(
+            edgar_company = await run_with_circuit_breaker(
                 lambda: EdgarCompany(ticker),
                 timeout=self.timeout,
             )
 
-            filings = await run_in_executor_with_timeout(
+            filings = await run_with_circuit_breaker(
                 lambda: list(edgar_company.get_filings()),
                 timeout=self.timeout,
             )
@@ -357,7 +357,7 @@ class EdgarClient:
             target_accession = accession_number.replace("-", "")
             for filing in filings:
                 if filing.accession_number.replace("-", "") == target_accession:
-                    markdown = await run_in_executor_with_timeout(
+                    markdown = await run_with_circuit_breaker(
                         lambda f=filing: f.markdown(),
                         timeout=self.timeout * 2,
                     )

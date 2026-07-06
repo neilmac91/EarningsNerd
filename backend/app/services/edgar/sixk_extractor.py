@@ -18,7 +18,7 @@ from typing import Any, Optional
 
 from edgar import Company as EdgarCompany
 
-from .async_executor import run_in_executor_with_timeout
+from .async_executor import run_with_circuit_breaker
 from .config import EDGAR_DEFAULT_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
@@ -114,7 +114,7 @@ async def get_sixk_text(
     cik_padded = str(cik).zfill(10)
     budget = timeout if timeout is not None else max(EDGAR_DEFAULT_TIMEOUT_SECONDS, 30.0)
     try:
-        return await run_in_executor_with_timeout(
+        return await run_with_circuit_breaker(
             lambda: _extract_sixk_text_sync(cik_padded, accession_number),
             timeout=budget,
         )

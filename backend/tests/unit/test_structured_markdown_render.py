@@ -65,3 +65,32 @@ def test_bolded_figures_remain_substring_matchable_for_eval_scorers():
     assert "42.3" in md
     assert "12.7" in md  # cash-flow figure still rendered
     assert "30.6" in md  # working-capital figure still rendered
+
+
+def test_malformed_nondict_sections_do_not_crash_renderer():
+    """Regression (PR #550 review): a malformed payload can make a section a TRUTHY non-dict
+    (list/str/int), which `or {}` passed straight to `.get()` — crashing the fallback renderer, the
+    very path meant to save a failed generation. The isinstance guards keep it rendering a string."""
+    summary = {
+        "metadata": {"company_name": "TestCo", "filing_type": "10-K"},
+        "sections": {
+            "executive_snapshot": ["not", "a", "dict"],
+            "financial_highlights": "totally wrong",
+            "management_discussion_insights": 42,
+            "guidance_outlook": ["bad"],
+        },
+    }
+    md = openai_service._build_structured_markdown(summary)  # must not raise
+    assert isinstance(md, str) and "## Executive Summary" in md
+
+
+def test_apply_structured_fallbacks_tolerates_nondict_metric_payloads():
+    """Regression (PR #550 review): metric_entry guards metric/current/prior — a truthy non-dict
+    metrics payload (e.g. a list where a {current,prior} dict is expected) previously crashed the
+    `.get()` chain. The fallback filler must tolerate it and still populate what it can."""
+    sections: dict = {}
+    xbrl = {"revenue": ["oops"], "net_income": {"current": "bad", "prior": ["x"]}, "net_margin": 3}
+
+    openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)  # must not raise
+
+    assert isinstance(sections.get("executive_snapshot"), dict)

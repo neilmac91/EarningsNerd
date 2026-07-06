@@ -12,6 +12,7 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 import { getCurrentUserSafe, logout } from '@/features/auth/api/auth-api'
 import { ENABLE_ANALYSIS, ENABLE_CALENDAR } from '@/lib/featureFlags'
 import { buttonVariants, Skeleton } from '@/components/ui'
+import { queryKeys } from '@/lib/queryKeys'
 
 const NAV_LINKS = [
   { href: '/search', label: 'Search' },
@@ -42,7 +43,7 @@ export default function Header() {
   // all retries exhausted) we degrade to the logged-out CTAs rather than trapping the user on a
   // dead placeholder circle. See the fallback branches below.
   const { data: user, isError } = useQuery({
-    queryKey: ['current-user'],
+    queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     // Retry only real failures (cold-start timeouts, network blips, 5xx) — these throw. A 401
     // resolves to `null` and is left alone, so guests still settle in a single request.
@@ -62,8 +63,8 @@ export default function Header() {
     } catch {
       // ignore — clear local state regardless
     }
-    queryClient.setQueryData(['current-user'], null)
-    queryClient.invalidateQueries({ queryKey: ['user'] })
+    queryClient.setQueryData(queryKeys.currentUser(), null)
+    queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
     router.push('/')
     router.refresh()
   }

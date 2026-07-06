@@ -27,7 +27,14 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from edgar import Company as EdgarCompany, set_identity
 
-from .async_executor import run_in_executor, run_in_executor_with_timeout
+# The XBRL primary-path calls use a plain timeout, NOT run_with_circuit_breaker: large filings
+# legitimately parse for 20-40s (BAC/JPM/BABA 20-F), so their dominant failure mode is local parse
+# cost, not SEC health. Feeding those timeouts to the shared edgar breaker would let a batch of big
+# filings open the circuit and fail-fast unrelated endpoints while SEC is perfectly healthy — the
+# detector reporting the opposite of the truth. The fetch-shaped calls in edgar/client.py +
+# edgar/compat.py give the breaker its clean SEC-health signal (S4 review, finding #2).
+from .async_executor import run_in_executor_with_timeout
+from app.services.sec_rate_limiter import sec_rate_limiter
 from .config import EDGAR_IDENTITY, EDGAR_DEFAULT_TIMEOUT_SECONDS
 from .ads_ratios import ads_ratio_for_cik, build_per_ads_eps
 from .instance_extractor import (
@@ -674,7 +681,7 @@ class EdgarXBRLService:
 
             # Try to get income statement
             try:
-                df = await run_in_executor(lambda: statement_dataframe(financials, "income_statement"))
+                df = await run_in_executor_with_timeout(lambda: statement_dataframe(financials, "income_statement"), timeout=self.timeout)
                 if df is not None and not df.empty:
                     result["revenue"] = self._extract_from_dataframe(
                         df,
@@ -708,7 +715,7 @@ class EdgarXBRLService:
 
             # Try to get balance sheet
             try:
-                df = await run_in_executor(lambda: statement_dataframe(financials, "balance_sheet"))
+                df = await run_in_executor_with_timeout(lambda: statement_dataframe(financials, "balance_sheet"), timeout=self.timeout)
                 if df is not None and not df.empty:
                     result["total_assets"] = self._extract_from_dataframe(
                         df,
@@ -740,7 +747,7 @@ class EdgarXBRLService:
 
             # Try to get cash-flow statement (P1.1 depth: operating CF + capex -> free cash flow)
             try:
-                df = await run_in_executor(lambda: statement_dataframe(financials, "cash_flow_statement"))
+                df = await run_in_executor_with_timeout(lambda: statement_dataframe(financials, "cash_flow_statement"), timeout=self.timeout)
                 if df is not None and not df.empty:
                     result["operating_cash_flow"] = self._extract_from_dataframe(
                         df,
@@ -804,17 +811,22 @@ class EdgarXBRLService:
         try:
             facts_url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
 
+            # Route through the SEC rate limiter with a SINGLE token wait (execute, NOT
+            # execute_with_backoff): this fallback runs inside user-facing summary generation, so it
+            # fail-fasts rather than sleeping through the full backoff ladder (S4 review #3).
+            # raise_for_status turns a non-200 into an exception, preserving "non-200 -> None" via the
+            # outer except.
             async with httpx.AsyncClient() as client:
-                response = await client.get(
-                    facts_url,
-                    headers={"User-Agent": EDGAR_IDENTITY},
-                    timeout=30.0
-                )
+                async def _do_request() -> httpx.Response:
+                    resp = await client.get(
+                        facts_url,
+                        headers={"User-Agent": EDGAR_IDENTITY},
+                        timeout=30.0,
+                    )
+                    resp.raise_for_status()
+                    return resp
 
-                if response.status_code != 200:
-                    logger.warning(f"Company facts API returned {response.status_code}")
-                    return None
-
+                response = await sec_rate_limiter.execute(_do_request)
                 data = response.json()
                 return self._parse_company_facts(data, accession_number)
 

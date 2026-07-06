@@ -251,6 +251,138 @@ reconciliation semantics, so the flag-OFF path stays byte-for-byte today's produ
      retires/flips the T2 flag-OFF pins** (they characterize a body that no longer exists). S4's
      remaining scope is unchanged.
 
+**Wave 2 · S2 — split `openai_service.py` behind a re-export façade (this PR).** Behavior-preserving
+"pure moves": the 3,060-line god module → a **1,044-line façade** over a new `app/services/ai/`
+package (9 cohesive modules, ~2,220 LOC). Zero caller churn — `app.services.openai_service` stays the
+single import surface via re-imports + a bottom-of-file `__all__`.
+- **Grouping.** 4 leaf function-modules (`xbrl_narrative`, `model_flags`, `normalize`, `bank_guards`)
+  + 5 method-group mixins (`_JsonRepairMixin`, `_MarkdownRenderMixin`, `_ExtractionMixin`,
+  `_SectionRecoveryMixin`, `_CopilotChatMixin`). `OpenAIService` composes the 5 mixins and KEEPS the
+  orchestration core (`__init__`, `get_model_for_filing/task`, `_parse_and_clean_text`,
+  `generate_structured_summary`, `_assemble_structured_summary`, `_stream_collect`,
+  `_partial_markdown_preview`, `summarize_filing`).
+- **Why mixins, not module functions.** The private methods are part of the tested surface (tests call
+  `openai_service._accept_section`, `._build_structured_markdown`, `._stream_collect`, `._get_type_config`,
+  …) and resolve through `self`; mixins preserve both with zero test/caller edits. Converting to module
+  functions would have forced rewriting every `self._foo()` call site + its tests — the opposite of a
+  pure move.
+- **Load-bearing constraint.** Because every call is `self.method()`, methods resolve through the MRO
+  regardless of which mixin holds them — so mixin membership is organizational; only module-level
+  (non-`self`) name references are load-bearing, and those were mapped up front.
+- **Kept LOCAL (re-exported):** `_TRACKED_STRUCTURED_SECTIONS` (the coverage taxonomy
+  `summary_generation_service` imports — a contract, not an AI helper). `model_flags` is a leaf so both
+  the façade and `copilot_chat` import `_thinking_disabled_model` with no cycle; `bank_guards` keeps its
+  `provenance_service` import function-level. Re-export surface pinned in `__all__`: `openai_service`,
+  `OpenAIService`, `STREAM_ERROR_SENTINEL`, `STREAM_ACTIVITY_SENTINEL`, `_TRACKED_STRUCTURED_SECTIONS`,
+  `build_xbrl_narrative_section`, `_XBRL_NARRATIVE_SPEC`, `_format_xbrl_metric_value`,
+  `_is_no_total_bank`, `_sanitize_bank_financial_highlights`.
+- **Anti-PII guard extended (S2 blueprint finalize):** `test_llm_no_pii` gains
+  `test_no_ai_submodule_imports_user_model`, which walks `pkgutil.iter_modules(app.services.ai)` — the
+  façade-only `hasattr` check went blind once prompt-building code moved into submodules.
+- **Discipline:** one green commit per extraction (steps 1–9), ruff + targeted tests after each. The
+  ruff **F821** gate caught a real near-miss — the copilot splice's end-anchor swept up
+  `_TRACKED_STRUCTURED_SECTIONS` (it sat between the sentinels and the class); re-added before the step
+  landed. The 12-file AI subset stayed green through it (that line isn't exercised there), so the linter,
+  not the tests, was the catch — the reason the per-step gate runs both.
+- **Gate:** `ruff check .` clean, `bandit -r app -ll` clean, **1150 passed / 2 deselected** (full
+  fast-lane suite). No behavior change — the flag-off production path is byte-for-byte unchanged;
+  frontend untouched (backend only).
+- **Review-response hardening (founder-approved deviation from pure-move; PR #550, Gemini review).**
+  Gemini flagged 6 issues, all in code S2 moved verbatim — 1 **real pre-existing bug** + 5 defensive
+  guards. Founder chose "fix all here" over deferring, so this PR carries a small, **tested** behavior
+  change on top of the move:
+  1. **`extract_financial_data` segments crash (real).** `data['segments']` holds `(name, value)`
+     tuples (its patterns have two capture groups; the downstream prompt line unpacks `seg[0]/seg[1]`),
+     but the top-5 sort keyed off `str.replace` → `AttributeError` on a tuple. Any Apple-class filing
+     whose segment patterns matched (iPhone/Mac/Services/Americas/…) crashed extraction → degraded to
+     the fallback summary. Fixed with a `_numeric_sort_value` helper that reads the value from tuple
+     **or** string and sorts unparseable entries last.
+  2. **5 `isinstance(..., dict)` guards** in the `_build_structured_markdown` fallback renderer +
+     `_apply_structured_fallbacks.metric_entry` (exec/financials/mgmt/outlook sections + metric/
+     current/prior) — `or {}` let a *truthy* non-dict slip to `.get()` and crash the very renderer
+     that exists to save a failed generation.
+  Regression tests: `test_extract_financial_data_sorts_segment_tuples_without_crashing`,
+  `test_malformed_nondict_sections_do_not_crash_renderer`,
+  `test_apply_structured_fallbacks_tolerates_nondict_metric_payloads`. Gate re-run: **1153 passed /
+  2 deselected**, ruff + bandit clean.
+
+**Wave 2 · S3 — auth extraction (backend Batch B).** Behavior-preserving; Set-Cookie byte-identical.
+Three extractions out of the 1,462-line `routers/auth.py`:
+1. **`app/services/oauth_verify.py`** — Google/Apple JWKS fetch + id-token verification (the identity
+   crypto) + JWKS URLs/issuers/caches. auth.py re-imports the two verifiers (callbacks call them by
+   name). Forced ONE disclosed test change: `test_apple_signin`'s 5 internal-verify tests repoint from
+   `auth_module.{jwt,_get_apple_jwks}` to `oauth_verify.*`; the callback-level patches are unchanged.
+2. **`issue_session(db, user, response, request, *, refresh_token=None, commit=True)`** — the single
+   mint point for all 5 login paths (login, change-password, /refresh, Google + Apple callbacks).
+   Default mints+commits a new refresh token; /refresh passes its pre-rotated token with commit=False;
+   the OAuth callbacks keep their own try/except IntegrityError→conflict-redirect around it.
+3. **`app/services/password_utils.py`** — bcrypt hashing + policy (verify/get_password_hash,
+   validate_password_strength, _DUMMY_PASSWORD_HASH), re-exported from auth.py.
+   The cookie primitives (`_set_auth_cookie`/`_set_refresh_cookie`) STAY in the router (already clean,
+   heavily bound), so cookies are byte-identical by construction. Anchors: 44 tests green (auth_flow,
+   refresh_replay, auth_cookies, apple_signin, password_and_profile).
+
+**Wave 2 · S4 — ingestion hardening (backend Batch B).** Resilience wiring onto SEC fetch paths that
+bypassed it; behavior-preserving except the added throttle/breaker/timeout.
+- **Circuit breaker** on the 15 unwrapped edgartools primary-path calls (client.py ×10, xbrl_service
+  ×4, `sixk_extractor.py:117` — the review addendum): `run_in_executor_with_timeout` →
+  `run_with_circuit_breaker` (timeout + thread pool were already present).
+- **Rate limiter** on the 3 async raw-httpx sec.gov GETs (xbrl companyfacts fallback; BOTH compat.py
+  calls — tickers + document-fetch — the review addendum), via `sec_rate_limiter`; compat keeps its
+  breaker (limiter nested inside).
+- **Timeouts** on the 3 bare `run_in_executor` DataFrame calls (xbrl 677/711/743).
+- **Guard**: `test_circuit_breaker` gains a wrapper-level assertion that an OPEN breaker short-circuits
+  `run_with_circuit_breaker` before `func` runs.
+- **Plan-count corrections (verified by the S4 map):** breaker sites = **15**, not ~17; bare-executor
+  timeouts = **3**, not 5 (`client.py:509/516` don't exist); the #6 concept lists live in
+  instance_extractor / xbrl_service / facts_service, NOT statement_parser / client (which take
+  candidates as a param / have none).
+- **DEFERRED — behavior-change risk, not mechanical (each needs its own fixture-gated PR):** the
+  concept-list unification (#6) + companyfacts-parser collapse (#7) — the three revenue lists
+  deliberately differ in ORDERING (`Revenues`-first vs contract-revenue-first), so a naive merge
+  changes which tag wins on multi-tagged filers (T9 + test_statement_extraction would catch it, but
+  it must not ride a resilience PR); and `facts_service._fetch_companyfacts_sync`'s limiter wiring +
+  `sleep(0.2)` removal — it is synchronous (backfill cron) and the limiter is async-only, so it needs
+  an async restructure through `backfill_facts`. 161 edgar/facts/breaker tests green.
+
+**Wave 2 · F1 — ApiError unification + queryKeys registry (PR #551, frontend-only commit).**
+Behavior-preserving except deliberate cache-coherence fixes. Delete the dead `ApiError` interface
+(zero importers; the CLASS in `lib/api/client.ts` is canonical). Add `lib/queryKeys.ts` (one registry:
+constants + `as const` factories; admin-feedback keeps its prefix for partial-match invalidation).
+Reconcile the split keys to ONE key + ONE fetcher each: currentUser `['user']`+`['current-user']` →
+`['current-user']` + `getCurrentUserSafe` (fixes a split-brain cache — sites wrote one key and
+invalidated the other); subscription drops the never-fetched-on `user?.id`; usage folds
+`['copilot-usage']` (same `/usage` endpoint, so a copilot answer no longer leaves the dashboard usage
+view stale). Gate: tsc(ci)/eslint(--max-warnings 0)/vitest(248)/next-build green; grep-gate = zero
+reconciled literals outside the registry.
+
+**#551 review response (founder, plan author).** S3 verified byte-identical; S4 resilience sound;
+count corrections + the concept-list-ordering deferral endorsed. Four findings, all applied:
+1. **Reverted the JWKS cache-stampede locks** (the earlier Gemini-suggested #551 fix) to lock-free
+   verbatim — a lazily-bound module-level `asyncio.Lock` is the repo's documented event-loop footgun
+   (binds to the first loop; `RuntimeError` under a later one; CLAUDE.md Common Issues), and it was
+   undisclosed + untested. The herd-guard moves to its own disclosed follow-up (task below).
+2. **Exempted the 4 xbrl_service parse-heavy sites from the breaker** (back to plain
+   `run_in_executor_with_timeout`): big filings legitimately parse 20-40s, so their timeouts are a
+   CPU-cost signal that must not open the shared network-health breaker. client.py + compat still give
+   it a clean SEC-health signal.
+3. **Bounded the user-facing cold-path backoff** to a single token wait (`execute`, not
+   `execute_with_backoff`) on compat tickers + the xbrl companyfacts fallback — fail-fast + stale-cache
+   fallback instead of a ~8-min worker-hold; the cron-shaped doc-fetch keeps its bounded 3-iteration loop.
+4. Repointed the `change_password` atomicity comment at `issue_session`.
+
+**Deferred follow-up tasks (durable record, per the #551 review — do NOT let these ride an unrelated PR):**
+- **[S4-followup-a] Concept-list unification + companyfacts-parser collapse.** The three revenue concept
+  lists differ in ORDERING (tag priority), so a merge changes which tag wins on multi-tagged filers. Own
+  PR, gated by T9 + `test_statement_extraction` (pin the winning tag per multi-tagged fixture). Sites:
+  `edgar/instance_extractor.py`, `edgar/xbrl_service.py`, `services/facts_service.py`.
+- **[S4-followup-b] Async restructure for the `facts_service` companyfacts limiter.** `_fetch_companyfacts_sync`
+  is synchronous (backfill cron) and the limiter is async-only; make the fetch async through
+  `backfill_facts`/`process_filing_facts`, wire `sec_rate_limiter`, drop the `sleep(0.2)`.
+- **[oauth-followup] JWKS thundering-herd guard.** Reintroduce the cold-cache fetch lock WITH a
+  `redis_service`-style loop-identity rebind (`_reset_on_loop_change`) + a test driving the real fetcher
+  (JWKS HTTP mocked) across two event loops. Disclosed, guarded, tested.
+
 _(Deltas from later waves will be appended here as they are executed.)_
 
 ---
@@ -405,7 +537,7 @@ may run in Batch B. **Batch C (serial, after B): F2 → F4 → F3 → S5.**
 | F1 | Frontend: ONE `ApiError` (kill the interface/class name collision, `types.ts:2` vs `client.ts:6`), `lib/queryKeys.ts` registry, reconcile `['user']`/`['current-user']`/`['subscription']`(also `['subscription', id]`)/`['usage']` to canonical keys | vitest + tsc + build; grep-gate: no string-literal query keys outside `queryKeys.ts` for reconciled entities. |
 | F2 | Decompose `app/filing/[id]/page-client.tsx` (1,016 LOC): `useSummaryGeneration` hook → `features/summaries`; the 2 export `fetch()`s (`:753,:789`) → feature api on the shared axios client; presentational subcomponents | After F1 (imports queryKeys). Guarded by T10 + e2e filing-page spec. **Latent bug L1 (poll-forever on `partial`) is fixed HERE as an explicit decision** — the poller must treat `partial` as terminal and render `partial_data`. |
 | F4 | Route stray `fetch()` through the shared client: `WaitlistForm/Counter/Status`, `HotFilings` | After F1, BEFORE F3 (F3 moves these files). |
-| F3 | `components/` → `features/` (~25 root components + 4 duplicate subdirs), one domain per commit; merge test dirs to ONE home + suffix | Last frontend task (mass import-path rewrite). tsc + vitest + build after EACH domain batch. |
+| F3 | `components/` → `features/` (~25 root components + 4 duplicate subdirs), one domain per commit; merge test dirs to ONE home + suffix | Last frontend task (mass import-path rewrite). tsc + vitest + build after EACH domain batch. **Prove the pure move** with a per-export content-hash / sorted-declaration (or `tsc`-emit) diff before vs after — the TS analogue of S2's AST-normalized per-symbol diff (see `tasks/lessons.md`, 2026-07-05 arch-* lesson); the residual must equal the disclosed changes (empty). |
 | S5 | Mechanical backend sweeps, serialized LAST (touch files S1/S3 rewrote): one aware-`utcnow()` helper replacing 36 naive sites (+delete ~6 `tzinfo` patches); config bypasses → Settings (`users.py` Stripe/PostHog, raw `ENVIRONMENT` reads, `IP_HASH_SALT`); ONE placeholder-pattern module (3 today); ONE `FilingContentCache` write helper; ONE `_coerce_float` util; the single stray `green-*` class in `HeroExample.tsx` | Each sweep = its own commit + grep-gate (`rg 'datetime.utcnow'` → 0 in app/; `rg 'os.getenv'` → allow-list only). |
 
 **Explicit NON-goals (do not build):** no Alembic; no async-SQLAlchemy migration; no Redis-backed

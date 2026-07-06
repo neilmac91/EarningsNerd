@@ -26,6 +26,7 @@ from main import app
 from app.database import SessionLocal
 from app.models import OAuthAccount, OAuthState, User
 from app.routers import auth as auth_module
+from app.services import oauth_verify  # id-token verification moved here (roadmap S3)
 
 RAW_NONCE = "raw-nonce-value-123"
 HASHED_NONCE = hashlib.sha256(RAW_NONCE.encode()).hexdigest()
@@ -60,10 +61,10 @@ def _seed_state(nonce: str = RAW_NONCE, ttl_minutes: int = 5) -> str:
 @pytest.mark.asyncio
 async def test_verify_returns_claims_on_valid_token_and_nonce():
     claims = {"sub": "001", "email": "a@b.com", "nonce": HASHED_NONCE}
-    with patch.object(auth_module, "_get_apple_jwks", AsyncMock(return_value=FAKE_JWKS)), \
-         patch.object(auth_module.jwt, "get_unverified_header", return_value={"kid": "applekey1"}), \
-         patch.object(auth_module.jwt, "decode", return_value=claims) as decode:
-        out = await auth_module._verify_apple_id_token("dummy", RAW_NONCE)
+    with patch.object(oauth_verify, "_get_apple_jwks", AsyncMock(return_value=FAKE_JWKS)), \
+         patch.object(oauth_verify.jwt, "get_unverified_header", return_value={"kid": "applekey1"}), \
+         patch.object(oauth_verify.jwt, "decode", return_value=claims) as decode:
+        out = await oauth_verify._verify_apple_id_token("dummy", RAW_NONCE)
     assert out["sub"] == "001"
     # The matching JWK (not the whole JWKS dict) is handed to jwt.decode.
     assert decode.call_args.args[1] == FAKE_JWKS["keys"][0]
@@ -72,39 +73,39 @@ async def test_verify_returns_claims_on_valid_token_and_nonce():
 @pytest.mark.asyncio
 async def test_verify_rejects_nonce_mismatch():
     claims = {"sub": "001", "nonce": "a-different-nonce"}
-    with patch.object(auth_module, "_get_apple_jwks", AsyncMock(return_value=FAKE_JWKS)), \
-         patch.object(auth_module.jwt, "get_unverified_header", return_value={"kid": "applekey1"}), \
-         patch.object(auth_module.jwt, "decode", return_value=claims):
+    with patch.object(oauth_verify, "_get_apple_jwks", AsyncMock(return_value=FAKE_JWKS)), \
+         patch.object(oauth_verify.jwt, "get_unverified_header", return_value={"kid": "applekey1"}), \
+         patch.object(oauth_verify.jwt, "decode", return_value=claims):
         with pytest.raises(ValueError, match="nonce"):
-            await auth_module._verify_apple_id_token("dummy", RAW_NONCE)
+            await oauth_verify._verify_apple_id_token("dummy", RAW_NONCE)
 
 
 @pytest.mark.asyncio
 async def test_verify_rejects_missing_nonce():
     """A token with no nonce claim must be rejected — nonce binding is mandatory."""
     claims = {"sub": "001"}  # no nonce echoed back
-    with patch.object(auth_module, "_get_apple_jwks", AsyncMock(return_value=FAKE_JWKS)), \
-         patch.object(auth_module.jwt, "get_unverified_header", return_value={"kid": "applekey1"}), \
-         patch.object(auth_module.jwt, "decode", return_value=claims):
+    with patch.object(oauth_verify, "_get_apple_jwks", AsyncMock(return_value=FAKE_JWKS)), \
+         patch.object(oauth_verify.jwt, "get_unverified_header", return_value={"kid": "applekey1"}), \
+         patch.object(oauth_verify.jwt, "decode", return_value=claims):
         with pytest.raises(ValueError, match="nonce"):
-            await auth_module._verify_apple_id_token("dummy", RAW_NONCE)
+            await oauth_verify._verify_apple_id_token("dummy", RAW_NONCE)
 
 
 @pytest.mark.asyncio
 async def test_verify_rejects_when_kid_not_in_jwks():
-    with patch.object(auth_module, "_get_apple_jwks", AsyncMock(return_value=FAKE_JWKS)), \
-         patch.object(auth_module.jwt, "get_unverified_header", return_value={"kid": "unknown-kid"}):
+    with patch.object(oauth_verify, "_get_apple_jwks", AsyncMock(return_value=FAKE_JWKS)), \
+         patch.object(oauth_verify.jwt, "get_unverified_header", return_value={"kid": "unknown-kid"}):
         with pytest.raises(ValueError, match="Matching key not found"):
-            await auth_module._verify_apple_id_token("dummy", RAW_NONCE)
+            await oauth_verify._verify_apple_id_token("dummy", RAW_NONCE)
 
 
 @pytest.mark.asyncio
 async def test_verify_wraps_jwt_error():
-    with patch.object(auth_module, "_get_apple_jwks", AsyncMock(return_value=FAKE_JWKS)), \
-         patch.object(auth_module.jwt, "get_unverified_header", return_value={"kid": "applekey1"}), \
-         patch.object(auth_module.jwt, "decode", side_effect=JWTError("bad signature")):
+    with patch.object(oauth_verify, "_get_apple_jwks", AsyncMock(return_value=FAKE_JWKS)), \
+         patch.object(oauth_verify.jwt, "get_unverified_header", return_value={"kid": "applekey1"}), \
+         patch.object(oauth_verify.jwt, "decode", side_effect=JWTError("bad signature")):
         with pytest.raises(ValueError, match="invalid"):
-            await auth_module._verify_apple_id_token("dummy", RAW_NONCE)
+            await oauth_verify._verify_apple_id_token("dummy", RAW_NONCE)
 
 
 # ── callback redirect branches (no DB / crypto needed) ────────────────────────

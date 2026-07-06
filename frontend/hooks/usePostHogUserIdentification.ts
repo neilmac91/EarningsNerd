@@ -7,6 +7,7 @@ import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getSubscriptionStatus } from '@/features/subscriptions/api/subscriptions-api'
 import { getCookiePreferences } from '@/components/CookieConsent'
 import { analytics } from '@/lib/analytics'
+import { queryKeys } from '@/lib/queryKeys'
 
 /**
  * App-wide PostHog identification (roadmap 2.4). Once the signed-in user and their subscription
@@ -16,18 +17,18 @@ import { analytics } from '@/lib/analytics'
  * Previously only the dashboard set a plan trait and `loginCompleted()` identified with no traits,
  * so a user landing anywhere else carried no `is_pro`. This runs once, app-wide.
  *
- * Reuses the existing `['current-user']` / `['subscription']` React Query caches (no extra requests)
+ * Reuses the existing `queryKeys.currentUser()` / `queryKeys.subscription()` React Query caches (no extra requests)
  * and `analytics.identify` (which also mirrors the id into Sentry). Idempotent: a ref guards against
  * re-identifying on every render — it only fires when the user id or pro status changes.
  */
 export function usePostHogUserIdentification(): void {
   const { data: user } = useQuery({
-    queryKey: ['current-user'],
+    queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
   })
   const { data: subscription } = useQuery({
-    queryKey: ['subscription'],
+    queryKey: queryKeys.subscription(),
     queryFn: getSubscriptionStatus,
     retry: false,
     enabled: !!user, // subscription is account-scoped; don't fire a guaranteed-401 for guests

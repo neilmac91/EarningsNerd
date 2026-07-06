@@ -14,10 +14,8 @@ import hashlib
 import json
 import secrets
 import logging
-import time
 
 import httpx
-import bcrypt
 from jose import JWTError, jwt
 
 from app.database import get_db
@@ -27,6 +25,13 @@ from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.pwned_passwords import is_password_pwned
 from app.services.turnstile import enforce_turnstile
 from app.services import audit_service, login_lockout
+from app.services.oauth_verify import _verify_apple_id_token, _verify_google_id_token
+from app.services.password_utils import (
+    _DUMMY_PASSWORD_HASH,
+    get_password_hash,
+    validate_password_strength,
+    verify_password,
+)
 from app.services.refresh_token_service import (
     create_refresh_token,
     rotate_refresh_token,
@@ -65,49 +70,18 @@ RESET_RESEND_IP_LIMITER = RateLimiter(limit=20, window_seconds=3600)  # 20/hr pe
 EMAIL_VERIFY_EXPIRY_HOURS = 24
 PASSWORD_RESET_EXPIRY_HOURS = 1
 
-# bcrypt work factor — pinned explicitly rather than relying on the library default so the cost
-# is visible and stable across bcrypt upgrades.
-BCRYPT_ROUNDS = 12
-# Generous upper bound (NIST 800-63B: accept long passphrases). Note: bcrypt only considers the
-# first 72 bytes of the password; longer inputs are silently truncated by the algorithm.
-PASSWORD_MAX_LENGTH = 128
-
-
-def validate_password_strength(value: str) -> str:
-    """Validate a password against policy.
-
-    NIST 800-63B-aligned: enforce length, not arbitrary composition rules (no forced
-    upper/lower/digit). Breach screening (HaveIBeenPwned) is done in the endpoints because a
-    synchronous Pydantic validator cannot perform the async network call.
-    """
-    if len(value) < settings.PASSWORD_MIN_LENGTH:
-        raise ValueError(f"Password must be at least {settings.PASSWORD_MIN_LENGTH} characters.")
-    if len(value) > PASSWORD_MAX_LENGTH:
-        raise ValueError(f"Password must be at most {PASSWORD_MAX_LENGTH} characters.")
-    return value
-
-# Google OAuth (OIDC) endpoints
+# Google/Apple OAuth FLOW endpoints (the redirect + Google token-exchange run in this router). The
+# JWKS fetch + id-token verification moved to app.services.oauth_verify (roadmap S3) and are
+# re-imported below so the callbacks still call them by name.
 _GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 _GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
-# Identity is taken from the cryptographically-verified id_token (below), not the userinfo
-# endpoint, so a forged/replayed access token cannot impersonate a user.
-_GOOGLE_JWKS_URL = "https://www.googleapis.com/oauth2/v3/certs"
-_GOOGLE_ISSUERS = {"https://accounts.google.com", "accounts.google.com"}
 _OAUTH_STATE_COOKIE = "oauth_state"
 _OAUTH_STATE_MAX_AGE = 600  # 10 minutes
 
-_google_jwks_cache: dict | None = None
-_google_jwks_cache_expires: float = 0.0
-
-# Apple Sign In constants and module-level caches.
-# Authentication uses the id_token delivered directly in Apple's form_post
-# callback (response_type="code id_token"), so no authorization-code exchange
-# and no ES256 client secret are required — only the JWKS for signature checks.
+# Apple authentication uses the id_token delivered directly in Apple's form_post callback
+# (response_type="code id_token"), so no authorization-code exchange / ES256 client secret is
+# required — only Apple's JWKS for signature checks (handled in oauth_verify).
 _APPLE_AUTH_URL = "https://appleid.apple.com/auth/authorize"
-_APPLE_JWKS_URL = "https://appleid.apple.com/auth/keys"
-
-_apple_jwks_cache: dict | None = None
-_apple_jwks_cache_expires: float = 0.0
 
 
 # ─── Pydantic schemas ─────────────────────────────────────────────────────────
@@ -196,36 +170,6 @@ class ChangePasswordRequest(BaseModel):
     @classmethod
     def validate_password(cls, value: str) -> str:
         return validate_password_strength(value)
-
-
-# ─── Password helpers (bcrypt) ──────────────────────────────────────────────────
-
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password - supports both bcrypt and passlib formats"""
-    if not hashed_password:
-        return False
-    try:
-        return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
-    except Exception:
-        try:
-            from passlib.context import CryptContext
-            pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-            return pwd_context.verify(plain_password, hashed_password)
-        except Exception:
-            return False
-
-
-def get_password_hash(password: str) -> str:
-    """Hash password using bcrypt with an explicitly-pinned work factor."""
-    salt = bcrypt.gensalt(rounds=BCRYPT_ROUNDS)
-    hashed = bcrypt.hashpw(password.encode('utf-8'), salt)
-    return hashed.decode('utf-8')
-
-
-# A fixed bcrypt hash of a random value. On login for an unknown email we verify the supplied
-# password against this so the request does the same expensive bcrypt work as a known-email
-# request — removing the timing side-channel that would otherwise reveal whether an email exists.
-_DUMMY_PASSWORD_HASH = get_password_hash(secrets.token_urlsafe(32))
 
 
 # ─── Token helpers ──────────────────────────────────────────────────────────────
@@ -357,16 +301,37 @@ def _hashed_client_ip(request: Request) -> Optional[str]:
     return hashlib.sha256(f"{ip}:{settings.SECRET_KEY}".encode("utf-8")).hexdigest()
 
 
-def _issue_refresh_token(db: Session, user: User, request: Request, response: Response) -> None:
-    """Mint a refresh token, persist it, and set the HttpOnly refresh cookie."""
-    _, raw_token = create_refresh_token(
-        db,
-        user,
-        user_agent=request.headers.get("user-agent"),
-        ip=_client_ip(request),
-    )
-    db.commit()
-    _set_refresh_cookie(response, raw_token)
+def issue_session(
+    db: Session,
+    user: User,
+    response: Response,
+    request: Request,
+    *,
+    refresh_token: Optional[str] = None,
+    commit: bool = True,
+) -> str:
+    """Issue a full session on ``response``: set the access + presence cookies and the refresh cookie.
+
+    The single mint point for the login paths. By default a NEW refresh token is minted and committed
+    (login, change-password, OAuth callbacks). Pass ``refresh_token=`` with ``commit=False`` when the
+    caller already rotated + committed one (the ``/refresh`` endpoint). ``create_refresh_token`` can
+    raise ``IntegrityError`` on a concurrent OAuth first-login, so callers that need the OAuth conflict
+    redirect wrap this in their own try/except; every other caller lets it propagate. Returns the raw
+    access token (body responses echo it).
+    """
+    access_token = create_access_token(data={"sub": user.email})
+    _set_auth_cookie(response, access_token)
+    if refresh_token is None:
+        _, refresh_token = create_refresh_token(
+            db,
+            user,
+            user_agent=request.headers.get("user-agent"),
+            ip=_client_ip(request),
+        )
+        if commit:
+            db.commit()
+    _set_refresh_cookie(response, refresh_token)
+    return access_token
 
 
 def _get_token_from_request(
@@ -518,107 +483,6 @@ async def _send_oauth_linked_email_safe(user: User, provider: str) -> None:
         await send_oauth_linked_email(to_email=user.email, name=user.full_name, provider=provider)
     except Exception as e:
         logger.warning(f"OAuth-linked notification not sent: {e.__class__.__name__}: {e}")
-
-
-async def _get_apple_jwks() -> dict:
-    """Fetch (or return 1-hour-cached) Apple JWKS for id_token verification."""
-    global _apple_jwks_cache, _apple_jwks_cache_expires
-    now = time.time()
-    if _apple_jwks_cache and now < _apple_jwks_cache_expires:
-        return _apple_jwks_cache
-    async with httpx.AsyncClient(timeout=10.0) as hx:
-        resp = await hx.get(_APPLE_JWKS_URL)
-        resp.raise_for_status()
-        _apple_jwks_cache = resp.json()
-        _apple_jwks_cache_expires = now + 3600
-    return _apple_jwks_cache
-
-
-async def _verify_apple_id_token(id_token: str, raw_nonce: str) -> dict:
-    """Verify Apple id_token against Apple's JWKS; check nonce.
-
-    python-jose does not reliably auto-select a key from a JWKS dict, so we
-    extract the kid from the unverified header and select the matching key
-    explicitly before calling jwt.decode.
-    """
-    jwks = await _get_apple_jwks()
-    try:
-        kid = jwt.get_unverified_header(id_token).get("kid")
-        public_key = next(
-            (k for k in jwks.get("keys", []) if k.get("kid") == kid), None
-        )
-        if not public_key:
-            raise ValueError("Matching key not found in Apple JWKS")
-        claims = jwt.decode(
-            id_token,
-            public_key,
-            algorithms=["RS256"],
-            audience=settings.APPLE_CLIENT_ID,
-            issuer="https://appleid.apple.com",
-            # Require the claims we rely on to be present (defense-in-depth; the RS256 signature
-            # against Apple's JWKS is the real gate). nonce is additionally checked below. Leeway
-            # absorbs clock skew between Apple's servers and ours, same as our own token decode.
-            options={"require": ["exp", "aud", "iss", "sub", "nonce"], "leeway": settings.JWT_LEEWAY_SECONDS},
-        )
-    except JWTError as exc:
-        raise ValueError(f"Apple id_token invalid: {exc}")
-
-    # Nonce binding is mandatory: we always send sha256(raw_nonce), so a
-    # compliant id_token always echoes it back. A missing or mismatched nonce
-    # means the token isn't bound to this auth request (replay/injection) — reject.
-    token_nonce = claims.get("nonce")
-    expected = hashlib.sha256(raw_nonce.encode()).hexdigest()
-    if not token_nonce or not secrets.compare_digest(token_nonce, expected):
-        raise ValueError("Apple id_token nonce missing or mismatched")
-
-    return claims
-
-
-async def _get_google_jwks() -> dict:
-    """Fetch (or return 1-hour-cached) Google JWKS for id_token verification."""
-    global _google_jwks_cache, _google_jwks_cache_expires
-    now = time.time()
-    if _google_jwks_cache and now < _google_jwks_cache_expires:
-        return _google_jwks_cache
-    async with httpx.AsyncClient(timeout=10.0) as hx:
-        resp = await hx.get(_GOOGLE_JWKS_URL)
-        resp.raise_for_status()
-        _google_jwks_cache = resp.json()
-        _google_jwks_cache_expires = now + 3600
-    return _google_jwks_cache
-
-
-async def _verify_google_id_token(id_token: str) -> dict:
-    """Verify a Google OIDC id_token and return its claims.
-
-    Checks the RS256 signature against Google's JWKS, that the audience is our client_id, that
-    the token is unexpired, and that the issuer is Google. This replaces trusting the /userinfo
-    response, which only proves possession of an access token, not that it was minted for us.
-    """
-    jwks = await _get_google_jwks()
-    try:
-        kid = jwt.get_unverified_header(id_token).get("kid")
-        public_key = next(
-            (k for k in jwks.get("keys", []) if k.get("kid") == kid), None
-        )
-        if not public_key:
-            raise ValueError("Matching key not found in Google JWKS")
-        # Google issues id_tokens with iss "https://accounts.google.com" or "accounts.google.com";
-        # validate the issuer manually against both rather than via jose's single-string check.
-        claims = jwt.decode(
-            id_token,
-            public_key,
-            algorithms=["RS256"],
-            audience=settings.GOOGLE_CLIENT_ID,
-            options={"require": ["exp", "aud", "sub", "iss"]},
-        )
-    except JWTError as exc:
-        raise ValueError(f"Google id_token invalid: {exc}")
-
-    if claims.get("iss") not in _GOOGLE_ISSUERS:
-        raise ValueError("Google id_token has unexpected issuer")
-
-    return claims
 
 
 # ─── Endpoints ──────────────────────────────────────────────────────────────────
@@ -799,9 +663,7 @@ async def login(
     login_lockout.clear_failures(db, user_data.email)  # a successful login resets the lockout
     user.last_login_at = datetime.now(timezone.utc)
     db.commit()
-    access_token = create_access_token(data={"sub": user.email})
-    _set_auth_cookie(response, access_token)
-    _issue_refresh_token(db, user, request, response)
+    access_token = issue_session(db, user, response, request)
     audit_service.log_login_success(db, user.id, user.email, ip_address=hashed_ip)
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -846,9 +708,7 @@ async def refresh(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = create_access_token(data={"sub": user.email})
-    _set_auth_cookie(response, access_token)
-    _set_refresh_cookie(response, new_refresh_token)
+    access_token = issue_session(db, user, response, request, refresh_token=new_refresh_token, commit=False)
     return {"access_token": access_token, "token_type": "bearer"}
 
 
@@ -1045,13 +905,12 @@ async def change_password(
     # A password change must evict every existing session (a stolen/old refresh token must not
     # survive it). Revoke all, then re-issue for THIS device so the acting user isn't logged out
     # moments later when their short-lived access token expires. No intermediate commit: the
-    # password change, the revocation, and the new token are committed together by
-    # _issue_refresh_token, so a failure there rolls the whole change back (no
-    # password-changed-but-500 inconsistency) and saves a commit round-trip.
+    # password change, the revocation, and the new token are committed together by the single
+    # db.commit() inside issue_session (called with the default commit=True), so a failure there
+    # rolls the whole change back (no password-changed-but-500 inconsistency) and saves a commit
+    # round-trip. This atomicity is the reason the pw-hash write above is NOT committed on its own.
     revoke_all_for_user(db, current_user.id)
-    access_token = create_access_token(data={"sub": current_user.email})
-    _set_auth_cookie(response, access_token)
-    _issue_refresh_token(db, current_user, request, response)
+    issue_session(db, current_user, response, request)
     return {"message": "Password updated."}
 
 
@@ -1167,18 +1026,12 @@ async def google_callback(
 
     redirect = RedirectResponse(url=frontend_url, status_code=302)
     redirect.delete_cookie(_OAUTH_STATE_COOKIE)
-    access_token = create_access_token(data={"sub": user.email})
-    _set_auth_cookie(redirect, access_token)
     try:
-        _, raw_refresh = create_refresh_token(
-            db, user, user_agent=request.headers.get("user-agent"), ip=_client_ip(request),
-        )
-        db.commit()
+        issue_session(db, user, redirect, request)
     except IntegrityError:
         db.rollback()
         logger.warning("Google OAuth IntegrityError for sub=%s", google_sub)
         return RedirectResponse(f"{frontend_url}/login?error=google_account_conflict", status_code=302)
-    _set_refresh_cookie(redirect, raw_refresh)
 
     hashed_ip = _hashed_client_ip(request)
     audit_service.log_oauth_login(db, user.id, user.email, provider="google", ip_address=hashed_ip)
@@ -1329,20 +1182,12 @@ async def apple_callback(
 
     user_obj.last_login_at = datetime.now(timezone.utc)
     redirect = RedirectResponse(url=frontend_url, status_code=302)
-    access_token = create_access_token(data={"sub": user_obj.email})
-    _set_auth_cookie(redirect, access_token)
     try:
-        _, raw_refresh = create_refresh_token(
-            db, user_obj,
-            user_agent=request.headers.get("user-agent"),
-            ip=_client_ip(request),
-        )
-        db.commit()
+        issue_session(db, user_obj, redirect, request)
     except IntegrityError:
         db.rollback()
         logger.warning("Apple OAuth IntegrityError for sub=%s", apple_sub)
         return RedirectResponse(f"{frontend_url}/login?error=apple_account_conflict", status_code=302)
-    _set_refresh_cookie(redirect, raw_refresh)
 
     hashed_ip = _hashed_client_ip(request)
     audit_service.log_oauth_login(db, user_obj.id, user_obj.email, provider="apple", ip_address=hashed_ip)

@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { CircleNotchIcon, WarningCircleIcon, XIcon } from '@/lib/icons'
 import { getCurrentUserSafe, resendVerification } from '@/features/auth/api/auth-api'
 import { EMAIL_VERIFICATION_REQUIRED_EVENT } from '@/lib/api/client'
+import { queryKeys } from '@/lib/queryKeys'
 
 /**
  * Global, graceful intercept of the backend's "verify your email" 403. The axios
@@ -21,7 +22,7 @@ export default function EmailVerificationModal() {
   const queryClient = useQueryClient()
 
   const { data: user } = useQuery({
-    queryKey: ['current-user'],
+    queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
     staleTime: 60_000,
@@ -61,8 +62,8 @@ export default function EmailVerificationModal() {
   }
 
   const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['current-user'] })
-    queryClient.invalidateQueries({ queryKey: ['user'] })
+    queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
+    queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
     router.refresh()
     setOpen(false)
   }

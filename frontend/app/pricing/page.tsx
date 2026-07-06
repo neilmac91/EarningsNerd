@@ -12,6 +12,7 @@ import { Badge, Button, Card, Notice, Switch } from '@/components/ui'
 import analytics from '@/lib/analytics'
 import { useFeatureFlagVariantKey } from 'posthog-js/react'
 import posthog from 'posthog-js'
+import { queryKeys } from '@/lib/queryKeys'
 
 interface CurrentUser {
   id: number
@@ -50,21 +51,21 @@ function PricingContent() {
   // The pricing page is publicly reachable; only fetch account-scoped data for
   // signed-in users so guests see the plain guest/free-tier view, not a 401 error card.
   const { data: currentUser } = useQuery<CurrentUser | null>({
-    queryKey: ['current-user'],
+    queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
   })
   const isAuthenticated = Boolean(currentUser)
 
   const { data: subscription, isError: subscriptionError, error: subscriptionErrorData, refetch: refetchSubscription, isFetching: subscriptionFetching } = useQuery({
-    queryKey: ['subscription'],
+    queryKey: queryKeys.subscription(),
     queryFn: getSubscriptionStatus,
     retry: false,
     enabled: isAuthenticated,
   })
 
   const { data: usage, isError: usageError, error: usageErrorData, refetch: refetchUsage, isFetching: usageFetching } = useQuery({
-    queryKey: ['usage'],
+    queryKey: queryKeys.usage(),
     queryFn: getUsage,
     retry: false,
     enabled: isAuthenticated,

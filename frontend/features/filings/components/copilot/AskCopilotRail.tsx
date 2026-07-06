@@ -20,6 +20,7 @@ import { getUsage } from '@/features/subscriptions/api/subscriptions-api'
 import UpgradeModal from '@/components/UpgradeModal'
 import { analytics } from '@/lib/analytics'
 import { starterQuestions } from './starterQuestions'
+import { queryKeys } from '@/lib/queryKeys'
 
 // Below lg the standalone overlay is a modal bottom-sheet; at lg+ it docks as a static side pane.
 const MOBILE_MEDIA_QUERY = '(max-width: 1023.98px)'
@@ -117,7 +118,7 @@ export default function AskCopilotRail({
   // Refreshed after each answer (the counter advances server-side on completion).
   const queryClient = useQueryClient()
   const { data: usage } = useQuery({
-    queryKey: ['copilot-usage'],
+    queryKey: queryKeys.usage(),
     queryFn: getUsage,
     // /usage is auth-gated — never fire it for an anon user (a guaranteed 401 from a public page).
     enabled: isAuthenticated && open,
@@ -295,7 +296,7 @@ export default function AskCopilotRail({
           setIsStreaming(false)
           abortRef.current = null
           // A question was metered server-side on completion — refresh the "N of M left" pill.
-          queryClient.invalidateQueries({ queryKey: ['copilot-usage'] })
+          queryClient.invalidateQueries({ queryKey: queryKeys.usage() })
         },
         onError: (msg) => {
           updateAssistant(assistantId, { status: 'error', error: msg })
