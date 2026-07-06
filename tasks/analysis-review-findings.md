@@ -149,10 +149,10 @@ the real tag (`· XBRL · us-gaap:RevenueFromContract…`), because the per-fili
 different ingest histories see different flags.
 
 **Recommended fix.** The A1 read-time classification eliminates the *visible* flicker (Q4-derived
-status derives from `fiscal_period`, which is stable across paths). Residual: decide a
-deterministic source-precedence policy at upsert (companyfacts over edgar_xbrl for identical
-periods, or vice versa) — flagged as an open question (§9) since it touches restatement semantics
-beyond this feature.
+status derives from `fiscal_period`, which is stable across paths). The residual source-precedence
+question was investigated and **decided — keep last-writer-wins**: values converge across the two
+paths by construction and empirically, and all `financial_fact` consumers are source-agnostic
+(see §9 D4 for the full evidence and the documented fallback if a real divergence ever appears).
 
 **Acceptance criterion.** Same dataset → same flags regardless of whether the per-filing backfill
 ran before or after the companyfacts sync (add a test that ingests in both orders and asserts
@@ -198,9 +198,12 @@ citations" badge; visually it reads as debug output.
   (verified: a version mismatch falls through to full regeneration and overwrites in place; stale
   text is never served). One side-effect to decide on: regeneration is **metered** — the router
   meters every non-cached completion (`analysis.py:270-277`), so a fleet-wide bump costs each
-  user one `ANALYSIS_MONTHLY_CAP` unit on their first re-request plus a model-cost spike. Either
-  accept it (caches are per company/range; light in practice) or exempt
-  invalidation-triggered regenerations from the meter in the same change.
+  user one `ANALYSIS_MONTHLY_CAP` unit on their first re-request plus a model-cost spike.
+  Decision (plan-final): exempt **system-invalidated** regenerations from the meter — the
+  generator knows when it regenerated because a cached row exists but its `prompt_version` or
+  fingerprint mismatched; tag the complete event (e.g. `invalidated: true`) and skip metering in
+  the router for that case. User-initiated `force` refreshes stay metered (abuse surface
+  unchanged).
 
 **Acceptance criterion.** Regenerated MSFT runs contain zero `[F` sequences in the rendered
 narrative; the badge count equals the number of distinct bracketed references the reader sees.
@@ -501,7 +504,7 @@ fix pattern (b) applies there too.
 
 ---
 
-## 8. Remediation plan (for approval — nothing proceeds until you approve)
+## 8. Remediation plan (all §9 decisions folded in — fully specified, awaiting your go to start Phase A)
 
 Sizes: S ≤ ½ day · M 1–3 days · L > 3 days. Order within phases is dependency order.
 
@@ -519,9 +522,11 @@ Sizes: S ≤ ½ day · M 1–3 days · L > 3 days. Order within phases is depend
 3. **B2 verified-claim honesty** (S code + copy): header/Sources copy → "every **cited** figure";
    strip/unparsed counters logged + surfaced in the badge tooltip; pp-vs-relative worked example
    in the prompt. Depends on 2 (and pairs with 5).
-4. **E1 PDF + on-page disclaimers** (S–M, after counsel reviews §7 text): analysis PDF "About this
+4. **E1 disclaimers — two-track per §9 D6** (S–M): ships now — analysis PDF "About this
    document" block; page-footer + narrative-pane one-liners (outside the Pro gate); summary-PDF
-   parity; `new Date()` last-updated fix; refund-contradiction resolution (copy decision).
+   parity; global-footer extension; `new Date()` fix pinned to each page's last *content* change
+   from git history; pricing-FAQ refund correction per D5 (+ `PricingPage.test.tsx` update).
+   Holds for counsel — the Terms clause additions (§7e), with §7 as the counsel brief.
 **Phase B — quick wins (P2)**
 
 5. **C5 pp for percent series** (M): server-side growth = pp for `percent` series across dataset,
@@ -529,7 +534,8 @@ Sizes: S ≤ ½ day · M 1–3 days · L > 3 days. Order within phases is depend
 6. **C3 n/m guard** (S–M): `_growth` → None/"nm" on sign flips (+ small-base floor); "n/m"
    display; prompt inherits.
 7. **C1 hide quarterly CAGR column** (S).
-8. **C4 tone policy map** (S — pending your register decision, §9).
+8. **C4 tone policy map** (S — register decided, §9 D1: inverted debt/liabilities, neutral
+   capex/investing/financing; document in DESIGN_SYSTEM.md).
 9. **C2 sticky first column** (M): DataTable `stickyFirstColumn` per spec in §3; drop the
    redundant wrapper.
 10. **D1 legends** (S).
@@ -553,20 +559,58 @@ Every phase-A/B item ships with the verification discipline from `tasks/lessons.
 
 ---
 
-## 9. Open questions (the only decisions blocking the plan)
+## 9. Decisions (owner answers received 2026-07-06; Q4/Q6 investigated and decided)
 
-1. **Tone register (C4):** metric-aware inversion for debt/liabilities + neutral for
-   capex/investing/financing (my recommendation), or strictly neutral "direction ≠ judgment"
-   across all rows?
-2. **"Verified" claim strategy (B2/E2):** soften the copy to "every cited figure" (recommended,
-   ships in days) or engineer the literal claim (regenerate-on-strip + numeric-fidelity scan,
-   which is Phase C work) — or both, sequenced?
-3. **Quarterly CAGR (C1):** hide the column (recommended) or replace with an
-   endpoint-to-endpoint "window growth" column?
-4. **Source-precedence policy (A2 residual):** should companyfacts rows deterministically win
-   `is_latest` over per-filing `edgar_xbrl` rows for the same period (consistent provenance, one
-   behavior), or is last-writer-wins acceptable once the visible flag no longer depends on it?
-   This touches restatement semantics beyond the analysis feature.
-5. **Refund copy (E2/F6):** honor the pricing FAQ's 30-day guarantee in Terms, or correct the FAQ?
-6. **Counsel engagement:** §7's drafted text is ready to take to counsel — confirm you want it
-   staged into Phase A item 4 pending their review, or shipped interim with a counsel follow-up.
+1. **D1 — Tone register (C4): decided.** Metric-aware policy per the recommendation — `inverted`
+   for {long_term_debt, current_liabilities} (up = loss tone, down = gain tone), `neutral` (flat
+   tone) for {capital_expenditures, investing_cash_flow, financing_cash_flow}, sign-based for
+   everything else. Register to be documented in DESIGN_SYSTEM.md alongside the financial-tone
+   section.
+2. **D2 — "Verified" claim (B2/E2): decided.** The recommendation ships: soften the page header
+   and Sources title to "every **cited** figure" now, surface strip/unparsed counters in the
+   badge tooltip, add the pp-vs-relative worked example to the prompt. Engineering the literal
+   claim (regenerate-on-strip + deterministic numeric-fidelity scan) stays a Phase-C follow-up,
+   not a launch blocker.
+3. **D3 — Quarterly CAGR (C1): decided.** Hide the column in quarterly mode. No "window growth"
+   replacement column for now (the narrative's citable trajectory anchor still lands via B1's
+   CAGR markers in annual mode; quarterly trajectory framing is prompt-side).
+4. **D4 — Source precedence (A2 residual): investigated → keep last-writer-wins; no write-path
+   precedence, no migration.** Evidence: (i) values converge across the two paths by
+   construction — headline concepts are cross-checked and corrected to companyfacts within 1%
+   (`facts_service.py:395-437`), computed metrics share formulas verbatim
+   (`derive_same_period_metrics` docstring), and the instant-concept tag priority lists are
+   mirrored (`instance_extractor.py:114` `LongTermDebtNoncurrent → LongTermDebt` = 
+   `COMPANYFACTS_INSTANT_TAGS`, `facts_service.py:999`; same for the cash triple) — and
+   empirically: all 57 displayed values from the mixed-source production DB matched the
+   pure-companyfacts recomputation exactly. (ii) The user-visible incoherence is fully removed by
+   Phase-A's read-time `derived_q4` classification, which keys on `fiscal_period` — stable across
+   paths. (iii) All three `financial_fact` consumers (analysis, `peers_service.py:66-126`,
+   `copilot_tools.py:219-353`) read `is_latest` with no source-dependent logic, so a precedence
+   rank + re-promotion migration would be a core-write-path change with app-wide blast radius
+   purchased against a divergence that doesn't exist in evidence ("Minimal Impact"). Guards that
+   ship with Phase A instead: the ingest-order-independence test (same dataset flags/values
+   regardless of which path ran last) and a `facts_service` docstring documenting the dual-writer
+   property. Documented fallback if a real value divergence is ever observed: source-rank at
+   upsert (companyfacts ≥ edgar_xbrl) + a one-off re-promotion migration. Accepted residual:
+   Sources rows sourced from per-filing computed metrics show a bare concept name instead of a
+   `us-gaap:` tag (cosmetic provenance).
+5. **D5 — Refund copy (E2/F6): decided.** Correct the pricing FAQ to match Terms §7 (remove the
+   "30-day money-back guarantee" claim; replace with accurate cancellation language, e.g.
+   "cancel anytime — you keep Pro until the end of the paid period"). Update
+   `PricingPage.test.tsx` in the same change (it asserts page copy; see `tasks/lessons.md`
+   2026-07-04).
+6. **D6 — Disclaimer staging (E1/§7): investigated → two-track, ship interim now.** Rationale:
+   the live P0 state is a **paid PDF with zero disclaimer** circulating detached — shipping
+   conservative, factual, industry-standard informational/not-advice boilerplate strictly
+   reduces exposure versus waiting, and the §7 drafts are standard-practice language (low regret
+   risk; counsel refines wording later). **Ships now (Phase A item 4):** the PDF "About this
+   document" block, the page-footer and narrative-pane one-liners (outside the Pro gate), the
+   global-footer extension, the D2 claim softening, the D5 FAQ correction, and the
+   `new Date()` last-updated fix — pinning each legal page's date to its last **content** change
+   from git history (the 2026-07-04 `c6a7ef6` touch was a styling-only sweep and must not be
+   used as the content date). **Holds for counsel:** the Terms of Service clause additions
+   (§7e — exported-documents, derived-figures, verified-citations definition, license-scope
+   reconciliation, AI-provider naming) — that is genuine contract drafting, and Terms §13's
+   change-notice mechanics make batching those edits with counsel the right process. The §7
+   package is the counsel brief; the Terms follow-up lands as its own change after review.
+   Every interim surface keeps the "for counsel review" caveat in the PR description.
