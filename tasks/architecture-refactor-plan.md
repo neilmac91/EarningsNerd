@@ -383,6 +383,35 @@ count corrections + the concept-list-ordering deferral endorsed. Four findings, 
   `redis_service`-style loop-identity rebind (`_reset_on_loop_change`) + a test driving the real fetcher
   (JWKS HTTP mocked) across two event loops. Disclosed, guarded, tested.
 
+**Wave 2 · F1 full adoption + registry enforcement (PR #553, frontend-only).** The #551 core reconciled
+only the 3 grep-gated split keys; this migrates ALL remaining ~27 inline query-key literals through
+`lib/queryKeys.ts` (23 files; keys + every invalidate/set/get/cancel/prefetch site; tuples byte-identical,
+no behavior change). `fullTextSearch` factory typed `forms: string | undefined` to match the real call
+site. **Enforcement (founder #553 suggestion):** an eslint `no-restricted-syntax` rule fails `npm run
+lint` on any inline array-literal query key — object form `queryKey: [...]` (descendant selector, also
+catches `as const`) + positional `get/setQueryData([...])`; prod-scoped, exempting `lib/queryKeys.ts` +
+tests. Mutation-verified (3-shape probe → 3 errors). The grep-gate is now structural, not PR-body prose.
+Gate: tsc/eslint/vitest(248)/build green.
+
+**Wave 2 · F2 — decompose `app/filing/[id]/page-client.tsx` 1,016 → 378 LOC (PR #554, frontend-only).**
+Extract the summary-generation state machine → `features/summaries/hooks/useSummaryGeneration.ts`;
+exports → shared axios client (`exportSummaryPdf/Csv` + `useSummaryExports` + `lib/downloadBlob`), killing
+the 2 raw `fetch()`s (F2 owns these two; F4 owns the rest); move `SummaryDisplay` (+ `SummaryActionsBar`)
+and `TickerFilingsView` into `features/`. Base-vs-head audited 1:1 by the plan author.
+- **L1 (latent bug, firewall-disclosed contract change):** the STREAM path already treated a terminal
+  `partial` frame correctly (pinned by a mutation-proven anchor). The plan's actual L1 citation — the
+  progress-poll `refetchInterval` — carried over verbatim MISSING `partial` from its terminal set, so a
+  `partial`-ending run (flag-off legacy cron, still prod) polled at 1s forever. Fix: `progressRefetchInterval`
+  with a TERMINAL set = {completed, error, partial} matching `record_progress`; `SummaryProgressData.stage`
+  widened with `partial`; new `progressPoll.spec.ts` (all three terminal → stop, mutation-proven). Also
+  closed the local-error tail (`isGenerating && !generationError`).
+- **Disclosed micro-fix (the one deviation from 1:1):** `downloadBlob` defers `revokeObjectURL` + anchor
+  removal by 100ms (base revoked synchronously) — an equal-or-better Safari/Firefox reliability fix applied
+  per Gemini review; recorded here per the S2 disclosure discipline.
+- **Deferred (founder to call):** wiring the progress-poll DATA to refetch-on-terminal (vs the pure
+  stop-polling fix above), or removing the now-vestigial poll — a separate behavior change, not blocking F2.
+Gate: tsc/eslint(incl. query-key rule)/vitest(251)/build green.
+
 _(Deltas from later waves will be appended here as they are executed.)_
 
 ---

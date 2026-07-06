@@ -61,6 +61,46 @@ describe('generateSummaryStream', () => {
     expect(completeSpy).toHaveBeenCalledWith(42)
     expect(errorSpy).not.toHaveBeenCalled()
   })
+
+  // L1 contract (F2): a terminal `partial` frame is terminal — it drives onComplete with the saved
+  // summary_id (so the view refetches + renders the partial, badge and all) and NEVER trips onError.
+  // A regression that drops `partial` handling would strand the poller/generating state, so pin it.
+  it('treats a terminal partial frame as complete (onComplete, not onError)', async () => {
+    const encoder = new TextEncoder()
+    const chunks = [
+      encoder.encode('data: {"type":"chunk","content":"Partial analysis text"}\n\n'),
+      encoder.encode('data: {"type":"partial","message":"Some sections may not have loaded fully.","summary_id":77}\n\n'),
+    ]
+
+    let readIndex = 0
+    const reader = {
+      read: vi.fn(async () => {
+        if (readIndex < chunks.length) {
+          return { value: chunks[readIndex++], done: false }
+        }
+        return { value: undefined, done: true }
+      }),
+    }
+
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      body: { getReader: () => reader },
+    }))
+
+    global.fetch = fetchMock as unknown as typeof fetch
+
+    const chunkSpy = vi.fn()
+    const progressSpy = vi.fn()
+    const completeSpy = vi.fn()
+    const errorSpy = vi.fn()
+
+    await generateSummaryStream(202, chunkSpy, progressSpy, completeSpy, errorSpy)
+    vi.runAllTimers()
+
+    expect(chunkSpy).toHaveBeenCalledWith('Partial analysis text')
+    expect(completeSpy).toHaveBeenCalledWith(77)
+    expect(errorSpy).not.toHaveBeenCalled()
+  })
 })
 
 describe('stripInternalNotices', () => {
