@@ -624,11 +624,13 @@ confidence; explicit runner-up = hide + rebuild immediately if 2–3 days availa
       conditional render at `frontend/app/page.tsx:224-230` + skip `fetchTrendingInitial`
       prefetch (`frontend/lib/serverApi.ts:143` + call site) when off. Verify build + e2e +
       both themes on preview.
-- [ ] B2 (M, 4–6h, day ~30, after PostHog P2/P4 ratify): delete `routers/trending.py` (+ mount),
-      `services/trending_service.py`, `tests/unit/test_stocktwits_fmp.py`,
-      `TrendingTickers.tsx` + companies-api fns + `queryKeys.trendingTickers`, and the flag.
-      KEEP `integrations/stocktwits.py` (healthy feed, verified live; roadmap A3/B4 names it
-      as a Filing Pulse input).
+- [ ] B2 (M, 4–6h, follow-up PR ≥1 deploy later — NOT data-gated; the pipeline is unlicensable
+      per findings §4.2.1, only the slot's future replacement is a day-30 question): delete
+      `routers/trending.py` (+ mount), `services/trending_service.py`,
+      `tests/unit/test_stocktwits_fmp.py`, `TrendingTickers.tsx` + companies-api fns +
+      `queryKeys.trendingTickers`, and the flag. `integrations/stocktwits.py` may stay
+      (roadmap A3/B4 names the signal) with the caveat that future use needs a license
+      (Stocktwits ToS Apr 2026 §5).
 - [ ] B3 (S, 2h, pairs with B4): retire `integrations/fmp.py` + `FMP_*` settings + doc rows;
       update `docs/ARCHITECTURE.md:156-157` + stale docstrings; add `lessons/` entry
       (dead-integration sweep + machine gate).
