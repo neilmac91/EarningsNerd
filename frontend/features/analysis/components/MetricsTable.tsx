@@ -96,14 +96,15 @@ export default function MetricsTable({ dataset }: { dataset: AnalysisDataset }) 
         const win = windowGrowth(row.series)
         const { text, direction } = formatGrowth(win.value, win.isPercent)
         const tone = applySeriesTone(row.series.tone, direction)
+        // cursor-help only when the tooltip actually exists — same condition for both.
+        const windowTooltip =
+          win.isPercent && row.series.window_pp_range
+            ? `Percentage-point change over ${row.series.window_pp_range} — CAGR doesn't apply to a percent-unit series.`
+            : undefined
         return text ? (
           <span
-            className={win.isPercent ? `cursor-help ${directionText[tone]}` : directionText[tone]}
-            title={
-              win.isPercent && row.series.window_pp_range
-                ? `Percentage-point change over ${row.series.window_pp_range} — CAGR doesn't apply to a percent-unit series.`
-                : undefined
-            }
+            className={windowTooltip ? `cursor-help ${directionText[tone]}` : directionText[tone]}
+            title={windowTooltip}
           >
             {text}
           </span>
