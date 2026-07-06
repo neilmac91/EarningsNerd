@@ -1325,6 +1325,14 @@ def derive_same_period_metrics(facts: list[dict[str, Any]]) -> list[dict[str, An
     Same-period arithmetic on SEC values is ``reconciled=True`` unless an input was itself
     unreconciled (a derived Q4 chain propagates its badge). Skipped when the group already carries
     the concept.
+
+    DUAL-WRITER NOTE: these computed metrics are written by TWO paths with different ``source``
+    values — here as ``"derived"`` and by the per-filing pipeline (which emits the same
+    computations from ``extract_standardized_metrics``) as ``"edgar_xbrl"``. Which row holds
+    ``is_latest`` for a period is last-writer-wins and therefore ingest-order dependent. That is
+    accepted (audit decision D4): values converge across the paths by construction, and readers
+    must never infer meaning from ``source == "derived"`` alone — "computed Q4" semantics are
+    ``source == "derived" AND fiscal_period == "Q4"`` (see trend_analysis_service.build_dataset).
     """
     groups: dict[tuple[Any, Any], dict[str, dict[str, Any]]] = {}
     for fact in facts:

@@ -14,7 +14,8 @@ export default function SecurityPage() {
           Security
         </h1>
         <p className="text-lg text-text-secondary-light dark:text-text-secondary-dark">
-          Last updated: {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+          {/* Content-change date — update by hand with any content edit (never render-time). */}
+          Last updated: June 22, 2026
         </p>
 
         <section className="mt-8">

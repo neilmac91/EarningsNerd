@@ -29,7 +29,9 @@ logger = logging.getLogger(__name__)
 
 # Bump on ANY change to the narrative prompt or the compact dataset rendering — invalidates every
 # cached TrendAnalysis row fleet-wide (they regenerate lazily on next request).
-PROMPT_VERSION = "trends-v1"
+# v2: derived flag narrowed to true computed-Q4 points, CAGR markers, per-marker signal brackets,
+# multi-reference resolver, pp-vs-relative guardrail.
+PROMPT_VERSION = "trends-v2"
 
 MODES = ("annual", "quarterly")
 _QUARTERS = ("Q1", "Q2", "Q3", "Q4")
@@ -242,12 +244,22 @@ def build_dataset(
     # Indexes: flows by (fiscal_year, fiscal_period); instants ALSO by period_end (D2c).
     by_fy_fp: dict[tuple[int, str, str], FinancialFact] = {}
     instant_by_end: dict[tuple[str, date], FinancialFact] = {}
+    # A Q4 column is a computed-Q4 column iff EVERY row in it came from the Q4 derivation (the
+    # picker-chip rule). This is what the "— derived Q4" / † labels mean, and it is deliberately
+    # column-level: a rare filer that reports a DISCRETE Q4 has companyfacts rows in the group,
+    # so its real Q4 (and the metrics computed from it) must never be labelled an estimate —
+    # while metrics computed ON a derived-Q4 column genuinely rest on FY−Q1..Q3 estimates.
+    q4_fully_derived: dict[int, bool] = {}
     for row in rows:
         if row.fiscal_year is None:
             continue
         by_fy_fp[(row.fiscal_year, row.fiscal_period, row.concept)] = row
         if row.concept in INSTANT_CONCEPTS:
             instant_by_end[(row.concept, row.period_end)] = row
+        if row.fiscal_period == "Q4":
+            q4_fully_derived[row.fiscal_year] = (
+                q4_fully_derived.get(row.fiscal_year, True) and row.source == "derived"
+            )
 
     # Period axis (oldest → newest), range-filtered and capped.
     if mode == "annual":
@@ -329,7 +341,17 @@ def build_dataset(
                     "form": row.form,
                     "accession": row.accession,
                     "raw_tag": row.raw_tag,
-                    "derived": row.source == "derived",
+                    # True computed-Q4 only. `source == "derived"` alone is NOT it: the ingest
+                    # also stamps same-period computed metrics (margins, FCF, working capital,
+                    # current ratio) "derived" for EVERY period, and the per-filing path writes
+                    # the same computations as "edgar_xbrl" — so the raw source flag flickers by
+                    # ingest history and would mislabel an FY2016 margin as a "derived Q4".
+                    # Column-level rule (see q4_fully_derived above): a point is a computed-Q4
+                    # value iff it sits on a Q4 column whose every row came from the derivation.
+                    "derived": (
+                        row.fiscal_period == "Q4"
+                        and q4_fully_derived.get(row.fiscal_year, False)
+                    ),
                     "reconciled": bool(row.reconciled),
                     "fiscal_year": row.fiscal_year,
                     "fiscal_period": row.fiscal_period,
@@ -361,8 +383,12 @@ def build_dataset(
                     )
                     previous = point
 
-        # CAGR over the selected window (annual mode, monetary/per-share series only).
+        # CAGR over the series' VALUED endpoints (annual mode, monetary/per-share series only).
+        # The basis window is recorded because it can be narrower than the selected range (a
+        # concept first reported mid-window) — citations must state the window the figure was
+        # actually computed over, not the range the user picked.
         cagr = None
+        cagr_window = None
         if mode == "annual" and unit != "pure":
             valued = [
                 (bucket["fiscal_year"], point["value"])
@@ -372,6 +398,8 @@ def build_dataset(
             if len(valued) >= 2:
                 (first_fy, first), (last_fy, last) = valued[0], valued[-1]
                 cagr = _cagr(first, last, last_fy - first_fy)
+                if cagr is not None:
+                    cagr_window = f"FY{first_fy}..FY{last_fy}"
 
         series_list.append(
             {
@@ -380,6 +408,7 @@ def build_dataset(
                 "unit": unit,
                 "percent": concept in _PERCENT_CONCEPTS,
                 "cagr": cagr,
+                "cagr_window": cagr_window,
                 "points": points,
             }
         )
@@ -391,6 +420,13 @@ def build_dataset(
             if point["value"] is not None:
                 marker += 1
                 point["marker"] = f"F{marker}"
+    # Series-level CAGR gets its own marker (after every point marker, so point numbering is
+    # unchanged): it is a server-computed figure the narrative is told to anchor on, and a figure
+    # without a marker forces the model to improvise illegal range citations like [F1..F10].
+    for series in series_list:
+        if series.get("cagr") is not None:
+            marker += 1
+            series["cagr_marker"] = f"F{marker}"
 
     dataset: dict[str, Any] = {
         "ticker": company.ticker,
@@ -425,10 +461,6 @@ def _valued_points(series: Optional[dict[str, Any]]) -> list[dict[str, Any]]:
     return [p for p in series["points"] if p["value"] is not None]
 
 
-def _pct(value: float) -> str:
-    return f"{value * 100:+.1f}%"
-
-
 def detect_growth_deceleration(dataset: dict[str, Any]) -> list[dict[str, Any]]:
     """Top-line YoY growth strictly declining across the three most recent measurable periods."""
     flags = []
@@ -447,7 +479,7 @@ def detect_growth_deceleration(dataset: dict[str, Any]) -> list[dict[str, Any]]:
                     "periods": [p["period"] for p in last3],
                     "detail": (
                         f"{concept_label(concept)} YoY growth decelerated for three straight "
-                        f"periods: {_pct(yoys[0])} → {_pct(yoys[1])} → {_pct(yoys[2])}."
+                        f"periods: {_pct_str(yoys[0])} → {_pct_str(yoys[1])} → {_pct_str(yoys[2])}."
                     ),
                     "markers": [p["marker"] for p in last3],
                 }
@@ -528,7 +560,7 @@ def detect_debt_build(dataset: dict[str, Any]) -> list[dict[str, Any]]:
                 "concepts": ["long_term_debt"],
                 "periods": [first["period"], last["period"]],
                 "detail": (
-                    f"Long-term debt grew {_pct(growth)} from {first['period']} to "
+                    f"Long-term debt grew {_pct_str(growth)} from {first['period']} to "
                     f"{last['period']}."
                 ),
                 "markers": [first["marker"], last["marker"]],
@@ -614,7 +646,9 @@ def compact_dataset_for_prompt(dataset: dict[str, Any]) -> str:
         unit_note = "%" if series["percent"] else series["unit"]
         header = f"## {series['label']} ({unit_note})"
         if series.get("cagr") is not None:
-            header += f" — CAGR {_pct_str(series['cagr'])}"
+            cagr_marker = f"[{series['cagr_marker']}] " if series.get("cagr_marker") else ""
+            window = f" ({series['cagr_window']})" if series.get("cagr_window") else ""
+            header += f" — {cagr_marker}CAGR {_pct_str(series['cagr'])}{window}"
         lines.append(header)
         for point in series["points"]:
             if point["value"] is None:
@@ -634,8 +668,11 @@ def compact_dataset_for_prompt(dataset: dict[str, Any]) -> str:
     if dataset.get("inflections"):
         lines.append("## Signals detected (deterministic, pre-computed)")
         for flag in dataset["inflections"]:
-            markers = ", ".join(flag.get("markers") or [])
-            lines.append(f"- {flag['kind']}: {flag['detail']}" + (f" [{markers}]" if markers else ""))
+            # One marker per bracket pair. The old comma-joined form ("[F58, F59, F60]") taught
+            # the model the exact multi-reference notation the resolver cannot parse — the prompt
+            # must only ever model the legal form.
+            markers = " ".join(f"[{m}]" for m in (flag.get("markers") or []))
+            lines.append(f"- {flag['kind']}: {flag['detail']}" + (f" {markers}" if markers else ""))
         lines.append("")
     return "\n".join(lines)
 
@@ -646,7 +683,7 @@ def _pct_str(value: float) -> str:
 
 def marker_index(dataset: dict[str, Any]) -> dict[str, dict[str, Any]]:
     """F# marker -> its dataset point (augmented with concept/label context) for citation
-    resolution in the narrative pipeline."""
+    resolution in the narrative pipeline. Series-level CAGR markers resolve too (kind="cagr")."""
     index: dict[str, dict[str, Any]] = {}
     for series in dataset["series"]:
         for point in series["points"]:
@@ -659,6 +696,19 @@ def marker_index(dataset: dict[str, Any]) -> dict[str, dict[str, Any]]:
                     "unit": series["unit"],
                     "percent": series["percent"],
                 }
+        if series.get("cagr_marker"):
+            index[series["cagr_marker"]] = {
+                "kind": "cagr",
+                "value": series["cagr"],
+                # The window the CAGR was actually computed over (valued endpoints), which can
+                # be narrower than the selected range — never claim the wider one.
+                "period": series.get("cagr_window") or dataset["period_key"],
+                "concept": series["concept"],
+                "label": series["label"],
+                "unit": series["unit"],
+                "percent": series["percent"],
+                "derived": False,
+            }
     return index
 
 
@@ -666,20 +716,49 @@ def marker_index(dataset: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 NOT_ENOUGH_DATA_SENTINEL = "===NOT_ENOUGH_DATA==="
 
-_MARKER_RE = re.compile(r"\[\s*F\s*(\d+)\s*\]", re.IGNORECASE)
+# Every bracket group; whether it is a citation (vs prose) is decided in code. Deliberately no
+# lazy quantifiers or overlapping alternations anywhere in the resolver's regexes: the narrative
+# is model-generated (semi-adversarial) input scanned ON the event loop, so the patterns must be
+# linear — a lazy/ambiguous form here measured O(n²)-to-exponential on degenerate outputs.
+_MARKER_GROUP_RE = re.compile(r"\[([^\[\]]*)\]")
+_MARKER_REF_RE = re.compile(r"F\s*(\d+)", re.IGNORECASE)
+# What may legally surround the F-references inside one bracket group: list/range/comparison
+# connector words and punctuation ("F1, F2", "F1..F10", "F1-F2", "F1 vs F2", "F1 and F2",
+# "F1 through F10", "F9 versus F10", "F1 or F2"). Validated in two LINEAR passes (strip the
+# refs, strip whole connector words, then a single character class) — never an alternation of
+# overlapping words inside a `*` group, which is how the first version went exponential.
+_MARKER_CONNECTOR_WORD_RE = re.compile(r"\b(?:versus|vs|through|and|to|or)\b", re.IGNORECASE)
+_MARKER_SEPARATOR_CHARS_RE = re.compile(r"^[\s,;&/.·–—-]*$")
+
+
+def _is_citation_group(content: str) -> bool:
+    residue = _MARKER_REF_RE.sub("", content)
+    residue = _MARKER_CONNECTOR_WORD_RE.sub("", residue)
+    return _MARKER_SEPARATOR_CHARS_RE.match(residue) is not None
 
 
 def _point_citation(n: int, point: dict[str, Any]) -> dict[str, Any]:
     """Render a dataset point as a citation dict in the Copilot citation shape ({n, excerpt,
-    section_ref, verified, fragment_url}) so the existing frontend citation UI renders it as-is."""
-    value_str = _format_value(point["value"], point.get("unit") or "USD", bool(point.get("percent")))
-    excerpt = f"{point['label']} = {value_str} ({point['period']})"
-    if point.get("derived"):
-        excerpt += " — derived Q4"
+    section_ref, verified, fragment_url}) so the existing frontend citation UI renders it as-is.
+
+    ``kind == "cagr"`` entries are series-level CAGR markers: the value is a growth fraction over
+    the selected window, not an XBRL level, so only their excerpt/attribution differ — the dict
+    shape is ONE literal so the citation contract with the frontend can't fork per kind."""
+    if point.get("kind") == "cagr":
+        excerpt = f"{point['label']} CAGR = {_pct_str(point['value'])} ({point['period']})"
+        section_ref = "Computed · CAGR"
+    else:
+        value_str = _format_value(
+            point["value"], point.get("unit") or "USD", bool(point.get("percent"))
+        )
+        excerpt = f"{point['label']} = {value_str} ({point['period']})"
+        if point.get("derived"):
+            excerpt += " — derived Q4"
+        section_ref = f"XBRL · {point.get('raw_tag') or point['concept']}"
     return {
         "n": n,
         "excerpt": excerpt,
-        "section_ref": f"XBRL · {point.get('raw_tag') or point['concept']}",
+        "section_ref": section_ref,
         "verified": True,
         "fragment_url": None,
         "concept": point["concept"],
@@ -691,34 +770,50 @@ def _point_citation(n: int, point: dict[str, Any]) -> dict[str, Any]:
 
 def resolve_narrative_citations(
     text: str, index: dict[str, dict[str, Any]]
-) -> tuple[str, list[dict[str, Any]], int]:
-    """One left-to-right pass over the narrative: each ``[F#]`` marker resolves against the
+) -> tuple[str, list[dict[str, Any]], int, int]:
+    """One left-to-right pass over the narrative: every ``[F#]`` reference resolves against the
     dataset's marker index and is renumbered ``[1]``, ``[2]``, ... in first-appearance order
-    (repeat mentions reuse their number). A marker the dataset never issued can ONLY be a model
-    artifact — it is stripped, swallowing the space before it, instead of shipping dead brackets
-    (the ``_resolve_citations`` contract from Copilot). Returns (final_text, citations, grounded).
+    (repeat mentions reuse their number). Multi-reference groups a model may emit despite the
+    prompt contract — ``[F1, F2]``, ``[F1..F10]``, ``[F1 vs F2]`` — resolve as a chain
+    (``[1][2]``; ranges resolve their written endpoints). A reference the dataset never issued
+    can ONLY be a model artifact — it is dropped (a group that loses every reference is stripped,
+    swallowing the space before it, the ``_resolve_citations`` contract from Copilot) and counted
+    in ``unverified`` so callers can surface how many references could not be verified.
+    Returns (final_text, citations, grounded, unverified).
     """
     citations: list[dict[str, Any]] = []
     assigned: dict[str, int] = {}
+    unverified = 0
     pieces: list[str] = []
     cursor = 0
-    for match in _MARKER_RE.finditer(text):
-        key = f"F{match.group(1)}"
-        point = index.get(key)
-        if point is None:
+    for match in _MARKER_GROUP_RE.finditer(text):
+        content = match.group(1)
+        if not _MARKER_REF_RE.search(content):
+            continue  # no F-reference at all — ordinary prose brackets / markdown link labels
+        if not _is_citation_group(content):
+            continue  # prose that happens to contain an F-token — not a citation group
+        numbers: list[int] = []
+        for ref in _MARKER_REF_RE.findall(content):
+            key = f"F{int(ref)}"
+            point = index.get(key)
+            if point is None:
+                unverified += 1
+                continue
+            n = assigned.get(key)
+            if n is None:
+                n = len(citations) + 1
+                assigned[key] = n
+                citations.append(_point_citation(n, point))
+            if n not in numbers:
+                numbers.append(n)
+        if numbers:
+            pieces.append(text[cursor:match.start()])
+            pieces.append("".join(f"[{n}]" for n in numbers))
+        else:
             pieces.append(text[cursor:match.start()].rstrip(" "))
-            cursor = match.end()
-            continue
-        n = assigned.get(key)
-        if n is None:
-            n = len(citations) + 1
-            assigned[key] = n
-            citations.append(_point_citation(n, point))
-        pieces.append(text[cursor:match.start()])
-        pieces.append(f"[{n}]")
         cursor = match.end()
     pieces.append(text[cursor:])
-    return "".join(pieces), citations, len(citations)
+    return "".join(pieces), citations, len(citations), unverified
 
 
 def _load_cached_analysis(db: Session, company_id: int, mode: str, key: str):
@@ -735,6 +830,19 @@ def _load_cached_analysis(db: Session, company_id: int, mode: str, key: str):
     )
 
 
+def has_cached_analysis(
+    db: Session, company_id: int, mode: str, start_period: str, end_period: str
+) -> bool:
+    """Whether a cached row exists for the naive ``start..end`` key — the router's cheap
+    pre-flight probe: over-cap requests with a cached row can only resolve FREE (a cache
+    re-serve or a system-invalidated regeneration), so they may proceed past the 429 gate.
+
+    Conservative on purpose: ``build_dataset`` canonicalizes the period key from the actual data
+    buckets, which can differ from the raw request range (e.g. the requested start year has no
+    data) — a miss here just means the gate stays closed, never that quota leaks."""
+    return _load_cached_analysis(db, company_id, mode, f"{start_period}..{end_period}") is not None
+
+
 def _persist_analysis(
     *,
     company_id: int,
@@ -746,6 +854,7 @@ def _persist_analysis(
     citations: list[dict[str, Any]],
     model: Optional[str],
     grounded: int,
+    unverified: int,
     user_id: Optional[int],
 ) -> Optional[int]:
     """Upsert the cached analysis row on (company, mode, period_key) in a fresh session (the SSE
@@ -766,6 +875,7 @@ def _persist_analysis(
             row.citations_json = citations
             row.model = model
             row.grounded = grounded
+            row.unverified = unverified
             row.created_by_user_id = user_id
 
         row = _load_cached_analysis(db, company_id, mode, key)
@@ -852,11 +962,17 @@ async def stream_trend_narrative(
                 "narrative": cached.narrative_md,
                 "citations": cached.citations_json or [],
                 "grounded": cached.grounded,
+                "unverified": cached.unverified,
                 "cached": True,
+                "invalidated": False,
                 "n_periods": len(dataset["periods"]),
                 "usage": {},
             }
             return
+        # A cached row existed but no longer matches (prompt bump or new facts): this regeneration
+        # is system-triggered, not user-triggered — the router exempts it from the fair-use meter.
+        # A `force` refresh is user-initiated and stays metered.
+        invalidated = cached is not None and not force
     finally:
         # Never hold a DB connection through the model call.
         db.close()
@@ -904,13 +1020,22 @@ async def stream_trend_narrative(
             "narrative": "",
             "citations": [],
             "grounded": 0,
+            "unverified": 0,
             "cached": False,
+            "invalidated": invalidated,
             "n_periods": len(dataset["periods"]),
             "usage": {**usage_sink, "model": model_name},
         }
         return
 
-    narrative, citations, grounded = resolve_narrative_citations(full_text, marker_index(dataset))
+    narrative, citations, grounded, unverified = resolve_narrative_citations(
+        full_text, marker_index(dataset)
+    )
+    if unverified:
+        logger.warning(
+            "trend narrative for %s (%s %s) carried %d unresolvable citation reference(s)",
+            ticker, mode, key, unverified,
+        )
     analysis_id = _persist_analysis(
         company_id=company_id,
         mode=mode,
@@ -921,6 +1046,7 @@ async def stream_trend_narrative(
         citations=citations,
         model=model_name,
         grounded=grounded,
+        unverified=unverified,
         user_id=user_id,
     )
     yield {
@@ -930,7 +1056,9 @@ async def stream_trend_narrative(
         "narrative": narrative,
         "citations": citations,
         "grounded": grounded,
+        "unverified": unverified,
         "cached": False,
+        "invalidated": invalidated,
         "n_periods": len(dataset["periods"]),
         "usage": {**usage_sink, "model": model_name},
     }

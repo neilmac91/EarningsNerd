@@ -36,6 +36,9 @@ class TrendAnalysis(Base):
     citations_json = Column(JSON, nullable=True)
     model = Column(String, nullable=True)  # AI model that wrote the narrative
     grounded = Column(Integer, nullable=False, default=0)  # resolved F# citation count
+    # F# references the model emitted that did NOT resolve against the dataset (stripped or
+    # dropped from a group). NULL on rows persisted before the column existed.
+    unverified = Column(Integer, nullable=True)
     # Who triggered the last (re)generation — analytics only, never an access gate (any Pro user
     # may re-serve any cached row).
     created_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=True)

@@ -100,6 +100,9 @@ export interface AnalysisCompletion {
   narrative: string
   citations: AnalysisCitation[]
   grounded: number
+  /** F# references the model emitted that did NOT resolve against the dataset (0 on a clean
+   *  run; null/absent on rows persisted before the counter existed). */
+  unverified?: number | null
   cached: boolean
   n_periods: number
 }
@@ -303,6 +306,7 @@ export const streamAnalysis = async (
               narrative: typeof data.narrative === 'string' ? data.narrative : '',
               citations: Array.isArray(data.citations) ? (data.citations as AnalysisCitation[]) : [],
               grounded: typeof data.grounded === 'number' ? data.grounded : 0,
+              unverified: typeof data.unverified === 'number' ? data.unverified : null,
               cached: data.cached === true,
               n_periods: typeof data.n_periods === 'number' ? data.n_periods : 0,
             })

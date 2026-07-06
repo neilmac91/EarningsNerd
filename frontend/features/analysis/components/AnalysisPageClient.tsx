@@ -196,8 +196,8 @@ export default function AnalysisPageClient() {
         </div>
         <p className="max-w-2xl text-sm text-text-secondary-light dark:text-text-secondary-dark">
           Pick a company and up to 10 fiscal years or 12 quarters. Get the full trend picture —
-          growth, margins, cash, balance sheet — with an AI analysis where every figure is verified
-          against SEC XBRL.
+          growth, margins, cash, balance sheet — with an AI analysis where every cited figure is
+          verified against SEC XBRL.
         </p>
       </header>
 
@@ -320,6 +320,18 @@ export default function AnalysisPageClient() {
           </p>
         </div>
       )}
+
+      {/* Legal one-liner: outside every result/Pro gate so guests, free users viewing the sample,
+          and Pro users all see it (drafted in the audit's legal review; pending counsel polish). */}
+      <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+        This analysis is AI-generated, for informational purposes only, and is not investment
+        advice or a recommendation; past performance does not predict future results. Verify
+        against the original filings on SEC EDGAR. See our{' '}
+        <Link href="/terms" className="underline">
+          Terms
+        </Link>
+        .
+      </p>
     </div>
   )
 }
