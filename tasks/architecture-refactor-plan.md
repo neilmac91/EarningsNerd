@@ -521,6 +521,43 @@ snapshot).
   authoritative that both are now removed.
 Gate: ruff + bandit + pytest (1247 passed, 2 deselected). T1 SSE contract unchanged.
 
+**Wave 3 — memory system, drift fixes, F4 completion (PR #568; plan-author session executing).**
+The final wave, plus the two small remainders the sequencing review left open.
+- **S1 production validation (recorded for the log):** the `eval-baseline` CI job ran the FULL
+  26-filing golden set on #565's head (pass_rate 1.0, gate_fail 0.0, citation precision/coverage
+  1.0 vs pinned baseline); post-merge, a forced `earningsnerd-pregenerate` execution drained 7/7
+  filings through the unified pipeline to `terminal=complete` in prod. The 24–48h telemetry soak
+  was consciously waived (zero active users; founder sign-off recorded on #565).
+- **M2 — ADR-0006** (`docs/adr/0006-gemini-to-deepseek.md`): DeepSeek `deepseek-v4-pro` via the
+  OpenAI-compatible client supersedes ADR-0002 (Gemini); 0002 marked Superseded; index updated.
+  Eval evidence + provider-portability constraints recorded in the ADR.
+- **M1 — `lessons/` created (53 lessons + README index):** 5 field-tested verification-technique
+  lessons from this refactor (AST pure-move proofs, adversarial-lens verification,
+  proofs-run-on-committed-state, structural-gates-over-prose, wire-format coverage), 13
+  audit-derived seeds, and 35 extracted from `tasks/lessons.md` (1 duplicate folded); the monolith
+  is now a pointer stub. One review fix (Gemini bot, #568): the allowlist lesson said "aware" where
+  the allowlist tracks NAIVE sites.
+- **M2 — drift fixes:** 15 stale references corrected across live docs (Gemini→DeepSeek,
+  EarningsWhispers→Alpha Vantage, dead `backend/pipeline/` citations, supersession banners on
+  finished plans, stale component paths); `docs/AI_API_OPTIMIZATIONS.md` archived to
+  `docs/history/plans/` (its API-cost analysis predates the DeepSeek switch and D1 deletions).
+- **F4 completion:** the two stray fetches the F4 sweep left behind — `features/analysis`'s PDF
+  export (was a raw URL/`fetch`; now `exportAnalysisPdf()` blob via the shared client +
+  `lib/downloadBlob.ts`) and `filing-content-api.ts` — now go through the shared axios client
+  (auth-refresh interceptors apply). `tsc -p tsconfig.ci.json` clean.
+- **M3 — reference detail re-homed, CLAUDE.md v2 published (877 → ~145 lines).**
+  `docs/ARCHITECTURE.md` fully rewritten to the END state (one orchestrator, `services/ai/`
+  façade, DeepSeek, current router/service/model inventory, integrity invariants, known debt);
+  new `docs/CONFIGURATION.md` (env-var reference) + `docs/OPERATIONS.md` (health/metrics/runbook/
+  admin/scripts); `docs/TROUBLESHOOTING.md` extended (common issues + NULL-`sec_url` repair).
+  CLAUDE.md v2 = rules + pointers per Appendix A, reconciled with the shipped end-state; it also
+  corrects two long-standing inaccuracies: migrations are CI-re-applied idempotently on every
+  deploy (not "applied manually"), and the self-improvement loop now writes to `lessons/`.
+- **Durable follow-ups** (also listed in `docs/ARCHITECTURE.md` §Known debt): unify the two
+  companyfacts fetchers (`xbrl_service` + `facts_service` — deferred from S4), T9 fixture coverage
+  for liabilities/cash buckets, and the note that extraction vs facts-normalization concept lists
+  remain deliberately separate registries.
+
 _(Deltas from later waves will be appended here as they are executed.)_
 
 ---
