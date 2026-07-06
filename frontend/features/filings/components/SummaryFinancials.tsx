@@ -2,7 +2,7 @@ import React from 'react'
 import { SummaryBlock } from '@/features/filings/components/SummaryBlock'
 import { SectionEmpty } from './SectionEmpty'
 import { MetricSourceLink } from '@/features/filings/components/MetricSourceLink'
-import { PerAdsNote } from '@/features/marketing/components/PerAdsNote'
+import { PerAdsNote } from '@/features/filings/components/PerAdsNote'
 import type { MetricItem } from '@/types/summary'
 
 interface SummaryFinancialsProps {

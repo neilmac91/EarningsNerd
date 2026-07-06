@@ -3,7 +3,7 @@
 import { MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 import { fmtCurrency, fmtPercent, fmtScale, parseNumeric } from '@/lib/format'
 import { MetricSourceLink } from '@/features/filings/components/MetricSourceLink'
-import { PerAdsNote } from '@/features/marketing/components/PerAdsNote'
+import { PerAdsNote } from '@/features/filings/components/PerAdsNote'
 import { Card, CardHeader, CardTitle, CardFooter, DataTable, type Column, type CellTone } from '@/components/ui'
 import type { PerAdsValue } from '@/types/summary'
 
