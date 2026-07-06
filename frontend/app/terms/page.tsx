@@ -1,5 +1,6 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
+import { LEGAL_DATES } from '@/lib/legalDates'
 
 export const metadata: Metadata = {
   title: 'Terms of Service | EarningsNerd',
@@ -8,10 +9,8 @@ export const metadata: Metadata = {
 }
 
 export default function TermsPage() {
-  // The date the TERMS CONTENT last changed — update by hand in the same commit as any content
-  // edit. Never a render-time date: that showed every visitor "today", which misrepresents when
-  // the terms actually changed and undermines the change-notice clause in §13.
-  const lastUpdated = 'June 16, 2026'
+  // Content-change date — lives in lib/legalDates.ts with the full rationale.
+  const lastUpdated = LEGAL_DATES.terms
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">

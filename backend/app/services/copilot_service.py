@@ -26,7 +26,7 @@ from types import SimpleNamespace
 from typing import Any, AsyncGenerator, Optional
 
 from app.config import settings
-from app.services import copilot_tools
+from app.services import citation_markers, copilot_tools
 from app.services.openai_service import (
     STREAM_ACTIVITY_SENTINEL,
     STREAM_ERROR_SENTINEL,
@@ -542,6 +542,12 @@ def count_uncited_figures(answer: str, valid_count: Optional[int] = None) -> tup
     return figures, uncited
 
 
+# A member of a multi-reference bracket group: "F1" (tool fact) or "1" (text excerpt) —
+# consumed by the citation_markers pre-pass that splits "[F1, F2]" into "[F1] [F2]" before
+# resolution (the resolver's own regex matches single markers only).
+_GROUP_MEMBER_RE = re.compile(r"(F?\s*\d+)", re.IGNORECASE)
+
+
 def _resolve_citations(
     full_answer: str,
     text_citations_by_marker: dict[str, dict],
@@ -847,6 +853,19 @@ async def answer_filing_question(
         citations = _parse_citations(citation_raw)
         text_citations_by_marker = _verify_citations(citations, filing, normalized_source)
 
+        # Multi-reference bracket groups the model emits despite the one-marker-per-bracket
+        # contract — "[F1, F2]", "[1, 3]", "[F1 vs F2]" — previously stayed LITERAL in the answer
+        # (the resolver's regex only matches single markers). Normalize them to adjacent single
+        # brackets first (shared citation-group classification with the trend resolver), so each
+        # reference resolves through the normal path, adjacency guards included.
+        full_answer = citation_markers.expand_citation_marker_groups(
+            full_answer,
+            ref_re=_GROUP_MEMBER_RE,
+            normalize=lambda ref: re.sub(r"\s+", "", ref).upper(),
+            # Only groups with at least one F-ref expand: an all-plain-number group could be a
+            # bracketed thousands figure ("[1,234]"), which must never be split.
+            require_re=citation_markers.MARKER_REF_RE,
+        )
         # Single server-owned numbering pass: resolves every marker actually present in the answer
         # (text-excerpt or tool-figure alike) against its real source, assigns one continuous
         # sequential number in first-appearance order, and rewrites the answer's inline markers to

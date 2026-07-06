@@ -4,6 +4,7 @@ import { useMemo, type ComponentProps, type ElementType, type ReactNode } from '
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
+import AiDisclaimer from '@/components/AiDisclaimer'
 import { Badge, Button, Card, Notice } from '@/components/ui'
 import { ArrowClockwiseIcon, CircleNotchIcon, DownloadSimpleIcon } from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
@@ -231,11 +232,10 @@ export default function NarrativePane({
             <CitationList citations={completion.citations} sample={sample} />
           )}
           {state.status === 'done' && completion && (
-            <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-              AI-generated. Informational only — not investment advice. Cited figures resolve to
-              SEC XBRL values; uncited statements are the model&apos;s interpretation and can be
-              wrong.
-            </p>
+            <AiDisclaimer className="mt-3">
+              Cited figures resolve to SEC XBRL values; uncited statements are the model&apos;s
+              interpretation and can be wrong.
+            </AiDisclaimer>
           )}
         </>
       )}

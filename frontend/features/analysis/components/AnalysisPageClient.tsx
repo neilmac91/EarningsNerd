@@ -23,6 +23,7 @@ import {
   type AnalysisDataset,
   type AnalysisMode,
 } from '@/features/analysis/api/analysis-api'
+import AiDisclaimer from '@/components/AiDisclaimer'
 import { downloadDatasetCsv } from '@/features/analysis/lib/chartExport'
 import AnalysisTeaser from './AnalysisTeaser'
 import KpiStrip from './KpiStrip'
@@ -324,7 +325,7 @@ export default function AnalysisPageClient() {
 
       {/* Legal one-liner: outside every result/Pro gate so guests, free users viewing the sample,
           and Pro users all see it (drafted in the audit's legal review; pending counsel polish). */}
-      <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+      <AiDisclaimer lead={false}>
         This analysis is AI-generated, for informational purposes only, and is not investment
         advice or a recommendation; past performance does not predict future results. Verify
         against the original filings on SEC EDGAR. See our{' '}
@@ -332,7 +333,7 @@ export default function AnalysisPageClient() {
           Terms
         </Link>
         .
-      </p>
+      </AiDisclaimer>
     </div>
   )
 }

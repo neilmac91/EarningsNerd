@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import Company, FinancialFact
+from app.services import citation_markers
 
 logger = logging.getLogger(__name__)
 
@@ -800,25 +801,12 @@ def marker_index(dataset: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 NOT_ENOUGH_DATA_SENTINEL = "===NOT_ENOUGH_DATA==="
 
-# Every bracket group; whether it is a citation (vs prose) is decided in code. Deliberately no
-# lazy quantifiers or overlapping alternations anywhere in the resolver's regexes: the narrative
-# is model-generated (semi-adversarial) input scanned ON the event loop, so the patterns must be
-# linear — a lazy/ambiguous form here measured O(n²)-to-exponential on degenerate outputs.
-_MARKER_GROUP_RE = re.compile(r"\[([^\[\]]*)\]")
-_MARKER_REF_RE = re.compile(r"F\s*(\d+)", re.IGNORECASE)
-# What may legally surround the F-references inside one bracket group: list/range/comparison
-# connector words and punctuation ("F1, F2", "F1..F10", "F1-F2", "F1 vs F2", "F1 and F2",
-# "F1 through F10", "F9 versus F10", "F1 or F2"). Validated in two LINEAR passes (strip the
-# refs, strip whole connector words, then a single character class) — never an alternation of
-# overlapping words inside a `*` group, which is how the first version went exponential.
-_MARKER_CONNECTOR_WORD_RE = re.compile(r"\b(?:versus|vs|through|and|to|or)\b", re.IGNORECASE)
-_MARKER_SEPARATOR_CHARS_RE = re.compile(r"^[\s,;&/.·–—-]*$")
-
-
-def _is_citation_group(content: str) -> bool:
-    residue = _MARKER_REF_RE.sub("", content)
-    residue = _MARKER_CONNECTOR_WORD_RE.sub("", residue)
-    return _MARKER_SEPARATOR_CHARS_RE.match(residue) is not None
+# Citation-group classification (what makes a bracket group a citation vs prose, and the
+# linear-regex discipline behind it) lives in the shared citation_markers module — the copilot
+# resolver's multi-ref pre-pass consumes the same knowledge.
+_MARKER_GROUP_RE = citation_markers.MARKER_GROUP_RE
+_MARKER_REF_RE = citation_markers.MARKER_REF_RE
+_is_citation_group = citation_markers.is_citation_group
 
 
 def _point_citation(n: int, point: dict[str, Any]) -> dict[str, Any]:
