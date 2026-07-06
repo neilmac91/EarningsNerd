@@ -604,9 +604,10 @@ facts-only past days.
 # Task: Homepage sections keep/fix/kill — Trending Filings & Market Movers (2026-07-06)
 
 **Status: AWAITING NEIL'S DECISION — no code changed yet.** Full evidence, options, and verdicts:
-`tasks/homepage-sections-review-findings.md`. Verdicts: Market Movers → HIDE (high confidence);
-Trending Filings → minimal honest FIX now + instrument, EDGAR rebuild only if 30-day data earns it
-(medium-high confidence).
+`tasks/homepage-sections-review-findings.md`. Verdicts (post-adversarial-pass): Market Movers →
+HIDE now via flag, permanence ratified day 30 (high confidence on hiding); Trending Filings →
+minimal honest FIX now + instrument, EDGAR-rebuild decision at 30-day checkpoint (medium
+confidence; explicit runner-up = hide + rebuild immediately if 2–3 days available this month).
 
 ## Phase A — zero-risk prep (any verdict)
 - [ ] A1 (S, 2–3h): `homepage_section_viewed` impression event (IntersectionObserver hook) on both
@@ -618,29 +619,34 @@ Trending Filings → minimal honest FIX now + instrument, EDGAR rebuild only if 
       `tests/unit/test_stocktwits_fmp.py`. (Moot if B1 ships in the same deploy.)
 - [ ] A3 (30 min, Neil, no code): run PostHog queries P1–P6 from findings §3.
 
-## Phase B-MM — Market Movers: HIDE (recommended)
-- [ ] B1 (S, 1–2h): remove section from `frontend/app/page.tsx:224-230` + `fetchTrendingInitial`
-      prefetch (`frontend/lib/serverApi.ts:143` + call site); or flag-gate
-      `NEXT_PUBLIC_ENABLE_MARKET_MOVERS` default-off in `featureFlags.ts`. Verify build + e2e +
+## Phase B-MM — Market Movers: HIDE now via flag; permanence ratified at day 30 (amended per adversarial pass)
+- [ ] B1 (S, 1–2h): flag-gate `NEXT_PUBLIC_ENABLE_MARKET_MOVERS` default-off in `featureFlags.ts`;
+      conditional render at `frontend/app/page.tsx:224-230` + skip `fetchTrendingInitial`
+      prefetch (`frontend/lib/serverApi.ts:143` + call site) when off. Verify build + e2e +
       both themes on preview.
-- [ ] B2 (M, 4–6h, follow-up PR ≥1 deploy later): delete `routers/trending.py` (+ mount),
-      `services/trending_service.py`, `integrations/stocktwits.py`,
-      `tests/unit/test_stocktwits_fmp.py`, `TrendingTickers.tsx` + companies-api fns +
-      `queryKeys.trendingTickers`.
+- [ ] B2 (M, 4–6h, day ~30, after PostHog P2/P4 ratify): delete `routers/trending.py` (+ mount),
+      `services/trending_service.py`, `tests/unit/test_stocktwits_fmp.py`,
+      `TrendingTickers.tsx` + companies-api fns + `queryKeys.trendingTickers`, and the flag.
+      KEEP `integrations/stocktwits.py` (healthy feed, verified live; roadmap A3/B4 names it
+      as a Filing Pulse input).
 - [ ] B3 (S, 2h, pairs with B4): retire `integrations/fmp.py` + `FMP_*` settings + doc rows;
       update `docs/ARCHITECTURE.md:156-157` + stale docstrings; add `lessons/` entry
       (dead-integration sweep + machine gate).
 
-## Phase B-TF — Trending Filings: minimal honest fix (recommended)
+## Phase B-TF — Trending Filings: minimal honest fix (recommended, amended per adversarial pass)
 - [ ] B4 (M, 4–6h): `services/hot_filings.py` — dedupe one-per-company, 14-day freshness floor,
-      `recency` in sources only when >0, delete dead FMP/Finnhub calls+components;
-      `routers/hot_filings.py` — remove zero-score fallback, drop public `force_refresh`.
+      **empty result below 3 qualifying companies**, `recency` in sources only when >0, delete
+      dead FMP/Finnhub calls+components; `pulse_service.py` — **suppress component breakdown
+      when only velocity/type are active** (tier only); `routers/hot_filings.py` — remove
+      zero-score fallback, drop public `force_refresh`.
       New `tests/unit/test_hot_filings_ranking.py`; update tz/pulse tests.
-- [ ] B5 (S, 2–3h): self-omit when empty (ReportingThisWeek precedent), retitle to
-      "Latest notable filings" (`page.tsx:191`), fix false "last 24 hours" empty-state copy
-      (`HotFilings.tsx:101`); frontend render test.
-- [ ] B6 (L, 2–3 days, CONDITIONAL — only on 30-day trigger ~2026-08-05): EDGAR-wide
-      `notable_filings` service (edgartools/Atom poll via edgar layer, 8-K item materiality,
-      one-per-company, cron via `/internal/jobs/*`). Frontend unchanged.
+- [ ] B5 (S, 2–3h): self-omit when empty incl. header (ReportingThisWeek precedent), retitle to
+      **"New filings this week"** + honest coverage subtitle (`page.tsx:191`), fix false
+      "last 24 hours" empty-state copy (`HotFilings.tsx:101`); frontend render test.
+- [ ] B6 (L, 2–3 days optimistic — decision at 30-day checkpoint ~2026-08-05, or immediately if
+      Neil picks the runner-up): EDGAR-wide `notable_filings` service (edgartools/Atom poll via
+      edgar layer, 8-K item materiality, recognizability filter vs microcap junk,
+      one-per-company, cron via `/internal/jobs/*`; link cards to `/company/{ticker}` to avoid
+      cold-ingest latency). Frontend mostly unchanged.
 
 Sequencing: PR 1 = A1+A2+B1+B4+B5 (~1.5 days); PR 2 = B2+B3 one deploy later; B6 gated on data.
