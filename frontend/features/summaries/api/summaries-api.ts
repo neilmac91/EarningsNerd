@@ -457,3 +457,20 @@ export const getWhatChanged = async (filingId: number): Promise<ChangeReport> =>
   const response = await api.get(`/api/summaries/filing/${filingId}/what-changed`)
   return response.data
 }
+
+// Summary exports (Pro). Routed through the shared axios client so they inherit
+// auth/refresh + `withCredentials` (replacing the page's two raw `fetch()`s).
+// A non-Pro caller gets a 403 the shared error layer surfaces via getErrorStatus.
+export const exportSummaryPdf = async (filingId: number): Promise<Blob> => {
+  const response = await api.get(`/api/summaries/filing/${filingId}/export/pdf`, {
+    responseType: 'blob',
+  })
+  return response.data
+}
+
+export const exportSummaryCsv = async (filingId: number): Promise<Blob> => {
+  const response = await api.get(`/api/summaries/filing/${filingId}/export/csv`, {
+    responseType: 'blob',
+  })
+  return response.data
+}
