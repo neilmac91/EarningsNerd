@@ -116,7 +116,7 @@ export default function PeriodPicker({
               disabled={m === 'quarterly' && !hasQuarters}
               aria-pressed={mode === m}
               className={cx(
-                'rounded-[10px] px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+                'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40',
                 mode === m
                   ? 'bg-brand text-white dark:bg-brand-dark dark:text-background-dark'
                   : 'text-text-secondary-light hover:bg-brand-weak dark:text-text-secondary-dark dark:hover:bg-white/10'

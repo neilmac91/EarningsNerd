@@ -73,7 +73,7 @@ Verified against the codebase, not just `CLAUDE.md`. Notable constraints and lat
   cards / shimmer / count-up animations. Dark mode is *already* a strength — Fiscal AI doesn't
   confirm having it, and we should design dark-first as a brand signature.
 - **Entitlements + Stripe + usage metering.** `entitlements.py` (FREE = 5 summaries/mo, PRO =
-  unlimited; `can_export`, `can_compare_filings`, real-time alerts, 8-K coverage, history retention),
+  unlimited; `can_export`, `can_analyze_trends`, real-time alerts, 8-K coverage, history retention),
   `UserUsage` monthly metering, `Subscription` model. We can gate and meter new AI features cleanly.
 - **`SavedSummary.notes` already exists** — a per-user free-text note attached to a summary. This is
   the seed of the entire community strategy (see Plan A / "Margin Notes").

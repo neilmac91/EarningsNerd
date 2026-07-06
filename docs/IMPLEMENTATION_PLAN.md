@@ -15,7 +15,7 @@
 |---|---|---|
 | **Auth** | Custom JWT + refresh cookies, Google + Apple OIDC, silent refresh, middleware gate | `COOKIE_DOMAIN` unset → redirect loop (Phase 0); middleware gates on 30-min token |
 | **Billing** | `subscriptions.py`: checkout, portal, **signature-verified** webhook (3 events); `is_pro` + stripe ids on `User` | No `Subscription` table (status/period/trial unknown); **no webhook idempotency**; no trial/dunning; price IDs default `""`; test↔live key handling undocumented |
-| **Entitlements** | `entitlements.py` (`Entitlements` dataclass, `get_entitlements`); export/compare/summary-quota gated | Ad-hoc `if not is_pro` (no `require_pro` dependency); watchlist limit defined but **not enforced**; flags missing (alerts, 8-K, history, priority model) |
+| **Entitlements** | `entitlements.py` (`Entitlements` dataclass, `get_entitlements`); export/analysis/summary-quota gated | Ad-hoc `if not is_pro` (no `require_pro` dependency); watchlist limit defined but **not enforced**; flags missing (alerts, 8-K, history, priority model) |
 | **Dashboard** | `dashboard/page.tsx`: subscription + usage + saved summaries + watchlist cards | No "what changed" feed, no new-filings feed, no calendar |
 | **Watchlist** | model (user/company), CRUD, `/insights`, compare route | **No new-filing detection, no alerts, no notification prefs**, no at-a-glance metrics |
 | **Settings** | account info, ConnectedAccounts (OAuth/sessions), GDPR export + delete | No notification prefs, no profile edit, no password change/set, thin billing panel |
@@ -89,7 +89,7 @@ Full detail in `docs/AUTH_INVESTIGATION.md`. Summary:
 - Duplicate webhook delivery is a no-op (idempotency test).
 - Cancel via portal → `cancel_at_period_end` shown; access remains until `current_period_end`, then downgrades (verified by webhook).
 - Trial grants Pro for 7 days then auto-downgrades; T-3 email sent.
-- Export/compare gated via `require_pro`; unit tests cover free=403 / pro=200.
+- Export/analysis gated via `require_pro`; unit tests cover free=403 / pro=200.
 
 **Effort:** ~4–6 dev-days. **Deps:** Phase 0 (must verify behind working auth). **Risks:** double-charge (idempotency), test/live mixups (config guard) — see register.
 

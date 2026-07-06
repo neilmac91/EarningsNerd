@@ -91,7 +91,7 @@ Key API surface (full, always-current reference at `/docs`):
 | Auth | `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me` |
 | Companies & filings | `GET /api/companies/search`, `GET /api/filings/company/{ticker}` |
 | Summaries | `POST /api/summaries/filing/{id}/generate-stream`, `GET /api/summaries/filing/{id}` |
-| Comparison (Pro) | `POST /api/compare` |
+| Multi-Period Analysis (Pro) | `POST /api/analysis/{ticker}/stream` |
 | Subscriptions | `POST /api/subscriptions/create-checkout-session` |
 
 ## Deployment
