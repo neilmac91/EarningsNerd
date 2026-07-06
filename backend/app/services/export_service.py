@@ -1,9 +1,11 @@
+import asyncio
+import csv
+import io
 from datetime import datetime
 from html import escape
+
 from app.models import Summary, Filing
 from app.services.summary_sections import Block, Section, render_sections
-import io
-import csv
 
 class ExportService:
     def __init__(self):
@@ -219,9 +221,8 @@ class ExportService:
         try:
             from weasyprint import HTML
             html_content = self.generate_pdf_html(summary, filing)
-            html = HTML(string=html_content)
-            pdf_bytes = html.write_pdf()
-            return pdf_bytes
+            # WeasyPrint parse + render is CPU-heavy (hundreds of ms) — off the event loop.
+            return await asyncio.to_thread(lambda: HTML(string=html_content).write_pdf())
         except ImportError:
             raise Exception("WeasyPrint is not installed. Install it with: pip install weasyprint")
         except Exception as e:
@@ -357,7 +358,8 @@ class ExportService:
         try:
             from weasyprint import HTML
             html_content = self.generate_analysis_pdf_html(analysis, company)
-            return HTML(string=html_content).write_pdf()
+            # WeasyPrint parse + render is CPU-heavy (hundreds of ms) — off the event loop.
+            return await asyncio.to_thread(lambda: HTML(string=html_content).write_pdf())
         except ImportError:
             raise Exception("WeasyPrint is not installed. Install it with: pip install weasyprint")
         except Exception as e:

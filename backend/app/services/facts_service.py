@@ -1606,22 +1606,30 @@ async def sync_companyfacts_batch(
 
     stats: dict[str, Any] = {"companies": 0, "refreshed": 0, "fresh": 0, "failed": 0,
                              "unsupported_ifrs": 0, "inserted": 0}
-    for company in query.all():
-        stats["companies"] += 1
-        try:
-            result = await ingest_companyfacts(db, company, force=force, fetcher=fetcher)
-        except Exception:  # noqa: BLE001 - one bad company must not stop the walk
-            logger.exception("companyfacts sync failed for company %s", company.id)
-            db.rollback()
-            stats["failed"] += 1
-            continue
-        if not result.get("synced"):
-            stats["failed"] += 1
-        elif result.get("refreshed"):
-            stats["refreshed"] += 1
-            stats["inserted"] += result.get("inserted", 0)
-        else:
-            stats["fresh"] += 1
-        if result.get("unsupported_ifrs"):
-            stats["unsupported_ifrs"] += 1
+    # Each per-company ingest commits; with the default expire-on-commit every loaded Company
+    # would then lazy-reload on the next iteration's attribute access (N+1). Disable it for the
+    # loop and restore after — the backfill_company_sic pattern.
+    prior_expire_on_commit = db.expire_on_commit
+    db.expire_on_commit = False
+    try:
+        for company in query.all():
+            stats["companies"] += 1
+            try:
+                result = await ingest_companyfacts(db, company, force=force, fetcher=fetcher)
+            except Exception:  # noqa: BLE001 - one bad company must not stop the walk
+                logger.exception("companyfacts sync failed for company %s", company.id)
+                db.rollback()
+                stats["failed"] += 1
+                continue
+            if not result.get("synced"):
+                stats["failed"] += 1
+            elif result.get("refreshed"):
+                stats["refreshed"] += 1
+                stats["inserted"] += result.get("inserted", 0)
+            else:
+                stats["fresh"] += 1
+            if result.get("unsupported_ifrs"):
+                stats["unsupported_ifrs"] += 1
+    finally:
+        db.expire_on_commit = prior_expire_on_commit
     return stats

@@ -19,8 +19,9 @@ the arithmetic.
    interpret (what a falling current ratio means), never to add facts (news, guidance, segment
    color, market share, stock price).
 4. **Write around gaps.** If a concept is missing ("not reported"), say nothing about it or note
-   the absence in one clause — never fill it in. Banks and insurers legitimately lack gross
-   margin; that is not a red flag by itself.
+   the absence in one clause (e.g. "Gross margin is not reported for this financial
+   institution.") — never fill it in. Banks and insurers legitimately lack gross margin; that is
+   not a red flag by itself.
 5. **Honest uncertainty.** Values marked [derived] are computed fourth-quarter figures (full year
    minus three reported quarters) — treat them as estimates and say "derived Q4" when leaning on
    one.
