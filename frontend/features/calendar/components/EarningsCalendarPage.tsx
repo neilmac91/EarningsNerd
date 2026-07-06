@@ -44,7 +44,7 @@ export default function EarningsCalendarPage() {
   const viewer = useViewer()
   const alerts = useEarningsAlerts(viewer)
 
-  const eventsByDate = useMemo(() => indexByDate(query.data ?? []), [query.data])
+  const eventsByDate = useMemo(() => indexByDate(query.data?.events ?? []), [query.data])
 
   const days: DayBucket[] = useMemo(() => {
     const monday = mondayOf(anchor)
@@ -64,7 +64,7 @@ export default function EarningsCalendarPage() {
     setAnchor((a) => (view === 'week' ? addDaysIso(mondayOf(a), dir * 7) : addMonths(a, dir)))
   }
 
-  const isEmpty = query.isSuccess && (query.data?.length ?? 0) === 0
+  const isEmpty = query.isSuccess && (query.data?.events?.length ?? 0) === 0
 
   return (
     <main className="mx-auto max-w-[1180px] px-4 pb-14 pt-7 sm:px-6">
@@ -75,6 +75,13 @@ export default function EarningsCalendarPage() {
           <p className="mt-1 max-w-[64ch] text-sm text-text-tertiary-light dark:text-text-secondary-dark">
             The most-anticipated U.S. reports, day by day. Dates are U.S. Eastern calendar days.
           </p>
+          {/* Coverage caption — shown only when the backend confirms the index filter is active, so
+              it never claims a curated universe while serving everything (accurate across flag states). */}
+          {query.data?.universe === 'sp500_nasdaq100' && (
+            <span className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-brand-weak px-2.5 py-1 text-xs font-semibold text-brand-strong dark:bg-brand-weak-dark dark:text-brand-strong-dark">
+              Covering the S&amp;P 500 &amp; Nasdaq 100
+            </span>
+          )}
         </div>
         {/* FREE cap usage — a deliberate conversion surface (§3.7). Pro users get NOTHING here by design. */}
         {viewer.signedIn && !viewer.isPro && (
