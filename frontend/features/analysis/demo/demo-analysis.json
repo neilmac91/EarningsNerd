@@ -248,6 +248,8 @@
     "unit": "pure",
     "percent": true,
     "cagr": null,
+    "window_pp": 2.73,
+    "window_pp_range": "FY2019..FY2024",
     "points": [
      {
       "period": "FY2019",
@@ -277,7 +279,7 @@
       "fiscal_year": 2020,
       "fiscal_period": "FY",
       "marker": "F14",
-      "yoy": -0.0155
+      "yoy": -0.33
      },
      {
       "period": "FY2021",
@@ -292,7 +294,7 @@
       "fiscal_year": 2021,
       "fiscal_period": "FY",
       "marker": "F15",
-      "yoy": 0.2377
+      "yoy": 4.97
      },
      {
       "period": "FY2022",
@@ -307,7 +309,7 @@
       "fiscal_year": 2022,
       "fiscal_period": "FY",
       "marker": "F16",
-      "yoy": -0.022
+      "yoy": -0.57
      },
      {
       "period": "FY2023",
@@ -337,7 +339,7 @@
       "fiscal_year": 2024,
       "fiscal_period": "FY",
       "marker": "F18",
-      "yoy": -0.0529
+      "yoy": -1.34
      }
     ]
    },

@@ -18,6 +18,15 @@
        panel surface with a token hairline underneath (no shadow). Uses
        border-separate so the hairline sticks with the header; the row
        hairlines live on the cells, which renders identically.
+     - stickyFirstColumn: the first column (both header and body cells)
+       sticks to the left of the scroll container on an opaque panel
+       surface with a token hairline on its right edge, so a wide financial
+       table can scroll horizontally without losing the row label. Body
+       cells repaint on row hover via `group-hover` (their own opaque fill
+       would otherwise mask the row's hover brighten). Composes cleanly
+       with stickyHeader — the header's first cell (the "corner") gets a
+       higher z-index than both plain sticky-header cells and the sticky
+       column's body cells, so it is never overlapped by either.
 ============================================================================= */
 
 import { type ReactNode, useEffect, useRef, useState } from 'react'
@@ -77,6 +86,9 @@ export interface DataTableProps<T> {
   density?: Density
   /** Header sticks to the top of the nearest scroll container (give the wrapper a height via `className`). */
   stickyHeader?: boolean
+  /** First column sticks to the left of the scroll container — keeps the row label visible on
+   *  a wide, horizontally-scrolling table. Composes with stickyHeader. */
+  stickyFirstColumn?: boolean
   /** Accessible summary, rendered sr-only. */
   caption?: string
   className?: string
@@ -87,7 +99,23 @@ const ROW_BORDER = 'border-t border-border-light dark:border-border-dark'
 const STICKY_TH =
   // Opaque token surface + token hairline — collapsed borders don't stick, so the
   // table switches to border-separate and the th carries its own bottom border.
-  'sticky top-0 z-10 bg-panel-light dark:bg-panel-dark border-b border-border-light dark:border-border-dark'
+  // z-index is applied separately (headerZIndex below) so exactly one z-* utility is ever
+  // present per cell — mixing z-10 here with a per-cell override is a Tailwind ordering trap
+  // (utility precedence follows generated-stylesheet order, not the HTML class attribute order).
+  'sticky top-0 bg-panel-light dark:bg-panel-dark border-b border-border-light dark:border-border-dark'
+
+// First-column sticky treatment, shared by header and body cells (see the file-header note).
+// z-index is likewise applied separately per cell (headerZIndex / bodyZIndex below).
+const STICKY_COL_BASE =
+  'sticky left-0 bg-panel-light dark:bg-panel-dark border-r border-border-light dark:border-border-dark'
+
+// Exactly one z-index decision per cell: the "corner" (sticky header × sticky first column)
+// must beat both an ordinary sticky-header sibling and a sticky-column body cell scrolling
+// under it; a plain sticky header cell or a plain sticky first-column cell only needs to beat
+// unstickied siblings at the default stacking level.
+const headerZIndex = (isFirstCol: boolean, stickyHeader: boolean): string | undefined =>
+  isFirstCol && stickyHeader ? 'z-20' : isFirstCol || stickyHeader ? 'z-10' : undefined
+const bodyZIndex = (isFirstCol: boolean): string | undefined => (isFirstCol ? 'z-[5]' : undefined)
 
 export function DataTable<T extends Record<string, unknown>>({
   columns,
@@ -101,6 +129,7 @@ export function DataTable<T extends Record<string, unknown>>({
   error,
   density = 'comfortable',
   stickyHeader = false,
+  stickyFirstColumn = false,
   caption,
   className,
 }: DataTableProps<T>) {
@@ -129,21 +158,33 @@ export function DataTable<T extends Record<string, unknown>>({
   return (
     <div className={cx(stickyHeader ? 'overflow-auto' : 'overflow-x-auto', className)}>
       <table
-        className={cx('w-full', d.text, stickyHeader ? 'border-separate border-spacing-0' : 'border-collapse')}
+        className={cx(
+          'w-full',
+          d.text,
+          stickyHeader || stickyFirstColumn ? 'border-separate border-spacing-0' : 'border-collapse'
+        )}
         aria-busy={loading || undefined}
       >
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead>
           {/* 12px uppercase metric-label header — eyebrow tracking 0.08em (--track-eyebrow), matching .markdown-body th */}
           <tr className="text-left text-xs uppercase tracking-[0.08em] text-text-tertiary-light dark:text-text-secondary-dark">
-            {columns.map((c) => {
+            {columns.map((c, colIndex) => {
               const sorted = sort && sort.key === c.key ? sort.dir : undefined
+              const isFirstCol = colIndex === 0 && stickyFirstColumn
               return (
                 <th
                   key={c.key}
                   scope="col"
                   aria-sort={sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : undefined}
-                  className={cx('px-3 font-semibold', d.headerY, c.align === 'right' && 'text-right', stickyHeader && STICKY_TH)}
+                  className={cx(
+                    'px-3 font-semibold',
+                    d.headerY,
+                    c.align === 'right' && 'text-right',
+                    stickyHeader && STICKY_TH,
+                    isFirstCol && STICKY_COL_BASE,
+                    headerZIndex(isFirstCol, stickyHeader)
+                  )}
                 >
                   {c.sortable && onSort ? (
                     <button
@@ -212,10 +253,14 @@ export function DataTable<T extends Record<string, unknown>>({
             ? rows.map((row, i) => (
                 <tr
                   key={rowKey(row, i)}
-                  className="transition-colors hover:bg-white dark:hover:bg-white/[0.03]"
+                  // `group` lets the sticky first column repaint on row hover via group-hover
+                  // (its own opaque fill would otherwise mask the row's hover brighten, since a
+                  // td's background paints over whatever the tr's hover background shows through).
+                  className="group transition-colors hover:bg-white dark:hover:bg-white/[0.03]"
                 >
-                  {columns.map((c) => {
+                  {columns.map((c, colIndex) => {
                     const tone = c.tone?.(row)
+                    const isFirstCol = colIndex === 0 && stickyFirstColumn
                     return (
                       <td
                         key={c.key}
@@ -226,6 +271,8 @@ export function DataTable<T extends Record<string, unknown>>({
                           c.align === 'right' && 'text-right',
                           c.numeric && 'font-data tabular-nums',
                           tone && TONE[tone],
+                          isFirstCol && cx(STICKY_COL_BASE, 'group-hover:bg-white dark:group-hover:bg-white/[0.03]'),
+                          bodyZIndex(isFirstCol)
                         )}
                       >
                         {c.render ? c.render(row) : (row[c.key] as ReactNode)}

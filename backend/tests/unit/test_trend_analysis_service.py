@@ -39,6 +39,32 @@ class TestMath:
         assert svc._growth(100.0, None) is None
         assert svc._growth(None, 100.0) is None
 
+    def test_growth_sign_flip_is_not_meaningful(self):
+        # +$503M -> -$71.9B: a swing through zero renders as "-14,399.2%" under plain division —
+        # finance convention calls this "n/m" rather than a real up/down move.
+        assert svc._growth(-71_925_000_000.0, 503_000_000.0) == svc.NOT_MEANINGFUL
+        assert svc._growth(50.0, -10.0) == svc.NOT_MEANINGFUL
+        # current == 0 with a nonzero prior is a real (if extreme) move, not a sign flip: a full
+        # decline to zero is -100%, a loss narrowing to breakeven is +100%.
+        assert svc._growth(0.0, 100.0) == pytest.approx(-1.0)
+        assert svc._growth(0.0, -100.0) == pytest.approx(1.0)
+        # Same-sign moves of ANY magnitude off a small base stay real growth (not "nm") — only
+        # an actual sign crossing is guarded.
+        assert svc._growth(31.0, 10.0) == pytest.approx(2.1)
+
+    def test_pp_delta_never_explodes_and_needs_no_nm_guard(self):
+        assert svc._pp_delta(38.3, 47.3) == pytest.approx(-9.0)
+        assert svc._pp_delta(47.3, 38.3) == pytest.approx(9.0)
+        assert svc._pp_delta(100.0, None) is None
+        assert svc._pp_delta(None, 100.0) is None
+
+    def test_fmt_growth(self):
+        assert svc._fmt_growth(svc.NOT_MEANINGFUL, False) == "n/m"
+        assert svc._fmt_growth(svc.NOT_MEANINGFUL, True) == "n/m"
+        assert svc._fmt_growth(-9.0, True) == "-9.0pp"  # percent series: no ×100
+        assert svc._fmt_growth(4.97, True) == "+5.0pp"
+        assert svc._fmt_growth(0.183, False) == "+18.3%"  # everything else: relative, ×100
+
     def test_cagr_edges(self):
         assert svc._cagr(100.0, 200.0, 5) == pytest.approx(2 ** 0.2 - 1)
         assert svc._cagr(-100.0, 200.0, 5) is None  # negative endpoint → undefined
@@ -276,6 +302,64 @@ class TestBuildDataset:
         assert revenue["2024Q2"]["yoy"] == pytest.approx((360.0 - 300.0) / 300.0)  # same Q, prior FY
         assert revenue["2023Q3"]["qoq"] == pytest.approx((310.0 - 300.0) / 300.0)
         assert by_concept["revenue"]["cagr"] is None  # CAGR is annual-mode only
+        db.close()
+
+    def test_percent_series_yoy_qoq_are_pp_deltas_not_relative(self):
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        company = _seed_company(db)
+        for fy, fp, end, start, value in [
+            (2023, "Q3", date(2023, 9, 30), date(2023, 7, 1), 47.3),
+            (2023, "Q4", date(2023, 12, 31), date(2023, 10, 1), 38.3),
+        ]:
+            _seed_fact(db, company.id, "net_margin", value, fy=fy, fp=fp, end=end, start=start,
+                       unit="pure")
+        db.commit()
+
+        dataset = svc.build_dataset(db, company, "quarterly", "2023Q3", "2023Q4")
+        margin = {p["period"]: p for p in
+                  next(s for s in dataset["series"] if s["concept"] == "net_margin")["points"]}
+        # 47.3% -> 38.3% is a -9.0pp move, never the relative "-19.0%".
+        assert margin["2023Q4"]["qoq"] == pytest.approx(-9.0)
+        db.close()
+
+    def test_sign_flip_growth_renders_nm_at_dataset_level(self):
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        company = _seed_company(db)
+        for fy, fp, end, start, value in [
+            (2023, "Q3", date(2023, 9, 30), date(2023, 7, 1), 503_000_000.0),
+            (2023, "Q4", date(2023, 12, 31), date(2023, 10, 1), -71_925_000_000.0),
+        ]:
+            _seed_fact(db, company.id, "investing_cash_flow", value, fy=fy, fp=fp, end=end,
+                       start=start)
+        db.commit()
+
+        dataset = svc.build_dataset(db, company, "quarterly", "2023Q3", "2023Q4")
+        icf = {p["period"]: p for p in
+               next(s for s in dataset["series"] if s["concept"] == "investing_cash_flow")["points"]}
+        assert icf["2023Q4"]["qoq"] == svc.NOT_MEANINGFUL
+        db.close()
+
+    def test_window_pp_is_the_cagr_counterpart_for_percent_series(self):
+        """Annual mode, percent-unit series: CAGR is always null (unit == "pure" excludes it),
+        so the KPI strip needs a window pp change instead (F1 fix)."""
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        company = _seed_company(db)
+        for fy, value in [(2021, 22.5), (2022, 30.0), (2023, 36.1)]:
+            _seed_fact(db, company.id, "net_margin", value, fy=fy, fp="FY",
+                       end=date(fy, 12, 31), start=date(fy, 1, 1), unit="pure")
+        db.commit()
+
+        dataset = svc.build_dataset(db, company, "annual", "FY2021", "FY2023")
+        margin = next(s for s in dataset["series"] if s["concept"] == "net_margin")
+        assert margin["cagr"] is None  # unit == "pure" — CAGR never applies
+        assert margin["window_pp"] == pytest.approx(36.1 - 22.5)
+        assert margin["window_pp_range"] == "FY2021..FY2023"
         db.close()
 
     def test_range_and_mode_validation(self):

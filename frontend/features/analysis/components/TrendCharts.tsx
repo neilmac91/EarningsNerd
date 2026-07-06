@@ -35,6 +35,30 @@ const bySeries = (dataset: AnalysisDataset): Record<string, AnalysisSeries> =>
 const compactUsd = (v: number) => fmtCurrency(v, { compact: true })
 const pct = (v: number) => fmtPercent(v, { digits: 1 })
 
+/** A panel's series legend: swatch + label per line, mirroring ChartTooltip's own swatch recipe
+ *  (8×8 square, 2px radius) so a multi-line panel's series are identifiable without hovering.
+ *  A single-series panel needs no legend — the title already names the one line. */
+function PanelLegend({ items }: { items: { label: string; color: string }[] }) {
+  if (items.length < 2) return null
+  return (
+    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+      {items.map((item) => (
+        <span
+          key={item.label}
+          className="inline-flex items-center gap-1.5 text-xs text-text-secondary-light dark:text-text-secondary-dark"
+        >
+          <span
+            aria-hidden="true"
+            className="inline-block h-2 w-2 shrink-0 rounded-sm"
+            style={{ background: item.color }}
+          />
+          {item.label}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 interface PanelSpec {
   title: string
   /** [concept, display label] pairs; only concepts present in the dataset render. */
@@ -110,7 +134,9 @@ export default function TrendCharts({ dataset }: { dataset: AnalysisDataset }) {
         const point = barSeries.points.find((p) => p.period === period.key)
         row[barSeries.concept] = point?.value ?? null
         if (panel.growthLine) {
-          row.growth = point?.yoy !== null && point?.yoy !== undefined ? point.yoy * 100 : null
+          // A sign-flip ("nm") isn't a plottable percentage — render it as a gap, same as a
+          // missing value, rather than coercing the sentinel into NaN.
+          row.growth = typeof point?.yoy === 'number' ? point.yoy * 100 : null
         }
       }
       return row
@@ -126,11 +152,21 @@ export default function TrendCharts({ dataset }: { dataset: AnalysisDataset }) {
       return panel.format(num)
     }
 
+    const legendItems = barSeries
+      ? [
+          { label: barSeries.label, color: seriesColor(0) },
+          ...(panel.growthLine ? [{ label: 'YoY growth', color: seriesColor(1) }] : []),
+        ]
+      : presentLines.map(([, label], index) => ({ label, color: seriesColor(index) }))
+
     return (
       <Card key={panel.title} as="section" className="p-5">
-        <h3 className="mb-3 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-          {panel.title}
-        </h3>
+        <div className="mb-3">
+          <h3 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
+            {panel.title}
+          </h3>
+          <PanelLegend items={legendItems} />
+        </div>
         <div className="h-56 w-full">
           <ResponsiveContainer width="100%" height="100%">
             {barSeries ? (

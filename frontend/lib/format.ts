@@ -165,6 +165,21 @@ export const fmtPercent = (
 }
 
 /**
+ * Percentage-POINT delta (e.g. a margin's YoY move) — the value is already in point units
+ * (47.3 → 38.3 is "-9.0"), never multiplied by 100 the way a relative-growth fraction is.
+ */
+export const fmtPercentPoints = (value: NumericInput, options?: { digits?: number }): string => {
+  const num = parseNumeric(value)
+  if (num === null) {
+    return ''
+  }
+  const digits = options?.digits ?? 1
+  const formatter = getFormatter({ minimumFractionDigits: digits, maximumFractionDigits: digits })
+  const formatted = formatter.format(num)
+  return num > 0 ? `+${formatted}pp` : `${formatted}pp`
+}
+
+/**
  * Sanitize a string for safe use in download filenames.
  * Removes or replaces characters that could cause XSS or path traversal issues.
  *
