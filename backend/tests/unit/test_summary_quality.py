@@ -12,8 +12,6 @@ from typing import List
 
 from app.services.summary_generation_service import (
     calculate_section_coverage,
-    determine_result_type,
-    generate_unavailable_sections_notes,
     MINIMUM_SECTIONS_FOR_FULL_RESULT,
     HIDEABLE_SECTIONS,
 )
@@ -227,117 +225,6 @@ class TestCoverageQualityGate:
         assert "business_overview" not in missing
 
 
-class TestResultTypeDesignation:
-    """Test full/partial result designation."""
-
-    def test_full_result_with_good_coverage(self):
-        """Should return 'full' for adequate coverage without errors."""
-        # NOTE: Content must be >20 chars and not contain placeholder patterns
-        summary_data = {
-            "business_overview": "Apple Inc. is a technology company that designs, manufactures, and markets consumer electronics worldwide.",
-            "financial_highlights": {"revenue": 100000000000, "notes": "Revenue increased 12% compared to the prior year quarter."},
-            "risk_factors": [{"risk": "Competition in consumer electronics market remains intense with many well-funded competitors."}],
-            "management_discussion": "Management's discussion and analysis covers results of operations and financial condition for Q4 2024.",
-            "key_changes": None,
-            "forward_guidance": None,
-            "additional_disclosures": None,
-        }
-
-        result_type, reason = determine_result_type(summary_data, had_errors=False)
-        assert result_type == "full"
-        assert reason is None
-
-    def test_partial_result_insufficient_coverage(self):
-        """Should return 'partial' for insufficient coverage."""
-        # NOTE: Only 1 section with substantive content (>20 chars)
-        summary_data = {
-            "business_overview": "Apple Inc. is a technology company that designs and manufactures consumer electronics globally.",
-            "financial_highlights": None,
-            "risk_factors": None,
-            "management_discussion": None,
-            "key_changes": None,
-            "forward_guidance": None,
-            "additional_disclosures": None,
-        }
-
-        result_type, reason = determine_result_type(summary_data, had_errors=False)
-        assert result_type == "partial"
-        assert "insufficient_coverage" in reason
-
-    def test_partial_result_with_errors(self):
-        """Should return 'partial' when errors occurred."""
-        # NOTE: Even with full coverage, errors should result in 'partial'
-        summary_data = {
-            "business_overview": "Apple Inc. is a technology company that designs and manufactures consumer electronics globally.",
-            "financial_highlights": {"revenue": 100000000000, "notes": "Revenue increased 12% compared to the prior year."},
-            "risk_factors": [{"risk": "Competition in consumer electronics market remains intense with many competitors."}],
-            "management_discussion": "Management's discussion covers results of operations and financial condition for Q4 2024.",
-            "key_changes": "Changes include higher R&D investment and expanded manufacturing capacity in Asia.",
-            "forward_guidance": "Management expects revenue growth of 10-15% based on current demand trends.",
-            "additional_disclosures": "Other disclosures include related party transactions and subsequent events.",
-        }
-
-        result_type, reason = determine_result_type(summary_data, had_errors=True)
-        assert result_type == "partial"
-        assert reason == "api_error"
-
-    def test_partial_result_with_timeout(self):
-        """Should return 'partial' when timeout occurred."""
-        # NOTE: Content must be >20 chars for sections to be counted
-        summary_data = {
-            "business_overview": "Apple Inc. is a technology company that designs and manufactures consumer electronics globally.",
-            "financial_highlights": {"revenue": 100000000000, "notes": "Revenue increased 12% compared to the prior year."},
-            "risk_factors": [{"risk": "Competition in consumer electronics market remains intense with many competitors."}],
-            "management_discussion": None,
-            "key_changes": None,
-            "forward_guidance": None,
-            "additional_disclosures": None,
-        }
-
-        result_type, reason = determine_result_type(summary_data, had_timeout=True)
-        assert result_type == "partial"
-        assert reason == "timeout"
-
-
-class TestUnavailableSectionsNotes:
-    """Test generation of unavailable sections notes."""
-
-    def test_generates_notes_for_missing_sections(self):
-        """Should generate appropriate notes for missing sections."""
-        missing = ["forward_guidance", "key_changes"]
-
-        notes = generate_unavailable_sections_notes(missing)
-
-        assert len(notes) == 2
-        assert any(n["section"] == "forward_guidance" for n in notes)
-        assert any(n["section"] == "key_changes" for n in notes)
-
-    def test_notes_have_correct_structure(self):
-        """Notes should have section and note fields."""
-        missing = ["risk_factors"]
-
-        notes = generate_unavailable_sections_notes(missing)
-
-        assert len(notes) == 1
-        assert "section" in notes[0]
-        assert "note" in notes[0]
-        assert notes[0]["section"] == "risk_factors"
-        assert "Risk factors" in notes[0]["note"]
-
-    def test_empty_missing_returns_empty(self):
-        """Empty missing list should return empty notes."""
-        notes = generate_unavailable_sections_notes([])
-        assert notes == []
-
-    def test_all_sections_have_notes(self):
-        """All hideable sections should have predefined notes."""
-        notes = generate_unavailable_sections_notes(HIDEABLE_SECTIONS)
-
-        assert len(notes) == len(HIDEABLE_SECTIONS)
-        for note in notes:
-            assert note["note"]  # Should have non-empty note
-
-
 class TestMinimumSectionsConstant:
     """Test the minimum sections constant."""
 
@@ -377,10 +264,6 @@ class TestSummaryQualityIntegration:
         covered, total, _, _ = calculate_section_coverage(summary)
         assert covered >= 3
 
-        # Check result type
-        result_type, _ = determine_result_type(summary)
-        assert result_type == "full"
-
         # Check for forbidden words
         all_text = " ".join([
             summary.get("business_overview", ""),
@@ -389,22 +272,6 @@ class TestSummaryQualityIntegration:
         ])
         found = check_for_subjective_language(all_text)
         assert len(found) == 0, f"Found forbidden words: {found}"
-
-    def test_low_quality_summary_detected(self):
-        """A low-quality summary should be flagged as partial."""
-        # NOTE: Only 1 section with substantive content - should be below minimum
-        summary = {
-            "business_overview": None,
-            "financial_highlights": None,
-            "risk_factors": None,
-            "management_discussion": "Management's discussion and analysis covers results of operations for Q4 2024.",
-            "key_changes": None,
-            "forward_guidance": None,
-            "additional_disclosures": None,
-        }
-
-        result_type, reason = determine_result_type(summary)
-        assert result_type == "partial"
 
     def test_subjective_summary_detected(self):
         """A summary with subjective language should be flagged."""

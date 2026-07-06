@@ -55,7 +55,7 @@ When receiving an AI feature task:
 * **Token Counting:** `tiktoken` library for accurate token estimation
 * **Pattern Search:** Use `Grep` to find existing prompts: `pattern: "system.*message|prompt"`
 * **Service Review:** Read `backend/app/services/openai_service.py` for current implementation
-* **Quality Metrics:** Review `backend/app/services/summary_generation_service.py` (`calculate_section_coverage`, `determine_result_type`, `assess_quality`) for validation patterns
+* **Quality Metrics:** Review `backend/app/services/summary_generation_service.py` (`calculate_section_coverage`, `assess_quality`) for validation patterns
 
 ### 3. Execution
 ```python

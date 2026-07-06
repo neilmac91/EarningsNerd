@@ -59,23 +59,6 @@ def stream_boundaries(*, payload=None, patch_usage_limit=True):
         yield summarize
 
 
-@contextmanager
-def background_boundaries(*, payload=None):
-    """Patch the seams in ``summary_generation_service``'s namespace for the background/cron path.
-    Yields the ``summarize_filing`` AsyncMock (inspect ``.call_args`` for e.g. previous_filings)."""
-    from app.services import summary_generation_service as bg
-
-    summarize = AsyncMock(return_value=CANONICAL_PAYLOAD if payload is None else payload)
-    with ExitStack() as stack:
-        p = stack.enter_context
-        p(_patch(bg.sec_edgar_service, "get_filing_document", AsyncMock(return_value=_FILING_DOC_TEXT)))
-        p(_patch(bg.xbrl_service, "get_xbrl_data", AsyncMock(return_value=None)))
-        p(_patch(bg.xbrl_service, "get_filing_sections", AsyncMock(return_value=None)))
-        p(_patch(bg, "get_or_cache_excerpt", lambda *a, **k: "EXCERPT"))
-        p(_patch(bg.openai_service, "summarize_filing", summarize))
-        yield summarize
-
-
 def _patch(target, attr, value):
     from unittest.mock import patch
     return patch.object(target, attr, value)
