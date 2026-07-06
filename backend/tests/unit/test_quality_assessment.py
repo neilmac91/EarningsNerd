@@ -101,12 +101,13 @@ def _snapshot_payload(covered_names, *, extra_covered=None):
     }
 
 
-def test_flag_on_verdicts_on_fixed_9_section_taxonomy_at_4(monkeypatch):
-    """Flag ON: verdict on the FIXED 9-section taxonomy at a literal 4/9 bar. >=4 covered -> full,
-    <4 -> partial, and a stray extra covered key can't move the bar (total is pinned to the 9
-    _TRACKED_STRUCTURED_SECTIONS, never the payload's floating total_count)."""
+def test_verdicts_on_fixed_9_section_taxonomy_at_4():
+    """Verdict on the FIXED 9-section taxonomy at a literal 4/9 bar (a payload carrying a per_section
+    snapshot). >=4 covered -> full, <4 -> partial, and a stray extra covered key can't move the bar
+    (total is pinned to the 9 _TRACKED_STRUCTURED_SECTIONS, never the payload's floating
+    total_count). When no per_section snapshot is present, assess_quality falls back to the legacy 7
+    HIDEABLE_SECTIONS at 3/7 (covered by the tests above)."""
     from app.services import summary_generation_service as svc
-    monkeypatch.setattr(svc.settings, "USE_PIPELINE_FOR_BACKGROUND", True)
 
     v = svc.assess_quality(_snapshot_payload(_STRUCTURED_SECTIONS[:4]), None)
     assert v["tier"] == "full" and (v["covered_count"], v["total_count"]) == (4, 9)
@@ -116,14 +117,3 @@ def test_flag_on_verdicts_on_fixed_9_section_taxonomy_at_4(monkeypatch):
 
     v = svc.assess_quality(_snapshot_payload(_STRUCTURED_SECTIONS[:3], extra_covered=["hallucinated"]), None)
     assert (v["covered_count"], v["total_count"]) == (3, 9)  # stray key ignored
-
-
-def test_flag_off_ignores_snapshot_uses_legacy_7_section(monkeypatch):
-    """Flag OFF (current production): the 9-snapshot branch is inert — assess_quality verdicts on the
-    legacy 7 HIDEABLE_SECTIONS, so the user-facing SSE verdict is unchanged until the soak flips the
-    flag. total_count == 7 proves the snapshot was ignored."""
-    from app.services import summary_generation_service as svc
-    monkeypatch.setattr(svc.settings, "USE_PIPELINE_FOR_BACKGROUND", False)
-
-    v = svc.assess_quality(_snapshot_payload(_STRUCTURED_SECTIONS[:4]), None)
-    assert v["total_count"] == 7

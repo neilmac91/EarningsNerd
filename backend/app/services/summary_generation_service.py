@@ -1,16 +1,11 @@
-import asyncio
 import time
 from app.utils.datetimes import utcnow
 from datetime import timezone
-from typing import Optional, Dict, Any, List, Tuple, Literal
+from typing import Optional, Dict, Any, List, Tuple
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from app.models import Filing, Summary, SummaryGenerationProgress, User, FilingContentCache
-# EdgarTools migration: Using new edgar module for SEC services
-from app.services.content_cache import upsert_content_cache
-from app.services.edgar.compat import sec_edgar_service, xbrl_service
 from app.services.openai_service import openai_service
-from app.schemas import attach_normalized_facts
 from app.services.subscription_service import increment_user_usage, get_current_month
 from app.config import settings
 from app.database import SessionLocal
@@ -154,24 +149,19 @@ MINIMUM_STRUCTURED_SECTIONS_FOR_FULL = 4
 def _verdict_coverage(summary_data: Dict[str, Any]) -> Tuple[int, int, int]:
     """(covered, total, min_full) for the quality verdict.
 
-    Gated on the S1 flag so the taxonomy/verdict semantics flip ATOMICALLY with the rest of the
-    unification at soak time — never ahead of it:
-
-    * flag ON: coverage over the FIXED 9-section structured taxonomy (``_TRACKED_STRUCTURED_SECTIONS``,
-      intersected with the snapshot's ``per_section`` so stray model keys can't move the count),
-      gated at the literal ``MINIMUM_STRUCTURED_SECTIONS_FOR_FULL`` (4/9);
-    * flag OFF (current production): byte-for-byte the legacy 7 ``HIDEABLE_SECTIONS`` coverage at
-      the 3/7 bar — assess_quality's only caller is the user-facing SSE stream, so flag-off must be
-      unchanged.
+    Coverage over the FIXED 9-section structured taxonomy (``_TRACKED_STRUCTURED_SECTIONS``,
+    intersected with the snapshot's ``per_section`` so stray model keys can't move the count),
+    gated at ``MINIMUM_STRUCTURED_SECTIONS_FOR_FULL`` (4/9). When the payload carries no
+    ``per_section`` snapshot, falls back to the legacy 7 ``HIDEABLE_SECTIONS`` coverage at the 3/7
+    bar. assess_quality's only caller is the user-facing SSE stream (summary_pipeline).
     """
-    if settings.USE_PIPELINE_FOR_BACKGROUND:
-        from app.services.openai_service import _TRACKED_STRUCTURED_SECTIONS
+    from app.services.openai_service import _TRACKED_STRUCTURED_SECTIONS
 
-        snapshot = (summary_data.get("raw_summary") or {}).get("section_coverage") or {}
-        per_section = snapshot.get("per_section")
-        if isinstance(per_section, dict):
-            covered = sum(1 for s in _TRACKED_STRUCTURED_SECTIONS if per_section.get(s))
-            return covered, len(_TRACKED_STRUCTURED_SECTIONS), MINIMUM_STRUCTURED_SECTIONS_FOR_FULL
+    snapshot = (summary_data.get("raw_summary") or {}).get("section_coverage") or {}
+    per_section = snapshot.get("per_section")
+    if isinstance(per_section, dict):
+        covered = sum(1 for s in _TRACKED_STRUCTURED_SECTIONS if per_section.get(s))
+        return covered, len(_TRACKED_STRUCTURED_SECTIONS), MINIMUM_STRUCTURED_SECTIONS_FOR_FULL
     covered, total, _, _ = calculate_section_coverage(summary_data)
     return covered, total, MINIMUM_SECTIONS_FOR_FULL_RESULT
 
@@ -219,60 +209,6 @@ def assess_quality(
         "covered_count": covered,
         "total_count": total,
     }
-
-
-def determine_result_type(
-    summary_data: Dict[str, Any],
-    had_errors: bool = False,
-    had_timeout: bool = False,
-) -> Tuple[Literal["full", "partial"], Optional[str]]:
-    """Determine if a summary result is 'full' or 'partial'.
-
-    Per execution plan requirements:
-    - Full Result: ≥3/7 sections populated, no errors, AI completed
-    - Partial Result: <3/7 sections OR timeout OR error during generation
-
-    Goal: 0% partial results - partial should be SUPER RARE.
-
-    Returns:
-        Tuple of (result_type, partial_reason)
-        partial_reason is None for full results
-    """
-    covered_count, total_count, _, _ = calculate_section_coverage(summary_data)
-
-    # Check for errors first
-    if had_errors:
-        return "partial", "api_error"
-
-    if had_timeout:
-        return "partial", "timeout"
-
-    # Check coverage threshold
-    if covered_count < MINIMUM_SECTIONS_FOR_FULL_RESULT:
-        return "partial", f"insufficient_coverage ({covered_count}/{total_count} sections)"
-
-    return "full", None
-
-
-def generate_unavailable_sections_notes(missing_sections: List[str]) -> List[Dict[str, str]]:
-    """Generate user-friendly notes for unavailable sections.
-
-    Per execution plan: Executive Summary must explicitly note unavailable sections.
-    """
-    notes_mapping = {
-        "business_overview": "Business overview information was not available in this filing",
-        "financial_highlights": "Financial highlights could not be extracted from this filing",
-        "risk_factors": "Risk factors were not itemized in this filing",
-        "management_discussion": "Management Discussion & Analysis (MD&A) was not available",
-        "key_changes": "Year-over-year comparisons were not available for this filing period",
-        "forward_guidance": "No forward guidance was disclosed in this filing",
-        "additional_disclosures": "No additional disclosures were identified in this filing",
-    }
-
-    return [
-        {"section": section, "note": notes_mapping.get(section, f"{section} was not available")}
-        for section in missing_sections
-    ]
 
 
 def record_progress(
@@ -411,14 +347,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
         if not filing:
             logger.warning(f"Filing {filing_id} not found")
             return
-        
-        # Cache company data early to avoid detached session issues
-        company_name = filing.company.name if filing.company else "Company"
-        filing_type = (filing.filing_type or "").upper()
-        filing_document_url = filing.document_url
-        filing_accession_number = filing.accession_number
-        company_cik = filing.company.cik if filing.company else None
-        
+
         # Check if summary already exists
         existing = db.query(Summary).filter(Summary.filing_id == filing_id).first()
         if existing:
@@ -456,539 +385,37 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                 db.rollback()
             return
         
-        if settings.USE_PIPELINE_FOR_BACKGROUND:
-            # S1 (decision A): the background/cron/pregenerate path drains the ONE orchestrator
-            # (stream_filing_summary) headless — inheriting its filing-only generation, the
-            # 9-section assess_quality verdict, partial-persistence, and filing_id-conflict
-            # handling. Funnel telemetry is suppressed (a precompute run emits ZERO funnel events
-            # — T2 pin); current_user=None skips the user-facing paywall gate, while usage still
-            # increments for a signed-in user_id on a full result via the pipeline's own
-            # count_usage. The existing-summary short-circuit above is the caller's job here (the
-            # pipeline does not re-check it). Deletions of the now-dead legacy body below ride the
-            # post-soak old-path removal, not this dark PR.
-            from app.services.summary_pipeline import stream_filing_summary
+        # S1: the background/cron/pregenerate path drains the ONE orchestrator
+        # (stream_filing_summary) headless — inheriting its filing-only generation, the
+        # 9-section assess_quality verdict, partial-persistence, and filing_id-conflict handling.
+        # Funnel telemetry is suppressed (a precompute run emits ZERO funnel events — T2 pin);
+        # current_user=None skips the user-facing paywall gate, while usage still increments for a
+        # signed-in user_id on a full result via the pipeline's own count_usage. The existing-summary
+        # short-circuit above is the caller's job here (the pipeline does not re-check it).
+        from app.services.summary_pipeline import stream_filing_summary
 
-            drain_started = time.time()
-            terminal_event: Optional[Dict[str, Any]] = None
-            async for terminal_event in stream_filing_summary(
-                filing_id=filing_id,
-                current_user=None,
-                user_id=user_id,
-                telemetry_distinct_id=str(user_id) if user_id else "precompute",
-                telemetry_entry_point=None,
-                telemetry_ctx={},
-                emit_funnel_telemetry=False,
-            ):
-                pass
-            # With funnel telemetry suppressed for cron, this is the drain's ONLY per-filing signal
-            # in the Cloud Run job logs — parity with the legacy body's per-filing success/error
-            # lines, and what makes the 24-48h soak grep-able. Crucially, the pipeline converts
-            # exceptions into terminal error EVENTS (the job still exits 0), so a failing pregenerate
-            # batch would otherwise look identical to a successful one.
-            terminal_type = (terminal_event or {}).get("type", "none")
-            drain_secs = time.time() - drain_started
-            log = logger.warning if terminal_type == "error" else logger.info
-            log(f"[{filing_id}] drain terminal={terminal_type} duration={drain_secs:.1f}s")
-            return
-
-        start_time = time.time()
-
-        # Increased timeouts to accommodate API retries (3 attempts with exponential backoff).
-        # 20-F (foreign annual report) is as large as a 10-K, so it gets the same generous budget.
-        global_timeout = (
-            120.0 if filing_type in {"10-K", "20-F"}
-            else (100.0 if filing_type == "10-Q" else 60.0)
-        )
-
-        async def generate_summary_core() -> None:
-                # Step 1: File Validation
-                record_progress(db, filing_id, "fetching")
-                logger.info(f"[{filing_id}] Step 1: File Validation - Confirming document is accessible and parsable...")
-
-                # XBRL budgets account for the accession-aware primary path
-                # (issue #240): a cold filing.xbrl() parse downloads and parses
-                # the instance documents (typically 2-10s), unlike the old
-                # single companyfacts JSON fetch. Cached filings return in ms.
-                processing_profile = {
-                    "include_previous": False,
-                    "document_timeout": 15.0,
-                    "xbrl_timeout": 12.0,
-                    # 20-F XBRL is currency-aware (reporting currency captured, not USD convenience),
-                    # so foreign annual reports fetch it too. split("/") covers amended forms
-                    # (10-K/A, 20-F/A). filing_type is already upper-cased above.
-                    "fetch_xbrl": filing_type.split("/")[0] in {"10-K", "10-Q", "20-F"},
-                }
-
-                if filing_type == "10-K":
-                    processing_profile.update(
-                        {
-                            "include_previous": True,
-                            "document_timeout": 15.0,
-                            "xbrl_timeout": 12.0,
-                        }
-                    )
-                elif filing_type == "10-Q":
-                    processing_profile.update(
-                        {
-                            "include_previous": False,
-                            "document_timeout": 10.0,
-                            "xbrl_timeout": 10.0,
-                        }
-                    )
-
-                # B3: the section parse gets its OWN (larger) budget rather than sharing
-                # document_timeout — it runs concurrent with the fetch, so the headroom is mostly
-                # hidden, and big financial filers (BAC/GS ~20-21s, JPM ~26s) were exceeding the 15s
-                # document budget and falling back to the lower-precision regex excerpt. This also
-                # fixes 20-F (its inner 40s cap was previously defeated by the 15s outer wait_for).
-                processing_profile["section_timeout"] = (
-                    40.0 if filing_type.split("/")[0] == "20-F" else 30.0
-                )
-
-                previous_filings = []
-                if processing_profile["include_previous"]:
-                    previous_filings = (
-                        db.query(Filing)
-                        .filter(
-                            Filing.company_id == filing.company_id,
-                            Filing.filing_type == "10-K",
-                            Filing.id != filing_id,
-                            Filing.filing_date < filing.filing_date,
-                        )
-                        .order_by(Filing.filing_date.desc())
-                        .limit(1)
-                        .all()
-                    )
-                    logger.info(f"Found {len(previous_filings)} previous 10-K filings for trend analysis")
-
-                async def fetch_filing_text(url: str) -> Optional[str]:
-                    try:
-                        return await sec_edgar_service.get_filing_document(
-                            url, timeout=processing_profile["document_timeout"]
-                        )
-                    except Exception as exc:
-                        logger.error(f"Error fetching filing from {url}: {str(exc)}")
-                        return None
-
-                tasks = [asyncio.create_task(fetch_filing_text(filing_document_url))]
-                prev_filing_refs: List[Filing] = []
-                for prev_filing in previous_filings:
-                    tasks.append(asyncio.create_task(fetch_filing_text(prev_filing.document_url)))
-                    prev_filing_refs.append(prev_filing)
-
-                xbrl_task = None
-                xbrl_start = None
-                if processing_profile["fetch_xbrl"]:
-                    logger.info(f"[{filing_id}] Fetching XBRL data in parallel...")
-
-                    async def fetch_xbrl_data() -> Optional[Dict[str, Any]]:
-                        try:
-                            return await asyncio.wait_for(
-                                xbrl_service.get_xbrl_data(
-                                    filing_accession_number, company_cik
-                                ),
-                                timeout=processing_profile["xbrl_timeout"],
-                            )
-                        except asyncio.TimeoutError:
-                            logger.warning(
-                                f"[{filing_id}] ⚠ XBRL data fetch timed out after {processing_profile['xbrl_timeout']:.0f}s, continuing without it"
-                            )
-                            return None
-                        except Exception as exc:
-                            logger.warning(f"[{filing_id}] ⚠ Could not extract XBRL data: {str(exc)}")
-                            return None
-
-                    xbrl_start = time.time()
-                    xbrl_task = asyncio.create_task(fetch_xbrl_data())
-
-                # Fetch edgartools-parsed sections in parallel (needs only accession + CIK, like
-                # XBRL). Used as the high-precision excerpt source; the regex extractor is the
-                # fallback when this returns nothing.
-                sections_task = None
-                if (
-                    settings.USE_EDGARTOOLS_SECTIONS
-                    and company_cik
-                    # 20-F gets section extraction too; split("/") covers amended forms (10-K/A,
-                    # 20-F/A). See tasks/fpi-support-roadmap.md.
-                    and filing_type.split("/")[0] in {"10-K", "10-Q", "20-F"}
-                ):
-                    async def fetch_sections() -> Optional[Dict[str, str]]:
-                        try:
-                            return await asyncio.wait_for(
-                                xbrl_service.get_filing_sections(
-                                    filing_accession_number, company_cik, filing_type
-                                ),
-                                timeout=processing_profile["section_timeout"],
-                            )
-                        except asyncio.TimeoutError:
-                            logger.warning(f"[{filing_id}] ⚠ Section parse timed out, using regex fallback")
-                            return None
-                        except Exception as exc:
-                            logger.warning(f"[{filing_id}] ⚠ Section parse failed ({exc}), using regex fallback")
-                            return None
-
-                    sections_task = asyncio.create_task(fetch_sections())
-
-                results = await asyncio.gather(*tasks, return_exceptions=True)
-                filing_text = results[0] if results and not isinstance(results[0], Exception) else None
-                if not filing_text:
-                    raise RuntimeError("Unable to retrieve this filing at the moment — please try again shortly.")
-
-                fetch_time = time.time() - start_time
-                logger.info(
-                    f"[{filing_id}] ✓ File validated and fetched: {len(filing_text):,} characters in {fetch_time:.1f}s"
-                )
-
-                # Step 2: Section Parsing
-                record_progress(db, filing_id, "parsing")
-                logger.info(f"[{filing_id}] Step 2: Section Parsing - Extracting major sections (Item 1A: Risk Factors, Item 7: MD&A)...")
-
-                sections = None
-                if sections_task is not None:
-                    sections = await sections_task
-
-                # Build the excerpt off the event loop. When edgartools sections are unavailable
-                # (fallback) or the financials section is thin (backfill), excerpt construction runs
-                # BeautifulSoup + regex over a multi-MB document — blocking the loop here would stall
-                # the in-flight XBRL fetch. Use a fresh session inside the worker thread (mirrors the
-                # SSE path's extract_excerpt_sync).
-                def _build_excerpt_sync() -> Optional[str]:
-                    with SessionLocal() as excerpt_session:
-                        excerpt_filing = (
-                            excerpt_session.query(Filing)
-                            .options(joinedload(Filing.content_cache))
-                            .filter(Filing.id == filing_id)
-                            .first()
-                        )
-                        return get_or_cache_excerpt(
-                            excerpt_session, excerpt_filing, filing_text, sections=sections
-                        )
-
-                excerpt = await asyncio.to_thread(_build_excerpt_sync)
-                logger.info(f"[{filing_id}] ✓ Parsing complete...")
-
-                xbrl_data = None
-                if xbrl_task:
-                    xbrl_data = await xbrl_task
-                    if xbrl_data:
-                        # Re-query filing to ensure it's attached to the session before updating
-                        filing_for_xbrl = db.query(Filing).filter(Filing.id == filing_id).first()
-                        if filing_for_xbrl:
-                            filing_for_xbrl.xbrl_data = xbrl_data
-                            db.commit()
-                            # Populate this filing's normalized facts now (roadmap B: the filing-scoped
-                            # trend chart reads them). Best-effort + network-free; never break batch
-                            # generation. Batch path isn't latency-sensitive, so a synchronous upsert.
-                            try:
-                                from app.services import facts_service
-
-                                facts_service.process_filing_facts(db, filing_for_xbrl)
-                            except Exception:
-                                logger.warning(f"[{filing_id}] facts upsert failed (non-fatal)", exc_info=True)
-                        if xbrl_start:
-                            xbrl_time = time.time() - xbrl_start
-                            logger.info(f"[{filing_id}] ✓ Extracted XBRL data in {xbrl_time:.1f}s")
-
-                previous_filings_text: List[Dict[str, Any]] = []
-                for index, result in enumerate(results[1:], 0):
-                    if (
-                        result
-                        and not isinstance(result, Exception)
-                        and index < len(prev_filing_refs)
-                    ):
-                        prev_filing = prev_filing_refs[index]
-
-                        # Build the prior 10-K's excerpt with the same edgartools-first path used
-                        # for the main filing, so the year-over-year trend context isn't stuck on
-                        # the legacy regex/dense-window extractor. Falls back to regex in
-                        # summarize_filing when this is None.
-                        prev_excerpt = None
-                        prev_accession = prev_filing.accession_number
-                        if settings.USE_EDGARTOOLS_SECTIONS and company_cik and prev_accession:
-                            try:
-                                prev_sections = await xbrl_service.get_filing_sections(
-                                    prev_accession, company_cik, "10-K"
-                                )
-                                if prev_sections:
-                                    # Off the event loop: the thin-financials backfill parses the
-                                    # multi-MB prior filing with BeautifulSoup. (Pure CPU, no DB.)
-                                    prev_excerpt = await asyncio.to_thread(
-                                        openai_service.assemble_excerpt_from_sections,
-                                        prev_sections,
-                                        "10-K",
-                                        filing_text=result,
-                                    ) or None
-                            except Exception as exc:  # noqa: BLE001 — never block on prior-filing parse
-                                logger.warning(
-                                    f"[{filing_id}] ⚠ Prior 10-K section parse failed ({exc}), using regex fallback"
-                                )
-
-                        previous_filings_text.append(
-                            {
-                                "filing_date": prev_filing.filing_date.isoformat()
-                                if prev_filing.filing_date
-                                else None,
-                                "text": result,
-                                "excerpt": prev_excerpt,
-                            }
-                        )
-                        logger.info(
-                            f"Fetched previous 10-K from {prev_filing.filing_date}: {len(result):,} characters"
-                        )
-
-                xbrl_metrics = None
-                if xbrl_data:
-                    xbrl_metrics = xbrl_service.extract_standardized_metrics(xbrl_data)
-
-                # Step 3: Content Analysis
-                record_progress(db, filing_id, "analyzing")
-                logger.info(f"[{filing_id}] Step 3: Content Analysis - Analyzing risk factors...")
-
-                # Step 4: Summary Generation
-                logger.info(f"[{filing_id}] Step 4: Generating financial overview...")
-                ai_start = time.time()
-                logger.info(f"[{filing_id}] Step 5: Generating investor-focused summary...")
-                summary_data = await openai_service.summarize_filing(
-                    filing_text,
-                    company_name,
-                    filing_type,
-                    previous_filings=
-                    previous_filings_text if previous_filings_text else None,
-                    xbrl_metrics=xbrl_metrics,
-                    filing_excerpt=excerpt,
-                )
-                ai_time = time.time() - ai_start
-                logger.info(f"[{filing_id}] ✓ AI summary generated in {ai_time:.1f}s")
-                
-                # Check summary status - handle error, partial, and complete
-                summary_status = summary_data.get("status", "complete")
-                
-                # If status is error, raise exception to trigger error handling
-                if summary_status == "error":
-                    error_message = summary_data.get("message", "Error generating summary")
-                    raise RuntimeError(error_message)
-                
-                # Log partial status if applicable
-                if summary_status == "partial":
-                    partial_message = summary_data.get("message", "Some sections may not have loaded fully.")
-                    logger.warning(f"[{filing_id}] ⚠ Partial summary generated: {partial_message}")
-
-                section_coverage = (
-                    (summary_data.get("raw_summary") or {}).get("section_coverage")
-                    if isinstance(summary_data, dict)
-                    else None
-                )
-                record_progress(
-                    db,
-                    filing_id,
-                    "summarizing",
-                    section_coverage=section_coverage,
-                )
-                if section_coverage:
-                    logger.info(
-                        f"[{filing_id}] coverage snapshot: "
-                        f"{section_coverage.get('covered_count', 0)}/"
-                        f"{section_coverage.get('total_count', 0)} sections populated"
-                    )
-
-                sections_info = (
-                    (summary_data.get("raw_summary") or {}).get("sections", {})
-                ) or {}
-
-                financial_section = sections_info.get("financial_highlights")
-                normalized_financial_section = attach_normalized_facts(
-                    financial_section, xbrl_metrics
-                )
-                if (
-                    isinstance(summary_data, dict)
-                    and isinstance(sections_info, dict)
-                    and normalized_financial_section is not None
-                ):
-                    sections_info["financial_highlights"] = normalized_financial_section
-                    summary_data["sections"] = sections_info
-
-                # Determine if this is a full or partial result
-                # Per execution plan: Only FULL results are cached. Partial results are NEVER cached.
-                result_type, partial_reason = determine_result_type(
-                    summary_data,
-                    had_errors=(summary_status == "error"),
-                    had_timeout=False,
-                )
-
-                # Calculate section coverage for logging and metadata
-                covered_count, total_count, covered_sections, missing_sections = calculate_section_coverage(summary_data)
-
-                logger.info(
-                    f"[{filing_id}] Result type: {result_type}, "
-                    f"coverage: {covered_count}/{total_count}, "
-                    f"reason: {partial_reason or 'N/A'}"
-                )
-
-                # Add unavailable sections notes to executive summary
-                sections_unavailable = generate_unavailable_sections_notes(missing_sections)
-
-                # Enrich raw_summary with result metadata
-                enriched_raw_summary = summary_data.get("raw_summary") or {}
-                enriched_raw_summary["result_type"] = result_type
-                enriched_raw_summary["partial_reason"] = partial_reason
-                enriched_raw_summary["sections_available"] = covered_sections
-                enriched_raw_summary["sections_unavailable"] = sections_unavailable
-
-                if result_type == "partial":
-                    # PARTIAL RESULT: Do NOT cache to database
-                    # Per execution plan: Partial results must NEVER be stored in the Summary table
-                    # They are returned to the requesting user ONLY, then discarded
-                    logger.warning(
-                        f"[{filing_id}] ⚠ PARTIAL RESULT - NOT CACHING. "
-                        f"Coverage: {covered_count}/{total_count}, Reason: {partial_reason}"
-                    )
-
-                    # Record partial status in progress for the frontend to detect
-                    record_progress(
-                        db,
-                        filing_id,
-                        "partial",
-                        error=f"Partial result: {partial_reason}. Coverage: {covered_count}/{total_count}",
-                        section_coverage={
-                            "result_type": "partial",
-                            "partial_reason": partial_reason,
-                            "covered_count": covered_count,
-                            "total_count": total_count,
-                            "covered_sections": covered_sections,
-                            "sections_unavailable": sections_unavailable,
-                            # Include the actual summary data so frontend can display it
-                            # Built dynamically from HIDEABLE_SECTIONS to avoid missing sections
-                            "partial_data": {
-                                section: (
-                                    normalized_financial_section if section == "financial_highlights"
-                                    else summary_data.get(section)
-                                )
-                                for section in HIDEABLE_SECTIONS
-                            },
-                        },
-                    )
-
-                    # Do NOT save to Summary table - partial results are discarded
-                    # Do NOT increment user usage for partial results
-                    return
-
-                # FULL RESULT: Cache to database as normal
-                logger.info(
-                    f"[{filing_id}] ✓ FULL RESULT - Caching to database. "
-                    f"Coverage: {covered_count}/{total_count}"
-                )
-
-                summary = Summary(
-                    filing_id=filing_id,
-                    business_overview=summary_data.get("business_overview"),
-                    financial_highlights=normalized_financial_section,
-                    risk_factors=summary_data.get("risk_factors"),
-                    management_discussion=summary_data.get("management_discussion"),
-                    key_changes=summary_data.get("key_changes"),
-                    raw_summary=enriched_raw_summary,
-                )
-                db.add(summary)
-
-                upsert_content_cache(
-                    db,
-                    filing_id,
-                    filing.content_cache,
-                    excerpt=excerpt,
-                    sections_payload=sections_info,
-                )
-
-                try:
-                    db.commit()
-                except IntegrityError:
-                    # A concurrent writer persisted this filing's summary first (filing_id UNIQUE) —
-                    # bow out and let the winner stand (S1 decision #3). But re-query to confirm it
-                    # WAS the summary conflict: this same transaction also inserts FilingContentCache,
-                    # whose PK can lose a TOCTOU race and raise the identical IntegrityError while no
-                    # summary row exists — we must not silently drop the full summary just generated.
-                    db.rollback()
-                    existing = (
-                        db.query(Summary).filter(Summary.filing_id == filing_id).first()
-                    )
-                    if existing is None:
-                        raise
-                    # The progress row is shared by both writers; still drive it terminal or the
-                    # frontend poller (only completed/error are terminal — latent bug L1) hangs.
-                    record_progress(db, filing_id, "completed")
-                    logger.info(f"[{filing_id}] Summary already persisted by a concurrent writer; served the winner's row.")
-                    return
-
-                total_time = time.time() - start_time
-                logger.info(
-                    f"[{filing_id}] ✓ Summary generation completed in {total_time:.1f}s total"
-                )
-
-                record_progress(db, filing_id, "completed")
-
-                if user_id:
-                    user = db.query(User).filter(User.id == user_id).first()
-                    if user:
-                        month = get_current_month()
-                        increment_user_usage(user.id, month, db)
-
-        try:
-            await asyncio.wait_for(generate_summary_core(), timeout=global_timeout)
-        except asyncio.TimeoutError:
-            logger.error(
-                f"[{filing_id}] ✗ Summary generation exceeded global timeout of {global_timeout}s"
-            )
-            # TIMEOUT = PARTIAL RESULT - Do NOT cache to database
-            # Per execution plan: Timeouts result in partial designation, never cached
-            record_progress(
-                db,
-                filing_id,
-                "partial",
-                error="timeout",
-                section_coverage={
-                    "result_type": "partial",
-                    "partial_reason": "timeout",
-                    "covered_count": 0,
-                    "total_count": len(HIDEABLE_SECTIONS),
-                    "covered_sections": [],
-                    "sections_unavailable": generate_unavailable_sections_notes(HIDEABLE_SECTIONS),
-                    "retry_available": True,
-                    "message": "Analysis timed out. Please retry for full analysis.",
-                },
-            )
-            logger.warning(
-                f"[{filing_id}] ⚠ PARTIAL RESULT (timeout) - NOT CACHING. "
-                f"User should retry with 'Retry Full Analysis' button."
-            )
-            # Do NOT save to Summary table - timeout results are discarded
-            # Do NOT commit any summary to database
-        except Exception as inner_error:
-            error_msg = str(inner_error)
-            logger.error(f"Error in timeout wrapper: {error_msg}", exc_info=True)
-
-            # ERROR = PARTIAL RESULT - Do NOT cache to database
-            # Per execution plan: Errors result in partial designation, never cached
-            record_progress(
-                db,
-                filing_id,
-                "partial",
-                error=f"error: {error_msg[:200]}",
-                section_coverage={
-                    "result_type": "partial",
-                    "partial_reason": "api_error",
-                    "covered_count": 0,
-                    "total_count": len(HIDEABLE_SECTIONS),
-                    "covered_sections": [],
-                    "sections_unavailable": generate_unavailable_sections_notes(HIDEABLE_SECTIONS),
-                    "retry_available": True,
-                    "message": "Unable to complete analysis. Please retry for full analysis.",
-                    "error_detail": error_msg[:200],
-                },
-            )
-            logger.warning(
-                f"[{filing_id}] ⚠ PARTIAL RESULT (error) - NOT CACHING. "
-                f"Error: {error_msg[:100]}. User should retry with 'Retry Full Analysis' button."
-            )
-            # Do NOT save to Summary table - error results are discarded
-            # Do NOT commit any summary to database
+        drain_started = time.time()
+        terminal_event: Optional[Dict[str, Any]] = None
+        async for terminal_event in stream_filing_summary(
+            filing_id=filing_id,
+            current_user=None,
+            user_id=user_id,
+            telemetry_distinct_id=str(user_id) if user_id else "precompute",
+            telemetry_entry_point=None,
+            telemetry_ctx={},
+            emit_funnel_telemetry=False,
+        ):
+            pass
+        # With funnel telemetry suppressed for cron, this is the drain's ONLY per-filing signal
+        # in the Cloud Run job logs — parity with the legacy body's per-filing success/error
+        # lines, and what makes the 24-48h soak grep-able. Crucially, the pipeline converts
+        # exceptions into terminal error EVENTS (the job still exits 0), so a failing pregenerate
+        # batch would otherwise look identical to a successful one.
+        terminal_type = (terminal_event or {}).get("type", "none")
+        drain_secs = time.time() - drain_started
+        log = logger.warning if terminal_type == "error" else logger.info
+        log(f"[{filing_id}] drain terminal={terminal_type} duration={drain_secs:.1f}s")
+        return
 
 # Stages from which generation can no longer make progress on its own.
 TERMINAL_STAGES = {"completed", "error", "partial"}
