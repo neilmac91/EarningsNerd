@@ -35,6 +35,20 @@ const getFriendlyErrorMessage = (error: unknown): string | null => {
   return 'Unexpected error occurred while loading the summary.'
 }
 
+const PROGRESS_POLL_INTERVAL_MS = 1000
+
+// The backend writes exactly THREE terminal progress stages — completed, error, and partial
+// (summary_generation_service.py `record_progress(..., "partial")` on the timeout / low-coverage
+// path). All three must stop the poll: otherwise a placeholder-summary page whose backing run ends
+// `partial` (e.g. the flag-off legacy cron that discards partials) re-polls every second forever
+// (L1). `SummaryProgressData.stage` is typed narrower than the runtime, so accept a bare string.
+const TERMINAL_PROGRESS_STAGES: ReadonlySet<string> = new Set(['completed', 'error', 'partial'])
+
+/** Progress-poll cadence: stop (`false`) on any terminal stage, else re-poll. Exported for testing. */
+export function progressRefetchInterval(stage: string | undefined): number | false {
+  return stage && TERMINAL_PROGRESS_STAGES.has(stage) ? false : PROGRESS_POLL_INTERVAL_MS
+}
+
 export interface UseSummaryGenerationArgs {
   filingId: number
   filing: Filing | undefined
@@ -100,19 +114,14 @@ export function useSummaryGeneration({
   // alive indefinitely. Partial/full results carry real content, so they clear via the placeholder.
   const isGenerating = (isStreaming || summaryHasPlaceholder) && !generationError
 
-  // Progress poll drives the generation UI. Gated off once real content has arrived and stopped on a
-  // terminal progress stage, so it can never outlive the generation it reports on (L1).
+  // Progress poll drives the generation UI. Gated off once real content has arrived and stopped on
+  // ANY of the backend's three terminal stages (completed/error/partial), so it can never outlive
+  // the generation it reports on (L1 — the poll's terminal set must match record_progress's).
   useQuery<SummaryProgressData>({
     queryKey: queryKeys.summaryProgress(filingId),
     queryFn: () => getSummaryProgress(filingId),
     enabled: !!filing && isGenerating && !hasSummaryContent,
-    refetchInterval: (query) => {
-      const data = query.state.data
-      if (data?.stage === 'completed' || data?.stage === 'error') {
-        return false
-      }
-      return 1000
-    },
+    refetchInterval: (query) => progressRefetchInterval(query.state.data?.stage),
   })
 
   const handleGenerateSummary = useCallback(

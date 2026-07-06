@@ -49,7 +49,9 @@ export interface Summary {
 }
 
 export interface SummaryProgressData {
-  stage: 'pending' | 'fetching' | 'parsing' | 'analyzing' | 'summarizing' | 'completed' | 'error'
+  // `partial` is a real terminal stage the backend writes (record_progress(..., "partial") on the
+  // timeout / low-coverage path) — it was missing here, which is what stranded the L1 poll.
+  stage: 'pending' | 'fetching' | 'parsing' | 'analyzing' | 'summarizing' | 'completed' | 'error' | 'partial'
   elapsedSeconds: number
 }
 
