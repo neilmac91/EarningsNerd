@@ -2,8 +2,13 @@
 
 **Document Created:** 2026-01-25
 **Last Updated:** 2026-01-29
-**Status:** Partially Implemented (Quality-First Model Selection)
+**Status:** Historical analysis — predates the DeepSeek migration + the S1/D1 pipeline changes
 **Reviewed By:** API Architect + AI Engineer Agents
+
+> **Stale (kept for its optimization analysis).** This predates ADR-0006 (DeepSeek V4, not Gemini)
+> and the pipeline changes: `generate_editorial_markdown()` (stage 3 below) was **removed** —
+> `summarize_filing` now renders markdown **deterministically**, so a summary makes 1–10 AI calls,
+> not 2–11. Treat the models, line numbers, and call counts here as history, not current state.
 
 ---
 
@@ -21,7 +26,7 @@ Analysis of the filing summary generation system identified several optimization
 |-------|--------|-------|------------|---------|---------|
 | 1 | `generate_structured_summary()` | gemini-3-pro-preview | 1500 | 75-90s | Extract JSON schema |
 | 2 | `_recover_missing_sections()` | gemini-3-pro-preview | 350 | 12s each | Fill empty sections (0-9 calls) |
-| 3 | `generate_editorial_markdown()` | gemini-3-pro-preview | 900 | 18s | Convert JSON to markdown |
+| ~~3~~ | ~~`generate_editorial_markdown()`~~ | — | — | — | **REMOVED (D1)** — markdown is now rendered deterministically, no 2nd LLM call |
 
 **Total AI Calls:** 2-11 per summary (sequential)
 

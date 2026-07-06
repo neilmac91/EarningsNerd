@@ -1,7 +1,12 @@
 # ADR 0002 — Use Google AI Studio (Gemini) via an OpenAI-compatible client
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-0006](./0006-deepseek-supersedes-gemini.md)
 - **Deciders:** EarningsNerd maintainers
+
+> **Superseded (2026-07):** the default provider is now DeepSeek V4 (ADR-0006). The
+> OpenAI-compatible seam this ADR established is exactly what made that a config-only switch;
+> Gemini remains a validated env-swap failover. The record below is preserved as the original
+> decision.
 
 ## Context
 

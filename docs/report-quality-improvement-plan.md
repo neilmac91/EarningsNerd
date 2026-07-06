@@ -91,7 +91,7 @@ Frontend (app/filing/[id]) ─► POST /api/summaries/filing/{id}/generate-strea
             │     ├─ _find_empty_sections()                                       (1269)  ← crash site
             │     ├─ _recover_missing_sections()  ← targeted LLM retry per empty   (1447)
             │     └─ _apply_structured_fallbacks() ← DETERMINISTIC BOILERPLATE     (1498)  ← the "tells"
-            ├─ generate_editorial_markdown()   ← 2nd LLM call: JSON → prose        (2135)  ← length-gated
+            ├─ [REMOVED, D1] generate_editorial_markdown() was the 2nd LLM call (JSON→prose); markdown is now rendered DETERMINISTICALLY
             └─ coverage gate → status complete|partial|error                      (2892)
   Frontend render: business_overview markdown (default) | structured tabs (flag) ; stripInternalNotices()
 ```

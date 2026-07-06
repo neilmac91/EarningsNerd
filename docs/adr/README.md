@@ -21,10 +21,11 @@ We use a lightweight [MADR](https://adr.github.io/madr/)-style template:
 | ADR | Title | Status |
 |-----|-------|--------|
 | [0001](./0001-render-to-cloud-run.md) | Migrate hosting from Render to Google Cloud Run | Accepted |
-| [0002](./0002-openai-gpt4-to-gemini.md) | Use Google AI Studio (Gemini) via an OpenAI-compatible client | Accepted |
+| [0002](./0002-openai-gpt4-to-gemini.md) | Use Google AI Studio (Gemini) via an OpenAI-compatible client | Superseded by 0006 |
 | [0003](./0003-edgartools-for-sec-data.md) | Consolidate SEC data access on `edgartools` | Accepted |
 | [0004](./0004-redis-off-in-production.md) | Run Redis off in production (L1 in-memory cache only) | Accepted |
 | [0005](./0005-stay-on-react-18.md) | Stay on React 18 under Next.js 16 | Accepted |
+| [0006](./0006-deepseek-supersedes-gemini.md) | Standardize on DeepSeek V4 as the default AI provider | Accepted |
 
 ## Adding an ADR
 
