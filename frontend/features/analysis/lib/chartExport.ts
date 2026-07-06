@@ -136,9 +136,10 @@ export function datasetToCsv(dataset: AnalysisDataset): string {
 export function downloadDatasetCsv(dataset: AnalysisDataset): void {
   const csv = datasetToCsv(dataset)
   // BOM: the CSV carries non-ASCII ("×100 percent") and Excel on Windows only decodes UTF-8
-  // when the file leads with one.
+  // when the file leads with one. Explicit escape — a literal BOM char is invisible and easily
+  // stripped by editors/formatters.
   downloadBlob(
-    new Blob(['﻿', csv], { type: 'text/csv;charset=utf-8' }),
+    new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }),
     exportFilename(dataset, `${dataset.mode}-metrics`, 'csv')
   )
 }
