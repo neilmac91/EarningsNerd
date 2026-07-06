@@ -42,10 +42,10 @@ import {
 } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { cx } from './ui/cx'
-import { Badge } from './ui/Badge'
-import { Button } from './ui/Button'
-import { SkeletonText } from './ui/Skeleton'
+import { cx } from '@/components/ui/cx'
+import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
+import { SkeletonText } from '@/components/ui/Skeleton'
 
 export type CopilotStatus = 'reading' | 'streaming' | 'done' | 'error'
 

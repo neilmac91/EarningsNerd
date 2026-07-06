@@ -1,7 +1,7 @@
 import React from 'react'
-import { SummaryBlock } from '@/components/SummaryBlock'
+import { SummaryBlock } from '@/features/filings/components/SummaryBlock'
 import { SectionEmpty } from './SectionEmpty'
-import { SourceTrace } from '@/components/SourceTrace'
+import { SourceTrace } from '@/features/filings/components/SourceTrace'
 import type { RiskFactor } from '@/types/summary'
 
 interface SummaryRisksProps {

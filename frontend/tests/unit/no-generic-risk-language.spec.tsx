@@ -1,6 +1,6 @@
 import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import SummarySections from '@/components/SummarySections'
+import SummarySections from '@/features/filings/components/SummarySections'
 
 const summaryBase = {
   business_overview: '',

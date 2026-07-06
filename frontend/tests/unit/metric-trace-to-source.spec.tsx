@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
-import { MetricSourceLink } from '@/components/MetricSourceLink'
+import { MetricSourceLink } from '@/features/filings/components/MetricSourceLink'
 import { SummaryFinancials } from '@/features/filings/components/SummaryFinancials'
 import type { MetricItem } from '@/types/summary'
 

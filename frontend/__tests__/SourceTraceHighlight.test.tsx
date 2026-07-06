@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { SourceTrace } from '@/components/SourceTrace'
+import { SourceTrace } from '@/features/filings/components/SourceTrace'
 import {
   FilingViewerProvider,
   useFilingViewer,

@@ -8,7 +8,7 @@ import Link from 'next/link'
 import posthog from 'posthog-js'
 
 import api from '@/lib/api/client'
-import { FilingPulse, type Pulse } from '@/components/FilingPulse'
+import { FilingPulse, type Pulse } from '@/features/filings/components/FilingPulse'
 import CompanyLogo from '@/components/CompanyLogo'
 import { Badge, Button, buttonVariants, GuidanceCard, Skeleton } from '@/components/ui'
 
