@@ -4,6 +4,7 @@ import { useMemo, type ComponentProps, type ElementType, type ReactNode } from '
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
+import AiDisclaimer from '@/components/AiDisclaimer'
 import { Badge, Button, Card, Notice } from '@/components/ui'
 import { ArrowClockwiseIcon, CircleNotchIcon, DownloadSimpleIcon } from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
@@ -76,18 +77,30 @@ export interface NarrativeState {
 const VERIFIED_BADGE_BASE =
   'Every cited figure resolves to an exact SEC XBRL value or a figure computed from those values (marked Computed).'
 
-function verifiedBadgeTitle(unverified: number | null | undefined): string {
-  if (!unverified) return VERIFIED_BADGE_BASE
-  const one = unverified === 1
-  return `${VERIFIED_BADGE_BASE} ${unverified} reference${one ? '' : 's'} the model emitted could not be verified against the dataset and ${one ? 'was' : 'were'} removed.`
+function verifiedBadgeTitle(
+  unverified: number | null | undefined,
+  mismatched?: number | null
+): string {
+  let title = VERIFIED_BADGE_BASE
+  if (unverified) {
+    const one = unverified === 1
+    title += ` ${unverified} reference${one ? '' : 's'} the model emitted could not be verified against the dataset and ${one ? 'was' : 'were'} removed.`
+  }
+  if (mismatched) {
+    const one = mismatched === 1
+    title += ` ${mismatched} figure${one ? '' : 's'} printed next to a citation could not be reconciled with the cited value — check the Sources list for the exact dataset values.`
+  }
+  return title
 }
 
-function CitationList({ citations }: { citations: AnalysisCitation[] }) {
+function CitationList({ citations, sample }: { citations: AnalysisCitation[]; sample?: boolean }) {
   if (citations.length === 0) return null
   return (
     <div className="mt-4 border-t border-border-light pt-3 dark:border-white/10">
       <div className="mb-2 text-xs font-medium uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
-        Sources — cited figures verified against SEC XBRL data
+        {sample
+          ? 'Sources — sample data (approximate figures)'
+          : 'Sources — cited figures verified against SEC XBRL data'}
       </div>
       <ul className="space-y-1">
         {citations.map((citation) => (
@@ -99,7 +112,10 @@ function CitationList({ citations }: { citations: AnalysisCitation[] }) {
             <span className="shrink-0 rounded bg-brand-weak px-1.5 py-0.5 font-semibold text-brand-strong dark:bg-white/10 dark:text-brand-strong-dark">
               {citation.n}
             </span>
-            <span>
+            {/* min-w-0 lets this flex child shrink; break-words keeps long unbroken tokens
+                (us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax) inside the card
+                at mobile widths instead of overflowing it. */}
+            <span className="min-w-0 break-words">
               {citation.excerpt}
               {citation.section_ref && (
                 <span className="ml-1 text-text-tertiary-light dark:text-text-secondary-dark">
@@ -123,6 +139,7 @@ export default function NarrativePane({
   onRefresh,
   refreshDisabled,
   onExport,
+  sample = false,
 }: {
   state: NarrativeState
   /** The force-regenerate button (metered server-side; hidden when absent). */
@@ -130,6 +147,9 @@ export default function NarrativePane({
   refreshDisabled?: boolean
   /** PDF download (Pro can_export; hidden when absent or before a persisted completion). */
   onExport?: () => void
+  /** Teaser mode: the payload is an illustrative sample with approximate figures — the
+   *  verified/cached badges would overclaim, so a "Sample data" badge replaces them (F3). */
+  sample?: boolean
 }) {
   const completion = state.completion
   // Stable components-map identity across re-renders — a fresh object every render would make
@@ -160,12 +180,20 @@ export default function NarrativePane({
               {state.stage === 'assembling' ? 'Assembling the numbers…' : 'Writing…'}
             </span>
           )}
-          {state.status === 'done' && completion && !notEnoughData && (
-            <Badge variant="solid" title={verifiedBadgeTitle(completion.unverified)}>
+          {state.status === 'done' && completion && !notEnoughData && sample && (
+            <Badge title="Illustrative sample with approximate figures — run an analysis to get verified, cited values from SEC XBRL data.">
+              Sample data
+            </Badge>
+          )}
+          {state.status === 'done' && completion && !notEnoughData && !sample && (
+            <Badge
+              variant="solid"
+              title={verifiedBadgeTitle(completion.unverified, completion.mismatched)}
+            >
               {completion.grounded} verified citations
             </Badge>
           )}
-          {state.status === 'done' && completion?.cached && (
+          {state.status === 'done' && completion?.cached && !sample && (
             <Badge title="Served from a previous run of this exact period range — regenerates automatically when new filings arrive.">
               Cached
             </Badge>
@@ -213,13 +241,15 @@ export default function NarrativePane({
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.text}</ReactMarkdown>
             )}
           </div>
-          {state.status === 'done' && completion && <CitationList citations={completion.citations} />}
           {state.status === 'done' && completion && (
-            <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-              AI-generated. Informational only — not investment advice. Cited figures resolve to
-              SEC XBRL values; uncited statements are the model&apos;s interpretation and can be
-              wrong.
-            </p>
+            <CitationList citations={completion.citations} sample={sample} />
+          )}
+          {state.status === 'done' && completion && (
+            <AiDisclaimer className="mt-3">
+              {sample
+                ? 'Illustrative sample with approximate figures — run an analysis for verified, cited values.'
+                : "Cited figures resolve to SEC XBRL values; uncited statements are the model's interpretation and can be wrong."}
+            </AiDisclaimer>
           )}
         </>
       )}

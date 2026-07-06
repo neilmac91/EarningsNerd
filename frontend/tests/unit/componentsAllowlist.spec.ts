@@ -15,6 +15,7 @@ import { describe, expect, it } from 'vitest'
  */
 const ALLOWLIST = [
   'ui', // the shared UI component library (components/ui/*)
+  'AiDisclaimer.tsx', // cross-domain by design: analysis + copilot + summaries all carry it
   'ChartErrorBoundary.tsx',
   'CompanyLogo.tsx',
   'CookieConsent.tsx',

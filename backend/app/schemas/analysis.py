@@ -24,7 +24,8 @@ class QuarterlyCoveragePeriod(BaseModel):
     fiscal_year: int
     fiscal_period: str
     period_end: str
-    # True when EVERY value in the column is Q4-derived (FY − Q1..Q3) — badged in the picker.
+    # True when EVERY value in the column is Q4-derived (from the annual report: FY − YTD9 or
+    # FY − ΣQ1–3; EPS shares-based) — badged in the picker.
     derived: bool
 
 

@@ -33,7 +33,9 @@ const dataset: AnalysisDataset = {
       cagr: null,
       points: [
         { period: '2024Q3', value: 1.52, marker: 'F3' },
-        { period: '2024Q4', value: null }, // EPS Q4 is never derived (share counts move)
+        // Q4 EPS derives only when weighted share counts are available (shares-based derivation);
+        // this fixture models the no-shares case, where the cell stays an em-dash.
+        { period: '2024Q4', value: null },
       ],
     },
   ],

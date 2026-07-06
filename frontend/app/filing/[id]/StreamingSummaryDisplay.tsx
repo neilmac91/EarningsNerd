@@ -19,6 +19,7 @@ import { useEffect, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Filing } from '@/features/filings/api/filings-api'
+import AiDisclaimer from '@/components/AiDisclaimer'
 import { Badge, Card, GuidanceCard, Notice, SkeletonText } from '@/components/ui'
 import { Button } from '@/components/ui/Button'
 import { SparkleIcon } from '@/lib/icons'
@@ -369,6 +370,14 @@ export default function StreamingSummaryDisplay({
               <span className="ml-1 inline-block h-5 w-0.5 align-middle bg-brand-strong dark:bg-brand-strong-dark animate-pulse motion-reduce:animate-none" aria-hidden="true" />
             )}
           </div>
+          {/* Web/PDF parity (audit): the exported PDF of this summary carries a disclaimer —
+              the on-page card previously relied on the global footer alone. Unconditional:
+              isGenerating stays true for as long as this card shows streamed text, and the
+              line is just as true mid-stream. */}
+          <AiDisclaimer className="mt-4">
+            May be incomplete or contain errors — the authoritative source is always the
+            original SEC filing.
+          </AiDisclaimer>
         </Card>
       )}
     </div>

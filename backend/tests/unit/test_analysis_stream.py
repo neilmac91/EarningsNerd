@@ -168,10 +168,28 @@ def _fake_stream(chunks, calls=None):
     return fake
 
 
-async def _drain(company_id, monkeypatch, chunks, *, force=False, calls=None):
+def _fake_stream_seq(attempts, calls=None):
+    """Sequence-aware fake: call N serves attempts[N] (last one repeats) — for retry tests."""
+    state = {"i": 0}
+
+    async def fake(messages, **kwargs):
+        if calls is not None:
+            calls.append(messages)
+        usage_sink = kwargs.get("usage_sink")
+        if usage_sink is not None:
+            usage_sink.update({"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150})
+        chunks = attempts[min(state["i"], len(attempts) - 1)]
+        state["i"] += 1
+        for chunk in chunks:
+            yield chunk
+
+    return fake
+
+
+async def _drain(company_id, monkeypatch, chunks, *, force=False, calls=None, fake=None):
     from app.services import openai_service as oa
 
-    monkeypatch.setattr(oa.openai_service, "stream_chat", _fake_stream(chunks, calls))
+    monkeypatch.setattr(oa.openai_service, "stream_chat", fake or _fake_stream(chunks, calls))
     return [
         event
         async for event in svc.stream_trend_narrative(
@@ -189,7 +207,7 @@ class TestStreamTrendNarrative:
         from app.models import TrendAnalysis
 
         company_id = _seed_company_with_history()
-        chunks = ["## The trajectory\nRevenue reached ", "1,500 [F3] this year.", " Bogus [F99]."]
+        chunks = ["## The trajectory\nRevenue reached ", "1,500 [F3] this year."]
         events = await _drain(company_id, monkeypatch, chunks)
 
         types = [e["type"] for e in events]
@@ -200,11 +218,11 @@ class TestStreamTrendNarrative:
         assert complete["cached"] is False
         assert complete["invalidated"] is False  # first generation — no cached row existed
         assert complete["n_periods"] == 3
-        assert "[1]" in complete["narrative"] and "F99" not in complete["narrative"]
+        assert "[1]" in complete["narrative"]
         assert complete["grounded"] == 1
-        assert complete["unverified"] == 1  # the stripped [F99]
+        assert complete["unverified"] == 0
         assert complete["citations"][0]["verified"] is True
-        assert complete["usage"]["prompt_tokens"] == 100
+        assert complete["usage"]["prompt_tokens"] == 100  # clean draft — exactly one model call
 
         db = SessionLocal()
         row = db.query(TrendAnalysis).filter_by(company_id=company_id).one()
@@ -212,7 +230,7 @@ class TestStreamTrendNarrative:
         assert row.period_key == "FY2021..FY2023"
         assert row.prompt_version == svc.PROMPT_VERSION
         assert row.narrative_md == complete["narrative"]
-        assert row.unverified == 1
+        assert row.unverified == 0
         db.close()
 
     @pytest.mark.asyncio
@@ -311,6 +329,204 @@ class TestStreamTrendNarrative:
             )
         ]
         assert events[-1]["type"] == "error"
+
+
+@pytest.mark.requires_db
+class TestRegenerateOnStrip:
+    """One-shot retry when the draft carries citation defects (audit D2): illegal refs or
+    figures that don't match the cited dataset values."""
+
+    @pytest.mark.asyncio
+    async def test_retry_fires_once_and_replaces_the_defective_draft(self, monkeypatch):
+        from app.database import SessionLocal
+        from app.models import TrendAnalysis
+
+        company_id = _seed_company_with_history()
+        calls: list = []
+        fake = _fake_stream_seq(
+            [
+                ["Revenue reached 1,500 [F3]. Bogus [F99]."],  # draft 1: illegal ref
+                ["Revenue reached 1,500 [F3] this year."],  # retry: clean
+            ],
+            calls,
+        )
+        events = await _drain(company_id, monkeypatch, None, fake=fake)
+
+        assert len(calls) == 2
+        complete = events[-1]
+        # The clean retry wins: no unverified refs, and the retry's text is the narrative.
+        assert complete["unverified"] == 0
+        assert "this year" in complete["narrative"]
+        assert "F99" not in complete["narrative"]
+        # Usage sums BOTH model calls (cost telemetry must not undercount retried runs).
+        assert complete["usage"]["prompt_tokens"] == 200
+        # The user keeps watching draft 1 — attempt-2 tokens are never streamed.
+        streamed = "".join(e["text"] for e in events if e["type"] == "token")
+        assert "Bogus" in streamed and "this year" not in streamed
+        # A "verifying" progress event announces the re-check.
+        assert any(e["type"] == "progress" and e.get("stage") == "verifying" for e in events)
+
+        db = SessionLocal()
+        row = db.query(TrendAnalysis).filter_by(company_id=company_id).one()
+        assert row.unverified == 0
+        db.close()
+
+    @pytest.mark.asyncio
+    async def test_retry_prompt_carries_draft_and_illegal_refs(self, monkeypatch):
+        company_id = _seed_company_with_history()
+        calls: list = []
+        fake = _fake_stream_seq(
+            [["Solid [F1]. Bogus [F99]."], ["Solid [F1]."]],
+            calls,
+        )
+        await _drain(company_id, monkeypatch, None, fake=fake)
+        retry_messages = calls[1]
+        assert retry_messages[-2]["role"] == "assistant"
+        assert "Bogus" in retry_messages[-2]["content"]
+        assert retry_messages[-1]["role"] == "user"
+        assert "[F99]" in retry_messages[-1]["content"]
+
+    @pytest.mark.asyncio
+    async def test_worse_retry_keeps_the_first_draft(self, monkeypatch):
+        company_id = _seed_company_with_history()
+        calls: list = []
+        fake = _fake_stream_seq(
+            [
+                ["Revenue [F3]. Bogus [F99]."],  # 1 defect
+                ["Revenue [F98]. Bogus [F99]. Also [F97]."],  # 3 defects — must not replace
+            ],
+            calls,
+        )
+        events = await _drain(company_id, monkeypatch, None, fake=fake)
+        assert len(calls) == 2
+        complete = events[-1]
+        assert complete["unverified"] == 1  # draft 1's count
+        assert complete["grounded"] == 1
+
+    @pytest.mark.asyncio
+    async def test_numeric_mismatch_triggers_the_retry(self, monkeypatch):
+        company_id = _seed_company_with_history()
+        calls: list = []
+        fake = _fake_stream_seq(
+            [
+                # [F3] is real (revenue FY2023 = 1,500) but the printed figure is wrong: the
+                # resolver passes it, the deterministic fidelity scan must not.
+                ["Revenue reached 9,999 [F3]."],
+                ["Revenue reached 1,500 [F3]."],
+            ],
+            calls,
+        )
+        events = await _drain(company_id, monkeypatch, None, fake=fake)
+        assert len(calls) == 2
+        assert "1,500" in events[-1]["narrative"]
+
+    @pytest.mark.asyncio
+    async def test_clean_draft_never_retries(self, monkeypatch):
+        company_id = _seed_company_with_history()
+        calls: list = []
+        events = await _drain(
+            company_id, monkeypatch, ["Revenue reached 1,500 [F3]."], calls=calls
+        )
+        assert len(calls) == 1
+        assert events[-1]["usage"]["prompt_tokens"] == 100
+
+
+class TestNumericFidelityScan:
+    """Deterministic backstop behind the 'every cited figure' claim — pure text vs dataset."""
+
+    def _index(self):
+        return {
+            "F1": {"concept": "revenue", "period": "FY2024", "value": 1_500_000_000.0,
+                   "yoy": 0.183, "percent": False},
+            "F2": {"concept": "net_margin", "period": "FY2024", "value": 38.3,
+                   "yoy": -9.0, "percent": True},
+        }
+
+    def _citation(self, n, concept, period, value):
+        return {"n": n, "concept": concept, "period": period, "value": value}
+
+    def test_matching_compact_money_passes(self):
+        citations = [self._citation(1, "revenue", "FY2024", 1_500_000_000.0)]
+        assert svc.scan_numeric_fidelity("Revenue hit $1.5B [1].", citations, self._index()) == []
+
+    def test_wrong_figure_is_flagged(self):
+        citations = [self._citation(1, "revenue", "FY2024", 1_500_000_000.0)]
+        assert svc.scan_numeric_fidelity("Revenue hit $9.9B [1].", citations, self._index()) == [1]
+
+    def test_qualitative_reference_passes(self):
+        citations = [self._citation(1, "revenue", "FY2024", 1_500_000_000.0)]
+        assert svc.scan_numeric_fidelity("Revenue kept climbing [1].", citations, self._index()) == []
+
+    def test_pp_delta_of_the_cited_point_is_licensed(self):
+        # Rule 1 lets the narrative cite the pp move with the value's marker:
+        # "net margin eased to 38.3% [2], down 9.0pp YoY [2]".
+        citations = [self._citation(2, "net_margin", "FY2024", 38.3)]
+        text = "Net margin eased to 38.3% [2], down 9.0pp YoY [2]."
+        assert svc.scan_numeric_fidelity(text, citations, self._index()) == []
+
+    def test_relative_growth_prints_x100_of_the_yoy_fraction(self):
+        citations = [self._citation(1, "revenue", "FY2024", 1_500_000_000.0)]
+        text = "Revenue grew +18.3% [1]."
+        assert svc.scan_numeric_fidelity(text, citations, self._index()) == []
+
+    def test_period_identifiers_are_not_figures(self):
+        # FY2024 must not be parsed as the number 2024 and flagged as a mismatch.
+        citations = [self._citation(1, "revenue", "FY2024", 1_500_000_000.0)]
+        assert svc.scan_numeric_fidelity("Held up in FY2024 [1].", citations, self._index()) == []
+
+    def test_chained_markers_never_flag_each_other(self):
+        # Review finding: the digit inside a preceding resolved "[1]" must never be parsed as
+        # the figure claimed by "[2]" — chains are the resolver's own multi-ref output.
+        citations = [
+            self._citation(1, "revenue", "FY2024", 1_500_000_000.0),
+            self._citation(2, "net_margin", "FY2024", 38.3),
+        ]
+        text = "Revenue hit $1.5B and margins held at 38.3% [1][2]."
+        assert svc.scan_numeric_fidelity(text, citations, self._index()) == []
+
+    def test_window_bounded_at_previous_marker(self):
+        # The claim before an earlier marker belongs to THAT marker: a qualitative reference
+        # right after a quantitative one must not inherit its figure.
+        citations = [
+            self._citation(1, "revenue", "FY2024", 1_500_000_000.0),
+            self._citation(2, "net_margin", "FY2024", 38.3),
+        ]
+        text = "Revenue hit $1.5B [1], and margins stayed resilient [2]."
+        assert svc.scan_numeric_fidelity(text, citations, self._index()) == []
+
+    def test_any_matching_figure_in_the_claim_passes(self):
+        # "from $X to $Y [a][b]" — the first marker's window holds both endpoints; one match
+        # is enough (the prompt's canonical two-figure sentence).
+        citations = [
+            self._citation(1, "revenue", "FY2024", 1_500_000_000.0),
+            self._citation(2, "revenue", "FY2024", 1_500_000_000.0),
+        ]
+        text = "Revenue went from $1.5B to $9.9B [1][2]."
+        assert svc.scan_numeric_fidelity(text, citations, self._index()) == []
+
+    def test_small_bare_counts_are_not_figures(self):
+        citations = [self._citation(1, "revenue", "FY2024", 1_500_000_000.0)]
+        text = "Growth held for 5 straight years [1]."
+        assert svc.scan_numeric_fidelity(text, citations, self._index()) == []
+
+    def test_bn_style_suffix_parses_scaled(self):
+        citations = [self._citation(1, "revenue", "FY2024", 1_500_000_000.0)]
+        assert svc.scan_numeric_fidelity("Revenue hit $1.5bn [1].", citations, self._index()) == []
+        assert svc.scan_numeric_fidelity("Revenue hit $9.9bn [1].", citations, self._index()) == [1]
+
+    def test_x100_not_licensed_for_monetary_values(self):
+        # A hallucinated figure exactly 100× the cited USD value is the scale-slip class the
+        # backstop exists for — only CAGR (fraction) markers may print ×100.
+        citations = [self._citation(1, "revenue", "FY2024", 1_500_000_000.0)]
+        text = "Revenue hit $150.0B [1]."
+        assert svc.scan_numeric_fidelity(text, citations, self._index()) == [1]
+
+    def test_cagr_fraction_prints_x100(self):
+        index = {"F9": {"concept": "revenue", "period": "FY2016..FY2025", "value": 0.134,
+                        "kind": "cagr"}}
+        citations = [self._citation(1, "revenue", "FY2016..FY2025", 0.134)]
+        text = "Revenue compounded at +13.4% [1]."
+        assert svc.scan_numeric_fidelity(text, citations, index) == []
 
 
 class TestStreamRouteMetering:

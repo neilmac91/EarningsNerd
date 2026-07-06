@@ -4,7 +4,7 @@ import { Card } from '@/components/ui'
 import { useCountUp } from '@/hooks/useCountUp'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { directionText } from '@/lib/financialTone'
-import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
+import { formatGrowth, windowGrowth, windowRange } from '@/features/analysis/lib/growth'
 import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
 import type {
   AnalysisDataset,
@@ -23,6 +23,8 @@ interface Kpi {
    *  series — CAGR doesn't apply to a percentage), or same-quarter YoY (quarterly). */
   growth: GrowthValue | null
   growthLabel: string
+  /** Basis-window tooltip ("Computed over FY2016..FY2025") — annual cards only. */
+  growthTitle?: string
 }
 
 const latestPoint = (series: AnalysisSeries | undefined) => {
@@ -47,7 +49,10 @@ function KpiTile({ kpi }: { kpi: Kpi }) {
         {animated}
       </div>
       {text && (
-        <div className={`tnum font-data mt-0.5 text-xs ${directionText[tone]}`}>
+        <div
+          className={`tnum font-data mt-0.5 text-xs ${directionText[tone]}${kpi.growthTitle ? ' cursor-help' : ''}`}
+          title={kpi.growthTitle}
+        >
           {kpi.growthLabel} {text}
         </div>
       )}
@@ -76,6 +81,9 @@ export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
     // Shared window-growth rule (growth.ts) — same resolution as the metrics table's window column.
     const win = windowGrowth(series)
     const growth: GrowthValue | null = isAnnual ? win.value : point.yoy ?? null
+    // The basis window can be narrower than the selected range (a concept first reported
+    // mid-window) — the tooltip states the window the figure was actually computed over.
+    const window = windowRange(series)
     kpis.push({
       label: `${series.label} (${point.period})`,
       value: point.value as number,
@@ -84,6 +92,7 @@ export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
       isPercent: series.percent,
       growth,
       growthLabel: isAnnual ? win.label : 'YoY',
+      growthTitle: isAnnual && window ? `Computed over ${window}` : undefined,
     })
   }
   if (kpis.length === 0) return null

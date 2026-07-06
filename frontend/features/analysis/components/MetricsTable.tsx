@@ -1,7 +1,8 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Badge, Card, DataTable, type Column } from '@/components/ui'
+import { Badge, Button, Card, DataTable, type Column } from '@/components/ui'
+import { FileCsvIcon } from '@/lib/icons'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { directionText } from '@/lib/financialTone'
 import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
@@ -30,7 +31,14 @@ type Row = { series: AnalysisSeries } & Record<string, unknown>
  * (gain/loss text tones), a "computed" dagger on derived Q4 columns. Renders straight from the
  * deterministic dataset — no client math beyond display formatting.
  */
-export default function MetricsTable({ dataset }: { dataset: AnalysisDataset }) {
+export default function MetricsTable({
+  dataset,
+  onExportCsv,
+}: {
+  dataset: AnalysisDataset
+  /** CSV download of the whole dataset — the page passes this on the Pro results surface only. */
+  onExportCsv?: () => void
+}) {
   const columns = useMemo<Column<Row>[]>(() => {
     const periodColumns: Column<Row>[] = dataset.periods.map((period) => ({
       key: period.key,
@@ -53,7 +61,7 @@ export default function MetricsTable({ dataset }: { dataset: AnalysisDataset }) 
               {point.derived && (
                 <span
                   className="cursor-help text-warning-light dark:text-warning-dark"
-                  title="Computed fourth quarter: full year minus the three reported quarters."
+                  title="Computed fourth quarter: derived from the annual report (full year minus the reported year-to-date quarters; EPS re-derived from Q4 net income and weighted shares)."
                   aria-label="Derived value"
                 >
                   †
@@ -121,17 +129,25 @@ export default function MetricsTable({ dataset }: { dataset: AnalysisDataset }) 
 
   return (
     <Card as="section" className="p-6">
-      <div className="mb-4 flex items-center gap-2">
-        <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-          Metrics by period
-        </h2>
-        {hasDerived && (
-          <Badge
-            variant="warning"
-            title="† values are computed fourth quarters (full year minus the three reported quarters) — companies disclose Q4 only inside the annual report."
-          >
-            † computed Q4
-          </Badge>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+            Metrics by period
+          </h2>
+          {hasDerived && (
+            <Badge
+              variant="warning"
+              title="† values are computed fourth quarters, derived from the annual report — companies disclose Q4 only inside the full-year figures. Flows: full year minus the reported year-to-date quarters; EPS: Q4 net income ÷ Q4 weighted shares."
+            >
+              † computed Q4
+            </Badge>
+          )}
+        </div>
+        {onExportCsv && (
+          <Button size="sm" variant="secondary" onClick={onExportCsv}>
+            <FileCsvIcon className="h-3.5 w-3.5" aria-hidden="true" />
+            Export CSV
+          </Button>
         )}
       </div>
       <DataTable<Row>

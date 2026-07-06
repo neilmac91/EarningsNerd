@@ -542,17 +542,31 @@ Sizes: S ≤ ½ day · M 1–3 days · L > 3 days. Order within phases is depend
 11. **B3 citation chips** (M): shared marker-chip renderer from CopilotMessage; popover +
     scroll-to-source + citation-flash.
 
-**Phase C — enhancements (P3, owner items 1–3)**
+**Phase C — enhancements (P3, owner items 1–3) — SHIPPED 2026-07-06 (same PR as this note)**
 
-12. **Chart expand/collapse** (M).
-13. **PNG/CSV export** (M).
-14. **Data-label toggle** (S/M).
-15. **Balance-sheet dual axis** (M, after 10).
-16. **KPI pp sub-line** (S, after 5).
-17. **Derived-Q4 EPS + YTD9-based Q4 derivation** ported from the EdgarTools ideas (M–L,
-    eval-gated).
-18. **F2/F3 polish**: grammar guard in prompt; narrative section spacing; Sources `break-words`;
-    PDF markdown rendering.
+12. **Chart expand/collapse** (M). ✅ per-panel PanelCard, col-span-2 + h-96, base-token height
+    transition, reduced-motion fallback.
+13. **PNG/CSV export** (M). ✅ dependency-free (`chartExport.ts`): per-panel PNG via SVG→canvas
+    with live theme background; whole-dataset CSV (raw numbers, computed-Q4 flagged in headers);
+    Pro results surface only.
+14. **Data-label toggle** (S/M). ✅ per-panel aria-pressed toggle, LabelList content renderer,
+    auto-thinned past 8 periods.
+15. **Balance-sheet dual axis** (M, after 10). ✅ equity → right axis, legend "(right)" suffix,
+    single-sided panels stay single-axis.
+16. **KPI pp sub-line** (S, after 5). ✅ shipped with Phase B (`window_pp`); Phase C added the
+    basis-window tooltips.
+17. **Derived-Q4 EPS + YTD9-based Q4 derivation** (M–L, eval-gated). ✅ YTD9-preferred Q4
+    (ΣQ fallback + mismatch telemetry) and shares-based Q4 EPS with the EPS≈NI÷shares
+    consistency gate; MSFT acceptance: derived Q4 FY2025 diluted EPS 3.6500 vs 3.65 reported.
+18. **F2/F3 polish**. ✅ prompt a/an guard (no PROMPT_VERSION bump — grammar only); pane heading
+    rhythm (.markdown-body); Sources `break-words`; PDF renders the narrative's GFM subset;
+    teaser F3 fix (Sample-data badge replaces verified/cached).
+
+**Phase-C follow-ups also shipped in the same PR:** the D2 engineering track (one-shot
+regenerate-on-strip retry + deterministic numeric-fidelity scan); shared `citation_markers`
+module + copilot multi-ref pre-pass; shared `AiDisclaimer` (closes F7's copilot gap + the
+summary card's web/PDF parity gap) and `legalDates`; DESIGN_SYSTEM.md tone-register section
+(D1). **Still open (human action):** the counsel pass on the Terms additions (§7e / D6 track 2).
 
 Every phase-A/B item ships with the verification discipline from `tasks/lessons.md`: ruff + bandit
 + pytest + vitest + `next build`, and a both-themes preview check for anything visual.

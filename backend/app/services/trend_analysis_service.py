@@ -24,6 +24,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import Company, FinancialFact
+from app.services import citation_markers
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,8 @@ logger = logging.getLogger(__name__)
 # multi-reference resolver, pp-vs-relative guardrail.
 # v3: percent-unit series (margins) report YoY/QoQ as percentage-point deltas (not relative %);
 # sign-flip growth renders "n/m" instead of a nonsensical percentage.
-PROMPT_VERSION = "trends-v3"
+# v4: a/an-with-numerals voice guard; rule 5 reworded for the YTD9/shares-based Q4 derivations.
+PROMPT_VERSION = "trends-v4"
 
 MODES = ("annual", "quarterly")
 _QUARTERS = ("Q1", "Q2", "Q3", "Q4")
@@ -295,22 +297,12 @@ def build_dataset(
     # Indexes: flows by (fiscal_year, fiscal_period); instants ALSO by period_end (D2c).
     by_fy_fp: dict[tuple[int, str, str], FinancialFact] = {}
     instant_by_end: dict[tuple[str, date], FinancialFact] = {}
-    # A Q4 column is a computed-Q4 column iff EVERY row in it came from the Q4 derivation (the
-    # picker-chip rule). This is what the "— derived Q4" / † labels mean, and it is deliberately
-    # column-level: a rare filer that reports a DISCRETE Q4 has companyfacts rows in the group,
-    # so its real Q4 (and the metrics computed from it) must never be labelled an estimate —
-    # while metrics computed ON a derived-Q4 column genuinely rest on FY−Q1..Q3 estimates.
-    q4_fully_derived: dict[int, bool] = {}
     for row in rows:
         if row.fiscal_year is None:
             continue
         by_fy_fp[(row.fiscal_year, row.fiscal_period, row.concept)] = row
         if row.concept in INSTANT_CONCEPTS:
             instant_by_end[(row.concept, row.period_end)] = row
-        if row.fiscal_period == "Q4":
-            q4_fully_derived[row.fiscal_year] = (
-                q4_fully_derived.get(row.fiscal_year, True) and row.source == "derived"
-            )
 
     # Period axis (oldest → newest), range-filtered and capped.
     if mode == "annual":
@@ -394,14 +386,18 @@ def build_dataset(
                     "raw_tag": row.raw_tag,
                     # True computed-Q4 only. `source == "derived"` alone is NOT it: the ingest
                     # also stamps same-period computed metrics (margins, FCF, working capital,
-                    # current ratio) "derived" for EVERY period, and the per-filing path writes
-                    # the same computations as "edgar_xbrl" — so the raw source flag flickers by
-                    # ingest history and would mislabel an FY2016 margin as a "derived Q4".
-                    # Column-level rule (see q4_fully_derived above): a point is a computed-Q4
-                    # value iff it sits on a Q4 column whose every row came from the derivation.
+                    # current ratio) "derived" for EVERY period — an FY2016 margin must never be
+                    # labelled a "derived Q4". The discriminator is `reconciled`: every row in
+                    # the Q4 DERIVATION CHAIN (FY−YTD9/ΣQ flows, shares-based EPS, and metrics
+                    # computed from those estimates) is reconciled=False, while a computed
+                    # metric on REAL same-period values is reconciled=True. Point-level (not
+                    # column-level) so a filer with SOME discrete Q4 rows still badges the rows
+                    # that genuinely rest on estimates (e.g. a derived Q4 EPS next to a real
+                    # discrete Q4 net income) instead of presenting them as reported values.
                     "derived": (
                         row.fiscal_period == "Q4"
-                        and q4_fully_derived.get(row.fiscal_year, False)
+                        and row.source == "derived"
+                        and not row.reconciled
                     ),
                     "reconciled": bool(row.reconciled),
                     "fiscal_year": row.fiscal_year,
@@ -800,25 +796,12 @@ def marker_index(dataset: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 NOT_ENOUGH_DATA_SENTINEL = "===NOT_ENOUGH_DATA==="
 
-# Every bracket group; whether it is a citation (vs prose) is decided in code. Deliberately no
-# lazy quantifiers or overlapping alternations anywhere in the resolver's regexes: the narrative
-# is model-generated (semi-adversarial) input scanned ON the event loop, so the patterns must be
-# linear — a lazy/ambiguous form here measured O(n²)-to-exponential on degenerate outputs.
-_MARKER_GROUP_RE = re.compile(r"\[([^\[\]]*)\]")
-_MARKER_REF_RE = re.compile(r"F\s*(\d+)", re.IGNORECASE)
-# What may legally surround the F-references inside one bracket group: list/range/comparison
-# connector words and punctuation ("F1, F2", "F1..F10", "F1-F2", "F1 vs F2", "F1 and F2",
-# "F1 through F10", "F9 versus F10", "F1 or F2"). Validated in two LINEAR passes (strip the
-# refs, strip whole connector words, then a single character class) — never an alternation of
-# overlapping words inside a `*` group, which is how the first version went exponential.
-_MARKER_CONNECTOR_WORD_RE = re.compile(r"\b(?:versus|vs|through|and|to|or)\b", re.IGNORECASE)
-_MARKER_SEPARATOR_CHARS_RE = re.compile(r"^[\s,;&/.·–—-]*$")
-
-
-def _is_citation_group(content: str) -> bool:
-    residue = _MARKER_REF_RE.sub("", content)
-    residue = _MARKER_CONNECTOR_WORD_RE.sub("", residue)
-    return _MARKER_SEPARATOR_CHARS_RE.match(residue) is not None
+# Citation-group classification (what makes a bracket group a citation vs prose, and the
+# linear-regex discipline behind it) lives in the shared citation_markers module — the copilot
+# resolver's multi-ref pre-pass consumes the same knowledge.
+_MARKER_GROUP_RE = citation_markers.MARKER_GROUP_RE
+_MARKER_REF_RE = citation_markers.MARKER_REF_RE
+_is_citation_group = citation_markers.is_citation_group
 
 
 def _point_citation(n: int, point: dict[str, Any]) -> dict[str, Any]:
@@ -898,6 +881,181 @@ def resolve_narrative_citations(
         cursor = match.end()
     pieces.append(text[cursor:])
     return "".join(pieces), citations, len(citations), unverified
+
+
+def _illegal_refs(text: str, index: dict[str, dict[str, Any]]) -> list[str]:
+    """F-references in a draft that the dataset never issued — the defect list fed back to the
+    model on the regenerate-on-strip retry (audit D2). Over-approximate on purpose (any F-token
+    inside brackets counts, prose or citation): a retry hint, not a resolution pass."""
+    illegal: list[str] = []
+    for match in _MARKER_GROUP_RE.finditer(text):
+        for ref in _MARKER_REF_RE.findall(match.group(1)):
+            key = f"F{int(ref)}"
+            if key not in index and key not in illegal:
+                illegal.append(key)
+    return illegal
+
+
+# --- numeric-fidelity scan (audit D2: the deterministic backstop behind "every cited figure") --
+
+# A printed figure near a citation: optional $, digits with thousands commas, optional decimals,
+# optional %/pp/compact-scale suffix (incl. the "bn"/"mn"/"tn" style). Linear (single
+# character-class core, no nesting) — this scans model output on the event loop.
+_FIDELITY_NUM_RE = re.compile(
+    r"(\$)?(\d[\d,]*(?:\.\d+)?)\s*(%|pp|[bmt]n\b|[BTMK]\b|billion|million|trillion|thousand)?",
+    re.IGNORECASE,
+)
+_FIDELITY_SCALES = {
+    "k": 1e3, "thousand": 1e3,
+    "m": 1e6, "mn": 1e6, "million": 1e6,
+    "b": 1e9, "bn": 1e9, "billion": 1e9,
+    "t": 1e12, "tn": 1e12, "trillion": 1e12,
+}
+# How far back from "[n]" the claimed figure may sit — the copilot adjacency window's sibling.
+_FIDELITY_WINDOW_CHARS = 48
+# A resolved citation marker inside the window ("[1]"): both a scrub target (its digits are NOT
+# figures) and the window's hard left bound — the claim before an earlier marker belongs to THAT
+# marker, not this one (the copilot _claim_span_start rule). Bounded digit run keeps it linear.
+_FIDELITY_MARKER_RE = re.compile(r"\[\d{1,4}\]")
+
+
+def _window_number_tokens(window: str) -> list[tuple[float, int, float]]:
+    """Every printed figure in a window as (number, decimals, scale). Skips tokens that are not
+    financial figures: period identifiers (FY2024, 2026Q3), bare years, and small bare counts
+    ("over the past 5 years", "3rd consecutive quarter" — no $, no suffix, no decimals)."""
+    tokens: list[tuple[float, int, float]] = []
+    for match in _FIDELITY_NUM_RE.finditer(window):
+        dollar, raw, suffix = match.group(1), match.group(2), match.group(3)
+        start, end = match.start(2), match.end(2)
+        if start > 0 and window[start - 1].isalpha():
+            continue  # FY2024 / Q3-style token — part of an identifier
+        if end < len(window) and window[end] == "Q":
+            continue  # 2026Q3
+        number = float(raw.replace(",", ""))
+        decimals = len(raw.split(".")[1]) if "." in raw else 0
+        if not dollar and suffix is None and decimals == 0:
+            if 1900 <= number <= 2100:
+                continue  # a bare year in prose
+            if number < 1000:
+                continue  # a small bare count, not a financial figure (the copilot rule)
+        scale = _FIDELITY_SCALES.get(suffix.lower(), 1.0) if suffix else 1.0
+        tokens.append((number, decimals, scale))
+    return tokens
+
+
+def _fidelity_candidates(citation: dict[str, Any], point: dict[str, Any]) -> list[float]:
+    """Every dataset figure the prompt licenses against this marker: the point's value (plus its
+    ×100 form for CAGR markers ONLY — growth fractions print as percentages, but licensing ×100
+    for monetary values would wave through exactly the scale-slip errors the scan exists to
+    catch) and the point's YoY/QoQ deltas (pp form for percent series, ×100 relative form
+    otherwise)."""
+    candidates: list[float] = []
+    value = citation.get("value")
+    if isinstance(value, (int, float)):
+        candidates.append(float(value))
+        if point.get("kind") == "cagr":
+            candidates.append(float(value) * 100.0)
+    for key in ("yoy", "qoq"):
+        growth = point.get(key)
+        if isinstance(growth, (int, float)):
+            candidates.extend([float(growth), float(growth) * 100.0])
+    return candidates
+
+
+def _token_matches_any(token: tuple[float, int, float], candidates: list[float]) -> bool:
+    """Half-ULP-of-the-printed-precision comparison: '391.0B' (1 decimal at 1e9 scale) accepts
+    anything the display formatter would round to 391.0B. Signs compare absolutely — prose sign
+    conventions vary ('outflow of $71.9B' cites a negative value)."""
+    number, decimals, scale = token
+    target = abs(number) * scale
+    tolerance = max(0.55 * scale * 10.0 ** (-decimals), 1e-9)
+    return any(abs(target - abs(c)) <= tolerance for c in candidates)
+
+
+def scan_numeric_fidelity(
+    text: str, citations: list[dict[str, Any]], index: dict[str, dict[str, Any]]
+) -> list[int]:
+    """Citation numbers whose adjacent claim contains figures and NONE of them matches the cited
+    point's dataset figures. Deterministic, no model involved. The window is bounded at the
+    previous citation marker (an earlier claim's figure belongs to ITS marker) — so in a chain
+    "[1][2]" the second marker's window is empty and it passes as qualitative, the same rule the
+    copilot adjacency guard applies. Qualitative references (no figure in the window) always
+    pass; a claim citing several figures passes if ANY of them matches ("from $X to $Y [a][b]").
+    """
+    by_concept_period = {
+        (entry.get("concept"), entry.get("period")): entry for entry in index.values()
+    }
+    mismatched: list[int] = []
+    for citation in citations:
+        n = citation.get("n")
+        point = by_concept_period.get((citation.get("concept"), citation.get("period")), {})
+        candidates = _fidelity_candidates(citation, point)
+        if not candidates:
+            continue
+        marker = f"[{n}]"
+        cursor = 0
+        clean = True
+        while clean:
+            position = text.find(marker, cursor)
+            if position == -1:
+                break
+            cursor = position + len(marker)
+            window = text[max(0, position - _FIDELITY_WINDOW_CHARS):position]
+            # Bound at the previous resolved marker — everything before it was that marker's claim.
+            previous_marker = None
+            for marker_match in _FIDELITY_MARKER_RE.finditer(window):
+                previous_marker = marker_match
+            if previous_marker is not None:
+                window = window[previous_marker.end():]
+            tokens = _window_number_tokens(window)
+            if tokens and not any(_token_matches_any(t, candidates) for t in tokens):
+                clean = False
+        if not clean:
+            mismatched.append(int(n))
+    return mismatched
+
+
+def _mismatch_details(mismatched: list[int], citations: list[dict[str, Any]]) -> list[str]:
+    """Human-readable defect lines for the retry instruction. Named by concept/period, NOT by
+    the renumbered [n] — the retry model sees its own raw [F#] draft, where [n] means nothing."""
+    by_n = {c.get("n"): c for c in citations}
+    details: list[str] = []
+    for n in mismatched:
+        c = by_n.get(n) or {}
+        details.append(f"{c.get('concept')} {c.get('period')} (dataset value: {c.get('value')})")
+    return details
+
+
+def _retry_instruction(illegal: list[str], mismatched_details: list[str]) -> str:
+    """The corrective turn for the one-shot regenerate-on-strip retry."""
+    problems: list[str] = []
+    if illegal:
+        problems.append(
+            "- These references do not exist in the dataset and must not appear: "
+            + " ".join(f"[{ref}]" for ref in illegal)
+            + ". Use ONLY marker IDs printed in the dataset."
+        )
+    if mismatched_details:
+        problems.append(
+            "- The figure you printed next to your citation of these dataset lines does not "
+            "match the value they carry: " + "; ".join(mismatched_details) + ". Every number "
+            "must be copied EXACTLY as printed on the dataset line whose marker you cite — "
+            "never computed or approximated."
+        )
+    return (
+        "Your draft was rejected for citation defects:\n"
+        + "\n".join(problems)
+        + "\nRewrite the FULL analysis now, following the Output Format exactly."
+    )
+
+
+def _merge_usage(total: dict[str, Any], attempt: dict[str, Any]) -> None:
+    """Sum per-attempt token usage so cost telemetry reflects every model call of a retried run."""
+    for key, value in attempt.items():
+        if isinstance(value, (int, float)):
+            total[key] = total.get(key, 0) + value
+        else:
+            total.setdefault(key, value)
 
 
 def _load_cached_analysis(db: Session, company_id: int, mode: str, key: str):
@@ -1064,7 +1222,7 @@ async def stream_trend_narrative(
     yield {"type": "progress", "stage": "writing", "message": "Writing the analysis…", "percent": 30}
 
     prompt = get_named_prompt("trends-analyst-agent")
-    messages = [
+    base_messages = [
         {"role": "system", "content": prompt.raw},
         {
             "role": "user",
@@ -1075,50 +1233,123 @@ async def stream_trend_narrative(
         },
     ]
 
-    usage_sink: dict[str, int] = {}
+    index = marker_index(dataset)
     model_name = openai_service.model
-    parts: list[str] = []
-    async for chunk in openai_service.stream_chat(
-        messages,
-        max_tokens=settings.ANALYSIS_MAX_TOKENS,
-        temperature=0.2,
-        usage_sink=usage_sink,
-    ):
-        if chunk.startswith(STREAM_ERROR_SENTINEL):
-            detail = chunk[len(STREAM_ERROR_SENTINEL):]
-            logger.warning("trend narrative stream failed for %s: %s", ticker, detail)
-            yield {"type": "error", "message": "The analysis could not be generated. Please try again."}
-            return
-        parts.append(chunk)
-        yield {"type": "token", "text": chunk}
+    total_usage: dict[str, Any] = {}
+    # Best attempt so far: (defect_count, narrative, citations, grounded, unverified, mismatched).
+    best: Optional[tuple[int, str, list[dict[str, Any]], int, int, list[int]]] = None
+    draft_text = ""
 
-    full_text = "".join(parts).strip()
-    if not full_text:
+    # One-shot regenerate-on-strip (audit D2): when the first draft cites markers the dataset
+    # never issued, or prints figures that don't match the cited values, retry ONCE with the
+    # defect list. The client keeps showing draft 1 (attempt-2 token yields are suppressed; the
+    # authoritative `complete` replaces buffered tokens), so the retry degrades gracefully to a
+    # longer "writing" phase. Exactly one complete event + one persisted row either way — the
+    # router's meter sees a single fresh completion, and `usage` sums both model calls.
+    for attempt in range(2):
+        messages = list(base_messages)
+        if attempt:
+            _, _, prior_citations, _, prior_unverified, prior_mismatched = best  # type: ignore[misc]
+            messages.append({"role": "assistant", "content": draft_text})
+            messages.append(
+                {
+                    "role": "user",
+                    "content": _retry_instruction(
+                        _illegal_refs(draft_text, index) if prior_unverified else [],
+                        _mismatch_details(prior_mismatched, prior_citations),
+                    ),
+                }
+            )
+            yield {
+                "type": "progress",
+                "stage": "verifying",
+                "message": "Re-checking citations…",
+                "percent": 80,
+            }
+
+        usage_sink: dict[str, int] = {}
+        parts: list[str] = []
+        stream_failed = False
+        async for chunk in openai_service.stream_chat(
+            messages,
+            max_tokens=settings.ANALYSIS_MAX_TOKENS,
+            temperature=0.2,
+            usage_sink=usage_sink,
+        ):
+            if chunk.startswith(STREAM_ERROR_SENTINEL):
+                detail = chunk[len(STREAM_ERROR_SENTINEL):]
+                logger.warning("trend narrative stream failed for %s: %s", ticker, detail)
+                if attempt == 0:
+                    yield {"type": "error", "message": "The analysis could not be generated. Please try again."}
+                    return
+                stream_failed = True  # retry failed — draft 1's resolution stands
+                break
+            parts.append(chunk)
+            if attempt == 0:
+                yield {"type": "token", "text": chunk}
+            elif len(parts) % 40 == 0:
+                # Keepalive while retry tokens are suppressed: the client's idle timeout resets
+                # on ANY received activity, and a silent 60–90s rewrite would otherwise look
+                # like a dead stream after draft 1 already arrived.
+                yield {
+                    "type": "progress",
+                    "stage": "verifying",
+                    "message": "Re-checking citations…",
+                    "percent": 85,
+                }
+        _merge_usage(total_usage, usage_sink)
+        if stream_failed:
+            break
+
+        candidate_text = "".join(parts).strip()
+        if not candidate_text:
+            if attempt == 0:
+                yield {"type": "error", "message": "The analysis could not be generated. Please try again."}
+                return
+            break
+        if NOT_ENOUGH_DATA_SENTINEL in candidate_text:
+            if attempt == 0:
+                yield {
+                    "type": "complete",
+                    "kind": "not_enough_data",
+                    "analysis_id": None,
+                    "narrative": "",
+                    "citations": [],
+                    "grounded": 0,
+                    "unverified": 0,
+                    "cached": False,
+                    "invalidated": invalidated,
+                    "n_periods": len(dataset["periods"]),
+                    "usage": {**total_usage, "model": model_name},
+                }
+                return
+            break  # a retry that suddenly claims no-data is noise — draft 1 stands
+
+        resolved, cites, grounded_c, unverified_c = resolve_narrative_citations(
+            candidate_text, index
+        )
+        mismatched_c = scan_numeric_fidelity(resolved, cites, index)
+        defects = unverified_c + len(mismatched_c)
+        if best is None or defects < best[0]:
+            best = (defects, resolved, cites, grounded_c, unverified_c, mismatched_c)
+        if defects == 0:
+            break
+        draft_text = candidate_text
+
+    if best is None:  # unreachable: attempt 0 either returned early or recorded a result
         yield {"type": "error", "message": "The analysis could not be generated. Please try again."}
         return
-    if NOT_ENOUGH_DATA_SENTINEL in full_text:
-        yield {
-            "type": "complete",
-            "kind": "not_enough_data",
-            "analysis_id": None,
-            "narrative": "",
-            "citations": [],
-            "grounded": 0,
-            "unverified": 0,
-            "cached": False,
-            "invalidated": invalidated,
-            "n_periods": len(dataset["periods"]),
-            "usage": {**usage_sink, "model": model_name},
-        }
-        return
-
-    narrative, citations, grounded, unverified = resolve_narrative_citations(
-        full_text, marker_index(dataset)
-    )
+    _, narrative, citations, grounded, unverified, mismatched = best
     if unverified:
         logger.warning(
-            "trend narrative for %s (%s %s) carried %d unresolvable citation reference(s)",
+            "trend narrative for %s (%s %s) carried %d unresolvable citation reference(s) after retry",
             ticker, mode, key, unverified,
+        )
+    if mismatched:
+        logger.warning(
+            "trend narrative for %s (%s %s) has %d citation(s) whose adjacent figure does not "
+            "match the cited dataset value after retry: %s",
+            ticker, mode, key, len(mismatched), mismatched,
         )
     analysis_id = _persist_analysis(
         company_id=company_id,
@@ -1141,8 +1372,12 @@ async def stream_trend_narrative(
         "citations": citations,
         "grounded": grounded,
         "unverified": unverified,
+        # Figures the deterministic fidelity scan could not reconcile even after the retry —
+        # surfaced in the badge tooltip so "verified" never silently overclaims. Not persisted
+        # (no column; cached re-serves rely on the generation-time log line).
+        "mismatched": len(mismatched),
         "cached": False,
         "invalidated": invalidated,
         "n_periods": len(dataset["periods"]),
-        "usage": {**usage_sink, "model": model_name},
+        "usage": {**total_usage, "model": model_name},
     }

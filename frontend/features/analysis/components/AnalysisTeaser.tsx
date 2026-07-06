@@ -29,6 +29,7 @@ export default function AnalysisTeaser({ forTicker }: { forTicker?: string }) {
           <TrendCharts dataset={demoDataset} />
           <NarrativePane
             state={{ status: 'done', text: demoCompletion.narrative, completion: demoCompletion }}
+            sample
           />
           <MetricsTable dataset={demoDataset} />
         </div>

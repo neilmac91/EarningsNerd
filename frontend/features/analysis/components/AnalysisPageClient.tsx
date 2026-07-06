@@ -25,6 +25,8 @@ import {
   type AnalysisDataset,
   type AnalysisMode,
 } from '@/features/analysis/api/analysis-api'
+import AiDisclaimer from '@/components/AiDisclaimer'
+import { downloadDatasetCsv } from '@/features/analysis/lib/chartExport'
 import AnalysisTeaser from './AnalysisTeaser'
 import KpiStrip from './KpiStrip'
 import MetricsTable from './MetricsTable'
@@ -296,24 +298,25 @@ export default function AnalysisPageClient() {
       {isPro && dataset && (
         <div className="flex flex-col gap-4">
           <KpiStrip dataset={dataset} />
-          <TrendCharts dataset={dataset} />
+          <TrendCharts dataset={dataset} exportEnabled />
           <NarrativePane
             state={narrative}
             onRefresh={() => startNarrative(true)}
             refreshDisabled={narrative.status === 'streaming'}
             onExport={exportPdf}
           />
-          <MetricsTable dataset={dataset} />
-          <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-            All figures from SEC XBRL (companyfacts). Growth rates, margins and ratios are computed
-            server-side — the AI narrative only cites values from this dataset. † = computed Q4.
-          </p>
+          <MetricsTable dataset={dataset} onExportCsv={() => downloadDatasetCsv(dataset)} />
+          <AiDisclaimer lead={false}>
+            All figures from SEC XBRL (companyfacts). Growth rates, margins and ratios are
+            computed server-side — the AI narrative only cites values from this dataset. † =
+            computed Q4.
+          </AiDisclaimer>
         </div>
       )}
 
       {/* Legal one-liner: outside every result/Pro gate so guests, free users viewing the sample,
           and Pro users all see it (drafted in the audit's legal review; pending counsel polish). */}
-      <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+      <AiDisclaimer lead={false}>
         This analysis is AI-generated, for informational purposes only, and is not investment
         advice or a recommendation; past performance does not predict future results. Verify
         against the original filings on SEC EDGAR. See our{' '}
@@ -321,7 +324,7 @@ export default function AnalysisPageClient() {
           Terms
         </Link>
         .
-      </p>
+      </AiDisclaimer>
     </div>
   )
 }

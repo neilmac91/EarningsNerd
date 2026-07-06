@@ -148,7 +148,7 @@ export default function PeriodPicker({
                 chip.disabled
                   ? 'Not enough reported data in this period'
                   : chip.derived
-                    ? 'Computed Q4 (full year minus the three reported quarters)'
+                    ? 'Computed Q4 (derived from the annual report — no discrete Q4 filing exists)'
                     : undefined
               }
               className={cx(

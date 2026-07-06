@@ -227,8 +227,10 @@ export interface ChartTooltipProps {
   active?: boolean
   label?: ReactNode
   payload?: Array<{ name?: string; value?: number | string; color?: string }>
-  /** Format a row value — defaults to String(). */
-  formatValue?: (value: number | string | undefined) => string
+  /** Format a row value — defaults to String(). The row's series `name` is passed as the
+   *  second argument so mixed-scale panels (money bars + a % growth line) can route by series
+   *  instead of guessing from the value's magnitude. */
+  formatValue?: (value: number | string | undefined, name?: string) => string
 }
 
 export function ChartTooltip({ dark = false, active, label, payload, formatValue }: ChartTooltipProps) {
@@ -276,7 +278,7 @@ export function ChartTooltip({ dark = false, active, label, payload, formatValue
                 color: dark ? '#D7DADC' : '#1A1A17',
               }}
             >
-              {fmt(row.value)}
+              {fmt(row.value, row.name)}
             </span>
           </div>
         ))}

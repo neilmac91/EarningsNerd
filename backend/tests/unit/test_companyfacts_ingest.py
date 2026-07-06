@@ -194,6 +194,88 @@ class TestNormalizeCompanyfacts:
         assert eps["value"] == 3.25
         assert eps["unit"] == "USD/shares"
 
+    def test_ytd9_slice_powers_q4_derivation_but_is_never_stored(self):
+        # FY + Q3 + YTD9 only (Q1/Q2 missing — edge of history): the YTD9 slice must never emit a
+        # fact row (it ends at the SAME date as Q3), yet Q4 = FY − YTD9 must still derive.
+        revenue = [
+            _item(1200.0, "2024-12-31", start="2024-01-01", accn="K24", fy=2024, filed="2025-02-15"),
+            _item(310.0, "2024-09-30", start="2024-07-01", accn="Q3-24", fy=2024, fp="Q3",
+                  form="10-Q", filed="2024-11-05"),
+            _item(890.0, "2024-09-30", start="2024-01-01", accn="Q3-24", fy=2024, fp="Q3",
+                  form="10-Q", filed="2024-11-05"),
+        ]
+        facts, _ = svc.normalize_companyfacts(1, _payload({REV_TAG: {"units": {"USD": revenue}}}))
+        by = _by_key(facts)
+        # The discrete Q3 keeps its own value — the nine-month 890 never lands on any row.
+        assert by[("revenue", date(2024, 9, 30), "Q3")]["value"] == 310.0
+        assert all(f["value"] != 890.0 for f in facts)
+        q4 = by[("revenue", date(2024, 12, 31), "Q4")]
+        assert q4["value"] == pytest.approx(310.0)  # 1200 − 890
+        assert q4["source"] == "derived"
+
+    def test_rejected_negative_derived_q4_leaves_no_margins_behind(self):
+        # Recast trap: FY revenue restated below the still-original-vintage YTD9 → derived Q4
+        # revenue < 0 → hard-rejected. The Q4 margins computed FROM that doomed row must be
+        # rejected with it (they'd pass the filter themselves — margins may be negative).
+        payload = _payload({
+            REV_TAG: {"units": {"USD": [
+                _item(600.0, "2024-12-31", start="2024-01-01", accn="K24", filed="2025-02-15"),
+                _item(740.0, "2024-09-30", start="2024-01-01", accn="Q3-24", fy=2024, fp="Q3",
+                      form="10-Q", filed="2024-11-05"),  # YTD9, original vintage
+            ]}},
+            "NetIncomeLoss": {"units": {"USD": [
+                _item(100.0, "2024-12-31", start="2024-01-01", accn="K24", filed="2025-02-15"),
+                _item(90.0, "2024-09-30", start="2024-01-01", accn="Q3-24", fy=2024, fp="Q3",
+                      form="10-Q", filed="2024-11-05"),  # YTD9 → derived Q4 NI = +10
+            ]}},
+        })
+        facts, _ = svc.normalize_companyfacts(1, payload)
+        by = _by_key(facts)
+        assert ("revenue", date(2024, 12, 31), "Q4") not in by  # −140, rejected
+        assert ("net_income", date(2024, 12, 31), "Q4") in by  # +10, kept
+        # No net_margin Q4 built on the rejected revenue.
+        assert ("net_margin", date(2024, 12, 31), "Q4") not in by
+
+    def test_q4_eps_derived_end_to_end_from_payload(self):
+        def year(tag_items):
+            return {"units": tag_items}
+
+        usd = lambda *items: {"USD": list(items)}  # noqa: E731
+        payload = _payload({
+            REV_TAG: year(usd(
+                _item(4000.0, "2024-12-31", start="2024-01-01", accn="K24", filed="2025-02-15"),
+                _item(1000.0, "2024-03-31", start="2024-01-01", accn="Q1", fp="Q1", form="10-Q", filed="2024-05-05"),
+                _item(1000.0, "2024-06-30", start="2024-04-01", accn="Q2", fp="Q2", form="10-Q", filed="2024-08-05"),
+                _item(1000.0, "2024-09-30", start="2024-07-01", accn="Q3", fp="Q3", form="10-Q", filed="2024-11-05"),
+            )),
+            "NetIncomeLoss": year(usd(
+                _item(400.0, "2024-12-31", start="2024-01-01", accn="K24", filed="2025-02-15"),
+                _item(100.0, "2024-03-31", start="2024-01-01", accn="Q1", fp="Q1", form="10-Q", filed="2024-05-05"),
+                _item(100.0, "2024-06-30", start="2024-04-01", accn="Q2", fp="Q2", form="10-Q", filed="2024-08-05"),
+                _item(100.0, "2024-09-30", start="2024-07-01", accn="Q3", fp="Q3", form="10-Q", filed="2024-11-05"),
+            )),
+            "EarningsPerShareDiluted": year({"USD/shares": [
+                _item(4.0, "2024-12-31", start="2024-01-01", accn="K24", filed="2025-02-15"),
+                _item(1.0, "2024-03-31", start="2024-01-01", accn="Q1", fp="Q1", form="10-Q", filed="2024-05-05"),
+                _item(1.0, "2024-06-30", start="2024-04-01", accn="Q2", fp="Q2", form="10-Q", filed="2024-08-05"),
+                _item(1.0, "2024-09-30", start="2024-07-01", accn="Q3", fp="Q3", form="10-Q", filed="2024-11-05"),
+            ]}),
+            "WeightedAverageNumberOfDilutedSharesOutstanding": year({"shares": [
+                _item(100.0, "2024-12-31", start="2024-01-01", accn="K24", filed="2025-02-15"),
+                _item(100.0, "2024-03-31", start="2024-01-01", accn="Q1", fp="Q1", form="10-Q", filed="2024-05-05"),
+                _item(100.0, "2024-06-30", start="2024-04-01", accn="Q2", fp="Q2", form="10-Q", filed="2024-08-05"),
+                _item(100.0, "2024-09-30", start="2024-07-01", accn="Q3", fp="Q3", form="10-Q", filed="2024-11-05"),
+            ]}),
+        })
+        facts, _ = svc.normalize_companyfacts(1, payload)
+        by = _by_key(facts)
+        q4_eps = by[("eps_diluted", date(2024, 12, 31), "Q4")]
+        # Q4 NI = 400 − 300 = 100 (derived); Q4 shares = 4×100 − 300 = 100 → EPS 1.00.
+        assert q4_eps["value"] == pytest.approx(1.0)
+        assert q4_eps["source"] == "derived"
+        assert q4_eps["reconciled"] is False
+        assert q4_eps["unit"] == "USD/shares"
+
     def test_ifrs_only_payload_reports_unsupported(self):
         payload = {"facts": {"ifrs-full": {"Revenue": {"units": {"EUR": []}}}}}
         facts, meta = svc.normalize_companyfacts(1, payload)
@@ -269,6 +351,8 @@ class TestDeriveQ4:
         assert svc.derive_q4_facts(facts) == []
 
     def test_eps_and_ratios_never_derived(self):
+        # Plain subtraction is wrong for a per-share/ratio unit — EPS gets its own shares-based
+        # derivation (derive_q4_eps_facts), never this one.
         facts = self._full_year()
         for f in facts:
             f["concept"] = "earnings_per_share"
@@ -280,6 +364,213 @@ class TestDeriveQ4:
         for f in facts:
             f["period_start"] = None
         assert svc.derive_q4_facts(facts) == []
+
+    def _ytd9_values(self, value=890.0, *, start="2024-01-01", end="2024-09-30"):
+        """duration_values shape: concept -> {(period_end, klass): record}."""
+        return {
+            "revenue": {
+                (date.fromisoformat(end), "YTD9"): {
+                    "value": value,
+                    "period_start": date.fromisoformat(start),
+                    "period_end": date.fromisoformat(end),
+                    "accession": "Q3-24",
+                    "form": "10-Q",
+                    "filed": "2024-11-05",
+                    "raw_tag": "t",
+                }
+            }
+        }
+
+    def test_q4_prefers_ytd9_over_quarter_sum(self):
+        # YTD9 = 895 vs ΣQ1–3 = 890: the YTD9 slice (two vintages, one filer) wins.
+        derived = svc.derive_q4_facts(self._full_year(), self._ytd9_values(895.0))
+        assert len(derived) == 1
+        q4 = derived[0]
+        assert q4["value"] == pytest.approx(305.0)  # 1200 − 895, NOT 1200 − 890
+        assert q4["period_start"] == date(2024, 10, 1)  # YTD9 end + 1 day
+        assert q4["source"] == "derived"
+        assert q4["reconciled"] is False
+
+    def test_ytd9_derivation_survives_missing_quarters(self):
+        # The headline YTD9 win: an FY + YTD9 pair derives Q4 even when Q1/Q2 10-Qs are missing
+        # (edge of companyfacts history, IPO year) — the ΣQ path would give up.
+        facts = [f for f in self._full_year() if f["fiscal_period"] in ("FY", "Q3")]
+        derived = svc.derive_q4_facts(facts, self._ytd9_values(890.0))
+        assert len(derived) == 1
+        assert derived[0]["value"] == pytest.approx(310.0)
+
+    def test_ytd9_from_wrong_window_is_ignored(self):
+        # A YTD9 slice that doesn't start with the fiscal year (here: starts mid-year) must not
+        # be subtracted — the residual wouldn't be a discrete Q4. Falls back to ΣQ1–3.
+        wrong = self._ytd9_values(600.0, start="2024-03-01", end="2024-11-30")
+        derived = svc.derive_q4_facts(self._full_year(), wrong)
+        assert len(derived) == 1
+        assert derived[0]["value"] == pytest.approx(310.0)  # ΣQ fallback: 1200 − 890
+
+    def test_ytd9_from_a_different_tag_is_ignored(self):
+        # Tags within one concept can carry different accounting scopes (total vs continuing-
+        # operations cash flow) — FY − YTD9 must never subtract across scopes. ΣQ fallback.
+        ytd9 = self._ytd9_values(700.0)
+        next(iter(ytd9["revenue"].values()))["raw_tag"] = "other-scope-tag"
+        derived = svc.derive_q4_facts(self._full_year(), ytd9)
+        assert len(derived) == 1
+        assert derived[0]["value"] == pytest.approx(310.0)  # ΣQ fallback, not 1200 − 700
+
+
+class TestDeriveQ4Eps:
+    """Shares-based Q4 EPS derivation (Q4 NI ÷ [4×FY − ΣQ1–3] weighted shares)."""
+
+    def _fact(self, concept, fp, value, *, unit="USD", fy=2024, source="companyfacts",
+              reconciled=True):
+        starts = {"FY": "2024-01-01", "Q1": "2024-01-01", "Q2": "2024-04-01",
+                  "Q3": "2024-07-01", "Q4": "2024-10-01"}
+        ends = {"FY": "2024-12-31", "Q1": "2024-03-31", "Q2": "2024-06-30",
+                "Q3": "2024-09-30", "Q4": "2024-12-31"}
+        return {
+            "company_id": 1, "filing_id": None, "concept": concept, "raw_tag": "t", "unit": unit,
+            "period_start": date.fromisoformat(starts[fp]),
+            "period_end": date.fromisoformat(ends[fp]), "fiscal_year": fy, "fiscal_period": fp,
+            "value": value, "form": "10-K", "accession": "K24", "source": source,
+            "reconciled": reconciled,
+        }
+
+    def _consistent_year(self):
+        """NI 1000/quarter (4000 FY), 1000 shares all periods, EPS exactly NI ÷ shares."""
+        facts = [
+            self._fact("net_income", "FY", 4000.0),
+            self._fact("net_income", "Q1", 1000.0),
+            self._fact("net_income", "Q2", 1000.0),
+            self._fact("net_income", "Q3", 1000.0),
+            self._fact("net_income", "Q4", 1000.0, source="derived", reconciled=False),
+            self._fact("eps_diluted", "FY", 4.0, unit="USD/shares"),
+            self._fact("eps_diluted", "Q1", 1.0, unit="USD/shares"),
+            self._fact("eps_diluted", "Q2", 1.0, unit="USD/shares"),
+            self._fact("eps_diluted", "Q3", 1.0, unit="USD/shares"),
+        ]
+        shares = {"eps_diluted": {
+            (2024, "FY"): 1000.0, (2024, "Q1"): 1000.0, (2024, "Q2"): 1000.0, (2024, "Q3"): 1000.0,
+        }}
+        return facts, shares
+
+    def test_q4_eps_derived_from_ni_and_shares(self):
+        facts, shares = self._consistent_year()
+        derived = svc.derive_q4_eps_facts(facts, shares)
+        assert len(derived) == 1
+        q4 = derived[0]
+        assert q4["concept"] == "eps_diluted"
+        assert q4["fiscal_period"] == "Q4"
+        # Q4 shares = 4×1000 − 3000 = 1000; Q4 EPS = 1000 ÷ 1000.
+        assert q4["value"] == pytest.approx(1.0)
+        assert q4["unit"] == "USD/shares"
+        assert q4["period_start"] == date(2024, 10, 1)
+        assert q4["period_end"] == date(2024, 12, 31)
+        assert q4["source"] == "derived"
+        assert q4["reconciled"] is False
+
+    def test_buyback_year_uses_shifting_share_counts(self):
+        # Shares shrink through the year (buybacks): Q4 shares = 4×925 − (1000+950+900) = 850.
+        facts = [
+            self._fact("net_income", "FY", 4000.0),
+            self._fact("net_income", "Q1", 1000.0),
+            self._fact("net_income", "Q2", 950.0),
+            self._fact("net_income", "Q3", 900.0),
+            self._fact("net_income", "Q4", 1150.0, source="derived", reconciled=False),
+            self._fact("eps_diluted", "FY", 4000.0 / 925.0, unit="USD/shares"),
+            self._fact("eps_diluted", "Q1", 1.0, unit="USD/shares"),
+            self._fact("eps_diluted", "Q2", 1.0, unit="USD/shares"),
+            self._fact("eps_diluted", "Q3", 1.0, unit="USD/shares"),
+        ]
+        shares = {"eps_diluted": {
+            (2024, "FY"): 925.0, (2024, "Q1"): 1000.0, (2024, "Q2"): 950.0, (2024, "Q3"): 900.0,
+        }}
+        derived = svc.derive_q4_eps_facts(facts, shares)
+        assert len(derived) == 1
+        assert derived[0]["value"] == pytest.approx(1150.0 / 850.0)
+
+    def test_inconsistent_eps_ni_shares_skips_year(self):
+        # A mid-year split: EPS history restated but share counts pre-split — EPS ≠ NI ÷ shares,
+        # so deriving would be garbage. The consistency gate must skip the whole year.
+        facts, shares = self._consistent_year()
+        shares["eps_diluted"][(2024, "Q1")] = 500.0  # pre-split count: NI/shares = 2.0 ≠ EPS 1.0
+        assert svc.derive_q4_eps_facts(facts, shares) == []
+
+    def test_missing_share_count_skips_year(self):
+        facts, shares = self._consistent_year()
+        del shares["eps_diluted"][(2024, "Q2")]
+        assert svc.derive_q4_eps_facts(facts, shares) == []
+
+    def test_missing_q4_net_income_skips_year(self):
+        facts, shares = self._consistent_year()
+        facts = [f for f in facts if not (f["concept"] == "net_income" and f["fiscal_period"] == "Q4")]
+        assert svc.derive_q4_eps_facts(facts, shares) == []
+
+    def test_discrete_q4_eps_never_overwritten(self):
+        facts, shares = self._consistent_year()
+        facts.append(self._fact("eps_diluted", "Q4", 1.02, unit="USD/shares"))
+        assert svc.derive_q4_eps_facts(facts, shares) == []
+
+    def test_mixed_split_bases_skip_the_year(self):
+        # Mid-year 10-for-1 split: FY/Q2/Q3 counts post-split, Q1 still on the original
+        # pre-split 10-Q. Each period is internally consistent (Q1's EPS is pre-split too),
+        # so only the cross-period spread guard can catch it.
+        facts = [
+            self._fact("net_income", "FY", 4000.0),
+            self._fact("net_income", "Q1", 1000.0),
+            self._fact("net_income", "Q2", 1000.0),
+            self._fact("net_income", "Q3", 1000.0),
+            self._fact("net_income", "Q4", 1000.0, source="derived", reconciled=False),
+            self._fact("eps_diluted", "FY", 0.4, unit="USD/shares"),
+            self._fact("eps_diluted", "Q1", 1.0, unit="USD/shares"),  # pre-split EPS
+            self._fact("eps_diluted", "Q2", 0.1, unit="USD/shares"),
+            self._fact("eps_diluted", "Q3", 0.1, unit="USD/shares"),
+        ]
+        shares = {"eps_diluted": {
+            (2024, "FY"): 10_000.0, (2024, "Q1"): 1_000.0,  # pre-split count
+            (2024, "Q2"): 10_000.0, (2024, "Q3"): 10_000.0,
+        }}
+        assert svc.derive_q4_eps_facts(facts, shares) == []
+
+    def test_preferred_dividend_wedge_skips_the_year(self):
+        # FY EPS × FY shares ≠ FY NI (preferred dividends): the whole annual wedge would land
+        # on the derived Q4 numerator, so the year is skipped even though every per-period
+        # check passes.
+        facts = [
+            self._fact("net_income", "FY", 1000.0),
+            self._fact("net_income", "Q1", 320.0),
+            self._fact("net_income", "Q2", 320.0),
+            self._fact("net_income", "Q3", 320.0),
+            self._fact("net_income", "Q4", 40.0, source="derived", reconciled=False),
+            # EPS = (NI − 45 preferred) / 239 shares — each reported period within the 5% gate.
+            self._fact("eps_diluted", "FY", 4.0, unit="USD/shares"),
+            self._fact("eps_diluted", "Q1", 1.29, unit="USD/shares"),
+            self._fact("eps_diluted", "Q2", 1.29, unit="USD/shares"),
+            self._fact("eps_diluted", "Q3", 1.29, unit="USD/shares"),
+        ]
+        shares = {"eps_diluted": {
+            (2024, "FY"): 239.0, (2024, "Q1"): 239.0, (2024, "Q2"): 239.0, (2024, "Q3"): 239.0,
+        }}
+        assert svc.derive_q4_eps_facts(facts, shares) == []
+
+    def test_rounded_small_eps_tolerated_absolutely(self):
+        # Filed EPS is rounded to 2 decimals: 0.05 vs an exact 0.045 is >5% relative but within
+        # the one-cent absolute tolerance — must not be treated as an inconsistency.
+        facts = [
+            self._fact("net_income", "FY", 180.0),
+            self._fact("net_income", "Q1", 45.0),
+            self._fact("net_income", "Q2", 45.0),
+            self._fact("net_income", "Q3", 45.0),
+            self._fact("net_income", "Q4", 45.0, source="derived", reconciled=False),
+            self._fact("eps_diluted", "FY", 0.18, unit="USD/shares"),
+            self._fact("eps_diluted", "Q1", 0.05, unit="USD/shares"),
+            self._fact("eps_diluted", "Q2", 0.05, unit="USD/shares"),
+            self._fact("eps_diluted", "Q3", 0.05, unit="USD/shares"),
+        ]
+        shares = {"eps_diluted": {
+            (2024, "FY"): 1000.0, (2024, "Q1"): 1000.0, (2024, "Q2"): 1000.0, (2024, "Q3"): 1000.0,
+        }}
+        derived = svc.derive_q4_eps_facts(facts, shares)
+        assert len(derived) == 1
+        assert derived[0]["value"] == pytest.approx(0.045)
 
 
 class TestDeriveSamePeriodMetrics:

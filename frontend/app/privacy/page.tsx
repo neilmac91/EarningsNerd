@@ -1,5 +1,6 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
+import { LEGAL_DATES } from '@/lib/legalDates'
 
 export const metadata: Metadata = {
   title: 'Privacy Policy | EarningsNerd',
@@ -14,8 +15,8 @@ export default function PrivacyPage() {
           Privacy Policy
         </h1>
         <p className="text-lg text-text-secondary-light dark:text-text-secondary-dark">
-          {/* Content-change date — update by hand with any policy edit (never render-time). */}
-          Last updated: June 22, 2026
+          {/* Content-change date — lives in lib/legalDates.ts with the full rationale. */}
+          Last updated: {LEGAL_DATES.privacy}
         </p>
 
         <section className="mt-8">
