@@ -23,6 +23,7 @@ import {
   type AnalysisDataset,
   type AnalysisMode,
 } from '@/features/analysis/api/analysis-api'
+import { downloadDatasetCsv } from '@/features/analysis/lib/chartExport'
 import AnalysisTeaser from './AnalysisTeaser'
 import KpiStrip from './KpiStrip'
 import MetricsTable from './MetricsTable'
@@ -306,15 +307,15 @@ export default function AnalysisPageClient() {
       {isPro && dataset && (
         <div className="flex flex-col gap-4">
           <KpiStrip dataset={dataset} />
-          <TrendCharts dataset={dataset} />
+          <TrendCharts dataset={dataset} exportEnabled />
           <NarrativePane
             state={narrative}
             onRefresh={() => startNarrative(true)}
             refreshDisabled={narrative.status === 'streaming'}
             onExport={exportPdf}
           />
-          <MetricsTable dataset={dataset} />
-          <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+          <MetricsTable dataset={dataset} onExportCsv={() => downloadDatasetCsv(dataset)} />
+  <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
             All figures from SEC XBRL (companyfacts). Growth rates, margins and ratios are computed
             server-side — the AI narrative only cites values from this dataset. † = computed Q4.
           </p>

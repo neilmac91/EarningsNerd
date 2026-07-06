@@ -75,6 +75,9 @@ export interface AnalysisSeries {
   /** Optional only for fixtures/deploy skew — every fresh dataset ships it. Missing = 'normal'. */
   tone?: SeriesTone | null
   cagr: number | null
+  /** The basis window the CAGR was computed over ("FY2016..FY2025") — can be narrower than the
+   *  selected range when a concept was first reported mid-window. */
+  cagr_window?: string | null
   /** Percentage-point change over the series' valued endpoints (annual mode, `percent` series
    *  only) — the CAGR counterpart for a percentage, where compounding doesn't apply. */
   window_pp?: number | null

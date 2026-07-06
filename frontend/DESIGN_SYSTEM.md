@@ -208,6 +208,21 @@ Tooltip cursors: `crosshairProps(dark)` on LINE charts; `barCursorProps(dark)` o
 category-band FILL wash (chart.1 teal @ 8% light / 16% dark), not a hairline. `yAxisProps` width 44
 is a default — currency/ticker labels routinely override: `<YAxis {...yAxisProps(dark)} width={56} />`.
 
+**Financial tone register (metric-aware).** Sign-based direction is a *default*, not a law: for
+some metrics an increase is a cost/risk signal, for others direction carries no fixed valence.
+The register ships from the backend on each analysis series as `tone`
+(`trend_analysis_service._SERIES_TONE` — single source of truth, like `percent`) and is applied
+via `features/analysis/lib/tonePolicy.applySeriesTone`:
+
+| `tone` | Metrics (today) | Rendering |
+|--------|-----------------|-----------|
+| `inverted` | long-term debt, current liabilities | up = **loss** text, down = **gain** text |
+| `neutral` | capex, investing CF, financing CF | always **flat** — a capex ramp or financing swing is a strategic choice, not good/bad news |
+| `normal` | everything else | sign-based (up = gain, down = loss) |
+
+Never invert or neutralize by hardcoding concept names in the frontend — consume the dataset's
+`tone` field so backend concept changes can't silently desync the coloring.
+
 ## 11. Motion — tokens only
 
 Four durations + two curves, defined ONCE (`globals.css` `:root`; JS mirror `lib/motion.ts` for

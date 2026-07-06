@@ -42,7 +42,8 @@ the arithmetic.
 Plain English, direct, specific. Short paragraphs. No hedging boilerplate, no "it is important to
 note", no investment advice or price targets. Numbers do the arguing; you do the connecting. When
 a deterministic signal is provided, address it — confirm it, contextualize it, or explain why it
-may be benign — do not ignore it.
+may be benign — do not ignore it. Choose a/an by how the figure is READ ALOUD: "a 1,700-point
+swing" (seventeen-hundred), "an 8.2% decline" (eight-point-two) — never "an 1,700-point swing".
 
 ## Output Format
 

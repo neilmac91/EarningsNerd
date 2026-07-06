@@ -99,7 +99,10 @@ function CitationList({ citations }: { citations: AnalysisCitation[] }) {
             <span className="shrink-0 rounded bg-brand-weak px-1.5 py-0.5 font-semibold text-brand-strong dark:bg-white/10 dark:text-brand-strong-dark">
               {citation.n}
             </span>
-            <span>
+            {/* min-w-0 lets this flex child shrink; break-words keeps long unbroken tokens
+                (us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax) inside the card
+                at mobile widths instead of overflowing it. */}
+            <span className="min-w-0 break-words">
               {citation.excerpt}
               {citation.section_ref && (
                 <span className="ml-1 text-text-tertiary-light dark:text-text-secondary-dark">
