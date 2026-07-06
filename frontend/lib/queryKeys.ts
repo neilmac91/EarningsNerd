@@ -58,5 +58,4 @@ export const queryKeys = {
   company: (ticker: string) => ['company', ticker] as const,
   companyFilings: (ticker: string) => ['filings', ticker] as const,
   companies: (query: string) => ['companies', query] as const,
-  hotFilings: (limit: number) => ['hot-filings', limit] as const,
 } as const

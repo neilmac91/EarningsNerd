@@ -12,6 +12,7 @@ from app.models.subscription import Subscription, StripeEvent, ACTIVE_STATUSES
 from app.models.notifications import NotificationPreferences, NotificationLog
 from app.models.earnings import EarningsEvent, EarningsAlertLog
 from app.models.financial_fact import FinancialFact
+from app.models.notable_filing import NotableFiling
 from app.models.trend_analysis import TrendAnalysis
 from app.models.invite import InviteCode
 from app.models.feedback import Feedback

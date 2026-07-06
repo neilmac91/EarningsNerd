@@ -64,6 +64,7 @@ from app.routers import (
     watchlist,
     sitemap,
     hot_filings,
+    notable_filings,
     trending,
     reporting_this_week,
     email,
@@ -344,6 +345,7 @@ app.include_router(watchlist.waitlist_router, prefix="/api/waitlist", tags=["Wai
 app.include_router(sitemap.router, tags=["SEO"])
 app.include_router(analysis.router, prefix="/api/analysis", tags=["Analysis"])
 app.include_router(hot_filings.router, prefix="/api", tags=["Hot Filings"])
+app.include_router(notable_filings.router, prefix="/api", tags=["Notable Filings"])
 app.include_router(trending.router, prefix="/api", tags=["Trending"])
 app.include_router(reporting_this_week.router, prefix="/api", tags=["Reporting This Week"])
 app.include_router(search.router, prefix="/api/search", tags=["Search"])

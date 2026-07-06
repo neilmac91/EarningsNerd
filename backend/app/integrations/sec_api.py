@@ -156,14 +156,16 @@ class SECFullTextSearchClient:
 
     @staticmethod
     def _build_params(
-        query: str,
+        query: Optional[str],
         forms: Optional[str],
         start_date: Optional[str],
         end_date: Optional[str],
         ciks: Optional[str],
         from_offset: int,
     ) -> dict:
-        params: dict = {"q": query}
+        # `q` is optional: EFTS accepts forms+date-only queries (live-verified 2026-07-06),
+        # which is how the notable-filings scan pulls low-volume forms market-wide.
+        params: dict = {"q": query} if query else {}
         if forms:
             params["forms"] = forms
         if start_date:
@@ -178,7 +180,7 @@ class SECFullTextSearchClient:
 
     async def search(
         self,
-        query: str,
+        query: Optional[str] = None,
         forms: Optional[str] = None,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
@@ -187,10 +189,17 @@ class SECFullTextSearchClient:
     ) -> EftsSearchResult:
         """Run a full-text search against EDGAR.
 
+        ``query`` may be omitted for forms+date-only listings, but only on the
+        first page: EFTS returns HTTP 500 for ``from>0`` without a query term
+        (observed live 2026-07-06), so that combination is rejected here.
+
         Raises ``SECRateLimitError`` if the rate limiter exhausts retries, or
         ``httpx.HTTPError`` on other transport/HTTP failures — callers map these
         to HTTP responses.
         """
+
+        if from_offset and not query:
+            raise ValueError("EFTS rejects pagination (from>0) on query-less searches")
 
         params = self._build_params(query, forms, start_date, end_date, ciks, from_offset)
 
@@ -205,7 +214,7 @@ class SECFullTextSearchClient:
                 return response.json()
 
         payload = await sec_rate_limiter.execute_with_backoff(_do_request)
-        return self._parse_response(query, payload)
+        return self._parse_response(query or "", payload)
 
     @staticmethod
     def _parse_response(query: str, payload: object) -> EftsSearchResult:

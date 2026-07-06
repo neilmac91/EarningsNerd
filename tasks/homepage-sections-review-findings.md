@@ -1,7 +1,8 @@
 # Homepage sections review — Trending Filings & Market Movers
 
 **Date:** 2026-07-06 · **Reviewer:** Claude (fractional product/staff-eng review, session `claude/homepage-sections-review-7k2120`)
-**Scope:** keep/fix/kill for the two sections + their plumbing. No code changed in this session.
+**Scope:** keep/fix/kill for the two sections + their plumbing. No code changed during the investigation.
+**DECISION (Neil, 2026-07-06):** Market Movers → HIDE approved. Trending Filings → **option B (the runner-up): hide + immediate EDGAR rebuild** — implemented on this branch (see `tasks/todo.md` status block and DEPLOYMENT.md §12 for rollout).
 **Method:** live prod GETs (read-only), line-level code verification, in-repo prior research (`tasks/earnings-calendar-strategy.md`, 2026-07-03), two parallel web-research subagents (cited), adversarial fresh-context passes per verdict.
 
 ---

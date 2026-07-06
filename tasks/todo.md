@@ -603,11 +603,17 @@ facts-only past days.
 
 # Task: Homepage sections keep/fix/kill — Trending Filings & Market Movers (2026-07-06)
 
-**Status: AWAITING NEIL'S DECISION — no code changed yet.** Full evidence, options, and verdicts:
-`tasks/homepage-sections-review-findings.md`. Verdicts (post-adversarial-pass): Market Movers →
-HIDE now via flag, permanence ratified day 30 (high confidence on hiding); Trending Filings →
-minimal honest FIX now + instrument, EDGAR-rebuild decision at 30-day checkpoint (medium
-confidence; explicit runner-up = hide + rebuild immediately if 2–3 days available this month).
+**Status: APPROVED 2026-07-06 (Market Movers: HIDE; Trending Filings: option B = hide +
+immediate EDGAR rebuild) — IMPLEMENTED on this branch (PR #571).** Full evidence:
+`tasks/homepage-sections-review-findings.md`. What shipped: `NEXT_PUBLIC_ENABLE_MARKET_MOVERS`
+default-off flag (section + prefetch gated); HotFilings/FilingPulse removed from the homepage and
+replaced by the EDGAR-native "Notable filings" section (`notable_filings_service` scan/score/serve,
+`GET /api/notable_filings`, `scripts/notable_filings_job.py` Cloud Run job + `/internal` seed
+trigger, `notable_filings` table + migration); impression instrumentation
+(`homepage_section_viewed` via SectionImpression on the new section + ReportingThisWeek) +
+`notable_filing_clicked`; dead-integration allowlist gate + lesson; docs updated
+(DEPLOYMENT §12, ARCHITECTURE, CONFIGURATION). Ships dark — rollout steps in DEPLOYMENT.md §12.
+REMAINING (separate teardown PR, ~1 deploy later): B2 + B3 below.
 
 ## Phase A — zero-risk prep (any verdict)
 - [ ] A1 (S, 2–3h): `homepage_section_viewed` impression event (IntersectionObserver hook) on both

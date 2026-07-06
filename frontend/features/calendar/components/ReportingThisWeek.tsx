@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import CompanyLogo from '@/components/CompanyLogo'
+import SectionImpression from '@/features/marketing/components/SectionImpression'
 import { ArrowRightIcon } from '@/lib/icons'
 import { ENABLE_CALENDAR } from '@/lib/featureFlags'
 import type { ReportingThisWeekResponse } from '@/lib/serverApi'
@@ -37,6 +38,8 @@ export default function ReportingThisWeek({
   return (
     <section id="reporting-this-week" className="py-20 sm:py-24">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
+        {/* Impression baseline for per-section CTR (homepage-sections review §3). */}
+        <SectionImpression section="reporting_this_week">
         <div className="mb-8 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-text-primary-light dark:text-text-primary-dark">
             <span aria-hidden="true">📅</span> Reporting This Week
@@ -73,6 +76,7 @@ export default function ReportingThisWeek({
             </Link>
           ))}
         </div>
+        </SectionImpression>
       </div>
     </section>
   )

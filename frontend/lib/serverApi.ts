@@ -1,6 +1,5 @@
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
 import { EXAMPLE_FILING_ID } from '@/lib/featureFlags'
-import type { HotFilingsResponse } from '@/features/filings/components/HotFilings'
 import type { TrendingTickerResponse } from '@/features/companies/api/companies-api'
 
 /**
@@ -135,11 +134,29 @@ export const fetchExampleData = async (): Promise<ExampleData | null> => {
   }
 }
 
-/** Initial hot-filings payload so the first paint shows real data, not skeletons. */
-export const fetchHotFilingsInitial = (limit: number): Promise<HotFilingsResponse | null> =>
-  fetchJson<HotFilingsResponse>(`/api/hot_filings?limit=${limit}`, 300)
+export interface NotableFiling {
+  ticker: string
+  company_name: string
+  form: string
+  reason: string
+  reason_label: string
+  filed_date: string
+  sec_url: string
+}
 
-/** Initial trending-tickers payload for the same reason. */
+export interface NotableFilingsResponse {
+  filings: NotableFiling[]
+  status: string
+  timestamp: string
+}
+
+/** Market-wide notable filings (EDGAR-native). Server-rendered only — the section self-omits
+ * when the list is empty, so there is no client query. ISR 15 min, matching the backend's own
+ * serve-cache TTL. */
+export const fetchNotableFilings = (): Promise<NotableFilingsResponse | null> =>
+  fetchJson<NotableFilingsResponse>('/api/notable_filings?limit=8', 900)
+
+/** Initial trending-tickers payload so the first paint shows real data, not skeletons. */
 export const fetchTrendingInitial = (): Promise<TrendingTickerResponse | null> =>
   fetchJson<TrendingTickerResponse>('/api/trending_tickers', 300)
 

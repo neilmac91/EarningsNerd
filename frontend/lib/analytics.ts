@@ -283,6 +283,23 @@ export const analytics = {
     safeCapture('watchlist_removed', { ticker })
   },
 
+  // Homepage section impression (IntersectionObserver, once per pageview) — the denominator for
+  // per-section CTR that the homepage-sections review found missing (findings §3). Section slugs:
+  // 'notable_filings' | 'reporting_this_week' | ...
+  homepageSectionViewed: (section: string) => {
+    safeCapture('homepage_section_viewed', { section })
+  },
+
+  // A "Notable filings" card was clicked through to the company page. `reason` is the selection
+  // slug (earnings_results, activist_stake, …) so CTR can be split by why the card was shown.
+  notableFilingClicked: (props: { ticker: string; form: string; reason: string }) => {
+    safeCapture('notable_filing_clicked', {
+      ticker: props.ticker,
+      form: props.form,
+      reason: props.reason,
+    })
+  },
+
   // Dashboard "what changed" feed: a filing card was clicked through to its summary.
   dashboardFeedClicked: (filingId: number, ticker: string | null, filingType: string) => {
     safeCapture('dashboard_feed_clicked', {

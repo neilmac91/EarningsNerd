@@ -29,6 +29,8 @@ USE_STRUCTURED_OUTPUT=false                   # Phase-A structured extraction (J
 USE_EDGARTOOLS_SECTIONS=true                  # Native edgartools section extraction (vs legacy regex)
 AI_QUALITY_GATE=true                          # Partial summaries don't consume user quota
 ENABLE_FPI_FILINGS=false                      # Foreign private issuer (ADR) filings: list 20-F/6-K/40-F on the company page (page-scoped; default off — see tasks/fpi-support-roadmap.md)
+NOTABLE_FILINGS_ENABLED=false                 # Serve /api/notable_filings (scan job populates regardless; flip after the seed run — DEPLOYMENT.md §12)
+NOTABLE_FILINGS_SCAN_DAYS=2                   # Trailing window (days) per scheduled notable-filings scan; seed run overrides via --days
 
 # Copilot ("Ask this Filing" — Pro-only grounded Q&A)
 COPILOT_MONTHLY_QUESTION_CAP=1000
@@ -116,9 +118,10 @@ NEXT_PUBLIC_TURNSTILE_SITE_KEY=...                 # Pairs with backend TURNSTIL
 NEXT_PUBLIC_LOGO_DEV_TOKEN=...                     # Logo.dev publishable token for CompanyLogo (blank = monogram fallback only)
 NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS=true|false
 NEXT_PUBLIC_ENABLE_SECTION_TABS=true|false
-NEXT_PUBLIC_ENABLE_CALENDAR=true|false             # Earnings calendar (requires FMP_API_KEY)
+NEXT_PUBLIC_ENABLE_CALENDAR=true|false             # Earnings calendar (owned EDGAR+Alpha Vantage engine; FMP no longer used)
 NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY=true|false     # Form 4 insider activity panel
 NEXT_PUBLIC_ENABLE_ANALYSIS=true|false             # Multi-Period Analysis (off: nav/CTA hidden + /analysis route 404s)
+NEXT_PUBLIC_ENABLE_MARKET_MOVERS=true|false        # Homepage Market Movers (default off — dead FMP path, no license-clean source; findings review)
 NEXT_PUBLIC_REQUIRE_AUTH_FOR_SUMMARY=true|false    # Gate summary generation behind auth
 WAITLIST_MODE=...                                  # Server-side waitlist gating (not NEXT_PUBLIC_)
 ```

@@ -24,6 +24,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`arch-redis-off-in-prod.md`](./arch-redis-off-in-prod.md) — Production runs with Redis OFF — the two-tier cache is L1-only in prod
 - [`arch-stop-tuning-prose-know-the-floor.md`](./arch-stop-tuning-prose-know-the-floor.md) — Stop tuning prompt prose when judge flags are heterogeneous or prompt-compliant
 - [`arch-structural-gates-over-prose-rules.md`](./arch-structural-gates-over-prose-rules.md) — Encode every "never do X again" rule as a machine-checked gate, not prose
+- [`arch-sweep-dead-integration-consumers.md`](./arch-sweep-dead-integration-consumers.md) — When an integration is declared dead, sweep every consumer in the same pass
 
 ## SEC / EDGAR data
 
