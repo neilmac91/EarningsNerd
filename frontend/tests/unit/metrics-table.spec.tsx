@@ -1,5 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 
 import MetricsTable from '@/features/analysis/components/MetricsTable'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
@@ -67,6 +68,26 @@ describe('MetricsTable', () => {
     const firstBodyCell = container.querySelector('tbody tr td')
     expect(firstBodyCell).toHaveClass('sticky')
     expect(firstBodyCell).toHaveClass('left-0')
+  })
+
+  it('shows the Export Excel button only when the handler is passed, and fires it', async () => {
+    const onExportXlsx = vi.fn()
+    const { rerender } = render(<MetricsTable dataset={dataset} />)
+    expect(screen.queryByRole('button', { name: /export excel/i })).not.toBeInTheDocument()
+
+    rerender(<MetricsTable dataset={dataset} onExportXlsx={onExportXlsx} />)
+    await userEvent.click(screen.getByRole('button', { name: /export excel/i }))
+    expect(onExportXlsx).toHaveBeenCalledTimes(1)
+  })
+
+  it('marks the export button busy (click-inert) while the workbook request is in flight', async () => {
+    // Button's loading contract is aria-busy + a swallowed click, not the disabled attribute.
+    const onExportXlsx = vi.fn()
+    render(<MetricsTable dataset={dataset} onExportXlsx={onExportXlsx} exporting />)
+    const button = screen.getByRole('button', { name: /export excel/i })
+    expect(button).toHaveAttribute('aria-busy', 'true')
+    await userEvent.click(button)
+    expect(onExportXlsx).not.toHaveBeenCalled()
   })
 })
 

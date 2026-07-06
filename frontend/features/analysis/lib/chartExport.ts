@@ -1,12 +1,11 @@
-import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
-import { windowGrowth, windowRange } from '@/features/analysis/lib/growth'
+import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 import { downloadBlob } from '@/lib/downloadBlob'
 
 /**
- * Dependency-free chart/table export (audit enhancement 2): PNG via SVG serialization →
- * canvas rasterization, CSV straight from the deterministic dataset. Downloads go through the
- * shared lib/downloadBlob helper (its delayed revoke matters — a synchronous revoke can abort
- * the download on Safari/Firefox).
+ * Dependency-free chart PNG export (audit enhancement 2): SVG serialization → canvas
+ * rasterization. Downloads go through the shared lib/downloadBlob helper (its delayed revoke
+ * matters — a synchronous revoke can abort the download on Safari/Firefox). Tabular export is
+ * the branded Excel workbook, built server-side (`exportAnalysisXlsx`).
  */
 
 export function exportFilename(dataset: AnalysisDataset, suffix: string, ext: string): string {
@@ -76,70 +75,4 @@ export async function exportPanelPng(
   if (!blob) return false
   downloadBlob(blob, filename)
   return true
-}
-
-const csvField = (value: string): string =>
-  /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value
-
-/**
- * The whole dataset as CSV: one row per series, one column per period, plus the window figure
- * (CAGR for monetary series, pp change for percent series — the shared windowGrowth rule).
- * Values are RAW numbers (full precision, machine-usable in Excel); percent-series values are
- * the ×100 percentages exactly as the dataset stores them. A fully-computed Q4 column is marked
- * in its HEADER (" (computed Q4)") so derived estimates stay flagged without breaking the
- * numeric cells.
- */
-export function datasetToCsv(dataset: AnalysisDataset): string {
-  const derivedPeriods = new Set(
-    dataset.periods
-      .filter((period) =>
-        dataset.series.some((s) =>
-          s.points.some((p) => p.period === period.key && p.derived && p.value !== null)
-        )
-      )
-      .map((period) => period.key)
-  )
-  const header = [
-    'Metric',
-    'Concept',
-    'Unit',
-    // "contains", not "is": balance-sheet instants in a Q4 column are real reported values
-    // even when the flow rows are computed — the on-screen grid daggers per cell, a CSV can
-    // only annotate the header.
-    ...dataset.periods.map((p) =>
-      derivedPeriods.has(p.key) ? `${p.key} (contains computed Q4 values)` : p.key
-    ),
-    'Window growth',
-    'Window',
-  ]
-
-  const rows = dataset.series.map((series: AnalysisSeries) => {
-    const byPeriod = new Map(series.points.map((p) => [p.period, p]))
-    const win = windowGrowth(series)
-    const window = windowRange(series)
-    return [
-      csvField(series.label),
-      series.concept,
-      csvField(series.unit + (series.percent ? ' (×100 percent)' : '')),
-      ...dataset.periods.map((period) => {
-        const value = byPeriod.get(period.key)?.value
-        return value === null || value === undefined ? '' : String(value)
-      }),
-      win.value === null ? '' : `${String(win.value)}${win.isPercent ? ' pp' : ''}`,
-      window ?? '',
-    ].join(',')
-  })
-
-  return [header.map(csvField).join(','), ...rows].join('\n') + '\n'
-}
-
-export function downloadDatasetCsv(dataset: AnalysisDataset): void {
-  const csv = datasetToCsv(dataset)
-  // BOM: the CSV carries non-ASCII ("×100 percent") and Excel on Windows only decodes UTF-8
-  // when the file leads with one. Explicit escape — a literal BOM char is invisible and easily
-  // stripped by editors/formatters.
-  downloadBlob(
-    new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' }),
-    exportFilename(dataset, `${dataset.mode}-metrics`, 'csv')
-  )
 }

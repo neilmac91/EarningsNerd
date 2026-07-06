@@ -17,6 +17,7 @@ import { downloadBlob } from '@/lib/downloadBlob'
 
 import {
   exportAnalysisPdf,
+  exportAnalysisXlsx,
   getAnalysisCoverage,
   getAnalysisDataset,
   isAnalysisPaywallError,
@@ -26,7 +27,7 @@ import {
   type AnalysisMode,
 } from '@/features/analysis/api/analysis-api'
 import AiDisclaimer from '@/components/AiDisclaimer'
-import { downloadDatasetCsv } from '@/features/analysis/lib/chartExport'
+import { exportFilename } from '@/features/analysis/lib/chartExport'
 import AnalysisTeaser from './AnalysisTeaser'
 import KpiStrip from './KpiStrip'
 import MetricsTable from './MetricsTable'
@@ -170,9 +171,44 @@ export default function AnalysisPageClient() {
     const analysisId = narrative.completion?.analysis_id
     if (analysisId == null || !ticker) return
     void exportAnalysisPdf(analysisId)
-      .then((blob) => downloadBlob(blob, `${ticker}_multi_period_analysis.pdf`))
+      .then((blob) => {
+        downloadBlob(blob, `${ticker}_multi_period_analysis.pdf`)
+        analytics.exportGenerated({
+          surface: 'analysis',
+          format: 'pdf',
+          ticker,
+          mode: dataset?.mode,
+          periodKey: dataset?.period_key,
+        })
+      })
       .catch(() => setDatasetError('PDF export failed. Please try again.'))
-  }, [narrative.completion?.analysis_id, ticker])
+  }, [narrative.completion?.analysis_id, ticker, dataset?.mode, dataset?.period_key])
+
+  // Excel replaces the old client-side CSV (owner decision D1). The request range comes from the
+  // DATASET on screen — not the picker state, which the user may have changed since running —
+  // so the workbook always matches the grid it sits under. Works pre-narrative, like /dataset.
+  const [exportingXlsx, setExportingXlsx] = useState(false)
+  const exportXlsx = useCallback(() => {
+    if (!dataset || exportingXlsx) return
+    setExportingXlsx(true)
+    void exportAnalysisXlsx(dataset.ticker, {
+      mode: dataset.mode,
+      start_period: dataset.periods[0].key,
+      end_period: dataset.periods[dataset.periods.length - 1].key,
+    })
+      .then((blob) => {
+        downloadBlob(blob, exportFilename(dataset, `${dataset.mode}-metrics`, 'xlsx'))
+        analytics.exportGenerated({
+          surface: 'analysis',
+          format: 'xlsx',
+          ticker: dataset.ticker,
+          mode: dataset.mode,
+          periodKey: dataset.period_key,
+        })
+      })
+      .catch(() => setDatasetError('Excel export failed. Please try again.'))
+      .finally(() => setExportingXlsx(false))
+  }, [dataset, exportingXlsx])
 
   const unsupported = coverage && !coverage.supported
   const paywalled = narrative.status === 'error' && isAnalysisPaywallError(narrative.error || '')
@@ -305,7 +341,7 @@ export default function AnalysisPageClient() {
             refreshDisabled={narrative.status === 'streaming'}
             onExport={exportPdf}
           />
-          <MetricsTable dataset={dataset} onExportCsv={() => downloadDatasetCsv(dataset)} />
+          <MetricsTable dataset={dataset} onExportXlsx={exportXlsx} exporting={exportingXlsx} />
           <AiDisclaimer lead={false}>
             All figures from SEC XBRL (companyfacts). Growth rates, margins and ratios are
             computed server-side — the AI narrative only cites values from this dataset. † =

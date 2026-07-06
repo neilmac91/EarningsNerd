@@ -37,6 +37,7 @@ import {
   TagSimpleIcon,
 } from '@/lib/icons'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import analytics from '@/lib/analytics'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { exportFilename, exportPanelPng } from '@/features/analysis/lib/chartExport'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
@@ -243,7 +244,17 @@ function PanelCard({
 
   const exportPng = async () => {
     if (!plotRef.current) return
-    await exportPanelPng(plotRef.current, exportFilename(dataset, panel.title, 'png'))
+    const downloaded = await exportPanelPng(plotRef.current, exportFilename(dataset, panel.title, 'png'))
+    if (downloaded) {
+      analytics.exportGenerated({
+        surface: 'analysis',
+        format: 'png',
+        ticker: dataset.ticker,
+        mode: dataset.mode,
+        periodKey: dataset.period_key,
+        panel: panel.title,
+      })
+    }
   }
 
   return (
