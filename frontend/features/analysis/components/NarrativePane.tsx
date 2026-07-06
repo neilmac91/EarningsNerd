@@ -16,6 +16,14 @@ export interface NarrativeState {
   error?: string
 }
 
+const VERIFIED_BADGE_BASE = 'Every cited figure resolves to an exact SEC XBRL value.'
+
+function verifiedBadgeTitle(unverified: number | null | undefined): string {
+  if (!unverified) return VERIFIED_BADGE_BASE
+  const one = unverified === 1
+  return `${VERIFIED_BADGE_BASE} ${unverified} reference${one ? '' : 's'} the model emitted could not be verified against the dataset and ${one ? 'was' : 'were'} removed.`
+}
+
 function CitationList({ citations }: { citations: AnalysisCitation[] }) {
   if (citations.length === 0) return null
   return (
@@ -83,14 +91,7 @@ export default function NarrativePane({
             </span>
           )}
           {state.status === 'done' && completion && !notEnoughData && (
-            <Badge
-              variant="solid"
-              title={
-                completion.unverified
-                  ? `Every cited figure resolves to an exact SEC XBRL value. ${completion.unverified} reference${completion.unverified === 1 ? '' : 's'} the model emitted could not be verified against the dataset and ${completion.unverified === 1 ? 'was' : 'were'} removed.`
-                  : 'Every cited figure resolves to an exact SEC XBRL value.'
-              }
-            >
+            <Badge variant="solid" title={verifiedBadgeTitle(completion.unverified)}>
               {completion.grounded} verified citations
             </Badge>
           )}

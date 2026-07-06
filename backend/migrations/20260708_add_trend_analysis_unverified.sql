@@ -6,6 +6,6 @@
 -- Apply manually BEFORE deploying the code that writes the column (the repo convention:
 -- schema is created at startup only for NEW tables; ALTERs are one-off and out-of-band —
 -- never in the serving container's startup path):
---   psql "$DATABASE_URL" -f migrations/20260706_add_trend_analysis_unverified.sql
+--   psql "$DATABASE_URL" -f migrations/20260708_add_trend_analysis_unverified.sql
 
 ALTER TABLE trend_analysis ADD COLUMN IF NOT EXISTS unverified INTEGER;

@@ -266,23 +266,19 @@ async def stream_analysis(
             force=body.force,
             user_id=user_id,
         ):
-            if (
-                not metered
-                and event.get("type") == "complete"
-                and event.get("kind") == "analysis"
-                and not event.get("cached")
-                # System-invalidated regenerations (prompt bump / new facts changed the
-                # fingerprint under an existing cached row) don't burn the user's fair-use
-                # quota; a user-initiated `force` refresh is never flagged and stays metered.
-                and not event.get("invalidated")
-            ):
-                await run_in_threadpool(_meter_analysis_best_effort, user_id)
-                metered = True
-            if (
+            fresh_completion = (
                 event.get("type") == "complete"
                 and event.get("kind") == "analysis"
                 and not event.get("cached")
-            ):
+            )
+            if fresh_completion:
+                # System-invalidated regenerations (prompt bump / new facts changed the
+                # fingerprint under an existing cached row) don't burn the user's fair-use
+                # quota; a user-initiated `force` refresh is never flagged and stays metered.
+                # Cost telemetry fires for EVERY fresh generation — a model call happened.
+                if not metered and not event.get("invalidated"):
+                    await run_in_threadpool(_meter_analysis_best_effort, user_id)
+                    metered = True
                 _emit_analysis_cost_best_effort(user_id, ticker_value, body.mode, event)
             yield to_sse(event)
 

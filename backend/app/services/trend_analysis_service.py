@@ -441,10 +441,6 @@ def _valued_points(series: Optional[dict[str, Any]]) -> list[dict[str, Any]]:
     return [p for p in series["points"] if p["value"] is not None]
 
 
-def _pct(value: float) -> str:
-    return f"{value * 100:+.1f}%"
-
-
 def detect_growth_deceleration(dataset: dict[str, Any]) -> list[dict[str, Any]]:
     """Top-line YoY growth strictly declining across the three most recent measurable periods."""
     flags = []
@@ -463,7 +459,7 @@ def detect_growth_deceleration(dataset: dict[str, Any]) -> list[dict[str, Any]]:
                     "periods": [p["period"] for p in last3],
                     "detail": (
                         f"{concept_label(concept)} YoY growth decelerated for three straight "
-                        f"periods: {_pct(yoys[0])} → {_pct(yoys[1])} → {_pct(yoys[2])}."
+                        f"periods: {_pct_str(yoys[0])} → {_pct_str(yoys[1])} → {_pct_str(yoys[2])}."
                     ),
                     "markers": [p["marker"] for p in last3],
                 }
@@ -544,7 +540,7 @@ def detect_debt_build(dataset: dict[str, Any]) -> list[dict[str, Any]]:
                 "concepts": ["long_term_debt"],
                 "periods": [first["period"], last["period"]],
                 "detail": (
-                    f"Long-term debt grew {_pct(growth)} from {first['period']} to "
+                    f"Long-term debt grew {_pct_str(growth)} from {first['period']} to "
                     f"{last['period']}."
                 ),
                 "markers": [first["marker"], last["marker"]],
@@ -697,14 +693,17 @@ def marker_index(dataset: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 NOT_ENOUGH_DATA_SENTINEL = "===NOT_ENOUGH_DATA==="
 
-# A bracket group whose content contains at least one F-reference. Whether the group is actually
-# a citation (vs prose that merely mentions an F-token) is decided by _is_citation_group.
-_MARKER_GROUP_RE = re.compile(r"\[([^\[\]]*?F\s*\d+[^\[\]]*?)\]", re.IGNORECASE)
+# Every bracket group; whether it is a citation (vs prose) is decided in code. Deliberately no
+# lazy quantifiers or overlapping alternations anywhere in the resolver's regexes: the narrative
+# is model-generated (semi-adversarial) input scanned ON the event loop, so the patterns must be
+# linear — a lazy/ambiguous form here measured O(n²)-to-exponential on degenerate outputs.
+_MARKER_GROUP_RE = re.compile(r"\[([^\[\]]*)\]")
 _MARKER_REF_RE = re.compile(r"F\s*(\d+)", re.IGNORECASE)
 # What may legally surround the F-references inside one bracket group: list/range/comparison
 # separators the model has been observed to emit ("F1, F2", "F1..F10", "F1-F2", "F1 vs F2",
-# "F1 and F2", "F1 to F10"). Anything else in the brackets means prose — leave it untouched.
-_MARKER_SEPARATOR_RE = re.compile(r"^(?:[\s,;&/.·–—-]|vs\.?|and|to)*$", re.IGNORECASE)
+# "F1 and F2", "F1 to F10"). "vs." parses as "vs" + "." (the dot is in the char class — do NOT
+# add `vs\.?`, the overlap is what made the old form exponential). Anything else means prose.
+_MARKER_SEPARATOR_RE = re.compile(r"^(?:vs|and|to|[\s,;&/.·–—-])*$", re.IGNORECASE)
 
 
 def _is_citation_group(content: str) -> bool:
@@ -716,27 +715,23 @@ def _point_citation(n: int, point: dict[str, Any]) -> dict[str, Any]:
     section_ref, verified, fragment_url}) so the existing frontend citation UI renders it as-is.
 
     ``kind == "cagr"`` entries are series-level CAGR markers: the value is a growth fraction over
-    the selected window, not an XBRL level, so they render and attribute distinctly."""
+    the selected window, not an XBRL level, so only their excerpt/attribution differ — the dict
+    shape is ONE literal so the citation contract with the frontend can't fork per kind."""
     if point.get("kind") == "cagr":
-        return {
-            "n": n,
-            "excerpt": f"{point['label']} CAGR = {_pct_str(point['value'])} ({point['period']})",
-            "section_ref": "Computed · CAGR",
-            "verified": True,
-            "fragment_url": None,
-            "concept": point["concept"],
-            "value": point["value"],
-            "period": point["period"],
-            "derived": False,
-        }
-    value_str = _format_value(point["value"], point.get("unit") or "USD", bool(point.get("percent")))
-    excerpt = f"{point['label']} = {value_str} ({point['period']})"
-    if point.get("derived"):
-        excerpt += " — derived Q4"
+        excerpt = f"{point['label']} CAGR = {_pct_str(point['value'])} ({point['period']})"
+        section_ref = "Computed · CAGR"
+    else:
+        value_str = _format_value(
+            point["value"], point.get("unit") or "USD", bool(point.get("percent"))
+        )
+        excerpt = f"{point['label']} = {value_str} ({point['period']})"
+        if point.get("derived"):
+            excerpt += " — derived Q4"
+        section_ref = f"XBRL · {point.get('raw_tag') or point['concept']}"
     return {
         "n": n,
         "excerpt": excerpt,
-        "section_ref": f"XBRL · {point.get('raw_tag') or point['concept']}",
+        "section_ref": section_ref,
         "verified": True,
         "fragment_url": None,
         "concept": point["concept"],
@@ -766,6 +761,8 @@ def resolve_narrative_citations(
     cursor = 0
     for match in _MARKER_GROUP_RE.finditer(text):
         content = match.group(1)
+        if not _MARKER_REF_RE.search(content):
+            continue  # no F-reference at all — ordinary prose brackets / markdown link labels
         if not _is_citation_group(content):
             continue  # prose that happens to contain an F-token — not a citation group
         numbers: list[int] = []
