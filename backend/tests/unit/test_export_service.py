@@ -288,3 +288,42 @@ class TestAnalysisPdfHtml:
         # Untrusted text is escaped (the narrative's <b> must not survive as markup)
         assert "<b>" not in html
         assert "Test &amp; Co" in html
+
+
+class TestNarrativeToHtml:
+    """The GFM subset the trends prompt produces must render, not leak literal markers
+    (the paid PDF previously printed **bold** asterisks and dash bullets verbatim)."""
+
+    def test_bold_and_italic_render_as_tags(self):
+        html = ExportService._narrative_to_html("Revenue grew **+18%** [1], a *strong* move.")
+        assert "<strong>+18%</strong>" in html
+        assert "<em>strong</em>" in html
+        assert "**" not in html
+
+    def test_bullet_lists_render_as_ul(self):
+        html = ExportService._narrative_to_html(
+            "## Red flags\n- Margin compression [3]\n- Debt build [4]"
+        )
+        assert "<h2>Red flags</h2>" in html
+        assert "<ul><li>Margin compression [3]</li><li>Debt build [4]</li></ul>" in html
+
+    def test_h3_subheadings_render(self):
+        html = ExportService._narrative_to_html("### Liquidity\nCurrent ratio held at 1.3 [5].")
+        assert "<h3>Liquidity</h3>" in html
+        assert "<p>Current ratio held at 1.3 [5].</p>" in html
+
+    def test_multi_line_paragraph_joins_and_heading_body_splits(self):
+        html = ExportService._narrative_to_html(
+            "## Growth quality\nGrowth accelerated.\nProfit kept pace."
+        )
+        assert "<h2>Growth quality</h2>" in html
+        assert "<p>Growth accelerated. Profit kept pace.</p>" in html
+
+    def test_raw_html_is_always_escaped(self):
+        html = ExportService._narrative_to_html("A **<script>** *<b>* - <i>x</i>")
+        assert "<script>" not in html
+        assert "<strong>&lt;script&gt;</strong>" in html
+
+    def test_unpaired_asterisks_stay_literal(self):
+        html = ExportService._narrative_to_html("A lone * asterisk and 5*3 math survive.")
+        assert "<em>" not in html and "<strong>" not in html

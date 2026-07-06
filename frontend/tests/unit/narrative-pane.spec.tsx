@@ -90,4 +90,14 @@ describe('NarrativePane citation chips', () => {
     const badge = screen.getByText('1 verified citations')
     expect(badge.getAttribute('title')).not.toContain('could not be verified')
   })
+
+  it('replaces the verified/cached badges with a Sample badge in teaser mode (F3)', () => {
+    const state = doneState({ completion: doneCompletion({ cached: true }) })
+    render(<NarrativePane state={state} sample />)
+    // Approximate demo figures must never wear the "verified" claim.
+    expect(screen.getByText('Sample data')).toBeInTheDocument()
+    expect(screen.queryByText(/verified citations/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Cached')).not.toBeInTheDocument()
+    expect(screen.getByText(/Sources — sample data/)).toBeInTheDocument()
+  })
 })

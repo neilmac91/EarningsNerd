@@ -1,6 +1,7 @@
 import asyncio
 import csv
 import io
+import re
 from datetime import datetime
 from html import escape
 
@@ -233,22 +234,56 @@ class ExportService:
             raise Exception(f"Failed to generate PDF: {str(e)}")
 
     @staticmethod
-    def _narrative_to_html(narrative: str) -> str:
-        """Minimal, dependency-free markdown→HTML for the analysis narrative: `## ` headings and
-        blank-line paragraphs (the exact shape the trends prompt enforces). Everything is escaped;
-        `[n]` citation markers stay as plain text and resolve against the Sources appendix."""
-        parts = []
+    def _narrative_inline_html(text: str) -> str:
+        """Escape, then translate the two inline GFM forms the narrative actually emits —
+        ``**bold**`` and ``*italic*`` — into tags. Escape-first keeps the everything-escaped
+        posture; both regexes are linear (no nesting, no lazy quantifiers) since this scans
+        model output."""
+        escaped = escape(text)
+        escaped = re.sub(r"\*\*([^*\n]+)\*\*", r"<strong>\1</strong>", escaped)
+        # Italic needs tight asterisks (no space inside) so a lone "*" or "5*3" stays literal.
+        escaped = re.sub(r"(?<!\*)\*(?!\s)([^*\n]+)(?<!\s)\*(?!\*)", r"<em>\1</em>", escaped)
+        return escaped
+
+    @classmethod
+    def _narrative_to_html(cls, narrative: str) -> str:
+        """Dependency-free markdown→HTML for the analysis narrative: ``## ``/``### `` headings,
+        ``- ``/``* `` bullet lists, ``**bold**``/``*italic*`` inline, blank-line paragraphs —
+        the GFM subset the trends prompt produces. Previously only ``## `` was handled, so bold
+        markers and bullets rendered as literal asterisks/dashes in the paid PDF. Everything is
+        escaped; ``[n]`` citation markers stay plain text and resolve against the Sources
+        appendix."""
+        parts: list[str] = []
         for raw_block in (narrative or "").split("\n\n"):
-            block = raw_block.strip()
-            if not block:
-                continue
-            if block.startswith("## "):
-                lines = block.split("\n", 1)
-                parts.append(f"<h2>{escape(lines[0][3:].strip())}</h2>")
-                if len(lines) > 1 and lines[1].strip():
-                    parts.append(f"<p>{escape(lines[1].strip())}</p>")
-            else:
-                parts.append(f"<p>{escape(block)}</p>")
+            lines = [line.strip() for line in raw_block.split("\n")]
+            i = 0
+            while i < len(lines):
+                line = lines[i]
+                if not line:
+                    i += 1
+                elif line.startswith("## "):
+                    parts.append(f"<h2>{cls._narrative_inline_html(line[3:].strip())}</h2>")
+                    i += 1
+                elif line.startswith("### "):
+                    parts.append(f"<h3>{cls._narrative_inline_html(line[4:].strip())}</h3>")
+                    i += 1
+                elif line.startswith(("- ", "* ")):
+                    items = []
+                    while i < len(lines) and lines[i].startswith(("- ", "* ")):
+                        items.append(f"<li>{cls._narrative_inline_html(lines[i][2:].strip())}</li>")
+                        i += 1
+                    parts.append("<ul>" + "".join(items) + "</ul>")
+                else:
+                    para = [line]
+                    while (
+                        i + 1 < len(lines)
+                        and lines[i + 1]
+                        and not lines[i + 1].startswith(("## ", "### ", "- ", "* "))
+                    ):
+                        i += 1
+                        para.append(lines[i])
+                    parts.append(f"<p>{cls._narrative_inline_html(' '.join(para))}</p>")
+                    i += 1
         return "\n".join(parts)
 
     def generate_analysis_pdf_html(self, analysis, company) -> str:

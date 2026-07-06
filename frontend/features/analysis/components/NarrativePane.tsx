@@ -82,12 +82,14 @@ function verifiedBadgeTitle(unverified: number | null | undefined): string {
   return `${VERIFIED_BADGE_BASE} ${unverified} reference${one ? '' : 's'} the model emitted could not be verified against the dataset and ${one ? 'was' : 'were'} removed.`
 }
 
-function CitationList({ citations }: { citations: AnalysisCitation[] }) {
+function CitationList({ citations, sample }: { citations: AnalysisCitation[]; sample?: boolean }) {
   if (citations.length === 0) return null
   return (
     <div className="mt-4 border-t border-border-light pt-3 dark:border-white/10">
       <div className="mb-2 text-xs font-medium uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
-        Sources — cited figures verified against SEC XBRL data
+        {sample
+          ? 'Sources — sample data (approximate figures)'
+          : 'Sources — cited figures verified against SEC XBRL data'}
       </div>
       <ul className="space-y-1">
         {citations.map((citation) => (
@@ -126,6 +128,7 @@ export default function NarrativePane({
   onRefresh,
   refreshDisabled,
   onExport,
+  sample = false,
 }: {
   state: NarrativeState
   /** The force-regenerate button (metered server-side; hidden when absent). */
@@ -133,6 +136,9 @@ export default function NarrativePane({
   refreshDisabled?: boolean
   /** PDF download (Pro can_export; hidden when absent or before a persisted completion). */
   onExport?: () => void
+  /** Teaser mode: the payload is an illustrative sample with approximate figures — the
+   *  verified/cached badges would overclaim, so a "Sample data" badge replaces them (F3). */
+  sample?: boolean
 }) {
   const completion = state.completion
   // Stable components-map identity across re-renders — a fresh object every render would make
@@ -163,12 +169,17 @@ export default function NarrativePane({
               {state.stage === 'assembling' ? 'Assembling the numbers…' : 'Writing…'}
             </span>
           )}
-          {state.status === 'done' && completion && !notEnoughData && (
+          {state.status === 'done' && completion && !notEnoughData && sample && (
+            <Badge title="Illustrative sample with approximate figures — run an analysis to get verified, cited values from SEC XBRL data.">
+              Sample data
+            </Badge>
+          )}
+          {state.status === 'done' && completion && !notEnoughData && !sample && (
             <Badge variant="solid" title={verifiedBadgeTitle(completion.unverified)}>
               {completion.grounded} verified citations
             </Badge>
           )}
-          {state.status === 'done' && completion?.cached && (
+          {state.status === 'done' && completion?.cached && !sample && (
             <Badge title="Served from a previous run of this exact period range — regenerates automatically when new filings arrive.">
               Cached
             </Badge>
@@ -216,7 +227,9 @@ export default function NarrativePane({
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.text}</ReactMarkdown>
             )}
           </div>
-          {state.status === 'done' && completion && <CitationList citations={completion.citations} />}
+          {state.status === 'done' && completion && (
+            <CitationList citations={completion.citations} sample={sample} />
+          )}
           {state.status === 'done' && completion && (
             <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
               AI-generated. Informational only — not investment advice. Cited figures resolve to
