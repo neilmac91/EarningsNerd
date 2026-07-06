@@ -99,6 +99,9 @@ class Settings(BaseSettings):
 
     # JWT
     SECRET_KEY: str
+    # Pepper for one-way IP hashing (contact/feedback anti-abuse). Falls back to SECRET_KEY
+    # at the call sites when unset, so it's optional; set it to rotate IP hashes independently.
+    IP_HASH_SALT: str = ""
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # short-lived; the frontend silently refreshes it
     # Refresh tokens (opaque, rotated, stored hashed server-side) are the durable session: the

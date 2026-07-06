@@ -10,6 +10,7 @@ from app.database import get_db
 from app.models import Watchlist, Company, User, Filing, Summary, WaitlistSignup
 from app.routers.auth import get_current_user
 from app.services.summary_generation_service import get_generation_progress_snapshot
+from app.services.summary_placeholders import is_summary_placeholder
 from app.config import settings
 from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.turnstile import enforce_turnstile
@@ -309,13 +310,7 @@ async def get_watchlist_insights(
                 summary_created_at = summary.created_at.isoformat() if summary.created_at else None
                 summary_updated_at = summary.updated_at.isoformat() if summary.updated_at else None
 
-                overview = (summary.business_overview or "").lower()
-                placeholder_tokens = [
-                    "generating summary",
-                    "summary temporarily unavailable",
-                    "requires openai api key"
-                ]
-                has_placeholder = any(token in overview for token in placeholder_tokens)
+                has_placeholder = is_summary_placeholder(summary.business_overview)
 
                 if has_placeholder:
                     summary_status = "placeholder"

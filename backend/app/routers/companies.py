@@ -9,6 +9,7 @@ from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.exceptions import EdgarError as SECEdgarServiceError
 from pydantic import BaseModel
 from datetime import datetime, timedelta
+from app.utils.datetimes import utcnow
 import httpx
 import asyncio
 import atexit
@@ -60,7 +61,7 @@ def _get_cached_quote(ticker: str) -> Optional[StockQuote]:
         return None
 
     quote, cached_at = cached
-    if datetime.utcnow() - cached_at > QUOTE_CACHE_TTL:
+    if utcnow() - cached_at > QUOTE_CACHE_TTL:
         _quote_cache.pop(ticker_key, None)
         return None
 
@@ -76,7 +77,7 @@ def _store_cached_quote(ticker: str, quote: StockQuote) -> None:
         oldest_key = next(iter(_quote_cache))
         _quote_cache.pop(oldest_key, None)
 
-    _quote_cache[ticker_key] = (quote, datetime.utcnow())
+    _quote_cache[ticker_key] = (quote, utcnow())
 
 
 async def _get_yahoo_client() -> httpx.AsyncClient:

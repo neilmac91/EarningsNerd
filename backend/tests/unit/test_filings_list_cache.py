@@ -2,11 +2,12 @@
 
 Pure logic — no DB/network: they prove the (ticker, types) freshness + eviction behavior that lets
 a recently-synced ticker skip the SEC round-trip."""
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import pytest
 
 from app.routers import filings as f
+from app.utils.datetimes import utcnow
 
 
 @pytest.fixture(autouse=True)
@@ -34,13 +35,13 @@ def test_freshness_is_types_sensitive():
 
 def test_stale_key_past_ttl_is_not_fresh():
     key = ("AAPL", ("10-K", "10-Q"))
-    f._filings_synced_at[key] = datetime.utcnow() - (f.FILINGS_LIST_TTL + timedelta(minutes=1))
+    f._filings_synced_at[key] = utcnow() - (f.FILINGS_LIST_TTL + timedelta(minutes=1))
     assert f._filings_cache_fresh("AAPL", ["10-K", "10-Q"]) is False
 
 
 def test_key_just_within_ttl_is_fresh():
     key = ("AAPL", ("10-K", "10-Q"))
-    f._filings_synced_at[key] = datetime.utcnow() - (f.FILINGS_LIST_TTL - timedelta(minutes=1))
+    f._filings_synced_at[key] = utcnow() - (f.FILINGS_LIST_TTL - timedelta(minutes=1))
     assert f._filings_cache_fresh("AAPL", ["10-K", "10-Q"]) is True
 
 

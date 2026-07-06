@@ -14,11 +14,12 @@ Usage:
 """
 
 import asyncio
+from app.utils.datetimes import utcnow, iso_z
 import time
 from typing import Dict, Any
 import logging
 
-from app.config import APP_VERSION
+from app.config import APP_VERSION, settings
 
 logger = logging.getLogger(__name__)
 
@@ -35,10 +36,9 @@ async def get_all_metrics() -> Dict[str, Any]:
     - database: Database connection pool stats
     """
     import sys
-    from datetime import datetime
 
     metrics = {
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": iso_z(utcnow()),
         "app": {
             "name": "EarningsNerd API",
             "version": APP_VERSION,
@@ -133,8 +133,7 @@ async def get_all_metrics() -> Dict[str, Any]:
 
 def _get_environment() -> str:
     """Get the current environment name."""
-    import os
-    return os.environ.get("ENVIRONMENT", "development")
+    return settings.ENVIRONMENT
 
 
 async def get_health_summary() -> Dict[str, Any]:

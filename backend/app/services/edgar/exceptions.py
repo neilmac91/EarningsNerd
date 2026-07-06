@@ -5,7 +5,7 @@ Provides a clean, consistent exception hierarchy for all SEC EDGAR operations.
 Each exception includes context information for debugging and logging.
 """
 
-from datetime import datetime
+from app.utils.datetimes import utcnow
 from typing import Any, Dict, Optional
 
 
@@ -34,7 +34,7 @@ class EdgarError(Exception):
         self.code = code
         self.cause = cause
         self.context = context or {}
-        self.timestamp = datetime.utcnow()
+        self.timestamp = utcnow()
 
     def __str__(self) -> str:
         parts = [self.message]

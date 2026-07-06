@@ -2,6 +2,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
+from app.utils.datetimes import utcnow, iso_z
 from typing import Dict, List, Optional, Set, TypeVar
 
 from sqlalchemy import desc, func
@@ -17,16 +18,17 @@ logger = logging.getLogger(__name__)
 KeyT = TypeVar("KeyT")
 
 
-def _to_naive_utc(dt: datetime) -> datetime:
-    """Drop tz info as UTC so values can be compared against naive datetime.utcnow().
+def _to_aware_utc(dt: datetime) -> datetime:
+    """Normalize a datetime to tz-aware UTC so it compares against the aware ``utcnow()``.
 
-    filing_date is DateTime(timezone=True), so Postgres returns tz-aware values while
-    this module works in naive UTC. Subtracting the two directly raises
+    filing_date is DateTime(timezone=True): Postgres returns tz-aware values, SQLite returns
+    naive ones. Attaching UTC to a naive value (and converting an aware one) lets
+    ``utcnow() - _to_aware_utc(filing_date)`` never raise
     "can't subtract offset-naive and offset-aware datetimes".
     """
     if dt.tzinfo is None:
-        return dt
-    return dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 def _normalize(values: Dict[KeyT, float]) -> Dict[KeyT, float]:
@@ -94,7 +96,7 @@ class HotFilingsService:
         limit: int = 10,
         force_refresh: bool = False,
     ) -> Dict[str, object]:
-        now = datetime.utcnow()
+        now = utcnow()
 
         async with self._get_lock():
             cache_entry = self._cache.get(limit)
@@ -111,7 +113,7 @@ class HotFilingsService:
             records = await self._calculate_hot_filings(db, limit)
             payload = {
                 "filings": [record.to_dict() for record in records],
-                "last_updated": now.isoformat(),
+                "last_updated": iso_z(now),
             }
 
             self._cache[limit] = payload
@@ -133,7 +135,7 @@ class HotFilingsService:
 
         company_ids = [filing.company_id for filing in recent_filings if filing.company_id]
         unique_company_ids = list({cid for cid in company_ids if cid is not None})
-        now = datetime.utcnow()
+        now = utcnow()
 
         # Gather search interest over the last 7 days
         seven_days_ago = now - timedelta(days=7)
@@ -220,7 +222,7 @@ class HotFilingsService:
                 news_sentiments.get(ticker) if ticker else None
             )
 
-            age_hours = (now - _to_naive_utc(filing.filing_date)).total_seconds() / 3600
+            age_hours = (now - _to_aware_utc(filing.filing_date)).total_seconds() / 3600
             recency_weight = max(0.0, 1 - min(age_hours / 72.0, 1.0))
             recency_score = recency_weight * 5.0
 

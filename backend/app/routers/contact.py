@@ -1,8 +1,8 @@
 import html
 import logging
 import hashlib
-import os
 from datetime import datetime, timedelta
+from app.utils.datetimes import utcnow
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # Pepper for one-way IP hashing. Prefer an explicit IP_HASH_SALT; otherwise fall back to the app
 # SECRET_KEY (always set, and validated non-default in production) so there is never a weak,
 # publicly-known default salt. This matches the SECRET_KEY-peppered hashing used elsewhere.
-IP_HASH_SALT = os.getenv("IP_HASH_SALT") or settings.SECRET_KEY
+IP_HASH_SALT = settings.IP_HASH_SALT or settings.SECRET_KEY
 
 
 def hash_ip_address(ip_address: str) -> str:
@@ -53,7 +53,7 @@ def check_rate_limit(ip_address: str) -> bool:
     Check if the IP address has exceeded the rate limit.
     Returns True if rate limit is exceeded, False otherwise.
     """
-    now = datetime.utcnow()
+    now = utcnow()
     cutoff = now - timedelta(hours=RATE_LIMIT_WINDOW_HOURS)
 
     # Clean up old entries
@@ -192,7 +192,7 @@ async def send_contact_notifications(
             </div>
             <div class="field">
               <div class="label">Submitted:</div>
-              <div class="value">{datetime.utcnow().strftime("%B %d, %Y at %I:%M %p UTC")}</div>
+              <div class="value">{utcnow().strftime("%B %d, %Y at %I:%M %p UTC")}</div>
             </div>
           </div>
         </div>

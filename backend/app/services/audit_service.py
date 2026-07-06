@@ -6,7 +6,7 @@ important user actions and system events.
 """
 import logging
 from typing import Optional, Dict, Any
-from datetime import datetime
+from app.utils.datetimes import utcnow
 from sqlalchemy.orm import Session
 
 from app.models.audit_log import AuditLog
@@ -110,7 +110,7 @@ def log_user_deletion(
         ip_address=ip_address,
         details={
             "third_party_deletions": third_party_results,
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utcnow().isoformat(),
         },
         status="success",
     )
@@ -132,7 +132,7 @@ def log_data_export(
         entity_id=str(user_id),
         ip_address=ip_address,
         details={
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utcnow().isoformat(),
         },
         status="success",
     )
@@ -152,7 +152,7 @@ def log_failed_login(
         entity_type="user",
         ip_address=ip_address,
         details={
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": utcnow().isoformat(),
         },
         status="failed",
         error_message=error_message,

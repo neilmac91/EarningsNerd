@@ -5,9 +5,10 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, field_validator
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
+from app.utils.datetimes import utcnow
 import logging
-import os
 
+from app.config import settings
 from app.database import get_db
 from app.models import (
     Company,
@@ -33,7 +34,7 @@ logger = logging.getLogger(__name__)
 # Optional imports for third-party services
 try:
     import stripe
-    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+    stripe.api_key = settings.STRIPE_SECRET_KEY
     STRIPE_AVAILABLE = True
 except ImportError:
     STRIPE_AVAILABLE = False
@@ -42,9 +43,9 @@ except ImportError:
 try:
     from posthog import Posthog
     posthog_client = Posthog(
-        project_api_key=os.getenv("POSTHOG_API_KEY"),
-        host=os.getenv("POSTHOG_HOST", "https://us.i.posthog.com")
-    ) if os.getenv("POSTHOG_API_KEY") else None
+        project_api_key=settings.POSTHOG_API_KEY,
+        host=settings.POSTHOG_HOST
+    ) if settings.POSTHOG_API_KEY else None
     POSTHOG_AVAILABLE = posthog_client is not None
 except ImportError:
     POSTHOG_AVAILABLE = False
@@ -395,7 +396,7 @@ async def export_user_data(
             "saved_summaries": saved_summaries_data,
             "watchlist": watchlist_data,
             "usage": usage_data,
-            "export_timestamp": datetime.utcnow().isoformat(),
+            "export_timestamp": utcnow().isoformat(),
         }
 
         logger.info(f"User data export completed for user {current_user.id}")
@@ -406,7 +407,7 @@ async def export_user_data(
         return JSONResponse(
             content=export_data,
             headers={
-                "Content-Disposition": f'attachment; filename="earningsnerd_data_export_{current_user.id}_{datetime.utcnow().strftime("%Y%m%d_%H%M%S")}.json"'
+                "Content-Disposition": f'attachment; filename="earningsnerd_data_export_{current_user.id}_{utcnow().strftime("%Y%m%d_%H%M%S")}.json"'
             }
         )
 
@@ -480,7 +481,7 @@ async def delete_user_account(
                     distinct_id=str(user_id),
                     event='$delete',
                     properties={
-                        'deletion_timestamp': datetime.utcnow().isoformat()
+                        'deletion_timestamp': utcnow().isoformat()
                     }
                 )
                 posthog_client.flush()  # Ensure the event is sent immediately
@@ -530,7 +531,7 @@ async def delete_user_account(
         return {
             "status": "success",
             "message": "Your account and all associated data have been permanently deleted.",
-            "deleted_at": datetime.utcnow().isoformat(),
+            "deleted_at": utcnow().isoformat(),
             "third_party_deletions": deletion_results
         }
 

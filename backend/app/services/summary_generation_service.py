@@ -1,11 +1,13 @@
 import asyncio
 import time
-from datetime import datetime, timezone
+from app.utils.datetimes import utcnow
+from datetime import timezone
 from typing import Optional, Dict, Any, List, Tuple, Literal
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from app.models import Filing, Summary, SummaryGenerationProgress, User, FilingContentCache
 # EdgarTools migration: Using new edgar module for SEC services
+from app.services.content_cache import upsert_content_cache
 from app.services.edgar.compat import sec_edgar_service, xbrl_service
 from app.services.openai_service import openai_service
 from app.schemas import attach_normalized_facts
@@ -272,8 +274,6 @@ def generate_unavailable_sections_notes(missing_sections: List[str]) -> List[Dic
         for section in missing_sections
     ]
 
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
 
 def record_progress(
     db: Session,
@@ -283,7 +283,7 @@ def record_progress(
     error: Optional[str] = None,
     section_coverage: Optional[Dict[str, Any]] = None,
 ) -> SummaryGenerationProgress:
-    now = _utcnow()
+    now = utcnow()
     progress = (
         db.query(SummaryGenerationProgress)
         .filter(SummaryGenerationProgress.filing_id == filing_id)
@@ -329,7 +329,7 @@ def progress_as_dict(progress: SummaryGenerationProgress) -> Dict[str, Any]:
         started_at = progress.started_at
         if started_at.tzinfo is None:
             started_at = started_at.replace(tzinfo=timezone.utc)
-        elapsed = float((_utcnow() - started_at).total_seconds())
+        elapsed = float((utcnow() - started_at).total_seconds())
     return {
         "stage": progress.stage,
         "elapsedSeconds": int(elapsed or 0),
@@ -889,24 +889,13 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                 )
                 db.add(summary)
 
-                cache = filing.content_cache
-                if sections_info:
-                    if cache is None:
-                        cache = FilingContentCache(
-                            filing_id=filing_id,
-                            critical_excerpt=excerpt,
-                            sections_payload=sections_info,
-                        )
-                        db.add(cache)
-                    else:
-                        if excerpt and not cache.critical_excerpt:
-                            cache.critical_excerpt = excerpt
-                        cache.sections_payload = sections_info
-                elif excerpt and cache is None:
-                    cache = FilingContentCache(
-                        filing_id=filing_id, critical_excerpt=excerpt
-                    )
-                    db.add(cache)
+                upsert_content_cache(
+                    db,
+                    filing_id,
+                    filing.content_cache,
+                    excerpt=excerpt,
+                    sections_payload=sections_info,
+                )
 
                 try:
                     db.commit()
@@ -1026,7 +1015,7 @@ def mark_stale_progress_as_error(progress: SummaryGenerationProgress) -> bool:
     if last_update.tzinfo is None:
         last_update = last_update.replace(tzinfo=timezone.utc)
 
-    if (_utcnow() - last_update).total_seconds() <= STALE_PROGRESS_SECONDS:
+    if (utcnow() - last_update).total_seconds() <= STALE_PROGRESS_SECONDS:
         return False
 
     progress.stage = "error"

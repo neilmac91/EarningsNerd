@@ -22,17 +22,9 @@ from typing import List, Optional
 import httpx
 
 from app.config import settings
+from app.utils.numbers import coerce_float
 
 logger = logging.getLogger(__name__)
-
-
-def _coerce_float(value: object) -> Optional[float]:
-    if value in (None, ""):
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
 
 
 def _parse_date(value: object) -> Optional[date]:
@@ -137,7 +129,7 @@ class AlphaVantageClient:
                     company_name=(raw.get("name") or "").strip() or None,
                     report_date=report_date,
                     fiscal_period_end=_parse_date(raw.get("fiscalDateEnding")),
-                    eps_estimate=_coerce_float(raw.get("estimate")),
+                    eps_estimate=coerce_float(raw.get("estimate")),
                     currency=(raw.get("currency") or "").strip() or None,
                     event_time=_normalize_time(raw.get("timeOfTheDay")),
                 )

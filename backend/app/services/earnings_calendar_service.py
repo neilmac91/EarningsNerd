@@ -42,6 +42,7 @@ from app.models.earnings import (
     TIME_DMH,
 )
 from app.services import index_membership_service
+from app.utils.numbers import coerce_float
 
 logger = logging.getLogger(__name__)
 
@@ -546,15 +547,6 @@ def _as_datetime(value) -> Optional[datetime]:
     return None
 
 
-def _to_float(value) -> Optional[float]:
-    if value is None:
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
-
-
 def _event_to_dict(ev: EarningsEvent) -> dict:
     """The public CalendarEvent contract (features/calendar/api/calendar-api.ts)."""
     return {
@@ -564,9 +556,9 @@ def _event_to_dict(ev: EarningsEvent) -> dict:
         "event_time": ev.event_time,
         "status": ev.status,
         "confidence": ev.confidence,
-        "eps_estimate": _to_float(ev.eps_estimate),
-        "eps_actual": _to_float(ev.eps_actual),
-        "anticipation_score": _to_float(ev.anticipation_score) or 0.0,
+        "eps_estimate": coerce_float(ev.eps_estimate),
+        "eps_actual": coerce_float(ev.eps_actual),
+        "anticipation_score": coerce_float(ev.anticipation_score) or 0.0,
     }
 
 
