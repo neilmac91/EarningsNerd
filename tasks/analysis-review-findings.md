@@ -506,6 +506,7 @@ fix pattern (b) applies there too.
 Sizes: S ≤ ½ day · M 1–3 days · L > 3 days. Order within phases is dependency order.
 
 **Phase A — correctness & label integrity (P0/P1)**
+
 1. **A1/A2 derived-flag fix** (M): read-time `derived_q4` classification in `build_dataset`
    (`source=="derived" AND fiscal_period=="Q4"`); Sources suffix/†/chips/PDF/prompt keyed to it;
    prompt rule 5 reworded. Tests: `_point_citation` excerpt for computed-metric-on-real-quarter,
@@ -522,19 +523,30 @@ Sizes: S ≤ ½ day · M 1–3 days · L > 3 days. Order within phases is depend
    document" block; page-footer + narrative-pane one-liners (outside the Pro gate); summary-PDF
    parity; `new Date()` last-updated fix; refund-contradiction resolution (copy decision).
 **Phase B — quick wins (P2)**
+
 5. **C5 pp for percent series** (M): server-side growth = pp for `percent` series across dataset,
    prompt, table, KPI, PDF; "pp" labels. Acceptance: net-margin cells show pp; narrative quotes pp.
-6. **C3 n/m guard** (S–M): `_growth` → None/"nm" on sign flips (+ small-base floor); "n/m" display;
-   prompt inherits. 7. **C1 hide quarterly CAGR column** (S). 8. **C4 tone policy map** (S —
-   pending your register decision, §9). 9. **C2 sticky first column** (M): DataTable
-   `stickyFirstColumn` per spec in §3; drop the redundant wrapper. 10. **D1 legends** (S).
-   11. **B3 citation chips** (M): shared marker-chip renderer from CopilotMessage; popover +
-   scroll-to-source + citation-flash.
+6. **C3 n/m guard** (S–M): `_growth` → None/"nm" on sign flips (+ small-base floor); "n/m"
+   display; prompt inherits.
+7. **C1 hide quarterly CAGR column** (S).
+8. **C4 tone policy map** (S — pending your register decision, §9).
+9. **C2 sticky first column** (M): DataTable `stickyFirstColumn` per spec in §3; drop the
+   redundant wrapper.
+10. **D1 legends** (S).
+11. **B3 citation chips** (M): shared marker-chip renderer from CopilotMessage; popover +
+    scroll-to-source + citation-flash.
+
 **Phase C — enhancements (P3, owner items 1–3)**
-12. Chart expand (M) · 13. PNG/CSV export (M) · 14. Data-label toggle (S/M) · 15. Balance-sheet
-    dual axis (M, after 10) · 16. KPI pp sub-line (S, after 5) · 17. Derived-Q4 EPS + YTD9-based
-    Q4 derivation ported from EdgarTools ideas (M–L, eval-gated) · 18. F2/F3 polish (grammar
-    guard in prompt; narrative section spacing; Sources `break-words`; PDF markdown rendering).
+
+12. **Chart expand/collapse** (M).
+13. **PNG/CSV export** (M).
+14. **Data-label toggle** (S/M).
+15. **Balance-sheet dual axis** (M, after 10).
+16. **KPI pp sub-line** (S, after 5).
+17. **Derived-Q4 EPS + YTD9-based Q4 derivation** ported from the EdgarTools ideas (M–L,
+    eval-gated).
+18. **F2/F3 polish**: grammar guard in prompt; narrative section spacing; Sources `break-words`;
+    PDF markdown rendering.
 
 Every phase-A/B item ships with the verification discipline from `tasks/lessons.md`: ruff + bandit
 + pytest + vitest + `next build`, and a both-themes preview check for anything visual.
