@@ -1,6 +1,6 @@
 # ADR 0002 — Use Google AI Studio (Gemini) via an OpenAI-compatible client
 
-- **Status:** Accepted
+- **Status:** Superseded by [ADR-0006](./0006-gemini-to-deepseek.md)
 - **Deciders:** EarningsNerd maintainers
 
 ## Context
