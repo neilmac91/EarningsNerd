@@ -425,6 +425,29 @@ only for an undetailed 5xx) — the error model the rest of the app already uses
 the SSE-stream fetches (summaries/copilot — raw `ReadableStream`) + server-side fetches (`sitemap.ts`,
 `serverApi.ts`). Gate: tsc/eslint/vitest(265)/build green.
 
+**Wave 2 · F3 — components/ → features/ mass move + test-dir merge (frontend-only).** Moved ~50
+components out of `frontend/components/` into `features/<domain>/components/`, leaving `components/` as
+ui/ + chrome ONLY (Header/Footer/SecondaryHeader/SiteChrome/theme/boundaries/logos/SentryTestButton).
+Two NEW domains: `features/marketing` (landing sections) + `features/settings` (settings panels); the
+`components/{auth,dashboard,watchlist}` subdirs merged into their feature domains. Delivered one-domain-
+per-commit.
+- **Pure-move verification (the plan's mandated check):** git rename-detection + a line-level diff proved
+  EVERY changed line across all 89 files is an import-path edit — zero logic/JSX (92 ins / 92 del, a
+  symmetric alias swap). Two files (`AskFilingAnswer`, `SummarySections`) also had their own RELATIVE
+  imports (`./ui/*`, `../types`, `../lib`) rewritten to the equivalent absolute `@/` paths (disclosed).
+- **Adversarial verification (3-lens workflow) caught 2 real misclassifications, fixed:** `PerAdsNote`
+  marketing→filings (it's a "Per-ADS" financial note, not advertising — importers are FinancialMetricsTable
+  + SummaryFinancials); `TrendingTickers` filings→companies (consumes companies-api, links company pages).
+  Lens 1 (remaining components/ = chrome/ui) + Lens 3 (no stale/dup refs) came back clean.
+- **⚠ Flagged for founder (NOT acted on — a domain-architecture call beyond F3's charter):** the AI-summary
+  render tree is split — `SummaryDisplay` lives in `features/summaries` (from F2) while its whole render
+  subtree (`SummarySections` + the 7 pre-existing section renderers + `SummaryBlock` + `FinancialMetricsTable`)
+  sits in `features/filings`. Consolidating it all into `features/summaries` is the coherent end state but
+  moves ~7 pre-existing files — deferred for a decision.
+- **Test-dir merge:** `__tests__/` (re-accumulated ~24 `.test.*` from later merges) folded into `tests/unit/`
+  as `.spec.*` — ONE home + ONE suffix; vitest/eslint globs simplified accordingly.
+Gate: tsc/eslint(0, incl. query-key rule)/vitest(265)/build green.
+
 _(Deltas from later waves will be appended here as they are executed.)_
 
 ---
