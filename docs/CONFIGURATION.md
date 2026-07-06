@@ -2,7 +2,9 @@
 
 The complete environment-variable reference for backend (`backend/.env`) and frontend
 (`frontend/.env.local`). Definitions and validation live in `backend/app/config.py`
-(Pydantic Settings — ALL backend env access goes through it; never `os.getenv` in app code)
+(Pydantic Settings — ALL backend env access goes through it; never `os.getenv` in app code,
+except the pre-Settings infra-bootstrap constants in `database.py`, `redis_service.py`, and
+`edgar/config.py`)
 and `frontend/lib/featureFlags.ts`. Production values are mounted from Google Secret
 Manager onto Cloud Run (see docs/DEPLOYMENT.md).
 

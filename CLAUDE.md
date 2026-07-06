@@ -69,6 +69,8 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
    by `backend/tests/unit/test_naive_utcnow_allowlist.py` (naive by design — SQLite/Postgres parity).
    Serialized timestamps use `iso_z()`; never hand-append `"Z"`.
 8. **Config:** all env access through `app/config.py` Settings; never `os.getenv` in app code.
+   Sole sanctioned exception: pre-Settings infra-bootstrap constants in `database.py`,
+   `redis_service.py`, and `edgar/config.py` (pool sizes, EDGAR identity).
 9. **Boundaries:** validate external data where it enters (SEC responses, Stripe webhooks, AI
    output); do NOT re-validate internally-produced data downstream.
 10. **Data integrity:** `Filing.sec_url`/`document_url` are NOT NULL (event-listener enforced).
@@ -113,8 +115,9 @@ tsc + vitest; e2e = Playwright (no backend running — specs must tolerate a dea
 `eval-baseline` job gates AI regressions against `backend/evals/baseline_scores.json`.
 `deploy-backend` runs on push to main when `backend/` changed: applies `backend/migrations/*.sql`
 idempotently to Cloud SQL, deploys the Cloud Run service (`earningsnerd-backend`, project
-`earnings-nerd`, us-west1, keyless WIF auth), and refreshes the weekly pregenerate cron
-(Mondays 06:00 UTC). Frontend deploys via Vercel (`NEXT_PUBLIC_API_BASE_URL=https://api.earningsnerd.io`).
+`earnings-nerd`, us-west1, keyless WIF auth), refreshes the weekly pregenerate cron
+(Mondays 06:00 UTC), and updates the image on all 6 Cloud Run jobs (pregenerate, filing-scan,
+filing-digest, backfill-facts, earnings-calendar-refresh, earnings-day-alerts). Frontend deploys via Vercel (`NEXT_PUBLIC_API_BASE_URL=https://api.earningsnerd.io`).
 Manual bootstrap: `tasks/gcp-deploy-runbook.md`. Full detail: `docs/DEPLOYMENT.md`.
 
 ## Workflow
