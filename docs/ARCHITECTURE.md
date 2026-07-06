@@ -89,7 +89,9 @@ backend/
 ├── prompts/              # 9 prompt files: 10k/10q/20f/6k analyst+structured, trends-analyst
 ├── migrations/           # idempotent SQL, re-applied on EVERY deploy (no Alembic)
 ├── scripts/              # operational one-offs & verification (see docs/OPERATIONS.md)
-└── tests/                # unit/ integration/ smoke/ performance/ (config: pytest.ini)
+├── docs/                 # historical specs + edgartools-best-practices.md
+└── tests/                # unit/ integration/ smoke/ performance/ (config: pytest.ini;
+                          #   async tests use pytest-asyncio + AsyncMock)
 
 frontend/
 ├── app/                  # Next.js routes (filing/[id], company/[ticker], analysis/, …)
@@ -99,7 +101,9 @@ frontend/
 │                         #   (auth, filings, summaries, companies, analysis, dashboard,
 │                         #    watchlist, calendar, settings, marketing, …)
 ├── lib/                  # api/client.ts (shared axios), queryKeys.ts (key registry),
-│                         # financialTone.ts, motion.ts, downloadBlob.ts, featureFlags.ts
+│                         # financialTone.ts, motion.ts, downloadBlob.ts, featureFlags.ts,
+│                         # stripInternalNotices.ts (persisted summary markdown can carry
+│                         #   internal AI fallback notices — strip at every render surface)
 └── tests/                # unit/**/*.spec.* + e2e/ (the only test homes)
 ```
 
@@ -121,10 +125,10 @@ frontend/
 | `trend_analysis_service.py` | Multi-Period Analysis engine: deterministic YoY/QoQ/CAGR grid, `F#` citation markers, cached streamed narrative |
 | `precompute_service.py` | Idempotent per-ticker filing resolution + summary precompute (cron + internal job) |
 | `change_report_service.py` | Period-over-period change report (financial deltas + risk diffs) |
-| `peers_service.py` / `insider_service.py` | Peer comparison by SIC; Form 4 insider activity |
+| `peers_service.py` / `insider_service.py` | Peer comparison by SIC; Form 4 insider activity (`ownership_extractor.py` parses the Form 4 tables DEFENSIVELY — EdgarTools' DataFrame column casing varies across versions; don't "simplify" the guards) |
 | `dashboard_feed_service.py` / `calendar_service.py` / `filing_scan_service.py` / `notification_service.py` | Personalized feed; earnings calendar; new-filing alerts (dedup); alert prefs |
 | `hot_filings.py` / `trending_service.py` / `pulse_service.py` | Trending/hot filings + tickers; Filing Pulse buzz gauge |
-| `guest_quota.py` / `turnstile.py` / `pwned_passwords.py` | Per-IP guest cap (fail-open); Turnstile bot defense (dark when unset); breached-password screening |
+| `guest_quota.py` / `turnstile.py` / `pwned_passwords.py` | Per-IP guest cap (fail-open); Turnstile bot defense (dark when unset, fails OPEN on Cloudflare infra errors); breached-password screening |
 | `fallback_summary.py` | Deterministic summary when AI fails |
 | `export_service.py` | PDF/HTML export (summaries + analysis) |
 | `content_cache.py` / `summary_placeholders.py` | Shared FilingContentCache upsert; the summary-not-ready detector |
@@ -241,7 +245,8 @@ Submodules: `financial_fact.py` (normalized XBRL for peers/time-series),
 - `GET /health` (LB probe), `GET /health/detailed` (DB + Redis + breaker),
   `GET /metrics` (breaker/cache/thread-pool/DB-pool stats) — details in docs/OPERATIONS.md.
 - Sentry (backend + frontend), PostHog product analytics + inference-cost telemetry
-  (`copilot_inference_cost`, `analysis_inference_cost` with grounding counters).
+  (`copilot_inference_cost`, `analysis_inference_cost` with grounding counters),
+  Vercel Analytics on the frontend (auto-enabled via `@vercel/analytics` in `app/layout.tsx`).
 - The eval harness (`backend/evals/`) pins summary quality (`baseline_scores.json`) with a
   CI regression gate on AI-relevant PRs.
 

@@ -11,7 +11,7 @@ EarningsNerd runs on two platforms:
 | **Secrets** | Google Secret Manager, mounted as env vars on the Cloud Run service | — |
 | **Custom domain** | `api.earningsnerd.io` → Cloud Run domain mapping (Cloudflare CNAME → `ghs.googlehosted.com`, DNS-only) | — |
 
-> Schema is created at startup by `Base.metadata.create_all()` in `main.py`'s lifespan — there is **no Alembic**. One-off SQL migrations live in `backend/migrations/` and are applied manually.
+> Schema is created at startup by `Base.metadata.create_all()` in `main.py`'s lifespan — there is **no Alembic**. Idempotent SQL migrations live in `backend/migrations/` and are re-applied by the CI deploy job on **every** deploy (plus `ensure_additive_columns` self-heals additive columns at startup), so every file must stay safe to re-run forever.
 
 ---
 

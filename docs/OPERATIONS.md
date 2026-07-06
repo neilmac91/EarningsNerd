@@ -164,6 +164,10 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 | `GET /filings/audit-xbrl` | Audit filings for stale XBRL data |
 | `POST /filings/bulk-reset-stale` | Bulk reset stale filings (supports dry_run) |
 
+Outside `/api/admin/`, two token/ops refresh endpoints exist for the discovery caches:
+`POST /api/hot_filings/refresh` (gated by `X-Admin-Token` = `HOT_FILINGS_REFRESH_TOKEN`;
+returns 501 when the token is unset) and `GET /api/trending_tickers/refresh-prices`.
+
 ### Verification Scripts
 
 Located in `backend/scripts/`:
@@ -173,7 +177,7 @@ Located in `backend/scripts/`:
 - `verify_extraction_mock.py` - Tests XBRL extraction with mock data
 - `verify_startup_config.py` - Detailed startup configuration verification
 - `debug_extraction.py` - Debug regex patterns for extraction
-- `fix_null_sec_urls.py` - Repair filings with NULL sec_url values (see Data Integrity below)
+- `fix_null_sec_urls.py` - Repair filings with NULL sec_url values (see docs/TROUBLESHOOTING.md)
 - `backfill_facts.py` - Backfill the `financial_fact` table from cached/parsed XBRL
 - `filing_scan.py` - Scan for new filings on watched companies (alerts pipeline)
 - `pregenerate_examples.py` - Pre-generate example summaries (weekly refresh cron)

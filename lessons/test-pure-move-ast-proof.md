@@ -16,7 +16,10 @@ import-path edit.
 mechanical proof: AST-normalize (Python: `ast.parse` + `ast.unparse` per
 function/constant; TS: per-export content hash or a changed-lines-are-imports-only
 classification) and diff old vs new per symbol. Zero undisclosed deltas or the claim is
-false. Reviewers re-run the proof; they do not re-read the move.
+false. Reviewers re-run the proof; they do not re-read the move. Do NOT substitute a green
+test suite for the proof — "tests pass" only proves the exercised lines. During S2 the
+per-step suite + ruff caught a real F821 near-miss (a splice end-anchor nearly swept up
+`_TRACKED_STRUCTURED_SECTIONS`); the AST diff is what proves the rest.
 
 **Evidence**: PR #550 (S2 façade — AST diff found only the 4 disclosed fixes);
 PR #559 / #561 (F3/F3.1 — 184 and 50 changed lines, all proven import-path edits,

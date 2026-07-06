@@ -7,8 +7,8 @@ verified behavior.
 **Stack:** FastAPI + sync SQLAlchemy 2.0 + PostgreSQL 15 on Cloud Run | Next.js 16 (App Router) +
 TypeScript + Tailwind + React Query on Vercel | AI via OpenAI-compatible client (default
 `deepseek-v4-pro` via `https://api.deepseek.com/v1`; env-configurable via `OPENAI_BASE_URL` +
-`AI_DEFAULT_MODEL`) | Stripe, Resend, PostHog, Sentry. Redis is dev-only; prod runs the L1
-in-memory cache (ADR-0004).
+`AI_DEFAULT_MODEL`) | Stripe, Resend, PostHog + Vercel Analytics, Sentry. Redis is dev-only;
+prod runs the L1 in-memory cache (ADR-0004).
 
 ## Read before working
 
@@ -65,8 +65,8 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
    to symbols deleted in the same PR, or under a pre-approved, PR-body-documented contract change.
    Anything else: stop and surface it first.
 7. **datetime:** timezone-aware UTC via `app/utils/datetimes.py` (`utcnow()`, `iso_z()`); never
-   `datetime.utcnow()`. The ONLY sanctioned naive sites are the 6 token-expiry columns enforced by
-   `backend/tests/unit/test_naive_utcnow_allowlist.py` (naive by design — SQLite/Postgres parity).
+   `datetime.utcnow()`. The ONLY sanctioned naive sites are the 6 token-expiry call sites enforced
+   by `backend/tests/unit/test_naive_utcnow_allowlist.py` (naive by design — SQLite/Postgres parity).
    Serialized timestamps use `iso_z()`; never hand-append `"Z"`.
 8. **Config:** all env access through `app/config.py` Settings; never `os.getenv` in app code.
 9. **Boundaries:** validate external data where it enters (SEC responses, Stripe webhooks, AI
