@@ -25,13 +25,13 @@ import {
   disableEarningsAlert,
   EarningsAlertError,
   EARNINGS_ALERT_LIMIT_CODE,
-  type CalendarEvent,
+  type CalendarRangeResult,
 } from '../api/calendar-api'
 
 export const FREE_ALERT_LIMIT = 3
 
 export function useCalendarRange(from: string, to: string) {
-  return useQuery<CalendarEvent[]>({
+  return useQuery<CalendarRangeResult>({
     queryKey: queryKeys.calendar(from, to),
     queryFn: () => getCalendar(from, to),
     staleTime: 5 * 60 * 1000,

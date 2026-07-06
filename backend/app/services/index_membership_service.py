@@ -88,3 +88,16 @@ def active_member_filter() -> Optional[frozenset[str]]:
     if not _MEMBER_TICKERS:  # load failed / below floor -> fail open (show everything)
         return None
     return _MEMBER_TICKERS
+
+
+# Public identifiers for the universe the calendar is currently serving. Surfaced on the
+# /api/calendar response so the UI can label its coverage accurately in EVERY flag state — the
+# "S&P 500 & Nasdaq 100" caption shows only when the filter is genuinely active, never during a
+# pre-flip window or a rollback.
+UNIVERSE_INDEX = "sp500_nasdaq100"
+UNIVERSE_ALL = "all"
+
+
+def active_universe_label() -> str:
+    """``"sp500_nasdaq100"`` when the index filter is active, else ``"all"`` (serving unfiltered)."""
+    return UNIVERSE_INDEX if active_member_filter() is not None else UNIVERSE_ALL

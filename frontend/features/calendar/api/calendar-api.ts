@@ -32,15 +32,25 @@ export interface CalendarEvent {
   anticipation_score: number
 }
 
+/** The universe the calendar was filtered to. `'sp500_nasdaq100'` when the backend index filter is
+    active, `'all'` when it's serving everything. Drives the coverage caption on the page so it's
+    accurate in every flag state (never claims "S&P 500 & Nasdaq 100" while unfiltered). */
+export type CalendarUniverse = 'sp500_nasdaq100' | 'all'
+
+export interface CalendarRangeResult {
+  events: CalendarEvent[]
+  universe: CalendarUniverse
+}
+
 export const USE_CALENDAR_FIXTURES = process.env.NEXT_PUBLIC_CALENDAR_FIXTURES === 'true'
 
-export const getCalendar = async (from: string, to: string): Promise<CalendarEvent[]> => {
+export const getCalendar = async (from: string, to: string): Promise<CalendarRangeResult> => {
   if (USE_CALENDAR_FIXTURES) {
     const fixtures = await import('./calendar-fixtures')
-    return fixtures.fixtureCalendar(from, to)
+    return { events: await fixtures.fixtureCalendar(from, to), universe: 'all' }
   }
   const response = await api.get('/api/calendar', { params: { from, to } })
-  return response.data.events
+  return { events: response.data.events, universe: response.data.universe ?? 'all' }
 }
 
 /** Tickers the signed-in user has earnings alerts enabled for.
