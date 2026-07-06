@@ -11,18 +11,9 @@ from typing import Dict, List, Optional
 import httpx
 
 from app.config import settings
+from app.utils.numbers import coerce_float
 
 logger = logging.getLogger(__name__)
-
-
-def _coerce_float(value: object) -> Optional[float]:
-    """Safely convert a value to float."""
-    if value in (None, ""):
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
 
 
 def _parse_date(value: object) -> Optional[date]:
@@ -304,10 +295,10 @@ class FMPClient:
                 is_etf=bool(item.get("isEtf", False)),
                 is_fund=bool(item.get("isFund", False)),
                 is_actively_trading=bool(item.get("isActivelyTrading", True)),
-                price=_coerce_float(item.get("price")),
-                changes=_coerce_float(item.get("changes")),
-                changes_percentage=_coerce_float(item.get("changesPercentage")),
-                market_cap=_coerce_float(item.get("mktCap")),
+                price=coerce_float(item.get("price")),
+                changes=coerce_float(item.get("changes")),
+                changes_percentage=coerce_float(item.get("changesPercentage")),
+                market_cap=coerce_float(item.get("mktCap")),
                 raw=item,
             )
             results[profile.symbol] = profile
@@ -423,10 +414,10 @@ class FMPClient:
         return FMPEarningsEvent(
             symbol=symbol.upper(),
             earnings_date=earnings_date,
-            eps_estimated=_coerce_float(item.get("epsEstimated")),
-            eps_actual=_coerce_float(item.get("eps")),
-            revenue_estimated=_coerce_float(item.get("revenueEstimated")),
-            revenue_actual=_coerce_float(item.get("revenue")),
+            eps_estimated=coerce_float(item.get("epsEstimated")),
+            eps_actual=coerce_float(item.get("eps")),
+            revenue_estimated=coerce_float(item.get("revenueEstimated")),
+            revenue_actual=coerce_float(item.get("revenue")),
             time=item.get("time") if isinstance(item.get("time"), str) else None,
             raw=item,
         )

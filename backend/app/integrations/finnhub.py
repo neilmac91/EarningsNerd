@@ -10,17 +10,9 @@ from typing import Dict, Iterable, Optional
 import httpx
 
 from app.config import settings
+from app.utils.numbers import coerce_float
 
 logger = logging.getLogger(__name__)
-
-
-def _coerce_float(value: object) -> Optional[float]:
-    if value in (None, ""):
-        return None
-    try:
-        return float(value)
-    except (TypeError, ValueError):
-        return None
 
 
 @dataclass
@@ -121,12 +113,12 @@ class FinnhubClient:
             payload.get("sentiment") if isinstance(payload.get("sentiment"), dict) else {}
         )
 
-        buzz_ratio = _coerce_float(buzz_data.get("buzz"))
-        articles_in_last_week = _coerce_float(buzz_data.get("articlesInLastWeek"))
-        weekly_average = _coerce_float(buzz_data.get("weeklyAverage"))
-        company_news_score = _coerce_float(payload.get("companyNewsScore"))
-        bullish_percent = _coerce_float(sentiment_data.get("bullishPercent"))
-        sector_bullish_percent = _coerce_float(sentiment_data.get("sectorAverageBullishPercent"))
+        buzz_ratio = coerce_float(buzz_data.get("buzz"))
+        articles_in_last_week = coerce_float(buzz_data.get("articlesInLastWeek"))
+        weekly_average = coerce_float(buzz_data.get("weeklyAverage"))
+        company_news_score = coerce_float(payload.get("companyNewsScore"))
+        bullish_percent = coerce_float(sentiment_data.get("bullishPercent"))
+        sector_bullish_percent = coerce_float(sentiment_data.get("sectorAverageBullishPercent"))
 
         return FinnhubSentiment(
             symbol=symbol,

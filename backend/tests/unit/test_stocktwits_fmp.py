@@ -313,17 +313,17 @@ class TestFMPClient:
 
     def test_coerce_float_valid_values(self):
         """Coerce float should handle valid values."""
-        from app.integrations.fmp import _coerce_float
-        assert _coerce_float(123.45) == 123.45
-        assert _coerce_float("123.45") == 123.45
-        assert _coerce_float(100) == 100.0
+        from app.utils.numbers import coerce_float
+        assert coerce_float(123.45) == 123.45
+        assert coerce_float("123.45") == 123.45
+        assert coerce_float(100) == 100.0
 
     def test_coerce_float_invalid_values(self):
         """Coerce float should return None for invalid values."""
-        from app.integrations.fmp import _coerce_float
-        assert _coerce_float(None) is None
-        assert _coerce_float("") is None
-        assert _coerce_float("not a number") is None
+        from app.utils.numbers import coerce_float
+        assert coerce_float(None) is None
+        assert coerce_float("") is None
+        assert coerce_float("not a number") is None
 
 
 class TestTrendingServiceIntegration:
