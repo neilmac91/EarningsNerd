@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
-from app.utils.datetimes import utcnow
+from app.utils.datetimes import utcnow, iso_z
 import json
 import logging
 from pathlib import Path
@@ -84,7 +84,7 @@ class TrendingTickerService:
             payload = {
                 "tickers": result["tickers"],
                 "source": result.get("source", "Stocktwits"),
-                "timestamp": now.isoformat() + "Z",
+                "timestamp": iso_z(now),
                 "cached": False,
                 "status": "ok",
             }
@@ -105,7 +105,7 @@ class TrendingTickerService:
                 "cached": True,
                 "status": "stale",
                 "source": f"{self._cache_data.get('source', 'cache')} (stale)",
-                "timestamp": self._cache_data.get("timestamp", now.isoformat() + "Z"),
+                "timestamp": self._cache_data.get("timestamp", iso_z(now)),
             }
             message = "Upstream trending sources unavailable. Showing cached data."
             if self._last_error:
@@ -143,7 +143,7 @@ class TrendingTickerService:
         return {
             "tickers": fallback_tickers,
             "source": "curated" if fallback_tickers else "unavailable",
-            "timestamp": now.isoformat() + "Z",
+            "timestamp": iso_z(now),
             "cached": False,
             "status": fallback_status,
             "message": fallback_message,

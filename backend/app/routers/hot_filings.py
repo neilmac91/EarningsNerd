@@ -60,8 +60,9 @@ async def get_hot_filings(
         for filing in data.get("filings", [])
     ]
 
-    # last_updated is a naive UTC isoformat string; without a 'Z' the browser's new Date() parses it
-    # as local time, skewing the "Updated N ago" label. Normalize to UTC.
+    # last_updated is emitted as a 'Z'-suffixed UTC string by the service (iso_z); a bare UTC
+    # isoformat without the 'Z' would make the browser's new Date() parse it as local time, skewing
+    # the "Updated N ago" label. This stays as a defensive fallback for any value lacking the 'Z'.
     last_updated = data.get("last_updated")
     if isinstance(last_updated, str) and last_updated and not last_updated.endswith("Z"):
         last_updated += "Z"

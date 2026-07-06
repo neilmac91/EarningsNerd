@@ -2,7 +2,7 @@ import asyncio
 import logging
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from app.utils.datetimes import utcnow
+from app.utils.datetimes import utcnow, iso_z
 from typing import Dict, List, Optional, Set, TypeVar
 
 from sqlalchemy import desc, func
@@ -113,7 +113,7 @@ class HotFilingsService:
             records = await self._calculate_hot_filings(db, limit)
             payload = {
                 "filings": [record.to_dict() for record in records],
-                "last_updated": now.isoformat(),
+                "last_updated": iso_z(now),
             }
 
             self._cache[limit] = payload

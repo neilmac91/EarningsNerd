@@ -18,3 +18,15 @@ from datetime import datetime, timezone
 def utcnow() -> datetime:
     """Current time as a timezone-aware UTC datetime."""
     return datetime.now(timezone.utc)
+
+
+def iso_z(dt: datetime) -> str:
+    """ISO 8601 string with a ``Z`` suffix for a UTC datetime, e.g. ``2026-07-06T10:52:35.123456Z``.
+
+    Use this instead of ``dt.isoformat() + "Z"``: an aware ``dt`` already renders the offset as
+    ``+00:00``, so appending ``Z`` doubles the zone (``…+00:00Z``) — malformed, and it round-trips
+    to a ``ValueError`` in parsers that strip a trailing ``Z``. Replacing the offset with ``Z``
+    reproduces the legacy naive ``datetime.utcnow().isoformat() + "Z"`` wire format (what browsers'
+    ``new Date()`` and our cache ``_parse_timestamp`` expect). Pass a tz-aware UTC datetime.
+    """
+    return dt.isoformat().replace("+00:00", "Z")
