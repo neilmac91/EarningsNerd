@@ -39,7 +39,7 @@
 **The job-to-be-done:** *"Tell me what this filing says, what changed since last time, and whether I should care — in plain English I can trust."*
 
 **Our defensible wedge (the four things we must be best at):**
-1. **Trust / grounding** — every figure and claim is traceable to the filing (we already store XBRL + section excerpts; we have a `/compare` route). This is what free tools (Public Alpha) don't clearly offer and only $250/mo tools do well.
+1. **Trust / grounding** — every figure and claim is traceable to the filing (we already store XBRL + section excerpts; we have an `/analysis` route). This is what free tools (Public Alpha) don't clearly offer and only $250/mo tools do well.
 2. **"What changed"** — filing-over-filing diffing ("vs last 10-Q/10-K") is largely an enterprise feature; bringing it to retail is a moat that maps to our existing compare engine.
 3. **Plain English + explained jargon** — not just compression; define "riskless principal," "in arrears" inline. The SEC's own plain-language effort is 25 years unfinished.
 4. **Craft / UX** — competitors with the same data lose on interface (TheSECAI "poor UX"). A fast, clean, glanceable product wins retail.

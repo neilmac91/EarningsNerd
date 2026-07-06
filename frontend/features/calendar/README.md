@@ -15,7 +15,7 @@ Live design spec with every state exercisable: **`Earnings Calendar.dc.html`**
 | `lib/lanes.ts` | Top-5 ranking, BMO/AMC/during·unspecified lanes, "usually after close" wording |
 | `hooks/useCalendar.ts` | Range query, viewer (session/plan/alert count), optimistic alert toggle with rollback |
 | `components/` | `EarningsCalendarPage` (route body), `WeekView` (desktop sheet + mobile day list), `MonthView`, `DayDetailDialog` (native `<dialog>`), `EventRow`/`StatusChip`/`EpsFigure`, `AlertBell` + `BellPopover`, `laneHeader` |
-| `app/calendar/page.tsx` | Route, 404-gated on `NEXT_PUBLIC_ENABLE_CALENDAR` (same pattern as `ENABLE_COMPARE`) |
+| `app/calendar/page.tsx` | Route, 404-gated on `NEXT_PUBLIC_ENABLE_CALENDAR` (same pattern as `ENABLE_ANALYSIS`) |
 
 ## Week-grid direction (decision record)
 
