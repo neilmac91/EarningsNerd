@@ -636,7 +636,8 @@ confidence; explicit runner-up = hide + rebuild immediately if 2–3 days availa
       (dead-integration sweep + machine gate).
 
 ## Phase B-TF — Trending Filings: minimal honest fix (recommended, amended per adversarial pass)
-- [ ] B4 (M, 4–6h): `services/hot_filings.py` — dedupe one-per-company, 14-day freshness floor,
+- [ ] B4 (M, 4–6h): `services/hot_filings.py` — dedupe one-per-company, 7-day freshness floor
+      (matches the "this week" title; tunable — self-omission is the safety valve),
       **empty result below 3 qualifying companies**, `recency` in sources only when >0, delete
       dead FMP/Finnhub calls+components; `pulse_service.py` — **suppress component breakdown
       when only velocity/type are active** (tier only); `routers/hot_filings.py` — remove
@@ -651,4 +652,5 @@ confidence; explicit runner-up = hide + rebuild immediately if 2–3 days availa
       one-per-company, cron via `/internal/jobs/*`; link cards to `/company/{ticker}` to avoid
       cold-ingest latency). Frontend mostly unchanged.
 
-Sequencing: PR 1 = A1+A2+B1+B4+B5 (~1.5 days); PR 2 = B2+B3 one deploy later; B6 gated on data.
+Sequencing: PR 1 = A1+B1+B4+B5 (~1.5 days; A2 moot once B1 ships in the same deploy — include
+only if the hide is deferred); PR 2 = B2+B3 one deploy later; B6 gated on the checkpoint.
