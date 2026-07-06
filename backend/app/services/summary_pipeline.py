@@ -26,8 +26,9 @@ from sqlalchemy.orm import joinedload
 
 from app import database
 from app.config import settings
-from app.models import Filing, Summary, User, FilingContentCache
+from app.models import Filing, Summary, User
 from app.schemas import attach_normalized_facts
+from app.services.content_cache import upsert_content_cache
 from app.services.edgar.compat import sec_edgar_service, xbrl_service
 from app.services.edgar.sixk_extractor import get_sixk_text
 from app.services.fallback_summary import generate_xbrl_summary
@@ -721,22 +722,13 @@ async def stream_filing_summary(
                 session.add(summary)
 
                 if filing_for_cache:
-                    cache = filing_for_cache.content_cache
-                    if sections_info:
-                        if cache is None:
-                            cache = FilingContentCache(
-                                filing_id=filing_id,
-                                critical_excerpt=excerpt,
-                                sections_payload=sections_info,
-                            )
-                            session.add(cache)
-                        else:
-                            if excerpt and not cache.critical_excerpt:
-                                cache.critical_excerpt = excerpt
-                            cache.sections_payload = sections_info
-                    elif excerpt and cache is None:
-                        cache = FilingContentCache(filing_id=filing_id, critical_excerpt=excerpt)
-                        session.add(cache)
+                    upsert_content_cache(
+                        session,
+                        filing_id,
+                        filing_for_cache.content_cache,
+                        excerpt=excerpt,
+                        sections_payload=sections_info,
+                    )
 
                 try:
                     session.commit()

@@ -7,6 +7,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from app.models import Filing, Summary, SummaryGenerationProgress, User, FilingContentCache
 # EdgarTools migration: Using new edgar module for SEC services
+from app.services.content_cache import upsert_content_cache
 from app.services.edgar.compat import sec_edgar_service, xbrl_service
 from app.services.openai_service import openai_service
 from app.schemas import attach_normalized_facts
@@ -888,24 +889,13 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
                 )
                 db.add(summary)
 
-                cache = filing.content_cache
-                if sections_info:
-                    if cache is None:
-                        cache = FilingContentCache(
-                            filing_id=filing_id,
-                            critical_excerpt=excerpt,
-                            sections_payload=sections_info,
-                        )
-                        db.add(cache)
-                    else:
-                        if excerpt and not cache.critical_excerpt:
-                            cache.critical_excerpt = excerpt
-                        cache.sections_payload = sections_info
-                elif excerpt and cache is None:
-                    cache = FilingContentCache(
-                        filing_id=filing_id, critical_excerpt=excerpt
-                    )
-                    db.add(cache)
+                upsert_content_cache(
+                    db,
+                    filing_id,
+                    filing.content_cache,
+                    excerpt=excerpt,
+                    sections_payload=sections_info,
+                )
 
                 try:
                     db.commit()
