@@ -14,7 +14,7 @@
 - One task per subagent for focused execution
 
 ### 3. Self-Improvement Loop
-- After ANY correction from the user: update 'tasks/lessons.md' with the pattern
+- After ANY correction from the user: add a new file under 'lessons/' (one lesson per file — see 'lessons/README.md' for the format) capturing the pattern
 - Write rules for yourself that prevent the same mistake
 - Ruthlessly iterate on these lessons until mistake rate drops
 - Review lessons at session start for relevant project
@@ -43,7 +43,7 @@
 3. **Track Progress**: Mark items complete as you go
 4. **Explain Changes**: High-level summary at each step
 5. **Document Results**: Add review to 'tasks/todo.md'
-6. **Capture Lessons**: Update 'tasks/lessons.md' after corrections
+6. **Capture Lessons**: Add a per-file lesson under 'lessons/' after corrections (see 'lessons/README.md')
 
 ## Core Principles
 - **Simplicity First**: Strive for the simplest possible solution, avoiding over-engineering.
