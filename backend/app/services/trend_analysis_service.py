@@ -31,7 +31,9 @@ logger = logging.getLogger(__name__)
 # cached TrendAnalysis row fleet-wide (they regenerate lazily on next request).
 # v2: derived flag narrowed to true computed-Q4 points, CAGR markers, per-marker signal brackets,
 # multi-reference resolver, pp-vs-relative guardrail.
-PROMPT_VERSION = "trends-v2"
+# v3: percent-unit series (margins) report YoY/QoQ as percentage-point deltas (not relative %);
+# sign-flip growth renders "n/m" instead of a nonsensical percentage.
+PROMPT_VERSION = "trends-v3"
 
 MODES = ("annual", "quarterly")
 _QUARTERS = ("Q1", "Q2", "Q3", "Q4")
@@ -47,6 +49,19 @@ INSTANT_CONCEPTS: frozenset[str] = frozenset(
 
 # Margin concepts are stored ×100 (percent); current_ratio is a plain ratio.
 _PERCENT_CONCEPTS: frozenset[str] = frozenset({"net_margin", "gross_margin", "operating_margin"})
+
+# Display valence per concept, shipped on each series as `tone` — the same dataset-as-source-of-
+# truth pattern as `percent`, so the frontend never re-derives which concepts read inverted or
+# neutral. "inverted": an increase is a cost/risk signal (the same judgment detect_debt_build
+# encodes); "neutral": the direction is a strategic choice (a capex ramp, an investing/financing
+# swing), not inherently good or bad. Everything else defaults to "normal" (up = good).
+_SERIES_TONE: dict[str, str] = {
+    "long_term_debt": "inverted",
+    "current_liabilities": "inverted",
+    "capital_expenditures": "neutral",
+    "investing_cash_flow": "neutral",
+    "financing_cash_flow": "neutral",
+}
 
 # Display order for the dataset grid (missing concepts are simply omitted).
 DATASET_CONCEPT_ORDER: tuple[str, ...] = (
@@ -198,11 +213,31 @@ def available_periods(db: Session, company_id: int) -> dict[str, Any]:
 # --- dataset assembly --------------------------------------------------------------------------
 
 
-def _growth(current: Optional[float], prior: Optional[float]) -> Optional[float]:
-    """Fractional growth with the compute_metric edge discipline: no prior / zero prior → None."""
+# Sentinel for `_growth`: a comparison was attempted but crossing zero makes a percentage
+# meaningless (finance convention "n/m" — not meaningful), e.g. investing cash flow swinging from
+# +$503M to -$71.9B renders "-14,399.2%" under plain division. Distinct from None (no prior at
+# all), so the UI/prompt can say "n/m" instead of rendering nothing.
+NOT_MEANINGFUL = "nm"
+
+
+def _growth(current: Optional[float], prior: Optional[float]) -> Optional[float] | str:
+    """Fractional growth with the compute_metric edge discipline: no prior / zero prior → None.
+    Opposite-signed current/prior → NOT_MEANINGFUL (a swing through zero, not a real up/down
+    move — same-sign moves of any magnitude, even a large one off a small base, stay real growth)."""
     if current is None or prior is None or prior == 0:
         return None
+    if current != 0 and (current > 0) != (prior > 0):
+        return NOT_MEANINGFUL
     return (current - prior) / abs(prior)
+
+
+def _pp_delta(current: Optional[float], prior: Optional[float]) -> Optional[float]:
+    """Percentage-POINT delta for percent-unit series (margins, stored ×100): current − prior.
+    Never divides, so it never "explodes" the way relative growth can — a 47.3% → 38.3% move is
+    simply -9.0pp, always sane — and needs no NOT_MEANINGFUL guard."""
+    if current is None or prior is None:
+        return None
+    return current - prior
 
 
 def _cagr(first: float, last: float, years: int) -> Optional[float]:
@@ -210,6 +245,22 @@ def _cagr(first: float, last: float, years: int) -> Optional[float]:
     if years < 1 or first <= 0 or last <= 0:
         return None
     return (last / first) ** (1.0 / years) - 1.0
+
+
+def _valued_endpoints(
+    periods: list[dict[str, Any]], points: list[dict[str, Any]]
+) -> Optional[tuple[tuple[int, float], tuple[int, float]]]:
+    """First/last ``(fiscal_year, value)`` over a series' non-null points — the ONE endpoint-
+    selection rule for every annual window figure (CAGR and window_pp), so the two can't drift.
+    Returns ``None`` when fewer than two valued points exist (no window to measure)."""
+    valued = [
+        (bucket["fiscal_year"], point["value"])
+        for bucket, point in zip(periods, points)
+        if point["value"] is not None
+    ]
+    if len(valued) < 2:
+        return None
+    return valued[0], valued[-1]
 
 
 def build_dataset(
@@ -361,6 +412,12 @@ def build_dataset(
             continue
 
         unit = next((p["unit"] for p in points if p.get("unit")), "USD")
+        is_percent = concept in _PERCENT_CONCEPTS
+        # Percent-unit series (margins) report YoY/QoQ as percentage-POINT deltas — the
+        # convention finance readers expect for a ratio already expressed as a percentage — never
+        # the relative change of the percentage value itself. Everything else keeps relative
+        # growth (with the n/m sign-flip guard baked into `_growth`).
+        delta_fn = _pp_delta if is_percent else _growth
 
         # YoY: prior fiscal year (annual) / same quarter one fiscal year earlier (quarterly).
         by_period_key = {p["period"]: p for p in points}
@@ -372,13 +429,13 @@ def build_dataset(
             else:
                 prior_key = f"{bucket['fiscal_year'] - 1}{bucket['fiscal_period']}"
             prior = by_period_key.get(prior_key)
-            point["yoy"] = _growth(point["value"], prior["value"] if prior else None)
+            point["yoy"] = delta_fn(point["value"], prior["value"] if prior else None)
         # QoQ: the immediately preceding column (quarterly only).
         if mode == "quarterly":
             previous: Optional[dict[str, Any]] = None
             for point in points:
                 if point["value"] is not None:
-                    point["qoq"] = _growth(
+                    point["qoq"] = delta_fn(
                         point["value"], previous["value"] if previous else None
                     )
                     previous = point
@@ -390,25 +447,37 @@ def build_dataset(
         cagr = None
         cagr_window = None
         if mode == "annual" and unit != "pure":
-            valued = [
-                (bucket["fiscal_year"], point["value"])
-                for bucket, point in zip(periods, points)
-                if point["value"] is not None
-            ]
-            if len(valued) >= 2:
-                (first_fy, first), (last_fy, last) = valued[0], valued[-1]
+            endpoints = _valued_endpoints(periods, points)
+            if endpoints:
+                (first_fy, first), (last_fy, last) = endpoints
                 cagr = _cagr(first, last, last_fy - first_fy)
                 if cagr is not None:
                     cagr_window = f"FY{first_fy}..FY{last_fy}"
+
+        # Window pp change over the same valued endpoints — the percent-series counterpart to
+        # CAGR (compounding doesn't apply to a percentage), so the annual KPI strip/table has a
+        # window figure for margin concepts even though CAGR itself is always null for them
+        # (unit == "pure" excludes them from the CAGR block above).
+        window_pp = None
+        window_pp_range = None
+        if mode == "annual" and is_percent:
+            endpoints = _valued_endpoints(periods, points)
+            if endpoints:
+                (first_fy, first_v), (last_fy, last_v) = endpoints
+                window_pp = last_v - first_v
+                window_pp_range = f"FY{first_fy}..FY{last_fy}"
 
         series_list.append(
             {
                 "concept": concept,
                 "label": concept_label(concept),
                 "unit": unit,
-                "percent": concept in _PERCENT_CONCEPTS,
+                "percent": is_percent,
+                "tone": _SERIES_TONE.get(concept, "normal"),
                 "cagr": cagr,
                 "cagr_window": cagr_window,
+                "window_pp": window_pp,
+                "window_pp_range": window_pp_range,
                 "points": points,
             }
         )
@@ -466,7 +535,11 @@ def detect_growth_deceleration(dataset: dict[str, Any]) -> list[dict[str, Any]]:
     flags = []
     series_by = _series_map(dataset)
     for concept in ("revenue", "net_interest_income"):
-        points = [p for p in _valued_points(series_by.get(concept)) if p.get("yoy") is not None]
+        # Exclude NOT_MEANINGFUL ("nm") explicitly — it's a string sentinel, not a float, and
+        # `yoys[0] > yoys[1]` below would raise TypeError if one slipped through.
+        points = [
+            p for p in _valued_points(series_by.get(concept)) if isinstance(p.get("yoy"), float)
+        ]
         if len(points) < 3:
             continue
         last3 = points[-3:]
@@ -657,9 +730,9 @@ def compact_dataset_for_prompt(dataset: dict[str, Any]) -> str:
             rendered = _format_value(point["value"], series["unit"], series["percent"])
             growth_bits = []
             if point.get("yoy") is not None:
-                growth_bits.append(f"YoY {_pct_str(point['yoy'])}")
+                growth_bits.append(f"YoY {_fmt_growth(point['yoy'], series['percent'])}")
             if point.get("qoq") is not None:
-                growth_bits.append(f"QoQ {_pct_str(point['qoq'])}")
+                growth_bits.append(f"QoQ {_fmt_growth(point['qoq'], series['percent'])}")
             suffix = f" ({', '.join(growth_bits)})" if growth_bits else ""
             derived = " [derived]" if point.get("derived") else ""
             lines.append(f"  [{point['marker']}] {point['period']}: {rendered}{suffix}{derived}")
@@ -679,6 +752,17 @@ def compact_dataset_for_prompt(dataset: dict[str, Any]) -> str:
 
 def _pct_str(value: float) -> str:
     return f"{value * 100:+.1f}%"
+
+
+def _fmt_growth(value: float | str, is_percent: bool) -> str:
+    """Render a YoY/QoQ delta for the prompt: NOT_MEANINGFUL as "n/m"; a percent-unit series'
+    delta (already a percentage-POINT number, no ×100) as "+X.Xpp"; everything else as the usual
+    signed relative percentage."""
+    if value == NOT_MEANINGFUL:
+        return "n/m"
+    if is_percent:
+        return f"{value:+.1f}pp"
+    return _pct_str(value)
 
 
 def marker_index(dataset: dict[str, Any]) -> dict[str, dict[str, Any]]:

@@ -3,7 +3,9 @@
 import { useMemo } from 'react'
 import { Badge, Card, DataTable, type Column } from '@/components/ui'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
-import { directionOf, directionText } from '@/lib/financialTone'
+import { directionText } from '@/lib/financialTone'
+import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
+import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 
 const currencyFromUnit = (unit: string | undefined): string => {
@@ -42,6 +44,8 @@ export default function MetricsTable({ dataset }: { dataset: AnalysisDataset }) 
         }
         const growth = dataset.mode === 'quarterly' ? point.qoq ?? point.yoy : point.yoy
         const growthLabel = dataset.mode === 'quarterly' && point.qoq !== undefined ? 'QoQ' : 'YoY'
+        const { text: growthText, direction } = formatGrowth(growth, row.series.percent)
+        const tone = applySeriesTone(row.series.tone, direction)
         return (
           <div className="flex flex-col items-end gap-0.5">
             <span className="flex items-center gap-1">
@@ -56,41 +60,60 @@ export default function MetricsTable({ dataset }: { dataset: AnalysisDataset }) 
                 </span>
               )}
             </span>
-            {growth !== null && growth !== undefined && (
-              <span className={`text-xs ${directionText[directionOf(growth)]}`}>
-                {growthLabel} {fmtPercent(growth * 100, { digits: 1, signed: true })}
+            {growthText && (
+              <span className={`text-xs ${directionText[tone]}`}>
+                {growthLabel} {growthText}
               </span>
             )}
           </div>
         )
       },
     }))
-    return [
-      {
-        key: 'metric',
-        header: 'Metric',
-        render: (row: Row) => (
-          <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
-            {row.series.label}
+    const metricColumn: Column<Row> = {
+      key: 'metric',
+      header: 'Metric',
+      render: (row: Row) => (
+        <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
+          {row.series.label}
+        </span>
+      ),
+    }
+    // The engine computes CAGR annual-only (a "compound ANNUAL growth rate" over 12 quarters
+    // isn't well-defined) — the column would render "—" for every row in quarterly mode, so it's
+    // hidden there entirely rather than shipping as permanently dead UI.
+    if (dataset.mode !== 'annual') {
+      return [metricColumn, ...periodColumns]
+    }
+    const cagrColumn: Column<Row> = {
+      key: 'cagr',
+      header: 'CAGR',
+      align: 'right' as const,
+      numeric: true,
+      render: (row: Row) => {
+        // Shared window-growth rule (growth.ts): CAGR for monetary/per-share rows, the window's
+        // pp change for percent-unit rows (margins) — the same resolution the KPI strip uses,
+        // so a margin row shows its window figure here instead of a permanently dead "—".
+        const win = windowGrowth(row.series)
+        const { text, direction } = formatGrowth(win.value, win.isPercent)
+        const tone = applySeriesTone(row.series.tone, direction)
+        // cursor-help only when the tooltip actually exists — same condition for both.
+        const windowTooltip =
+          win.isPercent && row.series.window_pp_range
+            ? `Percentage-point change over ${row.series.window_pp_range} — CAGR doesn't apply to a percent-unit series.`
+            : undefined
+        return text ? (
+          <span
+            className={windowTooltip ? `cursor-help ${directionText[tone]}` : directionText[tone]}
+            title={windowTooltip}
+          >
+            {text}
           </span>
-        ),
+        ) : (
+          <span className="text-text-tertiary-light dark:text-text-secondary-dark">—</span>
+        )
       },
-      ...periodColumns,
-      {
-        key: 'cagr',
-        header: 'CAGR',
-        align: 'right' as const,
-        numeric: true,
-        render: (row: Row) =>
-          row.series.cagr === null || row.series.cagr === undefined ? (
-            <span className="text-text-tertiary-light dark:text-text-secondary-dark">—</span>
-          ) : (
-            <span className={directionText[directionOf(row.series.cagr)]}>
-              {fmtPercent(row.series.cagr * 100, { digits: 1, signed: true })}
-            </span>
-          ),
-      },
-    ]
+    }
+    return [metricColumn, ...periodColumns, cagrColumn]
   }, [dataset])
 
   const rows = useMemo<Row[]>(() => dataset.series.map((series) => ({ series })), [dataset])
@@ -111,15 +134,14 @@ export default function MetricsTable({ dataset }: { dataset: AnalysisDataset }) 
           </Badge>
         )}
       </div>
-      <div className="overflow-x-auto">
-        <DataTable<Row>
-          columns={columns}
-          rows={rows}
-          rowKey={(row) => row.series.concept}
-          density="compact"
-          empty="No metrics available for the selected periods."
-        />
-      </div>
+      <DataTable<Row>
+        columns={columns}
+        rows={rows}
+        rowKey={(row) => row.series.concept}
+        density="compact"
+        stickyFirstColumn
+        empty="No metrics available for the selected periods."
+      />
     </Card>
   )
 }

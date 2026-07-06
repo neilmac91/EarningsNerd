@@ -49,6 +49,7 @@
     "label": "Revenue",
     "unit": "USD",
     "percent": false,
+    "tone": "normal",
     "cagr": 0.0849,
     "points": [
      {
@@ -148,6 +149,7 @@
     "label": "Net income",
     "unit": "USD",
     "percent": false,
+    "tone": "normal",
     "cagr": 0.1115,
     "points": [
      {
@@ -247,7 +249,10 @@
     "label": "Net margin",
     "unit": "pure",
     "percent": true,
+    "tone": "normal",
     "cagr": null,
+    "window_pp": 2.73,
+    "window_pp_range": "FY2019..FY2024",
     "points": [
      {
       "period": "FY2019",
@@ -277,7 +282,7 @@
       "fiscal_year": 2020,
       "fiscal_period": "FY",
       "marker": "F14",
-      "yoy": -0.0155
+      "yoy": -0.33
      },
      {
       "period": "FY2021",
@@ -292,7 +297,7 @@
       "fiscal_year": 2021,
       "fiscal_period": "FY",
       "marker": "F15",
-      "yoy": 0.2377
+      "yoy": 4.97
      },
      {
       "period": "FY2022",
@@ -307,7 +312,7 @@
       "fiscal_year": 2022,
       "fiscal_period": "FY",
       "marker": "F16",
-      "yoy": -0.022
+      "yoy": -0.57
      },
      {
       "period": "FY2023",
@@ -337,7 +342,7 @@
       "fiscal_year": 2024,
       "fiscal_period": "FY",
       "marker": "F18",
-      "yoy": -0.0529
+      "yoy": -1.34
      }
     ]
    },
@@ -346,6 +351,7 @@
     "label": "EPS (diluted)",
     "unit": "USD/shares",
     "percent": false,
+    "tone": "normal",
     "cagr": 0.1541,
     "points": [
      {
@@ -445,6 +451,7 @@
     "label": "Operating cash flow",
     "unit": "USD",
     "percent": false,
+    "tone": "normal",
     "cagr": 0.1125,
     "points": [
      {
@@ -544,6 +551,7 @@
     "label": "Capital expenditures",
     "unit": "USD",
     "percent": false,
+    "tone": "neutral",
     "cagr": -0.0208,
     "points": [
      {
@@ -643,6 +651,7 @@
     "label": "Free cash flow",
     "unit": "USD",
     "percent": false,
+    "tone": "normal",
     "cagr": 0.1306,
     "points": [
      {
@@ -742,6 +751,7 @@
     "label": "Total assets",
     "unit": "USD",
     "percent": false,
+    "tone": "normal",
     "cagr": 0.0152,
     "points": [
      {
@@ -841,6 +851,7 @@
     "label": "Long-term debt",
     "unit": "USD",
     "percent": false,
+    "tone": "inverted",
     "cagr": -0.0136,
     "points": [
      {
@@ -940,6 +951,7 @@
     "label": "Shareholders' equity",
     "unit": "USD",
     "percent": false,
+    "tone": "normal",
     "cagr": -0.0884,
     "points": [
      {

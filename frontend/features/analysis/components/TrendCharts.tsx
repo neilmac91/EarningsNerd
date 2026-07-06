@@ -35,6 +35,36 @@ const bySeries = (dataset: AnalysisDataset): Record<string, AnalysisSeries> =>
 const compactUsd = (v: number) => fmtCurrency(v, { compact: true })
 const pct = (v: number) => fmtPercent(v, { digits: 1 })
 
+// The bar panel's series→(label, color) pairing — ONE definition referenced by both the legend
+// and the plotted Bar/Line JSX, so the swatches can never drift from what's actually drawn.
+const BAR_COLOR = seriesColor(0)
+const GROWTH_LINE_COLOR = seriesColor(1)
+const GROWTH_LINE_LABEL = 'YoY growth'
+
+/** A panel's series legend: swatch + label per line, mirroring ChartTooltip's own swatch recipe
+ *  (8×8 square, 2px radius) so a multi-line panel's series are identifiable without hovering.
+ *  A single-series panel needs no legend — the title already names the one line. */
+function PanelLegend({ items }: { items: { label: string; color: string }[] }) {
+  if (items.length < 2) return null
+  return (
+    <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+      {items.map((item) => (
+        <span
+          key={item.label}
+          className="inline-flex items-center gap-1.5 text-xs text-text-secondary-light dark:text-text-secondary-dark"
+        >
+          <span
+            aria-hidden="true"
+            className="inline-block h-2 w-2 shrink-0 rounded-sm"
+            style={{ background: item.color }}
+          />
+          {item.label}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 interface PanelSpec {
   title: string
   /** [concept, display label] pairs; only concepts present in the dataset render. */
@@ -96,21 +126,27 @@ export default function TrendCharts({ dataset }: { dataset: AnalysisDataset }) {
   ]
 
   const renderPanel = (panel: PanelSpec) => {
-    const presentLines = panel.lines.filter(([concept]) => series[concept])
+    // One series→(concept, label, color) mapping drives the legend AND the plotted <Line>s —
+    // built once so the two can't disagree on color/label pairing.
+    const lineEntries = panel.lines
+      .filter(([concept]) => series[concept])
+      .map(([concept, label], index) => ({ concept, label, color: seriesColor(index) }))
     const barSeries = panel.bar && series[panel.bar[0]] ? series[panel.bar[0]] : null
-    if (!barSeries && presentLines.length === 0) return null
+    if (!barSeries && lineEntries.length === 0) return null
 
     // One row per period; keys are concept names (+ `growth` for the yoy line).
     const data = dataset.periods.map((period) => {
       const row: Record<string, string | number | null> = { period: period.key }
-      for (const [concept] of presentLines) {
+      for (const { concept } of lineEntries) {
         row[concept] = series[concept].points.find((p) => p.period === period.key)?.value ?? null
       }
       if (barSeries) {
         const point = barSeries.points.find((p) => p.period === period.key)
         row[barSeries.concept] = point?.value ?? null
         if (panel.growthLine) {
-          row.growth = point?.yoy !== null && point?.yoy !== undefined ? point.yoy * 100 : null
+          // A sign-flip ("nm") isn't a plottable percentage — render it as a gap, same as a
+          // missing value, rather than coercing the sentinel into NaN.
+          row.growth = typeof point?.yoy === 'number' ? point.yoy * 100 : null
         }
       }
       return row
@@ -126,11 +162,21 @@ export default function TrendCharts({ dataset }: { dataset: AnalysisDataset }) {
       return panel.format(num)
     }
 
+    const legendItems = barSeries
+      ? [
+          { label: barSeries.label, color: BAR_COLOR },
+          ...(panel.growthLine ? [{ label: GROWTH_LINE_LABEL, color: GROWTH_LINE_COLOR }] : []),
+        ]
+      : lineEntries
+
     return (
       <Card key={panel.title} as="section" className="p-5">
-        <h3 className="mb-3 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-          {panel.title}
-        </h3>
+        <div className="mb-3">
+          <h3 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
+            {panel.title}
+          </h3>
+          <PanelLegend items={legendItems} />
+        </div>
         <div className="h-56 w-full">
           <ResponsiveContainer width="100%" height="100%">
             {barSeries ? (
@@ -153,7 +199,7 @@ export default function TrendCharts({ dataset }: { dataset: AnalysisDataset }) {
                   yAxisId="value"
                   dataKey={barSeries.concept}
                   name={barSeries.label}
-                  fill={seriesColor(0)}
+                  fill={BAR_COLOR}
                   radius={[4, 4, 0, 0]}
                   maxBarSize={44}
                 />
@@ -161,8 +207,8 @@ export default function TrendCharts({ dataset }: { dataset: AnalysisDataset }) {
                   <Line
                     yAxisId="growth"
                     dataKey="growth"
-                    name="YoY growth"
-                    stroke={seriesColor(1)}
+                    name={GROWTH_LINE_LABEL}
+                    stroke={GROWTH_LINE_COLOR}
                     {...lineProps(reduced)}
                     connectNulls
                   />
@@ -174,12 +220,12 @@ export default function TrendCharts({ dataset }: { dataset: AnalysisDataset }) {
                 <XAxis dataKey="period" {...xAxisProps(dark)} />
                 <YAxis {...yAxisProps(dark)} width={64} tickFormatter={panel.format} />
                 <Tooltip content={<ChartTooltip dark={dark} formatValue={formatTooltip} />} />
-                {presentLines.map(([concept, label], index) => (
+                {lineEntries.map(({ concept, label, color }) => (
                   <Line
                     key={concept}
                     dataKey={concept}
                     name={label}
-                    stroke={seriesColor(index)}
+                    stroke={color}
                     {...lineProps(reduced)}
                     connectNulls
                   />
