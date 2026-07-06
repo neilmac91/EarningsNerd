@@ -12,7 +12,7 @@ monkeypatch `settings`, not the environment.
 **Rule**: Don't pass config to backend tests via CI env vars; patch `settings` in the
 test. Don't add network calls to the suite — hermeticity is what makes the gate fast and
 the anchors trustworthy. SQLite vs Postgres differ on timezone handling (naive vs aware
-reads), so datetime-sensitive code needs both-backend reasoning (see the aware-utcnow
+reads), so datetime-sensitive code needs both-backend reasoning (see the naive-utcnow
 allowlist).
 
 **Evidence**: `backend/tests/conftest.py`; PR #546 review (inert CI SECRET_KEY finding);
