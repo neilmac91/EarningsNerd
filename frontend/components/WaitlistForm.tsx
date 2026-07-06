@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { CheckIcon, CopyIcon } from '@/lib/icons'
-import { getApiUrl } from '@/lib/api/client'
+import { ApiError } from '@/lib/api/client'
+import { joinWaitlist } from '@/features/waitlist/api/waitlist-api'
 import TurnstileWidget from '@/components/auth/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
 import { Button, Card, Input, Notice, buttonVariants } from '@/components/ui'
@@ -71,33 +72,16 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
 
     setIsSubmitting(true)
     try {
-      const response = await fetch(`${getApiUrl()}/api/waitlist/join`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(turnstileToken ? { 'cf-turnstile-response': turnstileToken } : {}),
-        },
-        body: JSON.stringify({
+      const data = await joinWaitlist(
+        {
           email: email.trim(),
           name: name.trim() || null,
           referral_code: referralCode,
           source,
           honeypot,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        const detail =
-          typeof data?.detail === 'string'
-            ? data.detail
-            : typeof data?.message === 'string'
-            ? data.message
-            : null
-        setError(detail || 'Something went wrong. Please try again.')
-        return
-      }
+        },
+        turnstileToken || undefined,
+      )
 
       if (data?.success === false && data?.error === 'already_registered') {
         setSuccess({
@@ -120,8 +104,13 @@ export default function WaitlistForm({ source = 'homepage' }: WaitlistFormProps)
         referral_code: data.referral_code,
         referral_link: data.referral_link,
       })
-    } catch {
-      setError('Network error. Please try again in a moment.')
+    } catch (err) {
+      // An HTTP error (status !== 0) carries the backend detail; status 0 = no response (network).
+      setError(
+        err instanceof ApiError && err.status !== 0
+          ? err.detail
+          : 'Network error. Please try again in a moment.',
+      )
     } finally {
       setIsSubmitting(false)
     }

@@ -7,12 +7,10 @@ import { ArrowUpRightIcon, CalendarBlankIcon, PulseIcon } from '@/lib/icons'
 import Link from 'next/link'
 import posthog from 'posthog-js'
 
-import { getApiUrl } from '@/lib/api/client'
+import api from '@/lib/api/client'
 import { FilingPulse, type Pulse } from '@/components/FilingPulse'
 import CompanyLogo from '@/components/CompanyLogo'
 import { Badge, Button, buttonVariants, GuidanceCard, Skeleton } from '@/components/ui'
-
-const API_BASE_URL = getApiUrl().replace(/\/$/, '')
 
 // Human-readable labels for buzz sources
 const SOURCE_LABELS: Record<string, string> = {
@@ -46,16 +44,10 @@ export type HotFilingsResponse = {
 }
 
 async function fetchHotFilings(limit: number): Promise<HotFilingsResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/hot_filings?limit=${limit}`, {
-    headers: { accept: 'application/json' },
-    cache: 'no-store',
-  })
-
-  if (!response.ok) {
-    throw new Error(`Failed to fetch hot filings (${response.status})`)
-  }
-
-  return response.json() as Promise<HotFilingsResponse>
+  // Shared axios client: react-query owns caching (staleTime), so the prior fetch `cache: 'no-store'`
+  // is unnecessary; a non-2xx rejects (ApiError) which the query surfaces as `error`, same as before.
+  const response = await api.get('/api/hot_filings', { params: { limit } })
+  return response.data as HotFilingsResponse
 }
 
 const skeletonCards = new Array(6).fill(null)

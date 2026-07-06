@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { getApiUrl } from '@/lib/api/client'
+import { ApiError } from '@/lib/api/client'
+import { getWaitlistStatus } from '@/features/waitlist/api/waitlist-api'
 import { Button, Card, Input, Notice } from '@/components/ui'
 
 type StatusData = {
@@ -33,17 +34,15 @@ export default function WaitlistStatus() {
 
     setLoading(true)
     try {
-      const response = await fetch(
-        `${getApiUrl()}/api/waitlist/status/${encodeURIComponent(email.trim())}`
-      )
-      const data = await response.json()
-      if (!response.ok) {
-        setError(data?.detail || 'Unable to find that email.')
-        return
-      }
+      const data = await getWaitlistStatus(email.trim())
       setStatus(data)
-    } catch {
-      setError('Network error. Please try again.')
+    } catch (err) {
+      // An HTTP error (status !== 0) carries the backend detail; status 0 = no response (network).
+      setError(
+        err instanceof ApiError && err.status !== 0
+          ? err.detail
+          : 'Network error. Please try again.',
+      )
     } finally {
       setLoading(false)
     }
