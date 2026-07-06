@@ -412,6 +412,19 @@ and `TickerFilingsView` into `features/`. Base-vs-head audited 1:1 by the plan a
   stop-polling fix above), or removing the now-vestigial poll — a separate behavior change, not blocking F2.
 Gate: tsc/eslint(incl. query-key rule)/vitest(251)/build green.
 
+**Wave 2 · F4 — route stray fetch() through the shared axios client (frontend-only).** The remaining
+raw `fetch()`s to our own API — the three waitlist components + `HotFilings` — now go through
+`lib/api/client`, following F2's `useSummaryExports` pattern. New `features/waitlist/api/waitlist-api.ts`
+(`joinWaitlist`/`getWaitlistStats`/`getWaitlistStatus`); `HotFilings.fetchHotFilings` → `api.get` (drops
+the `cache: 'no-store'` — react-query owns caching). **Behavior note (disclosed):** success paths + the
+meaningful branches (already-registered soft-fail, `!success`, the counter's HTTP-error→placeholder vs
+network→0 split) are preserved exactly — `err.status === 0` maps to the old network `catch`, `status !== 0`
+to `!response.ok`. Adopting the shared client means HTTP-error message TEXT now comes from the
+interceptor's `ApiError.detail` (the backend detail in every real case; a consistent friendly message
+only for an undetailed 5xx) — the error model the rest of the app already uses. Correctly NOT converted:
+the SSE-stream fetches (summaries/copilot — raw `ReadableStream`) + server-side fetches (`sitemap.ts`,
+`serverApi.ts`). Gate: tsc/eslint/vitest(265)/build green.
+
 _(Deltas from later waves will be appended here as they are executed.)_
 
 ---
