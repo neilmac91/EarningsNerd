@@ -176,8 +176,9 @@ export function useSummaryGeneration({
           { force: options?.force, entryPoint },
         )
       } catch (error: unknown) {
-        const errObj = error as { message?: string }
-        const message = errObj?.message || 'Failed to generate summary'
+        // Reuse the shared friendly-error mapping (Axios detail/message + timeout) rather than a
+        // bare .message, so a thrown generation error reads the same as a failed summary fetch.
+        const message = getFriendlyErrorMessage(error) || 'Failed to generate summary'
         setGenerationError(message)
         setStreamingStage('error')
         setStreamingMessage(message)
