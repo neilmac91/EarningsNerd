@@ -61,7 +61,7 @@ export default function MetricsTable({
               {point.derived && (
                 <span
                   className="cursor-help text-warning-light dark:text-warning-dark"
-                  title="Computed fourth quarter: full year minus the three reported quarters."
+                  title="Computed fourth quarter: derived from the annual report (full year minus the reported year-to-date quarters; EPS re-derived from Q4 net income and weighted shares)."
                   aria-label="Derived value"
                 >
                   †
@@ -137,7 +137,7 @@ export default function MetricsTable({
           {hasDerived && (
             <Badge
               variant="warning"
-              title="† values are computed fourth quarters (full year minus the three reported quarters) — companies disclose Q4 only inside the annual report."
+              title="† values are computed fourth quarters, derived from the annual report — companies disclose Q4 only inside the full-year figures. Flows: full year minus the reported year-to-date quarters; EPS: Q4 net income ÷ Q4 weighted shares."
             >
               † computed Q4
             </Badge>

@@ -1,20 +1,16 @@
 """Shared citation-marker group knowledge (citation_markers.py): the trend resolver's group
 classification and the copilot pre-pass that splits multi-reference groups."""
-import re
+import time
 
 from app.services import citation_markers as cm
 
-# The copilot configuration: members may be "F1" (tool fact) or "1" (text excerpt); groups only
-# expand when at least one F-ref is present (an all-plain group could be a bracketed thousands
-# figure).
-COPILOT_MEMBER_RE = re.compile(r"(F?\s*\d+)", re.IGNORECASE)
-
 
 def copilot_expand(text: str) -> str:
+    """The exact configuration copilot_service uses (shared constants, not a copy)."""
     return cm.expand_citation_marker_groups(
         text,
-        ref_re=COPILOT_MEMBER_RE,
-        normalize=lambda ref: re.sub(r"\s+", "", ref).upper(),
+        ref_re=cm.COPILOT_GROUP_MEMBER_RE,
+        normalize=cm.copilot_normalize_ref,
         require_re=cm.MARKER_REF_RE,
     )
 
@@ -64,5 +60,19 @@ class TestCopilotConfiguration:
         for text in ("Backlog of [1,234] units.", "See [1, 2]."):
             assert copilot_expand(text) == text
 
+    def test_thousands_figure_beside_a_fact_marker_never_splits(self):
+        # Review finding: with the F-ref present, require_re passes — the 2-digit plain-member
+        # cap must make the leftover digits fail the purity check so "1,234" is never mangled.
+        text = "Backlog was [F1, 1,234] units."
+        assert copilot_expand(text) == text
+
     def test_space_and_case_tolerant_members_normalize(self):
         assert copilot_expand("[f 1, F2]") == "[F1] [F2]"
+
+    def test_linear_on_degenerate_whitespace_runs(self):
+        # House rule: these patterns scan model output on the event loop — a quadratic member
+        # regex (the original F?\s*\d+) measured seconds on inputs like this.
+        text = "[" + " " * 20000 + "1]"
+        started = time.perf_counter()
+        copilot_expand(text)
+        assert time.perf_counter() - started < 0.5

@@ -1,22 +1,13 @@
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
-import { windowGrowth } from '@/features/analysis/lib/growth'
+import { windowGrowth, windowRange } from '@/features/analysis/lib/growth'
+import { downloadBlob } from '@/lib/downloadBlob'
 
 /**
  * Dependency-free chart/table export (audit enhancement 2): PNG via SVG serialization →
- * canvas rasterization, CSV straight from the deterministic dataset. Both download through the
- * same Blob + temporary-anchor pattern the PDF export uses (AnalysisPageClient.exportPdf).
+ * canvas rasterization, CSV straight from the deterministic dataset. Downloads go through the
+ * shared lib/downloadBlob helper (its delayed revoke matters — a synchronous revoke can abort
+ * the download on Safari/Firefox).
  */
-
-function downloadBlob(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = filename
-  document.body.appendChild(anchor)
-  anchor.click()
-  anchor.remove()
-  URL.revokeObjectURL(url)
-}
 
 export function exportFilename(dataset: AnalysisDataset, suffix: string, ext: string): string {
   const slug = suffix.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
@@ -112,7 +103,12 @@ export function datasetToCsv(dataset: AnalysisDataset): string {
     'Metric',
     'Concept',
     'Unit',
-    ...dataset.periods.map((p) => (derivedPeriods.has(p.key) ? `${p.key} (computed Q4)` : p.key)),
+    // "contains", not "is": balance-sheet instants in a Q4 column are real reported values
+    // even when the flow rows are computed — the on-screen grid daggers per cell, a CSV can
+    // only annotate the header.
+    ...dataset.periods.map((p) =>
+      derivedPeriods.has(p.key) ? `${p.key} (contains computed Q4 values)` : p.key
+    ),
     'Window growth',
     'Window',
   ]
@@ -120,7 +116,7 @@ export function datasetToCsv(dataset: AnalysisDataset): string {
   const rows = dataset.series.map((series: AnalysisSeries) => {
     const byPeriod = new Map(series.points.map((p) => [p.period, p]))
     const win = windowGrowth(series)
-    const window = series.percent ? series.window_pp_range : series.cagr_window
+    const window = windowRange(series)
     return [
       csvField(series.label),
       series.concept,
@@ -139,8 +135,10 @@ export function datasetToCsv(dataset: AnalysisDataset): string {
 
 export function downloadDatasetCsv(dataset: AnalysisDataset): void {
   const csv = datasetToCsv(dataset)
+  // BOM: the CSV carries non-ASCII ("×100 percent") and Excel on Windows only decodes UTF-8
+  // when the file leads with one.
   downloadBlob(
-    new Blob([csv], { type: 'text/csv;charset=utf-8' }),
+    new Blob(['﻿', csv], { type: 'text/csv;charset=utf-8' }),
     exportFilename(dataset, `${dataset.mode}-metrics`, 'csv')
   )
 }

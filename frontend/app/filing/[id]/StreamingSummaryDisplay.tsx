@@ -371,13 +371,13 @@ export default function StreamingSummaryDisplay({
             )}
           </div>
           {/* Web/PDF parity (audit): the exported PDF of this summary carries a disclaimer —
-              the on-page card previously relied on the global footer alone. */}
-          {!isGenerating && (
-            <AiDisclaimer className="mt-4">
-              May be incomplete or contain errors — the authoritative source is always the
-              original SEC filing.
-            </AiDisclaimer>
-          )}
+              the on-page card previously relied on the global footer alone. Unconditional:
+              isGenerating stays true for as long as this card shows streamed text, and the
+              line is just as true mid-stream. */}
+          <AiDisclaimer className="mt-4">
+            May be incomplete or contain errors — the authoritative source is always the
+            original SEC filing.
+          </AiDisclaimer>
         </Card>
       )}
     </div>

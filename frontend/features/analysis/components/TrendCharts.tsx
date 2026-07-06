@@ -96,8 +96,15 @@ interface PanelSpec {
 }
 
 /** Recharts LabelList `content` renderer: panel-formatted value above the point/bar, chart-label
- *  ink, data face, thinned to every `step`-th point on crowded axes. */
-const makeValueLabel = (format: (v: number) => string, fill: string, step: number) =>
+ *  ink, data face at the 11px dense-annotation floor, thinned on crowded axes. Thinning anchors
+ *  on the NEWEST period (the value users came for) and walks back every `step` — the oldest
+ *  point drops first, never the latest. */
+const makeValueLabel = (
+  format: (v: number) => string,
+  fill: string,
+  step: number,
+  total: number
+) =>
   function ChartValueLabel(props: unknown) {
     const { x, y, width, value, index } = props as {
       x?: number | string
@@ -107,7 +114,7 @@ const makeValueLabel = (format: (v: number) => string, fill: string, step: numbe
       index?: number
     }
     if (value === null || value === undefined || typeof index !== 'number') return null
-    if (index % step !== 0) return null
+    if ((total - 1 - index) % step !== 0) return null
     const num = Number(value)
     if (!Number.isFinite(num)) return null
     const anchorX = Number(x) + (width !== undefined ? Number(width) / 2 : 0)
@@ -117,7 +124,7 @@ const makeValueLabel = (format: (v: number) => string, fill: string, step: numbe
         y={Number(y) - 6}
         textAnchor="middle"
         fill={fill}
-        fontSize={10}
+        fontSize={11}
         fontFamily={CHART_FONT}
       >
         {format(num)}
@@ -208,13 +215,13 @@ function PanelCard({
     return row
   })
 
-  // ChartTooltip formats by value only (no series name). In the composed panel the two scales
-  // are unambiguous — growth is ±100 (%) while monetary values are ≥ millions — so route small
-  // magnitudes to the percent formatter.
-  const formatTooltip = (v: number | string | undefined) => {
+  // Route by SERIES, not by value magnitude: the growth line always formats as a percent and
+  // everything else with the panel's formatter — a micro-cap's $850 bar or a +1,400% growth
+  // spike must never fall through a magnitude heuristic to the wrong formatter.
+  const formatTooltip = (v: number | string | undefined, name?: string) => {
     const num = Number(v)
     if (!Number.isFinite(num)) return String(v ?? '')
-    if (barSeries && panel.growthLine && Math.abs(num) < 1000) return pct(num)
+    if (name === GROWTH_LINE_LABEL) return pct(num)
     return panel.format(num)
   }
 
@@ -231,7 +238,7 @@ function PanelCard({
 
   const labelStep = dataset.periods.length > LABEL_THINNING_THRESHOLD ? 2 : 1
   const valueLabel = showLabels
-    ? makeValueLabel(panel.format, chartTheme(dark).label, labelStep)
+    ? makeValueLabel(panel.format, chartTheme(dark).label, labelStep, dataset.periods.length)
     : null
 
   const exportPng = async () => {

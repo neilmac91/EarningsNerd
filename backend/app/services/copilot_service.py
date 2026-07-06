@@ -542,12 +542,6 @@ def count_uncited_figures(answer: str, valid_count: Optional[int] = None) -> tup
     return figures, uncited
 
 
-# A member of a multi-reference bracket group: "F1" (tool fact) or "1" (text excerpt) —
-# consumed by the citation_markers pre-pass that splits "[F1, F2]" into "[F1] [F2]" before
-# resolution (the resolver's own regex matches single markers only).
-_GROUP_MEMBER_RE = re.compile(r"(F?\s*\d+)", re.IGNORECASE)
-
-
 def _resolve_citations(
     full_answer: str,
     text_citations_by_marker: dict[str, dict],
@@ -854,16 +848,19 @@ async def answer_filing_question(
         text_citations_by_marker = _verify_citations(citations, filing, normalized_source)
 
         # Multi-reference bracket groups the model emits despite the one-marker-per-bracket
-        # contract — "[F1, F2]", "[1, 3]", "[F1 vs F2]" — previously stayed LITERAL in the answer
-        # (the resolver's regex only matches single markers). Normalize them to adjacent single
-        # brackets first (shared citation-group classification with the trend resolver), so each
-        # reference resolves through the normal path, adjacency guards included.
+        # contract — "[F1, F2]", "[F1, 2]", "[F1 vs F2]" — previously stayed LITERAL in the
+        # answer (the resolver's regex only matches single markers). Normalize them to adjacent
+        # single brackets first (shared citation-group classification with the trend resolver),
+        # so each reference resolves through the normal path. Guard semantics after the split:
+        # the FIRST member carries the claim's adjacency window; later members' windows are the
+        # single space between brackets, so they get the qualitative-placement treatment (same
+        # as a chain the model writes itself) — split members are resolved, not value-checked.
         full_answer = citation_markers.expand_citation_marker_groups(
             full_answer,
-            ref_re=_GROUP_MEMBER_RE,
-            normalize=lambda ref: re.sub(r"\s+", "", ref).upper(),
-            # Only groups with at least one F-ref expand: an all-plain-number group could be a
-            # bracketed thousands figure ("[1,234]"), which must never be split.
+            ref_re=citation_markers.COPILOT_GROUP_MEMBER_RE,
+            normalize=citation_markers.copilot_normalize_ref,
+            # Only groups with at least one F-ref expand: an ALL-plain-number group never does
+            # (pinned resolver behavior, and "[1,234]" could be a bracketed thousands figure).
             require_re=citation_markers.MARKER_REF_RE,
         )
         # Single server-owned numbering pass: resolves every marker actually present in the answer

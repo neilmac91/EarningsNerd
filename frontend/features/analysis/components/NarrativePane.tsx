@@ -77,10 +77,20 @@ export interface NarrativeState {
 const VERIFIED_BADGE_BASE =
   'Every cited figure resolves to an exact SEC XBRL value or a figure computed from those values (marked Computed).'
 
-function verifiedBadgeTitle(unverified: number | null | undefined): string {
-  if (!unverified) return VERIFIED_BADGE_BASE
-  const one = unverified === 1
-  return `${VERIFIED_BADGE_BASE} ${unverified} reference${one ? '' : 's'} the model emitted could not be verified against the dataset and ${one ? 'was' : 'were'} removed.`
+function verifiedBadgeTitle(
+  unverified: number | null | undefined,
+  mismatched?: number | null
+): string {
+  let title = VERIFIED_BADGE_BASE
+  if (unverified) {
+    const one = unverified === 1
+    title += ` ${unverified} reference${one ? '' : 's'} the model emitted could not be verified against the dataset and ${one ? 'was' : 'were'} removed.`
+  }
+  if (mismatched) {
+    const one = mismatched === 1
+    title += ` ${mismatched} figure${one ? '' : 's'} printed next to a citation could not be reconciled with the cited value — check the Sources list for the exact dataset values.`
+  }
+  return title
 }
 
 function CitationList({ citations, sample }: { citations: AnalysisCitation[]; sample?: boolean }) {
@@ -176,7 +186,10 @@ export default function NarrativePane({
             </Badge>
           )}
           {state.status === 'done' && completion && !notEnoughData && !sample && (
-            <Badge variant="solid" title={verifiedBadgeTitle(completion.unverified)}>
+            <Badge
+              variant="solid"
+              title={verifiedBadgeTitle(completion.unverified, completion.mismatched)}
+            >
               {completion.grounded} verified citations
             </Badge>
           )}
@@ -233,8 +246,9 @@ export default function NarrativePane({
           )}
           {state.status === 'done' && completion && (
             <AiDisclaimer className="mt-3">
-              Cited figures resolve to SEC XBRL values; uncited statements are the model&apos;s
-              interpretation and can be wrong.
+              {sample
+                ? 'Illustrative sample with approximate figures — run an analysis for verified, cited values.'
+                : "Cited figures resolve to SEC XBRL values; uncited statements are the model's interpretation and can be wrong."}
             </AiDisclaimer>
           )}
         </>

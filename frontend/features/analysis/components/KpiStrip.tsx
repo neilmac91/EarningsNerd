@@ -4,7 +4,7 @@ import { Card } from '@/components/ui'
 import { useCountUp } from '@/hooks/useCountUp'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { directionText } from '@/lib/financialTone'
-import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
+import { formatGrowth, windowGrowth, windowRange } from '@/features/analysis/lib/growth'
 import { applySeriesTone } from '@/features/analysis/lib/tonePolicy'
 import type {
   AnalysisDataset,
@@ -83,7 +83,7 @@ export default function KpiStrip({ dataset }: { dataset: AnalysisDataset }) {
     const growth: GrowthValue | null = isAnnual ? win.value : point.yoy ?? null
     // The basis window can be narrower than the selected range (a concept first reported
     // mid-window) — the tooltip states the window the figure was actually computed over.
-    const window = series.percent ? series.window_pp_range : series.cagr_window
+    const window = windowRange(series)
     kpis.push({
       label: `${series.label} (${point.period})`,
       value: point.value as number,

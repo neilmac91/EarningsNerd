@@ -43,6 +43,7 @@ import {
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { cx } from '@/components/ui/cx'
+import { SEC_EDGAR_NOT_ADVICE } from '@/components/AiDisclaimer'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { SkeletonText } from '@/components/ui/Skeleton'
@@ -465,7 +466,7 @@ export function AskFilingAnswer({
       </div>
 
       <footer className="flex items-center justify-between gap-3 border-t border-border-light px-5 py-2.5 text-[11px] text-text-tertiary-light dark:border-border-dark dark:text-text-secondary-dark">
-        <span>Data sourced from SEC EDGAR. Not investment advice.</span>
+        <span>{SEC_EDGAR_NOT_ADVICE}</span>
         {status === 'done' && citations.length > 0 ? (
           <span className="font-data">
             {citations.length} citation{citations.length === 1 ? '' : 's'} · {verifiedCount} verified

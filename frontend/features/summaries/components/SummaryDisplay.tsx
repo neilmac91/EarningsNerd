@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import dynamic from 'next/dynamic'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import AiDisclaimer from '@/components/AiDisclaimer'
 import type { Filing } from '@/features/filings/api/filings-api'
 import { getWhatChanged, type Summary } from '@/features/summaries/api/summaries-api'
 import { WhatChanged } from '@/features/filings/components/WhatChanged'
@@ -215,6 +216,13 @@ export function SummaryDisplay({
             summary={summary}
             metrics={metadata?.financial_highlights?.table}
           />
+
+          {/* Web/PDF parity (audit): the exported PDF of this summary carries a disclaimer —
+              the on-page surface must too, not just the global footer. */}
+          <AiDisclaimer>
+            May be incomplete or contain errors — the authoritative source is always the
+            original SEC filing.
+          </AiDisclaimer>
         </>
       )}
 

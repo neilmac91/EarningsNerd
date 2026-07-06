@@ -474,6 +474,60 @@ class TestNumericFidelityScan:
         citations = [self._citation(1, "revenue", "FY2024", 1_500_000_000.0)]
         assert svc.scan_numeric_fidelity("Held up in FY2024 [1].", citations, self._index()) == []
 
+    def test_chained_markers_never_flag_each_other(self):
+        # Review finding: the digit inside a preceding resolved "[1]" must never be parsed as
+        # the figure claimed by "[2]" — chains are the resolver's own multi-ref output.
+        citations = [
+            self._citation(1, "revenue", "FY2024", 1_500_000_000.0),
+            self._citation(2, "net_margin", "FY2024", 38.3),
+        ]
+        text = "Revenue hit $1.5B and margins held at 38.3% [1][2]."
+        assert svc.scan_numeric_fidelity(text, citations, self._index()) == []
+
+    def test_window_bounded_at_previous_marker(self):
+        # The claim before an earlier marker belongs to THAT marker: a qualitative reference
+        # right after a quantitative one must not inherit its figure.
+        citations = [
+            self._citation(1, "revenue", "FY2024", 1_500_000_000.0),
+            self._citation(2, "net_margin", "FY2024", 38.3),
+        ]
+        text = "Revenue hit $1.5B [1], and margins stayed resilient [2]."
+        assert svc.scan_numeric_fidelity(text, citations, self._index()) == []
+
+    def test_any_matching_figure_in_the_claim_passes(self):
+        # "from $X to $Y [a][b]" — the first marker's window holds both endpoints; one match
+        # is enough (the prompt's canonical two-figure sentence).
+        citations = [
+            self._citation(1, "revenue", "FY2024", 1_500_000_000.0),
+            self._citation(2, "revenue", "FY2024", 1_500_000_000.0),
+        ]
+        text = "Revenue went from $1.5B to $9.9B [1][2]."
+        assert svc.scan_numeric_fidelity(text, citations, self._index()) == []
+
+    def test_small_bare_counts_are_not_figures(self):
+        citations = [self._citation(1, "revenue", "FY2024", 1_500_000_000.0)]
+        text = "Growth held for 5 straight years [1]."
+        assert svc.scan_numeric_fidelity(text, citations, self._index()) == []
+
+    def test_bn_style_suffix_parses_scaled(self):
+        citations = [self._citation(1, "revenue", "FY2024", 1_500_000_000.0)]
+        assert svc.scan_numeric_fidelity("Revenue hit $1.5bn [1].", citations, self._index()) == []
+        assert svc.scan_numeric_fidelity("Revenue hit $9.9bn [1].", citations, self._index()) == [1]
+
+    def test_x100_not_licensed_for_monetary_values(self):
+        # A hallucinated figure exactly 100× the cited USD value is the scale-slip class the
+        # backstop exists for — only CAGR (fraction) markers may print ×100.
+        citations = [self._citation(1, "revenue", "FY2024", 1_500_000_000.0)]
+        text = "Revenue hit $150.0B [1]."
+        assert svc.scan_numeric_fidelity(text, citations, self._index()) == [1]
+
+    def test_cagr_fraction_prints_x100(self):
+        index = {"F9": {"concept": "revenue", "period": "FY2016..FY2025", "value": 0.134,
+                        "kind": "cagr"}}
+        citations = [self._citation(1, "revenue", "FY2016..FY2025", 0.134)]
+        text = "Revenue compounded at +13.4% [1]."
+        assert svc.scan_numeric_fidelity(text, citations, index) == []
+
 
 class TestStreamRouteMetering:
     def _client(self, monkeypatch, events, *, allowed=True, cached_exists=False):

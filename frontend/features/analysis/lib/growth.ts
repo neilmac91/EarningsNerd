@@ -36,3 +36,12 @@ export function windowGrowth(series: Pick<AnalysisSeries, 'percent' | 'cagr' | '
     ? { value: series.window_pp ?? null, isPercent: true, label: 'Chg' }
     : { value: series.cagr ?? null, isPercent: false, label: 'CAGR' }
 }
+
+/** The basis window the series' window figure was computed over ("FY2016..FY2025") — can be
+ *  narrower than the selected range (a concept first reported mid-window). Same one-rule-for-
+ *  every-consumer contract as windowGrowth. */
+export function windowRange(
+  series: Pick<AnalysisSeries, 'percent' | 'cagr_window' | 'window_pp_range'>
+): string | null {
+  return (series.percent ? series.window_pp_range : series.cagr_window) ?? null
+}

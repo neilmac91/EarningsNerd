@@ -22,6 +22,19 @@ MARKER_REF_RE = re.compile(r"F\s*(\d+)", re.IGNORECASE)
 MARKER_CONNECTOR_WORD_RE = re.compile(r"\b(?:versus|vs|through|and|to|or)\b", re.IGNORECASE)
 MARKER_SEPARATOR_CHARS_RE = re.compile(r"^[\s,;&/.·–—-]*$")
 
+# The copilot configuration: group members are "F1" (tool fact) or plain "1"/"12" (text
+# excerpt). Plain members are capped at TWO digits ON PURPOSE — citation counts never reach
+# 100, and the cap makes a bracketed thousands figure ("[F1, 1,234]") leave unmatched digits
+# behind, failing the is_citation_group purity check, so it can never be split. "F\s?" (one
+# optional space, not \s*) keeps the pattern linear on whitespace runs — these patterns scan
+# model output on the event loop.
+COPILOT_GROUP_MEMBER_RE = re.compile(r"(F\s?\d+|\d{1,2}(?!\d))", re.IGNORECASE)
+
+
+def copilot_normalize_ref(ref: str) -> str:
+    """Copilot marker-key normalization — must mirror its resolver's ("f 1" → "F1")."""
+    return re.sub(r"\s+", "", ref).upper()
+
 
 def is_citation_group(content: str, ref_re: re.Pattern[str] = MARKER_REF_RE) -> bool:
     """True when a bracket group's content is references + connectors/separators ONLY — i.e. a

@@ -316,10 +316,11 @@ export default function AnalysisPageClient() {
             onExport={exportPdf}
           />
           <MetricsTable dataset={dataset} onExportCsv={() => downloadDatasetCsv(dataset)} />
-  <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-            All figures from SEC XBRL (companyfacts). Growth rates, margins and ratios are computed
-            server-side — the AI narrative only cites values from this dataset. † = computed Q4.
-          </p>
+          <AiDisclaimer lead={false}>
+            All figures from SEC XBRL (companyfacts). Growth rates, margins and ratios are
+            computed server-side — the AI narrative only cites values from this dataset. † =
+            computed Q4.
+          </AiDisclaimer>
         </div>
       )}
 

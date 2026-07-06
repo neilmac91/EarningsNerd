@@ -3,12 +3,15 @@
 `normalize_standardized_to_facts` is pure (dict in → list[dict] out, unit-testable). `upsert_facts`
 writes them while maintaining the restatement-safe `is_latest` flag.
 
-v1 sources only the current period each filing reports, attributed to that filing's accession —
-accurate and dependency-free (it reuses `xbrl_service.extract_standardized_metrics`). A
-local-invariant reconciliation gate (`reconcile_facts`, no network) runs on write: it hard-rejects
-impossible values and flags implausible ones (`reconciled=False`) so the UI can surface them honestly
-("reconciled or visibly flagged" — strategy §3.5/§5). The authoritative cross-check vs `data.sec.gov`
-and cross-source backfill (companyfacts / FSDS / Frames) remain later waves.
+The per-filing path sources the current period each filing reports, attributed to that filing's
+accession — accurate and dependency-free (it reuses `xbrl_service.extract_standardized_metrics`).
+A local-invariant reconciliation gate (`reconcile_facts`, no network) runs on write: it
+hard-rejects impossible values and flags implausible ones (`reconciled=False`) so the UI can
+surface them honestly ("reconciled or visibly flagged" — strategy §3.5/§5). The companyfacts
+ingest (`normalize_companyfacts` → `ingest_companyfacts`) is the multi-period source: FY +
+positionally-labelled quarters, cross-checked against the per-filing rows, plus the Q4
+derivations (YTD9-preferred flows, shares-based EPS) and same-period computed metrics. FSDS /
+Frames backfill remains a later wave.
 """
 from __future__ import annotations
 
@@ -1288,19 +1291,27 @@ def normalize_companyfacts(
     if shares_by_eps_concept:
         facts.extend(derive_q4_eps_facts(facts, shares_by_eps_concept))
 
-    facts.extend(derive_same_period_metrics(facts))
-
-    # NON_NEGATIVE hard-reject (the only gate — see docstring) + in-batch identity dedup.
-    kept: list[dict[str, Any]] = []
-    seen: set[tuple] = set()
-    for fact in facts:
+    # NON_NEGATIVE hard-reject BEFORE the same-period metrics derive: a rejected negative row
+    # (e.g. a derived Q4 revenue gone negative under a recast/vintage mismatch) must not leave
+    # behind margins computed from it — margins pass the filter themselves (legitimately
+    # negative), so they must never be built on an input the filter is about to drop.
+    def _hard_reject_ok(fact: dict[str, Any]) -> bool:
         value = fact.get("value")
         if fact["concept"] in NON_NEGATIVE_CONCEPTS and isinstance(value, (int, float)) and value < 0:
             logger.warning(
                 "companyfacts_reject concept=%s period=%s value=%s reason=negative",
                 fact["concept"], fact["period_end"], value,
             )
-            continue
+            return False
+        return True
+
+    facts = [fact for fact in facts if _hard_reject_ok(fact)]
+    facts.extend(fact for fact in derive_same_period_metrics(facts) if _hard_reject_ok(fact))
+
+    # In-batch identity dedup.
+    kept: list[dict[str, Any]] = []
+    seen: set[tuple] = set()
+    for fact in facts:
         identity = (
             fact["concept"], fact["period_end"], fact["fiscal_period"], fact["unit"], fact["accession"]
         )
@@ -1317,9 +1328,12 @@ def _matching_ytd9(
 ) -> Optional[dict[str, Any]]:
     """The nine-month YTD slice belonging to a FY fact's fiscal year, or None.
 
-    Match rule: the YTD9 starts where the fiscal year starts (±3 days — tags occasionally
-    disagree by a day) AND the residual window (FY end − YTD9 end) is quarter-length, so the
-    subtraction FY − YTD9 is guaranteed to describe exactly one discrete Q4.
+    Match rule: the YTD9 comes from the SAME us-gaap tag as the FY fact (tags within one concept
+    can carry different accounting scopes — total vs continuing-operations cash flow — and
+    subtracting across scopes would put nine months of the difference into Q4), starts where the
+    fiscal year starts (±3 days — tags occasionally disagree by a day), AND leaves a
+    quarter-length residual (FY end − YTD9 end), so FY − YTD9 is guaranteed to describe exactly
+    one discrete Q4 in one scope. No same-tag YTD9 → the caller falls back to ΣQ1–3.
     """
     if not concept_values:
         return None
@@ -1328,6 +1342,8 @@ def _matching_ytd9(
         return None
     for (end, klass), record in concept_values.items():
         if klass != "YTD9" or record["period_start"] is None:
+            continue
+        if record.get("raw_tag") != fy_fact.get("raw_tag"):
             continue
         starts_together = abs((record["period_start"] - fy_start).days) <= 3
         residual_days = (fy_end - end).days
@@ -1350,6 +1366,12 @@ def derive_q4_facts(
     the UI badges them. Per-share/ratio units are never derived HERE — plain subtraction is
     wrong for a ratio — quarterly EPS gets its own shares-based derivation
     (``derive_q4_eps_facts``).
+
+    NOTE: a previously ingested ΣQ-derived row keeps its stored value — the upsert identity
+    (concept, period_end, fiscal_period, unit, accession) excludes ``value``, so the YTD9
+    preference applies to newly ingested periods. Accepted: the two derivations agree by
+    construction (mismatches >1% are logged below), and rewriting history through the
+    idempotent writer would trade that residual for core-write-path churn.
     """
     groups: dict[tuple[str, Any], dict[str, dict[str, Any]]] = {}
     for fact in facts:
@@ -1456,16 +1478,44 @@ def derive_q4_eps_facts(
                 continue
             fy_shares = shares.get((fy, "FY"))
             quarter_shares = [shares.get((fy, q)) for q in ("Q1", "Q2", "Q3")]
-            if not fy_shares or any(not s for s in quarter_shares):
+            if not fy_shares or any(not s or s <= 0 for s in quarter_shares) or fy_shares <= 0:
                 continue
             q4_shares = 4.0 * fy_shares - sum(quarter_shares)  # type: ignore[arg-type]
             if q4_shares <= 0:
+                continue
+            # Split-basis guard: weighted counts drift single-digit percentages through
+            # buybacks/issuance; a 1.5× spread across the four inputs means mixed pre-/post-
+            # split bases (a mid-year split whose earlier 10-Qs were never restated — each
+            # period can still pass the per-period gate because its EPS is on the same stale
+            # basis). Deriving across bases would be garbage.
+            all_counts = [fy_shares, *quarter_shares]
+            if max(all_counts) / min(all_counts) > 1.5:  # type: ignore[type-var]
+                logger.warning(
+                    "companyfacts_q4_eps_skipped concept=%s fy=%s reason=share_basis_spread",
+                    eps_concept, fy,
+                )
                 continue
             checks = [("FY", fy_shares), ("Q1", quarter_shares[0]),
                       ("Q2", quarter_shares[1]), ("Q3", quarter_shares[2])]
             if not all(_consistent(eps_concept, fy, fp, sh) for fp, sh in checks):
                 logger.warning(
                     "companyfacts_q4_eps_skipped concept=%s fy=%s reason=eps_ni_shares_inconsistent",
+                    eps_concept, fy,
+                )
+                continue
+            # Numerator-wedge guard: FY EPS × FY shares should reproduce FY net income. The gap
+            # is the part of the EPS numerator NOT in consolidated NI (preferred dividends,
+            # noncontrolling interests — EPS divides income AVAILABLE TO COMMON), and on the
+            # derived quarter that whole annual wedge lands in one number. Require it to be
+            # small RELATIVE TO Q4 NI (not FY NI — the error concentrates where NI is small),
+            # with a one-cent-per-share floor for filed-EPS rounding.
+            fy_ni = by_key.get(("net_income", fy, "FY"))
+            if fy_ni is None:
+                continue
+            wedge = abs(fy_eps["value"] * fy_shares - fy_ni["value"])
+            if wedge > max(0.05 * abs(q4_ni["value"]), _EPS_VALIDATION_ABS_TOL * fy_shares):
+                logger.warning(
+                    "companyfacts_q4_eps_skipped concept=%s fy=%s reason=fy_numerator_wedge",
                     eps_concept, fy,
                 )
                 continue

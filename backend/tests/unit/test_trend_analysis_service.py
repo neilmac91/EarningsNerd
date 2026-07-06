@@ -343,6 +343,35 @@ class TestBuildDataset:
         assert icf["2023Q4"]["qoq"] == svc.NOT_MEANINGFUL
         db.close()
 
+    def test_mixed_q4_column_badges_only_the_derivation_chain(self):
+        """Review finding: a filer with a DISCRETE Q4 row (pre-2021 Item 302 tagging) plus a
+        derived Q4 EPS in the same column — the estimate must carry the † badge even though the
+        column isn't fully derived, and the real row must not."""
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        company = _seed_company(db)
+        for fp, end, start in [("Q1", date(2024, 3, 31), date(2024, 1, 1)),
+                               ("Q2", date(2024, 6, 30), date(2024, 4, 1)),
+                               ("Q3", date(2024, 9, 30), date(2024, 7, 1))]:
+            _seed_fact(db, company.id, "revenue", 300.0, fy=2024, fp=fp, end=end, start=start)
+        # Discrete, REAL Q4 revenue (companyfacts, reconciled).
+        _seed_fact(db, company.id, "revenue", 320.0, fy=2024, fp="Q4",
+                   end=date(2024, 12, 31), start=date(2024, 10, 1))
+        # Derived (shares-based) Q4 EPS — the estimate.
+        _seed_fact(db, company.id, "eps_diluted", 1.01, fy=2024, fp="Q4",
+                   end=date(2024, 12, 31), start=date(2024, 10, 1), unit="USD/shares",
+                   source="derived", reconciled=False)
+        db.commit()
+
+        dataset = svc.build_dataset(db, company, "quarterly", "2024Q1", "2024Q4")
+        by_concept = {s["concept"]: s for s in dataset["series"]}
+        revenue_q4 = next(p for p in by_concept["revenue"]["points"] if p["period"] == "2024Q4")
+        eps_q4 = next(p for p in by_concept["eps_diluted"]["points"] if p["period"] == "2024Q4")
+        assert revenue_q4["derived"] is False  # real reported value — never badged
+        assert eps_q4["derived"] is True  # shares-based estimate — always badged
+        db.close()
+
     def test_series_tone_is_shipped_from_the_dataset(self):
         """The display valence (inverted for debt, neutral for capex/investing/financing swings)
         ships on each series as `tone` — like `percent`, the dataset is the single source of

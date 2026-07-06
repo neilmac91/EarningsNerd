@@ -339,7 +339,7 @@ class ExportService:
             for p in series.get("points", [])
         )
         derived_note = (
-            '<p class="footnote">† Computed fourth quarter: full year minus the three reported quarters.</p>'
+            '<p class="footnote">† Computed fourth quarter, derived from the annual report: full year minus the reported year-to-date quarters (EPS: Q4 net income ÷ Q4 weighted shares).</p>'
             if has_derived
             else ""
         )

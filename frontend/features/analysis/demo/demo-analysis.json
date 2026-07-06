@@ -51,6 +51,7 @@
     "percent": false,
     "tone": "normal",
     "cagr": 0.0849,
+    "cagr_window": "FY2019..FY2024",
     "points": [
      {
       "period": "FY2019",
@@ -151,6 +152,7 @@
     "percent": false,
     "tone": "normal",
     "cagr": 0.1115,
+    "cagr_window": "FY2019..FY2024",
     "points": [
      {
       "period": "FY2019",
@@ -353,6 +355,7 @@
     "percent": false,
     "tone": "normal",
     "cagr": 0.1541,
+    "cagr_window": "FY2019..FY2024",
     "points": [
      {
       "period": "FY2019",
@@ -453,6 +456,7 @@
     "percent": false,
     "tone": "normal",
     "cagr": 0.1125,
+    "cagr_window": "FY2019..FY2024",
     "points": [
      {
       "period": "FY2019",
@@ -553,6 +557,7 @@
     "percent": false,
     "tone": "neutral",
     "cagr": -0.0208,
+    "cagr_window": "FY2019..FY2024",
     "points": [
      {
       "period": "FY2019",
@@ -653,6 +658,7 @@
     "percent": false,
     "tone": "normal",
     "cagr": 0.1306,
+    "cagr_window": "FY2019..FY2024",
     "points": [
      {
       "period": "FY2019",
@@ -753,6 +759,7 @@
     "percent": false,
     "tone": "normal",
     "cagr": 0.0152,
+    "cagr_window": "FY2019..FY2024",
     "points": [
      {
       "period": "FY2019",
@@ -853,6 +860,7 @@
     "percent": false,
     "tone": "inverted",
     "cagr": -0.0136,
+    "cagr_window": "FY2019..FY2024",
     "points": [
      {
       "period": "FY2019",
@@ -953,6 +961,7 @@
     "percent": false,
     "tone": "normal",
     "cagr": -0.0884,
+    "cagr_window": "FY2019..FY2024",
     "points": [
      {
       "period": "FY2019",

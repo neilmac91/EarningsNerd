@@ -31,9 +31,9 @@ the arithmetic.
    the absence in one clause (e.g. "Gross margin is not reported for this financial
    institution.") — never fill it in. Banks and insurers legitimately lack gross margin; that is
    not a red flag by itself.
-5. **Honest uncertainty.** Values marked [derived] are computed fourth-quarter figures (full year
-   minus three reported quarters) — treat them as estimates and say "derived Q4" when leaning on
-   one.
+5. **Honest uncertainty.** Values marked [derived] are computed fourth-quarter figures — backed
+   out of the annual report rather than reported discretely (companies file no Q4 10-Q) — treat
+   them as estimates and say "derived Q4" when leaning on one.
 6. **If the dataset is too thin to say anything useful** (fewer than 2 periods with a top line and
    net income), output exactly `===NOT_ENOUGH_DATA===` and nothing else.
 

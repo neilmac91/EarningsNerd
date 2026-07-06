@@ -34,7 +34,8 @@ logger = logging.getLogger(__name__)
 # multi-reference resolver, pp-vs-relative guardrail.
 # v3: percent-unit series (margins) report YoY/QoQ as percentage-point deltas (not relative %);
 # sign-flip growth renders "n/m" instead of a nonsensical percentage.
-PROMPT_VERSION = "trends-v3"
+# v4: a/an-with-numerals voice guard; rule 5 reworded for the YTD9/shares-based Q4 derivations.
+PROMPT_VERSION = "trends-v4"
 
 MODES = ("annual", "quarterly")
 _QUARTERS = ("Q1", "Q2", "Q3", "Q4")
@@ -296,22 +297,12 @@ def build_dataset(
     # Indexes: flows by (fiscal_year, fiscal_period); instants ALSO by period_end (D2c).
     by_fy_fp: dict[tuple[int, str, str], FinancialFact] = {}
     instant_by_end: dict[tuple[str, date], FinancialFact] = {}
-    # A Q4 column is a computed-Q4 column iff EVERY row in it came from the Q4 derivation (the
-    # picker-chip rule). This is what the "— derived Q4" / † labels mean, and it is deliberately
-    # column-level: a rare filer that reports a DISCRETE Q4 has companyfacts rows in the group,
-    # so its real Q4 (and the metrics computed from it) must never be labelled an estimate —
-    # while metrics computed ON a derived-Q4 column genuinely rest on FY−Q1..Q3 estimates.
-    q4_fully_derived: dict[int, bool] = {}
     for row in rows:
         if row.fiscal_year is None:
             continue
         by_fy_fp[(row.fiscal_year, row.fiscal_period, row.concept)] = row
         if row.concept in INSTANT_CONCEPTS:
             instant_by_end[(row.concept, row.period_end)] = row
-        if row.fiscal_period == "Q4":
-            q4_fully_derived[row.fiscal_year] = (
-                q4_fully_derived.get(row.fiscal_year, True) and row.source == "derived"
-            )
 
     # Period axis (oldest → newest), range-filtered and capped.
     if mode == "annual":
@@ -395,14 +386,18 @@ def build_dataset(
                     "raw_tag": row.raw_tag,
                     # True computed-Q4 only. `source == "derived"` alone is NOT it: the ingest
                     # also stamps same-period computed metrics (margins, FCF, working capital,
-                    # current ratio) "derived" for EVERY period, and the per-filing path writes
-                    # the same computations as "edgar_xbrl" — so the raw source flag flickers by
-                    # ingest history and would mislabel an FY2016 margin as a "derived Q4".
-                    # Column-level rule (see q4_fully_derived above): a point is a computed-Q4
-                    # value iff it sits on a Q4 column whose every row came from the derivation.
+                    # current ratio) "derived" for EVERY period — an FY2016 margin must never be
+                    # labelled a "derived Q4". The discriminator is `reconciled`: every row in
+                    # the Q4 DERIVATION CHAIN (FY−YTD9/ΣQ flows, shares-based EPS, and metrics
+                    # computed from those estimates) is reconciled=False, while a computed
+                    # metric on REAL same-period values is reconciled=True. Point-level (not
+                    # column-level) so a filer with SOME discrete Q4 rows still badges the rows
+                    # that genuinely rest on estimates (e.g. a derived Q4 EPS next to a real
+                    # discrete Q4 net income) instead of presenting them as reported values.
                     "derived": (
                         row.fiscal_period == "Q4"
-                        and q4_fully_derived.get(row.fiscal_year, False)
+                        and row.source == "derived"
+                        and not row.reconciled
                     ),
                     "reconciled": bool(row.reconciled),
                     "fiscal_year": row.fiscal_year,
@@ -904,51 +899,62 @@ def _illegal_refs(text: str, index: dict[str, dict[str, Any]]) -> list[str]:
 # --- numeric-fidelity scan (audit D2: the deterministic backstop behind "every cited figure") --
 
 # A printed figure near a citation: optional $, digits with thousands commas, optional decimals,
-# optional %/pp/compact-scale suffix. Linear (single character-class core, no nesting) — this
-# scans model output on the event loop.
+# optional %/pp/compact-scale suffix (incl. the "bn"/"mn"/"tn" style). Linear (single
+# character-class core, no nesting) — this scans model output on the event loop.
 _FIDELITY_NUM_RE = re.compile(
-    r"\$?(\d[\d,]*(?:\.\d+)?)\s*(%|pp|[BTMK]\b|billion|million|trillion|thousand)?",
+    r"(\$)?(\d[\d,]*(?:\.\d+)?)\s*(%|pp|[bmt]n\b|[BTMK]\b|billion|million|trillion|thousand)?",
     re.IGNORECASE,
 )
 _FIDELITY_SCALES = {
     "k": 1e3, "thousand": 1e3,
-    "m": 1e6, "million": 1e6,
-    "b": 1e9, "billion": 1e9,
-    "t": 1e12, "trillion": 1e12,
+    "m": 1e6, "mn": 1e6, "million": 1e6,
+    "b": 1e9, "bn": 1e9, "billion": 1e9,
+    "t": 1e12, "tn": 1e12, "trillion": 1e12,
 }
 # How far back from "[n]" the claimed figure may sit — the copilot adjacency window's sibling.
 _FIDELITY_WINDOW_CHARS = 48
+# A resolved citation marker inside the window ("[1]"): both a scrub target (its digits are NOT
+# figures) and the window's hard left bound — the claim before an earlier marker belongs to THAT
+# marker, not this one (the copilot _claim_span_start rule). Bounded digit run keeps it linear.
+_FIDELITY_MARKER_RE = re.compile(r"\[\d{1,4}\]")
 
 
-def _last_number_token(window: str) -> Optional[tuple[float, int, float]]:
-    """The last printed figure in a window as (number, decimals, scale) — or None when the
-    reference is qualitative. Period identifiers (FY2024, 2026Q3, bare years) are skipped: they
-    are labels, not figures."""
-    best: Optional[tuple[float, int, float]] = None
+def _window_number_tokens(window: str) -> list[tuple[float, int, float]]:
+    """Every printed figure in a window as (number, decimals, scale). Skips tokens that are not
+    financial figures: period identifiers (FY2024, 2026Q3), bare years, and small bare counts
+    ("over the past 5 years", "3rd consecutive quarter" — no $, no suffix, no decimals)."""
+    tokens: list[tuple[float, int, float]] = []
     for match in _FIDELITY_NUM_RE.finditer(window):
-        raw, suffix = match.group(1), match.group(2)
-        start, end = match.start(1), match.end(1)
+        dollar, raw, suffix = match.group(1), match.group(2), match.group(3)
+        start, end = match.start(2), match.end(2)
         if start > 0 and window[start - 1].isalpha():
             continue  # FY2024 / Q3-style token — part of an identifier
         if end < len(window) and window[end] == "Q":
             continue  # 2026Q3
         number = float(raw.replace(",", ""))
         decimals = len(raw.split(".")[1]) if "." in raw else 0
-        if suffix is None and decimals == 0 and 1990 <= number <= 2100:
-            continue  # a bare year in prose
+        if not dollar and suffix is None and decimals == 0:
+            if 1900 <= number <= 2100:
+                continue  # a bare year in prose
+            if number < 1000:
+                continue  # a small bare count, not a financial figure (the copilot rule)
         scale = _FIDELITY_SCALES.get(suffix.lower(), 1.0) if suffix else 1.0
-        best = (number, decimals, scale)
-    return best
+        tokens.append((number, decimals, scale))
+    return tokens
 
 
 def _fidelity_candidates(citation: dict[str, Any], point: dict[str, Any]) -> list[float]:
-    """Every dataset figure the prompt licenses against this marker: the point's value (raw and
-    ×100 — CAGR/growth markers store fractions but print percentages) plus its YoY/QoQ deltas
-    (pp form for percent series, ×100 relative form otherwise)."""
+    """Every dataset figure the prompt licenses against this marker: the point's value (plus its
+    ×100 form for CAGR markers ONLY — growth fractions print as percentages, but licensing ×100
+    for monetary values would wave through exactly the scale-slip errors the scan exists to
+    catch) and the point's YoY/QoQ deltas (pp form for percent series, ×100 relative form
+    otherwise)."""
     candidates: list[float] = []
     value = citation.get("value")
     if isinstance(value, (int, float)):
-        candidates.extend([float(value), float(value) * 100.0])
+        candidates.append(float(value))
+        if point.get("kind") == "cagr":
+            candidates.append(float(value) * 100.0)
     for key in ("yoy", "qoq"):
         growth = point.get(key)
         if isinstance(growth, (int, float)):
@@ -969,9 +975,13 @@ def _token_matches_any(token: tuple[float, int, float], candidates: list[float])
 def scan_numeric_fidelity(
     text: str, citations: list[dict[str, Any]], index: dict[str, dict[str, Any]]
 ) -> list[int]:
-    """Citation numbers whose ADJACENT printed figure matches none of the cited point's dataset
-    figures. Deterministic, no model involved. Qualitative references (no number in the window)
-    always pass — mirroring the copilot adjacency guard's qualitative-placement rule."""
+    """Citation numbers whose adjacent claim contains figures and NONE of them matches the cited
+    point's dataset figures. Deterministic, no model involved. The window is bounded at the
+    previous citation marker (an earlier claim's figure belongs to ITS marker) — so in a chain
+    "[1][2]" the second marker's window is empty and it passes as qualitative, the same rule the
+    copilot adjacency guard applies. Qualitative references (no figure in the window) always
+    pass; a claim citing several figures passes if ANY of them matches ("from $X to $Y [a][b]").
+    """
     by_concept_period = {
         (entry.get("concept"), entry.get("period")): entry for entry in index.values()
     }
@@ -990,15 +1000,33 @@ def scan_numeric_fidelity(
             if position == -1:
                 break
             cursor = position + len(marker)
-            token = _last_number_token(text[max(0, position - _FIDELITY_WINDOW_CHARS):position])
-            if token is not None and not _token_matches_any(token, candidates):
+            window = text[max(0, position - _FIDELITY_WINDOW_CHARS):position]
+            # Bound at the previous resolved marker — everything before it was that marker's claim.
+            previous_marker = None
+            for marker_match in _FIDELITY_MARKER_RE.finditer(window):
+                previous_marker = marker_match
+            if previous_marker is not None:
+                window = window[previous_marker.end():]
+            tokens = _window_number_tokens(window)
+            if tokens and not any(_token_matches_any(t, candidates) for t in tokens):
                 clean = False
         if not clean:
             mismatched.append(int(n))
     return mismatched
 
 
-def _retry_instruction(illegal: list[str], mismatched: list[int]) -> str:
+def _mismatch_details(mismatched: list[int], citations: list[dict[str, Any]]) -> list[str]:
+    """Human-readable defect lines for the retry instruction. Named by concept/period, NOT by
+    the renumbered [n] — the retry model sees its own raw [F#] draft, where [n] means nothing."""
+    by_n = {c.get("n"): c for c in citations}
+    details: list[str] = []
+    for n in mismatched:
+        c = by_n.get(n) or {}
+        details.append(f"{c.get('concept')} {c.get('period')} (dataset value: {c.get('value')})")
+    return details
+
+
+def _retry_instruction(illegal: list[str], mismatched_details: list[str]) -> str:
     """The corrective turn for the one-shot regenerate-on-strip retry."""
     problems: list[str] = []
     if illegal:
@@ -1007,11 +1035,12 @@ def _retry_instruction(illegal: list[str], mismatched: list[int]) -> str:
             + " ".join(f"[{ref}]" for ref in illegal)
             + ". Use ONLY marker IDs printed in the dataset."
         )
-    if mismatched:
+    if mismatched_details:
         problems.append(
-            "- Some figures do not match the dataset value carried by the marker cited next to "
-            "them. Every number must be copied EXACTLY as printed on the dataset line whose "
-            "marker you cite — never computed or approximated."
+            "- The figure you printed next to your citation of these dataset lines does not "
+            "match the value they carry: " + "; ".join(mismatched_details) + ". Every number "
+            "must be copied EXACTLY as printed on the dataset line whose marker you cite — "
+            "never computed or approximated."
         )
     return (
         "Your draft was rejected for citation defects:\n"
@@ -1220,14 +1249,14 @@ async def stream_trend_narrative(
     for attempt in range(2):
         messages = list(base_messages)
         if attempt:
-            _, _, _, _, prior_unverified, prior_mismatched = best  # type: ignore[misc]
+            _, _, prior_citations, _, prior_unverified, prior_mismatched = best  # type: ignore[misc]
             messages.append({"role": "assistant", "content": draft_text})
             messages.append(
                 {
                     "role": "user",
                     "content": _retry_instruction(
                         _illegal_refs(draft_text, index) if prior_unverified else [],
-                        prior_mismatched,
+                        _mismatch_details(prior_mismatched, prior_citations),
                     ),
                 }
             )
@@ -1258,6 +1287,16 @@ async def stream_trend_narrative(
             parts.append(chunk)
             if attempt == 0:
                 yield {"type": "token", "text": chunk}
+            elif len(parts) % 40 == 0:
+                # Keepalive while retry tokens are suppressed: the client's idle timeout resets
+                # on ANY received activity, and a silent 60–90s rewrite would otherwise look
+                # like a dead stream after draft 1 already arrived.
+                yield {
+                    "type": "progress",
+                    "stage": "verifying",
+                    "message": "Re-checking citations…",
+                    "percent": 85,
+                }
         _merge_usage(total_usage, usage_sink)
         if stream_failed:
             break
@@ -1333,6 +1372,10 @@ async def stream_trend_narrative(
         "citations": citations,
         "grounded": grounded,
         "unverified": unverified,
+        # Figures the deterministic fidelity scan could not reconcile even after the retry —
+        # surfaced in the badge tooltip so "verified" never silently overclaims. Not persisted
+        # (no column; cached re-serves rely on the generation-time log line).
+        "mismatched": len(mismatched),
         "cached": False,
         "invalidated": invalidated,
         "n_periods": len(dataset["periods"]),

@@ -19,7 +19,7 @@ export interface QuarterlyCoveragePeriod {
   fiscal_year: number
   fiscal_period: string
   period_end: string
-  /** True when every value in the column is Q4-derived (FY − Q1..Q3) — badged in the picker. */
+  /** True when every value in the column is Q4-derived (from the annual report: FY − YTD9 or FY − ΣQ1–3; EPS shares-based) — badged in the picker. */
   derived: boolean
 }
 
@@ -125,6 +125,10 @@ export interface AnalysisCompletion {
   /** F# references the model emitted that did NOT resolve against the dataset (0 on a clean
    *  run; null/absent on rows persisted before the counter existed). */
   unverified?: number | null
+  /** Citations whose adjacent printed figure the deterministic fidelity scan could not
+   *  reconcile with the cited dataset value, even after the one-shot regeneration (fresh runs
+   *  only — not persisted, so cached re-serves omit it). */
+  mismatched?: number | null
   cached: boolean
   n_periods: number
 }
@@ -329,6 +333,7 @@ export const streamAnalysis = async (
               citations: Array.isArray(data.citations) ? (data.citations as AnalysisCitation[]) : [],
               grounded: typeof data.grounded === 'number' ? data.grounded : 0,
               unverified: typeof data.unverified === 'number' ? data.unverified : null,
+              mismatched: typeof data.mismatched === 'number' ? data.mismatched : null,
               cached: data.cached === true,
               n_periods: typeof data.n_periods === 'number' ? data.n_periods : 0,
             })

@@ -149,6 +149,10 @@ docker-compose down                   # Stop databases
 │   ├── featureFlags.ts   # Feature flag configuration
 │   ├── guards.ts         # Route guards
 │   ├── formatters.ts, format.ts  # Formatting utilities
+│   ├── legalDates.ts     # "Last updated" content-change dates for the legal pages
+│   ├── downloadBlob.ts   # Shared Blob-download helper (delayed revoke for Safari/Firefox)
+│   ├── citationMarkers.tsx  # Shared [n]-marker → citation-chip injector (copilot + analysis)
+│   ├── citationFlash.ts  # Shared citation-flash pulse (MOTION.ambient, per-element timers)
 │   ├── entryPoint.ts     # Entry-point config
 │   ├── analytics.ts      # Analytics integration
 │   └── stripInternalNotices.ts  # Strip internal AI notices from output
@@ -184,6 +188,7 @@ docker-compose down                   # Stop databases
 | `backend/app/services/copilot_service.py` | "Ask this Filing" — scoped single-filing Q&A with verifiable, deep-linked citations (Pro) |
 | `backend/app/services/copilot_tools.py` | Numeric XBRL tool-use for Copilot — exact values from `financial_fact` for calculations |
 | `backend/app/services/provenance_service.py` | Trace-to-Source provenance: verifies AI excerpts and builds deep-link citations |
+| `backend/app/services/citation_markers.py` | Shared citation-group classification + multi-ref bracket expansion (trend resolver + copilot pre-pass) |
 | `backend/app/services/change_report_service.py` | Period-over-period change report (financial deltas + risk-factor diffs) |
 | `backend/app/services/facts_service.py` | Normalizes/upserts standardized XBRL metrics into `financial_fact`; ingests SEC companyfacts as the multi-period source (FY/Q1–Q4 labelling, derived Q4) |
 | `backend/app/services/trend_analysis_service.py` | Multi-Period Analysis engine: N-period dataset (YoY/QoQ/CAGR, inflection signals, F# citation markers) + cached streamed AI narrative |

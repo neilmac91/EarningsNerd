@@ -4,7 +4,7 @@ import { type ComponentProps, type ReactNode } from 'react'
 import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import { Button } from '@/components/ui'
-import AiDisclaimer from '@/components/AiDisclaimer'
+import AiDisclaimer, { SEC_EDGAR_NOT_ADVICE } from '@/components/AiDisclaimer'
 import remarkGfm from 'remark-gfm'
 import { ArrowClockwiseIcon, ArrowRightIcon, CheckCircleIcon, ProhibitIcon, SparkleIcon } from '@/lib/icons'
 import { injectCitationMarkers } from '@/lib/citationMarkers'
@@ -474,7 +474,7 @@ export default function CopilotMessage({
               {/* Per-answer disclaimer (audit F7): the DS reference component always carried
                   this line — the wired renderer had dropped it. */}
               <AiDisclaimer lead={false} className="mt-2">
-                Data sourced from SEC EDGAR. Not investment advice.
+                {SEC_EDGAR_NOT_ADVICE}
               </AiDisclaimer>
               {showFollowups && onFollowup && message.followups && message.followups.length > 0 && (
                 <FollowupChips followups={message.followups} onFollowup={onFollowup} />

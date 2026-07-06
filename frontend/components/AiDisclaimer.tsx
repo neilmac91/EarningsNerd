@@ -1,5 +1,9 @@
 import type { ReactNode } from 'react'
 
+/** The copilot per-answer line — one string for the DS reference footer (AskFilingAnswer) and
+ *  the wired renderer (CopilotMessage), so the copy can't drift between them. */
+export const SEC_EDGAR_NOT_ADVICE = 'Data sourced from SEC EDGAR. Not investment advice.'
+
 /**
  * The point-of-consumption AI disclaimer (audit E1): one styled component so every AI surface
  * (analysis narrative, copilot answers, summaries) carries the same core sentence and the
