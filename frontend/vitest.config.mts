@@ -17,12 +17,8 @@ export default defineConfig({
     globals: true,
     setupFiles: path.resolve(__dirname, 'vitest.setup.ts'),
     css: false,
-    include: [
-      '__tests__/**/*.test.ts?(x)',
-      '__tests__/**/*.spec.ts?(x)',
-      'tests/unit/**/*.test.ts?(x)',
-      'tests/unit/**/*.spec.ts?(x)',
-    ],
+    // ONE test home (tests/unit) + ONE suffix (.spec) after the F3 __tests__ merge.
+    include: ['tests/unit/**/*.spec.ts?(x)'],
     exclude: [...configDefaults.exclude, 'tests/e2e/**'],
   },
   resolve: {
