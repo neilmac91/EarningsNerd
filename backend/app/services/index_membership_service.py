@@ -16,7 +16,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Literal, Optional
 
 from app.config import settings
 
@@ -93,11 +93,13 @@ def active_member_filter() -> Optional[frozenset[str]]:
 # Public identifiers for the universe the calendar is currently serving. Surfaced on the
 # /api/calendar response so the UI can label its coverage accurately in EVERY flag state — the
 # "S&P 500 & Nasdaq 100" caption shows only when the filter is genuinely active, never during a
-# pre-flip window or a rollback.
-UNIVERSE_INDEX = "sp500_nasdaq100"
-UNIVERSE_ALL = "all"
+# pre-flip window or a rollback. A Literal (not bare str) so it's a self-documenting enum in the
+# OpenAPI schema and static analysis verifies both ends of the contract; the router reuses this alias.
+UniverseLabel = Literal["sp500_nasdaq100", "all"]
+UNIVERSE_INDEX: UniverseLabel = "sp500_nasdaq100"
+UNIVERSE_ALL: UniverseLabel = "all"
 
 
-def active_universe_label() -> str:
+def active_universe_label() -> UniverseLabel:
     """``"sp500_nasdaq100"`` when the index filter is active, else ``"all"`` (serving unfiltered)."""
     return UNIVERSE_INDEX if active_member_filter() is not None else UNIVERSE_ALL

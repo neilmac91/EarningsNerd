@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.services import earnings_calendar_service, index_membership_service
+from app.services.index_membership_service import UniverseLabel
 
 router = APIRouter()
 
@@ -37,8 +38,8 @@ class CalendarEventOut(BaseModel):
 class CalendarResponse(BaseModel):
     events: List[CalendarEventOut]
     # Which universe these events were filtered to: "sp500_nasdaq100" when the index filter is
-    # active, else "all". Lets the UI label its coverage accurately without guessing the flag state.
-    universe: str
+    # active, else "all". A Literal so Pydantic enforces it and the OpenAPI schema documents the enum.
+    universe: UniverseLabel
 
 
 @router.get("", response_model=CalendarResponse)
