@@ -1,5 +1,5 @@
 import React from 'react'
-import { SummaryBlock } from '@/features/filings/components/SummaryBlock'
+import { SummaryBlock } from '@/features/summaries/components/SummaryBlock'
 import { SectionEmpty } from './SectionEmpty'
 import { SourceTrace } from '@/features/filings/components/SourceTrace'
 import type { RiskFactor } from '@/types/summary'

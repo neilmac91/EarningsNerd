@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render } from '@testing-library/react'
-import FinancialMetricsTable from '@/features/filings/components/FinancialMetricsTable'
+import FinancialMetricsTable from '@/features/summaries/components/FinancialMetricsTable'
 
 // Per-ADS block as the backend attaches it (value, ratio, currency, dated source, arithmetic).
 const PER_ADS = {

@@ -9,7 +9,7 @@ import type { Filing } from '@/features/filings/api/filings-api'
 import { getWhatChanged, type Summary } from '@/features/summaries/api/summaries-api'
 import { WhatChanged } from '@/features/filings/components/WhatChanged'
 import AskFilingCallout from '@/features/filings/components/copilot/AskFilingCallout'
-import FinancialMetricsTable from '@/features/filings/components/FinancialMetricsTable'
+import FinancialMetricsTable from '@/features/summaries/components/FinancialMetricsTable'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import { Button } from '@/components/ui/Button'
 import { Badge, Card, GuidanceCard, Skeleton, SkeletonText } from '@/components/ui'
@@ -32,7 +32,7 @@ const FundamentalsTrendChart = dynamic(
   { ssr: false },
 )
 
-const SummarySections = dynamic(() => import('@/features/filings/components/SummarySections'), {
+const SummarySections = dynamic(() => import('@/features/summaries/components/SummarySections'), {
   ssr: false,
   loading: () => <SummarySectionsSkeleton />,
 })

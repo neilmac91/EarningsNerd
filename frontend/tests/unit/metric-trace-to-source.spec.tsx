@@ -1,7 +1,7 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
 import { MetricSourceLink } from '@/features/filings/components/MetricSourceLink'
-import { SummaryFinancials } from '@/features/filings/components/SummaryFinancials'
+import { SummaryFinancials } from '@/features/summaries/components/SummaryFinancials'
 import type { MetricItem } from '@/types/summary'
 
 describe('Financial metric Trace-to-Source', () => {

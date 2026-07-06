@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import FinancialMetricsTable from '@/features/filings/components/FinancialMetricsTable'
+import FinancialMetricsTable from '@/features/summaries/components/FinancialMetricsTable'
 
 const metricsWithoutComparatives = [
   {
