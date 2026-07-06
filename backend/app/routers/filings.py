@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime, timedelta
+from app.utils.datetimes import utcnow
 from typing import Dict, List, Optional, Tuple
 
 from fastapi import APIRouter, HTTPException, Depends, Query
@@ -34,14 +35,14 @@ _filings_synced_at: Dict[Tuple[str, Tuple[str, ...]], datetime] = {}
 def _filings_cache_fresh(ticker: str, types_list: List[str]) -> bool:
     """True when this (ticker, types) was synced from SEC within the TTL."""
     synced = _filings_synced_at.get((ticker, tuple(types_list)))
-    return synced is not None and (datetime.utcnow() - synced) < FILINGS_LIST_TTL
+    return synced is not None and (utcnow() - synced) < FILINGS_LIST_TTL
 
 
 def _mark_filings_synced(ticker: str, types_list: List[str]) -> None:
     """Record a successful live SEC sync for this (ticker, types), evicting the oldest if full."""
     if len(_filings_synced_at) >= MAX_FILINGS_SYNC_ENTRIES:
         _filings_synced_at.pop(next(iter(_filings_synced_at)), None)  # insertion-ordered → oldest
-    _filings_synced_at[(ticker, tuple(types_list))] = datetime.utcnow()
+    _filings_synced_at[(ticker, tuple(types_list))] = utcnow()
 
 
 router = APIRouter()

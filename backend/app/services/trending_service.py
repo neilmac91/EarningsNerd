@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+from app.utils.datetimes import utcnow
 import json
 import logging
 from pathlib import Path
@@ -62,7 +63,7 @@ class TrendingTickerService:
 
     async def get_trending_tickers(self, force_refresh: bool = False) -> Dict[str, Any]:
         """Return trending tickers, using caching and fallbacks when necessary."""
-        now = datetime.utcnow()
+        now = utcnow()
 
         if not force_refresh and self._cache_data and self._cache_timestamp:
             if now - self._cache_timestamp < self._cache_ttl:
@@ -192,7 +193,7 @@ class TrendingTickerService:
         # Check rate limit backoff
         if self._is_rate_limited(source):
             backoff_until, _ = self._rate_limit_backoff[source]
-            remaining = (backoff_until - datetime.utcnow()).total_seconds() / 60 if backoff_until else 0
+            remaining = (backoff_until - utcnow()).total_seconds() / 60 if backoff_until else 0
             self._last_error = f"Stocktwits rate-limited. Retry after {remaining:.0f} minutes"
             self._logger.info("Skipping Stocktwits fetch due to rate limit backoff (%.0f min remaining)", remaining)
             return None
@@ -263,7 +264,7 @@ class TrendingTickerService:
         L1: In-memory cache (1 day TTL)
         L2: Redis cache (7 day TTL)
         """
-        now = datetime.utcnow()
+        now = utcnow()
 
         # Check L1 (memory) cache
         if self._etf_symbols and self._etf_symbols_loaded_at:
@@ -405,7 +406,7 @@ class TrendingTickerService:
         if not backoff_info:
             return False
         backoff_until, _ = backoff_info
-        if backoff_until and datetime.utcnow() < backoff_until:
+        if backoff_until and utcnow() < backoff_until:
             return True
         return False
 
@@ -416,7 +417,7 @@ class TrendingTickerService:
 
         # Exponential backoff: 1min, 5min, 15min, 30min, max 1 hour
         backoff_minutes = min(60, (2 ** consecutive_429s) * 1 if consecutive_429s < 3 else 15 + (consecutive_429s - 3) * 5)
-        backoff_until = datetime.utcnow() + timedelta(minutes=backoff_minutes)
+        backoff_until = utcnow() + timedelta(minutes=backoff_minutes)
 
         self._rate_limit_backoff[source] = (backoff_until, consecutive_429s + 1)
         self._logger.warning(
@@ -459,7 +460,7 @@ class TrendingTickerService:
             if not timestamp:
                 return None
 
-            if datetime.utcnow() - timestamp > self._persistent_cache_ttl and not initial_load:
+            if utcnow() - timestamp > self._persistent_cache_ttl and not initial_load:
                 return None
 
             self._cache_data = data

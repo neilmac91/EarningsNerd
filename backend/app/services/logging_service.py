@@ -24,7 +24,7 @@ import sys
 import time
 import uuid
 from contextvars import ContextVar
-from datetime import datetime
+from app.utils.datetimes import utcnow
 from typing import Any, Dict, Optional
 
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -82,7 +82,7 @@ class StructuredLogFormatter(logging.Formatter):
         # which breaks severity>=WARNING filters (log-based alert metrics rely on them).
         # "level" is kept for existing dashboards/queries.
         log_data = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": utcnow().isoformat() + "Z",
             "severity": record.levelname,
             "level": record.levelname,
             "logger": record.name,
@@ -126,7 +126,7 @@ class SimpleLogFormatter(logging.Formatter):
     """
 
     def format(self, record: logging.LogRecord) -> str:
-        timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = utcnow().strftime("%Y-%m-%d %H:%M:%S")
         correlation_id = get_correlation_id() or "no-id"
 
         # Collect extra fields

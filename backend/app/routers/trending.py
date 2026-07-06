@@ -1,4 +1,4 @@
-from datetime import datetime
+from app.utils.datetimes import utcnow
 from typing import List, Optional
 
 from fastapi import APIRouter, Query
@@ -62,7 +62,7 @@ async def refresh_ticker_prices(
     if not symbols:
         return PriceRefreshResponse(
             prices={},
-            timestamp=datetime.utcnow().isoformat() + "Z",
+            timestamp=utcnow().isoformat() + "Z",
         )
 
     prices_raw = await trending_service.refresh_prices(symbols)
@@ -78,5 +78,5 @@ async def refresh_ticker_prices(
 
     return PriceRefreshResponse(
         prices=prices,
-        timestamp=datetime.utcnow().isoformat() + "Z",
+        timestamp=utcnow().isoformat() + "Z",
     )

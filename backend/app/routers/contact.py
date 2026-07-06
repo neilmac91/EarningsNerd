@@ -3,6 +3,7 @@ import logging
 import hashlib
 import os
 from datetime import datetime, timedelta
+from app.utils.datetimes import utcnow
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
@@ -53,7 +54,7 @@ def check_rate_limit(ip_address: str) -> bool:
     Check if the IP address has exceeded the rate limit.
     Returns True if rate limit is exceeded, False otherwise.
     """
-    now = datetime.utcnow()
+    now = utcnow()
     cutoff = now - timedelta(hours=RATE_LIMIT_WINDOW_HOURS)
 
     # Clean up old entries
@@ -192,7 +193,7 @@ async def send_contact_notifications(
             </div>
             <div class="field">
               <div class="label">Submitted:</div>
-              <div class="value">{datetime.utcnow().strftime("%B %d, %Y at %I:%M %p UTC")}</div>
+              <div class="value">{utcnow().strftime("%B %d, %Y at %I:%M %p UTC")}</div>
             </div>
           </div>
         </div>

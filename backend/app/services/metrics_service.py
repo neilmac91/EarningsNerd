@@ -14,6 +14,7 @@ Usage:
 """
 
 import asyncio
+from app.utils.datetimes import utcnow
 import time
 from typing import Dict, Any
 import logging
@@ -35,10 +36,9 @@ async def get_all_metrics() -> Dict[str, Any]:
     - database: Database connection pool stats
     """
     import sys
-    from datetime import datetime
 
     metrics = {
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": utcnow().isoformat() + "Z",
         "app": {
             "name": "EarningsNerd API",
             "version": APP_VERSION,

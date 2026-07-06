@@ -1,6 +1,7 @@
 import asyncio
 import time
-from datetime import datetime, timezone
+from app.utils.datetimes import utcnow
+from datetime import timezone
 from typing import Optional, Dict, Any, List, Tuple, Literal
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
@@ -272,8 +273,6 @@ def generate_unavailable_sections_notes(missing_sections: List[str]) -> List[Dic
         for section in missing_sections
     ]
 
-def _utcnow() -> datetime:
-    return datetime.now(timezone.utc)
 
 def record_progress(
     db: Session,
@@ -283,7 +282,7 @@ def record_progress(
     error: Optional[str] = None,
     section_coverage: Optional[Dict[str, Any]] = None,
 ) -> SummaryGenerationProgress:
-    now = _utcnow()
+    now = utcnow()
     progress = (
         db.query(SummaryGenerationProgress)
         .filter(SummaryGenerationProgress.filing_id == filing_id)
@@ -329,7 +328,7 @@ def progress_as_dict(progress: SummaryGenerationProgress) -> Dict[str, Any]:
         started_at = progress.started_at
         if started_at.tzinfo is None:
             started_at = started_at.replace(tzinfo=timezone.utc)
-        elapsed = float((_utcnow() - started_at).total_seconds())
+        elapsed = float((utcnow() - started_at).total_seconds())
     return {
         "stage": progress.stage,
         "elapsedSeconds": int(elapsed or 0),
@@ -1026,7 +1025,7 @@ def mark_stale_progress_as_error(progress: SummaryGenerationProgress) -> bool:
     if last_update.tzinfo is None:
         last_update = last_update.replace(tzinfo=timezone.utc)
 
-    if (_utcnow() - last_update).total_seconds() <= STALE_PROGRESS_SECONDS:
+    if (utcnow() - last_update).total_seconds() <= STALE_PROGRESS_SECONDS:
         return False
 
     progress.stage = "error"

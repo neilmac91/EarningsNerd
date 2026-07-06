@@ -1,9 +1,10 @@
 """Regression tests for hot_filings timezone handling.
 
-filing_date is DateTime(timezone=True), so Postgres returns tz-aware datetimes.
-The scoring loop computes ``now - filing.filing_date`` with a naive ``utcnow()``,
-which raised "can't subtract offset-naive and offset-aware datetimes" (500 on
-GET /api/hot_filings). These tests pin the fix.
+filing_date is DateTime(timezone=True), so Postgres returns tz-aware datetimes while SQLite
+returns naive ones. The scoring loop computes ``now - filing.filing_date`` with the aware
+``utcnow()``; mixing awareness raised "can't subtract offset-naive and offset-aware datetimes"
+(500 on GET /api/hot_filings). ``_to_aware_utc`` normalizes both sides to aware UTC. These
+tests pin the fix.
 """
 
 import asyncio
@@ -11,7 +12,7 @@ from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from app.services.hot_filings import HotFilingsService, _to_naive_utc
+from app.services.hot_filings import HotFilingsService, _to_aware_utc
 
 
 def _make_filing(filing_date):
@@ -39,15 +40,16 @@ def _stub_db(filings):
     return db
 
 
-def test_to_naive_utc_strips_tz_as_utc():
+def test_to_aware_utc_passes_aware_through():
     aware = datetime(2026, 6, 18, 12, 0, tzinfo=timezone.utc)
-    assert _to_naive_utc(aware) == datetime(2026, 6, 18, 12, 0)
-    assert _to_naive_utc(aware).tzinfo is None
+    assert _to_aware_utc(aware) == datetime(2026, 6, 18, 12, 0, tzinfo=timezone.utc)
+    assert _to_aware_utc(aware).tzinfo is not None
 
 
-def test_to_naive_utc_passes_naive_through():
+def test_to_aware_utc_attaches_utc_to_naive():
     naive = datetime(2026, 6, 18, 12, 0)
-    assert _to_naive_utc(naive) is naive
+    assert _to_aware_utc(naive) == datetime(2026, 6, 18, 12, 0, tzinfo=timezone.utc)
+    assert _to_aware_utc(naive).tzinfo is timezone.utc
 
 
 def test_calculate_hot_filings_with_tz_aware_filing_date_does_not_crash():

@@ -11,12 +11,12 @@ from app.models import SummaryGenerationProgress
 from app.services.summary_generation_service import (
     STALE_PROGRESS_SECONDS,
     mark_stale_progress_as_error,
-    _utcnow,
 )
+from app.utils.datetimes import utcnow
 
 
 def _progress(stage: str, age_seconds: float) -> SummaryGenerationProgress:
-    ts = _utcnow() - timedelta(seconds=age_seconds)
+    ts = utcnow() - timedelta(seconds=age_seconds)
     return SummaryGenerationProgress(
         filing_id=1,
         stage=stage,
