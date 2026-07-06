@@ -61,7 +61,8 @@ export default function Footer() {
             &copy; {CURRENT_YEAR} EarningsNerd. All rights reserved.
           </p>
           <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-            Data sourced from SEC EDGAR. Not investment advice.
+            Data sourced from SEC EDGAR. AI-generated content — for informational purposes only.
+            Not investment advice. Not affiliated with the SEC.
           </p>
         </div>
 

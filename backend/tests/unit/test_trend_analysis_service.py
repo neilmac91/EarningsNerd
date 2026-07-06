@@ -302,6 +302,144 @@ class TestBuildDataset:
         assert span >= 2  # sanity: the cap itself stays usable
         db.close()
 
+    def test_derived_flag_marks_only_computed_q4(self):
+        """The dataset's `derived` flag (→ "— derived Q4" / † / [derived]) is source=="derived"
+        AND fiscal_period=="Q4" — a computed metric on a real quarter or an FY row must never
+        carry it (audit finding A1)."""
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        company = _seed_company(db)
+        # Real quarters Q1-Q3 + a derived Q4 flow, plus computed metrics stamped source="derived"
+        # on a REAL quarter (Q2) — exactly what derive_same_period_metrics produces.
+        for fp, end, start, value in [
+            ("Q1", date(2023, 3, 31), date(2023, 1, 1), 100.0),
+            ("Q2", date(2023, 6, 30), date(2023, 4, 1), 110.0),
+            ("Q3", date(2023, 9, 30), date(2023, 7, 1), 120.0),
+        ]:
+            _seed_fact(db, company.id, "revenue", value, fy=2023, fp=fp, end=end, start=start)
+        _seed_fact(db, company.id, "revenue", 130.0, fy=2023, fp="Q4",
+                   end=date(2023, 12, 31), start=date(2023, 10, 1),
+                   source="derived", reconciled=False)
+        _seed_fact(db, company.id, "net_margin", 12.5, fy=2023, fp="Q2",
+                   end=date(2023, 6, 30), start=date(2023, 4, 1), unit="pure",
+                   source="derived", reconciled=True)
+        db.commit()
+
+        dataset = svc.build_dataset(db, company, "quarterly", "2023Q1", "2023Q4")
+        by_concept = {series["concept"]: series for series in dataset["series"]}
+        revenue = {p["period"]: p for p in by_concept["revenue"]["points"]}
+        margin = {p["period"]: p for p in by_concept["net_margin"]["points"]}
+
+        assert revenue["2023Q4"]["derived"] is True  # true FY − Q1..Q3 estimate
+        assert revenue["2023Q2"]["derived"] is False
+        assert margin["2023Q2"]["derived"] is False  # computed metric on a REAL quarter
+
+        # And the Sources-list excerpt follows the flag: no "derived Q4" on the real quarter.
+        index = svc.marker_index(dataset)
+        excerpts = {index[m]["period"]: svc._point_citation(1, index[m])["excerpt"]
+                    for m in index if index[m].get("kind") != "cagr"
+                    and index[m]["concept"] == "net_margin"}
+        assert "derived Q4" not in excerpts["2023Q2"]
+        q4_excerpt = svc._point_citation(1, index[revenue["2023Q4"]["marker"]])["excerpt"]
+        assert q4_excerpt.endswith("— derived Q4")
+        db.close()
+
+    def test_annual_computed_metric_never_flagged_derived_q4(self):
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        company = _seed_company(db)
+        _seed_annual_history(db, company.id)
+        # Annual computed metric: derive_same_period_metrics stamps FY margins source="derived".
+        _seed_fact(db, company.id, "net_margin", 10.0, fy=2023, fp="FY",
+                   end=date(2023, 12, 31), start=date(2023, 1, 1), unit="pure",
+                   source="derived", reconciled=True)
+        db.commit()
+
+        dataset = svc.build_dataset(db, company, "annual", "FY2021", "FY2023")
+        margin = next(s for s in dataset["series"] if s["concept"] == "net_margin")
+        point = next(p for p in margin["points"] if p["value"] is not None)
+        assert point["derived"] is False
+        excerpt = svc._point_citation(1, {**point, "label": margin["label"],
+                                          "unit": margin["unit"], "percent": margin["percent"],
+                                          "concept": "net_margin"})["excerpt"]
+        assert "derived" not in excerpt
+        db.close()
+
+    def test_cagr_markers_follow_point_markers_and_resolve(self):
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        company = _seed_company(db)
+        _seed_annual_history(db, company.id)
+        dataset = svc.build_dataset(db, company, "annual", "FY2021", "FY2023")
+
+        point_markers = [p["marker"] for s in dataset["series"] for p in s["points"]
+                         if p["value"] is not None]
+        cagr_markers = [s["cagr_marker"] for s in dataset["series"] if s.get("cagr_marker")]
+        # Every series with a CAGR carries a marker; numbering continues after the point markers
+        # so point numbering is unchanged by the feature.
+        assert cagr_markers, "expected at least one CAGR marker"
+        all_markers = point_markers + cagr_markers
+        assert all_markers == [f"F{i}" for i in range(1, len(all_markers) + 1)]
+
+        index = svc.marker_index(dataset)
+        cagr_entry = index[cagr_markers[0]]
+        assert cagr_entry["kind"] == "cagr"
+        assert cagr_entry["period"] == dataset["period_key"]
+
+        # The prompt header carries the marker next to the CAGR figure.
+        text = svc.compact_dataset_for_prompt(dataset)
+        assert f"[{cagr_markers[0]}] CAGR" in text
+        db.close()
+
+    def test_dataset_flags_and_values_are_ingest_order_independent(self):
+        """A2/D4 guard: the per-filing path (source="edgar_xbrl") and the companyfacts path
+        (computed metrics source="derived") write the same concepts; whichever ran last, the
+        dataset the user sees — values and derived flags — must be identical."""
+        from app.database import SessionLocal
+        from app.services import facts_service as fs
+
+        def _facts(company_id):
+            filing_row = {
+                "company_id": company_id, "filing_id": None, "concept": "net_margin",
+                "raw_tag": None, "unit": "pure", "period_start": date(2023, 1, 1),
+                "period_end": date(2023, 12, 31), "fiscal_year": 2023, "fiscal_period": "FY",
+                "value": 10.0, "form": "10-K", "accession": "ACC-10K", "source": "edgar_xbrl",
+                "reconciled": False,
+            }
+            companyfacts_row = {**filing_row, "accession": "ACC-CF", "source": "derived",
+                                "reconciled": True}
+            base = {
+                "company_id": company_id, "filing_id": None, "raw_tag": "us-gaap:Revenues",
+                "unit": "USD", "period_start": date(2023, 1, 1),
+                "period_end": date(2023, 12, 31), "fiscal_year": 2023, "fiscal_period": "FY",
+                "form": "10-K", "accession": "ACC-CF", "source": "companyfacts",
+                "reconciled": True,
+            }
+            core = [
+                {**base, "concept": "revenue", "value": 100.0},
+                {**base, "concept": "net_income", "value": 10.0},
+            ]
+            return core, filing_row, companyfacts_row
+
+        def _dataset_for(order):
+            db = SessionLocal()
+            company = _seed_company(db)
+            core, filing_row, cf_row = _facts(company.id)
+            fs.upsert_facts(db, core, reconcile=False)
+            for row in (filing_row, cf_row) if order == "filing_first" else (cf_row, filing_row):
+                fs.upsert_facts(db, [dict(row)], reconcile=False)
+            dataset = svc.build_dataset(db, company, "annual", "FY2023", "FY2023")
+            db.close()
+            return {
+                (s["concept"], p["period"]): (p["value"], p["derived"])
+                for s in dataset["series"] for p in s["points"] if p["value"] is not None
+            }
+
+        assert _dataset_for("filing_first") == _dataset_for("companyfacts_first")
+
     def test_fingerprint_changes_when_a_value_changes(self):
         from app.database import SessionLocal
 
@@ -352,6 +490,26 @@ class TestPromptRendering:
         assert "CAGR +10.0%" in text
         assert "FY2024: not reported" in text
         assert "debt_build" in text and "[F9]" in text
+
+    def test_signal_markers_render_one_per_bracket(self):
+        """A comma-joined signal line ("[F1, F2, F3]") modeled the exact multi-reference form the
+        resolver cannot parse — the prompt must only ever show separate single brackets."""
+        dataset = {
+            "ticker": "TST", "company_name": "Test Co", "mode": "quarterly",
+            "period_key": "2025Q1..2025Q3", "periods": [],
+            "series": [{
+                "concept": "operating_margin", "label": "Operating margin", "unit": "pure",
+                "percent": True, "cagr": None,
+                "points": [{"period": "2025Q1", "value": 48.9, "marker": "F1"}],
+            }],
+            "inflections": [{
+                "kind": "margin_compression", "detail": "Operating margin compressed 2.5pp.",
+                "markers": ["F1", "F2", "F3"],
+            }],
+        }
+        text = svc.compact_dataset_for_prompt(dataset)
+        assert "[F1] [F2] [F3]" in text
+        assert "[F1, F2" not in text
 
     def test_marker_index_resolves_points(self):
         dataset = {

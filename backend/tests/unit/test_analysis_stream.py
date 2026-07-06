@@ -22,11 +22,15 @@ class TestResolveNarrativeCitations:
                "value": 1000.0, "period": "FY2022", "raw_tag": "us-gaap:Revenues"},
         "F2": {"concept": "net_income", "label": "Net income", "unit": "USD", "percent": False,
                "value": 200.0, "period": "FY2022", "raw_tag": None},
+        "F3": {"concept": "operating_income", "label": "Operating income", "unit": "USD",
+               "percent": False, "value": 300.0, "period": "FY2022", "raw_tag": None},
+        "F10": {"kind": "cagr", "concept": "revenue", "label": "Revenue", "unit": "USD",
+                "percent": False, "value": 0.134, "period": "FY2016..FY2025", "derived": False},
     }
 
     def test_renumbers_in_first_appearance_order(self):
         text = "Net income was 200 [F2] on revenue of 1,000 [F1]. Revenue again [F1]."
-        final, citations, grounded = svc.resolve_narrative_citations(text, self.INDEX)
+        final, citations, grounded, unverified = svc.resolve_narrative_citations(text, self.INDEX)
         assert "[1]" in final and "[2]" in final and "[F" not in final
         assert final.count("[1]") == 1  # F2 → 1 (first appearance)
         assert final.count("[2]") == 2  # F1 reused
@@ -34,19 +38,79 @@ class TestResolveNarrativeCitations:
         assert citations[0]["concept"] == "net_income"
         assert citations[1]["section_ref"] == "XBRL · us-gaap:Revenues"
         assert grounded == 2
+        assert unverified == 0
 
     def test_unknown_marker_stripped_swallowing_space(self):
-        final, citations, grounded = svc.resolve_narrative_citations(
+        final, citations, grounded, unverified = svc.resolve_narrative_citations(
             "Margins expanded [F99], notably.", self.INDEX
         )
         assert final == "Margins expanded, notably."
         assert citations == []
         assert grounded == 0
+        assert unverified == 1
 
     def test_marker_whitespace_and_case_tolerated(self):
-        final, citations, _ = svc.resolve_narrative_citations("Revenue [f 1] grew.", self.INDEX)
+        final, citations, _, _ = svc.resolve_narrative_citations("Revenue [f 1] grew.", self.INDEX)
         assert final == "Revenue [1] grew."
         assert citations[0]["concept"] == "revenue"
+
+    # -- multi-reference groups (the [F58, F59, F60] leak class) --------------------------------
+
+    def test_comma_list_resolves_as_chain(self):
+        final, citations, grounded, unverified = svc.resolve_narrative_citations(
+            "Margins compressed [F1, F2, F3] this year.", self.INDEX
+        )
+        assert final == "Margins compressed [1][2][3] this year."
+        assert grounded == 3
+        assert unverified == 0
+
+    def test_range_resolves_written_endpoints(self):
+        final, citations, grounded, _ = svc.resolve_narrative_citations(
+            "Revenue compounded [F1..F3].", self.INDEX
+        )
+        assert final == "Revenue compounded [1][2]."
+        assert [c["concept"] for c in citations] == ["revenue", "operating_income"]
+        assert grounded == 2
+
+    def test_vs_comparison_resolves_both(self):
+        final, _, grounded, _ = svc.resolve_narrative_citations(
+            "Buffer shrank [F2 vs F1].", self.INDEX
+        )
+        assert final == "Buffer shrank [1][2]."
+        assert grounded == 2
+
+    def test_group_drops_unknown_members_and_counts_them(self):
+        final, citations, grounded, unverified = svc.resolve_narrative_citations(
+            "Capex consumed cash [F1, F99].", self.INDEX
+        )
+        assert final == "Capex consumed cash [1]."
+        assert grounded == 1
+        assert unverified == 1
+
+    def test_all_unknown_group_stripped(self):
+        final, citations, grounded, unverified = svc.resolve_narrative_citations(
+            "Trend held [F98, F99], broadly.", self.INDEX
+        )
+        assert final == "Trend held, broadly."
+        assert grounded == 0
+        assert unverified == 2
+
+    def test_prose_brackets_left_untouched(self):
+        text = "As noted [see F1 details], growth held."
+        final, citations, grounded, unverified = svc.resolve_narrative_citations(text, self.INDEX)
+        assert final == text
+        assert citations == [] and grounded == 0 and unverified == 0
+
+    def test_cagr_marker_resolves_with_computed_ref(self):
+        final, citations, grounded, _ = svc.resolve_narrative_citations(
+            "Revenue compounded at 13.4% [F10].", self.INDEX
+        )
+        assert final == "Revenue compounded at 13.4% [1]."
+        assert grounded == 1
+        assert citations[0]["excerpt"] == "Revenue CAGR = +13.4% (FY2016..FY2025)"
+        assert citations[0]["section_ref"] == "Computed · CAGR"
+        assert citations[0]["verified"] is True
+        assert citations[0]["derived"] is False
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -126,9 +190,11 @@ class TestStreamTrendNarrative:
         complete = events[-1]
         assert complete["kind"] == "analysis"
         assert complete["cached"] is False
+        assert complete["invalidated"] is False  # first generation — no cached row existed
         assert complete["n_periods"] == 3
         assert "[1]" in complete["narrative"] and "F99" not in complete["narrative"]
         assert complete["grounded"] == 1
+        assert complete["unverified"] == 1  # the stripped [F99]
         assert complete["citations"][0]["verified"] is True
         assert complete["usage"]["prompt_tokens"] == 100
 
@@ -138,6 +204,7 @@ class TestStreamTrendNarrative:
         assert row.period_key == "FY2021..FY2023"
         assert row.prompt_version == svc.PROMPT_VERSION
         assert row.narrative_md == complete["narrative"]
+        assert row.unverified == 1
         db.close()
 
     @pytest.mark.asyncio
@@ -160,6 +227,8 @@ class TestStreamTrendNarrative:
         events = await _drain(company_id, monkeypatch, ["Second [F1]."], force=True, calls=calls)
         assert len(calls) == 1
         assert events[-1]["cached"] is False
+        # User-initiated refresh over a still-valid cache is NOT system-invalidated (it meters).
+        assert events[-1]["invalidated"] is False
         assert "Second" in events[-1]["narrative"]
 
     @pytest.mark.asyncio
@@ -190,6 +259,8 @@ class TestStreamTrendNarrative:
         events = await _drain(company_id, monkeypatch, ["Restated [F1]."], calls=calls)
         assert len(calls) == 1
         assert events[-1]["cached"] is False
+        # A stale cached row triggered this regeneration — flagged so the route skips the meter.
+        assert events[-1]["invalidated"] is True
 
     @pytest.mark.asyncio
     async def test_stream_error_yields_error_and_no_persist(self, monkeypatch):
@@ -284,6 +355,17 @@ class TestStreamRouteMetering:
 
     def test_cached_complete_never_meters(self, monkeypatch):
         events = [{"type": "complete", "kind": "analysis", "cached": True, "usage": {}}]
+        client, metered = self._client(monkeypatch, events)
+        assert client.post("/api/analysis/TST/stream", json=self.BODY).status_code == 200
+        assert metered == []
+
+    def test_system_invalidated_regeneration_never_meters(self, monkeypatch):
+        # Prompt bump / new facts under an existing cached row: fresh model call, but the
+        # regeneration is system-triggered — the user's fair-use quota must not burn for it.
+        events = [{
+            "type": "complete", "kind": "analysis", "cached": False, "invalidated": True,
+            "usage": {},
+        }]
         client, metered = self._client(monkeypatch, events)
         assert client.post("/api/analysis/TST/stream", json=self.BODY).status_code == 200
         assert metered == []

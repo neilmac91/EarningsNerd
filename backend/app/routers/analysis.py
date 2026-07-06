@@ -271,9 +271,18 @@ async def stream_analysis(
                 and event.get("type") == "complete"
                 and event.get("kind") == "analysis"
                 and not event.get("cached")
+                # System-invalidated regenerations (prompt bump / new facts changed the
+                # fingerprint under an existing cached row) don't burn the user's fair-use
+                # quota; a user-initiated `force` refresh is never flagged and stays metered.
+                and not event.get("invalidated")
             ):
                 await run_in_threadpool(_meter_analysis_best_effort, user_id)
                 metered = True
+            if (
+                event.get("type") == "complete"
+                and event.get("kind") == "analysis"
+                and not event.get("cached")
+            ):
                 _emit_analysis_cost_best_effort(user_id, ticker_value, body.mode, event)
             yield to_sse(event)
 

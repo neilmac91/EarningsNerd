@@ -21,7 +21,7 @@ function CitationList({ citations }: { citations: AnalysisCitation[] }) {
   return (
     <div className="mt-4 border-t border-border-light pt-3 dark:border-white/10">
       <div className="mb-2 text-xs font-medium uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
-        Sources — every figure verified against SEC XBRL
+        Sources — cited figures verified against SEC XBRL
       </div>
       <ul className="space-y-1">
         {citations.map((citation) => (
@@ -83,7 +83,14 @@ export default function NarrativePane({
             </span>
           )}
           {state.status === 'done' && completion && !notEnoughData && (
-            <Badge variant="solid" title="Every cited figure resolves to an exact SEC XBRL value.">
+            <Badge
+              variant="solid"
+              title={
+                completion.unverified
+                  ? `Every cited figure resolves to an exact SEC XBRL value. ${completion.unverified} reference${completion.unverified === 1 ? '' : 's'} the model emitted could not be verified against the dataset and ${completion.unverified === 1 ? 'was' : 'were'} removed.`
+                  : 'Every cited figure resolves to an exact SEC XBRL value.'
+              }
+            >
               {completion.grounded} verified citations
             </Badge>
           )}
@@ -128,6 +135,13 @@ export default function NarrativePane({
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{state.text}</ReactMarkdown>
           </div>
           {state.status === 'done' && completion && <CitationList citations={completion.citations} />}
+          {state.status === 'done' && completion && (
+            <p className="mt-3 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+              AI-generated. Informational only — not investment advice. Cited figures resolve to
+              SEC XBRL values; uncited statements are the model&apos;s interpretation and can be
+              wrong.
+            </p>
+          )}
         </>
       )}
     </Card>

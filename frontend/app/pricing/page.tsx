@@ -389,7 +389,10 @@ function PricingContent() {
                 Do you offer refunds?
               </h3>
               <p className="text-text-secondary-light dark:text-text-secondary-dark">
-                We offer a 30-day money-back guarantee for Pro subscriptions. Contact us if you&apos;re not satisfied.
+                You can cancel anytime and keep Pro until the end of the period you&apos;ve paid for —
+                no further charges. Except where required by law, fees already paid are
+                non-refundable (see our Terms). If something isn&apos;t working right, contact us and
+                we&apos;ll make it right.
               </p>
             </div>
           </div>
