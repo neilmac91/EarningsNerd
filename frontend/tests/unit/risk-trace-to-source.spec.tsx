@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { SummaryRisks } from '@/features/filings/components/SummaryRisks'
+import { SummaryRisks } from '@/features/summaries/components/SummaryRisks'
 import { normalizeRisk } from '@/lib/formatters'
 import type { RiskFactor } from '@/types/summary'
 

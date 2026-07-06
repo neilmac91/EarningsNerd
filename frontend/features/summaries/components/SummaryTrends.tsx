@@ -1,7 +1,7 @@
 import React from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { SummaryBlock } from '@/features/filings/components/SummaryBlock'
+import { SummaryBlock } from '@/features/summaries/components/SummaryBlock'
 import { SectionEmpty } from './SectionEmpty'
 import { renderMarkdownValue } from '@/lib/formatters'
 
