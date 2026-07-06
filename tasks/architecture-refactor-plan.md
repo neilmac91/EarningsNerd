@@ -448,6 +448,47 @@ per-commit.
   as `.spec.*` — ONE home + ONE suffix; vitest/eslint globs simplified accordingly.
 Gate: tsc/eslint(0, incl. query-key rule)/vitest(265)/build green.
 
+**Wave 2 · F3.1 — consolidate the AI-summary render tree into `features/summaries` (PR #561, frontend-only).**
+Resolves the render-tree split flagged in the F3 entry above. `git mv`'d `SummarySections` + the 7 section
+renderers + `SummaryBlock` + `FinancialMetricsTable` + `PerAdsNote` + `SectionEmpty` from `features/filings`
+→ `features/summaries` (12 files); `SourceTrace`/`MetricSourceLink` stayed in filings. Pure moves — every
+import is absolute `@/`, so moved files are byte-identical and only importers' paths were rewritten.
+- **Vacuous-proof catch (now an M1 lesson):** the first pure-move proof `git diff origin/main..HEAD` compared
+  identical commits while the moves were still UNCOMMITTED — a proof that couldn't fail. Fixed by committing
+  first, then re-running (21 files, 25/25 symmetric import-only edits). Mechanical proofs must run against
+  COMMITTED state, or they prove nothing.
+Gate: tsc/eslint(0)/vitest/build green. Merged #561.
+
+**Wave 2 · S5 — mechanical backend sweeps (PR #563).** Six behavior-preserving sweeps, each its own
+grep-gated commit; full local gate (ruff + bandit + pytest → 1240 passed) on every backend commit,
+eslint+tsc+vitest+build on the one frontend commit. (1) ONE aware `utcnow()` helper (`app/utils/datetimes.py`)
+for ~30 ephemeral/`timezone=True`-column sites + unify sgs's local `_utcnow`; flip `hot_filings._to_naive_utc`
+→ `_to_aware_utc` (the module now works in aware UTC). (2) config bypasses → Settings (`users.py`
+Stripe/PostHog, `metrics` ENVIRONMENT, `contact`/`feedback` IP_HASH_SALT — new optional field, same
+SECRET_KEY fallback). (3) ONE "summary-not-ready" placeholder detector (`summary_placeholders.py`). (4) ONE
+`FilingContentCache` write helper (`content_cache.py`). (5) ONE `coerce_float` util (`app/utils/numbers.py`,
+4 copies incl. `_to_float`). (6) last stray `green-*` class → `bg-brand/70`.
+- **Grep-gate amended to a 6-site allow-list (NOT "rg → 0"):** three columns are naive `DateTime` by design
+  (`OAuthState.expires_at`, `RefreshToken.expires_at`/`revoked_at`) and are compared against a naive
+  `datetime.utcnow()` in `auth.py` (×2) + `refresh_token_service.py` (×4) to avoid the
+  offset-naive/offset-aware TypeError (Postgres aware vs SQLite naive). Migrating them reproduced that exact
+  crash, so they're left exactly as written (`refresh_token_service` is also on the do-not-touch list).
+  Encoded as a structural AST test (`test_naive_utcnow_allowlist`) matching (file, enclosing function) — the
+  machine-checked replacement for the plan's original "rg → 0" expectation.
+- **Plan-estimate corrections (folded in):** the "3 placeholder patterns" were really 2 genuine duplicates +
+  4 context-specific detectors (exact-match set / frontend-mirror export filter / risk substrings / coverage
+  failure-detector w/ length guard) that would change behavior if merged — consolidated only the byte-identical
+  pair. The "~6 tzinfo patches to delete" was an over-estimate: the only production naive-STRIP was
+  `_to_naive_utc` (flipped); the lone remaining `.replace(tzinfo=None)` is a deliberate naive-input test.
+- **Review #563 (Gemini + founder) — fixed a malformed-timestamp regression the sweep introduced:** aware
+  `utcnow().isoformat()` emits `+00:00`, so the pre-existing `.isoformat() + "Z"` sites became `+00:00Z`
+  (a ValueError in parsers that strip a trailing Z — it broke the trending cache round-trip). Added `iso_z()`
+  (offset→Z, microseconds preserved = byte-identical legacy wire format) across all 7 sites, plus a
+  SECOND-ORDER break the inline comments missed (`hot_filings` service emitted `+00:00`; its router appends Z
+  → `+00:00Z`). New `test_datetimes.py` pins the contract — the 1233-suite had zero coverage of these wire
+  formats, which is the gap that let the regression through the local gate.
+Gate: ruff + bandit + pytest (1240 passed, 2 deselected). Draft PR #563.
+
 _(Deltas from later waves will be appended here as they are executed.)_
 
 ---
