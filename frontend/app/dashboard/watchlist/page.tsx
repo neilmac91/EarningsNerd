@@ -70,7 +70,7 @@ export default function WatchlistDashboardPage() {
   const { isReady, hasUser } = useAuthGate()
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['watchlist-insights'],
+    queryKey: queryKeys.watchlistInsights(),
     queryFn: getWatchlistInsights,
     retry: false,
     enabled: hasUser,

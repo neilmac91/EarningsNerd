@@ -1,5 +1,6 @@
 'use client'
 
+import { queryKeys } from '@/lib/queryKeys'
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query'
@@ -29,7 +30,7 @@ export default function NotificationBell() {
   const queryClient = useQueryClient()
 
   const { data } = useQuery({
-    queryKey: ['notifications'],
+    queryKey: queryKeys.notifications(),
     queryFn: getNotifications,
     retry: false,
     staleTime: 30_000,
@@ -39,7 +40,7 @@ export default function NotificationBell() {
   const seen = useMutation({
     mutationFn: markNotificationsSeen,
     onSuccess: (fresh: NotificationList) => {
-      queryClient.setQueryData(['notifications'], fresh)
+      queryClient.setQueryData(queryKeys.notifications(), fresh)
     },
   })
 

@@ -1,5 +1,6 @@
 'use client'
 
+import { queryKeys } from '@/lib/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import { NewspaperIcon } from '@/lib/icons'
 import { getDashboardFeed } from '@/features/dashboard/api/dashboard-api'
@@ -8,7 +9,7 @@ import WhatChangedCard from './WhatChangedCard'
 
 export default function FilingFeed({ enabled = true }: { enabled?: boolean }) {
   const { data, isLoading, isError, refetch, isFetching } = useQuery({
-    queryKey: ['dashboard-feed'],
+    queryKey: queryKeys.dashboardFeed(),
     queryFn: () => getDashboardFeed(20),
     retry: false,
     enabled,

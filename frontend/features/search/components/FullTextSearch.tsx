@@ -1,5 +1,6 @@
 'use client'
 
+import { queryKeys } from '@/lib/queryKeys'
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, keepPreviousData } from '@tanstack/react-query'
 import { ArrowSquareOutIcon, CircleNotchIcon, MagnifyingGlassIcon, WarningIcon } from '@/lib/icons'
@@ -86,7 +87,7 @@ export default function FullTextSearch() {
   const validRange = !startDate || !endDate || startDate <= endDate
 
   const { data, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ['full-text-search', query, formsParam, startDate, endDate],
+    queryKey: queryKeys.fullTextSearch(query, formsParam, startDate, endDate),
     queryFn: () =>
       searchFullText({
         q: query,

@@ -32,7 +32,7 @@ export const FREE_ALERT_LIMIT = 3
 
 export function useCalendarRange(from: string, to: string) {
   return useQuery<CalendarEvent[]>({
-    queryKey: ['calendar', from, to],
+    queryKey: queryKeys.calendar(from, to),
     queryFn: () => getCalendar(from, to),
     staleTime: 5 * 60 * 1000,
     retry: 1,
@@ -50,7 +50,7 @@ export function useViewer(): CalendarViewer {
   const signedIn = typeof window !== 'undefined' && hasActiveSession()
   const usage = useQuery({ queryKey: queryKeys.usage(), queryFn: getUsage, enabled: signedIn, staleTime: 60_000 })
   const alerts = useQuery({
-    queryKey: ['earnings-alert-tickers'],
+    queryKey: queryKeys.earningsAlertTickers(),
     queryFn: getEarningsAlertTickers,
     enabled: signedIn,
     staleTime: 60_000,
@@ -124,7 +124,7 @@ export function useEarningsAlerts(viewer: CalendarViewer): EarningsAlertsApi {
         delete next[vars.ticker]
         return next
       })
-      queryClient.invalidateQueries({ queryKey: ['earnings-alert-tickers'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.earningsAlertTickers() })
     },
     onError: (err, vars, _ctx) => {
       // Roll the optimistic flip back before surfacing anything.

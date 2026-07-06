@@ -1,5 +1,6 @@
 'use client'
 
+import { queryKeys } from '@/lib/queryKeys'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CheckCircleIcon, CircleNotchIcon, KeyIcon } from '@/lib/icons'
@@ -17,7 +18,7 @@ export default function ChangePasswordForm() {
   // Shares the cache with ConnectedAccounts (same key) — one fetch, and invalidating it after a
   // successful set flips that component's "Password: Not set" → "Set".
   const { data: connections, isLoading: connectionsLoading } = useQuery({
-    queryKey: ['auth-connections'],
+    queryKey: queryKeys.authConnections(),
     queryFn: getConnections,
     retry: false,
   })
@@ -35,7 +36,7 @@ export default function ChangePasswordForm() {
       setNext('')
       setConfirm('')
       setClientError('')
-      queryClient.invalidateQueries({ queryKey: ['auth-connections'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.authConnections() })
     },
   })
 

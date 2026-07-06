@@ -1,5 +1,6 @@
 'use client'
 
+import { queryKeys } from '@/lib/queryKeys'
 import { useState } from 'react'
 import { format } from 'date-fns'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
@@ -37,7 +38,7 @@ export default function FeedbackRow({ feedback }: FeedbackRowProps) {
     mutationFn: (status: FeedbackStatus) => updateFeedbackStatus(feedback.id, status),
     onSuccess: (updated) => {
       toast.success(`Marked as ${updated.status}`)
-      queryClient.invalidateQueries({ queryKey: ['admin-feedback'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.adminFeedback.all() })
     },
     onError: (err: unknown) => {
       toast.error(isApiError(err) ? getErrorMessage(err) : 'Could not update that feedback.')

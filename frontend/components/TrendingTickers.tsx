@@ -1,5 +1,6 @@
 'use client'
 
+import { queryKeys } from '@/lib/queryKeys'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -147,7 +148,7 @@ export default function TrendingTickers({
 
   // Main query for full trending data (10 min interval)
   const { data, isLoading, isError, error, refetch, isFetching } = useQuery({
-    queryKey: ['trending-tickers'],
+    queryKey: queryKeys.trendingTickers(),
     queryFn: getTrendingTickers,
     initialData,
     staleTime: FULL_REFRESH_INTERVAL,

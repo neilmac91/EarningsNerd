@@ -1,5 +1,6 @@
 'use client'
 
+import { queryKeys } from '@/lib/queryKeys'
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { CircleNotchIcon, MagnifyingGlassIcon } from '@/lib/icons'
 import { useQuery } from '@tanstack/react-query'
@@ -62,7 +63,7 @@ export default function CompanySearch({ autoFocusDesktop = false }: { autoFocusD
   }, [query])
 
   const { data: companies, isLoading, error, isError, refetch } = useQuery({
-    queryKey: ['companies', debouncedQuery],
+    queryKey: queryKeys.companies(debouncedQuery),
     queryFn: () => searchCompanies(debouncedQuery),
     enabled: debouncedQuery.length > 0,
     // Retry logic: retry more for transient errors (503, 429, 5xx)

@@ -1,5 +1,6 @@
 'use client'
 
+import { queryKeys } from '@/lib/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import { formatDistanceToNowStrict } from 'date-fns'
 import { ArrowUpRightIcon, CalendarBlankIcon, PulseIcon } from '@/lib/icons'
@@ -69,7 +70,7 @@ export default function HotFilings({
   initialData?: HotFilingsResponse
 }) {
   const { data, error, isLoading, refetch, isRefetching } = useQuery({
-    queryKey: ['hot-filings', limit],
+    queryKey: queryKeys.hotFilings(limit),
     queryFn: () => fetchHotFilings(limit),
     initialData,
     staleTime: 10 * 60 * 1000,

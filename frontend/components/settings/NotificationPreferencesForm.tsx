@@ -1,5 +1,6 @@
 'use client'
 
+import { queryKeys } from '@/lib/queryKeys'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { clsx } from 'clsx'
 import Link from 'next/link'
@@ -73,7 +74,7 @@ export default function NotificationPreferencesForm() {
   const queryClient = useQueryClient()
 
   const { data: prefs, isLoading, isError } = useQuery({
-    queryKey: ['notification-preferences'],
+    queryKey: queryKeys.notificationPreferences(),
     queryFn: getNotificationPreferences,
     retry: false,
   })
@@ -82,7 +83,7 @@ export default function NotificationPreferencesForm() {
     mutationFn: updateNotificationPreferences,
     onSuccess: (updated) => {
       // The server returns the coerced/effective prefs — trust them as the source of truth.
-      queryClient.setQueryData(['notification-preferences'], updated)
+      queryClient.setQueryData(queryKeys.notificationPreferences(), updated)
     },
   })
 

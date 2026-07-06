@@ -1,5 +1,6 @@
 'use client'
 
+import { queryKeys } from '@/lib/queryKeys'
 import { useEffect, useRef, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { CheckIcon, CircleNotchIcon, MagnifyingGlassIcon, PlusIcon } from '@/lib/icons'
@@ -38,7 +39,7 @@ export default function WatchlistAddSearch() {
   }, [])
 
   const { data: companies, isLoading } = useQuery({
-    queryKey: ['companies', debounced],
+    queryKey: queryKeys.companies(debounced),
     queryFn: () => searchCompanies(debounced),
     enabled: debounced.length > 0,
     staleTime: 5 * 60 * 1000,
@@ -47,8 +48,8 @@ export default function WatchlistAddSearch() {
   const addMutation = useMutation({
     mutationFn: addToWatchlist,
     onSuccess: (_data, ticker) => {
-      queryClient.invalidateQueries({ queryKey: ['watchlist-insights'] })
-      queryClient.invalidateQueries({ queryKey: ['watchlist'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.watchlistInsights() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.watchlist() })
       analytics.watchlistAdded(ticker)
       setJustAdded(ticker)
       setQuery('')

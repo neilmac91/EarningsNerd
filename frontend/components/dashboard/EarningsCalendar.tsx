@@ -1,5 +1,6 @@
 'use client'
 
+import { queryKeys } from '@/lib/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import { CalendarDotsIcon } from '@/lib/icons'
 import { getUpcomingCalendar } from '@/features/dashboard/api/dashboard-api'
@@ -10,7 +11,7 @@ const TIME_LABEL: Record<string, string> = { bmo: 'Before open', amc: 'After clo
 
 export default function EarningsCalendar({ enabled = true }: { enabled?: boolean }) {
   const { data, isLoading } = useQuery({
-    queryKey: ['dashboard-calendar'],
+    queryKey: queryKeys.dashboardCalendar(),
     queryFn: () => getUpcomingCalendar(14),
     retry: false,
     enabled,
