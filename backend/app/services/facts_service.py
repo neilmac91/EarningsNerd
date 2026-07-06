@@ -936,9 +936,12 @@ def get_filing_fundamentals(db: Session, filing_id: int) -> Optional[dict[str, A
 
 # Duration windows shared with the per-filing extractor (instance_extractor.DURATION_WINDOWS):
 # 52/53-week fiscal years run 364-371 days, fiscal quarters 84-98 (incl. 14-week quarters).
-# Anything else (26-week half, 39-week YTD) is the wrong slice and is never stored.
+# A 39-week YTD slice (~273 days; up to 40 weeks with one 14-week quarter) is classified "YTD9"
+# for the Q4 derivation ONLY (Q4 = FY − YTD9, two vintages instead of four) — never stored as a
+# fact row. Anything else (26-week half) is the wrong slice and is dropped.
 _CF_ANNUAL_WINDOW = (320, 390)
 _CF_QUARTER_WINDOW = (75, 105)
+_CF_YTD9_WINDOW = (250, 295)
 
 _QUARTER_PERIODS = ("Q1", "Q2", "Q3", "Q4")
 
@@ -1007,12 +1010,15 @@ _FI_SKIPPED_CONCEPTS: frozenset[str] = frozenset({"revenue"})
 
 
 def _classify_duration(start: date, end: date) -> Optional[str]:
-    """"FY" for an annual slice, "Q" for a discrete quarter, None for anything else (YTD)."""
+    """"FY" annual slice, "Q" discrete quarter, "YTD9" nine-month YTD (kept ONLY as a Q4
+    derivation input — never emitted as a fact row), None for anything else (26-week half)."""
     days = (end - start).days
     if _CF_ANNUAL_WINDOW[0] <= days <= _CF_ANNUAL_WINDOW[1]:
         return "FY"
     if _CF_QUARTER_WINDOW[0] <= days <= _CF_QUARTER_WINDOW[1]:
         return "Q"
+    if _CF_YTD9_WINDOW[0] <= days <= _CF_YTD9_WINDOW[1]:
+        return "YTD9"
     return None
 
 
@@ -1163,8 +1169,10 @@ def normalize_companyfacts(
 
     Returns ``(facts, meta)`` where meta carries ``unsupported_ifrs`` (an ifrs-full-only filer —
     out of v1 scope) . Emits FY rows, positionally-labelled Q1..Q4 rows, derived Q4 rows
-    (``derive_q4_facts``) and same-period derived metrics (``derive_same_period_metrics``); YTD
-    slices are never stored. Direct rows are ``source="companyfacts", reconciled=True`` — this is
+    (``derive_q4_facts`` — YTD9-preferred, ΣQ fallback), derived Q4 EPS
+    (``derive_q4_eps_facts`` — shares-based) and same-period derived metrics
+    (``derive_same_period_metrics``); YTD slices and weighted share counts feed the derivations
+    but are never stored. Direct rows are ``source="companyfacts", reconciled=True`` — this is
     SEC's own structured data, the same authority `cross_check_facts` treats as ground truth — with
     only the NON_NEGATIVE hard-reject applied (a negative revenue/assets is corrupt regardless of
     source). ``financial_sic`` skips the generic revenue concept (fee-income subset for banks — the
@@ -1220,7 +1228,7 @@ def normalize_companyfacts(
                 facts.append(
                     {**_base_fact(concept, record), "fiscal_year": end.year, "fiscal_period": "FY"}
                 )
-            else:
+            elif klass == "Q":
                 label = quarter_labels.get(end)
                 if label is None:
                     continue  # unlabelable quarter — dropped rather than guessed
@@ -1232,6 +1240,9 @@ def normalize_companyfacts(
                         "fiscal_period": fiscal_period,
                     }
                 )
+            # klass == "YTD9": a Q4-derivation input only (see derive_q4_facts) — a YTD9 slice
+            # ends at the SAME date as Q3, so letting it fall through to the quarter-label path
+            # would emit the nine-month value as a Q3 row. Never stored.
 
     for concept, values in instant_values.items():
         for (end, _klass), record in values.items():
@@ -1255,7 +1266,28 @@ def normalize_companyfacts(
                 {**_base_fact(concept, record), "fiscal_year": fiscal_year, "fiscal_period": fiscal_period}
             )
 
-    facts.extend(derive_q4_facts(facts))
+    facts.extend(derive_q4_facts(facts, duration_values))
+
+    # Weighted shares (transient — never stored) labelled with the same quarter/FY scheme as the
+    # facts, backing the shares-based Q4 EPS derivation. Runs after derive_q4_facts so the Q4 net
+    # income it divides is available.
+    shares_by_eps_concept: dict[str, dict[tuple[int, str], float]] = {}
+    for eps_concept, share_tags in _EPS_SHARES_TAGS.items():
+        share_values = _collect_companyfacts_values(usgaap, share_tags, "shares", instant=False)
+        labelled: dict[tuple[int, str], float] = {}
+        for (end, klass), record in share_values.items():
+            if klass == "FY":
+                labelled[(end.year, "FY")] = record["value"]
+            elif klass == "Q":
+                label = quarter_labels.get(end)
+                if label is not None:
+                    fiscal_period, fiscal_year = label
+                    labelled[(fiscal_year, fiscal_period)] = record["value"]
+        if labelled:
+            shares_by_eps_concept[eps_concept] = labelled
+    if shares_by_eps_concept:
+        facts.extend(derive_q4_eps_facts(facts, shares_by_eps_concept))
+
     facts.extend(derive_same_period_metrics(facts))
 
     # NON_NEGATIVE hard-reject (the only gate — see docstring) + in-batch identity dedup.
@@ -1279,14 +1311,45 @@ def normalize_companyfacts(
     return kept, meta
 
 
-def derive_q4_facts(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Q4 = FY − (Q1+Q2+Q3) for flow (duration, monetary) concepts where no discrete Q4 exists.
+def _matching_ytd9(
+    fy_fact: dict[str, Any],
+    concept_values: Optional[dict[tuple[date, str], dict[str, Any]]],
+) -> Optional[dict[str, Any]]:
+    """The nine-month YTD slice belonging to a FY fact's fiscal year, or None.
 
-    Companies report Q4 only inside the 10-K's full-year figure, so quarterly mode would otherwise
-    always miss the fourth bar. Derived rows mix vintages (FY accession vs three 10-Qs) and are
-    marked ``source="derived", reconciled=False`` so the UI badges them. NEVER derived for
-    per-share or ratio units — weighted-average shares move between quarters, so EPS subtraction
-    is simply wrong (Q4 EPS renders "—" instead).
+    Match rule: the YTD9 starts where the fiscal year starts (±3 days — tags occasionally
+    disagree by a day) AND the residual window (FY end − YTD9 end) is quarter-length, so the
+    subtraction FY − YTD9 is guaranteed to describe exactly one discrete Q4.
+    """
+    if not concept_values:
+        return None
+    fy_start, fy_end = fy_fact["period_start"], fy_fact["period_end"]
+    if fy_start is None:
+        return None
+    for (end, klass), record in concept_values.items():
+        if klass != "YTD9" or record["period_start"] is None:
+            continue
+        starts_together = abs((record["period_start"] - fy_start).days) <= 3
+        residual_days = (fy_end - end).days
+        if starts_together and _CF_QUARTER_WINDOW[0] <= residual_days <= _CF_QUARTER_WINDOW[1]:
+            return record
+    return None
+
+
+def derive_q4_facts(
+    facts: list[dict[str, Any]],
+    duration_values: Optional[dict[str, dict[tuple[date, str], dict[str, Any]]]] = None,
+) -> list[dict[str, Any]]:
+    """Q4 for flow (duration, monetary) concepts where no discrete Q4 exists.
+
+    Companies report Q4 only inside the 10-K's full-year figure, so quarterly mode would
+    otherwise always miss the fourth bar. Preferred derivation: **Q4 = FY − YTD9** (the
+    nine-month slice from the Q3 10-Q — two vintages instead of four, and it survives a missing
+    Q1/Q2 10-Q at the edge of companyfacts history). Fallback: FY − (Q1+Q2+Q3), all three
+    required. Derived rows mix vintages and are marked ``source="derived", reconciled=False`` so
+    the UI badges them. Per-share/ratio units are never derived HERE — plain subtraction is
+    wrong for a ratio — quarterly EPS gets its own shares-based derivation
+    (``derive_q4_eps_facts``).
     """
     groups: dict[tuple[str, Any], dict[str, dict[str, Any]]] = {}
     for fact in facts:
@@ -1295,24 +1358,128 @@ def derive_q4_facts(facts: list[dict[str, Any]]) -> list[dict[str, Any]]:
         groups.setdefault((fact["concept"], fact.get("fiscal_year")), {})[fact["fiscal_period"]] = fact
 
     derived: list[dict[str, Any]] = []
-    for (_concept, _fy), by_period in groups.items():
+    for (concept, _fy), by_period in groups.items():
         fy_fact = by_period.get("FY")
         if fy_fact is None or "Q4" in by_period:
             continue
         quarters = [by_period.get(q) for q in ("Q1", "Q2", "Q3")]
-        if any(q is None for q in quarters):
-            continue
-        q3 = quarters[2]
+        ytd9 = _matching_ytd9(fy_fact, (duration_values or {}).get(concept))
+        if ytd9 is not None:
+            value = fy_fact["value"] - ytd9["value"]
+            period_start = ytd9["period_end"] + timedelta(days=1)
+            if all(q is not None for q in quarters):
+                # Observability for the dual-path window: the two derivations should agree
+                # (ΣQ1–3 ≈ YTD9); a real gap means a restatement landed in one path only.
+                sum_q = sum(q["value"] for q in quarters)
+                if abs(sum_q - ytd9["value"]) > max(abs(fy_fact["value"]) * 0.01, 1.0):
+                    logger.warning(
+                        "companyfacts_q4_derivation_mismatch concept=%s fy=%s ytd9=%s sum_q=%s",
+                        concept, fy_fact.get("fiscal_year"), ytd9["value"], sum_q,
+                    )
+        else:
+            if any(q is None for q in quarters):
+                continue
+            value = fy_fact["value"] - sum(q["value"] for q in quarters)
+            period_start = quarters[2]["period_end"] + timedelta(days=1)
         derived.append(
             {
                 **fy_fact,
-                "value": fy_fact["value"] - sum(q["value"] for q in quarters),
-                "period_start": q3["period_end"] + timedelta(days=1),
+                "value": value,
+                "period_start": period_start,
                 "fiscal_period": "Q4",
                 "source": "derived",
                 "reconciled": False,
             }
         )
+    return derived
+
+
+# Weighted-average share-count tags backing each EPS concept — collected transiently for the Q4
+# EPS derivation only; share counts are never stored as fact rows.
+_EPS_SHARES_TAGS: dict[str, tuple[str, ...]] = {
+    "earnings_per_share": (
+        "WeightedAverageNumberOfSharesOutstandingBasic",
+        "WeightedAverageNumberOfSharesOutstanding",
+    ),
+    "eps_diluted": ("WeightedAverageNumberOfDilutedSharesOutstanding",),
+}
+
+# EPS ≈ NI ÷ weighted shares must hold for every REPORTED period before Q4 EPS is derived —
+# relative 5%, or one cent absolute (filed EPS is rounded to 2 decimals, so tiny EPS values
+# carry large relative rounding). A failure means the share counts and the (restated) EPS
+# history disagree — classically a mid-year split — and deriving would produce garbage.
+_EPS_VALIDATION_REL_TOL = 0.05
+_EPS_VALIDATION_ABS_TOL = 0.011
+
+
+def derive_q4_eps_facts(
+    facts: list[dict[str, Any]],
+    shares_by_eps_concept: dict[str, dict[tuple[int, str], float]],
+) -> list[dict[str, Any]]:
+    """Derived Q4 EPS = Q4 net income ÷ Q4 weighted shares (the EdgarTools quarterization idea).
+
+    Plain FY − ΣQ subtraction is wrong for EPS (weighted-average shares move between quarters),
+    so Q4 EPS re-derives from first principles: Q4 shares = 4×FY − (Q1+Q2+Q3) (a weighted
+    average over the year is the mean of the four quarterly averages), then Q4 NI ÷ Q4 shares.
+    Requires the fiscal year's FY EPS, a Q4 net income (usually itself derived), and all four
+    share counts; every reported period must pass the EPS ≈ NI ÷ shares consistency check
+    (``_EPS_VALIDATION_*``) or the year is skipped. Derived rows are ``source="derived",
+    reconciled=False`` — same badging as the flow derivation.
+    """
+    by_key: dict[tuple[str, Any, str], dict[str, Any]] = {
+        (f["concept"], f.get("fiscal_year"), f["fiscal_period"]): f for f in facts
+    }
+
+    def _consistent(eps_concept: str, fy: Any, fp: str, shares: Optional[float]) -> bool:
+        eps_fact = by_key.get((eps_concept, fy, fp))
+        ni_fact = by_key.get(("net_income", fy, fp))
+        if eps_fact is None or ni_fact is None or not shares:
+            return True  # nothing reported to validate against
+        expected = ni_fact["value"] / shares
+        return abs(eps_fact["value"] - expected) <= max(
+            abs(expected) * _EPS_VALIDATION_REL_TOL, _EPS_VALIDATION_ABS_TOL
+        )
+
+    derived: list[dict[str, Any]] = []
+    for eps_concept, shares in shares_by_eps_concept.items():
+        fiscal_years = {
+            f.get("fiscal_year")
+            for f in facts
+            if f["concept"] == eps_concept and f["fiscal_period"] == "FY"
+        }
+        for fy in fiscal_years:
+            if (eps_concept, fy, "Q4") in by_key:
+                continue  # a rare discrete Q4 EPS is real — never overwrite it
+            fy_eps = by_key.get((eps_concept, fy, "FY"))
+            q4_ni = by_key.get(("net_income", fy, "Q4"))
+            if fy_eps is None or q4_ni is None:
+                continue
+            fy_shares = shares.get((fy, "FY"))
+            quarter_shares = [shares.get((fy, q)) for q in ("Q1", "Q2", "Q3")]
+            if not fy_shares or any(not s for s in quarter_shares):
+                continue
+            q4_shares = 4.0 * fy_shares - sum(quarter_shares)  # type: ignore[arg-type]
+            if q4_shares <= 0:
+                continue
+            checks = [("FY", fy_shares), ("Q1", quarter_shares[0]),
+                      ("Q2", quarter_shares[1]), ("Q3", quarter_shares[2])]
+            if not all(_consistent(eps_concept, fy, fp, sh) for fp, sh in checks):
+                logger.warning(
+                    "companyfacts_q4_eps_skipped concept=%s fy=%s reason=eps_ni_shares_inconsistent",
+                    eps_concept, fy,
+                )
+                continue
+            derived.append(
+                {
+                    **fy_eps,
+                    "value": q4_ni["value"] / q4_shares,
+                    "period_start": q4_ni["period_start"],
+                    "period_end": q4_ni["period_end"],
+                    "fiscal_period": "Q4",
+                    "source": "derived",
+                    "reconciled": False,
+                }
+            )
     return derived
 
 
