@@ -277,17 +277,90 @@ class TestAnalysisPdfHtml:
         assert "Multi-Period Analysis" in html
         assert "<h2>The trajectory</h2>" in html
         assert "<h2>Red flags</h2>" in html
-        # Grid: metric row, period headers, missing value, derived dagger, percent formatting
+        # Grid: metric row, period headers, missing value, derived dagger, percent formatting.
+        # Money renders COMPACT (product display convention; full precision lives in the Excel
+        # export) — sub-million values keep their commas.
         assert "<th>FY2023</th>" in html
-        assert "Revenue" in html and "1,000" in html
+        assert "Revenue" in html and "$1,000" in html
         assert "—" in html
-        assert "1,500 †" in html
+        assert "$1,500 †" in html
         assert "24.3%" in html
         # Citations appendix
         assert "Revenue = 1,000 USD (FY2022)" in html
         # Untrusted text is escaped (the narrative's <b> must not survive as markup)
         assert "<b>" not in html
         assert "Test &amp; Co" in html
+
+
+class TestBrandedShell:
+    """The shared PDF shell (pdf_branding): both exports must carry EarningsNerd branding,
+    design-system tokens, page chrome, and — for the analysis — the landscape metrics page.
+    The owner's TSLA field test found unbranded PDFs with the metrics grid clipped in portrait."""
+
+    def _analysis_html(self):
+        analysis = TestAnalysisPdfHtml()
+        return ExportService().generate_analysis_pdf_html(
+            analysis._analysis(), analysis._company()
+        )
+
+    def _summary_html(self, service):
+        summary, filing = _make_summary_and_filing(_full_sections())
+        return service.generate_pdf_html(summary, filing)
+
+    def test_both_pdfs_carry_the_masthead_and_wordmark(self, service):
+        for html in (self._analysis_html(), self._summary_html(service)):
+            assert 'class="masthead"' in html
+            assert "Earnings<em>Nerd</em>" in html
+            # The inline sage mark (a path fragment from earningsnerd-mark-sage.svg).
+            assert "M2.8 28L26.2 28" in html
+            assert 'fill="#3C6650"' in html
+
+    def test_design_tokens_replace_the_legacy_palette(self, service):
+        for html in (self._analysis_html(), self._summary_html(service)):
+            # Banned legacy blue and off-token grays are gone.
+            assert "#3b82f6" not in html
+            assert "#1f2937" not in html
+            assert "#111827" not in html
+            assert "#f3f4f6" not in html
+            # Token palette present: brand, brand-weak (th fill), ink.
+            assert "#4F7A63" in html
+            assert "#ECF2EE" in html
+            assert "#1A1A17" in html
+
+    def test_page_chrome_fonts_and_counters(self, service):
+        for html in (self._analysis_html(), self._summary_html(service)):
+            assert "@font-face" in html
+            assert "Inter-Variable-latin.woff2" in html
+            assert "GeistMono-latin.woff2" in html
+            assert '"Page " counter(page) " of " counter(pages)' in html
+            assert "EarningsNerd · earningsnerd.io" in html
+
+    def test_metrics_section_gets_the_landscape_named_page(self):
+        html = self._analysis_html()
+        assert '<section class="metrics-landscape">' in html
+        assert "@page metrics-landscape" in html
+        assert "size: A4 landscape" in html
+        assert "break-before: page" in html
+
+    @pytest.mark.asyncio
+    async def test_rendered_pdf_has_portrait_first_page_and_landscape_metrics(self, service):
+        """End-to-end WeasyPrint render: the metrics section must actually land on a landscape
+        page (width > height) while page 1 stays portrait — the layout fix for clipped grids."""
+        weasyprint = pytest.importorskip("weasyprint")
+        html = self._analysis_html()
+        try:
+            document = weasyprint.HTML(string=html).render()
+        except Exception as exc:  # missing system libs in odd envs — not what we test here
+            pytest.skip(f"WeasyPrint runtime unavailable: {exc}")
+        pages = document.pages
+        assert len(pages) >= 2
+        assert pages[0].width < pages[0].height  # portrait
+        assert any(p.width > p.height for p in pages)  # the landscape metrics page
+
+        pdf_bytes = await service.export_analysis_pdf(
+            TestAnalysisPdfHtml()._analysis(), TestAnalysisPdfHtml()._company()
+        )
+        assert bytes(pdf_bytes[:4]) == b"%PDF"
 
 
 class TestNarrativeToHtml:
