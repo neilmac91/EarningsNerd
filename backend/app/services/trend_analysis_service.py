@@ -244,12 +244,22 @@ def build_dataset(
     # Indexes: flows by (fiscal_year, fiscal_period); instants ALSO by period_end (D2c).
     by_fy_fp: dict[tuple[int, str, str], FinancialFact] = {}
     instant_by_end: dict[tuple[str, date], FinancialFact] = {}
+    # A Q4 column is a computed-Q4 column iff EVERY row in it came from the Q4 derivation (the
+    # picker-chip rule). This is what the "— derived Q4" / † labels mean, and it is deliberately
+    # column-level: a rare filer that reports a DISCRETE Q4 has companyfacts rows in the group,
+    # so its real Q4 (and the metrics computed from it) must never be labelled an estimate —
+    # while metrics computed ON a derived-Q4 column genuinely rest on FY−Q1..Q3 estimates.
+    q4_fully_derived: dict[int, bool] = {}
     for row in rows:
         if row.fiscal_year is None:
             continue
         by_fy_fp[(row.fiscal_year, row.fiscal_period, row.concept)] = row
         if row.concept in INSTANT_CONCEPTS:
             instant_by_end[(row.concept, row.period_end)] = row
+        if row.fiscal_period == "Q4":
+            q4_fully_derived[row.fiscal_year] = (
+                q4_fully_derived.get(row.fiscal_year, True) and row.source == "derived"
+            )
 
     # Period axis (oldest → newest), range-filtered and capped.
     if mode == "annual":
@@ -336,9 +346,12 @@ def build_dataset(
                     # current ratio) "derived" for EVERY period, and the per-filing path writes
                     # the same computations as "edgar_xbrl" — so the raw source flag flickers by
                     # ingest history and would mislabel an FY2016 margin as a "derived Q4".
-                    # A Q4-labelled derived row (and only that) is the FY − Q1..Q3 estimate the
-                    # dagger/"derived Q4" language describes.
-                    "derived": row.source == "derived" and row.fiscal_period == "Q4",
+                    # Column-level rule (see q4_fully_derived above): a point is a computed-Q4
+                    # value iff it sits on a Q4 column whose every row came from the derivation.
+                    "derived": (
+                        row.fiscal_period == "Q4"
+                        and q4_fully_derived.get(row.fiscal_year, False)
+                    ),
                     "reconciled": bool(row.reconciled),
                     "fiscal_year": row.fiscal_year,
                     "fiscal_period": row.fiscal_period,
@@ -370,8 +383,12 @@ def build_dataset(
                     )
                     previous = point
 
-        # CAGR over the selected window (annual mode, monetary/per-share series only).
+        # CAGR over the series' VALUED endpoints (annual mode, monetary/per-share series only).
+        # The basis window is recorded because it can be narrower than the selected range (a
+        # concept first reported mid-window) — citations must state the window the figure was
+        # actually computed over, not the range the user picked.
         cagr = None
+        cagr_window = None
         if mode == "annual" and unit != "pure":
             valued = [
                 (bucket["fiscal_year"], point["value"])
@@ -381,6 +398,8 @@ def build_dataset(
             if len(valued) >= 2:
                 (first_fy, first), (last_fy, last) = valued[0], valued[-1]
                 cagr = _cagr(first, last, last_fy - first_fy)
+                if cagr is not None:
+                    cagr_window = f"FY{first_fy}..FY{last_fy}"
 
         series_list.append(
             {
@@ -389,6 +408,7 @@ def build_dataset(
                 "unit": unit,
                 "percent": concept in _PERCENT_CONCEPTS,
                 "cagr": cagr,
+                "cagr_window": cagr_window,
                 "points": points,
             }
         )
@@ -627,7 +647,8 @@ def compact_dataset_for_prompt(dataset: dict[str, Any]) -> str:
         header = f"## {series['label']} ({unit_note})"
         if series.get("cagr") is not None:
             cagr_marker = f"[{series['cagr_marker']}] " if series.get("cagr_marker") else ""
-            header += f" — {cagr_marker}CAGR {_pct_str(series['cagr'])}"
+            window = f" ({series['cagr_window']})" if series.get("cagr_window") else ""
+            header += f" — {cagr_marker}CAGR {_pct_str(series['cagr'])}{window}"
         lines.append(header)
         for point in series["points"]:
             if point["value"] is None:
@@ -679,7 +700,9 @@ def marker_index(dataset: dict[str, Any]) -> dict[str, dict[str, Any]]:
             index[series["cagr_marker"]] = {
                 "kind": "cagr",
                 "value": series["cagr"],
-                "period": dataset["period_key"],
+                # The window the CAGR was actually computed over (valued endpoints), which can
+                # be narrower than the selected range — never claim the wider one.
+                "period": series.get("cagr_window") or dataset["period_key"],
                 "concept": series["concept"],
                 "label": series["label"],
                 "unit": series["unit"],
@@ -700,14 +723,18 @@ NOT_ENOUGH_DATA_SENTINEL = "===NOT_ENOUGH_DATA==="
 _MARKER_GROUP_RE = re.compile(r"\[([^\[\]]*)\]")
 _MARKER_REF_RE = re.compile(r"F\s*(\d+)", re.IGNORECASE)
 # What may legally surround the F-references inside one bracket group: list/range/comparison
-# separators the model has been observed to emit ("F1, F2", "F1..F10", "F1-F2", "F1 vs F2",
-# "F1 and F2", "F1 to F10"). "vs." parses as "vs" + "." (the dot is in the char class — do NOT
-# add `vs\.?`, the overlap is what made the old form exponential). Anything else means prose.
-_MARKER_SEPARATOR_RE = re.compile(r"^(?:vs|and|to|[\s,;&/.·–—-])*$", re.IGNORECASE)
+# connector words and punctuation ("F1, F2", "F1..F10", "F1-F2", "F1 vs F2", "F1 and F2",
+# "F1 through F10", "F9 versus F10", "F1 or F2"). Validated in two LINEAR passes (strip the
+# refs, strip whole connector words, then a single character class) — never an alternation of
+# overlapping words inside a `*` group, which is how the first version went exponential.
+_MARKER_CONNECTOR_WORD_RE = re.compile(r"\b(?:versus|vs|through|and|to|or)\b", re.IGNORECASE)
+_MARKER_SEPARATOR_CHARS_RE = re.compile(r"^[\s,;&/.·–—-]*$")
 
 
 def _is_citation_group(content: str) -> bool:
-    return _MARKER_SEPARATOR_RE.match(_MARKER_REF_RE.sub("", content)) is not None
+    residue = _MARKER_REF_RE.sub("", content)
+    residue = _MARKER_CONNECTOR_WORD_RE.sub("", residue)
+    return _MARKER_SEPARATOR_CHARS_RE.match(residue) is not None
 
 
 def _point_citation(n: int, point: dict[str, Any]) -> dict[str, Any]:
@@ -801,6 +828,19 @@ def _load_cached_analysis(db: Session, company_id: int, mode: str, key: str):
         )
         .first()
     )
+
+
+def has_cached_analysis(
+    db: Session, company_id: int, mode: str, start_period: str, end_period: str
+) -> bool:
+    """Whether a cached row exists for the naive ``start..end`` key — the router's cheap
+    pre-flight probe: over-cap requests with a cached row can only resolve FREE (a cache
+    re-serve or a system-invalidated regeneration), so they may proceed past the 429 gate.
+
+    Conservative on purpose: ``build_dataset`` canonicalizes the period key from the actual data
+    buckets, which can differ from the raw request range (e.g. the requested start year has no
+    data) — a miss here just means the gate stays closed, never that quota leaks."""
+    return _load_cached_analysis(db, company_id, mode, f"{start_period}..{end_period}") is not None
 
 
 def _persist_analysis(

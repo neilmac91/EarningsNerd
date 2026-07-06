@@ -345,6 +345,35 @@ class TestBuildDataset:
         assert q4_excerpt.endswith("— derived Q4")
         db.close()
 
+    def test_discrete_q4_filer_metrics_not_flagged(self):
+        """A rare filer that REPORTS a discrete Q4 has companyfacts rows in the Q4 group, so the
+        column is not a computed-Q4 column — metrics computed on it must not carry the flag."""
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        company = _seed_company(db)
+        for fp, end, start in [
+            ("Q1", date(2023, 3, 31), date(2023, 1, 1)),
+            ("Q2", date(2023, 6, 30), date(2023, 4, 1)),
+            ("Q3", date(2023, 9, 30), date(2023, 7, 1)),
+        ]:
+            _seed_fact(db, company.id, "revenue", 100.0, fy=2023, fp=fp, end=end, start=start)
+        # Discrete (reported) Q4 revenue + a computed metric stamped "derived" on that quarter.
+        _seed_fact(db, company.id, "revenue", 130.0, fy=2023, fp="Q4",
+                   end=date(2023, 12, 31), start=date(2023, 10, 1), source="companyfacts")
+        _seed_fact(db, company.id, "net_margin", 12.5, fy=2023, fp="Q4",
+                   end=date(2023, 12, 31), start=date(2023, 10, 1), unit="pure",
+                   source="derived", reconciled=True)
+        db.commit()
+
+        dataset = svc.build_dataset(db, company, "quarterly", "2023Q1", "2023Q4")
+        by_concept = {series["concept"]: series for series in dataset["series"]}
+        revenue_q4 = next(p for p in by_concept["revenue"]["points"] if p["period"] == "2023Q4")
+        margin_q4 = next(p for p in by_concept["net_margin"]["points"] if p["period"] == "2023Q4")
+        assert revenue_q4["derived"] is False
+        assert margin_q4["derived"] is False  # real Q4 → nothing on the column is an estimate
+        db.close()
+
     def test_annual_computed_metric_never_flagged_derived_q4(self):
         from app.database import SessionLocal
 
@@ -387,11 +416,40 @@ class TestBuildDataset:
         index = svc.marker_index(dataset)
         cagr_entry = index[cagr_markers[0]]
         assert cagr_entry["kind"] == "cagr"
-        assert cagr_entry["period"] == dataset["period_key"]
+        assert cagr_entry["period"] == dataset["period_key"]  # full-coverage series
 
         # The prompt header carries the marker next to the CAGR figure.
         text = svc.compact_dataset_for_prompt(dataset)
         assert f"[{cagr_markers[0]}] CAGR" in text
+        db.close()
+
+    def test_cagr_window_is_valued_endpoints_not_selected_range(self):
+        """A series first reported mid-window computes CAGR over its VALUED endpoints; the
+        citation and prompt must state that basis window, never the wider selected range."""
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        company = _seed_company(db)
+        _seed_annual_history(db, company.id)  # revenue/net_income FY2021-FY2023
+        # A concept that only exists for the last two years of the window.
+        for fy, value in [(2022, 50.0), (2023, 60.0)]:
+            _seed_fact(db, company.id, "operating_cash_flow", value, fy=fy, fp="FY",
+                       end=date(fy, 12, 31), start=date(fy, 1, 1))
+        db.commit()
+
+        dataset = svc.build_dataset(db, company, "annual", "FY2021", "FY2023")
+        ocf = next(s for s in dataset["series"] if s["concept"] == "operating_cash_flow")
+        assert ocf["cagr_window"] == "FY2022..FY2023"
+        assert dataset["period_key"] == "FY2021..FY2023"
+
+        index = svc.marker_index(dataset)
+        entry = index[ocf["cagr_marker"]]
+        assert entry["period"] == "FY2022..FY2023"
+        citation = svc._point_citation(1, entry)
+        assert "(FY2022..FY2023)" in citation["excerpt"]
+
+        text = svc.compact_dataset_for_prompt(dataset)
+        assert f"[{ocf['cagr_marker']}] CAGR" in text and "(FY2022..FY2023)" in text
         db.close()
 
     def test_dataset_flags_and_values_are_ingest_order_independent(self):

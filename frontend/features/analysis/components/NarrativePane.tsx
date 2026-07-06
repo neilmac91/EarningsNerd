@@ -16,7 +16,8 @@ export interface NarrativeState {
   error?: string
 }
 
-const VERIFIED_BADGE_BASE = 'Every cited figure resolves to an exact SEC XBRL value.'
+const VERIFIED_BADGE_BASE =
+  'Every cited figure resolves to an exact SEC XBRL value or a figure computed from those values (marked Computed).'
 
 function verifiedBadgeTitle(unverified: number | null | undefined): string {
   if (!unverified) return VERIFIED_BADGE_BASE
@@ -29,7 +30,7 @@ function CitationList({ citations }: { citations: AnalysisCitation[] }) {
   return (
     <div className="mt-4 border-t border-border-light pt-3 dark:border-white/10">
       <div className="mb-2 text-xs font-medium uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
-        Sources — cited figures verified against SEC XBRL
+        Sources — cited figures verified against SEC XBRL data
       </div>
       <ul className="space-y-1">
         {citations.map((citation) => (

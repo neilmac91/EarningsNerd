@@ -243,13 +243,22 @@ async def stream_analysis(
 
     allowed, _count, cap = check_analysis_limit(current_user, db)
     if not allowed:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=(
-                f"You've reached this month's fair-use limit of {cap} analyses. "
-                "It resets at the start of next month."
-            ),
+        # The cap blocks only runs that would CONSUME quota. A non-force request whose range
+        # already has a cached row can only resolve free — a cache re-serve, or a
+        # system-invalidated regeneration (prompt bump / new facts), which is meter-exempt —
+        # so it proceeds; without this, the very prompt bump that invalidates the cached fleet
+        # would lock at-cap users out of analyses they already paid quota for.
+        reaches_free_path = not body.force and trend_analysis_service.has_cached_analysis(
+            db, company.id, body.mode, body.start_period, body.end_period
         )
+        if not reaches_free_path:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    f"You've reached this month's fair-use limit of {cap} analyses. "
+                    "It resets at the start of next month."
+                ),
+            )
 
     # Snapshot everything the generator needs — it runs after this request's session is gone.
     company_id = company.id
@@ -275,10 +284,14 @@ async def stream_analysis(
                 # System-invalidated regenerations (prompt bump / new facts changed the
                 # fingerprint under an existing cached row) don't burn the user's fair-use
                 # quota; a user-initiated `force` refresh is never flagged and stays metered.
-                # Cost telemetry fires for EVERY fresh generation — a model call happened.
-                if not metered and not event.get("invalidated"):
+                # The exemption requires a SUCCESSFUL cache persist (analysis_id set): if the
+                # write keeps failing, every request would regenerate "invalidated" forever —
+                # metering those bounds the unmetered-model-call exposure at the cap.
+                exempt = event.get("invalidated") and event.get("analysis_id") is not None
+                if not metered and not exempt:
                     await run_in_threadpool(_meter_analysis_best_effort, user_id)
                     metered = True
+                # Cost telemetry fires for EVERY fresh generation — a model call happened.
                 _emit_analysis_cost_best_effort(user_id, ticker_value, body.mode, event)
             yield to_sse(event)
 
@@ -312,6 +325,14 @@ async def export_analysis_pdf(
     analysis = db.get(TrendAnalysis, analysis_id)
     if analysis is None or not analysis.narrative_md:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Analysis not found")
+    if analysis.prompt_version != trend_analysis_service.PROMPT_VERSION:
+        # A row persisted under an older prompt version carries old-semantics dataset flags and
+        # citation text (e.g. the pre-v2 over-broad "derived Q4" labels) — never export it.
+        # Re-running the analysis regenerates the row in place under the same id.
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This analysis was generated under an older version — re-run it to export.",
+        )
     company = db.get(Company, analysis.company_id)
     if company is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")

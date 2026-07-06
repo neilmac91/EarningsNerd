@@ -101,6 +101,14 @@ class TestResolveNarrativeCitations:
         assert final == text
         assert citations == [] and grounded == 0 and unverified == 0
 
+    @pytest.mark.parametrize("connector", ["through", "versus", "or", "and", "to"])
+    def test_connector_words_resolve_as_citation_groups(self, connector):
+        final, _, grounded, unverified = svc.resolve_narrative_citations(
+            f"Series ran [F1 {connector} F2].", self.INDEX
+        )
+        assert final == "Series ran [1][2].", connector
+        assert grounded == 2 and unverified == 0
+
     def test_cagr_marker_resolves_with_computed_ref(self):
         final, citations, grounded, _ = svc.resolve_narrative_citations(
             "Revenue compounded at 13.4% [F10].", self.INDEX
@@ -306,7 +314,7 @@ class TestStreamTrendNarrative:
 
 
 class TestStreamRouteMetering:
-    def _client(self, monkeypatch, events, *, allowed=True):
+    def _client(self, monkeypatch, events, *, allowed=True, cached_exists=False):
         from fastapi import FastAPI
         from fastapi.testclient import TestClient
 
@@ -322,6 +330,11 @@ class TestStreamRouteMetering:
 
         monkeypatch.setattr(
             analysis_router, "check_analysis_limit", lambda user, db: (allowed, 0, 100)
+        )
+        monkeypatch.setattr(
+            analysis_router.trend_analysis_service,
+            "has_cached_analysis",
+            lambda *a, **k: cached_exists,
         )
 
         async def fake_pipeline(**kwargs):
@@ -364,10 +377,37 @@ class TestStreamRouteMetering:
         # regeneration is system-triggered — the user's fair-use quota must not burn for it.
         events = [{
             "type": "complete", "kind": "analysis", "cached": False, "invalidated": True,
-            "usage": {},
+            "analysis_id": 7, "usage": {},
         }]
         client, metered = self._client(monkeypatch, events)
         assert client.post("/api/analysis/TST/stream", json=self.BODY).status_code == 200
+        assert metered == []
+
+    def test_invalidated_without_persist_still_meters(self, monkeypatch):
+        # The exemption requires a SUCCESSFUL cache persist — if the write failed
+        # (analysis_id None), every request would regenerate "invalidated" forever, so those
+        # runs meter to bound the unmetered-model-call exposure.
+        events = [{
+            "type": "complete", "kind": "analysis", "cached": False, "invalidated": True,
+            "analysis_id": None, "usage": {},
+        }]
+        client, metered = self._client(monkeypatch, events)
+        assert client.post("/api/analysis/TST/stream", json=self.BODY).status_code == 200
+        assert metered == [42]
+
+    def test_over_cap_with_cached_key_proceeds_unmetered(self, monkeypatch):
+        # At-cap user re-opening an existing range: the run can only resolve free (cache hit or
+        # system-invalidated regen), so the 429 gate must not block it — otherwise the very
+        # prompt bump that invalidates the fleet locks at-cap users out of their analyses.
+        events = [{"type": "complete", "kind": "analysis", "cached": True, "usage": {}}]
+        client, metered = self._client(monkeypatch, events, allowed=False, cached_exists=True)
+        assert client.post("/api/analysis/TST/stream", json=self.BODY).status_code == 200
+        assert metered == []
+
+    def test_over_cap_force_refresh_still_429s(self, monkeypatch):
+        client, metered = self._client(monkeypatch, [], allowed=False, cached_exists=True)
+        response = client.post("/api/analysis/TST/stream", json={**self.BODY, "force": True})
+        assert response.status_code == 429
         assert metered == []
 
     def test_not_enough_data_never_meters(self, monkeypatch):
