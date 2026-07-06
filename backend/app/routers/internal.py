@@ -137,6 +137,49 @@ async def trigger_backfill_facts(background: BackgroundTasks):
     return {"status": "accepted", "job": "backfill-facts"}
 
 
+class SyncCompanyfactsRequest(BaseModel):
+    """Multi-Period Analysis (M1): warm the companyfacts-backed period history for a cohort.
+
+    ``tickers`` > ``watchlist_only`` > all companies (optionally capped by ``limit``). One SEC
+    request per company through the shared rate limiter, so even the full fleet is minutes.
+    """
+
+    tickers: list[str] = Field(default_factory=list)
+    watchlist_only: bool = False
+    limit: Optional[int] = None
+    force: bool = False
+
+
+async def _run_sync_companyfacts(
+    tickers: list[str], watchlist_only: bool, limit: Optional[int], force: bool
+) -> None:
+    from app.database import SessionLocal
+    from app.services import facts_service
+
+    db = SessionLocal()
+    try:
+        stats = await facts_service.sync_companyfacts_batch(
+            db, tickers=tickers or None, watchlist_only=watchlist_only, limit=limit, force=force
+        )
+        logger.info("Companyfacts sync (internal trigger) complete: %s", stats)
+    except Exception:
+        logger.exception("Companyfacts sync (internal trigger) failed")
+    finally:
+        db.close()
+
+
+@router.post("/jobs/sync-companyfacts", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
+async def trigger_sync_companyfacts(req: SyncCompanyfactsRequest, background: BackgroundTasks):
+    tickers = [t.strip().upper() for t in req.tickers if t and t.strip()]
+    background.add_task(_run_sync_companyfacts, tickers, req.watchlist_only, req.limit, req.force)
+    return {
+        "status": "accepted",
+        "job": "sync-companyfacts",
+        "tickers": len(tickers),
+        "watchlist_only": req.watchlist_only,
+    }
+
+
 class PrecomputeRequest(BaseModel):
     """Roadmap A1: warm the cold path by pre-generating analyses for an explicit ticker list.
 

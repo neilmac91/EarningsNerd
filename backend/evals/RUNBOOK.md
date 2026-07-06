@@ -442,6 +442,36 @@ Ten minutes, catches what the automated checks still can't: a mislabel phrased o
 
 ---
 
+## Multi-Period Analysis narrative gate — bumping `trends-v1`
+
+The Multi-Period Analysis narrative (`trend_analysis_service.stream_trend_narrative`, prompt
+`prompts/trends-analyst-agent.md`) shares the Copilot grounding philosophy with a stricter input:
+the model receives ONLY the pre-computed dataset (every value pre-marked `[F#]`), so any number
+outside the dataset is a fabrication by construction.
+
+**What's enforced automatically, per generation, in production** (`resolve_narrative_citations`):
+every inline `[F#]` must resolve to a dataset marker (unresolvable markers are stripped from the
+prose); resolved markers renumber into one continuous `[1]..[n]` sequence that always agrees with
+the citations list; `grounded` (resolved-citation count) rides the complete event and the PostHog
+`analysis_inference_cost` event.
+
+**Offline gate (CI, free, every PR):** `pytest tests/unit/test_analysis_stream.py tests/unit/test_trend_analysis_service.py -q`
+— pins the event contract, marker resolution, and the D4 cache semantics.
+
+**Before bumping `PROMPT_VERSION`** (which invalidates every cached narrative fleet-wide and
+regenerates on demand):
+1. Run the offline gate above.
+2. Manual spot-check protocol: generate fresh analyses for 3 diverse real companies (a calendar-FY
+   tech, a Jan-FYE retailer like WMT, a bank like JPM) in both modes. For each: (a) every figure in
+   the prose carries a chip and the chip's metric+period matches the sentence; (b) the Red flags
+   section addresses each deterministic signal in the dataset (or reasonably dismisses it); (c) no
+   number appears that isn't in the dataset (spot-check 5 per narrative against the metrics table).
+3. Watch `analysis_inference_cost.grounded` for a step-change after rollout — a drop means the new
+   prompt is citing less; treat like the Copilot marker alerts.
+
+A future `trends_golden_set.json` + scorer (re-verifying every `[F#]`-adjacent number against the
+dataset, the `copilot_scorers` pattern) is the intended automation of step 2.
+
 ## Gotchas
 | Issue | Mitigation |
 |---|---|

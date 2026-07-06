@@ -32,6 +32,10 @@ EVENT_PAYWALL_HIT = "paywall_hit"
 # same str(user.id) the frontend identifies on, so it joins the person's journey.
 EVENT_COPILOT_INFERENCE = "copilot_inference_cost"
 
+# Multi-Period Analysis narrative generations (fresh ones only — cached re-serves cost nothing).
+# Same keying/philosophy as the Copilot event.
+EVENT_ANALYSIS_INFERENCE = "analysis_inference_cost"
+
 # Closed-beta activation funnel. All emitted server-side keyed on str(user.id) — which is the same
 # canonical id the frontend identifies on (String(user.id)) — so server + client events stitch onto
 # one person without a separate alias step. The funnel's "activated" step reuses the existing
@@ -137,3 +141,41 @@ def capture_copilot_inference(
         capture_event(distinct_id, EVENT_COPILOT_INFERENCE, properties)
     except Exception as exc:  # pragma: no cover - defensive: PostHog SDK/network issues
         logger.warning(f"PostHog capture failed for {EVENT_COPILOT_INFERENCE}: {exc}")
+
+
+def capture_analysis_inference(
+    distinct_id: str,
+    *,
+    model: Optional[str] = None,
+    prompt_tokens: Optional[int] = None,
+    completion_tokens: Optional[int] = None,
+    total_tokens: Optional[int] = None,
+    cache_hit_tokens: Optional[int] = None,
+    cache_miss_tokens: Optional[int] = None,
+    cost_usd: Optional[float] = None,
+    ticker: Optional[str] = None,
+    mode: Optional[str] = None,
+    n_periods: Optional[int] = None,
+    grounded: Optional[int] = None,
+) -> None:
+    """Capture a Multi-Period Analysis generation's token usage + estimated cost. Never raises —
+    telemetry must not break or slow the narrative stream. Only FRESH generations emit (cached
+    re-serves cost nothing and are the product's hot path)."""
+    properties: dict = {
+        "model": model,
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+        "cache_hit_tokens": cache_hit_tokens,
+        "cache_miss_tokens": cache_miss_tokens,
+        "cost_usd": cost_usd,
+        "ticker": ticker,
+        "mode": mode,
+        "n_periods": n_periods,
+        "grounded": grounded,
+    }
+    properties = {k: v for k, v in properties.items() if v is not None}
+    try:
+        capture_event(distinct_id, EVENT_ANALYSIS_INFERENCE, properties)
+    except Exception as exc:  # pragma: no cover - defensive: PostHog SDK/network issues
+        logger.warning(f"PostHog capture failed for {EVENT_ANALYSIS_INFERENCE}: {exc}")

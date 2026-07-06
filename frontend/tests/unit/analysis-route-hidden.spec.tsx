@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mutable holders the hoisted mocks can read (vi.mock factories are hoisted above imports).
 const h = vi.hoisted(() => ({
-  enableCompare: false,
+  enableAnalysis: false,
   notFound: vi.fn(() => {
     throw new Error('NEXT_NOT_FOUND')
   }),
@@ -10,27 +10,27 @@ const h = vi.hoisted(() => ({
 
 vi.mock('next/navigation', () => ({ notFound: h.notFound }))
 vi.mock('@/lib/featureFlags', () => ({
-  get ENABLE_COMPARE() {
-    return h.enableCompare
+  get ENABLE_ANALYSIS() {
+    return h.enableAnalysis
   },
 }))
 
-import CompareLayout from '@/app/compare/layout'
+import AnalysisLayout from '@/app/analysis/layout'
 
-describe('Compare route gating (NEXT_PUBLIC_ENABLE_COMPARE)', () => {
+describe('Analysis route gating (NEXT_PUBLIC_ENABLE_ANALYSIS)', () => {
   beforeEach(() => {
     h.notFound.mockClear()
   })
 
-  it('404s /compare and /compare/result when the flag is off', () => {
-    h.enableCompare = false
-    expect(() => CompareLayout({ children: 'gated' })).toThrow('NEXT_NOT_FOUND')
+  it('404s /analysis when the flag is off', () => {
+    h.enableAnalysis = false
+    expect(() => AnalysisLayout({ children: 'gated' })).toThrow('NEXT_NOT_FOUND')
     expect(h.notFound).toHaveBeenCalledTimes(1)
   })
 
-  it('renders the routes when the flag is on', () => {
-    h.enableCompare = true
-    const out = CompareLayout({ children: 'visible' })
+  it('renders the route when the flag is on', () => {
+    h.enableAnalysis = true
+    const out = AnalysisLayout({ children: 'visible' })
     expect(h.notFound).not.toHaveBeenCalled()
     expect(out).toBeTruthy()
   })

@@ -232,3 +232,59 @@ class TestExportPdfBytes:
             pytest.skip(f"WeasyPrint runtime unavailable: {exc}")
         assert isinstance(pdf_bytes, (bytes, bytearray))
         assert pdf_bytes[:4] == b"%PDF"
+
+
+class TestAnalysisPdfHtml:
+    """Multi-Period Analysis export (M5): grid + narrative + citations, all escaped."""
+
+    def _analysis(self):
+        return SimpleNamespace(
+            mode="annual",
+            period_key="FY2022..FY2024",
+            narrative_md=(
+                "## The trajectory\nRevenue grew from $1,000 [1] to <b>$1,500</b> [2].\n\n"
+                "## Red flags\nNothing structural in these numbers."
+            ),
+            citations_json=[
+                {"n": 1, "excerpt": "Revenue = 1,000 USD (FY2022)", "section_ref": "XBRL · us-gaap:Revenues"},
+                {"n": 2, "excerpt": "Revenue = 1,500 USD (FY2024)", "section_ref": "XBRL · us-gaap:Revenues"},
+            ],
+            dataset_json={
+                "periods": [{"key": "FY2022"}, {"key": "FY2023"}, {"key": "FY2024"}],
+                "series": [
+                    {
+                        "concept": "revenue", "label": "Revenue", "unit": "USD", "percent": False,
+                        "points": [
+                            {"period": "FY2022", "value": 1000.0},
+                            {"period": "FY2023", "value": None},
+                            {"period": "FY2024", "value": 1500.0, "derived": True},
+                        ],
+                    },
+                    {
+                        "concept": "net_margin", "label": "Net margin", "unit": "pure", "percent": True,
+                        "points": [{"period": "FY2024", "value": 24.3}],
+                    },
+                ],
+            },
+        )
+
+    def _company(self):
+        return SimpleNamespace(name="Test & Co", ticker="TST")
+
+    def test_contains_grid_narrative_and_citations(self):
+        html = ExportService().generate_analysis_pdf_html(self._analysis(), self._company())
+        # Header + narrative sections
+        assert "Multi-Period Analysis" in html
+        assert "<h2>The trajectory</h2>" in html
+        assert "<h2>Red flags</h2>" in html
+        # Grid: metric row, period headers, missing value, derived dagger, percent formatting
+        assert "<th>FY2023</th>" in html
+        assert "Revenue" in html and "1,000" in html
+        assert "—" in html
+        assert "1,500 †" in html
+        assert "24.3%" in html
+        # Citations appendix
+        assert "Revenue = 1,000 USD (FY2022)" in html
+        # Untrusted text is escaped (the narrative's <b> must not survive as markup)
+        assert "<b>" not in html
+        assert "Test &amp; Co" in html

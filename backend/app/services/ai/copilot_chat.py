@@ -49,18 +49,21 @@ class _CopilotChatMixin:
         model: Optional[str] = None,
         max_tokens: int = 1200,
         temperature: float = 0.2,
+        usage_sink: Optional[Dict[str, int]] = None,
     ) -> AsyncGenerator[str, None]:
         """Stream raw assistant delta content for an arbitrary chat completion.
 
-        A thin, transport-agnostic wrapper used by the "Ask this Filing" Copilot (A2). It does not
-        own any prompt/JSON contract — callers pass the full ``messages`` and parse the streamed
-        text themselves. Yields only ``delta.content`` strings in order.
+        A thin, transport-agnostic wrapper used by the "Ask this Filing" Copilot (A2) and the
+        Multi-Period Analysis narrative. It does not own any prompt/JSON contract — callers pass
+        the full ``messages`` and parse the streamed text themselves. Yields only ``delta.content``
+        strings in order.
 
         ``model`` defaults to ``self.model``. DeepSeek's reasoning ("thinking") mode is disabled so
-        the stream is the answer text, not chain-of-thought. Tolerant try/except mirrors the existing
-        streaming method: on failure it yields a single chunk prefixed with ``STREAM_ERROR_SENTINEL``
-        (so a consumer can surface a real error rather than stream it as the answer) rather than
-        raising, so the generator never breaks the SSE contract.
+        the stream is the answer text, not chain-of-thought. Pass ``usage_sink`` to receive the
+        provider's token usage (same accumulation contract as ``stream_chat_with_tools``). Tolerant
+        try/except mirrors the existing streaming method: on failure it yields a single chunk
+        prefixed with ``STREAM_ERROR_SENTINEL`` (so a consumer can surface a real error rather than
+        stream it as the answer) rather than raising, so the generator never breaks the SSE contract.
         """
         model_name = model or self.model
         try:
@@ -73,12 +76,31 @@ class _CopilotChatMixin:
             }
             if _thinking_disabled_model(model_name, getattr(settings, "OPENAI_BASE_URL", None)):
                 create_kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
+            if usage_sink is not None:
+                create_kwargs["stream_options"] = {"include_usage": True}
             stream = await self.client.chat.completions.create(**create_kwargs)
             async for chunk in stream:
-                if chunk.choices and len(chunk.choices) > 0:
-                    delta = chunk.choices[0].delta
-                    if delta and delta.content:
-                        yield delta.content
+                if not chunk.choices:
+                    # The include_usage final chunk: empty choices + a `usage` payload (dict on some
+                    # OpenAI-compatible gateways, object on others) — same handling as the tools
+                    # variant so both meters price identically.
+                    if usage_sink is not None:
+                        u = getattr(chunk, "usage", None)
+                        if u is not None:
+                            is_dict = isinstance(u, dict)
+                            for sink_key, provider_key in (
+                                ("prompt_tokens", "prompt_tokens"),
+                                ("completion_tokens", "completion_tokens"),
+                                ("total_tokens", "total_tokens"),
+                                ("cache_hit_tokens", "prompt_cache_hit_tokens"),
+                                ("cache_miss_tokens", "prompt_cache_miss_tokens"),
+                            ):
+                                tok = (u.get(provider_key) if is_dict else getattr(u, provider_key, 0)) or 0
+                                usage_sink[sink_key] = usage_sink.get(sink_key, 0) + tok
+                    continue
+                delta = chunk.choices[0].delta
+                if delta and delta.content:
+                    yield delta.content
         except Exception as e:  # noqa: BLE001 — tolerant: never raise out of the stream
             error_msg = str(e)
             logger.warning(f"stream_chat failed for {model_name}: {error_msg[:200]}")

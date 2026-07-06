@@ -40,7 +40,16 @@ def test_require_entitlement_allows_pro_user_for_export():
 
 
 def test_require_entitlement_allows_free_user_for_shared_capability():
-    # can_compare_filings is True on both tiers — the gate must let a free user through.
-    dep = require_entitlement("can_compare_filings", "Comparison")
+    # can_save_summaries is True on both tiers — the gate must let a free user through.
+    dep = require_entitlement("can_save_summaries", "Saved summaries")
     free = _user(is_pro=False)
     assert dep(current_user=free) is free
+
+
+def test_require_entitlement_gates_analysis_to_pro():
+    dep = require_entitlement("can_analyze_trends", "Multi-Period Analysis")
+    with pytest.raises(HTTPException) as exc:
+        dep(current_user=_user(is_pro=False))
+    assert exc.value.status_code == 403
+    pro = _user(is_pro=True)
+    assert dep(current_user=pro) is pro

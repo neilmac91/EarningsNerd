@@ -1,9 +1,11 @@
+import asyncio
+import csv
+import io
 from datetime import datetime
 from html import escape
+
 from app.models import Summary, Filing
 from app.services.summary_sections import Block, Section, render_sections
-import io
-import csv
 
 class ExportService:
     def __init__(self):
@@ -219,9 +221,145 @@ class ExportService:
         try:
             from weasyprint import HTML
             html_content = self.generate_pdf_html(summary, filing)
-            html = HTML(string=html_content)
-            pdf_bytes = html.write_pdf()
-            return pdf_bytes
+            # WeasyPrint parse + render is CPU-heavy (hundreds of ms) — off the event loop.
+            return await asyncio.to_thread(lambda: HTML(string=html_content).write_pdf())
+        except ImportError:
+            raise Exception("WeasyPrint is not installed. Install it with: pip install weasyprint")
+        except Exception as e:
+            raise Exception(f"Failed to generate PDF: {str(e)}")
+
+    @staticmethod
+    def _narrative_to_html(narrative: str) -> str:
+        """Minimal, dependency-free markdown→HTML for the analysis narrative: `## ` headings and
+        blank-line paragraphs (the exact shape the trends prompt enforces). Everything is escaped;
+        `[n]` citation markers stay as plain text and resolve against the Sources appendix."""
+        parts = []
+        for raw_block in (narrative or "").split("\n\n"):
+            block = raw_block.strip()
+            if not block:
+                continue
+            if block.startswith("## "):
+                lines = block.split("\n", 1)
+                parts.append(f"<h2>{escape(lines[0][3:].strip())}</h2>")
+                if len(lines) > 1 and lines[1].strip():
+                    parts.append(f"<p>{escape(lines[1].strip())}</p>")
+            else:
+                parts.append(f"<p>{escape(block)}</p>")
+        return "\n".join(parts)
+
+    def generate_analysis_pdf_html(self, analysis, company) -> str:
+        """HTML for a Multi-Period Analysis export: header, narrative, metrics-by-period grid, and
+        the verified-citations appendix. Charts render as the grid (WeasyPrint runs no JS).
+
+        ``analysis`` is a TrendAnalysis row (dataset_json + narrative_md + citations_json),
+        ``company`` its Company. A dedicated template rather than the summary_sections renderer —
+        an analysis is grid + narrative shaped, not filing-section shaped.
+        """
+        dataset = analysis.dataset_json or {}
+        periods = [p.get("key", "") for p in dataset.get("periods", [])]
+        mode_label = "Annual" if analysis.mode == "annual" else "Quarterly"
+
+        def format_value(value, unit, percent) -> str:
+            if value is None:
+                return "—"
+            if percent:
+                return f"{value:.1f}%"
+            if unit == "pure":
+                return f"{value:.2f}x"
+            if isinstance(unit, str) and unit.endswith("/shares"):
+                return f"{value:,.2f}"
+            return f"{value:,.0f}"
+
+        header_cells = "".join(f"<th>{escape(period)}</th>" for period in periods)
+        body_rows = []
+        for series in dataset.get("series", []):
+            by_period = {p.get("period"): p for p in series.get("points", [])}
+            cells = []
+            for period in periods:
+                point = by_period.get(period) or {}
+                rendered = format_value(
+                    point.get("value"), series.get("unit", "USD"), bool(series.get("percent"))
+                )
+                if point.get("derived"):
+                    rendered += " †"
+                cells.append(f'<td class="num">{escape(rendered)}</td>')
+            body_rows.append(
+                f"<tr><td>{escape(series.get('label', series.get('concept', '')))}</td>"
+                + "".join(cells)
+                + "</tr>"
+            )
+
+        citation_items = "".join(
+            f"<li><strong>[{c.get('n')}]</strong> {escape(str(c.get('excerpt', '')))}"
+            f" <span class=\"ref\">{escape(str(c.get('section_ref') or ''))}</span></li>"
+            for c in (analysis.citations_json or [])
+        )
+        has_derived = any(
+            p.get("derived")
+            for series in dataset.get("series", [])
+            for p in series.get("points", [])
+        )
+        derived_note = (
+            '<p class="footnote">† Computed fourth quarter: full year minus the three reported quarters.</p>'
+            if has_derived
+            else ""
+        )
+
+        return f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <style>
+                body {{
+                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+                    line-height: 1.6; color: #1f2937; max-width: 800px; margin: 0 auto; padding: 40px 20px;
+                }}
+                h1 {{ color: #111827; border-bottom: 3px solid #4F7A63; padding-bottom: 10px; margin-bottom: 6px; }}
+                h2 {{ color: #1f2937; margin-top: 26px; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; }}
+                .meta {{ color: #6b7280; font-size: 13px; margin-bottom: 24px; }}
+                table {{ width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 11px; }}
+                th, td {{ border: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; }}
+                th {{ background-color: #f3f4f6; font-weight: 600; }}
+                td.num {{ text-align: right; font-variant-numeric: tabular-nums; }}
+                ol.sources {{ font-size: 11px; color: #374151; padding-left: 18px; }}
+                .ref {{ color: #6b7280; }}
+                .footnote {{ color: #6b7280; font-size: 11px; margin-top: 18px; }}
+            </style>
+        </head>
+        <body>
+            <h1>{escape(company.name)} — Multi-Period Analysis</h1>
+            <div class="meta">
+                {escape(company.ticker or "")} · {mode_label} · {escape(analysis.period_key)} ·
+                Generated {datetime.now().strftime("%B %d, %Y")} · EarningsNerd
+            </div>
+
+            {self._narrative_to_html(analysis.narrative_md or "")}
+
+            <h2>Metrics by period</h2>
+            <table>
+                <tr><th>Metric</th>{header_cells}</tr>
+                {"".join(body_rows)}
+            </table>
+            {derived_note}
+
+            <h2>Sources</h2>
+            <ol class="sources">{citation_items}</ol>
+            <p class="footnote">
+                All figures from SEC XBRL (companyfacts). Growth rates, margins and ratios are
+                computed by EarningsNerd; the AI narrative cites only values from this dataset.
+            </p>
+        </body>
+        </html>
+        """
+
+    async def export_analysis_pdf(self, analysis, company) -> bytes:
+        """Export a Multi-Period Analysis as PDF (same WeasyPrint path as export_pdf)."""
+        try:
+            from weasyprint import HTML
+            html_content = self.generate_analysis_pdf_html(analysis, company)
+            # WeasyPrint parse + render is CPU-heavy (hundreds of ms) — off the event loop.
+            return await asyncio.to_thread(lambda: HTML(string=html_content).write_pdf())
         except ImportError:
             raise Exception("WeasyPrint is not installed. Install it with: pip install weasyprint")
         except Exception as e:

@@ -17,6 +17,7 @@ from app.services.subscription_service import (
     get_current_month,
     get_user_usage_count,
     get_user_qa_count,
+    get_user_analysis_count,
 )
 
 router = APIRouter()
@@ -54,6 +55,10 @@ class UsageResponse(BaseModel):
     # at exhaustion. For Pro these are 0 (Pro is unlimited via qa_limit).
     copilot_free_taste_used: int
     copilot_free_taste_total: int
+    # Multi-Period Analysis generations this month vs the Pro fair-use cap (fresh AI narratives
+    # only; cached re-serves are unmetered). Free users have no access, so analysis_used stays 0.
+    analysis_used: int
+    analysis_limit: int
 
 class SubscriptionStatus(BaseModel):
     is_pro: bool
@@ -87,6 +92,8 @@ async def get_usage(
         qa_limit=settings.COPILOT_MONTHLY_QUESTION_CAP,
         copilot_free_taste_used=getattr(current_user, "copilot_free_taste_used", 0) or 0,
         copilot_free_taste_total=ent.copilot_free_taste,
+        analysis_used=get_user_analysis_count(current_user.id, month, db),
+        analysis_limit=settings.ANALYSIS_MONTHLY_CAP,
     )
 
 @router.get("/subscription", response_model=SubscriptionStatus)

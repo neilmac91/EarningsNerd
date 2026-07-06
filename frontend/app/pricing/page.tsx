@@ -182,7 +182,7 @@ function PricingContent() {
         'Unlimited summaries',
         'Real-time filing alerts',
         '8-K coverage',
-        'Multi-year comparisons',
+        'Multi-Period Analysis — 10-year trends, quarterly deltas & AI narrative',
         'PDF & CSV exports',
         'Premium AI model & deeper analysis',
         'Priority support',

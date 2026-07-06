@@ -13,6 +13,10 @@ export interface Usage {
   copilot_free_taste_used: number
   /** FREE plan's lifetime taste allowance (0 for PRO, which is unlimited via qa_limit). */
   copilot_free_taste_total: number
+  /** Multi-Period Analysis generations this month (fresh AI narratives only; cached re-serves are free). */
+  analysis_used: number
+  /** PRO fair-use soft cap on fresh analysis generations per month. */
+  analysis_limit: number
 }
 
 export interface SubscriptionStatus {

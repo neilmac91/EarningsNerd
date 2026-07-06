@@ -18,8 +18,8 @@ const FEATURES = [
     icon: ShieldIcon,
   },
   {
-    title: 'Filing Comparison',
-    description: 'Compare filings side-by-side across periods. See what changed quarter over quarter at a glance.',
+    title: 'Multi-Period Analysis',
+    description: 'Trend any company across up to 10 fiscal years or 12 quarters — growth, margins, cash — with AI analysis grounded in SEC data.',
     icon: ColumnsIcon,
   },
 ] as const

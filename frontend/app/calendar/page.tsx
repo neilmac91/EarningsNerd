@@ -3,7 +3,7 @@
    -----------------------------------------------------------------------------
    Public discovery surface, gated on the existing NEXT_PUBLIC_ENABLE_CALENDAR
    flag (lib/featureFlags.ts) — the route 404s while the flag is off, same
-   pattern as ENABLE_COMPARE. Flip the flag once /api/calendar is seeded (or
+   pattern as ENABLE_ANALYSIS. Flip the flag once /api/calendar is seeded (or
    set NEXT_PUBLIC_CALENDAR_FIXTURES='true' to demo against fixtures).
 ============================================================================= */
 
