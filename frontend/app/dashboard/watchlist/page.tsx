@@ -9,7 +9,7 @@ import { ArrowsCounterClockwiseIcon, CalendarDotsIcon, CircleNotchIcon, ClockIco
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getWatchlistInsights, WatchlistInsight } from '@/features/watchlist/api/watchlist-api'
 import SecondaryHeader from '@/components/SecondaryHeader'
-import WatchlistAddSearch from '@/components/watchlist/WatchlistAddSearch'
+import WatchlistAddSearch from '@/features/watchlist/components/WatchlistAddSearch'
 import CompanyLogo from '@/components/CompanyLogo'
 import { ENABLE_ANALYSIS } from '@/lib/featureFlags'
 import { Badge, buttonVariants, Card, GuidanceCard, type BadgeVariant } from '@/components/ui'

@@ -6,7 +6,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { verifyEmail } from '@/features/auth/api/auth-api'
 import Link from 'next/link'
 import { CheckCircleIcon, CircleNotchIcon, XCircleIcon } from '@/lib/icons'
-import AuthShell from '@/components/auth/AuthShell'
+import AuthShell from '@/features/auth/components/AuthShell'
 import { queryKeys } from '@/lib/queryKeys'
 
 function VerifyEmailContent() {

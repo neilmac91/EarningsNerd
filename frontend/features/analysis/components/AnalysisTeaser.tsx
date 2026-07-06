@@ -1,6 +1,6 @@
 'use client'
 
-import PeekLocked from '@/components/PeekLocked'
+import PeekLocked from '@/features/subscriptions/components/PeekLocked'
 import KpiStrip from './KpiStrip'
 import MetricsTable from './MetricsTable'
 import NarrativePane from './NarrativePane'

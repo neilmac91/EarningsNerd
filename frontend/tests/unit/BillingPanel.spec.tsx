@@ -2,7 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
-import BillingPanel from '@/components/settings/BillingPanel'
+import BillingPanel from '@/features/settings/components/BillingPanel'
 import type { SubscriptionStatus, Usage } from '@/features/subscriptions/api/subscriptions-api'
 
 // next/link → plain anchor so we can assert href.

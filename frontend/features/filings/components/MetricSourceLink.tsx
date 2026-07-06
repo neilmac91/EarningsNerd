@@ -1,5 +1,5 @@
 import React from 'react'
-import { SourceTrace } from '@/components/SourceTrace'
+import { SourceTrace } from '@/features/filings/components/SourceTrace'
 
 interface MetricSourceLinkProps {
   url?: string | null

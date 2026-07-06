@@ -1,7 +1,7 @@
 import { memo } from 'react'
 import Link from 'next/link'
 import { ArrowRightIcon } from '@/lib/icons'
-import ExampleCtaLink from '@/components/ExampleCtaLink'
+import ExampleCtaLink from '@/features/marketing/components/ExampleCtaLink'
 import { exampleFilingHref } from '@/lib/featureFlags'
 
 function CtaBanner() {

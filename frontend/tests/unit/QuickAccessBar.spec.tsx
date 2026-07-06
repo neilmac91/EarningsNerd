@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import QuickAccessBar, { TOP_COMPANIES } from '@/components/QuickAccessBar'
+import QuickAccessBar, { TOP_COMPANIES } from '@/features/marketing/components/QuickAccessBar'
 
 // Mock Next.js Link component
 vi.mock('next/link', () => ({

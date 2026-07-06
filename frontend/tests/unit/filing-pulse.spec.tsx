@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
-import { FilingPulse, type Pulse } from '@/components/FilingPulse'
+import { FilingPulse, type Pulse } from '@/features/filings/components/FilingPulse'
 
 const pulse: Pulse = {
   score: 10,

@@ -20,7 +20,7 @@ import {
   getNotifications,
   markNotificationsSeen,
 } from '@/features/notifications/api/notifications-api'
-import NotificationBell from '@/components/NotificationBell'
+import NotificationBell from '@/features/notifications/components/NotificationBell'
 
 const sample = {
   items: [

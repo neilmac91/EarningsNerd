@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
-import SummarySections from '@/components/SummarySections'
+import SummarySections from '@/features/filings/components/SummarySections'
 
 describe('SummarySections renderMarkdownValue gating', () => {
   it('hides tabs when renderMarkdownValue yields blank/placeholder strings', () => {

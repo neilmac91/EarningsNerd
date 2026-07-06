@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 
-import CompanySearch from '@/components/CompanySearch'
+import CompanySearch from '@/features/companies/components/CompanySearch'
 import CompanyLogo from '@/components/CompanyLogo'
 import { Badge, Button, Card, Notice, Skeleton } from '@/components/ui'
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'

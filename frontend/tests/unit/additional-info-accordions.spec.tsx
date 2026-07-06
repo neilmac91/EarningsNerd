@@ -1,6 +1,6 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
-import SummarySections from '@/components/SummarySections'
+import SummarySections from '@/features/filings/components/SummarySections'
 
 describe('SummarySections additional accordions', () => {
   it('hides tabs with placeholder/empty content and shows unavailable sections disclosure', () => {

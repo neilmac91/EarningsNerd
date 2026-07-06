@@ -6,7 +6,7 @@ import { resendVerification } from '@/features/auth/api/auth-api'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
 import { CircleNotchIcon, EnvelopeSimpleIcon } from '@/lib/icons'
-import AuthShell from '@/components/auth/AuthShell'
+import AuthShell from '@/features/auth/components/AuthShell'
 import { Notice } from '@/components/ui'
 
 const RESEND_COOLDOWN_SECONDS = 30

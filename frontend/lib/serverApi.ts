@@ -1,6 +1,6 @@
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
 import { EXAMPLE_FILING_ID } from '@/lib/featureFlags'
-import type { HotFilingsResponse } from '@/components/HotFilings'
+import type { HotFilingsResponse } from '@/features/filings/components/HotFilings'
 import type { TrendingTickerResponse } from '@/features/companies/api/companies-api'
 
 /**

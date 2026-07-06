@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
-import FinancialMetricsTable from '@/components/FinancialMetricsTable'
-import SummarySections from '@/components/SummarySections'
+import FinancialMetricsTable from '@/features/filings/components/FinancialMetricsTable'
+import SummarySections from '@/features/filings/components/SummarySections'
 
 describe('UI avoids placeholder copy', () => {
   it('does not render "Not available" placeholders', () => {
