@@ -7,8 +7,8 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 from app.utils.datetimes import utcnow
 import logging
-import os
 
+from app.config import settings
 from app.database import get_db
 from app.models import (
     Company,
@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 # Optional imports for third-party services
 try:
     import stripe
-    stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
+    stripe.api_key = settings.STRIPE_SECRET_KEY
     STRIPE_AVAILABLE = True
 except ImportError:
     STRIPE_AVAILABLE = False
@@ -43,9 +43,9 @@ except ImportError:
 try:
     from posthog import Posthog
     posthog_client = Posthog(
-        project_api_key=os.getenv("POSTHOG_API_KEY"),
-        host=os.getenv("POSTHOG_HOST", "https://us.i.posthog.com")
-    ) if os.getenv("POSTHOG_API_KEY") else None
+        project_api_key=settings.POSTHOG_API_KEY,
+        host=settings.POSTHOG_HOST
+    ) if settings.POSTHOG_API_KEY else None
     POSTHOG_AVAILABLE = posthog_client is not None
 except ImportError:
     POSTHOG_AVAILABLE = False

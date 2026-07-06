@@ -8,7 +8,6 @@ friction. The submitter's user id is recorded for follow-up; the IP is hashed fo
 import hashlib
 import html
 import logging
-import os
 from datetime import datetime, timedelta, timezone
 from email.utils import parseaddr
 
@@ -30,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 # One-way IP hashing, peppered with SECRET_KEY (validated non-default in prod) — same approach as the
 # contact pipeline, so no weak public default salt.
-_IP_HASH_SALT = os.getenv("IP_HASH_SALT") or settings.SECRET_KEY
+_IP_HASH_SALT = settings.IP_HASH_SALT or settings.SECRET_KEY
 
 # Per-user sliding window. Authenticated, so we key on user id (not IP). Generous — this guards
 # against accidental spam/abuse, not legitimate beta chatter.

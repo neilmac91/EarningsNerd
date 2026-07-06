@@ -1,7 +1,6 @@
 import html
 import logging
 import hashlib
-import os
 from datetime import datetime, timedelta
 from app.utils.datetimes import utcnow
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -21,7 +20,7 @@ logger = logging.getLogger(__name__)
 # Pepper for one-way IP hashing. Prefer an explicit IP_HASH_SALT; otherwise fall back to the app
 # SECRET_KEY (always set, and validated non-default in production) so there is never a weak,
 # publicly-known default salt. This matches the SECRET_KEY-peppered hashing used elsewhere.
-IP_HASH_SALT = os.getenv("IP_HASH_SALT") or settings.SECRET_KEY
+IP_HASH_SALT = settings.IP_HASH_SALT or settings.SECRET_KEY
 
 
 def hash_ip_address(ip_address: str) -> str:
