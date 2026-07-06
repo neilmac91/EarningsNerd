@@ -74,7 +74,7 @@ Full detail in `docs/AUTH_INVESTIGATION.md`. Summary:
 ### 1B. Backend
 - **Webhook hardening** (`subscriptions.py`): idempotency via `stripe_events` (skip if seen); handle `checkout.session.completed`, `customer.subscription.created/updated/deleted`, `invoice.payment_failed` (dunning/`past_due`), `customer.subscription.trial_will_end` (T-3 email). **Webhook is the source of truth for entitlements** — never grant Pro from the checkout success redirect.
 - **Reverse trial:** on first checkout (or on signup, see Q3) create a `trialing` subscription with `trial_end = now + 7d`, no card (Stripe trial w/o payment method, or app-level trial flag if not using Stripe trials). Entitlements treat `trialing` as Pro.
-- **`require_pro` / `require_entitlement(flag)` FastAPI dependency** — replace ad-hoc `if not current_user.is_pro` in `summaries.py` (export), `compare.py`. Centralised, auditable, tier-ready.
+- **`require_pro` / `require_entitlement(flag)` FastAPI dependency** — replace ad-hoc `if not current_user.is_pro` in `summaries.py` (export). Centralised, auditable, tier-ready. *(`compare.py` was cited here originally; the compare feature has since been retired — July 2026.)*
 - **Extend `entitlements.py`** with named flags: `monthly_summary_limit, can_export, can_compare, watchlist_limit (→ None/unlimited free), realtime_alerts, eightk_coverage, history_retention_days, priority_model`.
 - **Extend `GET /api/subscriptions`** to return `{plan, status, trial_end, current_period_end, cancel_at_period_end}`.
 - **Config/secrets:** verify **live** `STRIPE_SECRET_KEY`, `STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_MONTHLY_ID`, `STRIPE_PRICE_YEARLY_ID` in Secret Manager; add a `deploy_check.py` assertion that they're set + key/price livemode match `ENVIRONMENT`.
@@ -139,7 +139,7 @@ Full detail in `docs/AUTH_INVESTIGATION.md`. Summary:
 ### 3A. Scope (v1)
 - **"What changed" / new-filings feed:** recent 10-K/10-Q/(8-K) for watched companies, newest first, each with a one-line "what changed vs last filing" (from the compare/diff engine) and a CTA to the summary. *This is the centrepiece.*
 - **Saved summaries** (exists) + **quick search** (exists elsewhere; add prominent search).
-- **Earnings/filing calendar:** upcoming earnings/filing dates for watched companies (reuse `earnings_whispers` / `fmp` integrations).
+- **Earnings/filing calendar:** upcoming earnings/filing dates for watched companies (shipped on `alpha_vantage` / `fmp`; `earnings_whispers` has since been removed).
 - **Usage + plan + trial** state (exists) — keep as a compact strip, not the hero.
 
 ### 3B. Backend

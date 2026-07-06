@@ -1,4 +1,4 @@
-import { getApiUrl } from '@/lib/api/client'
+import api from '@/lib/api/client'
 
 export interface FilingContent {
   filingId: number
@@ -14,13 +14,10 @@ export interface FilingContent {
  * 404 / network error so the caller can show an error state.
  */
 export const fetchFilingContent = async (filingId: number): Promise<FilingContent> => {
-  const res = await fetch(`${getApiUrl()}/api/filings/${filingId}/content`, {
-    credentials: 'include',
-  })
-  if (!res.ok) {
-    throw new Error(`Failed to load filing content (status ${res.status})`)
-  }
-  const data = await res.json()
+  // Shared axios client (F4): plain JSON GET — no streaming/ISR justification for raw fetch,
+  // and the client centralizes base URL + error shaping (throws on non-2xx like the old !ok path).
+  const response = await api.get(`/api/filings/${filingId}/content`)
+  const data = response.data
   return {
     filingId: typeof data.filing_id === 'number' ? data.filing_id : filingId,
     hasContent: data.has_content === true,

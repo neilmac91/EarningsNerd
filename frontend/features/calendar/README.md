@@ -66,11 +66,11 @@ Weighed three layouts:
 
 ## Replacing the two existing components (no duplication)
 
-- `components/dashboard/EarningsCalendar.tsx` — retire in place: render
+- `features/dashboard/components/EarningsCalendar.tsx` — retire in place: render
   `getCalendar(mondayOf(today), +14d)` filtered to the user's watchlist, or
   simply link the dashboard card to `/calendar`. Its `getUpcomingCalendar`
   (FMP-backed) call goes away with the FMP calendar path (strategy §3.2).
-- `components/ReportingThisWeek.tsx` — switch its data source to
+- `features/calendar/components/ReportingThisWeek.tsx` — switch its data source to
   `getCalendar(weekRange)` → `rankEvents(...).slice(0, 8)` (score-ranked DB
   reads replacing the hardcoded 60-ticker intersect, §4 P4). Its
   render-nothing-when-empty behavior stays.

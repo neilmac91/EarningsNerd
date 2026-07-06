@@ -1,8 +1,9 @@
 # Design Spec — Extract the summary pipeline into `run_summary_pipeline()`
 
-> **Status:** Implemented. Shipped in #268 (Phase 1 — pipeline extraction into
-> `app/services/summary_pipeline.py`). Retained as the design record for backlog item **M7**;
-> this captures the rationale and proposed approach that preceded implementation.
+> **Status:** Implemented — ALL phases. Phase 1 shipped in #268 (pipeline extraction into
+> `app/services/summary_pipeline.py`); Phases 2–3 shipped with the S1 unification (#549/#565):
+> `generate_summary_background` now drains `stream_filing_summary` unconditionally and the legacy
+> duplicate body was deleted. Retained as the design record; treat the source as authoritative.
 
 > **Implementation notes — where the shipped code diverged from this proposal.** The body below
 > is the original RFC; the function in `backend/app/services/summary_pipeline.py` differs in two

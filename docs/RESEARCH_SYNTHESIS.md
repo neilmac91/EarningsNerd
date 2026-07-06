@@ -71,7 +71,7 @@
 | 8-K coverage | ✕ | ✅ | Not built |
 | History retention | Recent | Full | Not gated |
 | Exports (PDF/CSV) | ✕ | ✅ | ✅ enforced (`summaries.py`) |
-| Advanced comparison | Basic / limited | Full | ✅ compare is Pro (`compare.py`) |
+| Advanced comparison | Basic / limited | Full | Removed — the compare feature was retired (July 2026); superseded by Multi-Period Analysis |
 | Portfolio / multi-filing digest | ✕ | ✅ | Not built |
 | Priority premium-model summary | ✕ | ✅ | Maps to `AI_FAST_MODEL`/default split (see cost note) |
 | Rate-limit removal | Standard | Relaxed | Partial (guest quota flag exists) |

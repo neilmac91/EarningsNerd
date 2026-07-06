@@ -79,7 +79,7 @@ Full setup, tests, and workflow: [`CONTRIBUTING.md`](./CONTRIBUTING.md).
 ## Project layout
 
 ```
-backend/    FastAPI app (routers, services, models, schemas), SEC pipeline, prompts, tests
+backend/    FastAPI app (routers, services, models, schemas), prompts, evals, tests
 frontend/   Next.js app (app/, components/, features/, lib/)
 docs/        Architecture, deployment, compliance, troubleshooting
 ```
