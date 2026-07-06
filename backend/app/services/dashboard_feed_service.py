@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session, defer, joinedload
 from app.models import Filing, Summary, Watchlist
 from app.services.edgar.models import MetricChange
 from app.services.summary_generation_service import get_generation_progress_snapshot
+from app.services.summary_placeholders import is_summary_placeholder
 
 logger = logging.getLogger(__name__)
 
@@ -52,12 +53,6 @@ _DELTA_METRICS = [
     ("net_income", "Net income"),
     ("earnings_per_share", "EPS"),
 ]
-
-_PLACEHOLDER_TOKENS = (
-    "generating summary",
-    "summary temporarily unavailable",
-    "requires openai api key",
-)
 
 _DIRECTION_WORD = {"increase": "up", "decrease": "down", "unchanged": "flat"}
 
@@ -193,8 +188,7 @@ def compute_what_changed(current_xbrl: Optional[dict], prior_xbrl: Optional[dict
 def _summary_status(summary: Optional[Summary], filing_id: int) -> dict:
     """Mirror the watchlist-insights status taxonomy (ready/placeholder/generating/error/missing)."""
     if summary is not None:
-        overview = (summary.business_overview or "").lower()
-        placeholder = any(token in overview for token in _PLACEHOLDER_TOKENS)
+        placeholder = is_summary_placeholder(summary.business_overview)
         return {"summary_id": summary.id, "summary_status": "placeholder" if placeholder else "ready"}
 
     progress = get_generation_progress_snapshot(filing_id)
