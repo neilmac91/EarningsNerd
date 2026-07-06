@@ -489,6 +489,38 @@ SECRET_KEY fallback). (3) ONE "summary-not-ready" placeholder detector (`summary
   formats, which is the gap that let the regression through the local gate.
 Gate: ruff + bandit + pytest (1240 passed, 2 deselected). Draft PR #563.
 
+**Wave 2 · S1 finalize — flag flip + old-path removal (PR pending).** The post-soak step from S1's
+own plan. The founder authorized the flip (soak window long elapsed; the telemetry go/no-go was
+theirs — this environment has no PostHog/Sentry access). ``USE_PIPELINE_FOR_BACKGROUND`` is REMOVED
+(zero references remain in config.py) — the unified ``stream_filing_summary`` pipeline is now the
+SOLE summary orchestrator; ``generate_summary_background`` drains it headless unconditionally.
+Deleted the ~500-line legacy body (``generate_summary_core`` + fetch/excerpt helpers),
+``determine_result_type``, ``generate_unavailable_sections_notes``, and the 6 imports only they used.
+Net -1026 LOC. The two behaviors the flag also gated are now permanent (the signed-off S1 outcomes):
+the cron/precompute path is filing-only with partial-persistence, and the user-facing SSE quality
+verdict uses the 9-section ``assess_quality`` at 4/9 (7-section fallback when no ``per_section``
+snapshot).
+- **Pre-deletion adversarial verification (6 refute-first verifiers):** confirmed no hidden live
+  caller of the two deleted functions, the 4+2 imports unused, the exact function boundaries
+  (400-991) + safe drain dedent, all kept helpers still have live callers, and exactly the 4
+  affected test files. Structural surgery ran via a script with anchor assertions (a proof that
+  fails loudly if line numbers drift).
+- **Post-commit adversarial review (4 lenses) — one MAJOR finding fixed:** deleting the legacy
+  characterization tests dropped the ONLY coverage of the quota/billing contract for the background
+  caller, though the behavior is still live (the drain passes user_id to the pipeline, which charges
+  once on a full result and skips partials via ``count_usage``). Re-anchored two tests on the drain
+  path (charge-once-on-full, no-charge-on-partial). Also fixed stale comments/docs the review
+  surfaced (the drain-log "soak"/"legacy body" comment; the ai-engineer subagent brief's
+  ``determine_result_type`` reference). The naive allow-list, boundaries, and behavior-preservation
+  lenses came back clean.
+- The T2 characterization file now pins the UNIFIED drain (early-returns + filing-only + zero-funnel
+  + partial-persistence + the two quota tests); its flag-off legacy pins, the orphaned
+  ``background_boundaries`` harness, and the redundant ``test_summaries_flow`` integration test are
+  removed. ``.claude/agents/*`` + this plan's body still describe the flag/``determine_result_type``
+  as live — the body is preserved as the original proposal per this log's convention; this entry is
+  authoritative that both are now removed.
+Gate: ruff + bandit + pytest (1247 passed, 2 deselected). T1 SSE contract unchanged.
+
 _(Deltas from later waves will be appended here as they are executed.)_
 
 ---

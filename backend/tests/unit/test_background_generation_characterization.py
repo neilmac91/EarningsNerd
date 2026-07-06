@@ -18,12 +18,13 @@ Pinned here:
     telemetry via ``emit_funnel_telemetry=False``, and the funnel seam is not even imported here;
   * partials are PERSISTED (the drained pipeline saves the row with a quality tier).
 """
+import uuid
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from app.database import SessionLocal
-from app.models import Summary
+from app.models import Summary, User
 from app.services import summary_generation_service
 from app.services.summary_generation_service import generate_summary_background
 from tests.support.summary_stream_harness import (
@@ -41,6 +42,16 @@ def _tables():
 
     Base.metadata.create_all(bind=engine)
     yield
+
+
+def _seed_user() -> int:
+    """Seed a unique User row (email is the only NOT NULL field) and return its id."""
+    with SessionLocal() as db:
+        user = User(email=f"bg-{uuid.uuid4().hex[:8]}@example.com")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user.id
 
 
 # --- early-return branches --------------------------------------------------------------------
@@ -137,3 +148,55 @@ async def test_drain_persists_partial():
 
     with SessionLocal() as db:
         assert db.query(Summary).filter(Summary.filing_id == filing_id).first() is not None
+
+
+# --- quota / billing contract (charged once on full, never on partial) ------------------------
+# generate_summary_background passes user_id straight into the drain, which charges via the
+# pipeline's own count_usage (once on a full result; skipped on a partial by the quality gate).
+# These pin that billing contract for the background/cron caller — the coverage the pre-unification
+# usage tests held, re-anchored on the live drain path.
+
+@pytest.mark.asyncio
+async def test_drain_charges_usage_once_for_signed_in_full_result():
+    """A signed-in full result consumes exactly one quota unit — the drained pipeline calls
+    increment_user_usage once, with this user's id (FREE_TIER_SUMMARY_LIMIT contract)."""
+    from app.services import summary_pipeline
+
+    user_id = _seed_user()
+    reset_inflight()
+    filing_id = seed_company_filing(filing_type="10-Q")  # CANONICAL_PAYLOAD -> 4/7 -> full
+
+    spy = MagicMock()
+    with stream_boundaries(), patch.object(summary_pipeline, "increment_user_usage", spy):
+        await generate_summary_background(filing_id, user_id)
+
+    spy.assert_called_once()
+    assert spy.call_args.args[0] == user_id
+
+
+@pytest.mark.asyncio
+async def test_drain_does_not_charge_usage_for_partial():
+    """A partial result consumes NO quota, even for a signed-in user — the quality gate skips the
+    charge (the no-charge-on-partial half of the billing contract)."""
+    from app.services import summary_pipeline
+
+    user_id = _seed_user()
+    reset_inflight()
+    filing_id = seed_company_filing(filing_type="10-Q")
+
+    partial = {
+        **CANONICAL_PAYLOAD,
+        "raw_summary": {
+            "sections": {},
+            "section_coverage": {
+                "per_section": {"executive_snapshot": True, "financial_highlights": True},
+                "covered_count": 2,
+                "total_count": 9,
+            },
+        },
+    }
+    spy = MagicMock()
+    with stream_boundaries(payload=partial), patch.object(summary_pipeline, "increment_user_usage", spy):
+        await generate_summary_background(filing_id, user_id)
+
+    spy.assert_not_called()
