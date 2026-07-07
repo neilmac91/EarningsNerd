@@ -1,6 +1,6 @@
 {
-  "operation": "describe-service",
+  "operation": "detection-sql",
   "tickers": "",
   "revision": "",
-  "nonce": "phase0-probe-1"
+  "nonce": "phase0-probe-2"
 }
