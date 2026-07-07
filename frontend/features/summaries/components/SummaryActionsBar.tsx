@@ -44,8 +44,11 @@ export function SummaryActionsBar({
                 Saved
               </span>
             ) : (
+              // Primary treatment (was secondary) so the save affordance is discoverable pre-scroll
+              // rather than reading as a low-key optional action — it is the main thing a signed-in
+              // reader does with a summary they want to keep.
               <Button
-                variant="secondary"
+                variant="primary"
                 onClick={() => saveMutation.mutate(summaryId)}
                 disabled={saveMutation.isPending}
               >

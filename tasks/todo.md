@@ -1,3 +1,41 @@
+# Task: Dashboard Improvement Plan — launch tier (2026-07-07, branch claude/serene-mendel-8ju9kj)
+
+Spec: `docs/dashboard-improvement-plan.md` §2, §3, §6 (Quick wins + Pre-beta polish). Out of scope:
+all §6 "Later (post-beta)". Keep feed API response shape unchanged. Do NOT flip prod flags/env.
+
+## Backend — §2 What's new fix
+- [x] Restructure `compose_feed` → newest-eligible-filing-per-company (dashboard_feed_service.py)
+- [x] Update 3 docstrings (module, compose_feed, route)
+- [x] Tests: update `test_compose_feed_orders_filters_and_annotates`; add 7 new; keep empty-watchlist
+      (2 tests later strengthened to multi-filing fixtures per review, so they fail on the old bug)
+- [x] §6: same-day tie-break fix in `get_watchlist_insights` (watchlist.py)
+
+## Frontend — §2 / §3
+- [x] FilingFeed: 6-card cap, "See all N companies" overflow (N from watchlist), empty states, subline
+      (empty-state fixed post-review: onboarding only when watchlistCount === 0)
+- [x] WhatChangedCard: recency "New" badge + fallback copy (§2.6) (DST-immune date diff post-review)
+- [x] Empty-state onboarding: PopularTickerChips + inline WatchlistAddSearch (§2.5)
+- [x] YourCompanies status section (getWatchlistInsights rows + inline add + link) (§3.2)
+- [x] SummaryStatusBadge extracted + reused (watchlist page + Your companies)
+- [x] dashboard/page.tsx restructure: two columns, remove quick actions, demote plan/usage,
+      conditional saved summaries, top usage-warning banner (§3, §6)
+- [x] EarningsCalendar §3.2 polish: render eps_estimated, quiet empty line, rewrite stale comment
+- [x] Feed staleness (§2.7): dashboardFeed + dashboardCalendar invalidation at all 4 mutation sites
+- [x] §6: save-summary discoverability (SummaryActionsBar)
+
+## Docs (§3.2 hygiene)
+- [x] CLAUDE.md `/api/compare` → `/api/summaries/filing/{id}/what-changed`
+- [x] ADR-0003 edgartools pin note (>=5.12.0 → 5.40.1)
+- [x] featureFlags ENABLE_CALENDAR comment
+
+## Verify + deliverable
+- [x] Backend: ruff + bandit + pytest; Frontend: lint + tsc + vitest (+em-dash gate, +feed tests) + build
+- [x] Adversarial review pass (4 reviewers); confirmed findings fixed + re-verified
+- [x] Changelog + manual go-live steps (docs/dashboard-plan-impl-summary.md)
+- Deferred (design only, §6): feed form-type filter chips — documented, ships with post-beta 8-K rows
+
+---
+
 # Task: Site-wide copy voice pass (2026-07-07, branch claude/earningsnerd-copy-voice-rr0pvy)
 
 Rewrite user-facing English copy into a shorter, plainer, human voice (harvey.ai reference).

@@ -10,9 +10,10 @@ import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { getWatchlistInsights, WatchlistInsight } from '@/features/watchlist/api/watchlist-api'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import WatchlistAddSearch from '@/features/watchlist/components/WatchlistAddSearch'
+import SummaryStatusBadge from '@/features/watchlist/components/SummaryStatusBadge'
 import CompanyLogo from '@/components/CompanyLogo'
 import { ENABLE_ANALYSIS } from '@/lib/featureFlags'
-import { Badge, buttonVariants, Card, GuidanceCard, type BadgeVariant } from '@/components/ui'
+import { Badge, buttonVariants, Card, GuidanceCard } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 
 function useAuthGate() {
@@ -30,26 +31,6 @@ function useAuthGate() {
   }, [router, isLoading, user])
 
   return { isReady: !isLoading, hasUser: Boolean(user) }
-}
-
-// Status chips ride the Badge tonal recipes (beat/miss/new are tone names, not
-// semantics — icon={null} at the render site strips their auto glyphs).
-function getStatusBadge(status: string, needsRegeneration: boolean): { label: string; variant: BadgeVariant } {
-  const [base, detail] = status.split(':')
-  switch (base) {
-    case 'ready':
-      return { label: 'Ready', variant: 'beat' }
-    case 'generating':
-      return { label: detail ? `Generating (${detail})` : 'Generating', variant: 'brand' }
-    case 'placeholder':
-      return { label: 'Fallback', variant: 'new' }
-    case 'error':
-      return { label: 'Error', variant: 'miss' }
-    default:
-      return needsRegeneration
-        ? { label: 'Needs Attention', variant: 'miss' }
-        : { label: 'Pending', variant: 'neutral' }
-  }
 }
 
 function formatRelative(dateLike?: string | null) {
@@ -129,9 +110,6 @@ export default function WatchlistDashboardPage() {
           <div className="grid gap-6">
             {insights.map((insight: WatchlistInsight) => {
               const latest = insight.latest_filing
-              const badge = latest
-                ? getStatusBadge(latest.summary_status, latest.needs_regeneration)
-                : null
               const progressStage = latest?.progress?.stage
               const elapsedSeconds = latest?.progress?.elapsedSeconds ?? latest?.progress?.elapsed
 
@@ -147,10 +125,11 @@ export default function WatchlistDashboardPage() {
                           {insight.company.name}
                         </h2>
                         <Badge variant="neutral">{insight.company.ticker}</Badge>
-                        {badge && (
-                          <Badge variant={badge.variant} icon={null}>
-                            {badge.label}
-                          </Badge>
+                        {latest && (
+                          <SummaryStatusBadge
+                            status={latest.summary_status}
+                            needsRegeneration={latest.needs_regeneration}
+                          />
                         )}
                       </div>
                       <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark mt-1">

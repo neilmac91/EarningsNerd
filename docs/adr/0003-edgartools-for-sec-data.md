@@ -21,8 +21,10 @@ This split had real costs:
 
 ## Decision
 
-Standardize on **[`edgartools`](https://pypi.org/project/edgartools/)** (`edgartools>=5.12.0`)
-as the single SEC integration library, covering both filing retrieval and XBRL extraction.
+Standardize on **[`edgartools`](https://pypi.org/project/edgartools/)** as the single SEC
+integration library, covering both filing retrieval and XBRL extraction. (The floor at decision
+time was `>=5.12.0`; it has since advanced to `>=5.40.1` in `requirements.in`, with the lockfile
+`requirements.txt` pinning `edgartools==5.40.1`.)
 
 - All SEC access goes through `backend/app/services/edgar/` (client, XBRL service, circuit
   breaker, async executor, compat layer).
@@ -42,7 +44,8 @@ as the single SEC integration library, covering both filing retrieval and XBRL e
 
 **Negative / costs**
 - A hard dependency on `edgartools` tracking SEC EDGAR's format and endpoint changes; we
-  pin a tested floor (`>=5.12.0`) rather than chasing latest.
+  pin a tested floor (currently `>=5.40.1`, resolved to `==5.40.1` in the lockfile) rather than
+  chasing latest.
 - `edgartools` is synchronous, so it must run inside the dedicated thread pool
   (`edgar/config.py: EDGAR_THREAD_POOL_SIZE`) to avoid blocking the event loop — a pattern
   contributors must follow for any new SEC call.

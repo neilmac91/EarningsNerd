@@ -50,6 +50,10 @@ export default function WatchlistAddSearch() {
     onSuccess: (_data, ticker) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.watchlistInsights() })
       queryClient.invalidateQueries({ queryKey: queryKeys.watchlist() })
+      // The dashboard feed and calendar are both watchlist-derived; invalidate so a just-added
+      // company appears without a manual refresh (invalidating an unmounted query is harmless).
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardFeed() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCalendar() })
       analytics.watchlistAdded(ticker)
       setJustAdded(ticker)
       setQuery('')

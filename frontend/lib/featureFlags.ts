@@ -103,9 +103,12 @@ export const ENABLE_MARKET_MOVERS =
 
 /**
  * Show the dashboard earnings calendar (upcoming earnings for watched companies).
- * Ships off by default — the backend `/api/dashboard/calendar/upcoming` returns empty until an
- * FMP_API_KEY is provisioned, so the widget stays dark until both are ready.
- * Flip NEXT_PUBLIC_ENABLE_CALENDAR='true' once FMP is configured.
+ * Ships off by default. The FMP dependency is retired: the backend
+ * `/api/dashboard/calendar/upcoming` now reads the owned `earnings_events` table (seeded by the
+ * Alpha Vantage + EDGAR 8-K engine via the `earnings-calendar-refresh` job) and degrades to an
+ * empty calendar if that table isn't seeded. Flip NEXT_PUBLIC_ENABLE_CALENDAR='true' only after
+ * confirming `earnings_events` is seeded and fresh in the target environment. The same flag lights
+ * up the `/calendar` page and its nav entries, whose market-wide endpoint is also live.
  */
 export const ENABLE_CALENDAR = process.env.NEXT_PUBLIC_ENABLE_CALENDAR === 'true'
 

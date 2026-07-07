@@ -260,9 +260,16 @@ async def get_watchlist_insights(
             (Filing.company_id == latest_dates_subq.c.company_id)
             & (Filing.filing_date == latest_dates_subq.c.latest_date),
         )
+        .order_by(desc(Filing.id))
         .all()
     )
-    latest_filing_by_company = {filing.company_id: filing for filing in latest_filings}
+    # Same-day tie-break: a company that files (e.g.) a 10-K and a 10-Q on the same date matches the
+    # max-date join twice. Order by id desc and keep the FIRST (highest id) so "latest filing" is
+    # deterministic — mirrors the dashboard feed's (filing_date, id) desc tie-break so the insights
+    # page and the "Your companies" rows it powers land on the same filing.
+    latest_filing_by_company: Dict[int, Filing] = {}
+    for filing in latest_filings:
+        latest_filing_by_company.setdefault(filing.company_id, filing)
 
     filing_counts = dict(
         db.query(Filing.company_id, func.count(Filing.id))

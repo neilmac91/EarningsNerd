@@ -122,9 +122,14 @@ export default function CompanyPageClient() {
         toast.success(`${company?.ticker ?? result.ticker} removed from your watchlist`)
       }
     },
-    // Always refetch so the temporary optimistic row is replaced by the canonical server row.
+    // Always refetch so the temporary optimistic row is replaced by the canonical server row. The
+    // watchlist-derived insights, dashboard feed, and calendar go stale on a toggle too, so refresh
+    // them here (invalidating an unmounted query is harmless).
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.watchlist() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.watchlistInsights() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardFeed() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.dashboardCalendar() })
     },
   })
 
