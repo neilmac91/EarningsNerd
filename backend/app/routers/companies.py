@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Query
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from typing import Dict, List, Optional, Tuple
 from app.database import get_db
@@ -181,7 +182,11 @@ async def search_companies(
         if not sec_results:
             return []
         
-        # Store or update companies in database
+        # Store or update companies in database — ONE row per CIK (data-quality plan P0-1).
+        # SEC's ticker file carries one entry per LISTED SECURITY: iterating it raw returned N
+        # duplicate rows per company and let the LAST entry's ticker win the persisted row
+        # (preferred classes sort last in the file — that is how JPMorgan became "JPM-PM" and
+        # served the preferred share's quote as its stock price).
         companies: List[Company] = []
         ciks = [result["cik"] for result in sec_results if result.get("cik")]
         existing_companies: Dict[str, Company] = {}
@@ -191,17 +196,25 @@ async def search_companies(
 
         new_companies: List[Company] = []
         updated_companies: List[Company] = []
+        seen_ciks: set = set()
+        response_ciks: List[str] = []
 
         for sec_data in sec_results:
             cik = sec_data.get("cik")
-            if not cik:
-                continue
+            if not cik or cik in seen_ciks:
+                continue  # one response row per company, not per listed share class
+            seen_ciks.add(cik)
+
+            # The canonical listing ticker — NEVER assigned from the per-entry sec_data, which
+            # for a multi-class issuer can be any share class. None (CIK absent from the file,
+            # e.g. delisted) leaves an existing row's ticker unchanged.
+            primary = await sec_edgar_service.primary_ticker_for_cik(cik)
 
             company = existing_companies.get(cik)
             if not company:
                 company = Company(
                     cik=cik,
-                    ticker=sec_data.get("ticker"),
+                    ticker=primary or sec_data.get("ticker"),
                     name=sec_data.get("name"),
                     exchange=sec_data.get("exchange"),
                 )
@@ -209,12 +222,13 @@ async def search_companies(
                 new_companies.append(company)
             else:
                 updated = False
-                ticker = sec_data.get("ticker")
                 name = sec_data.get("name")
                 exchange = sec_data.get("exchange")
 
-                if ticker and company.ticker != ticker:
-                    company.ticker = ticker
+                # Ticker updates only TO the canonical primary: permits real renames, forbids
+                # preferred-class downgrades (the pre-P0-1 last-write-wins corruption).
+                if primary and company.ticker != primary:
+                    company.ticker = primary
                     updated = True
                 if name and company.name != name:
                     company.name = name
@@ -226,14 +240,42 @@ async def search_companies(
                 if updated:
                     updated_companies.append(company)
 
-            if company:
-                companies.append(company)
+            companies.append(company)
+            response_ciks.append(cik)
 
         if new_companies or updated_companies:
-            db.flush()
-            db.commit()
-            for company in new_companies:
-                db.refresh(company)
+            try:
+                with db.begin_nested():  # SAVEPOINT: a concurrent-search race must not 500
+                    db.flush()
+                db.commit()
+                for company in new_companies:
+                    db.refresh(company)
+            except IntegrityError:
+                # A concurrent request inserted one of these CIKs between our read and flush.
+                # The batch rollback discards ALL pending inserts, so re-resolve each CIK
+                # individually via the per-row-SAVEPOINT helper — a race on one CIK no longer
+                # drops the other genuinely-new companies from the response.
+                logger.warning(
+                    "company_upsert_conflict cik=%s ticker=%s path=companies.search",
+                    ",".join(response_ciks),
+                    q,
+                )
+                db.rollback()
+                by_cik: Dict[str, Company] = {}
+                for cik in response_ciks:
+                    sec_data = next(r for r in sec_results if r.get("cik") == cik)
+                    primary = await sec_edgar_service.primary_ticker_for_cik(cik)
+                    by_cik[cik] = resolve_or_create_company_by_cik(
+                        db,
+                        cik=cik,
+                        ticker=primary or sec_data.get("ticker"),
+                        name=sec_data.get("name"),
+                        exchange=sec_data.get("exchange"),
+                        path="companies.search",
+                        canonical_ticker=primary,
+                    )
+                db.commit()
+                companies = [by_cik[c] for c in response_ciks]
 
         # Fetch stock quotes for all companies in parallel (but don't fail if some fail)
         quote_tasks = [_get_stock_quote_with_timeout(company.ticker) for company in companies]
@@ -412,14 +454,17 @@ async def get_company(ticker: str, db: Session = Depends(get_db)) -> CompanyResp
                 sec_data = sec_results[0]
                 # CIK-first: when this CIK already has a row under another ticker (e.g. a
                 # preferred-class overwrite like JPM-PM), reuse it instead of 500-ing on the
-                # unique-CIK insert (data-quality plan, interim safeguard 1).
+                # unique-CIK insert (data-quality plan, interim safeguard 1). A genuinely-new
+                # row gets the CANONICAL primary ticker, not whatever class was queried (P0-1).
+                primary = await sec_edgar_service.primary_ticker_for_cik(sec_data["cik"])
                 company = resolve_or_create_company_by_cik(
                     db,
                     cik=sec_data["cik"],
-                    ticker=sec_data["ticker"],
+                    ticker=primary or sec_data["ticker"],
                     name=sec_data["name"],
                     exchange=sec_data.get("exchange"),
                     path="companies.get_company",
+                    canonical_ticker=primary,  # self-heal a stale JPM-PM row → JPM (P0-1)
                 )
                 db.commit()
                 db.refresh(company)

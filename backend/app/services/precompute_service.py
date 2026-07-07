@@ -88,18 +88,21 @@ async def precompute_one(
         sec_company = sec_results[0]
         cik = sec_company["cik"]
         if not dry_run:
+            primary = await sec_edgar_service.primary_ticker_for_cik(cik)
             with SessionLocal() as db:
                 company = db.query(Company).filter(Company.ticker == ticker_u).first()
                 if not company:
                     # CIK-first: reuse an existing row for this CIK (e.g. stored under a
                     # preferred ticker) instead of clashing on unique-CIK (interim safeguard 1).
+                    # New rows take the canonical primary ticker (P0-1).
                     company = resolve_or_create_company_by_cik(
                         db,
                         cik=cik,
-                        ticker=sec_company["ticker"],
+                        ticker=primary or sec_company["ticker"],
                         name=sec_company["name"],
                         exchange=sec_company.get("exchange"),
                         path="precompute.precompute_one",
+                        canonical_ticker=primary,  # self-heal a stale ticker → primary (P0-1)
                     )
                     db.commit()
                     db.refresh(company)

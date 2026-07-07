@@ -74,7 +74,11 @@ def test_get_company_reuses_existing_cik_row(client, db, seeded_jpm, monkeypatch
     async def fake_quote(ticker):
         return None
 
+    async def fake_primary(cik):
+        return "JPM"
+
     monkeypatch.setattr(sec_edgar_service, "search_company", fake_search)
+    monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", fake_primary)
     import app.routers.companies as companies_router
 
     monkeypatch.setattr(companies_router, "get_stock_quote", fake_quote)
@@ -83,9 +87,10 @@ def test_get_company_reuses_existing_cik_row(client, db, seeded_jpm, monkeypatch
     assert resp.status_code == 200
     assert resp.json()["cik"] == JPM_CIK
     assert db.query(Company).filter(Company.cik == JPM_CIK).count() == 1
-    # Phase 1 deliberately does NOT rewrite tickers — canonicalization is P0-1's job.
+    # P0-1 self-heal: resolving the corrupted row canonicalizes its ticker (JPM-PM → JPM), so
+    # no endpoint serves the preferred's quote after the search fix — even before the repair.
     db.expire_all()
-    assert db.query(Company).filter(Company.cik == JPM_CIK).one().ticker == "JPM-PM"
+    assert db.query(Company).filter(Company.cik == JPM_CIK).one().ticker == "JPM"
 
 
 def test_get_company_filings_reuses_existing_cik_row(client, db, seeded_jpm, monkeypatch):
@@ -97,8 +102,12 @@ def test_get_company_filings_reuses_existing_cik_row(client, db, seeded_jpm, mon
     async def fake_get_filings(cik, filing_types=None, limit=None):
         return []
 
+    async def fake_primary(cik):
+        return "JPM"
+
     monkeypatch.setattr(sec_edgar_service, "search_company", fake_search)
     monkeypatch.setattr(sec_edgar_service, "get_filings", fake_get_filings)
+    monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", fake_primary)
 
     resp = client.get("/api/filings/company/JPM")
     assert resp.status_code == 200
@@ -116,8 +125,12 @@ async def test_precompute_reuses_existing_cik_row(db, seeded_jpm, monkeypatch):
     async def fake_get_filings(cik, filing_types=None, limit=None):
         return []
 
+    async def fake_primary(cik):
+        return "JPM"
+
     monkeypatch.setattr(sec_edgar_service, "search_company", fake_search)
     monkeypatch.setattr(sec_edgar_service, "get_filings", fake_get_filings)
+    monkeypatch.setattr(sec_edgar_service, "primary_ticker_for_cik", fake_primary)
 
     result = await precompute_service.precompute_one("JPM", "10-K")
     assert result["status"] == "no_filings"

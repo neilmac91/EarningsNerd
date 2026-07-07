@@ -38,16 +38,25 @@ def resolve_or_create_company_by_cik(
     name: str,
     exchange: Optional[str] = None,
     path: str,
+    canonical_ticker: Optional[str] = None,
 ) -> Company:
     """Return the Company row for ``cik``, creating it only when the CIK is genuinely new.
 
     Does not commit — callers own the transaction. ``path`` labels the call site in the
     ``company_upsert_conflict`` structured log line (interim safeguard 2) so any recurrence is
     attributable in Cloud Run logs.
+
+    ``canonical_ticker`` (P0-1): when provided, a found row whose ticker differs is self-healed
+    to it — so an endpoint that resolves a corrupted row (e.g. JPMorgan stored as ``JPM-PM``)
+    never serves a quote/URL under the wrong ticker between the search-fix deploy and the repair
+    run, and any row the repair misses heals on first touch. Pass ONLY the true primary
+    (``compat.primary_ticker_for_cik``); None (CIK not in the SEC file) leaves the ticker as-is.
     """
     forms = _cik_forms(cik)
     company = db.query(Company).filter(Company.cik.in_(forms)).first()
     if company is not None:
+        if canonical_ticker and company.ticker != canonical_ticker:
+            company.ticker = canonical_ticker
         return company
 
     company = Company(cik=cik, ticker=ticker, name=name, exchange=exchange)

@@ -163,13 +163,16 @@ async def get_company_filings(
                 sec_data = sec_results[0]
                 # CIK-first: reuse an existing row for this CIK (e.g. stored under a preferred
                 # ticker) instead of 500-ing on the unique-CIK insert (interim safeguard 1).
+                # New rows take the canonical primary ticker (P0-1).
+                primary = await sec_edgar_service.primary_ticker_for_cik(sec_data["cik"])
                 company = resolve_or_create_company_by_cik(
                     db,
                     cik=sec_data["cik"],
-                    ticker=sec_data["ticker"],
+                    ticker=primary or sec_data["ticker"],
                     name=sec_data["name"],
                     exchange=sec_data.get("exchange"),
                     path="filings.get_company_filings",
+                    canonical_ticker=primary,  # self-heal a stale ticker → primary (P0-1)
                 )
                 db.commit()
                 db.refresh(company)
