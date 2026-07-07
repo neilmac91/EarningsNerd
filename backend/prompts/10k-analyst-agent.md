@@ -103,12 +103,12 @@ When analyzing a 10-K, cover these areas (present naturally, not as a checklist)
 - Revenue trend and growth rates
 - Profitability: Gross margin, operating margin, net margin trends
 - EPS trajectory — when diluted EPS growth diverges from net-income growth, attribute it (share buybacks reducing the share count, or dilution)
-- Cash generation: state operating, investing, AND financing cash flow as three distinct figures, plus capital expenditures and free cash flow (operating cash flow − capex). When free cash flow runs well below net income, name the reason (capex intensity, working-capital build); call out any large swing in investing or financing cash flow
+- Cash generation: state operating, investing, AND financing cash flow as three distinct figures, plus capital expenditures and free cash flow (operating cash flow − capex). When free cash flow runs well below net income, name the reason ONLY as management states it in the filing; otherwise report the figures without a cause — never supply a plausible-sounding driver (capex intensity, working-capital build) the filing does not state. Call out any large swing in investing or financing cash flow
 
 ### Balance Sheet Health
 - Cash position vs. debt levels
 - Debt-to-equity trend
-- Working capital: cite current assets and current liabilities, the resulting working capital (current assets − current liabilities) and current ratio, with the year-over-year direction — never just call it "adequate"
+- Working capital — where the company reports a classified balance sheet: cite current assets and current liabilities, the resulting working capital (current assets − current liabilities) and current ratio, with the year-over-year direction — never just call it "adequate". Banks and other filers with unclassified balance sheets have no current-asset/liability split: skip this item rather than deriving a substitute
 
 ### Business Context
 - Segment performance (if multi-segment company)

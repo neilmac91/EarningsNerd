@@ -378,7 +378,68 @@ DELETE-by-`raw_tag` is a documented manual step, never an ops enum.
 
 ## Phase 6 — P0-4 bank prompt carve-out (eval-gated)
 
-**Status:** pending
+**Status:** complete (code + eval gate + re-pin); prod JPM regenerate = post-deploy step below.
+**Plan items:** P0-4 — stop the model fabricating a free-cash-flow driver on banks. (a) prompt
+carve-out; (b) runtime FI addendum; (c) golden-set activates the components gate; (d) eval
+`--runs 3` + regression gate + re-pin, all in this PR.
+
+**Changed:**
+- **(a) Prompts** (`10k`/`10q`/`20f-analyst-agent.md`): the FCF-shortfall reason is now named
+  "ONLY as management states it in the filing; otherwise report the figures without a cause —
+  never supply a plausible-sounding driver (capex intensity, working-capital build)"; the
+  working-capital / current-ratio items are qualified "where the company reports a classified
+  balance sheet" with an explicit "banks … skip this item rather than deriving a substitute".
+- **(b) FI addendum** (`ai/xbrl_narrative.py`): a `FINANCIAL-INSTITUTION COVERAGE` block appended
+  at the grounding point, gated on the SAME `fi_components_present` predicate as the revenue
+  NOTE — swaps the industrial checklist for bank metrics (NII/NIM, noninterest income/efficiency,
+  provision for credit losses + allowance, capital ratios, deposit/loan growth) and says "NEVER
+  attribute a cash-flow swing to capex or working capital". No literal `$` (the non-USD relabel
+  rewrites `$`). Live in prod (flag-ON → components extracted → addendum fires); dormant in the
+  flag-off eval (confirmed empirically).
+- **(c) golden_set** JPM: dropped the composite `revenue` 182,447,000,000 fact; added
+  `net_interest_income` 95,443,000,000 + `noninterest_income` 87,004,000,000. **EDGAR-verified**
+  (accession 0001628280-26-008131 / companyconcept): `InterestIncomeExpenseNet`=95,443,000,000,
+  `NoninterestIncome`=87,004,000,000, `RevenuesNetOfInterestExpense`=182,447,000,000 (=the sum) —
+  so the removed fact was exactly the conflated total, and the gate now rewards the components.
+
+**Guardrails:** `test_xbrl_narrative_fi_addendum.py` (addendum for FI inputs; non-FI grounding
+block stays byte-identical — keeps `test_xbrl_narrative_section.py` green). Full offline scorer /
+regression-gate / FI-predicate / assess_quality suites green.
+
+**(d) Eval gate (authoritative, local, deepseek-v4-pro):** wiring smoke (2×1) → full verified set
+`--runs 3` (26 filings × 3 = 78 gen, **0 errors**). Result vs the pinned baseline:
+`gate_fail_rate` **0.0**, `precision` **1.0**, `coverage` **1.0**, `recall` 0.8295→**0.8372**,
+`aggregate` 0.9233→**0.9267**, `financial_depth` 0.9658→0.9573 (the correct effect of banks
+skipping fabricated WC claims — within the 0.10 warn band, no gate tripped). `regression_gate
+--latest`: **PASS, 0 warnings.** Re-pinned `baseline_scores.json` via `pin_baseline.py` in this
+same PR.
+
+**JPM verification (the P0-4 target):** perfect 3/3 (aggregate 1.0, recall 1.0, precision 1.0,
+zero gate failures) — the model reported BOTH new components from the filing text. Generated
+JPM's summary with the new prompts and inspected the cash-flow prose: drivers are
+**filing-grounded** — OCF −$147.8B "driven by higher trading assets and securities borrowed",
+ICF "net loan originations and net purchases of investment securities", FCF "higher deposits and
+securities loaned or sold under repurchase agreements". **No fabricated capex/working-capital
+cause** — the exact defect P0-4 targets, gone. (In the flag-off eval this is the prompt carve-out
+(a) alone; in flag-ON prod the addendum (b) reinforces it.)
+
+**Tooling for the prod verify:** `scripts/reset_filing_summary.py` (targeted per-filing delete →
+lazy regen; dry-run default; FK-safe, mirrors admin reset-all) + ops enum
+`reset-filing-summary-dry-run|apply` (single-ticker, jobs channel).
+
+**Adversarial review (pre-merge, 5 lenses × verify):** 1 finding CONFIRMED (minor), 3 refuted.
+The committed JPM FI ground truth had diverged from `build_golden_set.py` — the generator has no
+FI concepts and gates `verified` on `revenue`, so a `python -m evals.build_golden_set` regen would
+silently re-add revenue, drop the components, and deactivate gate G5 for JPM (rule-12 gap). Fixed
+in this PR: the generator now mirrors the product's `FINANCIAL_PROFILES` "bank" profile (extracts
+the two components, suppresses the conflated revenue total, verifies on the components), locked by
+`test_golden_set_bank_ground_truth.py` + an extended concept-sync assertion. No committed data or
+baseline changed, so the passing `--runs 3` gate still holds. (This also confirms the plan's
+"remove revenue" was correct — the product itself suppresses a bank's conflated revenue.)
+
+**Deploy / prod operations:** _pending merge → deploy → run `reset-filing-summary-apply` for JPM
+10-K → public GET to trigger lazy regen → confirm the prod JPM summary's FCF line has no
+capex/working-capital fabrication._
 
 ---
 

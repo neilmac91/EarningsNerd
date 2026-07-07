@@ -93,7 +93,43 @@ EXTENDED_METRIC_CONCEPTS: Dict[str, Tuple[str, List[str], str]] = {
     ], "duration"),
     "current_assets": ("USD", ["AssetsCurrent", "CurrentAssets"], "instant"),
     "current_liabilities": ("USD", ["LiabilitiesCurrent", "CurrentLiabilities"], "instant"),
+    # Bank revenue components (P0-4): a bank reports its top line as Net Interest Income +
+    # Noninterest Income, not a single conflated "revenue" line. Tags mirror the product's bank
+    # FINANCIAL_PROFILE selectors (instance_extractor.FINANCIAL_PROFILES, key="bank"); kept in sync
+    # by test_extended_golden_set_concepts_match_product_extraction. When BOTH resolve the filer is
+    # a bank and its conflated `revenue` total is suppressed (see `_apply_bank_revenue_suppression`).
+    "net_interest_income": ("USD", ["InterestIncomeExpenseNet"], "duration"),
+    "noninterest_income": ("USD", ["NoninterestIncome"], "duration"),
 }
+
+# A bank (product's FINANCIAL_PROFILES "bank" profile) is a filer that reports BOTH interest
+# components; it emits them and suppresses the conflated single "revenue" total.
+_BANK_COMPONENTS = ("net_interest_income", "noninterest_income")
+
+
+def _is_bank_profile(facts: List[Dict[str, Any]]) -> bool:
+    """True when both bank revenue components resolved — mirrors the product's bank detection
+    (instance_extractor.FINANCIAL_PROFILES key="bank": detect requires both interest components)."""
+    have = {f["metric"] for f in facts}
+    return all(c in have for c in _BANK_COMPONENTS)
+
+
+def _apply_bank_revenue_suppression(facts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Product parity (FINANCIAL_PROFILES "bank" suppress=("revenue",)): a bank has no single
+    revenue line, so drop the conflated `revenue` total and let the components stand as the top
+    line. No-op for every non-bank filing."""
+    if _is_bank_profile(facts):
+        return [f for f in facts if f["metric"] != "revenue"]
+    return facts
+
+
+def _required_core_metrics(facts: List[Dict[str, Any]]) -> set:
+    """Core metrics that must be present for `verified`. A bank legitimately reports no single
+    revenue line (it is suppressed above), so it verifies on net_income + eps + the two components
+    instead of revenue."""
+    if _is_bank_profile(facts):
+        return (set(METRIC_CONCEPTS) - {"revenue"}) | set(_BANK_COMPONENTS)
+    return set(METRIC_CONCEPTS)
 
 def _unit_with_currency(default_unit: str, currency: Optional[str]) -> str:
     """Stamp the as-filed reporting currency onto the ground-truth unit (USD defaults otherwise).
@@ -293,6 +329,9 @@ def _extract_ground_truth(
                 f"sign mismatch: net_income={by_metric['net_income']} vs eps={by_metric['eps']}"
             )
 
+    # Bank top line = the components, not a conflated total (product parity; P0-4). Applied AFTER
+    # the revenue>0 invariant so a bank's real Revenues total is still validated where present.
+    facts = _apply_bank_revenue_suppression(facts)
     return facts, problems
 
 
@@ -318,11 +357,13 @@ async def _resolve_entry(entry: Dict[str, Any]) -> Dict[str, Any]:
 
     entry["ground_truth"] = facts
     # `verified` is gated on the CORE metrics only (extended 2.6 facts are additive — see above), so a
-    # filing legitimately missing a balance-sheet/cash-flow line stays runnable.
-    core_facts = sum(1 for f in facts if f["metric"] in METRIC_CONCEPTS)
+    # filing legitimately missing a balance-sheet/cash-flow line stays runnable. A bank verifies on
+    # net_income + eps + the two revenue components (its revenue total is suppressed), not `revenue`.
+    required_core = _required_core_metrics(facts)
+    core_facts = sum(1 for f in facts if f["metric"] in required_core)
     entry["verified"] = bool(
         entry["accession_number"] and entry["document_url"]
-        and core_facts == len(METRIC_CONCEPTS) and not problems
+        and core_facts == len(required_core) and not problems
     )
     if problems:
         entry["verification_problems"] = problems

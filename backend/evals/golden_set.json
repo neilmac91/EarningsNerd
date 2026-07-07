@@ -175,11 +175,6 @@
       "document_url": "https://www.sec.gov/Archives/edgar/data/19617/000162828026008131/jpm-20251231.htm",
       "ground_truth": [
         {
-          "metric": "revenue",
-          "value": 182447000000.0,
-          "unit": "USD"
-        },
-        {
           "metric": "net_income",
           "value": 57048000000.0,
           "unit": "USD",
@@ -208,6 +203,16 @@
         {
           "metric": "financing_cash_flow",
           "value": 269533000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "net_interest_income",
+          "value": 95443000000.0,
+          "unit": "USD"
+        },
+        {
+          "metric": "noninterest_income",
+          "value": 87004000000.0,
           "unit": "USD"
         }
       ],

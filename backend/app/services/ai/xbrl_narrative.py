@@ -129,6 +129,22 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
             "Interest Income and Non-Interest Income as the SEPARATE figures given above; do NOT sum "
             'them into, or invent, a single "Revenue" number.'
         )
+        # Industrial checklist → bank fabrication: the analyst prompt's working-capital / current-ratio
+        # / capex-driven-FCF items have no meaning for a bank (unclassified balance sheet; cash flow is
+        # lending/deposit/trading-driven), and the model was observed inventing a "FCF negative due to
+        # high capex and working-capital changes" cause on JPM. Swap the checklist here, at the point of
+        # grounding, gated on the SAME predicate as the NOTE above so instruction and output-checks stay
+        # aligned. No literal "$" — the non-USD relabel below rewrites "$" and must not touch this text.
+        body += (
+            "\nFINANCIAL-INSTITUTION COVERAGE — this issuer is a bank/financial institution: its "
+            "balance sheet is UNCLASSIFIED (no current-asset/current-liability split) and its cash "
+            "flows are lending-, deposit-, and trading-driven, not industrial capex. Do NOT compute or "
+            "cite working capital, a current ratio, or a capex-based free-cash-flow figure, and NEVER "
+            "attribute a cash-flow swing to capex or working capital. Cover instead, ONLY as the filing "
+            "discloses them: net interest income and net interest margin; noninterest income and the "
+            "noninterest expense / efficiency ratio; provision for credit losses and the "
+            "allowance/reserve trend; regulatory capital ratios (e.g. CET1); and deposit and loan growth."
+        )
     # Foreign (non-USD) filers: name the reporting currency emphatically, right next to the figures.
     # The generic "don't render non-USD as $" rule in the analyst system prompt is intermittently
     # ignored for less-common currencies (observed ~1/3 on DKK/Novo Nordisk — figures rendered as

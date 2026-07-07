@@ -469,3 +469,15 @@ def test_extended_golden_set_concepts_match_product_extraction():
     assert EXTENDED_METRIC_CONCEPTS["operating_cash_flow"][2] == "duration"
     # Extended metrics must not overlap the core (verified-gating) set.
     assert set(EXTENDED_METRIC_CONCEPTS) & set(METRIC_CONCEPTS) == set()
+    # P0-4 bank revenue components: the generator's tags must mirror the product's bank
+    # FINANCIAL_PROFILE selectors so a regen and production extraction can't drift on which tags a
+    # bank's Net Interest Income / Noninterest Income resolve from.
+    from app.services.edgar.instance_extractor import FINANCIAL_PROFILES
+
+    bank = next(p for p in FINANCIAL_PROFILES if p["key"] == "bank")
+    bank_selectors = {key: list(tags) for key, tags, _std in bank["selectors"]}
+    assert EXTENDED_METRIC_CONCEPTS["net_interest_income"][1] == bank_selectors["net_interest_income"]
+    assert EXTENDED_METRIC_CONCEPTS["noninterest_income"][1] == bank_selectors["noninterest_income"]
+    assert EXTENDED_METRIC_CONCEPTS["net_interest_income"][2] == "duration"
+    # The product suppresses the conflated revenue total for banks — the generator must too.
+    assert "revenue" in bank["suppress"]

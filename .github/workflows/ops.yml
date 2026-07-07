@@ -31,9 +31,11 @@ on:
           - repair-ticker-dry-run
           - repair-ticker-apply
           - sync-companyfacts
+          - reset-filing-summary-dry-run
+          - reset-filing-summary-apply
           - rollback-traffic
       tickers:
-        description: 'Comma-separated tickers (sync-companyfacts only), e.g. JPM,BAC'
+        description: 'Comma-separated tickers (sync-companyfacts); a SINGLE ticker for reset-filing-summary'
         required: false
         default: ''
       revision:
@@ -81,7 +83,7 @@ jobs:
             REVISION=$(python3 -c "import json; print(json.load(open('ops/requests/current.json')).get('revision',''))")
           fi
           case "$OP" in
-            describe-service|describe-jobs|detection-sql|logs-probe|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|sync-companyfacts|rollback-traffic) ;;
+            describe-service|describe-jobs|detection-sql|logs-probe|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|sync-companyfacts|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
             *) echo "::error::unknown operation '$OP'"; exit 1 ;;
           esac
           case "$OP" in
@@ -91,6 +93,11 @@ jobs:
               # Spec P0-3: resync in bounded batches.
               COUNT=$(echo "$TICKERS" | tr ',' '\n' | wc -l)
               [ "$COUNT" -le 50 ] || { echo "::error::max 50 tickers per dispatch"; exit 1; }
+              ;;
+            reset-filing-summary-dry-run|reset-filing-summary-apply)
+              # Per-filing (NOT reset-all): require a SINGLE ticker, no comma-separated list.
+              [[ "$TICKERS" =~ ^[A-Za-z0-9.-]+$ ]] \
+                || { echo "::error::reset-filing-summary needs exactly one ticker in the tickers field"; exit 1; }
               ;;
             rollback-traffic)
               [[ "$REVISION" =~ ^[a-z0-9-]+$ ]] \
@@ -289,6 +296,25 @@ jobs:
             gcloud run jobs execute "$JOBS_CHANNEL_JOB" --region="$REGION" \
               --args="^;^scripts/sync_companyfacts.py;--tickers;${TICKERS};--force" --wait
             echo "resync COMPLETED via jobs channel for: $TICKERS"
+          fi
+
+      - name: Reset a single filing's summary (per-filing regen; jobs channel)
+        if: contains('reset-filing-summary-dry-run reset-filing-summary-apply', steps.request.outputs.operation)
+        run: |
+          set -euo pipefail
+          TICKER="${{ steps.request.outputs.tickers }}"
+          [ -n "$TICKER" ] || { echo "::error::a single ticker is required in the tickers field"; exit 1; }
+          # Runs the committed per-filing reset in the jobs-channel container (which carries
+          # DATABASE_URL). ^;^ switches gcloud's --args delimiter to ';' so each flag stays separate.
+          # The script defaults to a dry run; --execute is added only for the -apply operation.
+          if [ "${{ steps.request.outputs.operation }}" = "reset-filing-summary-apply" ]; then
+            gcloud run jobs execute "$JOBS_CHANNEL_JOB" --region="$REGION" \
+              --args="^;^scripts/reset_filing_summary.py;--ticker;${TICKER};--form;10-K;--execute" --wait
+            echo "reset-filing-summary APPLIED via jobs channel for: ${TICKER} 10-K (regenerates lazily on next view)"
+          else
+            gcloud run jobs execute "$JOBS_CHANNEL_JOB" --region="$REGION" \
+              --args="^;^scripts/reset_filing_summary.py;--ticker;${TICKER};--form;10-K" --wait
+            echo "reset-filing-summary DRY RUN via jobs channel for: ${TICKER} 10-K"
           fi
 
       # ------------------------------------------------------------------ emergency rollback

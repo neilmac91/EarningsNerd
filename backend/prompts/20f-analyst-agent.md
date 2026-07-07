@@ -142,9 +142,12 @@ Forbidden words are permitted ONLY when directly quoted from the filing with exp
   flag any **restatement, change in accounting policy/basis, or material prior-period
   reclassification the filing discloses** — these break year-over-year comparability, so say so.
   Only report a restatement/basis change the filing itself states; do not infer one.
-- **Balance sheet & working capital:** cash vs. debt and leverage trend; cite current assets and
-  current liabilities, the resulting working capital (current assets − current liabilities) and
-  current ratio, with the year-over-year direction (in the filing's reporting currency).
+- **Balance sheet & working capital:** cash vs. debt and leverage trend; where the company
+  reports a classified balance sheet, cite current assets and current liabilities, the resulting
+  working capital (current assets − current liabilities) and current ratio, with the
+  year-over-year direction (in the filing's reporting currency). Banks and other filers with
+  unclassified balance sheets have no current-asset/liability split: skip this item rather than
+  deriving a substitute.
 - **Business context:** segment and geographic mix, key drivers from Item 4/Item 5.
 - **Risk assessment:** top 3–5 company-specific, quantified risks from Item 3.D — drop generic
   boilerplate unless management ties it to a specific figure or event (include VIE/country/HFCAA
