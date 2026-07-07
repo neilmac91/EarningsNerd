@@ -64,41 +64,37 @@ export function buildMarkSvg(fill: string): string {
   )
 }
 
-/** Watermark geometry/opacity — exported for tests. Width scales with the plot but is clamped
- *  to stay legible on small panels and subtle on expanded ones. */
+/** Brand footer geometry — exported for tests. A slim strip UNDER the plot (not an in-plot
+ *  overlay: live acceptance showed an overlaid mark colliding with the right-axis tick text and
+ *  drowning against a same-hue bar — a footer is legible on every panel/theme with zero data
+ *  collision). */
 export const MARK_STAMP = {
-  minWidth: 48,
-  maxWidth: 84,
-  widthRatio: 0.09,
+  stripHeight: 32,
+  markHeight: 20,
   inset: 12,
-  alphaLight: 0.28,
-  alphaDark: 0.32,
+  alpha: 0.85,
   fillLight: '#3C6650', // brand-strong (the mark's own sage)
   fillDark: '#7FB295', // lightened sage — legible on the dark panel without glowing
 } as const
 
-export function markStampWidth(plotWidth: number): number {
-  return Math.min(
-    MARK_STAMP.maxWidth,
-    Math.max(MARK_STAMP.minWidth, plotWidth * MARK_STAMP.widthRatio)
-  )
-}
-
-/** Stamp the EN mark bottom-right. Failure = export proceeds unstamped (never block a download
- *  over branding). Coordinates are CSS px — the caller's retina scale is already applied. */
-async function stampBrandMark(
+/** Draw the branded footer strip: plot-matched background, EN mark bottom-right. Failure =
+ *  export proceeds without the mark (never block a download over branding); the strip itself is
+ *  already painted by the caller's background fill. Coordinates are CSS px — the caller's retina
+ *  scale is already applied. */
+async function drawBrandFooter(
   ctx: CanvasRenderingContext2D,
   width: number,
-  height: number,
+  plotHeight: number,
   dark: boolean
 ): Promise<void> {
   const mark = await loadSvgImage(buildMarkSvg(dark ? MARK_STAMP.fillDark : MARK_STAMP.fillLight))
   if (!mark) return
-  const w = markStampWidth(width)
-  const h = (w * MARK_HEIGHT) / MARK_WIDTH
+  const h = MARK_STAMP.markHeight
+  const w = (h * MARK_WIDTH) / MARK_HEIGHT
+  const y = plotHeight + (MARK_STAMP.stripHeight - h) / 2
   ctx.save()
-  ctx.globalAlpha = dark ? MARK_STAMP.alphaDark : MARK_STAMP.alphaLight
-  ctx.drawImage(mark, width - w - MARK_STAMP.inset, height - h - MARK_STAMP.inset, w, h)
+  ctx.globalAlpha = MARK_STAMP.alpha
+  ctx.drawImage(mark, width - w - MARK_STAMP.inset, y, w, h)
   ctx.restore()
 }
 
@@ -133,14 +129,14 @@ export async function exportPanelPng(
   const scale = 2 // retina-crisp output
   const canvas = document.createElement('canvas')
   canvas.width = width * scale
-  canvas.height = height * scale
+  canvas.height = (height + MARK_STAMP.stripHeight) * scale
   const ctx = canvas.getContext('2d')
   if (!ctx) return false
   ctx.fillStyle = resolveBackground(container)
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   ctx.scale(scale, scale)
   ctx.drawImage(image, 0, 0, width, height)
-  await stampBrandMark(ctx, width, height, dark)
+  await drawBrandFooter(ctx, width, height, dark)
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
   if (!blob) return false

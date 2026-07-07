@@ -7,7 +7,7 @@ import {
   annualTickLabel,
   quarterlyTickLines,
 } from '@/features/analysis/lib/periodAxis'
-import { buildMarkSvg, MARK_STAMP, markStampWidth } from '@/features/analysis/lib/chartExport'
+import { buildMarkSvg, MARK_STAMP } from '@/features/analysis/lib/chartExport'
 
 describe('annualTickLabel', () => {
   it("states FY once on the first tick, then bare two-digit years: FY '16, '17…", () => {
@@ -75,16 +75,15 @@ describe('PNG watermark building blocks', () => {
     expect(svg).toContain('M2.8 28L26.2 28') // the E path
   })
 
-  it('markStampWidth clamps 9% of the plot width into [48, 84]px', () => {
-    expect(markStampWidth(300)).toBe(48) // 27px → floor
-    expect(markStampWidth(700)).toBeCloseTo(63) // proportional inside the band
-    expect(markStampWidth(2000)).toBe(84) // 180px → ceiling
+  it('the brand footer strip fits its mark (never an in-plot overlay)', () => {
+    // Footer, not overlay: live acceptance showed an overlaid mark colliding with axis text.
+    expect(MARK_STAMP.markHeight).toBeLessThan(MARK_STAMP.stripHeight)
+    expect(MARK_STAMP.stripHeight).toBeLessThanOrEqual(40) // slim — the chart stays the subject
   })
 
-  it('theme fills stay on the sage brand ramp with subtle alphas', () => {
+  it('theme fills stay on the sage brand ramp', () => {
     expect(MARK_STAMP.fillLight).toBe('#3C6650')
     expect(MARK_STAMP.fillDark).toBe('#7FB295')
-    expect(MARK_STAMP.alphaLight).toBeLessThan(0.4)
-    expect(MARK_STAMP.alphaDark).toBeLessThan(0.4)
+    expect(MARK_STAMP.alpha).toBeLessThanOrEqual(1)
   })
 })
