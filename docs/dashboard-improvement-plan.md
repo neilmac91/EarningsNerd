@@ -28,9 +28,9 @@ Everything else in this plan serves that job statement.
 | 2 | Restructure the layout: merge the watchlist into a "Your companies" status section with inline add, remove the quick-action cards, demote plan/usage (§3) | High: the page currently buries what matters and pads what doesn't | 1–2 days | $0 |
 | 3 | Turn on the earnings calendar that is already built (§3, §5). The flag comment claiming it needs an FMP key is stale; it now runs off the owned `earnings_events` table | High: fills the "coming up" half of the job | Hours, plus a production seed check | $0 |
 | 4 | Empty-state onboarding: one-tap popular-ticker chips and the existing `WatchlistAddSearch` on the dashboard itself (§2, §3) | Medium-high: most beta users arrive with an empty watchlist | ~½ day | $0 |
-| 5 | Post-beta value-adds, all $0-infra and MIT-clean: persisted Form 4 insider activity, XBRL trend sparklines, a weekly watchlist brief, redline filing diffs, 13F holdings (§5, §6) | Medium each, compounding | S–M each | $0 (AI brief: pennies) |
+| 5 | Post-beta value-adds, all $0-infra and MIT-clean: persisted Form 4 insider activity, XBRL trend sparklines, a weekly watchlist brief, redline filing diffs, 13F holdings (§5, §6) | Medium each, compounding | S–M each | $0 (weekly brief: <$1/mo DeepSeek tokens) |
 
-A recurring theme made this plan cheaper than expected: **most of the "new" value is already in the repo, dark.** The earnings calendar, Form 4 parsing, multi-period financial facts, a rich change-report component, a sparkline primitive, and recharts are all built and unshipped. The main cost of this plan is flipping things on carefully, not building things.
+A recurring theme made this plan cheaper than expected: **most of the "new" value is already in the repo, dark.** The earnings calendar, Form 4 parsing, multi-period financial facts, a rich change-report component, and a sparkline primitive are all built and unshipped, and recharts already ships in live charts. The main cost of this plan is flipping things on carefully, not building things.
 
 ---
 
@@ -100,7 +100,7 @@ Rationale, so this doesn't get relitigated later:
 
 Two distinct states, currently conflated:
 
-1. **Empty watchlist** (the common beta case): keep a `GuidanceCard`, but make it actionable. Embed the existing `WatchlistAddSearch` (`frontend/features/watchlist/components/WatchlistAddSearch.tsx`, today only on the insights page) plus a row of ~6 one-tap ticker chips wired to the existing `addToWatchlist(ticker)`. Source the chips from `GET /api/companies/trending` (most filings in 30 days, `backend/app/routers/companies.py:262`) so a new user's first follow pays off immediately with a fresh filing; fall back to a static mega-cap list (AAPL, MSFT, NVDA, AMZN, GOOGL, TSLA) if the endpoint returns nothing. This is the strongest onboarding pattern observed in the wild (§4: Last10K's ticker chips, stockanalysis.com's try-before-save watchlist, Yahoo's followable lists).
+1. **Empty watchlist** (the common beta case): keep a `GuidanceCard`, but make it actionable. Embed the existing `WatchlistAddSearch` (`frontend/features/watchlist/components/WatchlistAddSearch.tsx`, today only on the insights page) plus a row of exactly 6 one-tap ticker chips wired to the existing `addToWatchlist(ticker)`. Source the chips from `GET /api/companies/trending` (most filings in 30 days, `backend/app/routers/companies.py:262`) so a new user's first follow pays off immediately with a fresh filing; take the first 6 trending results and top up from a static mega-cap list (AAPL, MSFT, NVDA, AMZN, GOOGL, TSLA) whenever trending returns fewer than 6 (de-duplicating against tickers already shown). This is the strongest onboarding pattern observed in the wild (§4: Last10K's ticker chips, stockanalysis.com's try-before-save watchlist, Yahoo's followable lists).
 2. **Watchlist populated but no eligible filings yet** (companies just added, sync pending): a quieter one-liner, no CTA needed. Distinguishing the two takes one condition: the page already has the `watchlist` query in scope (`frontend/app/dashboard/page.tsx:54-59`).
 
 ### 2.6 Copy
@@ -110,7 +110,7 @@ Context first: a voice pass over dashboard/watchlist/calendar copy plus an AST-w
 | Where | Current (tree) | Recommended |
 |---|---|---|
 | Section heading (`FilingFeed.tsx:22-24`) | "What's new" (no subline) | Keep "What's new"; add subline: "The latest filing from each company you follow." |
-| Card fallback line, when no XBRL deltas (`WhatChangedCard.tsx:73-75`) | "New 10-Q filed. Open it for the full breakdown." | "No comparison figures for this one yet. The summary has the full picture." (Honest about *why* there are no chips, and stops implying every filing is new.) |
+| Card fallback line, when no XBRL deltas (`WhatChangedCard.tsx:73-75`) | Templated: "New {filing_type} filed. Open it for the full breakdown." (renders "New 10-K filed." etc. per form) | "No comparison figures for this one yet. The summary has the full picture." (Honest about *why* there are no chips, and stops implying every filing is new. Note: the replacement drops the `{filing_type}` interpolation.) |
 | Empty, no watchlist (`FilingFeed.tsx:46-50`) | "No new filings yet" / "Add companies to your watchlist. When they file a 10-K or 10-Q, you'll see what changed here first." | "Follow your first company" / "Search above or tap a ticker below. New filings land here the day they hit EDGAR." (+ chips + inline add, §2.5) |
 | Empty, watchlist quiet (new state) | (doesn't exist) | "Nothing new yet" / "We're syncing filings for your companies. Check back in a few minutes." |
 | Error state (`FilingFeed.tsx:35-44`) | "Couldn't load your feed" / "Please retry in a moment." | Keep as is. |
@@ -185,13 +185,13 @@ Two columns at `lg` (main ≈ 2/3, side ≈ 1/3); mobile stacks in this order. A
 ```
 
 - **What's new** stays the lead module (the fixed feed is the product loop). The feed answers "what just happened."
-- **Coming up** answers "what's next," pairing with the feed exactly the way TIKR frames its watchlist feed ("what is coming up versus what just happened"). Ship it by flipping `NEXT_PUBLIC_ENABLE_CALENDAR` **after** verifying `earnings_events` is actually seeded in production (§7). Three small polish items while touching it: render the already-fetched `eps_estimated` (fetched but unrendered, `dashboard-api.ts:36`), replace the self-hide-when-empty behavior (`EarningsCalendar.tsx:21`) with a quiet "No earnings dates in the next two weeks." line so the section doesn't appear and vanish confusingly, and rewrite the stale flag comment. Note the flag also lights up the `/calendar` page and its nav entries (`Header.tsx:22,30`, `UserMenu.tsx:31`), which is a feature, not a problem: the market-wide calendar endpoint behind it is also live.
+- **Coming up** answers "what's next," pairing with the feed exactly the way TIKR frames its watchlist feed ("what is coming up versus what just happened"). Ship it by flipping `NEXT_PUBLIC_ENABLE_CALENDAR` **after** verifying `earnings_events` is actually seeded in production (§7). Three small polish items while touching it: render the already-fetched `eps_estimated` (fetched but unrendered, `dashboard-api.ts:35`), replace the self-hide-when-empty behavior (`EarningsCalendar.tsx:21`) with a quiet "No earnings dates in the next two weeks." line so the section doesn't appear and vanish confusingly, and rewrite the stale flag comment. Note the flag also lights up the `/calendar` page and its nav entries (`Header.tsx:22,30`, `UserMenu.tsx:31`), which is a feature, not a problem: the market-wide calendar endpoint behind it is also live.
 - **Your companies** merges the bottom watchlist strip with management affordances: one compact row per company built from the existing `getWatchlistInsights` response (latest filing type + date, summary-status badge using the exact mapping at `watchlist/page.tsx:37-53`), a remove action, the inline `WatchlistAddSearch`, and a link to the full insights page. Zero new backend work. This is the "one row per company reassurance table" pattern from Koyfin/stockanalysis/Zacks, with filing-status columns instead of price columns.
 - **Saved summaries** renders only when the user has any; the empty block disappears. (Improving save discoverability on the filing page is a separate later item.)
 - **Plan and usage** collapses to a single compact strip at the bottom of the side column: plan badge, usage meter, one link (manage or upgrade). Keep the existing ≥80% warning logic, but when it triggers, surface a slim banner near the top of the page where it will actually be seen (`dashboard/page.tsx:302-316` has the logic already).
 - **Quick-action cards: removed.** Nothing replaces them; the nav and the on-page modules now cover all three destinations.
 
-Same-PR hygiene (docs-vs-code rule: code is truth): fix the stale `ENABLE_CALENDAR` comment; fix CLAUDE.md's reference to `/api/compare` (no such route exists; the cross-filing surface is `GET /api/summaries/filing/{id}/what-changed`); optionally note in ADR-0003 that the pin is now `edgartools==5.40.1` rather than the `>=5.12.0` floor the ADR text mentions.
+Same-PR hygiene (docs-vs-code rule: code is truth), all one-line doc fixes: fix the stale `ENABLE_CALENDAR` comment; fix CLAUDE.md's reference to `/api/compare` (no such route exists; the cross-filing surface is `GET /api/summaries/filing/{id}/what-changed`); update ADR-0003 to note the pin is now `edgartools==5.40.1` rather than the `>=5.12.0` floor the ADR text mentions.
 
 Estimated effort for §3: **1–2 days** (layout + Your companies ≈ 1 day; calendar flip + polish ≈ 2–4 hours after the seed check; copy and doc fixes ≈ 1 hour). Infra cost: **$0**. Verification per the design-system done-gate: legacy-color grep clean, both themes checked on preview.
 
@@ -231,7 +231,7 @@ bamsec.com (+ /pricing, /features/other) · quartr.com (+ /products/quartr-pro, 
 Licences below were verified on the repos' LICENSE files or licence indicators, not assumed. Two headline facts reframe this whole section:
 
 - **edgartools is already the product's SEC layer** (ADR-0003), pinned at the current release (`edgartools==5.40.1`, MIT, actively maintained: 2.4k stars, 162 releases, latest 2026-06-29). So the question is not "adopt EdgarTools?" but "which of its capabilities that we already pay the dependency cost for are unused?"
-- **The charting stack already exists too:** recharts 3.9.2 is in `package.json` (used by the flag-dark analysis feature), and a dependency-free `TrendSparkline` primitive sits unused in `frontend/components/ui/Chart.tsx:317`. No new frontend libraries are needed for anything below.
+- **The charting stack already exists too:** recharts 3.9.2 is in `package.json` and already drives live charts (`features/fundamentals/components/FundamentalsTrendChart.tsx`, `features/peers/components/PeerComparisonPanel.tsx`, lazy-loaded in `features/summaries/components/SummaryDisplay.tsx`, plus the flag-dark analysis feature), and a dependency-free `TrendSparkline` primitive sits unused in `frontend/components/ui/Chart.tsx:317`. No new frontend libraries are needed for anything below.
 
 ### 5.1 Ranked recommendations
 
@@ -245,7 +245,7 @@ Licences below were verified on the repos' LICENSE files or licence indicators, 
 | 6 | **redlines for real filing diffs.** MIT, maintained (v0.6.1). Track-changes output in Markdown/HTML/JSON; would upgrade the change report's current Jaccard-overlap risk-factor diff (`change_report_service.py:82-118`) into marked-up section diffs, feeding the existing filing-page `WhatChanged` component. The paywalled headline feature of Last10K/BamSEC, for free | Med (deepens an existing wedge) | $0 | M | MIT |
 | 7 | **FinanceDatabase** (static MIT CSV of 300k symbols with sector/industry classifications) for richer peer grouping | Low-med: `peers_service` already ranks same-SIC peers from owned data, so this is enrichment, not enablement | $0 | S | MIT |
 
-Also free and unused, for whenever peer metrics matter: SEC's Frames API (`data.sec.gov/api/xbrl/frames/...`) returns one fact per company per period, i.e. cross-company comparison for any GAAP concept at $0, reachable through the existing edgar layer.
+Also free and unused, for whenever peer metrics matter: SEC's Frames API (`data.sec.gov/api/xbrl/frames/...`) returns one fact per company per period, i.e. cross-company comparison for any GAAP concept. Infra cost $0 (reachable through the existing edgar layer); build effort **M** when picked up (a new service method + endpoint, plus per-period caching, through that layer).
 
 ### 5.2 Evaluated and excluded
 
@@ -253,9 +253,9 @@ Also free and unused, for whenever peer metrics matter: SEC's Frames API (`data.
 |---|---|
 | **OpenBB Platform** | AGPL-3.0 (verified in the repo LICENSE). The network-use clause would obligate open-sourcing the backend. Hard exclude for a closed-source SaaS, regardless of features. |
 | **yfinance** | Code is Apache-2.0, but the data comes from Yahoo endpoints whose terms the project itself describes as personal-use; breakage and ToS risk for a paid product. Honest footnote: the backend already has its own keyless Yahoo quote path for company-page quotes (`companies.py:311-391`); that is an existing, accepted risk, but don't deepen the dependency by building new features on it. |
-| **sec-parser (alphanome-ai)** | README states it is no longer maintained. |
+| **sec-parser (alphanome-ai)** | MIT, but its README states it is no longer maintained. |
 | **FinanceToolkit** | MIT itself, but pulls data from Financial Modeling Prep (API key, free tier 250 req/day) with yfinance fallback; the repo just finished retiring its FMP dependency, and every ratio it computes is derivable from `financial_fact` in-house. |
-| **sec-edgar-downloader / secedgar / datamule** | Maintained but strict subsets of, or redundant with, edgartools at this scale. |
+| **sec-edgar-downloader / secedgar / datamule** | MIT / Apache-2.0 / MIT respectively (all compatible), but maintained-yet-redundant: strict subsets of, or overlapping with, edgartools at this scale. |
 | **lightweight-charts (TradingView)** | Apache-2.0 with a mandatory attribution notice; fine, but only relevant if price time-series ever become a feature, and they need a data source the product deliberately doesn't have. Parked. |
 
 <details>
@@ -294,14 +294,14 @@ Tags: impact / build effort (S ≤ 1 day, M 1–3 days, L > 3 days) / infra $ pe
 |---|---|---|---|---|
 | Persisted Form 4 insider module: table + refresh job + flip `ENABLE_INSIDER_ACTIVITY`; dashboard module after the company panel proves out (§5.1) | High | M | $0 | Med: new table + job; SEC rate budget shared with scan jobs |
 | 8-K "event" rows in the feed, aligned with the `eightk_coverage` Pro entitlement (§2.3) | Med-high | M | $0 | Med: needs corroborated event typing, not raw form dumps |
-| Weekly watchlist brief (email + dashboard card): per-filing one-liners on a labeled cross-filing surface, honoring the filing-only rule | Med-high | M | ~$1 (DeepSeek tokens) | Med: prompt work gated by the eval baseline |
+| Weekly watchlist brief (email + dashboard card): per-filing one-liners on a labeled cross-filing surface, honoring the filing-only rule | Med-high | M | <$1/mo (DeepSeek tokens) | Med: prompt work gated by the eval baseline |
 | Trend sparklines in Your companies rows / company page (§5.1) | Med | S–M | $0 | Low |
 | User-facing EDGAR full-text search (§5.1) | Med | M | $0 | Low |
 | redlines-powered section diffs in the change report (§5.1) | Med | M | $0 | Low-med |
 | 13F holdings on company pages (§5.1) | Med | M | $0 | Low |
-| Multi-Period Analysis launch (`ENABLE_ANALYSIS`): its own track with its own checklist; the dashboard's role is just the existing `AnalysisTeaser` once live | High (Pro revenue) | Own track | $0 | Own track |
+| Dashboard hook for Multi-Period Analysis: render the existing `AnalysisTeaser` on the dashboard once `ENABLE_ANALYSIS` is live. (The analysis launch itself is out of this plan's scope — its own track with its own checklist.) | Med (Pro funnel) | S | $0 | Low |
 
-**Total incremental infrastructure across everything recommended: ~$0/month** (existing Cloud Run, Postgres, and cron jobs; Alpha Vantage free tier; SEC APIs are free; the weekly brief would add roughly pennies of DeepSeek tokens at beta scale). The budget being spent is founder days, which is why the quick-wins column is dominated by flag flips and reuse of dark-shipped code.
+**Total incremental infrastructure across everything recommended: ~$0/month** (existing Cloud Run, Postgres, and cron jobs; Alpha Vantage free tier; SEC APIs are free; the weekly brief would add <$1/mo of DeepSeek tokens at beta scale). The budget being spent is founder days, which is why the quick-wins column is dominated by flag flips and reuse of dark-shipped code.
 
 ---
 
