@@ -247,10 +247,18 @@ class EdgarClient:
         # so we always pass BASE forms + the boolean, never explicit "/A" strings (passing "/A" with
         # amendments=False would silently drop them). See edgar.filtering.filter_by_form.
         base_forms: List[str] = []
+        wants_amended = include_amended
         for ft in filing_types:
             base = ft.value.replace("/A", "")
             if base and base not in base_forms:
                 base_forms.append(base)
+            # If a caller explicitly asks for an amended form (e.g. ?filing_types=10-K/A), force
+            # amendments on so the requested /A filings are actually returned (correctly labeled),
+            # rather than silently collapsing to the base form and returning non-amended rows. The
+            # result is then a superset (base + /A); no real caller requests amended-only forms —
+            # the frontend and defaults use base forms — so this only affects that explicit query.
+            if ft.is_amended:
+                wants_amended = True
         if not base_forms:
             return []
 
@@ -275,7 +283,7 @@ class EdgarClient:
                     islice(
                         edgar_company.get_filings(
                             form=base_forms,
-                            amendments=include_amended,
+                            amendments=wants_amended,
                             trigger_full_load=False,
                         ),
                         materialize_cap,
@@ -283,6 +291,27 @@ class EdgarClient:
                 ),
                 timeout=self.timeout,
             )
+
+            # Bounded single-latest fallback (precompute, get_latest_filing): if a caller asked for a
+            # specific small number and the recent window under-delivered, the target report is older
+            # than the window — retry once with the full history to find it. Mirrors edgartools' own
+            # EntityData.latest() (retries full-load when len < n). GATED on `limit is not None`, so
+            # the unbounded filings-LIST path (limit=None) NEVER pays the full-history cost — that is
+            # the whole point of QW2; those callers rely on DB-first serving for deep history instead.
+            if limit is not None and len(filings) < limit:
+                filings = await run_with_circuit_breaker(
+                    lambda: list(
+                        islice(
+                            edgar_company.get_filings(
+                                form=base_forms,
+                                amendments=wants_amended,
+                                trigger_full_load=True,
+                            ),
+                            limit,
+                        )
+                    ),
+                    timeout=self.timeout,
+                )
 
             # Sort by filing date descending, handling None dates gracefully
             from datetime import date as date_type_sort
