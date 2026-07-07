@@ -202,6 +202,30 @@ export const analytics = {
     })
   },
 
+  /** A user successfully downloaded an export artifact (fired AFTER the blob/file lands, so the
+   *  event measures deliveries, not attempts). `surface` names the feature; the GDPR account-data
+   *  export (`dataExported`) is deliberately a separate event and must not be reused here. */
+  exportGenerated: (props: {
+    surface: 'analysis' | 'filing_summary'
+    format: 'pdf' | 'png' | 'xlsx' | 'csv'
+    ticker?: string | null
+    mode?: string
+    periodKey?: string
+    /** Chart panel title (PNG exports only). */
+    panel?: string
+    filingId?: number
+  }) => {
+    safeCapture('export_generated', {
+      surface: props.surface,
+      format: props.format,
+      ticker: props.ticker,
+      mode: props.mode,
+      period_key: props.periodKey,
+      panel: props.panel,
+      filing_id: props.filingId,
+    })
+  },
+
   copilotAnswerCompleted: (props: {
     filingId: number
     ticker: string | null

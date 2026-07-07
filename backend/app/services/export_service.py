@@ -2,133 +2,56 @@ import asyncio
 import csv
 import io
 import re
-from datetime import datetime
 from html import escape
 
 from app.models import Summary, Filing
+from app.services.pdf_branding import PALETTE, render_branded_pdf
 from app.services.summary_sections import Block, Section, render_sections
+from app.utils.datetimes import utcnow
 
 class ExportService:
     def __init__(self):
         pass
 
     def generate_pdf_html(self, summary: Summary, filing: Filing) -> str:
-        """Generate HTML for PDF export"""
+        """HTML for the filing-summary PDF — body sections inside the shared branded shell."""
         raw_summary = summary.raw_summary or {}
 
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                body {{
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                    line-height: 1.6;
-                    color: #1f2937;
-                    max-width: 800px;
-                    margin: 0 auto;
-                    padding: 40px 20px;
-                }}
-                h1 {{
-                    color: #111827;
-                    border-bottom: 3px solid #3b82f6;
-                    padding-bottom: 10px;
-                    margin-bottom: 30px;
-                }}
-                h2 {{
-                    color: #1f2937;
-                    margin-top: 30px;
-                    margin-bottom: 15px;
-                    border-bottom: 1px solid #e5e7eb;
-                    padding-bottom: 5px;
-                }}
-                h3 {{
-                    color: #374151;
-                    margin-top: 20px;
-                    margin-bottom: 10px;
-                }}
-                table {{
-                    width: 100%;
-                    border-collapse: collapse;
-                    margin: 20px 0;
-                }}
-                th, td {{
-                    border: 1px solid #e5e7eb;
-                    padding: 12px;
-                    text-align: left;
-                }}
-                th {{
-                    background-color: #f3f4f6;
-                    font-weight: 600;
-                }}
-                .header {{
-                    margin-bottom: 30px;
-                    padding-bottom: 20px;
-                    border-bottom: 2px solid #e5e7eb;
-                }}
-                .metadata {{
-                    color: #6b7280;
-                    font-size: 0.9em;
-                    margin-bottom: 10px;
-                }}
-                .footer {{
-                    margin-top: 40px;
-                    padding-top: 20px;
-                    border-top: 1px solid #e5e7eb;
-                    color: #6b7280;
-                    font-size: 0.85em;
-                    text-align: center;
-                }}
-                ul {{
-                    margin: 10px 0;
-                    padding-left: 20px;
-                }}
-                li {{
-                    margin: 5px 0;
-                }}
-                blockquote {{
-                    margin: 10px 0;
-                    padding-left: 15px;
-                    border-left: 3px solid #e5e7eb;
-                    color: #374151;
-                    font-style: italic;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h1>{escape(filing.company.name or '')} - {escape(filing.filing_type or '')} Summary</h1>
-                <div class="metadata">
-                    <p><strong>Filing Date:</strong> {filing.filing_date.strftime('%B %d, %Y') if filing.filing_date else 'N/A'}</p>
-                    <p><strong>Period End:</strong> {filing.period_end_date.strftime('%B %d, %Y') if filing.period_end_date else 'N/A'}</p>
-                    <p><strong>Generated:</strong> {datetime.now().strftime('%B %d, %Y at %I:%M %p')}</p>
-                    <p><strong>Source:</strong> SEC EDGAR - {escape(filing.sec_url or '')}</p>
-                </div>
-            </div>
-        """
-        
+        meta_html = (
+            f"Filing Date: {filing.filing_date.strftime('%B %d, %Y') if filing.filing_date else 'N/A'} · "
+            f"Period End: {filing.period_end_date.strftime('%B %d, %Y') if filing.period_end_date else 'N/A'} · "
+            f"Generated {utcnow().strftime('%B %d, %Y')}"
+            f"<br>Source: SEC EDGAR — <span class=\"data\">{escape(filing.sec_url or '')}</span>"
+        )
+
         # Render every structured section through the shared renderer so the PDF stays in
         # lock-step with the CSV export and the on-page UI. This also fixes the crash: section
         # values are structured dicts/lists, never markdown strings, so they must not be passed
         # to a string formatter (the old code called .strip() on a dict -> AttributeError -> 500).
-        for section in render_sections(raw_summary):
-            html += self._render_section_html(section)
-
-        html += """
-            <div class="footer">
-                <p>Generated by EarningsNerd - AI-Powered SEC Filing Analysis</p>
+        body_html = "".join(
+            self._render_section_html(section) for section in render_sections(raw_summary)
+        )
+        body_html += """
+            <div class="closing-note footnote">
+                <p>Generated by EarningsNerd — AI-Powered SEC Filing Analysis</p>
                 <p>This AI-generated summary is derived from publicly available SEC filings and is
                 provided for informational purposes only. It is not investment advice or a
                 recommendation to buy, sell, or hold any security, and it may be incomplete or
                 contain errors — the authoritative source is always the original SEC filing.
                 Use is subject to the EarningsNerd Terms of Service (earningsnerd.io/terms).</p>
             </div>
-        </body>
-        </html>
         """
 
-        return html
+        return render_branded_pdf(
+            title=f"{escape(filing.company.name or '')} — {escape(filing.filing_type or '')} Summary",
+            doc_kind="Filing<br>Summary",
+            meta_html=meta_html,
+            body_html=body_html,
+            extra_css=(
+                ".closing-note { margin-top: 28px; padding-top: 12px; "
+                f"border-top: 1px solid {PALETTE['border']}; }}"
+            ),
+        )
 
     def _render_section_html(self, section: Section) -> str:
         parts = [f"<h2>{escape(section.title)}</h2>"]
@@ -177,10 +100,16 @@ class ExportService:
         output = io.StringIO()
         writer = csv.writer(output)
 
+        # Brand rows first (owner request, export overhaul): a CSV carries no styling, so the
+        # masthead is two plain rows saying who made it before the document title.
+        writer.writerow(["EarningsNerd — AI-Powered SEC Filing Analysis"])
+        writer.writerow(["earningsnerd.io"])
+        writer.writerow([])
+
         # Header
         writer.writerow([f"{filing.company.name} - {filing.filing_type} Summary"])
         writer.writerow([f"Filing Date: {filing.filing_date.strftime('%Y-%m-%d') if filing.filing_date else 'N/A'}"])
-        writer.writerow([f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"])
+        writer.writerow([f"Generated: {utcnow().strftime('%Y-%m-%d %H:%M:%S')}"])
         writer.writerow([])
 
         # Render every structured section through the shared renderer (single source of truth)
@@ -190,7 +119,11 @@ class ExportService:
         for section in render_sections(raw_summary):
             self._write_section_csv(writer, section)
 
-        return output.getvalue()
+        # BOM: the brand row's em dash guarantees non-ASCII on row 1, and Excel on Windows only
+        # decodes a CSV as UTF-8 when the file leads with one (the same rationale as the deleted
+        # client-side analysis CSV). Explicit escape — a literal BOM char is invisible and easily
+        # stripped by editors/formatters.
+        return "\ufeff" + output.getvalue()
 
     @staticmethod
     def _write_section_csv(writer, section: Section) -> None:
@@ -299,15 +232,30 @@ class ExportService:
         mode_label = "Annual" if analysis.mode == "annual" else "Quarterly"
 
         def format_value(value, unit, percent) -> str:
+            # Mirrors the on-page MetricsTable display (formatSeriesValue): compact money,
+            # percent/ratio/per-share as shown in the product. Full-precision values made even
+            # the landscape grid wider than the page (the TSLA field test's clipped columns) —
+            # and the Excel export carries the raw numbers for anyone who needs them.
             if value is None:
                 return "—"
             if percent:
                 return f"{value:.1f}%"
             if unit == "pure":
                 return f"{value:.2f}x"
+            currency = "$" if not isinstance(unit, str) or unit.upper().startswith("USD") else (
+                unit.split("/")[0].strip() + " "
+            )
+            sign = "-" if value < 0 else ""
+            magnitude = abs(value)
             if isinstance(unit, str) and unit.endswith("/shares"):
-                return f"{value:,.2f}"
-            return f"{value:,.0f}"
+                return f"{sign}{currency}{magnitude:,.2f}"
+            if magnitude >= 1e12:
+                return f"{sign}{currency}{magnitude / 1e12:.2f}T"
+            if magnitude >= 1e9:
+                return f"{sign}{currency}{magnitude / 1e9:.1f}B"
+            if magnitude >= 1e6:
+                return f"{sign}{currency}{magnitude / 1e6:.1f}M"
+            return f"{sign}{currency}{magnitude:,.0f}"
 
         header_cells = "".join(f"<th>{escape(period)}</th>" for period in periods)
         body_rows = []
@@ -346,46 +294,25 @@ class ExportService:
         # "Generated" = when the AI actually wrote this narrative (the row's timestamps) — a
         # cached analysis exported weeks later must not present itself as freshly generated.
         generated_at = getattr(analysis, "updated_at", None) or getattr(analysis, "created_at", None)
-        generated_date = (generated_at or datetime.now()).strftime("%B %d, %Y")
-        exported_date = datetime.now().strftime("%B %d, %Y")
+        generated_date = (generated_at or utcnow()).strftime("%B %d, %Y")
+        exported_date = utcnow().strftime("%B %d, %Y")
 
-        return f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <style>
-                body {{
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-                    line-height: 1.6; color: #1f2937; max-width: 800px; margin: 0 auto; padding: 40px 20px;
-                }}
-                h1 {{ color: #111827; border-bottom: 3px solid #4F7A63; padding-bottom: 10px; margin-bottom: 6px; }}
-                h2 {{ color: #1f2937; margin-top: 26px; margin-bottom: 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 5px; }}
-                .meta {{ color: #6b7280; font-size: 13px; margin-bottom: 24px; }}
-                table {{ width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 11px; }}
-                th, td {{ border: 1px solid #e5e7eb; padding: 6px 8px; text-align: left; }}
-                th {{ background-color: #f3f4f6; font-weight: 600; }}
-                td.num {{ text-align: right; font-variant-numeric: tabular-nums; }}
-                ol.sources {{ font-size: 11px; color: #374151; padding-left: 18px; }}
-                .ref {{ color: #6b7280; }}
-                .footnote {{ color: #6b7280; font-size: 11px; margin-top: 18px; }}
-            </style>
-        </head>
-        <body>
-            <h1>{escape(company.name)} — Multi-Period Analysis</h1>
-            <div class="meta">
-                {escape(company.ticker or "")} · {mode_label} · {escape(analysis.period_key)} ·
-                Generated {generated_date} · Exported {exported_date} · EarningsNerd
-            </div>
-
+        meta_html = (
+            f'<span class="data">{escape(company.ticker or "")}</span> · {mode_label} · '
+            f'<span class="data">{escape(analysis.period_key)}</span> · '
+            f"Generated {generated_date} · Exported {exported_date}"
+        )
+        body_html = f"""
             {self._narrative_to_html(analysis.narrative_md or "")}
 
-            <h2>Metrics by period</h2>
-            <table>
-                <tr><th>Metric</th>{header_cells}</tr>
-                {"".join(body_rows)}
-            </table>
-            {derived_note}
+            <section class="metrics-landscape">
+                <h2>Metrics by period</h2>
+                <table>
+                    <thead><tr><th>Metric</th>{header_cells}</tr></thead>
+                    <tbody>{"".join(body_rows)}</tbody>
+                </table>
+                {derived_note}
+            </section>
 
             <h2>Sources</h2>
             <ol class="sources">{citation_items}</ol>
@@ -414,9 +341,16 @@ class ExportService:
                 of warranties and limitation of liability. EarningsNerd is not affiliated with
                 or endorsed by the SEC.
             </p>
-        </body>
-        </html>
         """
+        # The metrics grid can be 13+ columns for a quarterly window — it gets the shell's
+        # metrics-landscape named page (new page, A4 landscape); everything else stays portrait.
+        return render_branded_pdf(
+            title=f"{escape(company.name)} — Multi-Period Analysis",
+            doc_kind="Multi-Period<br>Analysis",
+            meta_html=meta_html,
+            body_html=body_html,
+            extra_css="ol.sources { font-size: 8.5pt; }",
+        )
 
     async def export_analysis_pdf(self, analysis, company) -> bytes:
         """Export a Multi-Period Analysis as PDF (same WeasyPrint path as export_pdf)."""

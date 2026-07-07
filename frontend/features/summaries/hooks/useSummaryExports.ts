@@ -4,6 +4,7 @@ import { useCallback } from 'react'
 import { format } from 'date-fns'
 import { exportSummaryPdf, exportSummaryCsv } from '../api/summaries-api'
 import type { Filing } from '@/features/filings/api/filings-api'
+import analytics from '@/lib/analytics'
 import { getErrorStatus } from '@/lib/api/types'
 import { sanitizeFilename } from '@/lib/format'
 import { downloadBlob } from '@/lib/downloadBlob'
@@ -27,6 +28,12 @@ export function useSummaryExports(filing: Filing) {
       try {
         const blob = kind === 'pdf' ? await exportSummaryPdf(filing.id) : await exportSummaryCsv(filing.id)
         downloadBlob(blob, buildFilename(filing, kind))
+        analytics.exportGenerated({
+          surface: 'filing_summary',
+          format: kind,
+          ticker: filing.company?.ticker ?? null,
+          filingId: filing.id,
+        })
       } catch (error) {
         if (getErrorStatus(error) === 403) {
           alert(`${kind.toUpperCase()} export is a Pro feature. Please upgrade to Pro.`)

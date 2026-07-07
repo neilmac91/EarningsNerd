@@ -178,6 +178,18 @@ export const exportAnalysisPdf = async (analysisId: number): Promise<Blob> => {
   return response.data
 }
 
+/** Pro Excel-workbook export. Same request body as `/dataset`, rebuilt server-side — so it works
+ *  pre-narrative, exactly like the CSV download it replaces (no analysis_id involved). Shared
+ *  axios client for the same auth-refresh reasons as `exportAnalysisPdf`. */
+export const exportAnalysisXlsx = async (ticker: string, range: AnalysisRange): Promise<Blob> => {
+  const response = await api.post(
+    `/api/analysis/${encodeURIComponent(ticker)}/export/xlsx`,
+    range,
+    { responseType: 'blob' }
+  )
+  return response.data
+}
+
 const parseErrorDetail = async (response: Response, fallback: string): Promise<string> => {
   try {
     const data = await response.json()

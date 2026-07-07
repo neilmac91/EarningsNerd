@@ -16,6 +16,10 @@
                                      scripts/brand/og-template.html at 2× then
                                      downscaled; committed Inter woff2 keeps the
                                      render deterministic on any machine)
+     ../backend/app/assets/brand/earningsnerd-mark.png
+                                     256px-wide sage mark on TRANSPARENT — the
+                                     raster the backend embeds in Excel exports
+                                     (openpyxl can't rasterize SVG)
 
    Run: npm run brand:assets
    Requires devDeps sharp + png-to-ico + playwright. If playwright's managed
@@ -86,6 +90,19 @@ async function main() {
     await fs.writeFile(path.join(icons, `icon-maskable-${s}.png`), await fullBleedTile(s, 0.62))
   }
   console.log('✓ icons/icon-{192,512}.png + maskable variants')
+
+  // Backend export mark — the fixed-fill sage rendition, transparent background,
+  // rasterized once here (committed) so the backend needs no SVG toolchain.
+  const backendBrand = path.resolve(root, '..', 'backend', 'app', 'assets', 'brand')
+  await fs.mkdir(backendBrand, { recursive: true })
+  await fs.writeFile(
+    path.join(backendBrand, 'earningsnerd-mark.png'),
+    await sharp(path.join(assets, 'earningsnerd-mark-sage.svg'), { density: 300 })
+      .resize({ width: 256 })
+      .png()
+      .toBuffer(),
+  )
+  console.log('✓ backend/app/assets/brand/earningsnerd-mark.png (256w, transparent)')
 
   // og-image — deterministic Playwright render of the committed template
   const browser = await chromium.launch(

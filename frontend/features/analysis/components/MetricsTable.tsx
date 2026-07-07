@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { Badge, Button, Card, DataTable, type Column } from '@/components/ui'
-import { FileCsvIcon } from '@/lib/icons'
+import { FileXlsIcon } from '@/lib/icons'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { directionText } from '@/lib/financialTone'
 import { formatGrowth, windowGrowth } from '@/features/analysis/lib/growth'
@@ -33,11 +33,16 @@ type Row = { series: AnalysisSeries } & Record<string, unknown>
  */
 export default function MetricsTable({
   dataset,
-  onExportCsv,
+  onExportXlsx,
+  exporting = false,
 }: {
   dataset: AnalysisDataset
-  /** CSV download of the whole dataset — the page passes this on the Pro results surface only. */
-  onExportCsv?: () => void
+  /** Branded Excel workbook of the whole dataset (built server-side) — the page passes this on
+   *  the Pro results surface only. */
+  onExportXlsx?: () => void
+  /** True while the workbook request is in flight — unlike the old client-side CSV, this is a
+   *  network call, so the button shows a loading state. */
+  exporting?: boolean
 }) {
   const columns = useMemo<Column<Row>[]>(() => {
     const periodColumns: Column<Row>[] = dataset.periods.map((period) => ({
@@ -143,10 +148,15 @@ export default function MetricsTable({
             </Badge>
           )}
         </div>
-        {onExportCsv && (
-          <Button size="sm" variant="secondary" onClick={onExportCsv}>
-            <FileCsvIcon className="h-3.5 w-3.5" aria-hidden="true" />
-            Export CSV
+        {onExportXlsx && (
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={onExportXlsx}
+            loading={exporting}
+            leftIcon={<FileXlsIcon className="h-3.5 w-3.5" aria-hidden="true" />}
+          >
+            Export Excel
           </Button>
         )}
       </div>

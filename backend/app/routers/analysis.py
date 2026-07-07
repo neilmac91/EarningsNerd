@@ -8,6 +8,9 @@
   alone; no AI involved.
 - ``POST /{ticker}/stream`` — Pro. SSE narrative generation (M3): cache-first (no meter, no AI on
   a hit), fair-use metered on fresh completions only.
+- ``POST /{ticker}/export/xlsx`` — Pro (``can_export``). The branded Excel workbook over the
+  deterministic dataset (works pre-narrative, same semantics as ``/dataset``).
+- ``GET /export/{analysis_id}/pdf`` — Pro (``can_export``). Branded PDF of a completed narrative.
 """
 from __future__ import annotations
 
@@ -49,6 +52,8 @@ COVERAGE_LIMITER = RateLimiter(limit=30, window_seconds=60)
 DATASET_LIMITER = RateLimiter(limit=30, window_seconds=60)
 # Fresh narrative generations hit the model; cached re-serves are cheap but ride the same route.
 STREAM_LIMITER = RateLimiter(limit=10, window_seconds=60)
+# Workbook builds are CPU-bound (openpyxl zip) — tighter than the dataset limiter.
+XLSX_LIMITER = RateLimiter(limit=10, window_seconds=60)
 
 # How long the coverage request waits for a first-touch companyfacts sync before answering
 # `syncing: true` and letting the fetch finish in the background (frontend budget is ~30s).
@@ -173,6 +178,48 @@ async def get_dataset(
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
     return dataset
+
+
+@router.post("/{ticker}/export/xlsx")
+async def export_analysis_xlsx(
+    ticker: str,
+    body: DatasetRequest,
+    request: Request,
+    current_user: User = Depends(require_entitlement("can_export", "Excel export")),
+    db: Session = Depends(get_db),
+):
+    """Branded Excel workbook over the deterministic dataset (Pro ``can_export``).
+
+    Takes the same ``DatasetRequest`` as ``/dataset`` and rebuilds server-side — so it works
+    pre-narrative, exactly like the CSV download it replaces (no analysis_id involved).
+    """
+    enforce_rate_limit(
+        request,
+        XLSX_LIMITER,
+        f"analysis-xlsx:{current_user.id}",
+        error_detail="Too many export requests. Please retry in a minute.",
+    )
+    company = _get_company(db, ticker)
+    try:
+        dataset = trend_analysis_service.build_dataset(
+            db, company, body.mode, body.start_period, body.end_period
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
+
+    # Local import: openpyxl is heavy and only this route needs it (the export_analysis_pdf
+    # pattern below). Building + zipping the workbook is CPU-bound — off the event loop.
+    from app.services.excel_export_service import build_analysis_workbook
+
+    workbook_bytes = await asyncio.to_thread(build_analysis_workbook, dataset)
+    filename = (
+        f"{company.ticker}_{dataset['period_key'].replace('..', '-')}_{body.mode}-metrics.xlsx"
+    )
+    return FastAPIResponse(
+        content=workbook_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 def _meter_analysis_best_effort(user_id: int) -> None:

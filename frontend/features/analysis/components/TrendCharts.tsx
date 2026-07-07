@@ -37,8 +37,10 @@ import {
   TagSimpleIcon,
 } from '@/lib/icons'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
+import analytics from '@/lib/analytics'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { exportFilename, exportPanelPng } from '@/features/analysis/lib/chartExport'
+import { PeriodAxisTick, QUARTERLY_AXIS_HEIGHT } from '@/features/analysis/lib/periodAxis'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 
 const bySeries = (dataset: AnalysisDataset): Record<string, AnalysisSeries> =>
@@ -132,7 +134,10 @@ const makeValueLabel = (
     )
   }
 
-/** Icon-only panel-header control (the CopilotComposer icon-button recipe, ghost + square). */
+/** Icon-only panel-header control. `secondary` (hairline border + resting surface), 32px hit
+ *  area, 16px glyphs — the TSLA field test proved the ghost 28px/14px version read as unshipped
+ *  (owner decision D3: keep icon-only, make the affordance visible at rest). Native `title`
+ *  tooltips + aria semantics carry the labels. */
 function PanelControl({
   label,
   pressed,
@@ -150,14 +155,14 @@ function PanelControl({
 }) {
   return (
     <Button
-      variant="ghost"
+      variant="secondary"
       size="sm"
       aria-label={label}
       title={label}
       aria-pressed={pressed}
       aria-expanded={expanded}
       onClick={onClick}
-      className={cx('h-7 w-7 shrink-0 px-0', pressed && 'bg-brand-weak dark:bg-brand-weak-dark')}
+      className={cx('h-8 w-8 shrink-0 px-0', pressed && 'bg-brand-weak dark:bg-brand-weak-dark')}
     >
       {children}
     </Button>
@@ -243,7 +248,21 @@ function PanelCard({
 
   const exportPng = async () => {
     if (!plotRef.current) return
-    await exportPanelPng(plotRef.current, exportFilename(dataset, panel.title, 'png'))
+    const downloaded = await exportPanelPng(
+      plotRef.current,
+      exportFilename(dataset, panel.title, 'png'),
+      { dark }
+    )
+    if (downloaded) {
+      analytics.exportGenerated({
+        surface: 'analysis',
+        format: 'png',
+        ticker: dataset.ticker,
+        mode: dataset.mode,
+        periodKey: dataset.period_key,
+        panel: panel.title,
+      })
+    }
   }
 
   return (
@@ -255,17 +274,17 @@ function PanelCard({
           </h3>
           <PanelLegend items={legendItems} />
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1.5">
           <PanelControl
             label={showLabels ? 'Hide data labels' : 'Show data labels'}
             pressed={showLabels}
             onClick={() => setShowLabels((v) => !v)}
           >
-            <TagSimpleIcon className="h-3.5 w-3.5" aria-hidden="true" />
+            <TagSimpleIcon className="h-4 w-4" aria-hidden="true" />
           </PanelControl>
           {exportEnabled && (
             <PanelControl label="Download chart as PNG" onClick={() => void exportPng()}>
-              <ImageSquareIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              <ImageSquareIcon className="h-4 w-4" aria-hidden="true" />
             </PanelControl>
           )}
           <PanelControl
@@ -274,9 +293,9 @@ function PanelCard({
             onClick={() => setExpanded((v) => !v)}
           >
             {expanded ? (
-              <ArrowsInSimpleIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              <ArrowsInSimpleIcon className="h-4 w-4" aria-hidden="true" />
             ) : (
-              <ArrowsOutSimpleIcon className="h-3.5 w-3.5" aria-hidden="true" />
+              <ArrowsOutSimpleIcon className="h-4 w-4" aria-hidden="true" />
             )}
           </PanelControl>
         </div>
@@ -292,7 +311,15 @@ function PanelCard({
           {barSeries ? (
             <ComposedChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid {...gridProps(dark)} />
-              <XAxis dataKey="period" {...xAxisProps(dark)} />
+              <XAxis
+                dataKey="period"
+                {...xAxisProps(dark)}
+                // Every period gets a label (owner decision D2) — Recharts' auto interval was
+                // dropping half of a 10-year window. The compact PeriodAxisTick buys the room.
+                interval={0}
+                height={dataset.mode === 'quarterly' ? QUARTERLY_AXIS_HEIGHT : undefined}
+                tick={<PeriodAxisTick mode={dataset.mode} dark={dark} />}
+              />
               <YAxis yAxisId="value" {...yAxisProps(dark)} width={64} tickFormatter={panel.format} />
               <YAxis
                 yAxisId="growth"
@@ -331,7 +358,15 @@ function PanelCard({
           ) : (
             <LineChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
               <CartesianGrid {...gridProps(dark)} />
-              <XAxis dataKey="period" {...xAxisProps(dark)} />
+              <XAxis
+                dataKey="period"
+                {...xAxisProps(dark)}
+                // Every period gets a label (owner decision D2) — Recharts' auto interval was
+                // dropping half of a 10-year window. The compact PeriodAxisTick buys the room.
+                interval={0}
+                height={dataset.mode === 'quarterly' ? QUARTERLY_AXIS_HEIGHT : undefined}
+                tick={<PeriodAxisTick mode={dataset.mode} dark={dark} />}
+              />
               <YAxis yAxisId="left" {...yAxisProps(dark)} width={64} tickFormatter={panel.format} />
               {dualAxis && (
                 <YAxis
