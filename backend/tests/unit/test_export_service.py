@@ -152,9 +152,15 @@ class TestPdfHtml:
 
 class TestCsv:
     def test_opens_with_brand_rows(self, service):
-        """The CSV masthead: two brand rows, then a blank, then the document title."""
+        """The CSV masthead: BOM, two brand rows, a blank, then the document title.
+
+        The BOM is load-bearing: the brand row's em dash guarantees non-ASCII on row 1, and
+        Excel on Windows only decodes a CSV as UTF-8 when the file leads with one.
+        """
         summary, filing = _make_summary_and_filing(_full_sections())
-        lines = service.generate_csv(summary, filing).splitlines()
+        csv_out = service.generate_csv(summary, filing)
+        assert csv_out.startswith("\ufeff")
+        lines = csv_out.removeprefix("\ufeff").splitlines()
         assert lines[0] == "EarningsNerd — AI-Powered SEC Filing Analysis"
         assert lines[1] == "earningsnerd.io"
         assert lines[2] == ""

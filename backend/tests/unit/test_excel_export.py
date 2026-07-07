@@ -235,6 +235,24 @@ class TestPanelSheets:
         assert [c.value for c in ws[1]] == ["Period", "Net"]
         assert ws["B2"].value == pytest.approx(0.20) and ws["B2"].number_format == "0.0%"
 
+    def test_formula_injection_is_neutralized(self):
+        """SEC-sourced strings (company name, ticker, XBRL units) must never become live Excel
+        formulas — openpyxl persists any string cell starting with "=" as data_type 'f'."""
+        hostile = _dataset()
+        hostile["company_name"] = '=HYPERLINK("http://evil.example","x")'
+        hostile["ticker"] = "=T"
+        hostile["series"][2]["unit"] = "=cmd/shares"  # eps_diluted row
+        wb = load_workbook(io.BytesIO(build_analysis_workbook(hostile, exported_at=EXPORTED_AT)))
+
+        overview = wb["Overview"]
+        title = overview["A7"]
+        assert title.data_type == "s" and title.value.startswith("'=HYPERLINK")
+        ticker_cell = overview["B10"]
+        assert ticker_cell.data_type == "s" and ticker_cell.value == "'=T"
+        metrics = wb["Metrics"]
+        unit_cell = metrics["C4"]  # eps_diluted unit
+        assert unit_cell.data_type == "s" and unit_cell.value == "'=cmd/shares"
+
     def test_native_charts_use_the_design_system_series_colors(self, workbook_bytes):
         # openpyxl does not read charts back — assert on the chart parts in the zip container.
         with zipfile.ZipFile(io.BytesIO(workbook_bytes)) as archive:

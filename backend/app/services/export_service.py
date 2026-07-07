@@ -2,12 +2,12 @@ import asyncio
 import csv
 import io
 import re
-from datetime import datetime
 from html import escape
 
 from app.models import Summary, Filing
-from app.services.pdf_branding import render_branded_pdf
+from app.services.pdf_branding import PALETTE, render_branded_pdf
 from app.services.summary_sections import Block, Section, render_sections
+from app.utils.datetimes import utcnow
 
 class ExportService:
     def __init__(self):
@@ -20,7 +20,7 @@ class ExportService:
         meta_html = (
             f"Filing Date: {filing.filing_date.strftime('%B %d, %Y') if filing.filing_date else 'N/A'} · "
             f"Period End: {filing.period_end_date.strftime('%B %d, %Y') if filing.period_end_date else 'N/A'} · "
-            f"Generated {datetime.now().strftime('%B %d, %Y')}"
+            f"Generated {utcnow().strftime('%B %d, %Y')}"
             f"<br>Source: SEC EDGAR — <span class=\"data\">{escape(filing.sec_url or '')}</span>"
         )
 
@@ -49,7 +49,7 @@ class ExportService:
             body_html=body_html,
             extra_css=(
                 ".closing-note { margin-top: 28px; padding-top: 12px; "
-                "border-top: 1px solid #E5E7EB; }"
+                f"border-top: 1px solid {PALETTE['border']}; }}"
             ),
         )
 
@@ -109,7 +109,7 @@ class ExportService:
         # Header
         writer.writerow([f"{filing.company.name} - {filing.filing_type} Summary"])
         writer.writerow([f"Filing Date: {filing.filing_date.strftime('%Y-%m-%d') if filing.filing_date else 'N/A'}"])
-        writer.writerow([f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"])
+        writer.writerow([f"Generated: {utcnow().strftime('%Y-%m-%d %H:%M:%S')}"])
         writer.writerow([])
 
         # Render every structured section through the shared renderer (single source of truth)
@@ -119,7 +119,11 @@ class ExportService:
         for section in render_sections(raw_summary):
             self._write_section_csv(writer, section)
 
-        return output.getvalue()
+        # BOM: the brand row's em dash guarantees non-ASCII on row 1, and Excel on Windows only
+        # decodes a CSV as UTF-8 when the file leads with one (the same rationale as the deleted
+        # client-side analysis CSV). Explicit escape — a literal BOM char is invisible and easily
+        # stripped by editors/formatters.
+        return "\ufeff" + output.getvalue()
 
     @staticmethod
     def _write_section_csv(writer, section: Section) -> None:
@@ -290,8 +294,8 @@ class ExportService:
         # "Generated" = when the AI actually wrote this narrative (the row's timestamps) — a
         # cached analysis exported weeks later must not present itself as freshly generated.
         generated_at = getattr(analysis, "updated_at", None) or getattr(analysis, "created_at", None)
-        generated_date = (generated_at or datetime.now()).strftime("%B %d, %Y")
-        exported_date = datetime.now().strftime("%B %d, %Y")
+        generated_date = (generated_at or utcnow()).strftime("%B %d, %Y")
+        exported_date = utcnow().strftime("%B %d, %Y")
 
         meta_html = (
             f'<span class="data">{escape(company.ticker or "")}</span> · {mode_label} · '

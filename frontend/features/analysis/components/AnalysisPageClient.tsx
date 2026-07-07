@@ -170,6 +170,7 @@ export default function AnalysisPageClient() {
   const exportPdf = useCallback(() => {
     const analysisId = narrative.completion?.analysis_id
     if (analysisId == null || !ticker) return
+    setDatasetError(null)
     void exportAnalysisPdf(analysisId)
       .then((blob) => {
         downloadBlob(blob, `${ticker}_multi_period_analysis.pdf`)
@@ -181,7 +182,9 @@ export default function AnalysisPageClient() {
           periodKey: dataset?.period_key,
         })
       })
-      .catch(() => setDatasetError('PDF export failed. Please try again.'))
+      .catch((err) =>
+        setDatasetError(err instanceof ApiError ? err.detail : 'PDF export failed. Please try again.')
+      )
   }, [narrative.completion?.analysis_id, ticker, dataset?.mode, dataset?.period_key])
 
   // Excel replaces the old client-side CSV (owner decision D1). The request range comes from the
@@ -191,6 +194,8 @@ export default function AnalysisPageClient() {
   const exportXlsx = useCallback(() => {
     if (!dataset || exportingXlsx) return
     setExportingXlsx(true)
+    // Clear any stale export error so a successful retry isn't contradicted by an old banner.
+    setDatasetError(null)
     void exportAnalysisXlsx(dataset.ticker, {
       mode: dataset.mode,
       start_period: dataset.periods[0].key,
@@ -206,7 +211,10 @@ export default function AnalysisPageClient() {
           periodKey: dataset.period_key,
         })
       })
-      .catch(() => setDatasetError('Excel export failed. Please try again.'))
+      // Surface the server detail (e.g. the rate limiter's "retry in a minute") over a generic line.
+      .catch((err) =>
+        setDatasetError(err instanceof ApiError ? err.detail : 'Excel export failed. Please try again.')
+      )
       .finally(() => setExportingXlsx(false))
   }, [dataset, exportingXlsx])
 

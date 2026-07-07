@@ -94,6 +94,15 @@ def _sheet_title(title: str) -> str:
     return _INVALID_SHEET_CHARS.sub("-", title)[:31]
 
 
+def _safe_text(value: Any) -> str:
+    """Neutralize Excel formula injection for string cells (boundary rule 9: the dataset carries
+    SEC-sourced text — company names, XBRL units). openpyxl persists any string cell starting
+    with "=" as a LIVE FORMULA; the classic CSV-injection triggers (+ - @, tab, CR) are also
+    reinterpreted by Excel on open. A leading apostrophe is Excel's own "literal text" escape."""
+    text = "" if value is None else str(value)
+    return f"'{text}" if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
+
+
 def _number_format(unit: Any, percent: bool) -> str:
     if percent:
         return "0.0%"
@@ -121,7 +130,7 @@ def _write_point(
 
 def _write_header_row(ws: Worksheet, headers: list[str]) -> None:
     for col, text in enumerate(headers, start=1):
-        cell = ws.cell(row=1, column=col, value=text)
+        cell = ws.cell(row=1, column=col, value=_safe_text(text))
         cell.fill = _HEADER_FILL
         cell.font = _HEADER_FONT
         cell.border = _CELL_BORDER
@@ -151,7 +160,9 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
     mode_label = "Annual" if dataset.get("mode") == "annual" else "Quarterly"
     periods = dataset.get("periods", [])
 
-    title = ws.cell(row=7, column=1, value=f"{dataset.get('company_name', '')} — Multi-Period Analysis")
+    title = ws.cell(
+        row=7, column=1, value=_safe_text(f"{dataset.get('company_name', '')} — Multi-Period Analysis")
+    )
     title.font = Font(bold=True, size=15, color=PALETTE["ink"].lstrip("#"))
     subtitle = ws.cell(row=8, column=1, value="Chart & metrics data export · EarningsNerd — AI-Powered SEC Filing Analysis")
     subtitle.font = _FOOTNOTE_FONT
@@ -166,7 +177,7 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
     row = 10
     for label, value in facts:
         ws.cell(row=row, column=1, value=label).font = _LABEL_FONT
-        ws.cell(row=row, column=2, value=value).font = _INK_FONT
+        ws.cell(row=row, column=2, value=_safe_text(value)).font = _INK_FONT
         row += 1
 
     notes = [
@@ -221,11 +232,12 @@ def _build_metrics(ws: Worksheet, dataset: dict[str, Any]) -> None:
     for row_index, series in enumerate(series_list, start=2):
         unit = series.get("unit", "USD")
         percent = bool(series.get("percent"))
-        label_cell = ws.cell(row=row_index, column=1, value=series.get("label", ""))
+        label_cell = ws.cell(row=row_index, column=1, value=_safe_text(series.get("label", "")))
         label_cell.font = _INK_FONT
         label_cell.border = _CELL_BORDER
-        ws.cell(row=row_index, column=2, value=series.get("concept", "")).border = _CELL_BORDER
-        unit_cell = ws.cell(row=row_index, column=3, value="percent" if percent else str(unit))
+        concept_cell = ws.cell(row=row_index, column=2, value=_safe_text(series.get("concept", "")))
+        concept_cell.border = _CELL_BORDER
+        unit_cell = ws.cell(row=row_index, column=3, value="percent" if percent else _safe_text(unit))
         unit_cell.border = _CELL_BORDER
 
         by_period = {p.get("period"): p for p in series.get("points", [])}

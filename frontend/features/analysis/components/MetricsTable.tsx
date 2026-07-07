@@ -149,8 +149,13 @@ export default function MetricsTable({
           )}
         </div>
         {onExportXlsx && (
-          <Button size="sm" variant="secondary" onClick={onExportXlsx} loading={exporting}>
-            <FileXlsIcon className="h-3.5 w-3.5" aria-hidden="true" />
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={onExportXlsx}
+            loading={exporting}
+            leftIcon={<FileXlsIcon className="h-3.5 w-3.5" aria-hidden="true" />}
+          >
             Export Excel
           </Button>
         )}
