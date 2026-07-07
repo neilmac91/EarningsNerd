@@ -12,6 +12,7 @@ points ``app.database`` at a private sqlite file for the duration of these tests
 resolves ``SessionLocal`` from ``app.database`` at call time, so it uses the isolated DB too.
 """
 import os
+import tempfile
 from types import SimpleNamespace
 
 import pytest
@@ -22,7 +23,10 @@ import app.database as appdb
 from app.models import Base, Company
 from scripts.repair_ticker_by_cik import build_primary_map, compute_changes, main
 
-_ISOLATED_DB_PATH = "./repair_ticker_isolated_test.db"
+# Anchor to the system temp dir + PID: CWD-independent and collision-free under parallel runs.
+_ISOLATED_DB_PATH = os.path.join(
+    tempfile.gettempdir(), f"repair_ticker_isolated_{os.getpid()}.db"
+)
 
 
 @pytest.fixture(scope="module", autouse=True)
