@@ -10,7 +10,7 @@ import { Card, Skeleton } from '@/components/ui'
 const TIME_LABEL: Record<string, string> = { bmo: 'Before open', amc: 'After close' }
 
 export default function EarningsCalendar({ enabled = true }: { enabled?: boolean }) {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError } = useQuery({
     queryKey: queryKeys.dashboardCalendar(),
     queryFn: () => getUpcomingCalendar(14),
     retry: false,
@@ -36,6 +36,10 @@ export default function EarningsCalendar({ enabled = true }: { enabled?: boolean
           <Skeleton className="h-6 rounded-lg" />
           <span className="sr-only">Loading upcoming earnings…</span>
         </div>
+      ) : isError ? (
+        <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+          Couldn&apos;t load upcoming earnings.
+        </p>
       ) : !data || data.length === 0 ? (
         <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
           No earnings dates in the next two weeks.
