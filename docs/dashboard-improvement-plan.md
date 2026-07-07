@@ -67,7 +67,7 @@ Restructure `compose_feed` (`dashboard_feed_service.py:215-292`). The router (`b
    heads.sort(key=lambda f: (f.filing_date, f.id), reverse=True)
    heads = heads[:limit]
    ```
-   `limit` semantically becomes "max companies shown"; note that in the docstring.
+   `limit` semantically becomes "max companies shown"; note that in the docstring. The tuple sort key is safe without a `None` guard because `Filing.filing_date` is `NOT NULL` (`backend/app/models/__init__.py:210`); if the scan is ever widened to a nullable date, sort with a sentinel (e.g. `f.filing_date or datetime.min`) to avoid a Python 3 comparison `TypeError`.
 4. **Delete the buggy query** (`:226-233`) and rehydrate the heads with one `Filing.id.in_(...)` query using `joinedload(Filing.company)` (loads `xbrl_data` and company for at most `limit` rows), reordered to `heads` order via an id-to-position map.
 5. **Unchanged:** `_prior_same_form` lookups against `by_company`, the prior-XBRL batch load, the summary-status batch, and item assembly (`:251-292`).
 
