@@ -361,7 +361,7 @@ compute work per user. The only new spend is the ~$10/mo warm instance.
 |---|---|---|
 | **Live Cloud Run sizing** (memory/cpu/concurrency/timeouts/min-max instances) | CI never re-asserts sizing flags (ci.yml:374-383); all values here come from the bootstrap doc (docs/DEPLOYMENT.md:120) and may have drifted. | `gcloud run services describe earningsnerd-backend --region=us-west1` |
 | **Which mechanism produced the observed "Unable to connect"** (OOM vs no-instance 503 vs reset) | §2.3 ranks OOM/no-instance as best-supported; confirming changes nothing about the fix priority but validates the memory sizing. | Cloud Run logs: filter for `Memory limit … exceeded`, `The request was aborted because there was no available instance`; Sentry for the same window |
-| **Prod `EDGAR_IDENTITY` env value** | Default is a bare email; compliance item QW5. | `gcloud run services describe … --format='value(spec.template.spec.containers[0].env)'` |
+| **Prod `EDGAR_IDENTITY` env value** | Default is a bare email; compliance item QW5. | `gcloud run services describe earningsnerd-backend --region=us-west1 --format='value(spec.template.spec.containers[0].env)'` |
 | **Whether MS has any `filings` rows in prod** | Determines whether MS 503s (empty fallback) or would serve stale rows today. | `SELECT count(*) FROM filings f JOIN companies c ON c.id=f.company_id WHERE c.ticker='MS';` |
 | **Live Cloud SQL tier / `max_connections`** | Pool math in PS6 assumes db-g1-small ≈ 50. | `gcloud sql instances describe earningsnerd-db` |
 | **Egress IP arrangement** | §4 assumes shared Google egress pool (no NAT configured in repo). | GCP console → Cloud Run networking / VPC connectors |
