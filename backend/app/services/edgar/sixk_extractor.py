@@ -19,6 +19,7 @@ from typing import Any, Optional
 from edgar import Company as EdgarCompany
 
 from .async_executor import run_with_circuit_breaker
+from .client import get_filing_by_accession
 from .config import EDGAR_DEFAULT_TIMEOUT_SECONDS
 
 logger = logging.getLogger(__name__)
@@ -70,7 +71,7 @@ def _extract_sixk_text_sync(cik_padded: str, accession_number: str) -> Optional[
     thread pool). Never raises — returns the best text it can, or ``None``."""
     try:
         company = EdgarCompany(cik_padded)
-        filings = list(company.get_filings(accession_number=accession_number))
+        filings = get_filing_by_accession(company, accession_number)
     except Exception as e:  # noqa: BLE001
         logger.info("6-K %s not resolvable for CIK %s: %s", accession_number, cik_padded, e)
         return None

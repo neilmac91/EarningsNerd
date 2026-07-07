@@ -155,3 +155,38 @@ async def test_total_and_list_are_windowed():
     assert res["transactions"][0]["transaction_date"] == _days_ago(5)
     assert res["summary"]["buy_count"] == 1
     assert res["summary"]["sell_count"] == 0
+
+
+class _FakeInsiderCompany:
+    """Records the Form 4 get_filings kwargs; returns no filings (so obj() is never called)."""
+
+    last_kwargs = None
+
+    def __init__(self, ticker):
+        self.cik = "0000320193"
+        self.name = "Apple Inc."
+        self.ticker = "AAPL"
+
+    def get_filings(self, form=None, amendments=None, trigger_full_load=None):
+        _FakeInsiderCompany.last_kwargs = {
+            "form": form,
+            "amendments": amendments,
+            "trigger_full_load": trigger_full_load,
+        }
+        return []
+
+
+def test_collect_insider_data_sync_uses_recent_window(monkeypatch):
+    # Regression gate: the real Form 4 fetch must pass trigger_full_load=False so it reads only the
+    # recent submissions window, not the company's entire lifetime history (the mega-filer cost the
+    # filing-load fix removed from listings).
+    import edgar
+
+    monkeypatch.setattr(edgar, "Company", _FakeInsiderCompany)
+    _FakeInsiderCompany.last_kwargs = None
+
+    result = insider_service._collect_insider_data_sync("AAPL", limit_filings=5)
+
+    assert _FakeInsiderCompany.last_kwargs["form"] == "4"
+    assert _FakeInsiderCompany.last_kwargs["trigger_full_load"] is False
+    assert result["transactions"] == []

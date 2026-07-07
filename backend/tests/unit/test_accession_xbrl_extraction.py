@@ -91,7 +91,7 @@ class FakeCompany:
     def __init__(self, filings):
         self._filings = filings
 
-    def get_filings(self, accession_number=None):
+    def get_filings(self, accession_number=None, trigger_full_load=None):
         return list(self._filings)
 
 

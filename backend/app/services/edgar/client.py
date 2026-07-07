@@ -18,11 +18,14 @@ Usage:
 
 import asyncio
 import logging
+from datetime import datetime, timedelta
 from itertools import islice
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 from urllib.parse import urljoin
 
 from edgar import Company as EdgarCompany, set_identity, find as edgar_find
+
+from app.utils.datetimes import utcnow
 
 from .async_executor import run_with_circuit_breaker
 from .config import EDGAR_IDENTITY, FilingType, EDGAR_DEFAULT_TIMEOUT_SECONDS, EDGAR_THREAD_POOL_SIZE
@@ -52,6 +55,53 @@ _edgar_search_semaphore = asyncio.Semaphore(EDGAR_THREAD_POOL_SIZE)
 # filings); this caps memory for very high-volume filers while leaving a generous multi-year slice
 # for the year-grouped UI. Reports (10-K/10-Q/20-F/6-K/40-F) are a few per year, so 50 spans ~10y.
 RECENT_FILINGS_MATERIALIZE_CAP = 50
+
+# Negative cache for the bounded-fallback path: (ticker/cik, base_forms) that returned NOTHING even
+# after a full-history load — i.e. a company that doesn't file these forms (e.g. precompute a 10-K for
+# a 20-F-only FPI). Without it, every bounded call re-pays the full-history load (43 sequential shard
+# GETs for a mega-filer, through the shared limiter, inside the 15s budget → circuit-breaker pressure
+# on a cron sweep), since EdgarCompany is rebuilt per call. Bounded + TTL'd (per-process, mirrors
+# filings.py's _filings_synced_at) so a company that later starts filing the form is re-checked.
+_EMPTY_FALLBACK_TTL = timedelta(hours=6)
+_EMPTY_FALLBACK_MAX = 1024
+_empty_fallback_cache: Dict[Tuple[str, Tuple[str, ...]], datetime] = {}
+
+
+def _empty_fallback_fresh(ticker: str, base_forms: List[str]) -> bool:
+    """True when (ticker, base_forms) recently full-loaded to nothing (skip the repeat full-load).
+
+    The key sorts base_forms so a differently-ordered same-set request is a hit, not a miss.
+    """
+    ts = _empty_fallback_cache.get((ticker, tuple(sorted(base_forms))))
+    return ts is not None and (utcnow() - ts) < _EMPTY_FALLBACK_TTL
+
+
+def _mark_empty_fallback(ticker: str, base_forms: List[str]) -> None:
+    """Record that (ticker, base_forms) has no filings, evicting the oldest key past the cap."""
+    key = (ticker, tuple(sorted(base_forms)))
+    _empty_fallback_cache.pop(key, None)  # refresh insertion order if already present (true LRU)
+    if len(_empty_fallback_cache) >= _EMPTY_FALLBACK_MAX:
+        _empty_fallback_cache.pop(next(iter(_empty_fallback_cache)), None)  # insertion-ordered → oldest
+    _empty_fallback_cache[key] = utcnow()
+
+
+def get_filing_by_accession(company: EdgarCompany, accession_number: str) -> list:
+    """Resolve a single filing by accession from an edgartools Company — RECENT window first, the full
+    history only if the accession isn't recent.
+
+    Avoids edgartools' default ``trigger_full_load=True`` (43 sequential shard downloads for a
+    mega-filer) on the common summary-generation case, where the filing being summarized is recent.
+    Behavior-preserving: returns the same filing object either way. Synchronous — call inside the
+    edgar thread pool.
+    """
+    filings = list(
+        company.get_filings(accession_number=accession_number, trigger_full_load=False)
+    )
+    if not filings:
+        filings = list(
+            company.get_filings(accession_number=accession_number, trigger_full_load=True)
+        )
+    return filings
 
 
 class EdgarClient:
@@ -262,11 +312,13 @@ class EdgarClient:
         if not base_forms:
             return []
 
-        # The exact form strings the caller wants back. When amendments were forced on above for an
-        # explicit "/A" request, the fetch returns a superset (base + /A); trim to this set BEFORE the
-        # limit is applied so unrequested base rows never consume limit slots or leak to the response
-        # (the cold-company sync path would otherwise return base+/A while the cached path returns only
-        # /A — inconsistent). For plain base-form requests this is a no-op.
+        # The exact form strings the caller wants back — the fetch below filters to this set. When
+        # amendments were forced on above for an explicit "/A" request the raw fetch is a superset
+        # (base + /A); trimming to allowed_forms keeps unrequested base rows from consuming limit slots
+        # or leaking to the response (the cold-company sync path would otherwise return base+/A while
+        # the cached path returns only /A — inconsistent). It is ALSO what the empty-check and the
+        # negative-cache key measure, so both are "empty for what the caller asked", amendments
+        # dimension included. For plain base-form requests this is a no-op.
         allowed_forms = {ft.value for ft in filing_types}
         if include_amended:
             allowed_forms |= {f"{b}/A" for b in base_forms}
@@ -285,15 +337,21 @@ class EdgarClient:
             )
 
             # ONE recent-window fetch across all requested forms. trigger_full_load=False skips
-            # edgartools' paginated older-filings download (the scaling cost). islice caps the
-            # materialized EntityFiling objects.
+            # edgartools' paginated older-filings download (the scaling cost). We filter to
+            # `allowed_forms` INSIDE the (lazy) islice so a superset fetch (base + /A, when amendments
+            # were forced on) is trimmed to what the caller asked for before the cap, and so the
+            # empty-check below measures "empty for the requested forms" — not raw pre-trim rows.
             filings = await run_with_circuit_breaker(
                 lambda: list(
                     islice(
-                        edgar_company.get_filings(
-                            form=base_forms,
-                            amendments=wants_amended,
-                            trigger_full_load=False,
+                        (
+                            f
+                            for f in edgar_company.get_filings(
+                                form=base_forms,
+                                amendments=wants_amended,
+                                trigger_full_load=False,
+                            )
+                            if getattr(f, "form", None) in allowed_forms
                         ),
                         materialize_cap,
                     )
@@ -302,42 +360,47 @@ class EdgarClient:
             )
 
             # Bounded single-latest fallback (precompute, get_latest_filing): only when the recent
-            # window returns NOTHING for the requested forms does the target report sit older than
-            # the window — retry once with the full history to find it. Mirrors edgartools' own
-            # EntityData.latest() intent. The trigger is `== 0`, NOT `< limit`: a bounded caller's
+            # window returns NOTHING FOR THE REQUESTED FORMS (post-trim) does the target report sit
+            # older than the window — retry once with the full history to find it. Mirrors edgartools'
+            # own EntityData.latest() intent. The trigger is `== 0`, NOT `< limit`: a bounded caller's
             # default limit is 10 while an annual form yields ~1 filing/year, so `< limit` would
             # full-load on nearly every call and defeat the recent-window optimization. GATED on
             # `limit is not None`, so the unbounded filings-LIST path (limit=None) NEVER pays the
             # full-history cost — that is the whole point of QW2; those callers rely on DB-first
-            # serving for deep history instead.
-            if limit is not None and len(filings) == 0:
+            # serving for deep history instead. The negative cache is keyed on `allowed_forms` (which
+            # fully determines what the caller counts as a result, incl. the amendments dimension).
+            if limit is not None and len(filings) == 0 and not _empty_fallback_fresh(ticker, sorted(allowed_forms)):
                 # Log so a "some company full-loads on every cron run" pattern (a company that never
                 # files the requested form) is greppable in prod, where its only other trace is latency.
                 logger.info(
-                    "Recent window empty for %s on %s; falling back to full history", base_forms, ticker
+                    "Recent window empty for %s on %s; falling back to full history", sorted(allowed_forms), ticker
                 )
                 # sort_by descending so edgartools sorts the Arrow table BEFORE materialization: the
                 # full-load concats shards in `files` order (not guaranteed globally sorted), so an
-                # unsorted islice(limit) could take an arbitrary old row and miss the latest. With
-                # sort_by, islice(limit) is exact.
+                # unsorted islice(limit) could take an arbitrary old row and miss the latest. Filter to
+                # allowed_forms inside the islice (same reason as the recent fetch), then take `limit`.
                 filings = await run_with_circuit_breaker(
                     lambda: list(
                         islice(
-                            edgar_company.get_filings(
-                                form=base_forms,
-                                amendments=wants_amended,
-                                trigger_full_load=True,
-                                sort_by=[("filing_date", "descending")],
+                            (
+                                f
+                                for f in edgar_company.get_filings(
+                                    form=base_forms,
+                                    amendments=wants_amended,
+                                    trigger_full_load=True,
+                                    sort_by=[("filing_date", "descending")],
+                                )
+                                if getattr(f, "form", None) in allowed_forms
                             ),
                             limit,
                         )
                     ),
                     timeout=self.timeout,
                 )
-
-            # Trim the fetched rows to exactly the requested forms (see allowed_forms above) BEFORE
-            # the limit slice. No-op for plain base-form requests.
-            filings = [f for f in filings if getattr(f, "form", None) in allowed_forms]
+                # Full history also empty → this company doesn't file these forms. Remember it so the
+                # next bounded call skips the repeat full-load (until the TTL re-checks).
+                if len(filings) == 0:
+                    _mark_empty_fallback(ticker, sorted(allowed_forms))
 
             # Sort by filing date descending, handling None dates gracefully
             from datetime import date as date_type_sort

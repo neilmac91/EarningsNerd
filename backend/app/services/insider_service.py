@@ -125,7 +125,19 @@ def _collect_insider_data_sync(ticker: str, limit_filings: int) -> dict:
 
     transactions: list[dict] = []
     try:
-        filings = company.get_filings(form="4", amendments=False)
+        # trigger_full_load=False: the panel shows RECENT insider activity, and Form 4s are dense
+        # (insiders file frequently), so the recent submissions window suffices. The default
+        # (trigger_full_load=True) would download the company's entire lifetime history first — the
+        # same mega-filer cost the filing-load fix removed from listings — before islice bounds it.
+        # NOT behavior-preserving for >1000-filing companies (a filer whose newest Form 4 predates
+        # the recent window now shows empty instead of stale history) — a deliberate product call
+        # for a "recent activity" surface.
+        # No empty→full-history fallback here ON PURPOSE (unlike get_filings_multi): companies that
+        # never file Form 4 — FPIs (Section 16 doesn't apply), trusts, shells — have a Form-4-empty
+        # recent window forever, so a fallback would re-pay the full lifetime download on every
+        # cache miss (~30 min). That recurring burn is exactly what this line kills; do not add a
+        # fallback in a future "consistency" refactor.
+        filings = company.get_filings(form="4", amendments=False, trigger_full_load=False)
     except Exception as exc:
         raise translate_edgartools_exception(exc) from exc
 
