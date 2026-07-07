@@ -13,7 +13,7 @@ function CtaBanner() {
             Ready to decode your next filing?
           </h2>
           <p className="mx-auto mt-4 max-w-lg text-lg text-text-secondary-light dark:text-text-secondary-dark">
-            Stop spending hours on filings. Get the insights that matter in minutes.
+            Stop spending hours on filings. Read what matters in minutes.
           </p>
           <div className="mt-8 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <ExampleCtaLink
@@ -28,7 +28,7 @@ function CtaBanner() {
               href="/register"
               className="inline-flex items-center gap-1 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark underline underline-offset-4 decoration-border-light dark:decoration-white/10 transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark hover:decoration-text-primary-light dark:hover:decoration-text-primary-dark focus-visible:outline-none focus-visible:shadow-ring-brand dark:focus-visible:shadow-ring-brand-dark"
             >
-              or create a free account — 5 summaries a month
+              or create a free account · 5 summaries a month
             </Link>
           </div>
         </div>

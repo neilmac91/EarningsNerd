@@ -12,7 +12,7 @@ interface SummaryLiquidityProps {
 export function SummaryLiquidity({ liquidityContent, footnotesContent }: SummaryLiquidityProps) {
   const hasContent = Boolean(liquidityContent || footnotesContent)
   
-  if (!hasContent) return <SectionEmpty label="Liquidity & Capital" />
+  if (!hasContent) return <SectionEmpty label="liquidity & capital detail" />
 
   return (
     <div className="space-y-6">

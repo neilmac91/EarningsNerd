@@ -29,7 +29,7 @@ export default function Footer() {
           <div>
             <EarningsNerdLogo variant="icon-only" iconClassName="h-8 w-8" mode="auto" />
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
-              AI-powered SEC filing analysis. Turn dense filings into clear, decision-ready insights.
+              AI-powered SEC filing analysis. Read any 10-K or 10-Q in minutes.
             </p>
           </div>
 
@@ -61,7 +61,7 @@ export default function Footer() {
             &copy; {CURRENT_YEAR} EarningsNerd. All rights reserved.
           </p>
           <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-            Data sourced from SEC EDGAR. AI-generated content — for informational purposes only.
+            Data sourced from SEC EDGAR. AI-generated content, for informational purposes only.
             Not investment advice. Not affiliated with the SEC.
           </p>
         </div>

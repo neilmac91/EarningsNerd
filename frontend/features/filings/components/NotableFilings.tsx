@@ -23,10 +23,10 @@ export default function NotableFilings({
         <SectionImpression section="notable_filings">
           <div className="mb-8">
             <h2 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-text-primary-light dark:text-text-primary-dark">
-              <span aria-hidden="true">📄</span> Notable filings
+              Notable filings
             </h2>
             <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              High-signal SEC filings from the past week, across the whole market — sourced from
+              High-signal SEC filings from the past week, across the whole market. Sourced from
               EDGAR.
             </p>
           </div>

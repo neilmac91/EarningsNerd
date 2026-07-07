@@ -461,7 +461,7 @@ export default function CompanyPageClient() {
                     </div>
                     <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                       Not sure where to start? This is {companyData.name}&apos;s most recent{' '}
-                      {ANNUAL_FILING_TYPES.includes(recommendedFiling.filing_type) ? 'annual report' : 'filing'} — get an instant AI summary.
+                      {ANNUAL_FILING_TYPES.includes(recommendedFiling.filing_type) ? 'annual report' : 'filing'}. Start with its AI summary.
                     </p>
                   </div>
                 </div>

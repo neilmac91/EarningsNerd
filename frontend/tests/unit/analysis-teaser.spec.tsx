@@ -41,7 +41,7 @@ describe('AnalysisTeaser (free-user lock)', () => {
     expect(screen.getByRole('button', { name: /upgrade to unlock/i })).toBeInTheDocument()
     // …the sample is honestly labelled and personalized…
     expect(screen.getByText(/Sample: Apple Inc\./)).toBeInTheDocument()
-    expect(screen.getByText(/upgrade to run it for MSFT/)).toBeInTheDocument()
+    expect(screen.getByText(/Upgrade to run it for MSFT/)).toBeInTheDocument()
     // …and NO backend/AI endpoint was touched (the whole point of the canned demo).
     expect(fetchSpy).not.toHaveBeenCalled()
   })

@@ -13,9 +13,9 @@ import { ENABLE_CALENDAR } from '@/lib/featureFlags'
 import EarningsCalendarPage from '@/features/calendar/components/EarningsCalendarPage'
 
 export const metadata: Metadata = {
-  title: 'Earnings calendar — EarningsNerd',
+  title: 'Earnings calendar | EarningsNerd',
   description:
-    'The most-anticipated U.S. earnings, week by week — before-open and after-close lanes, honest estimated vs confirmed vs reported dates, and day-of alerts.',
+    'The most-anticipated U.S. earnings, week by week. Before-open and after-close lanes, estimated vs confirmed vs reported dates, and day-of alerts.',
 }
 
 export default function CalendarRoute() {

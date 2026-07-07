@@ -4,7 +4,7 @@ const PILLARS = [
   {
     title: 'Straight from SEC EDGAR',
     description:
-      'Every summary is generated from the official filing a company submits to the SEC — not third-party rewrites or news coverage.',
+      'Every summary is generated from the official filing a company submits to the SEC, not third-party rewrites or news coverage.',
     icon: FileTextIcon,
   },
   {
@@ -16,7 +16,7 @@ const PILLARS = [
   {
     title: 'Honest about quality',
     description:
-      'Each summary gets a deterministic quality check. If a section is thin or financial data could not be verified, we say so — and you can regenerate.',
+      'Each summary gets a deterministic quality check. If a section is thin or financial data could not be verified, we say so, and you can regenerate.',
     icon: SealCheckIcon,
   },
 ] as const

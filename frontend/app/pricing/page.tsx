@@ -155,7 +155,7 @@ function PricingContent() {
       name: 'Free',
       price: '$0',
       period: 'forever',
-      description: 'Perfect for trying out EarningsNerd',
+      description: 'For trying out EarningsNerd',
       features: [
         '5 summaries per month',
         'Access to all filings',
@@ -182,12 +182,12 @@ function PricingContent() {
         'Unlimited summaries',
         'Real-time filing alerts',
         '8-K coverage',
-        'Multi-Period Analysis — 10-year trends, quarterly deltas & AI narrative',
+        'Multi-Period Analysis: 10-year trends, quarterly deltas & AI narrative',
         'PDF & CSV exports',
         'Premium AI model & deeper analysis',
         'Priority support',
       ],
-      cta: isPaidPro ? 'Current Plan' : showBetaOffer ? 'Claim Pro — Free' : isTrialing ? 'Subscribe to Pro' : 'Upgrade to Pro',
+      cta: isPaidPro ? 'Current Plan' : showBetaOffer ? 'Claim Pro' : isTrialing ? 'Subscribe to Pro' : 'Upgrade to Pro',
       disabled: isPaidPro,
       priceId: billingCycle === 'monthly' ? 'price_pro_monthly' : 'price_pro_yearly',
       popular: true,
@@ -292,10 +292,10 @@ function PricingContent() {
         {showBetaOffer && (
           <div className="mb-8 mx-auto max-w-2xl rounded-2xl border border-brand-strong/40 bg-brand-strong/10 p-5 text-center dark:border-brand-strong-dark/40 dark:bg-brand-strong-dark/15">
             <p className="text-base font-semibold text-text-heading-light dark:text-text-heading-dark">
-              🎉 You&apos;re a beta member — Pro is on us.
+              You&apos;re a beta member. Pro is on us.
             </p>
             <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              Click <span className="font-semibold text-brand-strong dark:text-brand-strong-dark">Claim Pro — Free</span> below.
+              Click <span className="font-semibold text-brand-strong dark:text-brand-strong-dark">Claim Pro</span> below.
               The beta discount applies automatically, so your total is{' '}
               <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">$0</span> and{' '}
               <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">no credit card</span> is required.
@@ -389,8 +389,8 @@ function PricingContent() {
                 Do you offer refunds?
               </h3>
               <p className="text-text-secondary-light dark:text-text-secondary-dark">
-                You can cancel anytime and keep Pro until the end of the period you&apos;ve paid for —
-                no further charges. Except where required by law, fees already paid are
+                You can cancel anytime and keep Pro until the end of the period you&apos;ve paid for,
+                with no further charges. Except where required by law, fees already paid are
                 non-refundable (see our Terms). If something isn&apos;t working right, contact us and
                 we&apos;ll make it right.
               </p>

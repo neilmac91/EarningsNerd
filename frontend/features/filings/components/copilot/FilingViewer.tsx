@@ -146,7 +146,7 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
         <div className="flex min-h-0 flex-1 flex-col">
           {passageMissing && (
             <p className="border-b border-warning-light/20 dark:border-warning-dark/20 bg-warning-light/10 dark:bg-warning-dark/10 px-4 py-2 text-xs text-warning-light dark:text-warning-dark">
-              Couldn’t pinpoint the exact passage — showing the full filing.{' '}
+              Couldn’t pinpoint the exact passage, so this is the full filing.{' '}
               {isHttpUrl(secUrl) && (
                 <a href={secUrl} target="_blank" rel="noopener noreferrer" className="font-medium underline">
                   Open original
@@ -180,13 +180,13 @@ export default function FilingViewer({ filingId, filingLabel, secUrl, embedded =
   return (
     <div
       role="dialog"
-      aria-label={`${filingLabel} — filing text`}
+      aria-label={`${filingLabel} · filing text`}
       className="fixed inset-x-0 bottom-0 z-50 flex max-h-[85vh] flex-col rounded-t-2xl border border-border-light bg-panel-light text-text-primary-light dark:border-white/10 dark:bg-panel-dark dark:text-text-primary-dark shadow-e5 dark:shadow-none lg:inset-x-auto lg:bottom-0 lg:left-0 lg:top-16 lg:max-h-none lg:w-[480px] lg:rounded-none lg:border-y-0 lg:border-r"
     >
       <div className="flex items-center justify-between gap-2 border-b border-border-light dark:border-white/10 px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
           <FileTextIcon className="h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" />
-          <h2 className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{filingLabel} — filing text</h2>
+          <h2 className="truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{filingLabel} · filing text</h2>
         </div>
         <div className="flex shrink-0 items-center gap-3">
           {openOriginal}

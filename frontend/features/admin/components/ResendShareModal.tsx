@@ -73,7 +73,7 @@ export default function ResendShareModal({ link, email, onClose }: ResendShareMo
           id="resend-share-modal-title"
           className="mt-4 text-lg font-semibold text-text-primary-light dark:text-text-primary-dark"
         >
-          Invite re-sent — share the new link
+          Invite re-sent. Share the new link
         </h2>
         <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
           {email ? (

@@ -166,7 +166,7 @@ function PreferenceRows({
       />
       <Toggle
         label="Foreign interim reports (6-K)"
-        description="Interim updates from foreign issuers — delivered in your digest, not in real time."
+        description="Interim updates from foreign issuers, delivered in your digest rather than in real time."
         checked={prefs.notify_6k}
         disabled={disabled}
         onChange={setBool('notify_6k')}

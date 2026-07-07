@@ -26,7 +26,7 @@ export default function Error({
           title="Something went wrong"
           description={
             <>
-              We encountered an unexpected error. This has been logged and we&apos;ll look into it.
+              The error has been logged and we&apos;ll look into it.
               {error.digest && (
                 <span className="mt-2 block text-text-tertiary-light dark:text-text-secondary-dark">
                   Error ID: {error.digest}

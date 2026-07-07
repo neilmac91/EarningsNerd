@@ -84,7 +84,7 @@ export function DayDetailDialog({
           >
             <InfoIcon aria-hidden="true" className="h-4 w-4 flex-none text-info-light dark:text-info-dark" />
             <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-              <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">Market closed</span> — {holiday}.
+              <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">Market closed</span> for {holiday}.
               No earnings are scheduled.
             </p>
           </div>

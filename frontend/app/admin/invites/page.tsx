@@ -127,7 +127,7 @@ export default function AdminInvitesPage() {
   const handleSend = async () => {
     if (toInviteCount === 0 || sending) return
     if (overBatchLimit) {
-      toast.error(`Too many at once — send at most ${MAX_BATCH} per batch (${toInviteCount} entered).`)
+      toast.error(`Too many at once. Send at most ${MAX_BATCH} per batch (${toInviteCount} entered).`)
       return
     }
     setSending(true)

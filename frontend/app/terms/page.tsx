@@ -5,7 +5,7 @@ import { LEGAL_DATES } from '@/lib/legalDates'
 export const metadata: Metadata = {
   title: 'Terms of Service | EarningsNerd',
   description:
-    'Terms of Service for EarningsNerd — the rules for using our AI-powered SEC filing analysis.',
+    'Terms of Service for EarningsNerd: the rules for using our AI-powered SEC filing analysis.',
 }
 
 export default function TermsPage() {

@@ -151,7 +151,7 @@ function MobileDay({
       </header>
       {day.holidayName || day.events.length === 0 ? (
         <p className="px-4 py-4 text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-          {day.holidayName ? `Market closed — ${day.holidayName}. No earnings are scheduled.` : 'No reports scheduled.'}
+          {day.holidayName ? `Market closed for ${day.holidayName}. No earnings are scheduled.` : 'No reports scheduled.'}
         </p>
       ) : (
         <div className="px-2 pb-2.5 pt-0.5">

@@ -75,17 +75,17 @@ function RegisterContent() {
       </h1>
       <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
         {isInvited
-          ? 'Finish setting up to unlock full Pro — no credit card required.'
-          : '5 free AI summaries a month — no credit card required.'}
+          ? 'Finish setting up to get full Pro. No credit card required.'
+          : '5 free AI summaries a month. No credit card required.'}
       </p>
 
       {isInvited && (
         <div className="mt-6 rounded-xl border border-brand-strong/20 bg-brand-strong/5 p-4 dark:border-brand-strong-dark/25 dark:bg-brand-strong-dark/10">
           <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-            🎉 You&apos;re invited to the private beta
+            You&apos;re invited to the private beta
           </p>
           <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            Your invite unlocks full Pro access. Create your account with the email and password below.
+            Your invite includes full Pro access. Create your account with the email and password below.
           </p>
         </div>
       )}
@@ -161,7 +161,7 @@ function RegisterContent() {
               required
               minLength={12}
               showStrength
-              hint="At least 12 characters — a longer passphrase is stronger. Breached passwords are rejected."
+              hint="At least 12 characters. A longer passphrase is stronger. Breached passwords are rejected."
             />
 
             <TurnstileWidget onToken={setTurnstileToken} className="flex justify-center" />

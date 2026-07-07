@@ -193,7 +193,7 @@ function SourceTraceInner({
   ) : (
     <span className="mt-2 flex items-center gap-1 text-[11px] font-medium text-text-tertiary-light dark:text-text-secondary-dark">
       <ArrowSquareOutIcon className="h-3 w-3 shrink-0" />
-      {note || 'Cited — open the section to confirm'}
+      {note || 'Cited. Open the section to confirm.'}
     </span>
   )
 

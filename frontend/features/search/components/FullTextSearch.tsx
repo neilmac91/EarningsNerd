@@ -108,7 +108,7 @@ export default function FullTextSearch() {
       <div>
         <h1 className="text-2xl font-semibold text-text-heading-light dark:text-text-heading-dark">Search filings</h1>
         <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          Full-text search across SEC filings and their exhibits since 2001 — e.g.{' '}
+          Full-text search across SEC filings and their exhibits since 2001. Try{' '}
           <span className="text-text-primary-light dark:text-text-primary-dark">&ldquo;going concern&rdquo;</span>,{' '}
           <span className="text-text-primary-light dark:text-text-primary-dark">&ldquo;material weakness&rdquo;</span>, or a product name.
         </p>
@@ -215,7 +215,7 @@ export default function FullTextSearch() {
         data.hits.length > 0 ? (
           <div className="space-y-2">
             <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
-              {data.total.toLocaleString()} filing{data.total === 1 ? '' : 's'} match — showing{' '}
+              {data.total.toLocaleString()} filing{data.total === 1 ? '' : 's'} match · showing{' '}
               {data.count}
             </p>
             <FullTextSearchResults hits={data.hits} />

@@ -26,8 +26,8 @@ export default function UpgradeModal({ open, onClose, feature, title, message }:
   const body =
     message ??
     (feature
-      ? `${feature} is a Pro feature. Upgrade for unlimited access, real-time alerts, 8-K coverage, comparisons and exports.`
-      : 'Unlock unlimited summaries, real-time filing alerts, 8-K coverage, multi-year comparisons and exports.')
+      ? `${feature} is a Pro feature. Pro includes unlimited summaries, real-time alerts, 8-K coverage, comparisons, and exports.`
+      : 'Pro includes unlimited summaries, real-time filing alerts, 8-K coverage, multi-year comparisons, and exports.')
 
   // Portal to <body> so the fixed overlay is never clipped or mis-stacked by an ancestor's stacking
   // context (e.g. when opened from the embedded Copilot rail inside FilingWorkspace).

@@ -90,7 +90,7 @@ export default function BulkResultSummary({ outcomes, skipped }: BulkResultSumma
             {skipped.length} skipped
           </div>
           <p className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">
-            {skipped.join(', ')} — already invited or invalid.
+            {skipped.join(', ')}: already invited or invalid.
           </p>
         </div>
       )}

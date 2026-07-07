@@ -112,7 +112,7 @@ export default function MetricsTable({
         // cursor-help only when the tooltip actually exists — same condition for both.
         const windowTooltip =
           win.isPercent && row.series.window_pp_range
-            ? `Percentage-point change over ${row.series.window_pp_range} — CAGR doesn't apply to a percent-unit series.`
+            ? `Percentage-point change over ${row.series.window_pp_range}. CAGR doesn't apply to a percent-unit series.`
             : undefined
         return text ? (
           <span
@@ -142,7 +142,7 @@ export default function MetricsTable({
           {hasDerived && (
             <Badge
               variant="warning"
-              title="† values are computed fourth quarters, derived from the annual report — companies disclose Q4 only inside the full-year figures. Flows: full year minus the reported year-to-date quarters; EPS: Q4 net income ÷ Q4 weighted shares."
+              title="† values are computed fourth quarters, derived from the annual report, since companies disclose Q4 only inside the full-year figures. Flows: full year minus the reported year-to-date quarters; EPS: Q4 net income ÷ Q4 weighted shares."
             >
               † computed Q4
             </Badge>

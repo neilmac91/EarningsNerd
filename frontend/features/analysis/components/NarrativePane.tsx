@@ -88,7 +88,7 @@ function verifiedBadgeTitle(
   }
   if (mismatched) {
     const one = mismatched === 1
-    title += ` ${mismatched} figure${one ? '' : 's'} printed next to a citation could not be reconciled with the cited value — check the Sources list for the exact dataset values.`
+    title += ` ${mismatched} figure${one ? '' : 's'} printed next to a citation could not be reconciled with the cited value. Check the Sources list for the exact dataset values.`
   }
   return title
 }
@@ -99,8 +99,8 @@ function CitationList({ citations, sample }: { citations: AnalysisCitation[]; sa
     <div className="mt-4 border-t border-border-light pt-3 dark:border-white/10">
       <div className="mb-2 text-xs font-medium uppercase tracking-wide text-text-tertiary-light dark:text-text-secondary-dark">
         {sample
-          ? 'Sources — sample data (approximate figures)'
-          : 'Sources — cited figures verified against SEC XBRL data'}
+          ? 'Sources · sample data (approximate figures)'
+          : 'Sources · cited figures verified against SEC XBRL data'}
       </div>
       <ul className="space-y-1">
         {citations.map((citation) => (
@@ -181,7 +181,7 @@ export default function NarrativePane({
             </span>
           )}
           {state.status === 'done' && completion && !notEnoughData && sample && (
-            <Badge title="Illustrative sample with approximate figures — run an analysis to get verified, cited values from SEC XBRL data.">
+            <Badge title="Illustrative sample with approximate figures. Run an analysis to get verified, cited values from SEC XBRL data.">
               Sample data
             </Badge>
           )}
@@ -194,7 +194,7 @@ export default function NarrativePane({
             </Badge>
           )}
           {state.status === 'done' && completion?.cached && !sample && (
-            <Badge title="Served from a previous run of this exact period range — regenerates automatically when new filings arrive.">
+            <Badge title="Served from a previous run of this exact period range. It regenerates automatically when new filings arrive.">
               Cached
             </Badge>
           )}
@@ -247,7 +247,7 @@ export default function NarrativePane({
           {state.status === 'done' && completion && (
             <AiDisclaimer className="mt-3">
               {sample
-                ? 'Illustrative sample with approximate figures — run an analysis for verified, cited values.'
+                ? 'Illustrative sample with approximate figures. Run an analysis for verified, cited values.'
                 : "Cited figures resolve to SEC XBRL values; uncited statements are the model's interpretation and can be wrong."}
             </AiDisclaimer>
           )}

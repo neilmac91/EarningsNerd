@@ -65,7 +65,7 @@ export class GlobalErrorBoundary extends Component<Props, State> {
               variant="error"
               icon={<WarningIcon className="h-5 w-5" />}
               title="Something went wrong"
-              description="We encountered an unexpected error. Our team has been notified and is working to fix it."
+              description="The error has been reported and we'll look into it."
               action={
                 <>
                   <Button onClick={this.handleRetry} leftIcon={<ArrowsClockwiseIcon className="h-4 w-4" />}>

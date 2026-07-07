@@ -55,7 +55,7 @@ function AuthBrandPane() {
           in minutes.
         </h2>
         <p className="mt-4 text-base leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
-          Business overview, financials, risks, and outlook — every number traced to the SEC source.
+          Business overview, financials, risks, and outlook, with every number traced to the SEC source.
         </p>
 
         {/* Showcase card */}

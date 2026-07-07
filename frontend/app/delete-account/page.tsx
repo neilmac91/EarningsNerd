@@ -61,7 +61,7 @@ export default function DeleteAccountPage() {
         <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
           Some records may be retained where the law requires it (e.g. billing records for tax
           purposes). Deleting your account does <strong>not</strong> automatically cancel an active
-          subscription billed through the Apple App Store or Google Play — cancel it in your Apple ID
+          subscription billed through the Apple App Store or Google Play. Cancel it in your Apple ID
           or Google Play settings. If you&apos;d like a copy of your data first, you can export it from
           your account settings before deleting.
         </p>

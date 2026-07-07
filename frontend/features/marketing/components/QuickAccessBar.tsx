@@ -26,7 +26,7 @@ function QuickAccessBar() {
   return (
     <section className="py-6" aria-label="Popular companies">
       <p className="mb-4 text-center text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
-        Popular companies — click to explore
+        Popular companies
       </p>
       <div className="flex flex-wrap justify-center gap-3">
         {TOP_COMPANIES.map(({ ticker, name }) => (

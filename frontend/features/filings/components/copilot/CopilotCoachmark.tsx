@@ -39,7 +39,7 @@ export default function CopilotCoachmark({ onTry, onDismiss, style }: CopilotCoa
         <SparkleIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand-strong dark:text-brand-strong-dark" aria-hidden="true" />
         <div>
           <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-            New — ask this filing anything
+            New: ask this filing anything
           </p>
           <p className="mt-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
             Get plain-English answers, each cited to the exact filing text.

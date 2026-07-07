@@ -237,7 +237,7 @@ export default function DashboardPage() {
                   loading={portalMutation.isPending}
                   loadingText="Loading..."
                 >
-                  Manage Subscription
+                  Manage subscription
                 </Button>
               </div>
             ) : (
@@ -254,7 +254,7 @@ export default function DashboardPage() {
 
           {/* Usage Stats */}
           <Card className="p-6">
-            <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">Usage This Month</h2>
+            <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">Usage this month</h2>
             {usageError ? (
               // Inline error — same in-card composition rule as the subscription error.
               <div role="alert" className="space-y-2">
@@ -304,7 +304,7 @@ export default function DashboardPage() {
                     <WarningCircleIcon className="h-5 w-5 text-warning-light dark:text-warning-dark flex-shrink-0 mt-0.5" />
                     <div className="flex-1">
                       <p className="text-sm font-medium text-warning-light dark:text-warning-dark">
-                        {usagePercentage >= 100 ? 'Limit Reached' : 'Almost at Limit'}
+                        {usagePercentage >= 100 ? 'Limit reached' : 'Almost at your limit'}
                       </p>
                       <p className="text-sm text-warning-light mt-1 dark:text-warning-dark">
                         {usagePercentage >= 100
@@ -327,20 +327,20 @@ export default function DashboardPage() {
               {
                 href: '/',
                 icon: <FileTextIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />,
-                title: 'Search Companies',
+                title: 'Search companies',
                 description: 'Find and analyze SEC filings for any public company',
               },
               {
                 href: '/pricing',
                 icon: <SparkleIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />,
-                title: 'View Plans',
+                title: 'View plans',
                 description: 'Compare features and upgrade your plan',
               },
               {
                 href: '/dashboard/watchlist',
                 icon: <ChartBarIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />,
-                title: 'Watchlist Insights',
-                description: 'Monitor summary readiness across your tracked companies',
+                title: 'Watchlist insights',
+                description: 'See which of your tracked companies have fresh summaries',
               },
             ] as const
           ).map((action) => (
@@ -362,7 +362,7 @@ export default function DashboardPage() {
 
         {/* Saved Summaries */}
         <div className="mt-8">
-          <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">Saved Summaries</h2>
+          <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">Saved summaries</h2>
           {savedLoading ? (
             <div role="status" aria-label="Loading saved summaries" className="grid md:grid-cols-2 gap-4">
               <Skeleton className="h-28 rounded-xl" />

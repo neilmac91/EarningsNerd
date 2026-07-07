@@ -27,7 +27,7 @@ export function SummaryFinancials({ notes, metrics }: SummaryFinancialsProps) {
   const validMetrics = metrics?.filter(hasRealData) ?? []
   const hasContent = Boolean(notes || validMetrics.length > 0)
 
-  if (!hasContent) return <SectionEmpty label="Financial Highlights" />
+  if (!hasContent) return <SectionEmpty label="financial highlights" />
 
   return (
     <div className="space-y-4">

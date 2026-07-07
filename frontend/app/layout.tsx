@@ -39,13 +39,13 @@ const THEME_BOOTSTRAP = `(function(){try{
 }catch(e){}})();`
 
 export const metadata: Metadata = {
-  title: 'EarningsNerd - AI-Powered SEC Filing Analysis',
-  description: 'Transform dense SEC filings into clear, actionable insights using AI. Search any public company, access its 10-K and 10-Q summaries, and instantly understand performance, risks, and trends.',
+  title: 'EarningsNerd | AI-powered SEC filing analysis',
+  description: 'AI summaries of SEC filings. Search any public company and read its 10-K or 10-Q in minutes: financials, risks, and trends, straight from SEC EDGAR.',
   keywords: ['SEC filings', '10-K', '10-Q', 'financial analysis', 'earnings', 'stock analysis', 'AI summaries', 'SEC EDGAR'],
   metadataBase: new URL('https://www.earningsnerd.io'),
   openGraph: {
-    title: 'EarningsNerd - AI-Powered SEC Filing Analysis',
-    description: 'Transform dense SEC filings into clear, actionable insights using AI.',
+    title: 'EarningsNerd | AI-powered SEC filing analysis',
+    description: 'AI summaries of SEC filings. Read any 10-K or 10-Q in minutes.',
     type: 'website',
     images: [
       {
@@ -59,8 +59,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'EarningsNerd - AI-Powered SEC Filing Analysis',
-    description: 'Transform dense SEC filings into clear, actionable insights using AI.',
+    title: 'EarningsNerd | AI-powered SEC filing analysis',
+    description: 'AI summaries of SEC filings. Read any 10-K or 10-Q in minutes.',
     images: ['/og-image.png?v=2'],
   },
   icons: {

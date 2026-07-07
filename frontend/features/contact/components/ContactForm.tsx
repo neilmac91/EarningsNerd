@@ -93,7 +93,7 @@ export default function ContactForm() {
             </svg>
           </div>
           <h3 className="mb-2 text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-            Message Sent!
+            Message sent
           </h3>
           <p className="text-text-secondary-light dark:text-text-secondary-dark">
             Thank you for contacting us. We&apos;ve received your message and will get back to you within 1-2 business

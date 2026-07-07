@@ -82,7 +82,7 @@ describe('QuickAccessBar', () => {
   it('displays helper text', () => {
     render(<QuickAccessBar />)
 
-    expect(screen.getByText('Popular companies — click to explore')).toBeInTheDocument()
+    expect(screen.getByText('Popular companies')).toBeInTheDocument()
   })
 
   it('includes BABA (Alibaba) not AMD', () => {
