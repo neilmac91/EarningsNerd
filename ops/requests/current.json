@@ -1,6 +1,6 @@
 {
-  "operation": "detection-sql",
-  "tickers": "",
+  "operation": "sync-companyfacts",
+  "tickers": "JPM,BAC,BIIB,WFC,C,GS,MS",
   "revision": "",
-  "nonce": "phase5-before-resync-1"
+  "nonce": "phase5-resync-1"
 }
