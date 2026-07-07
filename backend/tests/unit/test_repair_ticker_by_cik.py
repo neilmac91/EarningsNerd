@@ -12,6 +12,17 @@ from scripts.repair_ticker_by_cik import build_primary_map, compute_changes, mai
 from app.database import SessionLocal
 from app.models import Company
 
+
+@pytest.fixture(scope="module", autouse=True)
+def _tables():
+    # These tests drive the schema via SessionLocal (no TestClient lifespan), so they must
+    # build the tables themselves — otherwise they depend on collection order for another
+    # test to have created them in the shared sqlite file.
+    from app.database import Base, engine
+
+    Base.metadata.create_all(bind=engine)
+
+
 FIXTURE_TICKERS = {
     "0": {"cik_str": 19617, "ticker": "JPM", "title": "JPMORGAN CHASE & CO"},
     "1": {"cik_str": 1652044, "ticker": "GOOGL", "title": "Alphabet Inc."},

@@ -997,6 +997,12 @@ COMPANYFACTS_INSTANT_TAGS: dict[str, tuple[str, ...]] = {
         "CashAndCashEquivalentsAtCarryingValue",
         "CashCashEquivalentsAndShortTermInvestments",
         "Cash",
+        # ASU 2016-18 total (includes restricted cash) — the tag JPM and every large-bank
+        # adopter MIGRATED to (JPM FY2019+, BAC FY2020+). Appended LAST deliberately: per-period
+        # first-tag-wins keeps pre-migration years on the legacy tags' identical values (zero
+        # churn), while post-migration years — previously MISSING entirely — fill from this tag
+        # (data-quality plan P0-3).
+        "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
     ),
     "shareholders_equity": (
         "StockholdersEquity",

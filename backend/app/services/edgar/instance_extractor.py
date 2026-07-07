@@ -101,6 +101,10 @@ INSTANT_CONCEPTS: Dict[str, List[str]] = {
         "CashAndCashEquivalents",  # also the IFRS name
         "CashCashEquivalentsAndShortTermInvestments",
         "Cash",
+        # ASU 2016-18 total (includes restricted cash) — what JPM-class banks migrated to.
+        # LAST = lowest priority: only resolves when no unrestricted-cash tag is present
+        # (data-quality plan P0-3).
+        "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
     ],
     # P1.1 depth: balance-sheet equity + debt (instant facts). LongTermDebt is a
     # conservative, clearly-labelled debt anchor (not "total debt", which has no single

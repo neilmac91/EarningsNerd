@@ -55,6 +55,19 @@ from .statement_parser import extract_metric_values, statement_dataframe
 
 logger = logging.getLogger(__name__)
 
+# Cash concept candidates for the single-filing statement path, in priority order. The
+# ASU 2016-18 restricted-cash total sits LAST (lowest priority): it only resolves when no
+# unrestricted-cash tag is present — the JPM-class bank case whose only cash line is the
+# migrated tag (data-quality plan P0-3). test_cash_registry_consistency.py pins this ordering
+# across all three cash registries.
+CASH_TAG_CANDIDATES: List[str] = [
+    "CashAndCashEquivalentsAtCarryingValue",
+    "Cash",
+    "CashAndCashEquivalents",
+    "CashCashEquivalentsAndShortTermInvestments",
+    "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
+]
+
 # Ensure identity is set
 set_identity(EDGAR_IDENTITY)
 
@@ -728,8 +741,7 @@ class EdgarXBRLService:
                     )
                     result["cash_and_equivalents"] = self._extract_from_dataframe(
                         df,
-                        ["CashAndCashEquivalentsAtCarryingValue", "Cash",
-                         "CashAndCashEquivalents", "CashCashEquivalentsAndShortTermInvestments"],
+                        CASH_TAG_CANDIDATES,
                         accession_number
                     )
                     result["shareholders_equity"] = self._extract_from_dataframe(
