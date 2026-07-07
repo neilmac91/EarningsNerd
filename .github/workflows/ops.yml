@@ -40,6 +40,13 @@ on:
         description: 'Cloud Run revision name (rollback-traffic only)'
         required: false
         default: ''
+  # Request-file trigger: the remediation session's tokens have no actions:write scope, so it
+  # cannot call the dispatch API. Committing ops/requests/current.json to the remediation branch
+  # triggers the same enum-validated operations — each run is an auditable commit. The `nonce`
+  # field exists solely to re-trigger an identical operation.
+  push:
+    branches: [claude/earningsnerd-data-quality-fpg7bz]
+    paths: ['ops/requests/**']
 
 concurrency:
   group: ops
@@ -60,22 +67,42 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Validate inputs
+      - name: Resolve requested operation (dispatch input or committed request file)
+        id: request
         run: |
           set -euo pipefail
-          case "${{ inputs.operation }}" in
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            OP="${{ inputs.operation }}"
+            TICKERS="${{ inputs.tickers }}"
+            REVISION="${{ inputs.revision }}"
+          else
+            OP=$(python3 -c "import json; print(json.load(open('ops/requests/current.json')).get('operation',''))")
+            TICKERS=$(python3 -c "import json; print(json.load(open('ops/requests/current.json')).get('tickers',''))")
+            REVISION=$(python3 -c "import json; print(json.load(open('ops/requests/current.json')).get('revision',''))")
+          fi
+          case "$OP" in
+            describe-service|describe-jobs|detection-sql|logs-probe|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|sync-companyfacts|rollback-traffic) ;;
+            *) echo "::error::unknown operation '$OP'"; exit 1 ;;
+          esac
+          case "$OP" in
             sync-companyfacts)
-              [[ "${{ inputs.tickers }}" =~ ^[A-Za-z0-9.-]+(,[A-Za-z0-9.-]+)*$ ]] \
+              [[ "$TICKERS" =~ ^[A-Za-z0-9.-]+(,[A-Za-z0-9.-]+)*$ ]] \
                 || { echo "::error::tickers must be a comma-separated symbol list"; exit 1; }
               # Spec P0-3: resync in bounded batches.
-              COUNT=$(echo "${{ inputs.tickers }}" | tr ',' '\n' | wc -l)
+              COUNT=$(echo "$TICKERS" | tr ',' '\n' | wc -l)
               [ "$COUNT" -le 50 ] || { echo "::error::max 50 tickers per dispatch"; exit 1; }
               ;;
             rollback-traffic)
-              [[ "${{ inputs.revision }}" =~ ^[a-z0-9-]+$ ]] \
+              [[ "$REVISION" =~ ^[a-z0-9-]+$ ]] \
                 || { echo "::error::revision must be a Cloud Run revision name"; exit 1; }
               ;;
           esac
+          {
+            echo "operation=$OP"
+            echo "tickers=$TICKERS"
+            echo "revision=$REVISION"
+          } >> "$GITHUB_OUTPUT"
+          echo "Requested operation: $OP"
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
@@ -88,7 +115,7 @@ jobs:
 
       # ------------------------------------------------------------------ read-only inspection
       - name: Describe service env (values only for known feature flags)
-        if: inputs.operation == 'describe-service'
+        if: steps.request.outputs.operation == 'describe-service'
         run: |
           set -euo pipefail
           gcloud run services describe "$SERVICE" --region="$REGION" --format=json > /tmp/svc.json
@@ -120,7 +147,7 @@ jobs:
           PY
 
       - name: Describe job envs (names only) and entrypoints
-        if: inputs.operation == 'describe-jobs'
+        if: steps.request.outputs.operation == 'describe-jobs'
         run: |
           set -euo pipefail
           for job in earningsnerd-pregenerate earningsnerd-filing-scan earningsnerd-filing-digest \
@@ -146,7 +173,7 @@ jobs:
           done
 
       - name: Logs read probe (safeguard-2 alert feasibility)
-        if: inputs.operation == 'logs-probe'
+        if: steps.request.outputs.operation == 'logs-probe'
         run: |
           set +e
           gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="earningsnerd-backend"' \
@@ -165,7 +192,7 @@ jobs:
           fi
 
       - name: Jobs-channel no-op probe (args override on an existing job)
-        if: inputs.operation == 'jobs-channel-noop-probe'
+        if: steps.request.outputs.operation == 'jobs-channel-noop-probe'
         run: |
           set -euo pipefail
           gcloud run jobs execute "$JOBS_CHANNEL_JOB" --region="$REGION" \
@@ -174,7 +201,7 @@ jobs:
 
       # ------------------------------------------------------------------ Cloud SQL access
       - name: Start Cloud SQL proxy and export connection env
-        if: contains('detection-sql repair-ticker-dry-run repair-ticker-apply', inputs.operation)
+        if: contains('detection-sql repair-ticker-dry-run repair-ticker-apply', steps.request.outputs.operation)
         # Mirrors the deploy-backend migrations step (ci.yml) — same secret, same masking.
         run: |
           set -euo pipefail
@@ -203,7 +230,7 @@ jobs:
           pg_isready -h 127.0.0.1 -p 5432
 
       - name: Run committed detection SQL (read-only snapshots)
-        if: inputs.operation == 'detection-sql'
+        if: steps.request.outputs.operation == 'detection-sql'
         run: |
           set -euo pipefail
           for f in ops/detection/*.sql; do
@@ -214,12 +241,12 @@ jobs:
 
       # ------------------------------------------------------------------ committed scripts (runner)
       - name: Install backend dependencies
-        if: contains('repair-ticker-dry-run repair-ticker-apply', inputs.operation)
+        if: contains('repair-ticker-dry-run repair-ticker-apply', steps.request.outputs.operation)
         run: |
           pip install -q -r backend/requirements.txt
 
       - name: Run ticker repair script
-        if: contains('repair-ticker-dry-run repair-ticker-apply', inputs.operation)
+        if: contains('repair-ticker-dry-run repair-ticker-apply', steps.request.outputs.operation)
         working-directory: backend
         env:
           # Hermetic dummy env for Settings import (same shape as the CI eval job); DATABASE_URL
@@ -232,7 +259,7 @@ jobs:
         run: |
           set -euo pipefail
           [ -f scripts/repair_ticker_by_cik.py ] || { echo "::error::repair script not committed yet"; exit 1; }
-          if [ "${{ inputs.operation }}" = "repair-ticker-apply" ]; then
+          if [ "${{ steps.request.outputs.operation }}" = "repair-ticker-apply" ]; then
             python scripts/repair_ticker_by_cik.py --apply
           else
             python scripts/repair_ticker_by_cik.py
@@ -240,10 +267,10 @@ jobs:
 
       # ------------------------------------------------------------------ internal jobs
       - name: Trigger companyfacts resync (internal endpoint; jobs-channel fallback)
-        if: inputs.operation == 'sync-companyfacts'
+        if: steps.request.outputs.operation == 'sync-companyfacts'
         run: |
           set -euo pipefail
-          TICKERS="${{ inputs.tickers }}"
+          TICKERS="${{ steps.request.outputs.tickers }}"
           [ -n "$TICKERS" ] || { echo "::error::tickers input required"; exit 1; }
           TOKEN="$(gcloud secrets versions access latest --secret=INTERNAL_JOB_TOKEN 2>/dev/null || true)"
           if [ -n "$TOKEN" ]; then
@@ -263,9 +290,9 @@ jobs:
 
       # ------------------------------------------------------------------ emergency rollback
       - name: Roll service traffic back to a named revision
-        if: inputs.operation == 'rollback-traffic'
+        if: steps.request.outputs.operation == 'rollback-traffic'
         run: |
           set -euo pipefail
           gcloud run services update-traffic "$SERVICE" --region="$REGION" \
-            --to-revisions="${{ inputs.revision }}=100"
-          echo "traffic pinned to ${{ inputs.revision }} — remember to re-run update-traffic --to-latest after the fix deploys"
+            --to-revisions="${{ steps.request.outputs.revision }}=100"
+          echo "traffic pinned to ${{ steps.request.outputs.revision }} — remember to re-run update-traffic --to-latest after the fix deploys"

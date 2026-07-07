@@ -11,6 +11,7 @@ from app.database import get_db, SessionLocal
 from app.models import Company, Filing
 from app.schemas.fundamentals import FundamentalsResponse
 # EdgarTools migration: Using new edgar module for SEC services
+from app.services.company_resolution import resolve_or_create_company_by_cik
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.exceptions import EdgarError as SECEdgarServiceError
 from pydantic import BaseModel
@@ -160,13 +161,16 @@ async def get_company_filings(
             sec_results = await sec_edgar_service.search_company(ticker)
             if sec_results:
                 sec_data = sec_results[0]
-                company = Company(
+                # CIK-first: reuse an existing row for this CIK (e.g. stored under a preferred
+                # ticker) instead of 500-ing on the unique-CIK insert (interim safeguard 1).
+                company = resolve_or_create_company_by_cik(
+                    db,
                     cik=sec_data["cik"],
                     ticker=sec_data["ticker"],
                     name=sec_data["name"],
-                    exchange=sec_data.get("exchange")
+                    exchange=sec_data.get("exchange"),
+                    path="filings.get_company_filings",
                 )
-                db.add(company)
                 db.commit()
                 db.refresh(company)
             else:

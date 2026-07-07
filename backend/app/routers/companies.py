@@ -4,6 +4,7 @@ from typing import Dict, List, Optional, Tuple
 from app.database import get_db
 from app.models import Company
 from app.services.company_coverage import UNSUPPORTED_FOREIGN_REASON, unsupported_foreign_name
+from app.services.company_resolution import resolve_or_create_company_by_cik
 # EdgarTools migration: Using new edgar module for SEC services
 from app.services.edgar.compat import sec_edgar_service
 from app.services.edgar.exceptions import EdgarError as SECEdgarServiceError
@@ -409,13 +410,17 @@ async def get_company(ticker: str, db: Session = Depends(get_db)) -> CompanyResp
             sec_results = await sec_edgar_service.search_company(ticker)
             if sec_results:
                 sec_data = sec_results[0]
-                company = Company(
+                # CIK-first: when this CIK already has a row under another ticker (e.g. a
+                # preferred-class overwrite like JPM-PM), reuse it instead of 500-ing on the
+                # unique-CIK insert (data-quality plan, interim safeguard 1).
+                company = resolve_or_create_company_by_cik(
+                    db,
                     cik=sec_data["cik"],
                     ticker=sec_data["ticker"],
                     name=sec_data["name"],
-                    exchange=sec_data.get("exchange")
+                    exchange=sec_data.get("exchange"),
+                    path="companies.get_company",
                 )
-                db.add(company)
                 db.commit()
                 db.refresh(company)
             else:

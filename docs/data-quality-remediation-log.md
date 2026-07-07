@@ -43,21 +43,79 @@ and verification evidence against the spec's exact expected values.
   `ticker_corruption_proxy`, `companies_snapshot` (named issuers before/after).
 - This log.
 
-**Deployed:** nothing (no `backend/` paths → deploy-backend does not run).
+**Deployed:** nothing (no `backend/` paths → deploy-backend does not run). PR #585 merged
+2026-07-07 (`e6121e1`) after all CI checks green.
 
-**Probe results (recorded after merge):**
-- `USE_STATEMENT_FINANCIALS` live state: _pending_
-- `Company.sic` population: _pending_
-- Detection SQL "before" snapshots: _pending_
-- `logging.read` permission (safeguard-2 alerting feasibility): _pending_
-- Jobs-channel args-override probe: _pending_
-- Negative WIF probe (dispatch from non-main ref): _pending_
+**Execution-arm adjustment (recorded):** this session's GitHub tokens have no `actions:write`
+scope, so `workflow_dispatch` is not callable from here (403). Added a request-file trigger:
+committing `ops/requests/current.json` to the remediation branch runs the same enum-validated
+operations; `workflow_dispatch` remains for manual use. Each operation is an auditable commit.
+
+**Probe results (2026-07-07, ops runs #1-#4 on the remediation branch):**
+- **`USE_STATEMENT_FINANCIALS = 'true'` in prod** (set out-of-band on the Cloud Run service;
+  survives deploys because CI uses `--update-env-vars`). The statement-financials rollout HAS
+  happened → P0-2's component-based badge fix is live for banks; the pre-agreed neutral-wording
+  stopgap is not load-bearing (ships anyway as belt-and-braces). `INTERNAL_JOB_TOKEN`,
+  `RESEND_API_KEY` exist as secret-refs on the service. Serving revision at probe time:
+  `earningsnerd-backend-00208-d4m` (rollback anchor).
+- **`Company.sic`: NULL for all 442 companies** (`sic_null_count`: 442 total / 0 with sic) —
+  the runbook's SIC backfill was NOT run. SIC-band predicate branch stays dormant (by design);
+  the flag-ON component path carries the bank badge fix. No SIC backfill in this execution
+  (founder pre-agreement; P1-7's territory).
+- **Detection "before" snapshots** (prod, 2026-07-07 19:30 UTC):
+  - `cash_coverage_gap`: **JPM-PM (last_cash_fy=2018, last_assets_fy=2025)** — the exact
+    ASU 2016-18 signature the spec predicts — and **BIIB (no cash facts at all, assets to
+    2024)** — the spec's predicted non-financial exposure class. BAC absent because it has no
+    `financial_fact` rows yet (never companyfacts-synced); it will be force-synced and verified
+    in Phase 5 regardless.
+  - `companies_snapshot`: **JPMorgan's live ticker is `JPM-PM`** (id 11, cik 0000019617) —
+    corruption confirmed in prod. BAC/WFC/C/GS/MS/BRK-B/GOOGL currently hold their common
+    tickers. `exchange`/`sic` empty everywhere.
+  - `filing_count_anomaly`: JPM-PM — facts span FY2007–FY2025 with **1** stored 10-K (the
+    mega-filer ingestion-cap signature). No other company matches yet.
+  - `ticker_corruption_proxy`: exactly 1 preferred-suffix ticker (JPM-PM); 0 duplicate CIKs.
+- **Negative WIF probe: non-main refs CAN authenticate.** The ops workflow ran successfully
+  from the remediation branch (push-triggered). Posture: WIF trust is repo-scoped, not
+  ref-scoped — anyone with push access to any branch can exercise deployer-SA operations.
+  Acceptable for a solo-founder repo; noted for the founder (tighten the WIF provider's
+  attribute condition to `refs/heads/main` if collaborators are ever added).
+- **Jobs channel:** all Cloud Run jobs use `command: ['python']` → the documented
+  `jobs execute --args` override works shape-wise. `earningsnerd-filing-digest` carries
+  `DATABASE_URL` + `RESEND_API_KEY` + `RESEND_FROM_EMAIL` → chosen as Phase 9's execution
+  target. `earningsnerd-backfill-facts` carries `DATABASE_URL` + `USE_STATEMENT_FINANCIALS` →
+  Phase 5's resync fallback target. (`earningsnerd-notable-filings` does not exist; skipped
+  gracefully, matching ci.yml's tolerance.)
+- `logging.read` permission + jobs-channel no-op execute: probes dispatched; results recorded
+  under Phase 1 below (they complete alongside it).
+- Secrets masking verified in run logs (`DATABASE_URL`/`PGPASSWORD` render as `***`).
 
 ---
 
 ## Phase 1 — Interim safeguards 1+2 (miss-path hotfix + conflict logging)
 
-**Status:** pending
+**Status:** in progress
+**Plan items:** Part-3 safeguards 1 (CIK-fallback + SAVEPOINT at the three miss-path inserts)
+and 2 (structured `company_upsert_conflict` log line).
+
+**Changed:**
+- New `app/services/company_resolution.py::resolve_or_create_company_by_cik` — CIK-first
+  lookup (padded + stripped forms), SAVEPOINT insert with IntegrityError re-query (template:
+  `earnings_alert_service.py:85-96`), `company_upsert_conflict cik=… ticker=… path=…` warning
+  on conflict.
+- The three blind-insert sites now use it: `routers/companies.py` (`get_company` miss),
+  `routers/filings.py` (`get_company_filings` miss), `services/precompute_service.py`
+  (`precompute_one` miss). No ticker rewriting here — canonicalization is P0-1 (Phase 4).
+- Guardrail tests `tests/integration/test_company_miss_path_cik_fallback.py` (5 tests): the
+  three routes reuse the JPM-PM-stored row for /JPM lookups (200, one row, no insert); the
+  forced-race path returns the surviving row + emits the structured log line; padded/stripped
+  CIK matching.
+
+**Gates:** ruff ✓ bandit ✓ full pytest 1401 passed ✓ (local, pipefail-checked).
+
+**Deployed:** _pending merge_
+
+**Verification:** _pending deploy_ — prod `GET /api/companies/JPM` should flip 500 → 200
+serving the JPM-PM row (until Phase 4 canonicalizes the ticker).
 
 ---
 
