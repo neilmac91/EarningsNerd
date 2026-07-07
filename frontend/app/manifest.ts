@@ -9,7 +9,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'EarningsNerd',
     short_name: 'EarningsNerd',
     description:
-      'AI-powered SEC filing analysis — 10-K and 10-Q summaries with every number traced to the source.',
+      'AI-powered SEC filing analysis. 10-K and 10-Q summaries with every number traced to the source.',
     start_url: '/',
     display: 'standalone',
     background_color: '#F4F3EE',

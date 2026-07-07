@@ -27,9 +27,9 @@ import {
 const SITE_URL = 'https://www.earningsnerd.io'
 
 export const metadata: Metadata = {
-  title: 'EarningsNerd — Understand any SEC filing in minutes',
+  title: 'EarningsNerd | Understand any SEC filing in minutes',
   description:
-    'AI-powered summaries that turn dense, 100-page SEC filings into clear, decision-ready insights. Financials, risks, and trends — sourced directly from SEC EDGAR.',
+    'Read any 10-K or 10-Q in minutes. AI summaries of financials, risks, and trends, sourced directly from SEC EDGAR.',
   alternates: {
     canonical: '/',
   },
@@ -120,9 +120,9 @@ export default async function Home() {
                 in minutes
               </h1>
               <p className="mt-6 max-w-lg text-lg leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
-                AI-powered summaries that turn dense, 100-page SEC filings into
-                clear, decision-ready insights. Financials, risks, and trends —
-                all in one place.
+                AI summaries that turn 100-page SEC filings into a clear
+                five-minute read. Financials, risks, and trends, all in one
+                place.
               </p>
 
               {/* Primary action: search. One hero, one action — registration
@@ -140,7 +140,7 @@ export default async function Home() {
                   See a live example →
                 </ExampleCtaLink>
                 <span className="text-text-tertiary-light dark:text-text-secondary-dark">
-                  Your first summary is free — no signup needed.
+                  Your first summary is free. No signup needed.
                 </span>
               </div>
 

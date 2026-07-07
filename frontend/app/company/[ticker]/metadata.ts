@@ -8,7 +8,7 @@ export async function generateMetadata({ params }: { params: { ticker: string } 
     // For now, we'll use dynamic metadata
     return {
       title: `${ticker} SEC Filings & 10-K Summary | EarningsNerd`,
-      description: `AI-powered analysis of ${ticker} SEC filings. Get instant summaries of 10-K and 10-Q reports with financial highlights, risk factors, and management insights.`,
+      description: `AI summaries of ${ticker} SEC filings. Read 10-K and 10-Q reports in minutes: financial highlights, risk factors, and management commentary.`,
       keywords: [`${ticker}`, 'SEC filings', '10-K', '10-Q', 'financial analysis', 'earnings', 'stock analysis'],
       openGraph: {
         title: `${ticker} SEC Filing Analysis | EarningsNerd`,
@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: { params: { ticker: string } 
     // Fallback metadata if params are not available
     return {
       title: 'Company SEC Filings & 10-K Summary | EarningsNerd',
-      description: 'AI-powered analysis of SEC filings. Get instant summaries of 10-K and 10-Q reports with financial highlights, risk factors, and management insights.',
+      description: 'AI summaries of SEC filings. Read 10-K and 10-Q reports in minutes: financial highlights, risk factors, and management commentary.',
     }
   }
 }

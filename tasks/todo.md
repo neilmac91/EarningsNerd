@@ -1,3 +1,29 @@
+# Task: Site-wide copy voice pass (2026-07-07, branch claude/earningsnerd-copy-voice-rr0pvy)
+
+Rewrite user-facing English copy into a shorter, plainer, human voice (harvey.ai reference).
+Remove em-dashes from copy (keep hyphens in compounds, en-dashes in ranges, and the bare `—`
+null-value table token). Preserve every factual claim exactly. Copy only: no logic, structure,
+styling, or data changes. Approved decisions: coverage claim = "every SEC-registered company"
+(align HowItWorks); whimsy loaders trimmed to the sharp ones; emoji dropped from headings and
+banners (feedback chips stay); em-dash CI gate added (CLAUDE.md rule 12).
+
+- [ ] 1. `docs/voice-and-style.md` (reusable voice spec)
+- [ ] 2. Chrome + metadata (layout, manifest, home meta/hero/JSON-LD, Footer, AiDisclaimer,
+      error pages, CookieConsent, search/calendar/analysis/company meta)
+- [ ] 3. Marketing components (QuickAccessBar, HowItWorks, FeatureShowcase, AccuracySection,
+      CtaBanner, HeroExample, NotableFilings, ReportingThisWeek) + specs in lockstep
+- [ ] 4. Waitlist page + form
+- [ ] 5. Pricing + auth surfaces (register, AuthShell, verification banner/modal,
+      delete-account retention note, de-exclaim auth success states)
+- [ ] 6. App surfaces (dashboard, settings, watchlist, calendar, analysis, search, company,
+      filing/streaming, summaries, copilot, subscriptions, feedback) + specs in lockstep
+- [ ] 7. Admin (em-dashes only) + invite-message twin in backend email_service.py
+- [ ] 8. New gate: `frontend/tests/unit/no-em-dash-copy.spec.ts`
+- [ ] 9. Verify: frontend full gate + e2e + backend full gate + classified em-dash sweep +
+      read-aloud diff review
+- [ ] 10. `docs/copy-change-summary.md` (before→after highlights + flagged claims)
+- [ ] 11. Commit, push, draft PR (no merge, no deploy)
+
 # Task: Design-system v2 adoption pass (post-migration; PR-per-surface)
 
 ## Task #35 — live-eval findings: guard window bypass (CONFIRMED + fixed) + N-run gating

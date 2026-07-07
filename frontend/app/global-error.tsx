@@ -24,10 +24,10 @@ export default function GlobalError({
                 <div className="flex min-h-screen flex-col items-center justify-center bg-background-light p-4 text-center dark:bg-background-dark">
                     <div className="mx-auto max-w-md space-y-4">
                         <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-                            Something went wrong!
+                            Something went wrong
                         </h2>
                         <p className="text-text-secondary-light dark:text-text-secondary-dark">
-                            We apologize for the inconvenience. An unexpected error has occurred.
+                            The error has been logged. Try again, or reload the page.
                         </p>
                         <div className="flex justify-center gap-4">
                             <button
@@ -40,7 +40,7 @@ export default function GlobalError({
                                 onClick={() => window.location.reload()}
                                 className="rounded-lg border border-border-light bg-white px-4 py-2 font-medium text-text-secondary-light transition-colors hover:bg-background-light focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 dark:border-border-dark dark:bg-panel-dark dark:text-text-secondary-dark dark:hover:bg-white/5"
                             >
-                                Reload Page
+                                Reload page
                             </button>
                         </div>
                         {process.env.NODE_ENV === 'development' && (
