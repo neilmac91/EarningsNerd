@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
@@ -23,6 +23,7 @@ const SCANNED_DIRS = ['app', 'components', 'features', 'lib', 'hooks']
 const EM_DASH = '—'
 
 function sourceFiles(dir: string): string[] {
+  if (!existsSync(dir)) return []
   const out: string[] = []
   for (const entry of readdirSync(dir)) {
     const full = path.join(dir, entry)
