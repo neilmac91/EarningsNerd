@@ -1,6 +1,6 @@
 {
-  "operation": "logs-probe",
+  "operation": "jobs-channel-noop-probe",
   "tickers": "",
   "revision": "",
-  "nonce": "phase0-probe-4"
+  "nonce": "phase0-probe-5"
 }
