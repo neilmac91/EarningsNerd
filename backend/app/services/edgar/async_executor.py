@@ -33,13 +33,24 @@ logger = logging.getLogger(__name__)
 P = ParamSpec("P")
 T = TypeVar("T")
 
-# Dedicated thread pool for EdgarTools operations
-# Using a dedicated pool prevents EdgarTools from consuming
-# threads needed by other async operations
-_edgar_executor = ThreadPoolExecutor(
-    max_workers=EDGAR_THREAD_POOL_SIZE,
-    thread_name_prefix="edgar_"
-)
+# Dedicated thread pool for EdgarTools operations. Using a dedicated pool prevents EdgarTools from
+# consuming threads needed by other async operations. Created lazily via _get_executor() so that a
+# prior shutdown (app lifespan teardown, or a test that ran the app lifespan) auto-heals: submitting
+# work after shutdown would otherwise raise "cannot schedule new futures after shutdown" forever.
+_edgar_executor: ThreadPoolExecutor | None = None
+
+
+def _get_executor() -> ThreadPoolExecutor:
+    """Return a live EdgarTools thread pool, (re)creating it if it was never started or was shut down."""
+    global _edgar_executor
+    ex = _edgar_executor
+    if ex is None or getattr(ex, "_shutdown", False):
+        ex = ThreadPoolExecutor(
+            max_workers=EDGAR_THREAD_POOL_SIZE,
+            thread_name_prefix="edgar_",
+        )
+        _edgar_executor = ex
+    return ex
 
 
 async def run_in_executor(
@@ -67,9 +78,9 @@ async def run_in_executor(
     loop = asyncio.get_running_loop()
 
     try:
-        # Run the sync function in our dedicated thread pool
+        # Run the sync function in our dedicated thread pool (lazily (re)created if shut down)
         result = await loop.run_in_executor(
-            _edgar_executor,
+            _get_executor(),
             lambda: func(*args, **kwargs)
         )
         return result
@@ -208,12 +219,13 @@ def get_executor_stats() -> dict:
 
     Useful for monitoring and debugging.
     """
+    ex = _edgar_executor
     return {
         "max_workers": EDGAR_THREAD_POOL_SIZE,
         "thread_name_prefix": "edgar_",
         # ThreadPoolExecutor doesn't expose active count directly,
         # but we can check if threads are being used via _threads
-        "threads_created": len(_edgar_executor._threads) if hasattr(_edgar_executor, '_threads') else 0,
+        "threads_created": len(ex._threads) if ex is not None and hasattr(ex, '_threads') else 0,
     }
 
 
@@ -221,10 +233,17 @@ def shutdown_executor(wait: bool = True) -> None:
     """
     Shutdown the EdgarTools thread pool.
 
-    Call this during application shutdown to ensure clean cleanup.
+    Call this during application shutdown to ensure clean cleanup. Clears the module reference so a
+    subsequent submission auto-heals via _get_executor() (relevant when the app lifespan runs more
+    than once in a process, e.g. across tests) rather than failing permanently.
 
     Args:
         wait: Whether to wait for pending operations to complete
     """
+    global _edgar_executor
+    ex = _edgar_executor
+    if ex is None:
+        return
     logger.info("Shutting down EdgarTools thread pool")
-    _edgar_executor.shutdown(wait=wait)
+    ex.shutdown(wait=wait)
+    _edgar_executor = None

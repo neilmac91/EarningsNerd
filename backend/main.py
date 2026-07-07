@@ -321,13 +321,19 @@ async def request_timeout_middleware(request: Request, call_next):
         return await asyncio.wait_for(call_next(request), timeout=timeout)
     except asyncio.TimeoutError:
         from fastapi.responses import JSONResponse
+        # Re-apply the CORS allow-origin headers: this middleware sits OUTSIDE CORSMiddleware, so a
+        # 504 it synthesizes never passes back through CORSMiddleware. Without them the browser
+        # blocks the cross-origin 504 and the client sees an opaque "Unable to connect to the
+        # server" instead of the real timeout — the same masking the 503/500 handlers already guard
+        # against (see _error_response_cors_headers).
         return JSONResponse(
             status_code=504,
             content={
                 "detail": f"Request timed out after {timeout}s",
                 "path": path,
                 "timeout_seconds": timeout
-            }
+            },
+            headers=_error_response_cors_headers(request),
         )
 
 # Include routers

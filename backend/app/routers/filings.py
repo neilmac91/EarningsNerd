@@ -4,10 +4,10 @@ from datetime import datetime, timedelta
 from app.utils.datetimes import utcnow
 from typing import Dict, List, Optional, Tuple
 
-from fastapi import APIRouter, HTTPException, Depends, Query
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, HTTPException, Depends, Query, BackgroundTasks
+from sqlalchemy.orm import Session, joinedload
 from app.config import settings
-from app.database import get_db
+from app.database import get_db, SessionLocal
 from app.models import Company, Filing
 from app.schemas.fundamentals import FundamentalsResponse
 # EdgarTools migration: Using new edgar module for SEC services
@@ -43,6 +43,53 @@ def _mark_filings_synced(ticker: str, types_list: List[str]) -> None:
     if len(_filings_synced_at) >= MAX_FILINGS_SYNC_ENTRIES:
         _filings_synced_at.pop(next(iter(_filings_synced_at)), None)  # insertion-ordered → oldest
     _filings_synced_at[(ticker, tuple(types_list))] = utcnow()
+
+
+# In-flight guard for the DB-first background refresh (below): collapses a burst of concurrent loads
+# of the same stale (ticker, types) into a single SEC refresh instead of one per request. Per-process
+# (mirrors _filings_synced_at); a duplicate on another Cloud Run instance is harmless (idempotent
+# upsert). Cleared in the refresh's finally.
+_refreshing_keys: set = set()
+
+
+async def _refresh_company_filings(
+    cik: str, ticker_upper: str, types_list: List[str], company_id: int
+) -> None:
+    """Best-effort background refresh of a company's filings from SEC (DB-first serving).
+
+    Runs AFTER the response is sent (FastAPI BackgroundTasks). Opens its OWN short-lived session —
+    never the request-scoped one (which is already closed) — does the now-bounded SEC fetch (QW2:
+    one recent-window submissions download, not the full history), upserts via the shared
+    ``upsert_filings`` twin, and marks the (ticker, types) synced so the next load takes the fast
+    path. Any failure only logs: the user was already served the persisted rows, and the list is
+    allowed to lag by ``FILINGS_LIST_TTL``.
+    """
+    key = (ticker_upper, tuple(types_list))
+    if key in _refreshing_keys:
+        return  # a refresh for this exact key is already in flight in this process
+    _refreshing_keys.add(key)
+    db = SessionLocal()
+    try:
+        sec_filings = await asyncio.wait_for(
+            sec_edgar_service.get_filings(cik, types_list),
+            timeout=SEC_REQUEST_TIMEOUT_SECONDS,
+        )
+        company = db.get(Company, company_id)
+        if company is None:
+            return
+        from app.services.filing_scan_service import upsert_filings
+        upsert_filings(db, company, sec_filings)
+        _mark_filings_synced(ticker_upper, types_list)
+    except Exception:
+        logger.warning(
+            "Background filings refresh failed for %s; serving persisted rows (stale within TTL)",
+            ticker_upper,
+            exc_info=True,
+        )
+        db.rollback()
+    finally:
+        db.close()
+        _refreshing_keys.discard(key)
 
 
 router = APIRouter()
@@ -93,12 +140,16 @@ class FilingResponse(BaseModel):
 @router.get("/company/{ticker}", response_model=List[FilingResponse])
 async def get_company_filings(
     ticker: str,
+    background: BackgroundTasks,
     filing_types: Optional[str] = Query(None, description="Comma-separated filing types (e.g., '10-K,10-Q')"),
     db: Session = Depends(get_db)
 ):
     """Get filings for a company.
 
-    Falls back to cached database filings if SEC EDGAR is slow or unavailable.
+    DB-first: once we hold any persisted filings for this company we serve them immediately and
+    refresh from SEC in the background, so the request never blocks on a SEC round-trip. Only a
+    first-ever view (empty DB) does a synchronous, bounded live fetch. Falls back to cached DB
+    filings if SEC EDGAR is slow or unavailable.
     """
     ticker_upper = ticker.upper()
     company = db.query(Company).filter(Company.ticker == ticker_upper).first()
@@ -139,21 +190,35 @@ async def get_company_filings(
     else:
         types_list = ["10-K", "10-Q"]
 
-    # Helper to get cached filings from database
+    # Helper to get cached filings from database. joinedload(company) so FilingResponse.from_orm
+    # doesn't lazy-load the company per row (this is now the primary serving path, not just fallback).
     def get_cached_filings() -> List[FilingResponse]:
-        cached = db.query(Filing).filter(
+        cached = db.query(Filing).options(joinedload(Filing.company)).filter(
             Filing.company_id == company.id,
             Filing.filing_type.in_(types_list)
         ).order_by(Filing.filing_date.desc()).limit(CACHED_FILINGS_LIMIT).all()
         return [FilingResponse.from_orm(f) for f in cached]
 
     # B2 fast path: a recently-synced ticker serves its list from the DB (already populated by a
-    # prior live fetch) without the 3-5s SEC round-trip. Falls through to the live fetch on a cold
-    # or stale key, or when the DB has nothing cached yet.
+    # prior live fetch) without the 3-5s SEC round-trip. Falls through to the DB-first / live paths
+    # on a cold or stale key.
     if _filings_cache_fresh(ticker_upper, types_list):
         cached = get_cached_filings()
         if cached:
             return cached
+
+    # DB-first: we already hold persisted rows for this company (from a prior sync, the filing-scan
+    # cron, or precompute), but the freshness stamp is cold/stale (e.g. a fresh Cloud Run instance,
+    # or >TTL since last sync). Serve the rows instantly and refresh from SEC in the background —
+    # the user never waits on SEC. The refresh is bounded (QW2) and in-flight-deduped. Only a
+    # first-ever view with an empty DB (the mega-filer cold case) falls through to a synchronous
+    # fetch below.
+    cached = get_cached_filings()
+    if cached:
+        background.add_task(
+            _refresh_company_filings, company.cik, ticker_upper, types_list, company.id
+        )
+        return cached
 
     try:
         # Try to fetch from SEC with a timeout to ensure we respond within frontend's limit

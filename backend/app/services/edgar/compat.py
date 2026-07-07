@@ -260,30 +260,26 @@ class SECEdgarServiceCompat:
             filing_types = ["10-K", "10-Q"]
 
         try:
-            all_filings = []
-
+            # Non-strict resolution: known forms (incl. FPI 20-F/6-K/40-F) map to a member; only
+            # genuinely unrecognized strings fall through to UNKNOWN and are skipped (this preserves
+            # the old strict()+ValueError intent that dropped bogus forms without dropping 20-F/6-K).
+            resolved: List[FilingType] = []
             for form_type in filing_types:
-                # Non-strict resolution: known forms (incl. FPI 20-F/6-K/40-F) map to a member;
-                # only genuinely unrecognized strings fall through to UNKNOWN and are skipped. This
-                # replaces the old strict() + ValueError path that silently dropped 20-F/6-K.
                 ft = FilingType.from_string(form_type, strict=False)
                 if ft == FilingType.UNKNOWN:
                     logger.warning(f"Unknown filing type: {form_type}")
                     continue
-                filings = await edgar_client.get_filings(
-                    cik, ft, limit=limit, include_amended=False
-                )
-                all_filings.extend(filings)
+                resolved.append(ft)
 
-            # Sort by date descending, handling None filing_date gracefully
-            from datetime import date as date_type
-            all_filings.sort(
-                key=lambda f: f.filing_date if f.filing_date else date_type.min,
-                reverse=True
+            if not resolved:
+                return []
+
+            # ONE bounded, single-EdgarCompany fetch across all requested forms — replaces the old
+            # per-form loop that rebuilt EdgarCompany and re-downloaded the full lifetime history
+            # once per form type (the mega-filer timeout). get_filings_multi returns newest-first.
+            all_filings = await edgar_client.get_filings_multi(
+                cik, resolved, limit=limit, include_amended=False
             )
-
-            if limit:
-                all_filings = all_filings[:limit]
 
             return [f.to_dict() for f in all_filings]
 
