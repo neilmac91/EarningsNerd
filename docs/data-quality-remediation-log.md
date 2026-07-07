@@ -279,14 +279,49 @@ each CIK individually via the per-row-SAVEPOINT helper on race, preserving them;
 script now **aborts with exit 1 on any post-repair ticker collision** (never commits through a
 shadowing state) — guarded by `test_apply_aborts_on_collision_without_writing`.
 
-**Deploy / prod operations:** _pending merge → repair dry-run → compare vs the prediction above
-→ apply → verify JPM ~$300 quote, single search row, sitemap, /JPM-PM canonical._
+**Deployed:** PR #589 merged 2026-07-07 (`243c12a`); deploy-backend green; health 200.
+
+**Repair operation (ops workflow, hard gate 1 honoured — search fix deployed first):**
+- **Dry-run:** 442 rows / 428 already canonical / **12 to repair** / 2 not-in-file
+  (Capitec, Toyota Tsusho ADRs — delisted, correctly left unchanged). **0 collisions.** More
+  than the 1 I narrowly predicted (JPM-PM→JPM held exactly for the named set); the extra 11 were
+  the same corruption on foreign-ADR/preferred rows — each target verified as a current
+  SEC-listed ticker against the live file (GNMSF→GMAB, CXMSF→CX, FREJP→FMCC, SRJN→SR, plus
+  no-common-listing edge cases UEPEP→UELMO / DJP→ATMP and grey-market ADRs). **Surfaced to the
+  founder (AskUserQuestion) → "Apply all 12".**
+- **Apply:** `APPLIED — 12 row(s) repaired.` 0 collisions.
+
+**Verification (prod, spec's exact P0-1 bars):**
+- `GET /api/companies/JPM` → ticker **JPM**, price **$339.22** (the common — was the preferred's
+  ~$17.29). ✓
+- `search?q=jpm` → **1 row**, ticker JPM (was 9 duplicate JPM-PM rows). ✓
+- `GET /api/companies/JPM-PM` → resolves to canonical **JPM** (CIK path). ✓
+- sitemap → `/company/JPM`, **no** preferred-suffix URLs. ✓
+- `ticker_corruption_proxy` after: preferred-suffix count **1 → 0**; 0 CIK duplicates. ✓
+
+**Status: complete.**
 
 ---
 
 ## Phase 5 — P0-3 cash registry + resync
 
-**Status:** pending
+**Status:** in progress
+**Plan items:** P0-3 — append the ASU 2016-18 restricted-cash tag last in all three cash
+registries; deploy; force companyfacts resync of affected companies; verify FY2019+ cash fills.
+Hard gate 2: resync runs only AFTER this deploy is live.
+
+**Changed:** appended `CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents` **last** in
+`facts_service.py` (COMPANYFACTS_INSTANT_TAGS cash tuple), `edgar/instance_extractor.py`
+(INSTANT_CONCEPTS), `edgar/xbrl_service.py` (new `CASH_TAG_CANDIDATES`). Append-last +
+per-period first-tag-wins keeps FY2016-18 on the legacy tags (zero churn); FY2019+ — previously
+missing — fill from the new tag.
+**Guardrails:** `test_cash_registry_consistency.py` (tag present + last in all three),
+`test_normalize_companyfacts_jpm_shape.py` (JPM-shaped payload: FY16-18 keep legacy values +
+raw_tag; FY19-25 resolve from the new tag). `test_companyfacts_fixture.py:115-121` untouched.
+
+**Deploy / prod operations:** _pending merge → before-SQL → resync affected list (≤50-ticker
+batches) → after-SQL empty → verify JPM FY2019-25 263.6→343.3B (FY16-18 unchanged) + BAC
+FY2020-25 380.5→231.8B → mixed-definition count → BAC end-to-end spot-check._
 
 ---
 
