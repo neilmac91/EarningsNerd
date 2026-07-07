@@ -219,14 +219,62 @@ untested cell that hid the gap). This is the single most important correctness f
 is exactly the majority-bank population the badge protects, and BAC is the Phase-5 spot-check.
 
 **Eval expectation (constraint 3):** zero delta — bullets keep every number
-substring-matchable (pinned by test); confirmed empirically on the PR's advisory eval run
-before merge. No re-pin here; the only P0 re-pin is P0-4's.
+substring-matchable (pinned by test). **Confirmed empirically: the eval-baseline CI job passed
+on PR #588** (backend/frontend/e2e/eval all green). No re-pin here; the only P0 re-pin is P0-4's.
+
+**Deployed:** PR #588 merged 2026-07-07 (`3a1910c`); `deploy-backend` running.
+
+**Status: complete.**
 
 ---
 
 ## Phase 4 — P0-1 ticker integrity (search fix → repair dry-run → apply)
 
-**Status:** pending
+**Status:** in progress
+**Plan items:** P0-1 — search-fix + `primary_ticker_for_cik` + miss-path canonical inserts +
+the repair script (Part-1 §1). Hard gate 1: repair runs only AFTER this deploy is live.
+
+**Changed:**
+- `services/edgar/compat.py`: `primary_ticker_for_cik(cik)` — first file-order entry per CIK
+  from the cached tickers dict (SEC lists the common/primary listing first).
+- `routers/companies.py` search loop: dedupe by CIK (one response row per company, not per
+  listed security); never assign ticker from per-entry `sec_data`; new rows get the primary;
+  existing rows update ticker only TO the primary (permits renames, forbids preferred
+  downgrades); `begin_nested()` + IntegrityError re-query around the flush/commit (race guard).
+- The three miss-path inserts (companies/filings/precompute) now pass the primary ticker on
+  insert.
+- New `backend/scripts/repair_ticker_by_cik.py` — `--dry-run` default / `--apply`; primary
+  per CIK from the SEC file via the edgar layer; reports old→new, not-in-file, collisions;
+  padded+stripped CIK matching.
+- Frontend: dropdown duplicate-key fix falls out of one-row-per-CIK (the `router.replace`
+  canonicalization was dropped — with the repair, stored tickers become canonical, so a stale
+  /company/JPM-PM URL resolves via the Phase-1 CIK path and no redirect is needed).
+
+**Guardrails:** `test_company_search_ticker_integrity.py` (q="jpm"→1 row, primary; q="goog"→
+GOOGL not GOOGN; repeat-search no mutation; corrupted-row upgraded; first-contact single
+insert; /JPM-PM→canonical; get_company self-heal; primary-map memoized; IntegrityError→200;
+primary=first-file-order), `test_repair_ticker_by_cik.py` (first-entry map; padded+stripped
+match; dry-run writes nothing; apply repairs only mismatches).
+
+**Adversarial review (5 agents, opus-4-8, find→verify) — 2 CONFIRMED major, both fixed:**
+1. **Efficiency:** `primary_ticker_for_cik` re-scanned the ~10k-entry ticker dict once per CIK
+   on the hot `/search` path (~16ms/req worst case, blocking the event loop). Fixed with a
+   memoized CIK→primary map (`_get_primary_ticker_map`, rebuilt only when the tickers cache
+   refreshes); each per-CIK lookup is now O(1). Guarded by `test_primary_ticker_map_is_memoized`.
+2. **Self-heal gap:** `get_company` (the price endpoint) resolved a corrupted JPM-PM row by CIK
+   but returned it unchanged → served the preferred's ~$17 quote until the repair ran. Added a
+   `canonical_ticker` param to `resolve_or_create_company_by_cik` that reconciles a found row's
+   ticker to the primary; all three resolve paths (companies/filings/precompute) pass it. So no
+   endpoint serves a quote under a stale ticker post-deploy, and any row the repair misses heals
+   on first touch. (This updated the Phase-1 "no rewrite" test assertion to the new self-heal.)
+
+**Prod prediction (verified live against `company_tickers.json`, 2026-07-07):** primary = the
+common ticker for all 8 named issuers (JPM/BAC/WFC/C/GS/MS/GOOGL/BRK-B); combined with the
+Phase-0 snapshot (only JPM-PM corrupted), the repair dry-run should report **exactly 1 change
+(JPM-PM→JPM), 0 collisions, 0 not-in-file** among the named set.
+
+**Deploy / prod operations:** _pending merge → repair dry-run → compare vs the prediction above
+→ apply → verify JPM ~$300 quote, single search row, sitemap, /JPM-PM canonical._
 
 ---
 

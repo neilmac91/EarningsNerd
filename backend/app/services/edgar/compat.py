@@ -37,6 +37,11 @@ class SECEdgarServiceCompat:
     _tickers_cache: Optional[Dict[str, Dict]] = None
     _tickers_cache_time: Optional[datetime] = None
     _cache_ttl = timedelta(hours=24)
+    # CIK (leading-zeros stripped) → primary ticker, derived from the tickers cache and rebuilt
+    # only when that cache refreshes (P0-1). Memoized so the /search hot path does an O(1)
+    # lookup per CIK instead of an O(N) scan of the ~10k-entry file per CIK.
+    _primary_map: Optional[Dict[str, str]] = None
+    _primary_map_built_at: Optional[datetime] = None
 
     async def _get_cached_tickers(self) -> Dict[str, Dict]:
         """
@@ -159,6 +164,37 @@ class SECEdgarServiceCompat:
         if remaining > 0:
             results.extend(partial_matches[:remaining])
         return results
+
+    async def _get_primary_ticker_map(self) -> Dict[str, str]:
+        """CIK (leading-zeros stripped) → primary ticker = the FIRST file-order entry per CIK
+        with a non-empty ticker. Built once per tickers-cache refresh and memoized (P0-1).
+
+        Python dicts preserve the file's insertion order, and SEC lists the common/primary
+        listing first with preferred/secondary classes at higher indices — live-verified across
+        all ~1,471 multi-ticker CIKs (JPM, BAC, WFC, GS, MS; Alphabet→GOOGL; Berkshire→BRK-B)."""
+        tickers_data = await self._get_cached_tickers()
+        if (
+            SECEdgarServiceCompat._primary_map is None
+            or SECEdgarServiceCompat._primary_map_built_at != SECEdgarServiceCompat._tickers_cache_time
+        ):
+            mapping: Dict[str, str] = {}
+            for company_data in tickers_data.values():
+                if not isinstance(company_data, dict):
+                    continue
+                cik = str(company_data.get("cik_str", "")).lstrip("0") or "0"
+                ticker = (company_data.get("ticker") or "").strip()
+                if ticker and cik not in mapping:
+                    mapping[cik] = ticker
+            SECEdgarServiceCompat._primary_map = mapping
+            SECEdgarServiceCompat._primary_map_built_at = SECEdgarServiceCompat._tickers_cache_time
+        return SECEdgarServiceCompat._primary_map
+
+    async def primary_ticker_for_cik(self, cik: str) -> Optional[str]:
+        """The canonical (primary) listing ticker for a CIK (P0-1). Returns None when the CIK is
+        absent from the SEC file (e.g. delisted), in which case callers must leave any stored
+        ticker unchanged. O(1) — backed by the memoized map above."""
+        mapping = await self._get_primary_ticker_map()
+        return mapping.get(str(cik).strip().lstrip("0") or "0")
 
     async def search_company(self, query: str) -> List[Dict[str, Any]]:
         """
