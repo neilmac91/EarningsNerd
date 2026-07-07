@@ -1,0 +1,271 @@
+name: Ops
+
+# Operational workflow for the data-quality remediation (docs/data-quality-investigation.md,
+# execution log: docs/data-quality-remediation-log.md).
+#
+# The remediation is driven from an environment with no direct GCP/Cloud SQL access, so the
+# production operations the plan requires (detection SQL snapshots, the ticker repair script,
+# the companyfacts resync, env verification) run HERE, with the same keyless WIF auth the
+# deploy-backend job already uses. Design constraints:
+#   - Enum-selected operations ONLY. No free-form command or SQL inputs; everything executed is
+#     committed to the repo (ops/detection/*.sql, backend/scripts/*.py).
+#   - Read paths are restricted to app data tables (companies/financial_fact/filings/summaries);
+#     detection SQL never touches user/auth/billing tables.
+#   - Secrets (DATABASE_URL, PGPASSWORD, INTERNAL_JOB_TOKEN) are masked before first use,
+#     mirroring the deploy-backend migrations step.
+#   - `concurrency: ops` serializes runs; do not dispatch while a deploy is in flight.
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Operation to run'
+        required: true
+        type: choice
+        options:
+          - describe-service
+          - describe-jobs
+          - detection-sql
+          - logs-probe
+          - jobs-channel-noop-probe
+          - repair-ticker-dry-run
+          - repair-ticker-apply
+          - sync-companyfacts
+          - rollback-traffic
+      tickers:
+        description: 'Comma-separated tickers (sync-companyfacts only), e.g. JPM,BAC'
+        required: false
+        default: ''
+      revision:
+        description: 'Cloud Run revision name (rollback-traffic only)'
+        required: false
+        default: ''
+
+concurrency:
+  group: ops
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # mint the OIDC token Workload Identity Federation exchanges
+
+env:
+  REGION: us-west1
+  SERVICE: earningsnerd-backend
+  JOBS_CHANNEL_JOB: earningsnerd-backfill-facts
+
+jobs:
+  ops:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Validate inputs
+        run: |
+          set -euo pipefail
+          case "${{ inputs.operation }}" in
+            sync-companyfacts)
+              [[ "${{ inputs.tickers }}" =~ ^[A-Za-z0-9.-]+(,[A-Za-z0-9.-]+)*$ ]] \
+                || { echo "::error::tickers must be a comma-separated symbol list"; exit 1; }
+              # Spec P0-3: resync in bounded batches.
+              COUNT=$(echo "${{ inputs.tickers }}" | tr ',' '\n' | wc -l)
+              [ "$COUNT" -le 50 ] || { echo "::error::max 50 tickers per dispatch"; exit 1; }
+              ;;
+            rollback-traffic)
+              [[ "${{ inputs.revision }}" =~ ^[a-z0-9-]+$ ]] \
+                || { echo "::error::revision must be a Cloud Run revision name"; exit 1; }
+              ;;
+          esac
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      # ------------------------------------------------------------------ read-only inspection
+      - name: Describe service env (values only for known feature flags)
+        if: inputs.operation == 'describe-service'
+        run: |
+          set -euo pipefail
+          gcloud run services describe "$SERVICE" --region="$REGION" --format=json > /tmp/svc.json
+          python3 - <<'PY'
+          import json
+          svc = json.load(open("/tmp/svc.json"))
+          tmpl = svc["spec"]["template"]["spec"]["containers"]
+          # Only these non-sensitive flag/config values are echoed; everything else is name-only.
+          allow = {
+              "USE_STATEMENT_FINANCIALS", "ENABLE_FPI_FILINGS", "ENABLE_GUEST_DAILY_QUOTA",
+              "STREAM_SECTION_REVEAL", "AI_DEFAULT_MODEL", "OPENAI_BASE_URL", "ENVIRONMENT",
+              "TRUSTED_PROXY_HOPS", "COOKIE_DOMAIN",
+          }
+          seen = set()
+          for c in tmpl:
+              for e in c.get("env", []):
+                  name = e.get("name", "?")
+                  seen.add(name)
+                  if "valueFrom" in e or "valueSource" in e:
+                      print(f"{name} = <secret-ref>")
+                  elif name in allow:
+                      print(f"{name} = {e.get('value')!r}")
+                  else:
+                      print(f"{name} = <set; value withheld>")
+          for flag in ("USE_STATEMENT_FINANCIALS",):
+              if flag not in seen:
+                  print(f"{flag} = <NOT SET -> Settings default applies (False)>")
+          print("latestReadyRevision:", svc.get("status", {}).get("latestReadyRevisionName"))
+          PY
+
+      - name: Describe job envs (names only) and entrypoints
+        if: inputs.operation == 'describe-jobs'
+        run: |
+          set -euo pipefail
+          for job in earningsnerd-pregenerate earningsnerd-filing-scan earningsnerd-filing-digest \
+                     earningsnerd-backfill-facts earningsnerd-earnings-calendar-refresh \
+                     earningsnerd-earnings-day-alerts earningsnerd-notable-filings; do
+            echo "== $job"
+            if gcloud run jobs describe "$job" --region="$REGION" --format=json > /tmp/job.json 2>/dev/null; then
+              python3 - <<'PY'
+          import json
+          job = json.load(open("/tmp/job.json"))
+          c = job["spec"]["template"]["spec"]["template"]["spec"]["containers"][0]
+          print("  command:", c.get("command"))
+          print("  args:", c.get("args"))
+          names = []
+          for e in c.get("env", []):
+              kind = "secret-ref" if ("valueFrom" in e or "valueSource" in e) else "plain"
+              names.append(f"{e.get('name')}({kind})")
+          print("  env:", ", ".join(names) if names else "(none)")
+          PY
+            else
+              echo "  (not found)"
+            fi
+          done
+
+      - name: Logs read probe (safeguard-2 alert feasibility)
+        if: inputs.operation == 'logs-probe'
+        run: |
+          set +e
+          gcloud logging read 'resource.type="cloud_run_revision" AND resource.labels.service_name="earningsnerd-backend"' \
+            --freshness=15m --limit=3 --format='value(timestamp)' >/tmp/probe.out 2>/tmp/probe.err
+          RC=$?
+          if [ $RC -eq 0 ]; then
+            echo "logs-probe: logging.read PERMITTED ($(wc -l < /tmp/probe.out) recent entries visible)"
+          else
+            echo "logs-probe: logging.read DENIED (rc=$RC)"; cat /tmp/probe.err
+          fi
+          set +e
+          gcloud logging read 'jsonPayload.event="company_upsert_conflict" OR textPayload:"company_upsert_conflict"' \
+            --freshness=7d --limit=20 --format=json >/tmp/conflicts.json 2>/dev/null
+          if [ $? -eq 0 ]; then
+            echo "company_upsert_conflict entries in last 7d: $(python3 -c 'import json;print(len(json.load(open("/tmp/conflicts.json"))))' 2>/dev/null || echo 0)"
+          fi
+
+      - name: Jobs-channel no-op probe (args override on an existing job)
+        if: inputs.operation == 'jobs-channel-noop-probe'
+        run: |
+          set -euo pipefail
+          gcloud run jobs execute "$JOBS_CHANNEL_JOB" --region="$REGION" \
+            --args="-c,print('ops jobs-channel noop probe OK')" --wait
+          echo "jobs-channel probe: execute --args --wait PERMITTED"
+
+      # ------------------------------------------------------------------ Cloud SQL access
+      - name: Start Cloud SQL proxy and export connection env
+        if: contains('detection-sql repair-ticker-dry-run repair-ticker-apply', inputs.operation)
+        # Mirrors the deploy-backend migrations step (ci.yml) — same secret, same masking.
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+          curl -fsSL -o cloud-sql-proxy \
+            https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.0/cloud-sql-proxy.linux.amd64
+          chmod +x cloud-sql-proxy
+          DB_URL="$(gcloud secrets versions access latest --secret=DATABASE_URL)"
+          echo "::add-mask::$DB_URL"
+          CONN="${DB_URL##*host=/cloudsql/}"; CONN="${CONN%%&*}"
+          USERPASS="${DB_URL#*://}"; USERPASS="${USERPASS%%@*}"
+          PGUSER="${USERPASS%%:*}"
+          PGPASSWORD="${USERPASS#*:}"; echo "::add-mask::$PGPASSWORD"
+          DBPART="${DB_URL#*@/}"; PGDATABASE="${DBPART%%\?*}"
+          LOCAL_URL="postgresql://${PGUSER}:${PGPASSWORD}@127.0.0.1:5432/${PGDATABASE}"
+          echo "::add-mask::$LOCAL_URL"
+          {
+            echo "PGUSER=$PGUSER"; echo "PGPASSWORD=$PGPASSWORD"; echo "PGDATABASE=$PGDATABASE"
+            echo "PGHOST=127.0.0.1"; echo "PGPORT=5432"; echo "DATABASE_URL=$LOCAL_URL"
+          } >> "$GITHUB_ENV"
+          nohup ./cloud-sql-proxy --port 5432 "$CONN" > /tmp/sql-proxy.log 2>&1 &
+          for _ in $(seq 1 30); do
+            pg_isready -h 127.0.0.1 -p 5432 >/dev/null 2>&1 && break
+            sleep 1
+          done
+          pg_isready -h 127.0.0.1 -p 5432
+
+      - name: Run committed detection SQL (read-only snapshots)
+        if: inputs.operation == 'detection-sql'
+        run: |
+          set -euo pipefail
+          for f in ops/detection/*.sql; do
+            echo ""
+            echo "===== $(basename "$f") ====="
+            psql -v ON_ERROR_STOP=1 -P pager=off -f "$f"
+          done
+
+      # ------------------------------------------------------------------ committed scripts (runner)
+      - name: Install backend dependencies
+        if: contains('repair-ticker-dry-run repair-ticker-apply', inputs.operation)
+        run: |
+          pip install -q -r backend/requirements.txt
+
+      - name: Run ticker repair script
+        if: contains('repair-ticker-dry-run repair-ticker-apply', inputs.operation)
+        working-directory: backend
+        env:
+          # Hermetic dummy env for Settings import (same shape as the CI eval job); DATABASE_URL
+          # points at the proxy from the step above.
+          SKIP_REDIS_INIT: 'true'
+          SECRET_KEY: ops-workflow-secret-key-not-used-0123456789
+          STRIPE_SECRET_KEY: sk_test_ops
+          STRIPE_WEBHOOK_SECRET: whsec_ops
+          PWNED_PASSWORD_CHECK_ENABLED: 'false'
+        run: |
+          set -euo pipefail
+          [ -f scripts/repair_ticker_by_cik.py ] || { echo "::error::repair script not committed yet"; exit 1; }
+          if [ "${{ inputs.operation }}" = "repair-ticker-apply" ]; then
+            python scripts/repair_ticker_by_cik.py --apply
+          else
+            python scripts/repair_ticker_by_cik.py
+          fi
+
+      # ------------------------------------------------------------------ internal jobs
+      - name: Trigger companyfacts resync (internal endpoint; jobs-channel fallback)
+        if: inputs.operation == 'sync-companyfacts'
+        run: |
+          set -euo pipefail
+          TICKERS="${{ inputs.tickers }}"
+          [ -n "$TICKERS" ] || { echo "::error::tickers input required"; exit 1; }
+          TOKEN="$(gcloud secrets versions access latest --secret=INTERNAL_JOB_TOKEN 2>/dev/null || true)"
+          if [ -n "$TOKEN" ]; then
+            echo "::add-mask::$TOKEN"
+            PAYLOAD=$(python3 -c "import json,sys; print(json.dumps({'tickers': sys.argv[1].split(','), 'force': True}))" "$TICKERS")
+            curl -fsS -X POST "https://api.earningsnerd.io/internal/jobs/sync-companyfacts" \
+              -H "X-Internal-Token: ${TOKEN}" -H "Content-Type: application/json" \
+              -d "$PAYLOAD"
+            echo ""
+            echo "resync ACCEPTED via internal endpoint for: $TICKERS (runs in the service background)"
+          else
+            echo "INTERNAL_JOB_TOKEN not accessible to this SA — using the documented jobs channel."
+            gcloud run jobs execute "$JOBS_CHANNEL_JOB" --region="$REGION" \
+              --args="scripts/sync_companyfacts.py,--tickers,${TICKERS},--force" --wait
+            echo "resync COMPLETED via jobs channel for: $TICKERS"
+          fi
+
+      # ------------------------------------------------------------------ emergency rollback
+      - name: Roll service traffic back to a named revision
+        if: inputs.operation == 'rollback-traffic'
+        run: |
+          set -euo pipefail
+          gcloud run services update-traffic "$SERVICE" --region="$REGION" \
+            --to-revisions="${{ inputs.revision }}=100"
+          echo "traffic pinned to ${{ inputs.revision }} — remember to re-run update-traffic --to-latest after the fix deploys"
