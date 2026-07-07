@@ -1,4 +1,4 @@
-import { format } from 'date-fns'
+import { format, isValid, parseISO } from 'date-fns'
 import { ArrowSquareOutIcon } from '@/lib/icons'
 
 interface FilingsHistoryNoteProps {
@@ -12,10 +12,14 @@ interface FilingsHistoryNoteProps {
 // even after the history backfill (P1-6), the pre-2001 tail stays external.
 export default function FilingsHistoryNote({ oldestFilingDate, cik }: FilingsHistoryNoteProps) {
   if (!oldestFilingDate || !cik) return null
+  // parseISO, not new Date(): a date-only string parses as UTC midnight in new Date() and
+  // renders as the PREVIOUS day for any viewer behind UTC.
+  const parsedDate = parseISO(oldestFilingDate)
+  if (!isValid(parsedDate)) return null
   const edgarUrl = `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=${cik}&type=10-K&dateb=&owner=include&count=40`
   return (
     <p className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-      Showing filings since {format(new Date(oldestFilingDate), 'MMM d, yyyy')}.{' '}
+      Showing filings since {format(parsedDate, 'MMM d, yyyy')}.{' '}
       <a
         href={edgarUrl}
         target="_blank"

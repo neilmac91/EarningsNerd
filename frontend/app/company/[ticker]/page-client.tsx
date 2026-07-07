@@ -177,10 +177,10 @@ export default function CompanyPageClient() {
     const recommendedFiling = selectRecommendedFiling(filings)
 
     // P0-5: earliest filing_date in the FULL list (not the active filter) — drives the
-    // "Showing filings since …" honesty note under the list.
+    // "Showing filings since …" honesty note under the list. ISO strings compare
+    // lexicographically, so no Date instantiation per iteration.
     const oldestFilingDate = (filings ?? []).reduce<string | null>(
-      (oldest, f) =>
-        !oldest || new Date(f.filing_date) < new Date(oldest) ? f.filing_date : oldest,
+      (oldest, f) => (!oldest || f.filing_date < oldest ? f.filing_date : oldest),
       null,
     )
 
