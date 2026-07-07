@@ -1,6 +1,6 @@
 {
-  "operation": "describe-jobs",
+  "operation": "logs-probe",
   "tickers": "",
   "revision": "",
-  "nonce": "phase0-probe-3"
+  "nonce": "phase0-probe-4"
 }
