@@ -40,17 +40,22 @@ def db():
         session.close()
 
 
+_JPM_CIK_FORMS = [JPM_CIK, JPM_CIK.lstrip("0")]
+
+
 @pytest.fixture()
 def seeded_jpm(db):
     """A JPMorgan row persisted under a preferred-class ticker — the corrupted prod state."""
-    db.query(Company).filter(Company.cik == JPM_CIK).delete()
+    db.rollback()  # never commit a failed test's strays alongside the cleanup
+    db.query(Company).filter(Company.cik.in_(_JPM_CIK_FORMS)).delete()
     db.commit()
     company = Company(cik=JPM_CIK, ticker="JPM-PM", name="JPMORGAN CHASE & CO")
     db.add(company)
     db.commit()
     db.refresh(company)
     yield company
-    db.query(Company).filter(Company.cik == JPM_CIK).delete()
+    db.rollback()
+    db.query(Company).filter(Company.cik.in_(_JPM_CIK_FORMS)).delete()
     db.commit()
 
 
@@ -78,6 +83,9 @@ def test_get_company_reuses_existing_cik_row(client, db, seeded_jpm, monkeypatch
     assert resp.status_code == 200
     assert resp.json()["cik"] == JPM_CIK
     assert db.query(Company).filter(Company.cik == JPM_CIK).count() == 1
+    # Phase 1 deliberately does NOT rewrite tickers — canonicalization is P0-1's job.
+    db.expire_all()
+    assert db.query(Company).filter(Company.cik == JPM_CIK).one().ticker == "JPM-PM"
 
 
 def test_get_company_filings_reuses_existing_cik_row(client, db, seeded_jpm, monkeypatch):
