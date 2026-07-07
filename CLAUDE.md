@@ -49,7 +49,8 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 2. **Filing-only summaries.** User-visible summary content derives ONLY from the filing the user
    chose (its own text + its own XBRL, which carries prior-period comparatives). Never inject
    other filings' content into the prompt or output. Cross-filing insight belongs to the labeled
-   surfaces: Change Report and `/api/compare`.
+   surface: the Change Report (`GET /api/summaries/filing/{id}/what-changed`). The old `/api/compare`
+   route was retired (smoke test `test_compare_router_is_gone` locks it at 404).
 3. **Migrations: no Alembic.** Fresh-DB schema via `create_all` at startup +
    `ensure_additive_columns` self-heals additive columns. Any change to an existing table = a new
    idempotent SQL file in `backend/migrations/` — CI re-applies ALL files on every deploy, so every

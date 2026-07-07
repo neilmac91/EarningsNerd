@@ -69,7 +69,9 @@ async def get_dashboard_feed(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Latest 10-K/10-Q filings across the user's watchlist with a deterministic "what changed" line.
+    """Each watched company's newest 10-K/10-Q (FPI annual forms behind the flag) with a
+    deterministic "what changed" line — one item per company, newest company first. ``limit`` caps
+    the number of companies (not filings).
 
     DB-only (no live EDGAR on render); cheap enough to serve uncached. Returns an empty list for
     users with no watched companies (the UI renders a guided empty state)."""

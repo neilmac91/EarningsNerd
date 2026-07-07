@@ -1,7 +1,8 @@
 """Personalised dashboard feed — the Phase 3 "what changed" engine.
 
-`compose_feed` returns the most recent 10-K/10-Q filings across a user's watched companies (DB-only,
-N+1-free — clones the watchlist-insights query pattern), each annotated with a **deterministic**
+`compose_feed` returns the NEWEST eligible filing (10-K/10-Q, plus 20-F/40-F behind
+ENABLE_FPI_FILINGS) for EACH of a user's watched companies — one card per company, companies ordered
+by that filing's date, newest first (DB-only, N+1-free). Each is annotated with a **deterministic**
 "what changed vs the prior filing" headline derived from the filing's stored ``xbrl_data`` (no LLM,
 no network). The richer narrative diff stays on-demand (the summary), per the cost-aware plan.
 
@@ -213,7 +214,9 @@ def _prior_same_form(company_filings_desc: list[Filing], current: Filing) -> Opt
 # --------------------------------------------------------------------------- composition
 
 def compose_feed(db: Session, user_id: int, limit: int = 20) -> list[dict]:
-    """Latest 10-K/10-Q filings across the user's watched companies, newest first, each with a
+    """Each watched company's NEWEST eligible filing (10-K/10-Q, plus 20-F/40-F behind
+    ENABLE_FPI_FILINGS) — one item per company, companies ordered by that filing's date, newest
+    first. ``limit`` caps the number of COMPANIES shown (not filings). Each item carries a
     deterministic "what changed" headline + summary status. DB-only; no live EDGAR on render."""
     company_ids = [
         row[0]
@@ -223,33 +226,46 @@ def compose_feed(db: Session, user_id: int, limit: int = 20) -> list[dict]:
         return []
 
     form_types = _feed_form_types()
-    filings = (
-        db.query(Filing)
-        .options(joinedload(Filing.company))
-        .filter(Filing.company_id.in_(company_ids), Filing.filing_type.in_(form_types))
-        .order_by(desc(Filing.filing_date))
-        .limit(limit)
-        .all()
-    )
-    if not filings:
-        return []
 
-    # Find each feed filing's prior same-form filing WITHOUT loading XBRL blobs for the whole
-    # history: scan ids/dates/types (xbrl deferred, restricted to the companies actually in this
-    # page), then batch-load XBRL for only the prior filings we'll actually compare against.
-    feed_company_ids = {f.company_id for f in filings}
+    # One metadata scan over EVERY watched company's eligible-form history (xbrl deferred, riding the
+    # ix_filings_company_type_date covering index), newest first per company with a deterministic
+    # tie-break. This single scan does double duty: each company's newest filing is its first row
+    # (the feed head), and the full per-company history backs the prior-same-form comparison — so no
+    # separate "latest per company" SQL is needed. Scan width is every watched company rather than
+    # one page's worth; fine at beta watchlist sizes. Escape hatch if a pathological watchlist ever
+    # makes it slow: a func.max pre-pass to shortlist the top-`limit` companies before the scan.
     by_company: dict[int, list[Filing]] = {}
     for f in (
         db.query(Filing)
         .options(defer(Filing.xbrl_data))
-        .filter(Filing.company_id.in_(feed_company_ids), Filing.filing_type.in_(form_types))
-        .order_by(Filing.company_id, desc(Filing.filing_date))
+        .filter(Filing.company_id.in_(company_ids), Filing.filing_type.in_(form_types))
+        .order_by(Filing.company_id, desc(Filing.filing_date), desc(Filing.id))
         .all()
     ):
         by_company.setdefault(f.company_id, []).append(f)
+    if not by_company:
+        return []
+
+    # Each company's newest eligible filing is its scan's first row. Order companies by that filing's
+    # date (newest first); tie-break on id desc so a same-day 10-K + 10-Q is deterministic. Then cap
+    # to `limit` companies. filing_date is NOT NULL (models/__init__.py), so the tuple sort needs no
+    # None guard — widen with a sentinel (f.filing_date or datetime.min) only if the scan ever
+    # includes a nullable-date form.
+    heads = [rows[0] for rows in by_company.values()]
+    heads.sort(key=lambda f: (f.filing_date, f.id), reverse=True)
+    heads = heads[:limit]
+
+    # Rehydrate the (≤ limit) heads with their xbrl_data + company in ONE query (the scan deferred
+    # both), preserving head order via an id→position map.
+    head_ids = [f.id for f in heads]
+    position = {fid: i for i, fid in enumerate(head_ids)}
+    heads = sorted(
+        db.query(Filing).options(joinedload(Filing.company)).filter(Filing.id.in_(head_ids)).all(),
+        key=lambda f: position[f.id],
+    )
 
     prior_by_filing: dict[int, Optional[Filing]] = {
-        f.id: _prior_same_form(by_company.get(f.company_id, []), f) for f in filings
+        f.id: _prior_same_form(by_company.get(f.company_id, []), f) for f in heads
     }
     prior_ids = {p.id for p in prior_by_filing.values() if p is not None}
     prior_xbrl_by_id: dict[int, Any] = {}
@@ -259,7 +275,7 @@ def compose_feed(db: Session, user_id: int, limit: int = 20) -> list[dict]:
         )
 
     # Batch summary existence/status (newest per filing).
-    filing_ids = [f.id for f in filings]
+    filing_ids = [f.id for f in heads]
     summary_by_filing: dict[int, Summary] = {}
     for s in (
         db.query(Summary)
@@ -270,7 +286,7 @@ def compose_feed(db: Session, user_id: int, limit: int = 20) -> list[dict]:
         summary_by_filing.setdefault(s.filing_id, s)
 
     items: list[dict] = []
-    for f in filings:
+    for f in heads:
         company = f.company
         if company is None:
             continue

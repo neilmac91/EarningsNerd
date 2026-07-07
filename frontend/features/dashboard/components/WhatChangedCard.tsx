@@ -6,7 +6,26 @@ import { FeedItem, WhatChangedItem } from '@/features/dashboard/api/dashboard-ap
 import { formatLocalDate } from '@/lib/format'
 import analytics from '@/lib/analytics'
 import CompanyLogo from '@/components/CompanyLogo'
-import { Card } from '@/components/ui'
+import { Badge, Card } from '@/components/ui'
+
+// A filing counts as "New" for up to two weeks. Because the feed now always shows each company's
+// latest filing regardless of age, this badge is what distinguishes "fresh this week" from "their
+// last report, months ago." Parsed as a LOCAL calendar day (matching formatLocalDate) so it doesn't
+// flip a day early for users west of UTC.
+function isRecentFiling(value: string | null, withinDays = 14): boolean {
+  if (!value) return false
+  const [year, month, day] = value.slice(0, 10).split('-').map(Number)
+  if (!year || !month || !day) return false
+  // Diff two UTC midnights of the local calendar days: Date.UTC keeps the delta an exact multiple
+  // of a day, so a DST fall-back week can't push a 14-day-old filing to 14.04 and drop the badge a
+  // day early.
+  const filed = Date.UTC(year, month - 1, day)
+  if (Number.isNaN(filed)) return false
+  const now = new Date()
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate())
+  const diffDays = (today - filed) / 86_400_000
+  return diffDays >= 0 && diffDays <= withinDays
+}
 
 // Calm directional chips: brand accent for up, muted neutral for down — never casino red/green.
 // Deliberate exception to financialTone.directionChip (gain/loss tones): a feed of watched
@@ -58,8 +77,16 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
               </span>
             </div>
           </div>
-          <div className="flex-shrink-0 text-right text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            {item.filing_type} · {formatLocalDate(item.filing_date, 'MMM d, yyyy')}
+          <div className="flex flex-shrink-0 flex-col items-end gap-0.5 text-right">
+            {isRecentFiling(item.filing_date) && (
+              <Badge variant="new" icon={null} className="mb-0.5">New</Badge>
+            )}
+            {/* "Latest report" (vs "Last filed" in Your companies): this feed shows the newest
+                10-K/10-Q, which can be older than a company's most recent filing of any form. */}
+            <span className="text-xs text-text-tertiary-light dark:text-text-secondary-dark">Latest report</span>
+            <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+              {item.filing_type} · {formatLocalDate(item.filing_date, 'MMM d, yyyy')}
+            </span>
           </div>
         </div>
 
@@ -71,7 +98,7 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
           </div>
         ) : (
           <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            New {item.filing_type} filed. Open it for the full breakdown.
+            No comparison figures for this one yet. The summary has the full picture.
           </p>
         )}
 
