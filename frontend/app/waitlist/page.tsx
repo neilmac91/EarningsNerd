@@ -9,9 +9,9 @@ import { exampleFilingHref } from '@/lib/featureFlags'
 // While the waitlist gate is up, this page is the de-facto homepage — it needs
 // its own metadata and a self-canonical so search engines index something real.
 export const metadata: Metadata = {
-  title: 'EarningsNerd — Read a 10-K in 5 minutes, not 5 hours',
+  title: 'EarningsNerd | Read a 10-K in 5 minutes, not 5 hours',
   description:
-    'Join the EarningsNerd waitlist. AI-powered summaries turn dense SEC filings into clear, decision-ready insights — sourced directly from SEC EDGAR.',
+    'Join the EarningsNerd waitlist. AI summaries of SEC filings: financials, risks, and trends, sourced directly from SEC EDGAR.',
   alternates: {
     canonical: '/waitlist',
   },
@@ -28,7 +28,7 @@ export default function WaitlistPage() {
               <span className="text-brand-strong dark:text-brand-strong-dark">5 minutes</span>, not 5 hours.
             </h1>
             <p className="mt-4 text-lg text-text-secondary-light dark:text-text-secondary-dark sm:mt-6">
-              EarningsNerd turns dense SEC filings into clear, decision-ready insights on business performance,
+              EarningsNerd turns SEC filings into clear summaries of business performance,
               risks, and trends. Built for investors who want the signal without the slog.
             </p>
 
@@ -151,7 +151,7 @@ export default function WaitlistPage() {
                 How it works
               </h2>
               <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                From SEC filing to actionable insight in minutes.
+                From SEC filing to summary in minutes.
               </p>
             </div>
             {/* Server component — buttonVariants() can't be called here (it's a client export),
@@ -208,18 +208,18 @@ export default function WaitlistPage() {
           {[
             {
               title: 'Structured AI summaries',
-              body: 'Consistent sections for business overview, financials, risks, and outlook.',
+              body: 'Business overview, financials, risks, and outlook in every report.',
             },
             {
               title: 'Consistent structure',
-              body: 'Uniform sections make it easy to scan what matters fast.',
+              body: 'The same sections in the same order, so you can scan any filing fast.',
             },
             {
               title: 'Risk factor signals',
               body: 'Track new or evolving disclosures before the market reacts.',
             },
             {
-              title: 'XBRL-aware insights',
+              title: 'Grounded in XBRL',
               body: 'Key metrics and highlights grounded in SEC filing data.',
             },
           ].map((item) => (
@@ -255,8 +255,8 @@ export default function WaitlistPage() {
                 body: 'Encrypted data in transit and at rest. No personal financial data stored.',
               },
               {
-                title: 'Momentum is real',
-                body: 'Join investors who want faster, clearer insights.',
+                title: 'A numbered spot',
+                body: 'Join the list and get a position. Each referral moves you up 5 spots.',
               },
             ].map((item) => (
               <div
