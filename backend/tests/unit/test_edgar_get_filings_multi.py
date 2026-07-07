@@ -174,6 +174,25 @@ async def test_bounded_caller_falls_back_to_full_load_when_recent_window_empty()
 
 
 @pytest.mark.asyncio
+async def test_bounded_caller_does_not_full_load_when_recent_has_any_result():
+    # Regression guard: the fallback triggers ONLY on an empty recent window, never merely because
+    # len < limit. A bounded caller's default limit is 10 while an annual form yields ~1/year, so a
+    # `< limit` trigger would full-load on nearly every call and defeat the recent-window fix.
+    _FakeEdgarCompany.recent_result = [
+        _FakeEntityFiling("10-K", date(2026, 2, 19), "2025-12-31", "0000895421-26-000010")
+    ]
+    _FakeEdgarCompany.full_result = _sample_filings()
+
+    c = EdgarClient()
+    result = await c.get_filings("0000895421", FilingType.FORM_10K, limit=10)
+
+    # One filing found in the recent window (< limit=10) — but NO full-load fallback.
+    assert len(_FakeEdgarCompany.calls) == 1
+    assert _FakeEdgarCompany.calls[0]["trigger_full_load"] is False
+    assert len(result) == 1
+
+
+@pytest.mark.asyncio
 async def test_list_path_never_full_loads_even_when_recent_empty():
     # The unbounded list path (limit=None) must NEVER pay the full-history cost — that is the whole
     # point of QW2. Deep history comes from DB-first serving, not a full-load here.

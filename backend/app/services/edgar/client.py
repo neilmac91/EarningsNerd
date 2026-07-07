@@ -292,13 +292,16 @@ class EdgarClient:
                 timeout=self.timeout,
             )
 
-            # Bounded single-latest fallback (precompute, get_latest_filing): if a caller asked for a
-            # specific small number and the recent window under-delivered, the target report is older
-            # than the window — retry once with the full history to find it. Mirrors edgartools' own
-            # EntityData.latest() (retries full-load when len < n). GATED on `limit is not None`, so
-            # the unbounded filings-LIST path (limit=None) NEVER pays the full-history cost — that is
-            # the whole point of QW2; those callers rely on DB-first serving for deep history instead.
-            if limit is not None and len(filings) < limit:
+            # Bounded single-latest fallback (precompute, get_latest_filing): only when the recent
+            # window returns NOTHING for the requested forms does the target report sit older than
+            # the window — retry once with the full history to find it. Mirrors edgartools' own
+            # EntityData.latest() intent. The trigger is `== 0`, NOT `< limit`: a bounded caller's
+            # default limit is 10 while an annual form yields ~1 filing/year, so `< limit` would
+            # full-load on nearly every call and defeat the recent-window optimization. GATED on
+            # `limit is not None`, so the unbounded filings-LIST path (limit=None) NEVER pays the
+            # full-history cost — that is the whole point of QW2; those callers rely on DB-first
+            # serving for deep history instead.
+            if limit is not None and len(filings) == 0:
                 filings = await run_with_circuit_breaker(
                     lambda: list(
                         islice(
