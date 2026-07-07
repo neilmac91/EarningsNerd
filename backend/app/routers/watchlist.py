@@ -178,7 +178,7 @@ async def enable_earnings_alert(
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
             content={
-                "detail": f"Free includes earnings alerts for {exc.limit} companies — upgrade to Pro for more.",
+                "detail": f"Free includes earnings alerts for {exc.limit} companies. Upgrade to Pro for more.",
                 "code": "earnings_alert_limit",
             },
         )

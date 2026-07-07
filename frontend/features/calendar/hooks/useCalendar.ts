@@ -156,7 +156,7 @@ export function useEarningsAlerts(viewer: CalendarViewer): EarningsAlertsApi {
         setBlocked({
           kind: 'upsell',
           ticker,
-          message: `Free includes earnings alerts for ${FREE_ALERT_LIMIT} companies — upgrade to Pro for more.`,
+          message: `Free includes earnings alerts for ${FREE_ALERT_LIMIT} companies. Upgrade to Pro for more.`,
           anchor: rect,
           trigger: el,
         })

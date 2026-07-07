@@ -167,7 +167,7 @@ export async function fixtureEnableAlert(ticker: string): Promise<void> {
   if (FIXTURE_PLAN === 'free' && enabled.size >= 3 && !enabled.has(ticker)) {
     throw new EarningsAlertError(
       403,
-      'Free includes earnings alerts for 3 companies — upgrade to Pro for more.',
+      'Free includes earnings alerts for 3 companies. Upgrade to Pro for more.',
       EARNINGS_ALERT_LIMIT_CODE,
     )
   }

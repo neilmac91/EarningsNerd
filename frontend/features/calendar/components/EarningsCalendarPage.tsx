@@ -191,7 +191,7 @@ export default function EarningsCalendarPage() {
 
       <p className="mt-4 px-1 text-xs leading-relaxed text-text-tertiary-light dark:text-text-secondary-dark">
         Reported dates come from SEC EDGAR 8-K filings. Estimated dates come from each company&rsquo;s own reporting pattern and
-        provider data — &ldquo;usually&rdquo; marks a habitual, unconfirmed slot. Not investment advice.
+        provider data; &ldquo;usually&rdquo; marks a habitual, unconfirmed slot. Not investment advice.
       </p>
 
       {openDay && (

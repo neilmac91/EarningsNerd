@@ -84,10 +84,10 @@ export default function SettingsPage() {
             className="inline-flex items-center text-sm text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark mb-4"
           >
             <ArrowLeftIcon className="h-4 w-4 mr-1" />
-            Back to Dashboard
+            Back to dashboard
           </Link>
           <h1 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-            Account Settings
+            Account settings
           </h1>
           <p className="text-text-secondary-light dark:text-text-secondary-dark mt-2">
             Manage your account and data
@@ -114,7 +114,7 @@ export default function SettingsPage() {
           <div className="flex items-start justify-between">
             <div className="flex-1">
               <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
-                Export Your Data
+                Export your data
               </h2>
               <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
                 Download a complete copy of your data including your profile, search history,
@@ -132,7 +132,7 @@ export default function SettingsPage() {
             loadingText="Exporting..."
             leftIcon={<DownloadSimpleIcon className="h-4 w-4" />}
           >
-            Download My Data
+            Download my data
           </Button>
 
           {exportMutation.isSuccess && (
@@ -155,7 +155,7 @@ export default function SettingsPage() {
           <div className="flex items-start justify-between mb-4">
             <div className="flex-1">
               <h2 className="text-xl font-semibold text-error-light dark:text-error-dark mb-2">
-                Delete Account
+                Delete account
               </h2>
               <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
                 Permanently delete your account and all associated data. This action cannot be undone.
@@ -165,7 +165,7 @@ export default function SettingsPage() {
 
           {!showDeleteConfirm ? (
             <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)} leftIcon={<TrashIcon className="h-4 w-4" />}>
-              Delete My Account
+              Delete my account
             </Button>
           ) : (
             <div className="space-y-4">

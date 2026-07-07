@@ -123,7 +123,7 @@ export default function WatchlistDashboardPage() {
           <GuidanceCard
             variant="empty"
             title="No watchlist companies yet"
-            description="Use the search above to track your first company — you'll get an alert here (and by email) whenever it files with the SEC."
+            description="Use the search above to track your first company. You'll get an alert here and by email whenever it files with the SEC."
           />
         ) : (
           <div className="grid gap-6">
@@ -234,17 +234,16 @@ export default function WatchlistDashboardPage() {
                       {latest ? (
                         latest.needs_regeneration ? (
                           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                            Flag this filing for regeneration before distributing to clients.
+                            This summary needs regenerating. Open the filing and run it again.
                           </p>
                         ) : (
                           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                            Summary is current. Consider exporting a briefing pack for your next
-                            meeting.
+                            Summary is current. Nothing to do here.
                           </p>
                         )
                       ) : (
                         <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                          Ingest filings for this company to begin tracking.
+                          Open the company page to load its filings from SEC EDGAR.
                         </p>
                       )}
                     </div>
