@@ -23,6 +23,7 @@ import CompanyLogo from '@/components/CompanyLogo'
 import InsiderActivityPanel from '@/features/insiders/components/InsiderActivityPanel'
 import { queryKeys } from '@/lib/queryKeys'
 import { recommendedFilingNoun, selectRecommendedFiling } from '@/features/filings/lib/recommendedFiling'
+import FilingsHistoryNote from '@/features/filings/components/FilingsHistoryNote'
 
 // Display order for the filing-type filter chips; unknown types sort to the end alphabetically.
 const FILING_TYPE_ORDER = ['10-K', '10-Q', '20-F', '6-K', '40-F']
@@ -142,7 +143,7 @@ export default function CompanyPageClient() {
 
   // Memoize filtered and grouped filings to avoid recalculating on every render.
   // Declared before the early returns below so hook order stays stable across renders.
-  const { groupedFilings, sortedYears, recommendedFiling, availableFilingTypes } = useMemo(() => {
+  const { groupedFilings, sortedYears, recommendedFiling, availableFilingTypes, oldestFilingDate } = useMemo(() => {
     const filtered = filterType
       ? filings?.filter((f) => f.filing_type === filterType)
       : filings
@@ -175,7 +176,15 @@ export default function CompanyPageClient() {
     // FULL list (not the active type filter) so the recommendation is stable as the user filters.
     const recommendedFiling = selectRecommendedFiling(filings)
 
-    return { groupedFilings: grouped, sortedYears: years, recommendedFiling, availableFilingTypes }
+    // P0-5: earliest filing_date in the FULL list (not the active filter) — drives the
+    // "Showing filings since …" honesty note under the list. ISO strings compare
+    // lexicographically, so no Date instantiation per iteration.
+    const oldestFilingDate = (filings ?? []).reduce<string | null>(
+      (oldest, f) => (!oldest || f.filing_date < oldest ? f.filing_date : oldest),
+      null,
+    )
+
+    return { groupedFilings: grouped, sortedYears: years, recommendedFiling, availableFilingTypes, oldestFilingDate }
   }, [filings, filterType])
 
   // A4: default the filing list to the most recent ~3 years that actually have filings (older years
@@ -574,6 +583,7 @@ export default function CompanyPageClient() {
                   </div>
                 )
               })}
+              <FilingsHistoryNote oldestFilingDate={oldestFilingDate} cik={company?.cik} />
             </div>
           ) : (
             // Inline empty — inside the section card, so no nested GuidanceCard panel.

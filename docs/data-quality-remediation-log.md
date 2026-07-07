@@ -85,9 +85,21 @@ operations; `workflow_dispatch` remains for manual use. Each operation is an aud
   target. `earningsnerd-backfill-facts` carries `DATABASE_URL` + `USE_STATEMENT_FINANCIALS` →
   Phase 5's resync fallback target. (`earningsnerd-notable-filings` does not exist; skipped
   gracefully, matching ci.yml's tolerance.)
-- `logging.read` permission + jobs-channel no-op execute: probes dispatched; results recorded
-  under Phase 1 below (they complete alongside it).
+- **`logging.read`: DENIED** for the deployer SA → the safeguard-2 Cloud Run log-based ALERT
+  cannot be created/verified from this session. The structured `company_upsert_conflict` line
+  ships regardless (Phase 1); recurrence visibility comes from the P1-9 weekly report.
+  **Founder action (optional):** grant `roles/logging.viewer` (+ `roles/monitoring.editor` for
+  an alert policy) to the deployer SA, or create the log-based alert once in the console.
+  Side-effect accepted: Cloud Run *job* stdout is unreadable from here too — hence all
+  operation verification is SQL/API-based, and the ticker repair runs on the Actions runner
+  (stdout in the workflow log), not as a job.
+- **Jobs-channel no-op execute: PERMITTED** (`gcloud run jobs execute earningsnerd-backfill-facts
+  --args="-c,print(…)" --wait` created, ran, and completed) → the documented jobs channel works
+  end-to-end as Phase 5's fallback and Phase 9's trigger.
 - Secrets masking verified in run logs (`DATABASE_URL`/`PGPASSWORD` render as `***`).
+
+**Phase 0 exit criteria: met.** All operational unknowns the later phases depend on are now
+recorded facts.
 
 ---
 
@@ -110,18 +122,40 @@ and 2 (structured `company_upsert_conflict` log line).
   forced-race path returns the surviving row + emits the structured log line; padded/stripped
   CIK matching.
 
-**Gates:** ruff ✓ bandit ✓ full pytest 1401 passed ✓ (local, pipefail-checked).
+**Gates:** ruff ✓ bandit ✓ full pytest 1401 passed ✓ (local, pipefail-checked). Pre-merge
+adversarial review (3 lenses: txn semantics / HTTP contract / test adequacy): zero confirmed
+findings; two test-hygiene minors fixed before merge (teardown hardening, explicit
+no-ticker-rewrite assertion).
 
-**Deployed:** _pending merge_
+**Deployed:** PR #586 merged 2026-07-07 (`e6514a6`); `deploy-backend` succeeded (image built,
+migrations re-applied, Cloud Run serving, health check green).
 
-**Verification:** _pending deploy_ — prod `GET /api/companies/JPM` should flip 500 → 200
-serving the JPM-PM row (until Phase 4 canonicalizes the ticker).
+**Verification (prod, 2026-07-07 ~20:10 UTC):** `GET /api/companies/JPM` **500 → 200**,
+serving `{id: 11, cik: 0000019617, ticker: "JPM-PM"}` with the preferred share's quote
+(**$17.24** — the spec's ~$17.29 symptom, live). Exactly the intended interim state: the page
+works again; the wrong ticker/quote is P0-1's to fix (Phase 4) and this snapshot is the
+"before" for that verification.
+
+**Status: complete.**
 
 ---
 
 ## Phase 2 — P0-5 honest filings note
 
-**Status:** pending
+**Status:** in progress
+**Plan items:** P0-5 / interim safeguard 3 ("ships regardless of everything else") — moved
+ahead of the heavier phases per the execution review.
+
+**Changed:** new `frontend/features/filings/components/FilingsHistoryNote.tsx` ("Showing
+filings since {oldest filing_date}. Full history on SEC EDGAR →" with the CIK-scoped
+browse-edgar link), rendered under the filings year list in `page-client.tsx`
+(`oldestFilingDate` derived from the full list, not the active filter). Permanent by design —
+after P1-6 only {oldest} moves. Guardrail: `filings-history-note.spec.tsx`.
+
+**Gates:** frontend full gate green (lint, tsc, vitest 347, build).
+
+**Deployed / verification:** _pending merge_ — Vercel deploy, then eyeball the JPM prod page
+(both themes).
 
 ---
 
