@@ -1,10 +1,22 @@
 # Filing-Load Performance & Scaling Audit
 
-**Date:** 2026-07-06 · **Scope:** why `/company/{ticker}` is slow for filing-heavy companies and
-fails outright for Morgan Stanley (`/company/MS`), plus scaling/cost posture for beta (tens of
-users) through thousands of users. **Diagnosis only — no code was changed.** Every claim cites the
+**Date:** 2026-07-06 (audit) · 2026-07-07 (fixes implemented) · **Scope:** why `/company/{ticker}`
+is slow for filing-heavy companies and fails outright for Morgan Stanley (`/company/MS`), plus
+scaling/cost posture for beta (tens of users) through thousands of users. Every claim cites the
 file/line it was read from, or is labeled as measured/inferred. SEC filing counts were measured
 live against `data.sec.gov` on 2026-07-06.
+
+> **Implementation status (this PR).** The Quick-wins are now implemented and tested:
+> **QW2** — `EdgarClient.get_filings_multi` (one `EdgarCompany`, all forms in one
+> `trigger_full_load=False` recent-window fetch) + `_transform_filing` now reads the cheap
+> `report_date` instead of the network-triggering `period_of_report` (see the correction in §2.1);
+> **QW1** — DB-first serving with a bounded `BackgroundTasks` refresh in `routers/filings.py`;
+> **QW3** — CORS headers on the timeout 504 (`main.py`); **QW5** — compliant `EDGAR_IDENTITY`
+> default (`edgar/config.py`); **PS1** — composite `filings(company_id, filing_type, filing_date)`
+> index (model + migration). Also a latent-bug fix: the edgar thread pool now auto-recreates after
+> shutdown (`async_executor.py`). **Still infra-owned / not in this PR:** **QW4** (`--min-instances=1`
+> + pinning Cloud Run sizing flags in CI) and setting the prod `EDGAR_IDENTITY` env — both are cost /
+> live-GCP decisions (see §3, §6).
 
 ---
 
@@ -106,6 +118,16 @@ mode (if anything else ever fails) legible instead of "backend down".
     `backend/app/services/edgar/async_executor.py:39-42`), wrapped by a per-operation **15 s**
     timeout (`EDGAR_DEFAULT_TIMEOUT_SECONDS`, edgar/config.py:167) and the shared circuit
     breaker.
+14. **Second, per-filing scaling cost (correction to the first-pass audit).** The first pass said
+    `_transform_filing` was "metadata-only" because it avoids edgartools' `filing_url`. That was
+    incomplete: it read `edgar_filing.period_of_report`, which on `EntityFiling` is **not** a plain
+    attribute — it is a base-class `@property` (`edgar/_filings.py:1560`) that calls `self.sgml()`, a
+    **live per-filing full-submission download from sec.gov** (even `hasattr` evaluates it). So the
+    listing did up to `per_form_limit × forms` extra SGML downloads on top of the submissions
+    history — a second term that also scales with the number of filings shown. The fix reads the
+    cheap `report_date` attribute that `EntityFiling` populates from the submissions JSON
+    (`edgar/entity/filings.py:70`), same value, zero network. **Implemented** in this PR
+    (`client.py::_transform_filing`).
 
 ### 2.2 Why MS fails while small companies succeed (measured)
 

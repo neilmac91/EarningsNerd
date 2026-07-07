@@ -1,5 +1,5 @@
 import logging
-from sqlalchemy import Column, Integer, String, Text, DateTime, Date, Boolean, ForeignKey, Float, JSON, event, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, DateTime, Date, Boolean, ForeignKey, Float, JSON, event, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -193,6 +193,15 @@ class Watchlist(Base):
 
 class Filing(Base):
     __tablename__ = "filings"
+    __table_args__ = (
+        # Covers the hot filings-list read (get_cached_filings / DB-first serving):
+        #   WHERE company_id = ? AND filing_type IN (...) ORDER BY filing_date DESC
+        # and the trending join's company_id filter. filings.company_id was previously unindexed.
+        # Declared here so create_all builds it on fresh DBs; existing prod DBs get the identically
+        # named index from migrations/20260710_filings_company_type_date_index.sql (IF NOT EXISTS →
+        # the two paths never collide).
+        Index("ix_filings_company_type_date", "company_id", "filing_type", "filing_date"),
+    )
 
     id = Column(Integer, primary_key=True, index=True)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=False)

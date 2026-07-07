@@ -316,32 +316,41 @@ class TestBackwardCompatibility:
 
     @pytest.mark.asyncio
     async def test_get_filings_requests_fpi_forms(self, monkeypatch):
-        """Regression for the Alibaba ($BABA) 'no filings' bug.
+        """Regression for the Alibaba ($BABA) 'no filings' bug AND the mega-filer timeout (PR#573).
 
-        20-F / 6-K must reach edgar_client (i.e. be requested from SEC), not be dropped as an
-        'unknown' form the way the old strict from_string() + ValueError path did. A genuinely
-        unknown form is still skipped.
+        Two invariants pinned here (rule #12 gate — replaces the old per-form-dispatch assertion
+        that QW2 intentionally removed):
+        1. 20-F / 6-K must reach edgar_client (be requested from SEC), not be dropped as an
+           'unknown' form the way the old strict from_string() + ValueError path did; a genuinely
+           unknown form is still skipped.
+        2. All forms are fetched in a SINGLE ``get_filings_multi`` call — NOT one call per form.
+           The per-form fan-out rebuilt EdgarCompany and re-downloaded the full lifetime history
+           once per form type, which is what timed out for Morgan Stanley. A regression back to a
+           per-form loop would make this call count > 1.
         """
         from app.services.edgar import compat as compat_mod
 
-        requested: list = []
+        calls: list = []
 
-        async def fake_get_filings(cik, ft, limit=None, include_amended=False):
-            requested.append(ft)
+        async def fake_get_filings_multi(cik, filing_types, limit=None, include_amended=True):
+            calls.append(filing_types)
             return []  # shape doesn't matter here — we assert on what was requested
 
-        monkeypatch.setattr(compat_mod.edgar_client, "get_filings", fake_get_filings)
+        monkeypatch.setattr(compat_mod.edgar_client, "get_filings_multi", fake_get_filings_multi)
 
         result = await compat_mod.sec_edgar_service.get_filings(
             "0001577552", ["20-F", "6-K", "bogus-form"]
         )
 
         assert result == []  # stub returns nothing, but the call must not crash
-        assert FilingType.FORM_20F in requested
-        assert FilingType.FORM_6K in requested
+        # Exactly ONE bulk call (single EdgarCompany / single recent-window download), not per-form.
+        assert len(calls) == 1
+        requested_forms = calls[0]
+        assert FilingType.FORM_20F in requested_forms
+        assert FilingType.FORM_6K in requested_forms
         # The genuinely unknown form is skipped, never requested (and never resolves to UNKNOWN).
-        assert FilingType.UNKNOWN not in requested
-        assert len(requested) == 2
+        assert FilingType.UNKNOWN not in requested_forms
+        assert len(requested_forms) == 2
 
 
 class TestNullHandling:

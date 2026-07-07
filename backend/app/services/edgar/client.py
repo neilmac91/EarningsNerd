@@ -47,6 +47,12 @@ logger.info(f"EdgarTools initialized with identity: {EDGAR_IDENTITY}")
 # Python 3.10+ allows creating Semaphore at module level without active event loop
 _edgar_search_semaphore = asyncio.Semaphore(EDGAR_THREAD_POOL_SIZE)
 
+# Default cap on filings materialized from the recent submissions window when no explicit limit is
+# given (the company filings-list path). The recent window is already SEC-bounded (~1 year or ~1000
+# filings); this caps memory for very high-volume filers while leaving a generous multi-year slice
+# for the year-grouped UI. Reports (10-K/10-Q/20-F/6-K/40-F) are a few per year, so 50 spans ~10y.
+RECENT_FILINGS_MATERIALIZE_CAP = 50
+
 
 class EdgarClient:
     """
@@ -179,7 +185,10 @@ class EdgarClient:
         include_amended: bool = True,
     ) -> List[Filing]:
         """
-        Get filings for a company by type.
+        Get filings for a company of a single form type.
+
+        Thin wrapper over :meth:`get_filings_multi` (one form) so single-form callers
+        (``get_latest_filing`` etc.) inherit the bounded, single-download behavior.
 
         Args:
             ticker: Stock ticker symbol
@@ -194,8 +203,63 @@ class EdgarClient:
             CompanyNotFoundError: If the ticker is not found
             EdgarError: For other errors
         """
+        return await self.get_filings_multi(
+            ticker, [filing_type], limit=limit, include_amended=include_amended
+        )
+
+    async def get_filings_multi(
+        self,
+        ticker: str,
+        filing_types: List[FilingType],
+        limit: Optional[int] = 10,
+        include_amended: bool = True,
+    ) -> List[Filing]:
+        """
+        Get filings for a company across several form types in ONE bounded SEC round-trip.
+
+        This is the hot path behind the company filings list. It constructs a SINGLE
+        ``EdgarCompany`` and issues ONE ``get_filings(form=[...], trigger_full_load=False)`` call,
+        so it downloads only the company's *recent* submissions window (one JSON) and never the
+        full paginated lifetime history. A mega-filer like Morgan Stanley (105k+ lifetime filings
+        across 44 submissions files) previously fanned out to a fresh ``EdgarCompany`` + full-history
+        download *per form type* — the cause of the request timeout. The recent window (SEC's
+        "greater of ~1000 filings or ~1 year") always contains the newest 10-K/10-Q/20-F for an
+        active filer; older history accrues in our DB across loads (see the DB-first serving in
+        app/routers/filings.py). ``islice`` bounds materialization to keep memory flat.
+
+        Args:
+            ticker: Stock ticker OR CIK (callers on this path pass the CIK).
+            filing_types: Form types to retrieve (base forms; ``/A`` handled by ``include_amended``).
+            limit: Maximum number of filings to return (None → a bounded recent default).
+            include_amended: Whether to include amended filings (/A).
+
+        Returns:
+            List of Filing objects, most recent first.
+
+        Raises:
+            CompanyNotFoundError: If the ticker/CIK is not found
+            EdgarError: For other errors
+        """
         ticker = ticker.upper().strip()
-        logger.debug(f"Getting {filing_type.value} filings for {ticker}")
+
+        # Base form strings (strip any /A), de-duplicated but order-stable. edgartools' `amendments`
+        # flag EXPANDS base forms to include their /A variants when True, and STRIPS /A when False —
+        # so we always pass BASE forms + the boolean, never explicit "/A" strings (passing "/A" with
+        # amendments=False would silently drop them). See edgar.filtering.filter_by_form.
+        base_forms: List[str] = []
+        for ft in filing_types:
+            base = ft.value.replace("/A", "")
+            if base and base not in base_forms:
+                base_forms.append(base)
+        if not base_forms:
+            return []
+
+        logger.debug(f"Getting {base_forms} filings for {ticker} (recent window)")
+
+        # Bound materialization. The recent-window filter already bounds the row count for normal
+        # filers; this cap protects memory for high-volume filers and keeps a generous multi-year
+        # slice for the year-grouped UI.
+        materialize_cap = limit if limit is not None else RECENT_FILINGS_MATERIALIZE_CAP
 
         try:
             edgar_company = await run_with_circuit_breaker(
@@ -203,32 +267,22 @@ class EdgarClient:
                 timeout=self.timeout,
             )
 
-            # Build list of form types to fetch
-            form_types = [filing_type.value]
-            if include_amended and not filing_type.is_amended:
-                amended_value = f"{filing_type.value}/A"
-                form_types.append(amended_value)
-
-            # Calculate per-form limit to avoid loading all historical filings
-            # We fetch more than needed per form to account for sorting across form types
-            per_form_limit = (limit * 2) if limit is not None else 20
-
-            filings = []
-            for form_type in form_types:
-                # EdgarTools' `amendments` flag (default True) EXPANDS the form filter
-                # ("10-K" -> {"10-K", "10-K/A"}), which leaks amendments into exact-form
-                # requests. Base forms must pass False; explicit "/A" forms must pass
-                # True because False would strip the "/A" suffix from the filter itself.
-                is_amended_form = form_type.endswith("/A")
-                # Use islice to limit filings BEFORE materializing full list
-                # This prevents OOM when companies have 80+ years of filings
-                form_filings = await run_with_circuit_breaker(
-                    lambda ft=form_type, amd=is_amended_form, lim=per_form_limit: list(
-                        islice(edgar_company.get_filings(form=ft, amendments=amd), lim)
-                    ),
-                    timeout=self.timeout,
-                )
-                filings.extend(form_filings)
+            # ONE recent-window fetch across all requested forms. trigger_full_load=False skips
+            # edgartools' paginated older-filings download (the scaling cost). islice caps the
+            # materialized EntityFiling objects.
+            filings = await run_with_circuit_breaker(
+                lambda: list(
+                    islice(
+                        edgar_company.get_filings(
+                            form=base_forms,
+                            amendments=include_amended,
+                            trigger_full_load=False,
+                        ),
+                        materialize_cap,
+                    )
+                ),
+                timeout=self.timeout,
+            )
 
             # Sort by filing date descending, handling None dates gracefully
             from datetime import date as date_type_sort
@@ -237,7 +291,6 @@ class EdgarClient:
                 reverse=True
             )
 
-            # Apply final limit after sorting
             if limit:
                 filings = filings[:limit]
 
@@ -402,16 +455,23 @@ class EdgarClient:
                 logger.warning(f"Invalid filing date format: {filing_date}")
                 filing_date = None
 
-        # Parse period end date with error handling
+        # Parse period end date with error handling. Read the CHEAP `report_date` attribute that
+        # EntityFiling populates directly from the submissions JSON `reportDate` — NOT
+        # `period_of_report`, which is a property that lazily downloads the filing SGML
+        # (a blocking per-filing sec.gov fetch; even `hasattr` triggers it). On a listing of N
+        # filings that reintroduced N network calls and undercut the single-download win. The value
+        # is the same period-end date.
         period_end = None
-        if hasattr(edgar_filing, 'period_of_report') and edgar_filing.period_of_report:
-            period_end = edgar_filing.period_of_report
-            if isinstance(period_end, str):
+        report_date = getattr(edgar_filing, 'report_date', None)
+        if report_date:
+            if isinstance(report_date, str):
                 try:
-                    period_end = date_type.fromisoformat(period_end)
+                    period_end = date_type.fromisoformat(report_date)
                 except (ValueError, TypeError):
-                    logger.warning(f"Invalid period_of_report format: {period_end}")
+                    logger.warning(f"Invalid report_date format: {report_date}")
                     period_end = None
+            else:
+                period_end = report_date
 
         # Determine filing type enum - use non-strict mode to get UNKNOWN for unrecognized forms
         filing_type = FilingType.from_string(edgar_filing.form, strict=False)
