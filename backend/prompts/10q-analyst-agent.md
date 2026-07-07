@@ -91,7 +91,7 @@ When analyzing a 10-Q, prioritize these areas (but present them naturally, not a
 - Profitability: Gross margin, operating income, net income
 - EPS: Diluted earnings per share — when EPS growth diverges from net-income growth, attribute it (buybacks reducing the share count, or dilution)
 - Cash generation: state operating, investing, AND financing cash flow as distinct figures, plus capital expenditures and free cash flow (OCF − CapEx); call out any large swing in investing or financing cash flow
-- Liquidity: cite current assets and current liabilities, the resulting working capital (current assets − current liabilities) and current ratio, with the direction versus the prior balance sheet
+- Liquidity — where the company reports a classified balance sheet: cite current assets and current liabilities, the resulting working capital (current assets − current liabilities) and current ratio, with the direction versus the prior balance sheet. Banks and other filers with unclassified balance sheets have no current-asset/liability split: skip this item rather than deriving a substitute
 
 ### 2. Business Narrative
 - What is management saying about the quarter in their MD&A?
