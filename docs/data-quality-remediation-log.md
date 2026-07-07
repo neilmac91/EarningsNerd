@@ -319,9 +319,22 @@ missing — fill from the new tag.
 `test_normalize_companyfacts_jpm_shape.py` (JPM-shaped payload: FY16-18 keep legacy values +
 raw_tag; FY19-25 resolve from the new tag). `test_companyfacts_fixture.py:115-121` untouched.
 
-**Deploy / prod operations:** _pending merge → before-SQL → resync affected list (≤50-ticker
-batches) → after-SQL empty → verify JPM FY2019-25 263.6→343.3B (FY16-18 unchanged) + BAC
-FY2020-25 380.5→231.8B → mixed-definition count → BAC end-to-end spot-check._
+**Deployed:** PR #590 merged 2026-07-07 (`fb1fa9b`). **Hiccup:** `backend-tests` FAILED on the
+merge-to-main commit (not on the PR) → deploy-backend was SKIPPED (it gates on backend-tests),
+so the registry code did not deploy on the first merge. Root cause: `test_repair_ticker_by_cik`
+(merged in Phase 4) — the collision-abort guard I added in P0-1 review makes the repair
+`main()` scan the WHOLE companies table, and the shared suite sqlite DB accumulated other
+tests' rows, two of which shared a ticker → a spurious collision → `main()` returned 1 →
+dry-run/apply tests expected 0. Only surfaced at this merge's collection order (the two new
+cash test files shifted it). **Fix (follow-up PR):** isolate the repair tests on a private
+sqlite DB (`app.database` re-pointed for the module; `main()` resolves `SessionLocal` at call
+time so it uses the isolated DB too) → `main()`'s whole-table scan sees only the test's rows.
+Full suite + the polluting combo both green across runs.
+
+**Deploy / prod operations:** _pending the follow-up deploy → before-SQL (captured: JPM
+last_cash_fy=2018, BIIB no cash) → resync cohort (JPM/BAC/BIIB + named banks, ≤50 batch) →
+after-SQL empty → verify JPM FY2019-25 263.6→343.3B (FY16-18 unchanged) + BAC FY2020-25
+380.5→231.8B → mixed-definition count → BAC end-to-end spot-check._
 
 ---
 

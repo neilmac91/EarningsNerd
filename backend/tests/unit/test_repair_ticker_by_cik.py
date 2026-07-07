@@ -2,25 +2,50 @@
 
 Pins: primary = FIRST file-order entry per CIK; padded and stripped CIK spellings both match;
 rows absent from the SEC file are reported but never touched; dry run (the default) writes
-NOTHING; --apply writes exactly the reported changes.
+NOTHING; --apply writes exactly the reported changes; a post-repair collision aborts.
+
+``main()`` scans the ENTIRE companies table (as it must in prod), and its collision check
+therefore sees every row. So these tests must run against an ISOLATED database — the shared
+suite sqlite file accumulates other tests' rows, some of which share a ticker, which would
+trip the collision guard and flake this test by collection order. The module fixture below
+points ``app.database`` at a private sqlite file for the duration of these tests; ``main()``
+resolves ``SessionLocal`` from ``app.database`` at call time, so it uses the isolated DB too.
 """
+import os
 from types import SimpleNamespace
 
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
+import app.database as appdb
+from app.models import Base, Company
 from scripts.repair_ticker_by_cik import build_primary_map, compute_changes, main
-from app.database import SessionLocal
-from app.models import Company
+
+_ISOLATED_DB_PATH = "./repair_ticker_isolated_test.db"
 
 
 @pytest.fixture(scope="module", autouse=True)
-def _tables():
-    # These tests drive the schema via SessionLocal (no TestClient lifespan), so they must
-    # build the tables themselves — otherwise they depend on collection order for another
-    # test to have created them in the shared sqlite file.
-    from app.database import Base, engine
-
+def _isolated_db():
+    """Point app.database at a private, empty sqlite DB so main()'s whole-table scan sees only
+    this module's rows (no shared-suite pollution → no spurious collisions)."""
+    if os.path.exists(_ISOLATED_DB_PATH):
+        os.remove(_ISOLATED_DB_PATH)
+    engine = create_engine(
+        f"sqlite:///{_ISOLATED_DB_PATH}", connect_args={"check_same_thread": False}
+    )
     Base.metadata.create_all(bind=engine)
+    orig_engine, orig_session = appdb.engine, appdb.SessionLocal
+    appdb.engine = engine
+    appdb.SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+    try:
+        yield
+    finally:
+        appdb.SessionLocal = orig_session
+        appdb.engine = orig_engine
+        engine.dispose()
+        if os.path.exists(_ISOLATED_DB_PATH):
+            os.remove(_ISOLATED_DB_PATH)
 
 
 FIXTURE_TICKERS = {
@@ -59,15 +84,15 @@ def seeded_db(monkeypatch):
 
     monkeypatch.setattr(script_mod, "_fetch_tickers", fake_tickers)
 
-    db = SessionLocal()
-    db.query(Company).filter(Company.cik.in_(["0000019617", "0001652044"])).delete()
+    db = appdb.SessionLocal()
+    db.query(Company).delete()  # isolated DB — start from a clean, fully-known table
     db.commit()
     db.add(Company(cik="0000019617", ticker="JPM-PM", name="JPMORGAN CHASE & CO"))
     db.add(Company(cik="0001652044", ticker="GOOGL", name="Alphabet Inc."))
     db.commit()
     yield db
     db.rollback()
-    db.query(Company).filter(Company.cik.in_(["0000019617", "0001652044"])).delete()
+    db.query(Company).delete()
     db.commit()
     db.close()
 
@@ -109,8 +134,8 @@ def test_apply_aborts_on_collision_without_writing(monkeypatch, capsys):
 
     monkeypatch.setattr(script_mod, "_fetch_tickers", fake_tickers)
 
-    db = SessionLocal()
-    db.query(Company).filter(Company.cik.in_(["0000000111", "0000000222"])).delete()
+    db = appdb.SessionLocal()
+    db.query(Company).delete()
     db.commit()
     db.add(Company(cik="0000000111", ticker="AAA", name="Alpha"))
     db.add(Company(cik="0000000222", ticker="BBB", name="Beta"))
@@ -124,6 +149,6 @@ def test_apply_aborts_on_collision_without_writing(monkeypatch, capsys):
         assert db.query(Company).filter(Company.cik == "0000000111").one().ticker == "AAA"
         assert db.query(Company).filter(Company.cik == "0000000222").one().ticker == "BBB"
     finally:
-        db.query(Company).filter(Company.cik.in_(["0000000111", "0000000222"])).delete()
+        db.query(Company).delete()
         db.commit()
         db.close()
