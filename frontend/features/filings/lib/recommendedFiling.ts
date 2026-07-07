@@ -17,6 +17,15 @@ const byFilingDateDesc = (a: Filing, b: Filing) =>
  *
  * Callers pass the FULL filing list (not the active type filter) so the recommendation stays
  * stable as the user filters. Returns null when there are no filings.
+ *
+ * NOTE (revisit when ENABLE_FPI_FILINGS ships): once the FPI program is on, the company-page list
+ * gains 20-F / 6-K / 40-F, and active foreign issuers file 6-Ks continuously — so "most recent of
+ * any type" would hand the banner to a thin 6-K press release for nearly every FPI, permanently
+ * outranking the substantive 20-F (the dashboard feed already treats 6-K as second-class for this
+ * reason). Decide then whether 6-K stays eligible for *selection*. Careful: simply excluding 6-K
+ * here while the copy still says "most recent filing" would re-introduce the exact dishonesty this
+ * fix removed (a newer, unpointed-to 6-K would exist) — an exclusion needs a matching copy branch
+ * ("most recent report") in the banner, not just a filter in this helper.
  */
 export function selectRecommendedFiling(filings: Filing[] | undefined | null): Filing | null {
   return [...(filings ?? [])].sort(byFilingDateDesc)[0] ?? null
