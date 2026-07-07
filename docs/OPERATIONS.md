@@ -181,4 +181,10 @@ Located in `backend/scripts/`:
 - `backfill_facts.py` - Backfill the `financial_fact` table from cached/parsed XBRL
 - `filing_scan.py` - Scan for new filings on watched companies (alerts pipeline)
 - `pregenerate_examples.py` - Pre-generate example summaries (weekly refresh cron)
+  - **Keep the recommended filing warm:** the company-page "Recommended" banner now points at a
+    company's *most recent* filing of any type (usually a 10-Q), but the precompute path
+    (`POST /internal/jobs/precompute` and this cron) defaults to `forms=["10-K"]`. So the A1 warm
+    covers the old recommendation, not the new one — a first click on a newly-recommended 10-Q
+    generates on demand. To close the gap, include `"10-Q"` in the `forms` list of the weekly
+    pregenerate payload (one-line change to the trigger's request body).
 - `verify_insider_extraction.py` - Verify Form 4 insider extraction against live SEC data

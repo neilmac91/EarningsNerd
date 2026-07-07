@@ -22,10 +22,8 @@ import PeerComparisonPanel from '@/features/peers/components/PeerComparisonPanel
 import CompanyLogo from '@/components/CompanyLogo'
 import InsiderActivityPanel from '@/features/insiders/components/InsiderActivityPanel'
 import { queryKeys } from '@/lib/queryKeys'
+import { recommendedFilingNoun, selectRecommendedFiling } from '@/features/filings/lib/recommendedFiling'
 
-// Annual reports: 10-K (domestic) plus the foreign-issuer equivalents 20-F / 40-F. Used to pick
-// the "Recommended" filing and to label it as an annual report. See tasks/fpi-support-roadmap.md.
-const ANNUAL_FILING_TYPES = ['10-K', '20-F', '40-F']
 // Display order for the filing-type filter chips; unknown types sort to the end alphabetically.
 const FILING_TYPE_ORDER = ['10-K', '10-Q', '20-F', '6-K', '40-F']
 // Foreign private issuer forms — a company that files any of these is an FPI, which we use to show
@@ -173,14 +171,9 @@ export default function CompanyPageClient() {
     // Sort years in descending order (newest first)
     const years = Object.keys(grouped).sort((a, b) => parseInt(b) - parseInt(a))
 
-    // Recommended filing: the latest annual report (10-K domestic, or 20-F/40-F for foreign
-    // issuers) if available, otherwise the most recent filing of any type. Computed from the FULL
-    // list (not the active type filter) so the recommendation is stable as the user filters.
-    const byDateDesc = (a: Filing, b: Filing) =>
-      new Date(b.filing_date).getTime() - new Date(a.filing_date).getTime()
-    const annuals = (filings ?? []).filter((f) => ANNUAL_FILING_TYPES.includes(f.filing_type))
-    const recommendedFiling =
-      [...annuals].sort(byDateDesc)[0] ?? [...(filings ?? [])].sort(byDateDesc)[0] ?? null
+    // Recommended filing: the company's single MOST RECENT filing of any type. Computed from the
+    // FULL list (not the active type filter) so the recommendation is stable as the user filters.
+    const recommendedFiling = selectRecommendedFiling(filings)
 
     return { groupedFilings: grouped, sortedYears: years, recommendedFiling, availableFilingTypes }
   }, [filings, filterType])
@@ -198,13 +191,13 @@ export default function CompanyPageClient() {
     setExpandedYears(new Set(sortedYears.slice(0, 3)))
   }, [sortedYears, normalizedTicker])
 
-  // A4: prefetch the recommended filing's summary (the latest 10-K) the moment the company opens, so
-  // the most-likely next click renders the cached analysis instantly. Read-only GET — never triggers
-  // generation. Dovetails with the A1 precompute that warms these summaries server-side.
+  // A4: prefetch the recommended filing's summary (the company's most recent filing) the moment the
+  // company opens, so the most-likely next click renders the cached analysis instantly. Read-only
+  // GET — never triggers generation. Dovetails with the A1 precompute that warms summaries server-side.
   const prefetchedFilingIdRef = useRef<number | null>(null)
   useEffect(() => {
-    // Keyed on the filing id so a soft-nav to a different company prefetches that company's latest
-    // 10-K, and we never re-prefetch the same one.
+    // Keyed on the filing id so a soft-nav to a different company prefetches that company's most
+    // recent filing, and we never re-prefetch the same one.
     if (!recommendedFiling?.id || prefetchedFilingIdRef.current === recommendedFiling.id) return
     prefetchedFilingIdRef.current = recommendedFiling.id
     queryClient.prefetchQuery({
@@ -466,7 +459,7 @@ export default function CompanyPageClient() {
                     </div>
                     <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                       Not sure where to start? This is {companyData.name}&apos;s most recent{' '}
-                      {ANNUAL_FILING_TYPES.includes(recommendedFiling.filing_type) ? 'annual report' : 'filing'}. Start with its AI summary.
+                      {recommendedFilingNoun(recommendedFiling)}. Start with its AI summary.
                     </p>
                   </div>
                 </div>
