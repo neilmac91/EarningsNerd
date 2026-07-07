@@ -167,13 +167,27 @@ def _verdict_coverage(summary_data: Dict[str, Any]) -> Tuple[int, int, int]:
 
 
 def assess_quality(
-    summary_data: Dict[str, Any], xbrl_metrics: Optional[Dict[str, Any]] = None
+    summary_data: Dict[str, Any],
+    xbrl_metrics: Optional[Dict[str, Any]] = None,
+    *,
+    sic: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Deterministic quality verdict for a generated summary (roadmap S4).
 
     Returns {tier: "full"|"partial", reasons, numeric_grounded, covered_count, total_count}.
     "partial" means thin section coverage OR financials that don't match the SEC-verified XBRL —
-    the signal the UI surfaces honestly (quality badge) instead of silently stripping notices."""
+    the signal the UI surfaces honestly (quality badge) instead of silently stripping notices.
+
+    Bank-aware top-line grounding (data-quality plan P0-2): a financial institution reports its
+    top line as components (net interest income + noninterest income), and the pipeline's own
+    grounding NOTE forbids the model from emitting a single "Revenue" figure — so demanding the
+    XBRL ``revenue`` literal was a structural false alarm on every bank. The top-line check now
+    passes when the ``revenue`` literal grounds OR (for a bank with both components extracted)
+    both components ground — evaluated whether or not a ``revenue`` total exists, so a no-total
+    bank (BAC/C/WFC) is checked on its components rather than silently skipped. For an FI filer
+    whose components were not BOTH extracted there is no fair top-line pair to demand, so the
+    top-line check is N/A; ``net_income`` grounding and section coverage still apply. Non-FI
+    behavior is byte-identical. ``sic`` is the flag-independent FI signal (SIC 6000-6799)."""
     covered, total, min_full = _verdict_coverage(summary_data)
     reasons: List[str] = []
 
@@ -181,21 +195,61 @@ def assess_quality(
     if xbrl_metrics:
         import json as _json
 
+        from app.services.ai.fi_signals import fi_components_present, is_financial_sic
+
         haystack = (
             str(summary_data.get("business_overview") or "")
             + " "
             + _json.dumps(summary_data.get("financial_highlights") or {}, default=str)
         ).lower()
-        checks: List[bool] = []
-        for key in ("revenue", "net_income"):
+
+        def _metric_value(key: str) -> Optional[float]:
             node = xbrl_metrics.get(key)
             current = node.get("current", {}) if isinstance(node, dict) else {}
             value = current.get("value") if isinstance(current, dict) else None
-            if value is not None:
-                checks.append(_xbrl_value_appears(float(value), haystack))
+            return value
+
+        fi_filer = fi_components_present(xbrl_metrics) or is_financial_sic(sic)
+        nii = _metric_value("net_interest_income")
+        non_ii = _metric_value("noninterest_income")
+        both_components = nii is not None and non_ii is not None
+
+        def _components_ground() -> bool:
+            return _xbrl_value_appears(float(nii), haystack) and _xbrl_value_appears(
+                float(non_ii), haystack
+            )
+
+        checks: List[bool] = []
+        revenue_value = _metric_value("revenue")
+
+        # Top-line grounding.
+        if fi_filer:
+            if both_components:
+                # A bank's top line IS its components — check them whether or not a `revenue`
+                # total exists (a no-total bank BAC/C/WFC has none; JPM has one). A reported
+                # total that grounds also passes, so a bank that quotes its consolidated revenue
+                # instead of the components isn't penalized.
+                grounded = _components_ground()
+                if not grounded and revenue_value is not None:
+                    grounded = _xbrl_value_appears(float(revenue_value), haystack)
+                checks.append(grounded)
+            # else: FI filer whose components were not BOTH extracted → top line is N/A. Demanding
+            # the generic `revenue` total here is the original false alarm: the grounding NOTE
+            # tells the model to report components (read from prose), never that total.
+        elif revenue_value is not None:
+            # Non-FI: unchanged — demand the revenue literal.
+            checks.append(_xbrl_value_appears(float(revenue_value), haystack))
+
+        net_income_value = _metric_value("net_income")
+        if net_income_value is not None:
+            checks.append(_xbrl_value_appears(float(net_income_value), haystack))
+
         if checks:
             numeric_grounded = all(checks)
             if not numeric_grounded:
+                # Literal contract with the badge de-escalation in SummaryDisplay.tsx
+                # (GROUNDING_REASON) — pinned on both sides (test_assess_quality_bank.py /
+                # summary-quality-badge.spec.tsx); reword BOTH together or safeguard #5 dissolves.
                 reasons.append("financial figures not grounded in SEC XBRL data")
 
     if covered < min_full:

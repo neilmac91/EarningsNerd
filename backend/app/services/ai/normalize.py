@@ -74,7 +74,10 @@ def _normalize_evidence(value: Any) -> Optional[str]:
         return _normalize_simple_string(combined) if combined else None
     if isinstance(value, (list, tuple, set)):
         parts = [ev for item in value if (ev := _normalize_evidence(item))]
-        combined = "; ".join(parts)
+        # " · " (not "; "): "."-terminated excerpts joined with "; " render the ".;" artifact
+        # the P0-2 bullet fix eliminates elsewhere — this inline evidence run is the one list
+        # field that legitimately stays inline.
+        combined = " · ".join(parts)
         return _normalize_simple_string(combined) if combined else None
     return _normalize_simple_string(value)
 
