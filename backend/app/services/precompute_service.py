@@ -51,6 +51,7 @@ async def precompute_one(
     from app.config import settings
     from app.database import SessionLocal
     from app.models import Company, Filing, FilingContentCache, Summary
+    from app.services.company_resolution import resolve_or_create_company_by_cik
     from app.services.edgar.compat import sec_edgar_service
     from app.services.summary_generation_service import generate_summary_background
 
@@ -90,13 +91,16 @@ async def precompute_one(
             with SessionLocal() as db:
                 company = db.query(Company).filter(Company.ticker == ticker_u).first()
                 if not company:
-                    company = Company(
+                    # CIK-first: reuse an existing row for this CIK (e.g. stored under a
+                    # preferred ticker) instead of clashing on unique-CIK (interim safeguard 1).
+                    company = resolve_or_create_company_by_cik(
+                        db,
                         cik=cik,
                         ticker=sec_company["ticker"],
                         name=sec_company["name"],
                         exchange=sec_company.get("exchange"),
+                        path="precompute.precompute_one",
                     )
-                    db.add(company)
                     db.commit()
                     db.refresh(company)
                 company_id = company.id
