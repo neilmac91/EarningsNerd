@@ -39,6 +39,10 @@ def test_legacy_tags_precede_the_restricted_total_everywhere():
         instance_extractor.INSTANT_CONCEPTS["cash_and_equivalents"],
         xbrl_service.CASH_TAG_CANDIDATES,
     ):
-        assert list(tags).index("CashAndCashEquivalentsAtCarryingValue") < list(tags).index(
-            RESTRICTED_CASH_TAG
-        )
+        tag_list = list(tags)
+        restricted_idx = tag_list.index(RESTRICTED_CASH_TAG)
+        # EVERY other (legacy/unrestricted) tag must precede the restricted total, so
+        # first-tag-wins never lets the restricted total shadow an unrestricted value.
+        for i, tag in enumerate(tag_list):
+            if tag != RESTRICTED_CASH_TAG:
+                assert i < restricted_idx, tag
