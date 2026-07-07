@@ -18,6 +18,8 @@ Usage:
 
 import asyncio
 import logging
+import threading
+import weakref
 from datetime import datetime, timedelta
 from itertools import islice
 from typing import Dict, List, Optional, Tuple
@@ -102,6 +104,78 @@ def get_filing_by_accession(company: EdgarCompany, accession_number: str) -> lis
             company.get_filings(accession_number=accession_number, trigger_full_load=True)
         )
     return filings
+
+
+# Short-lived, per-CIK EdgarCompany cache for the by-accession summary path. A single summary run
+# resolves the SAME filing twice — the XBRL extraction and the section extraction fire as CONCURRENT
+# tasks (summary_pipeline.py), each on its own edgar-thread-pool thread. Without sharing, an
+# accession older than the recent window full-loads the company's history ONCE PER extraction; with
+# it, the second reuses the first's already-loaded entity (edgartools keeps the loaded submissions
+# on the instance). The cache is deliberately small + short-TTL: it only needs to span a run's
+# concurrent extractions, and a fully-loaded mega-filer entity is tens of MB, so we cap memory
+# hard. Staleness is a non-issue here — we fetch a FIXED historical filing by accession, not "latest".
+# NOTE: only the by-accession path uses this. The filings-LIST path (get_filings_multi) keeps building
+# a fresh entity per load so it always sees the newest recent window.
+_COMPANY_CACHE_TTL = timedelta(seconds=120)
+_COMPANY_CACHE_MAX = 4
+_company_cache: Dict[str, Tuple[EdgarCompany, datetime]] = {}
+# Guards the cache + lock maps below. Per-CIK locks serialize concurrent same-CIK resolution so
+# edgartools' lazy full-load (which mutates the entity) can never race between the two concurrent
+# extractions. _company_locks is a WeakValueDictionary so an idle CIK's lock is garbage-collected
+# once no thread references it — no unbounded growth over the process lifetime. This stays race-free:
+# get-or-create is atomic under _company_cache_lock, and a lock is only collectable when NO thread
+# holds it (resolve_filing_by_accession keeps a strong ref for the whole `with` block), so concurrent
+# same-CIK callers always share the one live lock.
+_company_cache_lock = threading.Lock()
+_company_locks: "weakref.WeakValueDictionary[str, threading.Lock]" = weakref.WeakValueDictionary()
+
+
+def _get_company_lock(cik: str) -> threading.Lock:
+    with _company_cache_lock:
+        lock = _company_locks.get(cik)
+        if lock is None:
+            lock = threading.Lock()
+            _company_locks[cik] = lock
+        return lock
+
+
+def _get_or_build_company(cik: str) -> EdgarCompany:
+    """Return a cached EdgarCompany for the CIK, building one on miss/expiry. The caller MUST hold the
+    per-CIK lock so two concurrent same-CIK builds/loads can't race."""
+    with _company_cache_lock:
+        # Pop-then-reinsert on a hit so the reused entity moves to the back of the eviction queue
+        # (LRU, matching _mark_empty_fallback). Without this, a distinct-company burst under
+        # concurrency=40 could evict a company BETWEEN its two concurrent extractions — the exact
+        # double-build this cache prevents. Keep the build-time timestamp: the TTL is memory hygiene
+        # only, and staleness doesn't matter for fixed-accession lookups.
+        entry = _company_cache.pop(cik, None)
+        if entry is not None and (utcnow() - entry[1]) < _COMPANY_CACHE_TTL:
+            _company_cache[cik] = entry
+            return entry[0]
+    # Build OUTSIDE the global lock (construction hits the network); the per-CIK lock the caller holds
+    # already prevents a duplicate same-CIK build.
+    company = EdgarCompany(cik)
+    with _company_cache_lock:
+        if cik not in _company_cache and len(_company_cache) >= _COMPANY_CACHE_MAX:
+            _company_cache.pop(next(iter(_company_cache)), None)  # LRU: least-recently-used is oldest
+        _company_cache[cik] = (company, utcnow())
+    return company
+
+
+def resolve_filing_by_accession(cik: str, accession_number: str) -> Tuple[EdgarCompany, list]:
+    """Resolve a filing by accession, reusing a cached EdgarCompany across a summary's two concurrent
+    extractions so an old filing's full-history load runs once, not per extraction. Thread-safe:
+    same-CIK resolutions serialize on a per-CIK lock (edgartools' lazy load mutates the entity).
+
+    Callers may read INIT-TIME METADATA (e.g. ``company.sic``, ``is_financial_institution()``) on the
+    returned company outside the lock, but must NOT call ``company.get_filings`` / iterate
+    ``company.filings`` on the handle outside this function: a later same-CIK resolution for an older
+    accession can full-load and mutate the shared entity (``self.filings`` / ``_loaded_all_filings``)
+    under the lock, concurrent with an earlier caller still holding the handle. Returns
+    ``(company, filings)``. Synchronous — call inside the edgar thread pool."""
+    with _get_company_lock(cik):
+        company = _get_or_build_company(cik)
+        return company, get_filing_by_accession(company, accession_number)
 
 
 class EdgarClient:

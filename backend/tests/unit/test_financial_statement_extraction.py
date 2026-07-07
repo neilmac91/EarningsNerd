@@ -310,7 +310,11 @@ def test_sync_extraction_routes_bank_to_statement_path(monkeypatch):
     # Net income comes from the generic fact-query path; a 10-K FY duration (365d) at the anchor.
     fact_frames = {"NetIncomeLoss": _facts_df([(False, "2025-01-01", "2025-12-31", 71098000, -3, None)])}
     xb = _XBRLWithFacts(_stmt_df(_BANK_ROWS), fact_frames)
-    monkeypatch.setattr(xs, "EdgarCompany", lambda cik: _Company(_Filing(xb)))
+    _company = _Company(_Filing(xb))
+    monkeypatch.setattr(
+        xs, "resolve_filing_by_accession",
+        lambda cik, accession_number: (_company, _company.get_filings(accession_number)),
+    )
 
     result = xs._extract_from_filing_instance_sync("0001476034", "acc-1")
     assert result is not None

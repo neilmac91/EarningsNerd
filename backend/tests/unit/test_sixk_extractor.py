@@ -65,7 +65,10 @@ class _FakeCompany:
 
 def _patch(monkeypatch, six_k, *, filings=None):
     flist = filings if filings is not None else [_FakeFiling(six_k)]
-    monkeypatch.setattr(sx, "EdgarCompany", lambda cik: _FakeCompany(flist))
+    company = _FakeCompany(flist)
+    monkeypatch.setattr(
+        sx, "resolve_filing_by_accession", lambda cik, accession_number: (company, flist)
+    )
 
 
 def test_earnings_release_text_with_cover_header(monkeypatch):
