@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from typing import Optional
 
+from app.services.ai.fi_signals import fi_components_present
+
 
 # Standardized financial metrics surfaced in the prompt's grounding block, as
 # (narrative label, metrics key, format kind). The model is told to quote these verbatim, so this
@@ -119,7 +121,9 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
     # Financial-institution guard: a bank has no single "revenue" line (its generic revenue tag is
     # only fee income), so the model must report the components separately instead of inventing a
     # conflated composite — the root of the cross-section revenue mismatch this addresses.
-    if any(isinstance(xbrl_metrics.get(k), dict) for k in ("net_interest_income", "noninterest_income")):
+    # Shares fi_components_present with bank_guards and assess_quality (P0-2): the instruction
+    # and the checks that judge its output are driven by the same predicate.
+    if fi_components_present(xbrl_metrics):
         body += (
             "\nNOTE — financial institution: there is NO single revenue line here. Report Net "
             "Interest Income and Non-Interest Income as the SEPARATE figures given above; do NOT sum "

@@ -10,6 +10,8 @@ from __future__ import annotations
 import logging
 from typing import Any, Optional
 
+from app.services.ai.fi_signals import fi_components_present
+
 logger = logging.getLogger(__name__)
 
 
@@ -20,9 +22,7 @@ def _is_no_total_bank(xbrl_metrics: Optional[dict]) -> bool:
     total, e.g. JPM, keeps ``revenue`` populated, so its row is legitimate and left alone)."""
     if not isinstance(xbrl_metrics, dict):
         return False
-    has_components = any(
-        isinstance(xbrl_metrics.get(k), dict) for k in ("net_interest_income", "noninterest_income")
-    )
+    has_components = fi_components_present(xbrl_metrics)
     rev = xbrl_metrics.get("revenue")
     has_revenue = (
         isinstance(rev, dict)

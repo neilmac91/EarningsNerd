@@ -76,6 +76,7 @@ interface SummaryPayload {
 const toExcerpt = (markdown: string): string => {
   const plain = stripInternalNotices(markdown)
     .replace(/^#{1,6}\s+.*$/gm, '') // headings
+    .replace(/^\s*-\s+/gm, '') // list markers (exec key points render as bullets since P0-2)
     .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // links -> text
     .replace(/[*_`>|#]/g, '')
     .replace(/\s+/g, ' ')

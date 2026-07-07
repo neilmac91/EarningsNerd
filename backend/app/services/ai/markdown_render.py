@@ -13,6 +13,23 @@ from typing import Any, Dict, List, Optional
 from app.services.ai.normalize import _PLACEHOLDER_STRINGS
 
 
+def _append_bullet_group(lines: List[str], label: str, items: Any) -> bool:
+    """Emit ``- {label}:`` with one nested ``  - item`` bullet per non-empty item.
+
+    Replaces the former ``"; ".join`` collapse (P0-2): "."-terminated model bullets joined with
+    "; " rendered the ``.;`` artifact on every web summary, while the PDF serializer
+    (``summary_sections``) already emits true bullets for the same fields. Returns True when
+    anything was emitted."""
+    if isinstance(items, str):  # schema-loose payloads: a bare string is ONE item, not chars
+        items = [items]
+    cleaned = [str(item).strip() for item in (items or []) if item and str(item).strip()]
+    if not cleaned:
+        return False
+    lines.append(f"- {label}:")
+    lines.extend(f"  - {c}" for c in cleaned)
+    return True
+
+
 class _MarkdownRenderMixin:
     """Deterministic structured→markdown rendering + section fallbacks, mixed into OpenAIService."""
 
@@ -54,11 +71,14 @@ class _MarkdownRenderMixin:
         # reads as filler, so it is omitted (report-quality Phase 0).
         if tone and str(tone).strip().lower() not in ("neutral", ""):
             summary_bits.append(f"Management's disclosed tone was {str(tone).strip().lower()}.")
-        if key_points:
-            cleaned_points = "; ".join(point.strip() for point in key_points if point)
-            if cleaned_points:
-                summary_bits.append(cleaned_points)
         lines.append(" ".join(summary_bits).strip())
+        # True bullets, not a "; "-joined prose run (P0-2) — parity with the PDF serializer.
+        if isinstance(key_points, str):  # schema-loose payloads: ONE point, not characters
+            key_points = [key_points]
+        for point in key_points:
+            cleaned_point = (str(point) if point else "").strip()
+            if cleaned_point:
+                lines.append(f"- {cleaned_point}")
 
         # Financials
         financials = sections.get("financial_highlights")
@@ -102,15 +122,9 @@ class _MarkdownRenderMixin:
                     bullet += f" – {commentary}"
                 lines.append(bullet)
                 financial_lines_added = True
-        if profitability:
-            lines.append("- Profitability: " + "; ".join(item.strip() for item in profitability if item))
-            financial_lines_added = True
-        if cash_flow:
-            lines.append("- Cash flow: " + "; ".join(item.strip() for item in cash_flow if item))
-            financial_lines_added = True
-        if balance_sheet:
-            lines.append("- Balance sheet: " + "; ".join(item.strip() for item in balance_sheet if item))
-            financial_lines_added = True
+        financial_lines_added = _append_bullet_group(lines, "Profitability", profitability) or financial_lines_added
+        financial_lines_added = _append_bullet_group(lines, "Cash flow", cash_flow) or financial_lines_added
+        financial_lines_added = _append_bullet_group(lines, "Balance sheet", balance_sheet) or financial_lines_added
         if not financial_lines_added:
             lines.append("- Key financial metrics were not disclosed in the structured extract.")
 
@@ -139,12 +153,8 @@ class _MarkdownRenderMixin:
         capital_allocation = mgmt.get("capital_allocation") or mgmt.get("capitalAllocation") or []
         quotes = mgmt.get("quotes") or []
         mgmt_added = False
-        if themes:
-            lines.append("- Themes: " + "; ".join(item.strip() for item in themes if item))
-            mgmt_added = True
-        if capital_allocation:
-            lines.append("- Capital allocation: " + "; ".join(item.strip() for item in capital_allocation if item))
-            mgmt_added = True
+        mgmt_added = _append_bullet_group(lines, "Themes", themes) or mgmt_added
+        mgmt_added = _append_bullet_group(lines, "Capital allocation", capital_allocation) or mgmt_added
         if quotes:
             for quote in quotes:
                 if isinstance(quote, dict):
@@ -169,20 +179,17 @@ class _MarkdownRenderMixin:
         drivers = outlook.get("drivers") or []
         watch_items = outlook.get("watch_items") or outlook.get("watchItems") or []
 
-        outlook_points: list[str] = []
+        outlook_added = False
         if guidance and guidance != "Not disclosed":
-            outlook_points.append(f"Guidance: {guidance}")
+            lines.append(f"- Guidance: {guidance}")
+            outlook_added = True
         if tone:
-            outlook_points.append(f"Tone: {tone}")
-        if drivers:
-            outlook_points.append("Drivers: " + "; ".join(item.strip() for item in drivers if item))
-        if watch_items:
-            outlook_points.append("Watch items: " + "; ".join(item.strip() for item in watch_items if item))
+            lines.append(f"- Tone: {tone}")
+            outlook_added = True
+        outlook_added = _append_bullet_group(lines, "Drivers", drivers) or outlook_added
+        outlook_added = _append_bullet_group(lines, "Watch items", watch_items) or outlook_added
 
-        if outlook_points:
-            for point in outlook_points:
-                lines.append(f"- {point}")
-        else:
+        if not outlook_added:
             lines.append("- Guidance was not disclosed; monitor subsequent updates for direction.")
 
         return "\n".join(lines).strip()

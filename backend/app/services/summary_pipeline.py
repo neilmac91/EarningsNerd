@@ -225,6 +225,7 @@ async def stream_filing_summary(
             # Cache company data and filing attributes from the fetched filing
             company_name = filing_in_session.company.name if filing_in_session.company else "Unknown company"
             company_cik = filing_in_session.company.cik if filing_in_session.company else None
+            company_sic = filing_in_session.company.sic if filing_in_session.company else None
             filing_document_url = filing_in_session.document_url
             filing_type = filing_in_session.filing_type
             filing_accession_number = filing_in_session.accession_number
@@ -691,8 +692,21 @@ async def stream_filing_summary(
             raw_summary["status"] = summary_status
 
             # S4: deterministic quality verdict (always attached as metadata for the UI badge).
-            quality = assess_quality(summary_payload, xbrl_metrics)
+            # sic feeds the bank-aware revenue-grounding rule (P0-2) as the flag-independent
+            # FI signal alongside component presence.
+            quality = assess_quality(summary_payload, xbrl_metrics, sic=company_sic)
             raw_summary["quality"] = quality
+            if quality.get("tier") == "partial":
+                # P0-2 detection: greppable counter of partial verdicts by reason + SIC. A
+                # bank-heavy spike after any prompt change is the recurrence signal for the
+                # bank-blind-grounding incident class.
+                logger.info(
+                    "summary_quality_partial filing_id=%s cik=%s sic=%s reasons=%s",
+                    filing_id,
+                    company_cik,
+                    company_sic or "",
+                    "|".join(quality.get("reasons") or []),
+                )
 
             # S4 quality gate (flagged, default off): the summary is ALWAYS persisted, so the
             # streamed result doesn't vanish when the client refetches and isn't regenerated from

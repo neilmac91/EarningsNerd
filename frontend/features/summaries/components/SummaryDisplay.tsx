@@ -38,6 +38,18 @@ const SummarySections = dynamic(() => import('@/features/summaries/components/Su
   loading: () => <SummarySectionsSkeleton />,
 })
 
+// P0-2 badge de-escalation (data-quality plan, safeguard #5): the XBRL literal-grounding check
+// is a heuristic — when it is the ONLY partial reason, render neutral wording instead of an
+// accusatory data-integrity verdict (it false-fired on every bank pre-fix). The full reason
+// list stays available in the badge tooltip.
+const GROUNDING_REASON = 'financial figures not grounded in SEC XBRL data'
+export function partialBadgeLabel(reasons: string[] | undefined): string {
+  if (reasons && reasons.length === 1 && reasons[0] === GROUNDING_REASON) {
+    return 'Partial coverage'
+  }
+  return `Partial${reasons && reasons.length ? ` · ${reasons[0]}` : ''}`
+}
+
 export interface SummaryDisplayProps {
   summary: Summary
   filing: Filing
@@ -159,9 +171,7 @@ export function SummaryDisplay({
                       variant={quality.tier === 'full' ? 'brand' : 'warning'}
                       title={quality.reasons && quality.reasons.length ? quality.reasons.join('; ') : undefined}
                     >
-                      {quality.tier === 'full'
-                        ? 'Full summary'
-                        : `Partial${quality.reasons && quality.reasons.length ? ` · ${quality.reasons[0]}` : ''}`}
+                      {quality.tier === 'full' ? 'Full summary' : partialBadgeLabel(quality.reasons)}
                     </Badge>
                   )}
                 </div>

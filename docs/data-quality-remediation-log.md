@@ -154,14 +154,73 @@ after P1-6 only {oldest} moves. Guardrail: `filings-history-note.spec.tsx`.
 
 **Gates:** frontend full gate green (lint, tsc, vitest 347, build).
 
-**Deployed / verification:** _pending merge_ — Vercel deploy, then eyeball the JPM prod page
-(both themes).
+**Deployed:** PR #587 merged 2026-07-07 (`e01672c`); frontend ships via Vercel (preview build
+green pre-merge). Review-bot fixes taken before merge: `parseISO` + invalid-date guard (a
+date-only string in `new Date()` renders the previous day for viewers behind UTC) and a
+lexicographic oldest-date compare; the EDGAR link params kept per the spec (type=10-K avoids
+the structured-note flood on mega-filers).
+
+**Verification:** note rendering pinned by `filings-history-note.spec.tsx` (since-date +
+CIK-scoped external link); preview deployment built green. **Deviation:** the planned
+both-themes browser eyeball could not run from this environment (headless Chromium cannot
+complete TLS through the egress proxy — ERR_CONNECTION_RESET; curl to the same URL is fine).
+Risk accepted as near-zero: the note reuses existing text/link tokens verbatim
+(`text-text-tertiary-*`, `text-brand-strong` + hover:underline — same pair as FilingViewer).
+Founder: one glance at any company page confirms.
+
+**Status: complete.**
 
 ---
 
 ## Phase 3 — P0-2 badge FI-awareness + join-artifact fix + detection
 
-**Status:** pending
+**Status:** in progress
+**Plan items:** P0-2 (A) bank-blind grounding check + (D) join artifacts; the badge
+de-escalation from safeguard #5 (founder-chosen; belt-and-braces since prod runs flag-ON);
+rule-12 detection (partial-by-SIC SQL + structured log counter).
+
+**Changed:**
+- `services/ai/markdown_render.py`: all 8 `"; ".join` sites → true GFM bullets
+  (`_append_bullet_group` label + nested items; exec key_points as top-level bullets under the
+  prose headline) — parity with the PDF serializer. String-payload guards added (review).
+- `services/ai/normalize.py`: the 9th, undeclared join (risk supporting-evidence lists) → " · "
+  separator (found by the adversarial review — the artifact class, not just the 8 cited sites).
+- New `services/ai/fi_signals.py`: `fi_components_present` + `is_financial_sic` (band pinned
+  equal to instance_extractor's by test). Consumed by `xbrl_narrative` NOTE emitter,
+  `bank_guards._is_no_total_bank` (semantics unchanged), and `assess_quality`.
+  `provenance_service`'s deliberately-independent copy left alone (founder note).
+- `summary_generation_service.assess_quality`: keyword-only `sic` param; three-way revenue
+  rule (literal OR both-components-ground OR FI-with-unextracted-components → N/A);
+  `net_income` unchanged; non-FI byte-identical. Caller passes `company.sic`;
+  `summary_quality_partial` log line added (detection).
+- `SummaryDisplay.tsx`: `partialBadgeLabel` — sole-grounding-reason renders neutral
+  "Partial coverage" (tooltip keeps details). `serverApi.ts` excerpt strips list markers
+  (review: hero excerpt would have shown literal "- ").
+- `ops/detection/partial_reason_by_sic.sql` (rule 12, same PR).
+
+**Guardrails:** `test_markdown_render_bullets.py` (no `".;"`, no `"; "` runs, bullets per
+field, numbers substring-matchable, no orphan labels), `test_assess_quality_bank.py` (6 cases),
+`test_fi_predicate_single_source.py` (shared-predicate identity + SIC-band no-drift),
+`summary-quality-badge.spec.tsx`. Locked tests untouched and green
+(`test_xbrl_narrative_section.py` byte-for-byte, background-generation characterization,
+stream contract).
+
+**Review:** adversarial workflow (3 lenses × find→verify). First pass: 6 minors adjudicated —
+4 fixed (hero-excerpt list markers in `serverApi.ts`, string-payload char-iteration guards,
+the 9th undeclared `"; "` join on risk evidence → " · ", docstring + cross-boundary
+breadcrumbs). Verdict-logic lens re-run (an API-500 killed it first pass) surfaced and CONFIRMED
+one **major** bug in my own new code: `assess_quality` skipped the top-line grounding check
+entirely for a no-total bank (BAC/C/WFC — components tagged, no `revenue` total), so a
+hallucinated bank top line still earned `tier=full`. Fixed: the top-line check now evaluates the
+component pair whenever a bank has both components extracted, independent of whether a `revenue`
+literal exists; the flag-off "no components extracted → N/A" skip is preserved. Added
+`test_no_total_bank_components_grounded_is_full` + `..._hallucinated_components_is_partial` (the
+untested cell that hid the gap). This is the single most important correctness fix in P0-2 — it
+is exactly the majority-bank population the badge protects, and BAC is the Phase-5 spot-check.
+
+**Eval expectation (constraint 3):** zero delta — bullets keep every number
+substring-matchable (pinned by test); confirmed empirically on the PR's advisory eval run
+before merge. No re-pin here; the only P0 re-pin is P0-4's.
 
 ---
 
