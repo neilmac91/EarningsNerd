@@ -1,6 +1,6 @@
 {
-  "operation": "jobs-channel-noop-probe",
+  "operation": "detection-sql",
   "tickers": "",
   "revision": "",
-  "nonce": "phase0-probe-5"
+  "nonce": "phase5-before-resync-1"
 }
