@@ -68,16 +68,21 @@ _empty_fallback_cache: Dict[Tuple[str, Tuple[str, ...]], datetime] = {}
 
 
 def _empty_fallback_fresh(ticker: str, base_forms: List[str]) -> bool:
-    """True when (ticker, base_forms) recently full-loaded to nothing (skip the repeat full-load)."""
-    ts = _empty_fallback_cache.get((ticker, tuple(base_forms)))
+    """True when (ticker, base_forms) recently full-loaded to nothing (skip the repeat full-load).
+
+    The key sorts base_forms so a differently-ordered same-set request is a hit, not a miss.
+    """
+    ts = _empty_fallback_cache.get((ticker, tuple(sorted(base_forms))))
     return ts is not None and (utcnow() - ts) < _EMPTY_FALLBACK_TTL
 
 
 def _mark_empty_fallback(ticker: str, base_forms: List[str]) -> None:
     """Record that (ticker, base_forms) has no filings, evicting the oldest key past the cap."""
+    key = (ticker, tuple(sorted(base_forms)))
+    _empty_fallback_cache.pop(key, None)  # refresh insertion order if already present (true LRU)
     if len(_empty_fallback_cache) >= _EMPTY_FALLBACK_MAX:
         _empty_fallback_cache.pop(next(iter(_empty_fallback_cache)), None)  # insertion-ordered → oldest
-    _empty_fallback_cache[(ticker, tuple(base_forms))] = utcnow()
+    _empty_fallback_cache[key] = utcnow()
 
 
 def get_filing_by_accession(company, accession_number: str) -> list:

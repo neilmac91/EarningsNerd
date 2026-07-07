@@ -292,6 +292,14 @@ async def test_negative_cache_expires_after_ttl(monkeypatch):
     assert [call["trigger_full_load"] for call in _FakeEdgarCompany.calls] == [False, True]
 
 
+def test_negative_cache_key_is_form_order_independent():
+    # A same-set request in a different form order must be a cache hit, not a miss.
+    client_mod._mark_empty_fallback("0000895421", ["10-K", "10-Q"])
+    assert client_mod._empty_fallback_fresh("0000895421", ["10-Q", "10-K"]) is True
+    # A different set is still a miss.
+    assert client_mod._empty_fallback_fresh("0000895421", ["10-K"]) is False
+
+
 # ---- get_filing_by_accession: recent-first, full-history fallback ----
 
 
