@@ -133,7 +133,7 @@ export default function ShareInvite({ link, email, defaultMessage }: ShareInvite
             <p className="flex items-start gap-1.5 rounded border border-warning-light/40 bg-warning-light/10 px-2.5 py-1.5 text-xs text-warning-light dark:border-warning-dark/40 dark:bg-warning-dark/15 dark:text-warning-dark">
               <WarningIcon className="mt-0.5 h-3.5 w-3.5 flex-shrink-0" />
               <span>
-                Not bound to an email — anyone with this link can redeem it. Share only with the
+                Not bound to an email: anyone with this link can redeem it. Share only with the
                 intended person.
               </span>
             </p>

@@ -9,7 +9,7 @@
 
 /** The professional default invite message. `{invite_link}` (and optional `{name}`) are placeholders. */
 export const DEFAULT_INVITE_MESSAGE =
-  "You're invited to the EarningsNerd private beta — full Pro access, on us. " +
+  "You're invited to the EarningsNerd private beta. Full Pro access, on us. " +
   'Every number traced to the SEC source. ' +
   "Single-use link, please don't forward: {invite_link}"
 

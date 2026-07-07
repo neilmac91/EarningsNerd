@@ -185,7 +185,7 @@ export default function EmailChipsInput({
         onBlur={() => commit(draft)}
         disabled={disabled}
         rows={3}
-        placeholder="alice@example.com, bob@example.com — paste or type, Enter to add"
+        placeholder="alice@example.com, bob@example.com (paste or type, Enter to add)"
         className={clsx(inputClasses(), 'resize-y')}
       />
       <p className="mt-1.5 text-xs text-text-tertiary-light dark:text-text-secondary-dark">

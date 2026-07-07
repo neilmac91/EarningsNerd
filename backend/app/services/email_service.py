@@ -186,7 +186,7 @@ async def send_invite_email(
     invite_footer = "You're receiving this because you were invited to the EarningsNerd private beta."
     html_body = f"""
     <p style="margin:0 0 16px;">{greeting}</p>
-    <p style="margin:0 0 16px;">You're invited to the EarningsNerd private beta — full Pro access, on us.</p>
+    <p style="margin:0 0 16px;">You're invited to the EarningsNerd private beta. Full Pro access, on us.</p>
     <p style="margin:0 0 24px;">
       <a href="{magic_link}" style="display:inline-block;background:#4F7A63;color:#ffffff;font-weight:700;font-size:15px;padding:12px 28px;border-radius:12px;text-decoration:none;">Accept your invite</a>
     </p>
@@ -194,7 +194,7 @@ async def send_invite_email(
     <p style="margin:0;font-size:12px;color:#6B7280;">Can&apos;t click the button? Copy this link:<br>{magic_link}</p>
     """
     text_body = (
-        f"{greeting}\n\nYou're invited to the EarningsNerd private beta — full Pro access, on us.\n\n"
+        f"{greeting}\n\nYou're invited to the EarningsNerd private beta. Full Pro access, on us.\n\n"
         f"{magic_link}\n\nThis is a single-use invite link. No credit card required."
     )
     await send_email(
