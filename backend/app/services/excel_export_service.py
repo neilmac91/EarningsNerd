@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from openpyxl import Workbook
+from openpyxl.cell.cell import Cell
 from openpyxl.chart import BarChart, LineChart, Reference
 from openpyxl.comments import Comment
 from openpyxl.drawing.image import Image as XlsxImage
@@ -94,13 +95,16 @@ def _sheet_title(title: str) -> str:
     return _INVALID_SHEET_CHARS.sub("-", title)[:31]
 
 
-def _safe_text(value: Any) -> str:
-    """Neutralize Excel formula injection for string cells (boundary rule 9: the dataset carries
-    SEC-sourced text — company names, XBRL units). openpyxl persists any string cell starting
-    with "=" as a LIVE FORMULA; the classic CSV-injection triggers (+ - @, tab, CR) are also
-    reinterpreted by Excel on open. A leading apostrophe is Excel's own "literal text" escape."""
-    text = "" if value is None else str(value)
-    return f"'{text}" if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
+def _write_text(ws: Worksheet, row: int, column: int, value: Any) -> Cell:
+    """Untrusted text → an INERT string cell (boundary rule 9: the dataset carries SEC-sourced
+    text — company names, XBRL units). openpyxl auto-types any string starting with "=" as a
+    LIVE FORMULA (data_type 'f'); forcing the cell back to 's' pins the xlsx type attribute
+    Excel actually trusts, so the value displays verbatim — no evaluation, and no visible
+    apostrophe mutation (the alternative guard). Other CSV-injection triggers (+ - @) never
+    activate in native xlsx string cells, so this single override covers the class."""
+    cell = ws.cell(row=row, column=column, value="" if value is None else str(value))
+    cell.data_type = "s"
+    return cell
 
 
 def _number_format(unit: Any, percent: bool) -> str:
@@ -130,7 +134,7 @@ def _write_point(
 
 def _write_header_row(ws: Worksheet, headers: list[str]) -> None:
     for col, text in enumerate(headers, start=1):
-        cell = ws.cell(row=1, column=col, value=_safe_text(text))
+        cell = _write_text(ws, 1, col, text)
         cell.fill = _HEADER_FILL
         cell.font = _HEADER_FONT
         cell.border = _CELL_BORDER
@@ -160,9 +164,7 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
     mode_label = "Annual" if dataset.get("mode") == "annual" else "Quarterly"
     periods = dataset.get("periods", [])
 
-    title = ws.cell(
-        row=7, column=1, value=_safe_text(f"{dataset.get('company_name', '')} — Multi-Period Analysis")
-    )
+    title = _write_text(ws, 7, 1, f"{dataset.get('company_name', '')} — Multi-Period Analysis")
     title.font = Font(bold=True, size=15, color=PALETTE["ink"].lstrip("#"))
     subtitle = ws.cell(row=8, column=1, value="Chart & metrics data export · EarningsNerd — AI-Powered SEC Filing Analysis")
     subtitle.font = _FOOTNOTE_FONT
@@ -177,7 +179,7 @@ def _build_overview(ws: Worksheet, dataset: dict[str, Any], exported_at: datetim
     row = 10
     for label, value in facts:
         ws.cell(row=row, column=1, value=label).font = _LABEL_FONT
-        ws.cell(row=row, column=2, value=_safe_text(value)).font = _INK_FONT
+        _write_text(ws, row, 2, value).font = _INK_FONT
         row += 1
 
     notes = [
@@ -232,12 +234,11 @@ def _build_metrics(ws: Worksheet, dataset: dict[str, Any]) -> None:
     for row_index, series in enumerate(series_list, start=2):
         unit = series.get("unit", "USD")
         percent = bool(series.get("percent"))
-        label_cell = ws.cell(row=row_index, column=1, value=_safe_text(series.get("label", "")))
+        label_cell = _write_text(ws, row_index, 1, series.get("label", ""))
         label_cell.font = _INK_FONT
         label_cell.border = _CELL_BORDER
-        concept_cell = ws.cell(row=row_index, column=2, value=_safe_text(series.get("concept", "")))
-        concept_cell.border = _CELL_BORDER
-        unit_cell = ws.cell(row=row_index, column=3, value="percent" if percent else _safe_text(unit))
+        _write_text(ws, row_index, 2, series.get("concept", "")).border = _CELL_BORDER
+        unit_cell = _write_text(ws, row_index, 3, "percent" if percent else unit)
         unit_cell.border = _CELL_BORDER
 
         by_period = {p.get("period"): p for p in series.get("points", [])}
@@ -296,8 +297,7 @@ def _add_top_line_sheet(wb: Workbook, dataset: dict[str, Any]) -> None:
     by_period = {p.get("period"): p for p in top.get("points", [])}
     periods = [p.get("key", "") for p in dataset.get("periods", [])]
     for row_index, period in enumerate(periods, start=2):
-        period_cell = ws.cell(row=row_index, column=1, value=period)
-        period_cell.border = _CELL_BORDER
+        _write_text(ws, row_index, 1, period).border = _CELL_BORDER
         point = by_period.get(period) or {}
         _write_point(ws, row_index, 2, point, unit, percent=False)
         growth_cell = ws.cell(row=row_index, column=3)
@@ -347,8 +347,7 @@ def _add_line_panel_sheets(wb: Workbook, dataset: dict[str, Any]) -> None:
             for concept, _ in present
         ]
         for row_index, period in enumerate(periods, start=2):
-            period_cell = ws.cell(row=row_index, column=1, value=period)
-            period_cell.border = _CELL_BORDER
+            _write_text(ws, row_index, 1, period).border = _CELL_BORDER
             for col_offset, (by_period, unit, percent) in enumerate(maps):
                 _write_point(ws, row_index, 2 + col_offset, by_period.get(period) or {}, unit, percent)
 

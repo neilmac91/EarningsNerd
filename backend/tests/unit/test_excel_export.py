@@ -237,21 +237,31 @@ class TestPanelSheets:
 
     def test_formula_injection_is_neutralized(self):
         """SEC-sourced strings (company name, ticker, XBRL units) must never become live Excel
-        formulas — openpyxl persists any string cell starting with "=" as data_type 'f'."""
+        formulas — openpyxl persists any string cell starting with "=" as data_type 'f'. The
+        guard forces the xlsx type attribute back to string, so the value displays VERBATIM
+        (no apostrophe mutation) yet Excel never evaluates it."""
         hostile = _dataset()
         hostile["company_name"] = '=HYPERLINK("http://evil.example","x")'
         hostile["ticker"] = "=T"
         hostile["series"][2]["unit"] = "=cmd/shares"  # eps_diluted row
-        wb = load_workbook(io.BytesIO(build_analysis_workbook(hostile, exported_at=EXPORTED_AT)))
+        data = build_analysis_workbook(hostile, exported_at=EXPORTED_AT)
+        wb = load_workbook(io.BytesIO(data))
 
         overview = wb["Overview"]
         title = overview["A7"]
-        assert title.data_type == "s" and title.value.startswith("'=HYPERLINK")
+        assert title.data_type == "s" and title.value.startswith("=HYPERLINK")
         ticker_cell = overview["B10"]
-        assert ticker_cell.data_type == "s" and ticker_cell.value == "'=T"
+        assert ticker_cell.data_type == "s" and ticker_cell.value == "=T"
         metrics = wb["Metrics"]
         unit_cell = metrics["C4"]  # eps_diluted unit
-        assert unit_cell.data_type == "s" and unit_cell.value == "'=cmd/shares"
+        assert unit_cell.data_type == "s" and unit_cell.value == "=cmd/shares"
+
+        # Structural proof: the workbook writes NO formulas anywhere — any <f> element in a
+        # worksheet part would mean an injected value slipped through as a live formula.
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
+            for name in archive.namelist():
+                if name.startswith("xl/worksheets/"):
+                    assert b"<f>" not in archive.read(name), name
 
     def test_native_charts_use_the_design_system_series_colors(self, workbook_bytes):
         # openpyxl does not read charts back — assert on the chart parts in the zip container.

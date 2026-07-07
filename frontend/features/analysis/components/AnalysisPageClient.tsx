@@ -192,7 +192,7 @@ export default function AnalysisPageClient() {
   // so the workbook always matches the grid it sits under. Works pre-narrative, like /dataset.
   const [exportingXlsx, setExportingXlsx] = useState(false)
   const exportXlsx = useCallback(() => {
-    if (!dataset || exportingXlsx) return
+    if (!dataset || dataset.periods.length === 0 || exportingXlsx) return
     setExportingXlsx(true)
     // Clear any stale export error so a successful retry isn't contradicted by an old banner.
     setDatasetError(null)
