@@ -305,7 +305,7 @@ shadowing state) — guarded by `test_apply_aborts_on_collision_without_writing`
 
 ## Phase 5 — P0-3 cash registry + resync
 
-**Status:** in progress
+**Status:** complete
 **Plan items:** P0-3 — append the ASU 2016-18 restricted-cash tag last in all three cash
 registries; deploy; force companyfacts resync of affected companies; verify FY2019+ cash fills.
 Hard gate 2: resync runs only AFTER this deploy is live.
@@ -331,10 +331,48 @@ sqlite DB (`app.database` re-pointed for the module; `main()` resolves `SessionL
 time so it uses the isolated DB too) → `main()`'s whole-table scan sees only the test's rows.
 Full suite + the polluting combo both green across runs.
 
-**Deploy / prod operations:** _pending the follow-up deploy → before-SQL (captured: JPM
-last_cash_fy=2018, BIIB no cash) → resync cohort (JPM/BAC/BIIB + named banks, ≤50 batch) →
-after-SQL empty → verify JPM FY2019-25 263.6→343.3B (FY16-18 unchanged) + BAC FY2020-25
-380.5→231.8B → mixed-definition count → BAC end-to-end spot-check._
+**Deploy / prod operations:** follow-up deploy live (PR #591 `bfd3676`, `backend-tests` green →
+`deploy-backend` ran). Prod ops sequence (all via the `ops.yml` detection-sql + jobs-channel
+resync arm):
+
+1. **Before-SQL** (pre-resync snapshot, run `28902798853`): `cash_coverage_gap` listed JPM
+   (last_cash_fy=2018) among the gap rows; BAC/BIIB no post-2018 cash.
+2. **Resync** (jobs channel `scripts/sync_companyfacts.py --tickers … --force`, run
+   `28903846454` after the `^;^`-delimiter fix — the first attempt `28903670211` failed because
+   gcloud comma-split the `--args` and only JPM received the ticker). Cohort resynced:
+   **JPM, BAC, BIIB, WFC, C, GS, MS** (≤50-ticker batch, single batch).
+3. **After-SQL** (run `28903916986`, re-confirmed in `28904123931`):
+   - `cash_coverage_gap` → **0 rows** (gate met: detection empty).
+   - `cash_verify_jpm_bac` → **JPM** FY2016-18 legacy **unchanged** (391.2 / 431.3 / 278.8, the
+     no-churn observable), FY2019-25 on the restricted tag (263.6 / 527.6 / 740.8 / 567.2 /
+     624.2 / 469.3 / 343.3) — **exact match** to spec. **BAC** FY2006-19 legacy (unchanged),
+     FY2020-25 restricted (380.5 / 348.2 / 230.2 / 333.1 / 290.1 / 231.8) — **exact match**.
+     `raw_tag` confirms per-period first-tag-wins picked legacy pre-adoption, restricted after.
+4. **Mixed-definition count** (`cash_mixed_definition.sql`, run `28904123931`): **3 rows** —
+   BAC 2020 (161.6→380.5), BIIB 2020 (2.9→1.3), JPM 2019 (278.8→263.6). All three are the
+   **single one-directional ASU 2016-18 adoption boundary** (legacy → restricted, never the
+   reverse, one transition per company at the filer's adoption year), i.e. the benign case the
+   query is designed to separate from a mid-series flip-flop. No company reports both tags and
+   oscillates. **→ append-last is provably sufficient in practice; the parked P2 per-series
+   single-definition rule remains NO-GO** (go/no-go input recorded).
+5. **BAC end-to-end spot-check** (safeguard 7, prod API): `/api/companies/search?q=bac` →
+   **single clean `BAC` row** (id 53, cik 0000070858), stock_quote price **$59.86**
+   (common-stock magnitude, no preferred-suffix duplicate); `/api/companies/BAC` → same clean
+   row; cash series verified exact in step 3; **XLSX filename** is `f"{company.ticker}_…xlsx"`
+   (`analysis.py:216`) → resolves to `BAC_…` now that the P0-1 repair made `company.ticker`
+   canonical (a corrupted preferred-suffix ticker would otherwise leak into the filename). The
+   Pro-gated trend dataset + authed summary badge are not reachable from the ops container without
+   credentials; the load-bearing inputs they render (clean ticker + exact cash series) are both
+   verified, so those surfaces are correct-by-construction. Trend narratives self-invalidate via
+   `dataset_fingerprint`.
+
+**Ops artifacts** added since Phase 0 (no `backend/` touch → no deploy): `ops/detection/
+cash_verify_jpm_bac.sql`, `ops/detection/cash_mixed_definition.sql`, and the `ops.yml`
+jobs-channel `--args` `^;^`-delimiter fix (multi-ticker resync). Folded into the Phase-5
+completion PR.
+
+**Rollback:** revert stops new-tag writes (values already written are correct); break-glass
+DELETE-by-`raw_tag` is a documented manual step, never an ops enum.
 
 ---
 
