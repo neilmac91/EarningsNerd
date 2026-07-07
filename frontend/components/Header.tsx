@@ -75,8 +75,8 @@ export default function Header() {
         {/* Left: Logo */}
         <div className="flex items-center">
           <Link href="/" className="flex items-center gap-2.5">
-            <EarningsNerdLogo variant="icon-only" iconClassName="h-9 w-9" mode="auto" />
-            <span className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
+            <EarningsNerdLogo variant="icon-only" iconClassName="h-10 w-10" mode="auto" />
+            <span className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
               Earnings<em className="italic text-brand-strong dark:text-brand-strong-dark">Nerd</em>
             </span>
           </Link>
