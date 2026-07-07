@@ -91,9 +91,9 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
           className="min-w-0 flex-1"
           style={{ maxHeight: 120, overflowY: 'auto' }}
         />
-        {/* Icon-only primary Button — sm height with the horizontal padding
-            zeroed so it stays a square send affordance. */}
-        <Button type="submit" size="sm" disabled={!canSend} aria-label="Send" className="w-8 shrink-0 px-0">
+        {/* Icon-only primary Button — the first-class icon size (a zero-padding className
+            override on `sm` loses the stylesheet-order conflict and crushes the glyph). */}
+        <Button type="submit" size="icon-sm" disabled={!canSend} aria-label="Send" className="shrink-0">
           <PaperPlaneTiltIcon className="h-4 w-4" />
         </Button>
       </div>

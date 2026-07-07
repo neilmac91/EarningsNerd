@@ -6,8 +6,10 @@ import type { AnalysisMode } from '@/features/analysis/api/analysis-api'
  * was dropping half the labels on a 10-year window; the fix is `interval={0}` on the XAxis plus
  * these COMPACT tick renderings so all 10–12 labels actually fit a half-width panel:
  *
- * - Annual: "FY '16 '17 '18 …" — the FY prefix stated once on the first tick, bare '17-style
- *   two-digit years after it.
+ * - Annual: bare "'16 '17 '18 …" two-digit years — every label centers exactly on its bar/point
+ *   (a "FY" prefix on the first tick shifted "'16" visibly off its bar, the AAPL field-test
+ *   misalignment). What the ticks mean is stated ONCE by the axis caption underneath
+ *   ("Financial Year" / "Fiscal Quarter" — `periodAxisLabel`).
  * - Quarterly: a stacked two-line tick, "Q2" over "'23" (Q2'23 reading order) — a single-line
  *   "Q2'23" at the 11px dense-annotation floor is ~33px wide × 12 periods and cannot fit half
  *   the grid, but the 2-line stack halves the width per tick.
@@ -16,12 +18,10 @@ import type { AnalysisMode } from '@/features/analysis/api/analysis-api'
 const ANNUAL_KEY = /^FY(\d{4})$/
 const QUARTER_KEY = /^(\d{4})(Q[1-4])$/
 
-/** "FY2016" → "'16" (first tick: "FY '16"). Unrecognized keys pass through untouched. */
-export function annualTickLabel(key: string, index: number): string {
+/** "FY2016" → "'16". Unrecognized keys pass through untouched. */
+export function annualTickLabel(key: string): string {
   const match = ANNUAL_KEY.exec(key)
-  if (!match) return key
-  const short = `'${match[1].slice(2)}`
-  return index === 0 ? `FY ${short}` : short
+  return match ? `'${match[1].slice(2)}` : key
 }
 
 /** "2023Q2" → ["Q2", "'23"] (quarter over year); null for unrecognized keys. */
@@ -31,8 +31,21 @@ export function quarterlyTickLines(key: string): [string, string] | null {
   return [match[2], `'${match[1].slice(2)}`]
 }
 
-/** Extra XAxis height needed by the two-line quarterly tick (Recharts default is 30). */
-export const QUARTERLY_AXIS_HEIGHT = 42
+/** XAxis band heights: the tick row (one line annual / two stacked quarterly) plus the axis
+ *  caption line underneath (Recharts default height is 30, ticks only). */
+export const ANNUAL_AXIS_HEIGHT = 46
+export const QUARTERLY_AXIS_HEIGHT = 58
+
+/** The axis caption rendered below the tick row — pass as the XAxis `label` prop. Names what
+ *  the compact ticks mean ("Financial Year" under "'16 '17 …"), the owner-requested pattern. */
+export function periodAxisLabel(mode: AnalysisMode, dark: boolean) {
+  return {
+    value: mode === 'annual' ? 'Financial Year' : 'Fiscal Quarter',
+    position: 'insideBottom' as const,
+    offset: 0,
+    style: { fill: chartTheme(dark).label, fontSize: 11, fontFamily: CHART_FONT },
+  }
+}
 
 interface PeriodAxisTickProps {
   mode: AnalysisMode
@@ -40,7 +53,6 @@ interface PeriodAxisTickProps {
   /** Injected by Recharts when passed as `tick={<PeriodAxisTick …/>}`. */
   x?: number
   y?: number
-  index?: number
   payload?: { value?: string | number }
 }
 
@@ -48,7 +60,7 @@ interface PeriodAxisTickProps {
  * Recharts custom XAxis `tick`. 11px data face (the dense-annotation floor) in the theme's
  * chart-label ink — the compactness is what buys `interval={0}` its room.
  */
-export function PeriodAxisTick({ mode, dark, x, y, index, payload }: PeriodAxisTickProps) {
+export function PeriodAxisTick({ mode, dark, x, y, payload }: PeriodAxisTickProps) {
   const key = String(payload?.value ?? '')
   const fill = chartTheme(dark).label
   const shared = {
@@ -73,7 +85,7 @@ export function PeriodAxisTick({ mode, dark, x, y, index, payload }: PeriodAxisT
   }
   return (
     <text {...shared} y={y} dy={10}>
-      {annualTickLabel(key, index ?? 0)}
+      {annualTickLabel(key)}
     </text>
   )
 }

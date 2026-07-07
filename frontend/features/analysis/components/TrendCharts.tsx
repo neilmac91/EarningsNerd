@@ -5,7 +5,6 @@ import {
   Bar,
   CartesianGrid,
   ComposedChart,
-  LabelList,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -19,10 +18,8 @@ import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import {
   Button,
   Card,
-  CHART_FONT,
   ChartTooltip,
   barCursorProps,
-  chartTheme,
   cx,
   gridProps,
   lineProps,
@@ -30,17 +27,17 @@ import {
   xAxisProps,
   yAxisProps,
 } from '@/components/ui'
-import {
-  ArrowsInSimpleIcon,
-  ArrowsOutSimpleIcon,
-  ImageSquareIcon,
-  TagSimpleIcon,
-} from '@/lib/icons'
+import { ArrowsInSimpleIcon, ArrowsOutSimpleIcon, ImageSquareIcon } from '@/lib/icons'
 import { usePrefersReducedMotion } from '@/hooks/usePrefersReducedMotion'
 import analytics from '@/lib/analytics'
 import { fmtCurrency, fmtPercent } from '@/lib/format'
 import { exportFilename, exportPanelPng } from '@/features/analysis/lib/chartExport'
-import { PeriodAxisTick, QUARTERLY_AXIS_HEIGHT } from '@/features/analysis/lib/periodAxis'
+import {
+  ANNUAL_AXIS_HEIGHT,
+  PeriodAxisTick,
+  QUARTERLY_AXIS_HEIGHT,
+  periodAxisLabel,
+} from '@/features/analysis/lib/periodAxis'
 import type { AnalysisDataset, AnalysisSeries } from '@/features/analysis/api/analysis-api'
 
 const bySeries = (dataset: AnalysisDataset): Record<string, AnalysisSeries> =>
@@ -54,10 +51,6 @@ const pct = (v: number) => fmtPercent(v, { digits: 1 })
 const BAR_COLOR = seriesColor(0)
 const GROWTH_LINE_COLOR = seriesColor(1)
 const GROWTH_LINE_LABEL = 'YoY growth'
-
-// Data labels auto-thin on crowded axes: annual 10 / quarterly 12 periods overlap at full
-// density, so past this count only every other point is labelled.
-const LABEL_THINNING_THRESHOLD = 8
 
 /** A panel's series legend: swatch + label per line, mirroring ChartTooltip's own swatch recipe
  *  (8×8 square, 2px radius) so a multi-line panel's series are identifiable without hovering.
@@ -97,57 +90,18 @@ interface PanelSpec {
   format: (v: number) => string
 }
 
-/** Recharts LabelList `content` renderer: panel-formatted value above the point/bar, chart-label
- *  ink, data face at the 11px dense-annotation floor, thinned on crowded axes. Thinning anchors
- *  on the NEWEST period (the value users came for) and walks back every `step` — the oldest
- *  point drops first, never the latest. */
-const makeValueLabel = (
-  format: (v: number) => string,
-  fill: string,
-  step: number,
-  total: number
-) =>
-  function ChartValueLabel(props: unknown) {
-    const { x, y, width, value, index } = props as {
-      x?: number | string
-      y?: number | string
-      width?: number | string
-      value?: number | string | null
-      index?: number
-    }
-    if (value === null || value === undefined || typeof index !== 'number') return null
-    if ((total - 1 - index) % step !== 0) return null
-    const num = Number(value)
-    if (!Number.isFinite(num)) return null
-    const anchorX = Number(x) + (width !== undefined ? Number(width) / 2 : 0)
-    return (
-      <text
-        x={anchorX}
-        y={Number(y) - 6}
-        textAnchor="middle"
-        fill={fill}
-        fontSize={11}
-        fontFamily={CHART_FONT}
-      >
-        {format(num)}
-      </text>
-    )
-  }
-
 /** Icon-only panel-header control. `secondary` (hairline border + resting surface), 32px hit
- *  area, 16px glyphs — the TSLA field test proved the ghost 28px/14px version read as unshipped
- *  (owner decision D3: keep icon-only, make the affordance visible at rest). Native `title`
+ *  area, 20px glyphs — the TSLA field test proved the ghost 28px/14px version read as unshipped
+ *  (owner decision D3: keep icon-only, make the affordance visible at rest), and the AAPL
+ *  follow-up sized the glyphs up from 16px, which still read tiny in production. Native `title`
  *  tooltips + aria semantics carry the labels. */
 function PanelControl({
   label,
-  pressed,
   expanded,
   onClick,
   children,
 }: {
   label: string
-  /** Toggle semantics (aria-pressed) — the data-labels control. */
-  pressed?: boolean
   /** Disclosure semantics (aria-expanded) — the expand control. */
   expanded?: boolean
   onClick: () => void
@@ -156,13 +110,12 @@ function PanelControl({
   return (
     <Button
       variant="secondary"
-      size="sm"
+      size="icon-sm"
       aria-label={label}
       title={label}
-      aria-pressed={pressed}
       aria-expanded={expanded}
       onClick={onClick}
-      className={cx('h-8 w-8 shrink-0 px-0', pressed && 'bg-brand-weak dark:bg-brand-weak-dark')}
+      className="shrink-0"
     >
       {children}
     </Button>
@@ -183,7 +136,6 @@ function PanelCard({
   const dark = useContext(ThemeContext)?.theme === 'dark'
   const reduced = usePrefersReducedMotion()
   const [expanded, setExpanded] = useState(false)
-  const [showLabels, setShowLabels] = useState(false)
   const plotRef = useRef<HTMLDivElement>(null)
 
   // One series→(concept, label, color, axis) mapping drives the legend AND the plotted <Line>s —
@@ -241,11 +193,6 @@ function PanelCard({
         color,
       }))
 
-  const labelStep = dataset.periods.length > LABEL_THINNING_THRESHOLD ? 2 : 1
-  const valueLabel = showLabels
-    ? makeValueLabel(panel.format, chartTheme(dark).label, labelStep, dataset.periods.length)
-    : null
-
   const exportPng = async () => {
     if (!plotRef.current) return
     const downloaded = await exportPanelPng(
@@ -275,16 +222,9 @@ function PanelCard({
           <PanelLegend items={legendItems} />
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <PanelControl
-            label={showLabels ? 'Hide data labels' : 'Show data labels'}
-            pressed={showLabels}
-            onClick={() => setShowLabels((v) => !v)}
-          >
-            <TagSimpleIcon className="h-4 w-4" aria-hidden="true" />
-          </PanelControl>
           {exportEnabled && (
             <PanelControl label="Download chart as PNG" onClick={() => void exportPng()}>
-              <ImageSquareIcon className="h-4 w-4" aria-hidden="true" />
+              <ImageSquareIcon className="h-5 w-5" aria-hidden="true" />
             </PanelControl>
           )}
           <PanelControl
@@ -293,9 +233,9 @@ function PanelCard({
             onClick={() => setExpanded((v) => !v)}
           >
             {expanded ? (
-              <ArrowsInSimpleIcon className="h-4 w-4" aria-hidden="true" />
+              <ArrowsInSimpleIcon className="h-5 w-5" aria-hidden="true" />
             ) : (
-              <ArrowsOutSimpleIcon className="h-4 w-4" aria-hidden="true" />
+              <ArrowsOutSimpleIcon className="h-5 w-5" aria-hidden="true" />
             )}
           </PanelControl>
         </div>
@@ -309,16 +249,18 @@ function PanelCard({
       >
         <ResponsiveContainer width="100%" height="100%">
           {barSeries ? (
-            <ComposedChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+            <ComposedChart data={data} margin={{ top: 8, right: 16, left: 8, bottom: 0 }}>
               <CartesianGrid {...gridProps(dark)} />
               <XAxis
                 dataKey="period"
                 {...xAxisProps(dark)}
-                // Every period gets a label (owner decision D2) — Recharts' auto interval was
-                // dropping half of a 10-year window. The compact PeriodAxisTick buys the room.
+                // Every period gets a tick (owner decision D2) — Recharts' auto interval was
+                // dropping half of a 10-year window. The compact PeriodAxisTick buys the room,
+                // and the axis caption underneath names what the bare ticks mean.
                 interval={0}
-                height={dataset.mode === 'quarterly' ? QUARTERLY_AXIS_HEIGHT : undefined}
+                height={dataset.mode === 'quarterly' ? QUARTERLY_AXIS_HEIGHT : ANNUAL_AXIS_HEIGHT}
                 tick={<PeriodAxisTick mode={dataset.mode} dark={dark} />}
+                label={periodAxisLabel(dataset.mode, dark)}
               />
               <YAxis yAxisId="value" {...yAxisProps(dark)} width={64} tickFormatter={panel.format} />
               <YAxis
@@ -339,11 +281,7 @@ function PanelCard({
                 fill={BAR_COLOR}
                 radius={[4, 4, 0, 0]}
                 maxBarSize={44}
-              >
-                {valueLabel && (
-                  <LabelList dataKey={barSeries.concept} position="top" content={valueLabel} />
-                )}
-              </Bar>
+              />
               {panel.growthLine && (
                 <Line
                   yAxisId="growth"
@@ -356,16 +294,18 @@ function PanelCard({
               )}
             </ComposedChart>
           ) : (
-            <LineChart data={data} margin={{ top: 8, right: 8, left: 8, bottom: 0 }}>
+            <LineChart data={data} margin={{ top: 8, right: 16, left: 8, bottom: 0 }}>
               <CartesianGrid {...gridProps(dark)} />
               <XAxis
                 dataKey="period"
                 {...xAxisProps(dark)}
-                // Every period gets a label (owner decision D2) — Recharts' auto interval was
-                // dropping half of a 10-year window. The compact PeriodAxisTick buys the room.
+                // Every period gets a tick (owner decision D2) — Recharts' auto interval was
+                // dropping half of a 10-year window. The compact PeriodAxisTick buys the room,
+                // and the axis caption underneath names what the bare ticks mean.
                 interval={0}
-                height={dataset.mode === 'quarterly' ? QUARTERLY_AXIS_HEIGHT : undefined}
+                height={dataset.mode === 'quarterly' ? QUARTERLY_AXIS_HEIGHT : ANNUAL_AXIS_HEIGHT}
                 tick={<PeriodAxisTick mode={dataset.mode} dark={dark} />}
+                label={periodAxisLabel(dataset.mode, dark)}
               />
               <YAxis yAxisId="left" {...yAxisProps(dark)} width={64} tickFormatter={panel.format} />
               {dualAxis && (
@@ -387,11 +327,7 @@ function PanelCard({
                   stroke={color}
                   {...lineProps(reduced)}
                   connectNulls
-                >
-                  {valueLabel && (
-                    <LabelList dataKey={concept} position="top" content={valueLabel} />
-                  )}
-                </Line>
+                />
               ))}
             </LineChart>
           )}
@@ -404,8 +340,9 @@ function PanelCard({
 /**
  * The four trend panels (revenue+growth, margins, cash, balance sheet), all straight from the
  * deterministic dataset via the design-system chart factories. Panels whose concepts are absent
- * (gross margin for a bank) collapse silently. Per-panel controls: data-label toggle, PNG
- * download (Pro), expand to full grid width.
+ * (gross margin for a bank) collapse silently. Per-panel controls: PNG download (Pro), expand
+ * to full grid width. (Data labels were removed after the AAPL field test — on dense real-world
+ * series they collide into unreadable stacks; values live in the tooltip and metrics grid.)
  */
 export default function TrendCharts({
   dataset,

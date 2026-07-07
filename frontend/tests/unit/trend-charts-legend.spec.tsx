@@ -8,7 +8,6 @@ vi.mock('recharts', () => ({
   LineChart: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   Bar: () => null,
   Line: () => null,
-  LabelList: () => null,
   XAxis: () => null,
   YAxis: () => null,
   CartesianGrid: () => null,
@@ -142,15 +141,9 @@ describe('TrendCharts panel controls', () => {
     expect(card?.querySelector('.h-56')).not.toBeNull()
   })
 
-  it('toggles the data-label control with pressed-state semantics', () => {
+  it('renders no data-label control (removed after the AAPL field test — dense series collide)', () => {
     render(<TrendCharts dataset={dataset} />)
-    const toggle = screen.getAllByRole('button', { name: 'Show data labels' })[0]
-    expect(toggle).toHaveAttribute('aria-pressed', 'false')
-    fireEvent.click(toggle)
-    expect(screen.getAllByRole('button', { name: 'Hide data labels' })[0]).toHaveAttribute(
-      'aria-pressed',
-      'true'
-    )
+    expect(screen.queryByRole('button', { name: /data labels/i })).not.toBeInTheDocument()
   })
 
   it('shows the PNG download only when exportEnabled (Pro results surface)', () => {

@@ -2,23 +2,42 @@ import { describe, expect, it } from 'vitest'
 import { render } from '@testing-library/react'
 
 import {
+  ANNUAL_AXIS_HEIGHT,
   PeriodAxisTick,
   QUARTERLY_AXIS_HEIGHT,
   annualTickLabel,
+  periodAxisLabel,
   quarterlyTickLines,
 } from '@/features/analysis/lib/periodAxis'
 import { buildMarkSvg, MARK_STAMP } from '@/features/analysis/lib/chartExport'
 
 describe('annualTickLabel', () => {
-  it("states FY once on the first tick, then bare two-digit years: FY '16, '17…", () => {
-    expect(annualTickLabel('FY2016', 0)).toBe("FY '16")
-    expect(annualTickLabel('FY2017', 1)).toBe("'17")
-    expect(annualTickLabel('FY2025', 9)).toBe("'25")
+  it("renders bare two-digit years — '16, '17… — so every label centers on its bar", () => {
+    // No FY prefix on any tick (the wider "FY '16" shifted off its bar — AAPL field test);
+    // the axis caption underneath names the unit instead.
+    expect(annualTickLabel('FY2016')).toBe("'16")
+    expect(annualTickLabel('FY2017')).toBe("'17")
+    expect(annualTickLabel('FY2025')).toBe("'25")
   })
 
   it('passes unrecognized keys through untouched', () => {
-    expect(annualTickLabel('2024Q3', 1)).toBe('2024Q3')
-    expect(annualTickLabel('', 0)).toBe('')
+    expect(annualTickLabel('2024Q3')).toBe('2024Q3')
+    expect(annualTickLabel('')).toBe('')
+  })
+})
+
+describe('periodAxisLabel (the axis caption)', () => {
+  it('names the tick unit per mode, styled from the chart theme tokens', () => {
+    expect(periodAxisLabel('annual', false).value).toBe('Financial Year')
+    expect(periodAxisLabel('quarterly', false).value).toBe('Fiscal Quarter')
+    expect(periodAxisLabel('annual', false).style.fontSize).toBe(11)
+    // Theme ink follows dark mode (chartTheme label values).
+    expect(periodAxisLabel('annual', true).style.fill).not.toBe(periodAxisLabel('annual', false).style.fill)
+  })
+
+  it('axis heights reserve room for the caption below the tick row', () => {
+    expect(ANNUAL_AXIS_HEIGHT).toBeGreaterThan(30) // Recharts default is ticks-only
+    expect(QUARTERLY_AXIS_HEIGHT).toBeGreaterThan(ANNUAL_AXIS_HEIGHT) // two-line ticks stack taller
   })
 })
 
@@ -39,16 +58,16 @@ const renderTick = (element: React.ReactElement) => render(<svg>{element}</svg>)
 describe('PeriodAxisTick', () => {
   it('renders a single compact annual label', () => {
     const { container } = renderTick(
-      <PeriodAxisTick mode="annual" dark={false} x={50} y={10} index={0} payload={{ value: 'FY2016' }} />
+      <PeriodAxisTick mode="annual" dark={false} x={50} y={10} payload={{ value: 'FY2016' }} />
     )
     const text = container.querySelector('text')
-    expect(text?.textContent).toBe("FY '16")
+    expect(text?.textContent).toBe("'16")
     expect(text?.getAttribute('font-size')).toBe('11')
   })
 
   it('renders the two-line quarterly tick (quarter over year)', () => {
     const { container } = renderTick(
-      <PeriodAxisTick mode="quarterly" dark={false} x={50} y={10} index={3} payload={{ value: '2023Q2' }} />
+      <PeriodAxisTick mode="quarterly" dark={false} x={50} y={10} payload={{ value: '2023Q2' }} />
     )
     const spans = container.querySelectorAll('tspan')
     expect(spans).toHaveLength(2)
@@ -60,7 +79,7 @@ describe('PeriodAxisTick', () => {
 
   it('falls back to a single-line label for a quarterly key it cannot parse', () => {
     const { container } = renderTick(
-      <PeriodAxisTick mode="quarterly" dark={false} x={50} y={10} index={0} payload={{ value: 'TTM' }} />
+      <PeriodAxisTick mode="quarterly" dark={false} x={50} y={10} payload={{ value: 'TTM' }} />
     )
     expect(container.querySelector('text')?.textContent).toBe('TTM')
     expect(container.querySelectorAll('tspan')).toHaveLength(0)
