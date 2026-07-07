@@ -7,22 +7,25 @@ styling, or data changes. Approved decisions: coverage claim = "every SEC-regist
 (align HowItWorks); whimsy loaders trimmed to the sharp ones; emoji dropped from headings and
 banners (feedback chips stay); em-dash CI gate added (CLAUDE.md rule 12).
 
-- [ ] 1. `docs/voice-and-style.md` (reusable voice spec)
-- [ ] 2. Chrome + metadata (layout, manifest, home meta/hero/JSON-LD, Footer, AiDisclaimer,
-      error pages, CookieConsent, search/calendar/analysis/company meta)
-- [ ] 3. Marketing components (QuickAccessBar, HowItWorks, FeatureShowcase, AccuracySection,
+- [x] 1. `docs/voice-and-style.md` (reusable voice spec)
+- [x] 2. Chrome + metadata (layout, manifest, home meta/hero/JSON-LD, Footer, AiDisclaimer,
+      error pages, search/calendar/analysis/company meta; CookieConsent left as-is)
+- [x] 3. Marketing components (QuickAccessBar, HowItWorks, FeatureShowcase, AccuracySection,
       CtaBanner, HeroExample, NotableFilings, ReportingThisWeek) + specs in lockstep
-- [ ] 4. Waitlist page + form
-- [ ] 5. Pricing + auth surfaces (register, AuthShell, verification banner/modal,
-      delete-account retention note, de-exclaim auth success states)
-- [ ] 6. App surfaces (dashboard, settings, watchlist, calendar, analysis, search, company,
+- [x] 4. Waitlist page + form
+- [x] 5. Pricing + auth surfaces (register, AuthShell, verification banner/modal,
+      delete-account retention note, de-exclaimed auth success states)
+- [x] 6. App surfaces (dashboard, settings, watchlist, calendar, analysis, search, company,
       filing/streaming, summaries, copilot, subscriptions, feedback) + specs in lockstep
-- [ ] 7. Admin (em-dashes only) + invite-message twin in backend email_service.py
-- [ ] 8. New gate: `frontend/tests/unit/no-em-dash-copy.spec.ts`
-- [ ] 9. Verify: frontend full gate + e2e + backend full gate + classified em-dash sweep +
-      read-aloud diff review
-- [ ] 10. `docs/copy-change-summary.md` (before→after highlights + flagged claims)
-- [ ] 11. Commit, push, draft PR (no merge, no deploy)
+      (+ alerts-cap 403 detail synced in backend watchlist router + fixture)
+- [x] 7. Admin (em-dashes only) + invite-message twin in backend email_service.py
+- [x] 8. New gate: `frontend/tests/unit/no-em-dash-copy.spec.ts` (caught 2 misses: terms
+      meta, Chart.tsx dev warn — fixed)
+- [x] 9. Verify: eslint 0 / tsc 0 / vitest 331 passed (70 files) / next build OK /
+      playwright 17 passed 3 skipped 0 failed (CI-shaped: WAITLIST_MODE=false) /
+      backend ruff + bandit + pytest 1368 passed / diff read-aloud review
+- [x] 10. `docs/copy-change-summary.md` (before→after highlights + flagged claims)
+- [x] 11. Commit, push, draft PR (no merge, no deploy)
 
 # Task: Design-system v2 adoption pass (post-migration; PR-per-surface)
 
