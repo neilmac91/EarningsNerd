@@ -76,7 +76,6 @@ export {
   SquaresFourIcon,
   StarIcon,
   SunIcon,
-  TagSimpleIcon,
   TrashIcon,
   TrendDownIcon,
   TrendUpIcon,

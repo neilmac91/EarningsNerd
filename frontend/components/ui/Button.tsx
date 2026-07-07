@@ -25,7 +25,7 @@ import { forwardRef, type ButtonHTMLAttributes, type MouseEvent, type ReactNode 
 import { cx } from './cx'
 
 export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'tertiary' | 'destructive'
-export type ButtonSize = 'sm' | 'md' | 'lg'
+export type ButtonSize = 'sm' | 'md' | 'lg' | 'icon-sm'
 
 /** 'tertiary' is the kept pre-v2 name for the ghost treatment — accepted as a
     deprecated alias so the port is mechanical (3 call sites). New code: 'ghost'. */
@@ -44,6 +44,11 @@ const SIZE: Record<ButtonSize, string> = {
   sm: 'h-8 gap-1.5 rounded-lg px-3 text-xs',
   md: 'h-10 rounded-lg px-4 text-sm',
   lg: 'h-12 rounded-lg px-5 text-base',
+  // Icon-only square. A first-class size, NOT a zero-padding className override on `sm`: cx
+  // does no tailwind-merge, so two conflicting padding utilities in one class attribute resolve
+  // by STYLESHEET order and the size's px-3 wins — which crushed 20px glyphs to a 6px content
+  // box (the AAPL "tiny icons" bug; gate: tests/unit/button-icon-size-gate.spec.ts).
+  'icon-sm': 'h-8 w-8 rounded-lg p-0 text-xs',
 }
 
 const VARIANT: Record<Exclude<ButtonVariant, 'tertiary'>, string> = {
@@ -84,7 +89,12 @@ const VARIANT: Record<Exclude<ButtonVariant, 'tertiary'>, string> = {
   ),
 }
 
-const SPINNER_SIZE: Record<ButtonSize, string> = { sm: 'h-3 w-3', md: 'h-4 w-4', lg: 'h-4.5 w-4.5' }
+const SPINNER_SIZE: Record<ButtonSize, string> = {
+  sm: 'h-3 w-3',
+  md: 'h-4 w-4',
+  lg: 'h-4.5 w-4.5',
+  'icon-sm': 'h-4 w-4',
+}
 
 export interface ButtonVariantsOptions {
   variant?: ButtonVariant
