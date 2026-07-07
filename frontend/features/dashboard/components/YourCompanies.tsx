@@ -131,7 +131,7 @@ export default function YourCompanies({ insights, isLoading, isError, refetch, i
           <div className="mt-4 text-right">
             <Link
               href="/dashboard/watchlist"
-              className="inline-flex items-center gap-1 rounded-md text-sm font-medium text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+              className="inline-flex items-center gap-1 rounded-lg text-sm font-medium text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:shadow-ring-brand dark:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
             >
               Open watchlist insights
               <ArrowRightIcon className="h-4 w-4" />

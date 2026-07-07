@@ -152,7 +152,10 @@ export default function DashboardPage() {
   const usagePercentage = usage?.summaries_limit
     ? (usage.summaries_used / usage.summaries_limit) * 100
     : 0
-  const showUsageWarning = usagePercentage >= 80 && !subscription?.is_pro && !usageError
+  // Key the warning off the usage query (which also drives usagePercentage), NOT subscription, so a
+  // transient subscription-API error can't flip it: a Pro user reads usage.is_pro (never warned) and
+  // a free user near the cap still gets warned even if the subscription call flaked.
+  const showUsageWarning = usagePercentage >= 80 && !usage?.is_pro && !usageError
   const hasSavedSummaries = Boolean(savedSummaries && savedSummaries.length > 0)
   const watchlistCount = watchlistInsights?.length
 
