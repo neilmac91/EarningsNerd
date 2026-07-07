@@ -62,7 +62,7 @@ function VerifyEmailContent() {
               <CheckCircleIcon className="animate-check-pop h-12 w-12 text-brand-strong dark:text-brand-strong-dark" />
             </div>
             <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-              Email verified!
+              Email verified
             </h1>
             <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
               Your account is active. Redirecting you now…

@@ -61,7 +61,7 @@ export default function FeedbackWidget() {
         message: message.trim(),
         pageUrl: typeof window !== 'undefined' ? window.location.pathname : undefined,
       })
-      toast.success('Thanks for the feedback!', { description: "We read every note — it really helps." })
+      toast.success('Thanks for the feedback', { description: 'We read every note. It really helps.' })
       setMessage('')
       setType('general')
       setOpen(false)

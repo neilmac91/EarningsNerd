@@ -59,7 +59,7 @@ export default function VerificationBanner() {
         <WarningCircleIcon className="h-4 w-4 shrink-0" />
         <p className="flex-1">
           {resent ? (
-            <>Verification email sent — check your inbox.</>
+            <>Verification email sent. Check your inbox.</>
           ) : (
             <>Verify your email to generate summaries and subscribe.</>
           )}

@@ -53,7 +53,7 @@ function ResetPasswordContent() {
             <CheckCircleIcon className="animate-check-pop h-12 w-12 text-brand-strong dark:text-brand-strong-dark" />
           </div>
           <h1 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-            Password updated!
+            Password updated
           </h1>
           <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
             Redirecting you to login…
