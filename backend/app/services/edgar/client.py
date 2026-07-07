@@ -143,15 +143,21 @@ def _get_or_build_company(cik: str) -> EdgarCompany:
     """Return a cached EdgarCompany for the CIK, building one on miss/expiry. The caller MUST hold the
     per-CIK lock so two concurrent same-CIK builds/loads can't race."""
     with _company_cache_lock:
-        entry = _company_cache.get(cik)
+        # Pop-then-reinsert on a hit so the reused entity moves to the back of the eviction queue
+        # (LRU, matching _mark_empty_fallback). Without this, a distinct-company burst under
+        # concurrency=40 could evict a company BETWEEN its two concurrent extractions — the exact
+        # double-build this cache prevents. Keep the build-time timestamp: the TTL is memory hygiene
+        # only, and staleness doesn't matter for fixed-accession lookups.
+        entry = _company_cache.pop(cik, None)
         if entry is not None and (utcnow() - entry[1]) < _COMPANY_CACHE_TTL:
+            _company_cache[cik] = entry
             return entry[0]
     # Build OUTSIDE the global lock (construction hits the network); the per-CIK lock the caller holds
     # already prevents a duplicate same-CIK build.
     company = EdgarCompany(cik)
     with _company_cache_lock:
         if cik not in _company_cache and len(_company_cache) >= _COMPANY_CACHE_MAX:
-            _company_cache.pop(next(iter(_company_cache)), None)  # insertion-ordered → oldest
+            _company_cache.pop(next(iter(_company_cache)), None)  # LRU: least-recently-used is oldest
         _company_cache[cik] = (company, utcnow())
     return company
 
@@ -159,10 +165,14 @@ def _get_or_build_company(cik: str) -> EdgarCompany:
 def resolve_filing_by_accession(cik: str, accession_number: str) -> Tuple[EdgarCompany, list]:
     """Resolve a filing by accession, reusing a cached EdgarCompany across a summary's two concurrent
     extractions so an old filing's full-history load runs once, not per extraction. Thread-safe:
-    same-CIK resolutions serialize on a per-CIK lock (edgartools' lazy load mutates the entity);
-    after the one-time load the entity is read-only, so callers may use the returned company (e.g.
-    for ``company.sic``) outside the lock. Returns ``(company, filings)``. Synchronous — call inside
-    the edgar thread pool."""
+    same-CIK resolutions serialize on a per-CIK lock (edgartools' lazy load mutates the entity).
+
+    Callers may read INIT-TIME METADATA (e.g. ``company.sic``, ``is_financial_institution()``) on the
+    returned company outside the lock, but must NOT call ``company.get_filings`` / iterate
+    ``company.filings`` on the handle outside this function: a later same-CIK resolution for an older
+    accession can full-load and mutate the shared entity (``self.filings`` / ``_loaded_all_filings``)
+    under the lock, concurrent with an earlier caller still holding the handle. Returns
+    ``(company, filings)``. Synchronous — call inside the edgar thread pool."""
     with _get_company_lock(cik):
         company = _get_or_build_company(cik)
         return company, get_filing_by_accession(company, accession_number)

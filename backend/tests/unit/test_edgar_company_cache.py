@@ -77,6 +77,17 @@ def test_resolver_cache_is_bounded():
     assert len(client_mod._company_cache) <= client_mod._COMPANY_CACHE_MAX
 
 
+def test_lru_refresh_on_hit_protects_reused_entity_from_eviction():
+    # A cache HIT must move the entity to the back of the eviction queue (LRU), so a distinct-company
+    # burst can't evict a company between its two concurrent extractions. FIFO would evict cik-0.
+    for i in range(client_mod._COMPANY_CACHE_MAX):
+        client_mod.resolve_filing_by_accession(f"cik-{i}", "acc")
+    client_mod.resolve_filing_by_accession("cik-0", "acc")  # re-use → refreshes cik-0 to MRU
+    client_mod.resolve_filing_by_accession("cik-new", "acc")  # evicts the least-recently-used
+    assert "cik-0" in client_mod._company_cache  # survived thanks to the LRU refresh
+    assert "cik-1" not in client_mod._company_cache  # evicted (least-recently-used)
+
+
 def test_idle_company_lock_is_garbage_collected():
     # _company_locks is a WeakValueDictionary, so a CIK's lock is dropped once no thread references
     # it — no unbounded growth over the process lifetime. The company itself stays in the bounded cache.
