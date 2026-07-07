@@ -97,9 +97,14 @@ def main(argv=None) -> int:
             session.query(SavedSummary).filter(SavedSummary.summary_id.in_(to_delete)).delete(
                 synchronize_session=False
             )
-        # Clear progress first (regeneration starts clean); keep XBRL + content cache.
+        # Clear progress ONLY for filings whose summary is actually being deleted — a skipped
+        # (pinned) summary keeps its Summary row, so its progress must be kept too, else it is left
+        # in an inconsistent state (mirrors admin reset_all's delete_filing_ids). XBRL + content
+        # cache are intentionally kept so regeneration stays fast.
+        to_delete_set = set(to_delete)
+        filing_ids_to_delete = {fid for (sid, fid) in rows if sid in to_delete_set}
         session.query(SummaryGenerationProgress).filter(
-            SummaryGenerationProgress.filing_id.in_(filing_ids)
+            SummaryGenerationProgress.filing_id.in_(filing_ids_to_delete)
         ).delete(synchronize_session=False)
         session.query(Summary).filter(Summary.id.in_(to_delete)).delete(synchronize_session=False)
         session.commit()
