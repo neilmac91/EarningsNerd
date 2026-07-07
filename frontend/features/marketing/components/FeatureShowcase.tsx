@@ -3,23 +3,23 @@ import { BrainIcon, ChartBarIcon, ColumnsIcon, ShieldIcon } from '@/lib/icons'
 
 const FEATURES = [
   {
-    title: 'AI-Powered Summaries',
-    description: 'Turn 100-page filings into structured 5-minute reads. Business overview, financials, risks, and outlook — all in one place.',
+    title: 'AI summaries',
+    description: 'Turn 100-page filings into structured 5-minute reads: business overview, financials, risks, and outlook.',
     icon: BrainIcon,
   },
   {
-    title: 'XBRL-Verified Financials',
-    description: 'Financial metrics drawn from the standardized XBRL data filed with the SEC. Revenue, margins, EPS, and more — traced to the source.',
+    title: 'XBRL-verified financials',
+    description: 'Financial metrics come from the standardized XBRL data filed with the SEC. Revenue, margins, and EPS, traced to the source.',
     icon: ChartBarIcon,
   },
   {
-    title: 'Risk Factor Analysis',
+    title: 'Risk factor analysis',
     description: 'Track new, changed, and evolving risk disclosures. Spot material changes before the market reacts.',
     icon: ShieldIcon,
   },
   {
     title: 'Multi-Period Analysis',
-    description: 'Trend any company across up to 10 fiscal years or 12 quarters — growth, margins, cash — with AI analysis grounded in SEC data.',
+    description: 'Trend any company across up to 10 fiscal years or 12 quarters. Growth, margins, and cash, with AI analysis grounded in SEC data.',
     icon: ColumnsIcon,
   },
 ] as const

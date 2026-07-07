@@ -42,7 +42,7 @@ export default function ReportingThisWeek({
         <SectionImpression section="reporting_this_week">
         <div className="mb-8 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-2xl font-semibold tracking-tight text-text-primary-light dark:text-text-primary-dark">
-            <span aria-hidden="true">📅</span> Reporting This Week
+            Reporting this week
           </h2>
           {ENABLE_CALENDAR && (
             <Link

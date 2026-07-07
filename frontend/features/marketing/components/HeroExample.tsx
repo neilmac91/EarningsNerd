@@ -93,7 +93,7 @@ function HeroExample({ example }: { example: ExampleData | null }) {
           </div>
           <div className="mx-auto flex-1 max-w-xs">
             <div className="rounded border border-border-light dark:border-white/10 bg-white dark:bg-white/5 px-3 py-1 text-center font-mono text-xs text-text-secondary-light dark:text-text-secondary-dark">
-              earningsnerd.io — example summary
+              earningsnerd.io · example summary
             </div>
           </div>
         </div>

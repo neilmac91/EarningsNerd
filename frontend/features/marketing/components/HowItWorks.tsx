@@ -5,7 +5,7 @@ const STEPS = [
   {
     number: '01',
     title: 'Search any company',
-    description: 'Find any public company by name or ticker symbol. We cover 500+ companies on SEC EDGAR.',
+    description: 'Find any public company by name or ticker. We cover every company that files with the SEC.',
     icon: MagnifyingGlassIcon,
   },
   {
@@ -16,8 +16,8 @@ const STEPS = [
   },
   {
     number: '03',
-    title: 'Get instant insights',
-    description: 'Our AI reads the full filing and delivers a structured summary — financials, risks, and trends.',
+    title: 'Get the summary',
+    description: 'Our AI reads the full filing and writes a structured summary: financials, risks, and trends.',
     icon: LightningIcon,
   },
 ] as const
@@ -30,7 +30,7 @@ function HowItWorks() {
           How it works
         </h2>
         <p className="mx-auto mt-4 max-w-xl text-lg text-text-secondary-light dark:text-text-secondary-dark">
-          From SEC filing to actionable insight in minutes, not hours.
+          From SEC filing to summary in minutes, not hours.
         </p>
       </div>
 
