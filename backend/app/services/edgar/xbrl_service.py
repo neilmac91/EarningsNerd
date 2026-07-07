@@ -34,6 +34,7 @@ from edgar import Company as EdgarCompany, set_identity
 # detector reporting the opposite of the truth. The fetch-shaped calls in edgar/client.py +
 # edgar/compat.py give the breaker its clean SEC-health signal (S4 review, finding #2).
 from .async_executor import run_in_executor_with_timeout
+from .client import get_filing_by_accession
 from app.services.sec_rate_limiter import sec_rate_limiter
 from .config import EDGAR_IDENTITY, EDGAR_DEFAULT_TIMEOUT_SECONDS
 from .ads_ratios import ads_ratio_for_cik, build_per_ads_eps
@@ -225,7 +226,7 @@ def _extract_from_filing_instance_sync(
     resolved or has no usable instance (callers then fall back).
     """
     company = EdgarCompany(cik_padded)
-    filings = list(company.get_filings(accession_number=accession_number))
+    filings = get_filing_by_accession(company, accession_number)
     if not filings:
         logger.info(f"Filing {accession_number} not found by accession for CIK {cik_padded}")
         return None
@@ -385,7 +386,7 @@ def _extract_sections_sync(
     fall back to the legacy regex extractor).
     """
     company = EdgarCompany(cik_padded)
-    filings = list(company.get_filings(accession_number=accession_number))
+    filings = get_filing_by_accession(company, accession_number)
     if not filings:
         logger.info(f"Filing {accession_number} not found by accession for CIK {cik_padded}")
         return None

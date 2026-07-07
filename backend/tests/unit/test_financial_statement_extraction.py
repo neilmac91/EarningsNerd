@@ -298,7 +298,7 @@ class _Company:
     def is_financial_institution(self):
         return True
 
-    def get_filings(self, accession_number=None):
+    def get_filings(self, accession_number=None, trigger_full_load=None):
         return [self._filing]
 
 

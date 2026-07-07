@@ -77,7 +77,7 @@ def _patch_company(filings):
         def __init__(self, cik):
             pass
 
-        def get_filings(self, accession_number=None):
+        def get_filings(self, accession_number=None, trigger_full_load=None):
             return list(filings)
 
     return patch.object(xbrl_module, "EdgarCompany", _Company)

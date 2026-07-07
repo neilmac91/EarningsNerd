@@ -125,7 +125,11 @@ def _collect_insider_data_sync(ticker: str, limit_filings: int) -> dict:
 
     transactions: list[dict] = []
     try:
-        filings = company.get_filings(form="4", amendments=False)
+        # trigger_full_load=False: the panel shows RECENT insider activity, and Form 4s are dense
+        # (insiders file frequently), so the recent submissions window suffices. The default
+        # (trigger_full_load=True) would download the company's entire lifetime history first — the
+        # same mega-filer cost the filing-load fix removed from listings — before islice bounds it.
+        filings = company.get_filings(form="4", amendments=False, trigger_full_load=False)
     except Exception as exc:
         raise translate_edgartools_exception(exc) from exc
 

@@ -86,8 +86,10 @@ def _patch_edgar_company(monkeypatch):
     _FakeEdgarCompany.construct_count = 0
     _FakeEdgarCompany.recent_result = _sample_filings()
     _FakeEdgarCompany.full_result = _sample_filings()
+    client_mod._empty_fallback_cache.clear()
     monkeypatch.setattr(client_mod, "EdgarCompany", _FakeEdgarCompany)
     yield
+    client_mod._empty_fallback_cache.clear()
 
 
 @pytest.mark.asyncio
@@ -243,3 +245,96 @@ async def test_list_path_never_full_loads_even_when_recent_empty():
     assert result == []
     assert len(_FakeEdgarCompany.calls) == 1
     assert _FakeEdgarCompany.calls[0]["trigger_full_load"] is False
+
+
+@pytest.mark.asyncio
+async def test_negative_cache_skips_repeat_full_load_for_form_mismatched_company():
+    # A company that doesn't file the requested form (e.g. precompute 10-K for a 20-F-only FPI):
+    # the first bounded call full-loads (recent + full, both empty) and remembers the miss; the
+    # second call within the TTL must SKIP the full-load entirely (recent only), sparing the
+    # recurring 43-shard download + breaker pressure.
+    _FakeEdgarCompany.recent_result = []
+    _FakeEdgarCompany.full_result = []
+
+    c = EdgarClient()
+    first = await c.get_filings_multi("0000895421", [FilingType.FORM_10K], limit=1)
+    assert first == []
+    assert [call["trigger_full_load"] for call in _FakeEdgarCompany.calls] == [False, True]
+
+    _FakeEdgarCompany.calls = []  # reset call log for the second call
+    second = await c.get_filings_multi("0000895421", [FilingType.FORM_10K], limit=1)
+    assert second == []
+    # Recent window only — no full-load this time (negative cache hit).
+    assert [call["trigger_full_load"] for call in _FakeEdgarCompany.calls] == [False]
+
+
+@pytest.mark.asyncio
+async def test_negative_cache_expires_after_ttl(monkeypatch):
+    # After the TTL, a form-mismatched company is re-checked (a company that later starts filing the
+    # form must not be negatively cached forever).
+    from datetime import timedelta
+
+    _FakeEdgarCompany.recent_result = []
+    _FakeEdgarCompany.full_result = []
+
+    c = EdgarClient()
+    await c.get_filings_multi("0000895421", [FilingType.FORM_10K], limit=1)
+
+    # Age the cache entry past its TTL.
+    key = ("0000895421", ("10-K",))
+    client_mod._empty_fallback_cache[key] = (
+        client_mod._empty_fallback_cache[key] - client_mod._EMPTY_FALLBACK_TTL - timedelta(minutes=1)
+    )
+
+    _FakeEdgarCompany.calls = []
+    await c.get_filings_multi("0000895421", [FilingType.FORM_10K], limit=1)
+    # Stale entry → full-load fallback runs again.
+    assert [call["trigger_full_load"] for call in _FakeEdgarCompany.calls] == [False, True]
+
+
+# ---- get_filing_by_accession: recent-first, full-history fallback ----
+
+
+class _FakeAccessionCompany:
+    """Records the trigger_full_load flag of each accession lookup and returns a configurable hit."""
+
+    def __init__(self, recent_hit, full_hit):
+        self.recent_hit = recent_hit
+        self.full_hit = full_hit
+        self.calls = []
+
+    def get_filings(self, accession_number=None, trigger_full_load=None):
+        self.calls.append(trigger_full_load)
+        return self.full_hit if trigger_full_load else self.recent_hit
+
+
+def test_get_filing_by_accession_recent_hit_no_full_load():
+    from app.services.edgar.client import get_filing_by_accession
+
+    filing = object()
+    company = _FakeAccessionCompany(recent_hit=[filing], full_hit=[])
+    result = get_filing_by_accession(company, "0000895421-26-000010")
+
+    assert result == [filing]
+    assert company.calls == [False]  # recent window only, never full-loaded
+
+
+def test_get_filing_by_accession_falls_back_to_full_history():
+    from app.services.edgar.client import get_filing_by_accession
+
+    filing = object()
+    company = _FakeAccessionCompany(recent_hit=[], full_hit=[filing])
+    result = get_filing_by_accession(company, "0000895421-16-000009")
+
+    assert result == [filing]
+    assert company.calls == [False, True]  # recent miss → full history
+
+
+def test_get_filing_by_accession_returns_empty_when_absent_everywhere():
+    from app.services.edgar.client import get_filing_by_accession
+
+    company = _FakeAccessionCompany(recent_hit=[], full_hit=[])
+    result = get_filing_by_accession(company, "9999999999-99-999999")
+
+    assert result == []
+    assert company.calls == [False, True]

@@ -18,11 +18,14 @@ Usage:
 
 import asyncio
 import logging
+from datetime import datetime, timedelta
 from itertools import islice
-from typing import List, Optional
+from typing import Dict, List, Optional, Tuple
 from urllib.parse import urljoin
 
 from edgar import Company as EdgarCompany, set_identity, find as edgar_find
+
+from app.utils.datetimes import utcnow
 
 from .async_executor import run_with_circuit_breaker
 from .config import EDGAR_IDENTITY, FilingType, EDGAR_DEFAULT_TIMEOUT_SECONDS, EDGAR_THREAD_POOL_SIZE
@@ -52,6 +55,48 @@ _edgar_search_semaphore = asyncio.Semaphore(EDGAR_THREAD_POOL_SIZE)
 # filings); this caps memory for very high-volume filers while leaving a generous multi-year slice
 # for the year-grouped UI. Reports (10-K/10-Q/20-F/6-K/40-F) are a few per year, so 50 spans ~10y.
 RECENT_FILINGS_MATERIALIZE_CAP = 50
+
+# Negative cache for the bounded-fallback path: (ticker/cik, base_forms) that returned NOTHING even
+# after a full-history load — i.e. a company that doesn't file these forms (e.g. precompute a 10-K for
+# a 20-F-only FPI). Without it, every bounded call re-pays the full-history load (43 sequential shard
+# GETs for a mega-filer, through the shared limiter, inside the 15s budget → circuit-breaker pressure
+# on a cron sweep), since EdgarCompany is rebuilt per call. Bounded + TTL'd (per-process, mirrors
+# filings.py's _filings_synced_at) so a company that later starts filing the form is re-checked.
+_EMPTY_FALLBACK_TTL = timedelta(hours=6)
+_EMPTY_FALLBACK_MAX = 1024
+_empty_fallback_cache: Dict[Tuple[str, Tuple[str, ...]], datetime] = {}
+
+
+def _empty_fallback_fresh(ticker: str, base_forms: List[str]) -> bool:
+    """True when (ticker, base_forms) recently full-loaded to nothing (skip the repeat full-load)."""
+    ts = _empty_fallback_cache.get((ticker, tuple(base_forms)))
+    return ts is not None and (utcnow() - ts) < _EMPTY_FALLBACK_TTL
+
+
+def _mark_empty_fallback(ticker: str, base_forms: List[str]) -> None:
+    """Record that (ticker, base_forms) has no filings, evicting the oldest key past the cap."""
+    if len(_empty_fallback_cache) >= _EMPTY_FALLBACK_MAX:
+        _empty_fallback_cache.pop(next(iter(_empty_fallback_cache)), None)  # insertion-ordered → oldest
+    _empty_fallback_cache[(ticker, tuple(base_forms))] = utcnow()
+
+
+def get_filing_by_accession(company, accession_number: str) -> list:
+    """Resolve a single filing by accession from an edgartools Company — RECENT window first, the full
+    history only if the accession isn't recent.
+
+    Avoids edgartools' default ``trigger_full_load=True`` (43 sequential shard downloads for a
+    mega-filer) on the common summary-generation case, where the filing being summarized is recent.
+    Behavior-preserving: returns the same filing object either way. Synchronous — call inside the
+    edgar thread pool.
+    """
+    filings = list(
+        company.get_filings(accession_number=accession_number, trigger_full_load=False)
+    )
+    if not filings:
+        filings = list(
+            company.get_filings(accession_number=accession_number, trigger_full_load=True)
+        )
+    return filings
 
 
 class EdgarClient:
@@ -310,7 +355,7 @@ class EdgarClient:
             # `limit is not None`, so the unbounded filings-LIST path (limit=None) NEVER pays the
             # full-history cost — that is the whole point of QW2; those callers rely on DB-first
             # serving for deep history instead.
-            if limit is not None and len(filings) == 0:
+            if limit is not None and len(filings) == 0 and not _empty_fallback_fresh(ticker, base_forms):
                 # Log so a "some company full-loads on every cron run" pattern (a company that never
                 # files the requested form) is greppable in prod, where its only other trace is latency.
                 logger.info(
@@ -334,6 +379,10 @@ class EdgarClient:
                     ),
                     timeout=self.timeout,
                 )
+                # Full history also empty → this company doesn't file these forms. Remember it so the
+                # next bounded call skips the repeat full-load (until the TTL re-checks).
+                if len(filings) == 0:
+                    _mark_empty_fallback(ticker, base_forms)
 
             # Trim the fetched rows to exactly the requested forms (see allowed_forms above) BEFORE
             # the limit slice. No-op for plain base-form requests.
