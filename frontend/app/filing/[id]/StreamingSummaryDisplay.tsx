@@ -30,15 +30,12 @@ import { MOTION } from '@/lib/motion'
 
 // Playful but polished: personality without the cringe. Rotates while we work.
 const WHIMSY_MESSAGES = [
-  'Turning caffeine into investment insights…',
-  'Teaching the model to read between the lines…',
   "Scanning 400 pages of footnotes so you don't have to…",
   'Cross-referencing the numbers with the narrative…',
   'Translating corporate-speak into plain English…',
   'Reading the size-8 fine print…',
   "Reviewing the obscure 'Other' section…",
   'Decoding the tone of the outlook…',
-  'Looking for hidden gems in the appendix…',
 ]
 
 // Ordered list of the real pipeline stages the backend streams over SSE
@@ -264,7 +261,7 @@ export default function StreamingSummaryDisplay({
   // inside the progress card, which is itself hidden on error — so the GuidanceCard is the
   // single failure surface (one error surface, not two).
   const whimsyText = isStalled
-    ? "Taking longer than usual — this looks like a complex filing. Still working on it."
+    ? 'Taking longer than usual. This looks like a complex filing; still working on it.'
     : showWhimsy && whimsyMessage
       ? whimsyMessage
       : 'Warming up the analysis…'
@@ -375,7 +372,7 @@ export default function StreamingSummaryDisplay({
               isGenerating stays true for as long as this card shows streamed text, and the
               line is just as true mid-stream. */}
           <AiDisclaimer className="mt-4">
-            May be incomplete or contain errors — the authoritative source is always the
+            May be incomplete or contain errors. The authoritative source is always the
             original SEC filing.
           </AiDisclaimer>
         </Card>

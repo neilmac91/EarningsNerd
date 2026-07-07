@@ -71,7 +71,7 @@ export default function WhatChangedCard({ item }: { item: FeedItem }) {
           </div>
         ) : (
           <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            New {item.filing_type} filed — open for the full breakdown.
+            New {item.filing_type} filed. Open it for the full breakdown.
           </p>
         )}
 

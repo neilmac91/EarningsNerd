@@ -18,7 +18,7 @@ interface CopilotTeaserProps {
 
 const VALUE_PROPS = [
   'Ask anything about this filing in plain English',
-  'Every answer cited to the exact filing text — verify in one click',
+  'Every answer cited to the exact filing text, verifiable in one click',
   'Exact figures pulled from XBRL, never guessed',
 ]
 

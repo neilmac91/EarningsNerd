@@ -9,7 +9,7 @@ interface SummaryMDAProps {
 }
 
 export function SummaryMDA({ content }: SummaryMDAProps) {
-  if (!content) return <SectionEmpty label="Management Discussion" />
+  if (!content) return <SectionEmpty label="management discussion" />
 
   return (
     <div className="prose max-w-none prose-slate dark:prose-invert text-text-secondary-light dark:text-text-secondary-dark">

@@ -80,9 +80,9 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
         </div>
 
         <div className="rounded-3xl border border-border-light dark:border-white/10 bg-panel-light dark:bg-white/5 p-6 shadow-e3 dark:shadow-[0_20px_50px_rgba(15,23,42,0.45)]">
-          <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Recent Filings</h2>
+          <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Recent filings</h2>
           <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            Select a filing below to open it and generate an AI summary instantly.
+            Select a filing below to open it and generate an AI summary.
           </p>
 
           <div className="mt-6 space-y-3">

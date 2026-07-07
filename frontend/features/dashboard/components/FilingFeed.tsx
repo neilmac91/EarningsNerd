@@ -46,7 +46,7 @@ export default function FilingFeed({ enabled = true }: { enabled?: boolean }) {
         <GuidanceCard
           variant="empty"
           title="No new filings yet"
-          description="Add companies to your watchlist — when they file a 10-K or 10-Q, you'll see what changed here first."
+          description="Add companies to your watchlist. When they file a 10-K or 10-Q, you'll see what changed here first."
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2">

@@ -11,8 +11,8 @@ export function SectionEmpty({ label }: { label: string }) {
     <GuidanceCard
       variant="empty"
       icon={<QuestionIcon className="h-5 w-5" />}
-      title={`No ${label} Found`}
-      description="The AI couldn't extract this specific section from the filing. This usually means the company didn't report it in standard format."
+      title={`No ${label} found`}
+      description="The AI couldn't extract this section from the filing. The company probably didn't report it in a standard format."
     />
   )
 }

@@ -154,10 +154,10 @@ describe('FundamentalsTrendChart', () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } })
     const { rerender } = render(
       <QueryClientProvider client={qc}>
-        <FundamentalsTrendChart filingId={285} subtitle="AAPL — figures as reported in this 10-K" />
+        <FundamentalsTrendChart filingId={285} subtitle="AAPL · figures as reported in this 10-K" />
       </QueryClientProvider>,
     )
-    expect(await screen.findByText('AAPL — figures as reported in this 10-K')).toBeInTheDocument()
+    expect(await screen.findByText('AAPL · figures as reported in this 10-K')).toBeInTheDocument()
 
     // No subtitle prop → no context line.
     rerender(
@@ -166,7 +166,7 @@ describe('FundamentalsTrendChart', () => {
       </QueryClientProvider>,
     )
     await waitFor(() =>
-      expect(screen.queryByText('AAPL — figures as reported in this 10-K')).not.toBeInTheDocument(),
+      expect(screen.queryByText('AAPL · figures as reported in this 10-K')).not.toBeInTheDocument(),
     )
   })
 
@@ -198,10 +198,10 @@ describe('FundamentalsTrendChart', () => {
 
   it('fetches by filingId (roadmap B), not any company-wide endpoint', async () => {
     getFilingFundamentals.mockResolvedValue(RESP)
-    renderChart(285, 'LLY — figures as reported in this 10-K')
+    renderChart(285, 'LLY · figures as reported in this 10-K')
 
     expect(await screen.findByRole('button', { name: 'Revenue' })).toBeInTheDocument()
-    expect(screen.getByText('LLY — figures as reported in this 10-K')).toBeInTheDocument()
+    expect(screen.getByText('LLY · figures as reported in this 10-K')).toBeInTheDocument()
     expect(getFilingFundamentals).toHaveBeenCalledWith(285)
   })
 })

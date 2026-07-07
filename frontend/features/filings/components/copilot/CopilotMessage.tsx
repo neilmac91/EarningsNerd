@@ -63,7 +63,7 @@ interface CopilotMessageProps {
 function notDisclosedHint(filingType?: string): string | null {
   if (!filingType) return null
   if (/10-?q/i.test(filingType))
-    return 'Annual-only details — full risk factors, executive compensation, the business overview — usually live in the company’s 10-K.'
+    return 'Annual-only details like full risk factors, executive compensation, and the business overview usually live in the company’s 10-K.'
   if (/10-?k/i.test(filingType))
     return 'Quarter-specific updates usually appear in the company’s most recent 10-Q.'
   return null

@@ -58,11 +58,11 @@ export default function SubscriptionGate({
           </div>
           <div className="flex-1">
             <h3 className="text-lg font-semibold text-warning-light dark:text-warning-dark mb-2">
-              Pro Feature
+              Pro feature
             </h3>
             <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
-              This feature is available for Pro subscribers. Upgrade to unlock unlimited summaries,
-              advanced comparisons, and export capabilities.
+              This feature is for Pro subscribers. Pro includes unlimited summaries,
+              comparisons, and exports.
             </p>
             <Link
               href="/pricing"

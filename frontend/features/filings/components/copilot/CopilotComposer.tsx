@@ -98,7 +98,7 @@ const CopilotComposer = forwardRef<CopilotComposerHandle, CopilotComposerProps>(
         </Button>
       </div>
       <p className="mt-2 px-1 text-xs leading-snug text-text-secondary-light dark:text-text-secondary-dark">
-        Avoid entering personal or confidential information — your question is sent to our AI
+        Avoid entering personal or confidential information. Your question is sent to our AI
         provider to generate an answer.
       </p>
     </form>

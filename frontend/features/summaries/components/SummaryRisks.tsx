@@ -29,7 +29,7 @@ function TraceToSource({ risk }: { risk: RiskFactor }) {
 }
 
 export function SummaryRisks({ risks }: SummaryRisksProps) {
-  if (!risks || risks.length === 0) return <SectionEmpty label="Risk Factors" />
+  if (!risks || risks.length === 0) return <SectionEmpty label="risk factors" />
 
   return (
     <div className="space-y-4">

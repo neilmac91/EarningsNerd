@@ -86,7 +86,7 @@ export function SummaryDisplay({
     staleTime: 10 * 60 * 1000,
   })
 
-  const fallbackMessage = 'Summary temporarily unavailable — please retry.'
+  const fallbackMessage = 'Summary temporarily unavailable. Please retry.'
   const writerError = rawSummary?.writer_error
   const writerFallback = rawSummary?.writer?.fallback_used === true
   const trimmedMarkdown = cleanedMarkdown.trim()
@@ -161,7 +161,7 @@ export function SummaryDisplay({
                     >
                       {quality.tier === 'full'
                         ? 'Full summary'
-                        : `Partial${quality.reasons && quality.reasons.length ? ` — ${quality.reasons[0]}` : ''}`}
+                        : `Partial${quality.reasons && quality.reasons.length ? ` · ${quality.reasons[0]}` : ''}`}
                     </Badge>
                   )}
                 </div>
@@ -196,7 +196,7 @@ export function SummaryDisplay({
                 filingId={filing.id}
                 subtitle={
                   filing.company?.ticker
-                    ? `${filing.company.ticker} — figures as reported in this ${filing.filing_type}`
+                    ? `${filing.company.ticker} · figures as reported in this ${filing.filing_type}`
                     : `Figures as reported in this ${filing.filing_type}`
                 }
               />
@@ -220,7 +220,7 @@ export function SummaryDisplay({
           {/* Web/PDF parity (audit): the exported PDF of this summary carries a disclaimer —
               the on-page surface must too, not just the global footer. */}
           <AiDisclaimer>
-            May be incomplete or contain errors — the authoritative source is always the
+            May be incomplete or contain errors. The authoritative source is always the
             original SEC filing.
           </AiDisclaimer>
         </>

@@ -8,7 +8,7 @@ interface SummaryExecutiveSnapshotProps {
 }
 
 export function SummaryExecutiveSnapshot({ content }: SummaryExecutiveSnapshotProps) {
-  if (!content) return <SectionEmpty label="Executive Summary" />
+  if (!content) return <SectionEmpty label="executive summary" />
   
   return (
     <div className="prose max-w-none prose-slate dark:prose-invert text-text-secondary-light dark:text-text-secondary-dark">
