@@ -8,8 +8,12 @@
 -- Read-only; tables: financial_fact, companies.
 WITH fy AS (
     SELECT ff.company_id, c.ticker, ff.fiscal_year, ff.value, ff.raw_tag,
-           LAG(ff.value)   OVER (PARTITION BY ff.company_id ORDER BY ff.fiscal_year) AS prev_value,
-           LAG(ff.raw_tag) OVER (PARTITION BY ff.company_id ORDER BY ff.fiscal_year) AS prev_tag
+           -- Order by period_end (NOT-NULL, unique per period, part of the fact identity), not
+           -- fiscal_year (nullable, not in the identity): a fiscal-year-end change can leave two
+           -- is_latest FY rows sharing a fiscal_year label, which makes fiscal_year-ordered LAG
+           -- non-deterministic. period_end is strictly chronological.
+           LAG(ff.value)   OVER (PARTITION BY ff.company_id ORDER BY ff.period_end) AS prev_value,
+           LAG(ff.raw_tag) OVER (PARTITION BY ff.company_id ORDER BY ff.period_end) AS prev_tag
     FROM financial_fact ff
     JOIN companies c ON c.id = ff.company_id
     WHERE ff.is_latest AND ff.fiscal_period = 'FY' AND ff.concept = 'cash_and_equivalents'
