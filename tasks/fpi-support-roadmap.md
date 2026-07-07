@@ -16,7 +16,8 @@ the filter returns an empty list, the page renders its empty state, and no summa
 **Evidence (file:line):**
 - `backend/app/routers/filings.py:104` — `types_list = ["10-K","10-Q"]` default; `:119` passes it straight to `get_filings`.
 - `backend/app/services/edgar/compat.py:249-250` — `get_filings()` defaults `filing_types = ["10-K","10-Q"]`.
-- `backend/app/services/edgar/compat.py:198-203` — `get_company_submissions()` hardcodes only `FORM_10K` + `FORM_10Q`.
+- ~~`compat.py` — `get_company_submissions()` hardcodes only `FORM_10K` + `FORM_10Q`.~~ (Removed: the
+  method was dead code and was deleted in the filing-load follow-up PR; no FPI work needed here.)
 - `backend/app/services/edgar/compat.py:257-264` — `from_string(form, strict=True)` raises on `"20-F"`; `except ValueError: continue` **silently drops** any FPI form even if explicitly requested.
 - `backend/app/services/edgar/config.py:17-47` — `FilingType` enum has no `20-F`/`6-K`/`40-F`; `:74-80` `financial_reports()` returns only 10-K/10-Q variants.
 - `frontend/app/company/[ticker]/page-client.tsx:43` — `getCompanyFilings(ticker)` called with no `filing_types` (inherits backend default); `:494` renders "No filings found for this company." — exactly what the beta user saw.
@@ -109,7 +110,7 @@ Verify edgartools FPI behavior on a **live** BABA accession before committing co
 ### Phase 1 — FPI filings simply appear *(M — the quick win)*
 Make `/company/BABA` **list** its 20-F and 6-K instead of "No filings found." No AI/XBRL needed.
 - [ ] `config.py`: add `FORM_20F` (+`/A`), `FORM_6K` (+`/A`), `FORM_40F` (+`/A`); add `from_string` variations (`20F`/`6K`/`40F`); extend `is_annual` to 20-F/40-F; add an `is_interim` concept for 6-K; include new forms in `financial_reports()`.
-- [ ] `compat.py`: union FPI forms into the default form set + `get_company_submissions`; switch the `from_string` call to **non-strict** and skip `UNKNOWN` so a new form is *requested* from SEC, not dropped (`:257-264`).
+- [ ] `compat.py`: union FPI forms into the default form set; switch the `from_string` call to **non-strict** and skip `UNKNOWN` so a new form is *requested* from SEC, not dropped (`:257-264`). (`get_company_submissions` was deleted as dead code — no longer a site.)
 - [ ] `filings.py:104` / `frontend page-client.tsx:43`: request FPI forms on the company/filing page (page-scoped). DB cache query (`:110-113`) follows `types_list` automatically.
 - [ ] `client.py:_transform_filing` (`:466`): confirm 20-F/6-K map to the new enum members (not `UNKNOWN`) so stored `filing_type` is correct.
 - [ ] Frontend: widen `filterType` from a `"10-K"|"10-Q"` union to derive chips from the distinct returned types; add 20-F/6-K **badge styles**; generalize "annual report" copy to include 20-F/40-F; de-hardcode the "Retrieving 10-Q filing" loading label; ensure a filing row with no summary yet renders a clean "summary not available" state (not a broken 10-K-shaped view).

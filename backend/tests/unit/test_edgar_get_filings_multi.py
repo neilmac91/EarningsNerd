@@ -280,8 +280,9 @@ async def test_negative_cache_expires_after_ttl(monkeypatch):
     c = EdgarClient()
     await c.get_filings_multi("0000895421", [FilingType.FORM_10K], limit=1)
 
-    # Age the cache entry past its TTL.
-    key = ("0000895421", ("10-K",))
+    # Age the cache entry past its TTL (grab the single key regardless of its exact form tuple).
+    assert len(client_mod._empty_fallback_cache) == 1
+    key = next(iter(client_mod._empty_fallback_cache))
     client_mod._empty_fallback_cache[key] = (
         client_mod._empty_fallback_cache[key] - client_mod._EMPTY_FALLBACK_TTL - timedelta(minutes=1)
     )
@@ -290,6 +291,46 @@ async def test_negative_cache_expires_after_ttl(monkeypatch):
     await c.get_filings_multi("0000895421", [FilingType.FORM_10K], limit=1)
     # Stale entry → full-load fallback runs again.
     assert [call["trigger_full_load"] for call in _FakeEdgarCompany.calls] == [False, True]
+
+
+@pytest.mark.asyncio
+async def test_negative_cache_key_includes_amendments_dimension():
+    # empty-with-amendments=False must NOT satisfy an amendments=True request (which wants a
+    # superset): the cache is keyed on allowed_forms, which differs by include_amended.
+    _FakeEdgarCompany.recent_result = []
+    _FakeEdgarCompany.full_result = []
+
+    c = EdgarClient()
+    await c.get_filings_multi("0000895421", [FilingType.FORM_10K], limit=1, include_amended=False)
+    assert [call["trigger_full_load"] for call in _FakeEdgarCompany.calls] == [False, True]
+
+    _FakeEdgarCompany.calls = []
+    # Different allowed set (adds 10-K/A) → cache miss → the fallback fires again.
+    await c.get_filings_multi("0000895421", [FilingType.FORM_10K], limit=1, include_amended=True)
+    assert [call["trigger_full_load"] for call in _FakeEdgarCompany.calls] == [False, True]
+
+
+@pytest.mark.asyncio
+async def test_amended_only_request_trims_before_trigger_then_falls_back():
+    # Request an amended form when the recent window holds only the BASE form (superset) and the /A
+    # lives in full history: the recent result trims to nothing FOR THE REQUESTED FORM, so the
+    # fallback fires and finds the /A (rather than returning [] off a non-empty raw fetch).
+    _FakeEdgarCompany.recent_result = [
+        _FakeEntityFiling("10-K", date(2026, 2, 19), "2025-12-31", "0000895421-26-000010")
+    ]
+    _FakeEdgarCompany.full_result = [
+        _FakeEntityFiling("10-K/A", date(2024, 3, 1), "2023-12-31", "0000895421-24-000099")
+    ]
+
+    c = EdgarClient()
+    result = await c.get_filings_multi(
+        "0000895421", [FilingType.FORM_10K_AMENDED], limit=1, include_amended=False
+    )
+
+    # Recent (base 10-K, trimmed away) → fallback → the 10-K/A.
+    assert [call["trigger_full_load"] for call in _FakeEdgarCompany.calls] == [False, True]
+    assert len(result) == 1
+    assert result[0].filing_type == FilingType.FORM_10K_AMENDED
 
 
 def test_negative_cache_key_is_form_order_independent():
