@@ -64,9 +64,14 @@ class _FakeEdgarCompany:
         _FakeEdgarCompany.construct_count += 1
         self.ident = ident
 
-    def get_filings(self, form=None, amendments=None, trigger_full_load=None):
+    def get_filings(self, form=None, amendments=None, trigger_full_load=None, sort_by=None):
         _FakeEdgarCompany.calls.append(
-            {"form": form, "amendments": amendments, "trigger_full_load": trigger_full_load}
+            {
+                "form": form,
+                "amendments": amendments,
+                "trigger_full_load": trigger_full_load,
+                "sort_by": sort_by,
+            }
         )
         return _FakeEdgarCompany.full_result if trigger_full_load else _FakeEdgarCompany.recent_result
 
@@ -169,8 +174,39 @@ async def test_bounded_caller_falls_back_to_full_load_when_recent_window_empty()
     assert len(_FakeEdgarCompany.calls) == 2
     assert _FakeEdgarCompany.calls[0]["trigger_full_load"] is False
     assert _FakeEdgarCompany.calls[1]["trigger_full_load"] is True
+    # The fallback sorts at the Arrow level so islice(limit) is exact, not shard-order-dependent.
+    assert _FakeEdgarCompany.calls[1]["sort_by"] == [("filing_date", "descending")]
     assert len(result) == 1
     assert result[0].period_end_date == date(2023, 12, 31)
+
+
+@pytest.mark.asyncio
+async def test_both_windows_empty_returns_empty_with_exactly_two_calls():
+    # Form-mismatched company (e.g. precompute 10-K for a 20-F-only FPI): recent AND full are empty.
+    # Must return [] with EXACTLY 2 calls (recent + one fallback, no retry-loop creep).
+    _FakeEdgarCompany.recent_result = []
+    _FakeEdgarCompany.full_result = []
+
+    c = EdgarClient()
+    result = await c.get_filings_multi("0000895421", [FilingType.FORM_10K], limit=1)
+
+    assert result == []
+    assert len(_FakeEdgarCompany.calls) == 2
+    assert _FakeEdgarCompany.calls[0]["trigger_full_load"] is False
+    assert _FakeEdgarCompany.calls[1]["trigger_full_load"] is True
+
+
+@pytest.mark.asyncio
+async def test_get_latest_filing_raises_when_both_windows_empty():
+    # precompute's `no_filings` status depends on this surfacing as FilingNotFoundError.
+    from app.services.edgar.exceptions import FilingNotFoundError
+
+    _FakeEdgarCompany.recent_result = []
+    _FakeEdgarCompany.full_result = []
+
+    c = EdgarClient()
+    with pytest.raises(FilingNotFoundError):
+        await c.get_latest_filing("0000895421", FilingType.FORM_10K)
 
 
 @pytest.mark.asyncio
