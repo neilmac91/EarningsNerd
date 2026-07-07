@@ -283,8 +283,11 @@ jobs:
             echo "resync ACCEPTED via internal endpoint for: $TICKERS (runs in the service background)"
           else
             echo "INTERNAL_JOB_TOKEN not accessible to this SA — using the documented jobs channel."
+            # gcloud --args is comma-delimited; the ^;^ prefix switches the delimiter to ';' so
+            # the comma-separated ticker LIST survives as a single --tickers value (else only the
+            # first ticker would be received and the rest parsed as stray args).
             gcloud run jobs execute "$JOBS_CHANNEL_JOB" --region="$REGION" \
-              --args="scripts/sync_companyfacts.py,--tickers,${TICKERS},--force" --wait
+              --args="^;^scripts/sync_companyfacts.py;--tickers;${TICKERS};--force" --wait
             echo "resync COMPLETED via jobs channel for: $TICKERS"
           fi
 
