@@ -427,6 +427,16 @@ cause** — the exact defect P0-4 targets, gone. (In the flag-off eval this is t
 lazy regen; dry-run default; FK-safe, mirrors admin reset-all) + ops enum
 `reset-filing-summary-dry-run|apply` (single-ticker, jobs channel).
 
+**Adversarial review (pre-merge, 5 lenses × verify):** 1 finding CONFIRMED (minor), 3 refuted.
+The committed JPM FI ground truth had diverged from `build_golden_set.py` — the generator has no
+FI concepts and gates `verified` on `revenue`, so a `python -m evals.build_golden_set` regen would
+silently re-add revenue, drop the components, and deactivate gate G5 for JPM (rule-12 gap). Fixed
+in this PR: the generator now mirrors the product's `FINANCIAL_PROFILES` "bank" profile (extracts
+the two components, suppresses the conflated revenue total, verifies on the components), locked by
+`test_golden_set_bank_ground_truth.py` + an extended concept-sync assertion. No committed data or
+baseline changed, so the passing `--runs 3` gate still holds. (This also confirms the plan's
+"remove revenue" was correct — the product itself suppresses a bank's conflated revenue.)
+
 **Deploy / prod operations:** _pending merge → deploy → run `reset-filing-summary-apply` for JPM
 10-K → public GET to trigger lazy regen → confirm the prod JPM summary's FCF line has no
 capex/working-capital fabrication._
