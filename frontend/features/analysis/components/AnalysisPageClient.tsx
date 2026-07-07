@@ -231,9 +231,9 @@ export default function AnalysisPageClient() {
           <Badge variant="pro">Pro</Badge>
         </div>
         <p className="max-w-2xl text-sm text-text-secondary-light dark:text-text-secondary-dark">
-          Pick a company and up to 10 fiscal years or 12 quarters. Get the full trend picture —
-          growth, margins, cash, balance sheet — with an AI analysis where every cited figure is
-          verified against SEC XBRL.
+          Pick a company and up to 10 fiscal years or 12 quarters. Growth, margins, cash, and
+          balance sheet, with an AI analysis where every cited figure is verified against
+          SEC XBRL.
         </p>
       </header>
 
@@ -287,14 +287,14 @@ export default function AnalysisPageClient() {
             ) : coverage?.syncing ? (
               <Notice
                 variant="info"
-                title={`Fetching ${ticker}'s full SEC reporting history — this takes a few seconds on first touch.`}
+                title={`Fetching ${ticker}'s full SEC reporting history. The first load takes a few seconds.`}
               />
             ) : unsupported ? (
               <Notice
                 variant="info"
                 title={
                   coverage?.reason === 'ifrs_filer'
-                    ? 'This company reports under IFRS (foreign filer) — multi-period analysis for IFRS filers is coming later.'
+                    ? 'This company reports under IFRS (foreign filer). Multi-period analysis for IFRS filers is coming later.'
                     : 'No analyzable reporting history found for this company yet.'
                 }
               />
@@ -352,7 +352,7 @@ export default function AnalysisPageClient() {
           <MetricsTable dataset={dataset} onExportXlsx={exportXlsx} exporting={exportingXlsx} />
           <AiDisclaimer lead={false}>
             All figures from SEC XBRL (companyfacts). Growth rates, margins and ratios are
-            computed server-side — the AI narrative only cites values from this dataset. † =
+            computed server-side; the AI narrative only cites values from this dataset. † =
             computed Q4.
           </AiDisclaimer>
         </div>

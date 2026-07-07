@@ -98,6 +98,6 @@ describe('NarrativePane citation chips', () => {
     expect(screen.getByText('Sample data')).toBeInTheDocument()
     expect(screen.queryByText(/verified citations/)).not.toBeInTheDocument()
     expect(screen.queryByText('Cached')).not.toBeInTheDocument()
-    expect(screen.getByText(/Sources — sample data/)).toBeInTheDocument()
+    expect(screen.getByText(/Sources · sample data/)).toBeInTheDocument()
   })
 })

@@ -21,7 +21,7 @@ export default function AnalysisTeaser({ forTicker }: { forTicker?: string }) {
     <div className="flex flex-col gap-3">
       <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
         Sample: Apple Inc. (AAPL), FY2019–FY2024
-        {forTicker ? ` — upgrade to run it for ${forTicker.toUpperCase()}` : ''}.
+        {forTicker ? `. Upgrade to run it for ${forTicker.toUpperCase()}` : ''}.
       </p>
       <PeekLocked feature="Multi-Period Analysis">
         <div className="flex flex-col gap-4">
