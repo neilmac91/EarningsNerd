@@ -77,6 +77,17 @@ def test_resolver_cache_is_bounded():
     assert len(client_mod._company_cache) <= client_mod._COMPANY_CACHE_MAX
 
 
+def test_idle_company_lock_is_garbage_collected():
+    # _company_locks is a WeakValueDictionary, so a CIK's lock is dropped once no thread references
+    # it — no unbounded growth over the process lifetime. The company itself stays in the bounded cache.
+    import gc
+
+    client_mod.resolve_filing_by_accession("0000320193", "acc")
+    gc.collect()
+    assert "0000320193" not in client_mod._company_locks
+    assert "0000320193" in client_mod._company_cache
+
+
 def test_resolver_builds_once_under_concurrent_same_cik_access():
     # The per-CIK lock must serialize concurrent same-CIK resolution so edgartools' lazy full-load
     # can't race between the two concurrent extractions — and so only ONE construction happens.

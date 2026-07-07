@@ -19,6 +19,7 @@ Usage:
 import asyncio
 import logging
 import threading
+import weakref
 from datetime import datetime, timedelta
 from itertools import islice
 from typing import Dict, List, Optional, Tuple
@@ -118,15 +119,15 @@ def get_filing_by_accession(company: EdgarCompany, accession_number: str) -> lis
 _COMPANY_CACHE_TTL = timedelta(seconds=120)
 _COMPANY_CACHE_MAX = 4
 _company_cache: Dict[str, Tuple[EdgarCompany, datetime]] = {}
-# Guards the two dicts below. Per-CIK locks serialize concurrent same-CIK resolution so edgartools'
-# lazy full-load (which mutates the entity) can never race between the two concurrent extractions.
-# _company_locks is intentionally NOT size-capped: safe pruning would race a concurrent
-# _get_company_lock (a thread could hold a reference to a lock we just evicted, while a new thread
-# mints a second lock for the same CIK — two locks, no mutual exclusion). Each lock is a few dozen
-# bytes and distinct-CIK cardinality per instance lifetime is bounded (Cloud Run instances recycle),
-# so the growth is negligible — unlike _company_cache, which holds tens-of-MB entities and IS capped.
+# Guards the cache + lock maps below. Per-CIK locks serialize concurrent same-CIK resolution so
+# edgartools' lazy full-load (which mutates the entity) can never race between the two concurrent
+# extractions. _company_locks is a WeakValueDictionary so an idle CIK's lock is garbage-collected
+# once no thread references it — no unbounded growth over the process lifetime. This stays race-free:
+# get-or-create is atomic under _company_cache_lock, and a lock is only collectable when NO thread
+# holds it (resolve_filing_by_accession keeps a strong ref for the whole `with` block), so concurrent
+# same-CIK callers always share the one live lock.
 _company_cache_lock = threading.Lock()
-_company_locks: Dict[str, threading.Lock] = {}
+_company_locks: "weakref.WeakValueDictionary[str, threading.Lock]" = weakref.WeakValueDictionary()
 
 
 def _get_company_lock(cik: str) -> threading.Lock:
