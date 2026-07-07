@@ -371,9 +371,16 @@ jobs:
       - name: Deploy Cloud Run service
         if: steps.changes.outputs.backend == 'true'
         run: |
+          # Pin the Cloud Run sizing on every deploy so it can't silently drift from these values
+          # (previously set only at one-time bootstrap — see docs/DEPLOYMENT.md). min-instances=1
+          # keeps one warm instance: no cold starts and the per-process in-memory caches (filings
+          # freshness stamp, XBRL L1, tickers) survive between requests (QW4, PR follow-up to the
+          # filing-load audit). Raising capacity later = bump --max-instances (keep max × pool under
+          # Cloud SQL max_connections).
           gcloud run deploy earningsnerd-backend --region=us-west1 \
             --image="$IMAGE:${GITHUB_SHA::7}" \
-            --cpu-boost \
+            --cpu=1 --memory=1Gi --cpu-boost \
+            --min-instances=1 --max-instances=2 --concurrency=40 --timeout=600 \
             --update-secrets=OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
             --update-env-vars=ENVIRONMENT=production,OPENAI_BASE_URL=https://api.deepseek.com/v1,AI_DEFAULT_MODEL=deepseek-v4-pro,COOKIE_DOMAIN=.earningsnerd.io,SENTRY_RELEASE=${GITHUB_SHA},TRUSTED_PROXY_HOPS=1,ENABLE_GUEST_DAILY_QUOTA=true,ENABLE_FPI_FILINGS=true,STREAM_SECTION_REVEAL=true \
             --quiet

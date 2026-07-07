@@ -14,9 +14,11 @@ live against `data.sec.gov` on 2026-07-06.
 > **QW3** — CORS headers on the timeout 504 (`main.py`); **QW5** — compliant `EDGAR_IDENTITY`
 > default (`edgar/config.py`); **PS1** — composite `filings(company_id, filing_type, filing_date)`
 > index (model + migration). Also a latent-bug fix: the edgar thread pool now auto-recreates after
-> shutdown (`async_executor.py`). **Still infra-owned / not in this PR:** **QW4** (`--min-instances=1`
-> + pinning Cloud Run sizing flags in CI) and setting the prod `EDGAR_IDENTITY` env — both are cost /
-> live-GCP decisions (see §3, §6).
+> shutdown (`async_executor.py`). **QW4** — the CI deploy step now pins the Cloud Run sizing flags
+> and sets `--min-instances=1` (one warm instance; ~$8–12/mo) so cold starts end and per-process
+> caches survive (`.github/workflows/ci.yml`, docs updated to match). **Still live-GCP / not code:**
+> setting the prod `EDGAR_IDENTITY` env value to the compliant string (the default is now compliant,
+> but prod should set it explicitly — see §6).
 
 ---
 

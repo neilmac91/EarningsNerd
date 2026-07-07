@@ -88,9 +88,9 @@ gcloud run deploy earningsnerd-backend \
   --region=us-west1 --allow-unauthenticated \
   --add-cloudsql-instances=earnings-nerd:us-west1:earningsnerd-db \
   --cpu=1 --memory=1Gi --cpu-boost \
-  --min-instances=0 --max-instances=2 --concurrency=40 --timeout=600 \
+  --min-instances=1 --max-instances=2 --concurrency=40 --timeout=600 \
   --set-secrets=DATABASE_URL=DATABASE_URL:latest,OPENAI_API_KEY=OPENAI_API_KEY:latest,SECRET_KEY=SECRET_KEY:latest,STRIPE_SECRET_KEY=STRIPE_SECRET_KEY:latest,STRIPE_PUBLISHABLE_KEY=STRIPE_PUBLISHABLE_KEY:latest,STRIPE_WEBHOOK_SECRET=STRIPE_WEBHOOK_SECRET:latest,RESEND_API_KEY=RESEND_API_KEY:latest,RESEND_FROM_EMAIL=RESEND_FROM_EMAIL:latest,FINNHUB_API_KEY=FINNHUB_API_KEY:latest \
-  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/@SEC_EDGAR_BASE_URL=https://data.sec.gov@FINNHUB_API_BASE=https://finnhub.io/api/v1@EARNINGS_WHISPERS_API_BASE=https://www.earningswhispers.com/api@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io"
+  --set-env-vars="^@^ENVIRONMENT=production@SKIP_REDIS_INIT=true@OPENAI_BASE_URL=https://api.deepseek.com/v1@AI_DEFAULT_MODEL=deepseek-v4-pro@SEC_EDGAR_BASE_URL=https://data.sec.gov@FINNHUB_API_BASE=https://finnhub.io/api/v1@EARNINGS_WHISPERS_API_BASE=https://www.earningswhispers.com/api@CORS_ORIGINS_STR=https://earningsnerd.io,https://www.earningsnerd.io"
 ```
 ✅ Success: prints `Service [earningsnerd-backend] revision ... has been deployed` and a `Service URL`.
 
@@ -154,5 +154,6 @@ gcloud scheduler jobs create http earningsnerd-pregenerate-weekly \
   `$CONN` and the SA has `roles/cloudsql.client`.
 - **Raising capacity later:** bump `--max-instances` (and size up Cloud SQL) — keep
   `max-instances × 10` under the DB's `max_connections`.
-- **Cold starts:** `--cpu-boost` (set on deploy) shortens them while keeping scale-to-zero. To go
-  fully always-warm: `gcloud run services update earningsnerd-backend --region=us-west1 --min-instances=1`.
+- **Cold starts:** the service runs `--min-instances=1` (one always-warm instance) plus `--cpu-boost`,
+  re-asserted by CI on every deploy — so there are no cold starts and per-process caches survive. To
+  save cost by allowing scale-to-zero instead: set `--min-instances=0` in the ci.yml deploy step.

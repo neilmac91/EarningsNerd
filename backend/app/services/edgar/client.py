@@ -247,12 +247,29 @@ class EdgarClient:
         # so we always pass BASE forms + the boolean, never explicit "/A" strings (passing "/A" with
         # amendments=False would silently drop them). See edgar.filtering.filter_by_form.
         base_forms: List[str] = []
+        wants_amended = include_amended
         for ft in filing_types:
             base = ft.value.replace("/A", "")
             if base and base not in base_forms:
                 base_forms.append(base)
+            # If a caller explicitly asks for an amended form (e.g. ?filing_types=10-K/A), force
+            # amendments on so the requested /A filings are actually returned (correctly labeled),
+            # rather than silently collapsing to the base form and returning non-amended rows. The
+            # result is then a superset (base + /A); no real caller requests amended-only forms —
+            # the frontend and defaults use base forms — so this only affects that explicit query.
+            if ft.is_amended:
+                wants_amended = True
         if not base_forms:
             return []
+
+        # The exact form strings the caller wants back. When amendments were forced on above for an
+        # explicit "/A" request, the fetch returns a superset (base + /A); trim to this set BEFORE the
+        # limit is applied so unrequested base rows never consume limit slots or leak to the response
+        # (the cold-company sync path would otherwise return base+/A while the cached path returns only
+        # /A — inconsistent). For plain base-form requests this is a no-op.
+        allowed_forms = {ft.value for ft in filing_types}
+        if include_amended:
+            allowed_forms |= {f"{b}/A" for b in base_forms}
 
         logger.debug(f"Getting {base_forms} filings for {ticker} (recent window)")
 
@@ -275,7 +292,7 @@ class EdgarClient:
                     islice(
                         edgar_company.get_filings(
                             form=base_forms,
-                            amendments=include_amended,
+                            amendments=wants_amended,
                             trigger_full_load=False,
                         ),
                         materialize_cap,
@@ -283,6 +300,44 @@ class EdgarClient:
                 ),
                 timeout=self.timeout,
             )
+
+            # Bounded single-latest fallback (precompute, get_latest_filing): only when the recent
+            # window returns NOTHING for the requested forms does the target report sit older than
+            # the window — retry once with the full history to find it. Mirrors edgartools' own
+            # EntityData.latest() intent. The trigger is `== 0`, NOT `< limit`: a bounded caller's
+            # default limit is 10 while an annual form yields ~1 filing/year, so `< limit` would
+            # full-load on nearly every call and defeat the recent-window optimization. GATED on
+            # `limit is not None`, so the unbounded filings-LIST path (limit=None) NEVER pays the
+            # full-history cost — that is the whole point of QW2; those callers rely on DB-first
+            # serving for deep history instead.
+            if limit is not None and len(filings) == 0:
+                # Log so a "some company full-loads on every cron run" pattern (a company that never
+                # files the requested form) is greppable in prod, where its only other trace is latency.
+                logger.info(
+                    "Recent window empty for %s on %s; falling back to full history", base_forms, ticker
+                )
+                # sort_by descending so edgartools sorts the Arrow table BEFORE materialization: the
+                # full-load concats shards in `files` order (not guaranteed globally sorted), so an
+                # unsorted islice(limit) could take an arbitrary old row and miss the latest. With
+                # sort_by, islice(limit) is exact.
+                filings = await run_with_circuit_breaker(
+                    lambda: list(
+                        islice(
+                            edgar_company.get_filings(
+                                form=base_forms,
+                                amendments=wants_amended,
+                                trigger_full_load=True,
+                                sort_by=[("filing_date", "descending")],
+                            ),
+                            limit,
+                        )
+                    ),
+                    timeout=self.timeout,
+                )
+
+            # Trim the fetched rows to exactly the requested forms (see allowed_forms above) BEFORE
+            # the limit slice. No-op for plain base-form requests.
+            filings = [f for f in filings if getattr(f, "form", None) in allowed_forms]
 
             # Sort by filing date descending, handling None dates gracefully
             from datetime import date as date_type_sort
@@ -330,98 +385,6 @@ class EdgarClient:
             raise FilingNotFoundError(ticker, filing_type.value)
 
         return filings[0]
-
-    async def get_filing_html(
-        self,
-        ticker: str,
-        accession_number: str,
-    ) -> str:
-        """
-        Get the HTML content of a specific filing.
-
-        Args:
-            ticker: Stock ticker symbol
-            accession_number: Filing accession number
-
-        Returns:
-            HTML content as string
-
-        Raises:
-            FilingNotFoundError: If the filing is not found
-        """
-        ticker = ticker.upper().strip()
-
-        try:
-            edgar_company = await run_with_circuit_breaker(
-                lambda: EdgarCompany(ticker),
-                timeout=self.timeout,
-            )
-
-            # Find the specific filing
-            filings = await run_with_circuit_breaker(
-                lambda: list(edgar_company.get_filings()),
-                timeout=self.timeout,
-            )
-
-            target_accession = accession_number.replace("-", "")
-            for filing in filings:
-                if filing.accession_number.replace("-", "") == target_accession:
-                    html = await run_with_circuit_breaker(
-                        lambda f=filing: f.html(),
-                        timeout=self.timeout * 2,  # HTML can be large
-                    )
-                    return html
-
-            raise FilingNotFoundError(ticker, "unknown", accession_number=accession_number)
-
-        except FilingNotFoundError:
-            raise
-        except Exception as exc:
-            raise translate_edgartools_exception(exc) from exc
-
-    async def get_filing_markdown(
-        self,
-        ticker: str,
-        accession_number: str,
-    ) -> str:
-        """
-        Get the filing content as clean markdown.
-
-        Args:
-            ticker: Stock ticker symbol
-            accession_number: Filing accession number
-
-        Returns:
-            Markdown content as string
-        """
-        ticker = ticker.upper().strip()
-
-        try:
-            edgar_company = await run_with_circuit_breaker(
-                lambda: EdgarCompany(ticker),
-                timeout=self.timeout,
-            )
-
-            filings = await run_with_circuit_breaker(
-                lambda: list(edgar_company.get_filings()),
-                timeout=self.timeout,
-            )
-
-            target_accession = accession_number.replace("-", "")
-            for filing in filings:
-                if filing.accession_number.replace("-", "") == target_accession:
-                    markdown = await run_with_circuit_breaker(
-                        lambda f=filing: f.markdown(),
-                        timeout=self.timeout * 2,
-                    )
-                    return markdown
-
-            raise FilingNotFoundError(ticker, "unknown", accession_number=accession_number)
-
-        except FilingNotFoundError:
-            raise
-        except Exception as exc:
-            raise translate_edgartools_exception(exc) from exc
 
     # Private transformation methods
 
