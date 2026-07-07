@@ -282,8 +282,13 @@ def _quarter_frames():
 
 
 def _patch_company(filings):
+    # The extraction now resolves the filing via the cached resolve_filing_by_accession seam, which
+    # returns (company, filings). Patch that instead of EdgarCompany.
+    company = FakeCompany(filings)
     return patch.object(
-        xbrl_module, "EdgarCompany", lambda cik: FakeCompany(filings)
+        xbrl_module,
+        "resolve_filing_by_accession",
+        lambda cik, accession_number: (company, list(filings)),
     )
 
 

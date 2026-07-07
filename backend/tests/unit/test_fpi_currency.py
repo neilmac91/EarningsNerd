@@ -74,13 +74,18 @@ def _patch_company(filings):
     from unittest.mock import patch
 
     class _Company:
-        def __init__(self, cik):
-            pass
+        sic = None
 
         def get_filings(self, accession_number=None, trigger_full_load=None):
             return list(filings)
 
-    return patch.object(xbrl_module, "EdgarCompany", _Company)
+    company = _Company()
+    # Extraction resolves via the cached resolve_filing_by_accession seam → (company, filings).
+    return patch.object(
+        xbrl_module,
+        "resolve_filing_by_accession",
+        lambda cik, accession_number: (company, list(filings)),
+    )
 
 
 # --- _currency / _reporting_currency ------------------------------------------------------
