@@ -117,7 +117,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         )
         collisions = {t: n for t, n in post_repair.items() if t and n > 1}
         if collisions:
-            print(f"\nWARNING — post-repair ticker collisions (rows sharing one ticker): {collisions}")
+            # A collision (two rows converging on one ticker) would shadow one company in every
+            # ticker-keyed lookup. Never auto-resolve, and never commit through it — abort with a
+            # non-zero exit so a run cannot corrupt the ticker key. Resolve manually first.
+            print(f"\nERROR — post-repair ticker collisions (rows sharing one ticker): {collisions}")
+            print("Aborting: no rows written. Resolve these collisions manually, then re-run.")
+            return 1
 
         if not args.apply:
             print("\nDRY RUN — nothing written. Re-run with --apply to write the repairs above.")

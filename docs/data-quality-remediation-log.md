@@ -273,6 +273,12 @@ common ticker for all 8 named issuers (JPM/BAC/WFC/C/GS/MS/GOOGL/BRK-B); combine
 Phase-0 snapshot (only JPM-PM corrupted), the repair dry-run should report **exactly 1 change
 (JPM-PM→JPM), 0 collisions, 0 not-in-file** among the named set.
 
+**PR-bot review (gemini) — 2 more real fixes taken:** (1) the search race handler rolled back
+the whole batch, dropping non-conflicting new companies from the response — now it re-resolves
+each CIK individually via the per-row-SAVEPOINT helper on race, preserving them; (2) the repair
+script now **aborts with exit 1 on any post-repair ticker collision** (never commits through a
+shadowing state) — guarded by `test_apply_aborts_on_collision_without_writing`.
+
 **Deploy / prod operations:** _pending merge → repair dry-run → compare vs the prediction above
 → apply → verify JPM ~$300 quote, single search row, sitemap, /JPM-PM canonical._
 

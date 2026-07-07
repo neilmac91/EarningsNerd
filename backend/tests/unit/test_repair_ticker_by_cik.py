@@ -79,3 +79,40 @@ def test_apply_repairs_only_mismatched_rows(seeded_db, capsys):
     seeded_db.expire_all()
     assert seeded_db.query(Company).filter(Company.cik == "0000019617").one().ticker == "JPM"
     assert seeded_db.query(Company).filter(Company.cik == "0001652044").one().ticker == "GOOGL"
+
+
+def test_apply_aborts_on_collision_without_writing(monkeypatch, capsys):
+    """A post-repair collision (two rows converging on one ticker) must abort with exit 1 and
+    write nothing (adversarial/review guard against ticker-key corruption)."""
+    # Two DISTINCT CIKs both mapping to primary 'DUP' — an (unlikely) SEC-file state that would
+    # shadow one company in every ticker-keyed lookup.
+    collide = {
+        "0": {"cik_str": 111, "ticker": "DUP", "title": "Alpha"},
+        "1": {"cik_str": 222, "ticker": "DUP", "title": "Beta"},
+    }
+
+    async def fake_tickers():
+        return collide
+
+    import scripts.repair_ticker_by_cik as script_mod
+
+    monkeypatch.setattr(script_mod, "_fetch_tickers", fake_tickers)
+
+    db = SessionLocal()
+    db.query(Company).filter(Company.cik.in_(["0000000111", "0000000222"])).delete()
+    db.commit()
+    db.add(Company(cik="0000000111", ticker="AAA", name="Alpha"))
+    db.add(Company(cik="0000000222", ticker="BBB", name="Beta"))
+    db.commit()
+    try:
+        assert main(["--apply"]) == 1
+        out = capsys.readouterr().out
+        assert "ERROR — post-repair ticker collisions" in out
+        db.expire_all()
+        # Nothing written — both rows keep their original tickers.
+        assert db.query(Company).filter(Company.cik == "0000000111").one().ticker == "AAA"
+        assert db.query(Company).filter(Company.cik == "0000000222").one().ticker == "BBB"
+    finally:
+        db.query(Company).filter(Company.cik.in_(["0000000111", "0000000222"])).delete()
+        db.commit()
+        db.close()

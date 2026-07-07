@@ -252,18 +252,30 @@ async def search_companies(
                     db.refresh(company)
             except IntegrityError:
                 # A concurrent request inserted one of these CIKs between our read and flush.
-                # Serve the winners' rows instead of erroring (interim safeguard 2 logging).
+                # The batch rollback discards ALL pending inserts, so re-resolve each CIK
+                # individually via the per-row-SAVEPOINT helper — a race on one CIK no longer
+                # drops the other genuinely-new companies from the response.
                 logger.warning(
                     "company_upsert_conflict cik=%s ticker=%s path=companies.search",
                     ",".join(response_ciks),
                     q,
                 )
                 db.rollback()
-                by_cik = {
-                    c.cik: c
-                    for c in db.query(Company).filter(Company.cik.in_(response_ciks)).all()
-                }
-                companies = [by_cik[c] for c in response_ciks if c in by_cik]
+                by_cik: Dict[str, Company] = {}
+                for cik in response_ciks:
+                    sec_data = next(r for r in sec_results if r.get("cik") == cik)
+                    primary = await sec_edgar_service.primary_ticker_for_cik(cik)
+                    by_cik[cik] = resolve_or_create_company_by_cik(
+                        db,
+                        cik=cik,
+                        ticker=primary or sec_data.get("ticker"),
+                        name=sec_data.get("name"),
+                        exchange=sec_data.get("exchange"),
+                        path="companies.search",
+                        canonical_ticker=primary,
+                    )
+                db.commit()
+                companies = [by_cik[c] for c in response_ciks]
 
         # Fetch stock quotes for all companies in parallel (but don't fail if some fail)
         quote_tasks = [_get_stock_quote_with_timeout(company.ticker) for company in companies]
