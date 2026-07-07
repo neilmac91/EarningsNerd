@@ -41,7 +41,7 @@ export const CHART_SERIES = [
 /** Positional series color — 0-indexed. Charts should never need more than 6. */
 export function seriesColor(index: number): string {
   if (process.env.NODE_ENV !== 'production' && index >= CHART_SERIES.length) {
-    console.warn(`seriesColor(${index}): >6 series — collapse categories or facet the chart.`)
+    console.warn(`seriesColor(${index}): >6 series; collapse categories or facet the chart.`)
   }
   // Safe modulo — a negative index (reversed loops, delta math) must never
   // return undefined and silently break every stroke in the chart.
