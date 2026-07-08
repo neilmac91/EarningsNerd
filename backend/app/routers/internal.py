@@ -217,9 +217,11 @@ async def trigger_sync_companyfacts(req: SyncCompanyfactsRequest, background: Ba
 class BackfillFilingHistoryRequest(BaseModel):
     """P1-6: backfill deep 10-K/10-Q history (since 2001) from EFTS for a cohort.
 
-    ``tickers`` > ``watchlist_only`` > all companies (un-backfilled first), capped per run by
+    ``tickers`` > ``watchlist_only`` > all companies, capped per run by
     ``HISTORY_BACKFILL_MAX_COMPANIES``. A few EFTS requests per company through the shared rate
-    limiter; each company is stamped so re-runs skip already-backfilled companies.
+    limiter. Re-runs RE-FETCH (idempotent only by accession dedupe, so a re-run also picks up any
+    newly-filed reports); the default (all-companies) cohort orders un-backfilled companies first so
+    a capped run makes forward progress. Only the on-visit enqueue skips already-stamped companies.
     """
 
     tickers: list[str] = Field(default_factory=list)

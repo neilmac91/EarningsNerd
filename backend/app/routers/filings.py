@@ -52,6 +52,12 @@ def _mark_filings_synced(ticker: str, types_list: List[str]) -> None:
 # upsert). Cleared in the refresh's finally.
 _refreshing_keys: set = set()
 
+# In-flight guard for the on-visit deep-history backfill (P1-6). Same rationale as _refreshing_keys:
+# a burst of concurrent first-visits to a cold company would otherwise each fire a full multi-window
+# EFTS walk before the first one stamps history_backfilled_at. Keyed by company id; check-and-add is
+# synchronous (no await between), so it collapses the burst to one walk per company per process.
+_history_backfilling_ids: set = set()
+
 
 async def _refresh_company_filings(
     cik: str, ticker_upper: str, types_list: List[str], company_id: int
@@ -95,13 +101,17 @@ async def _refresh_company_filings(
 
 async def _run_history_backfill_on_visit(company_id: int) -> None:
     """Best-effort one-time deep-history backfill for a company on first view (P1-6). Opens its own
-    short-lived session (the request session is already closed), re-checks the stamp to dedupe
-    concurrent visits, and never raises — the user was already served whatever rows exist."""
+    short-lived session (the request session is already closed), collapses concurrent first-visits
+    with an in-flight guard (a full walk hasn't stamped the company yet, so the stamp re-check alone
+    can't dedupe a burst), and never raises — the user was already served whatever rows exist."""
+    if company_id in _history_backfilling_ids:
+        return  # a backfill for this company is already in flight in this process
+    _history_backfilling_ids.add(company_id)
     db = SessionLocal()
     try:
         company = db.get(Company, company_id)
         if company is None or company.history_backfilled_at is not None:
-            return  # already backfilled by a concurrent visit
+            return  # already backfilled by a prior visit
         from app.services import filing_history_service
         await filing_history_service.backfill_company(db, company)
     except Exception:
@@ -109,6 +119,7 @@ async def _run_history_backfill_on_visit(company_id: int) -> None:
         db.rollback()
     finally:
         db.close()
+        _history_backfilling_ids.discard(company_id)
 
 
 router = APIRouter()

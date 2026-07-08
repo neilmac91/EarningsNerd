@@ -157,3 +157,25 @@ async def test_batch_backfill_respects_explicit_ticker_cohort(monkeypatch):
     monkeypatch.setattr(fh, "backfill_company", fake_backfill)
     totals = await fh.batch_backfill(db, tickers=["JPM"])
     assert totals == {"companies": 1, "inserted": 5, "failed": 0}
+
+
+@pytest.mark.asyncio
+async def test_backfill_all_windows_fail_does_not_stamp(monkeypatch):
+    """Every window failing must leave the company UN-stamped so the next visit re-walks it (rather
+    than marking it 'done' with no data)."""
+    monkeypatch.setattr(fh.settings, "HISTORY_BACKFILL_SINCE_YEAR", 2020)
+    monkeypatch.setattr(fh.settings, "HISTORY_BACKFILL_WINDOW_YEARS", 4)
+    db = _engine_session()
+    company = Company(cik="0000019617", ticker="JPM", name="JPM")
+    db.add(company)
+    db.commit()
+
+    class _AllFail:
+        async def search(self, **kw):
+            raise RuntimeError("EFTS 503")
+
+    stats = await fh.backfill_company(db, company, efts_client=_AllFail())
+    assert stats["windows_ok"] == 0
+    assert stats["inserted"] == 0
+    assert company.history_backfilled_at is None
+    assert db.query(Filing).filter(Filing.company_id == company.id).count() == 0

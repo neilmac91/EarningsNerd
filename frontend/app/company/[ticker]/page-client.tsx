@@ -636,6 +636,20 @@ export default function CompanyPageClient() {
               )}
               <FilingsHistoryNote oldestFilingDate={oldestFilingDate} cik={company?.cik} />
             </div>
+          ) : filings && filings.length > 0 ? (
+            // The company HAS filings but the active type/year filter matched none — a filter-
+            // specific empty state (not the absolute "no filings") with a way back.
+            <div role="status" className="text-center py-12">
+              <FileTextIcon className="h-12 w-12 text-text-tertiary-light dark:text-text-secondary-dark mx-auto mb-4" />
+              <p className="text-text-tertiary-light dark:text-text-secondary-dark">No filings match this filter.</p>
+              <Button
+                variant="secondary"
+                className="mt-4"
+                onClick={() => { setFilterType(null); setFilterYear(null) }}
+              >
+                Clear filters
+              </Button>
+            </div>
           ) : (
             // Inline empty — inside the section card, so no nested GuidanceCard panel.
             <div role="status" className="text-center py-12">

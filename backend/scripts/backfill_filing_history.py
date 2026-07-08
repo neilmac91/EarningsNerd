@@ -3,8 +3,10 @@
 
 A few EFTS full-text-search requests per company (paced by the shared SEC rate limiter) list the
 company's historical annual/quarterly reports; rows are written NOT-NULL-safe + accession-deduped,
-and each company is stamped ``companies.history_backfilled_at`` so re-runs skip it. The internal
-endpoint ``POST /internal/jobs/backfill-filing-history`` is the lighter-weight alternative.
+and each company is stamped ``companies.history_backfilled_at``. Re-runs RE-FETCH (idempotent only
+by accession dedupe, so they also pick up newly-filed reports) — the stamp gates only the on-visit
+backfill, not this batch path. The internal endpoint ``POST /internal/jobs/backfill-filing-history``
+is the lighter-weight alternative.
 
 Requirements (runs in prod / CI, NOT the offline sandbox):
   - DATABASE_URL pointing at the production database
