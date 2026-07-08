@@ -368,4 +368,8 @@ def enrich_summary_provenance(
         "raw_summary": enrich_raw_summary(
             summary.raw_summary, filing, normalized_source, xbrl_standardized
         ),
+        # Version stamps pass through so the client can tell a stale (NULL/behind) summary from a
+        # current one; enrichment never regenerates, so the stamps reflect the stored row.
+        "schema_version": getattr(summary, "schema_version", None),
+        "prompt_version": getattr(summary, "prompt_version", None),
     }

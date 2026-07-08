@@ -61,3 +61,25 @@ def test_is_stale_rule():
 def test_version_constants_types():
     assert isinstance(SUMMARY_SCHEMA_VERSION, int)
     assert isinstance(SUMMARY_PROMPT_VERSION, str) and SUMMARY_PROMPT_VERSION
+
+
+def test_stamps_survive_provenance_enrichment():
+    # GET /filing/{id} returns enrich_summary_provenance(...), not the ORM row, so the response's
+    # version stamps are only populated if enrichment passes them through (dead-field guard).
+    from app.services.provenance_service import enrich_summary_provenance
+
+    summary = Summary(
+        id=3,
+        filing_id=5,
+        business_overview="x",
+        financial_highlights=None,
+        risk_factors=None,
+        management_discussion=None,
+        key_changes=None,
+        raw_summary=None,
+        schema_version=SUMMARY_SCHEMA_VERSION,
+        prompt_version=SUMMARY_PROMPT_VERSION,
+    )
+    result = enrich_summary_provenance(summary, filing=None)
+    assert result["schema_version"] == SUMMARY_SCHEMA_VERSION
+    assert result["prompt_version"] == SUMMARY_PROMPT_VERSION
