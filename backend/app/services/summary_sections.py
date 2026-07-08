@@ -19,6 +19,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, List, Optional
 
 from app.services import metric_delta_service
+from app.services.summary_schema import SECTION_META
 
 # Mirror frontend SummarySections.tsx PLACEHOLDER_PATTERNS so exports drop the same
 # "data unavailable" filler the page hides.
@@ -226,60 +227,68 @@ def _executive_snapshot(sections: dict) -> Section:
     return section
 
 
+def _metrics_block(table: Any) -> Optional[Block]:
+    """Build the financial-metrics ``Block`` from a list of P&L row dicts.
+
+    Shared by v1 ``financial_highlights`` and v2 ``results_that_matter`` (identical row shape).
+    Single delta policy (T1.5): compute the Change cell from current/prior so CSV+PDF match the
+    table and chips (ppts for margins); show "—" when not computable — the SAME fallback the web
+    uses — rather than the model's own unverified change text. Returns ``None`` if no valid rows.
+    """
+    if not isinstance(table, list):
+        return None
+    rows: List[List[str]] = []
+    metric_rows: List[dict] = []
+    for row in table:
+        if not isinstance(row, dict):
+            continue
+        metric = _clean(row.get("metric"))
+        if not metric:
+            continue
+        _delta = metric_delta_service.delta_for_row(row)
+        change_cell = _delta.display if _delta and _delta.display else "—"
+        rows.append(
+            [
+                metric,
+                _clean(row.get("current_period") or row.get("currentPeriod")),
+                _clean(row.get("prior_period") or row.get("priorPeriod")),
+                change_cell,
+                _clean(row.get("commentary")),
+            ]
+        )
+        # Typed row the web renders richly (tone colours + provenance chips). Pass the row through
+        # (it carries change_display/direction/tone + source_* once enriched) and ensure the delta
+        # fields exist even on the unenriched pipeline path. String values are inline-markdown-
+        # normalized so the web table (which renders these raw dicts, not the string projection
+        # above) shows the same clean prose as every other surface.
+        typed = {
+            key: (_strip_inline_markdown(val) if isinstance(val, str) else val)
+            for key, val in row.items()
+        }
+        if _delta and _delta.display:
+            typed.setdefault("change_display", _delta.display)
+            typed.setdefault("change_direction", _delta.direction)
+            typed.setdefault("change_tone", _delta.tone)
+        metric_rows.append(typed)
+    if not rows:
+        return None
+    return Block(
+        "metrics",
+        headers=["Metric", "Current Period", "Prior Period", "Change", "Investor Takeaway"],
+        rows=rows,
+        metric_rows=metric_rows,
+    )
+
+
 def _financial_highlights(sections: dict) -> Section:
     section = Section("Financial Highlights")
     data = sections.get("financial_highlights")
     if not isinstance(data, dict):
         return section
 
-    rows: List[List[str]] = []
-    metric_rows: List[dict] = []
-    table = data.get("table")
-    if isinstance(table, list):
-        for row in table:
-            if not isinstance(row, dict):
-                continue
-            metric = _clean(row.get("metric"))
-            if not metric:
-                continue
-            # Single delta policy (T1.5): compute the Change cell from current/prior so CSV+PDF match
-            # the table and chips (ppts for margins). When it's not computable (mixed/unparseable
-            # values), show no delta ("—") — the SAME fallback the web table uses — rather than the
-            # model's own unverified change text, which would reintroduce the divergence T1.5 kills.
-            _delta = metric_delta_service.delta_for_row(row)
-            change_cell = _delta.display if _delta and _delta.display else "—"
-            rows.append(
-                [
-                    metric,
-                    _clean(row.get("current_period") or row.get("currentPeriod")),
-                    _clean(row.get("prior_period") or row.get("priorPeriod")),
-                    change_cell,
-                    _clean(row.get("commentary")),
-                ]
-            )
-            # Typed row the web renders richly (tone colours + provenance chips). Pass the row
-            # through (it carries change_display/direction/tone + source_* once enriched) and
-            # ensure the delta fields exist even on the unenriched pipeline path. String values are
-            # inline-markdown-normalized so the web table (which renders these raw dicts, not the
-            # string projection above) shows the same clean prose as every other surface.
-            typed = {
-                key: (_strip_inline_markdown(val) if isinstance(val, str) else val)
-                for key, val in row.items()
-            }
-            if _delta and _delta.display:
-                typed.setdefault("change_display", _delta.display)
-                typed.setdefault("change_direction", _delta.direction)
-                typed.setdefault("change_tone", _delta.tone)
-            metric_rows.append(typed)
-    if rows:
-        section.blocks.append(
-            Block(
-                "metrics",
-                headers=["Metric", "Current Period", "Prior Period", "Change", "Investor Takeaway"],
-                rows=rows,
-                metric_rows=metric_rows,
-            )
-        )
+    block = _metrics_block(data.get("table"))
+    if block:
+        section.blocks.append(block)
 
     for label, key, alt in (
         ("Profitability", "profitability", None),
@@ -297,13 +306,12 @@ def _financial_highlights(sections: dict) -> Section:
     return section
 
 
-def _risk_factors(sections: dict) -> Section:
-    """Risks, filtered to match the page: each must have non-placeholder supporting evidence."""
-    section = Section("Investment Risks & Concerns", role="risks")
-    risks = sections.get("risk_factors")
+def _risks_table_block(risks: Any) -> Optional[Block]:
+    """Build the risks table Block (shared by v1 ``risk_factors`` and v2 ``risks``). Each risk must
+    carry non-placeholder supporting evidence (mirrors the page filter). Returns ``None`` if none
+    qualify."""
     if not isinstance(risks, list):
-        return section
-
+        return None
     rows: List[List[str]] = []
     for risk in risks:
         normalized = _normalize_risk(risk)
@@ -311,10 +319,17 @@ def _risk_factors(sections: dict) -> Section:
             continue
         risk_text, evidence = normalized
         rows.append([str(len(rows) + 1), risk_text, evidence])
-    if rows:
-        section.blocks.append(
-            Block("table", headers=["#", "Risk", "Supporting Evidence"], rows=rows)
-        )
+    if not rows:
+        return None
+    return Block("table", headers=["#", "Risk", "Supporting Evidence"], rows=rows)
+
+
+def _risk_factors(sections: dict) -> Section:
+    """Risks, filtered to match the page: each must have non-placeholder supporting evidence."""
+    section = Section("Investment Risks & Concerns", role="risks")
+    block = _risks_table_block(sections.get("risk_factors"))
+    if block:
+        section.blocks.append(block)
     return section
 
 
@@ -460,23 +475,31 @@ def _guidance_outlook(sections: dict) -> Section:
     return section
 
 
+def _footnotes_table_block(data: Any) -> Optional[Block]:
+    """Build the footnotes table Block (shared by v1 and v2 ``notable_footnotes`` — same shape)."""
+    if not isinstance(data, list):
+        return None
+    rows: List[List[str]] = []
+    for fn in data:
+        if isinstance(fn, dict):
+            item = _clean(fn.get("item"))
+            impact = _clean(fn.get("impact"))
+            if item or impact:
+                rows.append([item, impact])
+        else:
+            text = _clean(fn)
+            if text and not is_placeholder(text):
+                rows.append([text, ""])
+    if not rows:
+        return None
+    return Block("table", headers=["Item", "Impact"], rows=rows)
+
+
 def _notable_footnotes(sections: dict) -> Section:
     section = Section("Notable Footnotes")
-    data = sections.get("notable_footnotes")
-    rows: List[List[str]] = []
-    if isinstance(data, list):
-        for fn in data:
-            if isinstance(fn, dict):
-                item = _clean(fn.get("item"))
-                impact = _clean(fn.get("impact"))
-                if item or impact:
-                    rows.append([item, impact])
-            else:
-                text = _clean(fn)
-                if text and not is_placeholder(text):
-                    rows.append([text, ""])
-    if rows:
-        section.blocks.append(Block("table", headers=["Item", "Impact"], rows=rows))
+    block = _footnotes_table_block(sections.get("notable_footnotes"))
+    if block:
+        section.blocks.append(block)
     return section
 
 
@@ -519,11 +542,215 @@ _BUILDERS: tuple[Callable[[dict], Section], ...] = (
 )
 
 
+# --- v2 builders (Tier-3.1 SummaryDoc content architecture) -------------------------------------
+# Render the v2 section shapes (app/services/summary_schema.py) into Section/Block. Titles + roles
+# come from SECTION_META so they live in one place. Legacy v1 rows keep rendering via _BUILDERS.
+
+
+def _v2_the_print(sections: dict) -> Section:
+    section = Section(SECTION_META["the_print"]["title"])
+    data = sections.get("the_print")
+    if isinstance(data, str):
+        text = _clean(data)
+        if text and not is_placeholder(text):
+            section.blocks.append(Block("paragraph", text=text))
+        return section
+    if not isinstance(data, dict):
+        return section
+    headline = _clean(data.get("headline"))
+    if headline and not is_placeholder(headline):
+        section.blocks.append(Block("paragraph", text=headline))
+    changed = _clean(data.get("what_changed") or data.get("whatChanged"))
+    if changed and not is_placeholder(changed):
+        section.blocks.append(Block("paragraph", text=changed))
+    tone = _clean(data.get("tone"))
+    if tone and tone.lower() not in ("neutral", ""):
+        section.tone = tone.lower()
+    points = [p for p in _str_list(data.get("key_takeaways") or data.get("keyTakeaways")) if not is_placeholder(p)]
+    if points:
+        section.blocks.append(Block("bullets", items=points))
+    return section
+
+
+def _v2_results_that_matter(sections: dict) -> Section:
+    section = Section(SECTION_META["results_that_matter"]["title"])
+    data = sections.get("results_that_matter")
+    if isinstance(data, dict):
+        block = _metrics_block(data.get("table"))
+        if block:
+            section.blocks.append(block)
+    return section
+
+
+def _v2_earnings_quality(sections: dict) -> Section:
+    section = Section(SECTION_META["earnings_quality"]["title"])
+    data = sections.get("earnings_quality")
+    if not isinstance(data, dict):
+        return section
+    for key, alt in (("operating_vs_one_time", "operatingVsOneTime"), ("cash_conversion", "cashConversion")):
+        text = _clean(data.get(key) or data.get(alt))
+        if text and not is_placeholder(text):
+            section.blocks.append(Block("paragraph", text=text))
+    # Red flags are the "is the profit real?" payload — render each as a highlighted callout.
+    flags = [f for f in _str_list(data.get("red_flags") or data.get("redFlags")) if not is_placeholder(f)]
+    for flag in flags:
+        section.blocks.append(Block("callout", label="Red flag", text=flag))
+    return section
+
+
+def _v2_value_drivers(sections: dict) -> Section:
+    section = Section(SECTION_META["value_drivers"]["title"])
+    data = sections.get("value_drivers")
+    if not isinstance(data, dict):
+        return section
+    for key, alt in (("capital_allocation", "capitalAllocation"), ("returns_on_capital", "returnsOnCapital")):
+        text = _clean(data.get(key) or data.get(alt))
+        if text and not is_placeholder(text):
+            section.blocks.append(Block("paragraph", text=text))
+    highlights = [h for h in _str_list(data.get("highlights")) if not is_placeholder(h)]
+    if highlights:
+        section.blocks.append(Block("bullets", items=highlights))
+    return section
+
+
+def _v2_forward_signals(sections: dict) -> Section:
+    section = Section(SECTION_META["forward_signals"]["title"])
+    data = sections.get("forward_signals")
+    if isinstance(data, str):
+        text = _clean(data)
+        if text and not is_placeholder(text):
+            section.blocks.append(Block("paragraph", text=text))
+        return section
+    if not isinstance(data, dict):
+        return section
+    guidance = _clean(data.get("guidance"))
+    if guidance and guidance != "Not disclosed" and not is_placeholder(guidance):
+        section.blocks.append(Block("paragraph", text=guidance))
+    tone = _clean(data.get("tone"))
+    if tone and tone.lower() not in ("neutral", ""):
+        section.tone = tone.lower()
+    for label, key, alt in (
+        ("Known trends", "known_trends", "knownTrends"),
+        ("Subsequent events", "subsequent_events", "subsequentEvents"),
+    ):
+        items = [i for i in _str_list(data.get(key) or (data.get(alt) if alt else None)) if not is_placeholder(i)]
+        if items:
+            section.blocks.append(Block("bullets", text=label, items=items))
+    quotes = data.get("quotes")
+    if isinstance(quotes, list):
+        for quote in quotes:
+            if not isinstance(quote, dict):
+                continue
+            text = _clean(quote.get("quote"))
+            if text and not is_placeholder(text):
+                section.blocks.append(Block("quote", text=text, speaker=_clean(quote.get("speaker"))))
+    return section
+
+
+def _v2_risks(sections: dict) -> Section:
+    meta = SECTION_META["risks"]
+    section = Section(meta["title"], role=meta.get("role", ""))
+    block = _risks_table_block(sections.get("risks"))
+    if block:
+        section.blocks.append(block)
+    return section
+
+
+def _v2_segments(sections: dict) -> Section:
+    section = Section(SECTION_META["segments"]["title"])
+    data = sections.get("segments")
+    rows: List[List[str]] = []
+    if isinstance(data, list):
+        for seg in data:
+            if not isinstance(seg, dict):
+                continue
+            name = _clean(seg.get("segment") or seg.get("name"))
+            if not name:
+                continue
+            rows.append(
+                [
+                    name,
+                    _clean(seg.get("revenue")),
+                    _clean(seg.get("operating_income") or seg.get("operatingIncome")),
+                    _clean(seg.get("change")),
+                    _clean(seg.get("commentary")),
+                ]
+            )
+    if rows:
+        section.blocks.append(
+            Block(
+                "table",
+                headers=["Segment", "Revenue", "Operating Income", "Change", "Commentary"],
+                rows=rows,
+            )
+        )
+    return section
+
+
+def _v2_balance_sheet_liquidity(sections: dict) -> Section:
+    section = Section(SECTION_META["balance_sheet_liquidity"]["title"])
+    data = sections.get("balance_sheet_liquidity")
+    if isinstance(data, str):
+        text = _clean(data)
+        if text and not is_placeholder(text):
+            section.blocks.append(Block("paragraph", text=text))
+        return section
+    if not isinstance(data, dict):
+        return section
+    for label, key, alt in (
+        ("Leverage", "leverage", None),
+        ("Liquidity", "liquidity", None),
+        ("Working capital", "working_capital", "workingCapital"),
+    ):
+        text = _clean(data.get(key) or (data.get(alt) if alt else None))
+        if text and not is_placeholder(text):
+            section.blocks.append(Block("paragraph", text=f"{label}: {text}"))
+    covenants = [
+        c
+        for c in _str_list(data.get("maturities_covenants") or data.get("maturitiesCovenants"))
+        if not is_placeholder(c)
+    ]
+    if covenants:
+        section.blocks.append(Block("bullets", text="Maturities & covenants", items=covenants))
+    return section
+
+
+def _v2_notable_footnotes(sections: dict) -> Section:
+    section = Section(SECTION_META["notable_footnotes"]["title"])
+    block = _footnotes_table_block(sections.get("notable_footnotes"))
+    if block:
+        section.blocks.append(block)
+    return section
+
+
+# Ordered as the inverted pyramid (see summary_schema.TRACKED_SECTIONS_V2).
+_BUILDERS_V2: tuple[Callable[[dict], Section], ...] = (
+    _v2_the_print,
+    _v2_results_that_matter,
+    _v2_earnings_quality,
+    _v2_value_drivers,
+    _v2_forward_signals,
+    _v2_risks,
+    _v2_segments,
+    _v2_balance_sheet_liquidity,
+    _v2_notable_footnotes,
+)
+
+_BUILDERS_BY_VERSION: dict[int, tuple[Callable[[dict], Section], ...]] = {
+    1: _BUILDERS,
+    2: _BUILDERS_V2,
+}
+
+
 def _builders_for(schema_version: Any) -> tuple[Callable[[dict], Section], ...]:
-    """Select the section builders for a summary's schema version. Only v1 exists today (and
-    legacy/NULL rows are v1); the Tier-3 content re-architecture registers a v2 builder set here so
-    render_sections keeps rendering old rows correctly after the cutover."""
-    return _BUILDERS
+    """Select the section builders for a summary's schema version. Legacy/NULL rows are v1; v2 is the
+    Tier-3.1 content re-architecture. An unknown/absent version falls back to v1 so a stored row is
+    never dropped from the render."""
+    try:
+        version = int(schema_version)
+    except (TypeError, ValueError):
+        version = 1
+    return _BUILDERS_BY_VERSION.get(version, _BUILDERS)
 
 
 def render_sections(raw_summary: Optional[dict]) -> List[Section]:
