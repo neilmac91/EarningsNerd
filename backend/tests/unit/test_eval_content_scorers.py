@@ -97,6 +97,18 @@ def test_redundancy_parses_rendered_markdown_and_excludes_the_table_home():
     assert score < 1.0
 
 
+def test_redundancy_excludes_table_homes_with_alignment_colons():
+    # GFM alignment delimiters (| :--- |, | ---: |) must still be recognised as a table home, else
+    # the table's figures get miscounted as narrative restatement.
+    md = "\n".join([
+        "## Executive Assessment", "Revenue reached a record.", "",
+        "## Financial Highlights", "| Metric | Value |", "| :--- | ---: |", "| Revenue | $81.6B |",
+    ])
+    payload = {"executive_summary": md, "management_discussion": "", "outlook": ""}
+    # $81.6B lives only in the (aligned) table home → no narrative restatement.
+    assert score_redundancy(payload) == (1.0, [])
+
+
 def test_redundancy_markdown_mode_is_clean_when_each_figure_has_one_home():
     md = "\n".join([
         "## Executive Assessment", "Revenue rose to a record on AI demand.", "",

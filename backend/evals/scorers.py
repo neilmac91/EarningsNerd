@@ -590,8 +590,11 @@ def _figure_keys(text: Any) -> set:
 
 # A section carrying a GFM table separator IS a figures' structured home (the metrics table,
 # segments, footnotes). Restating a home figure in the table doesn't count as narrative redundancy;
-# matching on the table row, not a section title, keeps this robust across the v1/v2 taxonomies.
-_TABLE_HOME_RE = re.compile(r"\|\s*-{3,}")
+# matching on the table row, not a section title, keeps this robust across the v1/v2 taxonomies. The
+# optional colons match GFM alignment delimiters (| :--- |, | ---: |, | :---: |) too — production
+# tables use bare ---, but a candidate/future renderer may align, and a missed table home would
+# wrongly count its figures as narrative restatement.
+_TABLE_HOME_RE = re.compile(r"\|\s*:?-{3,}:?")
 
 
 def _redundancy_prose_sections(payload: Dict[str, Any]) -> List[set]:
