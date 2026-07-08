@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  EXPORT_TEXT,
   HEADER_STAMP,
   exportFilename,
   exportPanelPng,
@@ -8,6 +9,7 @@ import {
   layoutLegend,
 } from '@/features/analysis/lib/chartExport'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
+import tailwindConfig from '../../tailwind.config.js'
 
 vi.mock('@/lib/downloadBlob', () => ({ downloadBlob: vi.fn() }))
 import { downloadBlob } from '@/lib/downloadBlob'
@@ -53,6 +55,24 @@ describe('exportFilename', () => {
     expect(exportFilename(quarterly, `${quarterly.mode}-metrics`, 'xlsx')).toBe(
       'TST_2024Q3-2024Q4_quarterly-metrics.xlsx'
     )
+  })
+})
+
+describe('EXPORT_TEXT token mirror', () => {
+  // Rule 12 gate: canvas draws hexes, not CSS vars — this fails the moment the export inks drift
+  // from tailwind.config.js's text tokens (the drift class rule 11's app-wide change invites).
+  const text = (
+    tailwindConfig as {
+      theme: { extend: { colors: { text: Record<string, { light: string; dark: string }> } } }
+    }
+  ).theme.extend.colors.text
+
+  it('mirrors tailwind text.primary', () => {
+    expect(EXPORT_TEXT.primary).toEqual(text.primary)
+  })
+
+  it('mirrors tailwind text.secondary', () => {
+    expect(EXPORT_TEXT.secondary).toEqual(text.secondary)
   })
 })
 
@@ -137,18 +157,23 @@ describe('exportPanelPng header', () => {
   }
 
   let fillTexts: string[]
+  let fillArgs: { text: string; maxWidth?: number }[]
   let ctx: Record<string, unknown>
 
   beforeEach(() => {
     vi.stubGlobal('Image', FakeImage)
     fillTexts = []
+    fillArgs = []
     ctx = {
       fillStyle: '',
       font: '',
       textBaseline: '',
       globalAlpha: 1,
       fillRect: vi.fn(),
-      fillText: vi.fn((text: string) => fillTexts.push(text)),
+      fillText: vi.fn((text: string, _x: number, _y: number, maxWidth?: number) => {
+        fillTexts.push(text)
+        fillArgs.push({ text, maxWidth })
+      }),
       measureText: (t: string) => ({ width: t.length * 7 }),
       scale: vi.fn(),
       drawImage: vi.fn(),
@@ -203,6 +228,14 @@ describe('exportPanelPng header', () => {
     // Two-tone wordmark: "Earnings" (ink) + "Nerd" (sage), so the source is obvious.
     expect(fillTexts).toContain('Earnings')
     expect(fillTexts).toContain('Nerd')
+  })
+
+  it('maxWidth-guards all three header tiers (company, subtitle, legend labels)', async () => {
+    await exportPanelPng(makeContainer(), 'x.png', { dark: false, header: HEADER })
+    const maxWidthOf = (t: string) => fillArgs.find((a) => a.text === t)?.maxWidth
+    expect(maxWidthOf('Tesla, Inc.')).toBeTypeOf('number') // company
+    expect(maxWidthOf('TSLA · Cash generation')).toBeTypeOf('number') // subtitle
+    expect(maxWidthOf('Operating CF')).toBeTypeOf('number') // legend label — the uniformity fix
   })
 
   it('offsets the plot below the header strip', async () => {

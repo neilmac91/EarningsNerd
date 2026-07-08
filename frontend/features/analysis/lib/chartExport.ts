@@ -88,6 +88,15 @@ export const MARK_STAMP = {
   wordmarkGap: 9, // wordmark → mark
 } as const
 
+/** Canvas mirrors of the text tokens (canvas draws hexes, not CSS vars) — the single source for
+ *  every ink the header/footer paint. Gated in chart-export.spec against tailwind.config.js's
+ *  `text.primary`/`text.secondary` so a palette change can't silently drift this copy (rule 12:
+ *  the mirror is a machine-checked gate, not three comment-guarded literals a grep can't see). */
+export const EXPORT_TEXT = {
+  primary: { light: '#1A1A17', dark: '#D7DADC' },
+  secondary: { light: '#374151', dark: '#9CA3AF' },
+} as const
+
 /** Draw the branded footer strip bottom-right: the "EarningsNerd" wordmark (two-tone like the site
  *  logo — ink "Earnings" + sage "Nerd", so a shared image names its source rather than an
  *  ambiguous monogram) followed by the EN mark. A mark decode failure still leaves the wordmark
@@ -100,7 +109,7 @@ async function drawBrandFooter(
   dark: boolean
 ): Promise<void> {
   const accent = dark ? MARK_STAMP.fillDark : MARK_STAMP.fillLight
-  const ink = dark ? '#D7DADC' : '#1A1A17' // text.primary
+  const ink = dark ? EXPORT_TEXT.primary.dark : EXPORT_TEXT.primary.light // the wordmark's "Earnings"
   const mark = await loadSvgImage(buildMarkSvg(accent))
   const markW = mark ? (MARK_STAMP.markHeight * MARK_WIDTH) / MARK_HEIGHT : 0
   const centerY = footerTop + MARK_STAMP.stripHeight / 2
@@ -258,8 +267,8 @@ function drawHeader(
   width: number,
   dark: boolean
 ): void {
-  const primary = dark ? '#D7DADC' : '#1A1A17' // text.primary
-  const secondary = dark ? '#9CA3AF' : '#374151' // text.secondary
+  const primary = dark ? EXPORT_TEXT.primary.dark : EXPORT_TEXT.primary.light
+  const secondary = dark ? EXPORT_TEXT.secondary.dark : EXPORT_TEXT.secondary.light
   const maxW = Math.max(1, width - 2 * HEADER_STAMP.padX)
 
   ctx.textBaseline = 'alphabetic'
@@ -292,7 +301,9 @@ function drawHeader(
       x += HEADER_STAMP.swatch + HEADER_STAMP.swatchGap
       ctx.fillStyle = secondary
       ctx.textBaseline = 'middle'
-      ctx.fillText(item.label, x, rowTop + LEGEND_ROW_H / 2)
+      // maxWidth guard, uniform with the company/subtitle tiers: an over-wide lone label (wrapped
+      // to its own row by layoutLegend) condenses instead of clipping past the strip's right edge.
+      ctx.fillText(item.label, x, rowTop + LEGEND_ROW_H / 2, Math.max(1, width - x - HEADER_STAMP.padX))
       x += item.width + HEADER_STAMP.itemGap
     }
     rowTop += LEGEND_ROW_H + HEADER_STAMP.rowGap
