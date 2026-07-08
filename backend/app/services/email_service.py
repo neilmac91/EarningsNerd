@@ -430,6 +430,7 @@ def render_data_quality_report(report: dict) -> tuple[str, str]:
         f"Partial reasons: {len(partials)}",
         *[f"  SIC {p['sic_prefix']} | {p['reason']} x{p['count']}" for p in partials],
         f"Not in SEC file (delisted): {len(notf)}",
+        *[f"  {n['ticker']} (CIK {n['cik']})" for n in notf],
     ]
     text_body = "EarningsNerd data-quality report\n\n" + "\n".join(text_lines)
     return _wrap_html(html_body, footer=_DQ_FOOTER), text_body

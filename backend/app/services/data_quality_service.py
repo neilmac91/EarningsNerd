@@ -126,17 +126,21 @@ def partial_reason_counts(db: Session) -> list[dict]:
 
     ``raw_summary`` is a JSON column → a dict in Python, so the tier filter + reason explode happen
     in Python (portable across Postgres/SQLite; no jsonb operators in app code)."""
+    # Filter to partial-tier summaries IN THE DB (portable JSON path — verified on Postgres +
+    # SQLite) so we never load every full AI response into memory. The reasons array is still
+    # exploded in Python (jsonb_array_elements has no clean cross-dialect ORM form).
     rows = (
         db.query(Company.sic, Summary.raw_summary)
         .join(Filing, Filing.id == Summary.filing_id)
         .join(Company, Company.id == Filing.company_id)
+        .filter(Summary.raw_summary["quality"]["tier"].as_string() == "partial")
         .all()
     )
     counter: Counter = Counter()
     for sic, raw in rows:
         quality = (raw or {}).get("quality") if isinstance(raw, dict) else None
-        if not isinstance(quality, dict) or quality.get("tier") != "partial":
-            continue
+        if not isinstance(quality, dict):
+            continue  # defensive: the DB filter already enforced tier == "partial"
         bucket = (str(sic)[:2] if sic else "") or "null"
         for reason in quality.get("reasons") or []:
             counter[(bucket, str(reason))] += 1
