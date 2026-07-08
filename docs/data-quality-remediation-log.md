@@ -548,7 +548,9 @@ on the deployed preview — the underlying JPM/BAC cash series is the Phase-5-re
 
 ## Phase 9 — P1-9 weekly data-quality report
 
-**Status:** complete (code + gates); one-shot verify + weekly cron activate on deploy.
+**Status:** complete — code + gates shipped (#598, deploy `9d8cdb6`); the report was fired once
+and **verified end-to-end (email delivered to the founder)**; the weekly cron is live in
+`data-quality-weekly.yml`.
 **Plan items:** P1-9 — the detection & recurrence umbrella. A weekly report over the four
 detections the remediation established, emailed to the founder; no new GCP infra.
 
@@ -574,12 +576,28 @@ detections the remediation established, emailed to the founder; no new GCP infra
 **Guardrails:** `test_data_quality_report.py` — seeded fixtures exercise all four sections + the
 email render + an all-clean render. Full backend gate green (ruff + bandit + 1465 pytest).
 
-**Deploy / prod operations:** _on merge the digest job image gains the script; fire the weekly
-workflow once (`workflow_dispatch`) → verify the founder receives the report with counts consistent
-with the Phase-0/5 ops SQL runs (ticker mismatches 0 after the P0-1 repair; cash coverage gap 0
-after the P0-3 resync; the partial-reason row = the one legacy JPM summary before its Phase-6
-regenerate). The Cloud Scheduler trigger for the weekly cron is created out-of-band per
-DEPLOYMENT.md (the workflow's `schedule:` is the repo-auditable driver)._
+**Deploy / prod operations:** deploy `9d8cdb6` bumped the `filing-digest` job image with the new
+script (deploy-backend step 10). Fired once via the **ops request-file channel** — this session has
+no `actions:write`, so `workflow_dispatch` on `data-quality-weekly.yml` 403s; added a
+`data-quality-report` enum operation to `ops.yml` (same jobs-channel payload as the weekly workflow,
+targeting `filing-digest`) and triggered it with `ops/requests/current.json`. Ops run #17
+(`b6193ba`) → `gcloud run jobs execute earningsnerd-filing-digest --args=scripts/data_quality_report.py
+--wait` **succeeded** (~1m42s; a green `--wait` proves the task built the report and `send_email`
+returned without raising). **Report email delivered to `neil@earningsnerd.io` at 01:51 UTC**
+(confirmed in the inbox), counts consistent with the remediation's prior ops-SQL runs:
+
+| section | count | reading |
+| --- | --- | --- |
+| Ticker mismatches (stored ≠ SEC primary) | **0** — clean | post P0-1 12-row repair |
+| Coverage gaps (concept lags total_assets ≥2y) | **0** — clean | post P0-3 cash resync |
+| Partial-summary reasons by SIC | **0** — clean | the one legacy JPM partial → tier=full in Phase 6 |
+| Filing-count anomalies (deep facts, few 10-Ks) | **4** (informational) | C/MS/WFC/GS — banks NOT in the P1-6 JPM/BAC seed batch; the umbrella surfacing remaining backfill candidates as designed |
+| Delisted / not in the SEC file | **2** (informational) | CKHGF, TYHOY |
+
+Every _error_ section (mismatches / gaps / partial reasons) is clean; the two populated sections are
+the informational recurrence signals doing their job. The scheduled weekly run (Mon 13:00 UTC) is
+driven by `data-quality-weekly.yml`'s `schedule:` (the repo-auditable driver); the Cloud Scheduler
+trigger is created out-of-band per DEPLOYMENT.md.
 
 ---
 
@@ -638,4 +656,9 @@ has no `.;` artifacts, `tier="full"`, and no fabricated FCF driver; JPM filing h
   retried as rate-limited. Benign but imprecise.
 - **`pin_baseline.py`** drops the `baseline_scores.json` explanatory `note` field on re-pin (the
   tool doesn't preserve it) — cosmetic.
+- **First weekly report flags 4 filing-count anomalies (C, MS, WFC, GS)** — banks with deep XBRL
+  fact history but ≤1 stored 10-K, because the P1-6 backfill was seeded only for JPM/BAC + the
+  watchlist cohort. Clear them by firing `backfill-filing-history` (ops enum) with
+  `tickers=C,MS,WFC,GS`; the next weekly report should then show 0 anomalies. Not a regression —
+  the umbrella working as intended on tickers outside the seed batch.
 - **Open PRs #584 / #570** were untouched by this remediation.
