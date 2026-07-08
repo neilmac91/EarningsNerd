@@ -499,9 +499,20 @@ all-fail test).
 **Verified against live EFTS:** JPM 2001-2026 in 8-year windows → **100 clean 10-K/10-Q rows**
 (24 + 76), each window fully covered (total==hits, no truncation), 7 /A amendments excluded.
 
-**Deploy / prod operations:** _pending merge → deploy → ops `backfill-filing-history` (JPM,BAC
-seed) → verify `/api/filings/company/JPM?limit=200` returns the deep history + fiscal-year
-grouping + the Phase-2 "since {oldest}" note updates._
+**Deploy / prod operations:** PR #595 merged (`2809ff0`) → `deploy-backend` success (migration
+`20260711_companies_history_backfilled_at.sql` applied; service + 6 job images incl. the backfill
+endpoint/script). Ran ops `backfill-filing-history JPM,BAC` (jobs channel — `INTERNAL_JOB_TOKEN`
+not accessible to the deployer SA, same as the Phase-5 resync; job `…-659fn` completed). Verify:
+- **JPM** `/api/filings/company/JPM?limit=200` → **100 rows** (24 10-K + 76 10-Q), spanning
+  **fiscal years 2001–2026** — the deep history is live (was capped at the recent handful). Exact
+  match to the local EFTS smoke.
+- **Fiscal-year grouping fix confirmed live:** the newest 10-K has `filing_date 2026-02-13` but
+  `report_date 2025-12-31` → buckets under **FY 2025**, not 2026 (the P1-6 defect, fixed).
+- **BAC** → **70 rows** backfilled.
+- Default `/api/filings/company/JPM` (no `?limit=`) still serves the recent cap (unchanged); the
+  oldest filing is now 2001, so the Phase-2 "Showing filings since …" note deepens accordingly.
+
+Phase 7 complete and verified in production.
 
 ---
 
