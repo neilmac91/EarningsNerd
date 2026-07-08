@@ -180,11 +180,11 @@ function PricingContent() {
       description: 'For professionals who need unlimited access',
       features: [
         'Unlimited summaries',
+        'Unlimited Multi-Year Analysis: 10-year trends, quarterly deltas & AI narrative',
+        'Ask this Filing - Get answers on any filing',
         'Real-time filing alerts',
         '8-K coverage',
-        'Multi-Period Analysis: 10-year trends, quarterly deltas & AI narrative',
         'PDF & CSV exports',
-        'Premium AI model & deeper analysis',
         'Priority support',
       ],
       cta: isPaidPro ? 'Current Plan' : showBetaOffer ? 'Claim Pro' : isTrialing ? 'Subscribe to Pro' : 'Upgrade to Pro',
