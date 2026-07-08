@@ -865,6 +865,12 @@ async def reset_all_summaries(
     }
 
 
+# Hard ceiling on rows regenerated per refresh-stale call. Each generation can take up to ~120s and
+# runs synchronously in the request, so the batch is capped to stay well within the Cloud Run request
+# timeout and avoid holding a DB connection for a long op. Large backlogs = repeated calls / a job.
+_REFRESH_STALE_MAX_BATCH = 10
+
+
 def _stale_summary_filter(schema_version_lt: Optional[int]):
     """Rows to refresh: missing/behind stamp. schema_version_lt bounds by schema; None = stale vs
     the CURRENT schema+prompt version (covers a prompt-only bump that leaves schema_version equal)."""
@@ -884,7 +890,7 @@ async def refresh_stale_summaries(
     db: Session = Depends(get_db),
     schema_version_lt: Optional[int] = None,
     filing_type: Optional[str] = None,
-    limit: int = 50,
+    limit: int = 5,
     dry_run: bool = True,
 ):
     """Admin-only: regenerate version-stale summaries IN PLACE (bookmarks survive).
@@ -894,18 +900,26 @@ async def refresh_stale_summaries(
     each stale row is UPDATEd in place, preserving ``summaries.id`` so the FK/bookmark survives, and
     a keep-better quality gate prevents a 75s AI-timeout fallback from downgrading a stored ``full``.
 
-    Candidates are ordered most-recent-filing first (a traffic proxy — the DB has no per-summary hit
-    count). ``dry_run`` (default) reports the stale count without regenerating, which also serves as
-    the admin staleness count.
+    **Bounded, synchronous small batch.** Each generation can take up to ~120s, so a real run is
+    hard-capped at ``_REFRESH_STALE_MAX_BATCH`` rows and generates sequentially while the request is
+    in flight (keeping the Cloud Run request's CPU allocated — FastAPI ``BackgroundTasks`` would run
+    under post-response CPU throttling and could be cut short). This deliberately keeps one call well
+    within the request timeout; it is NOT a whole-corpus backfill. Drain a large backlog by calling
+    repeatedly (the op is idempotent + keep-better-gated) or via a precompute-style Cloud Run job.
+
+    ``dry_run`` (default) reports the full ``stale_total`` without regenerating — the admin staleness
+    count — while ``batch_limit`` reflects the clamped per-call ceiling. Candidates are ordered
+    most-recent-filing first (a traffic proxy — the DB has no per-summary hit count).
 
     Args:
         schema_version_lt: Refresh rows whose ``schema_version`` is NULL or below this. Omit to
             refresh everything stale vs the current schema+prompt version.
         filing_type: Optional form filter (e.g. "10-K", "10-Q").
-        limit: Max rows to regenerate in one call (a real run generates sequentially; keep modest).
+        limit: Rows to regenerate this call, clamped to [1, _REFRESH_STALE_MAX_BATCH].
         dry_run: If True (default), only report the stale candidates — regenerate nothing.
     """
     _require_admin(current_user)
+    limit = max(1, min(limit, _REFRESH_STALE_MAX_BATCH))
 
     query = (
         db.query(Summary.id, Summary.filing_id, Summary.schema_version, Summary.prompt_version)

@@ -142,6 +142,17 @@ def test_schema_version_lt_bounds_the_filter(client, as_admin):
 
 
 @pytest.mark.requires_db
+def test_limit_is_clamped_to_the_batch_ceiling(client, as_admin):
+    from app.routers.admin import _REFRESH_STALE_MAX_BATCH
+
+    ft = f"CLAMP-{uuid.uuid4().hex[:6]}"
+    _seed(ft, stamps=[(None, None)] * 2)
+    resp = client.post(f"/api/admin/summaries/refresh-stale?filing_type={ft}&limit=9999")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["batch_limit"] == _REFRESH_STALE_MAX_BATCH
+
+
+@pytest.mark.requires_db
 def test_real_run_forces_regenerate_preserves_bookmark_and_audits(client, as_admin, monkeypatch):
     ft = f"REAL-{uuid.uuid4().hex[:6]}"
     seed = _seed(ft, stamps=[(None, None)], saved_indices=(0,))
