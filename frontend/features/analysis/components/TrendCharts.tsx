@@ -16,6 +16,7 @@ import {
 import { ThemeContext } from '@/components/ThemeProvider'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import {
+  AxisSeriesTag,
   Button,
   Card,
   ChartTooltip,
@@ -89,9 +90,11 @@ interface PanelSpec {
   title: string
   /** [concept, display label] pairs; only concepts present in the dataset render. */
   lines: [string, string][]
-  /** Concepts (from `lines`) plotted on a RIGHT value axis — mixed-magnitude panels (equity
-   *  dwarfs debt/cash on the balance sheet) get a second scale, called out in the legend. */
-  rightAxis?: string[]
+  /** The ONE concept (from `lines`) plotted on a RIGHT value axis — mixed-magnitude panels (equity
+   *  dwarfs debt/cash on the balance sheet) get a second scale. Deliberately a single concept, not
+   *  an array: the colored-right-axis binding (spine + head-tag in that series' hue) only reads
+   *  unambiguously when the right scale carries exactly one series, so the type forbids more. */
+  rightAxis?: string
   /** Bar series (first panel: the top line as bars + growth as a line). */
   bar?: [string, string]
   /** Right-axis growth line derived from the bar concept's yoy. */
@@ -149,17 +152,19 @@ function PanelCard({
 
   // One series→(concept, label, color, axis) mapping drives the legend AND the plotted <Line>s —
   // built once so the two can't disagree on color/label pairing.
-  const rightSet = new Set(panel.rightAxis ?? [])
   const lineEntries = panel.lines
     .filter(([concept]) => series[concept])
     .map(([concept, label], index) => ({
       concept,
       label,
       color: seriesColor(index),
-      right: rightSet.has(concept),
+      right: concept === panel.rightAxis,
     }))
-  // A second scale only helps when both sides are populated — equity alone stays single-axis.
-  const dualAxis = lineEntries.some((e) => e.right) && lineEntries.some((e) => !e.right)
+  // The right axis carries EXACTLY ONE series (the type guarantees it) — bind the colored spine +
+  // head-tag to it. A second scale only helps when a LEFT series is also present (equity alone
+  // stays single-axis).
+  const rightEntry = lineEntries.find((e) => e.right)
+  const dualAxis = Boolean(rightEntry) && lineEntries.some((e) => !e.right)
   const barSeries = panel.bar && series[panel.bar[0]] ? series[panel.bar[0]] : null
   if (!barSeries && lineEntries.length === 0) return null
 
@@ -196,9 +201,11 @@ function PanelCard({
         { label: barSeries.label, color: BAR_COLOR },
         ...(panel.growthLine ? [{ label: GROWTH_LINE_LABEL, color: GROWTH_LINE_COLOR }] : []),
       ]
-    : // " (right)" is a legend-only decoration — the color/label pairing itself stays shared.
+    : // Symmetric (left)/(right) is a legend-only decoration: the words positively bind the LEFT
+      // series (which can't be color-bound — the left axis may carry two hues), while the on-plot
+      // colored right axis + head-tag bind the right. The color/label pairing itself stays shared.
       lineEntries.map(({ label, color, right }) => ({
-        label: dualAxis && right ? `${label} (right)` : label,
+        label: dualAxis ? `${label} (${right ? 'right' : 'left'})` : label,
         color,
       }))
 
@@ -326,7 +333,8 @@ function PanelCard({
               )}
             </ComposedChart>
           ) : (
-            <LineChart data={data} margin={{ top: 8, right: 16, left: 8, bottom: 0 }}>
+            // Dual-axis panels reserve top room for the right axis's head-tag (the named scale).
+            <LineChart data={data} margin={{ top: dualAxis ? 24 : 8, right: 16, left: 8, bottom: 0 }}>
               <CartesianGrid {...gridProps(dark)} />
               <XAxis
                 dataKey="period"
@@ -346,7 +354,7 @@ function PanelCard({
                 tickFormatter={panel.format}
                 {...(dualAxis ? { domain: ZERO_ANCHORED_DOMAIN } : {})}
               />
-              {dualAxis && (
+              {dualAxis && rightEntry && (
                 <YAxis
                   yAxisId="right"
                   orientation="right"
@@ -354,6 +362,13 @@ function PanelCard({
                   width={64}
                   tickFormatter={panel.format}
                   domain={ZERO_ANCHORED_DOMAIN}
+                  // The right axis is the ONE colored scale: a 2px spine + tick nibs in its single
+                  // series' hue bind that line to this scale by color, and the head-tag names it.
+                  // Tick NUMBERS stay neutral (yAxisProps' tick fill, spread first) — no top-level
+                  // `stroke`, which would tint them below the text-contrast floor.
+                  axisLine={{ stroke: rightEntry.color, strokeWidth: 2 }}
+                  tickLine={{ stroke: rightEntry.color, strokeWidth: 1 }}
+                  label={<AxisSeriesTag color={rightEntry.color} label={rightEntry.label} dark={dark} />}
                 />
               )}
               <Tooltip content={<ChartTooltip dark={dark} formatValue={formatTooltip} />} />
@@ -429,7 +444,7 @@ export default function TrendCharts({
         ['free_cash_flow', 'Free cash flow'],
         ['net_income', 'Net income'],
       ],
-      rightAxis: ['net_income'],
+      rightAxis: 'net_income',
       format: compactUsd,
     },
     {
@@ -442,7 +457,7 @@ export default function TrendCharts({
         ['shareholders_equity', 'Equity'],
         ['cash_and_equivalents', 'Cash'],
       ],
-      rightAxis: ['shareholders_equity'],
+      rightAxis: 'shareholders_equity',
       format: compactUsd,
     },
   ]

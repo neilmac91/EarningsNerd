@@ -177,6 +177,63 @@ export const yAxisProps = (dark: boolean) => ({
   width: 44,
 })
 
+/** Right-axis "head tag" for a dual-axis panel — a series-color swatch + the series NAME in
+    NEUTRAL ink, floated in the top margin above the right axis. The colored right spine binds a
+    line to the right scale by HUE; this tag NAMES that scale, so the binding is positive (read),
+    not inferred. The swatch is the ONLY colored element (rule 2: series color is graphic-only, and
+    a swatch clears the 3:1 graphic floor); the name uses the neutral AA axis ink (chartTheme.label
+    ≥4.5:1), never the sub-4.5:1 series hue. Pass as a right YAxis `label` element — Recharts
+    injects `viewBox` (the axis band {x,y,width,height}), same as it injects x/y into a custom
+    `tick`; renders nothing until it does. Lives inside the <svg>, so it rasterizes into the PNG
+    export for free. */
+export function AxisSeriesTag({
+  color,
+  label,
+  dark = false,
+  viewBox,
+}: {
+  color: string
+  label: string
+  dark?: boolean
+  /** Injected by Recharts when passed as `label={<AxisSeriesTag …/>}`. */
+  viewBox?: { x?: number; y?: number; width?: number; height?: number }
+}) {
+  // Destructure with a default so a missing viewBox (or any missing field) yields undefined and
+  // returns null — no reliance on `||` short-circuit order to stay TypeError-safe.
+  const { x, y, width } = viewBox ?? {}
+  if (x == null || y == null || width == null) return null
+  const rightEdge = x + width
+  const baseline = y - 8 // up into the widened top margin, clear of the top tick number
+  const swatch = 8
+  const gap = 5
+  // Geist Mono is monospace (~0.6em advance at 11px) — estimate the name width to place the swatch
+  // left of the RIGHT-aligned text. Only the swatch offset leans on the estimate; the text pins to
+  // rightEdge exactly, so a small metrics drift never misaligns the name.
+  const nameWidth = label.length * 6.6
+  return (
+    <g>
+      <rect
+        x={rightEdge - nameWidth - gap - swatch}
+        y={baseline - swatch + 1}
+        width={swatch}
+        height={swatch}
+        rx={2}
+        fill={color}
+      />
+      <text
+        x={rightEdge}
+        y={baseline}
+        textAnchor="end"
+        fontFamily={CHART_FONT}
+        fontSize={11}
+        fill={chartTheme(dark).label}
+      >
+        {label}
+      </text>
+    </g>
+  )
+}
+
 /** Pass as Tooltip's `cursor` — the hover crosshair. LINE charts only; a bar
     hover needs a FILL wash, not a hairline — use barCursorProps. */
 export const crosshairProps = (dark: boolean) => ({

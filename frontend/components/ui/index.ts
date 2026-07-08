@@ -19,7 +19,7 @@ export {
   // owns components/charts/Sparkline.tsx with different props).
   CHART_SERIES, CHART_FONT, seriesColor, chartTheme, directionTone, directionTextTone,
   gridProps, xAxisProps, yAxisProps, crosshairProps, barCursorProps, zeroLineProps, refLineProps, lineProps,
-  ChartTooltip, TrendSparkline,
+  AxisSeriesTag, ChartTooltip, TrendSparkline,
   type ChartTheme, type Direction, type ChartTooltipProps, type TrendSparklineProps,
 } from './Chart'
 export { cx } from './cx'
