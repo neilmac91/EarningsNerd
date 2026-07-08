@@ -131,3 +131,16 @@ export const ENABLE_FEEDBACK_WIDGET =
  */
 export const ENABLE_ANALYSIS =
   process.env.NEXT_PUBLIC_ENABLE_ANALYSIS === 'true'
+
+/**
+ * Show the full-text filing search product (the /search route + its nav and footer entries).
+ * Hidden by founder decision — it's our weakest offering — but kept in the codebase so it can be
+ * reintroduced by flipping one flag. Same gate pattern as ENABLE_ANALYSIS/ENABLE_CALENDAR: the
+ * /search route 404s while off, so the feature is hidden even from direct URLs / bookmarks, not
+ * just from the nav. NOTE: this gates ONLY the full-text search page — the homepage's ticker
+ * search (features/companies CompanySearch) is a separate product and is unaffected.
+ * Flip NEXT_PUBLIC_ENABLE_FULLTEXT_SEARCH='true' to bring it back.
+ * Default: disabled.
+ */
+export const ENABLE_FULLTEXT_SEARCH =
+  process.env.NEXT_PUBLIC_ENABLE_FULLTEXT_SEARCH === 'true'
