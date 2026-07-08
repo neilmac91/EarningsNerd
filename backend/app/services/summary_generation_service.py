@@ -265,6 +265,19 @@ def assess_quality(
     }
 
 
+# Quality tiers ranked worst -> best. The keep-better refresh gate (T1.4) overwrites a stored
+# summary ONLY when the new tier ranks >= the stored tier, so a 75s AI-timeout XBRL fallback
+# (partial) can never silently downgrade a stored `full` during a bulk refresh. assess_quality only
+# ever returns "full"/"partial" (a bare string, not an Enum); an unknown/absent tier (legacy rows
+# written before quality was attached) ranks lowest so any real regeneration is an improvement.
+_QUALITY_TIER_RANK = {"partial": 1, "full": 2}
+
+
+def quality_tier_rank(tier: Optional[str]) -> int:
+    """Rank a quality tier for the keep-better refresh gate; unknown/None ranks lowest (0)."""
+    return _QUALITY_TIER_RANK.get(tier or "", 0)
+
+
 def record_progress(
     db: Session,
     filing_id: int,
@@ -387,8 +400,15 @@ def get_or_cache_excerpt(
         db.commit()
     return excerpt
 
-async def generate_summary_background(filing_id: int, user_id: Optional[int]):
-    """Background task to generate summary"""
+async def generate_summary_background(
+    filing_id: int, user_id: Optional[int], *, force_regenerate: bool = False
+):
+    """Background task to generate summary.
+
+    ``force_regenerate=True`` (admin refresh-stale) skips the existing-summary short-circuit and
+    threads the flag into the ONE orchestrator, which UPDATEs the stored row in place (preserving
+    ``summaries.id`` so saved-summary bookmarks survive) under a keep-better quality gate.
+    """
     
     # Create a new database session for the background task
     with SessionLocal() as db:
@@ -402,9 +422,10 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
             logger.warning(f"Filing {filing_id} not found")
             return
 
-        # Check if summary already exists
+        # Check if summary already exists (skipped under force_regenerate — a refresh must reach
+        # the very row it is refreshing rather than short-circuit on it).
         existing = db.query(Summary).filter(Summary.filing_id == filing_id).first()
-        if existing:
+        if existing and not force_regenerate:
             logger.info(f"Summary already exists for filing {filing_id}")
             # If summary already exists, still increment usage if user generated it
             if user_id:
@@ -458,6 +479,7 @@ async def generate_summary_background(filing_id: int, user_id: Optional[int]):
             telemetry_entry_point=None,
             telemetry_ctx={},
             emit_funnel_telemetry=False,
+            force_regenerate=force_regenerate,
         ):
             pass
         # With funnel telemetry suppressed for cron, this is the drain's ONLY per-filing signal in

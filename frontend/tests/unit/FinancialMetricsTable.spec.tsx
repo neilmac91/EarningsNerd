@@ -35,4 +35,22 @@ describe('FinancialMetricsTable — per-ADS EPS (item 1.5)', () => {
     )
     expect(container).not.toHaveTextContent('per ADS')
   })
+
+  it('renders the server-computed change string verbatim (ppts for a margin), no client math', () => {
+    const { container } = render(
+      <FinancialMetricsTable
+        metrics={[
+          {
+            metric: 'Operating Margin',
+            current_period: '74.9%',
+            prior_period: '60.5%',
+            change_display: '+14.4 ppts',
+            change_direction: 'up',
+            change_tone: 'gain',
+          },
+        ]}
+      />,
+    )
+    expect(container).toHaveTextContent('+14.4 ppts')
+  })
 })

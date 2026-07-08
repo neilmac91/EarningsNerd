@@ -83,6 +83,9 @@ class SummaryResponse(BaseModel):
     management_discussion: Optional[str]
     key_changes: Optional[str]
     raw_summary: Optional[dict]
+    # Version stamps: NULL on legacy/pre-stamp rows (treated as stale by the refresh path).
+    schema_version: Optional[int] = None
+    prompt_version: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -163,12 +166,11 @@ async def generate_summary_stream(
     summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
     if summary:
         if force:
-            # Force regeneration DELETES the filing's shared summary + XBRL and triggers a fresh,
-            # paid LLM run, so it's Pro-only (guests 401, Free 403) — otherwise it's a denial-of-
-            # wallet / "wipe a popular filing for everyone" vector. Resolved via the entitlements
-            # SSoT (not the is_pro mirror) so a lagging mirror can't wrongly grant/deny it. NB this
-            # gate sits inside `if summary`: when no summary exists yet, force is a harmless no-op,
-            # so a failed-generation retry stays open to guests and Free users.
+            # Force regeneration triggers a fresh, paid LLM run, so it's Pro-only (guests 401, Free
+            # 403) — otherwise it's a denial-of-wallet / "wipe a popular filing for everyone" vector.
+            # Resolved via the entitlements SSoT (not the is_pro mirror) so a lagging mirror can't
+            # wrongly grant/deny it. NB this gate sits inside `if summary`: when no summary exists
+            # yet, force is a harmless no-op, so a failed-generation retry stays open to guests/Free.
             if current_user is None:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -179,11 +181,14 @@ async def generate_summary_stream(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Regenerating an analysis is a Pro feature.",
                 )
-            # Force regeneration: delete existing summary and related data
-            logger.info(f"[stream:{filing_id}] Force regeneration requested - deleting existing summary")
-            db.delete(summary)
+            # Regenerate IN PLACE (force_regenerate below): the pipeline's save step UPDATEs the
+            # existing summary row rather than delete+insert, so the summaries.id — and any
+            # saved_summaries bookmark FK'd to it — survives (T1.4). Deleting the row here would
+            # both destroy the bookmark and raise an FK violation on any bookmarked summary in
+            # Postgres. Keep-better applies: a fresh run that comes back below the stored tier keeps
+            # the stored summary. We still clear XBRL + progress so regeneration re-fetches fresh data.
+            logger.info(f"[stream:{filing_id}] Force regeneration requested - refreshing in place")
 
-            # Also clear XBRL data to get fresh data
             if filing.xbrl_data is not None:
                 filing.xbrl_data = None
                 logger.info(f"[stream:{filing_id}] Cleared XBRL data for regeneration")
@@ -266,6 +271,7 @@ async def generate_summary_stream(
             telemetry_distinct_id=telemetry_distinct_id,
             telemetry_entry_point=telemetry_entry_point,
             telemetry_ctx=telemetry_ctx,
+            force_regenerate=force,
         ):
             yield to_sse(event)
 

@@ -320,6 +320,13 @@
 .markdown-body h3 { margin-top: 1.75rem; padding-bottom: 0.5rem; }
 .markdown-body h4 { margin-top: 1.5rem; padding-bottom: 0.375rem; }
 
+/* Justified body text — the AI summary reads as a finished document, not ragged notes (founder
+   request, T1.7). Scoped to .markdown-body ONLY; the real filing reader (.filing-reader) stays
+   ragged-right. hyphens:auto (with <html lang="en"> in app/layout.tsx) tames the word-spacing
+   rivers CSS justification opens in a narrow measure. Documented in DESIGN_SYSTEM.md §3; one-line
+   revert. Equal specificity to the shared p rule at line 307, so later source order wins here. */
+.markdown-body p { text-align: justify; -webkit-hyphens: auto; hyphens: auto; }
+
 :is(.markdown-body, .filing-reader) ul, :is(.markdown-body, .filing-reader) ol { list-style-position: outside; padding-left: 1.375em; margin-top: 0; margin-bottom: 1em; }
 :is(.markdown-body, .filing-reader) ul { list-style-type: disc; }
 :is(.markdown-body, .filing-reader) ol { list-style-type: decimal; }

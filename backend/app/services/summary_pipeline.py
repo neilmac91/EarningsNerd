@@ -48,9 +48,11 @@ from app.services.subscription_service import (
 )
 from app.services.summary_generation_service import (
     assess_quality,
+    quality_tier_rank,
     record_progress,
     get_or_cache_excerpt,
 )
+from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -118,6 +120,7 @@ async def stream_filing_summary(
     telemetry_entry_point: Optional[str],
     telemetry_ctx: dict,
     emit_funnel_telemetry: bool = True,
+    force_regenerate: bool = False,
 ) -> AsyncIterator[dict]:
     """Run the summary pipeline for ``filing_id``, yielding event dicts.
 
@@ -181,7 +184,7 @@ async def stream_filing_summary(
                 yield {'type': 'error', 'message': 'Filing not found'}
                 return
 
-            if summary_in_session:
+            if summary_in_session and not force_regenerate:
                 logger.info(f"[stream:{filing_id}] Existing summary found. Returning it.")
                 yield {
                     'type': 'complete',
@@ -690,6 +693,10 @@ async def stream_filing_summary(
 
             raw_summary["sections"] = sections_info
             raw_summary["status"] = summary_status
+            # Embed the schema version so the render projection (summary_sections) can version-
+            # dispatch on raw_summary["schema_version"]; the Summary columns below carry the same
+            # stamps for querying/refreshing stale rows.
+            raw_summary["schema_version"] = SUMMARY_SCHEMA_VERSION
 
             # S4: deterministic quality verdict (always attached as metadata for the UI badge).
             # sic feeds the bank-aware revenue-grounding rule (P0-2) as the flag-independent
@@ -724,6 +731,40 @@ async def stream_filing_summary(
             def save_summary_sync():
                 filing_for_cache = session.query(Filing).options(joinedload(Filing.content_cache)).filter(Filing.id == filing_id).first()
 
+                if force_regenerate:
+                    # Admin refresh-stale: UPDATE the existing row IN PLACE (preserve summaries.id so
+                    # the saved_summaries FK/bookmark survives and UNIQUE(filing_id) holds) instead of
+                    # delete+insert, guarded by a keep-better gate.
+                    existing = session.query(Summary).filter(Summary.filing_id == filing_id).first()
+                    if existing is not None:
+                        stored_tier = ((existing.raw_summary or {}).get("quality") or {}).get("tier")
+                        new_tier = (quality or {}).get("tier")
+                        if quality_tier_rank(new_tier) < quality_tier_rank(stored_tier):
+                            # Never let a refresh downgrade a stored higher tier (a 75s AI-timeout
+                            # XBRL fallback comes back "partial"; keep the stored "full").
+                            logger.info(
+                                "[stream:%s] refresh keep-better: keeping stored tier=%s over new tier=%s",
+                                filing_id, stored_tier, new_tier,
+                            )
+                            return existing.id
+                        existing.business_overview = markdown
+                        existing.financial_highlights = normalized_financial_section
+                        existing.risk_factors = risk_section
+                        existing.management_discussion = management_section
+                        existing.key_changes = guidance_section
+                        # Reassign a NEW dict so SQLAlchemy marks the JSON column dirty and emits UPDATE.
+                        existing.raw_summary = raw_summary
+                        existing.schema_version = SUMMARY_SCHEMA_VERSION
+                        existing.prompt_version = SUMMARY_PROMPT_VERSION
+                        if filing_for_cache:
+                            upsert_content_cache(
+                                session, filing_id, filing_for_cache.content_cache,
+                                excerpt=excerpt, sections_payload=sections_info,
+                            )
+                        session.commit()
+                        return existing.id
+                    # force on a filing with no stored summary yet: fall through to a normal INSERT.
+
                 summary = Summary(
                     filing_id=filing_id,
                     business_overview=markdown,
@@ -731,7 +772,9 @@ async def stream_filing_summary(
                     risk_factors=risk_section,
                     management_discussion=management_section,
                     key_changes=guidance_section,
-                    raw_summary=raw_summary
+                    raw_summary=raw_summary,
+                    schema_version=SUMMARY_SCHEMA_VERSION,
+                    prompt_version=SUMMARY_PROMPT_VERSION,
                 )
                 session.add(summary)
 

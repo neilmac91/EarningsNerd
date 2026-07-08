@@ -17,6 +17,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable, List, Optional
 
+from app.services import metric_delta_service
+
 # Mirror frontend SummarySections.tsx PLACEHOLDER_PATTERNS so exports drop the same
 # "data unavailable" filler the page hides.
 PLACEHOLDER_PATTERNS = (
@@ -154,12 +156,18 @@ def _financial_highlights(sections: dict) -> Section:
             metric = _clean(row.get("metric"))
             if not metric:
                 continue
+            # Single delta policy (T1.5): compute the Change cell from current/prior so CSV+PDF match
+            # the table and chips (ppts for margins). When it's not computable (mixed/unparseable
+            # values), show no delta ("—") — the SAME fallback the web table uses — rather than the
+            # model's own unverified change text, which would reintroduce the divergence T1.5 kills.
+            _delta = metric_delta_service.delta_for_row(row)
+            change_cell = _delta.display if _delta and _delta.display else "—"
             rows.append(
                 [
                     metric,
                     _clean(row.get("current_period") or row.get("currentPeriod")),
                     _clean(row.get("prior_period") or row.get("priorPeriod")),
-                    _clean(row.get("change")),
+                    change_cell,
                     _clean(row.get("commentary")),
                 ]
             )
@@ -332,10 +340,13 @@ def _guidance_outlook(sections: dict) -> Section:
     # AI schema uses "guidance"; the pipeline's wrap variant uses "outlook".
     guidance = _clean(data.get("guidance") or data.get("outlook"))
     if guidance and guidance != "Not disclosed" and not is_placeholder(guidance):
-        section.blocks.append(Block("paragraph", text=f"Guidance: {guidance}"))
+        # Prose, not a "Guidance:" field-name scaffold (T1.1) — matches the web renderer.
+        section.blocks.append(Block("paragraph", text=guidance))
     tone = _clean(data.get("tone"))
     if tone and tone.lower() not in ("neutral", ""):
-        section.blocks.append(Block("paragraph", text=f"Tone: {tone.lower()}"))
+        section.blocks.append(
+            Block("paragraph", text=f"Management's outlook tone was {tone.lower()}.")
+        )
     for label, key, alt in (
         ("Drivers", "drivers", None),
         ("Watch items", "watch_items", "watchItems"),

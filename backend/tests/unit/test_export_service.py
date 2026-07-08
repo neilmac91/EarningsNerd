@@ -37,6 +37,15 @@ def _full_sections():
                     "change": "+2.2%",
                     "commentary": "Reported via standardized XBRL data.",
                 },
+                {
+                    # A margin row whose LLM "change" is the WRONG relative % (74.9/60.5 = +23.8%);
+                    # the delta service must render it as +14.4 ppts on CSV+PDF (T1.5).
+                    "metric": "Operating Margin",
+                    "current_period": "74.9%",
+                    "prior_period": "60.5%",
+                    "change": "+23.8%",
+                    "commentary": "Margin expansion.",
+                },
             ],
             "profitability": ["Net margin 13.1% vs 16.9% prior"],
             "cash_flow": ["Operating cash flow of $2.1B"],
@@ -203,6 +212,32 @@ class TestCsv:
         csv_out = service.generate_csv(summary, filing)
         assert "“We remain focused on execution.”" in csv_out
         assert '"""' not in csv_out
+
+    def test_change_column_is_computed_ppts_for_margins(self, service):
+        """T1.5: the CSV Change cell is computed from current/prior (ppts for a margin), not the
+        model's relative-% text — one delta policy across table, chips, and exports."""
+        summary, filing = _make_summary_and_filing(_full_sections())
+        csv_out = service.generate_csv(summary, filing)
+        assert "+14.4 ppts" in csv_out          # computed margin delta
+        assert "+23.8%" not in csv_out           # the wrong LLM relative % never rendered
+        assert "+2.2%" in csv_out                # amount delta unchanged (computed == model here)
+
+    def test_change_column_shows_dash_for_mixed_row_not_model_text(self, service):
+        """A mixed-units row (current "%", prior bare) isn't computable, so the CSV shows "—" — the
+        SAME fallback the web table uses — never the model's own change text (fallback-parity guard)."""
+        sections = {
+            "financial_highlights": {
+                "table": [
+                    {"metric": "Odd Metric", "current_period": "74.9%", "prior_period": "60.5",
+                     "change": "+23.8%", "commentary": "mixed units"},
+                ],
+            },
+        }
+        summary, filing = _make_summary_and_filing(sections)
+        csv_out = service.generate_csv(summary, filing)
+        assert "Odd Metric" in csv_out
+        assert "—" in csv_out            # no computed delta -> dash, matching the web
+        assert "+23.8%" not in csv_out   # the model's own change text is never rendered
 
 
 class TestRenderSections:

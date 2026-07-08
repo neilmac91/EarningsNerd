@@ -200,3 +200,91 @@ async def test_drain_does_not_charge_usage_for_partial():
         await generate_summary_background(filing_id, user_id)
 
     spy.assert_not_called()
+
+
+# --- force-refresh (T1.4): in-place UPDATE preserving id/bookmark + keep-better gate -----------
+# ADDITIVE to this locked characterization file (sanctioned by the plan's T1.4 row): the existing
+# tests above are untouched. These pin the admin refresh-stale mechanics on the ONE orchestrator.
+
+_PARTIAL_PAYLOAD = {
+    **CANONICAL_PAYLOAD,
+    "raw_summary": {
+        "sections": {},
+        "section_coverage": {
+            "per_section": {"executive_snapshot": True, "financial_highlights": True},
+            "covered_count": 2,
+            "total_count": 9,
+        },
+    },
+}
+
+
+@pytest.mark.asyncio
+async def test_force_regenerate_updates_in_place_preserving_id_and_bookmark():
+    """force_regenerate=True UPDATEs the existing row in place: exactly one row, same summaries.id
+    (so the saved_summaries FK/bookmark survives), business_overview refreshed."""
+    from app.models import SavedSummary
+
+    reset_inflight()
+    user_id = _seed_user()
+    filing_id = seed_company_filing(filing_type="10-Q")
+
+    with stream_boundaries():
+        await generate_summary_background(filing_id, None)
+    with SessionLocal() as db:
+        original = db.query(Summary).filter(Summary.filing_id == filing_id).one()
+        original_id = original.id
+        db.add(SavedSummary(user_id=user_id, summary_id=original_id))
+        db.commit()
+
+    updated_payload = {**CANONICAL_PAYLOAD, "business_overview": "# Updated\n\nRefreshed content."}
+    reset_inflight()
+    with stream_boundaries(payload=updated_payload):
+        await generate_summary_background(filing_id, None, force_regenerate=True)
+
+    with SessionLocal() as db:
+        rows = db.query(Summary).filter(Summary.filing_id == filing_id).all()
+        assert len(rows) == 1                       # UPDATE in place, not delete+insert
+        assert rows[0].id == original_id            # id preserved -> bookmark FK intact
+        assert rows[0].business_overview == "# Updated\n\nRefreshed content."
+        # The bookmark still resolves to the (same-id) refreshed summary.
+        bookmark = db.query(SavedSummary).filter(SavedSummary.summary_id == original_id).one()
+        assert bookmark.summary_id == rows[0].id
+
+
+@pytest.mark.asyncio
+async def test_keep_better_gate_keeps_stored_full_over_new_partial():
+    """A refresh must never downgrade: a stored full is kept when regeneration comes back partial
+    (the 75s AI-timeout XBRL fallback), so a bulk refresh can't silently degrade the corpus."""
+    reset_inflight()
+    filing_id = seed_company_filing(filing_type="10-Q")
+
+    with stream_boundaries():  # CANONICAL -> full
+        await generate_summary_background(filing_id, None)
+    with SessionLocal() as db:
+        stored = db.query(Summary).filter(Summary.filing_id == filing_id).one()
+        stored_id, stored_overview = stored.id, stored.business_overview
+        assert (stored.raw_summary or {}).get("quality", {}).get("tier") == "full"
+
+    reset_inflight()
+    with stream_boundaries(payload=_PARTIAL_PAYLOAD):  # regeneration degrades to partial
+        await generate_summary_background(filing_id, None, force_regenerate=True)
+
+    with SessionLocal() as db:
+        kept = db.query(Summary).filter(Summary.filing_id == filing_id).one()
+        assert kept.id == stored_id
+        assert kept.business_overview == stored_overview          # stored full untouched
+        assert (kept.raw_summary or {}).get("quality", {}).get("tier") == "full"
+
+
+@pytest.mark.asyncio
+async def test_force_regenerate_inserts_when_no_summary_exists():
+    """force_regenerate on a filing with no stored summary falls through to a normal INSERT."""
+    reset_inflight()
+    filing_id = seed_company_filing(filing_type="10-Q")
+
+    with stream_boundaries():
+        await generate_summary_background(filing_id, None, force_regenerate=True)
+
+    with SessionLocal() as db:
+        assert db.query(Summary).filter(Summary.filing_id == filing_id).count() == 1

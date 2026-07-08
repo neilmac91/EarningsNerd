@@ -2,15 +2,9 @@ import React from 'react'
 import Link from 'next/link'
 import { GitDiffIcon, MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 import type { ChangeReport } from '@/features/summaries/api/summaries-api'
-import { directionText } from '@/lib/financialTone'
+import { directionChip } from '@/lib/financialTone'
 
 const DIR_ICON = { up: TrendUpIcon, down: TrendDownIcon, flat: MinusIcon } as const
-const DIR_TONE = directionText
-
-function formatDelta(pct: number | null, direction: 'up' | 'down' | 'flat'): string {
-  if (pct === null || direction === 'flat') return 'flat'
-  return `${direction === 'up' ? '+' : '−'}${pct.toFixed(1)}%`
-}
 
 /**
  * A5 "What Changed": a calm, deterministic period-over-period change report — metric deltas, new /
@@ -19,7 +13,7 @@ function formatDelta(pct: number | null, direction: 'up' | 'down' | 'flat'): str
  */
 export function WhatChanged({ report }: { report: ChangeReport }) {
   if (!report.has_changes) return null
-  const { metrics, risks, key_changes: keyChanges, comparison_basis: basis, prior_filing: prior } = report
+  const { metrics, risks, comparison_basis: basis, prior_filing: prior } = report
 
   return (
     <section className="rounded-lg border border-border-light bg-panel-light p-6 shadow-e1 dark:shadow-none dark:border-border-dark dark:bg-panel-dark">
@@ -46,27 +40,26 @@ export function WhatChanged({ report }: { report: ChangeReport }) {
         )}
       </div>
 
-      {/* Lead with the narrated diff — the headline "what mattered", not a footnote. */}
-      {keyChanges && (
+      {/* Lead with the deterministic delta headline (computed from XBRL), not the summary's own
+          outlook prose — which duplicated the Outlook section verbatim (plan §2.3). */}
+      {metrics?.headline && (
         <p className="mb-4 text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
-          {keyChanges}
+          {metrics.headline}
         </p>
       )}
 
       {metrics && metrics.items.length > 0 && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap justify-center gap-2">
           {metrics.items.map((item) => {
             const Icon = DIR_ICON[item.direction]
             return (
               <span
                 key={item.metric}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border-light bg-background-light px-3 py-1 text-sm dark:border-border-dark dark:bg-background-dark"
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm ${directionChip[item.direction]}`}
               >
                 <span className="text-text-secondary-light dark:text-text-secondary-dark">{item.label}</span>
-                <Icon className={`h-4 w-4 ${DIR_TONE[item.direction]}`} aria-hidden />
-                <span className={`font-semibold tabular-nums ${DIR_TONE[item.direction]}`}>
-                  {formatDelta(item.pct, item.direction)}
-                </span>
+                <Icon className="h-4 w-4" aria-hidden />
+                <span className="font-semibold tabular-nums">{item.display}</span>
               </span>
             )
           })}

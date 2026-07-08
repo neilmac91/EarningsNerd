@@ -38,7 +38,12 @@ class _MarkdownRenderMixin:
         structured_summary: Dict[str, Any],
         failure_reason: Optional[str] = None,
     ) -> str:
-        """Fallback: render Markdown directly from structured data when the writer LLM output fails validation."""
+        """Render the web summary Markdown directly from structured data.
+
+        This is the PRIMARY web serializer (called unconditionally since the editorial-writer LLM was
+        removed), not a fallback — ``business_overview`` is this output, stored and rendered as-is.
+        ``failure_reason`` is only set on the rare validation-failure path and prepends a notice.
+        """
         metadata = structured_summary.get("metadata", {}) or {}
         sections = structured_summary.get("sections", {}) or {}
 
@@ -137,10 +142,13 @@ class _MarkdownRenderMixin:
                     continue
                 summary = (risk.get("summary") or risk.get("title") or "Risk factor not specified").strip()
                 evidence = risk.get("supporting_evidence") or risk.get("supportingEvidence")
-                bullet = f"- {summary}"
-                if evidence:
-                    bullet += f" (Evidence: {evidence})"
-                lines.append(bullet)
+                lines.append(f"- {summary}")
+                # Supporting evidence as a subordinate detail, not an inline "(Evidence: …)" scaffold
+                # wrapper (T1.1). The text (and any figures in it) is preserved; T4 replaces this with
+                # an anchored citation chip.
+                evidence_text = str(evidence).strip() if evidence else ""
+                if evidence_text:
+                    lines.append(f"  - {evidence_text}")
         else:
             lines.append("- No material incremental risks were highlighted beyond routine disclosures.")
 
@@ -180,11 +188,14 @@ class _MarkdownRenderMixin:
         watch_items = outlook.get("watch_items") or outlook.get("watchItems") or []
 
         outlook_added = False
+        # Render the guidance text as prose, not a "- Guidance:" field-name scaffold (T1.1).
         if guidance and guidance != "Not disclosed":
-            lines.append(f"- Guidance: {guidance}")
+            lines.append(f"- {str(guidance).strip()}")
             outlook_added = True
-        if tone:
-            lines.append(f"- Tone: {tone}")
+        # Suppress the uninformative "neutral" tone (parity with the exec-snapshot rule at :72) and
+        # render a real tone as prose rather than a "- Tone:" field label.
+        if tone and str(tone).strip().lower() not in ("neutral", ""):
+            lines.append(f"- Management's outlook tone was {str(tone).strip().lower()}.")
             outlook_added = True
         outlook_added = _append_bullet_group(lines, "Drivers", drivers) or outlook_added
         outlook_added = _append_bullet_group(lines, "Watch items", watch_items) or outlook_added

@@ -163,6 +163,8 @@ Admin endpoints require `is_admin=True` on the user account. Available at `/api/
 | `GET /xbrl/cache-stats` | View XBRL cache statistics |
 | `GET /filings/audit-xbrl` | Audit filings for stale XBRL data |
 | `POST /filings/bulk-reset-stale` | Bulk reset stale filings (supports dry_run) |
+| `POST /summaries/reset-all` | Bulk delete summaries by form so they regenerate with current prompts; skips saved (bookmarked) rows unless `include_saved=true` (supports dry_run) |
+| `POST /summaries/refresh-stale` | Bulk **in-place** refresh of version-stale summaries (below a `schema_version`, or stale vs the current schema+prompt version) via the one orchestrator with `force_regenerate=True`; preserves `summaries.id` so bookmarks survive, keep-better quality gate prevents downgrades, `dry_run` reports the staleness count. Returns honest per-filing outcomes (`updated`/`kept_by_gate`/`failed`): a row the keep-better gate keeps stays **stale** and may be re-selected on a later call. Candidates are sampled at random per call, so a filing that consistently loses to the gate is a diminishing nuisance, not a permanent head-of-line wedge. If `stale_total` stops shrinking, the head of the queue keeps losing to the gate — narrow with `filing_type`/`schema_version_lt`. |
 
 Outside `/api/admin/`, two token/ops refresh endpoints exist for the discovery caches:
 `POST /api/hot_filings/refresh` (gated by `X-Admin-Token` = `HOT_FILINGS_REFRESH_TOKEN`;

@@ -424,6 +424,9 @@ export interface WhatChangedMetricItem {
   pct: number | null
   current: number
   prior: number | null
+  // Server-computed display string (one delta policy) + design-system tone; rendered verbatim.
+  display: string
+  tone: 'gain' | 'loss' | 'flat'
 }
 
 export interface WhatChangedMetrics {
@@ -451,6 +454,7 @@ export interface ChangeReport {
   prior_filing: PriorFilingRef | null
   metrics: WhatChangedMetrics | null
   risks: RiskDiff | null
+  /** @deprecated T1.6: always null — the What-changed lead is now metrics.headline; kept for API compat. */
   key_changes: string | null
   has_changes: boolean
 }

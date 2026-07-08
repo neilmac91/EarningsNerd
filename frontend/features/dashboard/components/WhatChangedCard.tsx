@@ -49,8 +49,8 @@ function MetricChip({ item }: { item: WhatChangedItem }) {
     <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${cls}`}>
       <Icon className="h-3.5 w-3.5" />
       {item.label}
-      {item.direction !== 'flat' && item.pct !== null && (
-        <span className="font-semibold">{item.pct.toFixed(1)}%</span>
+      {item.direction !== 'flat' && item.display && (
+        <span className="font-semibold">{item.display}</span>
       )}
     </span>
   )

@@ -105,7 +105,8 @@ class TestAssembleReport:
         assert rev["direction"] == "up" and round(rev["pct"]) == 25
         assert out["risks"]["new"] == ["New supplier concentration risk"]
         assert out["risks"]["resolved"] == ["Legacy litigation overhang risk"]
-        assert out["key_changes"].startswith("Revenue accelerated")
+        # T1.6: key_changes is deprecated — no longer surfaced (the lead is metrics.headline).
+        assert out["key_changes"] is None
         assert out["has_changes"] is True
 
     def test_no_prior_filing_has_no_risks_and_marks_no_prior(self):
@@ -123,8 +124,10 @@ class TestAssembleReport:
         assert out["comparison_basis"] == "Year over year"
         assert out["has_changes"] is False
 
-    def test_key_changes_placeholder_is_dropped(self):
-        cs = SimpleNamespace(risk_factors=[], raw_summary=None, key_changes="Not available - retry for analysis")
+    def test_key_changes_is_deprecated_and_always_none(self):
+        # T1.6: key_changes is deprecated-in-place — never surfaced as the What-changed lead, even
+        # when the summary carries a real narrative (the lead is now the deterministic headline).
+        cs = SimpleNamespace(risk_factors=[], raw_summary=None, key_changes="Revenue accelerated materially.")
         out = svc.assemble_report(self.CURRENT_FILING, None, cs, None)
         assert out["key_changes"] is None
 
