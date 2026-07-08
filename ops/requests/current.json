@@ -1,6 +1,6 @@
 {
-  "operation": "reset-filing-summary-dry-run",
+  "operation": "reset-filing-summary-apply",
   "tickers": "JPM",
   "revision": "",
-  "nonce": "p6-jpm-reset-dryrun-1"
+  "nonce": "p6-jpm-reset-apply-1"
 }
