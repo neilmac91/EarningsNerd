@@ -52,6 +52,15 @@ const BAR_COLOR = seriesColor(0)
 const GROWTH_LINE_COLOR = seriesColor(1)
 const GROWTH_LINE_LABEL = 'YoY growth'
 
+// Dual-axis sanity (P1-8): anchor BOTH value axes to zero so the two independent scales share a
+// baseline — a right-axis series sitting near its own min can't read as "at the bottom" when it is
+// really a large positive number, and a sign change stays visible. Recharts calls these with the
+// series' own dataMin/dataMax, so each axis still auto-scales the far end.
+const ZERO_ANCHORED_DOMAIN: [(min: number) => number, (max: number) => number] = [
+  (dataMin) => Math.min(0, dataMin),
+  (dataMax) => Math.max(0, dataMax),
+]
+
 /** A panel's series legend: swatch + label per line, mirroring ChartTooltip's own swatch recipe
  *  (8×8 square, 2px radius) so a multi-line panel's series are identifiable without hovering.
  *  A single-series panel needs no legend — the title already names the one line. */
@@ -193,6 +202,17 @@ function PanelCard({
         color,
       }))
 
+  // P1-8: which line series stop before the dataset's final period (a trailing null Recharts can't
+  // bridge with connectNulls). Derived from the plotted rows so it matches exactly what's drawn.
+  const finalIdx = data.length - 1
+  const notReported = lineEntries
+    .map(({ concept, label }) => {
+      let lastIdx = -1
+      for (let i = 0; i < data.length; i++) if (data[i][concept] != null) lastIdx = i
+      return lastIdx >= 0 && lastIdx < finalIdx ? { label, period: String(data[lastIdx].period) } : null
+    })
+    .filter((n): n is { label: string; period: string } => n !== null)
+
   const exportPng = async () => {
     if (!plotRef.current) return
     const downloaded = await exportPanelPng(
@@ -307,7 +327,13 @@ function PanelCard({
                 tick={<PeriodAxisTick mode={dataset.mode} dark={dark} />}
                 label={periodAxisLabel(dataset.mode, dark)}
               />
-              <YAxis yAxisId="left" {...yAxisProps(dark)} width={64} tickFormatter={panel.format} />
+              <YAxis
+                yAxisId="left"
+                {...yAxisProps(dark)}
+                width={64}
+                tickFormatter={panel.format}
+                {...(dualAxis ? { domain: ZERO_ANCHORED_DOMAIN } : {})}
+              />
               {dualAxis && (
                 <YAxis
                   yAxisId="right"
@@ -315,6 +341,7 @@ function PanelCard({
                   {...yAxisProps(dark)}
                   width={64}
                   tickFormatter={panel.format}
+                  domain={ZERO_ANCHORED_DOMAIN}
                 />
               )}
               <Tooltip content={<ChartTooltip dark={dark} formatValue={formatTooltip} />} />
@@ -333,6 +360,13 @@ function PanelCard({
           )}
         </ResponsiveContainer>
       </div>
+      {notReported.length > 0 && (
+        // P1-8: a line that stops before the final period (a trailing null connectNulls can't
+        // bridge) reads as missing data — name the last period each series was reported.
+        <p className="mt-2 text-xs text-text-tertiary-light dark:text-text-secondary-dark">
+          {notReported.map((n) => `${n.label}: not reported after ${n.period}`).join(' · ')}
+        </p>
+      )}
     </Card>
   )
 }
@@ -374,12 +408,16 @@ export default function TrendCharts({
       format: pct,
     },
     {
+      // Net income and the cash flows can diverge by an order of magnitude (a bank's operating CF
+      // swings on trading/deposit flows while net income stays comparatively small), so net income
+      // gets its own right axis to stay readable — same rationale as equity on the balance sheet.
       title: 'Cash generation',
       lines: [
         ['operating_cash_flow', 'Operating CF'],
         ['free_cash_flow', 'Free cash flow'],
         ['net_income', 'Net income'],
       ],
+      rightAxis: ['net_income'],
       format: compactUsd,
     },
     {
