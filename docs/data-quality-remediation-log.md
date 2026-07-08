@@ -459,7 +459,49 @@ Phase 6 complete and verified in production.
 
 ## Phase 7 — P1-6 historical filings backfill + filters
 
-**Status:** pending
+**Status:** complete (code + gates + review); prod backfill/verify = post-deploy step below.
+**Plan items:** P1-6 — the company filings list was capped at the recent handful; backfill deep
+10-K/10-Q history since 2001 from EFTS, add year/form filters, fix fiscal-year grouping.
+
+**Changed:**
+- **`filing_history_service.py`** (new): windowed *query-less* EFTS listings (Path B: rate-limited,
+  no circuit breaker) per form+cik+8-year window — one page-0 request per window (EFTS 500s on
+  `from>0` for query-less searches), sized under the ~100-hit page cap. Rows written via
+  `filing_scan_service.upsert_filings` (NOT-NULL-safe, accession-deduped); amendments (/A) excluded
+  to match the display form set; a 3-attempt 5xx retry scoped to this path; batch loop disables
+  `expire_on_commit` (no per-company N+1).
+- **`companies.history_backfilled_at`** stamp (model + `_ADDITIVE_COLUMNS` +
+  `migrations/20260711_companies_history_backfilled_at.sql`, idempotent).
+- **`POST /internal/jobs/backfill-filing-history`** + `scripts/backfill_filing_history.py`
+  (jobs-channel entrypoint) + ops `backfill-filing-history` enum (internal endpoint /
+  jobs-channel fallback).
+- **`GET /filings/company/{ticker}`**: optional `?limit=` (default cap **byte-identical**) + a
+  one-time on-visit background backfill enqueue, guarded by the stamp, the
+  `ENABLE_HISTORY_BACKFILL_ON_VISIT` flag, AND an in-flight `_history_backfilling_ids` guard
+  (mirrors `_refreshing_keys`) so a concurrent first-visit burst collapses to one walk.
+- **Frontend**: `fiscalYear()` buckets a filing by `report_date` (`filing_date` fallback), reading
+  the `YYYY` prefix directly (no TZ shift) — fixes a FY2025 10-K filed 2026-02 showing under 2026.
+  Company page: year-filter `<select>`, "Show full history" load-more (refetch with a high limit),
+  a filter-specific "No filings match this filter" empty state, limit threaded through
+  `getCompanyFilings` + `queryKeys.companyFilings`.
+
+**Guardrails:** `test_filing_history_service` (windows; /A + legacy-form exclusion; NOT-NULL skips;
+cross-window dedupe; bounded 3-attempt retry; partial-window tolerance; all-windows-fail →
+un-stamped; cohort); `test_filings_limit_param_default_unchanged`; `fiscal-year-grouping.spec`.
+Backend 1462 passed; frontend 353 passed + lint/tsc/build green.
+
+**Review:** Gemini (4 suggestions applied: batch `expire_on_commit`, watchlist subquery, reuse
+`groupByFiscalYear`) + a 5-lens adversarial review (6 confirmed; the load-bearing one — the
+on-visit backfill lacked its sibling's in-flight dedup, a hot-path SEC-amplification risk — fixed
+with `_history_backfilling_ids`; plus the filter empty-state, doc-vs-code corrections, and the
+all-fail test).
+
+**Verified against live EFTS:** JPM 2001-2026 in 8-year windows → **100 clean 10-K/10-Q rows**
+(24 + 76), each window fully covered (total==hits, no truncation), 7 /A amendments excluded.
+
+**Deploy / prod operations:** _pending merge → deploy → ops `backfill-filing-history` (JPM,BAC
+seed) → verify `/api/filings/company/JPM?limit=200` returns the deep history + fiscal-year
+grouping + the Phase-2 "since {oldest}" note updates._
 
 ---
 
