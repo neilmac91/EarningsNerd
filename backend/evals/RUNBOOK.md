@@ -243,13 +243,15 @@ A malformed/empty object still fails.
 - **Path-filtered.** Runs only when `backend/app/**`, `backend/evals/**`, or `backend/prompts/**`
   change (or on manual `workflow_dispatch`), so it spends tokens only on AI-relevant changes
   (~$0.15–0.30 + a few minutes per qualifying PR once armed).
-- **PR vs dispatch.** A PR runs a cheap **6-filing smoke** (catches catastrophic regressions —
-  parse breakage, hygiene leaks, sign flips). Manual `workflow_dispatch` runs the **full verified
-  set** (authoritative, apples-to-apples with the pinned baseline); pass a `limit` input to scope it.
-  > Caveat: the 6-filing PR smoke is diffed against the full-set baseline, so its `pass_rate` /
-  > `aggregate_stdev` are not directly comparable (warn-only). The HARD dimensions
-  > (precision/coverage/gate_fail/recall) hold on any reasonable subset. For an authoritative
-  > verdict, run the full set via dispatch.
+- **PR vs dispatch.** Both run the **full verified set** at `--runs 1` — a subset's mean recall is
+  not apples-to-apples with the full-set pinned baseline (recall is non-saturated now that the
+  golden set carries cash-flow/liquidity facts) and would flake the gate, so PRs run the full set
+  too (~5–8 min via `--concurrency`, not a 6-filing smoke). Manual `workflow_dispatch` also runs the
+  full set and accepts a `limit` input to scope it down for cheap iteration.
+  > Caveat: a PR's single run has wider run-to-run variance than the 3-run pinned baseline, so
+  > `pass_rate` / `aggregate_stdev` (warn-only) can wobble. The HARD tolerances
+  > (precision/coverage/gate_fail 0.05, recall 0.10) are sized to absorb single-run jitter; for an
+  > authoritative re-pin, run `--runs 3`.
 - **Judge is OFF in the gate** — deterministic scorers only. The LLM judge is flaky and costly
   (~$0.20/filing on Opus, 30–60s latency); keep it for manual pre-deploy spot-checks. For cheap
   iteration use `--judge cli:sonnet` (subscription, no API credits) or `--judge glm-5.2`; reserve
@@ -289,14 +291,17 @@ shows both the code change and the new bar. **BRK.B is `verified: false`** (no c
 fact) and is auto-excluded by the runner — leave it out of the pinned set until its ground truth
 is hand-filled.
 
-**Advisory-until-pinned dimensions (T3.0 content scorers).** `mean_redundancy` (one-home rule,
-defect c) and `mean_delta_consistency` (prose vs. code-computed table deltas, defect g) are
-computed on every scored run and printed, but the current pinned baseline predates them, so the
-gate *skips* them (`_check` only compares metrics present in BOTH baseline and report) — they are
-inert WARN gates today. They start binding the first time you re-pin on a run that records them
-(the command above already does). Re-pin them together with the Tier-3 v2 content rewrite so the
-new bar reflects v2 output, not v1 — pinning v1 values would lock in the very redundancy the
-rewrite is meant to remove. They are reported alongside the aggregate and never folded into it.
+**Content-quality WARN dimensions (T3.0 scorers) — now pinned.** `mean_redundancy` (one-home rule,
+defect c) and `mean_delta_consistency` (prose vs. code-computed table deltas, defect g) are computed
+on every scored run and reported alongside the aggregate (never folded into it). They ship as WARN
+gates — a breach prints but never fails the build. **As of `summary-2026-07-b` (pinned from
+`eval_20260708T225435Z`) both are recorded in `baseline_scores.json` and now bind:** the gate fires
+when either falls more than 0.05 below its pinned value (floors ≈ 0.779 redundancy / ≈ 0.848
+delta-consistency). Because a WARN floor is one-directional — it only trips on a *drop* — pinning
+these here protects today's measured improvement and cannot cap a future rewrite: when the Tier-3 v2
+content rewrite lands with higher redundancy, you simply re-pin the floors upward in that PR (as with
+any bar move). (Earlier guidance to defer pinning until v2 was mistaken on this point — a floor
+sitting below v1 redundancy can't "lock it in"; v2 is free to exceed it.)
 
 ---
 

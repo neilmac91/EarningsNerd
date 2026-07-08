@@ -156,6 +156,15 @@ class _SectionRecoveryMixin:
         """Recover a single missing section. Returns (section_key, recovered_value or None).
 
         Uses semaphore to limit concurrent API calls and prevent rate limiting.
+
+        Note — the ONE HOME PER NUMBER rule (the main ``generate_structured_summary`` Rules block)
+        intentionally does NOT reach this path. Recovery is section-scoped: the prompt below sees
+        only the target section's schema and its own excerpt, with no view of what the other
+        sections already state, so it structurally cannot enforce a cross-section de-duplication
+        rule. This is a documented decision, not an oversight — recovery fires only for sections
+        the primary completion left empty, and the pinned eval baseline was measured end-to-end
+        with this path live, so any residual restatement it produces is already inside the
+        measured redundancy floor.
         """
         schema_snippet = self._get_section_schema_snippet(section_key)
         if not schema_snippet:
