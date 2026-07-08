@@ -424,6 +424,9 @@ export interface WhatChangedMetricItem {
   pct: number | null
   current: number
   prior: number | null
+  // Server-computed display string (one delta policy) + design-system tone; rendered verbatim.
+  display: string
+  tone: 'gain' | 'loss' | 'flat'
 }
 
 export interface WhatChangedMetrics {

@@ -19,25 +19,16 @@ type FinancialMetric = {
   source_section_ref?: string | null
   xbrl_concept?: string | null
   per_ads?: PerAdsValue | null
+  // Change is computed server-side by metric_delta_service (one policy; ppts for margins). The
+  // client renders this string verbatim and does NO delta math (rule 12 single-source gate).
+  change_display?: string | null
+  change_direction?: 'up' | 'down' | 'flat' | null
+  change_tone?: CellTone | null
 }
 
 interface FinancialMetricsTableProps {
   metrics?: FinancialMetric[]
   notes?: string
-}
-
-const calculateChange = (current: string, prior: string): { change: number | null; percent: number | null } => {
-  const currentVal = parseNumeric(current)
-  const priorVal = parseNumeric(prior)
-
-  if (currentVal === null || priorVal === null || priorVal === 0) {
-    return { change: null, percent: null }
-  }
-
-  const change = currentVal - priorVal
-  const percent = (change / Math.abs(priorVal)) * 100
-
-  return { change, percent }
 }
 
 const formatMetricValue = (value: string): string => {
@@ -59,12 +50,6 @@ const formatMetricValue = (value: string): string => {
   }
 
   return fmtScale(numeric, { digits: 2 })
-}
-
-const changeTone = (row: FinancialMetric): CellTone | undefined => {
-  const { change } = calculateChange(row.current_period, row.prior_period)
-  if (change === null) return undefined
-  return change > 0 ? 'gain' : change < 0 ? 'loss' : 'flat'
 }
 
 export default function FinancialMetricsTable({ metrics, notes }: FinancialMetricsTableProps) {
@@ -120,18 +105,23 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
             header: 'Change',
             align: 'right',
             numeric: true,
-            tone: changeTone,
+            tone: (row) => row.change_tone ?? undefined,
             render: (row) => {
-              const { change, percent } = calculateChange(row.current_period, row.prior_period)
-              if (change === null || percent === null) {
+              // Server-computed string only — no client-side delta math (single-source gate).
+              if (!row.change_display) {
                 return <span className="text-text-tertiary-light dark:text-text-secondary-dark">—</span>
               }
-              const Icon = change > 0 ? TrendUpIcon : change < 0 ? TrendDownIcon : MinusIcon
+              const Icon =
+                row.change_direction === 'up'
+                  ? TrendUpIcon
+                  : row.change_direction === 'down'
+                    ? TrendDownIcon
+                    : MinusIcon
               // Direction never rides on color alone (financialTone rule) — the icon carries it.
               return (
                 <span className="inline-flex items-center gap-1 whitespace-nowrap">
                   <Icon className="h-4 w-4" />
-                  {fmtPercent(percent, { digits: 1, signed: true })}
+                  {row.change_display}
                 </span>
               )
             },

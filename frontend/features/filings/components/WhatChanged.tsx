@@ -7,11 +7,6 @@ import { directionText } from '@/lib/financialTone'
 const DIR_ICON = { up: TrendUpIcon, down: TrendDownIcon, flat: MinusIcon } as const
 const DIR_TONE = directionText
 
-function formatDelta(pct: number | null, direction: 'up' | 'down' | 'flat'): string {
-  if (pct === null || direction === 'flat') return 'flat'
-  return `${direction === 'up' ? '+' : '−'}${pct.toFixed(1)}%`
-}
-
 /**
  * A5 "What Changed": a calm, deterministic period-over-period change report — metric deltas, new /
  * no-longer-cited risk factors, and management's note — shown at the top of a filing summary. Renders
@@ -65,7 +60,7 @@ export function WhatChanged({ report }: { report: ChangeReport }) {
                 <span className="text-text-secondary-light dark:text-text-secondary-dark">{item.label}</span>
                 <Icon className={`h-4 w-4 ${DIR_TONE[item.direction]}`} aria-hidden />
                 <span className={`font-semibold tabular-nums ${DIR_TONE[item.direction]}`}>
-                  {formatDelta(item.pct, item.direction)}
+                  {item.display}
                 </span>
               </span>
             )

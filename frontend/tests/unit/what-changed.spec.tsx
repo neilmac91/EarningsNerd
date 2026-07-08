@@ -10,8 +10,8 @@ const baseReport: ChangeReport = {
   metrics: {
     headline: 'Revenue up 25.0%',
     items: [
-      { metric: 'revenue', label: 'Revenue', direction: 'up', pct: 25, current: 100, prior: 80 },
-      { metric: 'net_income', label: 'Net income', direction: 'down', pct: 20, current: 20, prior: 25 },
+      { metric: 'revenue', label: 'Revenue', direction: 'up', pct: 25, current: 100, prior: 80, display: '+25.0%', tone: 'gain' },
+      { metric: 'net_income', label: 'Net income', direction: 'down', pct: 20, current: 20, prior: 25, display: '−20.0%', tone: 'loss' },
     ],
     data_quality: 'ok',
   },
