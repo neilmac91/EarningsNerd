@@ -1,0 +1,45 @@
+# P1-9: weekly data-quality report. Fires the RESEND-carrying Cloud Run job
+# (earningsnerd-filing-digest) to run scripts/data_quality_report.py, which scans the remediation's
+# detections (ticker integrity, per-concept coverage gaps, filing-count anomalies, partial-summary
+# reasons) and emails the founder. No new GCP infra — reuses an existing job image + its RESEND env.
+name: Data-quality weekly report
+
+on:
+  schedule:
+    - cron: '0 13 * * 1'   # 13:00 UTC every Monday
+  workflow_dispatch:
+
+concurrency:
+  group: data-quality-weekly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write   # mint the OIDC token Workload Identity Federation exchanges
+
+env:
+  REGION: us-west1
+  REPORT_JOB: earningsnerd-filing-digest   # the only job carrying DATABASE_URL + RESEND_API_KEY
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOYER_SA }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v3
+
+      - name: Run the data-quality report on the RESEND-carrying job
+        run: |
+          set -euo pipefail
+          # The job's container entrypoint is `python`; --args appends the script path.
+          gcloud run jobs execute "$REPORT_JOB" --region="$REGION" \
+            --args="scripts/data_quality_report.py" --wait
+          echo "data-quality report job completed (emails the founder via Resend)"

@@ -102,6 +102,8 @@ class Settings(BaseSettings):
     RESEND_FROM_EMAIL: str = "EarningsNerd <hello@inbound.earningsnerd.io>"
     RESEND_WEBHOOK_SECRET: str = ""  # Webhook signing secret from Resend dashboard
     FRONTEND_URL: str = "https://earningsnerd.io"
+    # Recipient for the weekly data-quality report (P1-9). Founder inbox by default.
+    DATA_QUALITY_REPORT_EMAIL: str = "neil@earningsnerd.io"
 
     # X / Twitter API
     TWITTER_BEARER_TOKEN: str = ""

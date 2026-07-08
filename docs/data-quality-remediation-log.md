@@ -548,7 +548,38 @@ on the deployed preview — the underlying JPM/BAC cash series is the Phase-5-re
 
 ## Phase 9 — P1-9 weekly data-quality report
 
-**Status:** pending
+**Status:** complete (code + gates); one-shot verify + weekly cron activate on deploy.
+**Plan items:** P1-9 — the detection & recurrence umbrella. A weekly report over the four
+detections the remediation established, emailed to the founder; no new GCP infra.
+
+**Changed:**
+- **`data_quality_service.py`** (ORM-only — the committed `ops/detection/*.sql` stay the read-only
+  ops-console spec): four sections, each an ORM reimplementation of a detection —
+  (a) `ticker_integrity` (every `companies.ticker` diffed against the SEC primary-per-CIK ticker via
+  `primary_ticker_for_cik` → mismatches vs delisted); (b) `coverage_gaps` (a company whose last FY
+  for cash/equity/operating-CF lags its last `total_assets` FY by ≥2 — the P0-3 gap generalized;
+  keyed by company id so a duplicate ticker can't merge two companies); (c) `filing_anomalies`
+  (≥5 fiscal years of facts but ≤2 stored 10-K rows — the P1-6 signal); (d) `partial_reason_counts`
+  (tier="partial" summary reasons bucketed by SIC prefix; the JSON tier/reasons filter runs in
+  Python so it's Postgres/SQLite-portable, no raw SQL in app code). `build_report` → JSON dict;
+  `run_and_email` renders + sends to `settings.DATA_QUALITY_REPORT_EMAIL` (new; founder inbox).
+- **`email_service.render_data_quality_report`** — reuses the shared `_wrap_html` brand chrome;
+  every section shows its count so an all-zero report reads "clean" at a glance; external values
+  escaped via `html.escape`. HTML + hidden-`<pre>` text alternative (existing email pattern).
+- **`scripts/data_quality_report.py`** (`--dry-run` prints JSON; default emails) +
+  **`.github/workflows/data-quality-weekly.yml`** (Mon 13:00 UTC + dispatch → WIF auth →
+  `gcloud run jobs execute earningsnerd-filing-digest --args=scripts/data_quality_report.py` — the
+  only job carrying both `DATABASE_URL` and `RESEND_API_KEY`, per the Phase-0 probe).
+
+**Guardrails:** `test_data_quality_report.py` — seeded fixtures exercise all four sections + the
+email render + an all-clean render. Full backend gate green (ruff + bandit + 1465 pytest).
+
+**Deploy / prod operations:** _on merge the digest job image gains the script; fire the weekly
+workflow once (`workflow_dispatch`) → verify the founder receives the report with counts consistent
+with the Phase-0/5 ops SQL runs (ticker mismatches 0 after the P0-1 repair; cash coverage gap 0
+after the P0-3 resync; the partial-reason row = the one legacy JPM summary before its Phase-6
+regenerate). The Cloud Scheduler trigger for the weekly cron is created out-of-band per
+DEPLOYMENT.md (the workflow's `schedule:` is the repo-auditable driver)._
 
 ---
 
