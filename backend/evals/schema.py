@@ -121,6 +121,16 @@ class RubricScore:
     # Reported alongside the aggregate (NOT folded in); WARN-gated (see regression_gate) pending
     # promotion to a hard FPI-adoption gate once the intermittent model slip is fixed.
     currency_consistency: float = 1.0
+    # [0,1] "one home per number" (T3.0, plan defect c): penalises the same scaled/percent figure
+    # being restated across multiple narrative sections instead of living in one home (the metrics
+    # table + at most a headline echo in the exec summary). Reported alongside the aggregate (NOT
+    # folded in); WARN-gated in regression_gate until a v2 run re-pins the baseline.
+    redundancy: float = 1.0
+    # [0,1] prose/table delta consistency (T3.0, plan defect g's prose residual): a direction-cued
+    # percentage stated in the prose must not contradict the code-computed change in the metrics
+    # table. Levels (e.g. "74.9%") and ppt/bps deltas are never compared, so it only fires on clear
+    # contradictions. Reported alongside the aggregate (NOT folded in); WARN-gated.
+    delta_consistency: float = 1.0
     # Artifact-1 HARD GATES. A non-empty list is a promotion VETO independent of `aggregate()`:
     # a single fabricated number or leaked notice fails the summary no matter how good the prose.
     gate_failures: List[str] = field(default_factory=list)

@@ -289,6 +289,15 @@ shows both the code change and the new bar. **BRK.B is `verified: false`** (no c
 fact) and is auto-excluded by the runner — leave it out of the pinned set until its ground truth
 is hand-filled.
 
+**Advisory-until-pinned dimensions (T3.0 content scorers).** `mean_redundancy` (one-home rule,
+defect c) and `mean_delta_consistency` (prose vs. code-computed table deltas, defect g) are
+computed on every scored run and printed, but the current pinned baseline predates them, so the
+gate *skips* them (`_check` only compares metrics present in BOTH baseline and report) — they are
+inert WARN gates today. They start binding the first time you re-pin on a run that records them
+(the command above already does). Re-pin them together with the Tier-3 v2 content rewrite so the
+new bar reflects v2 output, not v1 — pinning v1 values would lock in the very redundancy the
+rewrite is meant to remove. They are reported alongside the aggregate and never folded into it.
+
 ---
 
 ## FPI adoption gate — flipping `ENABLE_FPI_FILINGS`

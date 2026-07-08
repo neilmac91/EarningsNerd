@@ -55,6 +55,11 @@ _WARN_GATES = (
     ("mean_financial_depth", "decrease", 0.10, "financial depth"),
     ("mean_specificity", "decrease", 0.10, "narrative specificity (anti-boilerplate)"),
     ("mean_currency_consistency", "decrease", 0.05, "currency labeling for foreign filers (FPI $-mislabel guard)"),
+    # T3.0 content-quality WARN gates. They only bind once the baseline is re-pinned on a v2 run to
+    # record these dimensions (the gate skips any metric absent from the pinned baseline), so they
+    # ship advisory — a signal for the Tier-3 content rewrite, not a blocker on today's pipeline.
+    ("mean_redundancy", "decrease", 0.05, "one-home redundancy (figures restated across sections)"),
+    ("mean_delta_consistency", "decrease", 0.05, "prose/table delta consistency"),
 )
 
 
