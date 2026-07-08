@@ -597,24 +597,31 @@ def _figure_keys(text: Any) -> set:
 _TABLE_HOME_RE = re.compile(r"\|\s*:?-{3,}:?")
 
 
-def _redundancy_prose_sections(payload: Dict[str, Any]) -> List[set]:
-    """The figure-key set of each NARRATIVE prose section.
+# The forward/outlook/guidance section quantifies a FUTURE change, not the reported period's delta,
+# so delta-consistency skips it (comparing it to the table's historical change is apples-to-oranges);
+# redundancy still covers it under the one-home rule.
+_FORWARD_SECTION_RE = re.compile(r"outlook|forward|guidance", re.IGNORECASE)
+
+
+def _narrative_prose_sections(payload: Dict[str, Any]) -> List[Tuple[str, str]]:
+    """(title, text) for each NARRATIVE prose section — the single definition of "narrative prose"
+    BOTH content scorers share, so neither can silently scan the rendered metrics table.
 
     The production pipeline maps the fully rendered markdown (all ``## `` sections) into
-    ``executive_summary``; splitting on the headings and dropping any table-bearing "home" section
-    is what measures real on-page redundancy — a figure repeated across the prose. (Comparing the
-    whole flattened blob against the separate mgmt/outlook fields, as the first cut did, is a
-    tautology: every field is a subset of the blob.) Bake-off candidates emit the three canonical
-    prose fields with no markdown, so fall back to treating those as the sections."""
+    ``executive_summary``; splitting on the headings and dropping any table-bearing "home" section is
+    what makes redundancy measure real on-page restatement AND keeps delta-consistency from scanning
+    the table (whose own change cells would self-satisfy its proximity check — a tautology that pins
+    it at 1.0). Bake-off candidates emit the three canonical prose fields with no markdown, so fall
+    back to treating those as the sections."""
     md = payload.get("executive_summary")
     if isinstance(md, str) and "\n## " in md:
-        sections: List[set] = []
+        out: List[Tuple[str, str]] = []
         for part in re.split(r"(?m)^## ", md)[1:]:
             if _TABLE_HOME_RE.search(part):
-                continue  # a table section is the figures' home, not a narrative restatement site
-            sections.append(_figure_keys(part))
-        return sections
-    return [_figure_keys(payload.get(f)) for f in _HYGIENE_PROSE_FIELDS]
+                continue  # a table section is the figures' home, not a narrative prose site
+            out.append((part.split("\n", 1)[0].strip(), part))
+        return out
+    return [(f, str(payload.get(f) or "")) for f in _HYGIENE_PROSE_FIELDS]
 
 
 def score_redundancy(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
@@ -625,10 +632,10 @@ def score_redundancy(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
     where excess = redundant appearances and total = all narrative figure-appearances — a length-
     invariant ratio, so a couple of echoes in a long summary barely move it while a data-dump that
     repeats figures across every section scores low. Returns (score, restated_figures)."""
-    sections = _redundancy_prose_sections(payload)
     counts: Dict[str, int] = {}
     total = 0
-    for keys in sections:
+    for _title, text in _narrative_prose_sections(payload):
+        keys = _figure_keys(text)
         total += len(keys)
         for key in keys:
             counts[key] = counts.get(key, 0) + 1
@@ -682,11 +689,14 @@ def score_delta_consistency(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
     nearby percentage matches — so a metric the prose states correctly (or doesn't quantify) is never
     penalised. Conservative by construction. Returns (score, contradictions)."""
     deltas = _table_pct_deltas(payload)
-    # Scan only the sections that describe the REPORTED period (exec + MD&A), NOT outlook: forward
-    # guidance quantifies a future change ("expects growth to slow to 15%") that legitimately differs
-    # from the table's historical delta, so comparing it would be apples-to-oranges. Redundancy still
-    # covers outlook for the one-home rule, so nothing there goes unwatched.
-    prose = " ".join(str(payload.get(f) or "") for f in ("executive_summary", "management_discussion"))
+    # Scan the shared narrative prose — which EXCLUDES the table-home sections, so the rendered
+    # metrics table (mapped into executive_summary in production) can no longer self-satisfy the
+    # proximity check for every metric and pin this scorer at a tautological 1.0 — minus the
+    # forward/outlook section, whose figures quantify a FUTURE change, not the reported delta.
+    prose = " ".join(
+        text for title, text in _narrative_prose_sections(payload)
+        if not _FORWARD_SECTION_RE.search(title)
+    )
     if not deltas or not prose.strip():
         return 1.0, []
     checked = 0

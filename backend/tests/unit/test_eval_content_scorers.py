@@ -275,3 +275,48 @@ def test_score_summary_reflects_contradiction_and_redundancy():
     score = score_summary(payload, [])
     assert score.delta_consistency == 0.0   # prose "92%" contradicts table "85.0%"
     assert score.redundancy < 1.0           # $81.6B and $32B restated across sections
+
+
+# --- canaries: each scorer must be able to FIRE on a PRODUCTION-shaped payload -----------------
+# The production pipeline maps the fully rendered markdown (metrics table INSIDE executive_summary)
+# into the payload. A scorer that structurally cannot fire on that shape is a dead instrument — both
+# content scorers had a mirror-image tautology there (redundancy toward 0.0, delta toward 1.0). These
+# assert the OPPOSITE of the usual "clean input scores 1.0": that a genuine defect is caught on the
+# real shape, so a future refactor can't silently re-break the instrument before it binds at re-pin.
+
+_TABLE_MD = "\n".join([
+    "## Financial Highlights",
+    "| Metric | Current | Prior | Change | Note |",
+    "| --- | --- | --- | --- | --- |",
+    "| Revenue | $44.1B | $26.0B | +69.2% | data-center |",
+])
+
+
+def test_canary_redundancy_fires_on_production_markdown():
+    md = "\n".join([
+        "## Executive Assessment", "Revenue was $44.1B on AI demand.", "",
+        _TABLE_MD, "",
+        "## Management Strategy & Execution", "Revenue of $44.1B recurred across lines.", "",
+        "## 3-Year Investment Perspective", "The $44.1B print caps three years of growth.",
+    ])
+    payload = {"executive_summary": md, "management_discussion": "", "outlook": "",
+               **_fh([{"metric": "Revenue", "change_display": "+69.2%"}])}
+    score, reasons = score_redundancy(payload)
+    # $44.1B restated across THREE prose sections (the table copy is excluded) → must fire.
+    assert score < 1.0 and reasons == ["figure restated across sections: 44.1b"]
+
+
+def test_canary_delta_consistency_fires_on_production_markdown():
+    # Founder A/B: an identical prose-vs-table contradiction must be flagged in the production
+    # markdown shape (table inside the blob) exactly as in the fields shape — the rendered table's
+    # own change cell must NOT self-satisfy the proximity check.
+    md = "\n".join(["## Executive Assessment", "Revenue surged 92% on AI demand.", "", _TABLE_MD])
+    markdown_payload = {"executive_summary": md, "management_discussion": "", "outlook": "",
+                        **_fh([{"metric": "Revenue", "change_display": "+69.2%"}])}
+    fields_payload = {"executive_summary": "Revenue surged 92% on AI demand.",
+                      "management_discussion": "", "outlook": "",
+                      **_fh([{"metric": "Revenue", "change_display": "+69.2%"}])}
+    md_result = score_delta_consistency(markdown_payload)
+    fields_result = score_delta_consistency(fields_payload)
+    assert md_result[0] == 0.0 and "Revenue" in md_result[1][0]   # production shape now FIRES
+    assert md_result == fields_result                             # both shapes agree (A/B)
