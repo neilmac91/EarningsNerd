@@ -51,6 +51,7 @@ from app.services.summary_generation_service import (
     record_progress,
     get_or_cache_excerpt,
 )
+from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -690,6 +691,10 @@ async def stream_filing_summary(
 
             raw_summary["sections"] = sections_info
             raw_summary["status"] = summary_status
+            # Embed the schema version so the render projection (summary_sections) can version-
+            # dispatch on raw_summary["schema_version"]; the Summary columns below carry the same
+            # stamps for querying/refreshing stale rows.
+            raw_summary["schema_version"] = SUMMARY_SCHEMA_VERSION
 
             # S4: deterministic quality verdict (always attached as metadata for the UI badge).
             # sic feeds the bank-aware revenue-grounding rule (P0-2) as the flag-independent
@@ -731,7 +736,9 @@ async def stream_filing_summary(
                     risk_factors=risk_section,
                     management_discussion=management_section,
                     key_changes=guidance_section,
-                    raw_summary=raw_summary
+                    raw_summary=raw_summary,
+                    schema_version=SUMMARY_SCHEMA_VERSION,
+                    prompt_version=SUMMARY_PROMPT_VERSION,
                 )
                 session.add(summary)
 

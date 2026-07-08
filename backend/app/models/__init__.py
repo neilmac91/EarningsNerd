@@ -1,5 +1,5 @@
 import logging
-from sqlalchemy import Column, Integer, String, Text, DateTime, Date, Boolean, ForeignKey, Float, JSON, event, UniqueConstraint, Index
+from sqlalchemy import Column, Integer, SmallInteger, String, Text, DateTime, Date, Boolean, ForeignKey, Float, JSON, event, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -254,6 +254,11 @@ class Summary(Base):
     management_discussion = Column(Text, nullable=True)
     key_changes = Column(Text, nullable=True)
     raw_summary = Column(JSON, nullable=True)  # Full AI response
+    # Version stamps (summary_versioning): the sections-taxonomy and prompt versions this row was
+    # generated under. NULL = legacy/pre-stamp = stale. Existing DBs self-heal these at startup via
+    # database.ensure_additive_columns; a serializer/prompt bump can then refresh stale rows in place.
+    schema_version = Column(SmallInteger, nullable=True)
+    prompt_version = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     

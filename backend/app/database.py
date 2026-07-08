@@ -60,6 +60,10 @@ _ADDITIVE_COLUMNS: list[tuple[str, str, str]] = [
     # Deep filing-history backfill stamp (P1-6): an existing companies table self-heals this
     # column at startup so the on-visit backfill guard works before the migration runs.
     ("companies", "history_backfilled_at", "TIMESTAMPTZ"),
+    # Summary version stamps: an existing summaries table self-heals these at startup so a
+    # serializer/prompt change can mark and refresh stale rows. NULL = legacy/pre-stamp = stale.
+    ("summaries", "schema_version", "SMALLINT"),
+    ("summaries", "prompt_version", "TEXT"),
 ]
 
 

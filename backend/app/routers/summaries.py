@@ -83,6 +83,9 @@ class SummaryResponse(BaseModel):
     management_discussion: Optional[str]
     key_changes: Optional[str]
     raw_summary: Optional[dict]
+    # Version stamps: NULL on legacy/pre-stamp rows (treated as stale by the refresh path).
+    schema_version: Optional[int] = None
+    prompt_version: Optional[str] = None
 
     class Config:
         from_attributes = True
