@@ -63,8 +63,9 @@ def test_redundancy_normalizes_scale_words_and_symbols():
     }
     score, details = score_redundancy(payload)
     assert details == ["figure restated across sections: 81.6b"]
-    # A figure smeared across ALL THREE sections restates twice; one echo is free, so it is penalised.
-    assert score == 0.75
+    # A figure smeared across ALL THREE sections restates twice; one echo is free, so it is penalised
+    # (1 − (2−1)/3 = 0.6667).
+    assert score == 0.6667
 
 
 def test_redundancy_penalises_a_single_figure_across_all_three_sections():
@@ -76,6 +77,47 @@ def test_redundancy_penalises_a_single_figure_across_all_three_sections():
     }
     score, _ = score_redundancy(payload)
     assert score < 1.0
+
+
+def test_redundancy_parses_rendered_markdown_and_excludes_the_table_home():
+    # The production pipeline maps the full rendered markdown into executive_summary. The scorer must
+    # split on the ## headings and measure restatement across the PROSE sections, excluding the
+    # table-bearing "home" section — NOT compare the flattened blob against sub-fields (a tautology).
+    md = "\n".join([
+        "## Executive Assessment", "Revenue was $81.6B on data-center demand.", "",
+        "## Financial Highlights", "| Metric | Value |", "| --- | --- |", "| Revenue | $81.6B |", "",
+        "## Management Strategy & Execution", "Revenue of $81.6B reflects AI leadership.", "",
+        "## Forward Outlook", "An $81.6B run-rate looks durable.",
+    ])
+    payload = {"executive_summary": md, "management_discussion": "", "outlook": ""}
+    score, reasons = score_redundancy(payload)
+    # $81.6B appears in THREE prose sections (the Financial Highlights table copy is excluded as the
+    # home) → beyond the one free echo → penalised.
+    assert reasons == ["figure restated across sections: 81.6b"]
+    assert score < 1.0
+
+
+def test_redundancy_excludes_table_homes_with_alignment_colons():
+    # GFM alignment delimiters (| :--- |, | ---: |) must still be recognised as a table home, else
+    # the table's figures get miscounted as narrative restatement.
+    md = "\n".join([
+        "## Executive Assessment", "Revenue reached a record.", "",
+        "## Financial Highlights", "| Metric | Value |", "| :--- | ---: |", "| Revenue | $81.6B |",
+    ])
+    payload = {"executive_summary": md, "management_discussion": "", "outlook": ""}
+    # $81.6B lives only in the (aligned) table home → no narrative restatement.
+    assert score_redundancy(payload) == (1.0, [])
+
+
+def test_redundancy_markdown_mode_is_clean_when_each_figure_has_one_home():
+    md = "\n".join([
+        "## Executive Assessment", "Revenue rose to a record on AI demand.", "",
+        "## Financial Highlights", "| Metric | Value |", "| --- | --- |", "| Revenue | $81.6B |", "",
+        "## Management Strategy & Execution", "Management cited operating leverage and buybacks.", "",
+        "## Forward Outlook", "Guidance implies continued sequential growth.",
+    ])
+    payload = {"executive_summary": md, "management_discussion": "", "outlook": ""}
+    assert score_redundancy(payload) == (1.0, [])
 
 
 def test_figure_keys_ignore_period_boilerplate():
@@ -233,3 +275,48 @@ def test_score_summary_reflects_contradiction_and_redundancy():
     score = score_summary(payload, [])
     assert score.delta_consistency == 0.0   # prose "92%" contradicts table "85.0%"
     assert score.redundancy < 1.0           # $81.6B and $32B restated across sections
+
+
+# --- canaries: each scorer must be able to FIRE on a PRODUCTION-shaped payload -----------------
+# The production pipeline maps the fully rendered markdown (metrics table INSIDE executive_summary)
+# into the payload. A scorer that structurally cannot fire on that shape is a dead instrument — both
+# content scorers had a mirror-image tautology there (redundancy toward 0.0, delta toward 1.0). These
+# assert the OPPOSITE of the usual "clean input scores 1.0": that a genuine defect is caught on the
+# real shape, so a future refactor can't silently re-break the instrument before it binds at re-pin.
+
+_TABLE_MD = "\n".join([
+    "## Financial Highlights",
+    "| Metric | Current | Prior | Change | Note |",
+    "| --- | --- | --- | --- | --- |",
+    "| Revenue | $44.1B | $26.0B | +69.2% | data-center |",
+])
+
+
+def test_canary_redundancy_fires_on_production_markdown():
+    md = "\n".join([
+        "## Executive Assessment", "Revenue was $44.1B on AI demand.", "",
+        _TABLE_MD, "",
+        "## Management Strategy & Execution", "Revenue of $44.1B recurred across lines.", "",
+        "## 3-Year Investment Perspective", "The $44.1B print caps three years of growth.",
+    ])
+    payload = {"executive_summary": md, "management_discussion": "", "outlook": "",
+               **_fh([{"metric": "Revenue", "change_display": "+69.2%"}])}
+    score, reasons = score_redundancy(payload)
+    # $44.1B restated across THREE prose sections (the table copy is excluded) → must fire.
+    assert score < 1.0 and reasons == ["figure restated across sections: 44.1b"]
+
+
+def test_canary_delta_consistency_fires_on_production_markdown():
+    # Founder A/B: an identical prose-vs-table contradiction must be flagged in the production
+    # markdown shape (table inside the blob) exactly as in the fields shape — the rendered table's
+    # own change cell must NOT self-satisfy the proximity check.
+    md = "\n".join(["## Executive Assessment", "Revenue surged 92% on AI demand.", "", _TABLE_MD])
+    markdown_payload = {"executive_summary": md, "management_discussion": "", "outlook": "",
+                        **_fh([{"metric": "Revenue", "change_display": "+69.2%"}])}
+    fields_payload = {"executive_summary": "Revenue surged 92% on AI demand.",
+                      "management_discussion": "", "outlook": "",
+                      **_fh([{"metric": "Revenue", "change_display": "+69.2%"}])}
+    md_result = score_delta_consistency(markdown_payload)
+    fields_result = score_delta_consistency(fields_payload)
+    assert md_result[0] == 0.0 and "Revenue" in md_result[1][0]   # production shape now FIRES
+    assert md_result == fields_result                             # both shapes agree (A/B)

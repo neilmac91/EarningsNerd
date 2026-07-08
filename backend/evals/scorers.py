@@ -588,25 +588,63 @@ def _figure_keys(text: Any) -> set:
     return keys
 
 
+# A section carrying a GFM table separator IS a figures' structured home (the metrics table,
+# segments, footnotes). Restating a home figure in the table doesn't count as narrative redundancy;
+# matching on the table row, not a section title, keeps this robust across the v1/v2 taxonomies. The
+# optional colons match GFM alignment delimiters (| :--- |, | ---: |, | :---: |) too — production
+# tables use bare ---, but a candidate/future renderer may align, and a missed table home would
+# wrongly count its figures as narrative restatement.
+_TABLE_HOME_RE = re.compile(r"\|\s*:?-{3,}:?")
+
+
+# The forward/outlook/guidance section quantifies a FUTURE change, not the reported period's delta,
+# so delta-consistency skips it (comparing it to the table's historical change is apples-to-oranges);
+# redundancy still covers it under the one-home rule.
+_FORWARD_SECTION_RE = re.compile(r"outlook|forward|guidance", re.IGNORECASE)
+
+
+def _narrative_prose_sections(payload: Dict[str, Any]) -> List[Tuple[str, str]]:
+    """(title, text) for each NARRATIVE prose section — the single definition of "narrative prose"
+    BOTH content scorers share, so neither can silently scan the rendered metrics table.
+
+    The production pipeline maps the fully rendered markdown (all ``## `` sections) into
+    ``executive_summary``; splitting on the headings and dropping any table-bearing "home" section is
+    what makes redundancy measure real on-page restatement AND keeps delta-consistency from scanning
+    the table (whose own change cells would self-satisfy its proximity check — a tautology that pins
+    it at 1.0). Bake-off candidates emit the three canonical prose fields with no markdown, so fall
+    back to treating those as the sections."""
+    md = payload.get("executive_summary")
+    if isinstance(md, str) and "\n## " in md:
+        out: List[Tuple[str, str]] = []
+        for part in re.split(r"(?m)^## ", md)[1:]:
+            if _TABLE_HOME_RE.search(part):
+                continue  # a table section is the figures' home, not a narrative prose site
+            out.append((part.split("\n", 1)[0].strip(), part))
+        return out
+    return [(f, str(payload.get(f) or "")) for f in _HYGIENE_PROSE_FIELDS]
+
+
 def score_redundancy(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
-    """[0,1] "one home per number" (plan defect c). 1.0 = no figure is restated across sections.
-    Penalises a scaled/percent figure appearing in >=2 of the narrative prose sections
-    (executive_summary / management_discussion / outlook) — the metrics table is the numbers' home
-    and the exec summary may echo the headlines, so ONE cross-section restatement is free and each
-    further one costs 0.25. Returns (score, restated_figures)."""
+    """[0,1] "one home per number" (plan defect c). 1.0 = no figure is restated across the narrative
+    prose sections of the rendered summary; lower as the same scaled/percent figures reappear across
+    sections. The metrics/segment/footnote TABLES are the numbers' homes and are excluded, and the
+    exec summary may echo the headlines, so ONE restatement is free. Score = 1 − (excess − 1)/total,
+    where excess = redundant appearances and total = all narrative figure-appearances — a length-
+    invariant ratio, so a couple of echoes in a long summary barely move it while a data-dump that
+    repeats figures across every section scores low. Returns (score, restated_figures)."""
     counts: Dict[str, int] = {}
-    for field_name in _HYGIENE_PROSE_FIELDS:
-        for key in _figure_keys(payload.get(field_name)):
+    total = 0
+    for _title, text in _narrative_prose_sections(payload):
+        keys = _figure_keys(text)
+        total += len(keys)
+        for key in keys:
             counts[key] = counts.get(key, 0) + 1
     restated = sorted(k for k, c in counts.items() if c >= 2)
-    if not restated:
+    if not restated or total == 0:
         return 1.0, []
-    # Sum the per-figure restatements (a figure in all three prose sections restates twice, not once),
-    # then forgive ONE — the sanctioned exec echo of a headline. So a single figure in two sections is
-    # free, but the same figure smeared across all three, or two different restated figures, is not.
-    total_restatements = sum(counts[k] - 1 for k in restated)
-    excess = max(0, total_restatements - 1)
-    return max(0.0, round(1.0 - excess / 4.0, 4)), [f"figure restated across sections: {k}" for k in restated]
+    excess = sum(counts[k] - 1 for k in restated)  # redundant (extra) narrative appearances
+    score = max(0.0, round(1.0 - max(0, excess - 1) / total, 4))  # one sanctioned headline echo free
+    return score, [f"figure restated across sections: {k}" for k in restated]
 
 
 # A percentage in prose that is unambiguously a CHANGE (carries a direction cue), so a level such
@@ -651,11 +689,14 @@ def score_delta_consistency(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
     nearby percentage matches — so a metric the prose states correctly (or doesn't quantify) is never
     penalised. Conservative by construction. Returns (score, contradictions)."""
     deltas = _table_pct_deltas(payload)
-    # Scan only the sections that describe the REPORTED period (exec + MD&A), NOT outlook: forward
-    # guidance quantifies a future change ("expects growth to slow to 15%") that legitimately differs
-    # from the table's historical delta, so comparing it would be apples-to-oranges. Redundancy still
-    # covers outlook for the one-home rule, so nothing there goes unwatched.
-    prose = " ".join(str(payload.get(f) or "") for f in ("executive_summary", "management_discussion"))
+    # Scan the shared narrative prose — which EXCLUDES the table-home sections, so the rendered
+    # metrics table (mapped into executive_summary in production) can no longer self-satisfy the
+    # proximity check for every metric and pin this scorer at a tautological 1.0 — minus the
+    # forward/outlook section, whose figures quantify a FUTURE change, not the reported delta.
+    prose = " ".join(
+        text for title, text in _narrative_prose_sections(payload)
+        if not _FORWARD_SECTION_RE.search(title)
+    )
     if not deltas or not prose.strip():
         return 1.0, []
     checked = 0

@@ -122,9 +122,11 @@ class RubricScore:
     # promotion to a hard FPI-adoption gate once the intermittent model slip is fixed.
     currency_consistency: float = 1.0
     # [0,1] "one home per number" (T3.0, plan defect c): penalises the same scaled/percent figure
-    # being restated across multiple narrative sections instead of living in one home (the metrics
-    # table + at most a headline echo in the exec summary). Reported alongside the aggregate (NOT
-    # folded in); WARN-gated in regression_gate until a v2 run re-pins the baseline.
+    # being restated across the narrative prose sections of the rendered summary instead of living in
+    # one home (the metrics/segment/footnote tables + at most a headline echo in the exec summary).
+    # Measured by splitting the rendered markdown on its section headings and excluding the table
+    # "home" sections. Reported alongside the aggregate (NOT folded in); WARN-gated in regression_gate
+    # until a v2 run re-pins the baseline.
     redundancy: float = 1.0
     # [0,1] prose/table delta consistency (T3.0, plan defect g's prose residual): a direction-cued
     # percentage stated in the prose must not contradict the code-computed change in the metrics
