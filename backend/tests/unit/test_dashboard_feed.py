@@ -27,6 +27,9 @@ def test_revenue_and_net_income_headline():
     metrics = {i["metric"]: i for i in out["items"]}
     assert metrics["revenue"]["direction"] == "up"
     assert metrics["net_income"]["direction"] == "down"
+    # T1.5: chips carry the single-source display string + tone (no client-side formatting).
+    assert metrics["revenue"]["display"] == "+25.0%" and metrics["revenue"]["tone"] == "gain"
+    assert metrics["net_income"]["display"] == "−20.0%" and metrics["net_income"]["tone"] == "loss"
 
 
 def test_negative_revenue_is_dropped_partial():

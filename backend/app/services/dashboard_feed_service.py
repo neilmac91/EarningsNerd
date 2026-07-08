@@ -22,6 +22,7 @@ from sqlalchemy import desc
 from sqlalchemy.orm import Session, defer, joinedload
 
 from app.models import Filing, Summary, Watchlist
+from app.services import metric_delta_service
 from app.services.edgar.models import MetricChange
 from app.services.summary_generation_service import get_generation_progress_snapshot
 from app.services.summary_placeholders import is_summary_placeholder
@@ -163,6 +164,9 @@ def compute_what_changed(current_xbrl: Optional[dict], prior_xbrl: Optional[dict
         change = MetricChange.compute(cur, prior)
         if change.direction is None:  # no comparable prior → can't say what changed
             continue
+        # Single delta policy: the display string + tone come from metric_delta_service so the chips
+        # stop formatting on the client (every _DELTA_METRICS entry is a monetary amount / EPS).
+        delta = metric_delta_service.compute(cur, prior, is_ratio=False)
         items.append({
             "metric": metric,
             "label": label,
@@ -170,6 +174,8 @@ def compute_what_changed(current_xbrl: Optional[dict], prior_xbrl: Optional[dict
             "pct": abs(change.percentage) if change.percentage is not None else None,
             "current": cur,
             "prior": prior,
+            "display": delta.display,
+            "tone": delta.tone,
         })
 
     if not items:

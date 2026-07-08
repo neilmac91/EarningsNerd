@@ -22,6 +22,8 @@ import re
 from typing import Any, Optional
 from urllib.parse import quote
 
+from app.services import metric_delta_service
+
 # An excerpt shorter than this (after normalization) is too generic to verify reliably, so we never
 # claim it as "verified in filing".
 _MIN_VERIFIABLE_LEN = 24
@@ -300,6 +302,9 @@ def enrich_financial_highlights(
     for row in rows:
         if isinstance(row, dict):
             row.update(build_metric_source(row, filing, xbrl_standardized, section_ref))
+            # Single delta policy: ship the computed change display/direction/tone so the table
+            # renders one canonical string (ppts for margins) and does no client-side math (T1.5).
+            row.update(metric_delta_service.row_delta_fields(row))
         enriched_rows.append(row)
     result["table"] = enriched_rows
     return result
