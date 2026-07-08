@@ -158,8 +158,8 @@ function BlockView({ block }: { block: RenderedBlock }) {
 function GenericTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
   if (rows.length === 0) return null
   return (
-    <div className="overflow-x-auto">
-      <table className="min-w-full divide-y divide-border-light rounded-lg border border-border-light dark:divide-border-dark dark:border-border-dark">
+    <div className="overflow-x-auto rounded-xl border border-border-light dark:border-border-dark">
+      <table className="min-w-full divide-y divide-border-light dark:divide-border-dark">
         {headers.length > 0 && (
           <thead className="bg-background-light dark:bg-background-dark">
             <tr>
