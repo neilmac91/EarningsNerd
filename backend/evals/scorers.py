@@ -530,6 +530,159 @@ def score_currency_consistency(
     return score, [f"non-USD filer ({cur}) rendered bare-'$' figures: {', '.join(bare[:6])}"]
 
 
+# --- T3.0 content-quality scorers -------------------------------------------------------------
+# Two deterministic, payload-only content scorers for the Tier-3 content re-architecture. They
+# measure the plan's named narrative defects on the SAME canonical payload as the other scorers,
+# need no filing text or ground truth, and are reported alongside the aggregate (NEVER folded in).
+# Both are WARN-gated in regression_gate until a v2 run re-pins the baseline (see RUNBOOK).
+
+# A financial figure: optional $, a number, an optional scale/percent suffix. Bare unit-less
+# integers (years, counts) are intentionally dropped by _canonical_figure so they never register.
+# The word/letter suffixes must end on a word boundary, so a single-letter suffix (b/m/t) can NOT be
+# the first letter of the next word — "the 3 months ended" must not read as a $3-million figure. `%`
+# stays outside the \b group (a non-word char, where a trailing \b behaves differently).
+_FIGURE_RE = re.compile(
+    r"\$?\s*\d[\d,]*(?:\.\d+)?\s*"
+    r"(?:(?:percentage points|basis points|trillion|billion|million|ppts?|bps|bn|mn|tn|b|m|t)\b|%)?",
+    re.IGNORECASE,
+)
+_SCALE_CANON = {
+    "billion": "b", "bn": "b", "b": "b",
+    "million": "m", "mn": "m", "m": "m",
+    "trillion": "t", "tn": "t", "t": "t",
+    "percent": "%", "%": "%",
+    "percentage points": "ppt", "ppts": "ppt", "ppt": "ppt",
+    "basis points": "bps", "bps": "bps",
+}
+
+
+def _canonical_figure(token: str) -> Optional[str]:
+    """Normalize a figure token to a comparable key: '$81.6 billion' / '$81.6B' -> '81.6b',
+    '85.0%' -> '85%'. Returns None for a unit-less number (year/count) — too ambiguous to compare.
+
+    DELIBERATE conservative miss: cross-scale restatements ('$1,500 million' -> '1500m' vs '$1.5B'
+    -> '1.5b') canonicalize to DIFFERENT keys and are not flagged as the same figure. That is fine
+    for a WARN scorer and far safer than a float-equality/scale-normalization trap — do not "fix" it."""
+    t = token.strip().lower().lstrip("$").strip()
+    m = re.match(r"([\d,]*\.?\d+)\s*(.*)$", t)
+    if not m:
+        return None
+    suffix = _SCALE_CANON.get(m.group(2).strip())
+    if not suffix:
+        return None  # unit-less number — skip (avoids matching stray integers / years / indices)
+    try:
+        value = float(m.group(1).replace(",", ""))
+    except ValueError:
+        return None
+    return f"{value:g}{suffix}"  # %g collapses "85.0" -> "85", so "85.0%" == "85%"
+
+
+def _figure_keys(text: Any) -> set:
+    if not isinstance(text, str) or not text:
+        return set()
+    keys = set()
+    for match in _FIGURE_RE.findall(text):
+        key = _canonical_figure(match)
+        if key:
+            keys.add(key)
+    return keys
+
+
+def score_redundancy(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
+    """[0,1] "one home per number" (plan defect c). 1.0 = no figure is restated across sections.
+    Penalises a scaled/percent figure appearing in >=2 of the narrative prose sections
+    (executive_summary / management_discussion / outlook) — the metrics table is the numbers' home
+    and the exec summary may echo the headlines, so ONE cross-section restatement is free and each
+    further one costs 0.25. Returns (score, restated_figures)."""
+    counts: Dict[str, int] = {}
+    for field_name in _HYGIENE_PROSE_FIELDS:
+        for key in _figure_keys(payload.get(field_name)):
+            counts[key] = counts.get(key, 0) + 1
+    restated = sorted(k for k, c in counts.items() if c >= 2)
+    if not restated:
+        return 1.0, []
+    # Sum the per-figure restatements (a figure in all three prose sections restates twice, not once),
+    # then forgive ONE — the sanctioned exec echo of a headline. So a single figure in two sections is
+    # free, but the same figure smeared across all three, or two different restated figures, is not.
+    total_restatements = sum(counts[k] - 1 for k in restated)
+    excess = max(0, total_restatements - 1)
+    return max(0.0, round(1.0 - excess / 4.0, 4)), [f"figure restated across sections: {k}" for k in restated]
+
+
+# A percentage in prose that is unambiguously a CHANGE (carries a direction cue), so a level such
+# as "gross margin of 74.9%" never trips the consistency check. The minus arm is `(?<!\d)-` so a
+# hyphenated RANGE ("8-10%") is not read as a delta cue, while "up -8%" / a standalone "-8%" still
+# is; the U+2212 minus (−) never appears in ranges, so it stays as-is.
+_DELTA_CUED_PCT_RE = re.compile(
+    r"(?:up|down|grew|rose|increased|decreased|declined|fell|gained|jumped|surged|dropped|climbed|"
+    r"slipped|higher|lower|\+|(?<!\d)-|−)\s*(?:by\s+)?(\d[\d,]*(?:\.\d+)?)\s*%",
+    re.IGNORECASE,
+)
+
+
+def _table_pct_deltas(payload: Dict[str, Any]) -> List[Tuple[str, float]]:
+    """(metric, |relative-% change|) for financial-highlights rows whose change is a percentage.
+    ppts / bps rows are skipped — a margin's ppt delta isn't comparable to a relative % in prose."""
+    fh = payload.get("financial_highlights")
+    table = fh.get("table") if isinstance(fh, dict) else None
+    if not isinstance(table, list):
+        return []
+    out: List[Tuple[str, float]] = []
+    for row in table:
+        if not isinstance(row, dict):
+            continue
+        metric = str(row.get("metric") or "").strip()
+        change = str(row.get("change_display") or row.get("change") or "")
+        if not metric or "ppt" in change.lower() or "bps" in change.lower():
+            continue
+        m = re.search(r"(-?\d[\d,]*(?:\.\d+)?)\s*%", change)
+        if m:
+            try:
+                out.append((metric, abs(float(m.group(1).replace(",", "")))))
+            except ValueError:
+                continue
+    return out
+
+
+def score_delta_consistency(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
+    """[0,1] prose/table delta consistency (plan defect g's prose residual). 1.0 = the prose never
+    contradicts the code-computed table deltas. For each table metric with a %-change, a metric is
+    FLAGGED only when a direction-cued percentage near its name in the prose is >2 points off AND no
+    nearby percentage matches — so a metric the prose states correctly (or doesn't quantify) is never
+    penalised. Conservative by construction. Returns (score, contradictions)."""
+    deltas = _table_pct_deltas(payload)
+    # Scan only the sections that describe the REPORTED period (exec + MD&A), NOT outlook: forward
+    # guidance quantifies a future change ("expects growth to slow to 15%") that legitimately differs
+    # from the table's historical delta, so comparing it would be apples-to-oranges. Redundancy still
+    # covers outlook for the one-home rule, so nothing there goes unwatched.
+    prose = " ".join(str(payload.get(f) or "") for f in ("executive_summary", "management_discussion"))
+    if not deltas or not prose.strip():
+        return 1.0, []
+    checked = 0
+    contradictions: List[str] = []
+    for metric, table_pct in deltas:
+        # Word-boundary match so a short metric name never matches inside another word ("EPS" in
+        # "steps", "Revenue" in a hyphenated compound), which would pull an unrelated % into scope.
+        name_re = re.compile(r"\b" + re.escape(metric.lower()) + r"\b", re.IGNORECASE)
+        nearby: List[float] = []
+        for match in name_re.finditer(prose):
+            window = prose[max(0, match.start() - 40): match.end() + 80]
+            for pm in _DELTA_CUED_PCT_RE.findall(window):
+                try:
+                    nearby.append(abs(float(pm.replace(",", ""))))
+                except ValueError:
+                    pass
+        if not nearby:
+            continue
+        checked += 1
+        if not any(abs(p - table_pct) <= 2.0 for p in nearby):
+            worst = min(nearby, key=lambda p: abs(p - table_pct))
+            contradictions.append(f"{metric}: prose ~{worst:g}% vs table {table_pct:g}%")
+    if checked == 0:
+        return 1.0, []
+    return max(0.0, round(1.0 - len(contradictions) / checked, 4)), contradictions
+
+
 def score_summary(
     raw_or_payload: Any, ground_truth: List[GroundTruthFact]
 ) -> RubricScore:
@@ -558,6 +711,8 @@ def score_summary(
     depth, _ = score_financial_depth(payload)
     specificity, _ = score_specificity(payload)
     currency_consistency, _ = score_currency_consistency(payload, ground_truth)
+    redundancy, _ = score_redundancy(payload)
+    delta_consistency, _ = score_delta_consistency(payload)
     return RubricScore(
         schema_valid=schema_valid,
         repaired=repaired,
@@ -567,6 +722,8 @@ def score_summary(
         financial_depth=depth,
         specificity=specificity,
         currency_consistency=currency_consistency,
+        redundancy=redundancy,
+        delta_consistency=delta_consistency,
         gate_failures=compute_gate_failures(payload, contradictions, ground_truth),
         missing_sections=missing_sections,
         matched_facts=matched,

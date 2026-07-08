@@ -220,6 +220,8 @@ def _summarize(
             "mean_financial_depth": mean("financial_depth"),
             "mean_specificity": mean("specificity"),
             "mean_currency_consistency": mean("currency_consistency"),
+            "mean_redundancy": mean("redundancy"),
+            "mean_delta_consistency": mean("delta_consistency"),
             "judge_pass_rate": round(sum(1 for j in judged if j.get("passed")) / len(judged), 4) if judged else None,
             "total_cost_usd": round(sum(r.get("cost_usd", 0.0) for r in rs), 4),
             "mean_latency_seconds": round(statistics.mean([r["latency_seconds"] for r in rs if r.get("latency_seconds")]), 3) if any(r.get("latency_seconds") for r in rs) else 0.0,
