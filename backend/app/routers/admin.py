@@ -5,6 +5,7 @@ They allow clearing cached summaries and XBRL data to fix issues with stale data
 """
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
@@ -23,6 +24,7 @@ from app.services.resend_service import send_email, ResendError
 from app.services import invite_service
 from app.services import audit_service
 from app.services.email_service import send_invite_email
+from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -859,5 +861,114 @@ async def reset_all_summaries(
             f"{f' of type {filing_type}' if filing_type else ''}; "
             f"{'would skip' if dry_run else 'skipped'} {len(skipped_saved)} saved"
             f"{' (bookmarks included)' if include_saved else ''}."
+        ),
+    }
+
+
+def _stale_summary_filter(schema_version_lt: Optional[int]):
+    """Rows to refresh: missing/behind stamp. schema_version_lt bounds by schema; None = stale vs
+    the CURRENT schema+prompt version (covers a prompt-only bump that leaves schema_version equal)."""
+    if schema_version_lt is not None:
+        return or_(Summary.schema_version.is_(None), Summary.schema_version < schema_version_lt)
+    return or_(
+        Summary.schema_version.is_(None),
+        Summary.schema_version != SUMMARY_SCHEMA_VERSION,
+        Summary.prompt_version.is_(None),
+        Summary.prompt_version != SUMMARY_PROMPT_VERSION,
+    )
+
+
+@router.post("/summaries/refresh-stale")
+async def refresh_stale_summaries(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+    schema_version_lt: Optional[int] = None,
+    filing_type: Optional[str] = None,
+    limit: int = 50,
+    dry_run: bool = True,
+):
+    """Admin-only: regenerate version-stale summaries IN PLACE (bookmarks survive).
+
+    Unlike ``reset-all`` (which DELETEs rows and, with ``include_saved``, destroys the
+    ``saved_summaries`` bookmark), this drains the ONE orchestrator with ``force_regenerate=True``:
+    each stale row is UPDATEd in place, preserving ``summaries.id`` so the FK/bookmark survives, and
+    a keep-better quality gate prevents a 75s AI-timeout fallback from downgrading a stored ``full``.
+
+    Candidates are ordered most-recent-filing first (a traffic proxy — the DB has no per-summary hit
+    count). ``dry_run`` (default) reports the stale count without regenerating, which also serves as
+    the admin staleness count.
+
+    Args:
+        schema_version_lt: Refresh rows whose ``schema_version`` is NULL or below this. Omit to
+            refresh everything stale vs the current schema+prompt version.
+        filing_type: Optional form filter (e.g. "10-K", "10-Q").
+        limit: Max rows to regenerate in one call (a real run generates sequentially; keep modest).
+        dry_run: If True (default), only report the stale candidates — regenerate nothing.
+    """
+    _require_admin(current_user)
+
+    query = (
+        db.query(Summary.id, Summary.filing_id, Summary.schema_version, Summary.prompt_version)
+        .join(Filing, Filing.id == Summary.filing_id)
+        .filter(_stale_summary_filter(schema_version_lt))
+    )
+    if filing_type:
+        query = query.filter(Filing.filing_type == filing_type)
+    stale_total = query.count()
+    candidates = query.order_by(Filing.filing_date.desc()).limit(limit).all()
+    candidate_filing_ids = [c.filing_id for c in candidates]
+
+    regenerated: list[int] = []
+    if not dry_run and candidate_filing_ids:
+        from app.services.summary_generation_service import generate_summary_background
+
+        # Guard the admin session against N+1 re-expiry across the loop's own commits; generation
+        # runs in the pipeline's OWN sessions, so this only protects rows/audit held here.
+        prev_expire = db.expire_on_commit
+        db.expire_on_commit = False
+        try:
+            for fid in candidate_filing_ids:
+                try:
+                    await generate_summary_background(fid, None, force_regenerate=True)
+                    regenerated.append(fid)
+                except Exception:  # noqa: BLE001 — one filing's failure must not abort the batch
+                    logger.warning("refresh-stale: regeneration failed for filing %s", fid, exc_info=True)
+            audit_service.create_audit_log(
+                db=db,
+                action="summaries_refresh_stale",
+                user_id=current_user.id,
+                user_email=getattr(current_user, "email", None),
+                entity_type="summaries",
+                details={
+                    "filing_type": filing_type,
+                    "schema_version_lt": schema_version_lt,
+                    "stale_total": stale_total,
+                    "regenerated_count": len(regenerated),
+                },
+                status="success",
+            )
+        finally:
+            db.expire_on_commit = prev_expire
+        logger.info(
+            "Admin %s refresh-stale regenerated %d/%d stale summaries (filing_type=%s)",
+            current_user.id, len(regenerated), stale_total, filing_type,
+        )
+
+    return {
+        "dry_run": dry_run,
+        "filing_type": filing_type,
+        "schema_version_lt": schema_version_lt,
+        "current_schema_version": SUMMARY_SCHEMA_VERSION,
+        "current_prompt_version": SUMMARY_PROMPT_VERSION,
+        "stale_total": stale_total,
+        "batch_limit": limit,
+        "candidate_filing_ids": candidate_filing_ids,
+        "regenerated_count": len(regenerated),
+        "regenerated_filing_ids": regenerated,
+        "message": (
+            f"{stale_total} stale summaries"
+            f"{f' of type {filing_type}' if filing_type else ''}; "
+            f"{'would regenerate' if dry_run else 'regenerated'} "
+            f"{len(candidate_filing_ids) if dry_run else len(regenerated)} in place (bookmarks preserved)."
         ),
     }
