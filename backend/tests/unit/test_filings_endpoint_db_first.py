@@ -158,3 +158,39 @@ def test_db_first_skips_refresh_when_freshly_synced(client, monkeypatch):
     assert len(resp.json()) == 1
     # Fresh stamp → neither a synchronous nor a background SEC fetch.
     assert sec_mock.await_count == 0
+
+
+def _seed_history(session, company, n, start_year=2000):
+    """Seed n distinct 10-K/10-Q filings across years (unique accessions/urls)."""
+    for i in range(n):
+        ftype = "10-K" if i % 4 == 0 else "10-Q"
+        _seed_filing(session, company, f"0000895421-{i:02d}-000{i:03d}", ftype, start_year + i)
+
+
+def test_filings_limit_param_default_unchanged(client, monkeypatch):
+    """P1-6: the endpoint still caps at CACHED_FILINGS_LIMIT by default; an explicit ?limit= raises
+    the ceiling so deep-backfilled history surfaces."""
+    tc, TestingSession = client
+    with TestingSession() as s:
+        company = _seed_company(s)
+        # Stamp so the on-visit history backfill guard skips (no live EFTS call in the test).
+        company.history_backfilled_at = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        s.add(company)
+        s.commit()
+        _seed_history(s, company, 25)
+    # Freshly-synced → DB-first serves without any SEC round-trip.
+    filings_mod._mark_filings_synced("TESTCO", ["10-K", "10-Q"])
+    monkeypatch.setattr(filings_mod.sec_edgar_service, "get_filings", AsyncMock(return_value=[]))
+
+    # Default: capped at CACHED_FILINGS_LIMIT (behaviour unchanged).
+    default_resp = tc.get("/api/filings/company/TESTCO")
+    assert default_resp.status_code == 200
+    assert len(default_resp.json()) == filings_mod.CACHED_FILINGS_LIMIT
+
+    # Explicit limit raises the ceiling to surface the full backfilled history.
+    full_resp = tc.get("/api/filings/company/TESTCO?limit=100")
+    assert full_resp.status_code == 200
+    assert len(full_resp.json()) == 25
+    # Newest-first ordering preserved.
+    dates = [f["filing_date"] for f in full_resp.json()]
+    assert dates == sorted(dates, reverse=True)

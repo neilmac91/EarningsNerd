@@ -23,7 +23,12 @@ import CompanyLogo from '@/components/CompanyLogo'
 import InsiderActivityPanel from '@/features/insiders/components/InsiderActivityPanel'
 import { queryKeys } from '@/lib/queryKeys'
 import { recommendedFilingNoun, selectRecommendedFiling } from '@/features/filings/lib/recommendedFiling'
+import { fiscalYear } from '@/features/filings/lib/fiscalYear'
 import FilingsHistoryNote from '@/features/filings/components/FilingsHistoryNote'
+
+// How many filings to request once the visitor asks for the full backfilled history (vs the
+// backend's default recent cap). P1-6: deep 10-K/10-Q history since 2001 is well under this.
+const FULL_HISTORY_LIMIT = 300
 
 // Display order for the filing-type filter chips; unknown types sort to the end alphabetically.
 const FILING_TYPE_ORDER = ['10-K', '10-Q', '20-F', '6-K', '40-F']
@@ -40,6 +45,8 @@ export default function CompanyPageClient() {
   const currentYear = new Date().getFullYear().toString()
   const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set([currentYear]))
   const [filterType, setFilterType] = useState<string | null>(null)
+  const [filterYear, setFilterYear] = useState<string | null>(null)
+  const [showFullHistory, setShowFullHistory] = useState(false)
   const hasTrackedCompanyView = useRef(false)
 
   const { data: company, isLoading: companyLoading, error: companyError } = useQuery<Company>({
@@ -49,9 +56,13 @@ export default function CompanyPageClient() {
     enabled: !!normalizedTicker,
   })
 
+  // Default view serves the backend's recent cap; "Show full history" refetches with a high limit
+  // so the deep-backfilled 10-K/10-Q history (P1-6) surfaces. The limit is part of the query key so
+  // the two views cache independently.
+  const historyLimit = showFullHistory ? FULL_HISTORY_LIMIT : undefined
   const { data: filings, isLoading: filingsLoading, isError: filingsError, error: filingsErrorData, refetch: refetchFilings, isFetching: filingsRefetching } = useQuery<Filing[]>({
-    queryKey: queryKeys.companyFilings(normalizedTicker),
-    queryFn: () => getCompanyFilings(normalizedTicker),
+    queryKey: queryKeys.companyFilings(normalizedTicker, historyLimit),
+    queryFn: () => getCompanyFilings(normalizedTicker, undefined, historyLimit),
     enabled: !!company && !!normalizedTicker,
     retry: 1,
   })
@@ -143,10 +154,12 @@ export default function CompanyPageClient() {
 
   // Memoize filtered and grouped filings to avoid recalculating on every render.
   // Declared before the early returns below so hook order stays stable across renders.
-  const { groupedFilings, sortedYears, recommendedFiling, availableFilingTypes, oldestFilingDate } = useMemo(() => {
-    const filtered = filterType
-      ? filings?.filter((f) => f.filing_type === filterType)
-      : filings
+  const { groupedFilings, sortedYears, recommendedFiling, availableFilingTypes, availableYears, oldestFilingDate } = useMemo(() => {
+    const filtered = (filings ?? []).filter(
+      (f) =>
+        (!filterType || f.filing_type === filterType) &&
+        (!filterYear || fiscalYear(f) === filterYear),
+    )
 
     // Distinct filing types present, in canonical display order — drives the filter chips so the
     // UI adapts to whatever the company actually files (10-K/10-Q for domestic, 20-F/6-K for FPIs)
@@ -159,15 +172,20 @@ export default function CompanyPageClient() {
       return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b)
     })
 
-    // Group filings by year
-    const grouped = filtered?.reduce((acc, filing) => {
-      const year = new Date(filing.filing_date).getFullYear().toString()
-      if (!acc[year]) {
-        acc[year] = []
-      }
-      acc[year].push(filing)
+    // Distinct fiscal years present (newest first) — drives the year-filter chips. Computed from
+    // the FULL list so the year options don't change as the user filters by type.
+    const availableYears = Array.from(
+      new Set((filings ?? []).map((f) => fiscalYear(f)).filter(Boolean)),
+    ).sort((a, b) => parseInt(b) - parseInt(a))
+
+    // Group filings by FISCAL year (period-of-report, filing-date fallback) — P1-6 fix: a FY2025
+    // 10-K filed 2026-02 buckets under 2025, not 2026.
+    const grouped = filtered.reduce((acc, filing) => {
+      const year = fiscalYear(filing)
+      if (!year) return acc
+      ;(acc[year] ??= []).push(filing)
       return acc
-    }, {} as Record<string, Filing[]>) || {}
+    }, {} as Record<string, Filing[]>)
 
     // Sort years in descending order (newest first)
     const years = Object.keys(grouped).sort((a, b) => parseInt(b) - parseInt(a))
@@ -184,8 +202,8 @@ export default function CompanyPageClient() {
       null,
     )
 
-    return { groupedFilings: grouped, sortedYears: years, recommendedFiling, availableFilingTypes, oldestFilingDate }
-  }, [filings, filterType])
+    return { groupedFilings: grouped, sortedYears: years, recommendedFiling, availableFilingTypes, availableYears, oldestFilingDate }
+  }, [filings, filterType, filterYear])
 
   // A4: default the filing list to the most recent ~3 years that actually have filings (older years
   // stay collapsed behind their headers) — instead of only the current calendar year, which is empty
@@ -418,34 +436,52 @@ export default function CompanyPageClient() {
         <Card as="section" className="p-6">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between mb-6">
             <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">SEC Filings</h2>
-            {filings && filings.length > 0 && availableFilingTypes.length > 1 && (
+            {filings && filings.length > 0 && (availableFilingTypes.length > 1 || availableYears.length > 1) && (
               <div className="flex flex-wrap items-center gap-2">
                 <FunnelIcon className="h-4 w-4 text-text-tertiary-light dark:text-text-secondary-dark" />
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => setFilterType(null)}
-                    className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-lg transition-colors ${
-                      filterType === null
-                        ? 'bg-text-primary-light dark:bg-text-primary-dark text-panel-light dark:text-background-dark'
-                        : 'bg-background-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark hover:bg-brand-weak dark:hover:bg-white/10'
-                    }`}
-                  >
-                    All Types
-                  </button>
-                  {availableFilingTypes.map((ft) => (
+                {availableFilingTypes.length > 1 && (
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
-                      key={ft}
-                      onClick={() => setFilterType(ft)}
+                      onClick={() => setFilterType(null)}
                       className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-lg transition-colors ${
-                        filterType === ft
-                          ? 'bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
-                          : 'bg-brand-weak dark:bg-white/5 text-brand-strong dark:text-brand-strong-dark hover:bg-brand-weak/70 dark:hover:bg-white/10'
+                        filterType === null
+                          ? 'bg-text-primary-light dark:bg-text-primary-dark text-panel-light dark:text-background-dark'
+                          : 'bg-background-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark hover:bg-brand-weak dark:hover:bg-white/10'
                       }`}
                     >
-                      {ft}
+                      All Types
                     </button>
-                  ))}
-                </div>
+                    {availableFilingTypes.map((ft) => (
+                      <button
+                        key={ft}
+                        onClick={() => setFilterType(ft)}
+                        className={`px-3 py-1.5 text-xs sm:px-4 sm:py-2 sm:text-sm font-medium rounded-lg transition-colors ${
+                          filterType === ft
+                            ? 'bg-brand hover:bg-brand-strong active:bg-brand-emphasis text-white dark:bg-brand-dark dark:text-background-dark dark:hover:bg-brand-strong-dark'
+                            : 'bg-brand-weak dark:bg-white/5 text-brand-strong dark:text-brand-strong-dark hover:bg-brand-weak/70 dark:hover:bg-white/10'
+                        }`}
+                      >
+                        {ft}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {availableYears.length > 1 && (
+                  <label className="sr-only" htmlFor="filing-year-filter">Filter filings by fiscal year</label>
+                )}
+                {availableYears.length > 1 && (
+                  <select
+                    id="filing-year-filter"
+                    value={filterYear ?? ''}
+                    onChange={(e) => setFilterYear(e.target.value || null)}
+                    className="px-3 py-1.5 text-xs sm:py-2 sm:text-sm font-medium rounded-lg bg-background-light dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark border border-border-light dark:border-white/10 focus:outline-none focus:ring-2 focus:ring-brand"
+                  >
+                    <option value="">All Years</option>
+                    {availableYears.map((y) => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                )}
               </div>
             )}
           </div>
@@ -583,6 +619,26 @@ export default function CompanyPageClient() {
                   </div>
                 )
               })}
+              {!showFullHistory && (
+                // P1-6: the default view serves the recent cap; load the full backfilled 10-K/10-Q
+                // history (since 2001) on demand.
+                <div className="pt-2 text-center">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setShowFullHistory(true)}
+                    disabled={filingsRefetching}
+                  >
+                    {filingsRefetching ? (
+                      <>
+                        <CircleNotchIcon className="h-4 w-4 animate-spin" />
+                        Loading full history…
+                      </>
+                    ) : (
+                      'Show full history'
+                    )}
+                  </Button>
+                </div>
+              )}
               <FilingsHistoryNote oldestFilingDate={oldestFilingDate} cik={company?.cik} />
             </div>
           ) : (

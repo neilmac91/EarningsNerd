@@ -165,6 +165,10 @@ class Company(Base):
     # or when a newer Filing row exists. Stamped even for unsupported (IFRS-only) filers so we
     # don't refetch them hourly.
     facts_synced_at = Column(DateTime(timezone=True), nullable=True)
+    # When this company's deep filing history (10-K/10-Q since 2001) was backfilled from EFTS
+    # (P1-6). Null = never; the on-visit enqueue backfills once and stamps this so it never
+    # re-walks the company.
+    history_backfilled_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

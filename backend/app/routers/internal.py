@@ -214,6 +214,49 @@ async def trigger_sync_companyfacts(req: SyncCompanyfactsRequest, background: Ba
     }
 
 
+class BackfillFilingHistoryRequest(BaseModel):
+    """P1-6: backfill deep 10-K/10-Q history (since 2001) from EFTS for a cohort.
+
+    ``tickers`` > ``watchlist_only`` > all companies (un-backfilled first), capped per run by
+    ``HISTORY_BACKFILL_MAX_COMPANIES``. A few EFTS requests per company through the shared rate
+    limiter; each company is stamped so re-runs skip already-backfilled companies.
+    """
+
+    tickers: list[str] = Field(default_factory=list)
+    watchlist_only: bool = False
+    limit: Optional[int] = None
+
+
+async def _run_backfill_filing_history(
+    tickers: list[str], watchlist_only: bool, limit: Optional[int]
+) -> None:
+    from app.database import SessionLocal
+    from app.services import filing_history_service
+
+    db = SessionLocal()
+    try:
+        stats = await filing_history_service.batch_backfill(
+            db, tickers=tickers or None, watchlist_only=watchlist_only, limit=limit
+        )
+        logger.info("Filing-history backfill (internal trigger) complete: %s", stats)
+    except Exception:
+        logger.exception("Filing-history backfill (internal trigger) failed")
+    finally:
+        db.close()
+
+
+@router.post("/jobs/backfill-filing-history", status_code=status.HTTP_202_ACCEPTED, dependencies=[Depends(_require_internal_token)])
+async def trigger_backfill_filing_history(req: BackfillFilingHistoryRequest, background: BackgroundTasks):
+    tickers = [t.strip().upper() for t in req.tickers if t and t.strip()]
+    background.add_task(_run_backfill_filing_history, tickers, req.watchlist_only, req.limit)
+    return {
+        "status": "accepted",
+        "job": "backfill-filing-history",
+        "tickers": len(tickers),
+        "watchlist_only": req.watchlist_only,
+    }
+
+
 class PrecomputeRequest(BaseModel):
     """Roadmap A1: warm the cold path by pre-generating analyses for an explicit ticker list.
 
