@@ -1,6 +1,6 @@
 {
-  "operation": "detection-sql",
-  "tickers": "",
+  "operation": "reset-filing-summary-apply",
+  "tickers": "JPM",
   "revision": "",
-  "nonce": "phase5-mixed-definition-1"
+  "nonce": "p6-jpm-reset-apply-1"
 }

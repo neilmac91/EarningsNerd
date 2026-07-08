@@ -437,9 +437,23 @@ the two components, suppresses the conflated revenue total, verifies on the comp
 baseline changed, so the passing `--runs 3` gate still holds. (This also confirms the plan's
 "remove revenue" was correct — the product itself suppresses a bank's conflated revenue.)
 
-**Deploy / prod operations:** _pending merge → deploy → run `reset-filing-summary-apply` for JPM
-10-K → public GET to trigger lazy regen → confirm the prod JPM summary's FCF line has no
-capex/working-capital fabrication._
+**Deploy / prod operations:** PR #593 merged (`8c81c54`) → `deploy-backend` success (service +
+6 job images). Prod verify (flag-ON — the path the flag-off eval could NOT exercise):
+- JPM 10-K (filing 606) carried a **stale** summary (id 65) with `.;` join artifacts (pre-fix).
+  `reset-filing-summary-apply JPM` via the ops jobs channel deleted it; a guest
+  `POST /generate-stream` regenerated it fresh under the deployed code (new id 70 — a cached hit
+  would have returned 65, proving the reset landed).
+- **P0-4:** the regenerated summary's cash flows are reported factually ("Operating cash flow was
+  an outflow of $147.8B, compared with an outflow of $42.0B") with **zero** industrial-FCF terms
+  (capex / working capital / free cash flow / current ratio) — the fabricated FCF driver is gone.
+- **P0-2 (also verified end-to-end here):** `.;` join-artifact count **0** (clean bullets);
+  `raw_summary.quality` = `{tier: "full", reasons: [], numeric_grounded: true, 9/9 covered}` — the
+  bank is no longer falsely flagged "not grounded"; NII $95.4B + noninterest $87.0B reported
+  separately, no conflated revenue.
+- **P0-1 confirmed still live:** `/api/companies/JPM` returns the clean `JPM` row at **$339.22**
+  (common stock), not the $17.29 preferred-class price.
+
+Phase 6 complete and verified in production.
 
 ---
 
