@@ -1,6 +1,6 @@
 {
-  "operation": "reset-filing-summary-apply",
-  "tickers": "JPM",
+  "operation": "backfill-filing-history",
+  "tickers": "JPM,BAC",
   "revision": "",
-  "nonce": "p6-jpm-reset-apply-1"
+  "nonce": "p7-backfill-jpm-bac-1"
 }
