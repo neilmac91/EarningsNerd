@@ -594,7 +594,11 @@ def score_redundancy(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
     restated = sorted(k for k, c in counts.items() if c >= 2)
     if not restated:
         return 1.0, []
-    excess = max(0, len(restated) - 1)  # one sanctioned headline echo
+    # Sum the per-figure restatements (a figure in all three prose sections restates twice, not once),
+    # then forgive ONE — the sanctioned exec echo of a headline. So a single figure in two sections is
+    # free, but the same figure smeared across all three, or two different restated figures, is not.
+    total_restatements = sum(counts[k] - 1 for k in restated)
+    excess = max(0, total_restatements - 1)
     return max(0.0, round(1.0 - excess / 4.0, 4)), [f"figure restated across sections: {k}" for k in restated]
 
 
@@ -641,21 +645,20 @@ def score_delta_consistency(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
     prose = _prose_blob(payload)
     if not deltas or not prose.strip():
         return 1.0, []
-    prose_low = prose.lower()
     checked = 0
     contradictions: List[str] = []
     for metric, table_pct in deltas:
-        name = metric.lower()
+        # Word-boundary match so a short metric name never matches inside another word ("EPS" in
+        # "steps", "Revenue" in a hyphenated compound), which would pull an unrelated % into scope.
+        name_re = re.compile(r"\b" + re.escape(metric.lower()) + r"\b", re.IGNORECASE)
         nearby: List[float] = []
-        start = 0
-        while (idx := prose_low.find(name, start)) >= 0:
-            window = prose[max(0, idx - 40): idx + len(name) + 80]
+        for match in name_re.finditer(prose):
+            window = prose[max(0, match.start() - 40): match.end() + 80]
             for pm in _DELTA_CUED_PCT_RE.findall(window):
                 try:
                     nearby.append(abs(float(pm.replace(",", ""))))
                 except ValueError:
                     pass
-            start = idx + len(name)
         if not nearby:
             continue
         checked += 1

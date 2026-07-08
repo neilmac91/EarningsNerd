@@ -61,8 +61,20 @@ def test_redundancy_normalizes_scale_words_and_symbols():
         "outlook": "A record $81.6 billion top line.",
     }
     score, details = score_redundancy(payload)
-    # one echo is free, but a figure in all THREE prose sections still counts as restated (>=2).
     assert details == ["figure restated across sections: 81.6b"]
+    # A figure smeared across ALL THREE sections restates twice; one echo is free, so it is penalised.
+    assert score == 0.75
+
+
+def test_redundancy_penalises_a_single_figure_across_all_three_sections():
+    # Regression guard: one figure in exec + MD&A + outlook must NOT score a perfect 1.0.
+    payload = {
+        "executive_summary": "Revenue was $81.6B.",
+        "management_discussion": "Revenue of $81.6B recurred.",
+        "outlook": "Guidance implies $81.6B again.",
+    }
+    score, _ = score_redundancy(payload)
+    assert score < 1.0
 
 
 # --- delta consistency ------------------------------------------------------------------------
@@ -123,6 +135,18 @@ def test_delta_consistency_skips_ppt_rows():
 
 def test_delta_consistency_no_table_is_not_penalised():
     assert score_delta_consistency({"executive_summary": "Revenue up 85%."}) == (1.0, [])
+
+
+def test_delta_consistency_matches_metric_names_on_word_boundaries():
+    # Regression guard: metric "EPS" must not match inside "steps" and pull the unrelated "5%" into
+    # scope — that would be a false contradiction against the table's EPS change.
+    payload = {
+        "executive_summary": "Management took steps to lift margins by 5%.",
+        "management_discussion": "",
+        "outlook": "",
+        **_fh([{"metric": "EPS", "change_display": "+40.0%"}]),
+    }
+    assert score_delta_consistency(payload) == (1.0, [])
 
 
 # --- integration ------------------------------------------------------------------------------
