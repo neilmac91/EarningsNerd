@@ -157,8 +157,9 @@ def _resolve_cohort(
     if tickers:
         q = q.filter(Company.ticker.in_([t.upper() for t in tickers]))
     elif watchlist_only:
-        ids = [cid for (cid,) in db.query(Watchlist.company_id).distinct().all()]
-        q = q.filter(Company.id.in_(ids)) if ids else q.filter(Company.id.is_(None))
+        # DB-side subquery — avoids loading every watchlist id into Python and the SQLite 999-param
+        # cap; an empty watchlist naturally matches zero companies.
+        q = q.filter(Company.id.in_(db.query(Watchlist.company_id).distinct()))
     else:
         q = q.order_by(Company.history_backfilled_at.is_(None).desc(), Company.id)
     cap = settings.HISTORY_BACKFILL_MAX_COMPANIES
@@ -175,14 +176,22 @@ async def batch_backfill(
     stops the walk."""
     companies = _resolve_cohort(db, tickers=tickers, watchlist_only=watchlist_only, limit=limit)
     totals = {"companies": 0, "inserted": 0, "failed": 0}
-    for company in companies:
-        try:
-            s = await backfill_company(db, company)
-            totals["companies"] += 1
-            totals["inserted"] += s["inserted"]
-        except Exception:
-            db.rollback()
-            totals["failed"] += 1
-            logger.exception("History backfill failed for %s", getattr(company, "ticker", "?"))
+    # backfill_company commits per company; the default expire-on-commit would then expire every
+    # loaded Company, so each subsequent iteration (and the exception handler's company.ticker)
+    # would re-SELECT the row (N+1). Disable it for the walk (mirrors sync_companyfacts_batch).
+    original_expire = db.expire_on_commit
+    db.expire_on_commit = False
+    try:
+        for company in companies:
+            try:
+                s = await backfill_company(db, company)
+                totals["companies"] += 1
+                totals["inserted"] += s["inserted"]
+            except Exception:
+                db.rollback()
+                totals["failed"] += 1
+                logger.exception("History backfill failed for %s", getattr(company, "ticker", "?"))
+    finally:
+        db.expire_on_commit = original_expire
     logger.info("History backfill batch complete: %s", totals)
     return totals

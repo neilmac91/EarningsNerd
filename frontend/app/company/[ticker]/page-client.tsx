@@ -23,7 +23,7 @@ import CompanyLogo from '@/components/CompanyLogo'
 import InsiderActivityPanel from '@/features/insiders/components/InsiderActivityPanel'
 import { queryKeys } from '@/lib/queryKeys'
 import { recommendedFilingNoun, selectRecommendedFiling } from '@/features/filings/lib/recommendedFiling'
-import { fiscalYear } from '@/features/filings/lib/fiscalYear'
+import { fiscalYear, groupByFiscalYear } from '@/features/filings/lib/fiscalYear'
 import FilingsHistoryNote from '@/features/filings/components/FilingsHistoryNote'
 
 // How many filings to request once the visitor asks for the full backfilled history (vs the
@@ -180,12 +180,7 @@ export default function CompanyPageClient() {
 
     // Group filings by FISCAL year (period-of-report, filing-date fallback) — P1-6 fix: a FY2025
     // 10-K filed 2026-02 buckets under 2025, not 2026.
-    const grouped = filtered.reduce((acc, filing) => {
-      const year = fiscalYear(filing)
-      if (!year) return acc
-      ;(acc[year] ??= []).push(filing)
-      return acc
-    }, {} as Record<string, Filing[]>)
+    const grouped = groupByFiscalYear(filtered)
 
     // Sort years in descending order (newest first)
     const years = Object.keys(grouped).sort((a, b) => parseInt(b) - parseInt(a))
