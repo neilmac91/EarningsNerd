@@ -11,6 +11,8 @@ so these tests assert the full structured shape produces complete, non-crashing 
 risk filtering matches the on-page UI.
 """
 
+import csv
+import io
 from datetime import date
 from types import SimpleNamespace
 
@@ -267,6 +269,35 @@ class TestRenderSections:
         assert summary_sections.is_placeholder(None)
         assert summary_sections.is_placeholder({"a": 1})  # non-string
         assert not summary_sections.is_placeholder("Revenue grew 10%")
+
+
+class TestNewBlockKinds:
+    """T2.1/T2.6: exports render the new metrics/callout Block kinds (metrics as a table, callout as
+    a labelled note) — the same Section/Block projection the web renders."""
+
+    def _csv_of(self, service, section):
+        buf = io.StringIO()
+        service._write_section_csv(csv.writer(buf), section)
+        return buf.getvalue()
+
+    def test_metrics_block_renders_as_a_table_in_pdf_and_csv(self, service):
+        block = summary_sections.Block(
+            "metrics",
+            headers=["Metric", "Current Period", "Prior Period", "Change", "Investor Takeaway"],
+            rows=[["Revenue", "$81.6B", "$44.1B", "+85.0%", "Data-center growth."]],
+            metric_rows=[{"metric": "Revenue", "change_display": "+85.0%", "change_tone": "gain"}],
+        )
+        html = service._render_block_html(block)
+        assert "<table>" in html and "+85.0%" in html and "Revenue" in html
+        csv_text = self._csv_of(service, summary_sections.Section("Financial Highlights", blocks=[block]))
+        assert "Metric" in csv_text and "+85.0%" in csv_text
+
+    def test_callout_block_renders_label_and_text(self, service):
+        block = summary_sections.Block("callout", label="Red flag", text="Receivables outpaced sales.")
+        html = service._render_block_html(block)
+        assert "Red flag" in html and "Receivables outpaced sales." in html and "callout" in html
+        csv_text = self._csv_of(service, summary_sections.Section("Earnings Quality", blocks=[block]))
+        assert "Red flag: Receivables outpaced sales." in csv_text
 
 
 class TestExportPdfBytes:

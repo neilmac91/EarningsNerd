@@ -14,6 +14,7 @@ exactly what the user sees on the page.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from typing import Any, Callable, List, Optional
 
@@ -88,28 +89,79 @@ class Block:
         - "quote":     ``text`` + optional ``speaker``
         - "bullets":   optional ``text`` (group label) + ``items``
         - "table":     ``headers`` + ``rows`` (list of equal-length string rows)
+        - "metrics":   a financial-highlights table — ``headers`` + ``rows`` (the string projection
+                       every surface renders) PLUS ``metric_rows`` (typed row dicts carrying the
+                       computed change_display/direction/tone + per-metric provenance) that the web
+                       renders richly (FinancialMetricsTable). Exports treat it exactly like a table.
+        - "callout":   ``label`` (a short tag, e.g. "Red flag") + ``text`` — a highlighted note.
     """
 
     kind: str
     text: str = ""
     speaker: str = ""
+    label: str = ""
     items: List[str] = field(default_factory=list)
     headers: List[str] = field(default_factory=list)
     rows: List[List[str]] = field(default_factory=list)
+    # Typed rows for the "metrics" kind (the web renders these; the string ``rows`` above are the
+    # export/markdown projection of the same data). Left empty for every other kind.
+    metric_rows: List[dict] = field(default_factory=list)
+    # Optional anchored citation for a block/claim {excerpt, section_ref, verified, fragment_url};
+    # plumbed here for the Tier-4 citation upgrade, unused until then.
+    evidence: Optional[dict] = None
 
     @property
     def is_empty(self) -> bool:
-        return not (self.text or self.items or self.rows)
+        return not (self.text or self.items or self.rows or self.metric_rows)
+
+    def to_dict(self) -> dict:
+        """JSON-serializable projection consumed by the web (rendered_sections). Omits empty fields."""
+        out: dict = {"kind": self.kind}
+        if self.text:
+            out["text"] = self.text
+        if self.speaker:
+            out["speaker"] = self.speaker
+        if self.label:
+            out["label"] = self.label
+        if self.items:
+            out["items"] = self.items
+        if self.headers:
+            out["headers"] = self.headers
+        if self.rows:
+            out["rows"] = self.rows
+        if self.metric_rows:
+            out["metric_rows"] = self.metric_rows
+        if self.evidence:
+            out["evidence"] = self.evidence
+        return out
+
+
+def _slugify(title: str) -> str:
+    """Stable anchor slug from a section title (for the web TOC / deep links)."""
+    slug = re.sub(r"[^a-z0-9]+", "-", (title or "").lower()).strip("-")
+    return slug or "section"
 
 
 @dataclass
 class Section:
     title: str
     blocks: List[Block] = field(default_factory=list)
+    id: str = ""
+
+    def __post_init__(self) -> None:
+        if not self.id:
+            self.id = _slugify(self.title)
 
     @property
     def has_content(self) -> bool:
         return any(not block.is_empty for block in self.blocks)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "title": self.title,
+            "blocks": [b.to_dict() for b in self.blocks if not b.is_empty],
+        }
 
 
 # --- Per-section builders ----------------------------------------------------------------------
@@ -148,6 +200,7 @@ def _financial_highlights(sections: dict) -> Section:
         return section
 
     rows: List[List[str]] = []
+    metric_rows: List[dict] = []
     table = data.get("table")
     if isinstance(table, list):
         for row in table:
@@ -171,12 +224,22 @@ def _financial_highlights(sections: dict) -> Section:
                     _clean(row.get("commentary")),
                 ]
             )
+            # Typed row the web renders richly (tone colours + provenance chips). Pass the row
+            # through (it carries change_display/direction/tone + source_* once enriched) and
+            # ensure the delta fields exist even on the unenriched pipeline path.
+            typed = dict(row)
+            if _delta and _delta.display:
+                typed.setdefault("change_display", _delta.display)
+                typed.setdefault("change_direction", _delta.direction)
+                typed.setdefault("change_tone", _delta.tone)
+            metric_rows.append(typed)
     if rows:
         section.blocks.append(
             Block(
-                "table",
+                "metrics",
                 headers=["Metric", "Current Period", "Prior Period", "Change", "Investor Takeaway"],
                 rows=rows,
+                metric_rows=metric_rows,
             )
         )
 
@@ -419,15 +482,90 @@ _BUILDERS: tuple[Callable[[dict], Section], ...] = (
 )
 
 
+def _builders_for(schema_version: Any) -> tuple[Callable[[dict], Section], ...]:
+    """Select the section builders for a summary's schema version. Only v1 exists today (and
+    legacy/NULL rows are v1); the Tier-3 content re-architecture registers a v2 builder set here so
+    render_sections keeps rendering old rows correctly after the cutover."""
+    return _BUILDERS
+
+
 def render_sections(raw_summary: Optional[dict]) -> List[Section]:
     """Turn a summary's ``raw_summary`` into an ordered list of non-empty rendered sections."""
     raw_summary = raw_summary or {}
-    sections = raw_summary.get("sections") if isinstance(raw_summary, dict) else None
+    if not isinstance(raw_summary, dict):
+        return []
+    sections = raw_summary.get("sections")
     if not isinstance(sections, dict):
         return []
     rendered: List[Section] = []
-    for builder in _BUILDERS:
+    for builder in _builders_for(raw_summary.get("schema_version")):
         section = builder(sections)
         if section.has_content:
             rendered.append(section)
     return rendered
+
+
+def render_sections_json(raw_summary: Optional[dict]) -> List[dict]:
+    """render_sections serialized to JSON-friendly dicts (the web's ``rendered_sections`` payload)."""
+    return [s.to_dict() for s in render_sections(raw_summary)]
+
+
+def _md_cell(text: Any) -> str:
+    """Escape a table cell for GFM (pipes + newlines break the grid)."""
+    return str(text).replace("|", "\\|").replace("\n", " ").strip()
+
+
+def _markdown_table(headers: List[str], rows: List[List[str]]) -> str:
+    if not rows:
+        return ""
+    cols = len(headers) if headers else max((len(r) for r in rows), default=0)
+    if cols == 0:
+        return ""
+
+    def _line(cells: List[str]) -> str:
+        padded = list(cells) + [""] * (cols - len(cells))
+        return "| " + " | ".join(_md_cell(c) for c in padded[:cols]) + " |"
+
+    head = headers if headers else [""] * cols
+    out = [_line(head), "| " + " | ".join(["---"] * cols) + " |"]
+    out += [_line(r) for r in rows]
+    return "\n".join(out)
+
+
+def _block_to_markdown(block: Block) -> str:
+    if block.kind == "paragraph":
+        return block.text.strip()
+    if block.kind == "subheading":
+        return f"### {block.text.strip()}"
+    if block.kind == "quote":
+        speaker = f" — {block.speaker.strip()}" if block.speaker else ""
+        return f'> "{block.text.strip()}"{speaker}'
+    if block.kind == "bullets":
+        lines: List[str] = []
+        if block.text:
+            lines.append(f"**{block.text.strip()}**")
+        lines += [f"- {item}" for item in block.items if str(item).strip()]
+        return "\n".join(lines)
+    if block.kind in ("table", "metrics"):
+        return _markdown_table(block.headers, block.rows)
+    if block.kind == "callout":
+        label = f"**{block.label.strip()}:** " if block.label else ""
+        return f"{label}{block.text.strip()}"
+    return ""
+
+
+def sections_to_markdown(sections: List[Section]) -> str:
+    """Flatten rendered Section/Block output into clean GFM markdown.
+
+    This is the DERIVED ``business_overview`` — produced from the SAME ``render_sections`` projection
+    that feeds the PDF and CSV, so the three surfaces can never diverge (Tier 2). Section titles
+    become H2; ``table``/``metrics`` become GFM tables; there are no leaked field-name labels.
+    """
+    parts: List[str] = []
+    for section in sections:
+        block_md = [md for md in (_block_to_markdown(b) for b in section.blocks if not b.is_empty) if md]
+        if not block_md:
+            continue
+        parts.append(f"## {section.title}")
+        parts.append("\n\n".join(block_md))
+    return "\n\n".join(parts).strip()

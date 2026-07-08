@@ -23,6 +23,7 @@ from typing import Any, Optional
 from urllib.parse import quote
 
 from app.services import metric_delta_service
+from app.services.summary_sections import render_sections_json
 
 # An excerpt shorter than this (after normalization) is too generic to verify reliably, so we never
 # claim it as "verified in filing".
@@ -360,6 +361,9 @@ def enrich_summary_provenance(
     """
     raw_source = _select_source_text(filing) if filing is not None else None
     normalized_source = normalize_for_match(raw_source)
+    enriched_raw = enrich_raw_summary(
+        summary.raw_summary, filing, normalized_source, xbrl_standardized
+    )
     return {
         "id": summary.id,
         "filing_id": summary.filing_id,
@@ -370,9 +374,11 @@ def enrich_summary_provenance(
         "risk_factors": enrich_risk_list(summary.risk_factors, filing, normalized_source),
         "management_discussion": summary.management_discussion,
         "key_changes": summary.key_changes,
-        "raw_summary": enrich_raw_summary(
-            summary.raw_summary, filing, normalized_source, xbrl_standardized
-        ),
+        "raw_summary": enriched_raw,
+        # The one structured projection the web renders (T2.3): computed on read from the ENRICHED
+        # raw_summary, so its metrics rows carry the verified deltas + provenance. Same Section/Block
+        # model feeds the PDF/CSV exports — one source of truth for web + exports.
+        "rendered_sections": render_sections_json(enriched_raw),
         # Version stamps pass through so the client can tell a stale (NULL/behind) summary from a
         # current one; enrichment never regenerates, so the stamps reflect the stored row.
         "schema_version": getattr(summary, "schema_version", None),

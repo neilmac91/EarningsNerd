@@ -81,7 +81,9 @@ class ExportService:
             lead = f"<p><strong>{escape(block.text)}</strong></p>" if block.text else ""
             items = "".join(f"<li>{escape(item)}</li>" for item in block.items)
             return f"{lead}<ul>{items}</ul>"
-        if block.kind == "table":
+        if block.kind in ("table", "metrics"):
+            # "metrics" carries typed metric_rows for the web; exports render its string projection
+            # (headers/rows) exactly like a plain table — one Section/Block, identical figures.
             if not block.rows:
                 return ""
             thead = ""
@@ -93,6 +95,12 @@ class ExportService:
                 for row in block.rows
             )
             return f"<table>{thead}<tbody>{body}</tbody></table>"
+        if block.kind == "callout":
+            if not block.text:
+                return ""
+            text = escape(block.text).replace("\n", "<br />")
+            label = f"<strong>{escape(block.label)}: </strong>" if block.label else ""
+            return f'<p class="callout">{label}{text}</p>'
         return ""
 
     def generate_csv(self, summary: Summary, filing: Filing) -> str:
@@ -147,11 +155,14 @@ class ExportService:
                 else:
                     for item in block.items:
                         writer.writerow([item])
-            elif block.kind == "table":
+            elif block.kind in ("table", "metrics"):
                 if block.headers:
                     writer.writerow(block.headers)
                 for row in block.rows:
                     writer.writerow(row)
+            elif block.kind == "callout":
+                if block.text:
+                    writer.writerow([f"{block.label}: {block.text}" if block.label else block.text])
         writer.writerow([])
 
     async def export_pdf(self, summary: Summary, filing: Filing) -> bytes:
