@@ -588,25 +588,53 @@ def _figure_keys(text: Any) -> set:
     return keys
 
 
+# A section carrying a GFM table separator IS a figures' structured home (the metrics table,
+# segments, footnotes). Restating a home figure in the table doesn't count as narrative redundancy;
+# matching on the table row, not a section title, keeps this robust across the v1/v2 taxonomies.
+_TABLE_HOME_RE = re.compile(r"\|\s*-{3,}")
+
+
+def _redundancy_prose_sections(payload: Dict[str, Any]) -> List[set]:
+    """The figure-key set of each NARRATIVE prose section.
+
+    The production pipeline maps the fully rendered markdown (all ``## `` sections) into
+    ``executive_summary``; splitting on the headings and dropping any table-bearing "home" section
+    is what measures real on-page redundancy — a figure repeated across the prose. (Comparing the
+    whole flattened blob against the separate mgmt/outlook fields, as the first cut did, is a
+    tautology: every field is a subset of the blob.) Bake-off candidates emit the three canonical
+    prose fields with no markdown, so fall back to treating those as the sections."""
+    md = payload.get("executive_summary")
+    if isinstance(md, str) and "\n## " in md:
+        sections: List[set] = []
+        for part in re.split(r"(?m)^## ", md)[1:]:
+            if _TABLE_HOME_RE.search(part):
+                continue  # a table section is the figures' home, not a narrative restatement site
+            sections.append(_figure_keys(part))
+        return sections
+    return [_figure_keys(payload.get(f)) for f in _HYGIENE_PROSE_FIELDS]
+
+
 def score_redundancy(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
-    """[0,1] "one home per number" (plan defect c). 1.0 = no figure is restated across sections.
-    Penalises a scaled/percent figure appearing in >=2 of the narrative prose sections
-    (executive_summary / management_discussion / outlook) — the metrics table is the numbers' home
-    and the exec summary may echo the headlines, so ONE cross-section restatement is free and each
-    further one costs 0.25. Returns (score, restated_figures)."""
+    """[0,1] "one home per number" (plan defect c). 1.0 = no figure is restated across the narrative
+    prose sections of the rendered summary; lower as the same scaled/percent figures reappear across
+    sections. The metrics/segment/footnote TABLES are the numbers' homes and are excluded, and the
+    exec summary may echo the headlines, so ONE restatement is free. Score = 1 − (excess − 1)/total,
+    where excess = redundant appearances and total = all narrative figure-appearances — a length-
+    invariant ratio, so a couple of echoes in a long summary barely move it while a data-dump that
+    repeats figures across every section scores low. Returns (score, restated_figures)."""
+    sections = _redundancy_prose_sections(payload)
     counts: Dict[str, int] = {}
-    for field_name in _HYGIENE_PROSE_FIELDS:
-        for key in _figure_keys(payload.get(field_name)):
+    total = 0
+    for keys in sections:
+        total += len(keys)
+        for key in keys:
             counts[key] = counts.get(key, 0) + 1
     restated = sorted(k for k, c in counts.items() if c >= 2)
-    if not restated:
+    if not restated or total == 0:
         return 1.0, []
-    # Sum the per-figure restatements (a figure in all three prose sections restates twice, not once),
-    # then forgive ONE — the sanctioned exec echo of a headline. So a single figure in two sections is
-    # free, but the same figure smeared across all three, or two different restated figures, is not.
-    total_restatements = sum(counts[k] - 1 for k in restated)
-    excess = max(0, total_restatements - 1)
-    return max(0.0, round(1.0 - excess / 4.0, 4)), [f"figure restated across sections: {k}" for k in restated]
+    excess = sum(counts[k] - 1 for k in restated)  # redundant (extra) narrative appearances
+    score = max(0.0, round(1.0 - max(0, excess - 1) / total, 4))  # one sanctioned headline echo free
+    return score, [f"figure restated across sections: {k}" for k in restated]
 
 
 # A percentage in prose that is unambiguously a CHANGE (carries a direction cue), so a level such

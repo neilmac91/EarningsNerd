@@ -63,8 +63,9 @@ def test_redundancy_normalizes_scale_words_and_symbols():
     }
     score, details = score_redundancy(payload)
     assert details == ["figure restated across sections: 81.6b"]
-    # A figure smeared across ALL THREE sections restates twice; one echo is free, so it is penalised.
-    assert score == 0.75
+    # A figure smeared across ALL THREE sections restates twice; one echo is free, so it is penalised
+    # (1 − (2−1)/3 = 0.6667).
+    assert score == 0.6667
 
 
 def test_redundancy_penalises_a_single_figure_across_all_three_sections():
@@ -76,6 +77,35 @@ def test_redundancy_penalises_a_single_figure_across_all_three_sections():
     }
     score, _ = score_redundancy(payload)
     assert score < 1.0
+
+
+def test_redundancy_parses_rendered_markdown_and_excludes_the_table_home():
+    # The production pipeline maps the full rendered markdown into executive_summary. The scorer must
+    # split on the ## headings and measure restatement across the PROSE sections, excluding the
+    # table-bearing "home" section — NOT compare the flattened blob against sub-fields (a tautology).
+    md = "\n".join([
+        "## Executive Assessment", "Revenue was $81.6B on data-center demand.", "",
+        "## Financial Highlights", "| Metric | Value |", "| --- | --- |", "| Revenue | $81.6B |", "",
+        "## Management Strategy & Execution", "Revenue of $81.6B reflects AI leadership.", "",
+        "## Forward Outlook", "An $81.6B run-rate looks durable.",
+    ])
+    payload = {"executive_summary": md, "management_discussion": "", "outlook": ""}
+    score, reasons = score_redundancy(payload)
+    # $81.6B appears in THREE prose sections (the Financial Highlights table copy is excluded as the
+    # home) → beyond the one free echo → penalised.
+    assert reasons == ["figure restated across sections: 81.6b"]
+    assert score < 1.0
+
+
+def test_redundancy_markdown_mode_is_clean_when_each_figure_has_one_home():
+    md = "\n".join([
+        "## Executive Assessment", "Revenue rose to a record on AI demand.", "",
+        "## Financial Highlights", "| Metric | Value |", "| --- | --- |", "| Revenue | $81.6B |", "",
+        "## Management Strategy & Execution", "Management cited operating leverage and buybacks.", "",
+        "## Forward Outlook", "Guidance implies continued sequential growth.",
+    ])
+    payload = {"executive_summary": md, "management_discussion": "", "outlook": ""}
+    assert score_redundancy(payload) == (1.0, [])
 
 
 def test_figure_keys_ignore_period_boilerplate():
