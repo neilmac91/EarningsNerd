@@ -518,7 +518,31 @@ Phase 7 complete and verified in production.
 
 ## Phase 8 — P1-8 chart missing-data + axis fixes
 
-**Status:** pending
+**Status:** complete (code + gates); Vercel deploy + visual chart check on merge.
+**Plan items:** P1-8 — (i) annotate a series that stops before the dataset's final period (trailing
+nulls `connectNulls` can't bridge look like unexplained missing data); (ii) put net income on a
+right axis on the Cash-generation panel; (iii) axis-domain sanity on dual-axis panels. After Phase
+5 by design (needs the resynced cash series). Read DESIGN_SYSTEM §10.
+
+**Changed** (`features/analysis/components/TrendCharts.tsx`):
+- **(i)** a footnote under each panel — "{series}: not reported after {period}" — for every line
+  whose last non-null value precedes the final period (derived from the plotted rows, so it matches
+  exactly what's drawn). Rendered outside Recharts (testable under the mocked-recharts pattern).
+- **(ii)** Cash-generation panel gains `rightAxis: ['net_income']` — net income keeps its own scale
+  against order-of-magnitude-larger cash flows (a bank's OCF swings on trading/deposit flows), via
+  the existing dual-axis machinery; legend marks it "Net income (right)".
+- **(iii)** `ZERO_ANCHORED_DOMAIN` on both value axes of dual-axis line panels (cash generation +
+  balance sheet): each axis anchors to zero so the two independent scales share a baseline and a
+  sign change stays visible (Recharts still auto-scales the far end).
+
+**Guardrails:** `trend-charts-annotation.spec` (annotation renders for an early-ending series;
+net-income right-axis legend suffix). Existing `trend-charts-legend.spec` still green (no
+balance-sheet dual-axis regression). Frontend 356 tests + lint + tsc + build green.
+
+**Deploy / prod operations:** _Vercel deploys on merge (frontend-only — no backend deploy). The
+annotation + dual-axis logic is unit-tested; the dense-real-series visual check on JPM/BAC (both
+themes, per `lessons/frontend-verify-chart-annotations-on-dense-data.md`) is a founder confirmation
+on the deployed preview — the underlying JPM/BAC cash series is the Phase-5-resynced deep data._
 
 ---
 
