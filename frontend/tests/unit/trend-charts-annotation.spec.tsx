@@ -71,11 +71,11 @@ describe('TrendCharts missing-data annotation (P1-8)', () => {
 })
 
 describe('TrendCharts cash-generation dual axis (P1-8)', () => {
-  it('puts net income on the right axis (legend suffix)', () => {
+  it('marks net income (right) and the cash-flow series (left) symmetrically', () => {
     render(<TrendCharts dataset={dataset} />)
     expect(screen.getByText('Net income (right)')).toBeInTheDocument()
-    // The left-axis cash-flow series keep their plain labels.
-    expect(screen.getByText('Operating CF')).toBeInTheDocument()
-    expect(screen.getByText('Free cash flow')).toBeInTheDocument()
+    // The left-axis cash-flow series are now positively bound with "(left)" too (symmetric legend).
+    expect(screen.getByText('Operating CF (left)')).toBeInTheDocument()
+    expect(screen.getByText('Free cash flow (left)')).toBeInTheDocument()
   })
 })

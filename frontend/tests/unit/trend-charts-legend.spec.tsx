@@ -110,11 +110,19 @@ describe('TrendCharts legends', () => {
     expect(screen.getByText('YoY growth')).toBeInTheDocument()
   })
 
-  it('marks the right-axis series in the balance-sheet legend (dual axis)', () => {
+  it('marks BOTH axes symmetrically in the balance-sheet legend (dual axis)', () => {
     render(<TrendCharts dataset={dataset} />)
-    // Equity dwarfs debt — it moves to the right axis and the legend says so explicitly.
+    // Equity dwarfs debt → it moves to the right axis. Both sides are named explicitly ("(left)"
+    // is the positive word-binding for the left series, since the left axis can't be color-bound).
     expect(screen.getByText('Equity (right)')).toBeInTheDocument()
-    expect(screen.getByText('Long-term debt')).toBeInTheDocument()
+    expect(screen.getByText('Long-term debt (left)')).toBeInTheDocument()
+  })
+
+  it('adds NO left/right suffix on a single-axis panel (Margins)', () => {
+    render(<TrendCharts dataset={dataset} />)
+    expect(screen.getByText('Gross')).toBeInTheDocument()
+    expect(screen.queryByText('Gross (left)')).not.toBeInTheDocument()
+    expect(screen.queryByText('Operating (left)')).not.toBeInTheDocument()
   })
 
   it('keeps a single axis (no "(right)" suffix) when only the right-axis series is present', () => {
