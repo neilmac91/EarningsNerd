@@ -14,7 +14,7 @@ const DIR_TONE = directionText
  */
 export function WhatChanged({ report }: { report: ChangeReport }) {
   if (!report.has_changes) return null
-  const { metrics, risks, key_changes: keyChanges, comparison_basis: basis, prior_filing: prior } = report
+  const { metrics, risks, comparison_basis: basis, prior_filing: prior } = report
 
   return (
     <section className="rounded-lg border border-border-light bg-panel-light p-6 shadow-e1 dark:shadow-none dark:border-border-dark dark:bg-panel-dark">
@@ -41,10 +41,11 @@ export function WhatChanged({ report }: { report: ChangeReport }) {
         )}
       </div>
 
-      {/* Lead with the narrated diff — the headline "what mattered", not a footnote. */}
-      {keyChanges && (
+      {/* Lead with the deterministic delta headline (computed from XBRL), not the summary's own
+          outlook prose — which duplicated the Outlook section verbatim (plan §2.3). */}
+      {metrics?.headline && (
         <p className="mb-4 text-sm leading-relaxed text-text-secondary-light dark:text-text-secondary-dark">
-          {keyChanges}
+          {metrics.headline}
         </p>
       )}
 

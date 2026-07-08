@@ -41,15 +41,18 @@ describe('WhatChanged (A5)', () => {
     expect(container.textContent).toContain('7 risk factors carried over')
   })
 
-  it('leads with the narrated change summary', () => {
+  it('leads with the deterministic delta headline, not the deprecated outlook narrative (T1.6)', () => {
     const { container } = render(<WhatChanged report={baseReport} />)
     const text = container.textContent || ''
-    expect(text).toContain('Revenue accelerated while margins compressed')
-    // The narration now leads — it appears before the metric chips, not as a footer.
-    const keyChangesIndex = text.indexOf('Revenue accelerated')
+    // The lead is the computed metrics.headline; the summary's own outlook prose (key_changes,
+    // which duplicated the Outlook section) is no longer surfaced.
+    expect(text).toContain('Revenue up 25.0%')
+    expect(text).not.toContain('Revenue accelerated while margins compressed')
+    // The headline leads — before the metric chips, not as a footer.
+    const headlineIndex = text.indexOf('Revenue up 25.0%')
     const netIncomeIndex = text.indexOf('Net income')
     expect(netIncomeIndex).toBeGreaterThan(-1)
-    expect(keyChangesIndex).toBeLessThan(netIncomeIndex)
+    expect(headlineIndex).toBeLessThan(netIncomeIndex)
   })
 
   it('renders nothing when there are no material changes', () => {

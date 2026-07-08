@@ -454,6 +454,7 @@ export interface ChangeReport {
   prior_filing: PriorFilingRef | null
   metrics: WhatChangedMetrics | null
   risks: RiskDiff | null
+  /** @deprecated T1.6: always null — the What-changed lead is now metrics.headline; kept for API compat. */
   key_changes: string | null
   has_changes: boolean
 }

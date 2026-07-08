@@ -1,10 +1,11 @@
 """A5 — "What Changed": a deterministic, narrated period-over-period change report for a filing.
 
 Reuses the existing LLM-free diff engine (`dashboard_feed_service.compute_what_changed` and
-`_prior_same_form`) for financial deltas, **adds** risk-factor diffing (new / resolved / carried), and
-surfaces the otherwise-unrendered `Summary.key_changes` narrative — assembled into one report for the
-filing page. Pure where it counts (risk diffing + report assembly are unit-testable); only the
-prior-filing/summary lookups touch the DB.
+`_prior_same_form`) for financial deltas and **adds** risk-factor diffing (new / resolved / carried) —
+assembled into one report for the filing page. The lead framing is the deterministic
+`metrics.headline`; `Summary.key_changes` is deprecated (still written for API compat, no longer
+surfaced here — it duplicated the Outlook section verbatim; T1.6 / plan §2.3). Pure where it counts
+(risk diffing + report assembly are unit-testable); only the prior-filing/summary lookups touch the DB.
 
 The brand stance (signal over noise): everything here is deterministic and conservative — risk
 matching errs toward "carried over" so we don't cry "new risk" on a reworded heading.
@@ -34,10 +35,6 @@ _STOPWORDS = {
 # Two risk factors are "the same risk" when their token sets overlap at least this much (Jaccard).
 # Deliberately lenient so reworded headings read as "carried over", not false "new"/"resolved".
 _RISK_MATCH_THRESHOLD = 0.4
-_PLACEHOLDER_TOKENS = (
-    "not available", "unavailable", "requires", "pending", "generating", "retry", "n/a",
-    "being processed", "processing", "preliminary", "placeholder", "taking longer",
-)
 
 
 def _extract_risks(summary: Optional[Summary]) -> list[dict]:
@@ -118,19 +115,6 @@ def diff_risk_factors(
     return {"new": new, "resolved": resolved, "carried_count": len(matched_prior)}
 
 
-def _clean_key_changes(text: Optional[str]) -> Optional[str]:
-    """Surface the Summary.key_changes narrative, dropping placeholder/degraded text."""
-    if not isinstance(text, str):
-        return None
-    stripped = text.strip()
-    if not stripped:
-        return None
-    low = stripped.lower()
-    if any(token in low for token in _PLACEHOLDER_TOKENS):
-        return None
-    return stripped
-
-
 def _comparison_basis(filing_type: Optional[str]) -> Optional[str]:
     # Normalize case + amended forms (10-k/a, 20-F/A, 6-K/A) to the uppercase base so they all
     # resolve to a label regardless of how the form string was stored/passed.
@@ -169,7 +153,6 @@ def assemble_report(
     if prior_summary is not None:
         risks = diff_risk_factors(_extract_risks(current_summary), _extract_risks(prior_summary))
 
-    key_changes = _clean_key_changes(getattr(current_summary, "key_changes", None))
     has_risk_changes = bool(risks and (risks["new"] or risks["resolved"]))
     return {
         "has_prior": prior_filing is not None,
@@ -177,8 +160,11 @@ def assemble_report(
         "prior_filing": _filing_ref(prior_filing),
         "metrics": metrics,
         "risks": risks,
-        "key_changes": key_changes,
-        "has_changes": bool(metrics or has_risk_changes or key_changes),
+        # Deprecated-in-place (T1.6 / plan §2.3): the What-changed lead is now the deterministic
+        # metrics.headline, not the summary's own outlook narrative (which duplicated the Outlook
+        # section verbatim). Summary.key_changes is still written for API compat; nothing surfaces it.
+        "key_changes": None,
+        "has_changes": bool(metrics or has_risk_changes),
     }
 
 
