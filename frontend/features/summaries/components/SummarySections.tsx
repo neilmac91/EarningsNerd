@@ -4,7 +4,7 @@ import React, { useMemo, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import { BuildingOfficeIcon, ChartBarIcon, FileTextIcon, TrendUpIcon, WarningIcon } from '@/lib/icons'
 import type { RiskFactor, MetricItem } from '@/types/summary'
-import { renderMarkdownValue, getAccordionContent, normalizeRisk } from '@/lib/formatters'
+import { renderMarkdownValue, getAccordionContent, normalizeRisk, parseExecutiveSnapshot } from '@/lib/formatters'
 import { SummaryExecutiveSnapshot } from '@/features/summaries/components/SummaryExecutiveSnapshot'
 import { SummaryFinancials } from '@/features/summaries/components/SummaryFinancials'
 import { SummaryRisks } from '@/features/summaries/components/SummaryRisks'
@@ -124,10 +124,12 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
       })
   }, [sections.risk_factors])
 
-  // Content Checkers - Enhanced to detect placeholder content
-  const overviewContent = sections.executive_snapshot
-    ? renderMarkdownValue(sections.executive_snapshot)
-    : (summary.business_overview || '')
+  // Content Checkers - Enhanced to detect placeholder content.
+  // Raw snapshot value fed to the structured renderer (object -> structured; string -> markdown).
+  // `||` (not `??`) mirrors the prior truthiness fallback: '' falls through to business_overview.
+  const overviewSnapshot: unknown = sections.executive_snapshot || summary.business_overview || ''
+  // renderMarkdownValue is used ONLY to detect emptiness/placeholder here, never for display.
+  const overviewContent = renderMarkdownValue(overviewSnapshot)
 
   // Overview is valid if it has content and isn't just placeholder text
   const hasOverview = Boolean(overviewContent) && !isPlaceholderText(overviewContent)
@@ -194,7 +196,7 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
         return (
           <div>
             {hasOverview ? (
-              <SummaryExecutiveSnapshot content={overviewContent} />
+              <SummaryExecutiveSnapshot snapshot={overviewSnapshot} />
             ) : (
               <div className="text-center py-8">
                 <p className="text-text-tertiary-light dark:text-text-secondary-dark">
@@ -272,6 +274,9 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
   // SIMPLIFIED VIEW: Single markdown summary (when ENABLE_SECTION_TABS is false)
   if (!ENABLE_SECTION_TABS) {
     const summaryContent = getSimplifiedSummaryContent()
+    // Render the structured snapshot (no field-name labels) when it's a known-shape object; the
+    // markdown card body stays for the string fallbacks (business_overview / MD&A).
+    const snapshotObj = parseExecutiveSnapshot(sections.executive_snapshot)
 
     return (
       <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-e1 dark:shadow-none border border-border-light dark:border-border-dark overflow-hidden">
@@ -282,6 +287,9 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
           </h2>
         </div>
         <div className="p-6">
+          {snapshotObj ? (
+            <SummaryExecutiveSnapshot snapshot={sections.executive_snapshot} />
+          ) : (
           <div className="prose prose-slate dark:prose-invert prose-sm max-w-none">
             <ReactMarkdown
               components={{
@@ -308,6 +316,7 @@ export default function SummarySections({ summary, metrics }: SummarySectionsPro
               {summaryContent}
             </ReactMarkdown>
           </div>
+          )}
         </div>
       </div>
     )
