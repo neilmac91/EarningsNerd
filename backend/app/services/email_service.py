@@ -366,6 +366,76 @@ def render_daily_digest(
     return _wrap_html(html_body, footer=_ALERT_FOOTER), text_body
 
 
+_DQ_FOOTER = (
+    "Automated weekly data-quality report — a recurrence check over the remediation's detections. "
+    "Empty sections are the healthy state."
+)
+
+
+def _dq_section(title: str, rows_html: str, count: int) -> str:
+    body = rows_html if count else '<p style="margin:0 0 8px;color:#3C6650;">None — clean ✓</p>'
+    return (
+        f'<h3 style="margin:20px 0 8px;font-size:15px;color:#1A1A17;">{html.escape(title)} '
+        f'<span style="color:#6B7280;font-weight:400;">({count})</span></h3>{body}'
+    )
+
+
+def _dq_rows(items: list[dict], cols) -> str:
+    """A borderless HTML table, one row per item; each column callable is escaped before render."""
+    return (
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:14px;">'
+        + "".join(
+            '<tr><td style="padding:6px 0;border-bottom:1px solid #E5E1D8;">'
+            + " · ".join(html.escape(str(col(it))) for col in cols)
+            + "</td></tr>"
+            for it in items
+        )
+        + "</table>"
+    )
+
+
+def render_data_quality_report(report: dict) -> tuple[str, str]:
+    """Render the weekly data-quality report (P1-9) into (html, text). External values (tickers,
+    reasons) are escaped by `_dq_rows`; every section shows its count so an all-zero report reads
+    as 'clean' at a glance."""
+    mism = report.get("ticker_mismatches") or []
+    notf = report.get("ticker_not_in_file") or []
+    gaps = report.get("coverage_gaps") or []
+    anom = report.get("filing_anomalies") or []
+    partials = report.get("partial_reasons") or []
+
+    html_body = (
+        '<p style="margin:0 0 16px;">Automated weekly scan of the data-quality detections.</p>'
+        + _dq_section("Ticker mismatches (stored ≠ SEC primary)", _dq_rows(
+            mism, [lambda x: x["ticker"], lambda x: f'→ {x["primary"]}', lambda x: f'CIK {x["cik"]}']), len(mism))
+        + _dq_section("Coverage gaps (concept lags total assets ≥2y)", _dq_rows(
+            gaps, [lambda x: x["ticker"], lambda x: x["concept"],
+                   lambda x: f'last FY {x["last_fy"] or "—"} vs assets {x["last_total_assets_fy"]}']), len(gaps))
+        + _dq_section("Filing-count anomalies (deep facts, few 10-Ks)", _dq_rows(
+            anom, [lambda x: x["ticker"], lambda x: f'{x["first_fact_fy"]}–{x["last_fact_fy"]}',
+                   lambda x: f'{x["stored_10k_rows"]} 10-K rows']), len(anom))
+        + _dq_section("Partial-summary reasons by SIC", _dq_rows(
+            partials, [lambda x: f'SIC {x["sic_prefix"]}', lambda x: x["reason"], lambda x: f'×{x["count"]}']), len(partials))
+        + _dq_section("Tickers not in the SEC file (delisted — informational)", _dq_rows(
+            notf, [lambda x: x["ticker"], lambda x: f'CIK {x["cik"]}']), len(notf))
+    )
+
+    text_lines = [
+        f"Ticker mismatches: {len(mism)}",
+        *[f"  {m['ticker']} -> {m['primary']} (CIK {m['cik']})" for m in mism],
+        f"Coverage gaps: {len(gaps)}",
+        *[f"  {g['ticker']} {g['concept']}: last FY {g['last_fy'] or '-'} vs assets {g['last_total_assets_fy']}" for g in gaps],
+        f"Filing anomalies: {len(anom)}",
+        *[f"  {a['ticker']} {a['first_fact_fy']}-{a['last_fact_fy']}, {a['stored_10k_rows']} 10-K rows" for a in anom],
+        f"Partial reasons: {len(partials)}",
+        *[f"  SIC {p['sic_prefix']} | {p['reason']} x{p['count']}" for p in partials],
+        f"Not in SEC file (delisted): {len(notf)}",
+        *[f"  {n['ticker']} (CIK {n['cik']})" for n in notf],
+    ]
+    text_body = "EarningsNerd data-quality report\n\n" + "\n".join(text_lines)
+    return _wrap_html(html_body, footer=_DQ_FOOTER), text_body
+
+
 _TIME_LABEL = {"bmo": "before open", "amc": "after close", "dmh": "during market hours"}
 
 
