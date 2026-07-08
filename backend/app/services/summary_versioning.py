@@ -8,10 +8,12 @@ mode behind the shipped-but-unseen ".;" fix (a serializer fix that never reached
 summaries because nothing marked them stale). Mirrors ``trend_analysis_service.PROMPT_VERSION``.
 
 Bump ``SUMMARY_SCHEMA_VERSION`` when the ``sections`` shape changes (v2 = the content
-re-architecture in Tier 3). Bump ``SUMMARY_PROMPT_VERSION`` on any change to
-``backend/prompts/*-agent.md`` that alters generated content. Bumping either makes prior rows
-version-stale; the admin ``refresh-stale`` endpoint and the background drain regenerate them in
-place (preserving ``summaries.id`` so saved-summary bookmarks survive).
+re-architecture in Tier 3). Bump ``SUMMARY_PROMPT_VERSION`` on any content-affecting change to the
+generation prompt — whether the per-form ``backend/prompts/*-agent.md`` preambles OR the shared
+inline Rules/schema block assembled in ``app/services/openai_service.py`` (both feed the same
+prompt). Bumping either makes prior rows version-stale; the admin ``refresh-stale`` endpoint and
+the background drain regenerate them in place (preserving ``summaries.id`` so saved-summary
+bookmarks survive).
 
 NULL columns on a row (legacy / pre-stamp) are always treated as stale.
 """
@@ -20,8 +22,10 @@ NULL columns on a row (legacy / pre-stamp) are always treated as stale.
 # tracked by openai_service._TRACKED_STRUCTURED_SECTIONS.
 SUMMARY_SCHEMA_VERSION: int = 1
 
-# The generation-prompt version. Bump on any content-affecting change to the *-agent.md prompts.
-SUMMARY_PROMPT_VERSION: str = "summary-2026-07-a"
+# The generation-prompt version. Bump on any content-affecting change to the generation prompt
+# (the *-agent.md preambles or the shared Rules/schema block in openai_service.py).
+# summary-2026-07-b: added the "ONE HOME PER NUMBER" anti-redundancy rule to the shared Rules block.
+SUMMARY_PROMPT_VERSION: str = "summary-2026-07-b"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:
