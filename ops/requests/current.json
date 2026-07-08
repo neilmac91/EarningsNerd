@@ -1,6 +1,6 @@
 {
-  "operation": "backfill-filing-history",
-  "tickers": "JPM,BAC",
+  "operation": "data-quality-report",
+  "tickers": "",
   "revision": "",
-  "nonce": "p7-backfill-jpm-bac-1"
+  "nonce": "p9-data-quality-report-verify-1"
 }

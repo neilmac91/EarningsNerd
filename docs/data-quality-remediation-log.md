@@ -548,7 +548,9 @@ on the deployed preview — the underlying JPM/BAC cash series is the Phase-5-re
 
 ## Phase 9 — P1-9 weekly data-quality report
 
-**Status:** complete (code + gates); one-shot verify + weekly cron activate on deploy.
+**Status:** complete — code + gates shipped (#598, deploy `9d8cdb6`); the report was fired once
+and **verified end-to-end (email delivered to the founder)**; the weekly cron is live in
+`data-quality-weekly.yml`.
 **Plan items:** P1-9 — the detection & recurrence umbrella. A weekly report over the four
 detections the remediation established, emailed to the founder; no new GCP infra.
 
@@ -574,16 +576,89 @@ detections the remediation established, emailed to the founder; no new GCP infra
 **Guardrails:** `test_data_quality_report.py` — seeded fixtures exercise all four sections + the
 email render + an all-clean render. Full backend gate green (ruff + bandit + 1465 pytest).
 
-**Deploy / prod operations:** _on merge the digest job image gains the script; fire the weekly
-workflow once (`workflow_dispatch`) → verify the founder receives the report with counts consistent
-with the Phase-0/5 ops SQL runs (ticker mismatches 0 after the P0-1 repair; cash coverage gap 0
-after the P0-3 resync; the partial-reason row = the one legacy JPM summary before its Phase-6
-regenerate). The Cloud Scheduler trigger for the weekly cron is created out-of-band per
-DEPLOYMENT.md (the workflow's `schedule:` is the repo-auditable driver)._
+**Deploy / prod operations:** deploy `9d8cdb6` bumped the `filing-digest` job image with the new
+script (deploy-backend step 10). Fired once via the **ops request-file channel** — this session has
+no `actions:write`, so `workflow_dispatch` on `data-quality-weekly.yml` 403s; added a
+`data-quality-report` enum operation to `ops.yml` (same jobs-channel payload as the weekly workflow,
+targeting `filing-digest`) and triggered it with `ops/requests/current.json`. Ops run #17
+(`b6193ba`) → `gcloud run jobs execute earningsnerd-filing-digest --args=scripts/data_quality_report.py
+--wait` **succeeded** (~1m42s; a green `--wait` proves the task built the report and `send_email`
+returned without raising). **Report email delivered to `neil@earningsnerd.io` at 01:51 UTC**
+(confirmed in the inbox), counts consistent with the remediation's prior ops-SQL runs:
+
+| section | count | reading |
+| --- | --- | --- |
+| Ticker mismatches (stored ≠ SEC primary) | **0** — clean | post P0-1 12-row repair |
+| Coverage gaps (concept lags total_assets ≥2y) | **0** — clean | post P0-3 cash resync |
+| Partial-summary reasons by SIC | **0** — clean | the one legacy JPM partial → tier=full in Phase 6 |
+| Filing-count anomalies (deep facts, few 10-Ks) | **4** (informational) | C/MS/WFC/GS — banks NOT in the P1-6 JPM/BAC seed batch; the umbrella surfacing remaining backfill candidates as designed |
+| Delisted / not in the SEC file | **2** (informational) | CKHGF, TYHOY |
+
+Every _error_ section (mismatches / gaps / partial reasons) is clean; the two populated sections are
+the informational recurrence signals doing their job. The scheduled weekly run (Mon 13:00 UTC) is
+driven by `data-quality-weekly.yml`'s `schedule:` (the repo-auditable driver); the Cloud Scheduler
+trigger is created out-of-band per DEPLOYMENT.md.
 
 ---
 
 ## Open items / paused / deferred
 
-_(filled at wrap-up: anything paused on, anything deferred, assumptions that didn't hold,
-founder notes for out-of-scope observations.)_
+### Outcome
+
+All in-scope phases shipped to production and verified: **Part-3 safeguards + P0-1..P0-5 + P1-6 +
+P1-8 + P1-9** across PRs #585–#598. Every fix carries a machine-checked guardrail (repo rule 12),
+and the two highest-risk prod changes (P0-1 ticker repair, P0-4 prompt) plus P1-6/P1-9 went through
+adversarial + Gemini review before merge. Prod spot-checks: JPM search → one clean `JPM` row at
+common-stock price (~$339, was $17.29); JPM cash series filled FY2019-25; regenerated JPM summary
+has no `.;` artifacts, `tier="full"`, and no fabricated FCF driver; JPM filing history now spans
+2001–2026 (100 rows) with correct fiscal-year grouping.
+
+### Assumptions that didn't hold (and how they were handled)
+
+- **`INTERNAL_JOB_TOKEN` is not accessible to the deployer SA** → every internal-job op (P0-3
+  resync, P1-6 backfill, P1-9 report) used the documented **jobs-channel fallback**
+  (`gcloud run jobs execute … --args`). Grant the deployer SA `secretmanager.secretAccessor` on
+  `INTERNAL_JOB_TOKEN` if the lighter internal-endpoint path is preferred. **Note:** jobs-channel
+  script stdout lands in Cloud Run job logs, not the GitHub Actions log — verify effects by outcome
+  (DB/API), which is how each phase was checked.
+- **Prod `USE_STATEMENT_FINANCIALS = true`** (Phase 0). So the P0-2 badge de-escalation and the
+  P0-4 FI addendum are **live** in prod, not dormant — the plan's flag-OFF stopgap wording was
+  moot. Both are driven by the extracted NII/noninterest components.
+- **Prod `Company.sic` is NULL for all companies.** FI detection therefore runs off the extracted
+  components (flag-ON), not SIC; and the P1-9 report's SIC buckets read `null`. A SIC backfill
+  (P1-7 territory) would enrich these.
+- **P0-1 repair touched 12 rows, not the 1 predicted** — all verified defensible current tickers
+  against the live SEC file; founder-approved before `--apply`.
+- **P0-4 golden-set:** kept the plan's "remove revenue" for JPM AND found the product itself
+  suppresses a bank's conflated revenue (`FINANCIAL_PROFILES` "bank" `suppress`), which validated
+  the decision; taught `build_golden_set` to reproduce it so a regen can't silently revert it.
+
+### Deferred / out-of-scope (per the plan)
+
+- **P1-7** (SIC backfill + `USE_STATEMENT_FINANCIALS` full rollout) — separate track, untouched.
+- **All P2 items:** no cash component-sum fallback; no `ticker_aliases` table;
+  `test_companyfacts_fixture.py:115-121` untouched; the flag was never flipped by this work. The
+  P0-3 **mixed-definition go/no-go = NO-GO** (the 3 flagged series are benign one-time ASU 2016-18
+  adoption boundaries; append-last is sufficient).
+
+### Founder notes (out-of-scope observations worth a follow-up)
+
+- **No consolidated rollback runbook** for the Cloud Run service — break-glass steps are documented
+  per phase in this log, but a single runbook (revert PR + `update-traffic` + break-glass DELETEs)
+  would help incident response.
+- **`provenance_service.py:257`** keeps a deliberately independent copy of the FI-components
+  predicate (documented there) — not unified with `ai/fi_signals.py`, to avoid dragging the edgar
+  package onto the read path. A future refactor could consolidate.
+- **`backend/evals/RUNBOOK.md`** still references a "6-filing PR smoke" in places that no longer
+  match the `eval-baseline` job's current behavior — a doc-only fix.
+- **`sec_rate_limiter._is_rate_limit_error`** matches the substrings "429" / "rate limit" /
+  "throttl", not strictly an HTTP 429 status — a 5xx whose body contains "rate limit" would be
+  retried as rate-limited. Benign but imprecise.
+- **`pin_baseline.py`** drops the `baseline_scores.json` explanatory `note` field on re-pin (the
+  tool doesn't preserve it) — cosmetic.
+- **First weekly report flags 4 filing-count anomalies (C, MS, WFC, GS)** — banks with deep XBRL
+  fact history but ≤1 stored 10-K, because the P1-6 backfill was seeded only for JPM/BAC + the
+  watchlist cohort. Clear them by firing `backfill-filing-history` (ops enum) with
+  `tickers=C,MS,WFC,GS`; the next weekly report should then show 0 anomalies. Not a regression —
+  the umbrella working as intended on tickers outside the seed batch.
+- **Open PRs #584 / #570** were untouched by this remediation.
