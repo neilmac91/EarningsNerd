@@ -13,9 +13,10 @@ import AskFilingCallout from '@/features/filings/components/copilot/AskFilingCal
 import FinancialMetricsTable from '@/features/summaries/components/FinancialMetricsTable'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import { Button } from '@/components/ui/Button'
-import { Badge, Card, GuidanceCard, Skeleton, SkeletonText } from '@/components/ui'
+import { Badge, Card, CardHeader, CardTitle, CardBody, GuidanceCard, Skeleton, SkeletonText } from '@/components/ui'
 import { FileTextIcon, SparkleIcon } from '@/lib/icons'
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
+import { stripLeadingExecutiveHeading } from '@/lib/stripLeadingExecutiveHeading'
 import { ENABLE_QUALITY_BADGE, ENABLE_FINANCIAL_CHARTS } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
 import { SummaryActionsBar, type SaveMutation } from './SummaryActionsBar'
@@ -81,7 +82,9 @@ export function SummaryDisplay({
   // user-facing copy), and let the quality badge + retry CTA carry the "partial" story instead.
   // This gives honest labeling without leaking raw internal text into the summary body.
   const cleanedMarkdown = useMemo(
-    () => stripInternalNotices(markdownContent),
+    // Strip internal notices first (drops the optional leading disclaimer), then the now-leading
+    // "## Executive Summary" H2 so the card shows ONE header — the DS CardTitle (T1.7).
+    () => stripLeadingExecutiveHeading(stripInternalNotices(markdownContent)),
     [markdownContent]
   )
   const rawSummary = summary.raw_summary && typeof summary.raw_summary === 'object' ? summary.raw_summary : null
@@ -158,11 +161,13 @@ export function SummaryDisplay({
       ) : (
         <>
           {hasPolishedMarkdown && (
-            <Card as="section" className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-2">
-                  <FileTextIcon className="h-6 w-6 text-brand-strong dark:text-brand-strong-dark" />
-                  <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">Summary</h2>
+            <Card as="section" className="overflow-hidden">
+              {/* ONE header (T1.7): the DS CardTitle replaces the old h2 + the backend's leading
+                  "## Executive Summary" H2 (stripped from cleanedMarkdown above). */}
+              <CardHeader className="justify-between">
+                <div className="flex items-center gap-2">
+                  <FileTextIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
+                  <CardTitle>Summary</CardTitle>
                   {/* S4 quality badge: honest signal of full vs partial output.
                       Suppressed in demo mode so a first-time visitor never meets "Partial" on the
                       curated example (plan item 1.3) — the badge still shows on user-chosen filings. */}
@@ -185,14 +190,18 @@ export function SummaryDisplay({
                     Regenerate Analysis
                   </Button>
                 )}
-              </div>
-              <div className="markdown-body text-text-secondary-light dark:text-text-secondary-dark">
+              </CardHeader>
+              <CardBody className="markdown-body text-text-secondary-light dark:text-text-secondary-dark">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {cleanedMarkdown}
                 </ReactMarkdown>
-              </div>
+              </CardBody>
             </Card>
           )}
+
+          {/* Turn the just-finished read into the next action — placed high, directly under the
+              summary (T1.7 defect f). */}
+          <AskFilingCallout filingType={filing.filing_type} subjectLabel={askSubjectLabel} onAsk={onAsk} />
 
           {/* A5: What Changed vs the prior comparable filing */}
           {changeReport?.has_changes && <WhatChanged report={changeReport} />}
@@ -255,12 +264,6 @@ export function SummaryDisplay({
             ))}
           </ul>
         </Card>
-      )}
-
-      {/* End-of-summary discovery surface: turn the just-finished read into the next action. Hidden on
-          a degraded/error summary; FREE users open the same rail and land on the upsell teaser. */}
-      {!isError && (
-        <AskFilingCallout filingType={filing.filing_type} subjectLabel={askSubjectLabel} onAsk={onAsk} />
       )}
 
       {debug && rawSummary && (
