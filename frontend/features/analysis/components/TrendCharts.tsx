@@ -218,7 +218,9 @@ function PanelCard({
     const downloaded = await exportPanelPng(
       plotRef.current,
       exportFilename(dataset, panel.title, 'png'),
-      { dark }
+      // Title + the SAME legendItems the on-screen PanelLegend draws — so the exported PNG frames
+      // the plot with the identical title/legend the user sees (the Recharts SVG carries neither).
+      { dark, header: { title: panel.title, legend: legendItems } }
     )
     if (downloaded) {
       analytics.exportGenerated({

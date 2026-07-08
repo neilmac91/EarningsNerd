@@ -3,10 +3,12 @@ import { downloadBlob } from '@/lib/downloadBlob'
 
 /**
  * Dependency-free chart PNG export (audit enhancement 2): SVG serialization → canvas
- * rasterization, finished with a subtle EarningsNerd mark bottom-right (owner request — branding
- * on shared chart images, "subtle, not in your face"). Downloads go through the shared
- * lib/downloadBlob helper (its delayed revoke matters — a synchronous revoke can abort the
- * download on Safari/Firefox). Tabular export is the branded Excel workbook, built server-side
+ * rasterization, framed with a title + series legend HEADER (so a shared image is
+ * self-describing — the Recharts SVG carries the plot only, never the legend/title, which live
+ * in the card's HTML header) and finished with a subtle EarningsNerd mark bottom-right (owner
+ * request — branding on shared chart images, "subtle, not in your face"). Downloads go through
+ * the shared lib/downloadBlob helper (its delayed revoke matters — a synchronous revoke can abort
+ * the download on Safari/Firefox). Tabular export is the branded Excel workbook, built server-side
  * (`exportAnalysisXlsx`).
  */
 
@@ -80,37 +82,187 @@ export const MARK_STAMP = {
 /** Draw the branded footer strip: plot-matched background, EN mark bottom-right. Failure =
  *  export proceeds without the mark (never block a download over branding); the strip itself is
  *  already painted by the caller's background fill. Coordinates are CSS px — the caller's retina
- *  scale is already applied. */
+ *  scale is already applied. `footerTop` is the y where the strip begins (below the plot). */
 async function drawBrandFooter(
   ctx: CanvasRenderingContext2D,
   width: number,
-  plotHeight: number,
+  footerTop: number,
   dark: boolean
 ): Promise<void> {
   const mark = await loadSvgImage(buildMarkSvg(dark ? MARK_STAMP.fillDark : MARK_STAMP.fillLight))
   if (!mark) return
   const h = MARK_STAMP.markHeight
   const w = (h * MARK_WIDTH) / MARK_HEIGHT
-  const y = plotHeight + (MARK_STAMP.stripHeight - h) / 2
+  const y = footerTop + (MARK_STAMP.stripHeight - h) / 2
   ctx.save()
   ctx.globalAlpha = MARK_STAMP.alpha
   ctx.drawImage(mark, width - w - MARK_STAMP.inset, y, w, h)
   ctx.restore()
 }
 
+/* ---------------------------------------------------------------------------
+   Header strip — title + series legend, mirroring the on-screen card header.
+   The Recharts <svg> carries the plot only; the legend/title are separate HTML
+   (TrendCharts' PanelLegend + <h3>), so an exported PNG that serializes the SVG
+   alone loses them. Redraw them onto the canvas from the SAME data that drives
+   the UI, so the export can never disagree with what the user sees.
+--------------------------------------------------------------------------- */
+
+/** One legend entry — label + its swatch color (exactly the shared `legendItems` the panel
+ *  passes to both its on-screen PanelLegend and its plotted series). */
+export interface ChartLegendItem {
+  label: string
+  color: string
+}
+
+/** The self-describing frame drawn above the plot on export. */
+export interface ChartExportHeader {
+  title: string
+  legend: ChartLegendItem[]
+}
+
+/** Header geometry — exported for tests. Mirrors the on-screen recipe: title = text-sm/semibold
+ *  (14px), legend row = text-xs (12px) with an 8–9px rounded swatch. Values in CSS px; the
+ *  caller's retina scale is applied on top. */
+export const HEADER_STAMP = {
+  padX: 16,
+  padTop: 14,
+  padBottom: 14,
+  titleSize: 14,
+  titleGap: 12, // title baseline → first legend row top
+  legendSize: 12,
+  swatch: 9,
+  swatchRadius: 2,
+  swatchGap: 6, // swatch → label (mirrors gap-1.5)
+  itemGap: 16, // between legend items
+  rowGap: 7, // between wrapped legend rows
+} as const
+
+// System-first sans — identical intent to the app's `body` stack (see tailwind.config.js:
+// "-apple-system first BY DESIGN"). System fonts are synchronously available, so canvas
+// measureText/fillText render deterministically without waiting on a webfont (the Geist webfont
+// never resolves inside the isolated SVG image doc anyway — the module's documented limitation).
+const HEADER_FONT = '-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, system-ui, sans-serif'
+const titleFont = (size: number) => `600 ${size}px ${HEADER_FONT}`
+const legendFont = (size: number) => `400 ${size}px ${HEADER_FONT}`
+
+const LEGEND_ROW_H = Math.max(HEADER_STAMP.legendSize, HEADER_STAMP.swatch)
+
+/** A legend item with its measured label width — cached at layout time so the draw pass never
+ *  re-measures (identical widths guaranteed). */
+type LaidOutItem = ChartLegendItem & { width: number }
+
 /**
- * Rasterize the panel's rendered SVG to a 2× PNG (theme-matched background, watermarked) and
- * download it.
+ * Greedy line-wrap of the legend into rows that fit `maxWidth`. Pure (measurement injected) so the
+ * wrap math is unit-testable without a canvas. An item wider than the whole row still lands on its
+ * own row rather than looping forever. Exported for tests.
+ */
+export function layoutLegend(
+  measure: (label: string) => number,
+  legend: ChartLegendItem[],
+  maxWidth: number
+): LaidOutItem[][] {
+  const rows: LaidOutItem[][] = []
+  let row: LaidOutItem[] = []
+  let x = 0
+  for (const item of legend) {
+    const width = measure(item.label)
+    const itemWidth = HEADER_STAMP.swatch + HEADER_STAMP.swatchGap + width
+    const advance = row.length === 0 ? itemWidth : HEADER_STAMP.itemGap + itemWidth
+    if (row.length > 0 && x + advance > maxWidth) {
+      rows.push(row)
+      row = []
+      x = 0
+    }
+    x += row.length === 0 ? itemWidth : HEADER_STAMP.itemGap + itemWidth
+    row.push({ ...item, width })
+  }
+  if (row.length > 0) rows.push(row)
+  return rows
+}
+
+/** Total header-strip height for a title plus `numRows` of legend (0 = title only). */
+export function headerHeight(numRows: number): number {
+  let h = HEADER_STAMP.padTop + HEADER_STAMP.titleSize
+  if (numRows > 0) {
+    h += HEADER_STAMP.titleGap + numRows * LEGEND_ROW_H + (numRows - 1) * HEADER_STAMP.rowGap
+  }
+  return h + HEADER_STAMP.padBottom
+}
+
+/** Fill a rounded swatch (falls back to a square where roundRect is unavailable — a 2px radius on
+ *  a 9px square is imperceptible, so the fallback never reads as broken). */
+function fillSwatch(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  radius: number,
+  color: string
+): void {
+  ctx.fillStyle = color
+  const rr = (ctx as CanvasRenderingContext2D & { roundRect?: unknown }).roundRect
+  if (typeof rr === 'function') {
+    ctx.beginPath()
+    ctx.roundRect(x, y, size, size, radius)
+    ctx.fill()
+  } else {
+    ctx.fillRect(x, y, size, size)
+  }
+}
+
+/** Draw the title + pre-laid-out legend rows into the top strip. Colors mirror the on-screen
+ *  tokens: title = text.primary, legend labels = text.secondary. */
+function drawHeader(
+  ctx: CanvasRenderingContext2D,
+  title: string,
+  rows: LaidOutItem[][],
+  dark: boolean
+): void {
+  const primary = dark ? '#D7DADC' : '#1A1A17' // text.primary
+  const secondary = dark ? '#9CA3AF' : '#374151' // text.secondary
+
+  ctx.textBaseline = 'alphabetic'
+  ctx.font = titleFont(HEADER_STAMP.titleSize)
+  ctx.fillStyle = primary
+  const titleBaseline = HEADER_STAMP.padTop + HEADER_STAMP.titleSize
+  ctx.fillText(title, HEADER_STAMP.padX, titleBaseline)
+
+  if (rows.length === 0) return
+
+  ctx.font = legendFont(HEADER_STAMP.legendSize)
+  let rowTop = titleBaseline + HEADER_STAMP.titleGap
+  for (const row of rows) {
+    let x = HEADER_STAMP.padX
+    for (const item of row) {
+      const swatchY = rowTop + (LEGEND_ROW_H - HEADER_STAMP.swatch) / 2
+      fillSwatch(ctx, x, swatchY, HEADER_STAMP.swatch, HEADER_STAMP.swatchRadius, item.color)
+      x += HEADER_STAMP.swatch + HEADER_STAMP.swatchGap
+      ctx.fillStyle = secondary
+      ctx.textBaseline = 'middle'
+      ctx.fillText(item.label, x, rowTop + LEGEND_ROW_H / 2)
+      x += item.width + HEADER_STAMP.itemGap
+    }
+    rowTop += LEGEND_ROW_H + HEADER_STAMP.rowGap
+  }
+}
+
+/**
+ * Rasterize the panel's rendered SVG to a 2× PNG and download it: a title + series-legend header,
+ * the plot, then a subtle brand footer — so the shared image reads exactly like the on-screen
+ * card. Pass `header` (title + the panel's shared `legendItems`) to draw the frame; omit it and
+ * the export degrades to the bare plot + footer.
  *
- * Known limitation (documented in the audit): the SVG is rasterized in an isolated image
+ * Known limitation (documented in the audit): the SVG plot is rasterized in an isolated image
  * document, where webfonts (Geist Mono) don't load — axis labels fall back to the system
- * monospace in CHART_FONT's stack. Metrics are close; embedding the font as a data URI is the
- * upgrade path if pixel-identical text ever matters.
+ * monospace in CHART_FONT's stack. The header is drawn directly on the canvas (main document), so
+ * its title/legend use the system sans immediately — no webfont wait. Metrics are close;
+ * embedding the font as a data URI is the upgrade path if pixel-identical axis text ever matters.
  */
 export async function exportPanelPng(
   container: HTMLElement,
   filename: string,
-  { dark = false }: { dark?: boolean } = {}
+  { dark = false, header }: { dark?: boolean; header?: ChartExportHeader } = {}
 ): Promise<boolean> {
   const svg = container.querySelector('svg')
   if (!svg) return false
@@ -128,15 +280,32 @@ export async function exportPanelPng(
 
   const scale = 2 // retina-crisp output
   const canvas = document.createElement('canvas')
-  canvas.width = width * scale
-  canvas.height = (height + MARK_STAMP.stripHeight) * scale
   const ctx = canvas.getContext('2d')
   if (!ctx) return false
+
+  // Lay the legend out first (needs a font-set ctx to measure) so the header height — and thus the
+  // canvas height — is known before we size the canvas. Sizing the canvas resets ctx state, so
+  // everything below re-applies scale + fonts.
+  let headH = 0
+  let legendRows: LaidOutItem[][] = []
+  if (header) {
+    ctx.font = legendFont(HEADER_STAMP.legendSize)
+    legendRows = layoutLegend(
+      (label) => ctx.measureText(label).width,
+      header.legend,
+      width - 2 * HEADER_STAMP.padX
+    )
+    headH = headerHeight(legendRows.length)
+  }
+
+  canvas.width = width * scale
+  canvas.height = (headH + height + MARK_STAMP.stripHeight) * scale
   ctx.fillStyle = resolveBackground(container)
   ctx.fillRect(0, 0, canvas.width, canvas.height)
   ctx.scale(scale, scale)
-  ctx.drawImage(image, 0, 0, width, height)
-  await drawBrandFooter(ctx, width, height, dark)
+  if (header) drawHeader(ctx, header.title, legendRows, dark)
+  ctx.drawImage(image, 0, headH, width, height)
+  await drawBrandFooter(ctx, width, headH + height, dark)
 
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
   if (!blob) return false
