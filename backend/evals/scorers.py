@@ -538,9 +538,12 @@ def score_currency_consistency(
 
 # A financial figure: optional $, a number, an optional scale/percent suffix. Bare unit-less
 # integers (years, counts) are intentionally dropped by _canonical_figure so they never register.
+# The word/letter suffixes must end on a word boundary, so a single-letter suffix (b/m/t) can NOT be
+# the first letter of the next word — "the 3 months ended" must not read as a $3-million figure. `%`
+# stays outside the \b group (a non-word char, where a trailing \b behaves differently).
 _FIGURE_RE = re.compile(
     r"\$?\s*\d[\d,]*(?:\.\d+)?\s*"
-    r"(?:percentage points|basis points|trillion|billion|million|ppts?|bps|bn|mn|tn|%|b|m|t)?",
+    r"(?:(?:percentage points|basis points|trillion|billion|million|ppts?|bps|bn|mn|tn|b|m|t)\b|%)?",
     re.IGNORECASE,
 )
 _SCALE_CANON = {
@@ -555,7 +558,11 @@ _SCALE_CANON = {
 
 def _canonical_figure(token: str) -> Optional[str]:
     """Normalize a figure token to a comparable key: '$81.6 billion' / '$81.6B' -> '81.6b',
-    '85.0%' -> '85%'. Returns None for a unit-less number (year/count) — too ambiguous to compare."""
+    '85.0%' -> '85%'. Returns None for a unit-less number (year/count) — too ambiguous to compare.
+
+    DELIBERATE conservative miss: cross-scale restatements ('$1,500 million' -> '1500m' vs '$1.5B'
+    -> '1.5b') canonicalize to DIFFERENT keys and are not flagged as the same figure. That is fine
+    for a WARN scorer and far safer than a float-equality/scale-normalization trap — do not "fix" it."""
     t = token.strip().lower().lstrip("$").strip()
     m = re.match(r"([\d,]*\.?\d+)\s*(.*)$", t)
     if not m:
@@ -603,10 +610,12 @@ def score_redundancy(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
 
 
 # A percentage in prose that is unambiguously a CHANGE (carries a direction cue), so a level such
-# as "gross margin of 74.9%" never trips the consistency check.
+# as "gross margin of 74.9%" never trips the consistency check. The minus arm is `(?<!\d)-` so a
+# hyphenated RANGE ("8-10%") is not read as a delta cue, while "up -8%" / a standalone "-8%" still
+# is; the U+2212 minus (−) never appears in ranges, so it stays as-is.
 _DELTA_CUED_PCT_RE = re.compile(
     r"(?:up|down|grew|rose|increased|decreased|declined|fell|gained|jumped|surged|dropped|climbed|"
-    r"slipped|higher|lower|\+|-|−)\s*(?:by\s+)?(\d[\d,]*(?:\.\d+)?)\s*%",
+    r"slipped|higher|lower|\+|(?<!\d)-|−)\s*(?:by\s+)?(\d[\d,]*(?:\.\d+)?)\s*%",
     re.IGNORECASE,
 )
 
@@ -642,7 +651,11 @@ def score_delta_consistency(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
     nearby percentage matches — so a metric the prose states correctly (or doesn't quantify) is never
     penalised. Conservative by construction. Returns (score, contradictions)."""
     deltas = _table_pct_deltas(payload)
-    prose = _prose_blob(payload)
+    # Scan only the sections that describe the REPORTED period (exec + MD&A), NOT outlook: forward
+    # guidance quantifies a future change ("expects growth to slow to 15%") that legitimately differs
+    # from the table's historical delta, so comparing it would be apples-to-oranges. Redundancy still
+    # covers outlook for the one-home rule, so nothing there goes unwatched.
+    prose = " ".join(str(payload.get(f) or "") for f in ("executive_summary", "management_discussion"))
     if not deltas or not prose.strip():
         return 1.0, []
     checked = 0

@@ -4,6 +4,7 @@ Deterministic — no network/AI. They prove the scorers behave on realistic cano
 critically, do NOT false-fire on a clean summary (a level like "74.9%" is not read as a delta; a
 single headline echo is free; unit-less integers like years never register as figures)."""
 from evals.scorers import (
+    _figure_keys,
     score_delta_consistency,
     score_redundancy,
     score_summary,
@@ -77,6 +78,26 @@ def test_redundancy_penalises_a_single_figure_across_all_three_sections():
     assert score < 1.0
 
 
+def test_figure_keys_ignore_period_boilerplate():
+    # Regression guard: the single-letter "m" suffix must not swallow the "m" of "months", so
+    # "3 months" / "12 months" register NO figure — otherwise 10-Q period boilerplate would read as
+    # $3M / $12M and pollute the redundancy dimension across every section that repeats it.
+    assert _figure_keys("For the 3 months ended March 31, revenue was $44.1 billion.") == {"44.1b"}
+    assert _figure_keys("For the trailing 12 months and the 3 months ended.") == set()
+    # …but a genuine scaled figure at a sentence end still registers.
+    assert "44.1b" in _figure_keys("Revenue was $44.1B.")
+    assert "3m" in _figure_keys("A one-time charge of $3 million.")
+
+
+def test_redundancy_is_unpolluted_by_period_boilerplate():
+    payload = {
+        "executive_summary": "For the 3 months ended March 31, revenue rose sharply.",
+        "management_discussion": "For the 3 months ended, margins held firm.",
+        "outlook": "",
+    }
+    assert score_redundancy(payload) == (1.0, [])
+
+
 # --- delta consistency ------------------------------------------------------------------------
 
 
@@ -147,6 +168,42 @@ def test_delta_consistency_matches_metric_names_on_word_boundaries():
         **_fh([{"metric": "EPS", "change_display": "+40.0%"}]),
     }
     assert score_delta_consistency(payload) == (1.0, [])
+
+
+def test_delta_consistency_does_not_read_a_hyphenated_range_as_a_delta():
+    # Regression guard: a range hyphen ("8-10%") is not a minus cue, so a scanned section quoting a
+    # range near a metric is not a contradiction.
+    payload = {
+        "executive_summary": "",
+        "management_discussion": "Revenue rose 8-10% across the segment mix.",
+        "outlook": "",
+        **_fh([{"metric": "Revenue", "change_display": "+69.2%"}]),
+    }
+    assert score_delta_consistency(payload) == (1.0, [])
+
+
+def test_delta_consistency_ignores_forward_guidance_in_outlook():
+    # Founder repro: outlook is forward guidance, not the reported period's delta, so it is not
+    # scanned — "guided revenue to grow 8-10%" is never compared to the table's historical +69.2%.
+    payload = {
+        "executive_summary": "Revenue grew to $44.1 billion.",
+        "management_discussion": "",
+        "outlook": "Management guided revenue to grow 8-10% next quarter.",
+        **_fh([{"metric": "Revenue", "change_display": "+69.2%"}]),
+    }
+    assert score_delta_consistency(payload) == (1.0, [])
+
+
+def test_delta_consistency_still_flags_a_reported_period_contradiction_in_prose():
+    # The outlook exclusion must not blind the scorer to a real contradiction in exec/MD&A.
+    payload = {
+        "executive_summary": "Revenue jumped 40% this quarter.",
+        "management_discussion": "",
+        "outlook": "Revenue up 40% expected next year.",  # forward guidance — ignored
+        **_fh([{"metric": "Revenue", "change_display": "+69.2%"}]),
+    }
+    score, details = score_delta_consistency(payload)
+    assert score == 0.0 and "Revenue" in details[0]
 
 
 # --- integration ------------------------------------------------------------------------------
