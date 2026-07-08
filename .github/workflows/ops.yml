@@ -32,6 +32,7 @@ on:
           - repair-ticker-apply
           - sync-companyfacts
           - backfill-filing-history
+          - data-quality-report
           - reset-filing-summary-dry-run
           - reset-filing-summary-apply
           - rollback-traffic
@@ -84,7 +85,7 @@ jobs:
             REVISION=$(python3 -c "import json; print(json.load(open('ops/requests/current.json')).get('revision',''))")
           fi
           case "$OP" in
-            describe-service|describe-jobs|detection-sql|logs-probe|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|sync-companyfacts|backfill-filing-history|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
+            describe-service|describe-jobs|detection-sql|logs-probe|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
             *) echo "::error::unknown operation '$OP'"; exit 1 ;;
           esac
           case "$OP" in
@@ -339,6 +340,20 @@ jobs:
             fi
             echo "backfill-filing-history COMPLETED via jobs channel for: ${TICKERS:-watchlist}"
           fi
+
+      - name: Run the weekly data-quality report once (P1-9; jobs channel)
+        if: steps.request.outputs.operation == 'data-quality-report'
+        run: |
+          set -euo pipefail
+          # Same payload as .github/workflows/data-quality-weekly.yml: fire the report script inside
+          # earningsnerd-filing-digest — the only job carrying both DATABASE_URL and RESEND_API_KEY
+          # (Phase-0 probe). The job's entrypoint is `python`; --args appends the script path. Script
+          # stdout lands in Cloud Run logs, not here — a green --wait means it built the report and
+          # emailed the founder without error. Use this for a one-shot/ad-hoc fire; the scheduled
+          # weekly run is driven by data-quality-weekly.yml's cron.
+          gcloud run jobs execute earningsnerd-filing-digest --region="$REGION" \
+            --args="scripts/data_quality_report.py" --wait
+          echo "data-quality report COMPLETED via jobs channel (emails the founder via Resend)"
 
       - name: Reset a single filing's summary (per-filing regen; jobs channel)
         if: contains('reset-filing-summary-dry-run reset-filing-summary-apply', steps.request.outputs.operation)
