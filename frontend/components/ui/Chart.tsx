@@ -198,9 +198,12 @@ export function AxisSeriesTag({
   /** Injected by Recharts when passed as `label={<AxisSeriesTag …/>}`. */
   viewBox?: { x?: number; y?: number; width?: number; height?: number }
 }) {
-  if (viewBox?.x == null || viewBox.y == null || viewBox.width == null) return null
-  const rightEdge = viewBox.x + viewBox.width
-  const baseline = viewBox.y - 8 // up into the widened top margin, clear of the top tick number
+  // Destructure with a default so a missing viewBox (or any missing field) yields undefined and
+  // returns null — no reliance on `||` short-circuit order to stay TypeError-safe.
+  const { x, y, width } = viewBox ?? {}
+  if (x == null || y == null || width == null) return null
+  const rightEdge = x + width
+  const baseline = y - 8 // up into the widened top margin, clear of the top tick number
   const swatch = 8
   const gap = 5
   // Geist Mono is monospace (~0.6em advance at 11px) — estimate the name width to place the swatch
