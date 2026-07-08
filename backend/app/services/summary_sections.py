@@ -157,10 +157,11 @@ def _financial_highlights(sections: dict) -> Section:
             if not metric:
                 continue
             # Single delta policy (T1.5): compute the Change cell from current/prior so CSV+PDF match
-            # the table and chips (ppts for margins), falling back to the model's text only when the
-            # displayed values don't parse.
+            # the table and chips (ppts for margins). When it's not computable (mixed/unparseable
+            # values), show no delta ("—") — the SAME fallback the web table uses — rather than the
+            # model's own unverified change text, which would reintroduce the divergence T1.5 kills.
             _delta = metric_delta_service.delta_for_row(row)
-            change_cell = _delta.display if _delta and _delta.display else _clean(row.get("change"))
+            change_cell = _delta.display if _delta and _delta.display else "—"
             rows.append(
                 [
                     metric,

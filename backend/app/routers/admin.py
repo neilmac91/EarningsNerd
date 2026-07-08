@@ -5,7 +5,7 @@ They allow clearing cached summaries and XBRL data to fix issues with stale data
 """
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.responses import JSONResponse
-from sqlalchemy import or_
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
@@ -24,7 +24,7 @@ from app.services.resend_service import send_email, ResendError
 from app.services import invite_service
 from app.services import audit_service
 from app.services.email_service import send_invite_email
-from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION
+from app.services.summary_versioning import SUMMARY_PROMPT_VERSION, SUMMARY_SCHEMA_VERSION, is_stale
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -929,10 +929,18 @@ async def refresh_stale_summaries(
     if filing_type:
         query = query.filter(Filing.filing_type == filing_type)
     stale_total = query.count()
-    candidates = query.order_by(Filing.filing_date.desc()).limit(limit).all()
+    # Randomized order (not filing_date DESC): a filing that keep-better-loses every time would
+    # otherwise park itself at a deterministic head-of-line and wedge every subsequent batch. Random
+    # sampling turns a permanent wedge into a diminishing nuisance.
+    candidates = query.order_by(func.random()).limit(limit).all()
     candidate_filing_ids = [c.filing_id for c in candidates]
 
-    regenerated: list[int] = []
+    # Honest per-filing outcomes: a keep-better gate-keep regenerates nothing (the stored better
+    # version stays), so counting every non-raising call as "regenerated" would report progress the
+    # batch didn't make while the stale_total never moves. Classify by re-reading the row's stamps.
+    updated: list[int] = []
+    kept_by_gate: list[int] = []
+    failed: list[int] = []
     if not dry_run and candidate_filing_ids:
         from app.services.summary_generation_service import generate_summary_background
 
@@ -944,9 +952,24 @@ async def refresh_stale_summaries(
             for fid in candidate_filing_ids:
                 try:
                     await generate_summary_background(fid, None, force_regenerate=True)
-                    regenerated.append(fid)
                 except Exception:  # noqa: BLE001 — one filing's failure must not abort the batch
                     logger.warning("refresh-stale: regeneration failed for filing %s", fid, exc_info=True)
+                    failed.append(fid)
+                    continue
+                # Re-read the (separately-committed) row's stamps: current => actually updated;
+                # still stale => the keep-better gate kept the stored version (not regenerated).
+                # Commit first to end this session's read transaction so the fresh SELECT sees the
+                # generation session's commit (no writes pending here, so it's a transaction reset).
+                db.commit()
+                stamp = (
+                    db.query(Summary.schema_version, Summary.prompt_version)
+                    .filter(Summary.filing_id == fid)
+                    .first()
+                )
+                if stamp is not None and not is_stale(stamp[0], stamp[1]):
+                    updated.append(fid)
+                else:
+                    kept_by_gate.append(fid)
             audit_service.create_audit_log(
                 db=db,
                 action="summaries_refresh_stale",
@@ -957,15 +980,17 @@ async def refresh_stale_summaries(
                     "filing_type": filing_type,
                     "schema_version_lt": schema_version_lt,
                     "stale_total": stale_total,
-                    "regenerated_count": len(regenerated),
+                    "updated_count": len(updated),
+                    "kept_by_gate_count": len(kept_by_gate),
+                    "failed_count": len(failed),
                 },
                 status="success",
             )
         finally:
             db.expire_on_commit = prev_expire
         logger.info(
-            "Admin %s refresh-stale regenerated %d/%d stale summaries (filing_type=%s)",
-            current_user.id, len(regenerated), stale_total, filing_type,
+            "Admin %s refresh-stale: updated %d, kept-by-gate %d, failed %d of %d stale (filing_type=%s)",
+            current_user.id, len(updated), len(kept_by_gate), len(failed), stale_total, filing_type,
         )
 
     return {
@@ -977,12 +1002,22 @@ async def refresh_stale_summaries(
         "stale_total": stale_total,
         "batch_limit": limit,
         "candidate_filing_ids": candidate_filing_ids,
-        "regenerated_count": len(regenerated),
-        "regenerated_filing_ids": regenerated,
+        # Honest outcomes: only `updated` rows were actually regenerated; `kept_by_gate` rows lost to
+        # the keep-better gate and remain stale (they may be re-selected on a later call).
+        "updated_count": len(updated),
+        "updated_filing_ids": updated,
+        "kept_by_gate_count": len(kept_by_gate),
+        "kept_by_gate_filing_ids": kept_by_gate,
+        "failed_count": len(failed),
+        "failed_filing_ids": failed,
         "message": (
             f"{stale_total} stale summaries"
             f"{f' of type {filing_type}' if filing_type else ''}; "
-            f"{'would regenerate' if dry_run else 'regenerated'} "
-            f"{len(candidate_filing_ids) if dry_run else len(regenerated)} in place (bookmarks preserved)."
+            + (
+                f"would refresh up to {len(candidate_filing_ids)} in place (bookmarks preserved)."
+                if dry_run
+                else f"updated {len(updated)} in place, {len(kept_by_gate)} kept by the "
+                f"keep-better gate (still stale), {len(failed)} failed."
+            )
         ),
     }

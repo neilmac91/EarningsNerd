@@ -60,6 +60,15 @@ def test_row_delta_unparseable_returns_empty():
     assert m.row_delta_fields({"metric": "x"}) == {}
 
 
+def test_mixed_percent_row_returns_none_not_a_bogus_amount():
+    # current is a margin (%), prior is a bare number: computing this as an amount would yield the
+    # +23.8%-for-a-margin category error. Mixed units must return None (no computed delta).
+    assert m.delta_for_row({"current_period": "74.9%", "prior_period": "60.5"}) is None
+    assert m.row_delta_fields({"current_period": "74.9%", "prior_period": "60.5"}) == {}
+    # Symmetric: amount current, percent prior.
+    assert m.delta_for_row({"current_period": "$5.0B", "prior_period": "12.0%"}) is None
+
+
 def test_parse_handles_suffixes_and_parens():
     assert m._parse_number("$1,234.5M")[0] == 1234.5e6
     val, is_pct = m._parse_number("(2.5%)")

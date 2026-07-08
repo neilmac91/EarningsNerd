@@ -105,8 +105,10 @@ def _parse_number(text: Any) -> tuple[Optional[float], bool]:
 def delta_for_row(row: dict) -> Optional[MetricDelta]:
     """Compute a Financial Highlights table row's delta from its displayed current/prior strings.
 
-    A row is treated as a ratio (ppts) only when BOTH values are percentages; mixed/unparseable
-    rows return None so the caller can fall back to the model's own change text.
+    A row is a ratio (ppts) only when BOTH values are percentages, and an amount (relative %) only
+    when NEITHER is. A mixed row (one "%", one not — e.g. current "74.9%", prior "60.5") is
+    inconsistent: computing it as an amount would reproduce the exact relative-%-for-a-margin error
+    this service exists to kill, so it returns None and the caller shows no computed delta.
     """
     if not isinstance(row, dict):
         return None
@@ -114,7 +116,9 @@ def delta_for_row(row: dict) -> Optional[MetricDelta]:
     prior, prior_pct = _parse_number(row.get("prior_period") or row.get("priorPeriod"))
     if cur is None or prior is None:
         return None
-    return compute(cur, prior, is_ratio=bool(cur_pct and prior_pct))
+    if cur_pct != prior_pct:
+        return None  # mixed units — don't guess; the caller falls back to "no computed delta"
+    return compute(cur, prior, is_ratio=cur_pct)
 
 
 def row_delta_fields(row: dict) -> dict:

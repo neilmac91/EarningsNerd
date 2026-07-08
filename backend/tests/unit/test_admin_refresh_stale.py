@@ -116,7 +116,7 @@ def test_dry_run_counts_stale_and_regenerates_nothing(client, as_admin, monkeypa
     body = resp.json()
     assert body["dry_run"] is True
     assert body["stale_total"] == 2
-    assert body["regenerated_count"] == 0
+    assert body["updated_count"] == 0 and body["kept_by_gate_count"] == 0
     spy.assert_not_called()
 
 
@@ -152,21 +152,38 @@ def test_limit_is_clamped_to_the_batch_ceiling(client, as_admin):
     assert resp.json()["batch_limit"] == _REFRESH_STALE_MAX_BATCH
 
 
+def _stamp_current_side_effect(filing_id, _user_id, *, force_regenerate=False):
+    """Simulate a successful in-place regeneration: stamp the row's version to current. Synchronous
+    on purpose — an AsyncMock awaits a sync side_effect's call but would NOT await a returned
+    coroutine, so the DB write must happen inline here."""
+    from app.database import SessionLocal
+    from app.models import Summary
+
+    with SessionLocal() as gdb:
+        s = gdb.query(Summary).filter(Summary.filing_id == filing_id).first()
+        if s is not None:
+            s.schema_version = SUMMARY_SCHEMA_VERSION
+            s.prompt_version = SUMMARY_PROMPT_VERSION
+            gdb.commit()
+
+
 @pytest.mark.requires_db
-def test_real_run_forces_regenerate_preserves_bookmark_and_audits(client, as_admin, monkeypatch):
+def test_real_run_updates_in_place_preserves_bookmark_and_audits(client, as_admin, monkeypatch):
     ft = f"REAL-{uuid.uuid4().hex[:6]}"
     seed = _seed(ft, stamps=[(None, None)], saved_indices=(0,))
     stale_fid = seed["filing_ids"][0]
     saved_id = seed["saved_ids"][0]
 
-    spy = AsyncMock()
+    spy = AsyncMock(side_effect=_stamp_current_side_effect)
     monkeypatch.setattr(
         "app.services.summary_generation_service.generate_summary_background", spy
     )
     resp = client.post(f"/api/admin/summaries/refresh-stale?filing_type={ft}&dry_run=false")
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body["regenerated_count"] == 1
+    # Honest outcome: the row's stamp went current, so it counts as UPDATED (not "kept by gate").
+    assert body["updated_count"] == 1
+    assert body["kept_by_gate_count"] == 0 and body["failed_count"] == 0
     # Each candidate is drained with force_regenerate=True (in-place UPDATE, bookmark-safe).
     spy.assert_awaited_once_with(stale_fid, None, force_regenerate=True)
 
@@ -185,5 +202,58 @@ def test_real_run_forces_regenerate_preserves_bookmark_and_audits(client, as_adm
             .first()
         )
         assert audit is not None and audit.entity_type == "summaries"
+    finally:
+        db.close()
+
+
+@pytest.mark.requires_db
+def test_keep_better_gate_kept_row_counts_as_kept_not_updated(client, as_admin, monkeypatch):
+    # A regeneration that leaves the row stale (keep-better kept the stored better version) must be
+    # reported as kept_by_gate, never as "updated" — the honest-counter fix.
+    ft = f"KEPT-{uuid.uuid4().hex[:6]}"
+    _seed(ft, stamps=[(None, None)])
+    monkeypatch.setattr(
+        "app.services.summary_generation_service.generate_summary_background", AsyncMock()
+    )  # no side effect => row stays stale
+    resp = client.post(f"/api/admin/summaries/refresh-stale?filing_type={ft}&dry_run=false")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["updated_count"] == 0
+    assert body["kept_by_gate_count"] == 1
+
+
+@pytest.mark.requires_db
+def test_sql_stale_filter_matches_python_is_stale(client, as_admin):
+    # Parity gate: the SQL _stale_summary_filter and the Python is_stale are two encodings of one
+    # rule (the two-serializers pattern this PR exists to retire). Pin that they agree so a future
+    # change to either (e.g. != vs < semantics) fails loudly instead of silently diverging.
+    from app.database import SessionLocal
+    from app.models import Summary
+    from app.routers.admin import _stale_summary_filter
+    from app.services.summary_versioning import is_stale
+
+    sv, pv = SUMMARY_SCHEMA_VERSION, SUMMARY_PROMPT_VERSION
+    ft = f"PARITY-{uuid.uuid4().hex[:6]}"
+    # (NULL,current) (current,NULL) (old,current) (current,old) (current,current)
+    seed = _seed(ft, stamps=[(None, pv), (sv, None), (sv - 1, pv), (sv, "old"), (sv, pv)])
+    fids = set(seed["filing_ids"])
+
+    db = SessionLocal()
+    try:
+        rows = (
+            db.query(Summary.filing_id, Summary.schema_version, Summary.prompt_version)
+            .filter(Summary.filing_id.in_(fids))
+            .all()
+        )
+        python_stale = {r.filing_id for r in rows if is_stale(r.schema_version, r.prompt_version)}
+        sql_stale = {
+            fid
+            for (fid,) in db.query(Summary.filing_id)
+            .filter(Summary.filing_id.in_(fids))
+            .filter(_stale_summary_filter(None))
+            .all()
+        }
+        assert sql_stale == python_stale
+        assert len(python_stale) == 4  # only (current, current) is fresh
     finally:
         db.close()
