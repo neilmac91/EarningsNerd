@@ -81,3 +81,39 @@ def test_empty_and_blank_lists_emit_no_orphan_labels():
     md = openai_service._build_structured_markdown(summary)
     assert "- Profitability:" not in md
     assert "- Themes:" not in md
+
+
+def test_outlook_and_risks_emit_no_field_name_scaffolding():
+    """T1.1 gate: the Outlook `Guidance:`/`Tone:` field-name prefixes and the Risks `(Evidence: …)`
+    wrapper are internal scaffolding and must never reach the web summary; the underlying text (and
+    any figures in it) is still rendered."""
+    summary = {
+        "metadata": {"company_name": "NV", "filing_type": "10-Q", "reporting_period": "Q1"},
+        "sections": {
+            "risk_factors": [
+                {"summary": "Export controls may limit shipments.",
+                 "supporting_evidence": "$1.1B in inventory provisions this quarter."},
+            ],
+            "guidance_outlook": {
+                "guidance": "No specific quantitative guidance provided.",
+                "tone": "neutral",
+                "drivers": ["Rubin platform ships 2H."],
+            },
+        },
+    }
+    md = openai_service._build_structured_markdown(summary)
+    assert "Guidance:" not in md          # guidance rendered as prose, not a field label
+    assert "Tone:" not in md              # neutral tone suppressed, no `Tone:` scaffold
+    assert "(Evidence:" not in md         # no inline evidence wrapper
+    assert "No specific quantitative guidance provided." in md   # guidance text kept
+    assert "$1.1B in inventory provisions this quarter." in md   # evidence figures kept
+
+
+def test_non_neutral_tone_renders_as_prose_not_field_label():
+    summary = {
+        "metadata": {"company_name": "NV", "filing_type": "10-Q", "reporting_period": "Q1"},
+        "sections": {"guidance_outlook": {"tone": "cautious"}},
+    }
+    md = openai_service._build_structured_markdown(summary)
+    assert "Tone:" not in md
+    assert "tone was cautious" in md.lower()
