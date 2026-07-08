@@ -218,9 +218,19 @@ function PanelCard({
     const downloaded = await exportPanelPng(
       plotRef.current,
       exportFilename(dataset, panel.title, 'png'),
-      // Title + the SAME legendItems the on-screen PanelLegend draws — so the exported PNG frames
-      // the plot with the identical title/legend the user sees (the Recharts SVG carries neither).
-      { dark, header: { title: panel.title, legend: legendItems } }
+      // Company + ticker anchor the standalone image (the on-screen page carries them in its
+      // picker, a shared PNG doesn't); metric title + the SAME legendItems the on-screen
+      // PanelLegend draws frame the plot. The `< 2` gate mirrors PanelLegend: a single-series
+      // panel is named by the title alone, so it shows no legend here either.
+      {
+        dark,
+        header: {
+          company: dataset.company_name,
+          ticker: dataset.ticker,
+          title: panel.title,
+          legend: legendItems.length >= 2 ? legendItems : [],
+        },
+      }
     )
     if (downloaded) {
       analytics.exportGenerated({

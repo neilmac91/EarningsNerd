@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { fireEvent, render, screen, within } from '@testing-library/react'
 
 // recharts measures the DOM, which jsdom can't do — stub it (same pattern as analysis-teaser.spec.tsx).
 vi.mock('recharts', () => ({
@@ -14,7 +14,16 @@ vi.mock('recharts', () => ({
   Tooltip: () => null,
 }))
 
+// The PNG export does real canvas/DOM work — spy it so the wiring tests can assert the header it
+// receives without rasterizing. exportFilename (used alongside it) stays real.
+vi.mock('@/features/analysis/lib/chartExport', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/features/analysis/lib/chartExport')>()
+  return { ...actual, exportPanelPng: vi.fn().mockResolvedValue(true) }
+})
+vi.mock('@/lib/analytics', () => ({ default: { exportGenerated: vi.fn() } }))
+
 import TrendCharts from '@/features/analysis/components/TrendCharts'
+import { exportPanelPng } from '@/features/analysis/lib/chartExport'
 import type { AnalysisDataset } from '@/features/analysis/api/analysis-api'
 
 const dataset: AnalysisDataset = {
@@ -151,5 +160,36 @@ describe('TrendCharts panel controls', () => {
     expect(screen.queryByRole('button', { name: 'Download chart as PNG' })).not.toBeInTheDocument()
     rerender(<TrendCharts dataset={dataset} exportEnabled />)
     expect(screen.getAllByRole('button', { name: 'Download chart as PNG' }).length).toBeGreaterThan(0)
+  })
+})
+
+describe('TrendCharts PNG export wiring', () => {
+  beforeEach(() => vi.mocked(exportPanelPng).mockClear())
+
+  const clickExport = (panelTitle: string) => {
+    const card = screen.getByText(panelTitle).closest('section') as HTMLElement
+    fireEvent.click(within(card).getByRole('button', { name: 'Download chart as PNG' }))
+    return vi.mocked(exportPanelPng).mock.calls.at(-1)?.[2]?.header
+  }
+
+  it('passes company, ticker, metric, and a multi-series legend to the export', () => {
+    render(<TrendCharts dataset={dataset} exportEnabled />)
+    const header = clickExport('Margins')
+    expect(header?.company).toBe('Test Co')
+    expect(header?.ticker).toBe('TST')
+    expect(header?.title).toBe('Margins')
+    expect(header?.legend.map((i) => i.label)).toEqual(['Gross', 'Operating'])
+  })
+
+  it('omits a single-item legend from the export, matching PanelLegend', () => {
+    // Balance sheet with only equity present → one series → title alone identifies it, no legend.
+    const equityOnly: AnalysisDataset = {
+      ...dataset,
+      series: dataset.series.filter((s) => ['revenue', 'shareholders_equity'].includes(s.concept)),
+    }
+    render(<TrendCharts dataset={equityOnly} exportEnabled />)
+    const header = clickExport('Balance sheet')
+    expect(header?.title).toBe('Balance sheet')
+    expect(header?.legend).toEqual([])
   })
 })

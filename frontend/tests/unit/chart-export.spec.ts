@@ -91,8 +91,14 @@ describe('layoutLegend', () => {
 })
 
 describe('headerHeight', () => {
-  it('reserves the title band only when there is no legend', () => {
-    expect(headerHeight(0)).toBe(HEADER_STAMP.padTop + HEADER_STAMP.titleSize + HEADER_STAMP.padBottom)
+  it('reserves the company + subtitle lines even with no legend', () => {
+    expect(headerHeight(0)).toBe(
+      HEADER_STAMP.padTop +
+        HEADER_STAMP.companySize +
+        HEADER_STAMP.lineGap +
+        HEADER_STAMP.subtitleSize +
+        HEADER_STAMP.padBottom
+    )
   })
 
   it('grows with each wrapped legend row', () => {
@@ -102,11 +108,23 @@ describe('headerHeight', () => {
 })
 
 /* -------------------------------------------------------------------------
-   exportPanelPng — the regression guard for the "no legend in exports" bug.
-   The Recharts SVG carries the plot only; the export must redraw the title +
-   every legend label onto the canvas. jsdom has no real 2d context, so both
+   exportPanelPng — the regression guard for the "no legend / no identity in
+   exports" bug. The Recharts SVG carries the plot only; the export must redraw
+   the company, ticker · metric, and every legend label onto the canvas, plus
+   the "EarningsNerd" wordmark footer. jsdom has no real 2d context, so both
    the canvas and the SVG/mark <img> decode are stubbed.
 ------------------------------------------------------------------------- */
+const HEADER = {
+  company: 'Tesla, Inc.',
+  ticker: 'TSLA',
+  title: 'Cash generation',
+  legend: [
+    { label: 'Operating CF', color: '#3E8E84' },
+    { label: 'Free cash flow', color: '#B8812F' },
+    { label: 'Net income (right)', color: '#5B7CC0' },
+  ],
+}
+
 describe('exportPanelPng header', () => {
   // A fake <img> whose src setter resolves the decode (jsdom never fires onload).
   class FakeImage {
@@ -155,49 +173,55 @@ describe('exportPanelPng header', () => {
     vi.restoreAllMocks()
   })
 
+  const PLOT_W = 560
+
   function makeContainer(): HTMLElement {
     const container = document.createElement('div')
     container.style.backgroundColor = 'rgb(251, 250, 246)'
-    container.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'svg'))
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+    // jsdom reports a 0×0 rect; give it a realistic plot size so the footer/legend layout is real.
+    svg.getBoundingClientRect = () =>
+      ({ width: PLOT_W, height: 224, top: 0, left: 0, right: PLOT_W, bottom: 224, x: 0, y: 0, toJSON() {} }) as DOMRect
+    container.appendChild(svg)
     document.body.appendChild(container)
     return container
   }
 
-  it('draws the title and every legend label onto the export canvas', async () => {
-    const ok = await exportPanelPng(makeContainer(), 'x.png', {
-      dark: false,
-      header: {
-        title: 'Margins',
-        legend: [
-          { label: 'Gross', color: '#3E8E84' },
-          { label: 'Operating', color: '#B8812F' },
-          { label: 'Net', color: '#5B7CC0' },
-        ],
-      },
-    })
+  it('draws the company, ticker · metric subtitle, and every legend label', async () => {
+    const ok = await exportPanelPng(makeContainer(), 'x.png', { dark: false, header: HEADER })
     expect(ok).toBe(true)
-    expect(fillTexts).toContain('Margins')
-    expect(fillTexts).toContain('Gross')
-    expect(fillTexts).toContain('Operating')
-    expect(fillTexts).toContain('Net')
+    expect(fillTexts).toContain('Tesla, Inc.')
+    expect(fillTexts).toContain('TSLA · Cash generation')
+    expect(fillTexts).toContain('Operating CF')
+    expect(fillTexts).toContain('Free cash flow')
+    expect(fillTexts).toContain('Net income (right)')
     expect(downloadBlob).toHaveBeenCalledOnce()
   })
 
-  it('offsets the plot below the header strip', async () => {
-    await exportPanelPng(makeContainer(), 'x.png', {
-      dark: false,
-      header: { title: 'Margins', legend: [{ label: 'Gross', color: '#3E8E84' }] },
-    })
-    const drawImage = ctx.drawImage as ReturnType<typeof vi.fn>
-    // The plot is the drawImage call at x=0; its y must equal the reserved header height.
-    const plotCall = drawImage.mock.calls.find((c) => c[1] === 0)
-    expect(plotCall?.[2]).toBe(headerHeight(1))
+  it('stamps the EarningsNerd wordmark in the footer', async () => {
+    await exportPanelPng(makeContainer(), 'x.png', { dark: false, header: HEADER })
+    // Two-tone wordmark: "Earnings" (ink) + "Nerd" (sage), so the source is obvious.
+    expect(fillTexts).toContain('Earnings')
+    expect(fillTexts).toContain('Nerd')
   })
 
-  it('degrades to the bare plot (no header text) when no header is passed', async () => {
+  it('offsets the plot below the header strip', async () => {
+    await exportPanelPng(makeContainer(), 'x.png', { dark: false, header: HEADER })
+    const drawImage = ctx.drawImage as ReturnType<typeof vi.fn>
+    // The plot is the drawImage call at x=0; its y must equal the reserved header height for the
+    // legend as it actually wraps at this plot width (the export measures with the same stub).
+    const rows = layoutLegend((s) => s.length * 7, HEADER.legend, PLOT_W - 2 * HEADER_STAMP.padX)
+    const plotCall = drawImage.mock.calls.find((c) => c[1] === 0)
+    expect(plotCall?.[2]).toBe(headerHeight(rows.length))
+  })
+
+  it('degrades to the bare plot (no header identity) when no header is passed', async () => {
     const ok = await exportPanelPng(makeContainer(), 'x.png', { dark: true })
     expect(ok).toBe(true)
-    expect(fillTexts).toHaveLength(0)
+    // No company/metric/legend text — but the brand footer wordmark is still stamped.
+    expect(fillTexts).not.toContain('Tesla, Inc.')
+    expect(fillTexts).not.toContain('TSLA · Cash generation')
+    expect(fillTexts).toContain('Earnings')
     const drawImage = ctx.drawImage as ReturnType<typeof vi.fn>
     const plotCall = drawImage.mock.calls.find((c) => c[1] === 0)
     expect(plotCall?.[2]).toBe(0) // plot flush to the top — no header reserved
