@@ -9,7 +9,7 @@ import type { PerAdsValue } from '@/types/summary'
 
 // A type alias (not an interface) so it satisfies DataTable's
 // `T extends Record<string, unknown>` constraint via the implied index signature.
-type FinancialMetric = {
+export type FinancialMetric = {
   metric: string
   current_period: string
   prior_period: string
@@ -29,6 +29,10 @@ type FinancialMetric = {
 interface FinancialMetricsTableProps {
   metrics?: FinancialMetric[]
   notes?: string
+  // Embed mode (T2.4): render just the table (+ notes) without the wrapping Card / "Financial
+  // Highlights" header, because the structured page's section Card already supplies that title.
+  // Default false preserves the self-contained card for the standalone/legacy call sites.
+  bare?: boolean
 }
 
 const formatMetricValue = (value: string): string => {
@@ -52,7 +56,7 @@ const formatMetricValue = (value: string): string => {
   return fmtScale(numeric, { digits: 2 })
 }
 
-export default function FinancialMetricsTable({ metrics, notes }: FinancialMetricsTableProps) {
+export default function FinancialMetricsTable({ metrics, notes, bare = false }: FinancialMetricsTableProps) {
   if (!metrics || metrics.length === 0) {
     return null
   }
@@ -137,22 +141,39 @@ export default function FinancialMetricsTable({ metrics, notes }: FinancialMetri
     },
   ]
 
+  const table = (
+    <DataTable
+      columns={columns}
+      rows={metrics}
+      rowKey={(row, index) => `${row.metric}-${index}`}
+      caption={
+        hasComparatives
+          ? 'Financial highlights: current period, prior period, change, and investor takeaway per metric'
+          : 'Financial highlights: current period and investor takeaway per metric'
+      }
+      className="px-2"
+    />
+  )
+
+  // Embedded in a structured-page section Card — no wrapping Card / header (that would double the
+  // "Financial Highlights" title). Notes render as a plain trailing paragraph instead of a footer.
+  if (bare) {
+    return (
+      <>
+        {table}
+        {notes && (
+          <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">{notes}</p>
+        )}
+      </>
+    )
+  }
+
   return (
     <Card className="overflow-hidden">
       <CardHeader>
         <CardTitle>Financial Highlights</CardTitle>
       </CardHeader>
-      <DataTable
-        columns={columns}
-        rows={metrics}
-        rowKey={(row, index) => `${row.metric}-${index}`}
-        caption={
-          hasComparatives
-            ? 'Financial highlights: current period, prior period, change, and investor takeaway per metric'
-            : 'Financial highlights: current period and investor takeaway per metric'
-        }
-        className="px-2"
-      />
+      {table}
       {notes && (
         <CardFooter>
           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{notes}</p>

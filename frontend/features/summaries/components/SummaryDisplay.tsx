@@ -10,10 +10,10 @@ import type { Filing } from '@/features/filings/api/filings-api'
 import { getWhatChanged, type Summary } from '@/features/summaries/api/summaries-api'
 import { WhatChanged } from '@/features/filings/components/WhatChanged'
 import AskFilingCallout from '@/features/filings/components/copilot/AskFilingCallout'
-import FinancialMetricsTable from '@/features/summaries/components/FinancialMetricsTable'
+import { SummaryBlocks } from '@/features/summaries/components/SummaryBlocks'
 import { ChartErrorBoundary } from '@/components/ChartErrorBoundary'
 import { Button } from '@/components/ui/Button'
-import { Badge, Card, CardHeader, CardTitle, CardBody, GuidanceCard, Skeleton, SkeletonText } from '@/components/ui'
+import { Badge, Card, CardBody, GuidanceCard } from '@/components/ui'
 import { FileTextIcon, SparkleIcon } from '@/lib/icons'
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
 import { stripLeadingExecutiveHeading } from '@/lib/stripLeadingExecutiveHeading'
@@ -33,11 +33,6 @@ const FundamentalsTrendChart = dynamic(
   () => import('@/features/fundamentals/components/FundamentalsTrendChart'),
   { ssr: false },
 )
-
-const SummarySections = dynamic(() => import('@/features/summaries/components/SummarySections'), {
-  ssr: false,
-  loading: () => <SummarySectionsSkeleton />,
-})
 
 // P0-2 badge de-escalation (data-quality plan, safeguard #5): the XBRL literal-grounding check
 // is a heuristic — when it is the ONLY partial reason, render neutral wording instead of an
@@ -112,16 +107,12 @@ export function SummaryDisplay({
 
   const isError = Boolean(writerError) || isFallbackMessage || (!hasPolishedMarkdown && trimmedMarkdown.length === 0)
 
+  // T2: the single structured projection the page renders (metrics, risks-with-provenance, prose,
+  // tables — one home per number). Computed on read by the backend from the enriched raw_summary.
+  const renderedSections = summary.rendered_sections ?? []
+  const hasSections = renderedSections.length > 0
+
   interface MetadataSections {
-    financial_highlights?: {
-      table?: Array<{
-        metric: string
-        current_period: string
-        prior_period: string
-        commentary?: string
-      }>
-      notes?: string
-    }
     action_items?: string[]
     [key: string]: unknown
   }
@@ -160,44 +151,46 @@ export function SummaryDisplay({
         />
       ) : (
         <>
-          {hasPolishedMarkdown && (
+          {/* Summary header: title + honest quality badge + Pro Regenerate affordance. The body is
+              the structured page below (T2) — a number has exactly one home there, so no leading
+              markdown card or duplicate metrics table renders anymore. */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <FileTextIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
+              <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">Summary</h2>
+              {/* S4 quality badge: honest signal of full vs partial output. Suppressed in demo mode
+                  so a first-time visitor never meets "Partial" on the curated example (plan 1.3). */}
+              {!demoMode && ENABLE_QUALITY_BADGE && quality?.tier && (
+                <Badge
+                  variant={quality.tier === 'full' ? 'brand' : 'warning'}
+                  title={quality.reasons && quality.reasons.length ? quality.reasons.join('; ') : undefined}
+                >
+                  {quality.tier === 'full' ? 'Full summary' : partialBadgeLabel(quality.reasons)}
+                </Badge>
+              )}
+            </div>
+            {/* Pro-only force-regeneration (backend gates it to Pro); hidden in demo mode. */}
+            {!demoMode && isPro && (isPartial || writerFallback || isPartialQuality) && onRetry && (
+              <Button variant="secondary" onClick={onRetry}>
+                Regenerate Analysis
+              </Button>
+            )}
+          </div>
+
+          {/* The ONE structured surface (T2): render_sections projection → per-section Cards + a
+              sticky TOC. A legacy summary that produced no structured sections falls back to the
+              derived markdown (belt-and-suspenders for the corpus-refresh cutover). */}
+          {hasSections ? (
+            <SummaryBlocks sections={renderedSections} summary={summary} />
+          ) : hasPolishedMarkdown ? (
             <Card as="section" className="overflow-hidden">
-              {/* ONE header (T1.7): the DS CardTitle replaces the old h2 + the backend's leading
-                  "## Executive Summary" H2 (stripped from cleanedMarkdown above). */}
-              <CardHeader className="justify-between">
-                <div className="flex items-center gap-2">
-                  <FileTextIcon className="h-5 w-5 text-brand-strong dark:text-brand-strong-dark" />
-                  <CardTitle>Summary</CardTitle>
-                  {/* S4 quality badge: honest signal of full vs partial output.
-                      Suppressed in demo mode so a first-time visitor never meets "Partial" on the
-                      curated example (plan item 1.3) — the badge still shows on user-chosen filings. */}
-                  {!demoMode && ENABLE_QUALITY_BADGE && quality?.tier && (
-                    <Badge
-                      variant={quality.tier === 'full' ? 'brand' : 'warning'}
-                      title={quality.reasons && quality.reasons.length ? quality.reasons.join('; ') : undefined}
-                    >
-                      {quality.tier === 'full' ? 'Full summary' : partialBadgeLabel(quality.reasons)}
-                    </Badge>
-                  )}
-                </div>
-                {/* Regenerate button - shown for partial results or fallback summaries. Pro-only:
-                    force-regeneration deletes the shared summary + triggers a paid LLM run, so the
-                    backend gates it to Pro (see summaries.generate_summary_stream). Hidden for
-                    non-Pro to avoid a 403. Error-retry (no summary yet) uses a different affordance
-                    and stays open to all. Suppressed in demo mode (curated example). */}
-                {!demoMode && isPro && (isPartial || writerFallback || isPartialQuality) && onRetry && (
-                  <Button variant="secondary" onClick={onRetry}>
-                    Regenerate Analysis
-                  </Button>
-                )}
-              </CardHeader>
               <CardBody className="markdown-body text-text-secondary-light dark:text-text-secondary-dark">
                 <ReactMarkdown remarkPlugins={[remarkGfm]}>
                   {cleanedMarkdown}
                 </ReactMarkdown>
               </CardBody>
             </Card>
-          )}
+          ) : null}
 
           {/* Turn the just-finished read into the next action — placed high, directly under the
               summary (T1.7 defect f). */}
@@ -221,20 +214,6 @@ export function SummaryDisplay({
               />
             </ChartErrorBoundary>
           )}
-
-          {/* Financial Metrics Table */}
-          {metadata?.financial_highlights?.table && Array.isArray(metadata.financial_highlights.table) && (
-            <FinancialMetricsTable
-              metrics={metadata.financial_highlights.table}
-              notes={metadata.financial_highlights.notes}
-            />
-          )}
-
-          {/* Structured Summary with Tabs */}
-          <SummarySections
-            summary={summary}
-            metrics={metadata?.financial_highlights?.table}
-          />
 
           {/* Web/PDF parity (audit): the exported PDF of this summary carries a disclaimer —
               the on-page surface must too, not just the global footer. */}
@@ -276,17 +255,6 @@ export function SummaryDisplay({
           </pre>
         </section>
       )}
-    </div>
-  )
-}
-
-function SummarySectionsSkeleton() {
-  return (
-    // SkeletonText carries its own role="status" — the wrapper must stay
-    // role-less so live regions never nest.
-    <div className="bg-panel-light dark:bg-panel-dark rounded-xl shadow-e2 dark:shadow-none border border-border-light dark:border-white/10 p-6 space-y-4">
-      <Skeleton className="h-4 w-32" />
-      <SkeletonText lines={3} />
     </div>
   )
 }

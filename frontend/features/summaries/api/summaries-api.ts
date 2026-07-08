@@ -1,7 +1,49 @@
 import api, { getApiUrl } from '@/lib/api/client'
-import type { FinancialHighlights, RiskFactor } from '@/types/summary'
+import type { FinancialHighlights, MetricItem, RiskFactor } from '@/types/summary'
 import { isApiError, getErrorStatus } from '@/lib/api/types'
 import posthog from 'posthog-js'
+
+// --- Structured content projection (T2) ---------------------------------------------------------
+// `rendered_sections` mirrors the backend's single source of truth
+// (backend/app/services/summary_sections.py::render_sections -> Section.to_dict). It is the ONE
+// projection the web renders — the same Section/Block list that feeds the PDF and CSV — so the
+// three surfaces can never diverge. Computed on read from the ENRICHED raw_summary, so metric rows
+// carry the server-computed deltas + provenance and risks carry their source traces.
+
+// A `metrics` block's typed rows: MetricItem plus the server-computed delta cells (rule-12
+// single-source — rendered verbatim, no client math). Shape matches FinancialMetricsTable's
+// FinancialMetric so it feeds that component directly.
+export type RenderedMetricRow = MetricItem & {
+  change_display?: string | null
+  change_direction?: 'up' | 'down' | 'flat' | null
+  change_tone?: 'gain' | 'loss' | 'flat' | null
+}
+
+// Optional anchored citation for a block/claim; populated in Tier 4, ignored before then.
+export interface BlockEvidence {
+  excerpt?: string
+  section_ref?: string
+  verified?: boolean
+  fragment_url?: string
+}
+
+export type RenderedBlock = {
+  kind: 'paragraph' | 'subheading' | 'quote' | 'bullets' | 'table' | 'metrics' | 'callout'
+  text?: string
+  speaker?: string
+  label?: string
+  items?: string[]
+  headers?: string[]
+  rows?: string[][]
+  metric_rows?: RenderedMetricRow[]
+  evidence?: BlockEvidence
+}
+
+export interface RenderedSection {
+  id: string
+  title: string
+  blocks: RenderedBlock[]
+}
 
 // Forwarded with the stream request so server-side funnel events
 // (generation_started/succeeded/failed/timed_out) attach to the same PostHog
@@ -46,6 +88,9 @@ export interface Summary {
     }
     [key: string]: unknown
   } | null
+  // Structured Section/Block projection of the enriched raw_summary (T2). The ONE surface the web
+  // renders; null on the empty-summary fallback, [] when a summary has no renderable sections.
+  rendered_sections?: RenderedSection[] | null
 }
 
 export interface SummaryProgressData {

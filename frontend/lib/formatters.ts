@@ -70,19 +70,6 @@ export const parseExecutiveSnapshot = (value: unknown): ExecutiveSnapshot | null
   }
 }
 
-export const getAccordionContent = (value: unknown): string | null => {
-  if (value === null || value === undefined) {
-    return null
-  }
-
-  const rendered = renderMarkdownValue(value)
-  if (!rendered) {
-    return null
-  }
-
-  return rendered.trim().length > 0 ? rendered : null
-}
-
 export const formatEvidence = (value: unknown): string => {
   if (!value) return ''
   if (Array.isArray(value)) {

@@ -9,14 +9,6 @@
  */
 
 /**
- * Enable tabbed section UI (Executive Summary, Financials, Risks, etc.)
- * When false, displays a single unified markdown summary view
- * Default: false (simplified view)
- */
-export const ENABLE_SECTION_TABS =
-  process.env.NEXT_PUBLIC_ENABLE_SECTION_TABS === 'true'
-
-/**
  * Enable financial charts (Revenue, Net Income visualizations)
  * When false, charts are hidden from the UI
  * Default: false (charts hidden)
