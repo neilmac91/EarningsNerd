@@ -1,3 +1,37 @@
+# Task: Hide Search product + refresh footer products (2026-07-08, branch claude/earningsnerd-homepage-products-vbwnry)
+
+Founder request: hide the full-text Search offering from the site (weakest offering; may reintroduce
+later) and make the footer "Product" column show only products users can actually reach.
+
+Decisions (confirmed with founder):
+- Hide Search via a feature flag that ALSO 404s the /search route — same pattern as Analysis/Calendar.
+- Footer "Product" column = live products only: Analysis, Calendar (each flag-gated, mirroring the
+  nav), plus Pricing. Drops the hidden "Search Filings" and the two ALREADY-DEAD anchors
+  ("Hot Filings" → #hot-filings has no such element; "Trending" → #trending only renders when the
+  off-by-default ENABLE_MARKET_MOVERS flag is on).
+
+## Changes
+- [x] `lib/featureFlags.ts`: add `ENABLE_FULLTEXT_SEARCH` (default OFF; reintroduce by flipping env).
+- [x] `components/Header.tsx`: gate the `/search` nav entry on `ENABLE_FULLTEXT_SEARCH` (desktop +
+      mobile share `NAV_LINKS`, so one change covers both). Remaining nav rebalances automatically
+      (flex `gap-8`) — no layout change needed.
+- [x] `app/search/layout.tsx` (new): 404 the route when the flag is off (mirror `app/analysis/layout.tsx`).
+- [x] `components/Footer.tsx`: rebuild the `Product` column flag-aware (Analysis, Calendar, Pricing);
+      remove Search Filings + dead Hot Filings/Trending links. Server component → reads flags directly.
+- [x] `tests/unit/search-route-hidden.spec.tsx` (new): lock route 404-when-off / renders-when-on
+      (mirror `analysis-route-hidden.spec.tsx`) — rule 12 gate for the "Search is hidden" rule.
+- [x] `tests/unit/Footer.spec.tsx` (new): lock "no /search link" + Product column reflects flags.
+
+## Verify
+- [x] `npm run lint` (0 warnings) · `npx tsc -p tsconfig.ci.json` (0) · `npm run test -- --run`
+      (390 passed) · `npm run build` (OK; /search prerenders as 404 while off, like /analysis).
+- [x] Visual check of header + footer in both themes (Playwright): nav = Analysis/Calendar/Pricing/
+      Contact (Search gone, balanced); footer Product = Analysis/Calendar/Pricing. `/search` → 404.
+- [x] Grep sweep: no other source reference to the /search route; no e2e hits it; component-level
+      full-text-search.spec is route-independent and unaffected.
+
+---
+
 # Task: Dashboard Improvement Plan — launch tier (2026-07-07, branch claude/serene-mendel-8ju9kj)
 
 Spec: `docs/dashboard-improvement-plan.md` §2, §3, §6 (Quick wins + Pre-beta polish). Out of scope:

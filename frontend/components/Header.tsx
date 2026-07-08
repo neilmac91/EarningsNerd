@@ -10,14 +10,15 @@ import UserMenu from '@/features/auth/components/UserMenu'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { getCurrentUserSafe, logout } from '@/features/auth/api/auth-api'
-import { ENABLE_ANALYSIS, ENABLE_CALENDAR } from '@/lib/featureFlags'
+import { ENABLE_ANALYSIS, ENABLE_CALENDAR, ENABLE_FULLTEXT_SEARCH } from '@/lib/featureFlags'
 import { buttonVariants, Skeleton } from '@/components/ui'
 import { queryKeys } from '@/lib/queryKeys'
 
 const NAV_LINKS = [
-  { href: '/search', label: 'Search' },
-  // Flag-gated: the /analysis and /calendar routes 404 while their flags are off, so the nav
-  // entries appear only when the features go live.
+  // Flag-gated: /search, /analysis and /calendar all 404 while their flags are off, so the nav
+  // entries appear only when the features are live. Search ships hidden (founder decision — see
+  // ENABLE_FULLTEXT_SEARCH); flip the flag to reintroduce it.
+  ...(ENABLE_FULLTEXT_SEARCH ? [{ href: '/search', label: 'Search' }] : []),
   ...(ENABLE_ANALYSIS ? [{ href: '/analysis', label: 'Analysis' }] : []),
   ...(ENABLE_CALENDAR ? [{ href: '/calendar', label: 'Calendar' }] : []),
   { href: '/pricing', label: 'Pricing' },

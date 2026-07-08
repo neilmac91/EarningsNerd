@@ -1,12 +1,19 @@
 import Link from 'next/link'
 import EarningsNerdLogo from '@/components/EarningsNerdLogo'
+import { ENABLE_ANALYSIS, ENABLE_CALENDAR } from '@/lib/featureFlags'
 
-const FOOTER_LINKS = {
+type FooterLink = { label: string; href: string }
+
+// Product column mirrors the nav's live products: only surfaces a user can actually reach. Analysis
+// and Calendar are flag-gated (their routes 404 while off, same as the nav entries); Pricing is
+// always live. Full-text search is intentionally absent (ENABLE_FULLTEXT_SEARCH — hidden product),
+// and the old "Hot Filings" (#hot-filings, no such anchor) and "Trending" (#trending, only renders
+// under the off-by-default ENABLE_MARKET_MOVERS flag) links were dead and have been dropped.
+const FOOTER_LINKS: Record<string, FooterLink[]> = {
   Product: [
-    { label: 'Search Filings', href: '/search' },
+    ...(ENABLE_ANALYSIS ? [{ label: 'Analysis', href: '/analysis' }] : []),
+    ...(ENABLE_CALENDAR ? [{ label: 'Calendar', href: '/calendar' }] : []),
     { label: 'Pricing', href: '/pricing' },
-    { label: 'Hot Filings', href: '/#hot-filings' },
-    { label: 'Trending', href: '/#trending' },
   ],
   Resources: [
     { label: 'Contact', href: '/contact' },
@@ -16,7 +23,7 @@ const FOOTER_LINKS = {
     { label: 'Terms', href: '/terms' },
     { label: 'Security', href: '/security' },
   ],
-} as const
+}
 
 const CURRENT_YEAR = new Date().getFullYear()
 
