@@ -19,11 +19,13 @@ export interface Filing {
 // Filing APIs
 export const getCompanyFilings = async (
   ticker: string,
-  filingTypes?: string
+  filingTypes?: string,
+  limit?: number
 ): Promise<Filing[]> => {
-  const response = await api.get(`/api/filings/company/${ticker}`, {
-    params: filingTypes ? { filing_types: filingTypes } : {},
-  })
+  const params: Record<string, string | number> = {}
+  if (filingTypes) params.filing_types = filingTypes
+  if (limit) params.limit = limit
+  const response = await api.get(`/api/filings/company/${ticker}`, { params })
   return response.data
 }
 

@@ -31,11 +31,12 @@ on:
           - repair-ticker-dry-run
           - repair-ticker-apply
           - sync-companyfacts
+          - backfill-filing-history
           - reset-filing-summary-dry-run
           - reset-filing-summary-apply
           - rollback-traffic
       tickers:
-        description: 'Comma-separated tickers (sync-companyfacts); a SINGLE ticker for reset-filing-summary'
+        description: 'Comma-separated tickers (sync-companyfacts / backfill-filing-history); a SINGLE ticker for reset-filing-summary'
         required: false
         default: ''
       revision:
@@ -83,7 +84,7 @@ jobs:
             REVISION=$(python3 -c "import json; print(json.load(open('ops/requests/current.json')).get('revision',''))")
           fi
           case "$OP" in
-            describe-service|describe-jobs|detection-sql|logs-probe|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|sync-companyfacts|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
+            describe-service|describe-jobs|detection-sql|logs-probe|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|sync-companyfacts|backfill-filing-history|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
             *) echo "::error::unknown operation '$OP'"; exit 1 ;;
           esac
           case "$OP" in
@@ -93,6 +94,15 @@ jobs:
               # Spec P0-3: resync in bounded batches.
               COUNT=$(echo "$TICKERS" | tr ',' '\n' | wc -l)
               [ "$COUNT" -le 50 ] || { echo "::error::max 50 tickers per dispatch"; exit 1; }
+              ;;
+            backfill-filing-history)
+              # tickers OPTIONAL (empty => watchlist cohort); when given, a comma-separated list ≤50.
+              if [ -n "$TICKERS" ]; then
+                [[ "$TICKERS" =~ ^[A-Za-z0-9.-]+(,[A-Za-z0-9.-]+)*$ ]] \
+                  || { echo "::error::tickers must be a comma-separated symbol list"; exit 1; }
+                COUNT=$(echo "$TICKERS" | tr ',' '\n' | wc -l)
+                [ "$COUNT" -le 50 ] || { echo "::error::max 50 tickers per dispatch"; exit 1; }
+              fi
               ;;
             reset-filing-summary-dry-run|reset-filing-summary-apply)
               # Per-filing (NOT reset-all): require a SINGLE ticker, no comma-separated list.
@@ -296,6 +306,38 @@ jobs:
             gcloud run jobs execute "$JOBS_CHANNEL_JOB" --region="$REGION" \
               --args="^;^scripts/sync_companyfacts.py;--tickers;${TICKERS};--force" --wait
             echo "resync COMPLETED via jobs channel for: $TICKERS"
+          fi
+
+      - name: Trigger filing-history backfill (internal endpoint; jobs-channel fallback)
+        if: steps.request.outputs.operation == 'backfill-filing-history'
+        run: |
+          set -euo pipefail
+          TICKERS="${{ steps.request.outputs.tickers }}"
+          TOKEN="$(gcloud secrets versions access latest --secret=INTERNAL_JOB_TOKEN 2>/dev/null || true)"
+          if [ -n "$TOKEN" ]; then
+            echo "::add-mask::$TOKEN"
+            if [ -n "$TICKERS" ]; then
+              PAYLOAD=$(python3 -c "import json,sys; print(json.dumps({'tickers': sys.argv[1].split(',')}))" "$TICKERS")
+            else
+              PAYLOAD='{"watchlist_only": true}'
+            fi
+            curl -fsS -X POST "https://api.earningsnerd.io/internal/jobs/backfill-filing-history" \
+              -H "X-Internal-Token: ${TOKEN}" -H "Content-Type: application/json" \
+              -d "$PAYLOAD"
+            echo ""
+            echo "backfill-filing-history ACCEPTED via internal endpoint for: ${TICKERS:-watchlist} (runs in the service background)"
+          else
+            echo "INTERNAL_JOB_TOKEN not accessible to this SA — using the documented jobs channel."
+            if [ -n "$TICKERS" ]; then
+              # ^;^ switches gcloud's --args delimiter to ';' so the comma-separated ticker LIST
+              # survives as a single --tickers value.
+              gcloud run jobs execute "$JOBS_CHANNEL_JOB" --region="$REGION" \
+                --args="^;^scripts/backfill_filing_history.py;--tickers;${TICKERS}" --wait
+            else
+              gcloud run jobs execute "$JOBS_CHANNEL_JOB" --region="$REGION" \
+                --args="scripts/backfill_filing_history.py,--watchlist-only" --wait
+            fi
+            echo "backfill-filing-history COMPLETED via jobs channel for: ${TICKERS:-watchlist}"
           fi
 
       - name: Reset a single filing's summary (per-filing regen; jobs channel)

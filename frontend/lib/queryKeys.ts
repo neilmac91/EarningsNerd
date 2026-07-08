@@ -56,6 +56,6 @@ export const queryKeys = {
   summaryProgress: (filingId: string | number) => ['summary-progress', filingId] as const,
   whatChanged: (filingId: string | number) => ['what-changed', filingId] as const,
   company: (ticker: string) => ['company', ticker] as const,
-  companyFilings: (ticker: string) => ['filings', ticker] as const,
+  companyFilings: (ticker: string, limit?: number) => ['filings', ticker, limit ?? null] as const,
   companies: (query: string) => ['companies', query] as const,
 } as const

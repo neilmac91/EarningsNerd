@@ -52,6 +52,12 @@ def _mark_filings_synced(ticker: str, types_list: List[str]) -> None:
 # upsert). Cleared in the refresh's finally.
 _refreshing_keys: set = set()
 
+# In-flight guard for the on-visit deep-history backfill (P1-6). Same rationale as _refreshing_keys:
+# a burst of concurrent first-visits to a cold company would otherwise each fire a full multi-window
+# EFTS walk before the first one stamps history_backfilled_at. Keyed by company id; check-and-add is
+# synchronous (no await between), so it collapses the burst to one walk per company per process.
+_history_backfilling_ids: set = set()
+
 
 async def _refresh_company_filings(
     cik: str, ticker_upper: str, types_list: List[str], company_id: int
@@ -91,6 +97,29 @@ async def _refresh_company_filings(
     finally:
         db.close()
         _refreshing_keys.discard(key)
+
+
+async def _run_history_backfill_on_visit(company_id: int) -> None:
+    """Best-effort one-time deep-history backfill for a company on first view (P1-6). Opens its own
+    short-lived session (the request session is already closed), collapses concurrent first-visits
+    with an in-flight guard (a full walk hasn't stamped the company yet, so the stamp re-check alone
+    can't dedupe a burst), and never raises — the user was already served whatever rows exist."""
+    if company_id in _history_backfilling_ids:
+        return  # a backfill for this company is already in flight in this process
+    _history_backfilling_ids.add(company_id)
+    db = SessionLocal()
+    try:
+        company = db.get(Company, company_id)
+        if company is None or company.history_backfilled_at is not None:
+            return  # already backfilled by a prior visit
+        from app.services import filing_history_service
+        await filing_history_service.backfill_company(db, company)
+    except Exception:
+        logger.warning("On-visit history backfill failed for company %s", company_id, exc_info=True)
+        db.rollback()
+    finally:
+        db.close()
+        _history_backfilling_ids.discard(company_id)
 
 
 router = APIRouter()
@@ -143,6 +172,7 @@ async def get_company_filings(
     ticker: str,
     background: BackgroundTasks,
     filing_types: Optional[str] = Query(None, description="Comma-separated filing types (e.g., '10-K,10-Q')"),
+    limit: Optional[int] = Query(None, ge=1, le=500, description="Max filings to return; default serves the recent cap"),
     db: Session = Depends(get_db)
 ):
     """Get filings for a company.
@@ -200,11 +230,21 @@ async def get_company_filings(
     # Helper to get cached filings from database. joinedload(company) so FilingResponse.from_orm
     # doesn't lazy-load the company per row (this is now the primary serving path, not just fallback).
     def get_cached_filings() -> List[FilingResponse]:
+        # Default serves the recent cap (unchanged behaviour); an explicit ?limit= (P1-6 "show full
+        # history") raises it so the deep-backfilled rows surface.
+        row_cap = limit or CACHED_FILINGS_LIMIT
         cached = db.query(Filing).options(joinedload(Filing.company)).filter(
             Filing.company_id == company.id,
             Filing.filing_type.in_(types_list)
-        ).order_by(Filing.filing_date.desc()).limit(CACHED_FILINGS_LIMIT).all()
+        ).order_by(Filing.filing_date.desc()).limit(row_cap).all()
         return [FilingResponse.from_orm(f) for f in cached]
+
+    # P1-6: enqueue a one-time deep-history backfill the first time this company is viewed. Guarded
+    # by the stamp so it never re-walks a company; runs in the background so the page never waits on
+    # the EFTS round-trips. Serving still uses whatever rows exist now; the backfill surfaces on the
+    # next full-history fetch.
+    if settings.ENABLE_HISTORY_BACKFILL_ON_VISIT and company.history_backfilled_at is None:
+        background.add_task(_run_history_backfill_on_visit, company.id)
 
     # B2 fast path: a recently-synced ticker serves its list from the DB (already populated by a
     # prior live fetch) without the 3-5s SEC round-trip. Falls through to the DB-first / live paths

@@ -57,6 +57,9 @@ _ADDITIVE_COLUMNS: list[tuple[str, str, str]] = [
     # Per-company earnings-day alert opt-in (strategy §3.7). Prod has no Alembic, so an existing
     # watchlist table gets this column added at startup (create_all won't ALTER it).
     ("watchlist", "earnings_alert", "BOOLEAN NOT NULL DEFAULT FALSE"),
+    # Deep filing-history backfill stamp (P1-6): an existing companies table self-heals this
+    # column at startup so the on-visit backfill guard works before the migration runs.
+    ("companies", "history_backfilled_at", "TIMESTAMPTZ"),
 ]
 
 
