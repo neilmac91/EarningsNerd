@@ -2,6 +2,29 @@ import type { RiskFactor } from '@/types/summary'
 
 const evidenceKeys = ['excerpt', 'text', 'quote', 'source', 'reference', 'tag', 'xbrl_tag', 'xbrlTag', 'citation']
 
+// Mirrors backend summary_sections.PLACEHOLDER_PATTERNS: "data unavailable" filler the page hides.
+const PLACEHOLDER_PATTERNS = [
+  'not available',
+  'unavailable',
+  'n/a',
+  'retry',
+  'requires full',
+  'data pending',
+  'being processed',
+  'taking longer',
+  'preliminary',
+  'placeholder',
+  'available in the full',
+]
+
+/** True for non-strings, empties, or "data unavailable" filler — content the page must not show. */
+export const isPlaceholderText = (text: string | undefined | null): boolean => {
+  if (!text || typeof text !== 'string') return true
+  const lowered = text.toLowerCase().trim()
+  if (lowered.length === 0) return true
+  return PLACEHOLDER_PATTERNS.some((pattern) => lowered.includes(pattern))
+}
+
 export const renderMarkdownValue = (value: unknown): string => {
   if (value === null || value === undefined) {
     return ''
@@ -68,19 +91,6 @@ export const parseExecutiveSnapshot = (value: unknown): ExecutiveSnapshot | null
     tone: asTrimmedString(obj.tone),
     sourceSectionRef: asTrimmedString(obj.source_section_ref),
   }
-}
-
-export const getAccordionContent = (value: unknown): string | null => {
-  if (value === null || value === undefined) {
-    return null
-  }
-
-  const rendered = renderMarkdownValue(value)
-  if (!rendered) {
-    return null
-  }
-
-  return rendered.trim().length > 0 ? rendered : null
 }
 
 export const formatEvidence = (value: unknown): string => {

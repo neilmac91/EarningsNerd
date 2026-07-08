@@ -83,6 +83,8 @@ class SummaryResponse(BaseModel):
     management_discussion: Optional[str]
     key_changes: Optional[str]
     raw_summary: Optional[dict]
+    # The structured Section/Block projection the web renders (T2.3). Same model feeds PDF/CSV.
+    rendered_sections: Optional[list] = None
     # Version stamps: NULL on legacy/pre-stamp rows (treated as stale by the refresh path).
     schema_version: Optional[int] = None
     prompt_version: Optional[str] = None

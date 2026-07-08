@@ -28,9 +28,6 @@ const nextConfig = {
     // Deploy target (production/preview/development) for Sentry environment tagging.
     NEXT_PUBLIC_SENTRY_ENVIRONMENT:
       process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || process.env.VERCEL_ENV || process.env.NODE_ENV || 'development',
-    // Feature flags for UI simplification
-    // Set to 'true' to enable legacy tabbed UI, 'false' for simplified single-view
-    NEXT_PUBLIC_ENABLE_SECTION_TABS: process.env.NEXT_PUBLIC_ENABLE_SECTION_TABS || 'false',
     // Set to 'true' to show financial charts, 'false' to hide them
     NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS: process.env.NEXT_PUBLIC_ENABLE_FINANCIAL_CHARTS || 'false',
   },

@@ -30,6 +30,7 @@ from app.services.ai.extraction import _ExtractionMixin
 from app.services.ai.json_repair import _JsonRepairMixin
 from app.services.ai.markdown_render import _MarkdownRenderMixin
 from app.services.ai.section_recovery import _SectionRecoveryMixin
+from app.services.summary_sections import render_sections, sections_to_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -820,7 +821,15 @@ Rules:
         writer_result = None
         writer_error: Optional[str] = None
         writer_fallback_reason: Optional[str] = None
-        final_markdown = self._build_structured_markdown(structured_summary)
+        # T2.2: derive business_overview from the ONE projection (summary_sections.render_sections) so
+        # the web markdown, PDF and CSV can never diverge. _build_structured_markdown is retained only
+        # as a fallback for the rare empty-sections case (thin/degraded summaries), where render_sections
+        # produces nothing to flatten.
+        rendered = render_sections(structured_summary)
+        final_markdown = (
+            sections_to_markdown(rendered) if rendered
+            else self._build_structured_markdown(structured_summary)
+        )
 
         raw_summary_payload = {
             "structured": structured_summary,
