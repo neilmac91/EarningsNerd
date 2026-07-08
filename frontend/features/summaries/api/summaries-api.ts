@@ -43,6 +43,10 @@ export interface RenderedSection {
   id: string
   title: string
   blocks: RenderedBlock[]
+  /** Stable machine role for specially-rendered sections (e.g. 'risks'); preferred over slug matching. */
+  role?: string
+  /** Management's disclosed/outlook sentiment, rendered as a Badge (T1.2 treatment), not prose. */
+  tone?: string
 }
 
 // Forwarded with the stream request so server-side funnel events

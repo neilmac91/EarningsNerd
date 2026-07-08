@@ -110,8 +110,69 @@ def test_sections_to_markdown_is_clean_gfm_with_no_scaffolding_leaks():
     # No field-name scaffolding leaks the old flatteners produced.
     for leak in ("- Guidance:", "Guidance:", "- Tone:", "Tone:", "(Evidence:", "Key Points:", "Headline:"):
         assert leak not in md
-    # Tone is rendered as prose, not a raw "tone" field.
-    assert "confident" in md.lower()
+    # Tone is a Section Badge (T1.2 treatment), NOT a prose sentence — so it must not pollute the
+    # derived markdown (which leads the homepage-hero excerpt).
+    assert "disclosed tone" not in md.lower()
+    assert "outlook tone" not in md.lower()
+
+
+def test_tone_rides_on_the_section_as_a_badge_not_prose():
+    raw = _raw({
+        "executive_snapshot": {"headline": "Record quarter.", "tone": "Confident"},
+        "guidance_outlook": {"guidance": "Sequential growth expected.", "tone": "positive"},
+    })
+    sections = render_sections(raw)
+    exec_section = next(s for s in sections if s.title == "Executive Assessment")
+    outlook = next(s for s in sections if s.title == "Forward Outlook & Investment Implications")
+    assert exec_section.tone == "confident"
+    assert outlook.tone == "positive"
+    # No block carries the old "tone was ..." sentence.
+    assert all("tone was" not in (b.text or "").lower() for b in exec_section.blocks)
+    # A neutral tone is suppressed entirely (schema field name, not user copy).
+    neutral = render_sections(_raw({"executive_snapshot": {"headline": "Flat.", "tone": "neutral"}}))
+    assert next(s for s in neutral if s.title == "Executive Assessment").tone == ""
+
+
+def test_risks_section_carries_an_explicit_role():
+    raw = _raw({
+        "risk_factors": [
+            {"title": "Supply", "description": "Concentrated foundry reliance.",
+             "supporting_evidence": "Item 1A: dependent on TSMC."},
+        ],
+    })
+    risks = next(s for s in render_sections(raw) if s.title == "Investment Risks & Concerns")
+    assert risks.role == "risks"
+    assert risks.to_dict()["role"] == "risks"
+
+
+def test_inline_markdown_is_stripped_at_the_projection():
+    # The model is primed to emit markdown inside JSON string fields; the structured page renders raw
+    # text, so inline markup is normalized ONCE here so every surface agrees.
+    raw = _raw({
+        "executive_snapshot": {
+            "headline": "Revenue **surged** 85% on `AI` demand, see [outlook](http://x.co).",
+            "key_points": ["Margin *expanded* to 74.9%"],
+        },
+        "financial_highlights": {
+            "table": [{"metric": "Revenue", "current_period": "$81.6B", "prior_period": "$44.1B",
+                       "commentary": "Driven by **data-center** growth."}],
+        },
+    })
+    sections = render_sections(raw)
+    exec_section = next(s for s in sections if s.title == "Executive Assessment")
+    headline = exec_section.blocks[0].text
+    assert headline == "Revenue surged 85% on AI demand, see outlook."
+    bullets = next(b for b in exec_section.blocks if b.kind == "bullets")
+    assert bullets.items[0] == "Margin expanded to 74.9%"
+    # Both the string projection (exports) and the typed metric_rows (web) are normalized.
+    fh = next(s for s in sections if s.title == "Financial Highlights")
+    metrics = next(b for b in fh.blocks if b.kind == "metrics")
+    assert metrics.rows[0][4] == "Driven by data-center growth."
+    assert metrics.metric_rows[0]["commentary"] == "Driven by data-center growth."
+    # And the derived markdown carries no stray markup either.
+    md = sections_to_markdown(sections)
+    for artifact in ("**", "`AI`", "](http"):
+        assert artifact not in md
 
 
 def test_get_response_includes_rendered_sections_computed_post_enrichment():

@@ -47,10 +47,32 @@ def is_placeholder(text: Any) -> bool:
     return any(pattern in lowered for pattern in PLACEHOLDER_PATTERNS)
 
 
+# Model prose can carry INLINE markdown: the analyst prompt is markdown-first ("YOU PRODUCE A
+# SINGLE, COHESIVE MARKDOWN SUMMARY") and demonstrates **bold** in its own examples, so the model is
+# primed to emit it inside JSON string fields too. Every prior web path fed those strings through
+# ReactMarkdown, which silently beautified them; the structured page renders raw text nodes, so the
+# same string would show literal "**Revenue**" on the page while rendering bold in the derived
+# markdown and raw in the CSV — three cosmetic renderings of one string. Normalize inline markup
+# ONCE here, at the single projection, so web / markdown / PDF / CSV all agree by construction.
+_MD_LINK = re.compile(r"\[([^\]]+)\]\([^)]*\)")   # [text](url) -> text
+_MD_BOLD = re.compile(r"\*\*(.+?)\*\*")            # **bold**   -> bold
+_MD_CODE = re.compile(r"`([^`]+)`")                # `code`     -> code
+_MD_ITALIC = re.compile(r"\*([^*\n]+)\*")          # *italic*   -> italic (after bold is unwrapped)
+
+
+def _strip_inline_markdown(text: str) -> str:
+    """Unwrap inline markdown emphasis/links to plain text (leaves lone ``*`` and prose untouched)."""
+    text = _MD_LINK.sub(r"\1", text)
+    text = _MD_BOLD.sub(r"\1", text)
+    text = _MD_CODE.sub(r"\1", text)
+    text = _MD_ITALIC.sub(r"\1", text)
+    return text
+
+
 def _clean(value: Any) -> str:
-    """Return a trimmed string for str/number inputs, else ""."""
+    """Return a trimmed, inline-markdown-normalized string for str/number inputs, else ""."""
     if isinstance(value, str):
-        return value.strip()
+        return _strip_inline_markdown(value.strip())
     if isinstance(value, (int, float)):
         return str(value)
     return ""
@@ -147,6 +169,12 @@ class Section:
     title: str
     blocks: List[Block] = field(default_factory=list)
     id: str = ""
+    # Explicit machine contract for specially-rendered sections (e.g. "risks"), so the web matches on
+    # a stable role instead of a hand-mirrored title slug that a title tweak would silently break.
+    role: str = ""
+    # Management's disclosed/outlook sentiment, surfaced by the web as a Badge (T1.2 treatment) rather
+    # than a prose sentence — set only for a clear non-neutral tone.
+    tone: str = ""
 
     def __post_init__(self) -> None:
         if not self.id:
@@ -157,11 +185,16 @@ class Section:
         return any(not block.is_empty for block in self.blocks)
 
     def to_dict(self) -> dict:
-        return {
+        out: dict = {
             "id": self.id,
             "title": self.title,
             "blocks": [b.to_dict() for b in self.blocks if not b.is_empty],
         }
+        if self.role:
+            out["role"] = self.role
+        if self.tone:
+            out["tone"] = self.tone
+        return out
 
 
 # --- Per-section builders ----------------------------------------------------------------------
@@ -182,11 +215,11 @@ def _executive_snapshot(sections: dict) -> Section:
     headline = _clean(data.get("headline"))
     if headline and not is_placeholder(headline):
         section.blocks.append(Block("paragraph", text=headline))
+    # Tone rides on the Section (rendered as a Badge), not as a leading prose sentence — otherwise
+    # "Management's disclosed tone was positive." becomes sentence two of the homepage-hero excerpt.
     tone = _clean(data.get("tone"))
     if tone and tone.lower() not in ("neutral", ""):
-        section.blocks.append(
-            Block("paragraph", text=f"Management's disclosed tone was {tone.lower()}.")
-        )
+        section.tone = tone.lower()
     points = [p for p in _str_list(data.get("key_points") or data.get("keyPoints")) if not is_placeholder(p)]
     if points:
         section.blocks.append(Block("bullets", items=points))
@@ -226,8 +259,13 @@ def _financial_highlights(sections: dict) -> Section:
             )
             # Typed row the web renders richly (tone colours + provenance chips). Pass the row
             # through (it carries change_display/direction/tone + source_* once enriched) and
-            # ensure the delta fields exist even on the unenriched pipeline path.
-            typed = dict(row)
+            # ensure the delta fields exist even on the unenriched pipeline path. String values are
+            # inline-markdown-normalized so the web table (which renders these raw dicts, not the
+            # string projection above) shows the same clean prose as every other surface.
+            typed = {
+                key: (_strip_inline_markdown(val) if isinstance(val, str) else val)
+                for key, val in row.items()
+            }
             if _delta and _delta.display:
                 typed.setdefault("change_display", _delta.display)
                 typed.setdefault("change_direction", _delta.direction)
@@ -261,7 +299,7 @@ def _financial_highlights(sections: dict) -> Section:
 
 def _risk_factors(sections: dict) -> Section:
     """Risks, filtered to match the page: each must have non-placeholder supporting evidence."""
-    section = Section("Investment Risks & Concerns")
+    section = Section("Investment Risks & Concerns", role="risks")
     risks = sections.get("risk_factors")
     if not isinstance(risks, list):
         return section
@@ -405,11 +443,10 @@ def _guidance_outlook(sections: dict) -> Section:
     if guidance and guidance != "Not disclosed" and not is_placeholder(guidance):
         # Prose, not a "Guidance:" field-name scaffold (T1.1) — matches the web renderer.
         section.blocks.append(Block("paragraph", text=guidance))
+    # Outlook sentiment as a Badge (consistent with the exec section), not a prose sentence.
     tone = _clean(data.get("tone"))
     if tone and tone.lower() not in ("neutral", ""):
-        section.blocks.append(
-            Block("paragraph", text=f"Management's outlook tone was {tone.lower()}.")
-        )
+        section.tone = tone.lower()
     for label, key, alt in (
         ("Drivers", "drivers", None),
         ("Watch items", "watch_items", "watchItems"),

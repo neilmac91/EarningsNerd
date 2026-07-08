@@ -1,19 +1,28 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Card, CardHeader, CardTitle, CardBody } from '@/components/ui'
+import { Badge, Card, CardHeader, CardTitle, CardBody } from '@/components/ui'
 import FinancialMetricsTable from '@/features/summaries/components/FinancialMetricsTable'
 import { SummaryBlock } from '@/features/summaries/components/SummaryBlock'
 import { SummaryRisks } from '@/features/summaries/components/SummaryRisks'
 import { SectionEmpty } from './SectionEmpty'
-import { normalizeRisk } from '@/lib/formatters'
+import { normalizeRisk, isPlaceholderText } from '@/lib/formatters'
 import type { RiskFactor } from '@/types/summary'
 import type { RenderedBlock, RenderedSection, Summary } from '@/features/summaries/api/summaries-api'
 
-// Slug of the "Investment Risks & Concerns" section (backend _slugify). The risks section is
-// special-cased below so its per-risk Trace-to-Source chips survive (the generic block only carries
-// string rows); everything else renders from the Section/Block projection verbatim.
+// The risks section is special-cased so its per-risk Trace-to-Source chips survive (the generic
+// block only carries string rows). Match on the backend's explicit `role` (an intentional contract),
+// falling back to the title slug for any payload that predates the role field.
 const RISKS_SECTION_ID = 'investment-risks-concerns'
+const isRisksSection = (section: RenderedSection): boolean =>
+  section.role === 'risks' || section.id === RISKS_SECTION_ID
+
+// tone -> Badge variant (T1.2 treatment). neutral/unknown render nothing: tone is a schema field
+// name, not user copy.
+const TONE_VARIANT: Record<string, 'brand' | 'warning'> = {
+  positive: 'brand',
+  cautious: 'warning',
+}
 
 interface SummaryBlocksProps {
   sections: RenderedSection[]
@@ -34,7 +43,13 @@ export function SummaryBlocks({ sections, summary }: SummaryBlocksProps) {
     if (!Array.isArray(raw)) return []
     return raw
       .map((r) => normalizeRisk(r))
-      .filter((r): r is RiskFactor => Boolean(r && r.supporting_evidence))
+      .filter((r): r is RiskFactor => {
+        // Parity with the retired tabbed page: drop risks whose evidence (or description) is
+        // placeholder filler — the backend's block filtering is bypassed on this direct-read path.
+        if (!r || !r.supporting_evidence || isPlaceholderText(r.supporting_evidence)) return false
+        if (r.description && isPlaceholderText(r.description)) return false
+        return true
+      })
   }, [summary.raw_summary])
 
   if (!sections?.length) {
@@ -44,20 +59,28 @@ export function SummaryBlocks({ sections, summary }: SummaryBlocksProps) {
   return (
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_13rem] lg:gap-8">
       <div className="space-y-6">
-        {sections.map((section) => (
-          <Card as="section" key={section.id} id={section.id} className="scroll-mt-24 overflow-hidden">
-            <CardHeader>
-              <CardTitle>{section.title}</CardTitle>
-            </CardHeader>
-            <CardBody className="space-y-4">
-              {section.id === RISKS_SECTION_ID ? (
-                <SummaryRisks risks={risks} />
-              ) : (
-                section.blocks.map((block, i) => <BlockView key={i} block={block} />)
-              )}
-            </CardBody>
-          </Card>
-        ))}
+        {sections.map((section) => {
+          const toneVariant = section.tone ? TONE_VARIANT[section.tone.toLowerCase()] : undefined
+          return (
+            <Card as="section" key={section.id} id={section.id} className="scroll-mt-24 overflow-hidden">
+              <CardHeader className="flex items-center justify-between gap-2">
+                <CardTitle>{section.title}</CardTitle>
+                {toneVariant && (
+                  <Badge variant={toneVariant} className="shrink-0 capitalize">
+                    {section.tone}
+                  </Badge>
+                )}
+              </CardHeader>
+              <CardBody className="space-y-4">
+                {isRisksSection(section) ? (
+                  <SummaryRisks risks={risks} />
+                ) : (
+                  section.blocks.map((block, i) => <BlockView key={i} block={block} />)
+                )}
+              </CardBody>
+            </Card>
+          )
+        })}
       </div>
 
       {/* Sticky in-page table of contents — anchor links to each section (widescreen only, so it

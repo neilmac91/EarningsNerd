@@ -135,4 +135,38 @@ describe('SummaryBlocks', () => {
     render(<SummaryBlocks sections={[]} summary={summary} />)
     expect(screen.getByText(/No summary found/i)).toBeInTheDocument()
   })
+
+  it('renders tone as a header Badge, not a prose sentence', () => {
+    const toneSections: RenderedSection[] = [
+      {
+        id: 'executive-assessment',
+        title: 'Executive Assessment',
+        tone: 'positive',
+        blocks: [{ kind: 'paragraph', text: 'Record quarter driven by AI demand.' }],
+      },
+    ]
+    render(<SummaryBlocks sections={toneSections} summary={summary} />)
+    expect(screen.getByText('positive')).toBeInTheDocument()
+    expect(screen.queryByText(/tone was/i)).not.toBeInTheDocument()
+  })
+
+  it('matches the risks section by role and filters placeholder-evidence risks', () => {
+    const riskSections: RenderedSection[] = [
+      { id: 'investment-risks-concerns', role: 'risks', title: 'Investment Risks & Concerns', blocks: [] },
+    ]
+    const withPlaceholder = {
+      business_overview: 'x',
+      raw_summary: {
+        sections: {
+          risk_factors: [
+            { title: 'Real', description: 'A concrete, evidenced risk.', supporting_evidence: 'Item 1A: verbatim quote.' },
+            { title: 'Filler', description: 'Vague.', supporting_evidence: 'Data not available in provided excerpts.' },
+          ],
+        },
+      },
+    } as unknown as Summary
+    render(<SummaryBlocks sections={riskSections} summary={withPlaceholder} />)
+    expect(screen.getByText('A concrete, evidenced risk.')).toBeInTheDocument()
+    expect(screen.queryByText('Vague.')).not.toBeInTheDocument()
+  })
 })

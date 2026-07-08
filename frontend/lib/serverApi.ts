@@ -73,7 +73,9 @@ interface SummaryPayload {
 }
 
 /** First ~2 sentences of the summary, markdown stripped, for the hero excerpt. */
-const toExcerpt = (markdown: string): string => {
+// Exported for the hero-shape pin: the homepage hero is coupled to the leading shape of the derived
+// business_overview, so a test asserts the excerpt still leads with the headline sentence.
+export const toExcerpt = (markdown: string): string => {
   const plain = stripInternalNotices(markdown)
     .replace(/^#{1,6}\s+.*$/gm, '') // headings
     .replace(/^\s*-\s+/gm, '') // list markers (exec key points render as bullets since P0-2)
