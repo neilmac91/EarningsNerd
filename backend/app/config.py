@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from typing import List
 import os
 
@@ -77,7 +77,9 @@ class Settings(BaseSettings):
     # checkout). Distinct from the no-card REVERSE_TRIAL below (a different, retired mechanism —
     # never enable both). One trial per ACCOUNT is enforced app-side (any prior Subscription row
     # skips the trial); cross-account abuse is deterred by the card requirement + Stripe Radar.
-    PRO_TRIAL_DAYS: int = 7
+    # Bounded (0-30) so an env typo on this money knob fails LOUDLY at boot: 70 would silently give
+    # ten-week free trials; >730 would make Stripe 400 every first-time monthly checkout.
+    PRO_TRIAL_DAYS: int = Field(default=7, ge=0, le=30)
 
     # Reverse trial: grant full Pro for N days, no card, on signup. Superseded by the card-required
     # PRO_TRIAL_DAYS checkout trial (owner decision 2026-07-09) — keep OFF; code retained dormant.
@@ -382,6 +384,22 @@ class Settings(BaseSettings):
     # institutions only. Non-financial filers are unaffected. Default False until the eval bake-off
     # confirms no regression; set USE_STATEMENT_FINANCIALS=true to enable, then remediate persisted data.
     USE_STATEMENT_FINANCIALS: bool = False
+
+    # Pro summary fair-use ceiling. Pro is "unlimited" as a BILLING promise (entitlements keeps
+    # monthly_summary_limit=None so the plan API never advertises a cap), but a single account —
+    # compromised, scripted, or reverse-trial-farmed — could otherwise drive thousands of fresh
+    # LLM generations/day. This is an INVISIBLE anti-abuse guardrail (degrade with a generic
+    # message, never an upsell), mirroring COPILOT_MONTHLY_QUESTION_CAP / ANALYSIS_MONTHLY_CAP.
+    # Set generously above any real human's monthly usage; 0 disables the ceiling entirely.
+    PRO_SUMMARY_MONTHLY_CAP: int = 300
+
+    # Max concurrent full summary generations per process. Generation is LLM-I/O-bound but
+    # CPU-bound during filing/section/XBRL parsing; on a single-vCPU Cloud Run instance a burst of
+    # distinct filings would thrash the core and inflate everyone's latency toward the pipeline
+    # timeout. This semaphore queues excess generations instead. Process-local (same scope as the
+    # in-flight dedup + L1 caches); the dedup already collapses concurrent hits on the SAME filing.
+    # <= 0 disables the ceiling (unbounded), mirroring PRO_SUMMARY_MONTHLY_CAP=0.
+    MAX_CONCURRENT_GENERATIONS: int = 6
 
     # AI Recovery Settings
     RECOVERY_MAX_CONCURRENCY: int = 3  # Max concurrent API calls for section recovery

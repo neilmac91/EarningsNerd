@@ -103,11 +103,15 @@ Confirmed: **no user PII reaches the LLM** (only filing text + financial metrics
 - **Privacy Policy** (`/privacy`) and **DSAR UI** (export + delete with type-to-confirm in
   `/dashboard/settings`) already exist.
 
+**Resolved since this was written:**
+- **Register account-enumeration (was P0):** DONE — `/register` is now verify-first and
+  anti-enumeration (`app/routers/auth.py::register`). It returns a byte-identical opaque message
+  whether the email is new or existing, always pays the bcrypt cost (no timing oracle), never
+  auto-logs-in, and emails an out-of-band "someone tried to sign up" notice to the real owner of an
+  existing address. New accounts start `email_verified=False` and finish via the emailed link (or by
+  logging in with the chosen password). No product decision outstanding.
+
 **Still deferred:**
-- **Register account-enumeration (P0, product decision):** register returns 400 on a duplicate
-  email (tested) and auto-logs-in new users (your stated conversion preference). True
-  non-enumeration requires verify-first signup (no auto-login). Decide instant-access vs.
-  non-enumeration; the login path is already hardened. **Needs your call.**
 - **Processor DPAs (P1, external/legal):** sign the click-through DPAs (Google, Stripe, Resend,
   PostHog, Vercel, Sentry, Cloudflare).
 - **MFA (P2):** optional TOTP via `pyotp` + hashed recovery codes, opt-in.

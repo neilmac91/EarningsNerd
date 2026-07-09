@@ -46,6 +46,7 @@ from app.services.subscription_service import (
     increment_user_usage,
     get_current_month,
 )
+from app.services.entitlements import get_entitlements
 from app.services.summary_generation_service import (
     assess_quality,
     quality_tier_rank,
@@ -77,6 +78,42 @@ def _release_inflight(filing_id: int, event: asyncio.Event) -> None:
     if _inflight_generations.get(filing_id) is event:
         _inflight_generations.pop(filing_id, None)
     event.set()
+
+
+def _check_usage_and_plan(user, db) -> tuple[bool, int, Optional[int], bool]:
+    """One threadpool round-trip for the usage gate + the Pro/Free discriminator.
+
+    Runs synchronously (call via ``run_sync_db``): ``check_usage_limit`` and the entitlements
+    resolution may both lazy-load ``user.subscription`` — sync DB I/O that must stay off the event
+    loop. Resolving both here avoids a second thread hop on the block path and keeps a single
+    source for "is this user billing-unlimited". Looks up ``check_usage_limit`` at call time so
+    test patches of the module global still apply.
+    """
+    can_generate, current_count, limit = check_usage_limit(user, db)
+    is_unlimited = get_entitlements(user).has_unlimited_summaries
+    return can_generate, current_count, limit, is_unlimited
+
+
+# Bounds concurrent full generations per process to protect the single vCPU (see
+# settings.MAX_CONCURRENT_GENERATIONS). Lazily constructed AND keyed to the running event loop:
+# asyncio primitives bind to a loop on first contended await, so a cached semaphore from a previous
+# loop (pytest-asyncio creates one per test; a restarted loop in prod) would raise "bound to a
+# different event loop". Acquired ONLY on the generation (leader) path — dedup waiters return
+# before claiming a slot — so it can never deadlock a leader against its own waiters.
+_generation_semaphore: Optional[asyncio.Semaphore] = None
+_generation_semaphore_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
+def _get_generation_semaphore() -> asyncio.Semaphore:
+    global _generation_semaphore, _generation_semaphore_loop
+    loop = asyncio.get_running_loop()  # only called from async context
+    if _generation_semaphore is None or _generation_semaphore_loop is not loop:
+        # <= 0 disables the ceiling (unbounded), mirroring PRO_SUMMARY_MONTHLY_CAP=0. Using a large
+        # count rather than skipping acquire keeps the acquire/release bookkeeping uniform.
+        limit = settings.MAX_CONCURRENT_GENERATIONS
+        _generation_semaphore = asyncio.Semaphore(limit if limit > 0 else 2**31)
+        _generation_semaphore_loop = loop
+    return _generation_semaphore
 
 
 # Strong references to fire-and-forget background tasks (e.g. the cached-content refresh),
@@ -158,6 +195,8 @@ async def stream_filing_summary(
     session = database.SessionLocal()
     # A3: set when this request becomes the generation leader; released in `finally`.
     inflight_event: Optional[asyncio.Event] = None
+    generation_semaphore: Optional[asyncio.Semaphore] = None
+    generation_slot_held = False
 
     async def run_sync_db(func, *args, **kwargs):
         """Helper to run DB operations in default thread pool"""
@@ -258,8 +297,25 @@ async def stream_filing_summary(
 
             # Check usage limits for authenticated user
             if current_user:
-                can_generate, current_count, limit = await run_sync_db(check_usage_limit, current_user, session)
+                can_generate, current_count, limit, user_is_unlimited = await run_sync_db(
+                    _check_usage_and_plan, current_user, session
+                )
                 if not can_generate:
+                    # A Pro user is billing-unlimited, so a block here means the INVISIBLE fair-use
+                    # ceiling (PRO_SUMMARY_MONTHLY_CAP) tripped — degrade with a generic message,
+                    # never an upsell, and skip the paywall funnel event (a Pro user isn't paywalled).
+                    if user_is_unlimited:
+                        logger.warning(
+                            f"[stream:{filing_id}] Pro user {user_id} hit summary fair-use ceiling ({limit})."
+                        )
+                        yield {
+                            "type": "error",
+                            "message": (
+                                "We've temporarily paused new summary generation on your account due "
+                                "to unusually high recent volume. Please try again later or contact support."
+                            ),
+                        }
+                        return
                     logger.warning(f"[stream:{filing_id}] User {user_id} exceeded monthly summary limit ({limit}).")
                     # Demand/pricing signal: record when a free user hits the wall.
                     emit_funnel(
@@ -279,6 +335,18 @@ async def stream_filing_summary(
             else:
                 logger.info(f"[stream:{filing_id}] Guest user access. Rate limit already enforced.")
             # Note: We use cached values from outer scope, but filling_in_session is already populated.
+
+            # Bound concurrent generations per process (protects the single vCPU). Acquired here —
+            # AFTER the usage/fair-use gate so rejected/abusive requests never occupy a slot, and only
+            # on the leader path (dedup waiters returned above) so it can't deadlock a leader against
+            # its waiters. Released in the `finally`. A long queue wait counts against the pipeline
+            # timeout, which is the intended back-pressure. (A waiter that times out at
+            # INFLIGHT_WAIT_CAP_SECONDS may fall through and become a fresh leader for the same
+            # filing; that only softens the same-filing dedup under extreme saturation — it never
+            # exceeds MAX_CONCURRENT_GENERATIONS total, and no waiter holds a slot while waiting.)
+            generation_semaphore = _get_generation_semaphore()
+            await generation_semaphore.acquire()
+            generation_slot_held = True
 
             # Start XBRL fetching NOW, concurrently with the (slow) filing-document fetch below.
             # XBRL only needs the accession number + CIK (already cached above), not the document
@@ -907,6 +975,10 @@ async def stream_filing_summary(
 
         yield {'type': 'error', 'message': error_message}
     finally:
+        # Release the generation slot first (only if actually acquired), then in-flight leadership,
+        # so a queued generation can start as soon as this one is done.
+        if generation_slot_held and generation_semaphore is not None:
+            generation_semaphore.release()
         # A3: release in-flight leadership so any waiters proceed and serve the persisted result.
         # Runs on completion, error, timeout, AND GeneratorExit (client disconnect) — never leaks a slot.
         if inflight_event is not None:
