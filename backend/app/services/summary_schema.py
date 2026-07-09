@@ -122,7 +122,12 @@ class RiskItem(_V2Base):
 
 
 class SegmentRow(_V2Base):
-    """§7 segment row: revenue + operating income + change + mix commentary."""
+    """§7 segment row: revenue + operating income + YoY change + a mix/margin read.
+
+    Machine-authored from the filing's own XBRL segment dimensions by the pipeline's deterministic
+    filler (T5.2) — NOT model-emitted; the model no longer authors the segment table. Declared here so
+    the shape SSOT stays complete; the v2 render builder reads it. Empty for single-segment /
+    undimensioned / financial-institution filers (graceful degradation)."""
 
     segment: str = ""
     revenue: str = ""

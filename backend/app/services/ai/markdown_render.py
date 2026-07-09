@@ -432,3 +432,45 @@ class _MarkdownRenderMixin:
                 eq["cash_conversion"] = line[0].upper() + line[1:] + "."
                 sections["earnings_quality"] = eq
 
+        # segments (§7): author the reportable-segment table from standardized XBRL (T5.2). Code owns the
+        # FIGURES — per-segment revenue, operating income, YoY revenue change — plus a deterministic mix
+        # read (share of segment revenue + operating margin); the model no longer authors segments
+        # (mechanism-A). Ownership invariant (mirrors cash_conversion): strip any stray model segments
+        # FIRST so a segment figure is never model-authored, then inject the deterministic rows when the
+        # filing tagged the ASC-280 segment dimension. Empty for single-segment / undimensioned / bank
+        # filers (graceful degradation — omit the table; the model mix-commentary fallback is T5.2b).
+        sections.pop("segments", None)
+        seg_rows = (xbrl_metrics or {}).get("segments")
+
+        def _seg_num(value: Any) -> Optional[float]:
+            return value if isinstance(value, (int, float)) and not isinstance(value, bool) else None
+
+        named = (
+            [r for r in seg_rows if isinstance(r, dict) and str(r.get("name") or "").strip()]
+            if isinstance(seg_rows, list) else []
+        )
+        if named:
+            # Denominator = the revenue of the rows actually rendered, so the mix shares sum to ~100%.
+            revenue_sum = sum(_seg_num(r.get("revenue")) or 0.0 for r in named)
+            authored: List[Dict[str, Any]] = []
+            for r in named:
+                rev = _seg_num(r.get("revenue"))
+                prior = _seg_num(r.get("revenue_prior"))
+                opinc = _seg_num(r.get("operating_income"))
+                change = f"{(rev - prior) / abs(prior) * 100.0:+.1f}%" if rev is not None and prior else ""
+                mix: List[str] = []
+                if rev is not None and revenue_sum:
+                    mix.append(f"{rev / revenue_sum * 100.0:.0f}% of segment revenue")
+                if rev and opinc is not None:
+                    mix.append(f"{opinc / rev * 100.0:.0f}% operating margin")
+                authored.append({
+                    "segment": str(r.get("name")).strip(),
+                    "revenue": format_currency(rev) or "",
+                    "operating_income": format_currency(opinc) or "",
+                    "change": change,
+                    "commentary": ", ".join(mix),
+                    "source_section_ref": "Segment information (XBRL)",
+                })
+            if authored:
+                sections["segments"] = authored
+

@@ -39,6 +39,9 @@ class _SectionRecoveryMixin:
         return False
 
     def _find_empty_sections(self, sections: Dict[str, Any]) -> List[str]:
+        # `segments` is intentionally absent: it is machine-authored from XBRL (T5.2), never model-
+        # emitted, so listing it here would flag it "empty" on every generation and needlessly fire the
+        # recovery path (a full-filing extract_sections parse) even for fully-populated summaries.
         ordered_keys = [
             "the_print",
             "results_that_matter",
@@ -46,7 +49,6 @@ class _SectionRecoveryMixin:
             "value_drivers",
             "forward_signals",
             "risks",
-            "segments",
             "balance_sheet_liquidity",
             "notable_footnotes",
         ]
@@ -69,7 +71,6 @@ class _SectionRecoveryMixin:
             "value_drivers": ["financials", "mda"],
             "forward_signals": ["guidance", "mda"],
             "risks": ["risk_factors"],
-            "segments": ["segments", "mda"],
             "balance_sheet_liquidity": ["liquidity", "financials"],
             "notable_footnotes": ["footnotes"],
         }
@@ -92,7 +93,6 @@ class _SectionRecoveryMixin:
             "value_drivers": '{"value_drivers": {"capital_allocation": "<string>", "returns_on_capital": "<string>", "highlights": ["<string>"]}}',
             "forward_signals": '{"forward_signals": {"guidance": "<string>", "known_trends": ["<string>"], "subsequent_events": ["<string>"], "quotes": [{"speaker": "<string>", "quote": "<string>", "context": "<string>"}], "tone": "<positive|neutral|cautious>"}}',
             "risks": '{"risks": [{"summary": "<string>", "supporting_evidence": "<string>", "materiality": "<low|medium|high>"}]}',
-            "segments": '{"segments": [{"segment": "<string>", "revenue": "<string>", "operating_income": "<string>", "change": "<string>", "commentary": "<string>"}]}',
             "balance_sheet_liquidity": '{"balance_sheet_liquidity": {"leverage": "<string>", "liquidity": "<string>", "working_capital": "<string>", "maturities_covenants": ["<string>"]}}',
             "notable_footnotes": '{"notable_footnotes": [{"item": "<string>", "impact": "<string>"}]}',
         }
