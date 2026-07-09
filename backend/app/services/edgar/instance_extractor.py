@@ -503,9 +503,14 @@ def _passes_consolidation_axis(row: Dict[str, Any]) -> bool:
     for key, val in row.items():
         if not (isinstance(key, str) and key.lower().startswith("dim_") and "consolidationitems" in key.lower()):
             continue
-        if val is None or (isinstance(val, float) and val != val):  # co-axis column null for this fact
+        # Robust missing-value check: the cell is None / float-NaN / pandas NA / NaT when a fact does not
+        # carry this co-axis (mixed-tagging filers). A string compare keeps pd.NA away from a `!= self`
+        # test and treats a missing cell as "unconstrained → keep" rather than silently dropping the
+        # segment. Only a PRESENT, non-OperatingSegments member drops the row.
+        text = "" if val is None else str(val).strip().lower()
+        if text in ("", "nan", "<na>", "none", "nat"):
             return True
-        return "operatingsegments" in str(val).lower()
+        return "operatingsegments" in text
     return True
 
 

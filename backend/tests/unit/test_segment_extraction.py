@@ -145,6 +145,25 @@ def test_segment_series_drops_reconciling_consolidation_axis_members():
     assert set(out) == {"Americas", "Europe"}   # elimination cross-member dropped despite a clean label
 
 
+def test_segment_series_consolidation_axis_null_cell_is_kept():
+    # Mixed-tagging: the DataFrame carries the ConsolidationItemsAxis column (some fact tags it) but THIS
+    # fact's cell is null. None / float-NaN / pd.NA must be treated as "unconstrained → keep", never drop
+    # the segment (the string-based missing check, per the Gemini finding — pd.NA breaks `val != val`).
+    import pandas as pd
+
+    def _crow(label, value, consol):
+        r = _row(label, CUR, value)
+        r["dim_srt_ConsolidationItemsAxis"] = consol
+        return r
+    for null_val in (None, float("nan"), pd.NA):
+        xb = _FakeXBRL({_REV: [
+            _crow("Americas", 178_353_000_000.0, "us-gaap:OperatingSegmentsMember"),
+            _crow("Other Bets", 40_000_000_000.0, null_val),
+        ]})
+        out, _ = segment_series_by_member(xb, ["RevenueFromContractWithCustomerExcludingAssessedTax"], "10-K", POR)
+        assert set(out) == {"Americas", "Other Bets"}, f"null co-axis {null_val!r} must keep the segment"
+
+
 def test_segment_series_drops_additional_skip_tokens():
     xb = _FakeXBRL({_REV: [
         _row("Americas", CUR, 178_353_000_000.0),
