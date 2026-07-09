@@ -146,8 +146,15 @@ function PricingContent() {
   // subscriber (no Subscription row → status null; guests count too) + MONTHLY cycle + not beta.
   // Display-only — the server decides authoritatively at checkout, so a stale read can't
   // over-promise a trial Stripe won't grant… it just words the button differently.
+  // For a signed-in user, wait for the subscription query to RESOLVE (`subscription` set) before
+  // claiming eligibility — while it loads, `!subscription?.status` would read trial-eligible and
+  // flash the trial CTA at repeat subscribers (Gemini review, PR #619).
   const trialEligible =
-    billingCycle === 'monthly' && !showBetaOffer && !isPaidPro && !isTrialing && !subscription?.status
+    billingCycle === 'monthly' &&
+    !showBetaOffer &&
+    !isPaidPro &&
+    !isTrialing &&
+    (!isAuthenticated || Boolean(subscription && !subscription.status))
 
   // Claude-style pricing: always surface the effective MONTHLY cost, with a "Billed monthly/annually"
   // sub-note. The actual charge (priceConfig.monthly/.yearly + the priceId) is unchanged — this only
