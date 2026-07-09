@@ -476,9 +476,11 @@ async def health_check_detailed():
         finally:
             db.close()
     except Exception as e:
+        # This endpoint is unauthenticated, so never surface raw exception text (a driver error can
+        # embed the connection string / host). Log the detail server-side; report only a coarse flag.
+        logger.error("health/detailed: database check failed: %s", e, exc_info=True)
         health_status["checks"]["database"] = {
             "healthy": False,
-            "error": str(e)
         }
         health_status["status"] = "unhealthy"
 

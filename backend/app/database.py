@@ -15,6 +15,11 @@ DB_MAX_OVERFLOW = int(os.getenv("DB_MAX_OVERFLOW", "10"))
 DB_POOL_RECYCLE = int(os.getenv("DB_POOL_RECYCLE", "3600"))
 # Connection timeout in seconds (prevents hanging on network issues)
 DB_CONNECT_TIMEOUT = int(os.getenv("DB_CONNECT_TIMEOUT", "10"))
+# How long a request waits for a free pooled connection before failing fast. SQLAlchemy defaults to
+# 30s, which lets a saturated pool queue requests behind it (and stack against Cloud SQL's
+# max_connections during the Monday cron window). A short timeout surfaces a clean 503 instead of a
+# hung request. Overridable per-process so the Cloud Run Jobs (serial, tiny pools) can tune it.
+DB_POOL_TIMEOUT = int(os.getenv("DB_POOL_TIMEOUT", "10"))
 
 # SQLite requires check_same_thread=False for async operations
 if settings.DATABASE_URL.startswith("sqlite"):
@@ -30,6 +35,7 @@ else:
         pool_size=DB_POOL_SIZE,
         max_overflow=DB_MAX_OVERFLOW,
         pool_recycle=DB_POOL_RECYCLE,
+        pool_timeout=DB_POOL_TIMEOUT,
         connect_args={"connect_timeout": DB_CONNECT_TIMEOUT},
     )
 
