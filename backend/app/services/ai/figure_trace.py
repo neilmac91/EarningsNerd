@@ -22,7 +22,9 @@ Scope + precision decisions (measured on the golden corpus, see the PR readout):
   (a summed "total debt", a netted "net cash") the pipeline should compute — the T5 signal.
 * **Police model prose only.** The v2 renderer injects XBRL figures into the ``results_that_matter``
   table by construction, so tables, verbatim quotes, and machine-authored ``cash_flow`` /
-  ``working_capital`` fields are excluded — the surface is free analytical prose.
+  ``working_capital`` / ``cash_conversion`` fields are excluded — the surface is free analytical prose.
+  One table column IS policed: ``segments[].commentary`` carries a model-written driver merged onto the
+  machine rows (T5.2b); its machine half is %-only, invisible to this dollar gate.
 
 Mirrors the eval harness's figure canonicalization app-side WITHOUT importing ``evals`` (the app keeps
 parallel copies, exactly like ``_xbrl_value_appears``).
@@ -227,9 +229,16 @@ def _prose_blob(sections: Any) -> str:
         if isinstance(data, dict):
             for field in fields:
                 _add(data.get(field))
-    # segments[].commentary is machine-authored from XBRL (T5.2 — a deterministic mix / operating-margin
-    # read), so it is excluded from policing exactly like cash_flow / cash_conversion; the model no
-    # longer authors the segment table.
+    # segments[].commentary carries MODEL prose again (T5.2b: a qualitative driver merged onto the
+    # machine-authored rows), so it is policed. The machine half of the cell (mix % / operating margin %)
+    # is percentages only — invisible to this dollar-figure gate — so re-inclusion cannot false-flag the
+    # filler's own read; only a model-written dollar amount is checked. Segment FIGURES (revenue /
+    # operating income columns) stay machine-authored and excluded.
+    segments = sections.get("segments")
+    if isinstance(segments, list):
+        for seg in segments:
+            if isinstance(seg, dict):
+                _add(seg.get("commentary"))
     footnotes = sections.get("notable_footnotes")
     if isinstance(footnotes, list):
         for note in footnotes:

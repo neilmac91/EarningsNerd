@@ -8,6 +8,7 @@ Extracted verbatim.
 """
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List, Optional
 
 from app.services.ai.fi_signals import fi_components_present
@@ -434,12 +435,36 @@ class _MarkdownRenderMixin:
 
         # segments (§7): author the reportable-segment table from standardized XBRL (T5.2). Code owns the
         # FIGURES — per-segment revenue, operating income, YoY revenue change — plus a deterministic mix
-        # read (share of segment revenue + operating margin); the model no longer authors segments
-        # (mechanism-A). Ownership invariant (mirrors cash_conversion): strip any stray model segments
-        # FIRST so a segment figure is never model-authored, then inject the deterministic rows when the
-        # filing tagged the ASC-280 segment dimension. Empty for single-segment / undimensioned / bank
-        # filers (graceful degradation — omit the table; the model mix-commentary fallback is T5.2b).
-        sections.pop("segments", None)
+        # read (share of segment revenue + operating margin); code owns every segment FIGURE and the
+        # section key. Ownership invariant (mirrors cash_conversion): pop any model segments FIRST so a
+        # model row can never render — but HARVEST its commentary before discarding (T5.2b hybrid: the
+        # model contributes ONLY a qualitative driver per row, keyed by the code's own labels via the
+        # REPORTABLE SEGMENTS grounding list; unmatched labels are dropped, and the model can never
+        # create a row or the section key). Empty for single-segment / undimensioned / bank filers.
+        model_segments = sections.pop("segments", None)
+        model_notes: Dict[str, str] = {}
+        if isinstance(model_segments, list):
+            for row in model_segments:
+                if not isinstance(row, dict):
+                    continue
+                # Strings only — a schema-loose dict/list here would str() into a Python repr in the
+                # user-facing cell (every other render field drops non-strings the same way).
+                raw_label = row.get("segment") or row.get("name")
+                raw_note = row.get("commentary")
+                if not isinstance(raw_label, str) or not isinstance(raw_note, str):
+                    continue
+                label = raw_label.strip()
+                # Strip a dangling separator prefix (em/en dash, or a "- " bullet) WITHOUT eating a
+                # legitimate leading minus sign — "-3% FX headwind" must keep its sign.
+                note = re.sub(r"^[\s—–]+", "", raw_note.strip())
+                note = re.sub(r"^-\s+", "", note).strip()
+                low = note.lower()
+                if not label or not note or low in _PLACEHOLDER_STRINGS \
+                        or low.startswith(("not disclosed", "not applicable", "n/a")) \
+                        or re.match(r"none\b", low):
+                    continue
+                # Duplicate labels: last write wins (the model's final row for a name supersedes).
+                model_notes[label.casefold()] = note
         seg_rows = (xbrl_metrics or {}).get("segments")
 
         def _seg_num(value: Any) -> Optional[float]:
@@ -454,6 +479,7 @@ class _MarkdownRenderMixin:
             revenue_sum = sum(_seg_num(r.get("revenue")) or 0.0 for r in named)
             authored: List[Dict[str, Any]] = []
             for r in named:
+                name = str(r.get("name")).strip()
                 rev = _seg_num(r.get("revenue"))
                 prior = _seg_num(r.get("revenue_prior"))
                 opinc = _seg_num(r.get("operating_income"))
@@ -463,12 +489,18 @@ class _MarkdownRenderMixin:
                     mix.append(f"{rev / revenue_sum * 100.0:.0f}% of segment revenue")
                 if rev and opinc is not None:
                     mix.append(f"{opinc / rev * 100.0:.0f}% operating margin")
+                # Machine mix/margin first (always present when computable), model driver appended —
+                # figures from code, words from the model, in one cell. Deterministic-only when the
+                # model gave nothing for this label; model-only when no mix was computable.
+                det = ", ".join(mix)
+                note = model_notes.get(name.casefold(), "")
+                commentary = f"{det} — {note}" if det and note else (det or note)
                 authored.append({
-                    "segment": str(r.get("name")).strip(),
+                    "segment": name,
                     "revenue": format_currency(rev) or "",
                     "operating_income": format_currency(opinc) or "",
                     "change": change,
-                    "commentary": ", ".join(mix),
+                    "commentary": commentary,
                     "source_section_ref": "Segment information (XBRL)",
                 })
             if authored:

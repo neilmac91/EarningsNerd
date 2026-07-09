@@ -125,9 +125,12 @@ class SegmentRow(_V2Base):
     """§7 segment row: revenue + operating income + YoY change + a mix/margin read.
 
     Machine-authored from the filing's own XBRL segment dimensions by the pipeline's deterministic
-    filler (T5.2) — NOT model-emitted; the model no longer authors the segment table. Declared here so
-    the shape SSOT stays complete; the v2 render builder reads it. Empty for single-segment /
-    undimensioned / financial-institution filers (graceful degradation)."""
+    filler (T5.2) — the model can never author a row, a figure, or the section key. T5.2b hybrid: the
+    model emits transient COMMENTARY-ONLY rows keyed to the grounding's REPORTABLE SEGMENTS list; the
+    filler harvests the qualitative driver, merges it onto the code rows by exact label, and discards
+    everything else (unmatched labels included). Declared here so the shape SSOT stays complete; the
+    v2 render builder reads it. Empty for single-segment / undimensioned / financial-institution
+    filers (graceful degradation → the badge marks it not-applicable, not missing)."""
 
     segment: str = ""
     revenue: str = ""

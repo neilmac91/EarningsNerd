@@ -377,9 +377,10 @@ def generate_xbrl_summary(
 
     # Calculate coverage dynamically based on actual section content
     # This provides accurate feedback to the frontend about what data is available. Denominator is the
-    # full v2 taxonomy (9) so covered/total means the same thing here as in the read-time quality badge
-    # (TRACKED_SECTIONS_V2); this degraded path meaningfully fills at most the_print + results_that_matter
-    # + risks + earnings_quality.
+    # full v2 taxonomy (9); the read-time quality badge counts the same taxonomy but may shrink its
+    # denominator to 8 via the T5.2b not-applicable marker — this degraded path cannot know segment
+    # applicability (no XBRL segment attempt) so it keeps the raw 9 and never emits the marker. It
+    # meaningfully fills at most the_print + results_that_matter + risks + earnings_quality.
     total_sections = 9
 
     covered_sections = 1  # the_print is always populated

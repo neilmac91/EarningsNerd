@@ -39,9 +39,10 @@ class _SectionRecoveryMixin:
         return False
 
     def _find_empty_sections(self, sections: Dict[str, Any]) -> List[str]:
-        # `segments` is intentionally absent: it is machine-authored from XBRL (T5.2), never model-
-        # emitted, so listing it here would flag it "empty" on every generation and needlessly fire the
-        # recovery path (a full-filing extract_sections parse) even for fully-populated summaries.
+        # `segments` is intentionally absent: the SECTION is machine-authored from XBRL (T5.2 — the
+        # model contributes only transient commentary-only rows the filler harvests, T5.2b), so listing
+        # it here would flag it "empty" on every single-segment filer and needlessly fire the recovery
+        # path (a full-filing extract_sections parse) even for fully-populated summaries.
         ordered_keys = [
             "the_print",
             "results_that_matter",
