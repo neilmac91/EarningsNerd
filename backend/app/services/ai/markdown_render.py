@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
+from app.services.ai.fi_signals import fi_components_present
 from app.services.ai.normalize import _PLACEHOLDER_STRINGS
 
 
@@ -243,8 +244,9 @@ class _MarkdownRenderMixin:
         cash flows and current assets/liabilities deterministically (via
         ``financial_highlights.cash_flow[]`` / ``balance_sheet[]``); the v2 taxonomy routes them into
         prose the model tends to write WITHOUT figures, so those numbers are injected here too
-        (numbers from code) to hold the numeric-recall floor. Deeper analytical feeds (NI-vs-CFO
-        bridge, red-flag scan, ROIC) land with T5.
+        (numbers from code) to hold the numeric-recall floor. Tier-5.1 adds ``earnings_quality.
+        cash_conversion`` (the NI-vs-CFO accrual read + free cash flow) on the same principle. The
+        remaining analytical feeds (red-flag scan, ROIC) land later.
         """
         # Currency-aware money formatter: bare "$" for USD/domestic filers, ISO-prefixed for foreign
         # issuers (e.g. "EUR 30.6B", "CNY 30.6B"). Standardized XBRL values are in the filer's
@@ -377,4 +379,56 @@ class _MarkdownRenderMixin:
             ) + "."
         if bsl:
             sections["balance_sheet_liquidity"] = bsl
+
+        # earnings_quality.cash_conversion: author the NI-vs-CFO accrual read + free cash flow from
+        # standardized XBRL (numbers from code). The cash-conversion RATIO (operating cash flow / net
+        # income) is a derived relationship present in no single XBRL magnitude, and the model tends to
+        # write this field WITHOUT the figures — so code owns it, mirroring the cash_flow bridge above.
+        # ONE-HOME: state the RATIO (or, on a loss, the cash-vs-loss read) + FCF here, never re-quote the
+        # OCF/NI dollar levels (their homes are §8 cash_flow / §2 results). Suppressed for financial
+        # institutions — NI-vs-CFO and a capex-based FCF are meaningless there (unclassified balance sheet,
+        # lending/deposit-driven cash flow) — gated on the SAME predicate as the bank grounding NOTE
+        # (xbrl_narrative) so instruction and output stay aligned. The model keeps operating_vs_one_time +
+        # red_flags (qualitative, no standardized feed).
+        #
+        # Field OWNERSHIP is an invariant, not a tendency: strip any stray model-provided cash_conversion
+        # FIRST, on every path. The empty-section filter is section-level (T3.1 decision #1 — the model
+        # emits extra keys no matter the prompt), so a stray cash_conversion would otherwise survive AND —
+        # since it's now excluded from the figure_trace gate — render UNPOLICED. That bites hardest on the
+        # two paths where the filler does not author: banks (always suppressed — where the T3.2 readout
+        # showed model figure behaviour is worst) and thin-XBRL filers (nothing computable). So the field
+        # is always machine-authored OR absent, never model-authored.
+        eq = sections.get("earnings_quality")
+        if isinstance(eq, dict):
+            eq.pop("cash_conversion", None)
+        if not fi_components_present(xbrl_metrics):
+            ni_v = raw_current("net_income")
+            ocf_v = raw_current("operating_cash_flow")
+            fcf = format_currency(raw_current("free_cash_flow"))
+            parts: List[str] = []
+            if ni_v is not None and ocf_v is not None and ni_v > 0:
+                ratio = ocf_v / ni_v
+                if -10.0 <= ratio <= 10.0:
+                    # Positive net income in a meaningful band: the multiple IS the accrual read. A
+                    # negative OCF against a positive NI stays (a negative multiple — a real red flag).
+                    parts.append(f"operating cash flow was {ratio:.1f}x net income (cash conversion)")
+                elif ratio > 10.0:
+                    # Near-breakeven NI: the tiny denominator dominates, so the multiple (e.g. 250x) is
+                    # analytically noise. Keep the signal (cash far exceeding income) qualitatively.
+                    parts.append("operating cash flow far exceeded net income")
+                else:  # ratio < -10.0: a large operating cash OUTFLOW against a small positive income
+                    parts.append("operating cash flow was negative despite positive net income")
+            elif ni_v is not None and ni_v < 0 and ocf_v is not None and ocf_v > 0:
+                # A net LOSS alongside positive operating cash flow — §3's highest-value accrual signal:
+                # the business generated cash despite a GAAP loss (non-cash charges/impairments). Stated
+                # qualitatively; a "conversion" multiple against a negative denominator is meaningless.
+                parts.append("operating cash flow was positive despite a net loss")
+            if fcf:
+                parts.append(f"free cash flow of {fcf}")
+            if parts:
+                if not isinstance(eq, dict):
+                    eq = {}
+                line = "; ".join(parts)
+                eq["cash_conversion"] = line[0].upper() + line[1:] + "."
+                sections["earnings_quality"] = eq
 

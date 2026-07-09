@@ -74,11 +74,13 @@ _EXCERPT_NUM_RE = re.compile(
 _COMMA_SCALES = (1.0, 1e3, 1e6)
 
 # Per-section MODEL-authored prose fields to police. Excludes: the results_that_matter table
-# (XBRL-injected), forward_signals.quotes + risks.supporting_evidence (verbatim), and
-# balance_sheet_liquidity.cash_flow / .working_capital (machine-authored from XBRL by the filler).
+# (XBRL-injected), forward_signals.quotes + risks.supporting_evidence (verbatim), and the fields
+# machine-authored from XBRL by the filler — balance_sheet_liquidity.cash_flow / .working_capital
+# and earnings_quality.cash_conversion (numbers from code, already grounded in XBRL at authoring
+# time, so re-policing them as if the model wrote them is category-wrong).
 _PROSE_STRING_FIELDS: dict[str, tuple[str, ...]] = {
     "the_print": ("headline", "what_changed"),
-    "earnings_quality": ("operating_vs_one_time", "cash_conversion"),
+    "earnings_quality": ("operating_vs_one_time",),
     "value_drivers": ("capital_allocation", "returns_on_capital"),
     "forward_signals": ("guidance",),
     "balance_sheet_liquidity": ("leverage", "liquidity"),
