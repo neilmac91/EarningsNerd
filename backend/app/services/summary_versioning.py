@@ -28,7 +28,9 @@ SUMMARY_SCHEMA_VERSION: int = 2
 # The generation-prompt version. Bump on any content-affecting change to the generation prompt
 # (the *-agent.md preambles or the shared Rules/schema block in openai_service.py).
 # summary-2026-07-c: Tier-3.1 v2 cutover — schema_template rewritten to the nine v2 sections.
-SUMMARY_PROMPT_VERSION: str = "summary-2026-07-c"
+# summary-2026-07-d: Tier-4 — schema_template asks for a verbatim `supporting_evidence` excerpt on
+#   metric-takeaway rows + footnotes (the citation surface). Taxonomy shape unchanged (still v2).
+SUMMARY_PROMPT_VERSION: str = "summary-2026-07-d"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:

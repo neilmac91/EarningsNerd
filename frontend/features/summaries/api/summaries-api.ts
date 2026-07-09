@@ -17,14 +17,18 @@ export type RenderedMetricRow = MetricItem & {
   change_display?: string | null
   change_direction?: 'up' | 'down' | 'flat' | null
   change_tone?: 'gain' | 'loss' | 'flat' | null
+  // T4: server-verified citation for the row's Investor-Takeaway commentary (distinct from the XBRL
+  // number provenance in MetricSourceLink — the number and the takeaway cite independently).
+  commentary_evidence?: BlockEvidence | null
 }
 
-// Optional anchored citation for a block/claim; populated in Tier 4, ignored before then.
+// Optional anchored citation for a block/claim {excerpt, section_ref, verified, fragment_url}, or null
+// when the claim couldn't be located. Populated at read time in Tier 4.
 export interface BlockEvidence {
-  excerpt?: string
-  section_ref?: string
-  verified?: boolean
-  fragment_url?: string
+  excerpt?: string | null
+  section_ref?: string | null
+  verified?: boolean | null
+  fragment_url?: string | null
 }
 
 export type RenderedBlock = {
@@ -36,7 +40,11 @@ export type RenderedBlock = {
   headers?: string[]
   rows?: string[][]
   metric_rows?: RenderedMetricRow[]
+  // Block-level citation (e.g. a management quote).
   evidence?: BlockEvidence
+  // T4: per-row citations for a 'table' block (e.g. footnotes), parallel to `rows`; each entry is a
+  // BlockEvidence or null.
+  row_evidence?: (BlockEvidence | null)[]
 }
 
 export interface RenderedSection {

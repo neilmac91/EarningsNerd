@@ -325,3 +325,154 @@ class TestEnrichFinancialHighlights:
     def test_tolerates_missing_table(self):
         assert prov.enrich_financial_highlights({"notes": "x"}, _filing(), self.XBRL) == {"notes": "x"}
         assert prov.enrich_financial_highlights(None, _filing(), self.XBRL) is None
+
+
+class TestBuildEvidence:
+    """T4: the generalized block/row citation dict (exact-verify, honest labeling, filing-only)."""
+
+    SRC = prov.normalize_for_match(
+        "The Company expects operating margin to expand in fiscal 2025. "
+        "Net sales were $383,285 million for the year."
+    )
+    BASE = "https://www.sec.gov/Archives/edgar/data/320193/000/aapl.htm"
+
+    def test_verbatim_excerpt_verifies_and_deep_links(self):
+        ev = prov.build_evidence(
+            "operating margin to expand in fiscal 2025", "Item 7. MD&A", self.BASE, self.SRC
+        )
+        assert ev["verified"] is True
+        assert ev["fragment_url"].startswith(self.BASE + "#:~:text=")
+        assert ev["section_ref"] == "Item 7. MD&A"
+        assert ev["excerpt"] == "operating margin to expand in fiscal 2025"
+
+    def test_unfound_excerpt_is_cited_not_verified(self):
+        ev = prov.build_evidence(
+            "a sentence that is nowhere in the filing text", "Item 7", self.BASE, self.SRC
+        )
+        assert ev["verified"] is False
+        assert ev["fragment_url"] == self.BASE  # section-level link, no #:~:text= fragment
+        assert "#:~:text=" not in ev["fragment_url"]
+
+    def test_empty_excerpt_is_unverified(self):
+        ev = prov.build_evidence("", "Item 7", self.BASE, self.SRC)
+        assert ev["verified"] is False
+        assert ev["excerpt"] is None
+
+    def test_no_base_url_yields_none(self):
+        ev = prov.build_evidence("operating margin to expand in fiscal 2025", "Item 7", "", self.SRC)
+        assert ev["fragment_url"] is None
+
+    def test_blank_section_ref_normalized_to_none(self):
+        ev = prov.build_evidence("operating margin to expand in fiscal 2025", "   ", self.BASE, self.SRC)
+        assert ev["section_ref"] is None
+
+
+class TestV2CitationEnrichment:
+    """T4: enrich_raw_summary generalizes trace-to-source to quotes, footnotes, and metric takeaways."""
+
+    SRC = (
+        "We expect double-digit revenue growth in fiscal 2025. "
+        "Stock-based compensation expense was recognized over the vesting period. "
+        "Revenue increased driven by higher services net sales."
+    )
+
+    def _raw(self):
+        return {
+            "schema_version": 2,
+            "sections": {
+                "forward_signals": {
+                    "source_section_ref": "Item 7. MD&A",
+                    "quotes": [
+                        {"speaker": "CEO", "quote": "We expect double-digit revenue growth in fiscal 2025.", "context": "MD&A"},
+                        {"speaker": "CFO", "quote": "A totally invented sentence not in the filing.", "context": "MD&A"},
+                    ],
+                },
+                "notable_footnotes": [
+                    {
+                        "item": "Stock-based compensation",
+                        "impact": "Expense recognized over vesting",
+                        "supporting_evidence": "Stock-based compensation expense was recognized over the vesting period",
+                        "source_section_ref": "Note 5",
+                    }
+                ],
+                "results_that_matter": {
+                    "source_section_ref": "Item 8",
+                    "table": [
+                        {
+                            "metric": "Revenue",
+                            "current_period": "$383.3B",
+                            "commentary": "Grew on services strength",
+                            "supporting_evidence": "Revenue increased driven by higher services net sales",
+                        }
+                    ],
+                },
+            },
+        }
+
+    def test_quotes_footnotes_and_takeaways_are_cited(self):
+        out = prov.enrich_raw_summary(self._raw(), _filing(critical_excerpt=self.SRC))
+        quotes = out["sections"]["forward_signals"]["quotes"]
+        assert quotes[0]["evidence"]["verified"] is True
+        assert "#:~:text=" in quotes[0]["evidence"]["fragment_url"]
+        assert quotes[0]["evidence"]["section_ref"] == "Item 7. MD&A"
+        # A fabricated quote is honestly labeled Cited (not Verified), section link only.
+        assert quotes[1]["evidence"]["verified"] is False
+        assert "#:~:text=" not in quotes[1]["evidence"]["fragment_url"]
+
+        fn = out["sections"]["notable_footnotes"][0]
+        assert fn["evidence"]["verified"] is True
+
+        row = out["sections"]["results_that_matter"]["table"][0]
+        assert row["commentary_evidence"]["verified"] is True
+        # The number provenance (source_*) and the takeaway citation are independent fields.
+        assert "source_verified" in row and "commentary_evidence" in row
+
+    def test_enrichment_is_non_mutating(self):
+        raw = self._raw()
+        before = copy.deepcopy(raw)
+        prov.enrich_raw_summary(raw, _filing(critical_excerpt=self.SRC))
+        assert raw == before
+
+    def test_v1_rows_get_no_block_citations(self):
+        raw = {
+            "schema_version": 1,
+            "sections": {"risk_factors": [{"summary": "x", "supporting_evidence": "y is a longer evidence line"}]},
+        }
+        out = prov.enrich_raw_summary(raw, _filing(critical_excerpt=self.SRC))
+        # v1 path never touches forward_signals / footnote evidence (those are v2-only surfaces).
+        assert "forward_signals" not in out["sections"]
+
+    def test_tolerates_missing_source_text(self):
+        # No cached filing text -> nothing verifies, but the passes must not crash and must degrade to
+        # section-level "Cited".
+        out = prov.enrich_raw_summary(self._raw(), _filing())
+        assert out["sections"]["forward_signals"]["quotes"][0]["evidence"]["verified"] is False
+
+    def test_quotes_and_footnotes_enriched_without_risks_or_metrics_table(self):
+        # Guard regression: a v2 summary with ONLY quotes + footnotes (no risks list, no metrics table)
+        # must still get citation enrichment — the pre-T4 early-return only checked risks/metrics.
+        raw = {
+            "schema_version": 2,
+            "sections": {
+                "forward_signals": {
+                    "source_section_ref": "Item 7",
+                    "quotes": [{"speaker": "CEO", "quote": "We expect double-digit revenue growth in fiscal 2025."}],
+                },
+                "notable_footnotes": [
+                    {"item": "SBC", "impact": "up", "supporting_evidence": "Stock-based compensation expense was recognized over the vesting period"},
+                ],
+            },
+        }
+        out = prov.enrich_raw_summary(raw, _filing(critical_excerpt=self.SRC))
+        assert out["sections"]["forward_signals"]["quotes"][0]["evidence"]["verified"] is True
+        assert out["sections"]["notable_footnotes"][0]["evidence"]["verified"] is True
+
+    def test_footnote_without_excerpt_or_ref_gets_no_chip(self):
+        # A footnote with neither a supporting excerpt nor a section ref must NOT get a bare "Cited" chip
+        # pointing at the filing root (that's noise, not provenance).
+        raw = {
+            "schema_version": 2,
+            "sections": {"notable_footnotes": [{"item": "Bare footnote", "impact": "some impact"}]},
+        }
+        out = prov.enrich_raw_summary(raw, _filing(critical_excerpt=self.SRC))
+        assert "evidence" not in out["sections"]["notable_footnotes"][0]

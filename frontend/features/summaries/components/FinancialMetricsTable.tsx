@@ -3,9 +3,11 @@
 import { MinusIcon, TrendDownIcon, TrendUpIcon } from '@/lib/icons'
 import { fmtCurrency, fmtPercent, fmtScale, parseNumeric } from '@/lib/format'
 import { MetricSourceLink } from '@/features/filings/components/MetricSourceLink'
+import { SourceTrace } from '@/features/filings/components/SourceTrace'
 import { PerAdsNote } from '@/features/summaries/components/PerAdsNote'
 import { Card, CardHeader, CardTitle, CardFooter, DataTable, type Column, type CellTone } from '@/components/ui'
 import type { PerAdsValue } from '@/types/summary'
+import type { BlockEvidence } from '@/features/summaries/api/summaries-api'
 
 // A type alias (not an interface) so it satisfies DataTable's
 // `T extends Record<string, unknown>` constraint via the implied index signature.
@@ -24,6 +26,9 @@ export type FinancialMetric = {
   change_display?: string | null
   change_direction?: 'up' | 'down' | 'flat' | null
   change_tone?: CellTone | null
+  // T4: server-verified citation for the Investor-Takeaway (`commentary`) — a text-anchored deep link,
+  // distinct from the XBRL number provenance above (MetricSourceLink).
+  commentary_evidence?: BlockEvidence | null
 }
 
 interface FinancialMetricsTableProps {
@@ -136,7 +141,17 @@ export default function FinancialMetricsTable({ metrics, notes, bare = false }: 
       key: 'commentary',
       header: 'Investor Takeaway',
       render: (row) => (
-        <span className="text-text-secondary-light dark:text-text-secondary-dark">{row.commentary || '-'}</span>
+        <div className="flex flex-col gap-1">
+          <span className="text-text-secondary-light dark:text-text-secondary-dark">{row.commentary || '-'}</span>
+          {row.commentary_evidence && (
+            <SourceTrace
+              url={row.commentary_evidence.fragment_url}
+              verified={row.commentary_evidence.verified}
+              sectionRef={row.commentary_evidence.section_ref}
+              excerpt={row.commentary_evidence.verified ? row.commentary_evidence.excerpt : null}
+            />
+          )}
+        </div>
       ),
     },
   ]

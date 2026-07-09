@@ -5,10 +5,26 @@ import { Badge, Card, CardHeader, CardTitle, CardBody } from '@/components/ui'
 import FinancialMetricsTable from '@/features/summaries/components/FinancialMetricsTable'
 import { SummaryBlock } from '@/features/summaries/components/SummaryBlock'
 import { SummaryRisks } from '@/features/summaries/components/SummaryRisks'
+import { SourceTrace } from '@/features/filings/components/SourceTrace'
 import { SectionEmpty } from './SectionEmpty'
 import { normalizeRisk, isPlaceholderText } from '@/lib/formatters'
 import type { RiskFactor } from '@/types/summary'
-import type { RenderedBlock, RenderedSection, Summary } from '@/features/summaries/api/summaries-api'
+import type { BlockEvidence, RenderedBlock, RenderedSection, Summary } from '@/features/summaries/api/summaries-api'
+
+// A block/row citation → the shared Trace-to-Source chip (T4). Renders nothing when there's nothing to
+// trace (SourceTrace's own guard), so an unenriched or uncited block is unaffected. The excerpt is shown
+// only when verified — an unverified model excerpt isn't presented as if it were confirmed filing text.
+function EvidenceChip({ evidence }: { evidence?: BlockEvidence | null }) {
+  if (!evidence) return null
+  return (
+    <SourceTrace
+      url={evidence.fragment_url}
+      verified={evidence.verified}
+      sectionRef={evidence.section_ref}
+      excerpt={evidence.verified ? evidence.excerpt : null}
+    />
+  )
+}
 
 // The risks section is special-cased so its per-risk Trace-to-Source chips survive (the generic
 // block only carries string rows). Match on the backend's explicit `role` (an intentional contract),
@@ -131,10 +147,15 @@ function BlockView({ block }: { block: RenderedBlock }) {
       return block.text ? (
         <blockquote className="border-l-4 border-brand-border pl-4 italic text-text-secondary-light dark:border-brand-border-dark dark:text-text-secondary-dark">
           <p>“{block.text}”</p>
-          {block.speaker && (
-            <cite className="mt-1 block text-sm not-italic text-text-tertiary-light dark:text-text-secondary-dark">
-              — {block.speaker}
-            </cite>
+          {(block.speaker || block.evidence) && (
+            <div className="mt-1 flex items-center gap-2">
+              {block.speaker && (
+                <cite className="block text-sm not-italic text-text-tertiary-light dark:text-text-secondary-dark">
+                  — {block.speaker}
+                </cite>
+              )}
+              <EvidenceChip evidence={block.evidence} />
+            </div>
           )}
         </blockquote>
       ) : null
@@ -154,7 +175,13 @@ function BlockView({ block }: { block: RenderedBlock }) {
       ) : null
 
     case 'table':
-      return <GenericTable headers={block.headers ?? []} rows={block.rows ?? []} />
+      return (
+        <GenericTable
+          headers={block.headers ?? []}
+          rows={block.rows ?? []}
+          rowEvidence={block.row_evidence}
+        />
+      )
 
     case 'metrics':
       // The metrics rows carry the server-computed deltas (rule-12 single source) + provenance, so
@@ -177,9 +204,19 @@ function BlockView({ block }: { block: RenderedBlock }) {
 }
 
 /** A plain string-cell table (segments, footnotes) styled with design-system tokens and horizontal
-    scroll so wide grids never push the page sideways. */
-function GenericTable({ headers, rows }: { headers: string[]; rows: string[][] }) {
+    scroll so wide grids never push the page sideways. When `rowEvidence` is present (T4 — footnotes),
+    a per-row Trace-to-Source chip is appended under the row's last cell. */
+function GenericTable({
+  headers,
+  rows,
+  rowEvidence,
+}: {
+  headers: string[]
+  rows: string[][]
+  rowEvidence?: (BlockEvidence | null)[]
+}) {
   if (rows.length === 0) return null
+  const hasRowEvidence = rowEvidence?.some(Boolean) ?? false
   return (
     <div className="overflow-x-auto rounded-xl border border-border-light dark:border-border-dark">
       <table className="min-w-full divide-y divide-border-light dark:divide-border-dark">
@@ -198,18 +235,30 @@ function GenericTable({ headers, rows }: { headers: string[]; rows: string[][] }
           </thead>
         )}
         <tbody>
-          {rows.map((row, r) => (
-            <tr key={r}>
-              {row.map((cell, c) => (
-                <td
-                  key={c}
-                  className="border-t border-border-light px-4 py-3 text-sm text-text-secondary-light dark:border-border-dark dark:text-text-secondary-dark"
-                >
-                  {cell}
-                </td>
-              ))}
-            </tr>
-          ))}
+          {rows.map((row, r) => {
+            const ev = rowEvidence?.[r]
+            const last = row.length - 1
+            // Top-align only cited tables (footnotes), so a chip sits at the top of a tall row; a plain
+            // table (segments) keeps its default vertical alignment.
+            const cellAlign = hasRowEvidence ? ' align-top' : ''
+            return (
+              <tr key={r}>
+                {row.map((cell, c) => (
+                  <td
+                    key={c}
+                    className={`border-t border-border-light px-4 py-3 text-sm text-text-secondary-light dark:border-border-dark dark:text-text-secondary-dark${cellAlign}`}
+                  >
+                    {cell}
+                    {c === last && ev && (
+                      <span className="mt-1 block">
+                        <EvidenceChip evidence={ev} />
+                      </span>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

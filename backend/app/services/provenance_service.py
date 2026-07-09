@@ -221,6 +221,82 @@ def build_risk_source(
     }
 
 
+def _base_url(filing: Any) -> str:
+    return getattr(filing, "document_url", None) or getattr(filing, "sec_url", None) or ""
+
+
+def build_evidence(
+    excerpt: Any,
+    section_ref: Any,
+    base_url: Optional[str],
+    normalized_source: Optional[str],
+) -> dict[str, Any]:
+    """The Tier-4 block/row citation dict ``{excerpt, section_ref, verified, fragment_url}``.
+
+    ``verified`` is True only when the model's (verbatim) ``excerpt`` is located in the cached filing
+    text — then ``fragment_url`` is a ``#:~:text=`` deep link to it; otherwise the link is section-level
+    and the chip reads "Cited". Honest labeling (never claim verified for text we cannot find) and
+    filing-only (``base_url`` is THIS filing's own URL) — the same contract as :func:`build_risk_source`,
+    generalized to any model claim so Print quotes / metric takeaways / footnotes cite the same way.
+
+    Verification is EXACT (normalized substring), matching the copilot verifier: read-time enrichment
+    runs on every GET over multi-MB filing text, so a per-excerpt fuzzy pass would add seconds of
+    latency; a scale-tolerant (rapidfuzz) upgrade belongs on a per-section-scoped follow-up.
+    """
+    excerpt_str = extract_quoted_span(excerpt) if isinstance(excerpt, str) else ""
+    ref = section_ref if isinstance(section_ref, str) and section_ref.strip() else None
+    verified = verify_excerpt_in_text(excerpt_str, normalized_source)
+    if not base_url:
+        url = None
+    elif verified:
+        url = build_text_fragment_url(base_url, excerpt_str)
+    else:
+        url = base_url
+    return {
+        # Surface the excerpt ONLY when it's confirmed filing text — never present an unverified model
+        # excerpt as if it were a quote (honest labeling). An unverified claim shows its section ref only.
+        "excerpt": excerpt_str if verified else None,
+        "section_ref": ref,
+        "verified": verified,
+        "fragment_url": url,
+    }
+
+
+def _enrich_forward_quotes(sections: dict, base_url: str, normalized_source: Optional[str]) -> None:
+    """Attach ``evidence`` to each verbatim management quote in ``forward_signals.quotes`` (mutates the
+    already-deep-copied sections). The quote text IS the excerpt (emitted verbatim), so it verifies +
+    deep-links cleanly; the section ref is the block-level ``forward_signals.source_section_ref``."""
+    fwd = sections.get("forward_signals")
+    if not isinstance(fwd, dict):
+        return
+    quotes = fwd.get("quotes")
+    if not isinstance(quotes, list):
+        return
+    section_ref = fwd.get("source_section_ref") or fwd.get("sourceSectionRef")
+    for q in quotes:
+        if isinstance(q, dict) and (q.get("quote") or q.get("text")):
+            q["evidence"] = build_evidence(
+                q.get("quote") or q.get("text"), section_ref, base_url, normalized_source
+            )
+
+
+def _enrich_footnotes(sections: dict, base_url: str, normalized_source: Optional[str]) -> None:
+    """Attach ``evidence`` to each ``notable_footnotes`` item, verifying its model ``supporting_evidence``
+    excerpt against the filing (mutates the already-deep-copied sections)."""
+    footnotes = sections.get("notable_footnotes")
+    if not isinstance(footnotes, list):
+        return
+    for fn in footnotes:
+        if not isinstance(fn, dict):
+            continue
+        excerpt = fn.get("supporting_evidence") or fn.get("supportingEvidence")
+        ref = fn.get("source_section_ref") or fn.get("sourceSectionRef")
+        # Only attach a citation when there is actually something to cite — otherwise every footnote
+        # would get a bare "Cited" chip pointing at the filing root, which is noise, not provenance.
+        if (isinstance(excerpt, str) and excerpt.strip()) or (isinstance(ref, str) and ref.strip()):
+            fn["evidence"] = build_evidence(excerpt, ref, base_url, normalized_source)
+
+
 def _select_source_text(filing: Any) -> Optional[str]:
     """Pick the best cached filing text to verify excerpts against (no network fetch)."""
     cache = getattr(filing, "content_cache", None)
@@ -272,6 +348,7 @@ def enrich_financial_highlights(
     financial_highlights: Optional[dict],
     filing: Any,
     xbrl_standardized: Optional[dict],
+    normalized_source: Optional[str] = None,
 ) -> Optional[dict]:
     """Return a deep-copied ``financial_highlights`` with per-row provenance on ``table`` entries.
 
@@ -279,6 +356,12 @@ def enrich_financial_highlights(
     enrich. The block-level ``source_section_ref`` is propagated to each row. As a read-time safety
     net for summaries generated before the generation-time guard shipped, a conflated ``revenue`` row
     is dropped for a no-total bank (:func:`_is_no_total_bank`) so a wrong figure never renders.
+
+    ``build_metric_source`` verifies the row's NUMBER against SEC XBRL (the ``source_*``/``xbrl_concept``
+    chip). Distinct from that, when ``normalized_source`` is supplied (the v2 path), the row's
+    Investor-Takeaway is cited too: its model ``supporting_evidence`` excerpt is text-verified into a
+    separate ``commentary_evidence`` dict (T4.2 — the founder's direct ask), so the number and the
+    takeaway carry independent, honestly-labeled provenance.
     """
     if not isinstance(financial_highlights, dict) or not isinstance(
         financial_highlights.get("table"), list
@@ -289,6 +372,7 @@ def enrich_financial_highlights(
         financial_highlights.get("source_section_ref")
         or financial_highlights.get("sourceSectionRef")
     )
+    base_url = _base_url(filing)
     result = copy.deepcopy(financial_highlights)
     rows = result["table"]
     if _is_no_total_bank(xbrl_standardized):
@@ -306,6 +390,15 @@ def enrich_financial_highlights(
             # Single delta policy: ship the computed change display/direction/tone so the table
             # renders one canonical string (ppts for margins) and does no client-side math (T1.5).
             row.update(metric_delta_service.row_delta_fields(row))
+            if normalized_source is not None:
+                excerpt = row.get("supporting_evidence") or row.get("supportingEvidence")
+                if isinstance(excerpt, str) and excerpt.strip():
+                    row["commentary_evidence"] = build_evidence(
+                        excerpt,
+                        row.get("source_section_ref") or section_ref,
+                        base_url,
+                        normalized_source,
+                    )
         enriched_rows.append(row)
     result["table"] = enriched_rows
     return result
@@ -341,7 +434,14 @@ def enrich_raw_summary(
     has_risks = isinstance(risks, list)
     fh = sections.get(metrics_key)
     has_fh = isinstance(fh, dict) and isinstance(fh.get("table"), list)
-    if not has_risks and not has_fh:
+    # v2 quotes/footnotes are independent citable surfaces (T4): a summary with only those (no risks
+    # list, no metrics table — e.g. a degraded generation or a form that populates forward signals but
+    # no standardized table) must still get its citation enrichment, not short-circuit here.
+    has_v2_cite = version >= 2 and (
+        isinstance(sections.get("forward_signals"), dict)
+        or isinstance(sections.get("notable_footnotes"), list)
+    )
+    if not has_risks and not has_fh and not has_v2_cite:
         return raw_summary
 
     if normalized_source is None:
@@ -351,7 +451,17 @@ def enrich_raw_summary(
     if has_risks:
         result["sections"][risk_key] = enrich_risk_list(risks, filing, normalized_source)
     if has_fh:
-        result["sections"][metrics_key] = enrich_financial_highlights(fh, filing, xbrl_standardized)
+        # v2 metric rows carry a model Investor-Takeaway excerpt to cite; v1 rows don't, so only the
+        # v2 path threads normalized_source (which turns on commentary_evidence).
+        result["sections"][metrics_key] = enrich_financial_highlights(
+            fh, filing, xbrl_standardized, normalized_source if version >= 2 else None
+        )
+    if version >= 2:
+        # T4.1: generalize trace-to-source beyond risks/metrics to the other citable v2 surfaces.
+        # Quotes verify verbatim (the quote is the excerpt); footnotes verify their supporting excerpt.
+        base_url = _base_url(filing)
+        _enrich_forward_quotes(result["sections"], base_url, normalized_source)
+        _enrich_footnotes(result["sections"], base_url, normalized_source)
     return result
 
 
