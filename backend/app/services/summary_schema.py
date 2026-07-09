@@ -98,6 +98,9 @@ class PLMetricRow(_V2Base):
     prior_period: str = ""
     change: str = ""
     commentary: str = ""
+    # T4: a verbatim filing excerpt backing the Investor-Takeaway (`commentary`), text-verified at read
+    # time into a Trace-to-Source chip. "" when the model has no line to quote for the driver.
+    supporting_evidence: str = ""
 
 
 class ManagementQuote(_V2Base):
@@ -134,6 +137,9 @@ class FootnoteItem(_V2Base):
 
     item: str = ""
     impact: str = ""
+    # T4: a verbatim filing excerpt backing the footnote, text-verified at read time into a
+    # Trace-to-Source chip. "" when the model has no line to quote.
+    supporting_evidence: str = ""
     source_section_ref: str = ""
 
 

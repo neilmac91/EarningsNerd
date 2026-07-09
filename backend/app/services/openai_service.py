@@ -275,7 +275,8 @@ EXTRACTED FINANCIAL SIGNALS:
           "current_period": "<non-empty string>",
           "prior_period": "<non-empty string>",
           "change": "<non-empty string; state margin changes in percentage points>",
-          "commentary": "<the one-line driver for this line, as management states it>"
+          "commentary": "<the one-line driver for this line, as management states it>",
+          "supporting_evidence": "<a SHORT VERBATIM quote from the filing that backs this driver, copied word-for-word so it can be located in the text; use '' if you have no verbatim line to quote>"
         }
       ],
       "source_section_ref": "<e.g., 'Item 1. Financial Statements'>"
@@ -335,6 +336,7 @@ EXTRACTED FINANCIAL SIGNALS:
       {
         "item": "<non-empty string>",
         "impact": "<non-empty string>",
+        "supporting_evidence": "<a SHORT VERBATIM quote from the footnote text, copied word-for-word so it can be located in the filing; use '' if you have no verbatim line to quote>",
         "source_section_ref": "<relevant note reference where possible>"
       }
     ]

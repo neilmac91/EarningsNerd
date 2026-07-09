@@ -129,9 +129,13 @@ class Block:
     # Typed rows for the "metrics" kind (the web renders these; the string ``rows`` above are the
     # export/markdown projection of the same data). Left empty for every other kind.
     metric_rows: List[dict] = field(default_factory=list)
-    # Optional anchored citation for a block/claim {excerpt, section_ref, verified, fragment_url};
-    # plumbed here for the Tier-4 citation upgrade, unused until then.
+    # Optional anchored citation for a whole block/claim {excerpt, section_ref, verified, fragment_url}
+    # (T4 — e.g. a management quote). Populated at read time by provenance_service; the web renders it
+    # as a Trace-to-Source chip. None when the block carries no cited claim.
     evidence: Optional[dict] = None
+    # Per-row citations for a "table" kind, parallel to ``rows`` (T4 — e.g. footnotes). Each entry is an
+    # evidence dict or None. Web-only, like ``metric_rows``; the export/markdown string ``rows`` ignore it.
+    row_evidence: List[Optional[dict]] = field(default_factory=list)
 
     @property
     def is_empty(self) -> bool:
@@ -156,6 +160,10 @@ class Block:
             out["metric_rows"] = self.metric_rows
         if self.evidence:
             out["evidence"] = self.evidence
+        # Only serialize row_evidence when at least one row actually carries a citation, so a plain table
+        # stays byte-identical to its pre-T4 output (serializer-pin friendly).
+        if any(self.row_evidence):
+            out["row_evidence"] = self.row_evidence
         return out
 
 
@@ -261,9 +269,13 @@ def _metrics_block(table: Any) -> Optional[Block]:
         # fields exist even on the unenriched pipeline path. String values are inline-markdown-
         # normalized so the web table (which renders these raw dicts, not the string projection
         # above) shows the same clean prose as every other surface.
+        # Drop the raw model ``supporting_evidence`` excerpt from the web payload — it's the input to the
+        # verified ``commentary_evidence`` citation (added by enrichment), so shipping the unverified
+        # string too would just expose model text the chip already gates on verification.
         typed = {
             key: (_strip_inline_markdown(val) if isinstance(val, str) else val)
             for key, val in row.items()
+            if key not in ("supporting_evidence", "supportingEvidence")
         }
         if _delta and _delta.display:
             typed.setdefault("change_display", _delta.display)
@@ -476,23 +488,29 @@ def _guidance_outlook(sections: dict) -> Section:
 
 
 def _footnotes_table_block(data: Any) -> Optional[Block]:
-    """Build the footnotes table Block (shared by v1 and v2 ``notable_footnotes`` — same shape)."""
+    """Build the footnotes table Block (shared by v1 and v2 ``notable_footnotes`` — same shape). v2 rows
+    carry a read-time ``evidence`` dict (T4), collected into ``row_evidence`` parallel to ``rows`` so the
+    web shows a per-footnote Trace-to-Source chip; v1 rows have none (row_evidence stays all-None)."""
     if not isinstance(data, list):
         return None
     rows: List[List[str]] = []
+    row_evidence: List[Optional[dict]] = []
     for fn in data:
         if isinstance(fn, dict):
             item = _clean(fn.get("item"))
             impact = _clean(fn.get("impact"))
             if item or impact:
                 rows.append([item, impact])
+                ev = fn.get("evidence")
+                row_evidence.append(ev if isinstance(ev, dict) else None)
         else:
             text = _clean(fn)
             if text and not is_placeholder(text):
                 rows.append([text, ""])
+                row_evidence.append(None)
     if not rows:
         return None
-    return Block("table", headers=["Item", "Impact"], rows=rows)
+    return Block("table", headers=["Item", "Impact"], rows=rows, row_evidence=row_evidence)
 
 
 def _notable_footnotes(sections: dict) -> Section:
@@ -643,7 +661,17 @@ def _v2_forward_signals(sections: dict) -> Section:
                 continue
             text = _clean(quote.get("quote"))
             if text and not is_placeholder(text):
-                section.blocks.append(Block("quote", text=text, speaker=_clean(quote.get("speaker"))))
+                # A verbatim quote is the ideal citation: the read-time ``evidence`` (T4) verifies it in
+                # the filing and deep-links to it. None on the unenriched path — the web omits the chip.
+                ev = quote.get("evidence")
+                section.blocks.append(
+                    Block(
+                        "quote",
+                        text=text,
+                        speaker=_clean(quote.get("speaker")),
+                        evidence=ev if isinstance(ev, dict) else None,
+                    )
+                )
     return section
 
 
