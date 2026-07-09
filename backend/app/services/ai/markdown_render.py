@@ -283,14 +283,20 @@ class _MarkdownRenderMixin:
                 "prior": format_currency(prior.get("value")),
             }
 
-        def raw_current(metric_key: str) -> Optional[float]:
-            """Raw current-period float for a standardized metric (for ratio math + presence checks)."""
+        def raw_period(metric_key: str, period: str) -> Optional[float]:
+            """Raw float for a standardized metric's ``current``/``prior`` period (ratio math + checks)."""
             metric = (xbrl_metrics or {}).get(metric_key)
-            current = metric.get("current") if isinstance(metric, dict) else None
-            value = current.get("value") if isinstance(current, dict) else None
+            block = metric.get(period) if isinstance(metric, dict) else None
+            value = block.get("value") if isinstance(block, dict) else None
             if isinstance(value, bool) or not isinstance(value, (int, float)):
                 return None
             return float(value)
+
+        def raw_current(metric_key: str) -> Optional[float]:
+            return raw_period(metric_key, "current")
+
+        def raw_prior(metric_key: str) -> Optional[float]:
+            return raw_period(metric_key, "prior")
 
         metadata = metadata or {}
         company_name = metadata.get("company_name", "The company")
@@ -344,10 +350,19 @@ class _MarkdownRenderMixin:
             # Denominator must be a non-zero number (guards div-by-zero); the numerator may legitimately
             # be zero, so gate it on presence (is not None), not truthiness.
             ratio = f" (current ratio {ca_v / cl_v:.2f}x)" if (ca_v is not None and cl_v) else ""
-            bsl["working_capital"] = (
+            wc = (
                 f"Current assets {current_assets or 'Not disclosed'} vs. current liabilities "
                 f"{current_liabilities or 'Not disclosed'}{ratio}."
             )
+            # Restore the schema's YoY-direction promise (and surface the prior-period facts) when the
+            # standardized metrics carry a prior period — the current-only line otherwise drops it.
+            prior_ca = format_currency(raw_prior("current_assets"))
+            prior_cl = format_currency(raw_prior("current_liabilities"))
+            if prior_ca and prior_cl:
+                pca_v, pcl_v = raw_prior("current_assets"), raw_prior("current_liabilities")
+                prior_ratio = f" ({pca_v / pcl_v:.2f}x)" if (pca_v is not None and pcl_v) else ""
+                wc += f" A year earlier: {prior_ca} vs. {prior_cl}{prior_ratio}."
+            bsl["working_capital"] = wc
         cash_legs = [
             (label, format_currency(raw_current(key)))
             for label, key in (

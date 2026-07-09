@@ -99,17 +99,19 @@ one correctness fix (below).
       at cutover: redundancy 0.829→0.927, delta_consistency 0.898→0.968.
 - [x] Eval #3 confirmed the redesign: recall 0.9945, currency 1.0, aggregate 0.9975 (vs v1 0.9293),
       precision/coverage 1.0. Content dims held (redundancy 0.906, delta 0.944–0.972).
-- [x] **Re-pinned** `baseline_scores.json` from the v2 run (recall 0.9945, precision/coverage 1.0,
-      currency 1.0, gate_fail 0.0385) — gate PASSES against the new pin.
-- [~] **JPM/G5 gate_fail (0.0385) — root-caused, out of scope.** The residual vetoes are JPM's
-      `noninterest_income` not surfaced separately. Investigated: the PRODUCTION extractor
-      (`extract_standardized_metrics`) does NOT emit `noninterest_income`/`net_interest_income` into
-      `xbrl_metrics` (JPM has only `revenue`=182B), so the model must read them from filing text —
-      stochastic (0–1/3 runs). A deterministic surfacing fix I attempted was therefore INERT (no XBRL
-      key to read) and was reverted. The real fix is extending the extractor = A7/A8 (XBRL metric
-      expansion) / P0-4 (bank carve-out), explicitly OWNED ELSEWHERE. v1's 0.0 was a lucky stochastic
-      run; the re-pin (0.0385) calibrates the advisory gate to the real floor. Flagged for founder + the
-      A7/A8/P0-4 track in the PR body.
+- [x] **JPM/G5 gate_fail — root-caused + SETTLED per founder review.** Residual vetoes = JPM's
+      `noninterest_income`/`net_interest_income` not surfaced separately. The PRODUCTION extractor
+      (`extract_standardized_metrics`) does NOT emit these (JPM has only `revenue`), so the model reads
+      them from filing text — stochastic (0–1/3 runs). A deterministic surfacing fix was INERT (no XBRL
+      key) and was reverted. Founder's answer: **do NOT baseline 0.0385** (it would grant a ≤3-veto
+      allowance of ANY veto type, gutting the epsilon-zero fabrication tripwire). Instead **removed the
+      two G5 component facts from JPM's golden entry** (values preserved in its `notes`; keeps JPM's
+      other 5 facts + the bank sanitizer live) → G5 dormant-by-design → re-pin at **gate_fail 0.0**.
+      Documented in `evals/RUNBOOK.md` (Step 2 "Dormant G5 bank-component facts"). **A7/A8 (XBRL metric
+      expansion) re-arms G5** by restoring the two facts + re-pinning. TRACKING: A7/A8 owner restores
+      JPM `net_interest_income`/`noninterest_income` to golden_set.json when the extractor emits them.
+- [x] **Re-pinned** `baseline_scores.json` from the v2 run (recall ~0.99, precision/coverage 1.0,
+      currency 1.0, **gate_fail 0.0**) — gate PASSES against the new pin. [re-run post-golden-set-edit]
 - [x] Frontend audit: confirmed `SummaryBlocks` renders v2; **deleted** dead v1-key readers —
       `SummaryExecutiveSnapshot.tsx`, its spec, and `formatters.ts::{ExecutiveSnapshot,asTrimmedString,
       parseExecutiveSnapshot}` (no non-test callers).

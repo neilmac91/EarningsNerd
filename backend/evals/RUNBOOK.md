@@ -58,6 +58,19 @@ Cover the adversarial cases — that's where quality breaks: small-caps / non-fi
 even 10-K / 10-Q split. Find a CIK at
 `https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&ticker=XXXX`.
 
+### Dormant G5 bank-component facts (JPM) — restore in A7/A8
+
+JPM's `ground_truth` **intentionally omits** its two bank-component facts (`net_interest_income`,
+`noninterest_income`; values preserved in the entry's `notes`). Reason: the production
+standardized-metrics extractor does not yet emit those concepts, so the pipeline cannot surface them
+deterministically and the model does so only stochastically (0–1 of 3 runs) — leaving them in made
+`score_bank_revenue_integrity` (G5) fire as **pure noise** that hard-fails the epsilon-zero
+`gate_fail_rate` gate on unrelated PRs (PR #611). Removing them keeps the pinned `gate_fail_rate` at
+**0.0** (so the fabrication tripwire keeps meaning what rule 12 says) while JPM's other 5 facts still
+exercise recall/precision and the bank sanitizer. G5 is dormant-by-design until it has a component
+fact (see the scorer's own docstring). **A7/A8** (XBRL metric expansion) re-arms G5 by restoring
+these two facts to the entry and re-pinning.
+
 ---
 
 ## Step 3 — Build & verify

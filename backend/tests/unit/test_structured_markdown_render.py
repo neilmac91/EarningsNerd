@@ -172,6 +172,24 @@ def test_apply_structured_fallbacks_uses_reporting_currency_for_foreign_filers()
     assert "$" not in (bsl["working_capital"] + bsl["cash_flow"])
 
 
+def test_apply_structured_fallbacks_working_capital_shows_yoy_when_priors_exist():
+    """The schema promises working-capital YoY direction; when standardized metrics carry a prior
+    period, the filler appends the prior current assets/liabilities + ratio (two more recallable
+    facts) rather than a current-only line."""
+    sections: dict = {}
+    xbrl = {
+        "current_assets": {"current": {"value": 30_600_000_000, "period": "FY25"},
+                           "prior": {"value": 28_100_000_000, "period": "FY24"}},
+        "current_liabilities": {"current": {"value": 24_300_000_000, "period": "FY25"},
+                                "prior": {"value": 23_800_000_000, "period": "FY24"}},
+    }
+    openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
+
+    wc = sections["balance_sheet_liquidity"]["working_capital"]
+    assert "current ratio 1.26x" in wc
+    assert "A year earlier" in wc and "$28.1B" in wc and "$23.8B" in wc and "1.18x" in wc
+
+
 def test_apply_structured_fallbacks_current_ratio_edge_cases():
     """Current-ratio guard: a ZERO numerator (current assets) still shows the ratio — 0.00x is a real
     signal, not noise — while a zero/None denominator (current liabilities) suppresses it with no

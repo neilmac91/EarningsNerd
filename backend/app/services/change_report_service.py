@@ -45,7 +45,9 @@ def _extract_risks(summary: Optional[Summary]) -> list[dict]:
     if not isinstance(risks, list) or not risks:
         raw = getattr(summary, "raw_summary", None)
         if isinstance(raw, dict) and isinstance(raw.get("sections"), dict):
-            risks = raw["sections"].get("risk_factors")
+            # v2 rows carry `risks`; legacy v1 rows carry `risk_factors`.
+            sec = raw["sections"]
+            risks = sec.get("risks") or sec.get("risk_factors")
     return [r for r in risks if isinstance(r, dict)] if isinstance(risks, list) else []
 
 

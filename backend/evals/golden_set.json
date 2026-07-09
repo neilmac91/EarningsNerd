@@ -204,20 +204,10 @@
           "metric": "financing_cash_flow",
           "value": 269533000000.0,
           "unit": "USD"
-        },
-        {
-          "metric": "net_interest_income",
-          "value": 95443000000.0,
-          "unit": "USD"
-        },
-        {
-          "metric": "noninterest_income",
-          "value": 87004000000.0,
-          "unit": "USD"
         }
       ],
       "verified": true,
-      "notes": "financial issuer (different statement structure)"
+      "notes": "Financial issuer (different statement structure). G5 bank-component facts TEMPORARILY removed (net_interest_income 95443000000, noninterest_income 87004000000): the production standardized-metrics extractor does not yet emit these, so model surfacing is stochastic and G5 fired as pure noise (0-1 of 3 runs) — see PR #611 + RUNBOOK. A7/A8 (XBRL metric expansion) re-arms G5 by restoring these two facts."
     },
     {
       "ticker": "KO",
