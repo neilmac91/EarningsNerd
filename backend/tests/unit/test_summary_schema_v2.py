@@ -46,9 +46,10 @@ V2_SECTIONS = {
         "source_section_ref": "Item 8",
     },
     "value_drivers": {
-        "capital_allocation": "Repurchased $9.3B of stock and paid $1.0B dividends; capex up 12%.",
-        "returns_on_capital": "ROIC of 34%, up from 29% a year ago.",
-        "highlights": ["$9.3B buybacks", "$1.0B dividends"],
+        "shareholder_returns": "Capital returned — dividends paid $1.0B, share repurchases $9.3B.",
+        "capital_allocation": "Buybacks continued to outpace capex, funded from operating cash.",
+        "returns_on_capital": "Return on equity was 34.0% (prior 29.0%).",
+        "highlights": ["Authorized a new $25B repurchase program"],
         "source_section_ref": "Item 7",
     },
     "forward_signals": {
@@ -238,10 +239,24 @@ def test_v2_markdown_is_clean_no_scaffolding():
     assert "## Value Drivers & Capital Allocation" in md
     # No raw field names leak into the rendered markdown.
     for field_name in ("operating_vs_one_time", "red_flags", "key_takeaways", "what_changed",
-                       "maturities_covenants", "returns_on_capital", "source_section_ref"):
+                       "maturities_covenants", "returns_on_capital", "shareholder_returns",
+                       "source_section_ref"):
         assert field_name not in md
     # The red-flag callouts render with their label, not as a JSON list.
     assert "**Red flag:**" in md
+
+
+def test_v2_value_drivers_block_order_figures_lead():
+    """§4 render order (T5.3): the machine-authored shareholder-returns figures open the section, the
+    model's value verdict follows, the machine ROE/ROA read closes the prose."""
+    section = next(s for s in summary_sections.render_sections(_raw_v2())
+                   if s.title == "Value Drivers & Capital Allocation")
+    paragraphs = [b.text for b in section.blocks if b.kind == "paragraph"]
+    assert paragraphs == [
+        "Capital returned — dividends paid $1.0B, share repurchases $9.3B.",
+        "Buybacks continued to outpace capex, funded from operating cash.",
+        "Return on equity was 34.0% (prior 29.0%).",
+    ]
 
 
 # --- quality badge dispatch --------------------------------------------------------------------

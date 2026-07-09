@@ -247,7 +247,7 @@ class _MarkdownRenderMixin:
         prose the model tends to write WITHOUT figures, so those numbers are injected here too
         (numbers from code) to hold the numeric-recall floor. Tier-5.1 adds ``earnings_quality.
         cash_conversion`` (the NI-vs-CFO accrual read + free cash flow) on the same principle. The
-        remaining analytical feeds (red-flag scan, ROIC) land later.
+        remaining analytical feed (the red-flag scan) lands later; ROIC was assessed and rejected as underivable (see the value_drivers block).
         """
         # Currency-aware money formatter: bare "$" for USD/domestic filers, ISO-prefixed for foreign
         # issuers (e.g. "EUR 30.6B", "CNY 30.6B"). Standardized XBRL values are in the filer's
@@ -432,6 +432,87 @@ class _MarkdownRenderMixin:
                 line = "; ".join(parts)
                 eq["cash_conversion"] = line[0].upper() + line[1:] + "."
                 sections["earnings_quality"] = eq
+
+        # value_drivers (§4, T5.3): two machine-authored fields — numbers from code, the value VERDICT
+        # stays the model's (`capital_allocation` prose + `highlights`).
+        #
+        # `shareholder_returns` (filler sole author; never in the schema): the §4-homed capital-
+        # allocation dollars — dividends paid, share repurchases, capex — current vs prior,
+        # currency-aware, cash-paid magnitudes as tagged. ONE-HOME: never FCF (§3's home) nor the
+        # financing/investing cash-flow TOTALS (§8's home; these are components, a different figure).
+        # Zero-valued current clauses are omitted (a "TWD 0" repurchase line is noise, not signal).
+        #
+        # `returns_on_capital` (T5.1 code-owns): ROE/ROA level + prior — the honest filing-derivable
+        # returns read. The prompt previously asked for ROIC, which is never a filing line item and
+        # absent from the grounding (a standing fabrication invitation, and full ROIC founders on
+        # short-term debt being a multi-concept sum — understating invested capital OVERSTATES it).
+        # Deliberately NOT gated on fi_components_present: ROE/ROA is explicitly the FI-appropriate
+        # read, so this authors for banks too. Ownership invariant on both fields: pop the model's
+        # value FIRST on every path — always machine-authored or absent, never model-authored.
+        vd = sections.get("value_drivers")
+        if not isinstance(vd, dict):
+            vd = {}
+        vd.pop("shareholder_returns", None)
+        vd.pop("returns_on_capital", None)
+
+        def _flow_clause(label: str, key: str) -> Optional[str]:
+            # abs(): these are cash-PAID magnitudes; a filer that tags the outflow as negative (the
+            # documented population the FCF derivation abs()es) must not render "capital expenditures
+            # $-1.2B" — a tagging artifact presented as if the sign were semantic, and internally
+            # inconsistent with §3's abs()-based FCF in the same summary.
+            current = raw_current(key)
+            if not current:  # None or 0.0 → omit (zero cash paid is noise in a returns line)
+                return None
+            clause = f"{label} {format_currency(abs(current))}"
+            prior = raw_prior(key)
+            if prior:
+                clause += f" (prior {format_currency(abs(prior))})"
+            return clause
+
+        returned = [c for c in (_flow_clause("dividends paid", "dividends_paid"),
+                                _flow_clause("share repurchases", "share_repurchases")) if c]
+        capex_clause = _flow_clause("capital expenditures", "capital_expenditures")
+        if returned:
+            line = "Capital returned — " + ", ".join(returned)
+            if capex_clause:
+                line += f"; {capex_clause}"
+            vd["shareholder_returns"] = line + "."
+        elif capex_clause:
+            # No shareholder returns this period (or none tagged): the capex line still grounds §4.
+            vd["shareholder_returns"] = capex_clause[0].upper() + capex_clause[1:] + "."
+
+        roe = (xbrl_metrics or {}).get("return_on_equity")
+        roa = (xbrl_metrics or {}).get("return_on_assets")
+
+        def _ratio_clause(label: str, metric: Any) -> Optional[str]:
+            # Band guard (the cash_conversion ±10x precedent): a |ratio| beyond 200% almost always
+            # means a near-zero denominator (HD's ~$1B equity → "1644.4%") — arithmetically true,
+            # analytically noise. Honest negatives inside the band (a loss against positive equity,
+            # e.g. -12.3%) stay; the sign-flip class is already killed at the derivation (equity > 0).
+            def _in_band(value: Any) -> bool:
+                return (isinstance(value, (int, float)) and not isinstance(value, bool)
+                        and -200.0 <= value <= 200.0)
+
+            if not isinstance(metric, dict):
+                return None
+            current = metric.get("current") if isinstance(metric.get("current"), dict) else {}
+            value = current.get("value")
+            if not _in_band(value):
+                return None
+            clause = f"{label} {value:.1f}%"
+            prior = metric.get("prior") if isinstance(metric.get("prior"), dict) else {}
+            prior_value = prior.get("value")
+            if _in_band(prior_value):
+                clause += f" (prior {prior_value:.1f}%)"
+            return clause
+
+        ratio_clauses = [c for c in (_ratio_clause("return on equity was", roe),
+                                     _ratio_clause("return on assets", roa)) if c]
+        if ratio_clauses:
+            line = "; ".join(ratio_clauses)
+            vd["returns_on_capital"] = line[0].upper() + line[1:] + "."
+        if vd:
+            sections["value_drivers"] = vd
 
         # segments (§7): author the reportable-segment table from standardized XBRL (T5.2). Code owns the
         # FIGURES — per-segment revenue, operating income, YoY revenue change — plus a deterministic mix

@@ -32,6 +32,22 @@ def test_fabricated_prose_figure_is_flagged():
     assert ft.untraceable_figures(s, _XBRL, _EXCERPT) == ["55.5b"]
 
 
+def test_machine_authored_value_driver_fields_are_not_policed():
+    # T5.3: shareholder_returns + returns_on_capital are machine-authored from XBRL — like cash_flow /
+    # cash_conversion, excluded from policing. The model's capital_allocation stays policed: a
+    # fabricated dollar amount there still flags.
+    s = _sections(value_drivers={
+        "shareholder_returns": "Capital returned — dividends paid $15.4B, share repurchases $90.7B; "
+                               "capital expenditures $12.7B.",
+        "returns_on_capital": "Return on equity was 151.3% (prior 164.6%).",
+        "capital_allocation": "Buybacks were funded from operating cash.",
+    })
+    assert ft.untraceable_figures(s, _XBRL, _EXCERPT) == []
+
+    s2 = _sections(value_drivers={"capital_allocation": "A $55.5B special buyback flattered returns."})
+    assert ft.untraceable_figures(s2, _XBRL, _EXCERPT) == ["55.5b"]
+
+
 def test_model_segment_commentary_is_policed_again():
     # T5.2b: segments[].commentary carries a MODEL-written qualitative driver merged onto the
     # machine-authored rows, so it is policed again. A fabricated dollar amount in the model half

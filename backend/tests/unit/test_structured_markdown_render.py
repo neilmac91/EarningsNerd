@@ -549,6 +549,153 @@ def test_apply_structured_fallbacks_segments_commentary_cannot_create_section():
     assert "segments" not in sections
 
 
+# --- T5.3: value_drivers machine feeds (shareholder_returns + returns_on_capital) ----------------
+
+def _vd_xbrl(**over):
+    base = {
+        "dividends_paid": {"current": {"value": 15_421_000_000.0, "period": "FY2025"},
+                           "prior": {"value": 15_234_000_000.0, "period": "FY2024"}},
+        "share_repurchases": {"current": {"value": 90_711_000_000.0, "period": "FY2025"},
+                              "prior": {"value": 94_949_000_000.0, "period": "FY2024"}},
+        "capital_expenditures": {"current": {"value": 12_713_000_000.0, "period": "FY2025"},
+                                 "prior": {"value": 9_447_000_000.0, "period": "FY2024"}},
+        "return_on_equity": {"current": {"value": 151.3, "period": "FY2025"},
+                             "prior": {"value": 164.6, "period": "FY2024"}},
+        "return_on_assets": {"current": {"value": 28.4, "period": "FY2025"},
+                             "prior": {"value": 25.7, "period": "FY2024"}},
+    }
+    base.update(over)
+    return base
+
+
+def test_apply_structured_fallbacks_authors_shareholder_returns_and_returns_read():
+    """§4 machine feeds: the shareholder-returns dollars (dividends/buybacks/capex, current vs prior)
+    and the ROE/ROA returns read. ONE-HOME: the line never states FCF (§3) or the financing/investing
+    cash-flow totals (§8)."""
+    sections: dict = {}
+    openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, _vd_xbrl())
+
+    vd = sections["value_drivers"]
+    assert vd["shareholder_returns"] == (
+        "Capital returned — dividends paid $15.4B (prior $15.2B), share repurchases $90.7B "
+        "(prior $94.9B); capital expenditures $12.7B (prior $9.4B)."
+    )
+    assert vd["returns_on_capital"] == (
+        "Return on equity was 151.3% (prior 164.6%); return on assets 28.4% (prior 25.7%)."
+    )
+    assert "free cash flow" not in vd["shareholder_returns"].lower()
+
+
+def test_apply_structured_fallbacks_shareholder_returns_capex_only():
+    """A no-dividend/no-buyback filer (TSLA-style) still grounds §4 with the capex line."""
+    sections: dict = {}
+    xbrl = {"capital_expenditures": {"current": {"value": 11_284_000_000.0, "period": "FY2025"},
+                                     "prior": {"value": 8_899_000_000.0, "period": "FY2024"}}}
+    openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
+
+    assert sections["value_drivers"]["shareholder_returns"] == (
+        "Capital expenditures $11.3B (prior $8.9B)."
+    )
+    assert "returns_on_capital" not in sections["value_drivers"]
+
+
+def test_apply_structured_fallbacks_shareholder_returns_zero_current_omitted():
+    """A zero current-period repurchase (TSM-style legitimate zero anchor) is omitted — 'TWD 0' is
+    noise, not signal — while the non-zero clauses stay."""
+    sections: dict = {}
+    xbrl = _vd_xbrl(share_repurchases={"current": {"value": 0.0, "period": "FY2025"},
+                                       "prior": {"value": 3_089_200_000.0, "period": "FY2024"}})
+    openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
+
+    line = sections["value_drivers"]["shareholder_returns"]
+    assert "share repurchases" not in line and "dividends paid $15.4B" in line
+
+
+def test_apply_structured_fallbacks_value_drivers_ownership_is_popped_on_every_path():
+    """Ownership invariant ×2: stray model values for both machine fields are stripped even when
+    nothing is computable (the section may then be absent entirely); the model's qualitative
+    capital_allocation is preserved."""
+    sections = {"value_drivers": {
+        "capital_allocation": "Buybacks continued to outpace capex, funded from operating cash.",
+        "shareholder_returns": "The company returned $999B via buybacks.",
+        "returns_on_capital": "ROIC was 55% and rising.",
+    }}
+    openai_service._apply_structured_fallbacks(
+        sections, {"company_name": "X"}, {"revenue": {"current": {"value": 1.0}}}
+    )
+    vd = sections["value_drivers"]
+    assert "shareholder_returns" not in vd and "returns_on_capital" not in vd
+    assert vd["capital_allocation"] == "Buybacks continued to outpace capex, funded from operating cash."
+
+    # And with XBRL present, model text is REPLACED by the machine lines (never merged).
+    sections2 = {"value_drivers": {"shareholder_returns": "made up", "returns_on_capital": "ROIC 55%"}}
+    openai_service._apply_structured_fallbacks(sections2, {"company_name": "X"}, _vd_xbrl())
+    assert "$999B" not in sections2["value_drivers"]["shareholder_returns"]
+    assert "ROIC" not in sections2["value_drivers"]["returns_on_capital"]
+
+
+def test_apply_structured_fallbacks_shareholder_returns_use_reporting_currency():
+    sections: dict = {}
+    xbrl = _vd_xbrl()
+    xbrl["reporting_currency"] = "DKK"
+    openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
+
+    line = sections["value_drivers"]["shareholder_returns"]
+    assert "DKK 15.4B" in line and "$" not in line
+
+
+def test_apply_structured_fallbacks_flow_signs_normalized_with_abs():
+    """A filer that tags the outflow NEGATIVE (the documented population the FCF derivation abs()es)
+    must not render 'capital expenditures $-1.2B' — magnitudes are normalized with abs(), matching
+    §3's FCF in the same summary."""
+    sections: dict = {}
+    xbrl = {"capital_expenditures": {"current": {"value": -1_200_000_000.0, "period": "FY2025"},
+                                     "prior": {"value": -900_000_000.0, "period": "FY2024"}}}
+    openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
+
+    line = sections["value_drivers"]["shareholder_returns"]
+    assert line == "Capital expenditures $1.2B (prior $900.0M)."
+    assert "-" not in line
+
+
+def test_apply_structured_fallbacks_returns_read_band_guards_degenerate_ratios():
+    """The ±200% band (the cash_conversion ±10x precedent): a near-zero-equity filer's true-but-noise
+    ROE (HD-style 1644%) is dropped; the in-band ROA still renders; an out-of-band PRIOR drops just
+    the parenthetical. Honest in-band negatives (a loss against positive equity) stay."""
+    sections: dict = {}
+    xbrl = {
+        "return_on_equity": {"current": {"value": 1644.4, "period": "FY2025"},
+                             "prior": {"value": 1200.0, "period": "FY2024"}},
+        "return_on_assets": {"current": {"value": 17.9, "period": "FY2025"},
+                             "prior": {"value": 812.0, "period": "FY2024"}},
+    }
+    openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
+    assert sections["value_drivers"]["returns_on_capital"] == "Return on assets 17.9%."
+
+    honest_loss: dict = {}
+    openai_service._apply_structured_fallbacks(honest_loss, {"company_name": "X"}, {
+        "return_on_equity": {"current": {"value": -12.3, "period": "FY2025"}},
+    })
+    assert honest_loss["value_drivers"]["returns_on_capital"] == "Return on equity was -12.3%."
+
+
+def test_apply_structured_fallbacks_returns_read_authors_for_banks():
+    """Unlike cash_conversion, the ROE/ROA read is the FI-appropriate metric — NOT suppressed when
+    bank revenue components are present."""
+    sections: dict = {}
+    xbrl = {
+        "net_interest_income": {"current": {"value": 5_000_000_000.0, "period": "FY2025"}},
+        "return_on_equity": {"current": {"value": 17.2, "period": "FY2025"},
+                             "prior": {"value": 15.8, "period": "FY2024"}},
+        "return_on_assets": {"current": {"value": 1.4, "period": "FY2025"}},
+    }
+    openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, xbrl)
+
+    assert sections["value_drivers"]["returns_on_capital"] == (
+        "Return on equity was 17.2% (prior 15.8%); return on assets 1.4%."
+    )
+
+
 def test_apply_structured_fallbacks_segments_use_reporting_currency():
     """Foreign issuers: segment figures carry the ISO prefix, never a bare '$'."""
     sections: dict = {}

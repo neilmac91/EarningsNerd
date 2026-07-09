@@ -37,6 +37,10 @@ _XBRL_NARRATIVE_SPEC: list[tuple[str, str, str]] = [
     ("Investing Cash Flow", "investing_cash_flow", "usd"),
     ("Financing Cash Flow", "financing_cash_flow", "usd"),
     ("Capital Expenditures", "capital_expenditures", "usd"),
+    # T5.3 shareholder returns — cash PAID (as-tagged positive outflow magnitudes); the "Paid"/
+    # "(payments)" labels make a positive number read unambiguously as an outflow.
+    ("Dividends Paid", "dividends_paid", "usd"),
+    ("Share Repurchases (payments)", "share_repurchases", "usd"),
     ("Free Cash Flow (OCF - CapEx)", "free_cash_flow", "usd"), ("Total Assets", "total_assets", "usd"),
     ("Current Assets", "current_assets", "usd"),
     ("Current Liabilities", "current_liabilities", "usd"),
