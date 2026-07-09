@@ -102,6 +102,16 @@ def test_comma_grouped_excerpt_number_grounds_across_scale():
     assert ft.untraceable_figures(s, None, excerpt) == []
 
 
+def test_trillion_scale_excerpt_grounds():
+    """A verbatim trillion-scale figure ('$3.5 trillion', routine on megabank/AUM prose — JPM's ~$4T is
+    in the golden set) must ground against the excerpt's own 'trillion'/'tn' cue. The excerpt scale
+    vocabulary mirrors the prose side; without it the copied figure false-flagged (['3.5t'])."""
+    s = _sections(the_print={"headline": "Assets under management reached $3.5 trillion.",
+                             "key_takeaways": ["ok"]})
+    assert ft.untraceable_figures(s, None, "Assets under management of $3.5 trillion as of Dec 31.") == []
+    assert ft.untraceable_figures(s, None, "AUM of $3.5tn at period end.") == []
+
+
 def test_rounding_tolerance_grounds_against_exact_xbrl():
     """A prose '$2.2B' grounds against an exact XBRL 2,241,000,000 (rounds to $2.2B): half-last-digit
     tolerance (±0.05B) admits it. A flat 0.5% tolerance would not (2.241 is 1.9% off 2.2)."""
@@ -156,9 +166,20 @@ def test_bare_incidental_number_does_not_ground_a_fabrication():
     assert ft.untraceable_figures(s, _XBRL, "The company operates in 60 countries.") == ["60b"]
 
 
-def test_no_xbrl_no_excerpt_is_safe():
-    # Degraded path: nothing to trace against → the gate must not crash and flags only real figures.
-    assert isinstance(ft.untraceable_figures(_sections(), None, None), list)
+def test_no_grounding_basis_flags_nothing():
+    # Fully degraded path: no XBRL AND no excerpt/filing text → NO basis to judge, so flag nothing
+    # (not flag-all). Flag-all would flood the corpus measurement on the excerpt-failure population and,
+    # once armed, billing-punish already-degraded summaries.
+    assert ft.untraceable_figures(_sections(), None, None) == []
+    assert ft.untraceable_figures(_sections(), {}, "") == []
+
+
+def test_filing_text_fallback_grounds_copied_figure():
+    # The excerpt-failure case: the pipeline passes ``excerpt or filing_text`` so the gate grounds against
+    # the same text the model generated from. A figure copied from the filing text must ground, not flag.
+    s = _sections(the_print={"headline": "Revenue was $30.0 billion.", "key_takeaways": ["ok"]})
+    filing_text = "... The Company reported revenue of $30.0 billion for the fiscal year ..."
+    assert ft.untraceable_figures(s, None, filing_text) == []
 
 
 def test_malformed_sections_do_not_crash():

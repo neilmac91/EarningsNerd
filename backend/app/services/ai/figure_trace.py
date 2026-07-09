@@ -48,18 +48,27 @@ _SCALE_CANON = {
 _DOLLAR_MULT = {"b": 1e9, "m": 1e6, "t": 1e12}
 
 # Excerpt scale words → multiplier. A number in the excerpt grounds a prose figure by VALUE, so we must
-# resolve its scale: an explicit word is authoritative; a comma-grouped magnitude ("105,819") is a raw
+# resolve its scale: an explicit word is authoritative (trillion..thousand — mirrors the prose side's
+# scale vocabulary so a verbatim "$3.5 trillion" grounds); a comma-grouped magnitude ("105,819") is a raw
 # statement figure whose table scale (units / thousands / millions) is unknown, so we admit all three
-# candidates. A BARE number (no comma, no scale word — a count, a page ref, a percentage) is NOT
-# scaled up: doing so would ground a fabricated "$60B" against an incidental "60".
+# candidates. A BARE number (no comma, no scale word — a count, a page ref, a percentage) is NOT scaled
+# up: doing so would ground a fabricated "$60B" against an incidental "60".
+#
+# ACCEPTED FALSE-NEGATIVE (documented, not a bug): the unconditional ×1/×1e3/×1e6 admission for a
+# comma-grouped number means an incidental non-monetary count ("79,000 employees") also whitelists the
+# phantom magnitudes 79M and 79B — so a fabricated "$79B" would ground against it. That is the safe trade
+# direction for a gate wired (eventually) to billing (a miss is cheaper than a false accusation), but a
+# clean gate here does NOT prove "no fabrications". T5 tightening: gate the admitted scales on the
+# excerpt's own table cues ("(in millions)" / "(in thousands)") instead of always all three.
 _EXCERPT_SCALE = {
+    "trillion": 1e12, "tn": 1e12,
     "billion": 1e9, "bn": 1e9, "b": 1e9,
     "million": 1e6, "mn": 1e6, "m": 1e6,
     "thousand": 1e3, "k": 1e3,
 }
 _EXCERPT_NUM_RE = re.compile(
     r"(?<![\w.])(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s*"
-    r"(billion|million|thousand|bn|mn|b|m|k)?\b",
+    r"(trillion|billion|million|thousand|tn|bn|mn|b|m|k)?\b",
     re.IGNORECASE,
 )
 _COMMA_SCALES = (1.0, 1e3, 1e6)
@@ -240,6 +249,12 @@ def untraceable_figures(
     if not figures:
         return []
     grounded_vals = xbrl_values(xbrl_metrics) + excerpt_values(excerpt)
+    if not grounded_vals:
+        # No grounding basis at all (no XBRL AND no excerpt/filing text) → we cannot judge any figure, so
+        # flag nothing rather than flag-all. Flag-all would be a pure false-positive flood on the degraded
+        # population (excerpt-extraction failure) — noise in the corpus measurement now, and a
+        # billing-punishment of already-degraded summaries once the gate is armed.
+        return []
     untraceable: set[str] = set()
     for value, key in figures:
         if not _grounded(value, key, grounded_vals):

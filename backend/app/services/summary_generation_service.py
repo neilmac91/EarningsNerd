@@ -281,8 +281,9 @@ def assess_quality(
     # standardized XBRL value (scale-tolerant) NOR the filing excerpt (scale-aware) — the deterministic
     # catch for a dollar figure the model invented or silently derived. Always attached (measurement);
     # only tiers "partial" when AI_FIGURE_TRACE_GATE is on, so a false positive can't silently turn off
-    # billing / mass-downgrade the corpus before the FP rate is measured. No-ops on v1 rows (v2 prose
-    # fields absent → nothing to police).
+    # billing / mass-downgrade the corpus before the FP rate is measured. Effectively inert on v1 rows
+    # (the v2 prose allowlist keys are absent — only notable_footnotes is shape-shared across taxonomies),
+    # and moot regardless: this function's only caller assesses fresh generations, which are v2.
     from app.services.ai.figure_trace import untraceable_figures
 
     sections = (summary_data.get("raw_summary") or {}).get("sections")

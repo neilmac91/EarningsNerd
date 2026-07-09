@@ -692,8 +692,29 @@ async def stream_filing_summary(
             # S4: deterministic quality verdict (always attached as metadata for the UI badge).
             # sic feeds the bank-aware revenue-grounding rule (P0-2) as the flag-independent
             # FI signal alongside component presence.
-            quality = assess_quality(summary_payload, xbrl_metrics, sic=company_sic, excerpt=excerpt)
+            # ``excerpt or filing_text``: when excerpt extraction failed (cache miss + section-parse
+            # timeout), ``summarize_filing`` still generated from ``filing_text``'s parsed sample — so the
+            # gate must ground against the same text, else every filing-copied figure false-flags on
+            # exactly the degraded population. The two are complementary (filing_text is emptied only when
+            # the excerpt is in use), and ``untraceable_figures`` returns [] if BOTH are empty.
+            quality = assess_quality(
+                summary_payload, xbrl_metrics, sic=company_sic, excerpt=excerpt or filing_text
+            )
             raw_summary["quality"] = quality
+            untraceable = quality.get("figures_untraceable") or []
+            if untraceable:
+                # T3.2 advisory-phase measurement channel. The gate ships flag-off, so untraceable dollar
+                # figures do NOT tier the summary "partial" — this greppable counter (count first, for a
+                # log-based metric threshold) is the only push signal for the flag-flip decision and,
+                # post-T5, the regression alarm for derived-aggregate reintroduction.
+                logger.info(
+                    "figure_trace_untraceable count=%d flag=%s filing_id=%s sic=%s figures=%s",
+                    len(untraceable),
+                    settings.AI_FIGURE_TRACE_GATE,
+                    filing_id,
+                    company_sic or "",
+                    "|".join(untraceable),
+                )
             if quality.get("tier") == "partial":
                 # P0-2 detection: greppable counter of partial verdicts by reason + SIC. A
                 # bank-heavy spike after any prompt change is the recurrence signal for the
@@ -820,6 +841,7 @@ async def stream_filing_summary(
                 duration_ms=elapsed_ms(),
                 result_type=summary_status,
                 quality_verdict=quality.get("tier"),
+                figures_untraceable_count=len(quality.get("figures_untraceable") or []),
                 entry_point=telemetry_entry_point,
                 **telemetry_ctx,
             )
