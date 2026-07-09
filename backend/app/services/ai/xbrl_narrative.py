@@ -159,8 +159,10 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
         body += (
             "\nREPORTABLE SEGMENTS (XBRL; revenue order): " + "; ".join(segment_labels) + ". The "
             "per-segment figure table is filled deterministically from XBRL — in `segments`, provide "
-            "ONLY a one-line qualitative driver per listed segment (copy each name EXACTLY as listed; "
-            "no dollar amounts or percentage changes; NEVER add a segment that is not listed here)."
+            "ONLY a one-line driver per listed segment as management states it (copy each name EXACTLY "
+            "as listed; never restate the segment's own revenue, operating income, or YoY change — the "
+            "table carries them; finer-grained product/sub-segment facts are welcome as the filing "
+            "discloses them; NEVER add a segment that is not listed here)."
         )
     # Foreign (non-USD) filers: name the reporting currency emphatically, right next to the figures.
     # The generic "don't render non-USD as $" rule in the analyst system prompt is intermittently

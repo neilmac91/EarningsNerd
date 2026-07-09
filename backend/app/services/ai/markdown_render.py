@@ -446,10 +446,16 @@ class _MarkdownRenderMixin:
             for row in model_segments:
                 if not isinstance(row, dict):
                     continue
-                label = str(row.get("segment") or row.get("name") or "").strip()
-                note = str(row.get("commentary") or "").strip()
+                # Strings only — a schema-loose dict/list here would str() into a Python repr in the
+                # user-facing cell (every other render field drops non-strings the same way).
+                raw_label = row.get("segment") or row.get("name")
+                raw_note = row.get("commentary")
+                if not isinstance(raw_label, str) or not isinstance(raw_note, str):
+                    continue
+                label = raw_label.strip()
+                note = raw_note.strip().lstrip("—-– ").strip()
                 if not label or not note or note.lower() in _PLACEHOLDER_STRINGS \
-                        or note.lower().startswith("not disclosed"):
+                        or note.lower().startswith(("not disclosed", "not applicable", "n/a")):
                     continue
                 model_notes[label.casefold()] = note
         seg_rows = (xbrl_metrics or {}).get("segments")

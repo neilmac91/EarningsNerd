@@ -22,7 +22,9 @@ Scope + precision decisions (measured on the golden corpus, see the PR readout):
   (a summed "total debt", a netted "net cash") the pipeline should compute — the T5 signal.
 * **Police model prose only.** The v2 renderer injects XBRL figures into the ``results_that_matter``
   table by construction, so tables, verbatim quotes, and machine-authored ``cash_flow`` /
-  ``working_capital`` fields are excluded — the surface is free analytical prose.
+  ``working_capital`` / ``cash_conversion`` fields are excluded — the surface is free analytical prose.
+  One table column IS policed: ``segments[].commentary`` carries a model-written driver merged onto the
+  machine rows (T5.2b); its machine half is %-only, invisible to this dollar gate.
 
 Mirrors the eval harness's figure canonicalization app-side WITHOUT importing ``evals`` (the app keeps
 parallel copies, exactly like ``_xbrl_value_appears``).

@@ -469,14 +469,27 @@ def test_apply_structured_fallbacks_segments_commentary_match_is_case_insensitiv
 
 
 def test_apply_structured_fallbacks_segments_placeholder_commentary_ignored():
-    """A placeholder / 'Not disclosed' model line never reaches the cell — deterministic read only."""
+    """A placeholder / 'Not disclosed' / 'Not applicable' model line never reaches the cell —
+    deterministic read only."""
     sections = {"segments": [
         {"segment": "Americas", "commentary": "Not disclosed—no drivers stated."},
-        {"segment": "Europe", "commentary": "N/A"},
+        {"segment": "Europe", "commentary": "Not applicable for this filing."},
     ]}
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, _segment_xbrl())
     for row in sections["segments"]:
         assert " — " not in row["commentary"]
+
+
+def test_apply_structured_fallbacks_segments_nonstring_commentary_dropped():
+    """Schema-loose payloads: a dict/list-shaped commentary (or label) must be dropped, never
+    str()-coerced into a Python repr in the user-facing cell."""
+    sections = {"segments": [
+        {"segment": "Americas", "commentary": {"text": "a $55.5B gain"}},
+        {"segment": ["Europe"], "commentary": "A real driver."},
+    ]}
+    openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, _segment_xbrl())
+    for row in sections["segments"]:
+        assert " — " not in row["commentary"] and "{" not in row["commentary"]
 
 
 def test_apply_structured_fallbacks_segments_commentary_cannot_create_section():
