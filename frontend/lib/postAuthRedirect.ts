@@ -22,20 +22,23 @@ const isSafeInternalPath = (path: string): boolean =>
   path.startsWith('/') && !path.startsWith('//') && !path.startsWith('/\\')
 
 export function stashPostAuthRedirect(path: string): void {
-  if (!isSafeInternalPath(path)) return
+  if (typeof window === 'undefined' || !isSafeInternalPath(path)) return
   try {
     localStorage.setItem(KEY, JSON.stringify({ path, at: Date.now() }))
   } catch {
-    // Storage unavailable (SSR guard, private mode, quota) — the ?redirect= thread still works.
+    // Storage unavailable (private mode, quota) — the ?redirect= thread still works.
   }
 }
 
 export function consumePostAuthRedirect(): string | null {
+  if (typeof window === 'undefined') return null
   try {
     const raw = localStorage.getItem(KEY)
     if (!raw) return null
     localStorage.removeItem(KEY) // consume-once, even when stale/invalid
-    const { path, at } = JSON.parse(raw) as { path?: unknown; at?: unknown }
+    const parsed: unknown = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return null
+    const { path, at } = parsed as { path?: unknown; at?: unknown }
     if (typeof path !== 'string' || typeof at !== 'number') return null
     if (Date.now() - at > MAX_AGE_MS) return null
     return isSafeInternalPath(path) ? path : null
