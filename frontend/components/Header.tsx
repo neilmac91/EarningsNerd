@@ -19,7 +19,7 @@ const NAV_LINKS = [
   // entries appear only when the features are live. Search ships hidden (founder decision — see
   // ENABLE_FULLTEXT_SEARCH); flip the flag to reintroduce it.
   ...(ENABLE_FULLTEXT_SEARCH ? [{ href: '/search', label: 'Search' }] : []),
-  ...(ENABLE_ANALYSIS ? [{ href: '/analysis', label: 'Analysis' }] : []),
+  ...(ENABLE_ANALYSIS ? [{ href: '/analysis', label: 'Multi-Period Analysis' }] : []),
   ...(ENABLE_CALENDAR ? [{ href: '/calendar', label: 'Calendar' }] : []),
   { href: '/pricing', label: 'Pricing' },
   { href: '/contact', label: 'Contact' },

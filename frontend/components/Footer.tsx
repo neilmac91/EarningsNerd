@@ -11,7 +11,7 @@ type FooterLink = { label: string; href: string }
 // under the off-by-default ENABLE_MARKET_MOVERS flag) links were dead and have been dropped.
 const FOOTER_LINKS: Record<string, FooterLink[]> = {
   Product: [
-    ...(ENABLE_ANALYSIS ? [{ label: 'Analysis', href: '/analysis' }] : []),
+    ...(ENABLE_ANALYSIS ? [{ label: 'Multi-Period Analysis', href: '/analysis' }] : []),
     ...(ENABLE_CALENDAR ? [{ label: 'Calendar', href: '/calendar' }] : []),
     { label: 'Pricing', href: '/pricing' },
   ],
