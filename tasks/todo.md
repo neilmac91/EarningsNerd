@@ -25,28 +25,32 @@ clean `8/8`, not a misleading `8/9` (**N/A-denominator semantics**, not a de-cou
 
 ## Plan
 
-- [ ] **xbrl_narrative.py**: `REPORTABLE SEGMENTS (XBRL)` block — label names in revenue order + "provide a
-      one-line qualitative driver per listed segment in `segments`; no $ amounts; omit when none listed".
-      (Labels contain no "$" → safe under the non-USD relabel.)
-- [ ] **openai_service.py schema_template**: re-add `segments` as COMMENTARY-ONLY rows
-      `[{"segment": "<copy a name EXACTLY as listed>", "commentary": "<one-line driver, qualitative>"}]`;
-      update the eight-sections rule + ONE-HOME segment clause (figures stay deterministic).
-- [ ] **markdown_render.py**: harvest `{casefold(label) → commentary}` from the popped model value
-      (placeholder-filtered); per authored row, commentary = `"<det mix> — <model note>"` / either alone;
-      unmatched labels dropped; model can never create rows or the section key.
-- [ ] **figure_trace.py**: re-include `segments[].commentary` in `_prose_blob` (model prose again).
-- [ ] **N/A badge**: snapshot gains `"not_applicable": ["segments"]` iff segments un-authored post-fallback;
-      `_verdict_coverage` subtracts honored N/A (∈ tracked ∧ uncovered) from the TOTAL only. Raw snapshot
-      counts stay raw (documented); the verdict applies the semantics. `fallback_summary`'s hardcoded 9 is
-      the degraded path — out of scope, documented.
-- [ ] **Version bump** → `summary-2026-07-g` (prompt-content change).
-- [ ] **Tests (rule 12)**: commentary merged / unmatched-dropped / placeholder-ignored / deterministic-only
-      fallback / no-rows-created; figure_trace flags a fabricated `$` in segment commentary + stays clean on
-      the %-only machine half; verdict N/A math (authored→9, absent→8, covered-but-claimed-N/A→ignored,
-      legacy snapshot→9); snapshot emits `not_applicable` correctly.
-- [ ] **Gates + eval `--runs 3`** (prompt change) → HARD gates hold → no re-pin unless the bar moved.
-- [ ] Adversarial review → fix → commit → push → draft PR (document: fallback-path 9, the P0-2 counter rider
-      now measuring a SMALLER tail, deferred items unchanged).
+**STATUS: shipped to PR #617 — implemented, reviewed, eval PASS ×2, awaiting founder review/merge.**
+
+- [x] **xbrl_narrative.py**: `REPORTABLE SEGMENTS (XBRL)` labels-only block (revenue order); instruction
+      refined post-live-probe: "never restate the segment's OWN revenue/op-income/YoY (the table carries
+      them); finer-grained product/sub-segment facts welcome" — the model was contributing valuable
+      sub-segment facts ("Azure grew 34%") that honor ONE-HOME's intent.
+- [x] **openai_service.py schema_template**: `segments` re-added COMMENTARY-ONLY; nine-sections rule +
+      ONE-HOME clause reworded; blanket "arrays never empty / no empty sections" rules carve out segments
+      (review finding: self-contradiction → placeholder-row waste).
+- [x] **markdown_render.py**: harvest-before-pop merge; strings-only guard (dict commentary would repr into
+      the cell — review finding); placeholder filter extended (not applicable / n/a / leading dashes).
+- [x] **figure_trace.py**: `segments[].commentary` policed again; module docstring updated.
+- [x] **N/A badge**: snapshot `not_applicable` + verdict denominator math (deduped, per_section-is-truth,
+      legacy-compatible, absolute 4-bar untouched). fallback_summary comment updated (degraded path keeps 9).
+- [x] **Version bump** → `summary-2026-07-g`.
+- [x] **Tests**: 9 new/updated (merge, phantom-drop, placeholder, non-string, case-insensitive,
+      cannot-create-section, figure_trace flip, verdict N/A ×3). Full gate **1639 passed**, ruff+bandit clean.
+- [x] **Eval `--runs 3` ×2** (pre- and post-review-fix prompts): regression gate **PASS, 0 warnings** both;
+      financial_depth 0.9445→0.9744, redundancy 0.9115→0.9303; no re-pin.
+- [x] **Adversarial review** (2 agents + Gemini clean): no blocking defects; all touch-ups landed same PR.
+      Live probe: AAPL 5/5 + MSFT 3/3 rows merged ("43% of segment revenue, 41% operating margin — Higher
+      net sales of iPhone and Services…"), `not_applicable` emitted correctly.
+
+**Acknowledged tradeoff (documented in PR):** extraction *failure* on a truly multi-segment filer is
+indistinguishable from by-design absence → badge reads 8/8; the snapshot's `missing` list + ops log still
+record it. Matches the locked "code is the only author ⇒ absence is by design" semantics.
 
 ## Not in scope (this PR)
 - Geographic/IFRS-native axes, bank segment concepts, segment eval scorer (deferred list on #616).
