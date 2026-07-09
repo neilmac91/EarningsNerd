@@ -61,6 +61,13 @@ cash-conversion figures; the model keeps the one-time bridge (operating_vs_one_t
 - [x] **Adversarial review workflow** (4 dims → adversarial verify): confirmed_count 0. The two worthwhile
       nits actioned: figure_trace comment accuracy + the loss-branch signal above.
 
+## Eval-process follow-up (staff review, non-blocking)
+- Tag `generation_collapse` rows in the eval report (crisp signature: `schema_valid=false` + zero facts +
+  every section empty — the 40s EdgarTools cap on the largest 20-Fs keeps producing these) and print BOTH
+  raw and collapse-excluded means, so "flake-adjusted" is a first-class reproducible readout instead of
+  reviewer-trust hand-analysis in a PR body. **Tag, don't retry-and-hide** — silent retries would bias the
+  consistency dimension the eval exists to measure. → T5 follow-up list.
+
 ## Not in scope (this PR)
 - red_flags code-authoring (negative-FCF/accrual callouts) — the cash_conversion line already surfaces the
   accrual read; the callout adds threshold-judgment + list-merge nuance → follow-up.
