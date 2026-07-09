@@ -97,9 +97,19 @@ one correctness fix (below).
       (operating/investing/financing) — currency-aware (ISO-prefixed for non-USD), leaving the model's
       `leverage`+`liquidity` prose untouched; the v2 builder renders `cash_flow`. Content dims IMPROVED
       at cutover: redundancy 0.829→0.927, delta_consistency 0.898→0.968.
-- [ ] Re-run `--runs 3` #3 to confirm recall + currency recover; re-pin `baseline_scores.json`
-      (activates redundancy/delta WARN gates at v2 values). [gate_fail = the known JPM/G5 bank-revenue
-      flake, exempt.]
+- [x] Eval #3 confirmed the redesign: recall 0.9945, currency 1.0, aggregate 0.9975 (vs v1 0.9293),
+      precision/coverage 1.0. Content dims held (redundancy 0.906, delta 0.944–0.972).
+- [x] **Re-pinned** `baseline_scores.json` from the v2 run (recall 0.9945, precision/coverage 1.0,
+      currency 1.0, gate_fail 0.0385) — gate PASSES against the new pin.
+- [~] **JPM/G5 gate_fail (0.0385) — root-caused, out of scope.** The residual vetoes are JPM's
+      `noninterest_income` not surfaced separately. Investigated: the PRODUCTION extractor
+      (`extract_standardized_metrics`) does NOT emit `noninterest_income`/`net_interest_income` into
+      `xbrl_metrics` (JPM has only `revenue`=182B), so the model must read them from filing text —
+      stochastic (0–1/3 runs). A deterministic surfacing fix I attempted was therefore INERT (no XBRL
+      key to read) and was reverted. The real fix is extending the extractor = A7/A8 (XBRL metric
+      expansion) / P0-4 (bank carve-out), explicitly OWNED ELSEWHERE. v1's 0.0 was a lucky stochastic
+      run; the re-pin (0.0385) calibrates the advisory gate to the real floor. Flagged for founder + the
+      A7/A8/P0-4 track in the PR body.
 - [x] Frontend audit: confirmed `SummaryBlocks` renders v2; **deleted** dead v1-key readers —
       `SummaryExecutiveSnapshot.tsx`, its spec, and `formatters.ts::{ExecutiveSnapshot,asTrimmedString,
       parseExecutiveSnapshot}` (no non-test callers).
