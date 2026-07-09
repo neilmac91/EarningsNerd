@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { Badge } from '@/components/ui'
 import analytics from '@/lib/analytics'
 import { getEntryPoint } from '@/lib/entryPoint'
+import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { queryKeys } from '@/lib/queryKeys'
 import StreamingSummaryDisplay from './StreamingSummaryDisplay'
 import { TickerFilingsView } from '@/features/filings/components/TickerFilingsView'
@@ -136,7 +137,10 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   // subscription with no status row) and not beta. Only signed-in users can hit the paywall
   // (generation requires auth), and while the query loads this stays false — under-promising is
   // the safe direction; a churned ex-Pro must never be promised "you won't be charged" (#619).
-  const trialEligible = Boolean(subscription && !subscription.status && !currentUser?.is_beta)
+  // ENABLE_PRO_TRIAL keeps the copy dark until the backend's PRO_TRIAL_DAYS is live (lockstep).
+  const trialEligible = Boolean(
+    ENABLE_PRO_TRIAL && subscription && !subscription.status && !currentUser?.is_beta
+  )
 
   const { data: savedSummaries } = useQuery<SavedSummary[]>({
     queryKey: queryKeys.savedSummaries(),

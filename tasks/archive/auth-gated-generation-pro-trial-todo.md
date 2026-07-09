@@ -106,8 +106,13 @@ deliberate SSE-contract change — the test is re-seated to an authenticated cal
       DS-compliant "Create a free account to read this analysis" card (5 free/month + 7-day Pro
       trial enticement) with CTAs `/register?redirect=/filing/{id}` and login link. Cached
       summaries keep rendering for guests (branch order: cached view FIRST).
-- [x] `?redirect=` threading: `/register` captures it (same safe-internal-path validation as
-      login) → `/check-email` → `/verify-email` → `/login?redirect=…` → back to the filing.
+- [x] `?redirect=` threading: `/register` captures it → `/check-email` → `/login?redirect=…` →
+      back to the filing (login validates internal-path-only). CORRECTION (staff review #619):
+      this line originally claimed `/verify-email` was threaded — it was NOT; the emailed
+      verification link opens a fresh tab where the query thread dies. Closed in the follow-up
+      PR with a validated, consume-once localStorage stash (`lib/postAuthRedirect.ts`): the
+      signup gate stashes `/filing/{id}` and login consumes it when no `?redirect=` is present,
+      covering the email leg without backend changes.
 - [x] Paywall moment: branch `StreamingSummaryDisplay` on `isPaywallStreamError` → upgrade card
       ("You've used your 5 free summaries this month — start your 7-day Pro trial") linking to
       `/pricing`, instead of the generic error+Retry.

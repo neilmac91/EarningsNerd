@@ -13,6 +13,7 @@ import AuthDivider from '@/features/auth/components/AuthDivider'
 import PasswordField from '@/features/auth/components/PasswordField'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
+import { consumePostAuthRedirect } from '@/lib/postAuthRedirect'
 import { Button, Input, Notice } from '@/components/ui'
 
 const OAUTH_ERROR_MESSAGES: Record<string, string> = {
@@ -59,7 +60,9 @@ function LoginContent() {
       // Return the user to where they were headed before the auth gate. Only honour internal,
       // single-slash-rooted paths: reject protocol-relative ("//evil") and backslash-prefixed
       // ("/\\evil") values, which some browsers normalise into open redirects to external sites.
-      const dest = searchParams.get('redirect')
+      // Fallback: the signup gate's stashed destination (consume-once, validated, 1h TTL) — it
+      // survives the verification email's new-tab hop, which the ?redirect= thread cannot.
+      const dest = searchParams.get('redirect') ?? consumePostAuthRedirect()
       const safe =
         dest && dest.startsWith('/') && !dest.startsWith('//') && !dest.startsWith('/\\')
           ? dest

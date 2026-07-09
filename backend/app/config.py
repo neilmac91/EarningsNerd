@@ -79,7 +79,10 @@ class Settings(BaseSettings):
     # skips the trial); cross-account abuse is deterred by the card requirement + Stripe Radar.
     # Bounded (0-30) so an env typo on this money knob fails LOUDLY at boot: 70 would silently give
     # ten-week free trials; >730 would make Stripe 400 every first-time monthly checkout.
-    PRO_TRIAL_DAYS: int = Field(default=7, ge=0, le=30)
+    # Default OFF (repo rollout convention: features enable per-environment via env) — set
+    # PRO_TRIAL_DAYS=7 on the service only AFTER the Stripe test-mode checklist in PR #619 passes,
+    # together with NEXT_PUBLIC_ENABLE_PRO_TRIAL=true on Vercel so the UI copy flips in lockstep.
+    PRO_TRIAL_DAYS: int = Field(default=0, ge=0, le=30)
 
     # Reverse trial: grant full Pro for N days, no card, on signup. Superseded by the card-required
     # PRO_TRIAL_DAYS checkout trial (owner decision 2026-07-09) — keep OFF; code retained dormant.

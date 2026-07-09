@@ -78,7 +78,11 @@ describe('PricingPage', () => {
     mockUseFeatureFlagVariantKey.mockReturnValue(undefined) // default arm = $39 control
   })
 
-  it('lets a reverse-trial user convert: enabled "Subscribe to Pro" button + visible billing toggle', async () => {
+  it('treats a trialing user as current-plan: disabled "Current Plan (trial)" + no billing toggle', async () => {
+    // INVERTED from the original reverse-trial pin (staff review, PR #619): a card-required
+    // Stripe trial IS a live subscription that auto-charges at trial end, so an enabled buy CTA
+    // here invited a SECOND checkout — double-billing plus a webhook hazard when the orphaned
+    // sub cancels. The server now 409s that path; this pins the client half.
     mockGetSubscriptionStatus.mockResolvedValue({
       ...baseSub,
       is_pro: true,
@@ -89,10 +93,13 @@ describe('PricingPage', () => {
 
     renderPricing()
 
-    const cta = await screen.findByRole('button', { name: /subscribe to pro/i })
-    expect(cta).toBeEnabled()
-    // Billing cycle toggle must be available so the user can pick monthly vs yearly.
-    expect(screen.getByRole('switch', { name: /billing cycle/i })).toBeInTheDocument()
+    const cta = await screen.findByRole('button', { name: /current plan \(trial\)/i })
+    expect(cta).toBeDisabled()
+    // Plan changes for a live trial go through the billing portal, not a second checkout —
+    // the cycle toggle would only move a button the user can't press.
+    await waitFor(() =>
+      expect(screen.queryByRole('switch', { name: /billing cycle/i })).not.toBeInTheDocument()
+    )
   })
 
   it('treats a paid (active, non-trial) subscriber as Current Plan with no toggle', async () => {

@@ -27,7 +27,7 @@ from pydantic import ValidationError
 from fastapi.testclient import TestClient
 
 from main import app
-from app.config import Settings, settings
+from app.config import MIN_SECRET_KEY_LENGTH, Settings, settings
 from app.database import get_db
 from app.routers.auth import get_current_user
 from app.services.entitlements import Plan, get_entitlements, is_pro_user
@@ -91,15 +91,16 @@ def test_repeat_subscriber_gets_plain_checkout(client):
     assert "subscription_data" not in kwargs  # no trial for a repeat subscriber
 
 
-def test_first_time_monthly_subscriber_gets_card_required_trial(client):
+def test_first_time_monthly_subscriber_gets_card_required_trial(client, monkeypatch):
     """The trial cohort: first-time subscriber + monthly price + PRO_TRIAL_DAYS>0 →
     trial_period_days with the missing-card cancel backstop, and the card is ALWAYS collected —
     with a trial the amount due today is $0, so ``if_required`` would skip the card and Stripe
     could never auto-charge at trial end."""
+    monkeypatch.setattr(settings, "PRO_TRIAL_DAYS", 7)
     _use_first_time_subscriber_db()
     kwargs = _create_and_capture(client, price_id="price_monthly_test")
     assert kwargs["subscription_data"] == {
-        "trial_period_days": settings.PRO_TRIAL_DAYS,
+        "trial_period_days": 7,
         "trial_settings": {"end_behavior": {"missing_payment_method": "cancel"}},
     }
     assert kwargs["payment_method_collection"] == "always"
@@ -107,7 +108,8 @@ def test_first_time_monthly_subscriber_gets_card_required_trial(client):
 
 def test_yearly_checkout_gets_no_trial(client, monkeypatch):
     """The trial is monthly-only: a first-time subscriber on the YEARLY price gets a plain paid
-    checkout (no subscription_data, if_required)."""
+    checkout (no subscription_data, if_required) even with the trial enabled."""
+    monkeypatch.setattr(settings, "PRO_TRIAL_DAYS", 7)
     monkeypatch.setattr(settings, "STRIPE_PRICE_YEARLY_ID", "price_yearly_test")
     _use_first_time_subscriber_db()
     kwargs = _create_and_capture(client, price_id="price_yearly_test")
@@ -115,9 +117,23 @@ def test_yearly_checkout_gets_no_trial(client, monkeypatch):
     assert kwargs["payment_method_collection"] == "if_required"
 
 
+def test_trial_defaults_off():
+    """Rollout gate (staff review #619): the trial must NOT go live on a bare deploy. The Settings
+    default is 0 (disabled) — prod enables it deliberately via PRO_TRIAL_DAYS=7 on the service,
+    after the Stripe test-mode checklist."""
+    assert Settings(SECRET_KEY="x" * MIN_SECRET_KEY_LENGTH, _env_file=None).PRO_TRIAL_DAYS == 0
+
+
+def test_trial_days_bounded():
+    """Money-knob typo guard: PRO_TRIAL_DAYS outside 0-30 fails loudly at boot (70 would silently
+    gift ten-week trials; >730 would make Stripe 400 every first-time monthly checkout)."""
+    with pytest.raises(ValidationError):
+        Settings(SECRET_KEY="x" * MIN_SECRET_KEY_LENGTH, _env_file=None, PRO_TRIAL_DAYS=70)
+
+
 def test_trial_disabled_when_pro_trial_days_zero(client, monkeypatch):
-    """PRO_TRIAL_DAYS=0 turns the trial off entirely — even a first-time monthly subscriber gets a
-    plain paid checkout."""
+    """PRO_TRIAL_DAYS=0 (the default) turns the trial off entirely — even a first-time monthly
+    subscriber gets a plain paid checkout."""
     monkeypatch.setattr(settings, "PRO_TRIAL_DAYS", 0)
     _use_first_time_subscriber_db()
     kwargs = _create_and_capture(client, price_id="price_monthly_test")
@@ -128,12 +144,63 @@ def test_trial_disabled_when_pro_trial_days_zero(client, monkeypatch):
 def test_beta_user_gets_coupon_not_trial(client, monkeypatch):
     """Cohorts are mutually exclusive: a beta user (even a first-time monthly subscriber) gets the
     $0-forever coupon path — no trial, and ``if_required`` so no card is collected on a $0 total."""
+    monkeypatch.setattr(settings, "PRO_TRIAL_DAYS", 7)
     monkeypatch.setattr(settings, "STRIPE_BETA_PROMO_CODE_ID", "promo_beta_123")
     app.dependency_overrides[get_current_user] = lambda: _user(id=4, is_beta=True)
     _use_first_time_subscriber_db()
     kwargs = _create_and_capture(client, price_id="price_monthly_test")
     assert kwargs["discounts"] == [{"promotion_code": "promo_beta_123"}]
     assert "subscription_data" not in kwargs
+    assert kwargs["payment_method_collection"] == "if_required"
+
+
+def test_active_subscriber_gets_409_not_a_second_checkout(client):
+    """Money-bug gate (staff review #619): a user who is already entitled (active sub) must get
+    409 — a second checkout would create a duplicate live Stripe subscription, and the per-user
+    Subscription-row upsert would then orphan the first one while Stripe keeps charging it."""
+    app.dependency_overrides[get_current_user] = lambda: _user(
+        id=5, subscription=SimpleNamespace(status="active", trial_end=None)
+    )
+    with patch("app.routers.subscriptions.stripe.checkout.Session.create") as create:
+        resp = client.post(
+            "/api/subscriptions/create-checkout-session",
+            params={"price_id": "price_monthly_test"},
+        )
+    assert resp.status_code == 409
+    assert "billing portal" in resp.json()["detail"]
+    create.assert_not_called()  # refused BEFORE any Stripe call
+
+
+def test_live_trialing_subscriber_gets_409(client):
+    """A card-trial user IS a live subscriber (auto-charges at trial end) — same 409, closing the
+    trial → 'Subscribe to Pro' → double-billing sequence."""
+    from datetime import datetime, timedelta, timezone
+
+    future = datetime.now(timezone.utc) + timedelta(days=5)
+    app.dependency_overrides[get_current_user] = lambda: _user(
+        id=6, subscription=SimpleNamespace(status="trialing", trial_end=future)
+    )
+    with patch("app.routers.subscriptions.stripe.checkout.Session.create") as create:
+        resp = client.post(
+            "/api/subscriptions/create-checkout-session",
+            params={"price_id": "price_monthly_test"},
+        )
+    assert resp.status_code == 409
+    create.assert_not_called()
+
+
+def test_expired_trial_remnant_can_resubscribe_without_trial(client):
+    """The 409 gate resolves through entitlements, NOT the raw status string: a stale
+    ``trialing`` row whose trial_end has passed (reverse-trial remnant / lagging webhook) is
+    Free by plan truth, so the user can subscribe again — but the prior row means no new trial."""
+    from datetime import datetime, timedelta, timezone
+
+    past = datetime.now(timezone.utc) - timedelta(days=3)
+    app.dependency_overrides[get_current_user] = lambda: _user(
+        id=7, subscription=SimpleNamespace(status="trialing", trial_end=past)
+    )
+    kwargs = _create_and_capture(client, price_id="price_monthly_test")
+    assert "subscription_data" not in kwargs  # prior row → no second trial
     assert kwargs["payment_method_collection"] == "if_required"
 
 
