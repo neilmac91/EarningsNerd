@@ -79,10 +79,15 @@ the copied figures; the residual is the derived-aggregate / fabrication surface 
       `assess_quality`), so generation output + eval means are unchanged by construction. The FP readout
       below regenerates the corpus, so it doubles as the generation sanity check.
 - [x] Committed + pushed (0f5ee68).
-- [~] **FP corpus readout** (scratchpad/fp_readout.py over all 26 golden filings): regenerate + run the
-      trace, report untraceable figures per filing. RUNNING. Feeds the PR body so the founder can decide
-      when to flip `AI_FIGURE_TRACE_GATE`.
-- [ ] Open **draft PR** with the advisory-first rationale + the FP readout table.
+- [x] **Value-based matcher rewrite** (drove by the readout finding): figure_trace now grounds by VALUE
+      with a rounding-aware tolerance (half last-sig-digit) against XBRL ∪ scale-cued excerpt numbers, not
+      by string. Conservative excerpt scale policy (scale word / comma-grouped only; bare never scaled up).
+      Recovers the ~64% that were the model copying real figures; residual = derived aggregates + fabs.
+- [x] **FP corpus readout** (scratchpad/fp_readout.py over all 27 golden filings): 73 untraceable /
+      3-of-27 clean / ~2 per filing (max 9 TSLA) — a 4× cut from the string matcher's 295. Residual is the
+      derived-aggregate (T5) / fabrication surface. Feeds the PR body so the founder can time the flag flip.
+- [x] Opened **draft PR #612** with the advisory-first rationale + the FP readout table (2 commits:
+      b8a7b46 initial gate + 7f5636c value-based matcher). Subscribed; ~1h self check-in armed.
 
 ## Not in scope
 - Flipping `AI_FIGURE_TRACE_GATE` on (needs the measured FP readout first).
