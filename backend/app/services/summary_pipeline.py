@@ -80,20 +80,39 @@ def _release_inflight(filing_id: int, event: asyncio.Event) -> None:
     event.set()
 
 
+def _check_usage_and_plan(user, db) -> tuple[bool, int, Optional[int], bool]:
+    """One threadpool round-trip for the usage gate + the Pro/Free discriminator.
+
+    Runs synchronously (call via ``run_sync_db``): ``check_usage_limit`` and the entitlements
+    resolution may both lazy-load ``user.subscription`` — sync DB I/O that must stay off the event
+    loop. Resolving both here avoids a second thread hop on the block path and keeps a single
+    source for "is this user billing-unlimited". Looks up ``check_usage_limit`` at call time so
+    test patches of the module global still apply.
+    """
+    can_generate, current_count, limit = check_usage_limit(user, db)
+    is_unlimited = get_entitlements(user).has_unlimited_summaries
+    return can_generate, current_count, limit, is_unlimited
+
+
 # Bounds concurrent full generations per process to protect the single vCPU (see
-# settings.MAX_CONCURRENT_GENERATIONS). Lazily constructed so it binds to the running event loop
-# rather than import-time. Acquired ONLY on the generation (leader) path — dedup waiters return
+# settings.MAX_CONCURRENT_GENERATIONS). Lazily constructed AND keyed to the running event loop:
+# asyncio primitives bind to a loop on first contended await, so a cached semaphore from a previous
+# loop (pytest-asyncio creates one per test; a restarted loop in prod) would raise "bound to a
+# different event loop". Acquired ONLY on the generation (leader) path — dedup waiters return
 # before claiming a slot — so it can never deadlock a leader against its own waiters.
 _generation_semaphore: Optional[asyncio.Semaphore] = None
+_generation_semaphore_loop: Optional[asyncio.AbstractEventLoop] = None
 
 
 def _get_generation_semaphore() -> asyncio.Semaphore:
-    global _generation_semaphore
-    if _generation_semaphore is None:
+    global _generation_semaphore, _generation_semaphore_loop
+    loop = asyncio.get_running_loop()  # only called from async context
+    if _generation_semaphore is None or _generation_semaphore_loop is not loop:
         # <= 0 disables the ceiling (unbounded), mirroring PRO_SUMMARY_MONTHLY_CAP=0. Using a large
         # count rather than skipping acquire keeps the acquire/release bookkeeping uniform.
         limit = settings.MAX_CONCURRENT_GENERATIONS
         _generation_semaphore = asyncio.Semaphore(limit if limit > 0 else 2**31)
+        _generation_semaphore_loop = loop
     return _generation_semaphore
 
 
@@ -278,15 +297,14 @@ async def stream_filing_summary(
 
             # Check usage limits for authenticated user
             if current_user:
-                can_generate, current_count, limit = await run_sync_db(check_usage_limit, current_user, session)
+                can_generate, current_count, limit, user_is_unlimited = await run_sync_db(
+                    _check_usage_and_plan, current_user, session
+                )
                 if not can_generate:
                     # A Pro user is billing-unlimited, so a block here means the INVISIBLE fair-use
                     # ceiling (PRO_SUMMARY_MONTHLY_CAP) tripped — degrade with a generic message,
                     # never an upsell, and skip the paywall funnel event (a Pro user isn't paywalled).
-                    is_pro = await run_sync_db(
-                        lambda u: get_entitlements(u).has_unlimited_summaries, current_user
-                    )
-                    if is_pro:
+                    if user_is_unlimited:
                         logger.warning(
                             f"[stream:{filing_id}] Pro user {user_id} hit summary fair-use ceiling ({limit})."
                         )
