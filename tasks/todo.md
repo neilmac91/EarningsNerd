@@ -64,37 +64,58 @@ Prune the orphan `covenants_contingencies` node (emitted today; tracked/rendered
 - [ ] Full backend gate. No eval run / no re-pin (generation unchanged).
 
 ### PR B — v2 cutover (eval-gated, atomic; structure-first prompts)
-- [ ] `openai_service.py`: rewrite `schema_template` → v2 (prune covenants_contingencies); re-point
-      the **generation-side** `_TRACKED_STRUCTURED_SECTIONS` → v2 (safe: the badge's v1 tuple is
-      frozen as `TRACKED_SECTIONS_V1` in summary_schema — PR A — and no test couples the two); re-point
-      compat-field derivations (financial_highlights/risk_factors/management_discussion/key_changes/
-      business_overview) or canonical `mean_coverage` collapses → HARD gate breach.
-- [ ] `ai/section_recovery.py`: update the duplicated tracked list + section-context/schema-snippet
-      maps to v2.
-- [ ] `ai/markdown_render.py`: `_apply_structured_fallbacks` v2 filler bodies;
-      `_build_structured_markdown` fallback (verify still needed).
-- [ ] **`ai/fallback_summary.py`** (v1-shaped payload, v1 coverage math "total_sections = 7"): under
-      the constant-derived stamp a fallback row would get `schema_version=2` on a v1 shape →
-      `_builders_for(2)` renders it near-empty on exactly the degraded-path summaries. Re-shape the
-      fallback to v2, OR stamp fallback rows `schema_version=1` explicitly (shape-accurate beats
-      constant-accurate).
-- [ ] **`summary_pipeline.py` ~L678** injects `management_discussion_insights` / `guidance_outlook`
-      wrapper nodes into `sections_info` when absent — dissolved/renamed under v2 → phantom v1 nodes
-      on every v2 row (stored-JSON noise + a trap for future `sections` iterators). Condition on
-      schema version or retire.
-- [ ] Rewrite per-form prompts to emit v2 + per-form flexes (3.2), **structure-first** (get v2 live
-      + eval-passing; iterate the full prose bar (3.3) in follow-ups); one-home by schema design;
-      omit rules paired with a positive worked example (lesson `arch-edit-causal-directive-add-example`);
-      resolve the analyst-preamble "single cohesive markdown" contradiction.
-- [ ] `SUMMARY_SCHEMA_VERSION`=2 + `SUMMARY_PROMPT_VERSION` bump.
-- [ ] Update render-layer + characterization tests to v2; re-key
-      `test_background_generation_characterization.py` (LOCKED) via the documented contract path.
-- [ ] Eval-gate `--runs 3` live DeepSeek; re-pin `baseline_scores.json` (activates redundancy/delta
-      WARN gates at v2 values). Full backend gate.
-- [ ] Frontend: confirm `SummaryBlocks` renders v2 (titles/order flow from builders); badge spec
-      stays `/9`. **Audit remaining direct v1-key readers** — `lib/formatters.ts::parseExecutiveSnapshot`
-      + `SummaryExecutiveSnapshot.tsx` appear to have no non-test callers → delete or re-key (v1
-      parsers silently return null on v2 rows).
+
+**STATUS: complete, pending final eval re-pin + push.** Full backend gate GREEN (1557 passed),
+frontend gate GREEN (lint+tsc+vitest 392+build). Live `--runs 3` eval verified the cutover and drove
+one correctness fix (below).
+
+- [x] `openai_service.py`: `schema_template` → v2 (pruned covenants_contingencies); re-pointed
+      `_TRACKED_STRUCTURED_SECTIONS` → `TRACKED_SECTIONS_V2` (safe: badge's v1 tuple frozen in
+      summary_schema, PR A); re-pointed compat-field derivations
+      (results_that_matter/risks/earnings_quality/forward_signals); stamped `schema_version` before
+      `render_sections`; **deterministic taxonomy filter** (drops the model's stray v1 keys — structure
+      from code, not model compliance); ONE-HOME rule + insights/legacy-card reads → v2 keys.
+- [x] `SUMMARY_SCHEMA_VERSION`=2 + `SUMMARY_PROMPT_VERSION`=summary-2026-07-c.
+- [x] `ai/section_recovery.py`: ordered-keys + section-context + schema-snippet maps → v2.
+- [x] `ai/markdown_render.py`: `_apply_structured_fallbacks` → compact v2 anchor filler (the_print +
+      results_that_matter), removed ~157 lines dead v1 filler.
+- [x] `ai/fallback_summary.py`: `generate_xbrl_summary` `sections_for_frontend` reshaped v1→v2.
+- [x] `summary_pipeline.py`: compat block re-pointed; retired the MD&A/guidance wrapper injection
+      (phantom v1 nodes); kept `management_section`/`guidance_section` for the DB-compat columns.
+- [x] Per-form prompts: **structure-first outcome — no rewrite needed.** Structured prompts defer to
+      schema ("schema is the single source of truth for structure"); analyst prompts carry no v1 keys
+      / no conflicting structural directives. Assembled prompt pins the nine v2 sections + v2 homes.
+- [x] Tests: added `test_generation_taxonomy_is_v2`; re-keyed the fallback-filler assertion →
+      `the_print`; the LOCKED characterization test needed no re-key (compat fields unchanged in shape).
+- [x] **Eval-driven fix — v2 numeric-recall floor.** `--runs 3` #1 showed recall 0.8429→0.7426 (HARD
+      breach): the cutover dropped v1's deterministic `financial_highlights.cash_flow[]`/`balance_sheet[]`
+      XBRL surfacing. Missing facts = investing/financing cash flow + current assets/liabilities. Fix #1
+      (seed-if-no-"$") only partially recovered (#2 = 0.7918): the model writes an UNRELATED "$" figure
+      in those fields that defeats a presence check, and it mislabelled non-USD filers (currency
+      1.0→0.9866). Redesign: `_apply_structured_fallbacks` now ALWAYS authors the two figure-only fields
+      — `working_capital` (current assets/liabilities + ratio) + a dedicated `cash_flow` bridge
+      (operating/investing/financing) — currency-aware (ISO-prefixed for non-USD), leaving the model's
+      `leverage`+`liquidity` prose untouched; the v2 builder renders `cash_flow`. Content dims IMPROVED
+      at cutover: redundancy 0.829→0.927, delta_consistency 0.898→0.968.
+- [x] Eval #3 confirmed the redesign: recall 0.9945, currency 1.0, aggregate 0.9975 (vs v1 0.9293),
+      precision/coverage 1.0. Content dims held (redundancy 0.906, delta 0.944–0.972).
+- [x] **JPM/G5 gate_fail — root-caused + SETTLED per founder review.** Residual vetoes = JPM's
+      `noninterest_income`/`net_interest_income` not surfaced separately. The PRODUCTION extractor
+      (`extract_standardized_metrics`) does NOT emit these (JPM has only `revenue`), so the model reads
+      them from filing text — stochastic (0–1/3 runs). A deterministic surfacing fix was INERT (no XBRL
+      key) and was reverted. Founder's answer: **do NOT baseline 0.0385** (it would grant a ≤3-veto
+      allowance of ANY veto type, gutting the epsilon-zero fabrication tripwire). Instead **removed the
+      two G5 component facts from JPM's golden entry** (values preserved in its `notes`; keeps JPM's
+      other 5 facts + the bank sanitizer live) → G5 dormant-by-design → re-pin at **gate_fail 0.0**.
+      Documented in `evals/RUNBOOK.md` (Step 2 "Dormant G5 bank-component facts"). **A7/A8 (XBRL metric
+      expansion) re-arms G5** by restoring the two facts + re-pinning. TRACKING: A7/A8 owner restores
+      JPM `net_interest_income`/`noninterest_income` to golden_set.json when the extractor emits them.
+- [x] **Re-pinned** `baseline_scores.json` from the v2 run (recall ~0.99, precision/coverage 1.0,
+      currency 1.0, **gate_fail 0.0**) — gate PASSES against the new pin. [re-run post-golden-set-edit]
+- [x] Frontend audit: confirmed `SummaryBlocks` renders v2; **deleted** dead v1-key readers —
+      `SummaryExecutiveSnapshot.tsx`, its spec, and `formatters.ts::{ExecutiveSnapshot,asTrimmedString,
+      parseExecutiveSnapshot}` (no non-test callers).
+- [ ] Push (rebased on latest main after #610); open draft PR B; subscribe + arm check-in.
 - [ ] Post-merge: operator `refresh-stale` drains v1 rows → v2 in place (cost/traffic decision).
 
 ### Follow-up (not this tier): CI eval-baseline single-run gate_fail flakiness

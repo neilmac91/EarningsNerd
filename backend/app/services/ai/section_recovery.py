@@ -40,15 +40,15 @@ class _SectionRecoveryMixin:
 
     def _find_empty_sections(self, sections: Dict[str, Any]) -> List[str]:
         ordered_keys = [
-            "executive_snapshot",
-            "financial_highlights",
-            "risk_factors",
-            "management_discussion_insights",
-            "segment_performance",
-            "liquidity_capital_structure",
-            "guidance_outlook",
+            "the_print",
+            "results_that_matter",
+            "earnings_quality",
+            "value_drivers",
+            "forward_signals",
+            "risks",
+            "segments",
+            "balance_sheet_liquidity",
             "notable_footnotes",
-            "three_year_trend",
         ]
         empty: List[str] = []
         for key in ordered_keys:
@@ -63,15 +63,15 @@ class _SectionRecoveryMixin:
         filing_sample: str,
     ) -> str:
         section_sources = {
-            "executive_snapshot": ["mda", "business", "financials"],
-            "financial_highlights": ["financials", "mda"],
-            "risk_factors": ["risk_factors"],
-            "management_discussion_insights": ["mda"],
-            "segment_performance": ["segments", "mda"],
-            "liquidity_capital_structure": ["liquidity", "financials"],
-            "guidance_outlook": ["guidance", "mda"],
+            "the_print": ["mda", "business", "financials"],
+            "results_that_matter": ["financials", "mda"],
+            "earnings_quality": ["financials", "mda"],
+            "value_drivers": ["financials", "mda"],
+            "forward_signals": ["guidance", "mda"],
+            "risks": ["risk_factors"],
+            "segments": ["segments", "mda"],
+            "balance_sheet_liquidity": ["liquidity", "financials"],
             "notable_footnotes": ["footnotes"],
-            "three_year_trend": ["mda", "business"],
         }
         max_length = 6000
         parts: List[str] = []
@@ -86,15 +86,15 @@ class _SectionRecoveryMixin:
 
     def _get_section_schema_snippet(self, section_key: str) -> Optional[str]:
         schema_snippets = {
-            "executive_snapshot": "{""executive_snapshot"": {""headline"": ""<string>"", ""key_points"": [""<string>""], ""tone"": ""<positive|neutral|cautious>""}}",
-            "financial_highlights": "{""financial_highlights"": {""table"": [{""metric"": ""<string>"", ""current_period"": ""<string>"", ""prior_period"": ""<string>"", ""change"": ""<string>"", ""commentary"": ""<string>""}], ""profitability"": [""<string>""], ""cash_flow"": [""<string>""], ""balance_sheet"": [""<string>""]}}",
-            "risk_factors": "{""risk_factors"": [{""summary"": ""<string>"", ""supporting_evidence"": ""<string>"", ""materiality"": ""<low|medium|high>""}]}",
-            "management_discussion_insights": "{""management_discussion_insights"": {""themes"": [""<string>""], ""quotes"": [{""speaker"": ""<string>"", ""quote"": ""<string>"", ""context"": ""<string>""}], ""capital_allocation"": [""<string>""]}}",
-            "segment_performance": "{""segment_performance"": [{""segment"": ""<string>"", ""revenue"": ""<string>"", ""change"": ""<string>"", ""commentary"": ""<string>""}]}",
-            "liquidity_capital_structure": "{""liquidity_capital_structure"": {""leverage"": ""<string>"", ""liquidity"": ""<string>"", ""shareholder_returns"": [""<string>""]}}",
-            "guidance_outlook": "{""guidance_outlook"": {""guidance"": ""<string>"", ""tone"": ""<positive|neutral|cautious>"", ""drivers"": [""<string>""], ""watch_items"": [""<string>""]}}",
-            "notable_footnotes": "{""notable_footnotes"": [{""item"": ""<string>"", ""impact"": ""<string>""}]}",
-            "three_year_trend": "{""three_year_trend"": {""trend_summary"": ""<string>"", ""inflections"": [""<string>""], ""compare_prior_period"": {""available"": <bool>, ""insights"": [""<string>""]}}}",
+            "the_print": '{"the_print": {"headline": "<string>", "key_takeaways": ["<string>"], "what_changed": "<string>", "tone": "<positive|neutral|cautious>"}}',
+            "results_that_matter": '{"results_that_matter": {"table": [{"metric": "<string>", "current_period": "<string>", "prior_period": "<string>", "change": "<string>", "commentary": "<string>"}]}}',
+            "earnings_quality": '{"earnings_quality": {"operating_vs_one_time": "<string>", "cash_conversion": "<string>", "red_flags": ["<string>"]}}',
+            "value_drivers": '{"value_drivers": {"capital_allocation": "<string>", "returns_on_capital": "<string>", "highlights": ["<string>"]}}',
+            "forward_signals": '{"forward_signals": {"guidance": "<string>", "known_trends": ["<string>"], "subsequent_events": ["<string>"], "quotes": [{"speaker": "<string>", "quote": "<string>", "context": "<string>"}], "tone": "<positive|neutral|cautious>"}}',
+            "risks": '{"risks": [{"summary": "<string>", "supporting_evidence": "<string>", "materiality": "<low|medium|high>"}]}',
+            "segments": '{"segments": [{"segment": "<string>", "revenue": "<string>", "operating_income": "<string>", "change": "<string>", "commentary": "<string>"}]}',
+            "balance_sheet_liquidity": '{"balance_sheet_liquidity": {"leverage": "<string>", "liquidity": "<string>", "working_capital": "<string>", "maturities_covenants": ["<string>"]}}',
+            "notable_footnotes": '{"notable_footnotes": [{"item": "<string>", "impact": "<string>"}]}',
         }
         return schema_snippets.get(section_key)
 

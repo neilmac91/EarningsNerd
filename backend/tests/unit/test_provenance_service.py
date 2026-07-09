@@ -158,6 +158,36 @@ class TestEnrichRawSummary:
         out = prov.enrich_raw_summary(raw, filing)
         assert out["sections"]["risk_factors"][0]["source_verified"] is True
 
+    def test_enriches_v2_sections_via_schema_version(self):
+        """v2 rows (schema_version=2) carry `risks` / `results_that_matter`; enrichment must add the
+        same per-row provenance (source_url/source_verified/xbrl_concept) the MetricSourceLink chips
+        render. A v1-keyed guard silently no-ops on v2 and nothing else measures it — this is the
+        structural gate for that regression (repo rule 12)."""
+        raw = {
+            "schema_version": 2,
+            "sections": {
+                "results_that_matter": {
+                    "source_section_ref": "Item 8. Financial Statements",
+                    "table": [{"metric": "Total Revenue", "current_period": "$391.0B"}],
+                },
+                "risks": [{
+                    "summary": "Supply concentration",
+                    "supporting_evidence": 'Item 1A: "Supply chain constraints persisted through Q3"',
+                    "source_section_ref": "Item 1A. Risk Factors",
+                }],
+            },
+        }
+        filing = _filing(critical_excerpt="Supply chain constraints persisted through Q3 of 2024.")
+        xbrl = {"revenue": {"current": {"value": 391035000000.0}}}
+        out = prov.enrich_raw_summary(raw, filing, xbrl_standardized=xbrl)
+
+        row = out["sections"]["results_that_matter"]["table"][0]
+        assert row["source_verified"] is True and row["xbrl_concept"] == "Revenue"
+        assert row["source_url"]  # MetricSourceLink chip target present
+        assert out["sections"]["risks"][0]["source_verified"] is True
+        # Input not mutated.
+        assert "source_url" not in raw["sections"]["results_that_matter"]["table"][0]
+
 
 class TestEnrichSummaryProvenance:
     def test_shapes_response_and_enriches_both_paths(self):

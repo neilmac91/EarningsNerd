@@ -319,17 +319,27 @@ def enrich_raw_summary(
 ) -> Optional[dict]:
     """Non-mutating enrichment of ``raw_summary.sections`` risk factors + financial highlights.
 
-    Tolerant of missing ``sections``/``risk_factors``/``financial_highlights``; returns the input
-    unchanged if there is nothing to enrich. ``normalized_source`` (pre-normalized filing text) may
-    be passed in to avoid recomputing it; when omitted it is selected from the filing here.
+    Version-aware: v2 rows (``schema_version >= 2``) carry ``risks`` / ``results_that_matter``; legacy
+    v1 rows carry ``risk_factors`` / ``financial_highlights``. The enrichment helpers are shape-generic
+    (a risk-row list, a ``{table:[...]}`` dict), so only the section-key names differ by version — the
+    per-row ``source_url`` / ``source_verified`` / ``xbrl_concept`` provenance is added the same way for
+    both. Tolerant of missing sections; returns the input unchanged if there is nothing to enrich.
+    ``normalized_source`` (pre-normalized filing text) may be passed in to avoid recomputing it.
     """
     if not isinstance(raw_summary, dict):
         return raw_summary
     sections = raw_summary.get("sections")
     if not isinstance(sections, dict):
         return raw_summary
-    has_risks = isinstance(sections.get("risk_factors"), list)
-    fh = sections.get("financial_highlights")
+    try:
+        version = int(raw_summary.get("schema_version") or 1)
+    except (TypeError, ValueError):
+        version = 1
+    risk_key = "risks" if version >= 2 else "risk_factors"
+    metrics_key = "results_that_matter" if version >= 2 else "financial_highlights"
+    risks = sections.get(risk_key)
+    has_risks = isinstance(risks, list)
+    fh = sections.get(metrics_key)
     has_fh = isinstance(fh, dict) and isinstance(fh.get("table"), list)
     if not has_risks and not has_fh:
         return raw_summary
@@ -339,13 +349,9 @@ def enrich_raw_summary(
         normalized_source = normalize_for_match(raw_source)
     result = copy.deepcopy(raw_summary)
     if has_risks:
-        result["sections"]["risk_factors"] = enrich_risk_list(
-            sections.get("risk_factors"), filing, normalized_source
-        )
+        result["sections"][risk_key] = enrich_risk_list(risks, filing, normalized_source)
     if has_fh:
-        result["sections"]["financial_highlights"] = enrich_financial_highlights(
-            fh, filing, xbrl_standardized
-        )
+        result["sections"][metrics_key] = enrich_financial_highlights(fh, filing, xbrl_standardized)
     return result
 
 

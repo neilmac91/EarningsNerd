@@ -232,230 +232,149 @@ class _MarkdownRenderMixin:
         metadata: Dict[str, Any],
         xbrl_metrics: Optional[Dict[str, Any]],
     ) -> None:
+        """Backfill v2 sections from standardized XBRL: the anchor sections when empty, plus the
+        cash-flow bridge and working-capital position.
+
+        Tier-3.1: this used to fill all nine v1 sections; under the v2 taxonomy the model reliably
+        populates the nine v2 sections (and a downstream guard filters to them), so the anchors need
+        only a minimal floor — a lead (``the_print``) and a P&L table (``results_that_matter``) so a
+        degraded summary still grounds in the standardized figures and clears the coverage bar.
+        ``balance_sheet_liquidity`` is the exception: v1 surfaced the operating/investing/financing
+        cash flows and current assets/liabilities deterministically (via
+        ``financial_highlights.cash_flow[]`` / ``balance_sheet[]``); the v2 taxonomy routes them into
+        prose the model tends to write WITHOUT figures, so those numbers are injected here too
+        (numbers from code) to hold the numeric-recall floor. Deeper analytical feeds (NI-vs-CFO
+        bridge, red-flag scan, ROIC) land with T5.
+        """
+        # Currency-aware money formatter: bare "$" for USD/domestic filers, ISO-prefixed for foreign
+        # issuers (e.g. "EUR 30.6B", "CNY 30.6B"). Standardized XBRL values are in the filer's
+        # reporting currency, so the deterministic figures below must never mislabel a non-USD filer
+        # as dollars — a ~7x distortion the numeric scorers can't catch, and a currency-consistency hit.
+        reporting_currency = (xbrl_metrics or {}).get("reporting_currency")
+        money_prefix = (
+            "$" if str(reporting_currency or "USD").upper() == "USD"
+            else f"{str(reporting_currency).upper()} "
+        )
+
         def format_currency(value: Optional[float]) -> Optional[str]:
             if value is None:
                 return None
             try:
                 abs_value = abs(value)
                 if abs_value >= 1_000_000_000:
-                    return f"${value / 1_000_000_000:.1f}B"
+                    return f"{money_prefix}{value / 1_000_000_000:.1f}B"
                 if abs_value >= 1_000_000:
-                    return f"${value / 1_000_000:.1f}M"
+                    return f"{money_prefix}{value / 1_000_000:.1f}M"
                 if abs_value >= 1_000:
-                    return f"${value / 1_000:.1f}K"
-                return f"${value:,.0f}"
+                    return f"{money_prefix}{value / 1_000:.1f}K"
+                return f"{money_prefix}{value:,.0f}"
             except Exception:
                 return None
 
-        def format_percent(value: Optional[float]) -> Optional[str]:
-            if value is None:
-                return None
-            try:
-                return f"{value:.1f}%"
-            except Exception:
-                return None
-
-        def metric_entry(metric_key: str) -> Dict[str, Any]:
-            # Guard each level: a truthy non-dict metric/current/prior (malformed metrics payload)
-            # would slip past `or {}` and crash `.get()`.
+        def metric_entry(metric_key: str) -> Dict[str, Optional[str]]:
             metric = (xbrl_metrics or {}).get(metric_key)
             if not isinstance(metric, dict):
                 metric = {}
-            current = metric.get("current")
-            if not isinstance(current, dict):
-                current = {}
-            prior = metric.get("prior")
-            if not isinstance(prior, dict):
-                prior = {}
-            formatted_current = format_currency(current.get("value")) if metric_key != "net_margin" else format_percent(current.get("value"))
-            formatted_prior = format_currency(prior.get("value")) if metric_key != "net_margin" else format_percent(prior.get("value"))
+            current = metric.get("current") if isinstance(metric.get("current"), dict) else {}
+            prior = metric.get("prior") if isinstance(metric.get("prior"), dict) else {}
             return {
-                "current": formatted_current,
+                "current": format_currency(current.get("value")),
                 "current_period": current.get("period"),
-                "prior": formatted_prior,
-                "prior_period": prior.get("period"),
+                "prior": format_currency(prior.get("value")),
             }
+
+        def raw_period(metric_key: str, period: str) -> Optional[float]:
+            """Raw float for a standardized metric's ``current``/``prior`` period (ratio math + checks)."""
+            metric = (xbrl_metrics or {}).get(metric_key)
+            block = metric.get(period) if isinstance(metric, dict) else None
+            value = block.get("value") if isinstance(block, dict) else None
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                return None
+            return float(value)
+
+        def raw_current(metric_key: str) -> Optional[float]:
+            return raw_period(metric_key, "current")
+
+        def raw_prior(metric_key: str) -> Optional[float]:
+            return raw_period(metric_key, "prior")
 
         metadata = metadata or {}
         company_name = metadata.get("company_name", "The company")
         reporting_period = metadata.get("reporting_period", "the reported period")
-
         revenue_info = metric_entry("revenue")
         income_info = metric_entry("net_income")
-        margin_info = metric_entry("net_margin")
 
-        if self._section_is_empty(sections.get("executive_snapshot")):
-            headline_parts: List[str] = []
-            if revenue_info["current"] and revenue_info["current_period"]:
-                headline_parts.append(
-                    f"Revenue at {revenue_info['current']} for {revenue_info['current_period']}"
-                )
-            if income_info["current"] and income_info["current_period"]:
-                headline_parts.append(
-                    f"Net income reported at {income_info['current']}"
-                )
-            headline = (
-                f"{company_name} filing highlights standardized metrics" if headline_parts else f"{company_name} filing provided limited qualitative detail"
-            )
-            key_points: List[str] = []
-            if headline_parts:
-                key_points.extend(headline_parts)
-            else:
-                key_points.append("Core filing excerpts offered minimal narrative detail; review standardized data for context.")
-            if margin_info["current"]:
-                key_points.append(f"Net margin {margin_info['current']} (from XBRL data).")
-            sections["executive_snapshot"] = {
-                "headline": headline,
-                "key_points": key_points,
+        if self._section_is_empty(sections.get("the_print")):
+            takeaways = [p for p in (
+                (f"Revenue of {revenue_info['current']} for {revenue_info['current_period']}"
+                 if revenue_info["current"] and revenue_info["current_period"] else None),
+                (f"Net income of {income_info['current']}" if income_info["current"] else None),
+            ) if p]
+            sections["the_print"] = {
+                "headline": (f"{company_name} reported standardized results for {reporting_period}."
+                             if takeaways else
+                             f"{company_name} filing provided limited standardized detail."),
+                "key_takeaways": takeaways or ["Not disclosed—standardized metrics were not extracted."],
+                "what_changed": "",
                 "tone": "neutral",
+                "source_section_ref": "Standardized XBRL financial data",
             }
 
-        if self._section_is_empty(sections.get("financial_highlights")):
-            table: List[Dict[str, Any]] = []
-            if revenue_info["current"]:
-                table.append(
-                    {
-                        "metric": "Revenue",
-                        "current_period": revenue_info["current"],
-                        "prior_period": revenue_info["prior"] or "Not disclosed",
-                        "change": "Not disclosed",
-                        "commentary": f"Reported for {revenue_info['current_period'] or reporting_period}.",
-                    }
-                )
-            if income_info["current"]:
-                table.append(
-                    {
-                        "metric": "Net Income",
-                        "current_period": income_info["current"],
-                        "prior_period": income_info["prior"] or "Not disclosed",
-                        "change": "Not disclosed",
-                        "commentary": f"Latest standardized value for {income_info['current_period'] or reporting_period}.",
-                    }
-                )
-            if margin_info["current"]:
-                table.append(
-                    {
-                        "metric": "Net Margin",
-                        "current_period": margin_info["current"],
-                        "prior_period": margin_info["prior"] or "Not disclosed",
-                        "change": "Not disclosed",
-                        "commentary": "Derived from aligned revenue and income figures.",
-                    }
-                )
-            if not table:
-                table.append(
-                    {
-                        "metric": "Summary",
-                        "current_period": "Not disclosed",
-                        "prior_period": "Not disclosed",
-                        "change": "Not disclosed",
-                        "commentary": "Filing excerpts omitted detailed financial metrics; rely on management updates for figures.",
-                    }
-                )
-            sections["financial_highlights"] = {
-                "table": table,
-                "profitability": [
-                    margin_info["current"]
-                    and f"Net margin approximately {margin_info['current']} based on standardized data."
-                    or "Profitability commentary unavailable in provided excerpts."
-                ],
-                "cash_flow": [
-                    "Cash flow figures were not captured from this filing's extracted text."
-                ],
-                "balance_sheet": [
-                    "Balance sheet figures were not captured from this filing's extracted text."
-                ],
-            }
-
-        if self._section_is_empty(sections.get("risk_factors")):
-            # If no new risks extracted, provide more helpful context
-            sections["risk_factors"] = [
-                {
-                    "summary": "Risk factors were not extracted from this filing.",
-                    "supporting_evidence": "",
-                    "materiality": "unknown",
-                    "source_section_ref": "Item 1A. Risk Factors",
-                }
+        if self._section_is_empty(sections.get("results_that_matter")):
+            table = [
+                {"metric": label, "current_period": info["current"],
+                 "prior_period": info["prior"] or "", "change": "", "commentary": ""}
+                for label, info in (("Revenue", revenue_info), ("Net income", income_info))
+                if info["current"]
             ]
-
-        if self._section_is_empty(sections.get("management_discussion_insights")):
-            # Provide more useful fallback that still offers value
-            sections["management_discussion_insights"] = {
-                "themes": [
-                    "Management discussion was not extracted from this filing."
-                ],
-                "quotes": [],
-                "capital_allocation": [
-                    "Capital allocation detail was not extracted from this filing."
-                ],
-                "source_section_ref": "Item 2. MD&A",
-            }
-
-        if self._section_is_empty(sections.get("segment_performance")):
-            sections["segment_performance"] = [
-                {
-                    "segment": "Company-wide",
-                    "revenue": revenue_info["current"] or "Not disclosed",
-                    "change": "Not disclosed",
-                    "commentary": "Segment detail was not present; investors should review full filing tables.",
-                    "source_section_ref": "Segment disclosures (not surfaced in sampled excerpts)",
+            if table:
+                sections["results_that_matter"] = {
+                    "table": table,
+                    "source_section_ref": "Standardized XBRL financial data",
                 }
-            ]
 
-        if self._section_is_empty(sections.get("liquidity_capital_structure")):
-            liquidity_line = "Liquidity figures were not captured from this filing's extracted text."
-            sections["liquidity_capital_structure"] = {
-                "leverage": "Debt and leverage commentary not captured in sampled passages.",
-                "liquidity": liquidity_line,
-                "shareholder_returns": [
-                    "No explicit reference to dividends or buybacks within the excerpted text."
-                ],
-                "source_section_ref": "Liquidity and capital resources (not surfaced in sampled excerpts)",
-            }
-
-        if self._section_is_empty(sections.get("guidance_outlook")):
-            sections["guidance_outlook"] = {
-                "guidance": "Guidance was not extracted from this filing.",
-                "tone": "neutral",
-                "drivers": [
-                    "Guidance drivers were not extracted from this filing."
-                ],
-                "watch_items": [
-                    "Earnings call transcript may contain forward-looking commentary not included in SEC filings."
-                ],
-                "source_section_ref": "Forward-looking statements",
-            }
-
-        if self._section_is_empty(sections.get("notable_footnotes")):
-            sections["notable_footnotes"] = [
-                {
-                    "item": "No specific footnotes surfaced in the extracted passages.",
-                    "impact": "Review the full filing footnotes for accounting nuances or adjustments.",
-                    "source_section_ref": "Footnotes (not surfaced in sampled excerpts)",
-                }
-            ]
-
-        if self._section_is_empty(sections.get("three_year_trend")):
-            trend_summary = (
-                revenue_info["current"]
-                and f"Latest standardized revenue of {revenue_info['current']} anchors the recent trajectory."
-                or "Trend commentary unavailable from excerpts."
+        # balance_sheet_liquidity: author the cash-flow statement bridge + working-capital position
+        # from standardized XBRL whenever the figures exist. These two fields ARE their figures, so
+        # code owns them (numbers from code) — the model keeps `leverage` + `liquidity` for qualitative
+        # colour. A presence check on the field is unreliable: the model often writes an UNRELATED "$"
+        # figure (a cash balance, total debt) there, which would falsely suppress the specific facts.
+        # Holds the numeric-recall floor the v2 cutover dropped (investing/financing cash flow, current
+        # assets/liabilities — measured recall 0.84 -> 0.74 before this).
+        bsl = sections.get("balance_sheet_liquidity")
+        if not isinstance(bsl, dict):
+            bsl = {}
+        current_assets = format_currency(raw_current("current_assets"))
+        current_liabilities = format_currency(raw_current("current_liabilities"))
+        if current_assets or current_liabilities:
+            ca_v, cl_v = raw_current("current_assets"), raw_current("current_liabilities")
+            # Denominator must be a non-zero number (guards div-by-zero); the numerator may legitimately
+            # be zero, so gate it on presence (is not None), not truthiness.
+            ratio = f" (current ratio {ca_v / cl_v:.2f}x)" if (ca_v is not None and cl_v) else ""
+            wc = (
+                f"Current assets {current_assets or 'Not disclosed'} vs. current liabilities "
+                f"{current_liabilities or 'Not disclosed'}{ratio}."
             )
-            sections["three_year_trend"] = {
-                "trend_summary": trend_summary,
-                "inflections": [
-                    margin_info["current"]
-                    and f"Net margin currently at {margin_info['current']} per standardized data."
-                    or "No clear inflection points identified from provided text."
-                ],
-                "compare_prior_period": {
-                    "available": bool(revenue_info["prior"] or income_info["prior"]),
-                    "insights": [
-                        revenue_info["prior"]
-                        and f"Prior revenue reference point: {revenue_info['prior']}"
-                        or "Prior-period disclosures were not captured.",
-                    ],
-                },
-                "source_section_ref": "Trend discussion (not surfaced in sampled excerpts)",
-            }
+            # Restore the schema's YoY-direction promise (and surface the prior-period facts) when the
+            # standardized metrics carry a prior period — the current-only line otherwise drops it.
+            prior_ca = format_currency(raw_prior("current_assets"))
+            prior_cl = format_currency(raw_prior("current_liabilities"))
+            if prior_ca and prior_cl:
+                pca_v, pcl_v = raw_prior("current_assets"), raw_prior("current_liabilities")
+                prior_ratio = f" ({pca_v / pcl_v:.2f}x)" if (pca_v is not None and pcl_v) else ""
+                wc += f" A year earlier: {prior_ca} vs. {prior_cl}{prior_ratio}."
+            bsl["working_capital"] = wc
+        cash_legs = [
+            (label, format_currency(raw_current(key)))
+            for label, key in (
+                ("operating", "operating_cash_flow"),
+                ("investing", "investing_cash_flow"),
+                ("financing", "financing_cash_flow"),
+            )
+        ]
+        if any(val for _, val in cash_legs):
+            bsl["cash_flow"] = "Cash flow — " + ", ".join(
+                f"{label} {val}" for label, val in cash_legs if val
+            ) + "."
+        if bsl:
+            sections["balance_sheet_liquidity"] = bsl
 

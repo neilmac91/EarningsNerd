@@ -15,8 +15,10 @@ This module is the single source of truth for the v2 SHAPE. Three consumers refe
 
 Fields are intentionally lenient (optional, ``extra="ignore"``): the model may omit a section a
 filing does not support (a 6-K rarely has segments), and the render builders already drop empty
-sections. ``SummaryDoc.model_validate`` is used to sanity-check shape in tests and (PR B) to validate
-parsed model output before json-repair fallback — it rejects wrong TYPES, not missing sections.
+sections. ``SummaryDoc.model_validate`` sanity-checks shape in tests (it rejects wrong TYPES, not
+missing sections); it has no production caller yet — the generation path relies on the deterministic
+taxonomy filter + json-repair for runtime shape safety, and wiring model_validate as a pre-fallback
+validation gate is a deliberate follow-up (it would need its own eval pass).
 
 The v1 taxonomy is NOT defined here — it lives at its original site and keeps rendering legacy rows
 via the v1 builders. This module adds v2 alongside; it never edits v1.
@@ -193,11 +195,16 @@ class ForwardSignals(_V2Base):
 
 
 class BalanceSheetLiquidity(_V2Base):
-    """§8 — leverage, debt maturities and covenants, liquidity runway, and working-capital dynamics.
-    Absorbs the v1 orphan `covenants_contingencies` node. Shareholder returns live in §4."""
+    """§8 — leverage, debt maturities and covenants, liquidity runway, the cash-flow statement bridge,
+    and working-capital dynamics. Absorbs the v1 orphan `covenants_contingencies` node. Shareholder
+    returns live in §4."""
 
     leverage: str = ""
     liquidity: str = ""
+    # Machine-authored from standardized XBRL by the pipeline's deterministic filler (the cash-flow
+    # statement bridge: operating/investing/financing) — NOT model-emitted. Declared here so the shape
+    # SSOT stays complete; the v2 render builder reads it.
+    cash_flow: str = ""
     working_capital: str = ""
     maturities_covenants: List[str] = Field(default_factory=list)
     source_section_ref: str = ""
