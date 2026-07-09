@@ -315,11 +315,13 @@ class Settings(BaseSettings):
     AI_QUALITY_GATE: bool = True
 
     # Number-diff / "figure not traceable" gate (roadmap T3.2, plan Part 4.3.2). When True, a summary
-    # whose free prose contains a financial figure that traces to NEITHER the standardized XBRL values,
-    # a code-computed delta, nor the filing excerpt is tiered "partial" — the deterministic catch for a
-    # figure the model invented. Ships DEFAULT OFF (advisory): the untraceable list is always attached
-    # to the quality verdict for measurement, but it only affects the tier (and thus the AI_QUALITY_GATE
-    # quota gate) once the false-positive rate has been measured on the corpus and this is flipped on.
+    # whose free prose contains a DOLLAR figure that grounds in NEITHER a standardized XBRL value
+    # (scale-tolerant) NOR the filing excerpt (scale-aware) is tiered "partial" — the deterministic catch
+    # for a dollar figure the model invented or silently derived. Scoped to dollar amounts: percentages /
+    # ppts / bps are model-derived (margins, growth, ratios) and their consistency is the delta scorer's
+    # job. Ships DEFAULT OFF (advisory): the untraceable list is always attached to the quality verdict
+    # for measurement, but it only affects the tier (and thus the AI_QUALITY_GATE quota gate) once the
+    # false-positive rate has been measured on the corpus and this is flipped on.
     AI_FIGURE_TRACE_GATE: bool = False
 
     # Foreign Private Issuer (FPI) filing support (roadmap: tasks/fpi-support-roadmap.md).

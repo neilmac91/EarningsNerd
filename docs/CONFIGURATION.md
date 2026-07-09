@@ -28,6 +28,7 @@ RECOVERY_MAX_CONCURRENCY=3                    # Max concurrent calls for section
 USE_STRUCTURED_OUTPUT=false                   # Phase-A structured extraction (JSON response_format)
 USE_EDGARTOOLS_SECTIONS=true                  # Native edgartools section extraction (vs legacy regex)
 AI_QUALITY_GATE=true                          # Partial summaries don't consume user quota
+AI_FIGURE_TRACE_GATE=false                    # T3.2 number-diff gate: when on, an untraceable DOLLAR figure in summary prose tiers "partial". Default off (advisory: list attached to the verdict for measurement, never affects tier) until the corpus FP rate is measured
 ENABLE_FPI_FILINGS=false                      # Foreign private issuer (ADR) filings: list 20-F/6-K/40-F on the company page (page-scoped; default off — see tasks/fpi-support-roadmap.md)
 NOTABLE_FILINGS_ENABLED=false                 # Serve /api/notable_filings (scan job populates regardless; flip after the seed run — DEPLOYMENT.md §12)
 NOTABLE_FILINGS_SCAN_DAYS=2                   # Trailing window (days) per scheduled notable-filings scan; seed run overrides via --days

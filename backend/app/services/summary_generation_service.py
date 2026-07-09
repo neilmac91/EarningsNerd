@@ -277,11 +277,12 @@ def assess_quality(
     if covered < min_full:
         reasons.append(f"only {covered}/{total} sections populated")
 
-    # T3.2 number-diff gate: figures in the model's free prose that trace to NEITHER the standardized
-    # XBRL values, a code-computed delta, nor the filing excerpt — the deterministic catch for a figure
-    # the model invented. Always attached (measurement); only tiers "partial" when AI_FIGURE_TRACE_GATE
-    # is on, so a false positive can't silently turn off billing / mass-downgrade the corpus before the
-    # FP rate is measured. No-ops on v1 rows (v2 prose fields absent → nothing to police).
+    # T3.2 number-diff gate: DOLLAR figures in the model's free prose that ground in NEITHER a
+    # standardized XBRL value (scale-tolerant) NOR the filing excerpt (scale-aware) — the deterministic
+    # catch for a dollar figure the model invented or silently derived. Always attached (measurement);
+    # only tiers "partial" when AI_FIGURE_TRACE_GATE is on, so a false positive can't silently turn off
+    # billing / mass-downgrade the corpus before the FP rate is measured. No-ops on v1 rows (v2 prose
+    # fields absent → nothing to police).
     from app.services.ai.figure_trace import untraceable_figures
 
     sections = (summary_data.get("raw_summary") or {}).get("sections")

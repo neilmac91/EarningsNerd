@@ -32,7 +32,25 @@ catches any figure the model invents. $0, no infra.
 
 ## Plan
 
-**STATUS: implemented + full backend gate GREEN (1576 passed). FP corpus readout running; then PR.**
+**STATUS: value-based matcher rewrite done; full backend gate GREEN (1582 passed). Corpus residual measured
+(73 untraceable / 3-of-27 clean, a 4× cut from the string matcher's 295). Amend + push + draft PR next.**
+
+### Key finding from the FP readout (drove the matcher rewrite)
+
+The first matcher (canonical-key substring + ≥3-sig-digit renderings + flat 0.5% tolerance) over-flagged
+massively (607 → then 295 dollar-only). A decisive per-figure categorization on KO (14 flagged) showed
+**~64% were matcher brittleness** — the model had COPIED real figures from its own input ("$10 million",
+"$73M", "3,659" all literally in the excerpt) that the substring matcher couldn't see (round forms like
+"$10M" render to "10.0", never the natural "10"; prose rounds "$1,531M" from a raw "1,531.4"; a flat 0.5%
+tolerance is too tight for a one-decimal rounding). The remaining **~36% are genuinely model-DERIVED
+aggregates** ("total debt $43,890M" = a summed set of named line items present individually but never as
+one number) — the real "numbers from code, words from the model" signal, i.e. the T5 work-list.
+
+**Rewrite:** value-based, rounding-aware. A prose dollar figure grounds when its VALUE is within HALF the
+place-value of its last significant digit of any XBRL value OR any excerpt number resolved to scale
+(explicit scale word authoritative; comma-grouped magnitude admits units/thousands/millions; a BARE
+number is never scaled up — that would ground a fabricated "$60B" against an incidental "60"). Recovers
+the copied figures; the residual is the derived-aggregate / fabrication surface the gate exists to flag.
 
 - [x] **`app/services/ai/figure_trace.py`** (new, app-side): (a) `prose_figures(sections) -> list[str]`
       — enumerate financial figures from the v2 narrative prose fields ONLY (the_print, earnings_quality,

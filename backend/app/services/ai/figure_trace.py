@@ -1,38 +1,37 @@
-"""Deterministic "figure not traceable to XBRL/filing" gate (roadmap T3.2 / plan Part 4.3.2).
+"""Deterministic "dollar figure not traceable to XBRL/filing" gate (roadmap T3.2 / plan Part 4.3.2).
 
-Every financial figure the MODEL writes in free prose should trace to the grounded set:
+Every DOLLAR amount the MODEL writes in free prose should trace to the grounded set: a standardized
+XBRL value (scale-tolerant), or a figure that appears in the filing excerpt (the model's own input,
+matched across scale). A dollar figure in neither is untraceable — model-invented, or model-DERIVED
+(a net-cash / total-debt aggregate the pipeline should compute, not the model). The deterministic
+residual the prose-floor lesson (``arch-stop-tuning-prose-know-the-floor``) assigns to a machine gate.
 
-* a standardized XBRL value (any common billions/millions rendering),
-* a code-computed delta (``metric_delta_service`` — ``+85.2%`` / ``+14.4 ppts``), or
-* a number that appears verbatim in the filing excerpt.
+Scope + precision decisions (measured on the golden corpus, see the PR readout):
 
-A prose figure in NONE of those is *untraceable* — the deterministic "summary figure not traceable to
-XBRL/filing" residual the prose-floor lesson (``arch-stop-tuning-prose-know-the-floor``) assigns to a
-machine gate rather than to prompt tuning. It reads deltas, never feeds them to the model, so it is on
-the right side of ``arch-no-precomputed-deltas-in-grounding``.
-
-Design (conservative — false positives are the billing risk, see ``assess_quality``):
-
-* **Canonical-key set difference.** Both sides canonicalize to keys like ``'81.6b'`` / ``'85%'`` /
-  ``'14.4ppt'``; a UNIT-LESS number (year, count, page/item index) yields no key and is never compared.
-  Mirrors the eval harness's ``_figure_keys`` WITHOUT importing ``evals`` (the app keeps mirror copies,
-  exactly like ``_xbrl_value_appears``).
-* **Over-inclusive legitimate set.** Multiple scale/precision renderings per XBRL value, and BOTH the
-  ``%`` and ``ppt`` delta for every metric — over-including the *allowed* set can only miss a catch,
-  never manufacture a false positive.
+* **Dollar amounts only.** Percentages / ppts / bps are overwhelmingly model-DERIVED (margins, growth
+  rates, ratios beyond the ~12 standardized metrics); flagging them as "not in the filing" is
+  misleading, and their *consistency* is already the delta-consistency scorer's job. The clean, high
+  -signal fabrication surface is a dollar amount the model could not have gotten from its input.
+* **Value-based, rounding-aware matching.** Filings report raw figures ("105,819" in a millions table)
+  while prose rounds + scales them ("$105.8B"); a string match on "105.8" would false-flag them, and a
+  flat percentage tolerance is both too loose for a precise figure and too tight for a rounded one. So a
+  prose dollar figure grounds when its VALUE is within HALF the place-value of its last significant digit
+  (so "$2.2B" admits the exact 2,241M it was rounded from, but not a fabricated 2,500M) of any XBRL value
+  OR any excerpt number resolved to the same scale. Measured on the corpus, this recovers the figures the
+  model legitimately copied from its own input; the residual is the genuinely model-DERIVED aggregate
+  (a summed "total debt", a netted "net cash") the pipeline should compute — the T5 signal.
 * **Police model prose only.** The v2 renderer injects XBRL figures into the ``results_that_matter``
-  table by construction, so tables, verbatim quotes, and machine-authored fields (cash_flow /
-  working_capital) are excluded; the real fabrication surface is free analytical prose.
+  table by construction, so tables, verbatim quotes, and machine-authored ``cash_flow`` /
+  ``working_capital`` fields are excluded — the surface is free analytical prose.
+
+Mirrors the eval harness's figure canonicalization app-side WITHOUT importing ``evals`` (the app keeps
+parallel copies, exactly like ``_xbrl_value_appears``).
 """
 from __future__ import annotations
 
 import re
 from typing import Any, Optional
 
-from app.services import metric_delta_service
-
-# Mirror of evals/scorers.py figure canonicalization (kept app-side; evals deliberately never imports
-# app, and the app keeps parallel copies — see _xbrl_value_appears "mirrors ... without importing it").
 _FIGURE_RE = re.compile(
     r"\$?\s*\d[\d,]*(?:\.\d+)?\s*"
     r"(?:(?:percentage points|basis points|trillion|billion|million|ppts?|bps|bn|mn|tn|b|m|t)\b|%)?",
@@ -46,9 +45,27 @@ _SCALE_CANON = {
     "percentage points": "ppt", "ppts": "ppt", "ppt": "ppt",
     "basis points": "bps", "bps": "bps",
 }
+_DOLLAR_MULT = {"b": 1e9, "m": 1e6, "t": 1e12}
 
-# The per-section MODEL-authored prose fields to police. Excludes: the results_that_matter table
-# (XBRL-injected), forward_signals.quotes + risks.supporting_evidence (verbatim from the filing), and
+# Excerpt scale words → multiplier. A number in the excerpt grounds a prose figure by VALUE, so we must
+# resolve its scale: an explicit word is authoritative; a comma-grouped magnitude ("105,819") is a raw
+# statement figure whose table scale (units / thousands / millions) is unknown, so we admit all three
+# candidates. A BARE number (no comma, no scale word — a count, a page ref, a percentage) is NOT
+# scaled up: doing so would ground a fabricated "$60B" against an incidental "60".
+_EXCERPT_SCALE = {
+    "billion": 1e9, "bn": 1e9, "b": 1e9,
+    "million": 1e6, "mn": 1e6, "m": 1e6,
+    "thousand": 1e3, "k": 1e3,
+}
+_EXCERPT_NUM_RE = re.compile(
+    r"(?<![\w.])(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?\s*"
+    r"(billion|million|thousand|bn|mn|b|m|k)?\b",
+    re.IGNORECASE,
+)
+_COMMA_SCALES = (1.0, 1e3, 1e6)
+
+# Per-section MODEL-authored prose fields to police. Excludes: the results_that_matter table
+# (XBRL-injected), forward_signals.quotes + risks.supporting_evidence (verbatim), and
 # balance_sheet_liquidity.cash_flow / .working_capital (machine-authored from XBRL by the filler).
 _PROSE_STRING_FIELDS: dict[str, tuple[str, ...]] = {
     "the_print": ("headline", "what_changed"),
@@ -67,56 +84,38 @@ _PROSE_LIST_FIELDS: dict[str, tuple[str, ...]] = {
 
 
 def _canonical_figure(token: str) -> Optional[str]:
-    """Normalize a figure token to a comparable key ('$81.6 billion' -> '81.6b', '85.0%' -> '85%').
-    Returns None for a unit-less number (year/count/index) — too ambiguous to compare."""
+    """Normalize a figure token to a comparable key ('$81.6 billion' -> '81.6b'). Returns None for a
+    unit-less number (year/count/index)."""
     t = token.strip().lower().lstrip("$").strip()
     m = re.match(r"([\d,]*\.?\d+)\s*(.*)$", t)
     if not m:
         return None
     suffix = _SCALE_CANON.get(m.group(2).strip())
     if not suffix:
-        return None  # unit-less — skip (drops years, counts, indices)
+        return None
     try:
         value = float(m.group(1).replace(",", ""))
     except ValueError:
         return None
-    return f"{value:g}{suffix}"  # %g collapses "85.0" -> "85", so "85.0%" == "85%"
+    return f"{value:g}{suffix}"
 
 
-def _figure_keys(text: Any) -> set[str]:
-    if not isinstance(text, str) or not text:
-        return set()
-    keys: set[str] = set()
-    for match in _FIGURE_RE.findall(text):
-        key = _canonical_figure(match)
-        if key:
-            keys.add(key)
-    return keys
-
-
-def _figure_pairs(text: Any) -> list[tuple[str, str]]:
-    """(canonical_key, raw_magnitude) per unit-bearing figure — the magnitude drives the excerpt
-    substring check, the key drives the XBRL/delta set match."""
-    out: list[tuple[str, str]] = []
+def _dollar_figures(text: Any) -> list[tuple[float, str]]:
+    """(value, canonical_key) for DOLLAR-scale figures (b/m/t) in the text — excludes %/ppt/bps and
+    unit-less numbers. The value carries the scale ('$105.9B' -> 105.9e9)."""
+    out: list[tuple[float, str]] = []
     if not isinstance(text, str) or not text:
         return out
     for match in _FIGURE_RE.findall(text):
         key = _canonical_figure(match)
-        if not key:
+        if not key or key[-1] not in _DOLLAR_MULT:
             continue
-        m = re.search(r"[\d,]*\.?\d+", match)
-        if m:
-            out.append((key, m.group().replace(",", "")))
+        try:
+            value = float(key[:-1]) * _DOLLAR_MULT[key[-1]]
+        except ValueError:
+            continue
+        out.append((value, key))
     return out
-
-
-def _magnitude_in_excerpt(magnitude: str, excerpt_lower: str) -> bool:
-    """The figure's magnitude appears verbatim in the filing excerpt (the model's own input), matched
-    word-bounded so '33.7' does not match inside '133.7'/'33.75'. Requires >=3 significant digits so a
-    small, ambiguous magnitude (a '$5B' -> '5') can't match a stray digit — those rely on XBRL/deltas."""
-    if len(magnitude.replace(".", "")) < 3:
-        return False
-    return re.search(r"(?<![\d.])" + re.escape(magnitude) + r"(?![\d.])", excerpt_lower) is not None
 
 
 def _raw_value(entry: Any, period: str) -> Optional[float]:
@@ -127,54 +126,68 @@ def _raw_value(entry: Any, period: str) -> Optional[float]:
     return float(value)
 
 
-def _amount_keys(value: float) -> set[str]:
-    """Canonical keys for a monetary value at billions/millions across 0-2 decimals — covers the
-    renderings the model realistically writes ('$81.6B', '$81,630M', '$82B')."""
-    keys: set[str] = set()
-    av = abs(value)
-    for scale, suffix in ((1e9, "B"), (1e6, "M")):
-        if av >= scale:
-            for d in range(0, 3):
-                key = _canonical_figure(f"{av / scale:.{d}f}{suffix}")
-                if key:
-                    keys.add(key)
-    return keys
-
-
-def legitimate_keys(xbrl_metrics: Optional[dict]) -> set[str]:
-    """The code-grounded figure keys: XBRL values (current/prior/series renderings) ∪ code-computed
-    deltas (both % and ppt per metric — over-inclusive on purpose). Filing-text grounding is handled
-    separately by a per-figure magnitude substring match in :func:`untraceable_figures`."""
-    keys: set[str] = set()
+def xbrl_values(xbrl_metrics: Optional[dict]) -> list[float]:
+    """All standardized XBRL magnitudes (current/prior/series) as raw floats — the code-grounded set a
+    prose dollar figure is matched against, scale-tolerantly."""
+    values: list[float] = []
     if not isinstance(xbrl_metrics, dict):
-        return keys
+        return values
     for entry in xbrl_metrics.values():
         if not isinstance(entry, dict):
             continue
-        cur, prior = _raw_value(entry, "current"), _raw_value(entry, "prior")
-        for v in (cur, prior):
+        for period in ("current", "prior"):
+            v = _raw_value(entry, period)
             if v is not None:
-                keys |= _amount_keys(v)
+                values.append(v)
         series = entry.get("series")
         if isinstance(series, list):
             for point in series:
                 pv = point.get("value") if isinstance(point, dict) else None
                 if isinstance(pv, (int, float)) and not isinstance(pv, bool):
-                    keys |= _amount_keys(float(pv))
-        # Deltas: allow BOTH interpretations (amount % and ratio ppts) — over-inclusion is safe.
-        # Route the display through _figure_keys (not _canonical_figure) so the leading +/− sign is
-        # stripped by _FIGURE_RE first ("+85.0%" -> "85%", "−14.4 ppts" -> "14.4ppt").
-        if cur is not None and prior is not None:
-            for is_ratio in (False, True):
-                display = metric_delta_service.compute(cur, prior, is_ratio=is_ratio).display
-                if display:
-                    keys |= _figure_keys(display)
-    return keys
+                    values.append(float(pv))
+    return values
+
+
+def _rounding_tol(value: float, key: str) -> float:
+    """Half the place-value of the prose figure's last significant digit — the widest a correctly
+    -rounded prose figure can sit from the exact value it was rounded from. '$2.2B' (one decimal) →
+    ±0.05B; '$105.8B' → ±0.05B; '$43,890M' (integer mantissa) → ±0.5M. Plus a float-noise epsilon."""
+    mantissa = key[:-1]
+    decimals = len(mantissa.split(".", 1)[1]) if "." in mantissa else 0
+    return 0.5 * (10.0 ** (-decimals)) * _DOLLAR_MULT[key[-1]] + abs(value) * 1e-9
+
+
+def excerpt_values(excerpt: Optional[str]) -> list[float]:
+    """Every magnitude in the filing excerpt, resolved to a value. An explicit scale word is
+    authoritative; a comma-grouped raw figure admits units / thousands / millions (unknown table scale);
+    a bare number is taken as-written only (never scaled up — that would ground fabrications against
+    incidental counts). This is the excerpt half of the grounded set the model's prose is matched to."""
+    values: list[float] = []
+    if not excerpt:
+        return values
+    for match in _EXCERPT_NUM_RE.finditer(excerpt):
+        try:
+            base = float(match.group(1).replace(",", "") + (match.group(2) or ""))
+        except ValueError:
+            continue
+        scale_word = (match.group(3) or "").lower()
+        if scale_word:
+            values.append(base * _EXCERPT_SCALE[scale_word])
+        elif "," in match.group(1):
+            values.extend(base * m for m in _COMMA_SCALES)
+        else:
+            values.append(base)
+    return values
+
+
+def _grounded(value: float, key: str, grounded_vals: list[float]) -> bool:
+    tol = _rounding_tol(value, key)
+    return any(abs(value - g) <= tol for g in grounded_vals)
 
 
 def _prose_blob(sections: Any) -> str:
-    """Collect the model-authored analytical prose (per the allowlists) — never tables, verbatim
-    quotes, or machine-authored fields. Defensive: a malformed section must not crash the gate."""
+    """Model-authored analytical prose (per the allowlists) — never tables, verbatim quotes, or
+    machine-authored fields. Defensive: a malformed section must not crash the gate."""
     if not isinstance(sections, dict):
         return ""
     parts: list[str] = []
@@ -197,7 +210,6 @@ def _prose_blob(sections: Any) -> str:
         if isinstance(data, dict):
             for field in fields:
                 _add(data.get(field))
-    # segments + notable_footnotes are lists of dicts: police commentary/impact prose, not the figures.
     segments = sections.get("segments")
     if isinstance(segments, list):
         for seg in segments:
@@ -215,18 +227,15 @@ def _prose_blob(sections: Any) -> str:
 def untraceable_figures(
     sections: Any, xbrl_metrics: Optional[dict], excerpt: Optional[str]
 ) -> list[str]:
-    """Model-prose figures traceable to NEITHER the XBRL/delta key set NOR the filing excerpt (by a
-    word-bounded magnitude substring — the excerpt IS the model's input, so a figure whose magnitude
-    is absent from it and from XBRL/deltas is model-invented or model-derived). Returns sorted
-    canonical keys; empty when every prose figure grounds."""
-    pairs = _figure_pairs(_prose_blob(sections))
-    if not pairs:
+    """Model-prose DOLLAR figures whose value grounds in NEITHER the standardized XBRL values NOR any
+    excerpt number (both matched value-based, rounding-aware). Returns sorted canonical keys; empty when
+    every dollar figure grounds. The residual is the genuinely model-DERIVED aggregate or fabrication."""
+    figures = _dollar_figures(_prose_blob(sections))
+    if not figures:
         return []
-    legit = legitimate_keys(xbrl_metrics)
-    excerpt_lower = (excerpt or "").lower()
+    grounded_vals = xbrl_values(xbrl_metrics) + excerpt_values(excerpt)
     untraceable: set[str] = set()
-    for key, magnitude in pairs:
-        if key in legit or _magnitude_in_excerpt(magnitude, excerpt_lower):
-            continue
-        untraceable.add(key)
+    for value, key in figures:
+        if not _grounded(value, key, grounded_vals):
+            untraceable.add(key)
     return sorted(untraceable)

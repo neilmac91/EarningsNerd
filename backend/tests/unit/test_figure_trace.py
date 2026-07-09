@@ -22,7 +22,8 @@ def _sections(**over):
 
 
 def test_grounded_figures_are_not_flagged():
-    # $81.6B + $29.8B (XBRL), +85% (computed delta 44.1B->81.6B), $30.0B (excerpt) all trace.
+    # $81.6B + $29.8B ground in XBRL; $30.0B grounds in the excerpt; +85% is a percentage (not a
+    # dollar amount) so it is out of scope entirely — the gate polices dollar figures only.
     assert ft.untraceable_figures(_sections(), _XBRL, _EXCERPT) == []
 
 
@@ -75,27 +76,67 @@ def test_per_share_unitless_numbers_are_not_policed():
     assert ft.untraceable_figures(s, _XBRL, _EXCERPT) == ["55.5b"]
 
 
-def test_ppts_delta_grounds():
-    # A margin's ppt delta is in the legitimate set (both % and ppt renderings are allowed). Sections
-    # kept minimal so only the ppt figure is under test.
+def test_ppts_and_percentages_are_out_of_scope():
+    # Percentages / ppts / bps are overwhelmingly model-DERIVED (margins, growth, ratios) and their
+    # CONSISTENCY is the delta-consistency scorer's job — the trace gate polices dollar amounts only,
+    # so a ppt delta is never flagged regardless of whether it reconciles to XBRL.
     xbrl = {"net_margin": {"current": {"value": 36.5}, "prior": {"value": 22.1}}}
-    s = {"earnings_quality": {"operating_vs_one_time": "Operating margin widened 14.4 ppts."}}
+    s = {"earnings_quality": {"operating_vs_one_time": "Operating margin widened 14.4 ppts; ROE 55%."}}
     assert ft.untraceable_figures(s, xbrl, "") == []
 
 
-def test_excerpt_bare_magnitude_grounds_a_scaled_prose_figure():
-    """The $486M case: the filing states the figure as a BARE number in a table ('... 486 ...') and the
-    model writes it scaled ('$486M'). The magnitude substring grounds it — canonical-key matching alone
-    missed it (a false positive the readout surfaced)."""
+def test_scale_cued_excerpt_number_grounds_a_scaled_prose_figure():
+    """The model writes '$486M'; the excerpt states it WITH a scale cue ('$486 million'). Grounds by
+    value. (The readout showed the model copies real figures like this from its own input — the gate
+    must recognize them.)"""
     s = _sections(the_print={"headline": "A $486M tax benefit was recorded.", "key_takeaways": ["ok"]})
-    excerpt = "Deferred tax assets included a 486 benefit line in the reconciliation table."
+    excerpt = "Deferred tax assets included a $486 million benefit in the reconciliation table."
     assert ft.untraceable_figures(s, _XBRL, excerpt) == []
 
 
-def test_magnitude_match_is_word_bounded():
-    """A magnitude must match on a boundary: '$33.7B' is NOT grounded by '133.7' in the excerpt."""
-    s = _sections(the_print={"headline": "Net cash of $33.7B.", "key_takeaways": ["ok"]})
-    assert ft.untraceable_figures(s, _XBRL, "The index rose to 133.7 today.") == ["33.7b"]
+def test_comma_grouped_excerpt_number_grounds_across_scale():
+    """A prose '$105.8B' grounds against a raw '105,819' in a millions table (value 105.819e9, within the
+    one-decimal rounding tolerance) — the scale-mismatch case, matched by value not by string."""
+    s = _sections(the_print={"headline": "Revenue reached $105.8B.", "key_takeaways": ["ok"]})
+    excerpt = "Net operating revenues were 105,819 for the period (in millions)."
+    assert ft.untraceable_figures(s, None, excerpt) == []
+
+
+def test_rounding_tolerance_grounds_against_exact_xbrl():
+    """A prose '$2.2B' grounds against an exact XBRL 2,241,000,000 (rounds to $2.2B): half-last-digit
+    tolerance (±0.05B) admits it. A flat 0.5% tolerance would not (2.241 is 1.9% off 2.2)."""
+    xbrl = {"segment_op_income": {"current": {"value": 2_241_000_000}}}
+    s = _sections(the_print={"headline": "Segment income was $2.2B.", "key_takeaways": ["ok"]})
+    assert ft.untraceable_figures(s, xbrl, "") == []
+
+
+def test_rounding_tolerance_still_flags_a_real_miss():
+    """The tolerance is HALF the last digit's place, not a loose band: a fabricated '$2.5B' does NOT
+    ground against an exact 2,241,000,000 (0.26B away, well beyond ±0.05B)."""
+    xbrl = {"segment_op_income": {"current": {"value": 2_241_000_000}}}
+    s = _sections(the_print={"headline": "Segment income was $2.5B.", "key_takeaways": ["ok"]})
+    assert ft.untraceable_figures(s, xbrl, "") == ["2.5b"]
+
+
+def test_model_derived_aggregate_is_flagged():
+    """The residual the gate exists to surface: the model SUMS named line items into a 'total debt' that
+    appears nowhere in XBRL or the excerpt as a single number. Its components are present; the sum is not
+    — so it is untraceable (a T5 'numbers from code' signal, or a fabrication)."""
+    s = _sections(the_print={
+        "headline": "Coverage stayed strong.",
+        "key_takeaways": ["Total debt of $43,890M against cash of $10,574M."],
+    })
+    excerpt = "Long-term debt 38,379 and current maturities 5,511 and cash and equivalents 10,574."
+    # cash ($10,574M) grounds via the comma-grouped excerpt figure; the summed total debt does not.
+    assert ft.untraceable_figures(s, None, excerpt) == ["43890m"]
+
+
+def test_bare_incidental_number_does_not_ground_a_fabrication():
+    """Precision floor: a fabricated '$60B' is NOT grounded by an incidental bare '60' in the excerpt
+    (a count / page / percentage). Bare numbers are never scaled up — only scale-cued or comma-grouped
+    magnitudes are."""
+    s = _sections(the_print={"headline": "A $60B write-down was taken.", "key_takeaways": ["ok"]})
+    assert ft.untraceable_figures(s, _XBRL, "The company operates in 60 countries.") == ["60b"]
 
 
 def test_no_xbrl_no_excerpt_is_safe():
