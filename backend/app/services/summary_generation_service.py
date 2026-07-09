@@ -189,10 +189,14 @@ def assess_quality(
     xbrl_metrics: Optional[Dict[str, Any]] = None,
     *,
     sic: Optional[str] = None,
+    excerpt: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Deterministic quality verdict for a generated summary (roadmap S4).
 
-    Returns {tier: "full"|"partial", reasons, numeric_grounded, covered_count, total_count}.
+    Returns {tier: "full"|"partial", reasons, numeric_grounded, covered_count, total_count,
+    figures_untraceable}. ``figures_untraceable`` (T3.2) is the number-diff gate's residual — prose
+    figures traceable to neither XBRL nor a computed delta nor the filing ``excerpt``; always attached
+    for measurement, but only affects ``tier`` when ``AI_FIGURE_TRACE_GATE`` is on (advisory-first).
     "partial" means thin section coverage OR financials that don't match the SEC-verified XBRL —
     the signal the UI surfaces honestly (quality badge) instead of silently stripping notices.
 
@@ -273,13 +277,33 @@ def assess_quality(
     if covered < min_full:
         reasons.append(f"only {covered}/{total} sections populated")
 
-    tier = "full" if (covered >= min_full and numeric_grounded) else "partial"
+    # T3.2 number-diff gate: DOLLAR figures in the model's free prose that ground in NEITHER a
+    # standardized XBRL value (scale-tolerant) NOR the filing excerpt (scale-aware) — the deterministic
+    # catch for a dollar figure the model invented or silently derived. Always attached (measurement);
+    # only tiers "partial" when AI_FIGURE_TRACE_GATE is on, so a false positive can't silently turn off
+    # billing / mass-downgrade the corpus before the FP rate is measured. Effectively inert on v1 rows
+    # (the v2 prose allowlist keys are absent — only notable_footnotes is shape-shared across taxonomies),
+    # and moot regardless: this function's only caller assesses fresh generations, which are v2.
+    from app.services.ai.figure_trace import untraceable_figures
+
+    sections = (summary_data.get("raw_summary") or {}).get("sections")
+    figures_untraceable = untraceable_figures(sections, xbrl_metrics, excerpt)
+    trace_gate_active = bool(figures_untraceable) and settings.AI_FIGURE_TRACE_GATE
+    if trace_gate_active:
+        reasons.append(f"{len(figures_untraceable)} summary figure(s) not traceable to filing data")
+
+    tier = (
+        "full"
+        if (covered >= min_full and numeric_grounded and not trace_gate_active)
+        else "partial"
+    )
     return {
         "tier": tier,
         "reasons": reasons,
         "numeric_grounded": numeric_grounded,
         "covered_count": covered,
         "total_count": total,
+        "figures_untraceable": figures_untraceable,
     }
 
 

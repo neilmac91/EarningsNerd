@@ -126,3 +126,31 @@ def test_bank_with_grounded_revenue_total_is_full_without_components_in_text():
     verdict = assess_quality(_summary("Total revenue was $182.4B; net income $57.0B."), metrics)
     assert verdict["numeric_grounded"] is True
     assert verdict["tier"] == "full"
+
+
+def test_bank_component_figures_in_v2_prose_are_traceable():
+    """T3.2 number-diff gate FP guard: a bank's net-interest / noninterest-income figures written into
+    v2 prose trace to the XBRL components, so the gate must return an EMPTY untraceable list — the same
+    class of bug (a grounding rule firing on 100% of banks) this file's suite was created to prevent."""
+    metrics = _metrics(
+        net_interest_income={"current": {"value": 95443000000.0}},
+        noninterest_income={"current": {"value": 87004000000.0}},
+    )
+    summary = {
+        "business_overview": BANK_TEXT,
+        "financial_highlights": {},
+        "raw_summary": {
+            "schema_version": 2,
+            "sections": {
+                "the_print": {"headline": "Net interest income $95.4B and noninterest income $87.0B; net income $57.0B."},
+                "results_that_matter": {"table": []},
+                "earnings_quality": {"operating_vs_one_time": "Spread held."},
+                "forward_signals": {"guidance": "Guided steady."},
+            },
+            "section_coverage": {"per_section": {
+                "the_print": True, "results_that_matter": True,
+                "earnings_quality": True, "forward_signals": True}},
+        },
+    }
+    verdict = assess_quality(summary, metrics, sic="6021")
+    assert verdict["figures_untraceable"] == []

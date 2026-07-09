@@ -1,144 +1,95 @@
-# Tier 3.1 v2 — SummaryDoc content re-architecture
+# Tier 3.2 — Number-diff machine gate ("figure not traceable")
 
-**Goal:** cut the summary generator from the v1 9-section taxonomy to the plan's v2 9-section
-content architecture (`docs/summary-quality-improvement-plan.md` Part 3.1) — the core
-"world-class content" jump. Filing-only, DeepSeek stays the generator, one universal cached
-summary, eval-gated + re-pinned.
+**Goal (plan Part 4.3.2 / roadmap 3.2):** post-generation, diff every numeric token in the summary's
+free prose against the legitimate set — (XBRL standardized values ∪ code-computed deltas ∪
+filing-excerpt numbers) — and surface untraceable figures as a deterministic `assess_quality` reason.
+The "numbers from code, words from the model" principle enforced as a runtime grounding gate: it
+catches any figure the model invents. $0, no infra.
 
-## v2 taxonomy (Part 3.1) and the v1→v2 map
+## Load-bearing design decisions (from the integration map)
 
-| # | v2 section | from v1 | change |
-|---|---|---|---|
-| 1 | `the_print` | `executive_snapshot` | absorbs Key Takeaways; ≤3 headline figures by reference |
-| 2 | `results_that_matter` | `financial_highlights` | P&L table only; **cash lines removed** → §3 |
-| 3 | `earnings_quality` | **NEW** | operating-vs-one-time bridge, NI-vs-CFO, FCF, red-flags (model-extracted in T3.1; deterministic feeds in T5) |
-| 4 | `value_drivers` | **NEW** | buybacks/dividends/capex, ROIC level+trend from filing XBRL |
-| 5 | `forward_signals` | `guidance_outlook` | elevated; guidance as the filing states it |
-| 6 | `risks` | `risk_factors` | 10-Q = the filing's own change statement |
-| 7 | `segments` | `segment_performance` | segment table + mix commentary |
-| 8 | `balance_sheet_liquidity` | `liquidity_capital_structure` | absorbs the orphan `covenants_contingencies` node |
-| 9 | `notable_footnotes` | `notable_footnotes` | unchanged shape |
-| — | dissolved | `management_discussion_insights` | distributes into §1/§3/§5 |
-| — | dissolved | `three_year_trend` | trend framing → Multi-Period Analysis product |
+1. **Advisory-first, flag-gated — MANDATORY (billing safety).** `assess_quality`'s `tier` (`summary_generation_service.py:276`)
+   is a hard AND wired to the quota gate (`summary_pipeline.py:714`, `AI_QUALITY_GATE` default **on**):
+   `tier=="partial"` ⇒ user not charged + "partial" badge. A false positive = lost revenue + a bad
+   badge on a good summary, and it poisons the precompute corpus + can block a good keep-better
+   refresh. So: attach `figures_untraceable: [...]` to the verdict **additively**; do NOT fold it into
+   the tier. A new **`AI_FIGURE_TRACE_GATE` (default False)** is the ONLY thing that lets an untraceable
+   figure affect the tier — ships off until the false-positive rate is measured on the corpus. (House
+   pattern: `AI_QUALITY_GATE` itself is flagged; T3.0 scorers WARN-first.)
+2. **Police free prose only.** v2 renderer-injects XBRL figures into `results_that_matter` (traceable
+   by construction), so exclude the metric TABLE and verbatim QUOTES (a management quote may cite any
+   figure — exempt, like the ONE-HOME rule). The real fabrication surface is narrative prose.
+3. **Reuse app-side helpers; keep evals independent.** evals/scorers deliberately does NOT import app
+   code and the app keeps mirror copies (`_xbrl_value_appears` "mirrors the eval harness without
+   importing it"). So build an app-side figure-trace helper; do NOT import `evals.scorers` into the
+   request path. Reuse: `metric_delta_service.compute` (delta strings), `_xbrl_value_appears`
+   (value→text match), `copilot_service`'s year/count filtering, `score_delta_consistency`'s
+   conservative tolerance as the model.
+4. **Conservative matching (avoid FPs).** Scale-aware (81.6B=81,600M), rounding tolerance, drop
+   years (1900–2100) + bare small counts + page/item numbers; ppts/% matched against computed deltas
+   or excerpt %; foreign-currency + per-share + bank/no-total edge cases guarded (the whole
+   `test_assess_quality_bank.py` suite exists because a grounding rule once false-fired on 100% of banks).
 
-Prune the orphan `covenants_contingencies` node (emitted today; tracked/rendered nowhere).
+## Plan
 
-## Research findings that shape the plan
+**STATUS: value-based matcher rewrite done; full backend gate GREEN (1582 passed). Corpus residual measured
+(73 untraceable / 3-of-27 clean, a 4× cut from the string matcher's 295). Amend + push + draft PR next.**
 
-- **Render dispatch is a ready stub** — `summary_sections._builders_for(schema_version)`
-  (`summary_sections.py:522`) already receives `schema_version` but ignores it; register
-  `_BUILDERS_V2` there. **Additive:** legacy v1 rows keep rendering via v1 builders until
-  refreshed. All 4 consumers (web/markdown/PDF/CSV) flow through it.
-- **Generation is single-version** — flipping `SUMMARY_SCHEMA_VERSION`→2 is an atomic cutover of
-  `schema_template` + prompts + fallbacks + version bump.
-- **Eval layer is DECOUPLED** — it scores its own canonical 5-key shape (executive_summary /
-  financial_highlights / risk_factors / management_discussion / outlook). No scorer rewrites;
-  redundancy/delta scorers are already taxonomy-agnostic (split on `## ` markdown). **The one
-  eval break:** if `summarize_filing`'s compat-field derivations
-  (`openai_service.py:749,758,813-816,1022-1026`) aren't re-pointed to v2 keys, canonical
-  `management_discussion`/`outlook` go empty → coverage 5/5→3/5 → **HARD `mean_coverage` breach →
-  CI fails.** Fix lives in the generation compat layer, not the eval.
-- **Quality badge will lie** — `assess_quality`/`_verdict_coverage`
-  (`summary_generation_service.py:149-166`) count against hardcoded `_TRACKED_STRUCTURED_SECTIONS`
-  (v1). Under v2, every summary tiers "partial" and (with `AI_QUALITY_GATE`) billing stops. Must
-  count the v2 taxonomy; re-validate the 4/9 bar.
-- **`SummaryDoc` pydantic module does not exist** — create it.
-- **SSE:** `GET` already returns `schema_version` and the frontend refetches on `complete` (T2.5
-  deferred deliberately) → **no SSE contract amendment needed.** Verify in PR B.
-- **Locked contract test:** `test_background_generation_characterization.py` has v1 `per_section`
-  fixtures (`total_count: 9`) → re-key via the sanctioned PR-body-documented contract-change path.
-  `test_summary_stream_contract.py` is NOT taxonomy-coupled (no change).
+### Key finding from the FP readout (drove the matcher rewrite)
 
-## Decomposition — 2 PRs
+The first matcher (canonical-key substring + ≥3-sig-digit renderings + flat 0.5% tolerance) over-flagged
+massively (607 → then 295 dollar-only). A decisive per-figure categorization on KO (14 flagged) showed
+**~64% were matcher brittleness** — the model had COPIED real figures from its own input ("$10 million",
+"$73M", "3,659" all literally in the excerpt) that the substring matcher couldn't see (round forms like
+"$10M" render to "10.0", never the natural "10"; prose rounds "$1,531M" from a raw "1,531.4"; a flat 0.5%
+tolerance is too tight for a one-decimal rounding). The remaining **~36% are genuinely model-DERIVED
+aggregates** ("total debt $43,890M" = a summed set of named line items present individually but never as
+one number) — the real "numbers from code, words from the model" signal, i.e. the T5 work-list.
 
-### PR A — v2 infra, DARK (additive; default stays v1; zero eval/user impact)
-- [ ] New `backend/app/services/summary_schema.py` — `SummaryDoc` pydantic v2 model (9 sections +
-      sub-shapes; `metric_id` references; per-block evidence-ready).
-- [ ] `summary_sections.py`: author `_BUILDERS_V2` (9 v2 Section/Block builders; use the `callout`
-      kind + `evidence` field already present); make `_builders_for` dispatch
-      (`{1:_BUILDERS, 2:_BUILDERS_V2}`, default v1 for legacy/NULL).
-- [ ] Quality-badge schema_version dispatch: `_verdict_coverage`/`assess_quality` pick the
-      taxonomy tuple by `raw_summary.schema_version`; define the v2 tracked tuple; keep 4/9.
-- [ ] Unit tests: v2 builders render synthetic v2 payloads; dispatch picks v2 for
-      `schema_version=2`, v1 otherwise; badge counts v2 on a synthetic v2 `per_section`.
-- [ ] Full backend gate. No eval run / no re-pin (generation unchanged).
+**Rewrite:** value-based, rounding-aware. A prose dollar figure grounds when its VALUE is within HALF the
+place-value of its last significant digit of any XBRL value OR any excerpt number resolved to scale
+(explicit scale word authoritative; comma-grouped magnitude admits units/thousands/millions; a BARE
+number is never scaled up — that would ground a fabricated "$60B" against an incidental "60"). Recovers
+the copied figures; the residual is the derived-aggregate / fabrication surface the gate exists to flag.
 
-### PR B — v2 cutover (eval-gated, atomic; structure-first prompts)
+- [x] **`app/services/ai/figure_trace.py`** (new, app-side): (a) `prose_figures(sections) -> list[str]`
+      — enumerate financial figures from the v2 narrative prose fields ONLY (the_print, earnings_quality,
+      value_drivers, forward_signals guidance/known_trends, balance_sheet_liquidity leverage/liquidity,
+      segment commentary), excluding the `results_that_matter` table + `forward_signals.quotes` verbatim;
+      filter years/counts. (b) `legitimate_figures(xbrl_metrics, excerpt) -> set` — XBRL current/prior/
+      series renderings (reuse `_number_renderings`-style scaling) ∪ `metric_delta_service.compute`
+      display strings ∪ figures parsed from the normalized excerpt. (c) `untraceable_figures(sections,
+      xbrl_metrics, excerpt) -> list[str]` — figures in (a) with no scale-aware match in (b), conservative.
+- [x] **`config.py`**: `AI_FIGURE_TRACE_GATE: bool = False` (Settings; documented in docs/CONFIGURATION.md).
+- [x] **`summary_generation_service.py::assess_quality`**: add optional `excerpt: str | None = None` param;
+      after the grounding block (~:271), compute `figures_untraceable`; add it to the verdict dict
+      (:277–283) additively; tier stays unchanged UNLESS `settings.AI_FIGURE_TRACE_GATE` and the list is
+      non-empty (guarded so default-off = pure advisory). Keep `fi_components_present` usage intact
+      (`test_fi_predicate_single_source` lock).
+- [x] **`summary_pipeline.py:695`**: pass `excerpt=excerpt` to `assess_quality` (already in scope).
+- [x] **Frontend badge**: `figures_untraceable` is additive-only; flag-off ⇒ tier/reasons unchanged ⇒
+      badge unaffected. `summary-quality-badge.spec.tsx` GREEN (4 passed). No frontend code change.
+- [x] **Tests (rule 12 gates):** `test_figure_trace.py` — traceable (XBRL value, computed delta, excerpt
+      number) pass; a fabricated prose figure flagged; years/counts/quotes/table values NOT flagged;
+      foreign-currency + per-share + bank no-total NOT false-flagged. Extend `test_quality_assessment.py`
+      — verdict carries `figures_untraceable`; flag OFF ⇒ tier unchanged even with untraceable figures;
+      flag ON ⇒ tier→partial + reason. Bank FP guard in `test_assess_quality_bank.py`.
+- [x] **Full backend gate** GREEN (ruff + bandit + pytest, 1576 passed). **No eval re-run/re-pin:** the
+      gate is post-generation + read-only and the eval calls `summarize_filing` directly (never
+      `assess_quality`), so generation output + eval means are unchanged by construction. The FP readout
+      below regenerates the corpus, so it doubles as the generation sanity check.
+- [x] Committed + pushed (0f5ee68).
+- [x] **Value-based matcher rewrite** (drove by the readout finding): figure_trace now grounds by VALUE
+      with a rounding-aware tolerance (half last-sig-digit) against XBRL ∪ scale-cued excerpt numbers, not
+      by string. Conservative excerpt scale policy (scale word / comma-grouped only; bare never scaled up).
+      Recovers the ~64% that were the model copying real figures; residual = derived aggregates + fabs.
+- [x] **FP corpus readout** (scratchpad/fp_readout.py over all 27 golden filings): 73 untraceable /
+      3-of-27 clean / ~2 per filing (max 9 TSLA) — a 4× cut from the string matcher's 295. Residual is the
+      derived-aggregate (T5) / fabrication surface. Feeds the PR body so the founder can time the flag flip.
+- [x] Opened **draft PR #612** with the advisory-first rationale + the FP readout table (2 commits:
+      b8a7b46 initial gate + 7f5636c value-based matcher). Subscribed; ~1h self check-in armed.
 
-**STATUS: complete, pending final eval re-pin + push.** Full backend gate GREEN (1557 passed),
-frontend gate GREEN (lint+tsc+vitest 392+build). Live `--runs 3` eval verified the cutover and drove
-one correctness fix (below).
-
-- [x] `openai_service.py`: `schema_template` → v2 (pruned covenants_contingencies); re-pointed
-      `_TRACKED_STRUCTURED_SECTIONS` → `TRACKED_SECTIONS_V2` (safe: badge's v1 tuple frozen in
-      summary_schema, PR A); re-pointed compat-field derivations
-      (results_that_matter/risks/earnings_quality/forward_signals); stamped `schema_version` before
-      `render_sections`; **deterministic taxonomy filter** (drops the model's stray v1 keys — structure
-      from code, not model compliance); ONE-HOME rule + insights/legacy-card reads → v2 keys.
-- [x] `SUMMARY_SCHEMA_VERSION`=2 + `SUMMARY_PROMPT_VERSION`=summary-2026-07-c.
-- [x] `ai/section_recovery.py`: ordered-keys + section-context + schema-snippet maps → v2.
-- [x] `ai/markdown_render.py`: `_apply_structured_fallbacks` → compact v2 anchor filler (the_print +
-      results_that_matter), removed ~157 lines dead v1 filler.
-- [x] `ai/fallback_summary.py`: `generate_xbrl_summary` `sections_for_frontend` reshaped v1→v2.
-- [x] `summary_pipeline.py`: compat block re-pointed; retired the MD&A/guidance wrapper injection
-      (phantom v1 nodes); kept `management_section`/`guidance_section` for the DB-compat columns.
-- [x] Per-form prompts: **structure-first outcome — no rewrite needed.** Structured prompts defer to
-      schema ("schema is the single source of truth for structure"); analyst prompts carry no v1 keys
-      / no conflicting structural directives. Assembled prompt pins the nine v2 sections + v2 homes.
-- [x] Tests: added `test_generation_taxonomy_is_v2`; re-keyed the fallback-filler assertion →
-      `the_print`; the LOCKED characterization test needed no re-key (compat fields unchanged in shape).
-- [x] **Eval-driven fix — v2 numeric-recall floor.** `--runs 3` #1 showed recall 0.8429→0.7426 (HARD
-      breach): the cutover dropped v1's deterministic `financial_highlights.cash_flow[]`/`balance_sheet[]`
-      XBRL surfacing. Missing facts = investing/financing cash flow + current assets/liabilities. Fix #1
-      (seed-if-no-"$") only partially recovered (#2 = 0.7918): the model writes an UNRELATED "$" figure
-      in those fields that defeats a presence check, and it mislabelled non-USD filers (currency
-      1.0→0.9866). Redesign: `_apply_structured_fallbacks` now ALWAYS authors the two figure-only fields
-      — `working_capital` (current assets/liabilities + ratio) + a dedicated `cash_flow` bridge
-      (operating/investing/financing) — currency-aware (ISO-prefixed for non-USD), leaving the model's
-      `leverage`+`liquidity` prose untouched; the v2 builder renders `cash_flow`. Content dims IMPROVED
-      at cutover: redundancy 0.829→0.927, delta_consistency 0.898→0.968.
-- [x] Eval #3 confirmed the redesign: recall 0.9945, currency 1.0, aggregate 0.9975 (vs v1 0.9293),
-      precision/coverage 1.0. Content dims held (redundancy 0.906, delta 0.944–0.972).
-- [x] **JPM/G5 gate_fail — root-caused + SETTLED per founder review.** Residual vetoes = JPM's
-      `noninterest_income`/`net_interest_income` not surfaced separately. The PRODUCTION extractor
-      (`extract_standardized_metrics`) does NOT emit these (JPM has only `revenue`), so the model reads
-      them from filing text — stochastic (0–1/3 runs). A deterministic surfacing fix was INERT (no XBRL
-      key) and was reverted. Founder's answer: **do NOT baseline 0.0385** (it would grant a ≤3-veto
-      allowance of ANY veto type, gutting the epsilon-zero fabrication tripwire). Instead **removed the
-      two G5 component facts from JPM's golden entry** (values preserved in its `notes`; keeps JPM's
-      other 5 facts + the bank sanitizer live) → G5 dormant-by-design → re-pin at **gate_fail 0.0**.
-      Documented in `evals/RUNBOOK.md` (Step 2 "Dormant G5 bank-component facts"). **A7/A8 (XBRL metric
-      expansion) re-arms G5** by restoring the two facts + re-pinning. TRACKING: A7/A8 owner restores
-      JPM `net_interest_income`/`noninterest_income` to golden_set.json when the extractor emits them.
-- [x] **Re-pinned** `baseline_scores.json` from the v2 run (recall ~0.99, precision/coverage 1.0,
-      currency 1.0, **gate_fail 0.0**) — gate PASSES against the new pin. [re-run post-golden-set-edit]
-- [x] Frontend audit: confirmed `SummaryBlocks` renders v2; **deleted** dead v1-key readers —
-      `SummaryExecutiveSnapshot.tsx`, its spec, and `formatters.ts::{ExecutiveSnapshot,asTrimmedString,
-      parseExecutiveSnapshot}` (no non-test callers).
-- [ ] Push (rebased on latest main after #610); open draft PR B; subscribe + arm check-in.
-- [ ] Post-merge: operator `refresh-stale` drains v1 rows → v2 in place (cost/traffic decision).
-
-### Follow-up (not this tier): CI eval-baseline single-run gate_fail flakiness
-The PR-triggered `eval-baseline` runs `--runs 1`; a single transient veto on 1/26 filings = 0.0385
-hard-fails the epsilon (0.005) `gate_fail_rate` tolerance, on ANY `backend/app` PR (dark or not).
-Founder-flagged as a RUNBOOK policy question (single-veto-on-single-run ≠ a 3-run regression), NOT
-to solve inside the content PRs. Options: PR eval at `--runs 2–3`, or a granularity-aware gate_fail
-tolerance. Also fix the `#606` RUNBOOK note, which flagged pass_rate/stdev single-run wobble but not
-that `gate_fail_rate` *hard*-fails.
-
-## Risks & mitigations
-- **Eval churn at cutover** — eval is decoupled; only compat-field re-pointing + re-pin.
-- **Badge honesty** — badge dispatch (PR A) lands before generation flips (PR B).
-- **New §3/§4 sourcing** — model-extracted in T3.1 (no fabrication: omit rules + worked examples);
-  T5 adds deterministic feeds. Watch numeric recall/precision in the eval.
-- **PR B size** — large atomic cutover; keep tightly documented for review.
-
-## Decisions (founder-confirmed 2026-07-08)
-1. **Taxonomy:** **Full v2 now (all 9 sections)**, incl. the two new analytical homes
-   (earnings_quality, value_drivers) model-extracted in T3.1; T5 hardens with deterministic feeds.
-2. **Cutover prompt scope:** **Structure-first** — v2 structurally live + eval-passing with focused
-   prompts in PR B; iterate the full prose-quality bar (10 rules, per-form flexes, worked examples)
-   in tight eval-gated follow-ups.
-3. **Decomposition:** **2 PRs** — PR A (dark infra) → PR B (cutover). Confirmed.
-
-Currently implementing **PR A**.
+## Not in scope
+- Flipping `AI_FIGURE_TRACE_GATE` on (needs the measured FP readout first).
+- The citation/anchoring sibling (T4). The forward-signals verbatim hard gate (T5.4).
+- Any change to the tier formula or the eval baseline.
