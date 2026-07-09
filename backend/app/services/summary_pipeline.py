@@ -692,7 +692,7 @@ async def stream_filing_summary(
             # S4: deterministic quality verdict (always attached as metadata for the UI badge).
             # sic feeds the bank-aware revenue-grounding rule (P0-2) as the flag-independent
             # FI signal alongside component presence.
-            quality = assess_quality(summary_payload, xbrl_metrics, sic=company_sic)
+            quality = assess_quality(summary_payload, xbrl_metrics, sic=company_sic, excerpt=excerpt)
             raw_summary["quality"] = quality
             if quality.get("tier") == "partial":
                 # P0-2 detection: greppable counter of partial verdicts by reason + SIC. A
