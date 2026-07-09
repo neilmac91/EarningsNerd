@@ -14,6 +14,8 @@ const RESEND_COOLDOWN_SECONDS = 30
 function CheckEmailContent() {
   const searchParams = useSearchParams()
   const email = searchParams.get('email') ?? ''
+  // Forwarded from /register?redirect=… — passed on to login, which validates it before navigating.
+  const redirect = searchParams.get('redirect') ?? ''
   const [resendLoading, setResendLoading] = useState(false)
   const [resendStatus, setResendStatus] = useState<'idle' | 'sent' | 'error'>('idle')
   const [errorMessage, setErrorMessage] = useState('')
@@ -88,7 +90,10 @@ function CheckEmailContent() {
       </p>
 
       <p className="mt-4 text-center text-sm">
-        <Link href="/login" className="text-text-secondary-light hover:underline dark:text-text-secondary-dark">
+        <Link
+          href={redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'}
+          className="text-text-secondary-light hover:underline dark:text-text-secondary-dark"
+        >
           Back to login
         </Link>
       </p>

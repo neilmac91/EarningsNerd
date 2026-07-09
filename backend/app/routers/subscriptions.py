@@ -129,10 +129,17 @@ async def create_checkout_session(
 ):
     """Create Stripe Checkout session for subscription.
 
-    Sets ``payment_method_collection="if_required"`` so the future 100%-off beta path collects no
-    card when the amount due is $0. Applying that promo is deliberately NOT exposed here: it is done
-    server-side in the Week 2 invite flow and gated on the user's beta eligibility, so a client can
-    never self-grant the discount by flipping a request parameter.
+    Three cohorts, resolved server-side (never from a request parameter):
+    - Beta ($0 forever coupon): ``discounts`` pre-applied + ``payment_method_collection=
+      "if_required"`` so no card is collected on a $0 total. No trial — the coupon never expires.
+    - Monthly first-time subscriber with ``PRO_TRIAL_DAYS > 0``: a card-required 7-day trial —
+      ``subscription_data.trial_period_days`` + ``payment_method_collection="always"`` (with a
+      trial the amount due today is $0, so ``if_required`` would skip the card and Stripe could
+      never auto-charge on day 8). ``missing_payment_method: cancel`` backstops a card-less trial.
+      One trial per account: ANY prior Subscription row (canceled, expired reverse-trial, …) skips
+      the trial, so cancel→resubscribe can't re-farm free weeks on the same account.
+    - Everyone else (yearly, or repeat subscriber): plain paid checkout, ``if_required`` (Stripe
+      still collects a card whenever the amount due is non-zero, so paying users are unaffected).
     """
     if not current_user.email_verified:
         raise HTTPException(
@@ -175,8 +182,10 @@ async def create_checkout_session(
                 "quantity": 1,
             }],
             "mode": "subscription",
-            # Skip card collection when the amount due is $0 (the future 100%-off beta path). Stripe
+            # Skip card collection when the amount due is $0 (the 100%-off beta path). Stripe
             # still requires a card for any non-zero subscription, so paying customers are unaffected.
+            # The trial cohort below overrides this to "always" — a trial's amount-due-today is $0,
+            # so "if_required" there would mean no card on file and no day-8 auto-charge.
             "payment_method_collection": "if_required",
             "success_url": f"{frontend_url}/dashboard?success=true",
             "cancel_url": f"{frontend_url}/pricing?canceled=true",
@@ -192,8 +201,24 @@ async def create_checkout_session(
         # the 100%-off promo: the amount due is $0 and, with payment_method_collection="if_required"
         # above, no card is collected. Mutually exclusive with allow_promotion_codes (which we don't
         # set), so Stripe never 400s on conflicting discount params.
-        if getattr(current_user, "is_beta", False) and settings.STRIPE_BETA_PROMO_CODE_ID:
+        is_beta_coupon = bool(getattr(current_user, "is_beta", False) and settings.STRIPE_BETA_PROMO_CODE_ID)
+        if is_beta_coupon:
             session_kwargs["discounts"] = [{"promotion_code": settings.STRIPE_BETA_PROMO_CODE_ID}]
+        elif (
+            billing_cycle == "monthly"
+            and settings.PRO_TRIAL_DAYS > 0
+            and db.query(Subscription).filter(Subscription.user_id == current_user.id).first() is None
+        ):
+            # First-time monthly subscriber → 7-day card-required trial. A prior Subscription row of
+            # ANY status (canceled, expired reverse-trial, …) means this account already had its
+            # trial or a paid run — plain paid checkout instead, so cancel→resubscribe can't re-farm
+            # free weeks. Card is collected up front ("always") and Stripe auto-charges at trial end;
+            # a trial that somehow lacks a card cancels instead of going unpaid.
+            session_kwargs["subscription_data"] = {
+                "trial_period_days": settings.PRO_TRIAL_DAYS,
+                "trial_settings": {"end_behavior": {"missing_payment_method": "cancel"}},
+            }
+            session_kwargs["payment_method_collection"] = "always"
 
         checkout_session = stripe.checkout.Session.create(**session_kwargs)
 

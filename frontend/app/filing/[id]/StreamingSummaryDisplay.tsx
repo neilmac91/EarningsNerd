@@ -16,12 +16,14 @@
 ============================================================================= */
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Filing } from '@/features/filings/api/filings-api'
 import AiDisclaimer from '@/components/AiDisclaimer'
-import { Badge, Card, GuidanceCard, Notice, SkeletonText } from '@/components/ui'
+import { Badge, Card, GuidanceCard, Notice, SkeletonText, buttonVariants } from '@/components/ui'
 import { Button } from '@/components/ui/Button'
+import { isPaywallStreamError } from '@/features/summaries/api/summaries-api'
 import { SparkleIcon } from '@/lib/icons'
 import { useCountUp } from '@/hooks/useCountUp'
 import { MOTION } from '@/lib/motion'
@@ -125,6 +127,7 @@ export default function StreamingSummaryDisplay({
   error,
   onRetry,
   elapsedSeconds = 0,
+  trialEligible = false,
 }: {
   streamingText: string
   stage: string
@@ -133,6 +136,11 @@ export default function StreamingSummaryDisplay({
   error?: string | null
   onRetry?: () => void
   elapsedSeconds?: number
+  /** Whether THIS user would get the 7-day trial at checkout (first-time subscriber, resolved
+   * subscription status, not beta). Gates the paywall card's trial promise — a churned ex-Pro
+   * user is charged immediately, so promising them "you won't be charged" is a false billing
+   * claim (staff review, PR #619). Defaults false: under-promising is the safe direction. */
+  trialEligible?: boolean
 }) {
   const [isClient, setIsClient] = useState(false)
   const [whimsyMessage, setWhimsyMessage] = useState('')
@@ -335,8 +343,27 @@ export default function StreamingSummaryDisplay({
         </Card>
       )}
 
-      {/* Error surface — the single failure message + retry */}
-      {isError && (
+      {/* Error surface. The monthly-limit paywall is a CONVERSION moment, not a failure — it gets
+          the brand-tinted upgrade card (retry can't help; the quota resets monthly). The trial
+          pitch renders ONLY for trial-eligible users — a churned ex-Pro hitting this card gets a
+          plain upgrade CTA, because checkout would charge them immediately (staff review, #619).
+          Everything else keeps the honest error + retry. */}
+      {isError && isPaywallStreamError(error || message || '') ? (
+        <GuidanceCard
+          icon={<SparkleIcon className="h-5 w-5" aria-hidden="true" />}
+          title="You've hit this month's free limit"
+          description={
+            trialEligible
+              ? 'Your free summaries reset next month. Or go unlimited now with a 7-day free trial of Pro: cancel anytime during the trial and you won’t be charged.'
+              : 'Your free summaries reset next month. Or go unlimited now with Pro.'
+          }
+          action={
+            <Link href="/pricing" className={buttonVariants()}>
+              {trialEligible ? 'Start 7-day free trial' : 'Upgrade to Pro'}
+            </Link>
+          }
+        />
+      ) : isError ? (
         <GuidanceCard
           variant="error"
           title="Generation interrupted"
@@ -350,7 +377,7 @@ export default function StreamingSummaryDisplay({
             ) : undefined
           }
         />
-      )}
+      ) : null}
 
       {/* Streamed summary — the payoff, canonical .markdown-body render */}
       {displayText && (

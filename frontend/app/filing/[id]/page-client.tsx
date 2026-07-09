@@ -22,6 +22,7 @@ import { queryKeys } from '@/lib/queryKeys'
 import StreamingSummaryDisplay from './StreamingSummaryDisplay'
 import { TickerFilingsView } from '@/features/filings/components/TickerFilingsView'
 import { SummaryDisplay } from '@/features/summaries/components/SummaryDisplay'
+import { GenerateSignupGate } from '@/features/summaries/components/GenerateSignupGate'
 import { useSummaryGeneration } from '@/features/summaries/hooks/useSummaryGeneration'
 
 // StreamingSummaryDisplay + its stage constants live in ./StreamingSummaryDisplay.
@@ -43,12 +44,15 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   const viewStartedAt = useRef<number>(Date.now())
   const entryPoint = useMemo(() => getEntryPoint(), [])
 
-  const { data: currentUser } = useQuery({
+  const { data: currentUser, isPending: authPending } = useQuery({
     queryKey: queryKeys.currentUser(),
     queryFn: getCurrentUserSafe,
     retry: false,
   })
   const isAuthenticated = Boolean(currentUser)
+  // Settled /me query (data OR error): before this, isAuthenticated is false for EVERYONE, so the
+  // signup gate / auto-generate decision must wait or logged-in visitors would flash the gate.
+  const isAuthResolved = !authPending
 
   const { data: filing, isLoading: filingLoading } = useQuery<Filing>({
     queryKey: queryKeys.filing(filingId),
@@ -57,6 +61,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
 
   const {
     summary,
+    summaryLoading,
     streamingText,
     streamingStage,
     streamingMessage,
@@ -67,7 +72,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
     hasStartedGeneration,
     hasSummaryContent,
     handleRegenerateSummary,
-  } = useSummaryGeneration({ filingId, filing, isAuthenticated, entryPoint })
+  } = useSummaryGeneration({ filingId, filing, isAuthenticated, isAuthResolved, entryPoint })
 
   // Single entry point for every "Ask" affordance (callout CTA, starter chips, tappable follow-ups,
   // coachmark, text selection): open the rail, optionally pre-fill, and attribute the surface. FREE
@@ -126,6 +131,12 @@ function FilingDetailView({ filingId }: { filingId: number }) {
     retry: false,
     enabled: !!isAuthenticated,
   })
+
+  // Mirror of the checkout's trial rule for the paywall card: first-time subscriber (RESOLVED
+  // subscription with no status row) and not beta. Only signed-in users can hit the paywall
+  // (generation requires auth), and while the query loads this stays false — under-promising is
+  // the safe direction; a churned ex-Pro must never be promised "you won't be charged" (#619).
+  const trialEligible = Boolean(subscription && !subscription.status && !currentUser?.is_beta)
 
   const { data: savedSummaries } = useQuery<SavedSummary[]>({
     queryKey: queryKeys.savedSummaries(),
@@ -327,6 +338,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
               error={generationError}
               onRetry={handleRegenerateSummary}
               elapsedSeconds={elapsedSeconds}
+              trialEligible={trialEligible}
             />
           ) : summary && hasSummaryContent && filing ? (
             <SummaryDisplay
@@ -341,6 +353,11 @@ function FilingDetailView({ filingId }: { filingId: number }) {
               onRetry={handleRegenerateSummary}
               onAsk={handleAskCopilot}
             />
+          ) : isAuthResolved && !isAuthenticated && filing && !summaryLoading ? (
+            // No cached summary (query settled) + signed out: generation requires an account, so
+            // gate instead of auto-generating. Cached summaries render above for everyone (SEO
+            // surface) — the !summaryLoading guard stops the gate flashing while they load.
+            <GenerateSignupGate filing={filing} entryPoint={entryPoint} />
           ) : (
             <StreamingSummaryDisplay
               streamingText=""
@@ -350,6 +367,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
               error={activeErrorMessage}
               onRetry={handleRegenerateSummary}
               elapsedSeconds={0}
+              trialEligible={trialEligible}
             />
           )}
         </main>

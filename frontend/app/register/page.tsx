@@ -26,6 +26,12 @@ function RegisterContent() {
   const [inviteToken] = useState(() => searchParams.get('invite') ?? '')
   const isInvited = inviteToken.length > 0
 
+  // Where the visitor was headed before the signup gate (e.g. /filing/123). Forwarded through
+  // check-email to login, which validates it (internal paths only) before navigating — so this
+  // page only ever passes it along, never acts on it.
+  const redirect = searchParams.get('redirect') ?? ''
+  const redirectQuery = redirect ? `&redirect=${encodeURIComponent(redirect)}` : ''
+
   // Scrub only ?invite=<token> from the address bar once it's captured in state, preserving any
   // other query params (utm_*, ref, etc.).
   useEffect(() => {
@@ -59,7 +65,7 @@ function RegisterContent() {
       // or by signing in. Always route to the same "check your email" page.
       await register(email, password, fullName, turnstileToken, inviteToken)
       analytics.signupSubmitted()
-      router.push(`/check-email?email=${encodeURIComponent(email)}`)
+      router.push(`/check-email?email=${encodeURIComponent(email)}${redirectQuery}`)
     } catch (err: unknown) {
       const errorMessage = isApiError(err) ? getErrorMessage(err) : 'Registration failed'
       setError(errorMessage)
@@ -198,7 +204,10 @@ function RegisterContent() {
 
       <p className="mt-6 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
         Already have an account?{' '}
-        <Link href="/login" className="font-medium text-brand-strong hover:underline dark:text-brand-strong-dark">
+        <Link
+          href={redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'}
+          className="font-medium text-brand-strong hover:underline dark:text-brand-strong-dark"
+        >
           Sign in
         </Link>
       </p>

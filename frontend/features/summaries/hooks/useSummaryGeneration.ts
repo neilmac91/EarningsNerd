@@ -53,6 +53,11 @@ export interface UseSummaryGenerationArgs {
   filingId: number
   filing: Filing | undefined
   isAuthenticated: boolean
+  /** Whether the /me auth query has SETTLED. On mount it's false while isAuthenticated is also
+   * false — indistinguishable from a guest without this flag — so the auto-generate effect must
+   * wait for it or a logged-in user's page would flash the signup gate (and a guest's would fire
+   * a doomed request). */
+  isAuthResolved: boolean
   entryPoint: string
 }
 
@@ -83,6 +88,7 @@ export function useSummaryGeneration({
   filingId,
   filing,
   isAuthenticated,
+  isAuthResolved,
   entryPoint,
 }: UseSummaryGenerationArgs): SummaryGeneration {
   const queryClient = useQueryClient()
@@ -126,10 +132,9 @@ export function useSummaryGeneration({
 
   const handleGenerateSummary = useCallback(
     async (options?: { force?: boolean }) => {
-      // Feature flag for auth requirement (default to false implies POC mode/open access)
-      const requireAuth = process.env.NEXT_PUBLIC_REQUIRE_AUTH_FOR_SUMMARY === 'true'
-
-      if (requireAuth && !isAuthenticated) {
+      // Generation requires an account (the backend 401s guests). The page renders a signup gate
+      // for unauthenticated visitors, so this is a defensive backstop, not the primary UX.
+      if (!isAuthenticated) {
         setGenerationError('Please sign in to generate summaries.')
         return
       }
@@ -204,10 +209,12 @@ export function useSummaryGeneration({
     handleGenerateSummary({ force: true })
   }, [handleGenerateSummary])
 
-  // Auto-generate summary when page loads if no summary exists
+  // Auto-generate summary when page loads if no summary exists. Signed-in users only, and only
+  // once the /me query has SETTLED — before that, isAuthenticated is false for everyone, so firing
+  // early would send a logged-in user's request without their session resolved and a guest's
+  // straight into the backend's 401. Guests instead get the page's signup gate.
   useEffect(() => {
-    const requireAuth = process.env.NEXT_PUBLIC_REQUIRE_AUTH_FOR_SUMMARY === 'true'
-    const shouldAutoGenerate = !requireAuth || isAuthenticated
+    const shouldAutoGenerate = isAuthResolved && isAuthenticated
 
     if (
       filing &&
@@ -230,6 +237,7 @@ export function useSummaryGeneration({
     generationError,
     handleGenerateSummary,
     isAuthenticated,
+    isAuthResolved,
   ])
 
   useEffect(() => {

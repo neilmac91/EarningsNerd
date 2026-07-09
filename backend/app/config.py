@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
+from pydantic import Field, field_validator
 from typing import List
 import os
 
@@ -71,8 +71,18 @@ class Settings(BaseSettings):
     # test id in dev, the live id via Secret Manager in prod.
     STRIPE_BETA_PROMO_CODE_ID: str = ""
 
-    # Reverse trial: grant full Pro for N days, no card, on signup. Defaults OFF (rollout strategy
-    # enables features per-environment via flags). When on, registration starts a `trialing` sub.
+    # Card-required Stripe trial on Pro MONTHLY checkout: subscription_data.trial_period_days on the
+    # Checkout Session — card collected up front (payment_method_collection="always"), first N days
+    # free, cancel anytime within them at no charge, auto-charged on day N+1. 0 disables (plain paid
+    # checkout). Distinct from the no-card REVERSE_TRIAL below (a different, retired mechanism —
+    # never enable both). One trial per ACCOUNT is enforced app-side (any prior Subscription row
+    # skips the trial); cross-account abuse is deterred by the card requirement + Stripe Radar.
+    # Bounded (0-30) so an env typo on this money knob fails LOUDLY at boot: 70 would silently give
+    # ten-week free trials; >730 would make Stripe 400 every first-time monthly checkout.
+    PRO_TRIAL_DAYS: int = Field(default=7, ge=0, le=30)
+
+    # Reverse trial: grant full Pro for N days, no card, on signup. Superseded by the card-required
+    # PRO_TRIAL_DAYS checkout trial (owner decision 2026-07-09) — keep OFF; code retained dormant.
     REVERSE_TRIAL_ENABLED: bool = False
     REVERSE_TRIAL_DAYS: int = 7
 
@@ -374,14 +384,6 @@ class Settings(BaseSettings):
     # institutions only. Non-financial filers are unaffected. Default False until the eval bake-off
     # confirms no regression; set USE_STATEMENT_FINANCIALS=true to enable, then remediate persisted data.
     USE_STATEMENT_FINANCIALS: bool = False
-
-    # Anonymous (guest) daily summary quota (roadmap S5). Guests currently have no daily/monthly
-    # cap (only 5/60s per IP), so one IP could trigger thousands of AI calls/month. A small daily
-    # cap keeps free activation sustainable WITHOUT ever gating the first summary (a brand-new IP
-    # is always under the cap). Fails open if Redis is unavailable — infra must never block a
-    # first-time visitor's first summary. Default off; flip ENABLE_GUEST_DAILY_QUOTA to enable.
-    ENABLE_GUEST_DAILY_QUOTA: bool = False
-    GUEST_DAILY_SUMMARY_LIMIT: int = 3
 
     # Pro summary fair-use ceiling. Pro is "unlimited" as a BILLING promise (entitlements keeps
     # monthly_summary_limit=None so the plan API never advertises a cap), but a single account —

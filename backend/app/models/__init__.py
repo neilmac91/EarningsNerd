@@ -1,5 +1,5 @@
 import logging
-from sqlalchemy import Column, Integer, SmallInteger, String, Text, DateTime, Date, Boolean, ForeignKey, Float, JSON, event, UniqueConstraint, Index
+from sqlalchemy import Column, Integer, SmallInteger, String, Text, DateTime, Boolean, ForeignKey, Float, JSON, event, UniqueConstraint, Index
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
@@ -127,24 +127,6 @@ class LoginAttempt(Base):
     email_hash = Column(String(64), primary_key=True)
     failed_count = Column(Integer, nullable=False, default=0, server_default="0")
     locked_until = Column(DateTime(timezone=True), nullable=True)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
-
-class GuestDailyUsage(Base):
-    """Durable per-IP daily cap on anonymous summary generation (a denial-of-wallet backstop).
-
-    DB-backed, not Redis: Redis is OFF in production (SKIP_REDIS_INIT=true), so the previous
-    Redis-only guest quota silently failed open there and never actually capped anyone. Keyed on a
-    SECRET_KEY-peppered hash of the *trusted* client IP (rate_limiter.get_client_ip) — never the raw
-    IP and never request.client.host, which behind Cloud Run is the shared Google front-end address.
-    One row per distinct guest IP hash; the counter self-resets when usage_date rolls to a new UTC
-    day, so rows don't accumulate one-per-day.
-    """
-    __tablename__ = "guest_daily_usage"
-
-    ip_hash = Column(String(64), primary_key=True)
-    usage_date = Column(Date, nullable=False)
-    count = Column(Integer, nullable=False, default=0, server_default="0")
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
@@ -343,7 +325,6 @@ __all__ = [
     "ContactSubmission",
     "Filing",
     "FilingContentCache",
-    "GuestDailyUsage",
     "InviteCode",
     "LoginAttempt",
     "NotificationLog",

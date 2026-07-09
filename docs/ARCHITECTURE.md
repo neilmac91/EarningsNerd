@@ -129,7 +129,7 @@ frontend/
 | `dashboard_feed_service.py` / `calendar_service.py` / `filing_scan_service.py` / `notification_service.py` | Personalized feed; earnings calendar; new-filing alerts (dedup); alert prefs |
 | `notable_filings_service.py` | Homepage "Notable filings": market-wide EFTS scan (8-K item materiality + form weights + owned demand), serve-from-Postgres, self-omitting |
 | `hot_filings.py` / `trending_service.py` / `pulse_service.py` | LEGACY (surfaces retired/flag-hidden 2026-07; teardown PR pending — see tasks/homepage-sections-review-findings.md); Filing Pulse gauge kept for roadmap A3 |
-| `guest_quota.py` / `turnstile.py` / `pwned_passwords.py` | Per-IP guest cap (fail-open); Turnstile bot defense (dark when unset, fails OPEN on Cloudflare infra errors); breached-password screening |
+| `turnstile.py` / `pwned_passwords.py` | Turnstile bot defense (dark when unset, fails OPEN on Cloudflare infra errors); breached-password screening |
 | `fallback_summary.py` | Deterministic summary when AI fails |
 | `export_service.py` | PDF/HTML export (summaries + analysis) |
 | `content_cache.py` / `summary_placeholders.py` | Shared FilingContentCache upsert; the summary-not-ready detector |
@@ -212,7 +212,8 @@ Submodules: `financial_fact.py` (normalized XBRL for peers/time-series),
 `notifications.py` (prefs + dedup ledger), `refresh_token.py` (rotation chain),
 `subscription.py` (`Subscription` + `StripeEvent` idempotency ledger), `waitlist.py`,
 `contact.py`, `audit_log.py`. Additional tables via migrations: `invite_codes`,
-`feedback`, `guest_daily_usage`, `login_attempts`, `earnings_events`.
+`feedback`, `login_attempts`, `earnings_events` (plus the orphaned `guest_daily_usage` —
+unused since generation became account-required in #619; kept because migrations are re-run-safe, never destructive).
 
 ### Data-integrity invariants
 
