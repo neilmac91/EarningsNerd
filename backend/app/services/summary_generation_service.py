@@ -149,22 +149,19 @@ MINIMUM_STRUCTURED_SECTIONS_FOR_FULL = 4
 def _tracked_sections_for(schema_version: Any) -> Tuple[str, ...]:
     """The section-key taxonomy the quality badge counts, dispatched by schema version.
 
-    v2 rows (the SummaryDoc content architecture) count ``TRACKED_SECTIONS_V2``; legacy / NULL / v1
-    rows count the v1 ``_TRACKED_STRUCTURED_SECTIONS``. Keyed off the row's OWN
-    ``raw_summary.schema_version`` so a v1 row assessed after the v2 cutover still counts its own
-    taxonomy (both taxonomies are 9 sections, so the 4/9 bar is unchanged). Both imports are lazy to
-    avoid an import cycle through openai_service."""
+    Both tuples are the FROZEN per-version literals in ``summary_schema`` — deliberately NOT
+    ``openai_service._TRACKED_STRUCTURED_SECTIONS``, which is the generation-side "what we emit now"
+    and is re-pointed to v2 at the cutover. Keyed off the row's OWN ``raw_summary.schema_version`` so
+    a v1 row assessed after the v2 cutover still counts its own historical v1 taxonomy — otherwise a
+    naming collision would make every legacy row count 0/9 and tier "partial" (billing off). Both
+    taxonomies are 9 sections, so the 4/9 bar is unchanged."""
+    from app.services.summary_schema import TRACKED_SECTIONS_V1, TRACKED_SECTIONS_V2
+
     try:
         version = int(schema_version)
     except (TypeError, ValueError):
         version = 1
-    if version == 2:
-        from app.services.summary_schema import TRACKED_SECTIONS_V2
-
-        return TRACKED_SECTIONS_V2
-    from app.services.openai_service import _TRACKED_STRUCTURED_SECTIONS
-
-    return _TRACKED_STRUCTURED_SECTIONS
+    return TRACKED_SECTIONS_V2 if version == 2 else TRACKED_SECTIONS_V1
 
 
 def _verdict_coverage(summary_data: Dict[str, Any]) -> Tuple[int, int, int]:

@@ -63,26 +63,47 @@ Prune the orphan `covenants_contingencies` node (emitted today; tracked/rendered
       `schema_version=2`, v1 otherwise; badge counts v2 on a synthetic v2 `per_section`.
 - [ ] Full backend gate. No eval run / no re-pin (generation unchanged).
 
-### PR B — v2 cutover (eval-gated, atomic)
-- [ ] `openai_service.py`: rewrite `schema_template` → v2 (prune covenants_contingencies); update
-      `_TRACKED_STRUCTURED_SECTIONS` → v2; re-point compat-field derivations
-      (financial_highlights/risk_factors/management_discussion/key_changes/business_overview).
+### PR B — v2 cutover (eval-gated, atomic; structure-first prompts)
+- [ ] `openai_service.py`: rewrite `schema_template` → v2 (prune covenants_contingencies); re-point
+      the **generation-side** `_TRACKED_STRUCTURED_SECTIONS` → v2 (safe: the badge's v1 tuple is
+      frozen as `TRACKED_SECTIONS_V1` in summary_schema — PR A — and no test couples the two); re-point
+      compat-field derivations (financial_highlights/risk_factors/management_discussion/key_changes/
+      business_overview) or canonical `mean_coverage` collapses → HARD gate breach.
 - [ ] `ai/section_recovery.py`: update the duplicated tracked list + section-context/schema-snippet
       maps to v2.
 - [ ] `ai/markdown_render.py`: `_apply_structured_fallbacks` v2 filler bodies;
       `_build_structured_markdown` fallback (verify still needed).
-- [ ] Rewrite per-form prompts to emit v2 + per-form flexes (3.2) + prose bar (3.3); one-home by
-      schema design; omit rules paired with a positive worked example (lesson
-      `arch-edit-causal-directive-add-example`); resolve the analyst-preamble "single cohesive
-      markdown" contradiction. **Scope pending Open decision #2.**
+- [ ] **`ai/fallback_summary.py`** (v1-shaped payload, v1 coverage math "total_sections = 7"): under
+      the constant-derived stamp a fallback row would get `schema_version=2` on a v1 shape →
+      `_builders_for(2)` renders it near-empty on exactly the degraded-path summaries. Re-shape the
+      fallback to v2, OR stamp fallback rows `schema_version=1` explicitly (shape-accurate beats
+      constant-accurate).
+- [ ] **`summary_pipeline.py` ~L678** injects `management_discussion_insights` / `guidance_outlook`
+      wrapper nodes into `sections_info` when absent — dissolved/renamed under v2 → phantom v1 nodes
+      on every v2 row (stored-JSON noise + a trap for future `sections` iterators). Condition on
+      schema version or retire.
+- [ ] Rewrite per-form prompts to emit v2 + per-form flexes (3.2), **structure-first** (get v2 live
+      + eval-passing; iterate the full prose bar (3.3) in follow-ups); one-home by schema design;
+      omit rules paired with a positive worked example (lesson `arch-edit-causal-directive-add-example`);
+      resolve the analyst-preamble "single cohesive markdown" contradiction.
 - [ ] `SUMMARY_SCHEMA_VERSION`=2 + `SUMMARY_PROMPT_VERSION` bump.
 - [ ] Update render-layer + characterization tests to v2; re-key
       `test_background_generation_characterization.py` (LOCKED) via the documented contract path.
 - [ ] Eval-gate `--runs 3` live DeepSeek; re-pin `baseline_scores.json` (activates redundancy/delta
       WARN gates at v2 values). Full backend gate.
 - [ ] Frontend: confirm `SummaryBlocks` renders v2 (titles/order flow from builders); badge spec
-      stays `/9`.
+      stays `/9`. **Audit remaining direct v1-key readers** — `lib/formatters.ts::parseExecutiveSnapshot`
+      + `SummaryExecutiveSnapshot.tsx` appear to have no non-test callers → delete or re-key (v1
+      parsers silently return null on v2 rows).
 - [ ] Post-merge: operator `refresh-stale` drains v1 rows → v2 in place (cost/traffic decision).
+
+### Follow-up (not this tier): CI eval-baseline single-run gate_fail flakiness
+The PR-triggered `eval-baseline` runs `--runs 1`; a single transient veto on 1/26 filings = 0.0385
+hard-fails the epsilon (0.005) `gate_fail_rate` tolerance, on ANY `backend/app` PR (dark or not).
+Founder-flagged as a RUNBOOK policy question (single-veto-on-single-run ≠ a 3-run regression), NOT
+to solve inside the content PRs. Options: PR eval at `--runs 2–3`, or a granularity-aware gate_fail
+tolerance. Also fix the `#606` RUNBOOK note, which flagged pass_rate/stdev single-run wobble but not
+that `gate_fail_rate` *hard*-fails.
 
 ## Risks & mitigations
 - **Eval churn at cutover** — eval is decoupled; only compat-field re-pointing + re-pin.

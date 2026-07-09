@@ -26,9 +26,28 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-# --- v2 section-key taxonomy (ordered, inverted pyramid) ---------------------------------------
+# --- section-key taxonomies by schema version --------------------------------------------------
+# The quality badge (summary_generation_service._verdict_coverage) counts a stored row's populated
+# sections against the taxonomy for THAT row's schema_version. Both tuples are FROZEN LITERALS here
+# — deliberately NOT imported from openai_service, whose ``_TRACKED_STRUCTURED_SECTIONS`` is the
+# generation-side "what we emit NOW" and flips to v2 at the cutover. The badge's notion of "what a v1
+# row was supposed to contain" is historical fact and must not follow that flip: if the v1 badge arm
+# tracked the generation constant, every legacy v1 row would count 0/9 and tier "partial" (billing
+# off with AI_QUALITY_GATE) the moment PR B re-points the generation tuple to v2.
+TRACKED_SECTIONS_V1: tuple[str, ...] = (
+    "executive_snapshot",
+    "financial_highlights",
+    "risk_factors",
+    "management_discussion_insights",
+    "segment_performance",
+    "liquidity_capital_structure",
+    "guidance_outlook",
+    "notable_footnotes",
+    "three_year_trend",
+)
+
 # The canonical v2 section keys, in on-page order. `openai_service` (PR B) emits these; the quality
 # badge counts them; the render builders key off them. Keep this tuple, SummaryDocSections' field
 # names, and _BUILDERS_V2's order in lockstep.
@@ -197,6 +216,15 @@ class SummaryDocSections(_V2Base):
     segments: List[SegmentRow] = Field(default_factory=list)
     balance_sheet_liquidity: Optional[BalanceSheetLiquidity] = None
     notable_footnotes: List[FootnoteItem] = Field(default_factory=list)
+
+    @field_validator("risks", "segments", "notable_footnotes", mode="before")
+    @classmethod
+    def _none_to_empty(cls, v):
+        """A model rendering "no items" as ``null`` (common alongside omission) means ``[]``, not a
+        type error — so ``"risks": null`` validates to an empty list rather than spuriously routing an
+        otherwise-good payload into the json-repair fallback (PR B validates model output with this).
+        A wrong type (``"risks": "a string"``) still rejects."""
+        return [] if v is None else v
 
 
 class SummaryDocMetadata(_V2Base):

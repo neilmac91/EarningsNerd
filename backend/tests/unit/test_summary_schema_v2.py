@@ -14,6 +14,7 @@ from app.services.summary_generation_service import (
 )
 from app.services.summary_schema import (
     SECTION_META,
+    TRACKED_SECTIONS_V1,
     TRACKED_SECTIONS_V2,
     SummaryDoc,
 )
@@ -121,6 +122,20 @@ def test_summarydoc_is_lenient_missing_sections_and_extra_keys():
 def test_summarydoc_rejects_wrong_type():
     with pytest.raises(Exception):
         SummaryDoc.model_validate({"sections": {"the_print": ["not", "an", "object"]}})
+
+
+def test_summarydoc_list_sections_coerce_null_to_empty():
+    # A model rendering "no items" as null is "missing", not a wrong type — validate to [] rather
+    # than raising (which in PR B would spuriously route a good payload into json-repair).
+    doc = SummaryDoc.model_validate(
+        {"sections": {"risks": None, "segments": None, "notable_footnotes": None}}
+    )
+    assert doc.sections.risks == []
+    assert doc.sections.segments == []
+    assert doc.sections.notable_footnotes == []
+    # A genuinely wrong type still rejects.
+    with pytest.raises(Exception):
+        SummaryDoc.model_validate({"sections": {"risks": "a string"}})
 
 
 def test_tracked_sections_v2_matches_meta_and_field_names():
@@ -233,9 +248,23 @@ def test_v2_markdown_is_clean_no_scaffolding():
 
 def test_tracked_sections_for_dispatch():
     assert _tracked_sections_for(2) == TRACKED_SECTIONS_V2
-    from app.services.openai_service import _TRACKED_STRUCTURED_SECTIONS
+    # v1 arm returns the FROZEN literal, NOT openai's mutable generation constant (PR B re-points
+    # that to v2; the badge's v1 taxonomy must stay v1 for legacy rows). Asserting against the frozen
+    # literal — not the same import the code uses — is what makes this non-tautological.
     for v1_like in (1, None, "1", 3, "x"):
-        assert _tracked_sections_for(v1_like) == _TRACKED_STRUCTURED_SECTIONS
+        assert _tracked_sections_for(v1_like) == TRACKED_SECTIONS_V1
+
+
+def test_tracked_sections_v1_is_frozen_literal():
+    # Pin the exact historical v1 names so a drive-by edit can't silently move the badge's legacy bar.
+    # This is a self-contained literal (not compared to openai's generation constant, which PR B
+    # re-points to v2) — the badge's "what a v1 row should contain" is historical fact.
+    assert TRACKED_SECTIONS_V1 == (
+        "executive_snapshot", "financial_highlights", "risk_factors",
+        "management_discussion_insights", "segment_performance", "liquidity_capital_structure",
+        "guidance_outlook", "notable_footnotes", "three_year_trend",
+    )
+    assert TRACKED_SECTIONS_V1 != TRACKED_SECTIONS_V2
 
 
 def test_verdict_coverage_counts_v2_taxonomy():
@@ -258,8 +287,9 @@ def test_verdict_coverage_v2_ignores_stray_v1_keys():
 
 
 def test_verdict_coverage_v1_unchanged():
-    from app.services.openai_service import _TRACKED_STRUCTURED_SECTIONS
-    per_section = {k: True for k in _TRACKED_STRUCTURED_SECTIONS[:5]}
+    # Build per_section from the FROZEN v1 literal (not openai's mutable constant) so this stays
+    # meaningful after PR B re-points the generation tuple to v2.
+    per_section = {k: True for k in TRACKED_SECTIONS_V1[:5]}
     summary_data = {"raw_summary": {"schema_version": 1,
                                     "section_coverage": {"per_section": per_section}}}
     covered, total, min_full = _verdict_coverage(summary_data)
