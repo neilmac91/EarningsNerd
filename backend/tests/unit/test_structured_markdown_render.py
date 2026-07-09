@@ -389,6 +389,67 @@ def test_apply_structured_fallbacks_cash_conversion_ratio_band_boundary():
     assert s2["earnings_quality"]["cash_conversion"] == "Operating cash flow far exceeded net income."
 
 
+def _segment_xbrl(currency=None):
+    xbrl = {
+        "segments": [
+            {"name": "Americas", "revenue": 178_353_000_000.0, "revenue_prior": 167_045_000_000.0,
+             "operating_income": 72_480_000_000.0, "period": "2025-09-27"},
+            {"name": "Europe", "revenue": 111_032_000_000.0, "revenue_prior": 101_328_000_000.0,
+             "operating_income": 47_739_000_000.0, "period": "2025-09-27"},
+        ],
+    }
+    if currency:
+        xbrl["reporting_currency"] = currency
+    return xbrl
+
+
+def test_apply_structured_fallbacks_segments_authored_from_xbrl():
+    """§7 is machine-authored from XBRL segment dimensions: per-segment revenue + operating income +
+    YoY revenue change + a deterministic mix (share of segment revenue) and operating-margin read."""
+    sections: dict = {}
+    openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, _segment_xbrl())
+
+    seg = sections["segments"]
+    assert [r["segment"] for r in seg] == ["Americas", "Europe"]   # revenue-descending
+    a = seg[0]
+    assert a["revenue"] == "$178.4B" and a["operating_income"] == "$72.5B"
+    assert a["change"] == "+6.8%"                                   # (178.353-167.045)/167.045
+    assert "62% of segment revenue" in a["commentary"] and "41% operating margin" in a["commentary"]
+    assert seg[1]["change"] == "+9.6%"
+
+
+def test_apply_structured_fallbacks_segments_strip_stray_model_rows():
+    """Ownership invariant: a stray model-authored segments list is replaced by the deterministic table
+    (its fabricated figures never survive)."""
+    sections = {"segments": [{"segment": "Hallucinated", "revenue": "$999B", "commentary": "made up"}]}
+    openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, _segment_xbrl())
+
+    names = [r["segment"] for r in sections["segments"]]
+    assert names == ["Americas", "Europe"] and "Hallucinated" not in names
+
+
+def test_apply_structured_fallbacks_segments_stripped_when_no_xbrl():
+    """No XBRL segment data (single-segment / undimensioned / bank filer) → the section is dropped, and
+    a stray model segments list is stripped rather than left to render unpoliced (graceful degradation)."""
+    sections = {"segments": [{"segment": "Hallucinated", "revenue": "$999B"}]}
+    openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, {"revenue": {"current": {"value": 1.0}}})
+    assert "segments" not in sections
+
+    # Nothing to strip, nothing to inject → still absent, no crash.
+    empty: dict = {}
+    openai_service._apply_structured_fallbacks(empty, {"company_name": "X"}, {})
+    assert "segments" not in empty
+
+
+def test_apply_structured_fallbacks_segments_use_reporting_currency():
+    """Foreign issuers: segment figures carry the ISO prefix, never a bare '$'."""
+    sections: dict = {}
+    openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, _segment_xbrl(currency="EUR"))
+    seg = sections["segments"]
+    assert seg[0]["revenue"] == "EUR 178.4B" and seg[0]["operating_income"] == "EUR 72.5B"
+    assert "$" not in (seg[0]["revenue"] + seg[0]["operating_income"])
+
+
 def test_apply_structured_fallbacks_cash_conversion_large_negative_ratio_is_qualitative():
     """A large operating cash OUTFLOW against a small positive income (NI $10M / OCF -$2.5B = -250x) is
     the same denominator-noise problem on the negative side — stated qualitatively as the red flag it is."""

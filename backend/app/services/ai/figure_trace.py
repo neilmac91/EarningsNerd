@@ -227,11 +227,9 @@ def _prose_blob(sections: Any) -> str:
         if isinstance(data, dict):
             for field in fields:
                 _add(data.get(field))
-    segments = sections.get("segments")
-    if isinstance(segments, list):
-        for seg in segments:
-            if isinstance(seg, dict):
-                _add(seg.get("commentary"))
+    # segments[].commentary is machine-authored from XBRL (T5.2 — a deterministic mix / operating-margin
+    # read), so it is excluded from policing exactly like cash_flow / cash_conversion; the model no
+    # longer authors the segment table.
     footnotes = sections.get("notable_footnotes")
     if isinstance(footnotes, list):
         for note in footnotes:

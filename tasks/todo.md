@@ -1,137 +1,91 @@
-# Auth-gated generation + 7-day card-required Pro trial
+# Tier 5.2 — Segments fed deterministically (per-segment revenue / operating income from XBRL dimensions)
 
-**STATUS: implemented; backend gate green (ruff + bandit + 1612 pytest); frontend gate green
-(eslint --max-warnings 0, tsc, 397 vitest, build, DS legacy-color grep clean); adversarial
-review pass run before push (findings triaged below in PR).**
+**Goal (roadmap T5.2 / plan §7):** the Segments section gets a GROUNDED, machine-authored per-segment
+revenue + operating-income table from the filing's own XBRL `StatementBusinessSegmentsAxis` dimensions,
+instead of model-authored figures. "Numbers from code, words from the model." $0 infra (no edgartools bump —
+`by_dimension` is confirmed working on the pinned 5.40.1). Mirrors the proven T5.1 machine-authoring pattern.
 
-**Goal:** (1) an account is required to generate any NEW filing summary (no anonymous generation);
-(2) free accounts generate until the existing 5/month quota; (3) Pro monthly checkout carries a
-7-day card-required Stripe trial (card upfront, cancel anytime ≤7d at no charge, auto-charged day 8).
+## Load-bearing facts (understand-phase: 2 workflow maps + direct verification)
 
-**Owner decisions (2026-07-09, via AskUserQuestion):**
-- Trial = **card-required Stripe trial** on Pro **monthly only** (supersedes the documented no-card
-  reverse-trial strategy in `docs/RESEARCH_SYNTHESIS.md` / `docs/IMPLEMENTATION_PLAN.md` Q3;
-  `REVERSE_TRIAL_ENABLED` stays off, code stays dormant).
-- **Cached summaries stay publicly viewable** (SEO + homepage example); only NEW generation gates.
-- Funnel = **register → login → back** via `?redirect=` threading; email verification stays
-  required only for checkout (unchanged).
-- Free quota stays **5/month** (already built; no entitlements change).
+1. **`by_dimension` works on pinned 5.40.1** (verified live: AAPL→5 geographic segments, MSFT→3 product
+   segments). API: `xb.facts.query().by_concept(concept, exact=True).by_dimension("StatementBusinessSegmentsAxis")
+   .to_dataframe()` → one row per (concept×member×period); `dimension_member_label` = clean segment name,
+   `numeric_value` = float. Empty DataFrame (never None) for single-segment / untagged filers.
+2. **Rule-5-safe reuse point.** The pipeline already fetches `xb = filing.xbrl()` at `xbrl_service.py:258`
+   inside `_extract_from_filing_instance_sync`. The segment helper MUST run there while `xb` is in scope
+   (writing `result["segments"]`) → ZERO new SEC traffic, rides the existing L1/L2 cache + `Filing.xbrl_data`.
+   `filing.xbrl()` bypasses the app rate-limiter, so a separate fetch would violate rule 5 — do NOT re-fetch.
+3. **The code deliberately discards dimensional facts today** (`instance_extractor.py:351,398`:
+   `if row.get("is_dimensioned"): continue`). T5.2 keeps them, filtered to the segment axis. All period /
+   currency primitives already exist (`duration_in_window`, `_iso_date`, `_numeric`, `_currency`).
+4. **Period-selection lesson (`sec-xbrl-period-selection.md`):** NEVER trust `fy`/`fp` or `period_end.max()`
+   — select segment facts for the filing's OWN reporting period via `duration_in_window(..., period_of_report)`,
+   the same discipline the consolidated path uses. Concept-list ORDERING is behavior (tag priority), not style.
+5. **Reliability caveats (verified):** (a) co-present axes — filter on `StatementBusinessSegmentsAxis` alone
+   (GH-607 makes `member`/label report that axis correctly); (b) drop Corporate / Elimination / Intersegment /
+   Reconciliation / Total members or you double-count; (c) revenue tag varies
+   (`RevenueFromContractWithCustomerExcludingAssessedTax` → `Revenues` → `SalesRevenueNet`) — ordered fallback,
+   `exact=True`; (d) banks skip generic revenue tags (period-selection lesson) → segments degrade to empty for
+   FIs, matching the roadmap's graceful-degradation intent; (e) sum(segments) ≈ consolidated is the sanity check.
+6. **Render/schema (verified directly).** `SegmentRow{segment, revenue, operating_income, change, commentary,
+   source_section_ref}` (all strings), rendered as a table by `summary_sections._v2_segments:687`. Today
+   FULLY model-authored — the fabrication surface T5.2 removes.
+7. **Eval plumbing.** `score_summary(payload, ground_truth)` is PAYLOAD-ONLY (no `xbrl_metrics`), so an
+   XBRL-fidelity segment scorer needs harness threading (defer, like the T4 citation scorer). Deterministic
+   segments are correct-by-construction (pinned by extraction unit tests + live verification); the existing
+   coverage / financial_depth scorers reflect the added content. Run `--runs 3`, protect HARD gates.
 
-**Rule #6 contract change (pre-approved via this plan check-in; document in PR body):**
-`test_summary_stream_contract.py` drives `generate-stream` anonymously. Requiring auth is a
-deliberate SSE-contract change — the test is re-seated to an authenticated caller in the same PR.
-`test_guest_quota_route.py` is rewritten to assert the new behavior (anon → 401).
+## Design decision — DETERMINISTIC table (expert call; deviates from the roadmap's hybrid — for founder review)
 
-## Load-bearing facts (from 8-agent investigation, cross-verified by hand)
-
-1. **One anonymous LLM surface.** `POST /api/summaries/filing/{id}/generate-stream`
-   (`summaries.py:124`, dep `get_current_user_optional` at :131, docstring "guests allowed").
-   All other LLM surfaces (copilot ask-stream, analysis stream, force-regen) are already gated.
-2. **Quota gate lives in the single orchestrator** and is skipped for guests:
-   `summary_pipeline.py:260` `if current_user:` → `check_usage_limit` (5/mo via entitlements);
-   `:279-280` logs "Guest user access" and proceeds unmetered. Fix at the ROUTER boundary only —
-   `stream_filing_summary`'s `current_user=None` branch must survive for the cron/admin drain
-   (`generate_summary_background`) per non-negotiable rule #1.
-3. **Cached-view path is already public and separate.** `GET /api/summaries/filing/{id}`
-   (`summaries.py:445`, no auth dep) serves cached reads; the frontend only POSTs generate-stream
-   when `!hasSummaryContent` (`useSummaryGeneration.ts:208-223`). Gating the POST does not hide
-   cached content.
-4. **Frontend has a guest-retry that would defeat the gate:** on 401, `generateSummaryStream`
-   re-POSTs with `credentials:'omit'` (`summaries-api.ts:267-278`) — must delete.
-   Plus an auth race: auto-generate fires before `/me` resolves; the hook gets only
-   `Boolean(currentUser)`, not the query's settled state (`page-client.tsx:46-51`).
-5. **Checkout trial trap (confirmed):** `payment_method_collection="if_required"`
-   (`subscriptions.py:180`) + a trial ($0 due now) ⇒ Stripe collects NO card (this pairing is what
-   the $0 beta path relies on — `week8-go-live-runbook.md:171-172`). Trial cohort needs
-   `payment_method_collection="always"` + `subscription_data.trial_period_days` +
-   `trial_settings.end_behavior.missing_payment_method="cancel"`.
-6. **Webhook/entitlements lifecycle already trial-correct.** `trialing ∈ ACTIVE_STATUSES` grants
-   Pro with `trial_end` expiry backstop (`entitlements.py:42,125-144`); `subscription.updated`
-   flips trialing→active on day-8 invoice (no `invoice.paid` handler needed);
-   `subscription.deleted` mid-trial downgrades cleanly; `trial_will_end` is analytics-only (fine).
-   `apply_checkout_completed` hardcodes `status="active"` (`subscription_sync.py:101`) — brief
-   wrong-status window for trial checkouts that converges on the next `subscription.created`
-   event; NOT changed this PR (that test IS rule-#6-locked; converging behavior is acceptable).
-7. **`test_checkout_session.py` is NOT contract-locked** (a checkout test, not a webhook test),
-   but `test_payment_method_collection_is_if_required` asserts `if_required` on every session —
-   update to cohort-aware.
-8. **`?redirect=` exists on /login only** (`app/login/page.tsx:62-67`, with safe-internal-path
-   checks); `/register` reads only `?invite` and routes to `/check-email` with no redirect.
-9. **Marketing copy contradicts the target:** hero (`app/page.tsx:143`) + `CtaBanner` say
-   "Your first summary is free. No signup needed." Paywall moment today = generic "Generation
-   interrupted" + Retry (`StreamingSummaryDisplay.tsx:338-353`); only analytics fire.
-10. **Trial abuse:** no repeat-trial ledger exists (security-audit-week7 I1 requires one before
-    enabling the *reverse* trial — which stays off). Card requirement + Stripe Radar is the
-    accepted deterrent for the card trial; revisit if abuse appears.
+The roadmap (§7, line 156/287) wanted "injected figure table **+ model commentary on mix and concentration**."
+This PR ships the table **fully deterministic** — code owns segment name + revenue + YoY change + operating
+income, and `commentary` = a deterministic **mix read** (revenue share %). The model no longer authors segments
+(mechanism-A). **Why deviate:** aligning model-authored segment rows to XBRL segment labels by name is fragile
+and is itself a fabrication surface — exactly what T5.2 exists to remove. The deterministic mix% delivers the
+concentration signal without that risk. The model's qualitative segment "why" (a robust hybrid: code figures +
+model commentary matched to code rows with a deterministic fallback) is a documented **T5.2b follow-up**.
+Flagged prominently in the PR for the founder to weigh in (per the standing "document the request in a PR").
 
 ## Plan
 
-### Backend — require account to generate
-- [x] `summaries.py` `generate_summary_stream`: dep `get_current_user_optional` →
-      `get_current_user`; delete the guest daily-quota block (:225-247); simplify
-      `rate_limit_key` (:149) and telemetry `distinct_id` (:256-258) to per-user forms.
-      Keep the force-regen Pro check (now on a guaranteed user). Do NOT touch the pipeline.
-- [x] Remove dead guest machinery: `app/services/guest_quota.py`, `GuestDailyUsage` model +
-      its writes, `ENABLE_GUEST_DAILY_QUOTA` / `GUEST_DAILY_SUMMARY_LIMIT` settings, and the
-      `guest_daily_usage` migration stays as-is (idempotent, table simply goes unused — no
-      destructive migration). Sweep for other importers first.
-- [x] Rule #6 contract change: re-seat `test_summary_stream_contract.py` to an authenticated
-      caller (drop `_guest_headers`/`current_user=None` seams); document in PR body.
-- [x] Rule #12 gates: (a) test anonymous POST generate-stream → 401; (b) test Free user is served
-      until `FREE_TIER_SUMMARY_LIMIT` then gets the paywall SSE error (extend/keep the existing
-      expired-trial gating spec); rewrite `test_guest_quota_route.py` accordingly.
-- [x] Audit `test_funnel_telemetry.py`, `summary_stream_harness.py`, performance suite for
-      guest assumptions.
+**STATUS: design locked; implementing. Single PR (split to T5.2a extraction / T5.2b surfacing only if it balloons).**
 
-### Backend — 7-day card trial on Pro monthly
-- [x] `config.py`: add `PRO_TRIAL_DAYS: int = 7` (0 disables; document in
-      `docs/CONFIGURATION.md`). Do NOT reuse `REVERSE_TRIAL_DAYS`.
-- [x] `create_checkout_session`: for the MONTHLY price and non-beta cohort with
-      `PRO_TRIAL_DAYS > 0`: `subscription_data={"trial_period_days": ...,
-      "trial_settings": {"end_behavior": {"missing_payment_method": "cancel"}}}` and
-      `payment_method_collection="always"`. Beta $0 path keeps `if_required` + no trial.
-      Yearly: no trial.
-- [x] Update `test_checkout_session.py` (not locked): cohort-aware `payment_method_collection`
-      + trial kwargs assertions (monthly trial / yearly no-trial / beta unchanged).
-- [x] No webhook or entitlements changes (lifecycle verified trial-correct; see fact 6).
+- [ ] **`edgar/instance_extractor.py`**: new `segment_series(xb, concepts, form, period_of_report, axis=…)`
+      helper — sibling of `duration_series_currency_concept`. Query `by_concept(exact).by_dimension(axis)`, KEEP
+      dimensional rows, constrain to the filing's own period via `duration_in_window` (NOT `period_end.max()`),
+      drop Corporate/Elimination/Intersegment/Reconciliation/Total members, ordered revenue-concept fallback,
+      currency-aware. Returns per-member `{label, revenue{current,prior}, operating_income{current}, period,
+      currency}`.
+- [ ] **`edgar/xbrl_service.py`**: call it inside `_extract_from_filing_instance_sync` after `xb = filing.xbrl()`
+      (:258); write `result["segments"]` (rides existing cache + `Filing.xbrl_data`). Standardize into a clean
+      list `[{name, revenue, revenue_prior, operating_income, period}]` (sibling of `extract_standardized_metrics`
+      or inline). Boundary validation (rule 9): compute sum(segment revenue) vs consolidated revenue; surface a
+      coherence flag; keep the section only when ≥2 coherent segments.
+- [ ] **`ai/markdown_render.py` `_apply_structured_fallbacks`**: machine-author `segments` from
+      `xbrl_metrics["segments"]` — pop-first ownership (strip any model `segments`), inject deterministic rows:
+      `segment`=label, `revenue`=format_currency, `operating_income`=format_currency|"", `change`=YoY% (revenue
+      vs revenue_prior), `commentary`=mix read ("N% of revenue"). Currency-aware. Degrade gracefully: no rows →
+      section empty. Overwrite unconditionally (model no longer authors it).
+- [ ] **`openai_service.py` schema_template**: REMOVE the `segments` object (mechanism-A). Update the ONE-HOME
+      note (segments injected). Bump `SUMMARY_PROMPT_VERSION → summary-2026-07-f`.
+- [ ] **`ai/section_recovery.py`**: drop `segments` from the re-ask snippet (it's injected).
+- [ ] **`ai/figure_trace.py`**: exclude `segments[].commentary` from `_prose_blob` (machine-authored — mirror the
+      cash_conversion exclusion; the mix% is a `%` the dollar-gate ignores anyway, but keep the category correct).
+- [ ] **`summary_schema.py`**: annotate `SegmentRow` figure fields as machine-authored.
+- [ ] **Tests (rule 12):** extraction unit tests with a mocked `xb.facts.query()` chain — multi-segment happy
+      path; Corporate/Elimination/Total filtered; concept fallback ordering; single-segment / no-dimension →
+      empty; period constrained to reporting window (NOT max); currency. markdown_render tests — segments injected
+      from xbrl_metrics; stray model segments stripped; graceful empty; currency; mix% + YoY. Live scratchpad
+      verification vs AAPL / MSFT (dev-only, like the T4 readout).
+- [ ] **Full backend gate + eval `--runs 3`** → HARD gates hold → no re-pin unless the bar intentionally moves.
+- [ ] **Adversarial review workflow → fix → commit → push → draft PR** (document: the deterministic-vs-hybrid
+      deviation + T5.2b model-commentary follow-up; the deferred XBRL-fidelity eval scorer; geographic-segment
+      axis as a follow-up; graceful degradation for banks/untagged filers).
 
-### Frontend — signup gate + funnel
-- [x] Delete the guest-retry-on-401 block (`summaries-api.ts:267-278`); classify 401 as
-      non-retryable auth error (already matched by `isNonRetryableStreamError`).
-- [x] Thread auth-resolved state: `page-client.tsx` passes the `/me` query's settled state into
-      `useSummaryGeneration`; auto-generate only when `authResolved && isAuthenticated`.
-      Remove the `NEXT_PUBLIC_REQUIRE_AUTH_FOR_SUMMARY` POC flag entirely (auth is now always
-      required — flag removal IS the structural gate; sweep `.env.local.example`, Vercel docs).
-- [x] Signup gate UI: when `!hasSummaryContent && authResolved && !isAuthenticated`, render a
-      DS-compliant "Create a free account to read this analysis" card (5 free/month + 7-day Pro
-      trial enticement) with CTAs `/register?redirect=/filing/{id}` and login link. Cached
-      summaries keep rendering for guests (branch order: cached view FIRST).
-- [x] `?redirect=` threading: `/register` captures it (same safe-internal-path validation as
-      login) → `/check-email` → `/verify-email` → `/login?redirect=…` → back to the filing.
-- [x] Paywall moment: branch `StreamingSummaryDisplay` on `isPaywallStreamError` → upgrade card
-      ("You've used your 5 free summaries this month — start your 7-day Pro trial") linking to
-      `/pricing`, instead of the generic error+Retry.
-- [x] Pricing page (monthly card): "7-day free trial" badge, CTA "Start 7-day free trial",
-      "cancel anytime — you won't be charged" microcopy, FAQ entry (card required, charged day 8).
-      Keep beta/trialing/paid CTA branches.
-- [x] Copy sweep: hero + `CtaBanner` "no signup needed" → signup-first + trial framing; register
-      subhead keeps "5 free AI summaries a month" (still true) + trial mention.
-- [x] Tests: hook-level spec (`summaryAuthGate.spec.tsx`: guest + no cache ⇒ no generate call;
-      unresolved auth ⇒ no fire; authed ⇒ fires; direct guest call refused). The planned
-      guest-sees-gate e2e was consciously DROPPED: CI e2e runs with no backend, the filing query
-      never resolves, and the spec would unconditionally skip — zero signal; the hook gate is the
-      machine enforcement. Confirmed `prod-smoke.spec.ts` (cached `/filing/3`) and
-      `filing-page-renders.spec.ts` (asserts h1/no-tabs only) stay green under the gate.
-
-### Verify (before done)
-- [x] Backend gate: `ruff check . && bandit -r app -ll && python -m pytest`.
-- [x] Frontend gate: `npm run lint && npx tsc -p tsconfig.ci.json && npm run test -- --run &&
-      npm run build`; DESIGN_SYSTEM legacy-color grep returns nothing.
-- [x] Manual Stripe test-mode checklist for the owner (documented in PR body): monthly checkout
-      collects card + shows trial, sub lands `trialing`, portal cancel ≤7d → no charge +
-      downgrade, day-8 charge → `active` (clock advance).
-
-**Out of scope (deliberate):** trial-abuse ledger (card requirement is the deterrent; revisit on
-abuse), `trial_will_end` reminder email (Phase-2 notification system), dunning emails,
-`apply_checkout_completed` trial-awareness (locked test; converging behavior acceptable),
-dropping the `guest_daily_usage` table.
+## Not in scope (this PR / documented follow-ups)
+- **T5.2b — model mix/concentration commentary** (robust hybrid: code figures + model commentary matched to
+  code rows, deterministic fallback) — the roadmap's "+ model commentary" half.
+- **Geographic segments** (`StatementGeographicalAxis`) — keep to ASC-280 operating segments here to avoid
+  conflating the two breakdowns; geographic is a clean follow-up.
+- **XBRL-fidelity segment eval scorer** (needs `score_summary` to receive `xbrl_metrics` — a harness refactor).
+- **T5.3 value drivers** (dividends/buybacks/ROIC concepts not extracted). **T5.4 forward-quote hard gate.**
