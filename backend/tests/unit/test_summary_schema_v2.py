@@ -246,6 +246,15 @@ def test_v2_markdown_is_clean_no_scaffolding():
 
 # --- quality badge dispatch --------------------------------------------------------------------
 
+def test_generation_taxonomy_is_v2():
+    # PR B cutover invariant: the generation-side constant — which the schema_template, the coverage
+    # snapshot, and the model-output taxonomy filter all key off — is the v2 taxonomy. (This is the
+    # single thing that flips a fresh generation from v1 to v2; the badge's frozen v1 tuple is
+    # separate.) Update deliberately when a future taxonomy version lands.
+    from app.services.openai_service import _TRACKED_STRUCTURED_SECTIONS
+    assert _TRACKED_STRUCTURED_SECTIONS == TRACKED_SECTIONS_V2
+
+
 def test_tracked_sections_for_dispatch():
     assert _tracked_sections_for(2) == TRACKED_SECTIONS_V2
     # v1 arm returns the FROZEN literal, NOT openai's mutable generation constant (PR B re-points

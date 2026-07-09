@@ -18,14 +18,17 @@ bookmarks survive).
 NULL columns on a row (legacy / pre-stamp) are always treated as stale.
 """
 
-# The sections taxonomy shape currently produced by the pipeline. v1 = the 9-section taxonomy
-# tracked by openai_service._TRACKED_STRUCTURED_SECTIONS.
-SUMMARY_SCHEMA_VERSION: int = 1
+# The sections taxonomy shape currently produced by the pipeline. v2 = the Tier-3.1 content
+# architecture (summary_schema.TRACKED_SECTIONS_V2: the_print, results_that_matter, earnings_quality,
+# value_drivers, forward_signals, risks, segments, balance_sheet_liquidity, notable_footnotes). v1
+# rows (the prior 9-section data-dump taxonomy) still render via summary_sections' v1 builders and
+# are counted against the frozen TRACKED_SECTIONS_V1 by the badge.
+SUMMARY_SCHEMA_VERSION: int = 2
 
 # The generation-prompt version. Bump on any content-affecting change to the generation prompt
 # (the *-agent.md preambles or the shared Rules/schema block in openai_service.py).
-# summary-2026-07-b: added the "ONE HOME PER NUMBER" anti-redundancy rule to the shared Rules block.
-SUMMARY_PROMPT_VERSION: str = "summary-2026-07-b"
+# summary-2026-07-c: Tier-3.1 v2 cutover — schema_template rewritten to the nine v2 sections.
+SUMMARY_PROMPT_VERSION: str = "summary-2026-07-c"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:

@@ -31,25 +31,16 @@ from app.services.ai.json_repair import _JsonRepairMixin
 from app.services.ai.markdown_render import _MarkdownRenderMixin
 from app.services.ai.section_recovery import _SectionRecoveryMixin
 from app.services.summary_sections import render_sections, sections_to_markdown
+# The generation-side taxonomy: the section keys the current schema_template emits — v2 as of the
+# Tier-3.1 cutover. summarize_filing builds the per_section coverage snapshot from it below. This is
+# DISTINCT from the quality badge's frozen per-version tuples (summary_schema.TRACKED_SECTIONS_V1 /
+# V2): the badge counts a stored row against ITS OWN schema_version, so this generation-side constant
+# moving to v2 must not retroactively change how a legacy v1 row is scored. Single source of truth
+# for the v2 names lives in summary_schema.
+from app.services.summary_schema import TRACKED_SECTIONS_V2 as _TRACKED_STRUCTURED_SECTIONS
+from app.services.summary_versioning import SUMMARY_SCHEMA_VERSION
 
 logger = logging.getLogger(__name__)
-
-
-# The 9-section structured taxonomy used for the coverage snapshot. Kept LOCAL to this module (not
-# in the ai/ helpers) and re-exported via __all__: it is the summary-generation contract that
-# summary_generation_service imports, not an AI-internal helper — summarize_filing builds the
-# coverage map from it below.
-_TRACKED_STRUCTURED_SECTIONS = (
-    "executive_snapshot",
-    "financial_highlights",
-    "risk_factors",
-    "management_discussion_insights",
-    "segment_performance",
-    "liquidity_capital_structure",
-    "guidance_outlook",
-    "notable_footnotes",
-    "three_year_trend",
-)
 
 
 class OpenAIService(
@@ -267,76 +258,78 @@ EXTRACTED FINANCIAL SIGNALS:
     "has_prior_period": <bool>
   },
   "sections": {
-    "executive_snapshot": {
-      "headline": "<non-empty string>",
-      "key_points": [
-        "<non-empty bullet>",
+    "the_print": {
+      "headline": "<one sentence: the single most important takeaway, leading with the headline figure>",
+      "key_takeaways": [
+        "<2-4 high-signal takeaways; echo AT MOST the 2-3 headline figures (revenue, net income, EPS)>",
         "... (use ['Not disclosed—explain why'] if no validated bullets)"
       ],
+      "what_changed": "<what this filing changes vs the prior period, in one line>",
       "tone": "<positive|neutral|cautious>",
       "source_section_ref": "<e.g., 'Cover page' or 'Item 2. MD&A'>"
     },
-    "financial_highlights": {
+    "results_that_matter": {
       "table": [
         {
-          "metric": "<non-empty string>",
+          "metric": "<Revenue | Operating income | Operating margin | Diluted EPS>",
           "current_period": "<non-empty string>",
           "prior_period": "<non-empty string>",
-          "change": "<non-empty string>",
-          "commentary": "<non-empty string>"
+          "change": "<non-empty string; state margin changes in percentage points>",
+          "commentary": "<the one-line driver for this line, as management states it>"
         }
       ],
-      "profitability": ["<non-empty bullet>"],
-      "cash_flow": ["<non-empty bullet>"],
-      "balance_sheet": ["<non-empty bullet>"],
       "source_section_ref": "<e.g., 'Item 1. Financial Statements'>"
     },
-    "risk_factors": [
+    "earnings_quality": {
+      "operating_vs_one_time": "<separate operating results from one-time items (unrealized gains, impairments, settlements) — adjusted vs reported>",
+      "cash_conversion": "<net income vs operating cash flow (the accrual read), FCF, and conversion>",
+      "red_flags": ["<a specific quality flag, e.g. receivables growing faster than sales; leave empty if none>"],
+      "source_section_ref": "<e.g., 'Item 8' or 'Statements of Cash Flows'>"
+    },
+    "value_drivers": {
+      "capital_allocation": "<buybacks/dividends/M&A/capex this period, with a value read>",
+      "returns_on_capital": "<ROIC level and trend from the filing's own figures (no cost-of-capital judgment)>",
+      "highlights": ["<a specific capital-allocation action, e.g. '$9.3B of buybacks'>"],
+      "source_section_ref": "<e.g., 'Item 7' or 'Statements of Cash Flows'>"
+    },
+    "forward_signals": {
+      "guidance": "<guidance exactly as the filing states it (raised/cut/maintained/not given); if none, say so and why it matters>",
+      "known_trends": ["<an Item 303 known trend or uncertainty>"],
+      "subsequent_events": ["<a material event after period end>"],
+      "quotes": [
+        {
+          "speaker": "<non-empty string>",
+          "quote": "<verbatim; forward-looking or unusual statements only>",
+          "context": "<e.g., 'MD&A, Item 2'>"
+        }
+      ],
+      "tone": "<positive|neutral|cautious>",
+      "source_section_ref": "<e.g., 'Item 7. MD&A - Outlook'>"
+    },
+    "risks": [
       {
-        "summary": "<non-empty string>",
+        "summary": "<non-empty string, tied to a specific line item or disclosed fact>",
         "supporting_evidence": "<non-empty excerpt or citation>",
         "materiality": "<low|medium|high>",
         "source_section_ref": "<e.g., 'Item 1A. Risk Factors'>"
       }
     ],
-    "management_discussion_insights": {
-      "themes": ["<non-empty bullet>"],
-      "quotes": [
-        {
-          "speaker": "<non-empty string>",
-          "quote": "<non-empty string>",
-          "context": "<non-empty string>"
-        }
-      ],
-      "capital_allocation": ["<non-empty bullet>"],
-      "source_section_ref": "<e.g., 'Item 2. MD&A'>"
-    },
-    "segment_performance": [
+    "segments": [
       {
         "segment": "<non-empty string>",
         "revenue": "<non-empty string>",
+        "operating_income": "<non-empty string>",
         "change": "<non-empty string>",
-        "commentary": "<non-empty string>",
+        "commentary": "<mix / concentration read>",
         "source_section_ref": "<e.g., 'Note 13 – Segment Information'>"
       }
     ],
-    "liquidity_capital_structure": {
-      "leverage": "<non-empty string>",
-      "liquidity": "<non-empty string>",
-      "shareholder_returns": ["<non-empty bullet>"],
+    "balance_sheet_liquidity": {
+      "leverage": "<total debt vs cash / equity; net position>",
+      "liquidity": "<cash + available credit; runway>",
+      "working_capital": "<current ratio / working-capital dynamics with YoY direction; skip for unclassified (bank) balance sheets>",
+      "maturities_covenants": ["<a debt maturity or covenant detail>"],
       "source_section_ref": "<e.g., 'Liquidity and Capital Resources'>"
-    },
-    "covenants_contingencies": {
-      "debt_covenants": ["<non-empty bullet>"],
-      "contingent_liabilities": ["<non-empty bullet>"],
-      "source_section_ref": "<e.g., 'Commitments and Contingencies'>"
-    },
-    "guidance_outlook": {
-      "guidance": "<non-empty string>",
-      "tone": "<positive|neutral|cautious>",
-      "drivers": ["<non-empty bullet>"],
-      "watch_items": ["<non-empty bullet>"],
-      "source_section_ref": "<e.g., 'Outlook' or 'Guidance'>"
     },
     "notable_footnotes": [
       {
@@ -344,16 +337,7 @@ EXTRACTED FINANCIAL SIGNALS:
         "impact": "<non-empty string>",
         "source_section_ref": "<relevant note reference where possible>"
       }
-    ],
-    "three_year_trend": {
-      "trend_summary": "<non-empty string>",
-      "inflections": ["<non-empty bullet>"],
-      "compare_prior_period": {
-        "available": <bool>,
-        "insights": ["<non-empty bullet>"]
-      },
-      "source_section_ref": "<e.g., 'Selected Financial Data' or MD&A trend discussion>"
-    }
+    ]
   }
 }"""
 
@@ -398,7 +382,8 @@ Return ONLY valid JSON (no markdown fences) that matches this schema (replace pl
 
 Rules:
 - OBJECTIVITY: Use neutral, factual language. Do NOT use promotional or subjective adjectives (e.g. strong, robust, solid, healthy, surged, soared, plunged, record, exceptional, impressive, fortress); state magnitude and direction with figures instead (e.g. "increased 14% YoY"). Such words are permitted ONLY inside a direct, attributed management quote.
-- ONE HOME PER NUMBER — do not restate the same figure across sections. Each specific $-amount or %-change belongs in ONE home: headline financials in financial_highlights, segment figures in segment_performance, multi-year values and growth rates in three_year_trend, balance-sheet/liquidity figures in liquidity_capital_structure. executive_snapshot may echo AT MOST the 2-3 headline figures (revenue, net income, EPS). Every OTHER section must ADD what the figure's home does not — the driver, the significance, or an inflection — and reference a number qualitatively (e.g. "margins widened on the services mix") rather than re-quoting a $-amount or %-change already stated in its home section. Never drop a figure to comply; relocate it to its home. Figures inside a direct, attributed management quote are exempt — never alter or truncate a quote to comply.
+- Populate ONLY the nine sections defined in the schema above (the_print, results_that_matter, earnings_quality, value_drivers, forward_signals, risks, segments, balance_sheet_liquidity, notable_footnotes). Do not invent additional section keys.
+- ONE HOME PER NUMBER — do not restate the same figure across sections. Each specific $-amount or %-change belongs in ONE home: headline P&L figures (revenue, operating income, operating margin, diluted EPS) in results_that_matter; earnings-quality and cash figures (operating vs one-time, NI-vs-CFO, FCF) in earnings_quality; capital-allocation figures (buybacks, dividends, capex, ROIC) in value_drivers; segment figures in segments; balance-sheet/liquidity figures in balance_sheet_liquidity. the_print may echo AT MOST the 2-3 headline figures (revenue, net income, EPS). Every OTHER section must ADD what the figure's home does not — the driver, the significance, or an inflection — and reference a number qualitatively (e.g. "margins widened on the services mix") rather than re-quoting a $-amount or %-change already stated in its home section. Never drop a figure to comply; relocate it to its home. Figures inside a direct, attributed management quote are exempt — never alter or truncate a quote to comply.
 - Keep monetary values human-readable (e.g., "$17.7B", "$425M", "$912M").
 - Express percentage changes with one decimal place where available (e.g., "up 8.3% YoY").
 - For arrays, include 1-4 high-signal, evidence-backed bullets ordered by materiality. If nothing qualifies, return ["Not disclosed—<concise reason>"] instead of leaving the array empty.
@@ -746,20 +731,32 @@ Rules:
             }
 
         sections_info = structured_summary.get("sections", {}) or {}
-        financial_section = sections_info.get("financial_highlights")
+        # Deterministic taxonomy guard: the model has a strong prior for "standard" sections and will
+        # emit legacy/extra keys (executive_snapshot, three_year_trend, …) alongside the v2 schema no
+        # matter how the prompt forbids it. Keep ONLY the current taxonomy so the stored payload,
+        # coverage snapshot, and render never carry strays — structure enforced by code, not by model
+        # compliance. (The render already ignores non-v2 keys; this also stops the token/JSON waste.)
+        if isinstance(sections_info, dict):
+            sections_info = {
+                key: value for key, value in sections_info.items()
+                if key in _TRACKED_STRUCTURED_SECTIONS
+            }
+            structured_summary["sections"] = sections_info
+        # v2 taxonomy (Tier-3.1): the P&L table lives in `results_that_matter`; risks in `risks`.
+        financial_section = sections_info.get("results_that_matter")
         # Deterministic guard: for a bank that reports no single revenue line, drop any LLM-authored
         # conflated "Revenue" row so it can never ship in the table, prose, or stored payload.
         # `sections_info` is the same object every downstream consumer reads, so reassigning it here
         # covers the markdown, "Financial Overview", raw payload, and the response column at once.
         financial_section = _sanitize_bank_financial_highlights(financial_section, xbrl_metrics)
         if isinstance(sections_info, dict):
-            sections_info["financial_highlights"] = financial_section
+            sections_info["results_that_matter"] = financial_section
 
-        raw_risk_section = sections_info.get("risk_factors")
+        raw_risk_section = sections_info.get("risks")
         if isinstance(raw_risk_section, str):
             raw_risk_section = [raw_risk_section]
         risk_section = _normalize_risk_factors(raw_risk_section)
-        sections_info["risk_factors"] = risk_section
+        sections_info["risks"] = risk_section
 
         coverage_keys = set(_TRACKED_STRUCTURED_SECTIONS)
         coverage_keys.update(sections_info.keys())
@@ -810,9 +807,12 @@ Rules:
                 return "\n".join(lines) if lines else None
             return str(value)
 
-        management_section_structured = sections_info.get("management_discussion_insights")
+        # v2 (Tier-3.1): MD&A dissolved into §1/§3/§5. The legacy `management_discussion` compat field
+        # (and the eval's canonical management_discussion) maps to earnings_quality — the analytical
+        # prose that absorbed the MD&A read; `key_changes`/outlook maps to forward_signals.
+        management_section_structured = sections_info.get("earnings_quality")
         management_section = _stringify(management_section_structured)
-        guidance_structured = sections_info.get("guidance_outlook")
+        guidance_structured = sections_info.get("forward_signals")
         guidance_section = _stringify(guidance_structured)
 
         # P1.4: render markdown deterministically from the structured data — no second editorial-
@@ -826,6 +826,9 @@ Rules:
         # the web markdown, PDF and CSV can never diverge. _build_structured_markdown is retained only
         # as a fallback for the rare empty-sections case (thin/degraded summaries), where render_sections
         # produces nothing to flatten.
+        # render_sections dispatches on schema_version; stamp the model output with the current
+        # generation version so the v2 builders (not the v1 default) render the v2 sections.
+        structured_summary["schema_version"] = SUMMARY_SCHEMA_VERSION
         rendered = render_sections(structured_summary)
         final_markdown = (
             sections_to_markdown(rendered) if rendered
@@ -927,14 +930,14 @@ Rules:
         strategic_parts = []
         if guidance_section:
             strategic_parts.append(guidance_section[:1000])
-        guidance_structured = sections_info.get("guidance_outlook", {})
+        guidance_structured = sections_info.get("forward_signals", {})
         if isinstance(guidance_structured, dict):
             guidance_text = guidance_structured.get("guidance", "")
-            drivers = guidance_structured.get("drivers", [])
+            drivers = guidance_structured.get("known_trends", [])
             if guidance_text and guidance_text != "Not disclosed":
                 strategic_parts.append(f"Forward Guidance: {guidance_text}")
             if drivers:
-                strategic_parts.append("Key Drivers: " + "; ".join(str(d) for d in drivers[:5]))
+                strategic_parts.append("Known trends: " + "; ".join(str(d) for d in drivers[:5]))
         if strategic_parts:
             sections.append({
                 "title": "Strategic Developments",
@@ -948,8 +951,8 @@ Rules:
             "risk_signals": []
         }
         
-        # Extract sentiment from executive snapshot
-        exec_snapshot = sections_info.get("executive_snapshot", {})
+        # Extract sentiment from the print (v2 §1; was executive_snapshot)
+        exec_snapshot = sections_info.get("the_print", {})
         if isinstance(exec_snapshot, dict):
             tone = exec_snapshot.get("tone", "neutral")
             if tone:
@@ -973,9 +976,9 @@ Rules:
                 if current_sentiment != guidance_tone:
                     insights["sentiment"] = f"{insights['sentiment']} to {guidance_tone.capitalize()}"
         
-        # Extract growth drivers from guidance and management discussion
+        # Extract growth drivers from forward signals (v2 known_trends; was guidance drivers)
         if guidance_structured and isinstance(guidance_structured, dict):
-            drivers = guidance_structured.get("drivers", [])
+            drivers = guidance_structured.get("known_trends", [])
             if drivers:
                 insights["growth_drivers"] = [str(d) for d in drivers[:5]]
         

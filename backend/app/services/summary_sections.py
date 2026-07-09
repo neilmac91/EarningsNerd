@@ -700,6 +700,7 @@ def _v2_balance_sheet_liquidity(sections: dict) -> Section:
     for label, key, alt in (
         ("Leverage", "leverage", None),
         ("Liquidity", "liquidity", None),
+        ("Cash flow", "cash_flow", "cashFlow"),
         ("Working capital", "working_capital", "workingCapital"),
     ):
         text = _clean(data.get(key) or (data.get(alt) if alt else None))

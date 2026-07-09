@@ -663,33 +663,24 @@ async def stream_filing_summary(
                     section_coverage=section_coverage,
                 )
 
-            financial_section = sections_info.get("financial_highlights")
+            # v2 (Tier-3.1): enrich the P&L table (results_that_matter) with normalized XBRL facts for
+            # the metrics block's provenance chips, and surface risks under the v2 key.
+            financial_section = sections_info.get("results_that_matter")
             normalized_financial_section = attach_normalized_facts(financial_section, xbrl_metrics)
             if normalized_financial_section is not None:
-                sections_info["financial_highlights"] = normalized_financial_section
+                sections_info["results_that_matter"] = normalized_financial_section
 
             risk_section = summary_payload.get("risk_factors") or []
-            sections_info["risk_factors"] = risk_section
+            sections_info["risks"] = risk_section
+            # Legacy compat columns on the Summary row (management_discussion / key_changes) still get
+            # the v2-mapped prose (earnings_quality / forward_signals, re-pointed in summarize_filing).
             management_section = summary_payload.get("management_discussion")
             guidance_section = summary_payload.get("key_changes")
 
-            # CRITICAL: Add MD&A and guidance to sections_info for frontend tabs
-            # Frontend reads from raw_summary.sections, not top-level fields
-            if management_section and "management_discussion_insights" not in sections_info:
-                # Wrap in expected structure if not already present from AI
-                sections_info["management_discussion_insights"] = {
-                    "themes": [management_section] if isinstance(management_section, str) else management_section,
-                    "quotes": [],
-                    "capital_allocation": []
-                }
-
-            if guidance_section and "guidance_outlook" not in sections_info:
-                # Wrap in expected structure if not already present from AI
-                sections_info["guidance_outlook"] = {
-                    "outlook": guidance_section if isinstance(guidance_section, str) else str(guidance_section),
-                    "targets": [],
-                    "assumptions": []
-                }
+            # The legacy MD&A/guidance wrapper injection is retired under v2: the v2 taxonomy already
+            # carries earnings_quality + forward_signals, and the web reads the render_sections output
+            # (rendered_sections), not these keys. Injecting management_discussion_insights /
+            # guidance_outlook here would only decorate every v2 row with phantom v1 nodes.
 
             raw_summary["sections"] = sections_info
             raw_summary["status"] = summary_status

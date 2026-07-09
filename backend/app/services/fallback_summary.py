@@ -341,51 +341,48 @@ def generate_xbrl_summary(
 
     # Build the raw_summary.sections structure that frontend expects
     # Frontend reads from raw_summary.sections for ALL tabs
+    # v2 taxonomy (Tier-3.1): shape the fallback like the current schema so the pipeline's
+    # schema_version stamp is accurate and the structured page renders (rather than a v1 shape stamped
+    # v2 → empty render). Only the sections the degraded path can actually populate are emitted.
     sections_for_frontend = {
-        "executive_snapshot": {
-            "headline": f"{company_name} {filing_type or 'SEC'} Filing - Partial Analysis",
-            "key_points": [
+        "the_print": {
+            "headline": f"{company_name} {filing_type or 'SEC'} Filing — Partial Analysis",
+            "key_takeaways": [
                 "Financial metrics extracted from XBRL data" if has_xbrl_data else "XBRL metrics unavailable for this filing",
                 f"{len(risk_factors)} risk factors identified from filing" if risk_factors else "Risk factors require full AI analysis",
-                "MD&A excerpt extracted from filing" if management_discussion and "From the SEC Filing" in management_discussion else "MD&A requires full AI analysis",
-                "Click 'Retry Full Analysis' for complete AI-powered insights"
+                "Click 'Retry Full Analysis' for complete AI-powered insights",
             ],
-            "tone": "neutral"
+            "what_changed": "",
+            "tone": "neutral",
         },
-        # Financial highlights - frontend expects this in sections
-        "financial_highlights": financial_highlights,
-        # Risk factors - already in correct format
-        "risk_factors": risk_factors,
-        # MD&A - frontend expects 'management_discussion_insights' with specific structure
-        "management_discussion_insights": {
-            "themes": [management_discussion] if management_discussion else ["Management discussion requires full AI analysis. Please retry."],
+        # The P&L table lives in results_that_matter (the v2 builder reads .table).
+        "results_that_matter": financial_highlights,
+        # Risks — already in the {summary, supporting_evidence, ...} row shape the v2 builder reads.
+        "risks": risk_factors,
+        # MD&A excerpt (when a real one was extracted) → earnings_quality's operating narrative.
+        "earnings_quality": {
+            "operating_vs_one_time": management_discussion,
+            "cash_conversion": "",
+            "red_flags": [],
+        } if (management_discussion and "From the SEC Filing" in management_discussion) else {},
+        # Guidance excerpt → forward_signals.
+        "forward_signals": {
+            "guidance": key_changes or "Forward-looking analysis requires full AI processing. Please retry.",
+            "known_trends": [],
+            "subsequent_events": [],
             "quotes": [],
-            "capital_allocation": []
+            "tone": "neutral",
         },
-        # Guidance - frontend expects 'guidance_outlook'
-        "guidance_outlook": {
-            "outlook": key_changes,
-            "targets": [],
-            "assumptions": []
-        },
-        # Liquidity - placeholder for frontend
-        "liquidity_capital_structure": {
-            "summary": "Liquidity analysis requires full AI processing. Please retry for detailed capital structure insights.",
-            "metrics": [],
-            "concerns": []
-        },
-        # Trends - placeholder for frontend
-        "three_year_trend": {
-            "summary": "Trend analysis requires full AI processing. Please retry for multi-period comparison.",
-            "metrics": []
-        }
     }
 
     # Calculate coverage dynamically based on actual section content
-    # This provides accurate feedback to the frontend about what data is available
-    total_sections = 7  # exec_snapshot, financials, risks, mda, guidance, liquidity, trends
+    # This provides accurate feedback to the frontend about what data is available. Denominator is the
+    # full v2 taxonomy (9) so covered/total means the same thing here as in the read-time quality badge
+    # (TRACKED_SECTIONS_V2); this degraded path meaningfully fills at most the_print + results_that_matter
+    # + risks + earnings_quality.
+    total_sections = 9
 
-    covered_sections = 1  # executive_snapshot is always populated
+    covered_sections = 1  # the_print is always populated
 
     # Check if financial_highlights has real data (not just placeholders)
     if has_xbrl_data and financial_highlights.get("table"):
@@ -407,7 +404,8 @@ def generate_xbrl_summary(
     if management_discussion and "From the SEC Filing" in management_discussion:
         covered_sections += 1
 
-    # guidance_outlook, liquidity_capital_structure, three_year_trend are always placeholders (0)
+    # forward_signals + value_drivers/segments/balance_sheet_liquidity/notable_footnotes are absent
+    # on this degraded path (0)
 
     coverage_ratio = round(covered_sections / total_sections, 2)
 

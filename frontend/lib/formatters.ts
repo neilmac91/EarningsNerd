@@ -62,37 +62,6 @@ export const renderMarkdownValue = (value: unknown): string => {
   return String(value)
 }
 
-export interface ExecutiveSnapshot {
-  headline: string | null
-  keyPoints: string[]
-  tone: string | null
-  sourceSectionRef: string | null
-}
-
-const asTrimmedString = (v: unknown): string | null =>
-  typeof v === 'string' && v.trim() ? v.trim() : null
-
-// Parse the model's executive_snapshot object into its KNOWN fields (schema:
-// openai_service.py:269-277). Returns null for strings, arrays, or objects with no recognizable
-// content (headline + key_points) so callers fall back to the legacy markdown path. This replaces
-// renderMarkdownValue for the snapshot, killing the "Headline:/Key Points:/Tone:/Source Section
-// Ref:" field-name leak.
-export const parseExecutiveSnapshot = (value: unknown): ExecutiveSnapshot | null => {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
-  const obj = value as Record<string, unknown>
-  const headline = asTrimmedString(obj.headline)
-  const keyPoints = Array.isArray(obj.key_points)
-    ? obj.key_points.map(asTrimmedString).filter((p): p is string => Boolean(p))
-    : []
-  if (headline === null && keyPoints.length === 0) return null
-  return {
-    headline,
-    keyPoints,
-    tone: asTrimmedString(obj.tone),
-    sourceSectionRef: asTrimmedString(obj.source_section_ref),
-  }
-}
-
 export const formatEvidence = (value: unknown): string => {
   if (!value) return ''
   if (Array.isArray(value)) {
