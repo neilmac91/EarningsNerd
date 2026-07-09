@@ -146,22 +146,40 @@ def _xbrl_value_appears(value: float, haystack_lower: str) -> bool:
 MINIMUM_STRUCTURED_SECTIONS_FOR_FULL = 4
 
 
+def _tracked_sections_for(schema_version: Any) -> Tuple[str, ...]:
+    """The section-key taxonomy the quality badge counts, dispatched by schema version.
+
+    Both tuples are the FROZEN per-version literals in ``summary_schema`` — deliberately NOT
+    ``openai_service._TRACKED_STRUCTURED_SECTIONS``, which is the generation-side "what we emit now"
+    and is re-pointed to v2 at the cutover. Keyed off the row's OWN ``raw_summary.schema_version`` so
+    a v1 row assessed after the v2 cutover still counts its own historical v1 taxonomy — otherwise a
+    naming collision would make every legacy row count 0/9 and tier "partial" (billing off). Both
+    taxonomies are 9 sections, so the 4/9 bar is unchanged."""
+    from app.services.summary_schema import TRACKED_SECTIONS_V1, TRACKED_SECTIONS_V2
+
+    try:
+        version = int(schema_version)
+    except (TypeError, ValueError):
+        version = 1
+    return TRACKED_SECTIONS_V2 if version == 2 else TRACKED_SECTIONS_V1
+
+
 def _verdict_coverage(summary_data: Dict[str, Any]) -> Tuple[int, int, int]:
     """(covered, total, min_full) for the quality verdict.
 
-    Coverage over the FIXED 9-section structured taxonomy (``_TRACKED_STRUCTURED_SECTIONS``,
+    Coverage over the row's structured taxonomy (v1 or v2, dispatched by ``schema_version`` —
     intersected with the snapshot's ``per_section`` so stray model keys can't move the count),
     gated at ``MINIMUM_STRUCTURED_SECTIONS_FOR_FULL`` (4/9). When the payload carries no
     ``per_section`` snapshot, falls back to the legacy 7 ``HIDEABLE_SECTIONS`` coverage at the 3/7
     bar. assess_quality's only caller is the user-facing SSE stream (summary_pipeline).
     """
-    from app.services.openai_service import _TRACKED_STRUCTURED_SECTIONS
-
-    snapshot = (summary_data.get("raw_summary") or {}).get("section_coverage") or {}
+    raw = summary_data.get("raw_summary") or {}
+    snapshot = raw.get("section_coverage") or {}
     per_section = snapshot.get("per_section")
     if isinstance(per_section, dict):
-        covered = sum(1 for s in _TRACKED_STRUCTURED_SECTIONS if per_section.get(s))
-        return covered, len(_TRACKED_STRUCTURED_SECTIONS), MINIMUM_STRUCTURED_SECTIONS_FOR_FULL
+        tracked = _tracked_sections_for(raw.get("schema_version"))
+        covered = sum(1 for s in tracked if per_section.get(s))
+        return covered, len(tracked), MINIMUM_STRUCTURED_SECTIONS_FOR_FULL
     covered, total, _, _ = calculate_section_coverage(summary_data)
     return covered, total, MINIMUM_SECTIONS_FOR_FULL_RESULT
 
