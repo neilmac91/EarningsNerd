@@ -28,12 +28,13 @@ Every code prerequisite is done; the steps below are operator actions.*
      regenerate, stops client-side notice-stripping).
    - Confirm `NEXT_PUBLIC_POSTHOG_KEY` is set — all frontend funnel events
      silently no-op without it.
-5. **Set the backend env vars on Cloud Run**:
-   `gcloud run services update earningsnerd-backend --region=us-west1
-   --update-env-vars=ENABLE_GUEST_DAILY_QUOTA=true` (3/day per IP; never
-   blocks the first summary). Confirm `POSTHOG_API_KEY` is set (as a secret
+5. **Backend env vars on Cloud Run**: guest generation no longer exists
+   (generation requires an account since #619 — the old
+   `ENABLE_GUEST_DAILY_QUOTA` flag was deleted; deploys now clear it via
+   `--remove-env-vars`). Confirm `POSTHOG_API_KEY` is set (as a secret
    or env var) — server-side generation events no-op without it.
-6. **Smoke-test the preview/production** while still gated: `/company/AAPL`
+6. **Smoke-test the preview/production** while still gated (sign in first —
+   generation requires an account since #619): `/company/AAPL`
    → recommended filing → summary generates; the example CTA on `/waitlist`
    lands on the cached example instantly; events appear in PostHog
    (Activity view: `generation_started` … `summary_viewed`).

@@ -132,6 +132,12 @@ function FilingDetailView({ filingId }: { filingId: number }) {
     enabled: !!isAuthenticated,
   })
 
+  // Mirror of the checkout's trial rule for the paywall card: first-time subscriber (RESOLVED
+  // subscription with no status row) and not beta. Only signed-in users can hit the paywall
+  // (generation requires auth), and while the query loads this stays false — under-promising is
+  // the safe direction; a churned ex-Pro must never be promised "you won't be charged" (#619).
+  const trialEligible = Boolean(subscription && !subscription.status && !currentUser?.is_beta)
+
   const { data: savedSummaries } = useQuery<SavedSummary[]>({
     queryKey: queryKeys.savedSummaries(),
     queryFn: getSavedSummaries,
@@ -332,6 +338,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
               error={generationError}
               onRetry={handleRegenerateSummary}
               elapsedSeconds={elapsedSeconds}
+              trialEligible={trialEligible}
             />
           ) : summary && hasSummaryContent && filing ? (
             <SummaryDisplay
@@ -360,6 +367,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
               error={activeErrorMessage}
               onRetry={handleRegenerateSummary}
               elapsedSeconds={0}
+              trialEligible={trialEligible}
             />
           )}
         </main>

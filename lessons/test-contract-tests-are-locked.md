@@ -3,7 +3,8 @@
 Date: 2026-07-06   Area: test
 
 **Context**: The refactor's safety came from characterization anchors (T1–T10:
-SSE stream contract, background-generation before-photo, guest quota, Stripe downgrade,
+SSE stream contract, background-generation before-photo, guest quota (retired in #619 —
+generation now requires an account; its successor anchor is test_generation_requires_account.py), Stripe downgrade,
 expired-trial gating, filing-scan exactly-once, refresh replay, companyfacts fixture,
 frontend SSE parser parity — plus `test_auth_flow.py` and the Stripe webhook tests).
 Their value depends on them NOT moving while the guarded code moves. The one sanctioned

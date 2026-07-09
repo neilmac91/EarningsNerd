@@ -33,7 +33,7 @@ export function GenerateSignupGate({ filing, entryPoint }: { filing: Filing; ent
       description={
         <>
           Free accounts get 5 AI summaries a month, no credit card required. Want unlimited?
-          Start a 7-day free trial of Pro and cancel anytime.
+          First-time Pro monthly subscribers get 7 days free, cancel anytime.
         </>
       }
       action={
