@@ -97,7 +97,11 @@ def _canonical_figure(token: str) -> Optional[str]:
         value = float(m.group(1).replace(",", ""))
     except ValueError:
         return None
-    return f"{value:g}{suffix}"
+    # Fixed-point, not ``:g``: ``:g`` rounds to 6 significant digits and switches to scientific notation
+    # for a mantissa >= 1e6 ("1.23457e+06"), which both loses precision and breaks _rounding_tol's
+    # decimal count. Strip trailing zeros so "30.0" and "30" canonicalize to the same key.
+    val_str = f"{value:.12f}".rstrip("0").rstrip(".")
+    return f"{val_str}{suffix}"
 
 
 def _dollar_figures(text: Any) -> list[tuple[float, str]]:
@@ -127,8 +131,10 @@ def _raw_value(entry: Any, period: str) -> Optional[float]:
 
 
 def xbrl_values(xbrl_metrics: Optional[dict]) -> list[float]:
-    """All standardized XBRL magnitudes (current/prior/series) as raw floats — the code-grounded set a
-    prose dollar figure is matched against, scale-tolerantly."""
+    """All standardized XBRL MAGNITUDES (current/prior/series) as absolute floats — the code-grounded set
+    a prose dollar figure is matched against. Absolute because XBRL stores signed values (a net loss, a
+    financing/investing cash OUTFLOW, capex, treasury-stock purchases are negative) while prose writes the
+    magnitude with a directional word ("a net loss of $105.8M"); a signed compare would miss those."""
     values: list[float] = []
     if not isinstance(xbrl_metrics, dict):
         return values
@@ -138,13 +144,13 @@ def xbrl_values(xbrl_metrics: Optional[dict]) -> list[float]:
         for period in ("current", "prior"):
             v = _raw_value(entry, period)
             if v is not None:
-                values.append(v)
+                values.append(abs(v))
         series = entry.get("series")
         if isinstance(series, list):
             for point in series:
                 pv = point.get("value") if isinstance(point, dict) else None
                 if isinstance(pv, (int, float)) and not isinstance(pv, bool):
-                    values.append(float(pv))
+                    values.append(abs(float(pv)))
     return values
 
 

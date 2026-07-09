@@ -162,14 +162,15 @@ def test_figure_trace_gate_downgrades_when_flag_on(monkeypatch):
     assert any("not traceable to filing data" in r for r in verdict["reasons"])
 
 
-def test_clean_v2_summary_has_no_untraceable_figures():
-    """A grounded v2 summary whose prose figures all trace stays full with an empty list — even ON."""
+def test_clean_v2_summary_has_no_untraceable_figures(monkeypatch):
+    """A grounded v2 summary whose prose figures all trace stays full with an empty list — even with the
+    gate armed ON (monkeypatch, so global settings aren't polluted for later tests)."""
     from app.config import settings
 
-    monkeypatch_ok = _v2_summary_with_fabricated_figure()
+    summary = _v2_summary_with_fabricated_figure()
     # Replace the phantom figure with a grounded one ($383.3B = XBRL revenue).
-    monkeypatch_ok["raw_summary"]["sections"]["the_print"]["key_takeaways"] = ["Revenue of $383.3B led."]
-    settings.AI_FIGURE_TRACE_GATE = False
-    verdict = assess_quality(monkeypatch_ok, _XBRL)
+    summary["raw_summary"]["sections"]["the_print"]["key_takeaways"] = ["Revenue of $383.3B led."]
+    monkeypatch.setattr(settings, "AI_FIGURE_TRACE_GATE", True)
+    verdict = assess_quality(summary, _XBRL)
     assert verdict["figures_untraceable"] == []
     assert verdict["tier"] == "full"

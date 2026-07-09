@@ -118,6 +118,23 @@ def test_rounding_tolerance_still_flags_a_real_miss():
     assert ft.untraceable_figures(s, xbrl, "") == ["2.5b"]
 
 
+def test_large_mantissa_grounds_without_scientific_notation():
+    """A figure with a >=1e6 mantissa ('$1,234,567M') must canonicalize in fixed notation and ground
+    against its exact XBRL value. Under a ':g' format it became '1.23457e+06m' — rounded AND with a
+    broken rounding-tolerance decimal count — and false-flagged a valid figure."""
+    xbrl = {"total_assets": {"current": {"value": 1_234_567_000_000}}}
+    s = _sections(the_print={"headline": "Total assets were $1,234,567M.", "key_takeaways": ["ok"]})
+    assert ft.untraceable_figures(s, xbrl, "") == []
+
+
+def test_negative_xbrl_value_grounds_positive_prose_magnitude():
+    """XBRL stores a financing OUTFLOW as negative; the model writes the positive magnitude with a
+    directional word. The magnitude must ground (xbrl_values is absolute), not false-flag."""
+    xbrl = {"financing_cash_flow": {"current": {"value": -28_400_000_000}}}
+    s = _sections(the_print={"headline": "Financing outflow of $28.4B on buybacks.", "key_takeaways": ["ok"]})
+    assert ft.untraceable_figures(s, xbrl, "") == []
+
+
 def test_model_derived_aggregate_is_flagged():
     """The residual the gate exists to surface: the model SUMS named line items into a 'total debt' that
     appears nowhere in XBRL or the excerpt as a single number. Its components are present; the sum is not
