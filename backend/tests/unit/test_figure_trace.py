@@ -62,6 +62,18 @@ def test_machine_authored_fields_are_not_policed():
     assert ft.untraceable_figures(s, _XBRL, _EXCERPT) == []
 
 
+def test_machine_authored_cash_conversion_is_not_policed():
+    # T5.1: earnings_quality.cash_conversion is machine-authored from XBRL by the deterministic filler
+    # (the NI-vs-CFO ratio + free cash flow), so — like cash_flow / working_capital — it is excluded
+    # from policing. A dollar figure here that is absent from XBRL/excerpt must NOT flag; only the
+    # model-authored operating_vs_one_time in the same section is still policed.
+    s = _sections(earnings_quality={
+        "operating_vs_one_time": "One-time items were immaterial this period.",
+        "cash_conversion": "Operating cash flow was 1.5x net income (cash conversion); free cash flow of $11.2B.",
+    })
+    assert ft.untraceable_figures(s, _XBRL, _EXCERPT) == []
+
+
 def test_foreign_currency_grounds_by_magnitude():
     # Canonical keys are currency-agnostic (strip the symbol/ISO, match the scaled magnitude), so an
     # EUR filer's "€81.6B" grounds against the XBRL value 81.6e9 — no false positive on foreign filers.

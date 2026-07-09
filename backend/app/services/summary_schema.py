@@ -167,10 +167,13 @@ class ResultsThatMatter(_V2Base):
 
 class EarningsQuality(_V2Base):
     """§3 — the differentiator: operating-vs-one-time bridge (adjusted vs reported), the NI-vs-CFO
-    accrual read + FCF/conversion, and a red-flag scan. Model-extracted in T3.1; T5 adds
-    deterministic feeds."""
+    accrual read + FCF/conversion, and a red-flag scan. `operating_vs_one_time` + `red_flags` are
+    model-extracted; `cash_conversion` is machine-authored from XBRL (T5.1)."""
 
     operating_vs_one_time: str = ""
+    # Machine-authored from standardized XBRL by the pipeline's deterministic filler (the NI-vs-CFO
+    # cash-conversion ratio + free cash flow) — NOT model-emitted. Declared here so the shape SSOT
+    # stays complete; the v2 render builder reads it. Suppressed for financial institutions.
     cash_conversion: str = ""
     red_flags: List[str] = Field(default_factory=list)
     source_section_ref: str = ""

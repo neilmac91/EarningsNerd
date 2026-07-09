@@ -30,7 +30,10 @@ SUMMARY_SCHEMA_VERSION: int = 2
 # summary-2026-07-c: Tier-3.1 v2 cutover — schema_template rewritten to the nine v2 sections.
 # summary-2026-07-d: Tier-4 — schema_template asks for a verbatim `supporting_evidence` excerpt on
 #   metric-takeaway rows + footnotes (the citation surface). Taxonomy shape unchanged (still v2).
-SUMMARY_PROMPT_VERSION: str = "summary-2026-07-d"
+# summary-2026-07-e: Tier-5.1 — earnings_quality.cash_conversion removed from the schema/re-ask (the
+#   model no longer authors it); it is now machine-authored from XBRL (NI-vs-CFO + FCF). ONE-HOME
+#   note reworded to match. Taxonomy shape unchanged (still v2).
+SUMMARY_PROMPT_VERSION: str = "summary-2026-07-e"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:
