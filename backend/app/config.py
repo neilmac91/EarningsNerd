@@ -383,6 +383,22 @@ class Settings(BaseSettings):
     ENABLE_GUEST_DAILY_QUOTA: bool = False
     GUEST_DAILY_SUMMARY_LIMIT: int = 3
 
+    # Pro summary fair-use ceiling. Pro is "unlimited" as a BILLING promise (entitlements keeps
+    # monthly_summary_limit=None so the plan API never advertises a cap), but a single account —
+    # compromised, scripted, or reverse-trial-farmed — could otherwise drive thousands of fresh
+    # LLM generations/day. This is an INVISIBLE anti-abuse guardrail (degrade with a generic
+    # message, never an upsell), mirroring COPILOT_MONTHLY_QUESTION_CAP / ANALYSIS_MONTHLY_CAP.
+    # Set generously above any real human's monthly usage; 0 disables the ceiling entirely.
+    PRO_SUMMARY_MONTHLY_CAP: int = 300
+
+    # Max concurrent full summary generations per process. Generation is LLM-I/O-bound but
+    # CPU-bound during filing/section/XBRL parsing; on a single-vCPU Cloud Run instance a burst of
+    # distinct filings would thrash the core and inflate everyone's latency toward the pipeline
+    # timeout. This semaphore queues excess generations instead. Process-local (same scope as the
+    # in-flight dedup + L1 caches); the dedup already collapses concurrent hits on the SAME filing.
+    # <= 0 disables the ceiling (unbounded), mirroring PRO_SUMMARY_MONTHLY_CAP=0.
+    MAX_CONCURRENT_GENERATIONS: int = 6
+
     # AI Recovery Settings
     RECOVERY_MAX_CONCURRENCY: int = 3  # Max concurrent API calls for section recovery
 

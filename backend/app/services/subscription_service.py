@@ -43,12 +43,25 @@ def increment_user_usage(user_id: int, month: str, db: Session):
     db.commit()
 
 def check_usage_limit(user: User, db: Session) -> tuple[bool, int, Optional[int]]:
-    """Check if user can generate more summaries. Returns (can_generate, current_count, limit)"""
+    """Check if user can generate more summaries. Returns (can_generate, current_count, limit).
+
+    Free tier is a visible billing cap. Pro is billing-unlimited (``monthly_summary_limit is None``)
+    but still subject to an INVISIBLE fair-use ceiling (``PRO_SUMMARY_MONTHLY_CAP``) that bounds
+    runaway spend from a compromised/scripted account — same philosophy as ``check_qa_limit``. On a
+    Pro block the returned ``limit`` is the fair-use cap; the caller renders a generic message (not
+    an upsell) so the ceiling stays invisible.
+    """
+    month = get_current_month()
     limit = get_entitlements(user).monthly_summary_limit
     if limit is None:
-        return True, 0, None  # unlimited (e.g. pro)
+        cap = settings.PRO_SUMMARY_MONTHLY_CAP
+        if not cap:  # 0/None disables the ceiling → truly unlimited
+            return True, 0, None
+        current_count = get_user_usage_count(user.id, month, db)
+        if current_count >= cap:
+            return False, current_count, cap
+        return True, current_count, None
 
-    month = get_current_month()
     current_count = get_user_usage_count(user.id, month, db)
 
     if current_count >= limit:

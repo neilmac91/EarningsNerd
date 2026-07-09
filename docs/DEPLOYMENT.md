@@ -31,6 +31,31 @@ refreshes the weekly example-pregeneration job, and health-checks
 
 **Nothing manual is required for routine releases** — merge to `main` and the pipeline ships it.
 
+### Rollback (when a bad revision is live)
+
+The pipeline routes 100% of traffic to the newest revision (`update-traffic --to-latest`) **before**
+the post-deploy `/health/detailed` check runs, so that check is **post-hoc detection, not
+prevention**: a DB-unreachable revision is already live serving 503s, and the failing check only
+reddens the CI job (your signal to roll back) — it does not cut traffic back on its own. A revision
+that boots and passes health yet misbehaves at runtime likewise stays live. Cloud Run keeps prior
+revisions, so rolling back is a one-liner (no rebuild):
+
+```bash
+# List recent revisions (newest first) to find the last-known-good one:
+gcloud run revisions list --service=earningsnerd-backend --region=us-west1 --limit=5
+
+# Send 100% of traffic back to that revision (replace REVISION):
+gcloud run services update-traffic earningsnerd-backend --region=us-west1 --to-revisions=REVISION=100
+```
+
+Then revert the offending commit on `main` so the next CD deploy doesn't re-ship it (a plain
+`--to-latest` deploy would otherwise route traffic straight back to the bad image).
+
+> **Feature flags are set in the deploy command, not the console.** `ci.yml`'s `--update-env-vars`
+> (e.g. `REGISTRATION_MODE`, `ENABLE_GUEST_DAILY_QUOTA`, `DB_POOL_SIZE`) is re-asserted on every
+> deploy, so toggling one of these in the Cloud Run console is silently reverted on the next push.
+> To change one durably, edit the workflow — during an incident, that is the lever, not the console.
+
 ## Frontend — continuous deployment
 
 Vercel's GitHub integration builds and deploys the `frontend/` app on every push to `main`

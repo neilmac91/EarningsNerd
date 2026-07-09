@@ -382,7 +382,7 @@ jobs:
             --cpu=1 --memory=1Gi --cpu-boost \
             --min-instances=1 --max-instances=2 --concurrency=40 --timeout=600 \
             --update-secrets=OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
-            --update-env-vars=ENVIRONMENT=production,OPENAI_BASE_URL=https://api.deepseek.com/v1,AI_DEFAULT_MODEL=deepseek-v4-pro,COOKIE_DOMAIN=.earningsnerd.io,SENTRY_RELEASE=${GITHUB_SHA},TRUSTED_PROXY_HOPS=1,ENABLE_GUEST_DAILY_QUOTA=true,ENABLE_FPI_FILINGS=true,STREAM_SECTION_REVEAL=true \
+            --update-env-vars=ENVIRONMENT=production,OPENAI_BASE_URL=https://api.deepseek.com/v1,AI_DEFAULT_MODEL=deepseek-v4-pro,COOKIE_DOMAIN=.earningsnerd.io,SENTRY_RELEASE=${GITHUB_SHA},TRUSTED_PROXY_HOPS=1,ENABLE_GUEST_DAILY_QUOTA=true,ENABLE_FPI_FILINGS=true,STREAM_SECTION_REVEAL=true,REGISTRATION_MODE=invite_only,DB_POOL_SIZE=12,DB_MAX_OVERFLOW=8 \
             --quiet
           # Always route live traffic to the new revision. A prior manual `--no-traffic --tag`
           # deploy can pin traffic to an old revision, which silently makes every CD deploy "dark"
@@ -394,7 +394,7 @@ jobs:
           gcloud run jobs update earningsnerd-pregenerate --region=us-west1 \
             --image="$IMAGE:${GITHUB_SHA::7}" \
             --update-secrets=OPENAI_API_KEY=DEEPSEEK_API_KEY:latest \
-            --update-env-vars=OPENAI_BASE_URL=https://api.deepseek.com/v1,AI_DEFAULT_MODEL=deepseek-v4-pro \
+            --update-env-vars=OPENAI_BASE_URL=https://api.deepseek.com/v1,AI_DEFAULT_MODEL=deepseek-v4-pro,DB_POOL_SIZE=3,DB_MAX_OVERFLOW=2 \
             --quiet
       - name: Update filing-scan + digest + backfill-facts + earnings-calendar job images
         if: steps.changes.outputs.backend == 'true'
@@ -403,8 +403,11 @@ jobs:
         run: |
           for job in earningsnerd-filing-scan earningsnerd-filing-digest earningsnerd-backfill-facts earningsnerd-earnings-calendar-refresh earningsnerd-earnings-day-alerts earningsnerd-notable-filings; do
             if gcloud run jobs describe "$job" --region=us-west1 >/dev/null 2>&1; then
+              # Jobs run serially, so a tiny DB pool is ample and keeps the Monday cron window from
+              # stacking 30-connection pools against Cloud SQL max_connections (see database.py).
               gcloud run jobs update "$job" --region=us-west1 \
                 --image="$IMAGE:${GITHUB_SHA::7}" \
+                --update-env-vars=DB_POOL_SIZE=3,DB_MAX_OVERFLOW=2 \
                 --quiet
             else
               echo "$job not found — create it once per DEPLOYMENT.md. Skipping."
@@ -414,5 +417,13 @@ jobs:
         if: steps.changes.outputs.backend == 'true'
         run: |
           sleep 10
-          curl -fsS https://api.earningsnerd.io/health
+          # Hit the DEEP check so a revision that boots but can't reach its DB at request time is
+          # caught here (shallow /health returns healthy without touching the DB). /health/detailed
+          # returns 503 when unhealthy (curl -f fails) and 200 when healthy/degraded; assert the
+          # body's status is not "unhealthy" so a degraded-but-serving deploy still passes.
+          # curl -f already fails on the 503 an unhealthy check returns; the grep is belt-and-braces
+          # and tolerates JSON with or without a space after the colon (FastAPI emits none).
+          body=$(curl -fsS https://api.earningsnerd.io/health/detailed)
+          echo "$body"
+          echo "$body" | grep -qE '"status": ?"unhealthy"' && { echo "Deploy unhealthy — DB unreachable"; exit 1; } || true
           echo "Deployed ${GITHUB_SHA::7} and verified healthy."
