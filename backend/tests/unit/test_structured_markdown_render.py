@@ -170,3 +170,25 @@ def test_apply_structured_fallbacks_uses_reporting_currency_for_foreign_filers()
     assert "EUR 12.7B" in bsl["cash_flow"]
     # No bare dollar sign anywhere in the authored figures.
     assert "$" not in (bsl["working_capital"] + bsl["cash_flow"])
+
+
+def test_apply_structured_fallbacks_current_ratio_edge_cases():
+    """Current-ratio guard: a ZERO numerator (current assets) still shows the ratio — 0.00x is a real
+    signal, not noise — while a zero/None denominator (current liabilities) suppresses it with no
+    division-by-zero. Numerator gated on presence (is not None), denominator on non-zero truthiness."""
+    # Zero current assets, positive liabilities -> ratio 0.00x IS shown.
+    s1: dict = {}
+    openai_service._apply_structured_fallbacks(s1, {"company_name": "X"}, {
+        "current_assets": {"current": {"value": 0.0, "period": "FY25"}},
+        "current_liabilities": {"current": {"value": 24_300_000_000, "period": "FY25"}},
+    })
+    assert "current ratio 0.00x" in s1["balance_sheet_liquidity"]["working_capital"]
+
+    # Zero current liabilities -> ratio suppressed, no crash, both sides still shown.
+    s2: dict = {}
+    openai_service._apply_structured_fallbacks(s2, {"company_name": "X"}, {
+        "current_assets": {"current": {"value": 30_600_000_000, "period": "FY25"}},
+        "current_liabilities": {"current": {"value": 0.0, "period": "FY25"}},
+    })
+    wc = s2["balance_sheet_liquidity"]["working_capital"]
+    assert "current ratio" not in wc and "$30.6B" in wc

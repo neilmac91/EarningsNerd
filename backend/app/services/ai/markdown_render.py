@@ -341,7 +341,9 @@ class _MarkdownRenderMixin:
         current_liabilities = format_currency(raw_current("current_liabilities"))
         if current_assets or current_liabilities:
             ca_v, cl_v = raw_current("current_assets"), raw_current("current_liabilities")
-            ratio = f" (current ratio {ca_v / cl_v:.2f}x)" if ca_v and cl_v else ""
+            # Denominator must be a non-zero number (guards div-by-zero); the numerator may legitimately
+            # be zero, so gate it on presence (is not None), not truthiness.
+            ratio = f" (current ratio {ca_v / cl_v:.2f}x)" if (ca_v is not None and cl_v) else ""
             bsl["working_capital"] = (
                 f"Current assets {current_assets or 'Not disclosed'} vs. current liabilities "
                 f"{current_liabilities or 'Not disclosed'}{ratio}."
