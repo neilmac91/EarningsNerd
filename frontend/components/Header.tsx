@@ -19,7 +19,7 @@ const NAV_LINKS = [
   // entries appear only when the features are live. Search ships hidden (founder decision — see
   // ENABLE_FULLTEXT_SEARCH); flip the flag to reintroduce it.
   ...(ENABLE_FULLTEXT_SEARCH ? [{ href: '/search', label: 'Search' }] : []),
-  ...(ENABLE_ANALYSIS ? [{ href: '/analysis', label: 'Analysis' }] : []),
+  ...(ENABLE_ANALYSIS ? [{ href: '/analysis', label: 'Multi-Period Analysis' }] : []),
   ...(ENABLE_CALENDAR ? [{ href: '/calendar', label: 'Calendar' }] : []),
   { href: '/pricing', label: 'Pricing' },
   { href: '/contact', label: 'Contact' },
@@ -83,8 +83,11 @@ export default function Header() {
           </Link>
         </div>
 
-        {/* Center: Nav links (desktop) */}
-        <nav className="hidden items-center gap-8 md:flex" aria-label="Main navigation">
+        {/* Center: Nav links (desktop). Inline nav switches on at `lg` (not `md`): the full product
+            labels — "Multi-Period Analysis" plus flag-gated Calendar — overflow the logo/CTAs in the
+            768–1023px band, so tablet widths use the hamburger menu below. Keep the desktop nav, the
+            desktop CTA block, and the two mobile blocks on the SAME breakpoint. */}
+        <nav className="hidden items-center gap-8 lg:flex" aria-label="Main navigation">
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href}
@@ -97,7 +100,7 @@ export default function Header() {
         </nav>
 
         {/* Right: CTAs / user menu (desktop) */}
-        <div className="hidden items-center gap-3 md:flex">
+        <div className="hidden items-center gap-3 lg:flex">
           <ThemeToggle />
           {user ? (
             <>
@@ -124,7 +127,7 @@ export default function Header() {
         </div>
 
         {/* Mobile actions */}
-        <div className="flex items-center gap-1 md:hidden">
+        <div className="flex items-center gap-1 lg:hidden">
           <ThemeToggle />
           <button
             type="button"
@@ -140,7 +143,7 @@ export default function Header() {
 
       {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div className="border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark md:hidden">
+        <div className="border-t border-border-light bg-background-light dark:border-white/[0.06] dark:bg-background-dark lg:hidden">
           <nav className="mx-auto max-w-7xl space-y-1 px-4 pb-4 pt-2" aria-label="Mobile navigation">
             {NAV_LINKS.map((link) => (
               <Link
