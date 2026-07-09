@@ -33,7 +33,10 @@ SUMMARY_SCHEMA_VERSION: int = 2
 # summary-2026-07-e: Tier-5.1 — earnings_quality.cash_conversion removed from the schema/re-ask (the
 #   model no longer authors it); it is now machine-authored from XBRL (NI-vs-CFO + FCF). ONE-HOME
 #   note reworded to match. Taxonomy shape unchanged (still v2).
-SUMMARY_PROMPT_VERSION: str = "summary-2026-07-e"
+# summary-2026-07-f: Tier-5.2 — the segments table removed from the schema/re-ask; it is now
+#   machine-authored from the filing's XBRL segment dimensions (per-segment revenue / operating income
+#   / YoY change + a deterministic mix read). ONE-HOME note reworded. Taxonomy shape unchanged (v2).
+SUMMARY_PROMPT_VERSION: str = "summary-2026-07-f"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:

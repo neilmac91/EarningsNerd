@@ -49,6 +49,7 @@ from .instance_extractor import (
     extract_financial_statement_metrics,
     instant_series_with_currency,
     normalize_form,
+    segment_series_by_member,
 )
 from .models import MetricChange
 from .statement_parser import extract_metric_values, statement_dataframe
@@ -225,6 +226,64 @@ def get_xbrl_cache_stats() -> Dict[str, Any]:
     }
 
 
+def _extract_segments(
+    xb: Any, base_form: str, period_of_report: str, consolidated_revenue: Optional[float]
+) -> List[Dict[str, Any]]:
+    """Assemble the reportable-segment table from the same ``xb`` instance (zero extra SEC traffic).
+
+    Per-segment current+prior revenue and current operating income from the ASC-280
+    ``StatementBusinessSegmentsAxis``, reusing the consolidated revenue / operating-income concept
+    lists (their ordering encodes tag priority). Ordered by current revenue descending. Returns [] —
+    degrading gracefully — for single-segment / undimensioned / financial-institution filers (which
+    tag no generic segment revenue), when fewer than two reportable segments survive, or when the
+    segment revenue sum is not the same order of magnitude as consolidated (a mis-tag / wrong-axis /
+    unit guard, rule 9; intersegment eliminations legitimately push the sum modestly ABOVE
+    consolidated, so the band is wide).
+    """
+    rev_by_member, rev_ccy = segment_series_by_member(
+        xb, DURATION_CONCEPTS["revenue"], base_form, period_of_report
+    )
+    inc_by_member, inc_ccy = segment_series_by_member(
+        xb, DURATION_CONCEPTS["operating_income"], base_form, period_of_report
+    )
+    if not rev_by_member and not inc_by_member:
+        return []
+    currency = rev_ccy or inc_ccy
+    members = list(dict.fromkeys([*rev_by_member, *inc_by_member]))
+    rows: List[Dict[str, Any]] = []
+    for member in members:
+        rev = rev_by_member.get(member, [])
+        inc = inc_by_member.get(member, [])
+        rows.append(
+            {
+                "name": member,
+                "revenue": rev[0][1] if rev else None,
+                "revenue_prior": rev[1][1] if len(rev) > 1 else None,
+                "operating_income": inc[0][1] if inc else None,
+                "period": (rev[0][0] if rev else inc[0][0] if inc else None),
+                "currency": currency,
+            }
+        )
+    # A single reportable segment == the consolidated total; only a multi-segment breakdown adds signal.
+    if len(rows) < 2:
+        return []
+    revenue_sum = sum(r["revenue"] for r in rows if r["revenue"])
+    if consolidated_revenue and revenue_sum:
+        if not (0.5 <= revenue_sum / consolidated_revenue <= 2.0):
+            logger.warning(
+                f"Segment revenue sum {revenue_sum:.0f} not coherent with consolidated "
+                f"{consolidated_revenue:.0f}; dropping segment table"
+            )
+            return []
+    elif revenue_sum:
+        # No consolidated revenue to validate against (the generic revenue path was suppressed/failed).
+        # Surface the table rather than drop real segment data, but log so a coherence miss here is not
+        # mistaken for a passed check.
+        logger.info("Segment table surfaced without a consolidated-revenue coherence check")
+    rows.sort(key=lambda r: (r["revenue"] is not None, r["revenue"] or 0.0), reverse=True)
+    return rows
+
+
 def _extract_from_filing_instance_sync(
     cik_padded: str,
     accession_number: str,
@@ -360,6 +419,19 @@ def _extract_from_filing_instance_sync(
     ads_ratio = ads_ratio_for_cik(cik_padded)
     if ads_ratio is not None:
         result["ads_ratio"] = ads_ratio.as_dict()
+
+    # Reportable-segment disaggregation (T5.2) — per-segment revenue + operating income from the SAME
+    # `xb` instance (no extra SEC round-trip; rule 5). Best-effort: never let it break the metrics path.
+    # Empty for single-segment / undimensioned / financial-institution filers (degrade gracefully).
+    revenue_series = result.get("revenue") or []
+    consolidated_revenue = revenue_series[0].get("value") if revenue_series else None
+    try:
+        segments = _extract_segments(xb, base_form, period_of_report, consolidated_revenue)
+    except Exception as exc:  # noqa: BLE001 - segment extraction must never break metric extraction
+        logger.warning(f"Segment extraction failed for {accession_number}: {exc}")
+        segments = []
+    if segments:
+        result["segments"] = segments
 
     # Anchor requirement: at least one income-statement metric for the
     # filing's own period — otherwise this instance is unusable and the
@@ -1193,6 +1265,13 @@ class EdgarXBRLService:
                     )
                     if per_ads:
                         entry["per_ads"] = per_ads
+
+        # Reportable-segment table (T5.2): pass the raw per-segment rows through unchanged (like
+        # reporting_currency — an annotation, not a standardized metric). The summary filler formats
+        # them into the §7 table; absent for single-segment / undimensioned / bank filers.
+        segments = xbrl_data.get("segments")
+        if isinstance(segments, list) and segments:
+            metrics["segments"] = segments
 
         return metrics
 

@@ -32,9 +32,11 @@ def test_fabricated_prose_figure_is_flagged():
     assert ft.untraceable_figures(s, _XBRL, _EXCERPT) == ["55.5b"]
 
 
-def test_excerpt_number_grounds_a_segment_figure():
-    # A figure legitimately quoted from the filing prose (not in standardized XBRL) must ground.
-    s = _sections(segments=[{"segment": "Data Center", "commentary": "Data center revenue was $30.0 billion."}])
+def test_machine_authored_segments_commentary_is_not_policed():
+    # T5.2: segments[].commentary is machine-authored from XBRL (a deterministic mix / operating-margin
+    # read), so — like cash_flow / cash_conversion — the segment table is excluded from policing. A
+    # dollar figure here absent from XBRL and the excerpt must NOT flag.
+    s = _sections(segments=[{"segment": "Mystery", "commentary": "Mystery segment posted $55.5B of revenue."}])
     assert ft.untraceable_figures(s, _XBRL, _EXCERPT) == []
 
 
