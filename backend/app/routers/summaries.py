@@ -17,7 +17,7 @@ from app.models import (
     User,
     SummaryGenerationProgress,
 )
-from app.routers.auth import get_current_user_optional
+from app.routers.auth import get_current_user, get_current_user_optional
 from app.dependencies import require_copilot_or_taste
 from app.services.entitlements import get_entitlements, is_pro_user
 from app.services.export_service import export_service
@@ -128,10 +128,15 @@ async def generate_summary_stream(
     force: bool = False,
     entry_point: Optional[str] = None,
     ph_id: Optional[str] = None,
-    current_user: Optional[User] = Depends(get_current_user_optional),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Generate AI summary with streaming response (guests allowed).
+    """Generate AI summary with streaming response (account required).
+
+    Anonymous callers get 401 here at the router boundary; the free-tier monthly
+    quota is then enforced inside the pipeline (``check_usage_limit``). Cached
+    summaries stay publicly readable via ``GET /filing/{id}`` — only fresh
+    generation requires an account.
 
     Args:
         force: If True, delete existing summary and regenerate from scratch.
@@ -141,12 +146,10 @@ async def generate_summary_stream(
         ph_id: The client's PostHog distinct_id, so server-side funnel events
                join with frontend events on the same person.
     """
-    # Use user ID for authenticated users, IP for guests
     client_host = request.client.host if request.client else "unknown"
-    user_id_log = current_user.id if current_user else "Guest"
-    logger.info(f"[stream:{filing_id}] Incoming stream request from {user_id_log} (IP: {client_host}, force={force})")
+    logger.info(f"[stream:{filing_id}] Incoming stream request from {current_user.id} (IP: {client_host}, force={force})")
 
-    rate_limit_key = f"summary:{current_user.id}" if current_user else f"summary:guest:{client_host}"
+    rate_limit_key = f"summary:{current_user.id}"
 
     enforce_rate_limit(
         request,
@@ -168,16 +171,12 @@ async def generate_summary_stream(
     summary = db.query(Summary).filter(Summary.filing_id == filing_id).first()
     if summary:
         if force:
-            # Force regeneration triggers a fresh, paid LLM run, so it's Pro-only (guests 401, Free
-            # 403) — otherwise it's a denial-of-wallet / "wipe a popular filing for everyone" vector.
-            # Resolved via the entitlements SSoT (not the is_pro mirror) so a lagging mirror can't
-            # wrongly grant/deny it. NB this gate sits inside `if summary`: when no summary exists
-            # yet, force is a harmless no-op, so a failed-generation retry stays open to guests/Free.
-            if current_user is None:
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Please sign in to regenerate this analysis.",
-                )
+            # Force regeneration triggers a fresh, paid LLM run, so it's Pro-only (Free 403; anyone
+            # unauthenticated already got 401 at the endpoint) — otherwise it's a denial-of-wallet /
+            # "wipe a popular filing for everyone" vector. Resolved via the entitlements SSoT (not
+            # the is_pro mirror) so a lagging mirror can't wrongly grant/deny it. NB this gate sits
+            # inside `if summary`: when no summary exists yet, force is a harmless no-op, so a
+            # failed-generation retry stays open to Free users.
             if not is_pro_user(current_user):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -222,46 +221,20 @@ async def generate_summary_stream(
                 }
             )
 
-    # S5: durable per-IP daily quota for guests (flagged). Only reached when we're actually going to
-    # generate (a cached summary returned above and is not counted). Never gates the first summary —
-    # a new IP is always under the cap — and fails open on any DB error.
-    from app.config import settings as _settings
-    if current_user is None and _settings.ENABLE_GUEST_DAILY_QUOTA:
-        from app.services.rate_limiter import get_client_ip
-        from app.services.guest_quota import check_and_increment_guest_quota
-
-        # Key on the TRUSTED client IP (real client from X-Forwarded-For), not request.client.host —
-        # behind Cloud Run the latter is the shared Google front-end address, so every guest would
-        # collapse onto one quota key. The service fails open for an unresolvable ("unknown") IP.
-        allowed, count = check_and_increment_guest_quota(
-            db, get_client_ip(request), _settings.GUEST_DAILY_SUMMARY_LIMIT
-        )
-        if not allowed:
-            logger.info(f"[stream:{filing_id}] Guest over daily quota ({count}/{_settings.GUEST_DAILY_SUMMARY_LIMIT})")
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=(
-                    f"You've reached today's free limit of {_settings.GUEST_DAILY_SUMMARY_LIMIT} "
-                    "summaries. Create a free account to generate more."
-                ),
-            )
-
-    user_id = current_user.id if current_user else None
+    user_id = current_user.id
     logger.info(f"[stream:{filing_id}] Starting summary stream for user {user_id}")
 
     # Activation funnel telemetry context. Plain values are captured eagerly here —
     # the pipeline generator below runs after this request's DB session is gone, so ORM
     # attribute access inside it would be unsafe. Prefer the client's PostHog
     # distinct_id so server events join frontend events on the same person.
-    telemetry_distinct_id = (ph_id or "")[:200] or (
-        str(current_user.id) if current_user else f"guest:{client_host}"
-    )
+    telemetry_distinct_id = (ph_id or "")[:200] or str(current_user.id)
     telemetry_entry_point = (entry_point or "")[:64] or None
     telemetry_ctx = {
         "filing_id": filing_id,
         "filing_type": filing.filing_type,
         "ticker": filing.company.ticker if filing.company else None,
-        "user_type": "authenticated" if current_user else "guest",
+        "user_type": "authenticated",
         "forced": force,
     }
 

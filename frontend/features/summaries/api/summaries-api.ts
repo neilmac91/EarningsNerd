@@ -255,7 +255,7 @@ const runStreamAttempt = async (
     }
   }
 
-  let response = await fetch(url, {
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -264,23 +264,14 @@ const runStreamAttempt = async (
     signal: controller.signal,
   })
 
-  // Retry as guest on 401
-  if (response.status === 401) {
-    console.warn(`[summary] ${filingId} 401 Unauthorized. Retrying as guest...`)
-    response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'omit',
-      signal: controller.signal,
-    })
-  }
+  // NOTE: generation requires an account — a 401 is surfaced as a non-retryable auth error (the
+  // old "retry as guest" fallback is gone; guest generation was removed server-side too, so it
+  // could only ever double-fire a doomed request and mask expired sessions).
 
   if (!response.ok) {
     clearTimeoutSafely()
 
-    // Handle authentication errors (if second attempt also failed or was not 401)
+    // Handle authentication errors
     if (response.status === 401) {
       let errorMessage = 'Authentication error occurred.'
       try {

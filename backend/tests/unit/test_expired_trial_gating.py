@@ -112,7 +112,8 @@ def _as_trial_user(trial_end, *, taste_used=0, summaries_used=0):
     db.close()
 
     # Override every auth entry point a Pro-gated route might inject: require_copilot_or_taste
-    # resolves through _resolve_current_user; the export + generate routes use get_current_user_optional.
+    # resolves through _resolve_current_user; generate-stream requires get_current_user; the export
+    # routes use get_current_user_optional.
     app.dependency_overrides[get_current_user] = lambda: user
     app.dependency_overrides[_resolve_current_user] = lambda: user
     app.dependency_overrides[get_current_user_optional] = lambda: user

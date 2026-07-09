@@ -140,7 +140,7 @@ export default async function Home() {
                   See a live example →
                 </ExampleCtaLink>
                 <span className="text-text-tertiary-light dark:text-text-secondary-dark">
-                  Your first summary is free. No signup needed.
+                  Free account · 5 AI summaries a month · no credit card
                 </span>
               </div>
 

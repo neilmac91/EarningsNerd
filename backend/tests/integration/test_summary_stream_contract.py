@@ -14,7 +14,9 @@ by the fixture regen script and the other stream anchors) and pins, hard:
     T10) and a live drive, masking only volatile values — so a renamed progress message or an added/
     dropped/changed key on any frame is a hard failure (``test_recorded_frames_fixture_matches_live_contract``);
   * that the route itself is wired: ``POST /api/summaries/filing/{id}/generate-stream`` returns an SSE
-    response with the streaming headers on success and 404s a missing filing
+    response with the streaming headers on success (authenticated — the route requires an account
+    since the guest-generation removal; anonymous rejection is pinned in
+    ``test_generation_requires_account.py``) and 404s a missing filing
     (``test_generate_stream_route_*``).
 
 Determinism: instant fakes ⇒ the summarize step returns immediately ⇒ no heartbeat frames ⇒ a fully
@@ -24,11 +26,13 @@ ordered sequence. The fixture and this test render from ONE source: both mask fr
 import json
 import uuid
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.config import settings
+from app.routers.auth import get_current_user
 from app.services.summary_pipeline import stream_filing_summary, to_sse
 from main import app
 from scripts.gen_summary_stream_frames import normalize_frame
@@ -85,11 +89,24 @@ async def _drive(filing_id: int) -> list:
     ]
 
 
-def _guest_headers() -> dict:
+def _fresh_ip_headers() -> dict:
     """Unique per-request ``X-Forwarded-For`` so this request owns a FRESH sliding-window
-    rate-limit bucket (the limiter keys on the trusted client IP), isolated from sibling route
-    tests / files that also hit ``SUMMARY_LIMITER``. Pairs with ``TRUSTED_PROXY_HOPS=1``."""
+    rate-limit bucket (``enforce_rate_limit`` prefixes the trusted client IP), isolated from
+    sibling route tests / files that also hit ``SUMMARY_LIMITER``. Pairs with
+    ``TRUSTED_PROXY_HOPS=1``."""
     return {"X-Forwarded-For": f"stream-route-{uuid.uuid4().hex}"}
+
+
+@pytest.fixture
+def authed_user():
+    """Authenticate the route tests: generate-stream requires an account (guest generation was
+    removed), so override ``get_current_user`` with a Free stand-in. ``track_usage_sync`` re-queries
+    the id and no-ops when absent, so no User row needs seeding for these thin route anchors."""
+    stand_in = SimpleNamespace(id=987_654_321, is_pro=False, subscription=None,
+                               email="contract@example.com", is_active=True)
+    app.dependency_overrides[get_current_user] = lambda: stand_in
+    yield stand_in
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.mark.asyncio
@@ -199,16 +216,17 @@ async def test_recorded_frames_fixture_matches_live_contract():
 
 
 @pytest.mark.requires_db
-def test_generate_stream_route_returns_event_stream(client, monkeypatch):
+def test_generate_stream_route_returns_event_stream(client, monkeypatch, authed_user):
     """Thin route test: ``POST /api/summaries/filing/{id}/generate-stream`` is registered and returns
     an SSE response with the streaming headers, and the real generator runs end-to-end to its
-    terminal ``complete`` over the wire (boundaries mocked via the shared harness; guest path)."""
+    terminal ``complete`` over the wire (boundaries mocked via the shared harness; authenticated —
+    the route requires an account)."""
     monkeypatch.setattr(settings, "TRUSTED_PROXY_HOPS", 1)
     with stream_boundaries():
         filing_id = seed_company_filing()
         resp = client.post(
             f"/api/summaries/filing/{filing_id}/generate-stream",
-            headers=_guest_headers(),
+            headers=_fresh_ip_headers(),
         )
 
     assert resp.status_code == 200, resp.text
@@ -219,12 +237,12 @@ def test_generate_stream_route_returns_event_stream(client, monkeypatch):
 
 
 @pytest.mark.requires_db
-def test_generate_stream_route_missing_filing_404(client, monkeypatch):
+def test_generate_stream_route_missing_filing_404(client, monkeypatch, authed_user):
     """The route short-circuits with 404 for an unknown filing id (before any generation runs)."""
     monkeypatch.setattr(settings, "TRUSTED_PROXY_HOPS", 1)
     resp = client.post(
         "/api/summaries/filing/999999999/generate-stream",
-        headers=_guest_headers(),
+        headers=_fresh_ip_headers(),
     )
     assert resp.status_code == 404
     assert resp.json()["detail"] == "Filing not found"

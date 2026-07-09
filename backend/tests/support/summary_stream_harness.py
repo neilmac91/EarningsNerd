@@ -3,7 +3,7 @@ regen script).
 
 Before this module the boundary-mock set, the canonical AI payload, the Company+Filing seed, and
 the in-flight reset were copy-pasted across `test_summary_stream_contract.py`,
-`test_background_generation_characterization.py`, `test_guest_quota_route.py`, and
+`test_background_generation_characterization.py`, `test_generation_requires_account.py`, and
 `scripts/gen_summary_stream_frames.py`. When `stream_filing_summary` gains or renames a boundary,
 one edit here now updates every anchor + the recorded fixture in lockstep (per the PR #547 review).
 

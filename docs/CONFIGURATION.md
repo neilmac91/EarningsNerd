@@ -46,8 +46,6 @@ PASSWORD_MIN_LENGTH=12
 PWNED_PASSWORD_CHECK_ENABLED=true # Screen new passwords against HaveIBeenPwned (fails open)
 TURNSTILE_SECRET_KEY=...          # Cloudflare Turnstile bot defense (no-op/dark when unset)
 INTERNAL_JOB_TOKEN=...            # Shared secret for /internal/jobs/* (endpoints 503 when unset)
-ENABLE_GUEST_DAILY_QUOTA=false    # Per-IP daily summary cap for anonymous users (fails open)
-GUEST_DAILY_SUMMARY_LIMIT=3
 
 # Multi-Period Analysis (Pro flagship)
 ANALYSIS_MONTHLY_CAP=100          # Fair-use cap on fresh AI narratives/month (cached re-serves free)
@@ -68,7 +66,9 @@ STRIPE_SECRET_KEY=...
 STRIPE_WEBHOOK_SECRET=...
 STRIPE_PRICE_MONTHLY_ID=...       # Required (no default) — fails obviously if misconfigured
 STRIPE_PRICE_YEARLY_ID=...
-REVERSE_TRIAL_ENABLED=false       # Grant full Pro for N days on signup, no card
+PRO_TRIAL_DAYS=7                  # Card-required trial on Pro MONTHLY checkout (0 disables);
+                                  # one trial per account (any prior Subscription row skips it)
+REVERSE_TRIAL_ENABLED=false       # Retired no-card signup trial (superseded by PRO_TRIAL_DAYS); keep off
 REVERSE_TRIAL_DAYS=7
 
 # Email (Resend)
@@ -123,6 +123,5 @@ NEXT_PUBLIC_ENABLE_CALENDAR=true|false             # Earnings calendar (owned ED
 NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY=true|false     # Form 4 insider activity panel
 NEXT_PUBLIC_ENABLE_ANALYSIS=true|false             # Multi-Period Analysis (off: nav/CTA hidden + /analysis route 404s)
 NEXT_PUBLIC_ENABLE_MARKET_MOVERS=true|false        # Homepage Market Movers (default off — dead FMP path, no license-clean source; findings review)
-NEXT_PUBLIC_REQUIRE_AUTH_FOR_SUMMARY=true|false    # Gate summary generation behind auth
 WAITLIST_MODE=...                                  # Server-side waitlist gating (not NEXT_PUBLIC_)
 ```

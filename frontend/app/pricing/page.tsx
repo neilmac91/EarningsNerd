@@ -115,9 +115,9 @@ function PricingContent() {
   })
 
   const handleUpgrade = async (priceId: string) => {
-    // Guests can't create a checkout session (401) — send them to sign up instead.
+    // Guests can't create a checkout session (401) — send them to sign up, then back here.
     if (!isAuthenticated) {
-      router.push('/register')
+      router.push('/register?redirect=%2Fpricing')
       return
     }
     setIsLoadingCheckout(priceId)
@@ -141,6 +141,13 @@ function PricingContent() {
   // Beta members get Pro free via the 100%-off forever promo (applied server-side at checkout).
   // Reframe the Pro card so they don't bounce off the $390 sticker — they pay $0 with no card.
   const showBetaOffer = Boolean(currentUser?.is_beta) && !isPaidPro
+
+  // Client-side mirror of the checkout's trial rule (create_checkout_session): first-time
+  // subscriber (no Subscription row → status null; guests count too) + MONTHLY cycle + not beta.
+  // Display-only — the server decides authoritatively at checkout, so a stale read can't
+  // over-promise a trial Stripe won't grant… it just words the button differently.
+  const trialEligible =
+    billingCycle === 'monthly' && !showBetaOffer && !isPaidPro && !isTrialing && !subscription?.status
 
   // Claude-style pricing: always surface the effective MONTHLY cost, with a "Billed monthly/annually"
   // sub-note. The actual charge (priceConfig.monthly/.yearly + the priceId) is unchanged — this only
@@ -170,6 +177,7 @@ function PricingContent() {
       priceId: null,
       betaOriginal: null,
       billingNote: null,
+      trialNote: null,
     },
     {
       name: 'Pro',
@@ -187,10 +195,19 @@ function PricingContent() {
         'PDF, CSV & Excel exports',
         'Priority support',
       ],
-      cta: isPaidPro ? 'Current Plan' : showBetaOffer ? 'Claim Pro' : isTrialing ? 'Subscribe to Pro' : 'Upgrade to Pro',
+      cta: isPaidPro
+        ? 'Current Plan'
+        : showBetaOffer
+        ? 'Claim Pro'
+        : isTrialing
+        ? 'Subscribe to Pro'
+        : trialEligible
+        ? 'Start 7-day free trial'
+        : 'Upgrade to Pro',
       disabled: isPaidPro,
       priceId: billingCycle === 'monthly' ? 'price_pro_monthly' : 'price_pro_yearly',
       popular: true,
+      trialNote: trialEligible ? 'First 7 days free · cancel anytime, no charge' : null,
     },
   ]
 
@@ -337,6 +354,9 @@ function PricingContent() {
                 {plan.betaOriginal && (
                   <p className="mt-1 text-sm font-semibold text-brand-strong dark:text-brand-strong-dark">Free for beta members · no card required</p>
                 )}
+                {plan.trialNote && (
+                  <p className="mt-1 text-sm font-semibold text-brand-strong dark:text-brand-strong-dark">{plan.trialNote}</p>
+                )}
                 <p className="text-text-secondary-light dark:text-text-secondary-dark mt-2">{plan.description}</p>
               </div>
 
@@ -382,6 +402,17 @@ function PricingContent() {
               </h3>
               <p className="text-text-secondary-light dark:text-text-secondary-dark">
                 You&apos;ll need to upgrade to Pro to generate more summaries. Your existing summaries remain accessible.
+              </p>
+            </div>
+            <div>
+              <h3 className="text-lg font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">
+                How does the 7-day free trial work?
+              </h3>
+              <p className="text-text-secondary-light dark:text-text-secondary-dark">
+                Subscribing to Pro monthly for the first time starts with 7 days free. A card is
+                required to start the trial, but you won&apos;t be charged until the trial ends.
+                Cancel anytime in those 7 days from your billing settings and you pay nothing.
+                After 7 days, your subscription starts automatically. One trial per account.
               </p>
             </div>
             <div>

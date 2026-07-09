@@ -147,7 +147,24 @@ export const analytics = {
     })
   },
 
-  // Activation funnel: the visitor was actually shown the upgrade wall (free/guest limit
+  // Activation funnel: a signed-out visitor hit the create-an-account gate on a filing with no
+  // cached summary (generation requires an account). The top of the new signup-first funnel —
+  // pairs with `registration_completed` to measure gate → signup conversion.
+  signupGateShown: (props: {
+    filingId: number
+    ticker: string | null
+    filingType: string
+    entryPoint: string
+  }) => {
+    safeCapture('signup_gate_shown', {
+      filing_id: props.filingId,
+      ticker: props.ticker,
+      filing_type: props.filingType,
+      entry_point: props.entryPoint,
+    })
+  },
+
+  // Activation funnel: the visitor was actually shown the upgrade wall (free limit
   // reached). Distinct from the server-side `paywall_hit` (which records the limit check
   // failing) — this is the client-confirmed UX moment, so the two must not be conflated.
   paywallPromptShown: (props: {
