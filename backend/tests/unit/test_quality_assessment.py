@@ -119,6 +119,65 @@ def test_verdicts_on_fixed_9_section_taxonomy_at_4():
     assert (v["covered_count"], v["total_count"]) == (3, 9)  # stray key ignored
 
 
+# --- T5.2b: N/A-denominator semantics (machine-authored segments, absent by design) ---------------
+
+_V2_SECTIONS = (
+    "the_print", "results_that_matter", "earnings_quality", "value_drivers",
+    "forward_signals", "risks", "segments", "balance_sheet_liquidity", "notable_footnotes",
+)
+
+
+def _v2_snapshot_payload(covered_names, *, not_applicable=None):
+    """A v2 payload (schema_version=2 → TRACKED_SECTIONS_V2) whose snapshot optionally carries the
+    T5.2b ``not_applicable`` marker, mirroring what openai_service attaches at generation time."""
+    per_section = {s: (s in covered_names) for s in _V2_SECTIONS}
+    snapshot = {"per_section": per_section}
+    if not_applicable is not None:
+        snapshot["not_applicable"] = not_applicable
+    return {
+        "business_overview": "A detailed multi-paragraph overview of the business and its results this period.",
+        "financial_highlights": {"revenue": "$1B"},
+        "raw_summary": {"schema_version": 2, "section_coverage": snapshot},
+    }
+
+
+def test_na_segments_shrinks_the_denominator_only():
+    """T5.2b (staff-review rider on #616): segments is machine-authored, so its absence post-fallback is
+    BY DESIGN (single-segment / undimensioned / bank filer) — the snapshot marks it not-applicable and
+    the verdict excludes it from the TOTAL: the badge reads a clean 8/8, never a misleading 8/9. A
+    legacy snapshot without the marker keeps its historical 8/9 (backward compatible); the 4-section
+    full/partial bar is an absolute literal, untouched by the smaller denominator."""
+    from app.services import summary_generation_service as svc
+
+    covered = tuple(s for s in _V2_SECTIONS if s != "segments")
+    v = svc.assess_quality(_v2_snapshot_payload(covered, not_applicable=["segments"]), None)
+    assert (v["covered_count"], v["total_count"]) == (8, 8)
+    assert v["tier"] == "full"
+
+    v = svc.assess_quality(_v2_snapshot_payload(covered), None)          # pre-T5.2b snapshot
+    assert (v["covered_count"], v["total_count"]) == (8, 9)
+
+
+def test_na_is_ignored_for_a_covered_section():
+    """per_section is truth: a COVERED section claimed not-applicable keeps its slot (total stays 9)."""
+    from app.services import summary_generation_service as svc
+
+    v = svc.assess_quality(_v2_snapshot_payload(_V2_SECTIONS, not_applicable=["segments"]), None)
+    assert (v["covered_count"], v["total_count"]) == (9, 9)
+
+
+def test_na_untracked_and_duplicate_entries_cannot_shrink_the_total():
+    """Only tracked, uncovered sections are honored — deduped; a stray/duplicate entry can't drain the
+    denominator."""
+    from app.services import summary_generation_service as svc
+
+    covered = tuple(s for s in _V2_SECTIONS if s != "segments")
+    v = svc.assess_quality(
+        _v2_snapshot_payload(covered, not_applicable=["segments", "segments", "hallucinated"]), None
+    )
+    assert (v["covered_count"], v["total_count"]) == (8, 8)
+
+
 # --- T3.2 number-diff / figure-trace gate ---------------------------------------------------------
 
 def _v2_summary_with_fabricated_figure():

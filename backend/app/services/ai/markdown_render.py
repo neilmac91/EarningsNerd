@@ -434,12 +434,24 @@ class _MarkdownRenderMixin:
 
         # segments (§7): author the reportable-segment table from standardized XBRL (T5.2). Code owns the
         # FIGURES — per-segment revenue, operating income, YoY revenue change — plus a deterministic mix
-        # read (share of segment revenue + operating margin); the model no longer authors segments
-        # (mechanism-A). Ownership invariant (mirrors cash_conversion): strip any stray model segments
-        # FIRST so a segment figure is never model-authored, then inject the deterministic rows when the
-        # filing tagged the ASC-280 segment dimension. Empty for single-segment / undimensioned / bank
-        # filers (graceful degradation — omit the table; the model mix-commentary fallback is T5.2b).
-        sections.pop("segments", None)
+        # read (share of segment revenue + operating margin); code owns every segment FIGURE and the
+        # section key. Ownership invariant (mirrors cash_conversion): pop any model segments FIRST so a
+        # model row can never render — but HARVEST its commentary before discarding (T5.2b hybrid: the
+        # model contributes ONLY a qualitative driver per row, keyed by the code's own labels via the
+        # REPORTABLE SEGMENTS grounding list; unmatched labels are dropped, and the model can never
+        # create a row or the section key). Empty for single-segment / undimensioned / bank filers.
+        model_segments = sections.pop("segments", None)
+        model_notes: Dict[str, str] = {}
+        if isinstance(model_segments, list):
+            for row in model_segments:
+                if not isinstance(row, dict):
+                    continue
+                label = str(row.get("segment") or row.get("name") or "").strip()
+                note = str(row.get("commentary") or "").strip()
+                if not label or not note or note.lower() in _PLACEHOLDER_STRINGS \
+                        or note.lower().startswith("not disclosed"):
+                    continue
+                model_notes[label.casefold()] = note
         seg_rows = (xbrl_metrics or {}).get("segments")
 
         def _seg_num(value: Any) -> Optional[float]:
@@ -454,6 +466,7 @@ class _MarkdownRenderMixin:
             revenue_sum = sum(_seg_num(r.get("revenue")) or 0.0 for r in named)
             authored: List[Dict[str, Any]] = []
             for r in named:
+                name = str(r.get("name")).strip()
                 rev = _seg_num(r.get("revenue"))
                 prior = _seg_num(r.get("revenue_prior"))
                 opinc = _seg_num(r.get("operating_income"))
@@ -463,12 +476,18 @@ class _MarkdownRenderMixin:
                     mix.append(f"{rev / revenue_sum * 100.0:.0f}% of segment revenue")
                 if rev and opinc is not None:
                     mix.append(f"{opinc / rev * 100.0:.0f}% operating margin")
+                # Machine mix/margin first (always present when computable), model driver appended —
+                # figures from code, words from the model, in one cell. Deterministic-only when the
+                # model gave nothing for this label; model-only when no mix was computable.
+                det = ", ".join(mix)
+                note = model_notes.get(name.casefold(), "")
+                commentary = f"{det} — {note}" if det and note else (det or note)
                 authored.append({
-                    "segment": str(r.get("name")).strip(),
+                    "segment": name,
                     "revenue": format_currency(rev) or "",
                     "operating_income": format_currency(opinc) or "",
                     "change": change,
-                    "commentary": ", ".join(mix),
+                    "commentary": commentary,
                     "source_section_ref": "Segment information (XBRL)",
                 })
             if authored:

@@ -441,6 +441,54 @@ def test_apply_structured_fallbacks_segments_stripped_when_no_xbrl():
     assert "segments" not in empty
 
 
+def test_apply_structured_fallbacks_segments_merge_model_commentary():
+    """T5.2b hybrid: the model's qualitative driver (a commentary-only row keyed by the grounding's
+    label list) is merged onto the CODE row — machine mix/margin first, model words appended. A label
+    the code did not author is dropped (the model can never create a row); a code row the model said
+    nothing about keeps the deterministic read alone."""
+    sections = {"segments": [
+        {"segment": "Americas", "commentary": "Growth was led by data center demand."},
+        {"segment": "Phantom Division", "commentary": "Should never render."},
+    ]}
+    openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, _segment_xbrl())
+
+    seg = sections["segments"]
+    assert [r["segment"] for r in seg] == ["Americas", "Europe"]   # phantom dropped, order = code's
+    assert seg[0]["commentary"] == (
+        "62% of segment revenue, 41% operating margin — Growth was led by data center demand."
+    )
+    assert " — " not in seg[1]["commentary"]                        # Europe: deterministic-only
+    # Figures stay code-authored regardless of what the model wrote.
+    assert seg[0]["revenue"] == "$178.4B"
+
+
+def test_apply_structured_fallbacks_segments_commentary_match_is_case_insensitive():
+    sections = {"segments": [{"segment": "  AMERICAS ", "commentary": "Led by data center demand."}]}
+    openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, _segment_xbrl())
+    assert sections["segments"][0]["commentary"].endswith("— Led by data center demand.")
+
+
+def test_apply_structured_fallbacks_segments_placeholder_commentary_ignored():
+    """A placeholder / 'Not disclosed' model line never reaches the cell — deterministic read only."""
+    sections = {"segments": [
+        {"segment": "Americas", "commentary": "Not disclosed—no drivers stated."},
+        {"segment": "Europe", "commentary": "N/A"},
+    ]}
+    openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, _segment_xbrl())
+    for row in sections["segments"]:
+        assert " — " not in row["commentary"]
+
+
+def test_apply_structured_fallbacks_segments_commentary_cannot_create_section():
+    """Commentary-only model rows with no XBRL segment data behind them: harvested, then everything is
+    dropped — the model can never conjure the section key (ownership invariant unchanged)."""
+    sections = {"segments": [{"segment": "Americas", "commentary": "A driver."}]}
+    openai_service._apply_structured_fallbacks(
+        sections, {"company_name": "X"}, {"revenue": {"current": {"value": 1.0}}}
+    )
+    assert "segments" not in sections
+
+
 def test_apply_structured_fallbacks_segments_use_reporting_currency():
     """Foreign issuers: segment figures carry the ISO prefix, never a bare '$'."""
     sections: dict = {}

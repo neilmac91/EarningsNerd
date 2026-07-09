@@ -36,7 +36,10 @@ SUMMARY_SCHEMA_VERSION: int = 2
 # summary-2026-07-f: Tier-5.2 — the segments table removed from the schema/re-ask; it is now
 #   machine-authored from the filing's XBRL segment dimensions (per-segment revenue / operating income
 #   / YoY change + a deterministic mix read). ONE-HOME note reworded. Taxonomy shape unchanged (v2).
-SUMMARY_PROMPT_VERSION: str = "summary-2026-07-f"
+# summary-2026-07-g: Tier-5.2b — segments returns to the schema as COMMENTARY-ONLY rows keyed to the
+#   REPORTABLE SEGMENTS grounding list (figures stay machine-authored; the filler merges the model's
+#   qualitative driver onto the code rows by exact label). Taxonomy shape unchanged (still v2).
+SUMMARY_PROMPT_VERSION: str = "summary-2026-07-g"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:

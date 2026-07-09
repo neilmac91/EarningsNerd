@@ -227,9 +227,16 @@ def _prose_blob(sections: Any) -> str:
         if isinstance(data, dict):
             for field in fields:
                 _add(data.get(field))
-    # segments[].commentary is machine-authored from XBRL (T5.2 — a deterministic mix / operating-margin
-    # read), so it is excluded from policing exactly like cash_flow / cash_conversion; the model no
-    # longer authors the segment table.
+    # segments[].commentary carries MODEL prose again (T5.2b: a qualitative driver merged onto the
+    # machine-authored rows), so it is policed. The machine half of the cell (mix % / operating margin %)
+    # is percentages only — invisible to this dollar-figure gate — so re-inclusion cannot false-flag the
+    # filler's own read; only a model-written dollar amount is checked. Segment FIGURES (revenue /
+    # operating income columns) stay machine-authored and excluded.
+    segments = sections.get("segments")
+    if isinstance(segments, list):
+        for seg in segments:
+            if isinstance(seg, dict):
+                _add(seg.get("commentary"))
     footnotes = sections.get("notable_footnotes")
     if isinstance(footnotes, list):
         for note in footnotes:

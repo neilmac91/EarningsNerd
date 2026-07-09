@@ -179,7 +179,19 @@ def _verdict_coverage(summary_data: Dict[str, Any]) -> Tuple[int, int, int]:
     if isinstance(per_section, dict):
         tracked = _tracked_sections_for(raw.get("schema_version"))
         covered = sum(1 for s in tracked if per_section.get(s))
-        return covered, len(tracked), MINIMUM_STRUCTURED_SECTIONS_FOR_FULL
+        # N/A-denominator semantics (T5.2b): a section the generation snapshot marked not-applicable
+        # (today only machine-authored `segments`, absent BY DESIGN for single-segment / undimensioned
+        # / bank filers) is excluded from the denominator — a genuinely single-segment filer reads a
+        # clean 8/8, not a misleading 8/9. Honored only when the section is tracked AND uncovered
+        # (per_section is truth — a covered section can't be N/A); legacy snapshots lack the key, so
+        # pre-T5.2b rows keep their historical totals. The 4-section full/partial bar is an absolute
+        # literal, untouched by the smaller denominator.
+        not_applicable = snapshot.get("not_applicable")
+        na_count = sum(
+            1 for s in set(not_applicable if isinstance(not_applicable, list) else [])
+            if s in tracked and not per_section.get(s)
+        )
+        return covered, len(tracked) - na_count, MINIMUM_STRUCTURED_SECTIONS_FOR_FULL
     covered, total, _, _ = calculate_section_coverage(summary_data)
     return covered, total, MINIMUM_SECTIONS_FOR_FULL_RESULT
 

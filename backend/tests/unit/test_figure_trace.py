@@ -32,12 +32,22 @@ def test_fabricated_prose_figure_is_flagged():
     assert ft.untraceable_figures(s, _XBRL, _EXCERPT) == ["55.5b"]
 
 
-def test_machine_authored_segments_commentary_is_not_policed():
-    # T5.2: segments[].commentary is machine-authored from XBRL (a deterministic mix / operating-margin
-    # read), so — like cash_flow / cash_conversion — the segment table is excluded from policing. A
-    # dollar figure here absent from XBRL and the excerpt must NOT flag.
-    s = _sections(segments=[{"segment": "Mystery", "commentary": "Mystery segment posted $55.5B of revenue."}])
-    assert ft.untraceable_figures(s, _XBRL, _EXCERPT) == []
+def test_model_segment_commentary_is_policed_again():
+    # T5.2b: segments[].commentary carries a MODEL-written qualitative driver merged onto the
+    # machine-authored rows, so it is policed again. A fabricated dollar amount in the model half
+    # must flag; the machine half (mix % / operating margin %) is percentages — out of the dollar
+    # gate's scope — so the filler's own read can never false-flag.
+    s = _sections(segments=[{
+        "segment": "Americas",
+        "commentary": "62% of segment revenue, 41% operating margin — a $55.5B one-time gain flattered results.",
+    }])
+    assert ft.untraceable_figures(s, _XBRL, _EXCERPT) == ["55.5b"]
+
+    clean = _sections(segments=[{
+        "segment": "Americas",
+        "commentary": "62% of segment revenue, 41% operating margin — growth led by data center demand.",
+    }])
+    assert ft.untraceable_figures(clean, _XBRL, _EXCERPT) == []
 
 
 def test_years_and_counts_are_not_figures():

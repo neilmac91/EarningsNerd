@@ -145,6 +145,23 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
             "noninterest expense / efficiency ratio; provision for credit losses and the "
             "allowance/reserve trend; regulatory capital ratios (e.g. CET1); and deposit and loan growth."
         )
+    # Reportable-segment labels (T5.2b): the segment TABLE (revenue / operating income / mix) is
+    # machine-authored from XBRL, so the model never writes segment figures — but the qualitative
+    # driver behind each segment's move is the model's job. List ONLY the label names (no figures, no
+    # derived % — the arch-no-precomputed-deltas-in-grounding lesson) so the model can key its
+    # commentary to the code's own row names; the filler merges by exact label and drops anything else.
+    seg_rows = xbrl_metrics.get("segments")
+    segment_labels = [
+        str(r.get("name")).strip() for r in seg_rows
+        if isinstance(r, dict) and str(r.get("name") or "").strip()
+    ] if isinstance(seg_rows, list) else []
+    if len(segment_labels) >= 2:
+        body += (
+            "\nREPORTABLE SEGMENTS (XBRL; revenue order): " + "; ".join(segment_labels) + ". The "
+            "per-segment figure table is filled deterministically from XBRL — in `segments`, provide "
+            "ONLY a one-line qualitative driver per listed segment (copy each name EXACTLY as listed; "
+            "no dollar amounts or percentage changes; NEVER add a segment that is not listed here)."
+        )
     # Foreign (non-USD) filers: name the reporting currency emphatically, right next to the figures.
     # The generic "don't render non-USD as $" rule in the analyst system prompt is intermittently
     # ignored for less-common currencies (observed ~1/3 on DKK/Novo Nordisk — figures rendered as

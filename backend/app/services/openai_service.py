@@ -314,6 +314,12 @@ EXTRACTED FINANCIAL SIGNALS:
         "source_section_ref": "<e.g., 'Item 1A. Risk Factors'>"
       }
     ],
+    "segments": [
+      {
+        "segment": "<copy a segment name EXACTLY as listed under REPORTABLE SEGMENTS in the data summary>",
+        "commentary": "<one-line qualitative driver / concentration read for that segment — NO dollar amounts or percentage changes (the figure table is filled deterministically from XBRL)>"
+      }
+    ],
     "balance_sheet_liquidity": {
       "leverage": "<total debt vs cash / equity; net position>",
       "liquidity": "<cash + available credit; runway>",
@@ -373,8 +379,8 @@ Return ONLY valid JSON (no markdown fences) that matches this schema (replace pl
 
 Rules:
 - OBJECTIVITY: Use neutral, factual language. Do NOT use promotional or subjective adjectives (e.g. strong, robust, solid, healthy, surged, soared, plunged, record, exceptional, impressive, fortress); state magnitude and direction with figures instead (e.g. "increased 14% YoY"). Such words are permitted ONLY inside a direct, attributed management quote.
-- Populate the eight authored sections defined in the schema above (the_print, results_that_matter, earnings_quality, value_drivers, forward_signals, risks, balance_sheet_liquidity, notable_footnotes). The ninth section, segments, is filled deterministically from XBRL — do not emit it. Do not invent additional section keys.
-- ONE HOME PER NUMBER — do not restate the same figure across sections. Each specific $-amount or %-change belongs in ONE home: headline P&L figures (revenue, operating income, operating margin, diluted EPS) in results_that_matter; earnings-quality figures (operating vs one-time adjustments) in earnings_quality — the cash-conversion read (NI-vs-CFO, free cash flow) is filled deterministically from XBRL, so do NOT restate the cash-flow $ legs here; the cash-flow statement bridge (operating/investing/financing cash flow) and balance-sheet/liquidity figures (working capital, current ratio) in balance_sheet_liquidity; capital-allocation figures (buybacks, dividends, capex, ROIC) in value_drivers; the per-segment table (segment revenue / operating income) is filled deterministically from XBRL — do not emit segment figures. the_print may echo AT MOST the 2-3 headline figures (revenue, net income, EPS). Every OTHER section must ADD what the figure's home does not — the driver, the significance, or an inflection — and reference a number qualitatively (e.g. "margins widened on the services mix") rather than re-quoting a $-amount or %-change already stated in its home section. Never drop a figure to comply; relocate it to its home. Figures inside a direct, attributed management quote are exempt — never alter or truncate a quote to comply.
+- Populate ONLY the nine sections defined in the schema above (the_print, results_that_matter, earnings_quality, value_drivers, forward_signals, risks, segments, balance_sheet_liquidity, notable_footnotes). Do not invent additional section keys. `segments` is COMMENTARY-ONLY: its figure table (revenue, operating income, mix) is filled deterministically from XBRL — emit one row per segment listed under REPORTABLE SEGMENTS in the data summary (name copied EXACTLY; a row whose name is not on that list is discarded), and omit the section entirely when no segments are listed.
+- ONE HOME PER NUMBER — do not restate the same figure across sections. Each specific $-amount or %-change belongs in ONE home: headline P&L figures (revenue, operating income, operating margin, diluted EPS) in results_that_matter; earnings-quality figures (operating vs one-time adjustments) in earnings_quality — the cash-conversion read (NI-vs-CFO, free cash flow) is filled deterministically from XBRL, so do NOT restate the cash-flow $ legs here; the cash-flow statement bridge (operating/investing/financing cash flow) and balance-sheet/liquidity figures (working capital, current ratio) in balance_sheet_liquidity; capital-allocation figures (buybacks, dividends, capex, ROIC) in value_drivers; the per-segment table (segment revenue / operating income) is filled deterministically from XBRL — segment commentary must stay qualitative, never a segment $-amount or %-change. the_print may echo AT MOST the 2-3 headline figures (revenue, net income, EPS). Every OTHER section must ADD what the figure's home does not — the driver, the significance, or an inflection — and reference a number qualitatively (e.g. "margins widened on the services mix") rather than re-quoting a $-amount or %-change already stated in its home section. Never drop a figure to comply; relocate it to its home. Figures inside a direct, attributed management quote are exempt — never alter or truncate a quote to comply.
 - Keep monetary values human-readable (e.g., "$17.7B", "$425M", "$912M").
 - Express percentage changes with one decimal place where available (e.g., "up 8.3% YoY").
 - For arrays, include 1-4 high-signal, evidence-backed bullets ordered by materiality. If nothing qualifies, return ["Not disclosed—<concise reason>"] instead of leaving the array empty.
@@ -765,6 +771,14 @@ Rules:
             "covered_count": covered_sections,
             "total_count": total_sections,
             "coverage_ratio": (covered_sections / total_sections) if total_sections else None,
+            # N/A semantics (T5.2b, staff-review rider on #616): `segments` is machine-authored from
+            # XBRL — code is its ONLY author — so an empty segments section post-fallback means the
+            # filing has no reportable segment table BY DESIGN (single-segment / undimensioned / bank),
+            # not that generation under-delivered. Record it as not-applicable so the quality verdict
+            # can exclude it from the DENOMINATOR (a genuinely single-segment filer reads 8/8, not a
+            # misleading 8/9). The raw counts above stay raw (this snapshot records what exists; the
+            # verdict applies the semantics).
+            "not_applicable": [] if coverage_map.get("segments") else ["segments"],
         }
 
         logger.info(
