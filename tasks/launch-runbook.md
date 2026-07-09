@@ -33,6 +33,13 @@ Every code prerequisite is done; the steps below are operator actions.*
    `ENABLE_GUEST_DAILY_QUOTA` flag was deleted; deploys now clear it via
    `--remove-env-vars`). Confirm `POSTHOG_API_KEY` is set (as a secret
    or env var) — server-side generation events no-op without it.
+   **7-day Pro trial (ships dark):** the trial defaults OFF
+   (`PRO_TRIAL_DAYS=0`). Enable it only after the PR #619 Stripe test-mode
+   checklist passes (trial checkout collects a card, cancel-in-trial is
+   free, day-8 charge converts, billing-portal cancellation is enabled in
+   the Stripe Dashboard): set `PRO_TRIAL_DAYS=7` on the Cloud Run service
+   AND `NEXT_PUBLIC_ENABLE_PRO_TRIAL=true` on Vercel in the same change —
+   the UI trial copy and the checkout behavior must flip together.
 6. **Smoke-test the preview/production** while still gated (sign in first —
    generation requires an account since #619): `/company/AAPL`
    → recommended filing → summary generates; the example CTA on `/waitlist`

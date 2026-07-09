@@ -66,8 +66,12 @@ STRIPE_SECRET_KEY=...
 STRIPE_WEBHOOK_SECRET=...
 STRIPE_PRICE_MONTHLY_ID=...       # Required (no default) — fails obviously if misconfigured
 STRIPE_PRICE_YEARLY_ID=...
-PRO_TRIAL_DAYS=7                  # Card-required trial on Pro MONTHLY checkout (0 disables);
-                                  # one trial per account (any prior Subscription row skips it)
+PRO_TRIAL_DAYS=0                  # Card-required trial on Pro MONTHLY checkout. DEFAULT 0 = OFF
+                                  # (rollout convention). Set 7 on the service only after the PR #619
+                                  # Stripe test-mode checklist, IN LOCKSTEP with the frontend's
+                                  # NEXT_PUBLIC_ENABLE_PRO_TRIAL=true (trial copy must not show while
+                                  # checkout grants no trial). Bounded 0-30 at boot; one trial per
+                                  # account (any prior Subscription row skips it).
 REVERSE_TRIAL_ENABLED=false       # Retired no-card signup trial (superseded by PRO_TRIAL_DAYS); keep off
 REVERSE_TRIAL_DAYS=7
 
@@ -123,5 +127,6 @@ NEXT_PUBLIC_ENABLE_CALENDAR=true|false             # Earnings calendar (owned ED
 NEXT_PUBLIC_ENABLE_INSIDER_ACTIVITY=true|false     # Form 4 insider activity panel
 NEXT_PUBLIC_ENABLE_ANALYSIS=true|false             # Multi-Period Analysis (off: nav/CTA hidden + /analysis route 404s)
 NEXT_PUBLIC_ENABLE_MARKET_MOVERS=true|false        # Homepage Market Movers (default off — dead FMP path, no license-clean source; findings review)
+NEXT_PUBLIC_ENABLE_PRO_TRIAL=true|false            # Advertise the 7-day Pro trial (default off; flip WITH backend PRO_TRIAL_DAYS=7)
 WAITLIST_MODE=...                                  # Server-side waitlist gating (not NEXT_PUBLIC_)
 ```

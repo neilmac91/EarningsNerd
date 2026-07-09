@@ -140,11 +140,22 @@ async def create_checkout_session(
       the trial, so cancel→resubscribe can't re-farm free weeks on the same account.
     - Everyone else (yearly, or repeat subscriber): plain paid checkout, ``if_required`` (Stripe
       still collects a card whenever the amount due is non-zero, so paying users are unaffected).
+
+    An already-entitled user (active OR live trialing — resolved via the entitlements SSoT, so an
+    EXPIRED-trial remnant row never blocks a genuine resubscribe) gets 409, not a second checkout:
+    a card-required trial is a real Stripe subscription that auto-charges at trial end, so letting
+    it through would double-bill — and the per-user Subscription row upsert would orphan the first
+    sub in-app while Stripe keeps charging it (staff review, PR #619).
     """
     if not current_user.email_verified:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Please verify your email address before subscribing.",
+        )
+    if is_pro_user(current_user):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="You already have an active subscription. Manage it from the billing portal.",
         )
     if not settings.STRIPE_SECRET_KEY:
         raise HTTPException(

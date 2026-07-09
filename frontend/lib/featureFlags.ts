@@ -133,6 +133,18 @@ export const ENABLE_ANALYSIS =
   process.env.NEXT_PUBLIC_ENABLE_ANALYSIS === 'true'
 
 /**
+ * Advertise the 7-day card-required Pro trial across the UI (pricing card CTA/note/FAQ, the
+ * filing-page paywall card, the signup gate, homepage CTA banner). MUST flip in lockstep with the
+ * backend's PRO_TRIAL_DAYS on Cloud Run: the backend defaults the trial OFF (rollout convention —
+ * enable per environment only after the Stripe test-mode checklist in PR #619), and showing trial
+ * copy while checkout grants no trial is a false billing claim. Ships dark.
+ * Flip NEXT_PUBLIC_ENABLE_PRO_TRIAL='true' together with PRO_TRIAL_DAYS=7.
+ * Default: disabled.
+ */
+export const ENABLE_PRO_TRIAL =
+  process.env.NEXT_PUBLIC_ENABLE_PRO_TRIAL === 'true'
+
+/**
  * Show the full-text filing search product (the /search route + its nav and footer entries).
  * Hidden by founder decision — it's our weakest offering — but kept in the codebase so it can be
  * reintroduced by flipping one flag. Same gate pattern as ENABLE_ANALYSIS/ENABLE_CALENDAR: the

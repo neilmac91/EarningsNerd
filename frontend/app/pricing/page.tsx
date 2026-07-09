@@ -10,6 +10,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import SecondaryHeader from '@/components/SecondaryHeader'
 import { Badge, Button, Card, Notice, Switch } from '@/components/ui'
 import analytics from '@/lib/analytics'
+import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
 import { useFeatureFlagVariantKey } from 'posthog-js/react'
 import posthog from 'posthog-js'
 import { queryKeys } from '@/lib/queryKeys'
@@ -132,9 +133,12 @@ function PricingContent() {
     }
   }
 
-  // A reverse-trial user is `is_pro` but hasn't paid yet, so they must still be able to pick a
-  // billing cycle and convert. Only a *paid* (active, non-trial) subscriber has nothing to buy —
-  // treating every `is_pro` user as "Current Plan" dead-ends trial users on the upgrade button.
+  // A trialing user on the CARD-REQUIRED Stripe trial already holds a live subscription that
+  // auto-charges at trial end — so for the buy CTA they are a CURRENT-PLAN user, not a prospect.
+  // (The old rule let trialing users click through to checkout; that was written for the retired
+  // no-card reverse trial and would now create a SECOND live subscription — double-billing plus
+  // a webhook hazard when the orphaned sub later cancels. Staff review, PR #619.)
+  // isPaidPro stays distinct so copy can say "Current Plan (trial)" vs "Current Plan".
   const isTrialing = subscription?.status === 'trialing'
   const isPaidPro = Boolean(subscription?.is_pro) && !isTrialing
 
@@ -149,7 +153,9 @@ function PricingContent() {
   // For a signed-in user, wait for the subscription query to RESOLVE (`subscription` set) before
   // claiming eligibility — while it loads, `!subscription?.status` would read trial-eligible and
   // flash the trial CTA at repeat subscribers (Gemini review, PR #619).
+  // ENABLE_PRO_TRIAL keeps the copy dark until the backend's PRO_TRIAL_DAYS is live (lockstep).
   const trialEligible =
+    ENABLE_PRO_TRIAL &&
     billingCycle === 'monthly' &&
     !showBetaOffer &&
     !isPaidPro &&
@@ -204,14 +210,17 @@ function PricingContent() {
       ],
       cta: isPaidPro
         ? 'Current Plan'
+        : isTrialing
+        ? 'Current Plan (trial)'
         : showBetaOffer
         ? 'Claim Pro'
-        : isTrialing
-        ? 'Subscribe to Pro'
         : trialEligible
         ? 'Start 7-day free trial'
         : 'Upgrade to Pro',
-      disabled: isPaidPro,
+      // Trialing counts as current-plan: their card-required trial IS a live subscription that
+      // auto-charges at trial end; an enabled buy button here creates a duplicate (see comment
+      // above isTrialing). Plan changes go through the billing portal instead.
+      disabled: isPaidPro || isTrialing,
       priceId: billingCycle === 'monthly' ? 'price_pro_monthly' : 'price_pro_yearly',
       popular: true,
       trialNote: trialEligible ? 'First 7 days free · cancel anytime, no charge' : null,
@@ -260,8 +269,10 @@ function PricingContent() {
             </div>
           )}
 
-          {/* Billing Toggle — shown to free and trialing users (both can still choose a cycle). */}
-          {!isPaidPro && (
+          {/* Billing Toggle — free users only. A card-trial user's plan changes go through the
+              billing portal (their buy CTA is disabled as current-plan), so the toggle would
+              only move a button they can't press. */}
+          {!isPaidPro && !isTrialing && (
             <div className="mt-8 flex items-center justify-center space-x-4">
               <span className={`text-sm font-medium ${billingCycle === 'monthly' ? 'text-text-primary-light dark:text-text-primary-dark' : 'text-text-secondary-light dark:text-text-secondary-dark'}`}>
                 Monthly
@@ -411,17 +422,19 @@ function PricingContent() {
                 You&apos;ll need to upgrade to Pro to generate more summaries. Your existing summaries remain accessible.
               </p>
             </div>
-            <div>
-              <h3 className="text-lg font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">
-                How does the 7-day free trial work?
-              </h3>
-              <p className="text-text-secondary-light dark:text-text-secondary-dark">
-                Subscribing to Pro monthly for the first time starts with 7 days free. A card is
-                required to start the trial, but you won&apos;t be charged until the trial ends.
-                Cancel anytime in those 7 days from your billing settings and you pay nothing.
-                After 7 days, your subscription starts automatically. One trial per account.
-              </p>
-            </div>
+            {ENABLE_PRO_TRIAL && (
+              <div>
+                <h3 className="text-lg font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">
+                  How does the 7-day free trial work?
+                </h3>
+                <p className="text-text-secondary-light dark:text-text-secondary-dark">
+                  Subscribing to Pro monthly for the first time starts with 7 days free. A card is
+                  required to start the trial, but you won&apos;t be charged until the trial ends.
+                  Cancel anytime in those 7 days from your billing settings and you pay nothing.
+                  After 7 days, your subscription starts automatically. One trial per account.
+                </p>
+              </div>
+            )}
             <div>
               <h3 className="text-lg font-semibold text-text-heading-light dark:text-text-heading-dark mb-2">
                 Do you offer refunds?
