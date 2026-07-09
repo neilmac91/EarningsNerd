@@ -8,6 +8,7 @@ Extracted verbatim.
 """
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List, Optional
 
 from app.services.ai.fi_signals import fi_components_present
@@ -453,10 +454,16 @@ class _MarkdownRenderMixin:
                 if not isinstance(raw_label, str) or not isinstance(raw_note, str):
                     continue
                 label = raw_label.strip()
-                note = raw_note.strip().lstrip("—-– ").strip()
-                if not label or not note or note.lower() in _PLACEHOLDER_STRINGS \
-                        or note.lower().startswith(("not disclosed", "not applicable", "n/a")):
+                # Strip a dangling separator prefix (em/en dash, or a "- " bullet) WITHOUT eating a
+                # legitimate leading minus sign — "-3% FX headwind" must keep its sign.
+                note = re.sub(r"^[\s—–]+", "", raw_note.strip())
+                note = re.sub(r"^-\s+", "", note).strip()
+                low = note.lower()
+                if not label or not note or low in _PLACEHOLDER_STRINGS \
+                        or low.startswith(("not disclosed", "not applicable", "n/a")) \
+                        or re.match(r"none\b", low):
                     continue
+                # Duplicate labels: last write wins (the model's final row for a name supersedes).
                 model_notes[label.casefold()] = note
         seg_rows = (xbrl_metrics or {}).get("segments")
 

@@ -43,6 +43,22 @@ from app.services.summary_versioning import SUMMARY_SCHEMA_VERSION
 logger = logging.getLogger(__name__)
 
 
+def _segments_not_applicable(coverage_map: Dict[str, bool], xbrl_metrics: Optional[Dict]) -> List[str]:
+    """T5.2b N/A marker (staff-review rider on #616): `segments` is machine-authored — code is its ONLY
+    author — so an empty segments section post-fallback means the filing has no reportable segment table
+    BY DESIGN (single-segment / undimensioned / bank), and the quality verdict may exclude it from the
+    badge DENOMINATOR (a genuinely single-segment filer reads 8/8, not a misleading 8/9).
+
+    Claimed ONLY when standardized XBRL actually arrived (staff review #617): `not covered` is also true
+    when the XBRL fetch collapsed (the recurring EdgarTools-timeout mode) — a world where the filer may
+    well HAVE reportable segments we simply could not author. Marking that N/A would UPGRADE a degraded
+    run's badge to a clean 8/8 (the mirror image of the misleading-badge problem this fixes) and shrink
+    the tail the P0-2 partial-verdict counter measures. No XBRL → no claim → total stays 9."""
+    if xbrl_metrics and not coverage_map.get("segments"):
+        return ["segments"]
+    return []
+
+
 class OpenAIService(
     _ExtractionMixin,
     _JsonRepairMixin,
@@ -771,14 +787,9 @@ Rules:
             "covered_count": covered_sections,
             "total_count": total_sections,
             "coverage_ratio": (covered_sections / total_sections) if total_sections else None,
-            # N/A semantics (T5.2b, staff-review rider on #616): `segments` is machine-authored from
-            # XBRL — code is its ONLY author — so an empty segments section post-fallback means the
-            # filing has no reportable segment table BY DESIGN (single-segment / undimensioned / bank),
-            # not that generation under-delivered. Record it as not-applicable so the quality verdict
-            # can exclude it from the DENOMINATOR (a genuinely single-segment filer reads 8/8, not a
-            # misleading 8/9). The raw counts above stay raw (this snapshot records what exists; the
-            # verdict applies the semantics).
-            "not_applicable": [] if coverage_map.get("segments") else ["segments"],
+            # The raw counts above stay raw (this snapshot records what exists; the verdict applies
+            # the N/A semantics — see _segments_not_applicable).
+            "not_applicable": _segments_not_applicable(coverage_map, xbrl_metrics),
         }
 
         logger.info(

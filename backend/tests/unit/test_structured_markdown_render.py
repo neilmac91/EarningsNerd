@@ -447,7 +447,10 @@ def test_apply_structured_fallbacks_segments_merge_model_commentary():
     the code did not author is dropped (the model can never create a row); a code row the model said
     nothing about keeps the deterministic read alone."""
     sections = {"segments": [
-        {"segment": "Americas", "commentary": "Growth was led by data center demand."},
+        # Conflicting figure keys on a MATCHING label — the pre-2026-07-f full-row shape a prompt
+        # regression would resurrect. Only the commentary may survive; figures never move.
+        {"segment": "Americas", "commentary": "Growth was led by data center demand.",
+         "revenue": "$999B", "operating_income": "$888B", "change": "+99%"},
         {"segment": "Phantom Division", "commentary": "Should never render."},
     ]}
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, _segment_xbrl())
@@ -458,8 +461,9 @@ def test_apply_structured_fallbacks_segments_merge_model_commentary():
         "62% of segment revenue, 41% operating margin — Growth was led by data center demand."
     )
     assert " — " not in seg[1]["commentary"]                        # Europe: deterministic-only
-    # Figures stay code-authored regardless of what the model wrote.
-    assert seg[0]["revenue"] == "$178.4B"
+    # Figures stay code-authored regardless of what the model wrote on the matching row.
+    assert seg[0]["revenue"] == "$178.4B" and seg[0]["operating_income"] == "$72.5B"
+    assert seg[0]["change"] == "+6.8%"
 
 
 def test_apply_structured_fallbacks_segments_commentary_match_is_case_insensitive():
@@ -478,6 +482,49 @@ def test_apply_structured_fallbacks_segments_placeholder_commentary_ignored():
     openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, _segment_xbrl())
     for row in sections["segments"]:
         assert " — " not in row["commentary"]
+
+
+def test_apply_structured_fallbacks_segments_leading_minus_preserved():
+    """The dash-prefix strip must not eat a legitimate minus sign — '-3% FX headwind' keeps its sign,
+    while a dangling '— ' / '- ' separator prefix is still removed."""
+    sections = {"segments": [
+        {"segment": "Americas", "commentary": "-3% FX headwind drove the decline."},
+        {"segment": "Europe", "commentary": "— led by services demand."},
+    ]}
+    openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, _segment_xbrl())
+
+    seg = sections["segments"]
+    assert seg[0]["commentary"].endswith("— -3% FX headwind drove the decline.")
+    assert seg[1]["commentary"].endswith("— led by services demand.")
+    assert "— — " not in seg[1]["commentary"]
+
+
+def test_apply_structured_fallbacks_segments_none_stated_filtered():
+    """'None stated.' is a placeholder, not a driver — filtered; 'Nonetheless…' prose survives."""
+    sections = {"segments": [
+        {"segment": "Americas", "commentary": "None stated."},
+        {"segment": "Europe", "commentary": "Nonetheless, services demand carried growth."},
+    ]}
+    openai_service._apply_structured_fallbacks(sections, {"company_name": "X"}, _segment_xbrl())
+
+    seg = sections["segments"]
+    assert " — " not in seg[0]["commentary"]
+    assert seg[1]["commentary"].endswith("— Nonetheless, services demand carried growth.")
+
+
+def test_segments_not_applicable_requires_xbrl_presence():
+    """Staff review #617 should-fix: the N/A marker is claimed ONLY when standardized XBRL actually
+    arrived. A collapsed XBRL fetch (coverage false, metrics empty/None) must NOT claim by-design
+    absence — the badge stays 8/9 (degraded), never flattered to 8/8."""
+    from app.services.openai_service import _segments_not_applicable
+
+    # XBRL arrived, no segments authored -> genuinely N/A.
+    assert _segments_not_applicable({"segments": False}, {"revenue": {}}) == ["segments"]
+    # XBRL arrived AND segments authored -> not N/A.
+    assert _segments_not_applicable({"segments": True}, {"revenue": {}}) == []
+    # XBRL never arrived -> no claim, regardless of coverage.
+    assert _segments_not_applicable({"segments": False}, None) == []
+    assert _segments_not_applicable({"segments": False}, {}) == []
 
 
 def test_apply_structured_fallbacks_segments_nonstring_commentary_dropped():
