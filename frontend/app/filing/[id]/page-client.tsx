@@ -357,12 +357,15 @@ function FilingDetailView({ filingId }: { filingId: number }) {
               onRetry={handleRegenerateSummary}
               onAsk={handleAskCopilot}
             />
-          ) : isAuthResolved && !isAuthenticated && filing && !summaryLoading && !activeErrorMessage ? (
-            // No cached summary (query settled, WITHOUT error) + signed out: generation requires
-            // an account, so gate instead of auto-generating. Cached summaries render above for
-            // everyone (SEO surface) — !summaryLoading stops the gate flashing while they load,
-            // and !activeErrorMessage keeps a transient getSummary failure rendering as the error
-            // card below rather than a signup gate over a summary that actually exists.
+          ) : isAuthResolved && !isAuthenticated && filing && !summaryLoading ? (
+            // No displayable summary (query settled) + signed out: generation requires an account,
+            // so route to the gate — its sign-up/login links are the functional next step for any
+            // guest here. Cached summaries render above for everyone (branch 2 wins first), so the
+            // gate is only reached when there's genuinely nothing to show; !summaryLoading stops it
+            // flashing while the query loads. Deliberately NOT gated on !activeErrorMessage: a
+            // transient getSummary error must keep the working gate for a guest, not fall through
+            // to the error card whose "Retry generation" dead-ends at "please sign in" for them
+            // (it self-heals on reload if a cached summary did exist).
             <GenerateSignupGate filing={filing} entryPoint={entryPoint} />
           ) : !activeErrorMessage && (summaryLoading || !isAuthResolved) ? (
             // Still settling (summary query loading, or /me not yet resolved) and not actively
