@@ -6,7 +6,11 @@ import { GuidanceCard, buttonVariants } from '@/components/ui'
 import { SparkleIcon } from '@/lib/icons'
 import analytics from '@/lib/analytics'
 import { ENABLE_PRO_TRIAL } from '@/lib/featureFlags'
-import { stashPostAuthRedirect } from '@/lib/postAuthRedirect'
+import {
+  loginHrefWithRedirect,
+  registerHrefWithRedirect,
+  stashPostAuthRedirect,
+} from '@/lib/postAuthRedirect'
 import type { Filing } from '@/features/filings/api/filings-api'
 
 /**
@@ -16,21 +20,23 @@ import type { Filing } from '@/features/filings/api/filings-api'
  * Both CTAs carry ?redirect= so the visitor lands back on this filing after authenticating.
  */
 export function GenerateSignupGate({ filing, entryPoint }: { filing: Filing; entryPoint: string }) {
-  const redirect = encodeURIComponent(`/filing/${filing.id}`)
+  // RAW path — the href builders encode exactly once (a pre-encoded value would double-encode and
+  // the receiver would silently drop it to `/`; see postAuthRedirect).
+  const redirectPath = `/filing/${filing.id}`
   const ticker = filing.company?.ticker ?? null
 
   useEffect(() => {
     // Belt-and-suspenders with the ?redirect= links below: the query thread dies when the
     // verification email opens a NEW tab, so stash the destination too — login consumes it as
     // the fallback and the converted user still lands back on this filing.
-    stashPostAuthRedirect(`/filing/${filing.id}`)
+    stashPostAuthRedirect(redirectPath)
     analytics.signupGateShown({
       filingId: filing.id,
       ticker,
       filingType: filing.filing_type,
       entryPoint,
     })
-  }, [filing.id, ticker, filing.filing_type, entryPoint])
+  }, [filing.id, redirectPath, ticker, filing.filing_type, entryPoint])
 
   return (
     <GuidanceCard
@@ -46,10 +52,10 @@ export function GenerateSignupGate({ filing, entryPoint }: { filing: Filing; ent
       }
       action={
         <>
-          <Link href={`/register?redirect=${redirect}`} className={buttonVariants()}>
+          <Link href={registerHrefWithRedirect(redirectPath)} className={buttonVariants()}>
             Create free account
           </Link>
-          <Link href={`/login?redirect=${redirect}`} className={buttonVariants({ variant: 'ghost' })}>
+          <Link href={loginHrefWithRedirect(redirectPath)} className={buttonVariants({ variant: 'ghost' })}>
             Log in
           </Link>
         </>

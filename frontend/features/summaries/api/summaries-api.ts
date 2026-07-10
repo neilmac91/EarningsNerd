@@ -1,5 +1,5 @@
-import api, { getApiUrl, ensureRefreshed } from '@/lib/api/client'
-import { hasActiveSession, clearSessionActive } from '@/lib/api/session'
+import api, { getApiUrl } from '@/lib/api/client'
+import { postStreamWithRefresh } from '@/lib/api/streamRefresh'
 import type { FinancialHighlights, MetricItem, RiskFactor } from '@/types/summary'
 import { isApiError, getErrorStatus } from '@/lib/api/types'
 import posthog from 'posthog-js'
@@ -266,36 +266,14 @@ const runStreamAttempt = async (
       signal: controller.signal,
     })
 
-  // Expired access cookie: the shared axios client silently refreshes + replays on 401
-  // (lib/api/client.ts), but this sanctioned raw SSE fetch bypasses it — so a user who idled past
-  // ACCESS_TOKEN_EXPIRE_MINUTES would dead-end on "Could not validate credentials" with a Retry
-  // that re-sends the same expired cookie forever. Reuse the client's exact machinery so behavior
-  // is identical: gate on hasActiveSession() (a guest's 401 is genuine — never a pointless
-  // refresh), share ensureRefreshed()'s single in-flight promise (a concurrent 401 here + in axios
-  // must not fire two /refresh calls on the same single-use rotating token), and clearSessionActive()
-  // when refresh fails so the app stops treating a gone session as live. (The old "retry as guest"
-  // fallback used to mask this; it died with guest generation.)
-  //
-  // The connect handshake (initial POST + replay) is wrapped so a network-level throw becomes a
+  // Expired access cookie: this sanctioned raw SSE fetch bypasses the axios client's silent
+  // 401 → /refresh → replay, so postStreamWithRefresh replicates it (shared with the Copilot and
+  // Analysis readers). The connect handshake is wrapped so a network-level throw becomes a
   // RETRYABLE result the outer attempt loop can re-try, rather than propagating past it — the
-  // streaming-read phase below is already guarded the same way. The replay sits OUTSIDE the refresh
-  // try (mirroring lib/api/client.ts) so a throw from the *replayed* request propagates as a normal
-  // connect error, not a refresh failure.
+  // streaming-read phase below is already guarded the same way.
   let response: Response
   try {
-    response = await postStream()
-    if (response.status === 401 && hasActiveSession()) {
-      let refreshed = false
-      try {
-        await ensureRefreshed()
-        refreshed = true
-      } catch {
-        clearSessionActive() // session genuinely gone — stop treating it as live
-      }
-      if (refreshed) {
-        response = await postStream()
-      }
-    }
+    response = await postStreamWithRefresh(postStream)
   } catch (error: unknown) {
     clearTimeoutSafely()
     const message = error instanceof Error ? error.message : 'Failed to connect to the summary stream.'

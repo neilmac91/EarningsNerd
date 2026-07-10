@@ -1,4 +1,5 @@
 import api, { getApiUrl } from '@/lib/api/client'
+import { postStreamWithRefresh } from '@/lib/api/streamRefresh'
 
 // Idle timeout for the SSE stream — mirrors copilot-api.ts: any activity resets the clock.
 const STREAM_TIMEOUT_MS = 120000
@@ -273,18 +274,22 @@ export const streamAnalysis = async (
   }
 
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        mode: range.mode,
-        start_period: range.start_period,
-        end_period: range.end_period,
-        force: range.force ?? false,
+    // Raw SSE POST bypasses the axios client, so refresh an expired access cookie the same way
+    // (a Pro user reading a long analysis for 30+ min must not be told to "sign in" mid-session).
+    const response = await postStreamWithRefresh(() =>
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          mode: range.mode,
+          start_period: range.start_period,
+          end_period: range.end_period,
+          force: range.force ?? false,
+        }),
+        signal: controller.signal,
       }),
-      signal: controller.signal,
-    })
+    )
 
     if (!response.ok) {
       let errorMessage: string
