@@ -6,6 +6,7 @@ single headline echo is free; unit-less integers like years never register as fi
 from evals.scorers import (
     _figure_keys,
     score_delta_consistency,
+    score_forward_quote_fidelity,
     score_redundancy,
     score_summary,
 )
@@ -320,3 +321,73 @@ def test_canary_delta_consistency_fires_on_production_markdown():
     fields_result = score_delta_consistency(fields_payload)
     assert md_result[0] == 0.0 and "Revenue" in md_result[1][0]   # production shape now FIRES
     assert md_result == fields_result                             # both shapes agree (A/B)
+
+
+# --- forward-quote verbatim fidelity (T5.4) -----------------------------------------------------
+
+FILING_TEXT = (
+    "Item 7. MD&A - Outlook. Management stated: “We believe demand for our accelerated computing "
+    "platforms will continue to outpace supply through the first half of next year.” Our board "
+    "declared the company’s largest-ever repurchase authorization — $110 billion."
+)
+_REAL_QUOTE = ("We believe demand for our accelerated computing platforms will continue to "
+               "outpace supply through the first half of next year.")
+_FAKE_QUOTE = "We are confident revenue will double next year and margins will expand dramatically."
+
+
+def _forward_md(*quotes):
+    lines = ["## The Print", "A quarter of records.", "", "## Forward Signals",
+             "Guidance maintained for fiscal 2027.", ""]
+    lines += [f'> "{q}" — CFO' for q in quotes]
+    return "\n".join(lines)
+
+
+def test_forward_quote_fidelity_perfect_when_all_quotes_verify():
+    # Typography drift included: the model types straight punctuation, the filing typesets curly.
+    payload = {"executive_summary": _forward_md(_REAL_QUOTE,
+               "the company's largest-ever repurchase authorization - $110 billion")}
+    assert score_forward_quote_fidelity(payload, FILING_TEXT) == (1.0, [])
+
+
+def test_forward_quote_fidelity_flags_fabrication_with_score():
+    payload = {"executive_summary": _forward_md(_REAL_QUOTE, _FAKE_QUOTE)}
+    score, violations = score_forward_quote_fidelity(payload, FILING_TEXT)
+    assert score == 0.5
+    assert len(violations) == 1 and "no counterpart" in violations[0]
+
+
+def test_forward_quote_fidelity_labels_near_miss():
+    # One word changed ("first" -> "second"): a close counterpart exists in the filing.
+    near = _REAL_QUOTE.replace("first half", "second half")
+    payload = {"executive_summary": _forward_md(near)}
+    score, violations = score_forward_quote_fidelity(payload, FILING_TEXT)
+    assert score == 0.0 and "near-miss" in violations[0]
+
+
+def test_forward_quote_fidelity_ignores_quotes_outside_forward_sections():
+    # Only the forward/outlook section's blockquotes are schema-contracted verbatim quotes.
+    md = "\n".join(["## The Print", f'> "{_FAKE_QUOTE}" — CEO', "", "## Forward Signals",
+                    "Guidance maintained."])
+    assert score_forward_quote_fidelity({"executive_summary": md}, FILING_TEXT) == (1.0, [])
+
+
+def test_forward_quote_fidelity_neutral_without_referent_markdown_or_quotes():
+    quoted = {"executive_summary": _forward_md(_FAKE_QUOTE)}
+    assert score_forward_quote_fidelity(quoted, None) == (1.0, [])       # no filing text
+    assert score_forward_quote_fidelity(quoted, "") == (1.0, [])
+    flat = {"executive_summary": "No markdown headings here.", "outlook": "Guidance maintained."}
+    assert score_forward_quote_fidelity(flat, FILING_TEXT) == (1.0, [])  # no rendered markdown
+    no_quotes = {"executive_summary": _forward_md()}
+    assert score_forward_quote_fidelity(no_quotes, FILING_TEXT) == (1.0, [])
+    short = {"executive_summary": _forward_md("We expect growth.")}     # under the shared floor
+    assert score_forward_quote_fidelity(short, FILING_TEXT) == (1.0, [])
+
+
+def test_forward_quote_fidelity_rides_score_summary_only_when_text_provided():
+    payload = {"executive_summary": _forward_md(_FAKE_QUOTE), "management_discussion": "m",
+               "outlook": "Guidance maintained.", "financial_highlights": {"revenue": "$1B"},
+               "risk_factors": [{"text": "Concentration risk remains material."}]}
+    without = score_summary(payload, [])
+    assert without.forward_quote_fidelity == 1.0                         # neutral default
+    with_text = score_summary(payload, [], filing_text=FILING_TEXT)
+    assert with_text.forward_quote_fidelity == 0.0                       # measured when threaded

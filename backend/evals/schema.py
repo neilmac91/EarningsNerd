@@ -133,6 +133,13 @@ class RubricScore:
     # table. Levels (e.g. "74.9%") and ppt/bps deltas are never compared, so it only fires on clear
     # contradictions. Reported alongside the aggregate (NOT folded in); WARN-gated.
     delta_consistency: float = 1.0
+    # [0,1] §5 forward-quote verbatim fidelity (T5.4): fraction of Forward Signals blockquotes in
+    # the rendered markdown locatable verbatim in the filing text, under the SAME normalization the
+    # production forward_quote_gate / T4 evidence badge / copilot citations use. Neutral 1.0 when
+    # there is no filing-text referent, no rendered markdown, or no verifiable quotes. Reported
+    # alongside the aggregate (NOT folded in); WARN-gated in regression_gate — binds only after a
+    # future re-pin records it (the gate skips metrics absent from the pinned baseline).
+    forward_quote_fidelity: float = 1.0
     # Artifact-1 HARD GATES. A non-empty list is a promotion VETO independent of `aggregate()`:
     # a single fabricated number or leaked notice fails the summary no matter how good the prose.
     gate_failures: List[str] = field(default_factory=list)

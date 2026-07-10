@@ -27,6 +27,7 @@ from app.services.ai.copilot_chat import (
     STREAM_ERROR_SENTINEL,
 )
 from app.services.ai.extraction import _ExtractionMixin
+from app.services.ai.forward_quote_gate import gate_forward_quotes
 from app.services.ai.json_repair import _JsonRepairMixin
 from app.services.ai.markdown_render import _MarkdownRenderMixin
 from app.services.ai.section_recovery import _SectionRecoveryMixin
@@ -770,6 +771,17 @@ Rules:
         risk_section = _normalize_risk_factors(raw_risk_section)
         sections_info["risks"] = risk_section
 
+        # T5.4 forward-quote gate: verify every §5 quote against the same text the model generated
+        # from (the assess_quality grounding rule); failures are always audited — the pipeline logs
+        # the greppable forward_quote_unverified counter from the audit key attached below — and
+        # dropped only when AI_FORWARD_QUOTE_GATE is armed. MUST run before the coverage snapshot
+        # and the render: sections_info is the same object structured_summary/render/coverage all
+        # read, so the drop here keeps stored sections, per_section coverage, and the persisted
+        # business_overview markdown agreeing about a dropped quote.
+        forward_quote_audit = gate_forward_quotes(
+            sections_info, filing_excerpt or filing_text or "", settings.AI_FORWARD_QUOTE_GATE
+        )
+
         coverage_keys = set(_TRACKED_STRUCTURED_SECTIONS)
         coverage_keys.update(sections_info.keys())
         coverage_map = {
@@ -855,6 +867,8 @@ Rules:
             "sections": sections_info,
             "section_coverage": coverage_snapshot,
         }
+        if forward_quote_audit:
+            raw_summary_payload["forward_quote_audit"] = forward_quote_audit
         if writer_result:
             raw_summary_payload["writer"] = writer_result
         if writer_fallback_reason:

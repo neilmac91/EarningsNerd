@@ -37,6 +37,31 @@ class TestExtractQuotedSpan:
         assert prov.extract_quoted_span("") == ""
 
 
+class TestNormalizeForMatch:
+    """T5.4 typography folds: filings typeset curly quotes/apostrophes and en/em dashes; model
+    output types ASCII. One normalizer serves every verbatim check in the product (T4 evidence,
+    copilot citations, the forward-quote gate), so the folds are pinned here once."""
+
+    def test_folds_curly_apostrophes_and_quotes(self):
+        assert prov.normalize_for_match("the company’s “record” results") == (
+            prov.normalize_for_match("the company's \"record\" results")
+        )
+
+    def test_folds_dashes(self):
+        assert prov.normalize_for_match("authorization — $110 billion – net") == (
+            "authorization - $110 billion - net"
+        )
+
+    def test_lowercase_and_whitespace_collapse_unchanged(self):
+        # The pre-T5.4 behavior this normalizer always had must be byte-identical.
+        assert prov.normalize_for_match("  Supply\nChain\t CONSTRAINTS ") == "supply chain constraints"
+
+    def test_typography_drift_now_verifies_in_source(self):
+        # End-to-end through verify_excerpt_in_text: curly source, straight excerpt.
+        source = prov.normalize_for_match("Management noted the company’s backlog — $12 billion.")
+        assert prov.verify_excerpt_in_text('"the company\'s backlog - $12 billion"', source) is True
+
+
 class TestVerifyExcerptInText:
     SOURCE = "ITEM 1A. RISK FACTORS\nSupply chain constraints persisted through Q3 of fiscal 2024."
 

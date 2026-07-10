@@ -1,102 +1,113 @@
-# Tier 5.3 — Value drivers fed deterministically (dividends/buybacks/capex + ROE/ROA trend)
+# Tier 5.4 — Forward-quote hard gate (verbatim §5 quotes enforced at generation time)
 
-**Goal (roadmap T5.3 / plan §4):** §4's figures come from code — shareholder returns (dividends paid, share
-repurchases, capex) and the returns read (ROE/ROA level + trend) — while the model keeps the value VERDICT
-(`capital_allocation` prose + `highlights`). Kills the standing fabrication invitation: the prompt asks for
-ROIC, which is never a filing line item and absent from the grounding; the honest, already-standardized read
-is ROE/ROA (ROIC founders on short-term debt being a multi-concept sum — verified: AAPL splits it across
-LongTermDebtCurrent + CommercialPaper; single-tag extraction would OVERSTATE ROIC).
+**Goal (roadmap T5.4 / plan §5):** `forward_signals.quotes` are prompt-contracted as verbatim,
+attributed, forward-looking-only — but NOTHING enforces it: figure_trace exempts them *because*
+they're "verbatim" (figure_trace.py:79-83), T4's read-time enrichment merely withholds the Verified
+badge, and the recovery re-ask snippet even drops the "verbatim" qualifier. T5.4 closes the loop:
+every §5 quote is checked against the filing text at generation time; failures are ALWAYS measured
+(greppable counter + per-row audit) and DROPPED when `AI_FORWARD_QUOTE_GATE` is armed. Advisory-first
+(flag ships OFF, the figure-trace precedent) — the first fleet-wide fidelity measurement is this
+slice's deliverable alongside the mechanism.
 
-## Load-bearing facts (two understand maps, live-verified on 6 filers)
+## Load-bearing facts (4-reader understand sweep, live-verified)
 
-1. **Concepts verified live** (AAPL/MSFT/TSLA/ASML/TSM/NVO): dividends need 4 candidates
-   `[PaymentsOfDividends, PaymentsOfDividendsCommonStock, PaymentsOfOrdinaryDividends,
-   DividendsPaidClassifiedAsFinancingActivities]` (each filer tags exactly one); buybacks
-   `[PaymentsForRepurchaseOfCommonStock, PaymentsForRepurchaseOfEquity,
-   PaymentsToAcquireOrRedeemEntitysShares]`. **Trap tags excluded** (wrong-by-construction:
-   `DividendsCommonStockCash` = DECLARED not paid, MSFT 24,678≠24,082; ifrs `DividendsPaid` =
-   equity-statement, TSM 531,618≠466,779; `StockRepurchasedAndRetiredDuringPeriodValue` =
-   equity-statement, AAPL 89,300≠90,711). All Payments* facts tag POSITIVE → store as-tagged
-   (capex precedent), NOT in NON_NEGATIVE_CONCEPTS.
-2. **Insertion points:** DURATION_CONCEPTS (instance_extractor.py:45-88, unconditional — RICHER flag
-   graduated); pass-through tuple (xbrl_service.py:1154-1165, inert-until-populated); _CONCEPT_UNITS
-   (facts_service.py:42-73, "USD"); `_XBRL_CACHE_VERSION` v3→v4 (extraction semantics changed). The
-   companyfacts fallback + get_financials last resort deliberately NOT extended (P1.1 precedent);
-   golden-set EXTENDED_METRIC_CONCEPTS untouched (non-gating; avoids the mirror drift-guard).
-3. **ROE/ROA already standardized WITH trend** (xbrl_service.py:1229-1244; current+prior+change+series)
-   and explicitly the FI-appropriate read → the returns line authors for banks too (NO fi gate).
-4. **Render:** `_v2_value_drivers` iterates an explicit key tuple (summary_sections.py:624) — the new
-   field needs a builder tuple entry; frontend is fully generic (paragraph blocks; zero FE changes).
-5. **T4 precedent:** adding a sub-model field ≠ schema-version bump ("taxonomy shape unchanged, still
-   v2"); prompt bump is what marks rows stale. figure_trace is an allowlist → an unlisted machine field
-   is unpoliced by construction; `capital_allocation`/`highlights` stay policed.
-6. **Eval:** depth's capex term becomes a guaranteed hit (can only rise); redundancy risk = model
-   restating buyback/dividend $ elsewhere — mitigated by mechanism A + ONE-HOME rewording (both prior
-   slices moved redundancy UP). HARD gates structurally untouched (golden facts don't include these).
+1. **The verbatim definition already exists and is shared**: provenance_service.normalize_for_match
+   (lowercase + whitespace-collapse) + verify_excerpt_in_text (exact normalized substring,
+   _MIN_VERIFIABLE_LEN=24) — used by T4 read-time enrichment AND the copilot eval scorer. rapidfuzz
+   3.14.5 is pinned but has ZERO usages; "≥92" exists only in the plan doc. T4 chose exact-match for
+   read-time latency (provenance_service.py:242-244) — a reason that doesn't apply at generation
+   time, but ONE definition of verbatim across all surfaces beats a second looser one
+   (lessons/arch-guard-every-model-facing-surface.md).
+2. **normalize_for_match does NOT fold typography**: filings use curly quotes/apostrophes/dashes;
+   model output usually straight — exact-match false-fails that entire class (copilot has a local
+   ’→' fold precedent, copilot_service.py:484).
+3. **Drop site must be inside `summarize_filing`** (openai_service.py), after risks normalization
+   (~:771), BEFORE the coverage snapshot (:773) and render_sections→business_overview (:846-851) —
+   later placement desyncs stored markdown/coverage from sections. This single site covers SSE +
+   background/cron (one orchestrator) AND recovery-authored quotes (recovery merges upstream).
+   `filing_excerpt`/`filing_text` are already parameters in scope (:653-662). Precedent shape:
+   `_sanitize_bank_financial_highlights` (:757-765).
+4. **Grounding corpus**: verify against `filing_excerpt or filing_text` — the same text the model
+   generated from (the assess_quality rule, summary_pipeline.py:763-770). The 320k cap is a
+   non-issue: model input == excerpt, so a genuine quote is in it by construction. BOTH empty →
+   flag/drop NOTHING (figure_trace.py:262-267 — never punish the degraded population).
+5. **Rule 6 safe by construction**: quality/audit keys are additive raw_summary metadata, never in
+   SSE frames (COMPLETE_EVENT_KEYS pinned); the stream harness mocks summarize_filing at the
+   pipeline boundary and CANONICAL_PAYLOAD has no forward_signals — pipeline-side reads must
+   tolerate absence. No locked-test edits.
+6. **Eval**: coverage/recall HARD gates can only move if a drop EMPTIES §5 (guidance/trends survive
+   by design — quotes-only drops) or a ground-truth fact's sole rendering sat in a quote (facts live
+   in the metrics table; verify in the readout run). gate_fail_rate is pinned 0.0/ε — the new scorer
+   must be WARN-only, NEVER in compute_gate_failures; a metric absent from baseline_scores.json is
+   skipped by the gate (the sanctioned inert-ship path). Runner has grounding['filing_text'] in
+   _run_one; scorers are otherwise payload-pure — filing text enters scoring as an optional kwarg,
+   normalized ONCE per case (copilot_runner precedent).
+7. **No prompt text changes in this slice** → generation byte-identical, no SUMMARY_PROMPT_VERSION
+   bump, no re-pin (T3.2 shape). Prompt tuning (incl. the recovery snippet's missing "verbatim"
+   qualifier) stays in the T4 follow-up, informed by this slice's measurement. Stored-row staleness
+   for pre-gate summaries is an ARM-TIME decision — surfaced in the PR, not decided here.
+8. **No tier effect, no new reasons string**: T5.4 is a content-repair gate (armed = fabricated
+   quote removed, summary served full), not a tier gate — avoids the frontend GROUNDING_REASON
+   single-reason de-escalation contract entirely (SummaryDisplay.tsx:41).
+
+## Design decisions (locked)
+
+- **Verbatim = exact substring after upgraded shared normalization.** Fold curly double quotes →
+  `"`, curly apostrophes → `'`, en/em/horizontal dashes → `-`, in `normalize_for_match` itself so
+  generation gate, T4 read-time enrichment, and the copilot eval keep ONE definition (strictly
+  fewer false-unverified everywhere). Divergence from the plan doc's "rapidfuzz ≥92" as the drop
+  criterion is deliberate: ≥92 keeps word-changed quotes, and quotation marks assert exactness.
+- **rapidfuzz is telemetry, not the gate**: failing quotes also get `fuzz.partial_ratio` on the
+  normalized strings; `near_miss` (≥92 = lightly-paraphrased) vs hard-fail (<92 = fabrication-class)
+  buckets are the data that decides arming + T4-follow-up prompt tuning. First repo rapidfuzz use.
+- **Short quotes (<24 normalized chars) pass uncounted** (unverifiable-by-construction; the
+  conservative figure-trace posture). Malformed/non-string entries pass untouched.
+- **Armed behavior**: remove failing ManagementQuote items entirely (plan wording "dropped");
+  guidance/known_trends/subsequent_events NEVER touched. Dropped items preserved in the audit for
+  forensics.
+- **Audit home**: `raw_summary["forward_quote_audit"] = {checked, unverified:[{speaker,score}],
+  near_miss, dropped:[{speaker,quote}] (armed only)}` written by the gate at generation time;
+  pipeline logs the greppable counter from it (measurement-always, flag on or off):
+  `forward_quote_unverified count=%d near_miss=%d dropped=%d flag=%s filing_id=%s sic=%s speakers=%s`.
 
 ## Plan
 
-**STATUS: shipped to draft PR #621. Reviewed: 2 adversarial agents (WFC component-summing fix +
-negative-equity ROE guard actioned) + Gemini (exact-match currency lock) + founder staff review
-(approve direction; follow-up below). Gates green; live-verified on 10 filers. Final eval on the
-shipped code: regression gate PASS, 0 warnings — gate_fail 0.0, recall/precision/coverage/currency
-1.0, financial_depth 0.9658, redundancy 0.9443 (highest of the T5 arc), delta 0.9615,
-specificity 0.9905; no re-pin.**
+- [ ] **provenance_service**: typography folds in `normalize_for_match` (+ docstring: one shared
+      verbatim definition, now also the generation gate's) + new pins in test_provenance_service
+      (existing pins must pass unchanged).
+- [ ] **New leaf module `app/services/ai/forward_quote_gate.py`** (figure_trace sibling, pure — no
+      settings import): `gate_forward_quotes(sections, source_text, armed) -> Optional[dict]` —
+      normalize source once; per-quote exact-verify else fuzz-score; mutate (drop) only when armed;
+      return audit or None (no quotes / no source basis).
+- [ ] **config.py**: `AI_FORWARD_QUOTE_GATE: bool = False` after AI_FIGURE_TRACE_GATE, same
+      advisory-first comment style; docs/CONFIGURATION.md one-liner under the figure-trace entry.
+- [ ] **openai_service**: call the gate inside `summarize_filing` after risks normalization, before
+      the coverage snapshot; attach audit to raw_summary payload. Update figure_trace.py:78-83
+      exemption comment (+ module docstring) to point at the now-enforced invariant (docs-vs-code).
+- [ ] **summary_pipeline**: greppable counter next to figure_trace_untraceable, reading the audit
+      key tolerantly (CANONICAL_PAYLOAD lacks it).
+- [ ] **Eval**: `score_forward_quote_fidelity` (verified fraction; near-misses in violations; 1.0
+      neutral when no quotes/no filing text) with filing_text threaded from runner (normalized once);
+      RubricScore field default 1.0; report row; `_WARN_GATES` entry (inert until a future re-pin);
+      NOT in compute_gate_failures. RUNBOOK WARN-dim paragraph.
+- [ ] **Tests (rule 12)**: test_forward_quote_gate.py (verbatim/case/whitespace/typography pass;
+      fabricated flagged + dropped-when-armed; near-miss bucketed; short-quote pass; empty-source
+      nothing; no-quotes None; malformed kept; guidance/trends untouched; audit shape; armed
+      list-surgery); flag on/off at the openai_service seam (patch settings object); scorer pins in
+      test_eval_content_scorers style + regression-gate WARN pin; normalization fold pins.
+- [ ] **Gate + readout**: full backend gate; live dev probes (flag off: audit counts; flag on: drop
+      + markdown/coverage sync); eval `--runs 3` NOT to re-pin but for (a) no-dim-moved confirmation
+      and (b) the first fleet-wide forward-quote fidelity readout (per-filing) → PR body.
+- [ ] **Adversarial review** (2+ reviewers: gate semantics/boundaries; eval/runner contract) → fix →
+      commit → push → draft PR (subscribe + ~1h check-ins).
 
-### #621 staff-review follow-up (same PR)
-
-- [x] **[should-fix] Returns-band parity in the grounding** — the ±200% ROE/ROA band now lives in
-      `xbrl_narrative.py` (`returns_ratio_in_band`, one constant) and bands BOTH model-facing
-      surfaces: the narrative drops an out-of-band current line / prior clause exactly like §4's
-      `_ratio_clause`, which now imports the same predicate (no drift). Trend/excel/provenance keep
-      the raw series. Tests: narrative band ×5 + shared-predicate identity pin.
-- [x] **[should-consider] Machine-only-full observability** — `assess_quality` returns
-      `machine_sections_only` (full verdict, zero model-authored sections covered; persisted with
-      the quality dict), and the pipeline logs the greppable `summary_quality_full_machine_only`
-      counter (P0-2 pattern) with filing/cik/sic. `MACHINE_COVERABLE_SECTIONS` pinned by test.
-- [x] **[nit] Housekeeping** — T5.2b plan archived to `tasks/archive/t5.2b-segment-commentary-todo.md`
-      (incl. the acknowledged-tradeoff record); this STATUS refreshed.
-
-- [x] **Extraction:** DURATION_CONCEPTS += `dividends_paid`, `share_repurchases` (verified lists, trap
-      tags documented in a comment + a rule-12 pin that the traps are absent); pass-through tuple += both;
-      _CONCEPT_UNITS += both; cache version v3→v4.
-- [x] **Grounding:** `_XBRL_NARRATIVE_SPEC` += ("Dividends Paid", usd), ("Share Repurchases (payments)",
-      usd) — model sees the facts; figure_trace grounds any restatement via xbrl_values.
-- [x] **markdown_render filler** (after cash_conversion block, before segments):
-      (a) `shareholder_returns` — mechanism A, filler sole author, pop-first:
-      "Capital returned — dividends paid $X (prior $Y), share repurchases $Z (prior $W); capital
-      expenditures $C (prior $P)." Currency-aware; only computable clauses; zero-valued current omitted;
-      capex-only fallback sentence when no returns; author nothing when nothing computable.
-      ONE-HOME: never FCF (§3) nor financing/investing totals (§8).
-      (b) `returns_on_capital` — T5.1 code-owns, pop-first: "Return on equity was X.X% (prior Y.Y%);
-      return on assets A.A% (prior B.B%)." No FI gate; author nothing when neither ratio computable.
-- [x] **Schema:** ValueDrivers += `shareholder_returns: str = ""` (machine-authored annotation + v1-name
-      history note); annotate `returns_on_capital` machine-authored.
-- [x] **Prompt:** schema_template — REMOVE `returns_on_capital` (mechanism A); `capital_allocation`
-      description → qualitative value read ("do not restate the deterministic figures");
-      `highlights` example → authorization-style (a NEW program from the filing text, not cash paid);
-      ONE-HOME value_drivers clause reworded (T5.1 style). Re-ask snippet: drop returns_on_capital.
-      `SUMMARY_PROMPT_VERSION → summary-2026-07-h`.
-- [x] **figure_trace:** `_PROSE_STRING_FIELDS["value_drivers"]` → `("capital_allocation",)`; docstring
-      lists both machine fields; exclusion + still-policed tests.
-- [x] **Render:** `_v2_value_drivers` tuple → (shareholder_returns, capital_allocation,
-      returns_on_capital) — deterministic facts lead, model verdict follows.
-- [x] **Tests (rule 12):** extraction happy-path both namespaces + dimensioned/out-of-window skips +
-      absent→no keys + trap-tag pins + standardized entries; filler full/partial/none + currency + zero
-      omission + pop-first ownership ×2 + bank-not-suppressed + ONE-HOME (no FCF); figure_trace policed/
-      unpoliced split; render order + no-field-name-leak.
-- [x] **Live verify:** AAPL (div+buyback+capex), TSLA (capex-only), TSM (IFRS TWD; buyback current=0 →
-      omitted), NVO (DKK). Full gates. Eval `--runs 3` (prompt change) → HARD gates → no re-pin unless moved.
-- [x] Two adversarial reviewers → fix → commit → push → draft PR.
-
-## Not in scope (documented deferrals)
-- M&A payments (`PaymentsToAcquireBusinessesNetOfCashAcquired`) — NOT live-verified; next slice.
-- Effective tax rate (income_tax_expense + pretax_income — verified clean 6/6) — separate follow-up.
-- ROIC proper (short-term debt = multi-concept sum; new summation mechanism + analyst-policy judgments).
-- Companyfacts/get_financials fallback parity; trend/excel/provenance registries (absent keys degrade
-  gracefully); T5.4 forward-quote gate; T4 follow-up.
-- **Watch items from the #621 staff review (probe, no code):** (a) zero-after-nonzero repurchases —
-  confirm in the next live probe that the model narrates a buyback HALT (the grounding shows the
-  current-0 next to the prior; the machine line rightly omits the zero clause); (b) IFRS filers
-  tagging only `DividendsPaidToEquityHoldersOfParent…` (no bare financing-activities total) —
-  degrade-not-wrong today; probe alongside the M&A/tax slice.
+## Not in scope (documented)
+- Prompt tuning (schema_template quote instruction, recovery-snippet "verbatim" qualifier) — T4
+  follow-up, informed by this measurement; keeps this slice eval-neutral.
+- Arming the flag + stale-refresh of pre-gate rows — founder decision once the FP readout is in.
+- Other verbatim-claimed surfaces (risks/results/footnotes supporting_evidence) — already read-time
+  excerpt-nulled by T4; generation-gating them is a separate decision.
+- Read-vs-generation verification-text mismatch (generation: excerpt/filing_text; read:
+  critical_excerpt/markdown_content) — conscious note; both are the filing's own text.
+- T5.2b/T5.3 deferred ledgers carry over (M&A payments, effective tax rate, ROIC, segment axes,
+  buyback-halt narration probe, IFRS equity-holders dividend variant).

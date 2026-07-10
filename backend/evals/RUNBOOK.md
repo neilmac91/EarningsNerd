@@ -316,6 +316,16 @@ content rewrite lands with higher redundancy, you simply re-pin the floors upwar
 any bar move). (Earlier guidance to defer pinning until v2 was mistaken on this point — a floor
 sitting below v1 redundancy can't "lock it in"; v2 is free to exceed it.)
 
+**`mean_forward_quote_fidelity` (T5.4) — ships advisory, unpinned.** Fraction of §5 Forward Signals
+blockquotes in the rendered markdown that verify verbatim in the filing text, under the SAME
+`normalize_for_match` definition the production `forward_quote_gate` (drop when
+`AI_FORWARD_QUOTE_GATE` is armed), the T4 evidence badge, and the copilot citation gate all use —
+one definition of "verbatim", so the eval can never disagree with the product. WARN-gated at −0.05
+but skipped until a future re-pin records it in `baseline_scores.json` (deliberately NOT pinned in
+the T5.4 PR: the first `--runs 3` readout is a *measurement* of current model behavior, not a bar
+we've chosen). Never add it to `compute_gate_failures` — `gate_fail_rate` is pinned at 0.0 with
+epsilon tolerance, and the G5 lesson (PR #611) is that a stochastic hard gate fires as pure noise.
+
 ---
 
 ## FPI adoption gate — flipping `ENABLE_FPI_FILINGS`

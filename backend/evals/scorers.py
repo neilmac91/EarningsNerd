@@ -724,11 +724,67 @@ def score_delta_consistency(payload: Dict[str, Any]) -> Tuple[float, List[str]]:
     return max(0.0, round(1.0 - len(contradictions) / checked, 4)), contradictions
 
 
+def score_forward_quote_fidelity(
+    payload: Dict[str, Any], filing_text: Optional[str]
+) -> Tuple[float, List[str]]:
+    """[0,1] §5 forward-quote verbatim fidelity (T5.4). 1.0 = every Forward Signals blockquote in
+    the rendered markdown is locatable verbatim in the filing text under the product's ONE shared
+    normalization (provenance_service.normalize_for_match — the same definition the T4 evidence
+    badge, the copilot citation gate, and the production forward_quote_gate use, so the eval can
+    never disagree with the product about what "verbatim" means). Violations carry the rapidfuzz
+    score so a near-miss (lightly paraphrased, ≥ the gate's NEAR_MISS_SCORE) reads differently
+    from a fabrication.
+
+    Neutral (1.0) when there is nothing to judge: no ``filing_text`` referent, no rendered
+    markdown (bake-off candidates emit flat canonical fields with no quote structure), no
+    forward/outlook section, no quotes, or only quotes under the shared minimum-verifiable
+    length. Deliberately scoped to the forward/outlook section's blockquotes — the only surface
+    the schema contracts as verbatim quotes."""
+    if not filing_text or not isinstance(filing_text, str):
+        return 1.0, []
+    md = payload.get("executive_summary")
+    if not isinstance(md, str) or "\n## " not in md:
+        return 1.0, []
+    # Lazy app imports (the figure_trace-in-assess_quality pattern): keeps the evals package free
+    # of app import-order coupling at module load; these helpers are themselves pure.
+    from rapidfuzz import fuzz
+
+    from app.services.ai.forward_quote_gate import NEAR_MISS_SCORE
+    from app.services.provenance_service import _MIN_VERIFIABLE_LEN, normalize_for_match
+
+    quotes: List[str] = []
+    for part in re.split(r"(?m)^## ", md)[1:]:
+        title = part.split("\n", 1)[0].strip()
+        if not _FORWARD_SECTION_RE.search(title):
+            continue
+        quotes.extend(m.group(1) for m in re.finditer(r'(?m)^>\s*"(.*)"', part))
+    normalized_source = None
+    checked = 0
+    violations: List[str] = []
+    for text in quotes:
+        needle = normalize_for_match(text)
+        if len(needle) < _MIN_VERIFIABLE_LEN:
+            continue  # unverifiable-by-construction — uncounted, matching the production gate
+        if normalized_source is None:
+            normalized_source = normalize_for_match(filing_text)  # once, and only if needed
+        checked += 1
+        if needle in normalized_source:
+            continue
+        score = round(float(fuzz.partial_ratio(needle, normalized_source)), 1)
+        kind = "near-miss" if score >= NEAR_MISS_SCORE else "no counterpart"
+        violations.append(f'forward quote not verbatim ({kind}, score {score}): "{text[:90]}"')
+    if not checked:
+        return 1.0, []
+    return round((checked - len(violations)) / checked, 4), violations
+
+
 def score_summary(
-    raw_or_payload: Any, ground_truth: List[GroundTruthFact]
+    raw_or_payload: Any, ground_truth: List[GroundTruthFact], filing_text: Optional[str] = None
 ) -> RubricScore:
     """Score one candidate summary. Accepts a raw string (from a model) or an already-parsed
-    dict (from the baseline pipeline mapped into canonical shape)."""
+    dict (from the baseline pipeline mapped into canonical shape). ``filing_text`` (T5.4) is the
+    optional verbatim referent for forward-quote fidelity — the runner threads the filing text it
+    already holds; when absent the dimension stays neutral (1.0)."""
     if isinstance(raw_or_payload, str):
         payload, repaired = parse_model_json(raw_or_payload)
     else:
@@ -754,6 +810,7 @@ def score_summary(
     currency_consistency, _ = score_currency_consistency(payload, ground_truth)
     redundancy, _ = score_redundancy(payload)
     delta_consistency, _ = score_delta_consistency(payload)
+    forward_quote_fidelity, _ = score_forward_quote_fidelity(payload, filing_text)
     return RubricScore(
         schema_valid=schema_valid,
         repaired=repaired,
@@ -765,6 +822,7 @@ def score_summary(
         currency_consistency=currency_consistency,
         redundancy=redundancy,
         delta_consistency=delta_consistency,
+        forward_quote_fidelity=forward_quote_fidelity,
         gate_failures=compute_gate_failures(payload, contradictions, ground_truth),
         missing_sections=missing_sections,
         matched_facts=matched,
