@@ -2,7 +2,9 @@
 
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import { getCurrentUser, login } from '@/features/auth/api/auth-api'
+import { queryKeys } from '@/lib/queryKeys'
 import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
 import { CircleNotchIcon, EnvelopeSimpleIcon } from '@/lib/icons'
@@ -31,6 +33,7 @@ const OAUTH_ERROR_MESSAGES: Record<string, string> = {
 function LoginContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
   const oauthError = searchParams.get('error')
 
   const [email, setEmail] = useState('')
@@ -49,6 +52,13 @@ function LoginContent() {
 
     try {
       await login(email, password, turnstileToken)
+      // Drop the pre-login auth-derived cache NOW, before navigating. Logout does the mirror
+      // invalidation (Header/UserMenu); login previously did neither, so within the 60s global
+      // staleTime the destination page's mount served the cached logged-out `null` — a guest who
+      // logged in via the filing signup gate's own CTA landed back on the gate, and auto-generate
+      // never fired (review finding on #619/#620).
+      queryClient.invalidateQueries({ queryKey: queryKeys.currentUser() })
+      queryClient.invalidateQueries({ queryKey: queryKeys.subscription() })
       try {
         const user = await getCurrentUser()
         if (user?.id) {

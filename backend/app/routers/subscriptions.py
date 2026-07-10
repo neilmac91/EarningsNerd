@@ -212,11 +212,16 @@ async def create_checkout_session(
         # the 100%-off promo: the amount due is $0 and, with payment_method_collection="if_required"
         # above, no card is collected. Mutually exclusive with allow_promotion_codes (which we don't
         # set), so Stripe never 400s on conflicting discount params.
-        is_beta_coupon = bool(getattr(current_user, "is_beta", False) and settings.STRIPE_BETA_PROMO_CODE_ID)
-        if is_beta_coupon:
+        is_beta = bool(getattr(current_user, "is_beta", False))
+        if is_beta and settings.STRIPE_BETA_PROMO_CODE_ID:
             session_kwargs["discounts"] = [{"promotion_code": settings.STRIPE_BETA_PROMO_CODE_ID}]
         elif (
-            billing_cycle == "monthly"
+            # Beta users NEVER enter the trial cohort, even when the promo id is unconfigured —
+            # the pinned fallback for that misconfig is a plain paid checkout
+            # (test_beta_user_no_discount_when_promo_unconfigured), not a card-required trial
+            # that silently auto-charges the cohort promised "$0 forever, no card".
+            not is_beta
+            and billing_cycle == "monthly"
             and settings.PRO_TRIAL_DAYS > 0
             and db.query(Subscription).filter(Subscription.user_id == current_user.id).first() is None
         ):

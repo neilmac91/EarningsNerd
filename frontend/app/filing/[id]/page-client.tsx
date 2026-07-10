@@ -357,11 +357,21 @@ function FilingDetailView({ filingId }: { filingId: number }) {
               onRetry={handleRegenerateSummary}
               onAsk={handleAskCopilot}
             />
-          ) : isAuthResolved && !isAuthenticated && filing && !summaryLoading ? (
-            // No cached summary (query settled) + signed out: generation requires an account, so
-            // gate instead of auto-generating. Cached summaries render above for everyone (SEO
-            // surface) — the !summaryLoading guard stops the gate flashing while they load.
+          ) : isAuthResolved && !isAuthenticated && filing && !summaryLoading && !activeErrorMessage ? (
+            // No cached summary (query settled, WITHOUT error) + signed out: generation requires
+            // an account, so gate instead of auto-generating. Cached summaries render above for
+            // everyone (SEO surface) — !summaryLoading stops the gate flashing while they load,
+            // and !activeErrorMessage keeps a transient getSummary failure rendering as the error
+            // card below rather than a signup gate over a summary that actually exists.
             <GenerateSignupGate filing={filing} entryPoint={entryPoint} />
+          ) : !activeErrorMessage && (summaryLoading || !isAuthResolved) ? (
+            // Still settling (summary query loading, or /me not yet resolved) and not actively
+            // generating: show a neutral spinner, NOT the fake "Initializing AI analysis" progress
+            // card. A signed-out visitor headed for the gate must never flash live AI-progress for
+            // a generation that will never run (and it spun up a 200ms optimistic-progress timer).
+            <div className="flex items-center justify-center py-24" role="status" aria-label="Loading">
+              <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+            </div>
           ) : (
             <StreamingSummaryDisplay
               streamingText=""

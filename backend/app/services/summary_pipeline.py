@@ -161,7 +161,8 @@ async def stream_filing_summary(
 ) -> AsyncIterator[dict]:
     """Run the summary pipeline for ``filing_id``, yielding event dicts.
 
-    Caller is responsible for HTTP concerns (rate limiting, guest quota, the cached/existing
+    Caller is responsible for HTTP concerns (rate limiting, auth — user-facing generation is
+    account-required at the router boundary, the cached/existing
     summary short-circuit) and for capturing the telemetry context before invoking this — the
     generator runs after the request's DB session is gone, so it manages its own session.
     """
@@ -333,7 +334,9 @@ async def stream_filing_summary(
                     return
                 logger.info(f"[stream:{filing_id}] Usage limit check passed for user {user_id}. Current count: {current_count}/{limit}")
             else:
-                logger.info(f"[stream:{filing_id}] Guest user access. Rate limit already enforced.")
+                # current_user=None is only reachable from the internal drains now (cron
+                # pregenerate / admin refresh) — the user-facing route requires an account.
+                logger.info(f"[stream:{filing_id}] Internal caller (no user) — per-user quota not applicable.")
             # Note: We use cached values from outer scope, but filling_in_session is already populated.
 
             # Bound concurrent generations per process (protects the single vCPU). Acquired here —

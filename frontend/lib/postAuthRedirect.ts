@@ -21,6 +21,16 @@ const MAX_AGE_MS = 60 * 60 * 1000 // 1 hour
 const isSafeInternalPath = (path: string): boolean =>
   path.startsWith('/') && !path.startsWith('//') && !path.startsWith('/\\')
 
+/**
+ * Build a `/login` href that forwards a post-signup `?redirect=` destination (URL-encoded), or a
+ * bare `/login` when there's nothing to forward. One home for the pattern so a third call site
+ * can't reintroduce it un-encoded — login validates the value again on receipt (internal paths
+ * only), so this only has to carry it, not trust it.
+ */
+export function loginHrefWithRedirect(redirect?: string | null): string {
+  return redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'
+}
+
 export function stashPostAuthRedirect(path: string): void {
   if (typeof window === 'undefined' || !isSafeInternalPath(path)) return
   try {

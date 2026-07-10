@@ -1,4 +1,5 @@
 import api, { getApiUrl } from '@/lib/api/client'
+import { refreshAccessToken } from '@/lib/api/refresh'
 import type { FinancialHighlights, MetricItem, RiskFactor } from '@/types/summary'
 import { isApiError, getErrorStatus } from '@/lib/api/types'
 import posthog from 'posthog-js'
@@ -255,18 +256,32 @@ const runStreamAttempt = async (
     }
   }
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-    signal: controller.signal,
-  })
+  const postStream = () =>
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      signal: controller.signal,
+    })
 
-  // NOTE: generation requires an account — a 401 is surfaced as a non-retryable auth error (the
-  // old "retry as guest" fallback is gone; guest generation was removed server-side too, so it
-  // could only ever double-fire a doomed request and mask expired sessions).
+  let response = await postStream()
+
+  // Expired access cookie: the shared axios client silently refreshes + replays on 401
+  // (lib/api/client.ts), but this sanctioned raw SSE fetch bypasses it — so a user who idled past
+  // ACCESS_TOKEN_EXPIRE_MINUTES would dead-end on "Could not validate credentials" with a Retry
+  // that re-sends the same expired cookie forever. Mirror the client: one refresh, one replay.
+  // (The old "retry as guest" fallback used to mask this; it died with guest generation.)
+  if (response.status === 401) {
+    try {
+      await refreshAccessToken(apiUrl)
+      response = await postStream()
+    } catch {
+      // Refresh failed — the session is genuinely gone; fall through to the 401 handling below
+      // and surface the sign-in error.
+    }
+  }
 
   if (!response.ok) {
     clearTimeoutSafely()

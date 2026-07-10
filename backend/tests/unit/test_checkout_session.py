@@ -154,6 +154,40 @@ def test_beta_user_gets_coupon_not_trial(client, monkeypatch):
     assert kwargs["payment_method_collection"] == "if_required"
 
 
+def test_beta_user_without_promo_config_gets_no_trial_either(client, monkeypatch):
+    """Beta NEVER enters the trial cohort — even when STRIPE_BETA_PROMO_CODE_ID is unconfigured
+    (so no coupon applies). The pinned fallback for that misconfig is a plain paid checkout
+    (test_beta_user_no_discount_when_promo_unconfigured); silently upgrading it to a card-required
+    trial would auto-charge the cohort promised '$0 forever, no card'."""
+    monkeypatch.setattr(settings, "PRO_TRIAL_DAYS", 7)
+    monkeypatch.setattr(settings, "STRIPE_BETA_PROMO_CODE_ID", "")
+    app.dependency_overrides[get_current_user] = lambda: _user(id=8, is_beta=True)
+    _use_first_time_subscriber_db()
+    kwargs = _create_and_capture(client, price_id="price_monthly_test")
+    assert "discounts" not in kwargs
+    assert "subscription_data" not in kwargs
+    assert kwargs["payment_method_collection"] == "if_required"
+
+
+def test_trial_mechanisms_are_mutually_exclusive_at_boot():
+    """Machine gate (rule 12) for 'never enable both trials': REVERSE_TRIAL_ENABLED with
+    PRO_TRIAL_DAYS>0 must fail config validation, not silently run two trial doors."""
+    with pytest.raises(ValidationError):
+        Settings(
+            SECRET_KEY="x" * MIN_SECRET_KEY_LENGTH,
+            _env_file=None,
+            REVERSE_TRIAL_ENABLED=True,
+            PRO_TRIAL_DAYS=7,
+        )
+    # Either alone is valid.
+    assert Settings(
+        SECRET_KEY="x" * MIN_SECRET_KEY_LENGTH, _env_file=None, PRO_TRIAL_DAYS=7
+    ).PRO_TRIAL_DAYS == 7
+    assert Settings(
+        SECRET_KEY="x" * MIN_SECRET_KEY_LENGTH, _env_file=None, REVERSE_TRIAL_ENABLED=True
+    ).REVERSE_TRIAL_ENABLED is True
+
+
 def test_active_subscriber_gets_409_not_a_second_checkout(client):
     """Money-bug gate (staff review #619): a user who is already entitled (active sub) must get
     409 — a second checkout would create a duplicate live Stripe subscription, and the per-user

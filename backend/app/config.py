@@ -1,5 +1,5 @@
 from pydantic_settings import BaseSettings
-from pydantic import Field, field_validator
+from pydantic import Field, field_validator, model_validator
 from typing import List
 import os
 
@@ -227,6 +227,19 @@ class Settings(BaseSettings):
                     "to disable the beta promo."
                 )
         return v
+
+    @model_validator(mode='after')
+    def _trials_are_mutually_exclusive(self):
+        """Machine gate (rule 12) for the prose rule "never enable both trial mechanisms": the
+        retired no-card reverse trial and the card-required checkout trial grant `trialing` Pro
+        through different doors — both on would hand some users no-card Pro while others are
+        card-charged for the same offer, and stack the abuse vectors. Fail LOUDLY at boot."""
+        if self.REVERSE_TRIAL_ENABLED and self.PRO_TRIAL_DAYS > 0:
+            raise ValueError(
+                "REVERSE_TRIAL_ENABLED and PRO_TRIAL_DAYS are mutually exclusive trial mechanisms "
+                "— disable one (the reverse trial is retired; keep REVERSE_TRIAL_ENABLED=false)."
+            )
+        return self
 
     @field_validator('RESEND_FROM_EMAIL', mode='before')
     @classmethod
