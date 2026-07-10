@@ -41,6 +41,13 @@ supporting_evidence surfaces. Prompt-content change ⇒ RUNBOOK: eval `--runs 3`
 
 ## Plan
 
+**STATUS: shipped to draft PR. Final eval on the review-fixed prompt: gate PASS, 0 warnings —
+forward_quote_fidelity 0.9038 → 0.9615, 25/26 filings perfect ×3 (RIVN recovered after the
+example-bleed fix; only ASML's single 98.5 near-miss sentence remains). First citation_fidelity
+readout ~0.51 / ~6.6 checked per run — the table-row-evidence discovery, follow-up documented.
+Adversarial review: 5 confirmed (all actioned, incl. the REPRODUCED example-bleed), 4 refuted.
+Full gate 1742 passed.**
+
 - [ ] **schema_template**: (a) :318 quote instruction → mechanical form (character-for-character;
       never substitute/add/drop/re-tense; shorten only by choosing a shorter contiguous span;
       include a quote ONLY if copyable exactly); (b) new blanket VERBATIM COPYING rule in the
