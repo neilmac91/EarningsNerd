@@ -794,6 +794,20 @@ async def stream_filing_summary(
                     company_sic or "",
                     "|".join(quality.get("reasons") or []),
                 )
+            if quality.get("machine_sections_only"):
+                # T5.3 detection (#621 staff review): full-tier verdict where machine-authored
+                # XBRL sections alone crossed the 4/9 bar — zero model-authored sections covered.
+                # A spike after a prompt/model change means generation collapse is being masked
+                # by deterministic content (and, under AI_QUALITY_GATE, still charged); the
+                # verdict is honest, but the class is watched, not assumed.
+                logger.info(
+                    "summary_quality_full_machine_only filing_id=%s cik=%s sic=%s covered=%s/%s",
+                    filing_id,
+                    company_cik,
+                    company_sic or "",
+                    quality.get("covered_count"),
+                    quality.get("total_count"),
+                )
 
             # S4 quality gate (flagged, default off): the summary is ALWAYS persisted, so the
             # streamed result doesn't vanish when the client refetches and isn't regenerated from

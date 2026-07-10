@@ -208,3 +208,66 @@ class TestReportingCurrencyDirective:
     def test_empty_metrics_still_empty(self):
         # No rows -> "" regardless of currency (nothing to ground).
         assert build_xbrl_narrative_section({"reporting_currency": "EUR"}) == ""
+
+
+class TestReturnsBand:
+    """±200% ROE/ROA band parity (#621 staff review): the band that keeps near-zero-equity noise
+    (HD's "1644.4%") out of the machine-authored §4 line must also keep it out of the model's
+    grounding — otherwise the narrative feeds the model the exact figure the render suppressed,
+    and a restated "ROE of 1,644%" in prose is invisible to the dollar-only figure gate."""
+
+    def test_out_of_band_current_drops_the_line(self):
+        # HD-class: ~$1B equity → arithmetically-true 1644.4% ROE. Never shown to the model;
+        # in-band ROA on the same filer still grounds.
+        section = build_xbrl_narrative_section({
+            "return_on_equity": _cur(1644.4),
+            "return_on_assets": _cur(17.9),
+        })
+        assert "Return on Equity" not in section
+        assert "1644.4" not in section
+        assert "Return on Assets: 17.9%" in section
+
+    def test_out_of_band_prior_drops_just_the_prior_clause(self):
+        # Equity recovered from near-zero: current is honest, the prior is noise — mirror §4's
+        # _ratio_clause exactly (current renders, parenthetical dropped).
+        section = build_xbrl_narrative_section({
+            "return_on_equity": {
+                "current": {"value": 45.0, "period": "2025-12-31"},
+                "prior": {"value": 1644.4, "period": "2024-12-31"},
+            },
+        })
+        assert "Return on Equity: 45.0% (period: 2025-12-31)" in section
+        assert "prior" not in section and "1644.4" not in section
+
+    def test_in_band_values_unchanged_including_honest_negatives(self):
+        # A loss against positive equity is honest signal, not noise — stays, with its prior.
+        section = build_xbrl_narrative_section({
+            "return_on_equity": {
+                "current": {"value": -12.3, "period": "2025-12-31"},
+                "prior": {"value": 8.1, "period": "2024-12-31"},
+            },
+        })
+        assert "Return on Equity: -12.3% (period: 2025-12-31); prior: 8.1% (2024-12-31)" in section
+
+    def test_band_boundary_is_inclusive(self):
+        # Exactly ±200.0 is IN band — same boundary the §4 render tests pin.
+        section = build_xbrl_narrative_section({
+            "return_on_equity": _cur(200.0),
+            "return_on_assets": _cur(-200.0),
+        })
+        assert "Return on Equity: 200.0%" in section
+        assert "Return on Assets: -200.0%" in section
+
+    def test_other_pct_metrics_are_not_banded(self):
+        # Blast radius is the two returns keys ONLY — a >200% margin (near-zero-revenue pathology)
+        # is a different class, deliberately untouched by this guard.
+        section = build_xbrl_narrative_section({"gross_margin": _cur(250.0)})
+        assert "Gross Margin: 250.0%" in section
+
+    def test_render_and_narrative_share_one_predicate(self):
+        # Drift gate: §4's _ratio_clause and this grounding block must band with the SAME function —
+        # the #621 finding was precisely these two surfaces treating the class differently.
+        from app.services.ai import markdown_render
+        from app.services.ai.xbrl_narrative import returns_ratio_in_band
+
+        assert markdown_render.returns_ratio_in_band is returns_ratio_in_band

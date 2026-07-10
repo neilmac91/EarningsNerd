@@ -39,7 +39,12 @@ SUMMARY_SCHEMA_VERSION: int = 2
 # summary-2026-07-g: Tier-5.2b — segments returns to the schema as COMMENTARY-ONLY rows keyed to the
 #   REPORTABLE SEGMENTS grounding list (figures stay machine-authored; the filler merges the model's
 #   qualitative driver onto the code rows by exact label). Taxonomy shape unchanged (still v2).
-SUMMARY_PROMPT_VERSION: str = "summary-2026-07-g"
+# summary-2026-07-h: Tier-5.3 — value_drivers machine feeds: `returns_on_capital` removed from the
+#   schema/re-ask (code authors ROE/ROA level + prior; the old ask was ROIC, which the grounding
+#   cannot support); `capital_allocation` reworded to the qualitative value read (the new
+#   machine-authored `shareholder_returns` carries the dividends/buybacks/capex dollars); grounding
+#   gains Dividends Paid + Share Repurchases. Taxonomy shape unchanged (still v2).
+SUMMARY_PROMPT_VERSION: str = "summary-2026-07-h"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:

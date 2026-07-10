@@ -188,11 +188,20 @@ class EarningsQuality(_V2Base):
 
 
 class ValueDrivers(_V2Base):
-    """§4 — capital allocation this period (buybacks/dividends/M&A/capex) with a value verdict, and
-    ROIC level + trend from the filing's own XBRL (no cost-of-capital judgment — WACC is not filing
-    data)."""
+    """§4 — capital allocation this period (buybacks/dividends/capex) with a value verdict, and the
+    returns read from the filing's own XBRL. `capital_allocation` + `highlights` are model-extracted
+    (the value VERDICT); `shareholder_returns` + `returns_on_capital` are machine-authored (T5.3)."""
 
     capital_allocation: str = ""
+    # Machine-authored from standardized XBRL by the pipeline's deterministic filler — NOT
+    # model-emitted. `shareholder_returns`: the §4-homed capital-allocation dollars (dividends paid,
+    # share repurchases, capex; current vs prior, cash-paid magnitudes). NOTE: a v1 field of the same
+    # name existed under liquidity_capital_structure (model-authored bullets, dissolved at the v2
+    # cutover); the v1 taxonomy is frozen separately, so reuse is safe. `returns_on_capital`: ROE/ROA
+    # level + prior — the honest filing-derivable returns read (full ROIC founders on short-term debt
+    # being a multi-concept sum). Declared here so the shape SSOT stays complete; the v2 render
+    # builder reads them. Authors for financial institutions too (ROE/ROA is the FI-appropriate read).
+    shareholder_returns: str = ""
     returns_on_capital: str = ""
     highlights: List[str] = Field(default_factory=list)
     source_section_ref: str = ""

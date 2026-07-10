@@ -91,7 +91,7 @@ class _SectionRecoveryMixin:
             "the_print": '{"the_print": {"headline": "<string>", "key_takeaways": ["<string>"], "what_changed": "<string>", "tone": "<positive|neutral|cautious>"}}',
             "results_that_matter": '{"results_that_matter": {"table": [{"metric": "<string>", "current_period": "<string>", "prior_period": "<string>", "change": "<string>", "commentary": "<string>"}]}}',
             "earnings_quality": '{"earnings_quality": {"operating_vs_one_time": "<string>", "red_flags": ["<string>"]}}',
-            "value_drivers": '{"value_drivers": {"capital_allocation": "<string>", "returns_on_capital": "<string>", "highlights": ["<string>"]}}',
+            "value_drivers": '{"value_drivers": {"capital_allocation": "<string>", "highlights": ["<string>"]}}',
             "forward_signals": '{"forward_signals": {"guidance": "<string>", "known_trends": ["<string>"], "subsequent_events": ["<string>"], "quotes": [{"speaker": "<string>", "quote": "<string>", "context": "<string>"}], "tone": "<positive|neutral|cautious>"}}',
             "risks": '{"risks": [{"summary": "<string>", "supporting_evidence": "<string>", "materiality": "<low|medium|high>"}]}',
             "balance_sheet_liquidity": '{"balance_sheet_liquidity": {"leverage": "<string>", "liquidity": "<string>", "working_capital": "<string>", "maturities_covenants": ["<string>"]}}',

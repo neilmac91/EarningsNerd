@@ -6,9 +6,28 @@ summary *narrative* may cite. Pure, offline, no AI call — extracted verbatim f
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from app.services.ai.fi_signals import fi_components_present
+
+# ±200% plausibility band for the ROE/ROA returns read, shared by BOTH model-facing surfaces — the
+# grounding narrative here and the machine-authored §4 line (markdown_render's `_ratio_clause`
+# imports this predicate). A |ratio| beyond 200% almost always means a near-zero denominator (HD's
+# ~$1B equity → "1644.4%"): arithmetically true, analytically noise. One definition on purpose
+# (#621 staff review): banding the render but not the grounding fed the model the exact figure §4
+# had just suppressed, and a restated "ROE of 1,644%" in prose is invisible to the dollar-only
+# figure gate. The sign-flip class (negative equity) is killed at derivation; trend/excel/
+# provenance surfaces keep the raw series — this bands only what the model reads and what §4 shows.
+RETURNS_RATIO_BAND_PCT = 200.0
+_RETURNS_BAND_KEYS = ("return_on_equity", "return_on_assets")
+
+
+def returns_ratio_in_band(value: Any) -> bool:
+    """True when `value` is a real number inside the ±RETURNS_RATIO_BAND_PCT plausibility band."""
+    return (
+        isinstance(value, (int, float)) and not isinstance(value, bool)
+        and -RETURNS_RATIO_BAND_PCT <= value <= RETURNS_RATIO_BAND_PCT
+    )
 
 
 # Standardized financial metrics surfaced in the prompt's grounding block, as
@@ -37,6 +56,10 @@ _XBRL_NARRATIVE_SPEC: list[tuple[str, str, str]] = [
     ("Investing Cash Flow", "investing_cash_flow", "usd"),
     ("Financing Cash Flow", "financing_cash_flow", "usd"),
     ("Capital Expenditures", "capital_expenditures", "usd"),
+    # T5.3 shareholder returns — cash PAID (as-tagged positive outflow magnitudes); the "Paid"/
+    # "(payments)" labels make a positive number read unambiguously as an outflow.
+    ("Dividends Paid", "dividends_paid", "usd"),
+    ("Share Repurchases (payments)", "share_repurchases", "usd"),
     ("Free Cash Flow (OCF - CapEx)", "free_cash_flow", "usd"), ("Total Assets", "total_assets", "usd"),
     ("Current Assets", "current_assets", "usd"),
     ("Current Liabilities", "current_liabilities", "usd"),
@@ -110,6 +133,14 @@ def build_xbrl_narrative_section(xbrl_metrics: Optional[dict]) -> str:
 
         if not isinstance(current, dict) or current.get("value") is None:
             continue
+        # Returns-band parity (#621 staff review): out-of-band ROE/ROA never reaches the model — an
+        # out-of-band current drops the whole line, an out-of-band prior drops just the prior
+        # clause, mirroring the machine-authored §4 line exactly (same predicate, same constant).
+        if key in _RETURNS_BAND_KEYS:
+            if not returns_ratio_in_band(current.get("value")):
+                continue
+            if isinstance(prior, dict) and not returns_ratio_in_band(prior.get("value")):
+                prior = None
         line = f"- {label}: {_format_xbrl_metric_value(current.get('value'), kind)} (period: {current.get('period') or 'N/A'})"
         if isinstance(prior, dict) and prior.get("value") is not None:
             line += f"; prior: {_format_xbrl_metric_value(prior.get('value'), kind)} ({prior.get('period') or 'N/A'})"

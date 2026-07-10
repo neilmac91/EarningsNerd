@@ -85,7 +85,39 @@ DURATION_CONCEPTS: Dict[str, List[str]] = {
         "PaymentsToAcquireProductiveAssets",
         "PurchaseOfPropertyPlantAndEquipment",  # IFRS
     ],
+    # T5.3 shareholder returns — CASH-FLOW-STATEMENT payments only, live-verified across
+    # AAPL/MSFT/ASML/WFC/JPM/BAC/C (us-gaap) and TSM/NVO (ifrs-full). Facts are debit-balance
+    # elements tagged POSITIVE ("cash paid" magnitudes), stored as-tagged — the capex precedent.
+    # `dividends_paid` lists TOTAL tags only; filers that tag common/preferred as separate
+    # components with NO total (WFC-class) are resolved by summing DIVIDEND_COMPONENT_CONCEPTS —
+    # first-candidate-wins over a component would report the common-only subset as the unqualified
+    # total (WFC FY2025: 5,434M common vs 6,484M actually paid — a 16% understatement).
+    # EXCLUDED trap tags (wrong-by-construction, verified live; pinned by
+    # test_shareholder_returns_extraction.py): `DividendsCommonStockCash` is dividends DECLARED,
+    # not paid (MSFT: 24,678M declared vs 24,082M paid); ifrs `DividendsPaid` is the
+    # equity-statement distribution, not cash (TSM: 531,618M vs 466,779M paid);
+    # `StockRepurchasedAndRetiredDuringPeriodValue` is the equity-statement measure
+    # (AAPL: 89,300M vs 90,711M cash paid).
+    "dividends_paid": [
+        "PaymentsOfDividends",
+        "PaymentsOfOrdinaryDividends",  # combined total on e.g. BAC (~common + preferred)
+        "DividendsPaidClassifiedAsFinancingActivities",  # IFRS
+    ],
+    "share_repurchases": [
+        "PaymentsForRepurchaseOfCommonStock",
+        "PaymentsForRepurchaseOfEquity",  # umbrella tag (preferred/unit repurchases)
+        "PaymentsToAcquireOrRedeemEntitysShares",  # IFRS
+    ],
 }
+
+# Per-class dividend payment components, resolved INDIVIDUALLY and summed per period when no total
+# tag exists (never first-candidate-wins — each is a disjoint subset, not an alternative spelling).
+# A component-absent filer (MSFT: common only; no preferred in the capital structure) resolves to
+# its sole tagged component unchanged.
+DIVIDEND_COMPONENT_CONCEPTS: List[str] = [
+    "PaymentsOfDividendsCommonStock",
+    "PaymentsOfDividendsPreferredStockAndPreferenceStock",
+]
 
 # Balance-sheet (instant) concepts. Deliberately excludes
 # LiabilitiesAndStockholdersEquity as a total_liabilities candidate: that
@@ -381,6 +413,32 @@ def duration_series_with_currency(
         xb, concepts, form, period_of_report, max_items
     )
     return series, currency
+
+
+def dividend_component_sum_series(
+    xb: Any, form: str, period_of_report: str
+) -> Tuple[List[Tuple[str, float]], Optional[str]]:
+    """Second-tier dividends resolution (T5.3 review, the WFC class): when no TOTAL dividends tag
+    exists, resolve each per-class payment component independently and SUM per period — summing only
+    what is explicitly tagged. Each component individually passes the full anchoring/window/currency
+    discipline of :func:`duration_series_currency_concept`; a currency-mismatched component is never
+    summed (apples to oranges — the first-resolved component's currency wins and the mismatch is
+    dropped). Returns (series newest-first, currency), empty when no component resolves."""
+    totals: Dict[str, float] = {}
+    currency: Optional[str] = None
+    for concept in DIVIDEND_COMPONENT_CONCEPTS:
+        series, ccy, _concept = duration_series_currency_concept(xb, [concept], form, period_of_report)
+        if not series:
+            continue
+        if not totals:
+            currency = ccy  # first summed component locks the currency label (may itself be None)
+        elif ccy != currency:
+            # EXACT match required (Gemini review): an unlabeled (None) component must never sum
+            # into a labeled total — or vice versa — any more than a differently-labeled one.
+            continue
+        for end, value in series:
+            totals[end] = totals.get(end, 0.0) + value
+    return sorted(totals.items(), key=lambda kv: kv[0], reverse=True), currency
 
 
 def instant_series_with_currency(

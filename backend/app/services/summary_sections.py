@@ -621,7 +621,11 @@ def _v2_value_drivers(sections: dict) -> Section:
     data = sections.get("value_drivers")
     if not isinstance(data, dict):
         return section
-    for key, alt in (("capital_allocation", "capitalAllocation"), ("returns_on_capital", "returnsOnCapital")):
+    # Machine-authored figures lead (shareholder_returns — T5.3), the model's value verdict follows,
+    # then the machine returns read (ROE/ROA).
+    for key, alt in (("shareholder_returns", "shareholderReturns"),
+                     ("capital_allocation", "capitalAllocation"),
+                     ("returns_on_capital", "returnsOnCapital")):
         text = _clean(data.get(key) or data.get(alt))
         if text and not is_placeholder(text):
             section.blocks.append(Block("paragraph", text=text))

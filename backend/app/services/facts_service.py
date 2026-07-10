@@ -70,6 +70,12 @@ _CONCEPT_UNITS: dict[str, str] = {
     "current_liabilities": "USD",
     "working_capital": "USD",
     "current_ratio": "pure",
+    # T5.3 shareholder returns: cash PAID (as-tagged positive magnitudes, the capex precedent).
+    # Deliberately NOT in NON_NEGATIVE_CONCEPTS — mirror capex: a rare credit-signed filer's value
+    # is stored as-tagged rather than hard-rejected (the reconcile magnitude check is sign-invariant
+    # and will NOT flag it); user-visible surfaces normalize with abs(), the FCF/§4 precedent.
+    "dividends_paid": "USD",
+    "share_repurchases": "USD",
 }
 
 # Concepts that are physically impossible below zero — a negative value is a parse error,

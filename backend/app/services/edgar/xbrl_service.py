@@ -44,6 +44,7 @@ from .instance_extractor import (
     INSTANT_CONCEPTS,
     RICHER_DURATION_CONCEPTS,
     RICHER_INSTANT_CONCEPTS,
+    dividend_component_sum_series,
     duration_series_currency_concept,
     duration_series_with_currency,
     extract_financial_statement_metrics,
@@ -78,7 +79,9 @@ set_identity(EDGAR_IDENTITY)
 # latest 10-K's figures for any accession and must age out unread.
 # v3: financial-institution revenue via the as-reported income statement (filing 528 / MCB fix) —
 # v2 entries can hold a bank's fee-income-only "revenue" subset and must age out unread.
-_XBRL_CACHE_VERSION = "v3"
+# v4: T5.3 shareholder-returns concepts (dividends_paid, share_repurchases) — v3 entries lack the
+# new keys and must age out so the §4 deterministic feed sees them without a manual refresh.
+_XBRL_CACHE_VERSION = "v4"
 
 # Module-level cache for XBRL data (L1 - in-memory with LRU eviction)
 # Key: "{cik}:{accession_number}"
@@ -392,6 +395,23 @@ def _extract_from_filing_instance_sync(
         # currency vote; weight revenue/net_income (true monetary totals) instead.
         if metric not in ("earnings_per_share", "eps_diluted"):
             _record_currency(currency, len(series))
+
+    # T5.3 review (WFC class): dividends component fallback. Filers with NO total dividends tag
+    # emit common/preferred payments as separate components; first-candidate-wins over a component
+    # would report the common-only subset as the unqualified total. Sum the explicitly-tagged
+    # components per period instead. Crash-safe: a failure here never breaks the metrics path.
+    if not result.get("dividends_paid"):
+        try:
+            div_series, div_currency = dividend_component_sum_series(xb, base_form, period_of_report)
+            if div_series:
+                result["dividends_paid"] = [
+                    {"period": end, "value": value, "form": form, "accn": accession_number,
+                     "currency": div_currency}
+                    for end, value in div_series
+                ]
+                _record_currency(div_currency, len(div_series))
+        except Exception as exc:  # noqa: BLE001
+            logger.debug(f"Dividend component fallback failed: {exc}")
 
     # Emit the statement-derived financial metrics (revenue and/or bank components), each carrying
     # its raw_tag. Values are in the filer's own reporting currency (domestic financials = USD).
@@ -1159,7 +1179,9 @@ class EdgarXBRLService:
                     # Financial-institution revenue components/totals (filing 528 / MCB fix). Only
                     # present for banks/insurers/BDCs; inert (empty series → skipped) otherwise.
                     "net_interest_income", "noninterest_income",
-                    "premiums_earned", "net_investment_income"):
+                    "premiums_earned", "net_investment_income",
+                    # T5.3 shareholder returns (cash paid, as-tagged positive magnitudes).
+                    "dividends_paid", "share_repurchases"):
             series = normalise_series(xbrl_data.get(key, []))
             if series:
                 metrics[key] = build_metric_entry(series)
@@ -1226,6 +1248,12 @@ class EdgarXBRLService:
 
         # P1.3 issuer-relevant returns: ROE and ROA — the right profitability read where gross
         # margin doesn't apply (banks, insurers, REITs). Net income (period) over equity / assets.
+        # Denominator must be POSITIVE, not merely non-zero ("only derive from clean inputs", the
+        # working-capital precedent above): a NEGATIVE-equity filer (buyback-driven deficits — SBUX,
+        # MCD, BA) sign-flips the ratio, rendering a profitable company deeply negative and a
+        # loss-maker confidently positive — a machine-authored wrong statement on both the grounding
+        # and the T5.3 §4 surface. Skip those periods; ROA is unaffected in practice (total_assets
+        # is hard-rejected when negative).
         equity_series = normalise_series(xbrl_data.get("shareholders_equity", []))
         assets_series = normalise_series(xbrl_data.get("total_assets", []))
         for ratio_key, denom_series in (("return_on_equity", equity_series),
@@ -1237,7 +1265,7 @@ class EdgarXBRLService:
                     denom = denom_by_period.get(ni["period"])
                     ni_v = ni.get("value")
                     denom_v = denom.get("value") if denom else None
-                    if ni_v is not None and denom_v and denom_v != 0:
+                    if ni_v is not None and denom_v is not None and denom_v > 0:
                         r_series.append({"period": ni["period"],
                                          "value": (ni_v / denom_v) * 100, "form": ni.get("form")})
                 if r_series:
