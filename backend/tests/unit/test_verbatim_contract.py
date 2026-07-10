@@ -11,7 +11,11 @@ from pathlib import Path
 from app.services.openai_service import openai_service
 from app.services.prompt_loader import get_structured_prompt
 
-_OPENAI_SERVICE_SRC = Path("app/services/openai_service.py").read_text()
+# Anchored to __file__ (Gemini on #626): tests/unit/ -> backend/ -> app/... — runs
+# identically regardless of the runner's working directory.
+_OPENAI_SERVICE_SRC = (
+    Path(__file__).resolve().parents[2] / "app" / "services" / "openai_service.py"
+).read_text()
 
 
 class TestSchemaTemplateContract:
@@ -82,7 +86,7 @@ class TestRecoveryParity:
     def test_recovery_system_message_carries_the_verbatim_rule(self):
         src = inspect.getsource(type(openai_service)._run_secondary_completion)
         assert "character-for-character" in src
-        assert "omit " in src and "cannot copy it" in src
+        assert "omit the quote; set supporting_evidence " in src  # per-field escape (Gemini #626)
         assert "Risks supporting_evidence keeps " in src  # the looser-contract carve-out
 
     def test_recovery_token_cap_covers_the_restored_fields(self):

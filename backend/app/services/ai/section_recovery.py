@@ -137,9 +137,10 @@ class _SectionRecoveryMixin:
                                     "Stay concise, rely only on provided excerpts, and return valid JSON. "
                                     "Any quote, and any supporting_evidence in results_that_matter or "
                                     "notable_footnotes, must be copied character-for-character from the "
-                                    "excerpt — never reworded, re-tensed, or internally shortened; omit "
-                                    "it if you cannot copy it exactly. Risks supporting_evidence keeps "
-                                    "its own contract: a verbatim excerpt OR a citation — never empty."
+                                    "excerpt — never reworded, re-tensed, or internally shortened. If "
+                                    "you cannot copy it exactly: omit the quote; set supporting_evidence "
+                                    "to ''. Risks supporting_evidence keeps its own contract: a verbatim "
+                                    "excerpt OR a citation — never empty."
                                 ),
                             },
                             {"role": "user", "content": prompt},
