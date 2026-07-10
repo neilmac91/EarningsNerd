@@ -739,11 +739,15 @@ def score_forward_quote_fidelity(
     markdown (bake-off candidates emit flat canonical fields with no quote structure), no
     forward/outlook section, no quotes, or only quotes under the shared minimum-verifiable
     length. Deliberately scoped to the forward/outlook section's blockquotes — the only surface
-    the schema contracts as verbatim quotes."""
+    the schema contracts as verbatim quotes. The multi-MB referent is normalized lazily, once per
+    scored run and only when a verifiable quote exists (offline cost, ~hundreds of ms)."""
     if not filing_text or not isinstance(filing_text, str):
         return 1.0, []
     md = payload.get("executive_summary")
-    if not isinstance(md, str) or "\n## " not in md:
+    # ^-anchored search, not "\n## " containment: a single-section markdown (its one heading at
+    # position 0) must still be measured, or a degenerate Forward-Signals-only render would carry
+    # fabricated quotes at a false-neutral 1.0 (adversarial review).
+    if not isinstance(md, str) or not re.search(r"(?m)^## ", md):
         return 1.0, []
     # Lazy app imports (the figure_trace-in-assess_quality pattern): keeps the evals package free
     # of app import-order coupling at module load; these helpers are themselves pure.

@@ -55,6 +55,7 @@ def is_placeholder(text: Any) -> bool:
 # same string would show literal "**Revenue**" on the page while rendering bold in the derived
 # markdown and raw in the CSV — three cosmetic renderings of one string. Normalize inline markup
 # ONCE here, at the single projection, so web / markdown / PDF / CSV all agree by construction.
+_WS_COLLAPSE = re.compile(r"\s+")
 _MD_LINK = re.compile(r"\[([^\]]+)\]\([^)]*\)")   # [text](url) -> text
 _MD_BOLD = re.compile(r"\*\*(.+?)\*\*")            # **bold**   -> bold
 _MD_CODE = re.compile(r"`([^`]+)`")                # `code`     -> code
@@ -663,7 +664,11 @@ def _v2_forward_signals(sections: dict) -> Section:
         for quote in quotes:
             if not isinstance(quote, dict):
                 continue
-            text = _clean(quote.get("quote"))
+            # Collapse internal whitespace: a newline inside the model's quote string would break
+            # the GFM blockquote (only the first line gets the "> " prefix) AND hide the quote
+            # from the eval's line-anchored fidelity regex (T5.4 review). Quotes are single
+            # sentences by contract — one line is their only correct rendering.
+            text = _WS_COLLAPSE.sub(" ", _clean(quote.get("quote")))
             if text and not is_placeholder(text):
                 # A verbatim quote is the ideal citation: the read-time ``evidence`` (T4) verifies it in
                 # the filing and deep-links to it. None on the unenriched path — the web omits the chip.

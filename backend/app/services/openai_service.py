@@ -772,14 +772,21 @@ Rules:
         sections_info["risks"] = risk_section
 
         # T5.4 forward-quote gate: verify every §5 quote against the same text the model generated
-        # from (the assess_quality grounding rule); failures are always audited — the pipeline logs
-        # the greppable forward_quote_unverified counter from the audit key attached below — and
-        # dropped only when AI_FORWARD_QUOTE_GATE is armed. MUST run before the coverage snapshot
-        # and the render: sections_info is the same object structured_summary/render/coverage all
-        # read, so the drop here keeps stored sections, per_section coverage, and the persisted
+        # from; failures are always audited — the pipeline logs the greppable
+        # forward_quote_unverified counter from the audit key attached below — and dropped only
+        # when AI_FORWARD_QUOTE_GATE is armed. MUST run before the coverage snapshot and the
+        # render: sections_info is the same object structured_summary/render/coverage all read, so
+        # the drop here keeps stored sections, per_section coverage, and the persisted
         # business_overview markdown agreeing about a dropped quote.
+        # Grounding basis is the EXCERPT ONLY — never raw filing_text (adversarial review on the
+        # T5.4 slice, blocking finding): when the excerpt is absent, _parse_and_clean_text builds
+        # the model's prompt sample from tag-STRIPPED section text, while filing_text here is the
+        # raw fetched document (HTML source). Grepping raw HTML for quotes the model copied from
+        # cleaned text false-fails them with fabrication-class scores — biasing the arming readout
+        # and, once armed, silently dropping genuine quotes on exactly the degraded population.
+        # No excerpt → no grounding basis → measure and drop NOTHING (the figure-trace posture).
         forward_quote_audit = gate_forward_quotes(
-            sections_info, filing_excerpt or filing_text or "", settings.AI_FORWARD_QUOTE_GATE
+            sections_info, filing_excerpt or "", settings.AI_FORWARD_QUOTE_GATE
         )
 
         coverage_keys = set(_TRACKED_STRUCTURED_SECTIONS)

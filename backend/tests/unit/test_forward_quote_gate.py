@@ -109,8 +109,8 @@ def test_armed_drop_of_every_quote_leaves_empty_list_and_intact_section():
 
 
 def test_wrapping_quote_marks_are_stripped_before_matching():
-    # Models often wrap the quote field's value in literal quote marks; extract_quoted_span
-    # (shared with T4 evidence) strips them so the wrapper can't fail the match.
+    # Models often wrap the quote field's value in literal quote marks; a FULL wrapping pair is
+    # stripped (inner spans never shrink the needle — see the fabricated-wrapper tests below).
     sections = _sections(_q(f'"{VERBATIM}"'))
     audit = gate_forward_quotes(sections, FILING, armed=False)
     assert audit["verified"] == 1
@@ -165,3 +165,61 @@ def test_malformed_entries_pass_untouched():
     audit = gate_forward_quotes(sections, FILING, armed=True)
     assert audit["checked"] == 1 and audit["verified"] == 1
     assert len(sections["forward_signals"]["quotes"]) == 4  # nothing malformed was dropped
+
+
+# --- adversarial-review fixes (post-#623) --------------------------------------------------------
+
+def test_fabricated_wrapper_around_real_quoted_fragment_is_flagged():
+    """Review finding (executed bypass): the needle is the WHOLE quote value — an inner quoted
+    span must never shrink it, or a fabricated wrapper verifies via any real 8+-char fragment."""
+    wrapper = ('Revenue will triple by 2030 and "We expect capital expenditures to increase '
+               'substantially in fiscal 2027" so margins are guaranteed to expand forever.')
+    sections = _sections(_q(wrapper, speaker="CEO"))
+    audit = gate_forward_quotes(sections, FILING, armed=True)
+    assert audit["verified"] == 0 and len(audit["dropped"]) == 1
+    assert sections["forward_signals"]["quotes"] == []
+
+
+def test_long_fabrication_with_short_inner_quote_is_measured():
+    """Review finding (executed bypass): a 100+-char fabrication carrying a sub-floor inner quote
+    used to reduce to that span and pass UNCOUNTED (audit None). The whole value is now checked."""
+    fabrication = ('We are fully confident our "Vision 2030 plan" will double revenue and expand '
+                   'margins dramatically across every segment next year.')
+    sections = _sections(_q(fabrication))
+    audit = gate_forward_quotes(sections, FILING, armed=True)
+    assert audit is not None and audit["checked"] == 1 and audit["verified"] == 0
+    assert sections["forward_signals"]["quotes"] == []
+
+
+def test_single_quote_full_wrap_is_stripped():
+    sections = _sections(_q(f"'{VERBATIM}'"))
+    audit = gate_forward_quotes(sections, FILING, armed=False)
+    assert audit["verified"] == 1
+
+
+def test_inline_markdown_emphasis_does_not_fail_a_verbatim_quote():
+    """Review finding: the renderer strips **emphasis** for display, so the gate must match on the
+    same stripped text — a verbatim phrase the model decorated is not drift."""
+    decorated = "We expect **capital expenditures** to increase substantially in fiscal 2027"
+    sections = _sections(_q(decorated))
+    audit = gate_forward_quotes(sections, FILING, armed=False)
+    assert audit["verified"] == 1
+
+
+def test_fully_verbatim_quote_still_verifies_after_wrapper_strip_change():
+    # Regression guard for the fix itself: the plain path is untouched.
+    sections = _sections(_q(VERBATIM))
+    assert gate_forward_quotes(sections, FILING, armed=True)["verified"] == 1
+
+
+def test_newline_in_quote_text_renders_as_single_line_blockquote():
+    """Review finding + Gemini on #625: a newline inside the model's quote string broke the GFM
+    blockquote (continuation lines lost the '> ' prefix) and hid the quote from the eval's
+    line-anchored regex. The renderer now collapses internal whitespace — one sentence, one line."""
+    from app.services.summary_sections import render_sections, sections_to_markdown
+
+    two_line = VERBATIM.replace("capital expenditures", "capital\nexpenditures")
+    structured = {"schema_version": 2, "sections": _sections(_q(two_line))}
+    md = sections_to_markdown(render_sections(structured))
+    line = next(ln for ln in md.splitlines() if ln.startswith("> "))
+    assert VERBATIM in line  # whole quote on the one blockquote line, whitespace collapsed
