@@ -389,8 +389,13 @@ def test_forward_quote_fidelity_rides_score_summary_only_when_text_provided():
                "risk_factors": [{"text": "Concentration risk remains material."}]}
     without = score_summary(payload, [])
     assert without.forward_quote_fidelity == 1.0                         # neutral default
+    assert without.forward_quote_violations == []
     with_text = score_summary(payload, [], filing_text=FILING_TEXT)
     assert with_text.forward_quote_fidelity == 0.0                       # measured when threaded
+    # The per-quote detail rides the score (the near-miss/fabrication split is the arming signal
+    # and must be recoverable from a report without regenerating).
+    assert len(with_text.forward_quote_violations) == 1
+    assert "no counterpart" in with_text.forward_quote_violations[0]
 
 
 def test_forward_quote_fidelity_accepts_curly_blockquote_delimiters():

@@ -813,7 +813,9 @@ def score_summary(
     currency_consistency, _ = score_currency_consistency(payload, ground_truth)
     redundancy, _ = score_redundancy(payload)
     delta_consistency, _ = score_delta_consistency(payload)
-    forward_quote_fidelity, _ = score_forward_quote_fidelity(payload, filing_text)
+    forward_quote_fidelity, forward_quote_violations = score_forward_quote_fidelity(
+        payload, filing_text
+    )
     return RubricScore(
         schema_valid=schema_valid,
         repaired=repaired,
@@ -826,6 +828,7 @@ def score_summary(
         redundancy=redundancy,
         delta_consistency=delta_consistency,
         forward_quote_fidelity=forward_quote_fidelity,
+        forward_quote_violations=forward_quote_violations,
         gate_failures=compute_gate_failures(payload, contradictions, ground_truth),
         missing_sections=missing_sections,
         matched_facts=matched,
