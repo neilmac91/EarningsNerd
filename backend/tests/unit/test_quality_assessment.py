@@ -178,6 +178,71 @@ def test_na_untracked_and_duplicate_entries_cannot_shrink_the_total():
     assert (v["covered_count"], v["total_count"]) == (8, 8)
 
 
+# --- T5.3 machine-sections-only observability (#621 staff review) ---------------------------------
+
+def test_full_via_machine_sections_alone_is_marked():
+    """The conscious-ack mechanism: §4's machine authoring makes the machine-coverable ceiling equal
+    the 4/9 full bar, so a model-collapsed-but-parseable run on an XBRL filer can tier "full" on
+    machine content alone. The verdict stands (machine content is real content) but the class is
+    marked — `machine_sections_only` — for the pipeline's greppable counter and per-row audit."""
+    from app.services import summary_generation_service as svc
+
+    v = svc.assess_quality(_v2_snapshot_payload(tuple(svc.MACHINE_COVERABLE_SECTIONS)), None)
+    assert v["tier"] == "full" and v["covered_count"] == 4
+    assert v["machine_sections_only"] is True
+
+
+def test_any_model_authored_coverage_clears_the_mark():
+    """One model-only section covered (the model demonstrably produced content) → not machine-only,
+    even at the same 4-section count."""
+    from app.services import summary_generation_service as svc
+
+    covered = ("earnings_quality", "value_drivers", "balance_sheet_liquidity", "the_print")
+    v = svc.assess_quality(_v2_snapshot_payload(covered), None)
+    assert v["tier"] == "full"
+    assert v["machine_sections_only"] is False
+
+    v = svc.assess_quality(_v2_snapshot_payload(_V2_SECTIONS), None)  # fully-covered normal run
+    assert v["machine_sections_only"] is False
+
+
+def test_partial_verdicts_are_never_marked_machine_only():
+    """The mark is scoped to FULL verdicts (it exists to watch the bar-crossing class; partials are
+    already counted by the P0-2 partial counter): 3 machine sections → partial, unmarked."""
+    from app.services import summary_generation_service as svc
+
+    covered = ("earnings_quality", "segments", "balance_sheet_liquidity")
+    v = svc.assess_quality(_v2_snapshot_payload(covered), None)
+    assert v["tier"] == "partial"
+    assert v["machine_sections_only"] is False
+
+
+def test_v1_and_legacy_payloads_are_never_marked():
+    """The machine set holds v2 names only: a v1-taxonomy snapshot (frozen history) and a
+    no-snapshot legacy payload both stay unmarked — the counter watches fresh v2 generations."""
+    from app.services import summary_generation_service as svc
+
+    v = svc.assess_quality(_snapshot_payload(_STRUCTURED_SECTIONS[:4]), None)  # v1 names, full
+    assert v["tier"] == "full" and v["machine_sections_only"] is False
+
+    legacy = _full_summary("A detailed multi-section overview of the business and its results.")
+    v = svc.assess_quality(legacy, None)  # no per_section snapshot at all
+    assert v["tier"] == "full" and v["machine_sections_only"] is False
+
+
+def test_machine_coverable_set_pins_the_v2_ceiling():
+    """Rule-12 pin: the machine-coverable set is exactly the four v2 sections with code-authored
+    fields (§3 cash_conversion, §4 shareholder_returns/returns_on_capital, §7 segments table,
+    §8 cash_flow/working_capital) — all tracked v2 names. A new machine-authored field in a FIFTH
+    section must update the set (and this pin) in the same PR, or the counter under-reports."""
+    from app.services import summary_generation_service as svc
+
+    assert svc.MACHINE_COVERABLE_SECTIONS == {
+        "earnings_quality", "value_drivers", "segments", "balance_sheet_liquidity",
+    }
+    assert svc.MACHINE_COVERABLE_SECTIONS <= set(_V2_SECTIONS)
+
+
 # --- T3.2 number-diff / figure-trace gate ---------------------------------------------------------
 
 def _v2_summary_with_fabricated_figure():

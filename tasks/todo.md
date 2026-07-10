@@ -36,9 +36,26 @@ LongTermDebtCurrent + CommercialPaper; single-tag extraction would OVERSTATE ROI
 
 ## Plan
 
-**STATUS: implemented; reviewed (2 adversarial agents, all findings actioned incl. the WFC
-component-summing fix + negative-equity ROE guard); gates green (1668); live-verified on 10 filers;
-final eval in flight.**
+**STATUS: shipped to draft PR #621. Reviewed: 2 adversarial agents (WFC component-summing fix +
+negative-equity ROE guard actioned) + Gemini (exact-match currency lock) + founder staff review
+(approve direction; follow-up below). Gates green; live-verified on 10 filers. Final eval on the
+shipped code: regression gate PASS, 0 warnings — gate_fail 0.0, recall/precision/coverage/currency
+1.0, financial_depth 0.9658, redundancy 0.9443 (highest of the T5 arc), delta 0.9615,
+specificity 0.9905; no re-pin.**
+
+### #621 staff-review follow-up (same PR)
+
+- [x] **[should-fix] Returns-band parity in the grounding** — the ±200% ROE/ROA band now lives in
+      `xbrl_narrative.py` (`returns_ratio_in_band`, one constant) and bands BOTH model-facing
+      surfaces: the narrative drops an out-of-band current line / prior clause exactly like §4's
+      `_ratio_clause`, which now imports the same predicate (no drift). Trend/excel/provenance keep
+      the raw series. Tests: narrative band ×5 + shared-predicate identity pin.
+- [x] **[should-consider] Machine-only-full observability** — `assess_quality` returns
+      `machine_sections_only` (full verdict, zero model-authored sections covered; persisted with
+      the quality dict), and the pipeline logs the greppable `summary_quality_full_machine_only`
+      counter (P0-2 pattern) with filing/cik/sic. `MACHINE_COVERABLE_SECTIONS` pinned by test.
+- [x] **[nit] Housekeeping** — T5.2b plan archived to `tasks/archive/t5.2b-segment-commentary-todo.md`
+      (incl. the acknowledged-tradeoff record); this STATUS refreshed.
 
 - [x] **Extraction:** DURATION_CONCEPTS += `dividends_paid`, `share_repurchases` (verified lists, trap
       tags documented in a comment + a rule-12 pin that the traps are absent); pass-through tuple += both;
@@ -78,3 +95,8 @@ final eval in flight.**
 - ROIC proper (short-term debt = multi-concept sum; new summation mechanism + analyst-policy judgments).
 - Companyfacts/get_financials fallback parity; trend/excel/provenance registries (absent keys degrade
   gracefully); T5.4 forward-quote gate; T4 follow-up.
+- **Watch items from the #621 staff review (probe, no code):** (a) zero-after-nonzero repurchases —
+  confirm in the next live probe that the model narrates a buyback HALT (the grounding shows the
+  current-0 next to the prior; the machine line rightly omits the zero clause); (b) IFRS filers
+  tagging only `DividendsPaidToEquityHoldersOfParent…` (no bare financing-activities total) —
+  degrade-not-wrong today; probe alongside the M&A/tax slice.

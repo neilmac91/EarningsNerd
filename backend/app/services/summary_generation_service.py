@@ -145,6 +145,30 @@ def _xbrl_value_appears(value: float, haystack_lower: str) -> bool:
 # fixed 9-section taxonomy.
 MINIMUM_STRUCTURED_SECTIONS_FOR_FULL = 4
 
+# The v2 sections a machine-authored XBRL field can flip to "covered" with ZERO model contribution
+# (mirrors `_apply_structured_fallbacks` in ai/markdown_render.py): §3 `cash_conversion`,
+# §4 `shareholder_returns`/`returns_on_capital`, §7 `segments` (whole table), §8 `cash_flow`/
+# `working_capital`. Four sections — exactly the full bar — so a model-collapsed-but-parseable run
+# on an XBRL filer can tier "full" on machine content alone (T5.3 conscious ack, #621 staff
+# review). Update alongside any new machine-authored field; the T5.1/T5.2/T5.3 render tests pin
+# each field's authorship, and test_quality_assessment pins this set's effect on the counter.
+MACHINE_COVERABLE_SECTIONS = frozenset(
+    {"earnings_quality", "value_drivers", "segments", "balance_sheet_liquidity"}
+)
+
+
+def _model_covered_count(summary_data: Dict[str, Any]) -> Optional[int]:
+    """Tracked sections covered EXCLUDING the machine-coverable set — the model's own contribution
+    to section coverage. None when the payload carries no ``per_section`` snapshot (legacy rows,
+    which assess_quality never sees — its only caller assesses fresh generations)."""
+    raw = summary_data.get("raw_summary") or {}
+    snapshot = raw.get("section_coverage") or {}
+    per_section = snapshot.get("per_section")
+    if not isinstance(per_section, dict):
+        return None
+    tracked = _tracked_sections_for(raw.get("schema_version"))
+    return sum(1 for s in tracked if per_section.get(s) and s not in MACHINE_COVERABLE_SECTIONS)
+
 
 def _tracked_sections_for(schema_version: Any) -> Tuple[str, ...]:
     """The section-key taxonomy the quality badge counts, dispatched by schema version.
@@ -206,9 +230,11 @@ def assess_quality(
     """Deterministic quality verdict for a generated summary (roadmap S4).
 
     Returns {tier: "full"|"partial", reasons, numeric_grounded, covered_count, total_count,
-    figures_untraceable}. ``figures_untraceable`` (T3.2) is the number-diff gate's residual — prose
-    figures traceable to neither XBRL nor a computed delta nor the filing ``excerpt``; always attached
-    for measurement, but only affects ``tier`` when ``AI_FIGURE_TRACE_GATE`` is on (advisory-first).
+    figures_untraceable, machine_sections_only}. ``figures_untraceable`` (T3.2) is the number-diff
+    gate's residual — prose figures traceable to neither XBRL nor a computed delta nor the filing
+    ``excerpt``; always attached for measurement, but only affects ``tier`` when
+    ``AI_FIGURE_TRACE_GATE`` is on (advisory-first). ``machine_sections_only`` (T5.3) marks a full
+    verdict reached with zero model-authored sections covered — observability, never a tier input.
     "partial" means thin section coverage OR financials that don't match the SEC-verified XBRL —
     the signal the UI surfaces honestly (quality badge) instead of silently stripping notices.
 
@@ -309,6 +335,15 @@ def assess_quality(
         if (covered >= min_full and numeric_grounded and not trace_gate_active)
         else "partial"
     )
+    # T5.3 conscious-ack mechanism (#621 staff review): §4's machine authoring raised the
+    # machine-coverable ceiling to 4 sections — the full bar — so a model-collapsed-but-parseable
+    # run can now tier "full" (and, under AI_QUALITY_GATE, charge quota) on machine content alone.
+    # Machine content is real content, so the verdict stands; but the class must be OBSERVABLE:
+    # `machine_sections_only` marks a full verdict with zero model-authored sections covered.
+    # Persisted with the quality dict (auditable per row) and counted greppably by the pipeline
+    # (`summary_quality_full_machine_only`, the P0-2 counter pattern) — a spike after a prompt or
+    # model change means generation collapse is being masked by deterministic XBRL sections.
+    machine_sections_only = tier == "full" and _model_covered_count(summary_data) == 0
     return {
         "tier": tier,
         "reasons": reasons,
@@ -316,6 +351,7 @@ def assess_quality(
         "covered_count": covered,
         "total_count": total,
         "figures_untraceable": figures_untraceable,
+        "machine_sections_only": machine_sections_only,
     }
 
 

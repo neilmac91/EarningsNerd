@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from app.services.ai.fi_signals import fi_components_present
 from app.services.ai.normalize import _PLACEHOLDER_STRINGS
+from app.services.ai.xbrl_narrative import returns_ratio_in_band
 
 
 def _append_bullet_group(lines: List[str], label: str, items: Any) -> bool:
@@ -485,24 +486,23 @@ class _MarkdownRenderMixin:
         roa = (xbrl_metrics or {}).get("return_on_assets")
 
         def _ratio_clause(label: str, metric: Any) -> Optional[str]:
-            # Band guard (the cash_conversion ±10x precedent): a |ratio| beyond 200% almost always
-            # means a near-zero denominator (HD's ~$1B equity → "1644.4%") — arithmetically true,
-            # analytically noise. Honest negatives inside the band (a loss against positive equity,
-            # e.g. -12.3%) stay; the sign-flip class is already killed at the derivation (equity > 0).
-            def _in_band(value: Any) -> bool:
-                return (isinstance(value, (int, float)) and not isinstance(value, bool)
-                        and -200.0 <= value <= 200.0)
-
+            # Band guard (the cash_conversion ±10x precedent): a |ratio| beyond the shared
+            # RETURNS_RATIO_BAND_PCT almost always means a near-zero denominator (HD's ~$1B equity
+            # → "1644.4%") — arithmetically true, analytically noise. Honest negatives inside the
+            # band (a loss against positive equity, e.g. -12.3%) stay; the sign-flip class is
+            # already killed at the derivation (equity > 0). `returns_ratio_in_band` is the SAME
+            # predicate that bands these two metrics out of the grounding narrative (#621 staff
+            # review) — one constant, two surfaces, no drift.
             if not isinstance(metric, dict):
                 return None
             current = metric.get("current") if isinstance(metric.get("current"), dict) else {}
             value = current.get("value")
-            if not _in_band(value):
+            if not returns_ratio_in_band(value):
                 return None
             clause = f"{label} {value:.1f}%"
             prior = metric.get("prior") if isinstance(metric.get("prior"), dict) else {}
             prior_value = prior.get("value")
-            if _in_band(prior_value):
+            if returns_ratio_in_band(prior_value):
                 clause += f" (prior {prior_value:.1f}%)"
             return clause
 
