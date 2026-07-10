@@ -326,6 +326,16 @@ the T5.4 PR: the first `--runs 3` readout is a *measurement* of current model be
 we've chosen). Never add it to `compute_gate_failures` — `gate_fail_rate` is pinned at 0.0 with
 epsilon tolerance, and the G5 lesson (PR #611) is that a stochastic hard gate fires as pure noise.
 
+**`mean_citation_fidelity` (T4 follow-up) — ships advisory, unpinned.** The permanent citation
+scorer: fraction of the two VERBATIM-CONTRACTED `supporting_evidence` surfaces (P&L-takeaway rows
++ notable footnotes; footnotes threaded into the canonical payload by the runner) locatable
+verbatim in the filing text, same shared normalization and excerpt-first referent as
+`mean_forward_quote_fidelity`. `""` is the contracted no-verbatim-line answer and never counts.
+`risks[].supporting_evidence` is deliberately excluded — its contract is looser by design
+("excerpt or citation"; an XBRL tag or section reference is legal), so a verbatim demand would
+mis-score legitimate evidence. Same WARN/unpinned/never-in-`compute_gate_failures` posture as the
+forward-quote dim.
+
 ---
 
 ## FPI adoption gate — flipping `ENABLE_FPI_FILINGS`

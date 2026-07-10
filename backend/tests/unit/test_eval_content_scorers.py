@@ -405,3 +405,89 @@ def test_forward_quote_fidelity_accepts_curly_blockquote_delimiters():
                     f"> “{_FAKE_QUOTE}” — CEO"])
     score, violations = score_forward_quote_fidelity({"executive_summary": md}, FILING_TEXT)
     assert score == 0.0 and len(violations) == 1
+
+
+# --- citation fidelity (T4 follow-up) -----------------------------------------------------------
+
+from evals.scorers import score_citation_fidelity  # noqa: E402
+
+
+_EVIDENCE_FILING = (
+    "Note 12 — Commitments. The Company recorded a $2.1 billion impairment charge related to its "
+    "streaming content library during the quarter. Revenue grew on the strength of data-center "
+    "demand, partially offset by declines in gaming. “Our backlog now extends into fiscal 2027.”"
+)
+
+
+def _payload(takeaway_evidence=None, footnote_evidence=None):
+    p = {"executive_summary": "## The Print\nRecords.", "management_discussion": "m",
+         "outlook": "o", "risk_factors": []}
+    p["financial_highlights"] = {"table": [{
+        "metric": "Revenue", "current_period": "$1B", "prior_period": "$0.9B",
+        "change": "+11%", "commentary": "Data-center demand",
+        **({"supporting_evidence": takeaway_evidence} if takeaway_evidence is not None else {}),
+    }]}
+    if footnote_evidence is not None:
+        p["notable_footnotes"] = [{"item": "Impairment", "impact": "One-time",
+                                   "supporting_evidence": footnote_evidence}]
+    return p
+
+
+def test_citation_fidelity_perfect_when_evidence_is_verbatim():
+    p = _payload(
+        takeaway_evidence="Revenue grew on the strength of data-center demand",
+        footnote_evidence="recorded a $2.1 billion impairment charge related to its streaming content library",
+    )
+    assert score_citation_fidelity(p, _EVIDENCE_FILING) == (1.0, [])
+
+
+def test_citation_fidelity_typography_and_wrapping_quotes_verify():
+    # Curly source quote emitted with straight punctuation — the shared folds absorb it.
+    p = _payload(takeaway_evidence='"Our backlog now extends into fiscal 2027."')
+    assert score_citation_fidelity(p, _EVIDENCE_FILING) == (1.0, [])
+
+
+def test_citation_fidelity_flags_elided_evidence_as_near_miss():
+    # One word dropped inside the span — the measured SE-class failure mode.
+    p = _payload(footnote_evidence="recorded a $2.1 billion impairment charge related to "
+                                   "streaming content library")
+    score, violations = score_citation_fidelity(p, _EVIDENCE_FILING)
+    assert score == 0.0 and "near-miss" in violations[0] and "footnote" in violations[0]
+
+
+def test_citation_fidelity_flags_fabricated_evidence():
+    p = _payload(takeaway_evidence="Management guaranteed profit margins will triple by 2030 forever")
+    score, violations = score_citation_fidelity(p, _EVIDENCE_FILING)
+    assert score == 0.0 and "no counterpart" in violations[0] and "P&L takeaway" in violations[0]
+
+
+def test_citation_fidelity_empty_string_is_legal_and_uncounted():
+    # "" is the contracted no-verbatim-line answer; a lone "" means nothing to measure -> neutral.
+    p = _payload(takeaway_evidence="")
+    assert score_citation_fidelity(p, _EVIDENCE_FILING) == (1.0, [])
+
+
+def test_citation_fidelity_neutral_paths():
+    quoted = _payload(takeaway_evidence="Revenue grew on the strength of data-center demand")
+    assert score_citation_fidelity(quoted, None) == (1.0, [])            # no referent
+    flat = {"financial_highlights": {"revenue": "$1B"}, "risk_factors": []}
+    assert score_citation_fidelity(flat, _EVIDENCE_FILING) == (1.0, [])  # candidate flat shape
+    short = _payload(takeaway_evidence="Revenue grew")                    # under the shared floor
+    assert score_citation_fidelity(short, _EVIDENCE_FILING) == (1.0, [])
+
+
+def test_citation_fidelity_risks_evidence_is_not_scored():
+    # risks' contract is looser by design ("excerpt or citation") — a section citation must not
+    # count against fidelity even though it would never verify verbatim.
+    p = _payload(takeaway_evidence="Revenue grew on the strength of data-center demand")
+    p["risk_factors"] = [{"summary": "Concentration",
+                          "supporting_evidence": "See Item 1A and the XBRL ConcentrationRisk tag"}]
+    assert score_citation_fidelity(p, _EVIDENCE_FILING) == (1.0, [])
+
+
+def test_citation_fidelity_rides_score_summary():
+    p = _payload(takeaway_evidence="Management guaranteed profit margins will triple by 2030 forever")
+    s = score_summary(p, [], filing_text=_EVIDENCE_FILING)
+    assert s.citation_fidelity == 0.0 and len(s.citation_violations) == 1
+    neutral = score_summary(p, [])
+    assert neutral.citation_fidelity == 1.0 and neutral.citation_violations == []

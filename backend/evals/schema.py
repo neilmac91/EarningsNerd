@@ -145,6 +145,14 @@ class RubricScore:
     # a report is self-explanatory: the near-miss/fabrication split is the AI_FORWARD_QUOTE_GATE
     # arming signal and must not require regenerating to recover.
     forward_quote_violations: List[str] = field(default_factory=list)
+    # [0,1] supporting_evidence verbatim fidelity (T4 follow-up): the two verbatim-contracted
+    # evidence surfaces (P&L-takeaway + footnote supporting_evidence) located verbatim in the
+    # filing text, same shared normalization. risks evidence deliberately excluded (looser
+    # "excerpt or citation" contract). Reported alongside the aggregate (NOT folded in);
+    # WARN-gated, inert until a re-pin records it. Violations ride below (near-miss vs
+    # no-counterpart split — the same forensic convention as forward quotes).
+    citation_fidelity: float = 1.0
+    citation_violations: List[str] = field(default_factory=list)
     # Artifact-1 HARD GATES. A non-empty list is a promotion VETO independent of `aggregate()`:
     # a single fabricated number or leaked notice fails the summary no matter how good the prose.
     gate_failures: List[str] = field(default_factory=list)

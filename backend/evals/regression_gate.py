@@ -62,6 +62,7 @@ _WARN_GATES = (
     ("mean_delta_consistency", "decrease", 0.05, "prose/table delta consistency"),
     # T5.4: ships advisory like the T3.0 dims above — binds only once a re-pin records it.
     ("mean_forward_quote_fidelity", "decrease", 0.05, "forward-quote verbatim fidelity (§5 quotes located in filing text)"),
+    ("mean_citation_fidelity", "decrease", 0.05, "supporting-evidence verbatim fidelity (P&L-takeaway + footnote excerpts)"),
 )
 
 

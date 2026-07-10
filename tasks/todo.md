@@ -1,113 +1,85 @@
-# Tier 5.4 — Forward-quote hard gate (verbatim §5 quotes enforced at generation time)
+# T4 follow-up — verbatim-compliance tuning + recovery parity + citation-fidelity scorer
 
-**Goal (roadmap T5.4 / plan §5):** `forward_signals.quotes` are prompt-contracted as verbatim,
-attributed, forward-looking-only — but NOTHING enforces it: figure_trace exempts them *because*
-they're "verbatim" (figure_trace.py:79-83), T4's read-time enrichment merely withholds the Verified
-badge, and the recovery re-ask snippet even drops the "verbatim" qualifier. T5.4 closes the loop:
-every §5 quote is checked against the filing text at generation time; failures are ALWAYS measured
-(greppable counter + per-row audit) and DROPPED when `AI_FORWARD_QUOTE_GATE` is armed. Advisory-first
-(flag ships OFF, the figure-trace precedent) — the first fleet-wide fidelity measurement is this
-slice's deliverable alongside the mechanism.
+**Goal (task #36; sequenced after the T5.4 fleet readout made it targeted):** drive the measured
+§5 near-miss population (8/8 failures at rapidfuzz 97.3–99.6, zero fabrications — RIVN "to be"→
+"will be", ASML one-word guidance drift, SE Item-303 boilerplate elision) toward zero with
+mechanical verbatim instructions + ONE worked example (lessons/arch-edit-causal-directive-add-
+example.md: rule+example moved judge 3.11→3.78 where rule-only was flat); close the recovery
+re-ask parity gaps; land the permanent `citation_fidelity` eval dim for the verbatim-contracted
+supporting_evidence surfaces. Prompt-content change ⇒ RUNBOOK: eval `--runs 3`, bump
+`summary-2026-07-i`, hard gates hold, no re-pin unless the bar moves intentionally.
 
-## Load-bearing facts (4-reader understand sweep, live-verified)
+## Load-bearing facts (2-reader understand sweep)
 
-1. **The verbatim definition already exists and is shared**: provenance_service.normalize_for_match
-   (lowercase + whitespace-collapse) + verify_excerpt_in_text (exact normalized substring,
-   _MIN_VERIFIABLE_LEN=24) — used by T4 read-time enrichment AND the copilot eval scorer. rapidfuzz
-   3.14.5 is pinned but has ZERO usages; "≥92" exists only in the plan doc. T4 chose exact-match for
-   read-time latency (provenance_service.py:242-244) — a reason that doesn't apply at generation
-   time, but ONE definition of verbatim across all surfaces beats a second looser one
-   (lessons/arch-guard-every-model-facing-surface.md).
-2. **normalize_for_match does NOT fold typography**: filings use curly quotes/apostrophes/dashes;
-   model output usually straight — exact-match false-fails that entire class (copilot has a local
-   ’→' fold precedent, copilot_service.py:484).
-3. **Drop site must be inside `summarize_filing`** (openai_service.py), after risks normalization
-   (~:771), BEFORE the coverage snapshot (:773) and render_sections→business_overview (:846-851) —
-   later placement desyncs stored markdown/coverage from sections. This single site covers SSE +
-   background/cron (one orchestrator) AND recovery-authored quotes (recovery merges upstream).
-   `filing_excerpt`/`filing_text` are already parameters in scope (:653-662). Precedent shape:
-   `_sanitize_bank_financial_highlights` (:757-765).
-4. **Grounding corpus**: verify against `filing_excerpt or filing_text` — the same text the model
-   generated from (the assess_quality rule, summary_pipeline.py:763-770). The 320k cap is a
-   non-issue: model input == excerpt, so a genuine quote is in it by construction. BOTH empty →
-   flag/drop NOTHING (figure_trace.py:262-267 — never punish the degraded population).
-5. **Rule 6 safe by construction**: quality/audit keys are additive raw_summary metadata, never in
-   SSE frames (COMPLETE_EVENT_KEYS pinned); the stream harness mocks summarize_filing at the
-   pipeline boundary and CANONICAL_PAYLOAD has no forward_signals — pipeline-side reads must
-   tolerate absence. No locked-test edits.
-6. **Eval**: coverage/recall HARD gates can only move if a drop EMPTIES §5 (guidance/trends survive
-   by design — quotes-only drops) or a ground-truth fact's sole rendering sat in a quote (facts live
-   in the metrics table; verify in the readout run). gate_fail_rate is pinned 0.0/ε — the new scorer
-   must be WARN-only, NEVER in compute_gate_failures; a metric absent from baseline_scores.json is
-   skipped by the gate (the sanctioned inert-ship path). Runner has grounding['filing_text'] in
-   _run_one; scorers are otherwise payload-pure — filing text enters scoring as an optional kwarg,
-   normalized ONCE per case (copilot_runner precedent).
-7. **No prompt text changes in this slice** → generation byte-identical, no SUMMARY_PROMPT_VERSION
-   bump, no re-pin (T3.2 shape). Prompt tuning (incl. the recovery snippet's missing "verbatim"
-   qualifier) stays in the T4 follow-up, informed by this slice's measurement. Stored-row staleness
-   for pre-gate summaries is an ARM-TIME decision — surfaced in the PR, not decided here.
-8. **No tier effect, no new reasons string**: T5.4 is a content-repair gate (armed = fabricated
-   quote removed, summary served full), not a tier gate — avoids the frontend GROUNDING_REASON
-   single-reason de-escalation contract entirely (SummaryDisplay.tsx:41).
-
-## Design decisions (locked)
-
-- **Verbatim = exact substring after upgraded shared normalization.** Fold curly double quotes →
-  `"`, curly apostrophes → `'`, en/em/horizontal dashes → `-`, in `normalize_for_match` itself so
-  generation gate, T4 read-time enrichment, and the copilot eval keep ONE definition (strictly
-  fewer false-unverified everywhere). Divergence from the plan doc's "rapidfuzz ≥92" as the drop
-  criterion is deliberate: ≥92 keeps word-changed quotes, and quotation marks assert exactness.
-- **rapidfuzz is telemetry, not the gate**: failing quotes also get `fuzz.partial_ratio` on the
-  normalized strings; `near_miss` (≥92 = lightly-paraphrased) vs hard-fail (<92 = fabrication-class)
-  buckets are the data that decides arming + T4-follow-up prompt tuning. First repo rapidfuzz use.
-- **Short quotes (<24 normalized chars) pass uncounted** (unverifiable-by-construction; the
-  conservative figure-trace posture). Malformed/non-string entries pass untouched.
-- **Armed behavior**: remove failing ManagementQuote items entirely (plan wording "dropped");
-  guidance/known_trends/subsequent_events NEVER touched. Dropped items preserved in the audit for
-  forensics.
-- **Audit home**: `raw_summary["forward_quote_audit"] = {checked, unverified:[{speaker,score}],
-  near_miss, dropped:[{speaker,quote}] (armed only)}` written by the gate at generation time;
-  pipeline logs the greppable counter from it (measurement-always, flag on or off):
-  `forward_quote_unverified count=%d near_miss=%d dropped=%d flag=%s filing_id=%s sic=%s speakers=%s`.
+1. **The causal directives (all live in BOTH prompt modes — schema_template/Rules are
+   unconditional; preambles only when USE_STRUCTURED_OUTPUT=true, default False):**
+   (a) §5 `quotes[].quote` (:318) carries the WEAKEST verbatim instruction in the prompt — bare
+   "<verbatim; forward-looking or unusual statements only>", no word-for-word mechanics, no
+   escape hatch — on exactly the field the gate measures; (b) "SHORT VERBATIM" (:296/:350) caps
+   length with no how-to-shorten rule → invites eliding inside the span (the SE class);
+   (c) "as management states it" (:295/:336) / "exactly as the filing states it" (:312) frame
+   voice-preserving paraphrase as compliance (the RIVN re-tense class); (d) "Arrays must never be
+   empty" has no `quotes` exception → when no copyable forward quote exists the model MUST invent
+   one; (e) the recovery re-ask emits fully unconstrained `<string>` quotes under "Stay concise"
+   + max_tokens=350, carries NO verbatim rule, and its snippets DROP supporting_evidence entirely
+   for results_that_matter and notable_footnotes.
+2. **Risks evidence is contractually looser BY DESIGN** (":328 non-empty excerpt or citation";
+   Rules :404 licenses "direct quote or XBRL tag reference") — do NOT fold risks into the strict
+   verbatim scorer or silently tighten its contract; T4's read-time verified/cited badge already
+   handles risks honestly.
+3. **Scorer feasibility:** the canonical eval payload ALREADY carries results_that_matter (as the
+   raw section dict under financial_highlights, evidence intact — the strip at
+   summary_sections:273-280 is web-render-only) and risk_factors; notable_footnotes is dropped by
+   `_baseline_to_canonical` (runner:110-121) → thread it (eval-harness-internal, no pipeline
+   contract touched). Referent MUST be excerpt-first (the T5.4 blocking-finding rule).
+4. **Length-sensitivity watch (no scorer exemptions in this slice):** longer quotes could feed
+   specificity (boilerplate inside quotes counts) and redundancy (quote figures count) — but the
+   edits demand exact COPYING and define shortening as span-selection, not longer quotes; watch
+   the dims on the -i run, don't pre-neutralize (a scorer change would muddy the before/after).
+5. Version machinery: bump → every stored row version-stale → refresh-stale drain; the arming
+   readout must be RE-MEASURED after the prompt change before any AI_FORWARD_QUOTE_GATE decision.
 
 ## Plan
 
-- [ ] **provenance_service**: typography folds in `normalize_for_match` (+ docstring: one shared
-      verbatim definition, now also the generation gate's) + new pins in test_provenance_service
-      (existing pins must pass unchanged).
-- [ ] **New leaf module `app/services/ai/forward_quote_gate.py`** (figure_trace sibling, pure — no
-      settings import): `gate_forward_quotes(sections, source_text, armed) -> Optional[dict]` —
-      normalize source once; per-quote exact-verify else fuzz-score; mutate (drop) only when armed;
-      return audit or None (no quotes / no source basis).
-- [ ] **config.py**: `AI_FORWARD_QUOTE_GATE: bool = False` after AI_FIGURE_TRACE_GATE, same
-      advisory-first comment style; docs/CONFIGURATION.md one-liner under the figure-trace entry.
-- [ ] **openai_service**: call the gate inside `summarize_filing` after risks normalization, before
-      the coverage snapshot; attach audit to raw_summary payload. Update figure_trace.py:78-83
-      exemption comment (+ module docstring) to point at the now-enforced invariant (docs-vs-code).
-- [ ] **summary_pipeline**: greppable counter next to figure_trace_untraceable, reading the audit
-      key tolerantly (CANONICAL_PAYLOAD lacks it).
-- [ ] **Eval**: `score_forward_quote_fidelity` (verified fraction; near-misses in violations; 1.0
-      neutral when no quotes/no filing text) with filing_text threaded from runner (normalized once);
-      RubricScore field default 1.0; report row; `_WARN_GATES` entry (inert until a future re-pin);
-      NOT in compute_gate_failures. RUNBOOK WARN-dim paragraph.
-- [ ] **Tests (rule 12)**: test_forward_quote_gate.py (verbatim/case/whitespace/typography pass;
-      fabricated flagged + dropped-when-armed; near-miss bucketed; short-quote pass; empty-source
-      nothing; no-quotes None; malformed kept; guidance/trends untouched; audit shape; armed
-      list-surgery); flag on/off at the openai_service seam (patch settings object); scorer pins in
-      test_eval_content_scorers style + regression-gate WARN pin; normalization fold pins.
-- [ ] **Gate + readout**: full backend gate; live dev probes (flag off: audit counts; flag on: drop
-      + markdown/coverage sync); eval `--runs 3` NOT to re-pin but for (a) no-dim-moved confirmation
-      and (b) the first fleet-wide forward-quote fidelity readout (per-filing) → PR body.
-- [ ] **Adversarial review** (2+ reviewers: gate semantics/boundaries; eval/runner contract) → fix →
-      commit → push → draft PR (subscribe + ~1h check-ins).
+- [ ] **schema_template**: (a) :318 quote instruction → mechanical form (character-for-character;
+      never substitute/add/drop/re-tense; shorten only by choosing a shorter contiguous span;
+      include a quote ONLY if copyable exactly); (b) new blanket VERBATIM COPYING rule in the
+      Rules block (mode-independent home) with the ONE worked example (RIGHT: shorter contiguous
+      span / WRONG: re-tensed / WRONG: elided inside the span — the two measured failure modes);
+      (c) :296/:350 gain the how-to-shorten reference; (d) "Arrays must never be empty"
+      exceptions += `quotes` (both rule sites + the empty-sections sentence if applicable).
+- [ ] **Preambles ×4**: extend the verbatim-evidence sentence to name `forward_signals.quotes`;
+      add the missing risk-evidence line to 6-K (parity nit).
+- [ ] **section_recovery**: quotes/evidence qualifiers restored in snippets (forward_signals
+      quote+guidance qualifiers; risks evidence qualifier; supporting_evidence [+source ref]
+      restored to results_that_matter and notable_footnotes snippets); one verbatim sentence in
+      the recovery system message; max_tokens 350→500 (evidence fields lengthen output; truncated
+      JSON would turn recoverable sections into hard misses). Full descriptive parity for
+      non-evidence qualifiers stays OUT of scope (snippet bloat vs the token cap).
+- [ ] **Version**: `summary-2026-07-i` + ledger line.
+- [ ] **Eval**: `score_citation_fidelity` — payload-reading over the two verbatim-contracted
+      surfaces (results_that_matter.table[].supporting_evidence via financial_highlights;
+      notable_footnotes[].supporting_evidence via the new canonical threading), excerpt-first
+      referent, exact-normalized substring, ''-skip (contracted legal answer), <24-char skip,
+      near-miss/fabrication split in `citation_violations` (ride the score, the T5.4 pattern).
+      RubricScore fields; runner mean + threading; `_WARN_GATES` entry (inert until re-pin);
+      RUNBOOK paragraph. Risks evidence explicitly excluded (fact 2) — documented.
+- [ ] **Tests (rule 12)**: scorer suite (verbatim/typography pass, elided fails as near-miss,
+      fabricated fails, '' skipped, footnote+takeaway both read, neutral paths, threading);
+      recovery-snippet parity pins (evidence/quote qualifiers present; fields present);
+      prompt-content pins where cheap (the VERBATIM COPYING rule exists; quotes in the
+      empty-allowed exceptions).
+- [ ] **Gates + measurement**: full backend gate; eval `--runs 3` on -i → hard gates hold +
+      before/after: forward_quote_fidelity 0.9038 → target ↑ (the slice's success metric),
+      citation_fidelity first readout; specificity/redundancy watch (fact 4). Live probes on the
+      three named near-miss filers (ASML/SE/RIVN): §5 audit before vs after.
+- [ ] **Adversarial review** (prompt-effect lens + eval-contract lens, skeptic-verified) → fix →
+      commit → draft PR (subscribe + check-ins).
 
 ## Not in scope (documented)
-- Prompt tuning (schema_template quote instruction, recovery-snippet "verbatim" qualifier) — T4
-  follow-up, informed by this measurement; keeps this slice eval-neutral.
-- Arming the flag + stale-refresh of pre-gate rows — founder decision once the FP readout is in.
-- Other verbatim-claimed surfaces (risks/results/footnotes supporting_evidence) — already read-time
-  excerpt-nulled by T4; generation-gating them is a separate decision.
-- Read-vs-generation verification-text mismatch (generation: excerpt/filing_text; read:
-  critical_excerpt/markdown_content) — conscious note; both are the filing's own text.
-- T5.2b/T5.3 deferred ledgers carry over (M&A payments, effective tax rate, ROIC, segment axes,
-  buyback-halt narration probe, IFRS equity-holders dividend variant).
+- Risks-evidence contract tightening (deliberately looser; read-time badge covers it).
+- Scorer-side quote exemptions for redundancy/specificity (watch first; separate decision).
+- Arming AI_FORWARD_QUOTE_GATE (re-measure the near-miss population on -i first).
+- Fleet refresh timing after the version bump (founder call; refresh-stale machinery exists).
+- Carried ledger: M&A payments, effective tax rate, ROIC, segment axes, buyback-halt probe, IFRS
+  equity-holders dividend variant.

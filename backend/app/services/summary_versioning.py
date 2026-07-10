@@ -44,7 +44,13 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   cannot support); `capital_allocation` reworded to the qualitative value read (the new
 #   machine-authored `shareholder_returns` carries the dividends/buybacks/capex dollars); grounding
 #   gains Dividends Paid + Share Repurchases. Taxonomy shape unchanged (still v2).
-SUMMARY_PROMPT_VERSION: str = "summary-2026-07-h"
+# summary-2026-07-i: T4 follow-up — verbatim mechanics on the quote/evidence contract: §5 quote
+#   instruction gains character-for-character copying rules; new blanket VERBATIM COPYING rule with
+#   a worked near-miss example (the T5.4 fleet readout measured 8/8 failures as light paraphrase —
+#   re-tensing/eliding — zero fabrications); `quotes` joins the empty-allowed array exceptions (the
+#   never-empty rule was forcing quote invention); recovery re-ask snippets regain the dropped
+#   verbatim qualifiers + supporting_evidence fields. Taxonomy shape unchanged (still v2).
+SUMMARY_PROMPT_VERSION: str = "summary-2026-07-i"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:

@@ -44,6 +44,10 @@ metric and note the ratio. Do not compute a ratio the filing does not state.
 - Every string field must carry substantive content — no blank strings. For an array field with
   nothing to report, return a single-element array explaining why (e.g. `["Not disclosed — 6-K is a
   governance notice with no financial results"]`); never an empty array.
-- For each P&L-table Investor-Takeaway and each notable footnote, put a SHORT VERBATIM filing quote
-  in `supporting_evidence` — copied word-for-word so it can be located in the text (use `""` if you
-  have no verbatim line). Do not paraphrase in that field; the driver/impact prose carries the analysis.
+- For risk factors, attach supporting evidence (a short direct quote or the section reference)
+  and the most relevant source section.
+- For each P&L-table Investor-Takeaway, each notable footnote, and every `forward_signals` quote, copy
+  the span CHARACTER-FOR-CHARACTER from the filing so it can be located by exact search — never
+  substitute, add, drop, or re-tense a word; shorten only by choosing a shorter CONTIGUOUS span (use
+  `""` for evidence, or omit the quote, if you have no exactly-copyable line). Do not paraphrase in
+  those fields; the driver/impact prose carries the analysis.

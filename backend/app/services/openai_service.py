@@ -315,7 +315,7 @@ EXTRACTED FINANCIAL SIGNALS:
       "quotes": [
         {
           "speaker": "<non-empty string>",
-          "quote": "<verbatim; forward-looking or unusual statements only>",
+          "quote": "<copied CHARACTER-FOR-CHARACTER from the filing so it can be located by exact search — never substitute, add, drop, or re-tense a word; to shorten, choose a shorter CONTIGUOUS span, never remove words inside it; forward-looking or unusual statements only; include a quote ONLY if you can copy it exactly — leave the quotes array empty otherwise>",
           "context": "<e.g., 'MD&A, Item 2'>"
         }
       ],
@@ -390,7 +390,7 @@ CRITICAL FILING EXCERPTS:
 {previous_filings_context}
 {output_reference}
 
-Return ONLY valid JSON (no markdown fences) that matches this schema (replace placeholders with actual values or meaningful nulls). Every string must contain substantive content—never emit blank strings or placeholder tokens. Arrays must never be empty (exceptions: `segments` is OMITTED entirely when no segments are listed, and `red_flags` / `highlights` are left EMPTY when nothing qualifies — no filler); otherwise, if no verifiable bullet exists, supply a single-element array with "Not disclosed—<concise reason>":
+Return ONLY valid JSON (no markdown fences) that matches this schema (replace placeholders with actual values or meaningful nulls). Every string must contain substantive content—never emit blank strings or placeholder tokens. Arrays must never be empty (exceptions: `segments` is OMITTED entirely when no segments are listed, and `red_flags` / `highlights` / `quotes` are left EMPTY when nothing qualifies — a quote you cannot copy exactly does NOT qualify; no filler); otherwise, if no verifiable bullet exists, supply a single-element array with "Not disclosed—<concise reason>":
 {schema_template}
 
 Rules:
@@ -399,8 +399,9 @@ Rules:
 - ONE HOME PER NUMBER — do not restate the same figure across sections. Each specific $-amount or %-change belongs in ONE home: headline P&L figures (revenue, operating income, operating margin, diluted EPS) in results_that_matter; earnings-quality figures (operating vs one-time adjustments) in earnings_quality — the cash-conversion read (NI-vs-CFO, free cash flow) is filled deterministically from XBRL, so do NOT restate the cash-flow $ legs here; the cash-flow statement bridge (operating/investing/financing cash flow) and balance-sheet/liquidity figures (working capital, current ratio) in balance_sheet_liquidity; capital-allocation figures belong to value_drivers, where the shareholder-returns line (dividends, buybacks, capex) and the returns read (ROE/ROA) are filled deterministically from XBRL — do NOT restate those $ amounts or ratios; give the value read qualitatively; the per-segment table (segment revenue / operating income) is filled deterministically from XBRL — segment commentary must never restate the segment's own $ figures or YoY %-change (the table carries them); finer-grained product/sub-segment facts as the filing states them are permitted. the_print may echo AT MOST the 2-3 headline figures (revenue, net income, EPS). Every OTHER section must ADD what the figure's home does not — the driver, the significance, or an inflection — and reference a number qualitatively (e.g. "margins widened on the services mix") rather than re-quoting a $-amount or %-change already stated in its home section. Never drop a figure to comply; relocate it to its home. Figures inside a direct, attributed management quote are exempt — never alter or truncate a quote to comply.
 - Keep monetary values human-readable (e.g., "$17.7B", "$425M", "$912M").
 - Express percentage changes with one decimal place where available (e.g., "up 8.3% YoY").
-- For arrays, include 1-4 high-signal, evidence-backed bullets ordered by materiality. If nothing qualifies, return ["Not disclosed—<concise reason>"] instead of leaving the array empty — EXCEPT `red_flags` and `highlights`, which are left empty when nothing qualifies (a "Not disclosed" bullet under populated figures reads self-contradictory).
+- For arrays, include 1-4 high-signal, evidence-backed bullets ordered by materiality. If nothing qualifies, return ["Not disclosed—<concise reason>"] instead of leaving the array empty — EXCEPT `red_flags`, `highlights`, and `quotes`, which are left empty when nothing qualifies (a "Not disclosed" bullet under populated figures reads self-contradictory, and a quote you cannot copy character-for-character never qualifies).
 - Empty sections are unacceptable (except `segments`, omitted entirely when none are listed). Do not fabricate data; explain the absence using the Not disclosed pattern when required.
+- VERBATIM COPYING — applies to every `quotes[].quote` and every `supporting_evidence`: copy the span CHARACTER-FOR-CHARACTER from the filing text so it can be located by exact search. Never substitute, add, drop, or re-tense a word; shorten ONLY by choosing a shorter contiguous span. Example — the filing says "We expect R2 to be foundational to our long-term growth and profit potential." RIGHT: "We expect R2 to be foundational" (a shorter contiguous span). WRONG: "We expect R2 will be foundational" (re-tensed). WRONG: "We expect R2 to be foundational to growth" (words removed inside the span). If no exactly-copyable line exists, leave `quotes` empty and set `supporting_evidence` to "".
 - Provide supporting evidence excerpts for each risk factor (direct quote or XBRL tag reference), and when possible populate `source_section_ref` with the most relevant 10-Q section (for example: "Item 1A. Risk Factors", "Item 2. MD&A")."""
 
         import asyncio

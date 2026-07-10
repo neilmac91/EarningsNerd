@@ -38,6 +38,8 @@ rename, omit, or reorder fields.
 - Every string field must carry substantive content — no blank strings or bare placeholders.
 - For risk factors, attach supporting evidence (a short direct quote or the XBRL/section
   reference) and the most relevant source section (e.g., "Item 1A. Risk Factors", "Item 2. MD&A").
-- For each P&L-table Investor-Takeaway and each notable footnote, put a SHORT VERBATIM filing quote
-  in `supporting_evidence` — copied word-for-word so it can be located in the text (use `""` if you
-  have no verbatim line). Do not paraphrase in that field; the driver/impact prose carries the analysis.
+- For each P&L-table Investor-Takeaway, each notable footnote, and every `forward_signals` quote, copy
+  the span CHARACTER-FOR-CHARACTER from the filing so it can be located by exact search — never
+  substitute, add, drop, or re-tense a word; shorten only by choosing a shorter CONTIGUOUS span (use
+  `""` for evidence, or omit the quote, if you have no exactly-copyable line). Do not paraphrase in
+  those fields; the driver/impact prose carries the analysis.

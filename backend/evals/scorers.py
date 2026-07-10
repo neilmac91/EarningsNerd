@@ -785,6 +785,64 @@ def score_forward_quote_fidelity(
     return round((checked - len(violations)) / checked, 4), violations
 
 
+def score_citation_fidelity(
+    payload: Dict[str, Any], filing_text: Optional[str]
+) -> Tuple[float, List[str]]:
+    """[0,1] supporting_evidence verbatim fidelity (T4 follow-up) — the permanent citation scorer.
+    Verifies the two VERBATIM-CONTRACTED evidence surfaces against the filing text under the
+    product's one shared normalization: ``results_that_matter.table[].supporting_evidence``
+    (reaching the eval as the raw section dict under ``financial_highlights`` — the evidence strip
+    happens only in the web render projection) and ``notable_footnotes[].supporting_evidence``
+    (threaded into the canonical payload by the runner). ``risks[].supporting_evidence`` is
+    deliberately EXCLUDED: its contract is looser by design ("excerpt or citation" — an XBRL tag
+    reference or section citation is legal, so a verbatim demand would mis-score legitimate
+    evidence; the T4 read-time verified/cited badge handles risks honestly).
+
+    Empty string is a CONTRACTED legal answer ("'' if you have no verbatim line") — skipped, never
+    penalized. Sub-floor needles skip uncounted (the production-gate posture). Violations carry
+    the rapidfuzz near-miss/no-counterpart split, riding the score as ``citation_violations``.
+    Neutral (1.0) without a referent or when neither surface carries verifiable evidence (bake-off
+    candidates emit the flat canonical shape with neither)."""
+    if not filing_text or not isinstance(filing_text, str):
+        return 1.0, []
+    from rapidfuzz import fuzz
+
+    from app.services.ai.forward_quote_gate import NEAR_MISS_SCORE
+    from app.services.provenance_service import _MIN_VERIFIABLE_LEN, normalize_for_match
+
+    candidates: List[Tuple[str, str]] = []
+    fh = payload.get("financial_highlights")
+    table = fh.get("table") if isinstance(fh, dict) else None
+    for row in table if isinstance(table, list) else []:
+        if isinstance(row, dict) and isinstance(row.get("supporting_evidence"), str):
+            candidates.append((f"P&L takeaway [{row.get('metric', '?')}]", row["supporting_evidence"]))
+    footnotes = payload.get("notable_footnotes")
+    for note in footnotes if isinstance(footnotes, list) else []:
+        if isinstance(note, dict) and isinstance(note.get("supporting_evidence"), str):
+            candidates.append((f"footnote [{str(note.get('item', '?'))[:40]}]", note["supporting_evidence"]))
+
+    normalized_source = None
+    checked = 0
+    violations: List[str] = []
+    for label, evidence in candidates:
+        if not evidence.strip():
+            continue  # "" is the contracted no-verbatim-line answer — legal, uncounted
+        needle = normalize_for_match(evidence)
+        if len(needle) < _MIN_VERIFIABLE_LEN:
+            continue  # unverifiable-by-construction — uncounted, matching the production gate
+        if normalized_source is None:
+            normalized_source = normalize_for_match(filing_text)  # once, and only if needed
+        checked += 1
+        if needle in normalized_source:
+            continue
+        score = round(float(fuzz.partial_ratio(needle, normalized_source)), 1)
+        kind = "near-miss" if score >= NEAR_MISS_SCORE else "no counterpart"
+        violations.append(f'{label} evidence not verbatim ({kind}, score {score}): "{evidence[:90]}"')
+    if not checked:
+        return 1.0, []
+    return round((checked - len(violations)) / checked, 4), violations
+
+
 def score_summary(
     raw_or_payload: Any, ground_truth: List[GroundTruthFact], filing_text: Optional[str] = None
 ) -> RubricScore:
@@ -820,6 +878,7 @@ def score_summary(
     forward_quote_fidelity, forward_quote_violations = score_forward_quote_fidelity(
         payload, filing_text
     )
+    citation_fidelity, citation_violations = score_citation_fidelity(payload, filing_text)
     return RubricScore(
         schema_valid=schema_valid,
         repaired=repaired,
@@ -833,6 +892,8 @@ def score_summary(
         delta_consistency=delta_consistency,
         forward_quote_fidelity=forward_quote_fidelity,
         forward_quote_violations=forward_quote_violations,
+        citation_fidelity=citation_fidelity,
+        citation_violations=citation_violations,
         gate_failures=compute_gate_failures(payload, contradictions, ground_truth),
         missing_sections=missing_sections,
         matched_facts=matched,
