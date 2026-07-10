@@ -757,7 +757,10 @@ def score_forward_quote_fidelity(
         title = part.split("\n", 1)[0].strip()
         if not _FORWARD_SECTION_RE.search(title):
             continue
-        quotes.extend(m.group(1) for m in re.finditer(r'(?m)^>\s*"(.*)"', part))
+        # Production renders straight quote delimiters; a candidate's own markdown may typeset
+        # curly ones (Gemini on #623) — accept either so a curly-quoted line measures instead of
+        # silently reading neutral.
+        quotes.extend(m.group(1) for m in re.finditer(r'(?m)^>\s*["“](.*)["”]', part))
     normalized_source = None
     checked = 0
     violations: List[str] = []
