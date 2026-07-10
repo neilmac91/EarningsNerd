@@ -52,6 +52,19 @@ class TestNormalizeForMatch:
             "authorization - $110 billion - net"
         )
 
+    def test_folds_nonbreaking_hyphen_and_minus(self):
+        # Gemini on #623: filings hyphenate with U+2011 and sign negatives with U+2212.
+        assert prov.normalize_for_match("year‑over‑year decline of −4.2%") == (
+            "year-over-year decline of -4.2%"
+        )
+
+    def test_deletes_invisible_typography(self):
+        # Soft hyphens / zero-width chars are HTML hyphenation artifacts: the logical text (and any
+        # model output) simply doesn't contain them, so they are removed, not folded.
+        assert prov.normalize_for_match(
+            "restruc\u00adturing\u200b charge\ufeff and\u200c growth\u200d"
+        ) == "restructuring charge and growth"
+
     def test_lowercase_and_whitespace_collapse_unchanged(self):
         # The pre-T5.4 behavior this normalizer always had must be byte-identical.
         assert prov.normalize_for_match("  Supply\nChain\t CONSTRAINTS ") == "supply chain constraints"

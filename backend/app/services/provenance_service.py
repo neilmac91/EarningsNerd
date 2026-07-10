@@ -43,6 +43,12 @@ _TYPOGRAPHY_FOLDS = str.maketrans({
     "‘": "'", "’": "'", "‚": "'",   # curly/low single quotes → apostrophe
     "“": '"', "”": '"', "„": '"',   # curly/low double quotes → straight
     "–": "-", "—": "-", "―": "-",   # en/em/horizontal-bar dashes → hyphen
+    "‑": "-", "−": "-",   # non-breaking hyphen / minus sign → hyphen (Gemini on #623)
+    # Invisible typographic artifacts in HTML-derived filing text — soft-hyphen hyphenation hints,
+    # zero-width space/joiners, BOM — are DELETED: the logical text doesn't contain them and model
+    # output never types them, so any survivor is a guaranteed false mismatch. (Escapes on purpose:
+    # these characters are unreadable/linter-fragile as literals.)
+    "\u00ad": None, "\u200b": None, "\u200c": None, "\u200d": None, "\ufeff": None,
 })
 # Match a span wrapped in straight or curly double-quotes (e.g. Item 1A: "Supply chain ...").
 _QUOTED_RE = re.compile(r"[\"“”]([^\"“”]{8,})[\"“”]")

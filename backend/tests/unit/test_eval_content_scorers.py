@@ -391,3 +391,12 @@ def test_forward_quote_fidelity_rides_score_summary_only_when_text_provided():
     assert without.forward_quote_fidelity == 1.0                         # neutral default
     with_text = score_summary(payload, [], filing_text=FILING_TEXT)
     assert with_text.forward_quote_fidelity == 0.0                       # measured when threaded
+
+
+def test_forward_quote_fidelity_accepts_curly_blockquote_delimiters():
+    # Production renders straight delimiters, but a candidate's own markdown may typeset curly
+    # ones (Gemini on #623) — the line must MEASURE, not read falsely neutral.
+    md = "\n".join(["## The Print", "Records.", "", "## Forward Signals",
+                    f"> “{_FAKE_QUOTE}” — CEO"])
+    score, violations = score_forward_quote_fidelity({"executive_summary": md}, FILING_TEXT)
+    assert score == 0.0 and len(violations) == 1
