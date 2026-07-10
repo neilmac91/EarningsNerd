@@ -337,6 +337,17 @@ class Settings(BaseSettings):
     # false-positive rate has been measured on the corpus and this is flipped on.
     AI_FIGURE_TRACE_GATE: bool = False
 
+    # Forward-quote hard gate (roadmap T5.4, plan §5). When True, a forward_signals quote that
+    # cannot be located VERBATIM (normalized exact substring — the same definition T4 evidence and
+    # copilot citations use) in the filing text the model generated from is DROPPED at generation
+    # time, before the coverage snapshot and the rendered markdown, so a fabricated "quote" never
+    # ships in any stored surface. Content repair, not a tier gate: the summary still serves full,
+    # quota/badge untouched. Ships DEFAULT OFF (advisory): the audit
+    # (raw_summary["forward_quote_audit"]) and the greppable forward_quote_unverified counter are
+    # always emitted for measurement; flip on once the fleet false-positive rate is measured
+    # (near_miss vs fabrication split in the counter is the arming signal).
+    AI_FORWARD_QUOTE_GATE: bool = False
+
     # Foreign Private Issuer (FPI) filing support (roadmap: tasks/fpi-support-roadmap.md).
     # Foreign issuers (ADRs like Alibaba/$BABA, TSM, ASML) file 20-F (annual) and 6-K (interim)
     # instead of 10-K/10-Q, so the company page shows "no filings" for them today. When True, the

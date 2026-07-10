@@ -76,8 +76,11 @@ _EXCERPT_NUM_RE = re.compile(
 _COMMA_SCALES = (1.0, 1e3, 1e6)
 
 # Per-section MODEL-authored prose fields to police. Excludes: the results_that_matter table
-# (XBRL-injected), forward_signals.quotes + risks.supporting_evidence (verbatim), and the fields
-# machine-authored from XBRL by the filler — balance_sheet_liquidity.cash_flow / .working_capital,
+# (XBRL-injected), forward_signals.quotes + risks.supporting_evidence (verbatim — for §5 quotes
+# that is no longer an assumption: the T5.4 forward_quote_gate verifies each one against the
+# filing text at generation time, so an unverbatim "quote" is counted, and dropped when the gate
+# is armed, before it could ever reach this scan), and the fields machine-authored from XBRL by
+# the filler — balance_sheet_liquidity.cash_flow / .working_capital,
 # earnings_quality.cash_conversion, and value_drivers.shareholder_returns / .returns_on_capital
 # (numbers from code, already grounded in XBRL at authoring time, so re-policing them as if the
 # model wrote them is category-wrong).

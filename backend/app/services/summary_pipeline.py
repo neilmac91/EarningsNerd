@@ -808,6 +808,24 @@ async def stream_filing_summary(
                     quality.get("covered_count"),
                     quality.get("total_count"),
                 )
+            quote_audit = (raw_summary or {}).get("forward_quote_audit") or {}
+            if quote_audit.get("unverified"):
+                # T5.4 measurement channel (count-first, the figure-trace convention): §5 quotes
+                # that failed the verbatim check, emitted flag on OR off. near_miss (rapidfuzz
+                # ≥92 on normalized text) = lightly-paraphrased population → prompt tuning;
+                # the remainder = fabrication-class → the arming signal for the drop gate.
+                unverified = quote_audit["unverified"]
+                logger.info(
+                    "forward_quote_unverified count=%d near_miss=%d dropped=%d flag=%s "
+                    "filing_id=%s sic=%s speakers=%s",
+                    len(unverified),
+                    quote_audit.get("near_miss", 0),
+                    len(quote_audit.get("dropped") or []),
+                    settings.AI_FORWARD_QUOTE_GATE,
+                    filing_id,
+                    company_sic or "",
+                    "|".join(str(u.get("speaker") or "?") for u in unverified),
+                )
 
             # S4 quality gate (flagged, default off): the summary is ALWAYS persisted, so the
             # streamed result doesn't vanish when the client refetches and isn't regenerated from

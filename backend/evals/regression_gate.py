@@ -60,6 +60,8 @@ _WARN_GATES = (
     # ship advisory — a signal for the Tier-3 content rewrite, not a blocker on today's pipeline.
     ("mean_redundancy", "decrease", 0.05, "one-home redundancy (figures restated across sections)"),
     ("mean_delta_consistency", "decrease", 0.05, "prose/table delta consistency"),
+    # T5.4: ships advisory like the T3.0 dims above — binds only once a re-pin records it.
+    ("mean_forward_quote_fidelity", "decrease", 0.05, "forward-quote verbatim fidelity (§5 quotes located in filing text)"),
 )
 
 

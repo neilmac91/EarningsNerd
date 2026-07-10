@@ -34,6 +34,16 @@ _FRAGMENT_MAX_WORDS = 10
 _FRAGMENT_MAX_CHARS = 120
 
 _WS_RE = re.compile(r"\s+")
+# Typography folds (T5.4): filings render curly quotes/apostrophes and en/em dashes; model output
+# usually types the straight ASCII forms. Folding both sides to ASCII before matching removes a
+# guaranteed false-mismatch class from EVERY consumer of this normalizer — T4 read-time evidence
+# verification, the copilot citation scorer, and the T5.4 generation-time forward-quote gate all
+# share this ONE definition of "verbatim" (lessons/arch-guard-every-model-facing-surface.md).
+_TYPOGRAPHY_FOLDS = str.maketrans({
+    "‘": "'", "’": "'", "‚": "'",   # curly/low single quotes → apostrophe
+    "“": '"', "”": '"', "„": '"',   # curly/low double quotes → straight
+    "–": "-", "—": "-", "―": "-",   # en/em/horizontal-bar dashes → hyphen
+})
 # Match a span wrapped in straight or curly double-quotes (e.g. Item 1A: "Supply chain ...").
 _QUOTED_RE = re.compile(r"[\"“”]([^\"“”]{8,})[\"“”]")
 
@@ -67,8 +77,11 @@ _MIN_VERIFIABLE_XBRL_VALUE = 1e6
 
 
 def normalize_for_match(text: Optional[str]) -> str:
-    """Lowercase and collapse all whitespace, for whitespace/case-insensitive substring matching."""
-    return _WS_RE.sub(" ", (text or "").strip().lower())
+    """Lowercase, fold typography (curly quotes/apostrophes, en/em dashes → ASCII), and collapse all
+    whitespace — the shared definition of "the same text" for verbatim matching. Every verbatim
+    check in the product uses this one function (T4 read-time evidence, copilot citations, T5.4
+    forward-quote gate), so tightening or loosening it here moves ALL of them together."""
+    return _WS_RE.sub(" ", (text or "").translate(_TYPOGRAPHY_FOLDS).strip().lower())
 
 
 def extract_quoted_span(evidence: Any) -> str:

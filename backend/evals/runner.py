@@ -158,7 +158,9 @@ async def _run_one(
             )
             latency = round(time.time() - started, 3)
             payload = _baseline_to_canonical(summary)
-            score = score_summary(payload, filing.ground_truth)
+            score = score_summary(
+                payload, filing.ground_truth, filing_text=grounding["filing_text"]
+            )
             judge = await _maybe_judge(judge_model, payload, filing, grounding)
             return {**base, "score": score.__dict__, "aggregate": score.aggregate(),
                     "passed_gates": score.passed_gates, "judge": judge,
@@ -170,7 +172,7 @@ async def _run_one(
             _xbrl_to_text(grounding["xbrl_metrics"]),
         )
         raw, in_tok, out_tok, latency = await call_model(cfg, _SYSTEM, user)
-        score = score_summary(raw, filing.ground_truth)
+        score = score_summary(raw, filing.ground_truth, filing_text=grounding["filing_text"])
         payload, _ = parse_model_json(raw)
         judge = await _maybe_judge(judge_model, payload, filing, grounding)
         return {**base, "score": score.__dict__, "aggregate": score.aggregate(),
@@ -222,6 +224,7 @@ def _summarize(
             "mean_currency_consistency": mean("currency_consistency"),
             "mean_redundancy": mean("redundancy"),
             "mean_delta_consistency": mean("delta_consistency"),
+            "mean_forward_quote_fidelity": mean("forward_quote_fidelity"),
             "judge_pass_rate": round(sum(1 for j in judged if j.get("passed")) / len(judged), 4) if judged else None,
             "total_cost_usd": round(sum(r.get("cost_usd", 0.0) for r in rs), 4),
             "mean_latency_seconds": round(statistics.mean([r["latency_seconds"] for r in rs if r.get("latency_seconds")]), 3) if any(r.get("latency_seconds") for r in rs) else 0.0,
