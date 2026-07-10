@@ -438,42 +438,44 @@ def test_citation_fidelity_perfect_when_evidence_is_verbatim():
         takeaway_evidence="Revenue grew on the strength of data-center demand",
         footnote_evidence="recorded a $2.1 billion impairment charge related to its streaming content library",
     )
-    assert score_citation_fidelity(p, _EVIDENCE_FILING) == (1.0, [])
+    score, violations, checked = score_citation_fidelity(p, _EVIDENCE_FILING)
+    assert (score, violations, checked) == (1.0, [], 2)
 
 
 def test_citation_fidelity_typography_and_wrapping_quotes_verify():
     # Curly source quote emitted with straight punctuation — the shared folds absorb it.
     p = _payload(takeaway_evidence='"Our backlog now extends into fiscal 2027."')
-    assert score_citation_fidelity(p, _EVIDENCE_FILING) == (1.0, [])
+    assert score_citation_fidelity(p, _EVIDENCE_FILING)[:2] == (1.0, [])
 
 
 def test_citation_fidelity_flags_elided_evidence_as_near_miss():
     # One word dropped inside the span — the measured SE-class failure mode.
     p = _payload(footnote_evidence="recorded a $2.1 billion impairment charge related to "
                                    "streaming content library")
-    score, violations = score_citation_fidelity(p, _EVIDENCE_FILING)
+    score, violations, checked = score_citation_fidelity(p, _EVIDENCE_FILING)
     assert score == 0.0 and "near-miss" in violations[0] and "footnote" in violations[0]
 
 
 def test_citation_fidelity_flags_fabricated_evidence():
     p = _payload(takeaway_evidence="Management guaranteed profit margins will triple by 2030 forever")
-    score, violations = score_citation_fidelity(p, _EVIDENCE_FILING)
-    assert score == 0.0 and "no counterpart" in violations[0] and "P&L takeaway" in violations[0]
+    score, violations, checked = score_citation_fidelity(p, _EVIDENCE_FILING)
+    assert score == 0.0 and checked == 1
+    assert "no counterpart" in violations[0] and "P&L takeaway" in violations[0]
 
 
 def test_citation_fidelity_empty_string_is_legal_and_uncounted():
     # "" is the contracted no-verbatim-line answer; a lone "" means nothing to measure -> neutral.
     p = _payload(takeaway_evidence="")
-    assert score_citation_fidelity(p, _EVIDENCE_FILING) == (1.0, [])
+    assert score_citation_fidelity(p, _EVIDENCE_FILING)[:2] == (1.0, [])
 
 
 def test_citation_fidelity_neutral_paths():
     quoted = _payload(takeaway_evidence="Revenue grew on the strength of data-center demand")
-    assert score_citation_fidelity(quoted, None) == (1.0, [])            # no referent
+    assert score_citation_fidelity(quoted, None) == (1.0, [], 0)         # no referent
     flat = {"financial_highlights": {"revenue": "$1B"}, "risk_factors": []}
-    assert score_citation_fidelity(flat, _EVIDENCE_FILING) == (1.0, [])  # candidate flat shape
+    assert score_citation_fidelity(flat, _EVIDENCE_FILING) == (1.0, [], 0)  # candidate flat shape
     short = _payload(takeaway_evidence="Revenue grew")                    # under the shared floor
-    assert score_citation_fidelity(short, _EVIDENCE_FILING) == (1.0, [])
+    assert score_citation_fidelity(short, _EVIDENCE_FILING) == (1.0, [], 0)
 
 
 def test_citation_fidelity_risks_evidence_is_not_scored():
@@ -482,7 +484,7 @@ def test_citation_fidelity_risks_evidence_is_not_scored():
     p = _payload(takeaway_evidence="Revenue grew on the strength of data-center demand")
     p["risk_factors"] = [{"summary": "Concentration",
                           "supporting_evidence": "See Item 1A and the XBRL ConcentrationRisk tag"}]
-    assert score_citation_fidelity(p, _EVIDENCE_FILING) == (1.0, [])
+    assert score_citation_fidelity(p, _EVIDENCE_FILING)[:2] == (1.0, [])
 
 
 def test_citation_fidelity_rides_score_summary():
@@ -491,3 +493,43 @@ def test_citation_fidelity_rides_score_summary():
     assert s.citation_fidelity == 0.0 and len(s.citation_violations) == 1
     neutral = score_summary(p, [])
     assert neutral.citation_fidelity == 1.0 and neutral.citation_violations == []
+
+
+
+def test_citation_fidelity_wrapped_evidence_over_unquoted_source_verifies():
+    # Needle parity with the production gate (_needle): a model habit of wrapping the evidence
+    # value in quote marks must not fail evidence whose SOURCE sentence carries no quotes.
+    p = _payload(takeaway_evidence='"Revenue grew on the strength of data-center demand"')
+    assert score_citation_fidelity(p, _EVIDENCE_FILING)[:2] == (1.0, [])
+
+
+def test_citation_fidelity_reports_checked_count():
+    # The ratio alone is one-sided: an evidence-emission collapse must be visible as checked=0.
+    p = _payload(takeaway_evidence="")
+    assert score_citation_fidelity(p, _EVIDENCE_FILING) == (1.0, [], 0)
+    s = score_summary(_payload(takeaway_evidence="Revenue grew on the strength of data-center demand"),
+                      [], filing_text=_EVIDENCE_FILING)
+    assert s.citation_checked == 1
+
+
+def test_footnote_threading_end_to_end_through_canonical_payload():
+    """Characterization pin (adversarial review): the runner's three-level threading of
+    notable_footnotes into the canonical payload must keep working, or footnote evidence silently
+    vanishes from measurement and reads as IMPROVED fidelity."""
+    from evals.runner import _baseline_to_canonical
+
+    summary = {
+        "business_overview": "## The Print\nRecords.",
+        "financial_highlights": {"table": []},
+        "risk_factors": [],
+        "management_discussion": "m",
+        "key_changes": "o",
+        "raw_summary": {"sections": {"notable_footnotes": [
+            {"item": "Impairment", "impact": "One-time",
+             "supporting_evidence": "Management guaranteed profit margins will triple by 2030 forever"},
+        ]}},
+    }
+    canonical = _baseline_to_canonical(summary)
+    assert canonical["notable_footnotes"][0]["supporting_evidence"]
+    score, violations, checked = score_citation_fidelity(canonical, _EVIDENCE_FILING)
+    assert checked == 1 and score == 0.0 and "footnote" in violations[0]

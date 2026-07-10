@@ -787,7 +787,7 @@ def score_forward_quote_fidelity(
 
 def score_citation_fidelity(
     payload: Dict[str, Any], filing_text: Optional[str]
-) -> Tuple[float, List[str]]:
+) -> Tuple[float, List[str], int]:
     """[0,1] supporting_evidence verbatim fidelity (T4 follow-up) — the permanent citation scorer.
     Verifies the two VERBATIM-CONTRACTED evidence surfaces against the filing text under the
     product's one shared normalization: ``results_that_matter.table[].supporting_evidence``
@@ -804,10 +804,13 @@ def score_citation_fidelity(
     Neutral (1.0) without a referent or when neither surface carries verifiable evidence (bake-off
     candidates emit the flat canonical shape with neither)."""
     if not filing_text or not isinstance(filing_text, str):
-        return 1.0, []
+        return 1.0, [], 0
     from rapidfuzz import fuzz
 
-    from app.services.ai.forward_quote_gate import NEAR_MISS_SCORE
+    # _needle is the production gate's own match-key builder (full-wrap strip + inline-markdown
+    # strip + shared normalization) — one definition, so quote-wrapped or **decorated** evidence
+    # can never false-fail here while passing the product (adversarial review on this slice).
+    from app.services.ai.forward_quote_gate import NEAR_MISS_SCORE, _needle
     from app.services.provenance_service import _MIN_VERIFIABLE_LEN, normalize_for_match
 
     candidates: List[Tuple[str, str]] = []
@@ -827,7 +830,7 @@ def score_citation_fidelity(
     for label, evidence in candidates:
         if not evidence.strip():
             continue  # "" is the contracted no-verbatim-line answer — legal, uncounted
-        needle = normalize_for_match(evidence)
+        needle = _needle(evidence)
         if len(needle) < _MIN_VERIFIABLE_LEN:
             continue  # unverifiable-by-construction — uncounted, matching the production gate
         if normalized_source is None:
@@ -839,8 +842,8 @@ def score_citation_fidelity(
         kind = "near-miss" if score >= NEAR_MISS_SCORE else "no counterpart"
         violations.append(f'{label} evidence not verbatim ({kind}, score {score}): "{evidence[:90]}"')
     if not checked:
-        return 1.0, []
-    return round((checked - len(violations)) / checked, 4), violations
+        return 1.0, [], 0
+    return round((checked - len(violations)) / checked, 4), violations, checked
 
 
 def score_summary(
@@ -878,7 +881,9 @@ def score_summary(
     forward_quote_fidelity, forward_quote_violations = score_forward_quote_fidelity(
         payload, filing_text
     )
-    citation_fidelity, citation_violations = score_citation_fidelity(payload, filing_text)
+    citation_fidelity, citation_violations, citation_checked = score_citation_fidelity(
+        payload, filing_text
+    )
     return RubricScore(
         schema_valid=schema_valid,
         repaired=repaired,
@@ -894,6 +899,7 @@ def score_summary(
         forward_quote_violations=forward_quote_violations,
         citation_fidelity=citation_fidelity,
         citation_violations=citation_violations,
+        citation_checked=citation_checked,
         gate_failures=compute_gate_failures(payload, contradictions, ground_truth),
         missing_sections=missing_sections,
         matched_facts=matched,

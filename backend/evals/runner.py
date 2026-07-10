@@ -243,6 +243,7 @@ def _summarize(
             "mean_delta_consistency": mean("delta_consistency"),
             "mean_forward_quote_fidelity": mean("forward_quote_fidelity"),
             "mean_citation_fidelity": mean("citation_fidelity"),
+            "mean_citation_checked": mean("citation_checked"),
             "judge_pass_rate": round(sum(1 for j in judged if j.get("passed")) / len(judged), 4) if judged else None,
             "total_cost_usd": round(sum(r.get("cost_usd", 0.0) for r in rs), 4),
             "mean_latency_seconds": round(statistics.mean([r["latency_seconds"] for r in rs if r.get("latency_seconds")]), 3) if any(r.get("latency_seconds") for r in rs) else 0.0,

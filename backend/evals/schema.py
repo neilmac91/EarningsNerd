@@ -153,6 +153,11 @@ class RubricScore:
     # no-counterpart split — the same forensic convention as forward quotes).
     citation_fidelity: float = 1.0
     citation_violations: List[str] = field(default_factory=list)
+    # How many evidence excerpts were actually verifiable this run — the ratio alone is one-sided:
+    # an evidence-EMISSION collapse (model stops producing verifiable evidence at all) would read
+    # as improved fidelity without this measurement-volume signal (adversarial review; mirrors the
+    # production audit's checked/verified convention).
+    citation_checked: int = 0
     # Artifact-1 HARD GATES. A non-empty list is a promotion VETO independent of `aggregate()`:
     # a single fabricated number or leaked notice fails the summary no matter how good the prose.
     gate_failures: List[str] = field(default_factory=list)

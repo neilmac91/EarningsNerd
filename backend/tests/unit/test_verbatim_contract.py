@@ -26,8 +26,22 @@ class TestSchemaTemplateContract:
         # Rule + worked example (both measured failure modes shown as WRONG cases). The Rules
         # block is mode-independent, so the contract survives USE_STRUCTURED_OUTPUT both ways.
         assert "VERBATIM COPYING" in _OPENAI_SERVICE_SRC
-        assert '"We expect R2 will be foundational" (re-tensed)' in _OPENAI_SERVICE_SRC
-        assert "(words removed inside the span)" in _OPENAI_SERVICE_SRC
+        assert "(words substituted)" in _OPENAI_SERVICE_SRC
+        assert "(a word removed inside the span)" in _OPENAI_SERVICE_SRC
+
+    def test_worked_example_is_fictional_and_marked_illustrative(self):
+        # Adversarial-review finding (reproduced against the real RIVN 10-K): a worked example
+        # built from a REAL filer's language BLED into that filer's summaries — the model emitted
+        # the example's re-tensed variant over the filing's own sentence, deterministically, on
+        # the exact filer the slice targeted. The example must be fictional and marked.
+        assert "illustrative only — NOT from the filing you are summarizing" in _OPENAI_SERVICE_SRC
+        assert "Meridian platform" in _OPENAI_SERVICE_SRC  # fictional product, no golden-set filer
+        assert "R2" not in _OPENAI_SERVICE_SRC             # the bled example must never return
+
+    def test_blanket_rule_carves_out_the_risks_contract(self):
+        # risks evidence is contractually looser BY DESIGN (excerpt OR citation, never empty) —
+        # the blanket rule must scope itself or the prompt self-contradicts across three lines.
+        assert "risks `supporting_evidence` keeps its own contract" in _OPENAI_SERVICE_SRC
 
     def test_quotes_is_an_empty_allowed_array(self):
         # The never-empty-arrays rule was forcing quote INVENTION when no copyable quote exists —
@@ -68,7 +82,8 @@ class TestRecoveryParity:
     def test_recovery_system_message_carries_the_verbatim_rule(self):
         src = inspect.getsource(type(openai_service)._run_secondary_completion)
         assert "character-for-character" in src
-        assert "omit it if you cannot copy it" in src  # substring safe across literal breaks
+        assert "omit " in src and "cannot copy it" in src
+        assert "Risks supporting_evidence keeps " in src  # the looser-contract carve-out
 
     def test_recovery_token_cap_covers_the_restored_fields(self):
         # Evidence fields lengthen recovery output; a truncated completion falls to JSON repair
