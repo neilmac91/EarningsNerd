@@ -89,10 +89,13 @@ export function isRefreshableRequest(url?: string): boolean {
 }
 
 // Single in-flight refresh shared across concurrent 401s, so a burst of requests that all
-// expire together triggers exactly one /refresh call rather than a stampede.
+// expire together triggers exactly one /refresh call rather than a stampede. Exported so the
+// sanctioned raw-fetch SSE path (features/summaries/api) shares this ONE promise — otherwise a
+// concurrent 401 there + here would fire two /refresh calls on the same single-use rotating
+// refresh token, and the loser would 401 and log the user out.
 let refreshPromise: Promise<void> | null = null
 
-function ensureRefreshed(): Promise<void> {
+export function ensureRefreshed(): Promise<void> {
   if (!refreshPromise) {
     refreshPromise = refreshAccessToken(getApiUrl()).finally(() => {
       refreshPromise = null

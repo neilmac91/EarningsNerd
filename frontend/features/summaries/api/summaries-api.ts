@@ -1,4 +1,5 @@
 import api, { getApiUrl } from '@/lib/api/client'
+import { postStreamWithRefresh } from '@/lib/api/streamRefresh'
 import type { FinancialHighlights, MetricItem, RiskFactor } from '@/types/summary'
 import { isApiError, getErrorStatus } from '@/lib/api/types'
 import posthog from 'posthog-js'
@@ -255,18 +256,29 @@ const runStreamAttempt = async (
     }
   }
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    credentials: 'include',
-    signal: controller.signal,
-  })
+  const postStream = () =>
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      signal: controller.signal,
+    })
 
-  // NOTE: generation requires an account — a 401 is surfaced as a non-retryable auth error (the
-  // old "retry as guest" fallback is gone; guest generation was removed server-side too, so it
-  // could only ever double-fire a doomed request and mask expired sessions).
+  // Expired access cookie: this sanctioned raw SSE fetch bypasses the axios client's silent
+  // 401 → /refresh → replay, so postStreamWithRefresh replicates it (shared with the Copilot and
+  // Analysis readers). The connect handshake is wrapped so a network-level throw becomes a
+  // RETRYABLE result the outer attempt loop can re-try, rather than propagating past it — the
+  // streaming-read phase below is already guarded the same way.
+  let response: Response
+  try {
+    response = await postStreamWithRefresh(postStream)
+  } catch (error: unknown) {
+    clearTimeoutSafely()
+    const message = error instanceof Error ? error.message : 'Failed to connect to the summary stream.'
+    return { ok: false, retryable: true, error: message }
+  }
 
   if (!response.ok) {
     clearTimeoutSafely()

@@ -358,10 +358,23 @@ function FilingDetailView({ filingId }: { filingId: number }) {
               onAsk={handleAskCopilot}
             />
           ) : isAuthResolved && !isAuthenticated && filing && !summaryLoading ? (
-            // No cached summary (query settled) + signed out: generation requires an account, so
-            // gate instead of auto-generating. Cached summaries render above for everyone (SEO
-            // surface) — the !summaryLoading guard stops the gate flashing while they load.
+            // No displayable summary (query settled) + signed out: generation requires an account,
+            // so route to the gate — its sign-up/login links are the functional next step for any
+            // guest here. Cached summaries render above for everyone (branch 2 wins first), so the
+            // gate is only reached when there's genuinely nothing to show; !summaryLoading stops it
+            // flashing while the query loads. Deliberately NOT gated on !activeErrorMessage: a
+            // transient getSummary error must keep the working gate for a guest, not fall through
+            // to the error card whose "Retry generation" dead-ends at "please sign in" for them
+            // (it self-heals on reload if a cached summary did exist).
             <GenerateSignupGate filing={filing} entryPoint={entryPoint} />
+          ) : !activeErrorMessage && (summaryLoading || !isAuthResolved) ? (
+            // Still settling (summary query loading, or /me not yet resolved) and not actively
+            // generating: show a neutral spinner, NOT the fake "Initializing AI analysis" progress
+            // card. A signed-out visitor headed for the gate must never flash live AI-progress for
+            // a generation that will never run (and it spun up a 200ms optimistic-progress timer).
+            <div className="flex items-center justify-center py-24" role="status" aria-label="Loading">
+              <CircleNotchIcon className="h-8 w-8 animate-spin text-brand-strong dark:text-brand-strong-dark" />
+            </div>
           ) : (
             <StreamingSummaryDisplay
               streamingText=""

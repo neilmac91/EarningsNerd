@@ -1,4 +1,5 @@
 import { getApiUrl } from '@/lib/api/client'
+import { postStreamWithRefresh } from '@/lib/api/streamRefresh'
 
 // Idle timeout for the SSE stream. Mirrors STREAM_TIMEOUT_MS in summaries-api.ts: any
 // activity (token/progress/heartbeat) resets the clock; only true silence aborts.
@@ -170,13 +171,17 @@ export const askFilingStream = async (
   }
 
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ question, history }),
-      signal: controller.signal,
-    })
+    // Raw SSE POST bypasses the axios client, so refresh an expired access cookie the same way
+    // (a Pro user 30+ min into a filing must not be told to "sign in" when their session is live).
+    const response = await postStreamWithRefresh(() =>
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ question, history }),
+        signal: controller.signal,
+      }),
+    )
 
     if (!response.ok) {
       let errorMessage: string

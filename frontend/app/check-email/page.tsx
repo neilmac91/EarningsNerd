@@ -7,6 +7,7 @@ import { isApiError, getErrorMessage } from '@/lib/api/types'
 import Link from 'next/link'
 import { CircleNotchIcon, EnvelopeSimpleIcon } from '@/lib/icons'
 import AuthShell from '@/features/auth/components/AuthShell'
+import { loginHrefWithRedirect } from '@/lib/postAuthRedirect'
 import { Notice } from '@/components/ui'
 
 const RESEND_COOLDOWN_SECONDS = 30
@@ -91,7 +92,7 @@ function CheckEmailContent() {
 
       <p className="mt-4 text-center text-sm">
         <Link
-          href={redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'}
+          href={loginHrefWithRedirect(redirect)}
           className="text-text-secondary-light hover:underline dark:text-text-secondary-dark"
         >
           Back to login

@@ -13,6 +13,7 @@ import AuthDivider from '@/features/auth/components/AuthDivider'
 import PasswordField from '@/features/auth/components/PasswordField'
 import TurnstileWidget from '@/features/auth/components/TurnstileWidget'
 import { TURNSTILE_ENABLED } from '@/lib/featureFlags'
+import { loginHrefWithRedirect } from '@/lib/postAuthRedirect'
 import { Button, Input, Notice } from '@/components/ui'
 
 function RegisterContent() {
@@ -205,7 +206,7 @@ function RegisterContent() {
       <p className="mt-6 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
         Already have an account?{' '}
         <Link
-          href={redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login'}
+          href={loginHrefWithRedirect(redirect)}
           className="font-medium text-brand-strong hover:underline dark:text-brand-strong-dark"
         >
           Sign in
