@@ -140,6 +140,11 @@ class RubricScore:
     # alongside the aggregate (NOT folded in); WARN-gated in regression_gate — binds only after a
     # future re-pin records it (the gate skips metrics absent from the pinned baseline).
     forward_quote_fidelity: float = 1.0
+    # The per-quote failure detail behind forward_quote_fidelity ("near-miss, score 96.1: …" vs
+    # "no counterpart, score 44.0: …") — carried on the score (the missing_sections precedent) so
+    # a report is self-explanatory: the near-miss/fabrication split is the AI_FORWARD_QUOTE_GATE
+    # arming signal and must not require regenerating to recover.
+    forward_quote_violations: List[str] = field(default_factory=list)
     # Artifact-1 HARD GATES. A non-empty list is a promotion VETO independent of `aggregate()`:
     # a single fabricated number or leaked notice fails the summary no matter how good the prose.
     gate_failures: List[str] = field(default_factory=list)
