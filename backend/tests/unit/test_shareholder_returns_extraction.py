@@ -138,6 +138,39 @@ def test_dividend_component_sum_never_mixes_currencies():
     assert series == [(POR, 5_000_000_000.0)] and currency == "USD"  # EUR component dropped, not summed
 
 
+def test_dividend_component_sum_currency_lock_is_exact_including_none():
+    """Gemini review on #621: the currency lock is EXACT-match — an unlabeled (None-currency)
+    component never sums into a labeled total in either direction (the first SUMMED component locks
+    the label and is never overwritten). An all-unlabeled pair still sums (same cash-flow statement,
+    same reporting currency — dropping them would reintroduce the WFC understatement for label-less
+    filers)."""
+    def _norow_currency(span, value):
+        r = _row(span, value)
+        r["currency"] = None
+        return r
+
+    # Unlabeled FIRST, labeled second: the None lock holds; the USD component is skipped, never
+    # summed into (and never overwrites) the unlabeled total.
+    xb = _FakeXBRL({
+        "us-gaap:PaymentsOfDividendsCommonStock": [_norow_currency(CUR, 5_000_000_000.0)],
+        "us-gaap:PaymentsOfDividendsPreferredStockAndPreferenceStock": [
+            _row(CUR, 1_000_000_000.0, currency="USD"),
+        ],
+    })
+    series, currency = dividend_component_sum_series(xb, "10-K", POR)
+    assert series == [(POR, 5_000_000_000.0)] and currency is None
+
+    # Both unlabeled: consistent pair sums.
+    xb2 = _FakeXBRL({
+        "us-gaap:PaymentsOfDividendsCommonStock": [_norow_currency(CUR, 5_000_000_000.0)],
+        "us-gaap:PaymentsOfDividendsPreferredStockAndPreferenceStock": [
+            _norow_currency(CUR, 1_000_000_000.0),
+        ],
+    })
+    series2, currency2 = dividend_component_sum_series(xb2, "10-K", POR)
+    assert series2 == [(POR, 6_000_000_000.0)] and currency2 is None
+
+
 def test_dividends_resolve_under_ifrs_namespace():
     # TSM-style: ifrs-full DividendsPaidClassifiedAsFinancingActivities, native TWD.
     xb = _FakeXBRL({"ifrs-full:DividendsPaidClassifiedAsFinancingActivities": [

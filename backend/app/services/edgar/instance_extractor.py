@@ -430,9 +430,11 @@ def dividend_component_sum_series(
         series, ccy, _concept = duration_series_currency_concept(xb, [concept], form, period_of_report)
         if not series:
             continue
-        if currency is None:
-            currency = ccy
-        elif ccy is not None and ccy != currency:
+        if not totals:
+            currency = ccy  # first summed component locks the currency label (may itself be None)
+        elif ccy != currency:
+            # EXACT match required (Gemini review): an unlabeled (None) component must never sum
+            # into a labeled total — or vice versa — any more than a differently-labeled one.
             continue
         for end, value in series:
             totals[end] = totals.get(end, 0.0) + value
