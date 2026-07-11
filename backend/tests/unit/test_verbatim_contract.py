@@ -42,6 +42,18 @@ class TestSchemaTemplateContract:
         assert "Meridian platform" in _OPENAI_SERVICE_SRC  # fictional product, no golden-set filer
         assert "R2" not in _OPENAI_SERVICE_SRC             # the bled example must never return
 
+    def test_output_tripwire_fragments_track_the_prompt_example(self):
+        # Staff review (#626): the eval-side bleed tripwire must follow any edit to the worked
+        # example, or it rots into gating spans the prompt no longer ships. Every gated fragment
+        # must literally appear in the prompt's example (source/RIGHT + both WRONG variants), so
+        # rewording the example breaks THIS test and drags EXAMPLE_BLEED_FRAGMENTS along.
+        from evals.scorers import EXAMPLE_BLEED_FRAGMENTS
+
+        src_low = _OPENAI_SERVICE_SRC.lower()
+        assert len(EXAMPLE_BLEED_FRAGMENTS) >= 3  # source/RIGHT, re-tensed WRONG, elided WRONG
+        for frag in EXAMPLE_BLEED_FRAGMENTS:
+            assert frag in src_low, f"tripwire fragment no longer in the prompt example: {frag}"
+
     def test_blanket_rule_carves_out_the_risks_contract(self):
         # risks evidence is contractually looser BY DESIGN (excerpt OR citation, never empty) —
         # the blanket rule must scope itself or the prompt self-contradicts across three lines.

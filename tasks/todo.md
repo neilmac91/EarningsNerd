@@ -48,6 +48,17 @@ readout ~0.51 / ~6.6 checked per run — the table-row-evidence discovery, follo
 Adversarial review: 5 confirmed (all actioned, incl. the REPRODUCED example-bleed), 4 refuted.
 Full gate 1742 passed.**
 
+**Staff-review follow-up (PR #626 marked ready-for-review; verdict merge-ready, 2 inline):**
+- [x] [minor] Output-side example-bleed tripwire: `EXAMPLE_BLEED_FRAGMENTS` +
+      `detect_example_bleed` in `evals/scorers.py`, wired into `compute_gate_failures` (G4
+      family — deterministic, fictional-by-construction, zero-FP; whole-payload walk because the
+      prose-field hygiene scan never reaches §5 quotes where the RIVN bleed landed; all three
+      prompt-shipped variants gated since the measured bleed was the RE-TENSED one). Rule-12:
+      4-variant + false-fire + G4-riding tests in test_eval_scorers.py; prompt⇄tripwire sync pin
+      in test_verbatim_contract.py. No prompt content touched → no version bump / no live eval.
+- [x] [nit] RUNBOOK pin paragraph: companion WARN floor on `mean_citation_checked` at pin time
+      (decrease, ~30–40% tolerance, volume-not-quality) + the tripwire-vs-G5-lesson clause.
+
 - [ ] **schema_template**: (a) :318 quote instruction → mechanical form (character-for-character;
       never substitute/add/drop/re-tense; shorten only by choosing a shorter contiguous span;
       include a quote ONLY if copyable exactly); (b) new blanket VERBATIM COPYING rule in the

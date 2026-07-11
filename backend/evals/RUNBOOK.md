@@ -334,7 +334,15 @@ verbatim in the filing text, same shared normalization and excerpt-first referen
 `risks[].supporting_evidence` is deliberately excluded — its contract is looser by design
 ("excerpt or citation"; an XBRL tag or section reference is legal), so a verbatim demand would
 mis-score legitimate evidence. Same WARN/unpinned/never-in-`compute_gate_failures` posture as the
-forward-quote dim.
+forward-quote dim. **When this dim is eventually pinned, pin a companion WARN floor on
+`mean_citation_checked` in the same PR** (decrease direction, generous tolerance — ~30–40%; it is
+a volume signal, not a quality bar): the count exists so an evidence-emission collapse (model
+stops emitting evidence → hollow-perfect fidelity) is *self-announcing* rather than depending on
+a human noticing the count shrink in a report. (Distinct from these stochastic dims, the
+deterministic example-bleed tripwire — `EXAMPLE_BLEED_FRAGMENTS` in `scorers.py`, the prompt's
+fictional worked-example spans — DOES live in the G4 `compute_gate_failures` family: a
+fictional-by-construction substring cannot fire as noise, which is the property the G5 lesson
+protects.)
 
 ---
 

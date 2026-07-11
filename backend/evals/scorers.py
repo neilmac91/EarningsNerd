@@ -339,6 +339,54 @@ def detect_hygiene_violations(payload: Dict[str, Any]) -> List[str]:
     return violations
 
 
+# Prompt-example bleed tripwire (staff review, PR #626). The schema template's VERBATIM COPYING
+# rule carries a worked example that is FICTIONAL by construction, so its spans appearing in any
+# output field can only mean the prompt example leaked into a summary — the failure mode this
+# PR's own adversarial review reproduced on RIVN, where statistical detection masked a
+# deterministic fabrication behind a rising fleet mean. Hence a deterministic G4-family tripwire:
+# unlike the stochastic fidelity dims (G5 lesson, PR #611), a fictional-fragment substring cannot
+# fire as noise, and the golden set contains no hit, so the pinned gate_fail_rate is untouched.
+# FRAGMENTS, not the bare word — "Meridian" alone is a real filer name (Meridian Bioscience et
+# al.) and a bare-word gate would false-fire the day a real Meridian files. All three spans the
+# prompt ships are gated (source/RIGHT, re-tensed WRONG, elided WRONG): the RIVN bleed emitted
+# the RE-TENSED variant, so gating only the source sentence would miss the measured failure mode.
+# test_verbatim_contract.py pins every fragment to the prompt text so an example edit drags the
+# tripwire along instead of silently orphaning it.
+EXAMPLE_BLEED_FRAGMENTS = (
+    "meridian platform will enter volume production",  # source sentence + RIGHT span
+    "meridian platform to enter volume production",    # WRONG: re-tensed (the RIVN failure mode)
+    "meridian platform will enter production",         # WRONG: word elided inside the span
+)
+
+
+def detect_example_bleed(payload: Dict[str, Any]) -> List[str]:
+    """Whole-payload scan for the worked example's fingerprint.
+
+    Deliberately NOT a ``HYGIENE_PATTERNS`` entry: that scan inspects only the three prose fields
+    plus risks, while the real bleed landed in §5 quotes — leaked prompt content must be caught in
+    EVERY string field (quotes, evidence, rendered markdown). Each string is normalized with the
+    shared verbatim definition so typography or line-wrapping cannot dodge the substring."""
+    from app.services.provenance_service import normalize_for_match
+
+    hits: List[str] = []
+
+    def walk(node: Any, path: str) -> None:
+        if isinstance(node, str):
+            low = normalize_for_match(node)
+            for frag in EXAMPLE_BLEED_FRAGMENTS:
+                if frag in low:
+                    hits.append(f"{path or 'payload'}: prompt worked-example bled into output ('{frag}')")
+        elif isinstance(node, dict):
+            for key, value in node.items():
+                walk(value, f"{path}.{key}" if path else str(key))
+        elif isinstance(node, (list, tuple)):
+            for i, value in enumerate(node):
+                walk(value, f"{path}[{i}]")
+
+    walk(payload, "")
+    return hits
+
+
 def score_bank_revenue_integrity(
     haystack: str, ground_truth: List[GroundTruthFact]
 ) -> Tuple[float, List[str]]:
@@ -376,6 +424,7 @@ def compute_gate_failures(
     """Combine Artifact-1 deterministic hard gates into a single veto list."""
     failures = [f"G1 numeric fidelity — {c}" for c in contradictions]
     failures += [f"G4 output hygiene — {h}" for h in detect_hygiene_violations(payload)]
+    failures += [f"G4 output hygiene — {h}" for h in detect_example_bleed(payload)]
     # G5 (bank revenue integrity) is inert unless the ground truth carries bank component facts.
     _bank_score, bank_failures = score_bank_revenue_integrity(
         _financial_haystack(payload), ground_truth or []
