@@ -66,7 +66,8 @@ class TestSchemaTemplateContract:
         # waste on the product surface. Both schema fields and the blanket rule must demand prose.
         assert "NEVER a transcription of table rows or cells" in _OPENAI_SERVICE_SRC  # P&L rows
         assert "NEVER a transcription of a footnote table's rows or cells" in _OPENAI_SERVICE_SRC
-        assert "a table has no single linear text form" in _OPENAI_SERVICE_SRC  # the rule clause
+        assert "table has no single linear text form" in _OPENAI_SERVICE_SRC  # the rule clause
+        assert "EVIDENCE IS PROSE" in _OPENAI_SERVICE_SRC  # its own rule, not spliced into quotes
 
     def test_quotes_is_an_empty_allowed_array(self):
         # The never-empty-arrays rule was forcing quote INVENTION when no copyable quote exists —

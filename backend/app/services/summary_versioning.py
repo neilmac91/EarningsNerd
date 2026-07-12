@@ -55,8 +55,12 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   a sentence or contiguous fragment — never table-row/cell transcriptions (the #626
 #   citation_fidelity readout measured ~0.51 with no-counterpart dominated by table transcriptions;
 #   a table has no single linear text form, so a row transcription can never verify and the T4
-#   read-time badge discards it). Schema fields + VERBATIM COPYING rule + preambles x4 + recovery
-#   re-ask all carry the same contract. Taxonomy shape unchanged (still v2).
+#   read-time badge discards it). Schema fields + a dedicated EVIDENCE IS PROSE rule + preambles
+#   x4 + recovery re-ask all carry the same contract — kept SEPARATE from the quote-mechanics
+#   bullet/rule (one bullet, one contract): the first -j measurement showed RIVN's Section-5 quote
+#   regressing to its pre-slice 97.3 near-miss when the prose clause was spliced into the quote
+#   bullet, and recovering the -i mechanics text verbatim removes that dilution path. Taxonomy
+#   shape unchanged (still v2).
 SUMMARY_PROMPT_VERSION: str = "summary-2026-07-j"
 
 

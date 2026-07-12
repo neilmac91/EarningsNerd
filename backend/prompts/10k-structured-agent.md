@@ -39,8 +39,9 @@ context when present.
   reference) and the most relevant source section (e.g., "Item 1A. Risk Factors", "Item 7. MD&A").
 - For each P&L-table Investor-Takeaway, each notable footnote, and every `forward_signals` quote, copy
   the span CHARACTER-FOR-CHARACTER from the filing so it can be located by exact search — never
-  substitute, add, drop, or re-tense a word; shorten only by choosing a shorter CONTIGUOUS span. Copy
-  evidence from narrative PROSE (a sentence or contiguous fragment), never by transcribing table rows
-  or cells — a table has no single linear text form, so a row transcription can never be located (use
-  `""` for evidence, or omit the quote, if you have no exactly-copyable prose line). Do not paraphrase
-  in those fields; the driver/impact prose carries the analysis.
+  substitute, add, drop, or re-tense a word; shorten only by choosing a shorter CONTIGUOUS span (use
+  `""` for evidence, or omit the quote, if you have no exactly-copyable line). Do not paraphrase in
+  those fields; the driver/impact prose carries the analysis.
+- Evidence is PROSE: copy `supporting_evidence` from narrative sentences (a sentence or contiguous
+  fragment — figures inside the sentence are fine), never by transcribing table rows or cells; a
+  table has no single linear text form, so a row transcription can never be located.

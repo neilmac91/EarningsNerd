@@ -35,6 +35,17 @@ the product discards as "fine").
    HOLD on the -j run; treat any material regression as a BLOCKER even though no gate fires.
    Watch dims: specificity/redundancy/delta as always.
 
+## Measurement log
+
+- **-j run 1 (eval_20260712T130030Z, prose clause spliced into the quote bullet/rule):** gate
+  PASS 0 warnings; citation_fidelity 0.5149 → 0.6022 (no-counterpart 136 → 97, near-miss 117 →
+  103); checked 6.59 → 6.31 (no collapse); BUT forward_quote_fidelity 0.9615 → 0.9359 — RIVN
+  regressed to its PRE-SLICE 97.3 re-tense near-miss in 2/3 runs (not Meridian bleed — tripwire
+  silent; not fabrication). Causal read: the prose clause diluted the exact quote-mechanics
+  emphasis that fixed RIVN in -i. Action: restructured — quote bullet/rule restored to -i text
+  verbatim; evidence-as-prose became its OWN rule bullet (EVIDENCE IS PROSE) and preamble bullet.
+  Re-measuring on the restructured text (version stays -j; unreleased).
+
 ## Plan
 
 - [ ] Prompt edits on all 6 surface groups (schema ×2, rule, preambles ×4, recovery snippets ×2 +
