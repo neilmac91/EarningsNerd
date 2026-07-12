@@ -35,15 +35,15 @@ the product discards as "fine").
    HOLD on the -j run; treat any material regression as a BLOCKER even though no gate fires.
    Watch dims: specificity/redundancy/delta as always.
 
-**STATUS: SHIPPED to draft PR on the v2 (own-rule) text. Final: gate PASS 0 warnings ×2;
-citation_fidelity 0.5149 → 0.6492 (+26% rel), no-counterpart 136 → 78 (−43%), checked stable
-6.31 (no emission collapse). forward_quote 0.9615 → 0.9231 — read honestly, the whole delta is
-RIVN's single boundary sentence (97.3 near-miss, the pre-slice class) + ASML's eternal 98.5:
-same two sentences every run, zero fabrications, tripwire silent; RIVN failed 3/3 even with
-quote-mechanics text byte-identical to -i ⇒ prompt-prose floor, not dilution — no further
-wording iteration. Residual nc anatomy = COMPOSED prose (model-written sentence-shaped summaries
-of figures, 61–86 scores) — the next causal directive, documented not chased. Skeptic: 2 minor +
-1 nit, all taken.**
+**STATUS: SHIPPED — draft PR #627, final wording d274d52 (Gemini vocabulary take re-measured).
+Final (eval_20260712T135035Z): gate PASS 0 warnings (×3 consecutive); citation_fidelity 0.5149 →
+0.6766 (+31% rel), no-counterpart 136 → 65 (−52%), checked 6.51 ≈ baseline volume (no trade-off).
+forward_quote 0.9487: RIVN's single 97.3 boundary sentence failed 2/3 → 3/3 → 1/3 across the
+three -j measurements (0/3 in final -i) ⇒ boundary variance confirmed, not a prompt defect; ASML
+eternal 98.5 ×3; zero fabrications everywhere, tripwire silent. Residual nc = COMPOSED prose
+(model-written sentence-shaped summaries, 61–86) — next causal directive, documented not chased.
+Skeptic: 2 minor + 1 nit taken (c73143e); Gemini: vocabulary taken + pinned (d274d52),
+"omit the quote" splice declined (no quote in those fields).**
 
 ## Measurement log
 
@@ -60,6 +60,10 @@ of figures, 61–86 scores) — the next causal directive, documented not chased
   0.9941 / redundancy 0.9515 improved, delta 0.9637 in-floor; forward_quote 0.9231 — RIVN 97.3
   ×3 despite identical mechanics text ⇒ dilution hypothesis REFUTED; boundary-sentence variance
   (prompt-prose floor). Pre-committed decision rule → SHIP v2 with the variance documented.
+- **-j v3/final (eval_20260712T135035Z, Gemini vocabulary take — CHARACTER-FOR-CHARACTER in the
+  two evidence fields):** gate PASS 0 warnings; citation_fidelity 0.6766 (nc 65, nm 102);
+  checked 6.51; forward_quote 0.9487 (RIVN 1/3 fail — fourth data point confirming boundary
+  variance); specificity 0.9934 / redundancy 0.9460 / delta 0.9744 in-floor. SHIPPED.
 
 ## Plan
 
