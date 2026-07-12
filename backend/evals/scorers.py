@@ -339,6 +339,54 @@ def detect_hygiene_violations(payload: Dict[str, Any]) -> List[str]:
     return violations
 
 
+# Prompt-example bleed tripwire (staff review, PR #626). The schema template's VERBATIM COPYING
+# rule carries a worked example that is FICTIONAL by construction, so its spans appearing in any
+# output field can only mean the prompt example leaked into a summary — the failure mode this
+# PR's own adversarial review reproduced on RIVN, where statistical detection masked a
+# deterministic fabrication behind a rising fleet mean. Hence a deterministic G4-family tripwire:
+# unlike the stochastic fidelity dims (G5 lesson, PR #611), a fictional-fragment substring cannot
+# fire as noise, and the golden set contains no hit, so the pinned gate_fail_rate is untouched.
+# FRAGMENTS, not the bare word — "Meridian" alone is a real filer name (Meridian Bioscience et
+# al.) and a bare-word gate would false-fire the day a real Meridian files. All three spans the
+# prompt ships are gated (source/RIGHT, re-tensed WRONG, elided WRONG): the RIVN bleed emitted
+# the RE-TENSED variant, so gating only the source sentence would miss the measured failure mode.
+# test_verbatim_contract.py pins every fragment to the prompt text so an example edit drags the
+# tripwire along instead of silently orphaning it.
+EXAMPLE_BLEED_FRAGMENTS = (
+    "meridian platform will enter volume production",  # source sentence + RIGHT span
+    "meridian platform to enter volume production",    # WRONG: re-tensed (the RIVN failure mode)
+    "meridian platform will enter production",         # WRONG: word elided inside the span
+)
+
+
+def detect_example_bleed(payload: Dict[str, Any]) -> List[str]:
+    """Whole-payload scan for the worked example's fingerprint.
+
+    Deliberately NOT a ``HYGIENE_PATTERNS`` entry: that scan inspects only the three prose fields
+    plus risks, while the real bleed landed in §5 quotes — leaked prompt content must be caught in
+    EVERY string field (quotes, evidence, rendered markdown). Each string is normalized with the
+    shared verbatim definition so typography or line-wrapping cannot dodge the substring."""
+    from app.services.provenance_service import normalize_for_match
+
+    hits: List[str] = []
+
+    def walk(node: Any, path: str) -> None:
+        if isinstance(node, str):
+            low = normalize_for_match(node)
+            for frag in EXAMPLE_BLEED_FRAGMENTS:
+                if frag in low:
+                    hits.append(f"{path or 'payload'}: prompt worked-example bled into output ('{frag}')")
+        elif isinstance(node, dict):
+            for key, value in node.items():
+                walk(value, f"{path}.{key}" if path else str(key))
+        elif isinstance(node, (list, tuple)):
+            for i, value in enumerate(node):
+                walk(value, f"{path}[{i}]")
+
+    walk(payload, "")
+    return hits
+
+
 def score_bank_revenue_integrity(
     haystack: str, ground_truth: List[GroundTruthFact]
 ) -> Tuple[float, List[str]]:
@@ -376,6 +424,7 @@ def compute_gate_failures(
     """Combine Artifact-1 deterministic hard gates into a single veto list."""
     failures = [f"G1 numeric fidelity — {c}" for c in contradictions]
     failures += [f"G4 output hygiene — {h}" for h in detect_hygiene_violations(payload)]
+    failures += [f"G4 output hygiene — {h}" for h in detect_example_bleed(payload)]
     # G5 (bank revenue integrity) is inert unless the ground truth carries bank component facts.
     _bank_score, bank_failures = score_bank_revenue_integrity(
         _financial_haystack(payload), ground_truth or []
@@ -785,6 +834,67 @@ def score_forward_quote_fidelity(
     return round((checked - len(violations)) / checked, 4), violations
 
 
+def score_citation_fidelity(
+    payload: Dict[str, Any], filing_text: Optional[str]
+) -> Tuple[float, List[str], int]:
+    """[0,1] supporting_evidence verbatim fidelity (T4 follow-up) — the permanent citation scorer.
+    Verifies the two VERBATIM-CONTRACTED evidence surfaces against the filing text under the
+    product's one shared normalization: ``results_that_matter.table[].supporting_evidence``
+    (reaching the eval as the raw section dict under ``financial_highlights`` — the evidence strip
+    happens only in the web render projection) and ``notable_footnotes[].supporting_evidence``
+    (threaded into the canonical payload by the runner). ``risks[].supporting_evidence`` is
+    deliberately EXCLUDED: its contract is looser by design ("excerpt or citation" — an XBRL tag
+    reference or section citation is legal, so a verbatim demand would mis-score legitimate
+    evidence; the T4 read-time verified/cited badge handles risks honestly).
+
+    Empty string is a CONTRACTED legal answer ("'' if you have no verbatim line") — skipped, never
+    penalized. Sub-floor needles skip uncounted (the production-gate posture). Violations carry
+    the rapidfuzz near-miss/no-counterpart split, riding the score as ``citation_violations``.
+    Neutral (1.0) without a referent or when neither surface carries verifiable evidence (bake-off
+    candidates emit the flat canonical shape with neither)."""
+    if not filing_text or not isinstance(filing_text, str):
+        return 1.0, [], 0
+    from rapidfuzz import fuzz
+
+    # _needle is the production gate's own match-key builder (full-wrap strip + inline-markdown
+    # strip + shared normalization) — one definition, so quote-wrapped or **decorated** evidence
+    # can never false-fail here while passing the product (adversarial review on this slice).
+    from app.services.ai.forward_quote_gate import NEAR_MISS_SCORE, _needle
+    from app.services.provenance_service import _MIN_VERIFIABLE_LEN, normalize_for_match
+
+    candidates: List[Tuple[str, str]] = []
+    fh = payload.get("financial_highlights")
+    table = fh.get("table") if isinstance(fh, dict) else None
+    for row in table if isinstance(table, list) else []:
+        if isinstance(row, dict) and isinstance(row.get("supporting_evidence"), str):
+            candidates.append((f"P&L takeaway [{row.get('metric', '?')}]", row["supporting_evidence"]))
+    footnotes = payload.get("notable_footnotes")
+    for note in footnotes if isinstance(footnotes, list) else []:
+        if isinstance(note, dict) and isinstance(note.get("supporting_evidence"), str):
+            candidates.append((f"footnote [{str(note.get('item', '?'))[:40]}]", note["supporting_evidence"]))
+
+    normalized_source = None
+    checked = 0
+    violations: List[str] = []
+    for label, evidence in candidates:
+        if not evidence.strip():
+            continue  # "" is the contracted no-verbatim-line answer — legal, uncounted
+        needle = _needle(evidence)
+        if len(needle) < _MIN_VERIFIABLE_LEN:
+            continue  # unverifiable-by-construction — uncounted, matching the production gate
+        if normalized_source is None:
+            normalized_source = normalize_for_match(filing_text)  # once, and only if needed
+        checked += 1
+        if needle in normalized_source:
+            continue
+        score = round(float(fuzz.partial_ratio(needle, normalized_source)), 1)
+        kind = "near-miss" if score >= NEAR_MISS_SCORE else "no counterpart"
+        violations.append(f'{label} evidence not verbatim ({kind}, score {score}): "{evidence[:90]}"')
+    if not checked:
+        return 1.0, [], 0
+    return round((checked - len(violations)) / checked, 4), violations, checked
+
+
 def score_summary(
     raw_or_payload: Any, ground_truth: List[GroundTruthFact], filing_text: Optional[str] = None
 ) -> RubricScore:
@@ -820,6 +930,9 @@ def score_summary(
     forward_quote_fidelity, forward_quote_violations = score_forward_quote_fidelity(
         payload, filing_text
     )
+    citation_fidelity, citation_violations, citation_checked = score_citation_fidelity(
+        payload, filing_text
+    )
     return RubricScore(
         schema_valid=schema_valid,
         repaired=repaired,
@@ -833,6 +946,9 @@ def score_summary(
         delta_consistency=delta_consistency,
         forward_quote_fidelity=forward_quote_fidelity,
         forward_quote_violations=forward_quote_violations,
+        citation_fidelity=citation_fidelity,
+        citation_violations=citation_violations,
+        citation_checked=citation_checked,
         gate_failures=compute_gate_failures(payload, contradictions, ground_truth),
         missing_sections=missing_sections,
         matched_facts=matched,

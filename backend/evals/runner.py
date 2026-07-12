@@ -119,6 +119,12 @@ def _baseline_to_canonical(summary: Dict[str, Any]) -> Dict[str, Any]:
         "risk_factors": summary.get("risk_factors") or [],
         "management_discussion": summary.get("management_discussion") or "",
         "outlook": summary.get("key_changes") or "",
+        # T4 follow-up: footnote evidence is verbatim-contracted but was dropped from the
+        # canonical shape, so the citation-fidelity scorer could not see it. Eval-harness-internal
+        # threading only — the pipeline payload contract is untouched.
+        "notable_footnotes": ((summary.get("raw_summary") or {}).get("sections") or {}).get(
+            "notable_footnotes"
+        ) or [],
     }
 
 
@@ -236,6 +242,8 @@ def _summarize(
             "mean_redundancy": mean("redundancy"),
             "mean_delta_consistency": mean("delta_consistency"),
             "mean_forward_quote_fidelity": mean("forward_quote_fidelity"),
+            "mean_citation_fidelity": mean("citation_fidelity"),
+            "mean_citation_checked": mean("citation_checked"),
             "judge_pass_rate": round(sum(1 for j in judged if j.get("passed")) / len(judged), 4) if judged else None,
             "total_cost_usd": round(sum(r.get("cost_usd", 0.0) for r in rs), 4),
             "mean_latency_seconds": round(statistics.mean([r["latency_seconds"] for r in rs if r.get("latency_seconds")]), 3) if any(r.get("latency_seconds") for r in rs) else 0.0,

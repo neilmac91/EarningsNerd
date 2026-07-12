@@ -8,6 +8,7 @@ import pytest
 
 from evals.schema import GroundTruthFact
 from evals.scorers import (
+    detect_example_bleed,
     detect_hygiene_violations,
     parse_model_json,
     score_coverage,
@@ -228,6 +229,56 @@ def test_hygiene_detects_leaked_notices_and_placeholders():
     assert any("as an ai" in v for v in violations)
     assert any("executive_summary" in v for v in violations)
     assert any("outlook" in v for v in violations)
+
+
+# Example-bleed tripwire (staff review, PR #626): the prompt's fictional worked example must
+# hard-fail deterministically if it ever appears in output — statistical detection is exactly
+# what masked the RIVN bleed for a full eval run.
+@pytest.mark.parametrize(
+    "bled",
+    [
+        # Source sentence (and its RIGHT contiguous-span shortening).
+        "We anticipate the Meridian platform will enter volume production in fiscal 2028.",
+        # The prompt's WRONG re-tensed variant — the shape the real RIVN bleed took.
+        "We expect the Meridian platform to enter volume production",
+        # The prompt's WRONG elided variant.
+        "We anticipate the Meridian platform will enter production",
+        # Typography/wrapping must not dodge the tripwire (shared normalize_for_match).
+        "We anticipate the Meridian\nplatform  will enter volume production",
+    ],
+)
+def test_example_bleed_fires_on_every_prompt_variant_outside_prose_fields(bled):
+    # Planted in evidence, NOT a prose field: the real bleed landed in §5 quotes, which the
+    # classic hygiene scan (_HYGIENE_PROSE_FIELDS + risks) never inspects — the tripwire must
+    # reach every string in the payload.
+    payload = _payload(notable_footnotes=[
+        {"item": "Outlook note", "impact": "guidance", "supporting_evidence": bled}
+    ])
+    hits = detect_example_bleed(payload)
+    assert hits, bled
+    assert "notable_footnotes[0].supporting_evidence" in hits[0]
+
+
+def test_example_bleed_bare_meridian_mention_is_not_gated():
+    # "Meridian" alone is a real filer name — the staff review's false-fire caution, pinned.
+    # The sentence carries both "Meridian" and "production" as separate words; only the
+    # contiguous fictional fragments may trip the gate.
+    payload = _payload(
+        executive_summary="Meridian Bioscience grew diagnostics revenue as production volumes rose.",
+    )
+    assert detect_example_bleed(payload) == []
+
+
+def test_example_bleed_rides_g4_in_compute_gate_failures():
+    from evals.scorers import compute_gate_failures
+
+    payload = _payload(notable_footnotes=[
+        {"item": "x", "impact": "y",
+         "supporting_evidence": "the Meridian platform will enter volume production"}
+    ])
+    gates = compute_gate_failures(payload, [])
+    assert any(f.startswith("G4 output hygiene") and "worked-example" in f for f in gates)
+    assert compute_gate_failures(_payload(), []) == []
 
 
 def test_score_summary_sets_gate_failures_and_veto():

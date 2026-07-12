@@ -87,15 +87,22 @@ class _SectionRecoveryMixin:
         return combined[:max_length]
 
     def _get_section_schema_snippet(self, section_key: str) -> Optional[str]:
+        # Parity note (T4 follow-up): recovery-authored content was measured as the
+        # weakest-grounded population — these snippets had dropped the verbatim/evidence
+        # qualifiers the main schema_template carries (the forward_signals quote lost
+        # "verbatim" entirely, and results_that_matter/notable_footnotes lost their
+        # supporting_evidence FIELDS). The qualifiers below mirror the main schema's
+        # verbatim contract; full descriptive parity for non-evidence qualifiers is
+        # deliberately out of scope (snippet size vs the recovery token cap).
         schema_snippets = {
             "the_print": '{"the_print": {"headline": "<string>", "key_takeaways": ["<string>"], "what_changed": "<string>", "tone": "<positive|neutral|cautious>"}}',
-            "results_that_matter": '{"results_that_matter": {"table": [{"metric": "<string>", "current_period": "<string>", "prior_period": "<string>", "change": "<string>", "commentary": "<string>"}]}}',
+            "results_that_matter": '{"results_that_matter": {"table": [{"metric": "<string>", "current_period": "<string>", "prior_period": "<string>", "change": "<string>", "commentary": "<string>", "supporting_evidence": "<a SHORT quote copied CHARACTER-FOR-CHARACTER from the excerpt; \'\' if none>"}]}}',
             "earnings_quality": '{"earnings_quality": {"operating_vs_one_time": "<string>", "red_flags": ["<string>"]}}',
             "value_drivers": '{"value_drivers": {"capital_allocation": "<string>", "highlights": ["<string>"]}}',
-            "forward_signals": '{"forward_signals": {"guidance": "<string>", "known_trends": ["<string>"], "subsequent_events": ["<string>"], "quotes": [{"speaker": "<string>", "quote": "<string>", "context": "<string>"}], "tone": "<positive|neutral|cautious>"}}',
-            "risks": '{"risks": [{"summary": "<string>", "supporting_evidence": "<string>", "materiality": "<low|medium|high>"}]}',
+            "forward_signals": '{"forward_signals": {"guidance": "<guidance exactly as the filing states it; if none, say so>", "known_trends": ["<an Item 303 known trend or uncertainty>"], "subsequent_events": ["<a material event after period end>"], "quotes": [{"speaker": "<string>", "quote": "<copied CHARACTER-FOR-CHARACTER from the excerpt — never reword or re-tense; omit the quote if you cannot copy it exactly>", "context": "<string>"}], "tone": "<positive|neutral|cautious>"}}',
+            "risks": '{"risks": [{"summary": "<string>", "supporting_evidence": "<non-empty excerpt or citation>", "materiality": "<low|medium|high>"}]}',
             "balance_sheet_liquidity": '{"balance_sheet_liquidity": {"leverage": "<string>", "liquidity": "<string>", "working_capital": "<string>", "maturities_covenants": ["<string>"]}}',
-            "notable_footnotes": '{"notable_footnotes": [{"item": "<string>", "impact": "<string>"}]}',
+            "notable_footnotes": '{"notable_footnotes": [{"item": "<string>", "impact": "<string>", "supporting_evidence": "<a SHORT quote copied CHARACTER-FOR-CHARACTER from the excerpt; \'\' if none>"}]}',
         }
         return schema_snippets.get(section_key)
 
@@ -105,7 +112,10 @@ class _SectionRecoveryMixin:
         prompt: str,
         *,
         timeout: float = 12.0,
-        max_tokens: int = 350,
+        # 500, not 350: the T4-follow-up snippets restored the supporting_evidence fields and
+        # verbatim qualifiers, so recovery output is legitimately longer — a truncated completion
+        # falls to JSON repair and can turn a recoverable section into a hard miss.
+        max_tokens: int = 500,
     ) -> Optional[str]:
         import asyncio
 
@@ -124,7 +134,13 @@ class _SectionRecoveryMixin:
                                 "role": "system",
                                 "content": (
                                     "You fill in missing sections of a structured SEC filing summary. "
-                                    "Stay concise, rely only on provided excerpts, and return valid JSON."
+                                    "Stay concise, rely only on provided excerpts, and return valid JSON. "
+                                    "Any quote, and any supporting_evidence in results_that_matter or "
+                                    "notable_footnotes, must be copied character-for-character from the "
+                                    "excerpt — never reworded, re-tensed, or internally shortened. If "
+                                    "you cannot copy it exactly: omit the quote; set supporting_evidence "
+                                    "to ''. Risks supporting_evidence keeps its own contract: a verbatim "
+                                    "excerpt OR a citation — never empty."
                                 ),
                             },
                             {"role": "user", "content": prompt},
