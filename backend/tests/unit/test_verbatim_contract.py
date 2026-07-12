@@ -112,11 +112,18 @@ class TestRecoveryParity:
         assert "non-empty excerpt or citation" in openai_service._get_section_schema_snippet("risks")
 
     def test_recovery_system_message_carries_the_verbatim_rule(self):
-        src = inspect.getsource(type(openai_service)._run_secondary_completion)
-        assert "character-for-character" in src
-        assert "omit the " in src and "quote; set supporting_evidence " in src  # per-field escape
-        assert "Risks supporting_evidence " in src  # the looser-contract carve-out
-        assert "Evidence must be narrative prose" in src  # evidence-as-prose (single literal)
+        # Asserted on the runtime constant, not inspect.getsource fragments — source-literal
+        # re-wrapping kept forcing pin relaxations (skeptic finding, -j slice).
+        from app.services.ai.section_recovery import RECOVERY_SYSTEM_MESSAGE as msg
+
+        assert "character-for-character" in msg
+        assert "omit the quote; set supporting_evidence to ''" in msg  # per-field escape
+        assert "Risks supporting_evidence keeps its own contract" in msg  # looser-contract carve-out
+        # Scoped prose demand (skeptic #1): recovery re-asks each section ALONE, so an unscoped
+        # "evidence must be prose" would facially bind a risks-only re-ask, whose contract
+        # deliberately allows a citation.
+        assert "evidence in those two sections must be narrative prose" in msg
+        assert "never a table-row transcription" in msg
 
     def test_recovery_token_cap_covers_the_restored_fields(self):
         # Evidence fields lengthen recovery output; a truncated completion falls to JSON repair

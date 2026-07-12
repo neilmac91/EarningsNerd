@@ -19,6 +19,23 @@ from app.services.ai.normalize import _normalize_simple_string
 
 logger = logging.getLogger(__name__)
 
+# The recovery re-ask system message. A module constant so the verbatim-contract pins assert on
+# the REAL runtime string instead of inspect.getsource fragments, which broke on every literal
+# re-wrap (skeptic finding, -j slice). The prose demand is scoped to the two verbatim-contracted
+# sections: recovery re-asks each section ALONE, so an unscoped "evidence must be prose" would
+# facially bind a risks-only re-ask — whose contract deliberately allows a citation (not prose).
+RECOVERY_SYSTEM_MESSAGE = (
+    "You fill in missing sections of a structured SEC filing summary. "
+    "Stay concise, rely only on provided excerpts, and return valid JSON. "
+    "Any quote, and any supporting_evidence in results_that_matter or "
+    "notable_footnotes, must be copied character-for-character from the "
+    "excerpt — never reworded, re-tensed, or internally shortened; evidence "
+    "in those two sections must be narrative prose — a sentence or fragment, "
+    "never a table-row transcription. If you cannot copy it exactly: omit "
+    "the quote; set supporting_evidence to ''. Risks supporting_evidence "
+    "keeps its own contract: a verbatim excerpt OR a citation — never empty."
+)
+
 
 class _SectionRecoveryMixin:
     """Empty-section detection + bounded LLM recovery, mixed into OpenAIService."""
@@ -132,18 +149,7 @@ class _SectionRecoveryMixin:
                         messages=[
                             {
                                 "role": "system",
-                                "content": (
-                                    "You fill in missing sections of a structured SEC filing summary. "
-                                    "Stay concise, rely only on provided excerpts, and return valid JSON. "
-                                    "Any quote, and any supporting_evidence in results_that_matter or "
-                                    "notable_footnotes, must be copied character-for-character from the "
-                                    "excerpt — never reworded, re-tensed, or internally shortened. "
-                                    "Evidence must be narrative prose — a sentence or fragment, never a "
-                                    "table-row transcription. If you cannot copy it exactly: omit the "
-                                    "quote; set supporting_evidence to ''. Risks supporting_evidence "
-                                    "keeps its own contract: a verbatim excerpt OR a citation — never "
-                                    "empty."
-                                ),
+                                "content": RECOVERY_SYSTEM_MESSAGE,
                             },
                             {"role": "user", "content": prompt},
                         ],
