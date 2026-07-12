@@ -68,6 +68,10 @@ class TestSchemaTemplateContract:
         assert "NEVER a transcription of a footnote table's rows or cells" in _OPENAI_SERVICE_SRC
         assert "table has no single linear text form" in _OPENAI_SERVICE_SRC  # the rule clause
         assert "EVIDENCE IS PROSE" in _OPENAI_SERVICE_SRC  # its own rule, not spliced into quotes
+        # One verbatim vocabulary (Gemini, #627): the evidence fields said "word-for-word" while
+        # every other surface says CHARACTER-FOR-CHARACTER — the weaker phrase licenses
+        # punctuation/hyphenation drift, a real near-miss source.
+        assert "word-for-word" not in _OPENAI_SERVICE_SRC
 
     def test_quotes_is_an_empty_allowed_array(self):
         # The never-empty-arrays rule was forcing quote INVENTION when no copyable quote exists —
