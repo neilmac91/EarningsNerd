@@ -35,6 +35,16 @@ the product discards as "fine").
    HOLD on the -j run; treat any material regression as a BLOCKER even though no gate fires.
    Watch dims: specificity/redundancy/delta as always.
 
+**STATUS: SHIPPED to draft PR on the v2 (own-rule) text. Final: gate PASS 0 warnings ×2;
+citation_fidelity 0.5149 → 0.6492 (+26% rel), no-counterpart 136 → 78 (−43%), checked stable
+6.31 (no emission collapse). forward_quote 0.9615 → 0.9231 — read honestly, the whole delta is
+RIVN's single boundary sentence (97.3 near-miss, the pre-slice class) + ASML's eternal 98.5:
+same two sentences every run, zero fabrications, tripwire silent; RIVN failed 3/3 even with
+quote-mechanics text byte-identical to -i ⇒ prompt-prose floor, not dilution — no further
+wording iteration. Residual nc anatomy = COMPOSED prose (model-written sentence-shaped summaries
+of figures, 61–86 scores) — the next causal directive, documented not chased. Skeptic: 2 minor +
+1 nit, all taken.**
+
 ## Measurement log
 
 - **-j run 1 (eval_20260712T130030Z, prose clause spliced into the quote bullet/rule):** gate
@@ -45,6 +55,11 @@ the product discards as "fine").
   emphasis that fixed RIVN in -i. Action: restructured — quote bullet/rule restored to -i text
   verbatim; evidence-as-prose became its OWN rule bullet (EVIDENCE IS PROSE) and preamble bullet.
   Re-measuring on the restructured text (version stays -j; unreleased).
+- **-j v2 (eval_20260712T132336Z, own EVIDENCE IS PROSE rule; quote text byte-identical to -i):**
+  gate PASS 0 warnings; citation_fidelity 0.6492 (nc 78, nm 101); checked 6.31; specificity
+  0.9941 / redundancy 0.9515 improved, delta 0.9637 in-floor; forward_quote 0.9231 — RIVN 97.3
+  ×3 despite identical mechanics text ⇒ dilution hypothesis REFUTED; boundary-sentence variance
+  (prompt-prose floor). Pre-committed decision rule → SHIP v2 with the variance documented.
 
 ## Plan
 
