@@ -293,7 +293,7 @@ EXTRACTED FINANCIAL SIGNALS:
           "prior_period": "<non-empty string>",
           "change": "<non-empty string; state margin changes in percentage points>",
           "commentary": "<the one-line driver for this line, as management states it>",
-          "supporting_evidence": "<a SHORT VERBATIM quote from the filing that backs this driver, copied word-for-word so it can be located in the text; use '' if you have no verbatim line to quote>"
+          "supporting_evidence": "<a SHORT VERBATIM quote of NARRATIVE PROSE from the filing that backs this driver — a sentence or contiguous sentence fragment, copied word-for-word so it can be located in the text; NEVER a transcription of table rows or cells (the columns above already carry the figures); use '' if the filing has no prose line to quote>"
         }
       ],
       "source_section_ref": "<e.g., 'Item 1. Financial Statements'>"
@@ -347,7 +347,7 @@ EXTRACTED FINANCIAL SIGNALS:
       {
         "item": "<non-empty string>",
         "impact": "<non-empty string>",
-        "supporting_evidence": "<a SHORT VERBATIM quote from the footnote text, copied word-for-word so it can be located in the filing; use '' if you have no verbatim line to quote>",
+        "supporting_evidence": "<a SHORT VERBATIM quote of NARRATIVE PROSE from the footnote text — a sentence or contiguous sentence fragment, copied word-for-word so it can be located in the filing; NEVER a transcription of a footnote table's rows or cells; use '' if the footnote has no prose line to quote>",
         "source_section_ref": "<relevant note reference where possible>"
       }
     ]
@@ -401,7 +401,7 @@ Rules:
 - Express percentage changes with one decimal place where available (e.g., "up 8.3% YoY").
 - For arrays, include 1-4 high-signal, evidence-backed bullets ordered by materiality. If nothing qualifies, return ["Not disclosed—<concise reason>"] instead of leaving the array empty — EXCEPT `red_flags`, `highlights`, and `quotes`, which are left empty when nothing qualifies (a "Not disclosed" bullet under populated figures reads self-contradictory, and a quote you cannot copy character-for-character never qualifies).
 - Empty sections are unacceptable (except `segments`, omitted entirely when none are listed). Do not fabricate data; explain the absence using the Not disclosed pattern when required.
-- VERBATIM COPYING — applies to every `quotes[].quote` and to `supporting_evidence` in `results_that_matter` and `notable_footnotes` (risks `supporting_evidence` keeps its own contract: a verbatim excerpt OR a citation/XBRL reference — never empty): copy the span CHARACTER-FOR-CHARACTER from the filing text so it can be located by exact search. Never substitute, add, drop, or re-tense a word; shorten ONLY by choosing a shorter contiguous span. Example (illustrative only — NOT from the filing you are summarizing): a filing says "We anticipate the Meridian platform will enter volume production in fiscal 2028." RIGHT: "We anticipate the Meridian platform will enter volume production" (a shorter contiguous span). WRONG: "We expect the Meridian platform to enter volume production" (words substituted). WRONG: "We anticipate the Meridian platform will enter production" (a word removed inside the span). If no exactly-copyable line exists, leave `quotes` empty and set that `supporting_evidence` to "".
+- VERBATIM COPYING — applies to every `quotes[].quote` and to `supporting_evidence` in `results_that_matter` and `notable_footnotes` (risks `supporting_evidence` keeps its own contract: a verbatim excerpt OR a citation/XBRL reference — never empty): copy the span CHARACTER-FOR-CHARACTER from the filing text so it can be located by exact search. Never substitute, add, drop, or re-tense a word; shorten ONLY by choosing a shorter contiguous span. Example (illustrative only — NOT from the filing you are summarizing): a filing says "We anticipate the Meridian platform will enter volume production in fiscal 2028." RIGHT: "We anticipate the Meridian platform will enter volume production" (a shorter contiguous span). WRONG: "We expect the Meridian platform to enter volume production" (words substituted). WRONG: "We anticipate the Meridian platform will enter production" (a word removed inside the span). Copy `supporting_evidence` from NARRATIVE PROSE — a sentence or a contiguous sentence fragment — never a transcription of table rows or cells (a metric label followed by its figures): a table has no single linear text form, so a row transcription can never be located by exact search and is discarded downstream; the table columns already carry those figures. If no exactly-copyable prose line exists, leave `quotes` empty and set that `supporting_evidence` to "".
 - Provide supporting evidence excerpts for each risk factor (direct quote or XBRL tag reference), and when possible populate `source_section_ref` with the most relevant 10-Q section (for example: "Item 1A. Risk Factors", "Item 2. MD&A")."""
 
         import asyncio

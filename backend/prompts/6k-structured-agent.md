@@ -48,6 +48,8 @@ metric and note the ratio. Do not compute a ratio the filing does not state.
   and the most relevant source section.
 - For each P&L-table Investor-Takeaway, each notable footnote, and every `forward_signals` quote, copy
   the span CHARACTER-FOR-CHARACTER from the filing so it can be located by exact search — never
-  substitute, add, drop, or re-tense a word; shorten only by choosing a shorter CONTIGUOUS span (use
-  `""` for evidence, or omit the quote, if you have no exactly-copyable line). Do not paraphrase in
-  those fields; the driver/impact prose carries the analysis.
+  substitute, add, drop, or re-tense a word; shorten only by choosing a shorter CONTIGUOUS span. Copy
+  evidence from narrative PROSE (a sentence or contiguous fragment), never by transcribing table rows
+  or cells — a table has no single linear text form, so a row transcription can never be located (use
+  `""` for evidence, or omit the quote, if you have no exactly-copyable prose line). Do not paraphrase
+  in those fields; the driver/impact prose carries the analysis.

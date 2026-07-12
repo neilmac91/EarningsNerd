@@ -50,7 +50,14 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   re-tensing/eliding — zero fabrications); `quotes` joins the empty-allowed array exceptions (the
 #   never-empty rule was forcing quote invention); recovery re-ask snippets regain the dropped
 #   verbatim qualifiers + supporting_evidence fields. Taxonomy shape unchanged (still v2).
-SUMMARY_PROMPT_VERSION: str = "summary-2026-07-i"
+# summary-2026-07-j: citation follow-up — evidence-as-prose: the two verbatim-contracted
+#   supporting_evidence fields (P&L-takeaway rows, notable footnotes) must quote NARRATIVE PROSE —
+#   a sentence or contiguous fragment — never table-row/cell transcriptions (the #626
+#   citation_fidelity readout measured ~0.51 with no-counterpart dominated by table transcriptions;
+#   a table has no single linear text form, so a row transcription can never verify and the T4
+#   read-time badge discards it). Schema fields + VERBATIM COPYING rule + preambles x4 + recovery
+#   re-ask all carry the same contract. Taxonomy shape unchanged (still v2).
+SUMMARY_PROMPT_VERSION: str = "summary-2026-07-j"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:
