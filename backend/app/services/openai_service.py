@@ -27,6 +27,7 @@ from app.services.ai.copilot_chat import (
     STREAM_ERROR_SENTINEL,
 )
 from app.services.ai.extraction import _ExtractionMixin
+from app.services.ai.evidence_snap import snap_evidence
 from app.services.ai.forward_quote_gate import gate_forward_quotes
 from app.services.ai.json_repair import _JsonRepairMixin
 from app.services.ai.markdown_render import _MarkdownRenderMixin
@@ -791,6 +792,18 @@ Rules:
             sections_info, filing_excerpt or "", settings.AI_FORWARD_QUOTE_GATE
         )
 
+        # Evidence auto-snap (post-#631): the -j/-k slices measured composed supporting_evidence
+        # at the model's prompt-tuning floor, so the two verbatim-contracted evidence surfaces
+        # are repaired IN CODE — non-verifying evidence snaps to the best-matching REAL sentence
+        # from the same excerpt (repair-only; below the relevance floor the text is left as-is).
+        # Same placement rules as the quote gate: the same sections_info object, BEFORE the
+        # coverage snapshot and render, and EXCERPT-ONLY grounding — never raw filing_text.
+        evidence_snap_audit = None
+        if settings.AI_EVIDENCE_SNAP:
+            evidence_snap_audit = snap_evidence(
+                sections_info, filing_excerpt or "", settings.EVIDENCE_SNAP_MIN_SCORE
+            )
+
         coverage_keys = set(_TRACKED_STRUCTURED_SECTIONS)
         coverage_keys.update(sections_info.keys())
         coverage_map = {
@@ -878,6 +891,8 @@ Rules:
         }
         if forward_quote_audit:
             raw_summary_payload["forward_quote_audit"] = forward_quote_audit
+        if evidence_snap_audit:
+            raw_summary_payload["evidence_snap_audit"] = evidence_snap_audit
         if writer_result:
             raw_summary_payload["writer"] = writer_result
         if writer_fallback_reason:
