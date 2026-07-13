@@ -80,7 +80,10 @@ class TestSchemaTemplateContract:
         # prohibition must name supporting_evidence explicitly (commentary/impact are the model's
         # own analysis BY DESIGN and must stay composable).
         assert "COPY, don't COMPOSE" in _OPENAI_SERVICE_SRC  # the rule clause
-        assert _OPENAI_SERVICE_SRC.count("NEVER a sentence you compose yourself") >= 2  # both fields
+        # One clause per field, bound by their distinct tails (skeptic on -k: a bare count>=2
+        # would pass with one field's clause deleted and the phrase duplicated elsewhere).
+        assert "the span must exist in the filing" in _OPENAI_SERVICE_SRC   # P&L rows field
+        assert "the span must exist in the footnote" in _OPENAI_SERVICE_SRC  # footnotes field
 
     def test_quotes_is_an_empty_allowed_array(self):
         # The never-empty-arrays rule was forcing quote INVENTION when no copyable quote exists —
