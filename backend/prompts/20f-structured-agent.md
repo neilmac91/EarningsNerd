@@ -76,4 +76,6 @@ does not state.
   those fields; the driver/impact prose carries the analysis.
 - Evidence is PROSE: copy `supporting_evidence` from narrative sentences (a sentence or contiguous
   fragment — figures inside the sentence are fine), never by transcribing table rows or cells; a
-  table has no single linear text form, so a row transcription can never be located.
+  table has no single linear text form, so a row transcription can never be located. Copy an
+  existing sentence — never compose your own restatement of figures: composed `supporting_evidence`
+  cannot be located by exact search and is discarded (use `""` instead).

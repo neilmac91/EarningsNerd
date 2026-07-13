@@ -245,6 +245,9 @@ def test_hygiene_detects_leaked_notices_and_placeholders():
         "We anticipate the Meridian platform will enter production",
         # Typography/wrapping must not dodge the tripwire (shared normalize_for_match).
         "We anticipate the Meridian\nplatform  will enter volume production",
+        # The -k copy-don't-compose example spans (source/RIGHT + the WRONG composed sentence).
+        "Demand for the Meridian platform exceeded our production capacity during the period.",
+        "Meridian demand exceeded capacity",
     ],
 )
 def test_example_bleed_fires_on_every_prompt_variant_outside_prose_fields(bled):
