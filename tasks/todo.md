@@ -1,5 +1,17 @@
 # Evidence auto-snap — deterministic provenance repair (task #40)
 
+**STATUS: SHIPPED to draft PR. The naive draft (default-ON, mutate-always) was REFUTED by the
+skeptic with executed evidence (false-Verified wrong-fact snaps ×4; fragment replacement at 97.2;
+recovery rewrite path; forensics-destroying audit; 0.5–1.1s event-loop block) → re-postured to
+measure-always/act-when-armed with the full guard bundle (length-ratio, digit-density,
+recovery-skip, threadpool, original+candidate forensics, F1 pinned as characterization).
+AI_EVIDENCE_SNAP ships DEFAULT OFF. Armed-ceiling eval (env-armed --runs 3,
+eval_20260713T180306Z): gate PASS 0 warnings; **citation_fidelity 0.6753 → 0.8594 (violations
+−56%, 165 → 73)**; checked stable 6.49; hard dims at ceiling; watch dims held; forward_quote
+0.9359 = untouched-surface boundary variance (ASML eternal + RIVN/COST 1/3 flips). Arming =
+founder decision: the eval evidence + the always-on fleet would_snap forensics (original +
+candidate per decision) are the inputs. Gate 1774 passed.**
+
 **Goal (the measured route past the prompt floor, #631's recommendation):** -j/-k pinned composed
 `supporting_evidence` at the model's prompt-tuning floor (citation_fidelity flat ~0.68 across the
 rule → rule+example ladder; residual violations score 61–92 = light distortions of a REAL nearby
