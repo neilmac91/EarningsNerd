@@ -50,9 +50,16 @@ class TestSchemaTemplateContract:
         from evals.scorers import EXAMPLE_BLEED_FRAGMENTS
 
         src_low = _OPENAI_SERVICE_SRC.lower()
-        assert len(EXAMPLE_BLEED_FRAGMENTS) >= 3  # source/RIGHT, re-tensed WRONG, elided WRONG
+        # 3 verbatim-example spans (-i) + 2 copy-don't-compose spans (-k).
+        assert len(EXAMPLE_BLEED_FRAGMENTS) >= 5
         for frag in EXAMPLE_BLEED_FRAGMENTS:
             assert frag in src_low, f"tripwire fragment no longer in the prompt example: {frag}"
+
+    def test_compose_example_is_fictional_and_marked(self):
+        # The -k example must follow the -i convention: fictional world, illustrative marker on
+        # EVERY example (two markers now — the verbatim example and the compose example).
+        assert _OPENAI_SERVICE_SRC.count("illustrative only — NOT from the filing you are summarizing") >= 2
+        assert "Meridian demand exceeded capacity" in _OPENAI_SERVICE_SRC  # the WRONG composed span
 
     def test_blanket_rule_carves_out_the_risks_contract(self):
         # risks evidence is contractually looser BY DESIGN (excerpt OR citation, never empty) —

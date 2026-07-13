@@ -356,6 +356,10 @@ EXAMPLE_BLEED_FRAGMENTS = (
     "meridian platform will enter volume production",  # source sentence + RIGHT span
     "meridian platform to enter volume production",    # WRONG: re-tensed (the RIVN failure mode)
     "meridian platform will enter production",         # WRONG: word elided inside the span
+    # -k copy-don't-compose example (EVIDENCE IS PROSE rule) — same convention: every fictional
+    # span the prompt ships gets a fragment, so a bleed hard-fails instead of hiding in a mean.
+    "demand for the meridian platform exceeded our production capacity",  # source + RIGHT span
+    "meridian demand exceeded capacity",               # WRONG: the composed sentence
 )
 
 
