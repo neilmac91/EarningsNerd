@@ -134,6 +134,7 @@ def snap_value(
     candidate_needles: List[str],
     normalized_source: str,
     min_score: float,
+    candidate_figures: Optional[List[set]] = None,
 ) -> Tuple[Optional[str], float, str]:
     """Compute the snap DECISION for one evidence value (no mutation here). Returns
     ``(candidate_or_None, score, status)`` with status one of ``exact`` (verifies as-is),
@@ -150,6 +151,10 @@ def snap_value(
     guard = _guard_figures(needle)
     floor = min_score if guard else max(_NO_FIGURE_FLOOR, min_score)
     min_cand_len = int(_MIN_CANDIDATE_RATIO * len(needle))
+    if candidate_figures is None:
+        # Standalone-call convenience; the walker precomputes these once per source (Gemini
+        # on #632 — the per-candidate regex would otherwise re-run for every evidence item).
+        candidate_figures = [_digit_groups(c) for c in candidate_needles]
     best_i, best_score = -1, 0.0
     for i, cand_needle in enumerate(candidate_needles):
         if len(cand_needle) < min_cand_len:
@@ -158,7 +163,7 @@ def snap_value(
             fuzz.token_set_ratio(needle, cand_needle, score_cutoff=floor),
             fuzz.partial_ratio(needle, cand_needle, score_cutoff=floor),
         )
-        if score > best_score and (not guard or guard & _digit_groups(cand_needle)):
+        if score > best_score and (not guard or guard & candidate_figures[i]):
             best_i, best_score = i, score
     if best_i < 0 or best_score < floor:
         return None, best_score, "left"
@@ -206,6 +211,7 @@ def snap_evidence(
     normalized_source = normalize_for_match(source_text)
     candidates = _sentences(source_text)
     candidate_needles = [normalize_for_match(c) for c in candidates]
+    candidate_figures = [_digit_groups(c) for c in candidate_needles]
 
     audit: Dict[str, Any] = {
         "checked": 0,
@@ -219,7 +225,8 @@ def snap_evidence(
     for surface, label, item in targets:
         original = item.get("supporting_evidence")
         candidate, score, status = snap_value(
-            original, candidates, candidate_needles, normalized_source, min_score
+            original, candidates, candidate_needles, normalized_source, min_score,
+            candidate_figures,
         )
         if status == "skipped":
             continue
