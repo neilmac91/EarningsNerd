@@ -362,18 +362,21 @@ class Settings(BaseSettings):
     AI_FORWARD_QUOTE_GATE: bool = False
 
     # Evidence auto-snap (post-#631): the -j/-k slices measured composed supporting_evidence at
-    # the model's prompt-tuning floor, so the remaining provenance gap is closed IN CODE at
-    # generation time — evidence on the two verbatim-contracted surfaces (P&L-takeaway rows,
-    # notable footnotes) that does not verify exactly is snapped to the best-matching REAL
-    # sentence from the same excerpt the model generated from. Two-tier relevance floor:
-    # figure-bearing evidence needs max(token_set, partial) >= EVIDENCE_SNAP_MIN_SCORE AND must
-    # share a non-year digit group with the candidate (the shared figure pins the fact); no-figure
-    # evidence needs the stricter in-module floor (88) on text alone. REPAIR-ONLY: below the floor
-    # the original text is left in place (read-time enrichment already suppresses unverifiable
-    # excerpts), so unlike the quote gate there is no destructive action to stage behind
-    # measurement — this ships DEFAULT ON as a kill switch. Audit:
-    # raw_summary["evidence_snap_audit"] + the greppable evidence_snap pipeline counter.
-    AI_EVIDENCE_SNAP: bool = True
+    # the model's prompt-tuning floor, so a confident REAL-sentence counterpart is computed in
+    # code at generation time for the two verbatim-contracted surfaces (P&L-takeaway rows,
+    # notable footnotes). When True, non-verifying evidence is REPLACED by that counterpart (it
+    # then earns the read-time Verified badge + deep link). Ships DEFAULT OFF (advisory — the
+    # figure-trace / forward-quote-gate pattern): the adversarial review executed
+    # false-"Verified" paths where a real-but-WRONG-fact sentence passes the floor + figure
+    # guard (same-percentage moves across P&L lines are pervasive in MD&A), and a false Verified
+    # on the trust surface is worse than the honest "Cited" chip unverified evidence already
+    # gets. The audit (raw_summary["evidence_snap_audit"]) and greppable evidence_snap counter
+    # are ALWAYS emitted, with every would-snap decision recording the model's original text AND
+    # the candidate span — arm only after that fleet readout shows an acceptable wrong-snap rate.
+    # Two-tier relevance floor: figure-bearing evidence needs max(token_set, partial) >=
+    # EVIDENCE_SNAP_MIN_SCORE AND a shared non-year digit group; no-figure evidence needs the
+    # stricter in-module floor (88) on text alone.
+    AI_EVIDENCE_SNAP: bool = False
     EVIDENCE_SNAP_MIN_SCORE: float = 72.0
 
     # Foreign Private Issuer (FPI) filing support (roadmap: tasks/fpi-support-roadmap.md).

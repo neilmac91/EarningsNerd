@@ -832,13 +832,16 @@ async def stream_filing_summary(
             snap_audit = (raw_summary or {}).get("evidence_snap_audit") or {}
             if snap_audit.get("checked"):
                 # Evidence auto-snap measurement channel (post-#631, count-first convention):
-                # exact = verified as emitted; snapped = repaired to a real excerpt span (these
-                # become read-time Verified badges); left = no confident counterpart, text kept
-                # as-is (read-time enrichment suppresses the excerpt — the honest fallback).
+                # exact = verified as emitted; would_snap = a confident counterpart exists but
+                # the flag is unarmed (the entries carry original + candidate — THE arming
+                # forensics); snapped = armed repairs (become read-time Verified badges); left =
+                # no confident counterpart, text kept (read-time enrichment suppresses it).
                 logger.info(
-                    "evidence_snap checked=%d exact=%d snapped=%d left=%d flag=%s filing_id=%s",
+                    "evidence_snap checked=%d exact=%d would_snap=%d snapped=%d left=%d "
+                    "flag=%s filing_id=%s",
                     snap_audit.get("checked", 0),
                     snap_audit.get("exact", 0),
+                    len(snap_audit.get("would_snap") or []),
                     len(snap_audit.get("snapped") or []),
                     len(snap_audit.get("left") or []),
                     settings.AI_EVIDENCE_SNAP,

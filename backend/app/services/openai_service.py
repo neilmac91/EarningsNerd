@@ -596,6 +596,11 @@ Rules:
             )
             if recovered:
                 sections_info.update(recovered)
+                # Evidence auto-snap (skeptic F3): recovery re-asks generate from
+                # extract_sections(filing_text) context, NOT the excerpt, so their verbatim-TRUE
+                # evidence can fail the excerpt exact-check — the snap must not touch it.
+                # summarize_filing pops this private key before assembling the stored payload.
+                summary_data["_recovered_sections"] = sorted(recovered.keys())
 
         self._apply_structured_fallbacks(
             sections_info,
@@ -793,16 +798,28 @@ Rules:
         )
 
         # Evidence auto-snap (post-#631): the -j/-k slices measured composed supporting_evidence
-        # at the model's prompt-tuning floor, so the two verbatim-contracted evidence surfaces
-        # are repaired IN CODE — non-verifying evidence snaps to the best-matching REAL sentence
-        # from the same excerpt (repair-only; below the relevance floor the text is left as-is).
-        # Same placement rules as the quote gate: the same sections_info object, BEFORE the
-        # coverage snapshot and render, and EXCERPT-ONLY grounding — never raw filing_text.
-        evidence_snap_audit = None
-        if settings.AI_EVIDENCE_SNAP:
-            evidence_snap_audit = snap_evidence(
-                sections_info, filing_excerpt or "", settings.EVIDENCE_SNAP_MIN_SCORE
-            )
+        # at the model's prompt-tuning floor, so a confident REAL-sentence counterpart is
+        # computed in code for the two verbatim-contracted evidence surfaces. Measure-always,
+        # act-when-armed (the figure-trace / quote-gate pattern): unarmed runs record every
+        # would-snap decision (original + candidate) in the audit; the text is mutated only when
+        # AI_EVIDENCE_SNAP is armed — a fuzzy repair on the trust surface can attach a
+        # real-but-WRONG-fact sentence under a Verified badge (skeptic F1, executed), so arming
+        # is the founder's call on the fleet would_snap forensics. Same placement rules as the
+        # quote gate: the same sections_info object, BEFORE the coverage snapshot and render,
+        # EXCERPT-ONLY grounding; recovery-authored sections are skipped (their context is
+        # extract_sections(filing_text), not the excerpt — skeptic F3); and the candidate scan
+        # (~0.5s on a 320k excerpt) runs off the event loop (skeptic F5).
+        from fastapi.concurrency import run_in_threadpool
+
+        recovered_keys = frozenset(structured_summary.pop("_recovered_sections", []) or [])
+        evidence_snap_audit = await run_in_threadpool(
+            snap_evidence,
+            sections_info,
+            filing_excerpt or "",
+            settings.EVIDENCE_SNAP_MIN_SCORE,
+            settings.AI_EVIDENCE_SNAP,
+            recovered_keys,
+        )
 
         coverage_keys = set(_TRACKED_STRUCTURED_SECTIONS)
         coverage_keys.update(sections_info.keys())
