@@ -1,5 +1,23 @@
 # Copy-don't-compose evidence — citation follow-up 2 (summary-2026-07-k)
 
+**STATUS: SHIPPED to draft PR with a FLAT verdict, per the pre-committed decision rule (stop
+iterating). Three measurements: -j 0.6766 → -k rule-only 0.6793 → -k rule+example 0.6753 —
+composed-evidence behavior sits at the MODEL'S FLOOR for prompt-only intervention (the
+arch-stop-tuning-prose-know-the-floor lesson, now measured for evidence). Zero regression
+anywhere: gates PASS 0 warnings ×2, checked stable 6.38, forward_quote 0.9487 (RIVN boundary
+1/3), watch dims in-floor; the contract text + fictional example + 2 new tripwire fragments ship
+as correct-and-costless. ROUTE FORWARD (recommended next slice): deterministic evidence
+auto-snap — at enrichment/post-processing, snap 61–92-scoring composed evidence to the nearest
+REAL filing sentence via rapidfuzz, restoring provenance in code instead of prose. Skeptic:
+classes 1-5 clean, one minor pin fix (2b77c57). Tripwire silent on the new example all runs.**
+
+## Measurement log
+
+- -k rule-only (eval_20260713T131255Z): citation 0.6793 (106nm/62nc), checked 6.49, forward
+  0.9615, gates PASS — FLAT vs -j ⇒ iteration 2 per the rule.
+- -k rule+example (eval_20260713T134612Z): citation 0.6753 (96nm/69nc), checked 6.38, forward
+  0.9487 (RIVN 1/3, ASML ×3), gates PASS — FLAT ⇒ SHIP + STOP (floor measured).
+
 **Goal (task #39; the #627 residual):** after evidence-as-prose, the citation scorer's remaining
 no-counterpart population is COMPOSED PROSE — the model writes a fluent sentence restating
 figures ("Diluted earnings per share increased 16%." at 73.2) instead of copying a sentence that
