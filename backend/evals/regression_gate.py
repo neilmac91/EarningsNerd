@@ -63,6 +63,12 @@ _WARN_GATES = (
     # T5.4: ships advisory like the T3.0 dims above — binds only once a re-pin records it.
     ("mean_forward_quote_fidelity", "decrease", 0.05, "forward-quote verbatim fidelity (§5 quotes located in filing text)"),
     ("mean_citation_fidelity", "decrease", 0.05, "supporting-evidence verbatim fidelity (P&L-takeaway + footnote excerpts)"),
+    # Companion VOLUME floor for the citation dim (staff review on #626): the fidelity ratio is
+    # one-sided — an evidence-EMISSION collapse (the model stops producing verifiable excerpts)
+    # would read as IMPROVED fidelity. checked/filing sits ~6.4 on the pinned behavior; a 2.0
+    # absolute drop (~30%) is deliberately generous — this is a volume signal, not a quality bar,
+    # so ordinary evidence-mix shift never trips it while a collapse self-announces.
+    ("mean_citation_checked", "decrease", 2.0, "citation evidence volume (emission-collapse guard for the fidelity ratio)"),
 )
 
 

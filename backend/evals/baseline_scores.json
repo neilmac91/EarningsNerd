@@ -1,6 +1,6 @@
 {
-  "snapshot_date": "2026-07-09T06:32:34Z",
-  "source_report": "eval_20260709T063234Z.json",
+  "snapshot_date": "2026-07-13T20:11:01Z",
+  "source_report": "eval_20260713T201101Z.json",
   "golden_set_size": 26,
   "runs_per_candidate": 3,
   "harness": {
@@ -21,14 +21,17 @@
       "mean_numeric_accuracy": 1.0,
       "mean_numeric_precision": 1.0,
       "mean_coverage": 1.0,
-      "mean_financial_depth": 0.9445,
-      "mean_specificity": 0.9943,
+      "mean_financial_depth": 0.9786,
+      "mean_specificity": 0.9922,
       "mean_currency_consistency": 1.0,
-      "mean_redundancy": 0.9115,
-      "mean_delta_consistency": 0.9701,
+      "mean_redundancy": 0.9457,
+      "mean_delta_consistency": 0.9423,
+      "mean_forward_quote_fidelity": 0.9487,
+      "mean_citation_fidelity": 0.6887,
+      "mean_citation_checked": 6.2692,
       "judge_pass_rate": null,
       "total_cost_usd": 0.0,
-      "mean_latency_seconds": 40.913
+      "mean_latency_seconds": 40.029
     }
   }
 }
