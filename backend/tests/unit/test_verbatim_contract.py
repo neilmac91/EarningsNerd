@@ -73,6 +73,15 @@ class TestSchemaTemplateContract:
         # punctuation/hyphenation drift, a real near-miss source.
         assert "word-for-word" not in _OPENAI_SERVICE_SRC
 
+    def test_evidence_forbids_composed_sentences(self):
+        # Copy-don't-compose (#627 residual): after -j, the no-counterpart population was the
+        # model COMPOSING fluent evidence sentences that restate figures instead of copying a
+        # sentence that exists in the filing — form-compliant, provenance-non-compliant. The
+        # prohibition must name supporting_evidence explicitly (commentary/impact are the model's
+        # own analysis BY DESIGN and must stay composable).
+        assert "COPY, don't COMPOSE" in _OPENAI_SERVICE_SRC  # the rule clause
+        assert _OPENAI_SERVICE_SRC.count("NEVER a sentence you compose yourself") >= 2  # both fields
+
     def test_quotes_is_an_empty_allowed_array(self):
         # The never-empty-arrays rule was forcing quote INVENTION when no copyable quote exists —
         # `quotes` must stay in the exception list at both rule sites.
@@ -93,6 +102,10 @@ class TestPreambleParity:
     def test_all_four_preambles_forbid_table_row_evidence(self):
         for form in ("10-K", "10-Q", "20-F", "6-K"):
             assert "never by transcribing table rows" in get_structured_prompt(form), form
+
+    def test_all_four_preambles_forbid_composed_evidence(self):
+        for form in ("10-K", "10-Q", "20-F", "6-K"):
+            assert "never compose your own restatement of figures" in get_structured_prompt(form), form
 
 
 class TestRecoveryParity:
@@ -129,6 +142,7 @@ class TestRecoveryParity:
         # deliberately allows a citation.
         assert "evidence in those two sections must be narrative prose" in msg
         assert "never a table-row transcription" in msg
+        assert "never a sentence you compose yourself" in msg  # copy-don't-compose (#627 residual)
 
     def test_recovery_token_cap_covers_the_restored_fields(self):
         # Evidence fields lengthen recovery output; a truncated completion falls to JSON repair

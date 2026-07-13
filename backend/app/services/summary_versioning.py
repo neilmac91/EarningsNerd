@@ -61,7 +61,14 @@ SUMMARY_SCHEMA_VERSION: int = 2
 #   regressing to its pre-slice 97.3 near-miss when the prose clause was spliced into the quote
 #   bullet, and recovering the -i mechanics text verbatim removes that dilution path. Taxonomy
 #   shape unchanged (still v2).
-SUMMARY_PROMPT_VERSION: str = "summary-2026-07-j"
+# summary-2026-07-k: citation follow-up 2 — copy-don't-compose: after -j the residual
+#   no-counterpart population was COMPOSED prose (the model writing fluent sentences that restate
+#   figures instead of copying a sentence that exists in the filing — 61-86 partial_ratio).
+#   Composition is now named as the violation on every evidence surface (EVIDENCE IS PROSE rule,
+#   both schema fields, preambles x4, recovery message), scoped to supporting_evidence only —
+#   commentary/impact stay the model's own analysis by design. Quote-mechanics text untouched
+#   (boundary-sentence lesson). Taxonomy shape unchanged (still v2).
+SUMMARY_PROMPT_VERSION: str = "summary-2026-07-k"
 
 
 def is_stale(schema_version: int | None, prompt_version: str | None) -> bool:

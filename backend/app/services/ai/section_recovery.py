@@ -31,9 +31,11 @@ RECOVERY_SYSTEM_MESSAGE = (
     "notable_footnotes, must be copied character-for-character from the "
     "excerpt — never reworded, re-tensed, or internally shortened; evidence "
     "in those two sections must be narrative prose — a sentence or fragment, "
-    "never a table-row transcription. If you cannot copy it exactly: omit "
-    "the quote; set supporting_evidence to ''. Risks supporting_evidence "
-    "keeps its own contract: a verbatim excerpt OR a citation — never empty."
+    "never a table-row transcription, and never a sentence you compose "
+    "yourself: copy a span that exists in the excerpt. If you cannot copy "
+    "it exactly: omit the quote; set supporting_evidence to ''. Risks "
+    "supporting_evidence keeps its own contract: a verbatim excerpt OR a "
+    "citation — never empty."
 )
 
 
