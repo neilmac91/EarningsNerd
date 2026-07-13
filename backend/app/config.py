@@ -361,6 +361,24 @@ class Settings(BaseSettings):
     # (near_miss vs fabrication split in the counter is the arming signal).
     AI_FORWARD_QUOTE_GATE: bool = False
 
+    # Evidence auto-snap (post-#631): the -j/-k slices measured composed supporting_evidence at
+    # the model's prompt-tuning floor, so a confident REAL-sentence counterpart is computed in
+    # code at generation time for the two verbatim-contracted surfaces (P&L-takeaway rows,
+    # notable footnotes). When True, non-verifying evidence is REPLACED by that counterpart (it
+    # then earns the read-time Verified badge + deep link). Ships DEFAULT OFF (advisory — the
+    # figure-trace / forward-quote-gate pattern): the adversarial review executed
+    # false-"Verified" paths where a real-but-WRONG-fact sentence passes the floor + figure
+    # guard (same-percentage moves across P&L lines are pervasive in MD&A), and a false Verified
+    # on the trust surface is worse than the honest "Cited" chip unverified evidence already
+    # gets. The audit (raw_summary["evidence_snap_audit"]) and greppable evidence_snap counter
+    # are ALWAYS emitted, with every would-snap decision recording the model's original text AND
+    # the candidate span — arm only after that fleet readout shows an acceptable wrong-snap rate.
+    # Two-tier relevance floor: figure-bearing evidence needs max(token_set, partial) >=
+    # EVIDENCE_SNAP_MIN_SCORE AND a shared non-year digit group; no-figure evidence needs the
+    # stricter in-module floor (88) on text alone.
+    AI_EVIDENCE_SNAP: bool = False
+    EVIDENCE_SNAP_MIN_SCORE: float = 72.0
+
     # Foreign Private Issuer (FPI) filing support (roadmap: tasks/fpi-support-roadmap.md).
     # Foreign issuers (ADRs like Alibaba/$BABA, TSM, ASML) file 20-F (annual) and 6-K (interim)
     # instead of 10-K/10-Q, so the company page shows "no filings" for them today. When True, the

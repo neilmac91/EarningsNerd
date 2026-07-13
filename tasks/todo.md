@@ -1,77 +1,86 @@
-# Copy-don't-compose evidence — citation follow-up 2 (summary-2026-07-k)
+# Evidence auto-snap — deterministic provenance repair (task #40)
 
-**STATUS: SHIPPED to draft PR with a FLAT verdict, per the pre-committed decision rule (stop
-iterating). Three measurements: -j 0.6766 → -k rule-only 0.6793 → -k rule+example 0.6753 —
-composed-evidence behavior sits at the MODEL'S FLOOR for prompt-only intervention (the
-arch-stop-tuning-prose-know-the-floor lesson, now measured for evidence). Zero regression
-anywhere: gates PASS 0 warnings ×2, checked stable 6.38, forward_quote 0.9487 (RIVN boundary
-1/3), watch dims in-floor; the contract text + fictional example + 2 new tripwire fragments ship
-as correct-and-costless. ROUTE FORWARD (recommended next slice): deterministic evidence
-auto-snap — at enrichment/post-processing, snap 61–92-scoring composed evidence to the nearest
-REAL filing sentence via rapidfuzz, restoring provenance in code instead of prose. Skeptic:
-classes 1-5 clean, one minor pin fix (2b77c57). Tripwire silent on the new example all runs.**
+**STATUS: SHIPPED to draft PR. The naive draft (default-ON, mutate-always) was REFUTED by the
+skeptic with executed evidence (false-Verified wrong-fact snaps ×4; fragment replacement at 97.2;
+recovery rewrite path; forensics-destroying audit; 0.5–1.1s event-loop block) → re-postured to
+measure-always/act-when-armed with the full guard bundle (length-ratio, digit-density,
+recovery-skip, threadpool, original+candidate forensics, F1 pinned as characterization).
+AI_EVIDENCE_SNAP ships DEFAULT OFF. Armed-ceiling eval (env-armed --runs 3,
+eval_20260713T180306Z): gate PASS 0 warnings; **citation_fidelity 0.6753 → 0.8594 (violations
+−56%, 165 → 73)**; checked stable 6.49; hard dims at ceiling; watch dims held; forward_quote
+0.9359 = untouched-surface boundary variance (ASML eternal + RIVN/COST 1/3 flips). Arming =
+founder decision: the eval evidence + the always-on fleet would_snap forensics (original +
+candidate per decision) are the inputs. Gate 1774 passed.**
 
-## Measurement log
+**Goal (the measured route past the prompt floor, #631's recommendation):** -j/-k pinned composed
+`supporting_evidence` at the model's prompt-tuning floor (citation_fidelity flat ~0.68 across the
+rule → rule+example ladder; residual violations score 61–92 = light distortions of a REAL nearby
+sentence). Close the gap in code: at generation time, evidence on the two verbatim-contracted
+surfaces that does not verify exactly is SNAPPED to the best-matching real sentence from the same
+excerpt the model generated from. Output is guaranteed-authentic filing text → read-time exact
+verification (T4 Verified badge + `#:~:text=` deep link), exports, and the eval's
+citation_fidelity all improve with zero read latency and zero prompt change.
 
-- -k rule-only (eval_20260713T131255Z): citation 0.6793 (106nm/62nc), checked 6.49, forward
-  0.9615, gates PASS — FLAT vs -j ⇒ iteration 2 per the rule.
-- -k rule+example (eval_20260713T134612Z): citation 0.6753 (96nm/69nc), checked 6.38, forward
-  0.9487 (RIVN 1/3, ASML ×3), gates PASS — FLAT ⇒ SHIP + STOP (floor measured).
+## Load-bearing facts (code-read)
 
-**Goal (task #39; the #627 residual):** after evidence-as-prose, the citation scorer's remaining
-no-counterpart population is COMPOSED PROSE — the model writes a fluent sentence restating
-figures ("Diluted earnings per share increased 16%." at 73.2) instead of copying a sentence that
-EXISTS in the filing. Form-compliant, provenance-non-compliant, 61–86 partial_ratio. Name
-composition as the violation on the evidence surfaces; the contracted answer when no real
-sentence exists stays `""`.
+1. **Read-time enrichment is exact-only BY DESIGN** (provenance_service.build_evidence docstring:
+   per-GET fuzzy would add seconds over multi-MB text; "a scale-tolerant (rapidfuzz) upgrade
+   belongs on a per-section-scoped follow-up" — this slice is that follow-up, moved to WRITE
+   time). Unverified evidence at read: excerpt nulled, no badge, section-level link.
+2. **The wiring site exists**: `gate_forward_quotes(sections_info, filing_excerpt or "", …)` at
+   openai_service.py:790 — after risks normalization, BEFORE coverage snapshot + render; audit
+   attached to raw_summary_payload (:879); pipeline counter reads it (summary_pipeline.py:814).
+   The snap runs immediately after, same object, same EXCERPT-ONLY grounding (the T5.4
+   blocking-finding rule — never raw filing_text).
+3. rapidfuzz already a direct dependency (gate imports it); `normalize_for_match` +
+   `extract_quoted_span` + `_MIN_VERIFIABLE_LEN` are the shared verbatim vocabulary.
+4. Fleet: every stored row is ALREADY version-stale vs -k → the pending fleet refresh regenerates
+   through the snap; NO version bump needed (no prompt text changes; the stamp's operational role
+   is regenerate-needed marking, already pending).
 
-## Design decisions (lessons applied)
+## Design decisions
 
-1. **Quote-mechanics text stays byte-identical** (the RIVN boundary lesson from -j): the new
-   sentence extends the EVIDENCE IS PROSE rule and evidence-specific sites only.
-2. **Scope discipline — the critical risk of this slice:** "never compose" must bind
-   `supporting_evidence` ONLY. `commentary`/`impact`/driver prose are the model's own analysis BY
-   DESIGN; wording must not read as banning composition there. Every added sentence names
-   supporting_evidence or sits inside the already-scoped rule/field.
-3. **No concrete example carrying figures** (example-bleed class, -j decision reaffirmed): shape
-   description only ("a sentence you wrote yourself that restates figures"). If the -k eval shows
-   rule-only is flat, escalate to a FICTIONAL no-number example in a follow-up (measurement
-   ladder).
-4. **Emission-collapse watch:** fabrication framing may push evidence to `""` wholesale. The
-   citation_checked counter watches; decision rule below.
-5. Prompt-content change ⇒ RUNBOOK: bump `summary-2026-07-k` + ledger, eval `--runs 3`, gate
-   PASS, no re-pin (pin package stays sequenced after this slice, from its final behavior).
-
-## Pre-committed decision rule (before the eval runs)
-
-- SHIP if: citation_fidelity materially ↑ from 0.6766 (target ≥ ~0.75) AND mean_citation_checked
-  ≥ ~4.5 (vs 6.51; some drop expected — composed evidence converting to `""` is the honest trade)
-  AND forward_quote_fidelity inside the established 0.92–0.96 band AND hard gates PASS.
-- If citation_fidelity flat → rule-only insufficient; consider ONE iteration adding a fictional
-  no-number worked example, then stop.
-- If checked collapses (< ~3) → the fabrication framing over-fired; soften and re-measure once.
+1. **Repair-only, never destructive**: below the relevance floor the original text stays (read
+   suppression already covers honesty; forensics preserved). No drop path → no arming decision;
+   `AI_EVIDENCE_SNAP` ships DEFAULT ON as a kill switch (unlike the quote gate, whose armed mode
+   DROPS content — different risk class: snap output is always a real span, relevance-gated).
+2. **Relevance floor**: `token_set_ratio ≥ EVIDENCE_SNAP_MIN_SCORE` (default 85.0) on normalized
+   text — subset-scoring is the DESIRED behavior for the composed class (model summarizes a real
+   sentence) — PLUS the **figure guard**: evidence containing digit groups only snaps to a
+   sentence sharing ≥1 digit group (pins the candidate to the same fact; blocks
+   function-word-driven cross-metric matches).
+3. **Scope**: results_that_matter.table[].supporting_evidence + notable_footnotes[].
+   supporting_evidence ONLY. Risks excluded (citation-legal contract — citations are not spans).
+   §5 quotes excluded (programmatically altering an ATTRIBUTED management statement is a separate
+   founder decision — documented follow-up; quote near-misses RIVN 97.3 / ASML 98.5 would be
+   snappable by the same mechanism).
+4. **Snapped span returned in ORIGINAL source casing/typography** — must verify by exact search
+   downstream; the round-trip property (snapped ⇒ verify_excerpt_in_text passes) is the core
+   invariant, pinned by test.
+5. Audit `raw_summary["evidence_snap_audit"] = {checked, exact, snapped:[{surface,label,score}],
+   left:[{surface,score}], min_score}` + greppable `evidence_snap` pipeline counter (T5.4
+   conventions).
+6. RUNBOOK applies (new default-on AI flag): eval `--runs 3` + regression gate MUST PASS; NO
+   re-pin. Success: citation_fidelity 0.6753 → target ≥0.80; near-miss class should mostly
+   convert; checked unchanged (snap never empties); forward_quote unchanged (surface untouched);
+   watch dims hold.
 
 ## Plan
 
-- [ ] EVIDENCE IS PROSE rule += COPY-DON'T-COMPOSE sentence (exists-in-the-filing; composed
-      sentence = fabricated evidence, worse than "").
-- [ ] Both schema evidence fields += "never a sentence you compose yourself to restate figures".
-- [ ] Preambles ×4 evidence bullet += the copy-not-compose clause (identical sentence).
-- [ ] RECOVERY_SYSTEM_MESSAGE += the clause (scoped to the two sections, as -j scoped prose).
-- [ ] Version `summary-2026-07-k` + ledger line.
-- [ ] Rule-12 pins (phrase family "compose") on: rule, fields ×2, preambles ×4, recovery message.
-- [ ] Full backend gate from backend/.
-- [ ] Skeptic subagent BEFORE eval — classes: commentary/impact scope leak (the big one),
-      internal contradiction, risks carve-out intact, example-bleed (no figures added), recovery
-      parity, test integrity.
-- [ ] Eval `--runs 3` on -k → decision rule → draft PR + subscribe + check-ins.
+- [ ] `app/services/ai/evidence_snap.py` — pure leaf (settings-free): `_sentences`,
+      `_digit_groups`, `snap_value`, `snap_evidence` (audit).
+- [ ] Config: `AI_EVIDENCE_SNAP=True`, `EVIDENCE_SNAP_MIN_SCORE=85.0` + docs/CONFIGURATION.md.
+- [ ] Wire in openai_service after the quote gate (same excerpt grounding, flag-gated) + attach
+      audit; pipeline counter next to forward_quote_unverified.
+- [ ] Rule-12 tests: `test_evidence_snap.py` (~14: exact/near-miss/composed/figure-guard/floor/
+      short/empty/no-source/scope/casing/round-trip-verify/audit/tolerance) + wiring pin.
+- [ ] Full backend gate; skeptic (classes: round-trip invariant, wrong-sentence relevance risk,
+      scope leak, excerpt-grounding, non-destruction, perf on 320k excerpts, flag posture).
+- [ ] Eval `--runs 3` → gate PASS + readout vs -k final (0.6753/checked 6.38/forward 0.9487).
+- [ ] Draft PR + subscribe + check-ins.
 
 ## Not in scope (documented)
-- Arming AI_FORWARD_QUOTE_GATE: founder ratified the recommendation — stays un-armed, counter
-  watching.
-- Pin package (fidelity floors + citation_checked companion WARN): next, from -k's final
-  behavior once fleet refresh timing is set.
-- Fleet refresh for -j/-k (prod ops; refresh-stale machinery exists).
-- Table-aware scorer (permanently rejected — eval↔product parity).
-- Carried ledger: M&A payments, effective tax rate, ROIC, segment axes, buyback-halt probe, IFRS
-  equity-holders dividend variant.
+- Quote-snap for §5 (attributed-statement alteration — founder decision; would fix RIVN/ASML).
+- Read-time snap for already-stored rows (fleet refresh covers them; read stays exact-only).
+- Pin package + fleet refresh timing (unchanged, founder).
+- Carried ledger (unchanged).

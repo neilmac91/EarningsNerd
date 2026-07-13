@@ -829,6 +829,24 @@ async def stream_filing_summary(
                     company_sic or "",
                     "|".join(str(u.get("speaker") or "?") for u in unverified),
                 )
+            snap_audit = (raw_summary or {}).get("evidence_snap_audit") or {}
+            if snap_audit.get("checked"):
+                # Evidence auto-snap measurement channel (post-#631, count-first convention):
+                # exact = verified as emitted; would_snap = a confident counterpart exists but
+                # the flag is unarmed (the entries carry original + candidate — THE arming
+                # forensics); snapped = armed repairs (become read-time Verified badges); left =
+                # no confident counterpart, text kept (read-time enrichment suppresses it).
+                logger.info(
+                    "evidence_snap checked=%d exact=%d would_snap=%d snapped=%d left=%d "
+                    "flag=%s filing_id=%s",
+                    snap_audit.get("checked", 0),
+                    snap_audit.get("exact", 0),
+                    len(snap_audit.get("would_snap") or []),
+                    len(snap_audit.get("snapped") or []),
+                    len(snap_audit.get("left") or []),
+                    settings.AI_EVIDENCE_SNAP,
+                    filing_id,
+                )
 
             # S4 quality gate (flagged, default off): the summary is ALWAYS persisted, so the
             # streamed result doesn't vanish when the client refetches and isn't regenerated from

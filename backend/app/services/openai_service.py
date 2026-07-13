@@ -27,6 +27,7 @@ from app.services.ai.copilot_chat import (
     STREAM_ERROR_SENTINEL,
 )
 from app.services.ai.extraction import _ExtractionMixin
+from app.services.ai.evidence_snap import snap_evidence
 from app.services.ai.forward_quote_gate import gate_forward_quotes
 from app.services.ai.json_repair import _JsonRepairMixin
 from app.services.ai.markdown_render import _MarkdownRenderMixin
@@ -595,6 +596,11 @@ Rules:
             )
             if recovered:
                 sections_info.update(recovered)
+                # Evidence auto-snap (skeptic F3): recovery re-asks generate from
+                # extract_sections(filing_text) context, NOT the excerpt, so their verbatim-TRUE
+                # evidence can fail the excerpt exact-check — the snap must not touch it.
+                # summarize_filing pops this private key before assembling the stored payload.
+                summary_data["_recovered_sections"] = sorted(recovered.keys())
 
         self._apply_structured_fallbacks(
             sections_info,
@@ -791,6 +797,30 @@ Rules:
             sections_info, filing_excerpt or "", settings.AI_FORWARD_QUOTE_GATE
         )
 
+        # Evidence auto-snap (post-#631): the -j/-k slices measured composed supporting_evidence
+        # at the model's prompt-tuning floor, so a confident REAL-sentence counterpart is
+        # computed in code for the two verbatim-contracted evidence surfaces. Measure-always,
+        # act-when-armed (the figure-trace / quote-gate pattern): unarmed runs record every
+        # would-snap decision (original + candidate) in the audit; the text is mutated only when
+        # AI_EVIDENCE_SNAP is armed — a fuzzy repair on the trust surface can attach a
+        # real-but-WRONG-fact sentence under a Verified badge (skeptic F1, executed), so arming
+        # is the founder's call on the fleet would_snap forensics. Same placement rules as the
+        # quote gate: the same sections_info object, BEFORE the coverage snapshot and render,
+        # EXCERPT-ONLY grounding; recovery-authored sections are skipped (their context is
+        # extract_sections(filing_text), not the excerpt — skeptic F3); and the candidate scan
+        # (~0.5s on a 320k excerpt) runs off the event loop (skeptic F5).
+        from fastapi.concurrency import run_in_threadpool
+
+        recovered_keys = frozenset(structured_summary.pop("_recovered_sections", []) or [])
+        evidence_snap_audit = await run_in_threadpool(
+            snap_evidence,
+            sections_info,
+            filing_excerpt or "",
+            settings.EVIDENCE_SNAP_MIN_SCORE,
+            settings.AI_EVIDENCE_SNAP,
+            recovered_keys,
+        )
+
         coverage_keys = set(_TRACKED_STRUCTURED_SECTIONS)
         coverage_keys.update(sections_info.keys())
         coverage_map = {
@@ -878,6 +908,8 @@ Rules:
         }
         if forward_quote_audit:
             raw_summary_payload["forward_quote_audit"] = forward_quote_audit
+        if evidence_snap_audit:
+            raw_summary_payload["evidence_snap_audit"] = evidence_snap_audit
         if writer_result:
             raw_summary_payload["writer"] = writer_result
         if writer_fallback_reason:
