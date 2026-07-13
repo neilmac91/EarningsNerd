@@ -51,3 +51,6 @@ metric and note the ratio. Do not compute a ratio the filing does not state.
   substitute, add, drop, or re-tense a word; shorten only by choosing a shorter CONTIGUOUS span (use
   `""` for evidence, or omit the quote, if you have no exactly-copyable line). Do not paraphrase in
   those fields; the driver/impact prose carries the analysis.
+- Evidence is PROSE: copy `supporting_evidence` from narrative sentences (a sentence or contiguous
+  fragment — figures inside the sentence are fine), never by transcribing table rows or cells; a
+  table has no single linear text form, so a row transcription can never be located.

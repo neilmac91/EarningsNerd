@@ -59,6 +59,20 @@ class TestSchemaTemplateContract:
         # the blanket rule must scope itself or the prompt self-contradicts across three lines.
         assert "risks `supporting_evidence` keeps its own contract" in _OPENAI_SERVICE_SRC
 
+    def test_evidence_fields_demand_prose_never_table_rows(self):
+        # Evidence-as-prose (the #626 citation_fidelity ~0.51 discovery): table rows have no
+        # single linear text form, so a row transcription can NEVER verify by exact search — and
+        # the T4 read-time badge discards unverifiable excerpts, making table-row evidence pure
+        # waste on the product surface. Both schema fields and the blanket rule must demand prose.
+        assert "NEVER a transcription of table rows or cells" in _OPENAI_SERVICE_SRC  # P&L rows
+        assert "NEVER a transcription of a footnote table's rows or cells" in _OPENAI_SERVICE_SRC
+        assert "table has no single linear text form" in _OPENAI_SERVICE_SRC  # the rule clause
+        assert "EVIDENCE IS PROSE" in _OPENAI_SERVICE_SRC  # its own rule, not spliced into quotes
+        # One verbatim vocabulary (Gemini, #627): the evidence fields said "word-for-word" while
+        # every other surface says CHARACTER-FOR-CHARACTER — the weaker phrase licenses
+        # punctuation/hyphenation drift, a real near-miss source.
+        assert "word-for-word" not in _OPENAI_SERVICE_SRC
+
     def test_quotes_is_an_empty_allowed_array(self):
         # The never-empty-arrays rule was forcing quote INVENTION when no copyable quote exists —
         # `quotes` must stay in the exception list at both rule sites.
@@ -76,6 +90,10 @@ class TestPreambleParity:
     def test_6k_gained_the_risk_evidence_line(self):
         assert "For risk factors, attach supporting evidence" in get_structured_prompt("6-K")
 
+    def test_all_four_preambles_forbid_table_row_evidence(self):
+        for form in ("10-K", "10-Q", "20-F", "6-K"):
+            assert "never by transcribing table rows" in get_structured_prompt(form), form
+
 
 class TestRecoveryParity:
     """The recovery re-ask authors the weakest-grounded population; its snippets had dropped the
@@ -91,15 +109,26 @@ class TestRecoveryParity:
             snippet = openai_service._get_section_schema_snippet(section)
             assert "supporting_evidence" in snippet, section
             assert "CHARACTER-FOR-CHARACTER" in snippet, section
+            # Evidence-as-prose parity: the re-ask authors the weakest-grounded population and
+            # must carry the same table-row prohibition as the main schema.
+            assert "never a table-row transcription" in snippet, section
 
     def test_risks_snippet_regained_its_qualifier(self):
         assert "non-empty excerpt or citation" in openai_service._get_section_schema_snippet("risks")
 
     def test_recovery_system_message_carries_the_verbatim_rule(self):
-        src = inspect.getsource(type(openai_service)._run_secondary_completion)
-        assert "character-for-character" in src
-        assert "omit the quote; set supporting_evidence " in src  # per-field escape (Gemini #626)
-        assert "Risks supporting_evidence keeps " in src  # the looser-contract carve-out
+        # Asserted on the runtime constant, not inspect.getsource fragments — source-literal
+        # re-wrapping kept forcing pin relaxations (skeptic finding, -j slice).
+        from app.services.ai.section_recovery import RECOVERY_SYSTEM_MESSAGE as msg
+
+        assert "character-for-character" in msg
+        assert "omit the quote; set supporting_evidence to ''" in msg  # per-field escape
+        assert "Risks supporting_evidence keeps its own contract" in msg  # looser-contract carve-out
+        # Scoped prose demand (skeptic #1): recovery re-asks each section ALONE, so an unscoped
+        # "evidence must be prose" would facially bind a risks-only re-ask, whose contract
+        # deliberately allows a citation.
+        assert "evidence in those two sections must be narrative prose" in msg
+        assert "never a table-row transcription" in msg
 
     def test_recovery_token_cap_covers_the_restored_fields(self):
         # Evidence fields lengthen recovery output; a truncated completion falls to JSON repair
