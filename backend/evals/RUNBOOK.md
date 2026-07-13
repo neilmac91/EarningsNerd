@@ -308,37 +308,47 @@ is hand-filled.
 defect c) and `mean_delta_consistency` (prose vs. code-computed table deltas, defect g) are computed
 on every scored run and reported alongside the aggregate (never folded into it). They ship as WARN
 gates — a breach prints but never fails the build. **As of `summary-2026-07-b` (pinned from
-`eval_20260708T225435Z`) both are recorded in `baseline_scores.json` and now bind:** the gate fires
-when either falls more than 0.05 below its pinned value (floors ≈ 0.779 redundancy / ≈ 0.848
-delta-consistency). Because a WARN floor is one-directional — it only trips on a *drop* — pinning
+`eval_20260708T225435Z`) both are recorded in `baseline_scores.json` and now bind;** re-pinned
+from `eval_20260713T201101Z` (the post-T5/citation-track behavior), the floors sit at ≈ 0.896
+redundancy / ≈ 0.892 delta-consistency (delta drew the LOW end of its observed 0.94–0.98
+run-to-run band on the pin run — a single-report pin is kept for provenance, never hand-mixed
+values across runs). Because a WARN floor is one-directional — it only trips on a *drop* — pinning
 these here protects today's measured improvement and cannot cap a future rewrite: when the Tier-3 v2
 content rewrite lands with higher redundancy, you simply re-pin the floors upward in that PR (as with
 any bar move). (Earlier guidance to defer pinning until v2 was mistaken on this point — a floor
 sitting below v1 redundancy can't "lock it in"; v2 is free to exceed it.)
 
-**`mean_forward_quote_fidelity` (T5.4) — ships advisory, unpinned.** Fraction of §5 Forward Signals
+**`mean_forward_quote_fidelity` (T5.4) — now pinned.** Fraction of §5 Forward Signals
 blockquotes in the rendered markdown that verify verbatim in the filing text, under the SAME
 `normalize_for_match` definition the production `forward_quote_gate` (drop when
 `AI_FORWARD_QUOTE_GATE` is armed), the T4 evidence badge, and the copilot citation gate all use —
-one definition of "verbatim", so the eval can never disagree with the product. WARN-gated at −0.05
-but skipped until a future re-pin records it in `baseline_scores.json` (deliberately NOT pinned in
-the T5.4 PR: the first `--runs 3` readout is a *measurement* of current model behavior, not a bar
-we've chosen). Never add it to `compute_gate_failures` — `gate_fail_rate` is pinned at 0.0 with
-epsilon tolerance, and the G5 lesson (PR #611) is that a stochastic hard gate fires as pure noise.
+one definition of "verbatim", so the eval can never disagree with the product. Shipped advisory
+in the T5.4 PR (a first readout is a measurement, not a bar); **pinned from
+`eval_20260713T201101Z` at 0.9487, so the −0.05 WARN now binds (floor ≈ 0.899).** Read any WARN
+against the KNOWN VARIANCE BAND before reacting: across six `--runs 3` measurements on unchanged
+quote text this dim ranged **0.9231–0.9615** — ASML's one 98.5 near-miss sentence fails every
+run, and one-to-two boundary filers (RIVN 97.3, COST) flip run to run; the floor sits below the
+whole band, but a single-run CI readout has coarser granularity (each failing filing-run is
+1/26 ≈ 0.038), so one noisy CI WARN is boundary noise — a SUSTAINED drop is the signal. Never add
+it to `compute_gate_failures` — `gate_fail_rate` is pinned at 0.0 with epsilon tolerance, and the
+G5 lesson (PR #611) is that a stochastic hard gate fires as pure noise.
 
-**`mean_citation_fidelity` (T4 follow-up) — ships advisory, unpinned.** The permanent citation
+**`mean_citation_fidelity` (T4 follow-up) — now pinned.** The permanent citation
 scorer: fraction of the two VERBATIM-CONTRACTED `supporting_evidence` surfaces (P&L-takeaway rows
 + notable footnotes; footnotes threaded into the canonical payload by the runner) locatable
 verbatim in the filing text, same shared normalization and excerpt-first referent as
 `mean_forward_quote_fidelity`. `""` is the contracted no-verbatim-line answer and never counts.
 `risks[].supporting_evidence` is deliberately excluded — its contract is looser by design
 ("excerpt or citation"; an XBRL tag or section reference is legal), so a verbatim demand would
-mis-score legitimate evidence. Same WARN/unpinned/never-in-`compute_gate_failures` posture as the
-forward-quote dim. **When this dim is eventually pinned, pin a companion WARN floor on
-`mean_citation_checked` in the same PR** (decrease direction, generous tolerance — ~30–40%; it is
-a volume signal, not a quality bar): the count exists so an evidence-emission collapse (model
-stops emitting evidence → hollow-perfect fidelity) is *self-announcing* rather than depending on
-a human noticing the count shrink in a report. (Distinct from these stochastic dims, the
+mis-score legitimate evidence. Same never-in-`compute_gate_failures` posture as the forward-quote
+dim; **pinned from `eval_20260713T201101Z` at 0.6887 (the UNARMED evidence-snap default — the
+model's measured prompt floor), so the −0.05 WARN binds (floor ≈ 0.639). Arming
+`AI_EVIDENCE_SNAP` raises this dim to the measured ~0.86 ceiling — re-pin upward in that PR.**
+The promised companion landed with the same re-pin: `mean_citation_checked` is recorded (6.27)
+and WARN-gated at an absolute 2.0 drop (~30% — decrease direction; a volume signal, not a
+quality bar), so an evidence-emission collapse (model stops emitting evidence → hollow-perfect
+fidelity) is *self-announcing* rather than depending on a human noticing the count shrink in a
+report. (Distinct from these stochastic dims, the
 deterministic example-bleed tripwire — `EXAMPLE_BLEED_FRAGMENTS` in `scorers.py`, the prompt's
 fictional worked-example spans — DOES live in the G4 `compute_gate_failures` family: a
 fictional-by-construction substring cannot fire as noise, which is the property the G5 lesson
