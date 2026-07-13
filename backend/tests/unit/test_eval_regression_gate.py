@@ -117,3 +117,26 @@ def test_missing_metric_in_report_is_skipped_not_crashed():
     partial = {"gate_fail_rate": 0.0, "mean_coverage": 1.0}
     findings = compare_candidate(BASELINE_STATS, partial, "baseline")
     assert _hard(findings) == []
+
+
+def test_citation_checked_collapse_is_warn_not_hard():
+    # The companion VOLUME floor (staff review on #626): an evidence-emission collapse would
+    # read as IMPROVED fidelity on the one-sided ratio — the checked count must self-announce.
+    base = dict(BASELINE_STATS, mean_citation_checked=6.5)
+    collapsed = dict(base, mean_citation_checked=4.0)  # -2.5 > 2.0 tol
+    findings = compare_candidate(base, collapsed)
+    assert _hard(findings) == []
+    assert any(f.metric == "mean_citation_checked" for f in _warn(findings))
+
+
+def test_citation_checked_ordinary_mix_shift_is_clean():
+    # A volume signal, not a quality bar: a ~1.5 drop (evidence-mix shift) stays silent.
+    base = dict(BASELINE_STATS, mean_citation_checked=6.5)
+    assert compare_candidate(base, dict(base, mean_citation_checked=5.0)) == []
+
+
+def test_citation_checked_unpinned_baseline_stays_inert():
+    # Before a re-pin records the count, the gate must skip it entirely (the advisory-until-
+    # pinned convention every new dimension ships under).
+    cand = dict(BASELINE_STATS, mean_citation_checked=0.5)
+    assert compare_candidate(BASELINE_STATS, cand) == []
