@@ -47,6 +47,12 @@ MAX_FILING_URLS = 45_000
 
 _CACHE_TTL_SECONDS = 3600
 _cache_lock = threading.Lock()
+# Single-flight guard for cold-cache rebuilds: concurrent requests that miss the cache queue
+# here while ONE of them runs the DB build, then serve its result via the double-check below.
+# Deliberately a sync endpoint + threading.Lock (NOT async def + asyncio.Lock): the build's
+# synchronous SQLAlchemy queries would block the event loop inside an async endpoint, stalling
+# every request on the instance; in the threadpool they only occupy worker threads.
+_build_lock = threading.Lock()
 _cached_xml: str | None = None
 _cached_at: float = 0.0
 
@@ -115,17 +121,29 @@ def _build_sitemap(db: Session) -> str:
     return "".join(parts)
 
 
+def _fresh_cached_response() -> Response | None:
+    with _cache_lock:
+        if _cached_xml is not None and time.monotonic() - _cached_at < _CACHE_TTL_SECONDS:
+            return Response(content=_cached_xml, media_type="application/xml")
+    return None
+
+
 @router.get("/sitemap.xml")
 def generate_sitemap(db: Session = Depends(get_db)):
     """XML sitemap: static pages + company pages + summarized-filing pages, cached 1h."""
     global _cached_xml, _cached_at
-    with _cache_lock:
-        if _cached_xml is not None and time.monotonic() - _cached_at < _CACHE_TTL_SECONDS:
-            return Response(content=_cached_xml, media_type="application/xml")
+    cached = _fresh_cached_response()
+    if cached is not None:
+        return cached
 
-    xml = _build_sitemap(db)
+    with _build_lock:
+        # Double-check: whoever acquired the lock first already rebuilt for everyone queued.
+        cached = _fresh_cached_response()
+        if cached is not None:
+            return cached
 
-    with _cache_lock:
-        _cached_xml = xml
-        _cached_at = time.monotonic()
+        xml = _build_sitemap(db)
+        with _cache_lock:
+            _cached_xml = xml
+            _cached_at = time.monotonic()
     return Response(content=xml, media_type="application/xml")

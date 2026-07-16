@@ -9,6 +9,8 @@ The sitemap is a crawler-facing contract:
 
 Runs against a real in-memory SQLite DB so the actual queries execute.
 """
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 
 import pytest
@@ -148,3 +150,25 @@ def test_sitemap_is_served_from_cache_within_ttl(client):
     sitemap_mod.reset_sitemap_cache()
     third = test_client.get("/sitemap.xml").text
     assert "/company/LATE" in third
+
+
+def test_cold_cache_rebuild_is_single_flight(client, monkeypatch):
+    """Concurrent requests on a cold cache must trigger exactly ONE build (no stampede):
+    the first request builds under _build_lock while the rest queue and then serve its
+    result via the double-check."""
+    test_client, _ = client
+    calls = {"n": 0}
+    real_build = sitemap_mod._build_sitemap
+
+    def slow_build(db):
+        calls["n"] += 1
+        time.sleep(0.15)  # widen the race window so a stampede would be caught
+        return real_build(db)
+
+    monkeypatch.setattr(sitemap_mod, "_build_sitemap", slow_build)
+
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        statuses = list(pool.map(lambda _: test_client.get("/sitemap.xml").status_code, range(5)))
+
+    assert statuses == [200] * 5
+    assert calls["n"] == 1
