@@ -59,6 +59,10 @@ export interface UseSummaryGenerationArgs {
    * a doomed request). */
   isAuthResolved: boolean
   entryPoint: string
+  /** Server-fetched seed for the summary query (SEO/ISR — see filing/[id]/page.tsx). `null` means
+   * the backend confirmed no summary exists (matches getSummary's normalization); `undefined`
+   * means no seed — the query loads client-side as before. */
+  initialSummary?: Summary | null
 }
 
 export interface SummaryGeneration {
@@ -90,6 +94,7 @@ export function useSummaryGeneration({
   isAuthenticated,
   isAuthResolved,
   entryPoint,
+  initialSummary,
 }: UseSummaryGenerationArgs): SummaryGeneration {
   const queryClient = useQueryClient()
 
@@ -101,6 +106,8 @@ export function useSummaryGeneration({
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false)
 
+  // initialDataUpdatedAt: 0 marks the ISR-cached seed as already stale so the client refetches
+  // on mount — the seed only guarantees the first paint (and the crawler HTML).
   const {
     data: summary,
     isLoading: summaryLoading,
@@ -111,6 +118,8 @@ export function useSummaryGeneration({
     queryFn: () => getSummary(filingId),
     retry: false,
     enabled: !!filing,
+    initialData: initialSummary,
+    initialDataUpdatedAt: 0,
   })
 
   const summaryHasPlaceholder = !!(summary?.business_overview && summary.business_overview.includes('Generating summary'))

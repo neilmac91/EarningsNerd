@@ -1,39 +1,55 @@
-# Pin package — fidelity floors + citation_checked companion WARN (task #41)
+# SEO audit + quick wins (branch: seo-audit-quick-wins)
 
-**Goal (the staff-review ask on #626, deferred through three content PRs):** the citation-quality
-gains ride floor-unprotected — the pinned baseline (eval_20260709T063234Z, -h era) records
-neither fidelity dim nor the checked count, so their −0.05 WARN entries are inert, and the older
-floors (redundancy ≈0.9115, delta ≈0.9701 at pin; specificity 0.9943) sit far below current
-behavior. Re-pin the baseline from an authoritative run of the SHIPPED configuration (-k prompt,
-snap unarmed) so every WARN binds at today's bar, and add the `mean_citation_checked` companion
-WARN (the #626 RUNBOOK line's promised two-line change).
+Goal: make the programmatic SEO surface (company + filing pages) real for crawlers without
+architectural upheaval, fix sitemap/robots/metadata correctness, close crawler-driven cost
+holes, and deliver the audit/roadmap/launch docs. Budget frame: ~$50/month at 1k–5k users.
 
-## Why now (and why it doesn't preempt the founder)
+Evidence base: live-site checks (www.earningsnerd.io HTML/titles/sitemap; apex 307) + code
+audit of frontend rendering and backend cost paths (see docs/SEO_AUDIT.md).
 
-- Floors are ONE-DIRECTIONAL (RUNBOOK doctrine): they trip only on drops; arming the snap later
-  RAISES citation_fidelity to ~0.86 and simply re-pins upward in that PR. Waiting protects
-  nothing and leaves five merged slices' gains exposed.
-- WARNs print but never fail CI (regression_gate exits 0 with warnings) — the pin adds signal,
-  not blockage. Hard-gate tolerances are untouched.
-- Arming + fleet refresh remain founder calls, unchanged.
+## Frontend quick wins
 
-## Plan
+- [x] `/company/[ticker]`: convert to server component with on-demand ISR — server-fetch
+      company + filings, seed the existing client page via React Query `initialData`, real
+      `generateMetadata` (async params — the old sync read broke titles on Next 16), canonical,
+      JSON-LD (Breadcrumb + Corporation), `notFound()` on unknown ticker (kills soft-404s),
+      uppercase-ticker permanent redirect, noindex for unsupported-foreign stubs.
+- [x] `/filing/[id]`: same treatment — server-fetch filing + summary (read-only endpoints,
+      never triggers generation), real metadata incl. summary excerpt description, canonical,
+      Breadcrumb JSON-LD, noindex when no summary content exists yet, `notFound()` on unknown
+      id, ticker-style ids (`/filing/AAPL`) get canonical→`/company/AAPL` + noindex.
+      Replace `useSearchParams` in the filing client (demo/debug flags) with a post-hydration
+      read so the page can statically render.
+- [x] `robots.ts`: disallow auth/utility routes (login, register, verify, reset, etc.).
+- [x] `sitemap.ts`: fallback entries synced with backend static list (+ /terms).
+- [x] `/pricing`: add layout metadata (title/description/canonical).
+- [x] `vercel.json`: region iad1 → pdx1 (co-locate SSR with Cloud Run us-west1).
 
-- [x] `mean_citation_checked` WARN entry in `_WARN_GATES` (decrease, 2.0 absolute ≈30% — volume
-      signal, generous) + 3 rule-12 tests (collapse=WARN-not-HARD, mix-shift clean,
-      unpinned-inert).
-- [ ] Authoritative pin eval `--runs 3` on shipped config (running: b1ds7m1rw) — hard gates must
-      PASS vs the OLD pin first.
-- [ ] Re-pin `baseline_scores.json` from that report (full summary.baseline + metadata header;
-      records the fidelity dims + checked count → all WARN entries bind).
-- [ ] Self-check: `regression_gate --latest` vs the NEW pin = PASS, 0 warnings (tautology check).
-- [ ] RUNBOOK: unpinned→pinned language on the forward-quote and citation paragraphs; document
-      the forward_quote VARIANCE BAND (0.9231–0.9615 across six --runs 3 measurements; ASML
-      eternal + RIVN/COST boundary flips) so a future WARN is read against it; note the checked
-      companion gate now exists (fulfilling the #626 line).
-- [ ] Full backend gate; commit; push; draft PR + subscribe + check-ins.
+## Backend quick wins
 
-## Not in scope
-- Arming AI_EVIDENCE_SNAP (founder; fleet forensics accrue via refresh regardless).
-- Fleet refresh timing (founder ops).
-- Quote-snap for §5; carried ledger (unchanged).
+- [x] `sitemap.py`: truthful lastmod (company = latest filing date; no fake "today"),
+      only companies with filings, only filings with real summaries (noindex'd stubs must not
+      be advertised), column-only queries, 1h in-process cache, 45k safety cap, add /terms.
+- [x] API host `robots.txt`: Disallow all (API JSON should never be crawled; sitemap lives on www).
+- [x] `hot_filings.py`: remove anonymous `force_refresh` cache-bypass param.
+- [x] Per-IP rate limits on the two always-live-EDGAR public endpoints that are product-flag-OFF
+      (`/api/companies/{ticker}/insiders`, `/api/search/full-text`).
+- [x] Tests for all of the above; update robots smoke assertion.
+
+## Docs
+
+- [x] `docs/SEO_AUDIT.md` — findings, evidence, impact/effort/cost ranking.
+- [x] `docs/SEO_ROADMAP.md` — phased plan with monthly cost per phase.
+- [x] `docs/LAUNCH_CHECKLIST.md` — founder-only actions (GSC, Bing, DNS 308, env flips, dashboards).
+
+## Verification
+
+- [x] Frontend: lint + tsc + vitest + build all green.
+- [x] Crawler-eye check: `next build` + `next start` (read-only GETs against the live API,
+      plus a dead-API fallback run); curl `/company/AAPL` and `/filing/3` with no JS —
+      confirmed real title, canonical, H1, filing links, summary text in raw HTML.
+- [x] Backend: ruff + bandit + pytest green.
+
+Deferred to roadmap (not in this diff): summary pregeneration scale-out, sitemap index files
+past 45k URLs, per-IP limits on `/api/companies/search` (core UX — needs limit tuning),
+negative-caching for unknown tickers, Cloud SQL/instance scaling, content/blog surface.

@@ -12,8 +12,10 @@ import { ArrowRightIcon, ArrowSquareOutIcon, CaretDownIcon, CircleNotchIcon, Fil
 import { Badge, Button, buttonVariants, Card, GuidanceCard, Skeleton } from '@/components/ui'
 import { toast } from 'sonner'
 import Link from 'next/link'
-import { format } from 'date-fns'
-import { fmtCurrency, fmtPercent } from '@/lib/format'
+// formatLocalDate (not date-fns format(new Date(...))): filing dates are UTC-midnight instants;
+// local-TZ rendering shifts the calendar day west of UTC and, now that this page is
+// server-rendered with data, would also cause a server/client hydration mismatch.
+import { fmtCurrency, fmtPercent, formatLocalDate } from '@/lib/format'
 import { directionText, directionOf } from '@/lib/financialTone'
 import analytics from '@/lib/analytics'
 import { getEntryPoint } from '@/lib/entryPoint'
@@ -36,24 +38,44 @@ const FILING_TYPE_ORDER = ['10-K', '10-Q', '20-F', '6-K', '40-F']
 // the honest "insider reporting not required for FPIs" state instead of an empty insider panel.
 const FPI_FILING_TYPES = ['20-F', '40-F', '6-K']
 
-export default function CompanyPageClient() {
+interface CompanyPageClientProps {
+  /** Server-fetched seeds (SEO/ISR): make the first server render carry the real page content
+   * so crawlers get HTML, not a spinner. Absent (backend unreachable during the server render,
+   * or a test mounting the bare client) the page behaves exactly as before: client-side fetch. */
+  initialCompany?: Company
+  initialFilings?: Filing[]
+}
+
+export default function CompanyPageClient({ initialCompany, initialFilings }: CompanyPageClientProps = {}) {
   const params = useParams()
   const ticker = (params?.ticker as string | undefined) ?? ''
   const normalizedTicker = ticker.toUpperCase()
 
   // All hooks must be called before any conditional returns
   const currentYear = new Date().getFullYear().toString()
-  const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set([currentYear]))
+  // Seeded renders expand the top ~3 filing years immediately (same rule as the A4 effect below)
+  // so the server-rendered HTML contains the filing links crawlers should discover.
+  const [expandedYears, setExpandedYears] = useState<Set<string>>(() => {
+    if (initialFilings?.length) {
+      const years = Object.keys(groupByFiscalYear(initialFilings)).sort((a, b) => parseInt(b) - parseInt(a))
+      return new Set(years.slice(0, 3))
+    }
+    return new Set([currentYear])
+  })
   const [filterType, setFilterType] = useState<string | null>(null)
   const [filterYear, setFilterYear] = useState<string | null>(null)
   const [showFullHistory, setShowFullHistory] = useState(false)
   const hasTrackedCompanyView = useRef(false)
 
+  // initialDataUpdatedAt: 0 marks the ISR-cached seed as already stale, so the client refetches
+  // on mount and live fields (stock quote) catch up — the seed only guarantees the first paint.
   const { data: company, isLoading: companyLoading, error: companyError } = useQuery<Company>({
     queryKey: queryKeys.company(normalizedTicker),
     queryFn: () => getCompany(normalizedTicker),
     retry: 1,
     enabled: !!normalizedTicker,
+    initialData: initialCompany,
+    initialDataUpdatedAt: 0,
   })
 
   // Default view serves the backend's recent cap; "Show full history" refetches with a high limit
@@ -65,6 +87,9 @@ export default function CompanyPageClient() {
     queryFn: () => getCompanyFilings(normalizedTicker, undefined, historyLimit),
     enabled: !!company && !!normalizedTicker,
     retry: 1,
+    // The seed matches only the default (no-limit) query key — never the full-history one.
+    initialData: historyLimit === undefined ? initialFilings : undefined,
+    initialDataUpdatedAt: 0,
   })
 
   const { data: currentUser } = useQuery({
@@ -203,7 +228,9 @@ export default function CompanyPageClient() {
   // A4: default the filing list to the most recent ~3 years that actually have filings (older years
   // stay collapsed behind their headers) — instead of only the current calendar year, which is empty
   // for a company whose latest filing is last year. Runs once on load; the user controls it after.
-  const autoExpandedForRef = useRef<string | null>(null)
+  // A server-seeded mount already applied this rule in the expandedYears initializer, so it starts
+  // marked-done for this ticker.
+  const autoExpandedForRef = useRef<string | null>(initialFilings?.length ? normalizedTicker : null)
   useEffect(() => {
     // Keyed on the ticker (not a one-shot bool) so it re-expands when this page is reused across a
     // soft navigation to a different company. `sortedYears` is [] while the new ticker's filings
@@ -494,7 +521,7 @@ export default function CompanyPageClient() {
                           vanish against this brand-weak banner. */}
                       <Badge variant="solid">Recommended</Badge>
                       <span className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-                        {recommendedFiling.filing_type} · {format(new Date(recommendedFiling.filing_date), 'MMM d, yyyy')}
+                        {recommendedFiling.filing_type} · {formatLocalDate(recommendedFiling.filing_date, 'MMM d, yyyy')}
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
@@ -582,7 +609,7 @@ export default function CompanyPageClient() {
                                           </Badge>
                                         )}
                                         <span className="text-sm text-text-tertiary-light dark:text-text-secondary-dark">
-                                          {format(new Date(filing.filing_date), 'MMM d, yyyy')}
+                                          {formatLocalDate(filing.filing_date, 'MMM d, yyyy')}
                                         </span>
                                       </div>
                                     </div>

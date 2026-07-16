@@ -1,11 +1,16 @@
 import { stripInternalNotices } from '@/lib/stripInternalNotices'
 import { EXAMPLE_FILING_ID } from '@/lib/featureFlags'
-import type { TrendingTickerResponse } from '@/features/companies/api/companies-api'
+import type { Company, TrendingTickerResponse } from '@/features/companies/api/companies-api'
+import type { Filing } from '@/features/filings/api/filings-api'
+import type { Summary } from '@/features/summaries/api/summaries-api'
 
 /**
- * Server-side data for the homepage (ISR). Every helper returns null on any
+ * Server-side data for the public pages (ISR). The homepage helpers return null on any
  * failure — the page renders a static fallback instead, so the homepage never
- * breaks (or slows the build) when the backend is unreachable.
+ * breaks (or slows the build) when the backend is unreachable. The company/filing-page
+ * helpers below return a status-aware result instead, because those pages must
+ * distinguish "the backend said 404" (render a real 404) from "the backend is
+ * unreachable" (fall back to the client-fetching shell).
  */
 
 const getBackendUrl = (): string => {
@@ -185,3 +190,69 @@ export interface ReportingThisWeekResponse {
  * refreshing more often than the backend actually recomputes. */
 export const fetchReportingThisWeek = (): Promise<ReportingThisWeekResponse | null> =>
   fetchJson<ReportingThisWeekResponse>('/api/reporting_this_week', 21600)
+
+// --- Server-side fetchers for the programmatic-SEO pages (company + filing) --------------------
+// These build the HTML crawlers receive on /company/[ticker] and /filing/[id] (on-demand ISR);
+// the client page then takes over with React Query, seeded with the same payloads as
+// `initialData`. They call the same READ-ONLY endpoints the client uses; the summary read can
+// never trigger AI generation (generation is an auth-gated POST). Next dedupes identical
+// fetch() calls within a render, so generateMetadata and the page share one backend request.
+// NOTE: no em-dashes in comments in this section. The no-em-dash-copy voice guard parses this
+// .ts file as TSX, and the explicit generic call sites below misparse just enough that nearby
+// comments get swallowed into literal text and flagged.
+
+export type ServerFetchResult<T> =
+  | { status: 'ok'; data: T }
+  | { status: 'not-found' }
+  | { status: 'unavailable' }
+
+const fetchJsonResult = async <T>(
+  path: string,
+  revalidateSeconds: number,
+): Promise<ServerFetchResult<T>> => {
+  try {
+    const res = await fetch(`${getBackendUrl()}${path}`, {
+      headers: { accept: 'application/json' },
+      next: { revalidate: revalidateSeconds },
+      signal: AbortSignal.timeout(5000),
+    })
+    if (res.status === 404) return { status: 'not-found' }
+    if (!res.ok) return { status: 'unavailable' }
+    return { status: 'ok', data: (await res.json()) as T }
+  } catch {
+    return { status: 'unavailable' }
+  }
+}
+
+export const fetchCompanyServer = (ticker: string): Promise<ServerFetchResult<Company>> =>
+  fetchJsonResult<Company>(`/api/companies/${encodeURIComponent(ticker)}`, 1800)
+
+export const fetchCompanyFilingsServer = (ticker: string): Promise<ServerFetchResult<Filing[]>> =>
+  fetchJsonResult<Filing[]>(`/api/filings/company/${encodeURIComponent(ticker)}`, 1800)
+
+// Filing metadata is immutable once filed: revalidate daily.
+export const fetchFilingServer = (filingId: number): Promise<ServerFetchResult<Filing>> =>
+  fetchJsonResult<Filing>(`/api/filings/${filingId}`, 86400)
+
+/**
+ * Read-only summary fetch. Mirrors the client fetcher's normalization (`getSummary`):
+ * a 404 or an empty stub (no business_overview) becomes `data: null`, i.e. "confirmed no
+ * summary yet", which is distinct from `unavailable`, where we know nothing.
+ */
+export const fetchFilingSummaryServer = async (
+  filingId: number,
+): Promise<ServerFetchResult<Summary | null>> => {
+  const result = await fetchJsonResult<Summary>(`/api/summaries/filing/${filingId}`, 3600)
+  if (result.status === 'not-found') return { status: 'ok', data: null }
+  if (result.status === 'ok' && !result.data?.business_overview) return { status: 'ok', data: null }
+  return result
+}
+
+/**
+ * Whether a summary carries real, displayable content (vs the legacy "Generating summary"
+ * placeholder). Keep in sync with `hasSummaryContent` in
+ * features/summaries/hooks/useSummaryGeneration.ts: this server-side twin drives the
+ * noindex decision on filing pages, so index/noindex must match what visitors actually see.
+ */
+export const summaryHasDisplayableContent = (summary: Summary | null | undefined): boolean =>
+  !!(summary?.business_overview && !summary.business_overview.includes('Generating summary'))
