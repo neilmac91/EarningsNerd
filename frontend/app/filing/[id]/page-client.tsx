@@ -1,9 +1,9 @@
 'use client'
 
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getFiling, Filing } from '@/features/filings/api/filings-api'
-import { saveSummary, getSavedSummaries, SavedSummary } from '@/features/summaries/api/summaries-api'
+import { saveSummary, getSavedSummaries, SavedSummary, type Summary } from '@/features/summaries/api/summaries-api'
 import AskCopilotRail from '@/features/filings/components/copilot/AskCopilotRail'
 import FilingViewer from '@/features/filings/components/copilot/FilingViewer'
 import FilingWorkspace from '@/features/filings/components/copilot/FilingWorkspace'
@@ -13,7 +13,10 @@ import { getSubscriptionStatus } from '@/features/subscriptions/api/subscription
 import { getCurrentUserSafe } from '@/features/auth/api/auth-api'
 import { CircleNotchIcon, SparkleIcon } from '@/lib/icons'
 import Link from 'next/link'
-import { format } from 'date-fns'
+// formatLocalDate (not date-fns format(new Date(...))): filing dates are UTC-midnight instants;
+// local-TZ rendering shifts the calendar day west of UTC and, now that this page is
+// server-rendered with data, would also cause a server/client hydration mismatch.
+import { formatLocalDate } from '@/lib/format'
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { Badge } from '@/components/ui'
 import analytics from '@/lib/analytics'
@@ -30,9 +33,29 @@ import { useSummaryGeneration } from '@/features/summaries/hooks/useSummaryGener
 // The summary-generation state machine lives in features/summaries/hooks/useSummaryGeneration;
 // the summary/ticker views live in features/. This file is the route shell + layout wiring.
 
-function FilingDetailView({ filingId }: { filingId: number }) {
+interface FilingSeedProps {
+  /** Server-fetched seeds (SEO/ISR — see page.tsx): the first server render carries the real
+   * filing header + summary so crawlers get HTML, not a spinner. `initialSummary: null` means
+   * the backend confirmed no summary exists; `undefined` means unknown (client refetches). */
+  initialFiling?: Filing
+  initialSummary?: Summary | null
+}
+
+function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingId: number } & FilingSeedProps) {
   const router = useRouter()
-  const searchParams = useSearchParams()
+
+  // debug/demo URL flags. Read post-hydration from window.location rather than useSearchParams():
+  // this page statically renders (ISR), and a useSearchParams() outside Suspense would bail the
+  // whole tree out of the server HTML — the exact thing the SSR seeds exist for. Both flags only
+  // suppress/augment chrome (quality badge, debug panel), so applying them a frame late is fine.
+  const [urlFlags, setUrlFlags] = useState({ debug: false, demo: false })
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const debug = params.get('debug') === '1'
+    const demo = params.get('demo') === '1'
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot post-hydration sync of URL flags; reading window.location during render would mismatch the server HTML
+    if (debug || demo) setUrlFlags({ debug, demo })
+  }, [])
 
   const [copilotOpen, setCopilotOpen] = useState(false)
   // "Ask about this" text selection → open the rail + pre-fill the composer.
@@ -55,9 +78,13 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   // signup gate / auto-generate decision must wait or logged-in visitors would flash the gate.
   const isAuthResolved = !authPending
 
+  // initialDataUpdatedAt: 0 marks the ISR-cached seed as already stale so the client refetches
+  // on mount — the seed only guarantees the first paint (and the crawler HTML).
   const { data: filing, isLoading: filingLoading } = useQuery<Filing>({
     queryKey: queryKeys.filing(filingId),
     queryFn: () => getFiling(filingId),
+    initialData: initialFiling,
+    initialDataUpdatedAt: 0,
   })
 
   const {
@@ -73,7 +100,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
     hasStartedGeneration,
     hasSummaryContent,
     handleRegenerateSummary,
-  } = useSummaryGeneration({ filingId, filing, isAuthenticated, isAuthResolved, entryPoint })
+  } = useSummaryGeneration({ filingId, filing, isAuthenticated, isAuthResolved, entryPoint, initialSummary })
 
   // Single entry point for every "Ask" affordance (callout CTA, starter chips, tappable follow-ups,
   // coachmark, text selection): open the rail, optionally pre-fill, and attribute the surface. FREE
@@ -162,11 +189,11 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   })
 
   const isSaved = summary && savedSummaries?.some((s: SavedSummary) => s.summary_id === summary.id)
-  const debugSummary = searchParams?.get('debug') === '1'
+  const debugSummary = urlFlags.debug
   // Demo mode (curated first impression): the example/onboarding deep-links carry `?demo=1`.
   // It suppresses the quality badge + Regenerate button and silences the copilot attention nudge,
   // so a first-time visitor never meets a "Partial" badge on the curated example (plan item 1.3).
-  const demoMode = searchParams?.get('demo') === '1'
+  const demoMode = urlFlags.demo
 
   useEffect(() => {
     if (!hasTrackedFilingView.current && filing) {
@@ -269,7 +296,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
                     </Badge>
                     <span className="flex items-center space-x-1">
                       <span>Filed:</span>
-                      <span className="font-medium">{format(new Date(filing.filing_date), 'MMMM dd, yyyy')}</span>
+                      <span className="font-medium">{formatLocalDate(filing.filing_date, 'MMMM dd, yyyy')}</span>
                     </span>
                     {filing.company.exchange && (
                       <span className="text-text-tertiary-light dark:text-text-secondary-dark">
@@ -284,7 +311,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
                     {filing.filing_type} Summary
                   </h1>
                   <p className="text-text-secondary-light dark:text-text-secondary-dark">
-                    Filed: {format(new Date(filing.filing_date), 'MMMM dd, yyyy')}
+                    Filed: {formatLocalDate(filing.filing_date, 'MMMM dd, yyyy')}
                   </p>
                 </>
               )}
@@ -399,7 +426,7 @@ function FilingDetailView({ filingId }: { filingId: number }) {
   )
 }
 
-export default function FilingPageClient() {
+export default function FilingPageClient({ initialFiling, initialSummary }: FilingSeedProps = {}) {
   const params = useParams()
   const identifier = params.id as string
   const isTickerView = !/^\d+$/.test(identifier)
@@ -409,5 +436,5 @@ export default function FilingPageClient() {
   }
 
   const filingId = parseInt(identifier, 10)
-  return <FilingDetailView filingId={filingId} />
+  return <FilingDetailView filingId={filingId} initialFiling={initialFiling} initialSummary={initialSummary} />
 }
