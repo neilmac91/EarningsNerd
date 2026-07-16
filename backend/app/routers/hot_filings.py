@@ -12,11 +12,16 @@ router = APIRouter()
 @router.get("/hot_filings")
 async def get_hot_filings(
     limit: int = Query(10, ge=1, le=20),
-    force_refresh: bool = Query(False, description="Force regeneration of cached data"),
     db: Session = Depends(get_db),
 ):
-    """Return the hottest recent filings ranked by buzz score."""
-    data = await hot_filings_service.get_hot_filings(db, limit=limit, force_refresh=force_refresh)
+    """Return the hottest recent filings ranked by buzz score.
+
+    Always served through the 15-min cache. Cache bypass is deliberately NOT a query param:
+    this endpoint is unauthenticated, and an anonymous `force_refresh` let any caller force
+    the full DB-aggregation + FMP/Finnhub recompute per request. Operators refresh via
+    POST /hot_filings/refresh (admin token) below.
+    """
+    data = await hot_filings_service.get_hot_filings(db, limit=limit)
     # Provide fallback to recent filings if nothing returned
     if not data.get("filings"):
         from sqlalchemy import desc

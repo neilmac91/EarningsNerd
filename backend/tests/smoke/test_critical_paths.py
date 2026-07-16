@@ -182,11 +182,13 @@ class TestSEOEndpoints:
     """Test SEO-related endpoints."""
 
     def test_robots_txt(self, client):
-        """robots.txt should be served correctly."""
+        """The API host's robots.txt disallows all crawling (the site lives on www)."""
         response = client.get("/robots.txt")
         assert response.status_code == 200
         assert "User-agent" in response.text
-        assert "Disallow: /api/" in response.text
+        assert "Disallow: /" in response.text
+        # No partial allow: crawlers have no business on the API host at all.
+        assert "Allow: /" not in response.text
 
     @pytest.mark.requires_db
     def test_sitemap_endpoint_exists(self, client):

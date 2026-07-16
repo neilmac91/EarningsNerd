@@ -5,19 +5,26 @@ from dataclasses import asdict
 from datetime import date
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from app.integrations.sec_api import sec_full_text_search_client
 from app.schemas.search import FullTextSearchHit, FullTextSearchResponse
+from app.services.rate_limiter import RateLimiter, enforce_rate_limit
 from app.services.sec_rate_limiter import SECRateLimitError
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
+# Unauthenticated + always a LIVE EDGAR full-text-search (EFTS) call: every request consumes
+# the process-wide 10 req/s SEC budget. 20/min/IP comfortably covers a person searching;
+# it exists to stop anonymous scripts/crawlers from monopolizing the EDGAR budget.
+_fts_rate_limiter = RateLimiter(limit=20, window_seconds=60)
+
 
 @router.get("/full-text", response_model=FullTextSearchResponse)
 async def full_text_search(
+    request: Request,
     q: str = Query(
         ...,
         min_length=1,
@@ -56,6 +63,12 @@ async def full_text_search(
     APIs can't answer, e.g. every filing mentioning "going concern" or
     "material weakness".
     """
+    enforce_rate_limit(
+        request,
+        _fts_rate_limiter,
+        "full-text-search",
+        error_detail="Too many search requests. Please retry in a minute.",
+    )
 
     try:
         result = await sec_full_text_search_client.search(

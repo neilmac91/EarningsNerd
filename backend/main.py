@@ -523,18 +523,20 @@ async def health_check_detailed():
 
 @app.get("/robots.txt", include_in_schema=False)
 async def robots_txt():
-    """Serve robots.txt to prevent search engine indexing of API endpoints."""
+    """Serve robots.txt for the API host: disallow everything.
+
+    This host serves JSON (plus /sitemap.xml, which exists only for the frontend's proxy) —
+    there is nothing here worth indexing, and the old partial allow left /sitemap.xml (an
+    uncached-at-the-time DB scan) and every non-/api/ path open to crawler traffic. The
+    crawlable site and its sitemap live at https://www.earningsnerd.io.
+    """
     from fastapi.responses import PlainTextResponse
     content = """# EarningsNerd API - robots.txt
-# This is an API server, not intended for search engine indexing.
-# The main website is at https://earningsnerd.io
+# This host serves the JSON API only; nothing here should be crawled or indexed.
+# The website (and its sitemap) is at https://www.earningsnerd.io
 
 User-agent: *
-Disallow: /api/
-Allow: /
-
-# Sitemap for the frontend
-Sitemap: https://earningsnerd.io/sitemap.xml
+Disallow: /
 """
     return PlainTextResponse(content=content, media_type="text/plain")
 
