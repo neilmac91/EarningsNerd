@@ -4,7 +4,7 @@
   "installCommand": "npm install",
   "framework": "nextjs",
   "regions": [
-    "iad1"
+    "pdx1"
   ],
   "env": {
     "NEXT_PUBLIC_API_BASE_URL": "https://api.earningsnerd.io",
