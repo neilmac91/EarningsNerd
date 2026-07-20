@@ -4,8 +4,8 @@
 #   pip install pip-tools && pip-compile requirements.in -o requirements.txt
 # (Docker and CI install the pinned requirements.txt for reproducible builds.)
 
-fastapi>=0.139.0,<1.0.0
-uvicorn[standard]>=0.50.0,<1.0.0
+fastapi>=0.139.2,<1.0.0
+uvicorn[standard]>=0.51.0,<1.0.0
 python-multipart>=0.0.28
 pydantic>=2.13.4,<3.0.0
 pydantic-settings>=2.14.2,<3.0.0
@@ -15,7 +15,7 @@ python-dotenv==1.2.2
 sqlalchemy>=2.0.51,<3.0.0
 psycopg2-binary==2.9.12
 redis==8.0.1
-openai>=2.44.0,<3.0.0
+openai>=2.46.0,<3.0.0
 beautifulsoup4==4.15.0
 # Allow pandas 3.x (validated: edgartools requires only pandas>=2.0.0, numpy 2.x already
 # in use, full backend suite passes on 3.0.x). lxml is held at
@@ -27,17 +27,17 @@ pandas>=3.0.4,<4.0.0
 python-jose[cryptography]>=3.5.0
 passlib[bcrypt]==1.7.4
 python-dateutil==2.9.0.post0
-stripe==15.3.0
+stripe==15.3.1
 weasyprint==69.0
 # Branded Excel workbook export (analysis xlsx endpoint) — openpyxl over xlsxwriter: it also
 # READS workbooks (the pytest read-back verification), and images/styles ride the pinned pillow.
 openpyxl>=3.1,<4
 # EdgarTools - unified SEC filing library (replaced arelle-release and
 # sec-edgar-downloader, both removed after verifying zero imports — issue #244)
-edgartools>=5.40.1
-posthog==7.21.3
-json-repair>=0.61.2
-sentry-sdk[fastapi]>=2.64.0
+edgartools>=5.43.0
+posthog==7.27.0
+json-repair>=0.61.6
+sentry-sdk[fastapi]>=2.66.0
 
 # Testing
 pytest>=9.1.1
