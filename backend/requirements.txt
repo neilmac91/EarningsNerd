@@ -140,7 +140,7 @@ psycopg2-binary==2.9.12
     # via -r requirements.in
 pyarrow==24.0.0
     # via edgartools
-pyasn1==0.6.3
+pyasn1==0.6.4
     # via
     #   python-jose
     #   rsa
