@@ -130,7 +130,7 @@ pandas==3.0.4
     #   edgartools
 passlib==1.7.4
     # via -r requirements.in
-pillow==12.2.0
+pillow==12.3.0
     # via weasyprint
 pluggy==1.6.0
     # via pytest
