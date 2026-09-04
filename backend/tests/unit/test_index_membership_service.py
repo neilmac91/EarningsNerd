@@ -1,8 +1,15 @@
 """Index-membership loader: normalization, membership, the fail-open gate, and committed-list integrity."""
 import json
+from datetime import date
 
 from app.config import settings
 from app.services import index_membership_service as idx
+from app.utils.datetimes import utcnow
+
+# Rule-12 gate for the refresh cadence: the indexes rebalance ~quarterly and the refresh workflow runs
+# monthly, so a committed list older than this means the workflow has been failing (or the founder
+# has stopped merging its PRs) for at least two cycles. 100 days = one quarter plus slack.
+MAX_UNIVERSE_AGE_DAYS = 100
 
 
 def test_normalize_ticker_canonicalizes_dual_class():
@@ -78,3 +85,23 @@ def test_committed_membership_list_is_healthy():
 
     # Every entry declares at least one index label.
     assert all(m.get("indices") for m in members)
+
+
+def test_committed_membership_list_is_fresh():
+    """Fail when the committed universe is stale, relative to the date the test runs.
+
+    ``generated_on`` is written by ``scripts/refresh_index_membership.py`` on every regeneration.
+    Two silent monthly failures (Wikipedia dropped its Nasdaq-100 table in 2026) let the list age
+    unnoticed — this turns that into a red CI, with the fix in the message.
+    """
+    payload = json.loads(idx._DATA_PATH.read_text(encoding="utf-8"))
+    generated_on = date.fromisoformat(payload["generated_on"])
+    age_days = (utcnow().date() - generated_on).days
+
+    assert age_days <= MAX_UNIVERSE_AGE_DAYS, (
+        f"index_membership.json was generated {age_days} days ago ({generated_on}); the calendar's "
+        f"S&P 500 / Nasdaq 100 universe is stale. Run the 'Refresh index membership' GitHub workflow "
+        f"(Actions → Run workflow; needs the FMP_API_KEY repo secret) or "
+        f"`cd backend && FMP_API_KEY=… python scripts/refresh_index_membership.py`, then merge the "
+        f"resulting PR. If the workflow failed, see the 'Universe refresh failed' issue it opened."
+    )
