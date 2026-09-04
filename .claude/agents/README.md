@@ -169,11 +169,34 @@ Multiple agents can work together on complex features:
 ## EarningsNerd-Specific Context
 
 All agents are calibrated for EarningsNerd's domain:
-- **SEC Filing Analysis** - 10-K, 10-Q filings
-- **AI Summarization** - OpenAI-powered summaries
-- **Financial Data** - Earnings, metrics, comparisons
-- **Subscription Model** - Free and premium tiers
-- **Tech Stack** - React/Vite, FastAPI, PostgreSQL, Render/Vercel
+- **SEC Filing Analysis** - 10-K, 10-Q, 20-F, 6-K filings (FPI forms behind `ENABLE_FPI_FILINGS`)
+- **AI Summarization** - filing-only, grounded summaries (one orchestrator, rule 1 in `CLAUDE.md`)
+- **Financial Data** - XBRL facts, metrics, change reports
+- **Subscription Model** - Free and Pro tiers (`app/services/entitlements.py` is the only truth)
+
+### Stack truth (2026-09) — overrides anything below or in an agent file
+
+The per-agent files were written for an earlier stack and still mention Render, Firebase, Vite,
+Alembic, Celery, async SQLAlchemy, GPT-4 and `/api/v1`. **None of that exists.** When an agent
+file and this block disagree, this block and `CLAUDE.md` win; a brief that cites an agent file
+must also cite this section. Until the agent files are refreshed, treat their "Key Files",
+code samples and platform names as illustrative only.
+
+| Layer | Truth |
+|---|---|
+| Backend | FastAPI + **sync** SQLAlchemy 2.0 (`Session`, not `AsyncSession`) + PostgreSQL 15 on **Cloud Run** (`earningsnerd-backend`, project `earnings-nerd`, us-west1); 7 Cloud Run jobs |
+| Migrations | **No Alembic.** `create_all` + `ensure_additive_columns`; idempotent SQL files in `backend/migrations/` re-applied on every deploy (rule 3; `lessons/ops-migrations-need-lock-timeout.md`) |
+| Auth | Own JWT (HS256, `Authorization: Bearer`), rotated refresh tokens, OAuth (Google/Apple) — **no Firebase** |
+| AI | OpenAI-compatible client → DeepSeek (`deepseek-v4-pro` via `OPENAI_BASE_URL`); ADR-0006 supersedes Gemini; evals in `backend/evals/` (RUNBOOK is mandatory before prompt/model changes) |
+| Frontend | **Next.js 16 App Router** + TypeScript + Tailwind + React Query, React 18 (ADR-0005), on Vercel (`pdx1`); code lives in `frontend/app`, `frontend/features/<domain>/`, `frontend/components/{ui,chrome}` — there is no `frontend/src`, no Vite, no React Router |
+| Cache | Redis dev-only; prod is L1 in-memory (ADR-0004); all rate limiters are per-process |
+| Routes | `/api/...`, admin `/api/admin/...`, cron `/internal/...` — no `/api/v1` |
+| CI/CD | `.github/workflows/ci.yml`: ruff + bandit + pytest, eslint + tsc + vitest, Playwright (no backend), eval-baseline; `deploy-backend` on push to `main` touching `backend/` (WIF, keyless). Frontend deploys via Vercel Git integration |
+| Tests | `backend/tests/{unit,integration,smoke,performance}` and `frontend/tests/{unit,e2e}` only |
+| Third parties | Stripe, Resend, PostHog + Vercel Analytics, Sentry; `app/integrations/` (finnhub/fmp/stocktwits are tombstoned — see `test_dead_integrations_allowlist.py`) |
+
+Read before any task: `CLAUDE.md`, `lessons/README.md`, `docs/ARCHITECTURE.md`; UI work also
+`frontend/DESIGN_SYSTEM.md`; AI work also `backend/evals/RUNBOOK.md`.
 
 ## Maintaining This Framework
 
