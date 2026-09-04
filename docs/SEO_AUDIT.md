@@ -136,7 +136,7 @@ the configured prices (`config.py:485-487`, $0.435/M input miss, $0.87/M output)
 
 ### C2 — What breaks first, in order
 1. **Cloud SQL connections (was: sitemap scans; now: pool math).** 2 instances × (12+8) = 40 of
-   ~50 max connections, before the 6 Cloud Run jobs (pool 3+2 each) run. A traffic spike that
+   ~50 max connections, before the 7 Cloud Run jobs (pool 3+2 each) run. A traffic spike that
    holds both instances busy while the weekly pregenerate cron runs can exhaust connections.
    Cheapest mitigations, in order: keep max-instances at 2 (done), drop job pool sizes, then
    `db-custom-1-3840` (~$50/mo — a budget decision, roadmap Phase 3).

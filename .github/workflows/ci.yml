@@ -24,9 +24,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
-          pip install ruff bandit
+          # Lint tools come from the pinned dev file, never a bare `pip install ruff` — an unpinned
+          # ruff upgrade (0.16 widened its default rule set) turned a clean tree red with no code
+          # change. Guarded by tests/unit/test_migration_lock_safety.py.
+          pip install -r backend/requirements-dev.txt
       - name: Lint with Ruff
-        # Blocking: the tree is clean and rules live in backend/ruff.toml.
+        # Blocking: the tree is clean and the rule set is pinned explicitly in backend/ruff.toml.
         run: cd backend && ruff check .
       - name: Security scan with Bandit
         run: |
@@ -286,6 +289,9 @@ jobs:
   # Auth is keyless via Workload Identity Federation - no stored credentials.
   deploy-backend:
     runs-on: ubuntu-latest
+    # A normal deploy is ~10 min. Without this, a migration waiting on a Postgres lock held the job
+    # for GitHub's 6 h default on 2026-07-16 and the release never shipped (lessons/ops-migrations-need-lock-timeout.md).
+    timeout-minutes: 30
     needs: [backend-tests, frontend-tests, e2e-tests]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && vars.GCP_WIF_PROVIDER != ''
     concurrency:
@@ -333,7 +339,10 @@ jobs:
         # applied to the prod Cloud SQL DB explicitly. Run them here, BEFORE the new revision serves
         # traffic, so a failed migration blocks the deploy and the new code never hits a missing
         # column. All migration files are idempotent (IF NOT EXISTS / DROP NOT NULL), so re-applying
-        # the full set every deploy is safe.
+        # the full set every deploy is safe — but NOT lock-free: `ALTER TABLE ... IF NOT EXISTS` still
+        # takes ACCESS EXCLUSIVE before it checks, so one open transaction on that table parks the
+        # deploy. lock_timeout/statement_timeout make that a fast, retried, diagnosable failure
+        # instead of a 6 h hang (2026-07-16 incident; lessons/ops-migrations-need-lock-timeout.md).
         #
         # Prerequisite (one-time, granted out-of-band): the deployer SA (vars.GCP_DEPLOYER_SA) needs
         #   roles/cloudsql.client  AND  roles/secretmanager.secretAccessor on the DATABASE_URL secret.
@@ -363,9 +372,46 @@ jobs:
             sleep 1
           done
 
+          # Fail fast instead of queueing behind an open transaction; bound any single statement.
+          export PGOPTIONS="-c lock_timeout=10s -c statement_timeout=120s"
+          ERRLOG="$(mktemp)"
+
+          dump_blockers() {
+            # pg_stat_activity nulls state/xact_start/wait_event for OTHER roles' backends unless this
+            # role has pg_read_all_stats, so never filter on them (a human Cloud SQL Studio session
+            # would vanish). pg_locks is visible to every role and names the relation.
+            echo "Sessions in this database (NULL columns = another role's backend):"
+            psql -X -c "SELECT pid, usename, application_name, backend_type, state, wait_event_type, now() - xact_start AS xact_age FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid() ORDER BY xact_start NULLS LAST;" || true
+            echo "Relation locks held or awaited in this database:"
+            psql -X -c "SELECT l.pid, l.mode, l.granted, c.relname FROM pg_locks l JOIN pg_class c ON c.oid = l.relation WHERE l.locktype = 'relation' AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database()) AND c.relnamespace = 'public'::regnamespace AND l.pid <> pg_backend_pid() ORDER BY c.relname, l.pid;" || true
+          }
+
+          apply_with_retry() {
+            local f="$1" attempt rc
+            for attempt in 1 2 3 4 5; do
+              rc=0
+              psql -v ON_ERROR_STOP=1 -f "$f" 2>"$ERRLOG" || rc=$?
+              cat "$ERRLOG" >&2
+              if [ "$rc" -eq 0 ]; then
+                return 0
+              fi
+              # Retry only the contention class (lock_timeout 55P03, statement_timeout 57014,
+              # deadlock 40P01). A syntax or permission error is final on the first attempt.
+              if ! grep -qiE 'lock timeout|statement timeout|deadlock detected' "$ERRLOG"; then
+                echo "::error::$(basename "$f") failed with a non-retryable error (see above)."
+                return 1
+              fi
+              echo "::warning::$(basename "$f") hit a lock/statement timeout (attempt $attempt/5); retrying in 15s"
+              sleep 15
+            done
+            echo "::error::$(basename "$f") still blocked after 5 attempts. Terminate the blocker below, then re-run the job."
+            dump_blockers
+            return 1
+          }
+
           for f in backend/migrations/*.sql; do
             echo "== applying $(basename "$f") =="
-            psql -v ON_ERROR_STOP=1 -f "$f"
+            apply_with_retry "$f"
           done
           echo "All migrations applied."
       - name: Deploy Cloud Run service
