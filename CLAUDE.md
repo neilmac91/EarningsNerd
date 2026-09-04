@@ -26,6 +26,7 @@ prod runs the L1 in-memory cache (ADR-0004).
 Backend (from `/backend`):
 ```bash
 uvicorn main:app --reload --host 0.0.0.0 --port 8000   # Dev server
+pip install -r requirements-dev.txt                    # Pinned lint toolchain (same versions as CI)
 ruff check . && bandit -r app -ll && python -m pytest  # FULL local gate — run before every push
 python -m pytest              # Fast lane: pytest.ini deselects performance (real sleeps)
 python -m pytest -m ""        # Everything, including the performance suite
@@ -54,7 +55,10 @@ Infra: `docker-compose up -d postgres redis` (local only — prod has no Redis).
 3. **Migrations: no Alembic.** Fresh-DB schema via `create_all` at startup +
    `ensure_additive_columns` self-heals additive columns. Any change to an existing table = a new
    idempotent SQL file in `backend/migrations/` — CI re-applies ALL files on every deploy, so every
-   file must stay safe to re-run forever. Never edit an applied migration.
+   file must stay safe to re-run forever. Never edit an applied migration. Idempotent is not
+   lock-free: `ALTER TABLE … IF NOT EXISTS` still takes ACCESS EXCLUSIVE, so new files wrap ALTERs
+   on existing tables in a `DO $$ … IF NOT EXISTS … $$` guard (gate:
+   `tests/unit/test_migration_lock_safety.py`; `lessons/ops-migrations-need-lock-timeout.md`).
 4. **Entitlements:** `app/services/entitlements.py` is the ONLY source of plan truth. Never
    hardcode plan limits or Pro checks elsewhere.
 5. **SEC calls:** all sec.gov traffic goes through the edgar service layer
@@ -117,8 +121,10 @@ tsc + vitest; e2e = Playwright (no backend running — specs must tolerate a dea
 `deploy-backend` runs on push to main when `backend/` changed: applies `backend/migrations/*.sql`
 idempotently to Cloud SQL, deploys the Cloud Run service (`earningsnerd-backend`, project
 `earnings-nerd`, us-west1, keyless WIF auth), refreshes the weekly pregenerate cron
-(Mondays 06:00 UTC), and updates the image on all 6 Cloud Run jobs (pregenerate, filing-scan,
-filing-digest, backfill-facts, earnings-calendar-refresh, earnings-day-alerts). Frontend deploys via Vercel (`NEXT_PUBLIC_API_BASE_URL=https://api.earningsnerd.io`).
+(Mondays 06:00 UTC), and updates the image on all 7 Cloud Run jobs (pregenerate, filing-scan,
+filing-digest, backfill-facts, earnings-calendar-refresh, earnings-day-alerts, notable-filings).
+Only a backend-touching push to main deploys; a failed deploy is not retried, so check the job's
+conclusion after every backend merge. Frontend deploys via Vercel (`NEXT_PUBLIC_API_BASE_URL=https://api.earningsnerd.io`).
 Manual bootstrap: `tasks/gcp-deploy-runbook.md`. Full detail: `docs/DEPLOYMENT.md`.
 
 ## Workflow

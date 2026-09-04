@@ -24,10 +24,20 @@ The `deploy-backend` job in [`.github/workflows/ci.yml`](../.github/workflows/ci
 - all test jobs (`backend-tests`, `frontend-tests`, `e2e-tests`) passed.
 
 It builds `backend/Dockerfile`, pushes to Artifact Registry
-(`us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend`), runs `gcloud run deploy`,
-refreshes the weekly example-pregeneration job, and health-checks
-`https://api.earningsnerd.io/health`. Auth is keyless via Workload Identity Federation
-(repo variables `GCP_WIF_PROVIDER` + `GCP_DEPLOYER_SA`).
+(`us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend`), applies every
+`backend/migrations/*.sql` file to Cloud SQL through `cloud-sql-proxy` (psql session pinned to
+`lock_timeout=10s` / `statement_timeout=120s`, 5 bounded retries, `pg_stat_activity` dump on
+failure — see `lessons/ops-migrations-need-lock-timeout.md`), runs `gcloud run deploy` and routes
+traffic to the new revision, updates the image on all seven Cloud Run jobs (pregenerate,
+filing-scan, filing-digest, backfill-facts, earnings-calendar-refresh, earnings-day-alerts,
+notable-filings), and health-checks `https://api.earningsnerd.io/health/detailed`. The job has a
+30-minute `timeout-minutes` so a stuck step can never hold the deploy group for GitHub's 6-hour
+default. Auth is keyless via Workload Identity Federation (repo variables `GCP_WIF_PROVIDER` +
+`GCP_DEPLOYER_SA`).
+
+> **Only a push to `main` that touches `backend/` deploys.** `workflow_dispatch` runs tests only,
+> and a cancelled/failed deploy is not retried automatically — the next backend-touching merge
+> is the lever. Check the `deploy-backend` job's conclusion after every backend merge.
 
 **Nothing manual is required for routine releases** — merge to `main` and the pipeline ships it.
 
@@ -62,7 +72,7 @@ Vercel's GitHub integration builds and deploys the `frontend/` app on every push
 (and creates preview deployments for PRs). CI does **not** deploy the frontend.
 
 > **Single source of Vercel config.** The project's **Root Directory** is set to `frontend`, so
-> Vercel reads `frontend/vercel.json` (region `iad1`) — that is the only Vercel config file
+> Vercel reads `frontend/vercel.json` (region `pdx1`, co-located with Cloud Run us-west1) — that is the only Vercel config file
 > (the inert repo-root `/vercel.json` was removed). Build/dev/install commands are relative to
 > `frontend/`, so there is **no** `cd frontend` prefix.
 >
@@ -357,14 +367,13 @@ still exist and are useful for an ad-hoc manual kick (e.g. re-seeding after a sc
 don't put the recurring schedule on them.
 
 > **Migrations for Phase 2:** the alert tables auto-create, but the new **columns** on `watchlist`
-> and `companies` do not (`create_all` never alters existing tables). Apply
-> `backend/migrations/20260618_phase2_alerts.sql` against the prod DB **before/with** the deploy that
-> ships the Phase 2 models, or ORM reads of `Company`/`Watchlist` will fail. Same applies to any
-> future column migration.
+> and `companies` do not (`create_all` never alters existing tables). Since 2026-07-07 the
+> `deploy-backend` job applies `backend/migrations/20260618_phase2_alerts.sql` (and every other
+> migration file) automatically before the new revision serves traffic — nothing to run by hand.
 >
 > The **in-app notification bell** (the `/api/users/me/notifications` endpoints + Header bell) adds a
-> `users.notifications_seen_at` column for unread tracking — apply
-> `backend/migrations/20260620_users_notifications_seen_at.sql` the same way. The bell reads the same
+> `users.notifications_seen_at` column for unread tracking
+> (`backend/migrations/20260620_users_notifications_seen_at.sql`, applied by the same step). The bell reads the same
 > `notification_log` rows the scan writes, so it needs no extra cron; it lights up once the scan
 > jobs above are running.
 
