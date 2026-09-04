@@ -3,30 +3,27 @@
 FMP was declared dead in writing on 2026-07-03 (legacy /api/v3 cut off; display use prohibited —
 tasks/earnings-calendar-strategy.md) and the calendar was rewired off it, but its two other
 consumers (trending_service, hot_filings) kept riding the corpse onto the public homepage for
-three more days. Finnhub's self-serve tiers are personal-use-only, so its one consumer is equally
-tombstoned. See lessons/arch-sweep-dead-integration-consumers.md.
+three more days. Finnhub's self-serve tiers are personal-use-only, so its one consumer was equally
+tombstoned. Stocktwits' ToS (Apr 2026 §5) bars automated extraction. See
+lessons/arch-sweep-dead-integration-consumers.md.
 
-This test encodes the sweep structurally (the naive-utcnow allowlist move): the ONLY modules
-allowed to import a tombstoned integration are the legacy consumers awaiting the teardown PR.
-A NEW import anywhere fails here; the teardown PR shrinks the allowlist to empty in the same
-change that deletes the consumers.
+The teardown PR (WS-8a, 2026-09) deleted the integration modules and every consumer, so the
+allow-list is now EMPTY: any importer of these module paths anywhere in app/ fails here. The test
+stays live so a resurrected client (or a new consumer) cannot land without re-litigating the
+licence question in a PR that edits this file.
 """
 import ast
 from pathlib import Path
 
 APP_DIR = Path(__file__).resolve().parents[2] / "app"
 
-# integration module -> the only app/ files still allowed to import it (legacy, pending teardown).
+# integration module -> the only app/ files allowed to import it. Empty since WS-8a: the modules
+# themselves are gone; the keys stay so a re-added `app/integrations/{fmp,finnhub,stocktwits}.py`
+# with a consumer trips the gate.
 TOMBSTONED_INTEGRATIONS: dict[str, set[str]] = {
-    "app.integrations.fmp": {
-        "integrations/__init__.py",      # package re-export only
-        "services/hot_filings.py",       # legacy Trending Filings scoring (surface unmounted)
-        "services/trending_service.py",  # legacy Market Movers pipeline (surface flag-hidden)
-    },
-    "app.integrations.finnhub": {
-        "integrations/__init__.py",
-        "services/hot_filings.py",
-    },
+    "app.integrations.fmp": set(),
+    "app.integrations.finnhub": set(),
+    "app.integrations.stocktwits": set(),
 }
 
 
@@ -74,8 +71,16 @@ def test_tombstoned_integrations_have_no_new_importers():
         assert found == allowed, (
             f"Importers of tombstoned integration `{name}` drifted from the allowlist.\n"
             f"  unexpected (do NOT build on a dead/unlicensed integration): {sorted(found - allowed)}\n"
-            f"  missing (teardown landed? shrink the allowlist in the same PR): {sorted(allowed - found)}\n"
+            f"  missing: {sorted(allowed - found)}\n"
             "FMP's legacy API is dead and its ToS prohibits display use; Finnhub's self-serve tiers "
-            "are personal-use-only (tasks/homepage-sections-review-findings.md §2.4/§4). New market/"
-            "news data needs a licensed source; EDGAR (public domain) is the sanctioned $0 default."
+            "are personal-use-only; Stocktwits' ToS bars automated extraction "
+            "(tasks/homepage-sections-review-findings.md §2.4/§4). New market/news data needs a "
+            "licensed source; EDGAR (public domain) is the sanctioned $0 default."
         )
+
+
+def test_tombstoned_integration_modules_are_deleted():
+    """The clients themselves must stay deleted — not merely unimported (WS-8a teardown)."""
+    for name in TOMBSTONED_INTEGRATIONS:
+        rel = Path(*name.split(".")[1:]).with_suffix(".py")
+        assert not (APP_DIR / rel).exists(), f"{rel} was resurrected; see this file's docstring"

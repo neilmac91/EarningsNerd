@@ -4,7 +4,6 @@ from . import companies
 from . import contact
 from . import email
 from . import filings
-from . import hot_filings
 from . import saved_summaries
 from . import sitemap
 from . import summaries
@@ -20,7 +19,6 @@ __all__ = [
     'contact',
     'email',
     'filings',
-    'hot_filings',
     'saved_summaries',
     'sitemap',
     'summaries',

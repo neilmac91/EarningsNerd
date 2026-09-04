@@ -128,7 +128,7 @@ frontend/
 | `peers_service.py` / `insider_service.py` | Peer comparison by SIC; Form 4 insider activity (`ownership_extractor.py` parses the Form 4 tables DEFENSIVELY — EdgarTools' DataFrame column casing varies across versions; don't "simplify" the guards) |
 | `dashboard_feed_service.py` / `calendar_service.py` / `filing_scan_service.py` / `notification_service.py` | Personalized feed; earnings calendar; new-filing alerts (dedup); alert prefs |
 | `notable_filings_service.py` | Homepage "Notable filings": market-wide EFTS scan (8-K item materiality + form weights + owned demand), serve-from-Postgres, self-omitting |
-| `hot_filings.py` / `trending_service.py` / `pulse_service.py` | LEGACY (surfaces retired/flag-hidden 2026-07; teardown PR pending — see tasks/homepage-sections-review-findings.md); Filing Pulse gauge kept for roadmap A3 |
+| `pulse_service.py` | Filing Pulse gauge (pure scoring; kept for roadmap A3). Its original producer — the FMP/Finnhub-backed hot-filings scorer — and the Stocktwits/FMP trending pipeline were torn down 2026-09 (WS-8a) |
 | `turnstile.py` / `pwned_passwords.py` | Turnstile bot defense (dark when unset, fails OPEN on Cloudflare infra errors); breached-password screening |
 | `fallback_summary.py` | Deterministic summary when AI fails |
 | `export_service.py` | PDF/HTML export (summaries + analysis) |
@@ -156,10 +156,10 @@ period), `statement_parser.py` (pure DataFrame helpers), `sixk_extractor.py`, pl
 
 `sec_api` (EFTS full-text search, keyless, index since 2001 — feeds `/api/search`, the earnings
 8-K sweep, and the notable-filings scan), `alpha_vantage` (earnings calendar data; personal-use
-bridge tier), `stocktwits` (trending, keyless; unused pending a license — Apr 2026 ToS §5 bars
-automated extraction), `fmp` + `finnhub` (**tombstoned** — FMP's legacy API is dead and both ToS
-prohibit this use; importer allowlist enforced by `test_dead_integrations_allowlist.py`, teardown
-PR pending).
+bridge tier). `fmp`, `finnhub` and `stocktwits` were **deleted** in 2026-09 (WS-8a): FMP's legacy
+API is dead and all three ToS bar this use. `test_dead_integrations_allowlist.py` keeps an empty
+importer allow-list and asserts the modules stay gone, so none can be resurrected without editing
+that gate. (`FMP_API_KEY` survives only for the operator script `scripts/refresh_index_membership.py`.)
 
 ## API routers
 
@@ -175,7 +175,6 @@ PR pending).
 | `dashboard.py` / `calendar.py` | `/api/dashboard`, `/api/calendar` | feed, upcoming calendar |
 | `search.py` | `/api/search` | SEC full-text search (EFTS) |
 | `notable_filings.py` / `reporting_this_week.py` | `/api` | discovery surfaces (serve-from-DB, self-omitting) |
-| `hot_filings.py` / `trending.py` | `/api` | LEGACY discovery endpoints (frontend unmounted/flag-hidden; teardown PR pending) |
 | `saved_summaries.py` / `contact.py` / `feedback.py` / `email.py` | `/api/...` | saved items, forms (rate-limited + Turnstile), email mgmt |
 | `webhooks.py` | `/api` | Resend webhook (`POST /api/webhooks/resend`, Svix-verified) |
 | `admin.py` | `/api/admin` | admin surface (see docs/OPERATIONS.md) |
@@ -187,9 +186,9 @@ PR pending).
 - **`features/<domain>/`** owns domain components + API clients; **`components/`** is
   chrome + `ui/` only (allowlist-enforced). Key components and homes:
   `features/summaries/components/` (SummarySections + section renderers,
-  FinancialMetricsTable, SummaryDisplay), `features/filings/components/` (HotFilings,
-  AskFilingAnswer, copilot/), `features/companies/components/` (CompanySearch,
-  TrendingTickers), `features/analysis/components/` (Multi-Period Analysis),
+  FinancialMetricsTable, SummaryDisplay), `features/filings/components/` (NotableFilings,
+  AskFilingAnswer, copilot/), `features/companies/components/` (CompanySearch),
+  `features/analysis/components/` (Multi-Period Analysis),
   `app/filing/[id]/StreamingSummaryDisplay.tsx` (live generation UX).
 - **Query keys** come exclusively from `lib/queryKeys.ts` (ESLint-enforced) — one factory
   per entity, prefix-invalidation via `all()`/`list(filters)` pairs.
