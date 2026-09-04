@@ -173,7 +173,7 @@ async def mint_invite(
             await send_invite_email(to_email=payload.email, magic_link=link)
             emailed = True
         except Exception:
-            logger.warning("Failed to send invite email to %s", payload.email, exc_info=True)
+            logger.warning("Failed to email invite %s", invite.id, exc_info=True)
     try:
         audit_service.create_audit_log(
             db,
@@ -291,7 +291,7 @@ async def resend_invite(
             await send_invite_email(to_email=invite.email, magic_link=link)
             emailed = True
         except Exception:
-            logger.warning("Failed to send invite email to %s", invite.email, exc_info=True)
+            logger.warning("Failed to email invite %s", invite.id, exc_info=True)
 
     logger.info("Admin %s resent invite %s as %s", current_user.id, invite_id, invite.id)
     try:

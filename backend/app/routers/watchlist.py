@@ -519,7 +519,7 @@ async def join_waitlist(
         email_sent = True
     except Exception:
         db.rollback()
-        logger.exception("Waitlist welcome email failed for %s", signup.email)
+        logger.exception("Waitlist welcome email failed for signup %s", signup.id)
 
     if referrer:
         referrer_position = calculate_waitlist_position(referrer.position, referrer.priority_score)
@@ -532,7 +532,7 @@ async def join_waitlist(
                 referral_link=referrer_link,
             )
         except Exception:
-            logger.exception("Referral email failed for %s", referrer.email)
+            logger.exception("Referral email failed for referrer signup %s", referrer.id)
 
     return {
         "success": True,
