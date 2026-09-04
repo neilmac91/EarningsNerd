@@ -43,7 +43,9 @@ three priorities, and the remediation plan (`tasks/todo.md` holds the checkable 
    DeepSeek and 404, so a transient provider error becomes a user-visible failure.
 5. **Coverage is thin and user-driven.** 0 of 7 sampled recent filings have a summary; scheduled
    generation covers 8 tickers, 10-K only; 46 % of the S&P 500 ∪ Nasdaq 100 universe has no
-   company row; 6-Ks are more than half of new filing rows and have no summary path. The
+   company row; 6-Ks are more than half of new filing rows, and although a 6-K summary path exists
+   behind `ENABLE_FPI_FILINGS` (on in prod), it has no classifier, so governance and press-release
+   6-Ks get the earnings prompt and the golden set contains no 6-K at all. The
    universe-refresh workflow has failed silently since August (Wikipedia removed the Nasdaq-100
    constituents table). The public sitemap advertises ~36k stub filing pages.
 6. **The reading surface has three visible defects on the very first example a visitor opens:**
@@ -123,8 +125,9 @@ Scope (beyond this PR):
   `prod-smoke` Playwright spec against production so frontend/backend skew is caught in a day.
   ~1 day + founder GCP console time.
 - Frontend observability holes: import the Sentry SDK in `GlobalErrorBoundary` (today a silent
-  no-op), set the Sentry source-map upload variables in Vercel, fire `signup_completed` on
-  verify, decide a pre-consent PostHog strategy. ~0.5 day + **founder: Vercel env vars**.
+  no-op), set the Sentry source-map upload variables in Vercel, delete the dead frontend
+  `signup_completed` helper (the event is emitted server-side), decide a pre-consent PostHog
+  strategy. ~0.5 day + **founder: Vercel env vars**.
 - Pricing page server rendering (`useSearchParams` bailout) and the contact meta-description
   entity: two small fixes on public sales surfaces. ~0.5 day.
 - Platform currency: Node 20 → 22 across `engines`, `.nvmrc`, CI and the Vercel project; add
@@ -178,7 +181,7 @@ Scope:
 ### Priority 3 — Summary coverage and data integrity for the beta universe
 
 *Why:* a beta user who clicks a filing and finds no summary, a bank with the wrong revenue tag,
-or a 6-K stub has experienced a quality failure regardless of how good the pipeline is.
+or a thin governance-6-K summary has experienced a quality failure regardless of how good the pipeline is.
 
 Scope:
 - **Universe-wide pregeneration:** latest 10-K + 10-Q for the 515-name universe in batches via
@@ -197,9 +200,9 @@ Scope:
 - **Sitemap and stub containment:** deploy the truthful sitemap (Phase 0), make `app/sitemap.ts`
   stop fetch-caching the upstream document (`cache: 'no-store'` with the route-level revalidate,
   or a sitemap index past 45k URLs) so `www` regenerates instead of serving the 16 July snapshot,
-  add a regression test and correct `docs/SEO_AUDIT.md`; stop listing forms that cannot be
-  summarised until a 6-K path exists — or ship a light 6-K classifier (earnings vs governance)
-  since 6-Ks dominate new rows. ~1.5 days.
+  add a regression test and correct `docs/SEO_AUDIT.md`. 6-Ks already have a summary path behind
+  the FPI flag; ship the 6-K classifier (earnings vs governance vs press release) so the majority
+  of new rows get the right prompt, and add 6-K golden-set entries. ~1.5 days.
 - Dead-integration teardown (Market Movers/FMP/Finnhub consumers still mounted on public routes,
   one endpoint fans out to FMP unauthenticated). ~0.5 day.
 
@@ -228,7 +231,12 @@ All are in the inventory (appendix 06) with evidence and size.
   cancelled deploy is not retried; the deploy concurrency group has no cancel-in-progress.
 - `refresh-index-membership.yml` failed on 1 Aug and 1 Sep: Wikipedia's Nasdaq-100 article no
   longer has a constituents table (verified live). `data-quality-weekly.yml` is 8/8 green.
-  `ops.yml` is dormant and still carries a push trigger for a stale branch.
+  `ops.yml` is dormant and still carries a push trigger for a branch that no longer exists on
+  origin (a dead trigger; remove it).
+- Plain `CREATE INDEX IF NOT EXISTS` (SHARE lock before the existence check) is outside the new
+  gate by design and bounded only by `lock_timeout`; extending the gate is tracked with the
+  ledger decision. The re-run `UPDATE` in `20260706_demote_null_fiscal_period_duplicates.sql` is
+  the most plausible `statement_timeout` trip as `financial_fact` grows.
 - Docs drift fixed in this PR; remaining: `lessons/arch-migrations-no-alembic.md` equates
   idempotent with safe (update when the ledger decision lands).
 
@@ -277,9 +285,10 @@ All are in the inventory (appendix 06) with evidence and size.
   that outgrew Next's data-cache limit, so the stale entry can never be replaced. Deploying
   backend@main shrinks the payload; the frontend fetch should also stop caching.
   `docs/SEO_AUDIT.md` wrongly marks this fixed.
-- **`/pricing` server-renders only header and footer** (492 chars: no H1, plans, prices or FAQ)
-  because `useSearchParams()` in the client page forces a CSR bailout — the trap the filing page
-  already fixed. Re-verified live by the lead.
+- **`/pricing` server-renders only header and footer** (492 chars: no H1, plans, prices or FAQ):
+  the whole page body sits inside one Suspense boundary whose fallback is a spinner, and
+  `useSearchParams()` inside it suspends on the server, so the spinner is what ships. The filing
+  page avoided this with a post-hydration read. Re-verified live by the lead.
 - **The hero example `/filing/3` shows five consecutive `<h4>Risk Factor</h4>`** — the fallback
   title when the model emits none. A reader cannot scan risks; the screen-reader heading list is
   useless. Re-verified live by the lead.
@@ -291,9 +300,10 @@ All are in the inventory (appendix 06) with evidence and size.
   mobile section navigation for 10-section summaries; no live region for streaming progress.
 - Observability holes: `GlobalErrorBoundary` reports through `window.Sentry`, which the SDK does
   not set (silent no-op); Sentry source-map upload has no org/project/token anywhere in repo or CI
-  (hypothesis: not uploaded, `silent: true` hides the warning); `signup_completed` is defined but
-  never fired; PostHog drops all first-visit events until cookie consent; the `prod-smoke` spec
-  has no workflow, and the filing-page e2e self-skips in CI.
+  (hypothesis: not uploaded, `silent: true` hides the warning); the frontend `signup_completed`
+  helper is dead code (the event is emitted server-side by `posthog_client.py`); PostHog drops all
+  first-visit events until cookie consent; the `prod-smoke` spec has no workflow, and the
+  filing-page e2e self-skips in CI.
 - Code gates are clean: design-system legacy-color grep 0 hits; font-var gate passes; components
   allow-list and query-key ESLint rule exist and match `CLAUDE.md`; 0 `any`/`@ts-ignore` in prod
   code; AI markdown renders through `react-markdown` without raw HTML; citation hrefs are
@@ -306,7 +316,7 @@ All are in the inventory (appendix 06) with evidence and size.
 - Auth is sound (HS256 with enforced key strength and full claim checks; rotated single-use
   refresh tokens with reuse detection; hashed single-use reset/verify tokens; DB-backed login
   lockout; invite-only enforced server-side; all 16 admin and 9 internal routes gated; rule 4
-  holds). Findings are P2/P3: rule-8 drift for Sentry init in `main.py`, a non-constant-time
+  holds). Findings are P2/P3: rule-8 drift at `main.py:21-29` (Sentry) and `config.py:511,514`, a non-constant-time
   admin-token compare, per-process rate limiters across 2 instances, Turnstile fails open with
   unknown prod key state, e-mails in two log lines, client Sentry ships console logs.
 - Anonymous cost holes are live *because the backend never redeployed*; plus

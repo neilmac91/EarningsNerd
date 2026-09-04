@@ -16,7 +16,13 @@
    must install from `backend/requirements-dev.txt` with exact pins, and `ruff.toml` must select its
    rules explicitly.
 
-Everything here is text/AST-level and runs in the hermetic unit suite (no Postgres needed).
+Deliberately OUTSIDE this gate: plain `CREATE INDEX IF NOT EXISTS` on a pre-existing table. Postgres
+opens the relation with a SHARE lock before the existence check, so the ~43 re-applied index statements
+still queue behind any open writer; they are bounded only by the psql `lock_timeout`. Extending the gate
+(a second frozen legacy list, `CONCURRENTLY` for new files) is tracked with the migration-ledger
+decision in `tasks/todo.md`.
+
+Everything here is text-level and runs in the hermetic unit suite (no Postgres needed).
 """
 import re
 import tomllib
@@ -72,24 +78,67 @@ def _step(job: dict, name: str) -> dict:
     raise AssertionError(f"step {name!r} not found in job (was it renamed? update this test too)")
 
 
-def _strip_sql(sql: str) -> str:
-    """Drop comments and dollar-quoted DO blocks so only top-level statements remain."""
+_DO_BLOCK = re.compile(r"DO\s+(\$[A-Za-z_]*\$)(.*?)\1", re.S | re.I)
+# A DO body only counts as a guard when it checks existence via a subquery or the catalog. A bare
+# `ADD COLUMN IF NOT EXISTS` inside a DO block is NOT a guard — it still takes ACCESS EXCLUSIVE.
+_GUARD = re.compile(
+    r"IF\s+NOT\s+EXISTS\s*\(\s*SELECT|IF\s+EXISTS\s*\(\s*SELECT|information_schema\.|pg_catalog\.|"
+    r"\bpg_constraint\b|\bpg_indexes\b|\bpg_class\b|\bpg_attribute\b|\bto_regclass\b",
+    re.I,
+)
+_IDENT = r'((?:"[^"]+"|\w+)(?:\.(?:"[^"]+"|\w+))?)'
+_ALTER = re.compile(r"\bALTER\s+TABLE\s+(?:ONLY\s+)?(?:IF\s+EXISTS\s+)?" + _IDENT, re.I)
+_CREATE = re.compile(r"\bCREATE\s+(?:UNLOGGED\s+|TEMP(?:ORARY)?\s+)?TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?" + _IDENT, re.I)
+
+
+def _strip_comments(sql: str) -> str:
     sql = re.sub(r"--[^\n]*", "", sql)
-    sql = re.sub(r"/\*.*?\*/", "", sql, flags=re.S)
-    # DO $$ ... $$ / DO $tag$ ... $tag$ — the guarded (lock-free on re-apply) pattern.
-    sql = re.sub(r"DO\s+(\$[A-Za-z_]*\$).*?\1", " ", sql, flags=re.S | re.I)
-    return sql
+    return re.sub(r"/\*.*?\*/", "", sql, flags=re.S)
+
+
+def _norm(ident: str) -> str:
+    return ident.replace('"', "").lower()
 
 
 def _unguarded_alter_targets(sql: str) -> list[str]:
-    """Tables hit by a top-level ALTER TABLE that the same file did not CREATE."""
-    top = _strip_sql(sql)
-    created = {
-        m.lower()
-        for m in re.findall(r"CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([\w.]+)", top, flags=re.I)
-    }
-    altered = re.findall(r"^\s*ALTER\s+TABLE\s+(?:ONLY\s+)?(?:IF\s+EXISTS\s+)?([\w.]+)", top, flags=re.I | re.M)
-    return sorted({t for t in altered if t.lower() not in created})
+    """Tables hit by an ALTER TABLE that will take ACCESS EXCLUSIVE on every re-apply.
+
+    Counts: top-level ALTERs (split on `;`, so several statements on one line are all seen) and
+    ALTERs inside a DO body that has no catalog/subquery existence check. Ignores tables the same
+    file CREATEs (a brand-new table has no readers to block).
+    """
+    sql = _strip_comments(sql)
+    do_bodies = [m.group(2) for m in _DO_BLOCK.finditer(sql)]
+    top = _DO_BLOCK.sub(" ", sql)
+    created = {_norm(m) for m in _CREATE.findall(top)}
+    altered: set[str] = set()
+    for statement in top.split(";"):
+        altered.update(_norm(m) for m in _ALTER.findall(statement))
+    for body in do_bodies:
+        if _ALTER.search(body) and not _GUARD.search(body):
+            altered.update(_norm(m) for m in _ALTER.findall(body))
+    return sorted(t for t in altered if t not in created)
+
+
+def test_unguarded_alter_detector_semantics():
+    guarded = """DO $$ BEGIN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                       WHERE table_name = 'users' AND column_name = 'x') THEN
+            ALTER TABLE users ADD COLUMN x INTEGER;
+        END IF; END $$;"""
+    assert _unguarded_alter_targets(guarded) == []
+    # A DO wrapper alone is not a guard (review finding on PR #653).
+    assert _unguarded_alter_targets("DO $$ BEGIN ALTER TABLE users ADD COLUMN x INT; END $$;") == ["users"]
+    assert _unguarded_alter_targets(
+        "DO $$ BEGIN ALTER TABLE users ADD COLUMN IF NOT EXISTS x INT; END $$;"
+    ) == ["users"]
+    # Same-file CREATE + ALTER: a brand-new table has no readers to block.
+    assert _unguarded_alter_targets("CREATE TABLE IF NOT EXISTS t (id INT); ALTER TABLE t ADD COLUMN y INT;") == []
+    # Quoted identifiers and two statements on one line are both seen.
+    assert _unguarded_alter_targets('ALTER TABLE "public"."users" ADD COLUMN x INT;') == ["public.users"]
+    assert _unguarded_alter_targets("CREATE INDEX IF NOT EXISTS i ON t (x); ALTER TABLE t ADD COLUMN y INT;") == ["t"]
+    # Comments never count.
+    assert _unguarded_alter_targets("-- ALTER TABLE users ADD COLUMN x INT;\nSELECT 1;") == []
 
 
 def test_deploy_job_has_a_bounded_timeout():

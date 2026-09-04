@@ -76,6 +76,9 @@ undici 7.28.0 (jsdom/vitest), ip-address 10.2.0 (socks ← lhci), js-yaml 4.2.0/
 - **Stripe checkout**: `metadata.user_id` set server-side; discount/trial not self-grantable (`tests/unit/test_checkout_session.py:249`).
 
 ### Findings
+
+> **Lead correction (PR #653 review, 2026-09-04):** rule-8 drift also exists at `backend/app/config.py:511` (`os.getenv('OPENAI_API_KEY')`) and `:514` (`os.environ` check), in addition to `main.py:21-29`.
+
 | # | Finding | Evidence | Sev | Fix |
 |---|---|---|---|---|
 | C1 | **Anonymous cost holes still live in prod** (backend never redeployed): `GET /api/hot_filings?force_refresh=true` bypasses the 15-min cache → DB aggregation + FMP/Finnhub per request; `/api/companies/{t}/insiders` and `/api/search/full-text` hit SEC live with **no per-IP limit** (0 `enforce_rate_limit` in `4994360:backend/app/routers/{insiders,search}.py`); API-host `robots.txt` only disallows `/api/` (`4994360:backend/main.py:533`) so the then-uncached `/sitemap.xml` is crawlable. Fixes `b8cb847`, `d5ce7ac`, `944725c` are on main, undeployed | `git show 4994360:backend/app/routers/hot_filings.py:12-19`; run 29524625738 cancelled | **P1** | Unblock deploy (D1) |

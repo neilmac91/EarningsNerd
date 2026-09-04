@@ -22,9 +22,10 @@ Founder merges; each phase is one or a few PRs. Items marked **(founder)** need 
 
 - [ ] **(founder decision)** Migration design: DO-block guard only (status quo, gated) vs `schema_migrations` ledger (recommended; ADR supersedes rule-3 wording)
 - [ ] Implement the chosen migration design; Cloud SQL flag `idle_in_transaction_session_timeout` as DB-side backstop **(founder: flag)**
+- [ ] Extend the lock gate: plain `CREATE INDEX IF NOT EXISTS` on pre-existing tables (second frozen legacy list; `CONCURRENTLY` for new files) and ledger-skip the re-run `UPDATE` in `20260706_demote_null_fiscal_period_duplicates.sql` (most plausible `statement_timeout` trip)
 - [ ] Alerting minimum: uptime check on `/health/detailed`; Cloud Run job-failure alert; log-based alerts (SEC circuit open, generation failures); Actions failure notifications for `refresh-index-membership` / `data-quality-weekly` **(founder: GCP console)**
 - [ ] Scheduled workflow running `tests/e2e/prod-smoke.spec.ts` against production (`SMOKE_BASE_URL`), daily
-- [ ] Frontend observability: `GlobalErrorBoundary` imports the Sentry SDK; Sentry source-map env in Vercel **(founder)**; fire `signup_completed` on verify; pre-consent PostHog strategy
+- [ ] Frontend observability: `GlobalErrorBoundary` imports the Sentry SDK; Sentry source-map env in Vercel **(founder)**; delete the dead frontend `signup_completed` helper (`lib/analytics.ts:50-57`; emitted server-side by `posthog_client.py`); pre-consent PostHog strategy
 - [ ] Dependabot triage: merge #635 #636 #639 #640 #641 #642; close #629 (TS 7) with `@dependabot ignore this major version` + add `typescript` to major-ignore; close #570 **(founder: merges/closes)**
 - [ ] Split #651: pandas 3.0.5 (yanked 3.0.4) + fastapi/lxml/posthog/etc. now; edgartools 5.40→5.51 alone through the eval gate (RUNBOOK)
 - [ ] Next.js ≥16.3.4 by hand: fix `components/GlobalErrorBoundary.tsx:52` (new lint rule) and `app/globals.css:408` (`::highlight` rejected by Next 16.3 build), then `@dependabot recreate` #652
@@ -33,8 +34,8 @@ Founder merges; each phase is one or a few PRs. Items marked **(founder)** need 
 - [ ] Universe refresh: replace the dead Wikipedia Nasdaq-100 source (FMP with key **(founder)** or another keyless source); committed-list age gate test (fail if >100 days old)
 - [ ] Pricing page SSR (`useSearchParams` → Suspense-scoped child / post-hydration read) + Product/Offer JSON-LD; contact meta-description entity
 - [ ] Node 20 → 22 (`engines`, `.nvmrc`, CI, Vercel project) **(founder: Vercel setting)**
-- [ ] Quick wins: constant-time `X-Admin-Token` compare (`hot_filings.py`); rate-limit `GET /api/trending_tickers/refresh-prices`; drop `"log"` from client Sentry console levels; remove `ops.yml` stale-branch push trigger; pin `cloud-sql-proxy` sha256
-- [ ] Rule-8 gate: Sentry init from `settings` in `main.py` (or sanction it) + AST allow-list test for `os.getenv`
+- [ ] Quick wins: constant-time `X-Admin-Token` compare (`hot_filings.py`); rate-limit `GET /api/trending_tickers/refresh-prices`; drop `"log"` from client Sentry console levels; remove the dead `ops.yml` push trigger (its branch no longer exists on origin); pin `cloud-sql-proxy` sha256
+- [ ] Rule-8 gate: `main.py:21,26,29` (Sentry) and `config.py:511,514` — move to `settings` or sanction explicitly + AST allow-list test for `os.getenv`/`os.environ`
 
 ## Phase 2 — Priority 2: summary fidelity measurement, then arm the guards (≈7 engineer-days)
 
@@ -63,7 +64,7 @@ Founder merges; each phase is one or a few PRs. Items marked **(founder)** need 
 - [ ] Rule-5 gate: route `facts_service._fetch_companyfacts_sync` through the SEC limiter; AST allow-list test — only `services/edgar/**` and `integrations/sec_api.py` may reference `sec.gov`
 - [ ] Rule-10 gate: URL-format validation at the Filing boundary; remove the `cik="0"` fallback fabrication (raise instead); unit tests for the NOT NULL listeners
 - [ ] Sitemap: `app/sitemap.ts` stops fetch-caching the upstream document (or sitemap index past 45k URLs); regression test; correct `docs/SEO_AUDIT.md`; add `/terms`
-- [ ] Stub containment: stop listing/advertising 6-K/8-K until a summary path exists — or ship a light 6-K classifier (earnings vs governance vs press release)
+- [ ] 6-K classifier (earnings vs governance vs press release): the 6-K summary path exists behind `ENABLE_FPI_FILINGS` (`prompts/6k-*.md`, `summary_pipeline.py:358-489`) but every 6-K gets one prompt; add 6-K golden-set entries
 - [ ] Dead-integration teardown PR: `trending.py`/`trending_service.py`/`TrendingTickers.tsx`, `hot_filings.py` (zero frontend consumers), `integrations/fmp.py` + `FMP_*`, `TWITTER_BEARER_TOKEN`; shrink `test_dead_integrations_allowlist.py` to empty **(founder: approve)**
 - [ ] Clear the four standing weekly-report anomalies: `backfill-filing-history` for C, MS, WFC, GS; grant deployer SA access to `INTERNAL_JOB_TOKEN`
 - [ ] `_parse_company_facts`: populate `total_liabilities` / `cash_and_equivalents`; PS5: read persisted `Filing.xbrl_data` before live SEC

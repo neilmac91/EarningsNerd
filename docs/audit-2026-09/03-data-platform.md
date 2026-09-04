@@ -11,6 +11,9 @@ No sec.gov traffic. Anything not verified in code/logs is labelled **[hypothesis
 
 ## Headline findings
 
+> **Lead correction (PR #653 review, 2026-09-04):** a 6-K summary path DOES exist — `backend/prompts/6k-analyst-agent.md`, `6k-structured-agent.md` and `summary_pipeline.py:358-489` (`get_sixk_text` EX-99 grounding) behind `ENABLE_FPI_FILINGS`, which prod sets. Read "no summary path exists for 6-K" below as "no 6-K classifier and no 6-K golden-set coverage"; the coverage numbers stand.
+
+
 1. **Production has been frozen on the 2026-07-13 image (`4994360`) for 7 weeks, and the cause is a data-platform defect.**
    CI run `29524625738` (push of `e8ea339`, 07-16): all test jobs green; `deploy-backend` step "Apply database migrations"
    started 18:40:23Z and was **cancelled at 00:38:50Z next day — exactly GitHub's 6-hour default job timeout**

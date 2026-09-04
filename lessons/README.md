@@ -76,6 +76,7 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`ops-eval-gate-for-ai-changes.md`](./ops-eval-gate-for-ai-changes.md) — Gate every AI/prompt/model change on the eval regression gate — and re-pin the baseline in the same PR
 - [`ops-fix-the-exact-cited-site.md`](./ops-fix-the-exact-cited-site.md) — Fix and test the plan's exact cited site, not an adjacent manifestation
 - [`ops-git-add-atomic-empty-status-gate.md`](./ops-git-add-atomic-empty-status-gate.md) — Require an empty git status after every completing commit; never chain add-path recovery
+- [`ops-grep-verify-negative-claims.md`](./ops-grep-verify-negative-claims.md) — Grep-verify every "no X exists" claim from a workstream report before it enters a synthesis
 - [`ops-lint-before-every-push.md`](./ops-lint-before-every-push.md) — Run ruff (and bandit) before every push, not just pytest
 - [`ops-migrations-need-lock-timeout.md`](./ops-migrations-need-lock-timeout.md) — Give every migration session a lock_timeout and every deploy job a timeout — idempotent is not lock-free
 - [`ops-no-ddl-in-startup-path.md`](./ops-no-ddl-in-startup-path.md) — Never run schema-altering DDL in the serving container's startup path

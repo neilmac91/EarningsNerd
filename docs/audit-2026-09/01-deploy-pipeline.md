@@ -84,7 +84,10 @@ Target table is `filing_content_cache`, not `summaries`. The columns are in the 
 
 **3.2 `data-quality-weekly.yml` — healthy.** 8/8 success, latest 33430093824 (08-31). Executes `earningsnerd-filing-digest --args=scripts/data_quality_report.py --wait` (`:42-44`); depends on `GCP_WIF_PROVIDER`/`GCP_DEPLOYER_SA` (present) and the job carrying DATABASE_URL + RESEND_API_KEY. Green = job exited 0, not "email arrived". Runs on the job's current image (4994360) — fine.
 
-**3.3 `ops.yml` — dormant since 07-08 (P2).** 17 runs, one failure (run 10, fixed by run 11). Fragility: `on.push.branches: [claude/earningsnerd-data-quality-fpg7bz]` + `paths: ops/requests/**` (`ops.yml:47-49`) still fires prod ops from a stale branch that exists on origin (`git ls-remote`); same no-`lock_timeout` psql pattern (`ops.yml:212-214`, read-only SQL); `concurrency: ops` separate from `deploy-backend` — "do not dispatch during a deploy" is prose only (`ops.yml:16`); `cloud-sql-proxy` v2.14.0 downloaded without checksum (also `ci.yml:349-351`).
+**3.3 `ops.yml` — dormant since 07-08 (P2).**
+
+> **Lead correction (PR #653 review, 2026-09-04):** the branch named in the push trigger no longer exists on origin (`git ls-remote` returns nothing), so the trigger is dead rather than dangerous; the fix is to remove the trigger, not delete a branch.
+ 17 runs, one failure (run 10, fixed by run 11). Fragility: `on.push.branches: [claude/earningsnerd-data-quality-fpg7bz]` + `paths: ops/requests/**` (`ops.yml:47-49`) still fires prod ops from a stale branch that exists on origin (`git ls-remote`); same no-`lock_timeout` psql pattern (`ops.yml:212-214`, read-only SQL); `concurrency: ops` separate from `deploy-backend` — "do not dispatch during a deploy" is prose only (`ops.yml:16`); `cloud-sql-proxy` v2.14.0 downloaded without checksum (also `ci.yml:349-351`).
 
 ### 4. Deploy design fragility
 

@@ -73,6 +73,9 @@ Method notes
 
 ## (C) Unfinished frontend work
 
+> **Lead correction (PR #653 review, 2026-09-04):** `signup_completed` is emitted server-side (`backend/app/services/posthog_client.py:46`, covered by `test_beta_funnel_events.py`); the frontend helper at `lib/analytics.ts:50-57` is dead code to delete, not an event to wire. The `/pricing` finding stands, but the mechanism is that the whole page body sits inside one Suspense boundary (`page.tsx:458-464`) whose spinner fallback is what the server ships.
+
+
 ### C.1 Homepage sections review — the 9 unchecked items (`tasks/homepage-sections-review-findings.md` section 6)
 
 Decision recorded 2026-07-06: Market Movers -> hide; Trending Filings -> hide + immediate EDGAR rebuild. Code state today:
