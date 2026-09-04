@@ -84,6 +84,13 @@ Vercel's GitHub integration builds and deploys the `frontend/` app on every push
 > **Rotating the DSN:** `SENTRY_DSN` is read at runtime, so changing it in the dashboard takes effect
 > on the next request. `NEXT_PUBLIC_SENTRY_DSN`, however, is baked into the client bundle by Next.js
 > **at build time** — rotating it requires a **new deployment (rebuild)** to reach the browser.
+>
+> **Source maps (readable stack traces):** `next.config.js` passes `SENTRY_ORG`, `SENTRY_PROJECT`
+> and `SENTRY_AUTH_TOKEN` to `withSentryConfig` (with `widenClientFileUpload`). Set all three as
+> **build-time** Vercel env vars (Production and Preview; the token is a Sentry *internal
+> integration* / org auth token with `project:releases` + `org:read`). With them unset the Sentry
+> plugin logs a warning and skips the upload — the build still succeeds (CI builds run without
+> them), but production stack traces stay minified.
 
 ---
 
