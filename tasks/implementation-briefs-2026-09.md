@@ -1,7 +1,8 @@
 # Implementation briefs — September 2026 remediation
 
-**Status:** prepared 2026-09-04 by the chief-engineer session; awaiting founder answers to §2 and the
-one-pager (§0). **Source of truth for scope:** PR #653 (`docs/ENGINEERING_AUDIT_2026-09.md`,
+**Status:** prepared 2026-09-04 by the chief-engineer session. Founder reviewed the one-pager and §2 on
+2026-09-04 and answered "go with your recommendations" — every bold recommendation in §2 is now the
+decision. Wave 1 dispatched the same day (see §6). **Source of truth for scope:** PR #653 (`docs/ENGINEERING_AUDIT_2026-09.md`,
 `docs/audit-2026-09/01–06`, `tasks/todo.md` on that branch). This file adds what the audit does not:
 code-verified corrections, sequencing, and one self-contained brief per workstream so an agent can
 start without re-reading the appendices.
@@ -15,11 +16,12 @@ dispatched from `.claude/agents/` (Sprint Coordinator hands off; owner named per
 
 ---
 
-## 0. Inputs not yet available
+## 0. Inputs
 
-- **The one-pager** (`claude.ai/code/artifact/cb628415-…`) could not be read from this session (served
-  as a public, non-member reader). Briefs below are built from PR #653 alone. If the one-pager changes
-  priorities, scope or the "beta lens", §3 ordering must be re-cut before dispatch.
+- **The one-pager** (`claude.ai/code/artifact/cb628415-…`, received as screenshots) is a rendered
+  version of `docs/ENGINEERING_AUDIT_2026-09.md`: same three priorities, same nine founder decisions,
+  same verification table. It repeats the "6-Ks … no summary path" claim corrected in C1 below.
+  Nothing in it changes §3 ordering.
 
 ## 1. Corrections to the audit (verified in code this session — do not implement the wrong version)
 
@@ -300,3 +302,21 @@ outside the test roots. Each doc fix lands in the PR that changes the code it de
   judged readout exists before any guard is armed.
 - Weekly report shows coverage, stub ratio, universe age and job health; something pages on API/job failure.
 - Agent definitions refreshed to the current stack with a gate (queued as a separate task).
+
+## 6. Dispatch log
+
+**Wave 1 — 2026-09-04** (no deploy dependency; each on its own branch and draft PR):
+
+| Branch | Brief | Base | Owner agent |
+|---|---|---|---|
+| `claude/ws1-gate-hardening` | WS-1 | PR #653 branch (edits its gate test) | DevOps Automator |
+| `claude/ws2-migration-ledger` | WS-2 | PR #653 branch (edits its migration step) | Database Specialist |
+| `claude/ws4-universe-refresh` | WS-4 | `main` + ported ruff pin | Backend Developer |
+| `claude/ws8a-dead-integration-teardown` | WS-8 (a) | `main` + ported ruff pin | Backend Developer |
+| `claude/ws8b-rule-gates` | WS-8 (b)–(e) | `main` + ported ruff pin | Backend Developer + Security Auditor |
+| `claude/ws5a-observability-public-pages` | WS-5 items 1, 2, 6, 8, 9 | `main` + ported ruff pin | Frontend Developer |
+| `claude/ws5b-reading-surface` | WS-5 items 3 (frontend half), 4, 7 | `main` + ported ruff pin | Frontend Developer |
+
+Held for wave 2 (after #653 deploys and the eval key is available in a session): WS-3 Next/Node bumps
+(needs WS-5a's two fixes first) and Dependabot merges; WS-5 item 5 (sitemap fetch); WS-6; WS-7; WS-9.
+Founder console actions (D8) run in parallel and are not tracked here.
