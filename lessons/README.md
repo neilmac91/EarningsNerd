@@ -77,7 +77,9 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 - [`ops-fix-the-exact-cited-site.md`](./ops-fix-the-exact-cited-site.md) — Fix and test the plan's exact cited site, not an adjacent manifestation
 - [`ops-git-add-atomic-empty-status-gate.md`](./ops-git-add-atomic-empty-status-gate.md) — Require an empty git status after every completing commit; never chain add-path recovery
 - [`ops-lint-before-every-push.md`](./ops-lint-before-every-push.md) — Run ruff (and bandit) before every push, not just pytest
+- [`ops-migrations-need-lock-timeout.md`](./ops-migrations-need-lock-timeout.md) — Give every migration session a lock_timeout and every deploy job a timeout — idempotent is not lock-free
 - [`ops-no-ddl-in-startup-path.md`](./ops-no-ddl-in-startup-path.md) — Never run schema-altering DDL in the serving container's startup path
+- [`ops-pin-ci-toolchain.md`](./ops-pin-ci-toolchain.md) — Pin the lint/security toolchain and select lint rules explicitly — CI must not drift with the tool
 - [`ops-repin-binds-advisory-dims-sync-doc.md`](./ops-repin-binds-advisory-dims-sync-doc.md) — A re-pin that first records an advisory eval dimension makes its "advisory" doc stale — sync it in the same PR
 - [`ops-run-full-backend-gate-before-push.md`](./ops-run-full-backend-gate-before-push.md) — Run the full local gate (ruff + bandit + pytest) before any backend push
 - [`ops-serial-merge-adjacent-line-prs.md`](./ops-serial-merge-adjacent-line-prs.md) — Serialize merges of PRs that edit the same file within a few lines

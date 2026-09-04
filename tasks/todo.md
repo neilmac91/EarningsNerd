@@ -1,55 +1,92 @@
-# SEO audit + quick wins (branch: seo-audit-quick-wins)
+# Remediation plan — from the September 2026 engineering audit
 
-Goal: make the programmatic SEO surface (company + filing pages) real for crawlers without
-architectural upheaval, fix sitemap/robots/metadata correctness, close crawler-driven cost
-holes, and deliver the audit/roadmap/launch docs. Budget frame: ~$50/month at 1k–5k users.
+Source: `docs/ENGINEERING_AUDIT_2026-09.md` (synthesis) + `docs/audit-2026-09/` (six workstream
+appendices with file:line evidence). Lens: invite-only beta, product quality wins ties.
+Founder merges; each phase is one or a few PRs. Items marked **(founder)** need the founder.
 
-Evidence base: live-site checks (www.earningsnerd.io HTML/titles/sitemap; apex 307) + code
-audit of frontend rendering and backend cost paths (see docs/SEO_AUDIT.md).
+## Phase 0 — this PR: make releases safe, land the audit
 
-## Frontend quick wins
+- [x] Explicit ruff rule set (`select = ["E4","E7","E9","F"]`) + pinned `requirements-dev.txt`; CI and the local gate install from it
+- [x] `timeout-minutes: 30` on `deploy-backend`
+- [x] Migration step: `lock_timeout=10s` / `statement_timeout=120s`, 5 bounded retries, `pg_stat_activity` dump on final failure
+- [x] Gate test `backend/tests/unit/test_migration_lock_safety.py` (workflow knobs, toolchain pin, explicit select, filename convention, frozen shrink-only allow-list of 17 legacy unguarded ALTERs)
+- [x] Lessons: `ops-migrations-need-lock-timeout.md`, `ops-pin-ci-toolchain.md` (+ index)
+- [x] Doc sync: `DEPLOYMENT.md` (7 jobs, `/health/detailed`, `pdx1`, migrations automatic, only backend pushes deploy), `CLAUDE.md` (7 jobs, rule-3 lock note, gate install line)
+- [x] `frontend/package.json`: `"postcss": "$postcss"` override (unblocks Dependabot; lockfile-neutral, `npm ci` verified)
+- [x] Archive finished SEO plan → `tasks/archive/seo-audit-quick-wins-todo.md`
+- [ ] **(founder)** Pre-flight: run the `pg_stat_activity` query in `ENGINEERING_AUDIT_2026-09.md` §2; terminate any idle-in-transaction session
+- [ ] **(founder)** Merge this PR → watch `deploy-backend` complete → verify API `robots.txt` is `Disallow: /`, `/health/detailed` healthy, 31-burst to `/api/companies/AAPL/insiders` → 429
+- [ ] **(founder)** Check Cloud Run 5xx/latency + Sentry for 2026-07-16 18:40Z → 07-17 00:38Z; if degraded, add a lesson
 
-- [x] `/company/[ticker]`: convert to server component with on-demand ISR — server-fetch
-      company + filings, seed the existing client page via React Query `initialData`, real
-      `generateMetadata` (async params — the old sync read broke titles on Next 16), canonical,
-      JSON-LD (Breadcrumb + Corporation), `notFound()` on unknown ticker (kills soft-404s),
-      uppercase-ticker permanent redirect, noindex for unsupported-foreign stubs.
-- [x] `/filing/[id]`: same treatment — server-fetch filing + summary (read-only endpoints,
-      never triggers generation), real metadata incl. summary excerpt description, canonical,
-      Breadcrumb JSON-LD, noindex when no summary content exists yet, `notFound()` on unknown
-      id, ticker-style ids (`/filing/AAPL`) get canonical→`/company/AAPL` + noindex.
-      Replace `useSearchParams` in the filing client (demo/debug flags) with a post-hydration
-      read so the page can statically render.
-- [x] `robots.ts`: disallow auth/utility routes (login, register, verify, reset, etc.).
-- [x] `sitemap.ts`: fallback entries synced with backend static list (+ /terms).
-- [x] `/pricing`: add layout metadata (title/description/canonical).
-- [x] `vercel.json`: region iad1 → pdx1 (co-locate SSR with Cloud Run us-west1).
+## Phase 1 — Priority 1: reliability floor (≈4 engineer-days + founder console time)
 
-## Backend quick wins
+- [ ] **(founder decision)** Migration design: DO-block guard only (status quo, gated) vs `schema_migrations` ledger (recommended; ADR supersedes rule-3 wording)
+- [ ] Implement the chosen migration design; Cloud SQL flag `idle_in_transaction_session_timeout` as DB-side backstop **(founder: flag)**
+- [ ] Alerting minimum: uptime check on `/health/detailed`; Cloud Run job-failure alert; log-based alerts (SEC circuit open, generation failures); Actions failure notifications for `refresh-index-membership` / `data-quality-weekly` **(founder: GCP console)**
+- [ ] Scheduled workflow running `tests/e2e/prod-smoke.spec.ts` against production (`SMOKE_BASE_URL`), daily
+- [ ] Frontend observability: `GlobalErrorBoundary` imports the Sentry SDK; Sentry source-map env in Vercel **(founder)**; fire `signup_completed` on verify; pre-consent PostHog strategy
+- [ ] Dependabot triage: merge #635 #636 #639 #640 #641 #642; close #629 (TS 7) with `@dependabot ignore this major version` + add `typescript` to major-ignore; close #570 **(founder: merges/closes)**
+- [ ] Split #651: pandas 3.0.5 (yanked 3.0.4) + fastapi/lxml/posthog/etc. now; edgartools 5.40→5.51 alone through the eval gate (RUNBOOK)
+- [ ] Next.js ≥16.3.4 by hand: fix `components/GlobalErrorBoundary.tsx:52` (new lint rule) and `app/globals.css:408` (`::highlight` rejected by Next 16.3 build), then `@dependabot recreate` #652
+- [ ] Add dependency-audit gates to CI: `pip-audit -r backend/requirements.txt`, `npm audit --omit=dev --audit-level=high` (advisory first, then blocking)
+- [ ] Backups: PITR + deletion protection on `earningsnerd-db`; monthly export to lifecycle-managed GCS; one-page rehearsed restore runbook **(founder: console)**
+- [ ] Universe refresh: replace the dead Wikipedia Nasdaq-100 source (FMP with key **(founder)** or another keyless source); committed-list age gate test (fail if >100 days old)
+- [ ] Pricing page SSR (`useSearchParams` → Suspense-scoped child / post-hydration read) + Product/Offer JSON-LD; contact meta-description entity
+- [ ] Node 20 → 22 (`engines`, `.nvmrc`, CI, Vercel project) **(founder: Vercel setting)**
+- [ ] Quick wins: constant-time `X-Admin-Token` compare (`hot_filings.py`); rate-limit `GET /api/trending_tickers/refresh-prices`; drop `"log"` from client Sentry console levels; remove `ops.yml` stale-branch push trigger; pin `cloud-sql-proxy` sha256
+- [ ] Rule-8 gate: Sentry init from `settings` in `main.py` (or sanction it) + AST allow-list test for `os.getenv`
 
-- [x] `sitemap.py`: truthful lastmod (company = latest filing date; no fake "today"),
-      only companies with filings, only filings with real summaries (noindex'd stubs must not
-      be advertised), column-only queries, 1h in-process cache, 45k safety cap, add /terms.
-- [x] API host `robots.txt`: Disallow all (API JSON should never be crawled; sitemap lives on www).
-- [x] `hot_filings.py`: remove anonymous `force_refresh` cache-bypass param.
-- [x] Per-IP rate limits on the two always-live-EDGAR public endpoints that are product-flag-OFF
-      (`/api/companies/{ticker}/insiders`, `/api/search/full-text`).
-- [x] Tests for all of the above; update robots smoke assertion.
+## Phase 2 — Priority 2: summary fidelity measurement, then arm the guards (≈7 engineer-days)
 
-## Docs
+- [ ] Pin `mean_untraceable_dollar_figures` (figure-trace) as an eval dimension — WARN first, floor after one re-pin cycle
+- [ ] Scheduled judged eval run (8 filings, `--runs 3`, judge on) with a weekly readout; keep judge off in PR CI
+- [ ] Roll the five audit counters (figure-trace, forward-quote, evidence-snap, machine-sections-only, quality gate) into the weekly data-quality report from persisted `raw_summary` audits
+- [ ] **(founder decision)** Arm `AI_EVIDENCE_SNAP` (measured +0.17 citation fidelity) after the first readout; then decide `AI_FIGURE_TRACE_GATE`, `AI_FORWARD_QUOTE_GATE`
+- [ ] Retry/fallback: delete the dead Gemini chain in `openai_service.py`; bounded backoff on the primary; env-configured `AI_FALLBACK_BASE_URL`/`AI_FALLBACK_MODEL`; fix the retry unit test to use real names
+- [ ] Per-summary telemetry: log `usage` and `response.model`; surface on `/metrics`
+- [ ] Eval ↔ prod parity: `USE_STATEMENT_FINANCIALS` in eval env; restore JPM bank-gate facts (G5 re-arm); exercise the streaming branch in `evals/runner.py`; re-pin baseline; fix `--runs 1` single-veto flakiness (granularity-aware tolerance or `--runs 2`)
+- [ ] Copilot on live FPI filings: currency directive (never bare `$` for CNY/TWD/EUR); scope `_query_fact` to the filing being viewed (period from the filing, not `is_latest` company-wide); grow the Copilot golden set from 2 unverified entries; run `evals.copilot_runner`
+- [ ] Golden-set breadth: 6-K entries, one REIT/utility/insurer, small caps **(founder: ~$10 model spend)**
+- [ ] Reading surface on the filing page: real risk titles (frontend fallback from first clause + backend `title`), mobile section jump-nav, live region for streaming progress, title-cased company names; both-theme preview check
+- [ ] Section-recovery grounding: build context from labelled excerpt sections (~30k cap) instead of raw HTML with a 6,000-char cap
+- [ ] Delete the latent `previous_filings` prompt path + AST pin (rule 2 hygiene)
+- [ ] **(founder spend call)** Drain cached v1 summaries → v2 via admin `refresh-stale` (~$0.05/filing)
+- [ ] Docs: RUNBOOK:428 FPI status, report-quality plan header, Gemini-era comments in `openai_service.py`, `DATA_COMPLIANCE.md` processor table (DeepSeek, not Gemini)
 
-- [x] `docs/SEO_AUDIT.md` — findings, evidence, impact/effort/cost ranking.
-- [x] `docs/SEO_ROADMAP.md` — phased plan with monthly cost per phase.
-- [x] `docs/LAUNCH_CHECKLIST.md` — founder-only actions (GSC, Bing, DNS 308, env flips, dashboards).
+## Phase 3 — Priority 3: coverage and data integrity for the beta universe (≈8 engineer-days)
 
-## Verification
+- [ ] **(founder spend call ~$25–50 one-time)** Universe-wide pregeneration: latest 10-K + 10-Q for the 515-name universe in batches via `precompute`; add `10-Q` to the weekly pregenerate; seed Company rows for the 237 members without one
+- [ ] Weekly report: summary coverage of universe, stub ratio, universe-list age, per-job last-success (`job_runs` heartbeat table written by every job script)
+- [ ] SIC backfill (`backfill_facts.py --backfill-company-sic`) and graduate `USE_STATEMENT_FINANCIALS` default to True in code; add `ENABLE_FPI_FILINGS` to the pregenerate job env
+- [ ] Amendments: list/ingest 10-K/A and 10-Q/A; mark superseded originals; prefer amendment in the Change Report
+- [ ] Derive `fiscal_period` for 10-Q per-filing facts; unit/decimals assertions on the statement path; badge `reconciled=False` on every surface
+- [ ] Rule-5 gate: route `facts_service._fetch_companyfacts_sync` through the SEC limiter; AST allow-list test — only `services/edgar/**` and `integrations/sec_api.py` may reference `sec.gov`
+- [ ] Rule-10 gate: URL-format validation at the Filing boundary; remove the `cik="0"` fallback fabrication (raise instead); unit tests for the NOT NULL listeners
+- [ ] Sitemap: `app/sitemap.ts` stops fetch-caching the upstream document (or sitemap index past 45k URLs); regression test; correct `docs/SEO_AUDIT.md`; add `/terms`
+- [ ] Stub containment: stop listing/advertising 6-K/8-K until a summary path exists — or ship a light 6-K classifier (earnings vs governance vs press release)
+- [ ] Dead-integration teardown PR: `trending.py`/`trending_service.py`/`TrendingTickers.tsx`, `hot_filings.py` (zero frontend consumers), `integrations/fmp.py` + `FMP_*`, `TWITTER_BEARER_TOKEN`; shrink `test_dead_integrations_allowlist.py` to empty **(founder: approve)**
+- [ ] Clear the four standing weekly-report anomalies: `backfill-filing-history` for C, MS, WFC, GS; grant deployer SA access to `INTERNAL_JOB_TOKEN`
+- [ ] `_parse_company_facts`: populate `total_liabilities` / `cash_and_equivalents`; PS5: read persisted `Filing.xbrl_data` before live SEC
+- [ ] **(founder decision)** Notable filings: flip `NOTABLE_FILINGS_ENABLED` after a one-week quality look (job + seed + flag per `DEPLOYMENT.md`), or kill the slot; archive the homepage-sections findings doc
+- [ ] Archive `tasks/fpi-support-roadmap.md` with a status block (Phases 0–5 shipped, flag on); residual: 6-K classifier, post-flip `backfill_facts` run
 
-- [x] Frontend: lint + tsc + vitest + build all green.
-- [x] Crawler-eye check: `next build` + `next start` (read-only GETs against the live API,
-      plus a dead-API fallback run); curl `/company/AAPL` and `/filing/3` with no JS —
-      confirmed real title, canonical, H1, filing links, summary text in raw HTML.
-- [x] Backend: ruff + bandit + pytest green.
+## Founder decisions (engineering is blocked on these)
 
-Deferred to roadmap (not in this diff): summary pregeneration scale-out, sitemap index files
-past 45k URLs, per-IP limits on `/api/companies/search` (core UX — needs limit tuning),
-negative-caching for unknown tickers, Cloud SQL/instance scaling, content/blog surface.
+- [ ] Migration design (guard-only vs ledger) — Phase 1
+- [ ] Arm/keep-advisory per trust gate after readout — Phase 2
+- [ ] Spend: universe pregeneration, v1→v2 drain, golden-set runs, FMP key
+- [ ] Dark surfaces for beta: Multi-Period Analysis (prod flag state unknown — confirm), Notable filings, Calendar (+ Alpha Vantage licence), Insiders
+- [ ] Alpha Vantage: licence or EDGAR-only
+- [ ] Legal: Terms §7e counsel pass; processor DPAs; legal entity / governing law
+- [ ] `WAITLIST_MODE` intent; LAUNCH_CHECKLIST founder-only actions (GSC, Bing, apex 307→308, Vercel plan, `NEXT_PUBLIC_EXAMPLE_FILING_ID`)
+- [ ] Pro trial timing; delete retired reverse-trial code?
+- [ ] `USE_STRUCTURED_OUTPUT`: bake-off or delete
+- [ ] Close #570 and #629; merge the six safe Dependabot PRs; approve dead-integration teardown
+- [ ] GCP console: PITR + deletion protection; uptime/alert policies; Turnstile keys; confirm `REGISTRATION_MODE` and flags via `ops.yml describe-service`
+
+## Deferred (tracked in appendix 06, not scheduled)
+
+SEO phases 2–3; dashboard "later" tier (8-K rows, weekly brief, sparklines, 13F); competitive roadmap
+A4/A7/A8; cold-path Phase C; MFA/TOTP; retention purge jobs (policy promise — schedule before public
+launch); Turnstile fail-closed; T5 depth ledger; cheaper-model routing flags; waitlist/contact route tests;
+`SUMMARY_SELF_VERIFY`; prompt-prefix caching; off-peak cron windows.
