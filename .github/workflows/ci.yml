@@ -24,9 +24,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
-          pip install ruff bandit
+          # Lint tools come from the pinned dev file, never a bare `pip install ruff` — an unpinned
+          # ruff upgrade (0.16 widened its default rule set) turned a clean tree red with no code
+          # change. Guarded by tests/unit/test_migration_lock_safety.py.
+          pip install -r backend/requirements-dev.txt
       - name: Lint with Ruff
-        # Blocking: the tree is clean and rules live in backend/ruff.toml.
+        # Blocking: the tree is clean and the rule set is pinned explicitly in backend/ruff.toml.
         run: cd backend && ruff check .
       - name: Security scan with Bandit
         run: |
