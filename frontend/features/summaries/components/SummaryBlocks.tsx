@@ -75,10 +75,11 @@ export function SummaryBlocks({ sections, summary }: SummaryBlocksProps) {
   return (
     <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_13rem] lg:gap-8">
       <div className="space-y-6">
+        <MobileSectionNav sections={sections} />
         {sections.map((section) => {
           const toneVariant = section.tone ? TONE_VARIANT[section.tone.toLowerCase()] : undefined
           return (
-            <Card as="section" key={section.id} id={section.id} className="scroll-mt-24 overflow-hidden">
+            <Card as="section" key={section.id} id={section.id} className="scroll-mt-32 overflow-hidden lg:scroll-mt-24">
               <CardHeader className="flex items-center justify-between gap-2">
                 <CardTitle>{section.title}</CardTitle>
                 {toneVariant && (
@@ -121,6 +122,35 @@ export function SummaryBlocks({ sections, summary }: SummaryBlocksProps) {
         </nav>
       </aside>
     </div>
+  )
+}
+
+/**
+ * Compact jump-nav for narrow layouts, where the sticky TOC aside is hidden: a horizontally
+ * scrolling strip of anchor chips pinned under the site header. Plain anchors (not a <select>
+ * that navigates onChange) so arrow-key browsing never triggers an unexpected jump, and every
+ * chip is reachable by Tab with the brand focus ring. The two navs never coexist in the
+ * accessibility tree (each is display:none at the other breakpoint), so their labels can differ.
+ */
+function MobileSectionNav({ sections }: { sections: RenderedSection[] }) {
+  return (
+    <nav
+      aria-label="Jump to section"
+      className="sticky top-16 z-10 -mx-4 border-b border-border-light bg-background-light/95 px-4 backdrop-blur-xl sm:-mx-6 sm:px-6 lg:hidden dark:border-border-dark dark:bg-background-dark/95"
+    >
+      <ul className="flex gap-2 overflow-x-auto py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {sections.map((section) => (
+          <li key={section.id} className="shrink-0">
+            <a
+              href={`#${section.id}`}
+              className="inline-flex min-h-9 items-center whitespace-nowrap rounded-full border border-border-light bg-panel-light px-3 text-xs font-medium text-text-secondary-light shadow-e1 transition-colors hover:bg-brand-weak hover:text-brand-strong focus-visible:outline-none focus-visible:shadow-ring-brand dark:border-white/10 dark:bg-panel-dark dark:text-text-secondary-dark dark:shadow-none dark:hover:bg-white/5 dark:hover:text-brand-strong-dark dark:focus-visible:shadow-ring-brand-dark"
+            >
+              {section.title}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
   )
 }
 

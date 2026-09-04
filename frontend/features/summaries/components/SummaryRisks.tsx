@@ -1,3 +1,4 @@
+import { deriveRiskTitle } from '@/features/summaries/lib/riskTitle'
 import React from 'react'
 import { SummaryBlock } from '@/features/summaries/components/SummaryBlock'
 import { SectionEmpty } from './SectionEmpty'
@@ -37,7 +38,7 @@ export function SummaryRisks({ risks }: SummaryRisksProps) {
         <SummaryBlock
           key={`${risk.summary}-${index}`}
           type="bearish"
-          title={risk.title || 'Risk Factor'}
+          title={deriveRiskTitle(risk, index)}
         >
           <div className="space-y-2">
             <p>{risk.description || risk.summary}</p>

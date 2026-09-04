@@ -1,5 +1,6 @@
 'use client'
 
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { format } from 'date-fns'
@@ -66,7 +67,7 @@ export function TickerFilingsView({ ticker }: { ticker: string }) {
       <div className="mx-auto max-w-5xl px-4 py-12">
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">{company.name}</h1>
+            <h1 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark">{formatCompanyName(company.name)}</h1>
             <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
               {company.ticker} • Latest SEC filings
             </p>

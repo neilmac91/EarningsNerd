@@ -109,7 +109,11 @@ export default function RootLayout({
         <Providers>
           <SiteHeader />
           <VerificationBanner />
-          {children}
+          {/* Skip-link target (SiteChrome.SkipToContent). A div, not <main>: pages render their own
+              single <main> landmark. tabIndex=-1 makes it programmatically focusable only. */}
+          <div id="main" tabIndex={-1} className="outline-none">
+            {children}
+          </div>
           <SiteFooter />
           <EmailVerificationModal />
           <CookieConsent />

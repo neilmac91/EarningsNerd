@@ -1,5 +1,6 @@
 'use client'
 
+import { formatCompanyName } from '@/lib/formatCompanyName'
 import { useParams, useRouter } from 'next/navigation'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getFiling, Filing } from '@/features/filings/api/filings-api'
@@ -283,7 +284,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
                   <div className="flex flex-wrap items-center gap-3 mb-2">
                     <div className="flex flex-wrap items-center gap-2">
                       <h1 className="text-3xl font-semibold text-text-primary-light dark:text-text-primary-dark tracking-tight">
-                        {filing.company.name}
+                        {formatCompanyName(filing.company.name)}
                       </h1>
                       <Badge variant="solid" className="text-sm">
                         {filing.company.ticker}
@@ -339,7 +340,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
             filingId={filing.id}
             filingType={filing.filing_type}
             ticker={filing.company?.ticker ?? null}
-            companyName={filing.company?.name ?? null}
+            companyName={formatCompanyName(filing.company?.name) || null}
             summaryAvailable={hasSummaryContent}
             isPro={subscription?.is_pro || false}
             isAuthenticated={isAuthenticated}
@@ -353,7 +354,7 @@ function FilingDetailView({ filingId, initialFiling, initialSummary }: { filingI
           <FilingViewer
             key={filing.id}
             filingId={filing.id}
-            filingLabel={`${filing.company?.ticker ?? filing.company?.name ?? 'Filing'} ${filing.filing_type}`}
+            filingLabel={`${filing.company?.ticker || formatCompanyName(filing.company?.name) || 'Filing'} ${filing.filing_type}`}
             secUrl={filing.sec_url ?? filing.document_url ?? null}
             embedded
           />
