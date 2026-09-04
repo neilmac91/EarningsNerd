@@ -13,7 +13,12 @@ name: Ops
 #     detection SQL never touches user/auth/billing tables.
 #   - Secrets (DATABASE_URL, PGPASSWORD, INTERNAL_JOB_TOKEN) are masked before first use,
 #     mirroring the deploy-backend migrations step.
-#   - `concurrency: ops` serializes runs; do not dispatch while a deploy is in flight.
+#   - `concurrency: ops` serializes ops runs. Deploys keep their own group on purpose: GitHub holds
+#     ONE pending run per group, so sharing `deploy-backend`'s group would let an ops dispatch
+#     silently cancel a queued release. Instead the pre-flight step below refuses to run while a
+#     CI run for a push to `main` is in flight (read-only inspection and rollback are exempt).
+#   - Every Cloud SQL session carries the deploy step's PGOPTIONS (lock_timeout/statement_timeout)
+#     and the proxy binary is checksum-pinned (lessons/ops-migrations-need-lock-timeout.md).
 
 on:
   workflow_dispatch:
@@ -44,13 +49,6 @@ on:
         description: 'Cloud Run revision name (rollback-traffic only)'
         required: false
         default: ''
-  # Request-file trigger: the remediation session's tokens have no actions:write scope, so it
-  # cannot call the dispatch API. Committing ops/requests/current.json to the remediation branch
-  # triggers the same enum-validated operations — each run is an auditable commit. The `nonce`
-  # field exists solely to re-trigger an identical operation.
-  push:
-    branches: [claude/earningsnerd-data-quality-fpg7bz]
-    paths: ['ops/requests/**']
 
 concurrency:
   group: ops
@@ -58,12 +56,16 @@ concurrency:
 
 permissions:
   contents: read
+  actions: read # pre-flight: list in-flight CI runs on main
   id-token: write # mint the OIDC token Workload Identity Federation exchanges
 
 env:
   REGION: us-west1
   SERVICE: earningsnerd-backend
   JOBS_CHANNEL_JOB: earningsnerd-backfill-facts
+  # Same pinned proxy build as ci.yml's migration step (test_migration_lock_safety.py keeps them equal).
+  CLOUD_SQL_PROXY_VERSION: v2.14.0
+  CLOUD_SQL_PROXY_SHA256: c0af803c07157530c9159b6179e3288298950af5a39c8ca38ad28c8a2b52ae3d
 
 jobs:
   ops:
@@ -71,19 +73,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Resolve requested operation (dispatch input or committed request file)
+      - name: Resolve requested operation
         id: request
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            OP="${{ inputs.operation }}"
-            TICKERS="${{ inputs.tickers }}"
-            REVISION="${{ inputs.revision }}"
-          else
-            OP=$(python3 -c "import json; print(json.load(open('ops/requests/current.json')).get('operation',''))")
-            TICKERS=$(python3 -c "import json; print(json.load(open('ops/requests/current.json')).get('tickers',''))")
-            REVISION=$(python3 -c "import json; print(json.load(open('ops/requests/current.json')).get('revision',''))")
-          fi
+          OP="${{ inputs.operation }}"
+          TICKERS="${{ inputs.tickers }}"
+          REVISION="${{ inputs.revision }}"
           case "$OP" in
             describe-service|describe-jobs|detection-sql|logs-probe|jobs-channel-noop-probe|repair-ticker-dry-run|repair-ticker-apply|sync-companyfacts|backfill-filing-history|data-quality-report|reset-filing-summary-dry-run|reset-filing-summary-apply|rollback-traffic) ;;
             *) echo "::error::unknown operation '$OP'"; exit 1 ;;
@@ -121,6 +117,27 @@ jobs:
             echo "revision=$REVISION"
           } >> "$GITHUB_OUTPUT"
           echo "Requested operation: $OP"
+
+      - name: Refuse to run while a main push (deploy) is in flight
+        # deploy-backend (ci.yml) applies migrations to the same database and re-images the jobs this
+        # workflow queries and executes. See the header for why this is a check, not a shared
+        # concurrency group. A main push whose CI run has not yet decided whether it deploys still
+        # counts — waiting ~10 min beats racing a migration.
+        if: ${{ !contains('describe-service describe-jobs logs-probe rollback-traffic', steps.request.outputs.operation) }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          count_runs() {
+            gh run list -R "$GITHUB_REPOSITORY" --workflow ci.yml --branch main --event push \
+              --status "$1" --json databaseId --jq 'length'
+          }
+          ACTIVE="$(count_runs in_progress)"; QUEUED="$(count_runs queued)"
+          if [ "$ACTIVE" -gt 0 ] || [ "$QUEUED" -gt 0 ]; then
+            echo "::error::a CI run for a push to main is in flight (in_progress=$ACTIVE, queued=$QUEUED); its deploy-backend job may be applying migrations or re-imaging jobs. Wait for it to finish, then re-dispatch."
+            exit 1
+          fi
+          echo "No main push in flight."
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v3
@@ -225,7 +242,8 @@ jobs:
           set -euo pipefail
           sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
           curl -fsSL -o cloud-sql-proxy \
-            https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.0/cloud-sql-proxy.linux.amd64
+            "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/${CLOUD_SQL_PROXY_VERSION}/cloud-sql-proxy.linux.amd64"
+          echo "${CLOUD_SQL_PROXY_SHA256}  cloud-sql-proxy" | sha256sum -c -
           chmod +x cloud-sql-proxy
           DB_URL="$(gcloud secrets versions access latest --secret=DATABASE_URL)"
           echo "::add-mask::$DB_URL"
@@ -239,6 +257,10 @@ jobs:
           {
             echo "PGUSER=$PGUSER"; echo "PGPASSWORD=$PGPASSWORD"; echo "PGDATABASE=$PGDATABASE"
             echo "PGHOST=127.0.0.1"; echo "PGPORT=5432"; echo "DATABASE_URL=$LOCAL_URL"
+            # Same session guards as the deploy migration step: fail fast on a held lock instead of
+            # queueing behind it, and bound any single statement. libpq honours PGOPTIONS, so the
+            # SQLAlchemy-based repair script inherits it as well as psql.
+            echo "PGOPTIONS=-c lock_timeout=10s -c statement_timeout=120s"
           } >> "$GITHUB_ENV"
           nohup ./cloud-sql-proxy --port 5432 "$CONN" > /tmp/sql-proxy.log 2>&1 &
           for _ in $(seq 1 30); do

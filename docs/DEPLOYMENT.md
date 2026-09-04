@@ -25,9 +25,11 @@ The `deploy-backend` job in [`.github/workflows/ci.yml`](../.github/workflows/ci
 
 It builds `backend/Dockerfile`, pushes to Artifact Registry
 (`us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend`), applies every
-`backend/migrations/*.sql` file to Cloud SQL through `cloud-sql-proxy` (psql session pinned to
-`lock_timeout=10s` / `statement_timeout=120s`, 5 bounded retries, `pg_stat_activity` dump on
-failure — see `lessons/ops-migrations-need-lock-timeout.md`), runs `gcloud run deploy` and routes
+`backend/migrations/*.sql` file to Cloud SQL through `cloud-sql-proxy` (download verified against a
+pinned sha256; psql session pinned to `lock_timeout=10s` / `statement_timeout=120s`; up to 5 retries
+only when psql's stderr carries a lock-contention SQLSTATE — `55P03` lock timeout, `57014` statement
+timeout, `40P01` deadlock — any other error is final; a `pg_stat_activity` + `pg_locks` dump names
+the blocker on final failure — see `lessons/ops-migrations-need-lock-timeout.md`), runs `gcloud run deploy` and routes
 traffic to the new revision, updates the image on all seven Cloud Run jobs (pregenerate,
 filing-scan, filing-digest, backfill-facts, earnings-calendar-refresh, earnings-day-alerts,
 notable-filings), and health-checks `https://api.earningsnerd.io/health/detailed`. The job has a
