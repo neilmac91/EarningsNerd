@@ -29,6 +29,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from sqlalchemy import text
 from app.database import SessionLocal
+from app.utils.sec_urls import build_sec_archive_url
 
 logging.basicConfig(
     level=logging.INFO,
@@ -38,10 +39,8 @@ logger = logging.getLogger(__name__)
 
 
 def generate_sec_url(cik: str, accession_number: str) -> str:
-    """Generate SEC filing URL from CIK and accession number."""
-    accession_clean = accession_number.replace("-", "")
-    cik_clean = cik.lstrip("0") or "0"
-    return f"https://www.sec.gov/Archives/edgar/data/{cik_clean}/{accession_clean}/"
+    """Generate SEC filing URL from CIK and accession number (shared canonical builder)."""
+    return build_sec_archive_url(cik, accession_number)
 
 
 def find_null_sec_url_filings(session, ticker: str = None):

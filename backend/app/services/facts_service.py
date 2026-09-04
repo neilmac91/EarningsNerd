@@ -449,30 +449,18 @@ def cross_check_facts(
 def _fetch_companyfacts_sync(cik: str) -> Optional[dict]:
     """Best-effort sync fetch of the companyfacts JSON for a CIK (used by the backfill job).
 
-    Returns ``None`` on any failure — the cross-check is optional and must never break the
-    backfill. A short sleep keeps this under SEC's limit when the backfill walks many companies
-    (it runs as the single cron worker; see strategy §3.4).
+    A thin bridge onto ``_fetch_companyfacts_async`` so the backfill shares the SEC token bucket +
+    backoff ladder in ``sec_rate_limiter`` (CLAUDE.md rule 5) instead of a bare ``httpx.Client`` with
+    an ad-hoc sleep. Callers are sync contexts with no running loop in the current thread: the
+    ``backfill-facts`` Cloud Run job's main thread, and the ``/internal/jobs/backfill-facts``
+    BackgroundTask, which FastAPI runs in its threadpool. Returns ``None`` on any failure — the
+    cross-check is optional and must never break the backfill.
     """
-    import time as _time
-
-    import httpx
-
-    from app.config import settings
-
-    cik_padded = str(cik).lstrip("0").zfill(10)
-    url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik_padded}.json"
-    headers = {"User-Agent": settings.SEC_USER_AGENT, "Accept": "application/json"}
     try:
-        with httpx.Client(timeout=20.0) as client:
-            response = client.get(url, headers=headers)
-            response.raise_for_status()
-            data = response.json()
-        return data if isinstance(data, dict) else None
-    except Exception as exc:  # noqa: BLE001 - best-effort, never break the backfill
-        logger.warning("companyfacts fetch failed for CIK %s: %s", cik, exc)
+        return asyncio.run(_fetch_companyfacts_async(cik))
+    except RuntimeError as exc:  # a loop is already running in this thread — a caller bug, not SEC
+        logger.warning("companyfacts sync fetch skipped for CIK %s (no private loop): %s", cik, exc)
         return None
-    finally:
-        _time.sleep(0.2)  # gentle self-throttle for the multi-company walk
 
 
 def upsert_facts(
@@ -929,7 +917,7 @@ def get_filing_fundamentals(db: Session, filing_id: int) -> Optional[dict[str, A
 
 # --- Multi-Period Analysis (M1): SEC companyfacts as a first-class period source ---------------
 #
-# One request to https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json returns a company's
+# One companyfacts request (app.utils.sec_urls.companyfacts_url) returns a company's
 # ENTIRE fact history (every year and quarter for every tag it ever filed) — the only viable way to
 # serve 10 fiscal years + 12 quarters per company without N per-filing XBRL parses (thread pool of
 # 4, ~5-15s each). The functions below classify that history into properly-labelled FY / Q1..Q4
@@ -1710,9 +1698,9 @@ async def _fetch_companyfacts_async(cik: str) -> Optional[dict]:
 
     from app.config import settings
     from app.services.sec_rate_limiter import sec_rate_limiter
+    from app.utils.sec_urls import companyfacts_url
 
-    cik_padded = str(cik).lstrip("0").zfill(10)
-    url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik_padded}.json"
+    url = companyfacts_url(cik)
     headers = {"User-Agent": settings.SEC_USER_AGENT, "Accept": "application/json"}
 
     async def _get() -> Any:

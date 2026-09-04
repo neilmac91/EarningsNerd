@@ -36,6 +36,7 @@ from edgar import Company as EdgarCompany, set_identity
 from .async_executor import run_in_executor_with_timeout
 from .client import resolve_filing_by_accession
 from app.services.sec_rate_limiter import sec_rate_limiter
+from app.utils.sec_urls import companyfacts_url
 from .config import EDGAR_IDENTITY, EDGAR_DEFAULT_TIMEOUT_SECONDS
 from .ads_ratios import ads_ratio_for_cik, build_per_ads_eps
 from .instance_extractor import (
@@ -912,7 +913,7 @@ class EdgarXBRLService:
         logger.info(f"Falling back to SEC company facts API for CIK {cik}")
 
         try:
-            facts_url = f"https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
+            facts_url = companyfacts_url(cik)
 
             # Route through the SEC rate limiter with a SINGLE token wait (execute, NOT
             # execute_with_backoff): this fallback runs inside user-facing summary generation, so it

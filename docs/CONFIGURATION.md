@@ -87,6 +87,7 @@ FRONTEND_URL=https://earningsnerd.io  # Used in email links (verification, reset
 # Analytics & Monitoring
 POSTHOG_API_KEY=...
 SENTRY_DSN=...                    # Sentry error tracking DSN
+SENTRY_RELEASE=...                # Release tag for Sentry events (CI sets $GITHUB_SHA; empty = SDK default)
 
 # External APIs - Finnhub
 FINNHUB_API_KEY=...               # Required for sentiment analysis

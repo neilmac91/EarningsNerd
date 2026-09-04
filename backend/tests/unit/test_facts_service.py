@@ -834,3 +834,44 @@ class TestBackfillCompanySic:
         db.expire_all()
         assert all(db.get(Company, cid).sic == "6021" for cid in ids)  # incl. second-batch rows
         db.close()
+
+
+class TestCompanyfactsSyncBridge:
+    """``_fetch_companyfacts_sync`` (backfill job) must ride the shared SEC rate limiter (rule 5)."""
+
+    def test_sync_fetch_goes_through_sec_rate_limiter(self, monkeypatch):
+        import app.services.sec_rate_limiter as rl
+
+        seen: dict[str, object] = {}
+
+        async def _fake_execute_with_backoff(request_fn, *args, **kwargs):
+            seen["called"] = True
+            return {"cik": 320193, "facts": {}}
+
+        monkeypatch.setattr(rl.sec_rate_limiter, "execute_with_backoff", _fake_execute_with_backoff)
+        assert svc._fetch_companyfacts_sync("0000320193") == {"cik": 320193, "facts": {}}
+        assert seen == {"called": True}
+
+    def test_sync_fetch_is_best_effort(self, monkeypatch):
+        import app.services.sec_rate_limiter as rl
+
+        async def _boom(request_fn, *args, **kwargs):
+            raise RuntimeError("SEC down")
+
+        monkeypatch.setattr(rl.sec_rate_limiter, "execute_with_backoff", _boom)
+        assert svc._fetch_companyfacts_sync("320193") is None
+
+    def test_sync_fetch_builds_the_companyfacts_url_via_the_shared_helper(self, monkeypatch):
+        import app.services.sec_rate_limiter as rl
+
+        captured: dict[str, str] = {}
+
+        async def _capture(request_fn, *args, **kwargs):
+            # request_fn closes over `url`; read it off the closure without touching the network.
+            cell = request_fn.__closure__[request_fn.__code__.co_freevars.index("url")]
+            captured["url"] = cell.cell_contents
+            return {}
+
+        monkeypatch.setattr(rl.sec_rate_limiter, "execute_with_backoff", _capture)
+        svc._fetch_companyfacts_sync("320193")
+        assert captured["url"] == "https://data.sec.gov/api/xbrl/companyfacts/CIK0000320193.json"

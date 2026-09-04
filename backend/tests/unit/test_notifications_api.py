@@ -48,7 +48,7 @@ def _seeded():
     for i, t in enumerate(times):
         f = Filing(company_id=cid, accession_number=f"acc-{uuid.uuid4().hex}-{i}",
                    filing_type="10-Q", filing_date=t,
-                   document_url="https://sec.gov/x", sec_url="https://sec.gov/x")
+                   document_url="https://sec.example/x", sec_url="https://sec.example/x")
         db.add(f)
         db.flush()
         fids.append(f.id)

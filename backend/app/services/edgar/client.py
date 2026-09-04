@@ -28,6 +28,7 @@ from urllib.parse import urljoin
 from edgar import Company as EdgarCompany, set_identity, find as edgar_find
 
 from app.utils.datetimes import utcnow
+from app.utils.sec_urls import build_sec_archive_url
 
 from .async_executor import run_with_circuit_breaker
 from .config import EDGAR_IDENTITY, FilingType, EDGAR_DEFAULT_TIMEOUT_SECONDS, EDGAR_THREAD_POOL_SIZE
@@ -576,11 +577,8 @@ class EdgarClient:
         # Determine filing type enum - use non-strict mode to get UNKNOWN for unrecognized forms
         filing_type = FilingType.from_string(edgar_filing.form, strict=False)
 
-        # Generate SEC filing URL
-        # Format: https://www.sec.gov/Archives/edgar/data/{cik}/{accession}/
-        accession_clean = edgar_filing.accession_number.replace("-", "")
-        cik_clean = cik.lstrip("0") or "0"  # Remove leading zeros, but keep at least "0"
-        sec_url = f"https://www.sec.gov/Archives/edgar/data/{cik_clean}/{accession_clean}/"
+        # Canonical archive URL (CIK zeros stripped, accession dashless) — the ONE builder for it.
+        sec_url = build_sec_archive_url(cik, edgar_filing.accession_number)
 
         # Resolve the absolute document URL from listing metadata only. EntityFiling
         # carries `primary_document` as a plain attribute; do NOT touch `filing_url`,

@@ -3,12 +3,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from contextlib import asynccontextmanager
 import asyncio
-import os
 import re
 from dotenv import load_dotenv
 
-# Load environment variables early for Sentry initialization
+# Load environment variables early (Settings reads .env itself; the pre-Settings bootstrap
+# constants in database.py / redis_service.py / edgar/config.py read os.environ directly).
 load_dotenv()
+
+from app.config import settings, APP_VERSION
 
 # Initialize Sentry for error tracking (must be done before FastAPI app creation)
 try:
@@ -18,15 +20,14 @@ try:
 except ImportError:
     print("Sentry SDK not available - install sentry-sdk for error tracking")
 else:
-    sentry_dsn = os.getenv("SENTRY_DSN", "")
-    if sentry_dsn:
+    if settings.SENTRY_DSN:
         try:
             sentry_sdk.init(
-                dsn=sentry_dsn,
-                environment=os.getenv("ENVIRONMENT", "development"),
+                dsn=settings.SENTRY_DSN,
+                environment=settings.ENVIRONMENT,
                 # Release = deployed git SHA (CI sets SENTRY_RELEASE=$GITHUB_SHA on Cloud Run), so
                 # errors are attributable to an exact revision. None → Sentry's default detection.
-                release=os.getenv("SENTRY_RELEASE") or None,
+                release=settings.SENTRY_RELEASE or None,
                 traces_sample_rate=0.1,  # 10% of transactions for performance monitoring
                 profiles_sample_rate=0.1,  # 10% of sampled transactions for profiling
                 integrations=[
@@ -79,7 +80,6 @@ from app.routers import (
     insiders,
     calendar,
 )
-from app.config import settings, APP_VERSION
 
 # Create database tables
 @asynccontextmanager

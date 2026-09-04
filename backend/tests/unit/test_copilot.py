@@ -44,8 +44,8 @@ def _fake_filing():
         company_id=1,
         filing_type="10-K",
         filing_date=None,
-        document_url="https://www.sec.gov/Archives/edgar/data/320193/000.../aapl-10k.htm",
-        sec_url="https://www.sec.gov/Archives/edgar/data/320193/000.../",
+        document_url="https://www.sec.gov/Archives/edgar/data/320193/000032019323000077/aapl-10k.htm",
+        sec_url="https://www.sec.gov/Archives/edgar/data/320193/000032019323000077/",
         xbrl_data=None,
         content_cache=cache,
         company=company,
@@ -224,8 +224,8 @@ def _seed_filing():
         accession_number=f"acc-{suffix}",
         filing_type="10-K",
         filing_date=__import__("datetime").datetime(2026, 1, 1),
-        document_url="https://www.sec.gov/Archives/edgar/data/1/x/doc.htm",
-        sec_url="https://www.sec.gov/Archives/edgar/data/1/x/",
+        document_url="https://www.sec.gov/Archives/edgar/data/1/000000000100000001/doc.htm",
+        sec_url="https://www.sec.gov/Archives/edgar/data/1/000000000100000001/",
     )
     db.add(filing)
     db.commit()
