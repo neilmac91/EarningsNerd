@@ -1,0 +1,6 @@
+# Lint / security toolchain for the backend gate. CI (`.github/workflows/ci.yml`) and the local gate
+# in CLAUDE.md install from THIS file so both run the same tool versions. Pinned on purpose: an
+# unpinned `pip install ruff` let a ruff default-rule-set change turn a clean tree red overnight
+# (see lessons/ops-pin-ci-toolchain.md). Runtime deps stay in requirements.txt.
+ruff==0.16.6
+bandit==1.9.4
