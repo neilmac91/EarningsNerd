@@ -4,17 +4,17 @@
 #   pip install pip-tools && pip-compile requirements.in -o requirements.txt
 # (Docker and CI install the pinned requirements.txt for reproducible builds.)
 
-fastapi>=0.139.0,<1.0.0
-uvicorn[standard]>=0.50.0,<1.0.0
+fastapi>=0.141.1,<1.0.0
+uvicorn[standard]>=0.52.4,<1.0.0
 python-multipart>=0.0.28
-pydantic>=2.13.4,<3.0.0
-pydantic-settings>=2.14.2,<3.0.0
+pydantic>=2.13.5,<3.0.0
+pydantic-settings>=2.15.0,<3.0.0
 email-validator>=2.3.0
 httpx>=0.28.1,<1
-python-dotenv==1.2.2
-sqlalchemy>=2.0.51,<3.0.0
+python-dotenv==1.2.3
+sqlalchemy>=2.0.52,<3.0.0
 psycopg2-binary==2.9.12
-redis==8.0.1
+redis==8.1.0
 openai>=2.44.0,<3.0.0
 beautifulsoup4==4.15.0
 # Allow pandas 3.x (validated: edgartools requires only pandas>=2.0.0, numpy 2.x already
@@ -22,22 +22,22 @@ beautifulsoup4==4.15.0
 # >=6.1.0 to fix CVE-2026-41066 / PYSEC-2026-87 (XXE local-file disclosure via the
 # default resolve_entities=True; fixed in 6.1.0) — it parses externally-authored SEC
 # XBRL/XML. Neither edgartools (lxml>=4.4) nor pandas (lxml>=4.9.2) caps the major.
-lxml>=6.1.0,<7.0.0
-pandas>=3.0.4,<4.0.0
+lxml>=6.1.2,<7.0.0
+pandas>=3.0.5,<4.0.0
 python-jose[cryptography]>=3.5.0
 passlib[bcrypt]==1.7.4
 python-dateutil==2.9.0.post0
-stripe==15.3.0
+stripe==15.6.1
 weasyprint==69.0
 # Branded Excel workbook export (analysis xlsx endpoint) — openpyxl over xlsxwriter: it also
 # READS workbooks (the pytest read-back verification), and images/styles ride the pinned pillow.
 openpyxl>=3.1,<4
 # EdgarTools - unified SEC filing library (replaced arelle-release and
 # sec-edgar-downloader, both removed after verifying zero imports — issue #244)
-edgartools>=5.40.1
-posthog==7.21.3
-json-repair>=0.61.2
-sentry-sdk[fastapi]>=2.64.0
+edgartools>=5.55.0
+posthog==7.45.3
+json-repair>=0.63.4
+sentry-sdk[fastapi]>=2.68.1
 
 # Testing
 pytest>=9.1.1
