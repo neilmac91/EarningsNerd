@@ -31,15 +31,18 @@ empty for new pins. Founder provided `FMP_API_KEY` in the GitHub `Production` en
 bind the existing refresh job to that environment without reading or changing the secret.
 Routine required CI evaluations are authorized; extra sweeps and strong-judge dispatch remain held.
 
-- [ ] Implement explicit service/job pins and three gate families: visibility/defaults/parity,
+- [x] Implement explicit service/job pins and three gate families: visibility/defaults/parity,
   measured fallback provenance and pin refusal, scheduled failure notification structure.
-- [ ] Preserve serving-revision/traffic and distinct job observation through executable offline
+- [x] Preserve serving-revision/traffic and distinct job observation through executable offline
   ops renderer tests; extend existing eval tests without adding duplicate rules.
-- [ ] Wire refresh to `Production`; correct owning RUNBOOK/config/deployment/dark-surface/handover
+- [x] Wire refresh to `Production`; correct owning RUNBOOK/config/deployment/dark-surface/handover
   docs, including the founder-approved calendar exception and current entry evidence.
-  Documentation source is prepared; code verification and deployment remain pending.
-- [ ] Commit source; run one intended mutation proof per rule, restore exactly, run focused
+  Documentation source and local verification are complete; deployment remains pending.
+- [x] Commit source; run one intended mutation proof per rule, restore exactly, run focused
   workflow gates and exact-runtime full backend gate. Locked tests and sole baseline stay unchanged.
+  Local gate at `6a0e7174`: 105 exact pins, Ruff/Bandit clean, 2381 passed, 2 deselected,
+  72 warnings (52.19s); 11 intended mutation proofs restored. Initial cache-path collection
+  failures are retained and excluded; their four corrected reruns fail the intended assertions.
 - [ ] Root: independent reviews, publish draft, inspect actual serialized CI evaluations, merge,
   verify deployment and effective pins. No refresh or judged-readout dispatch in this PR.
 
