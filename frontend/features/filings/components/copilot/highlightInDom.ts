@@ -65,9 +65,12 @@ function buildFlatText(container: HTMLElement): { text: string; nodes: NodeSpan[
   return { text, nodes }
 }
 
-function locate(nodes: NodeSpan[], offset: number): { node: Text; offset: number } | null {
+function locate(nodes: NodeSpan[], offset: number, boundary: 'start' | 'end'): { node: Text; offset: number } | null {
+  // Starts belong to their first character; exclusive ends belong to their last character.
+  // Looking up the character (rather than the shared boundary) also skips empty text nodes.
+  const characterOffset = boundary === 'end' ? offset - 1 : offset
   for (const span of nodes) {
-    if (offset >= span.start && offset <= span.start + span.node.data.length) {
+    if (characterOffset >= span.start && characterOffset < span.start + span.node.data.length) {
       return { node: span.node, offset: offset - span.start }
     }
   }
@@ -94,8 +97,8 @@ export function highlightExcerptInDom(container: HTMLElement, excerpt: string): 
   const match = findExcerptMatch(flat.text, excerpt)
   if (!match) return false
 
-  const startLoc = locate(flat.nodes, match.start)
-  const endLoc = locate(flat.nodes, match.end)
+  const startLoc = locate(flat.nodes, match.start, 'start')
+  const endLoc = locate(flat.nodes, match.end, 'end')
   if (!startLoc || !endLoc) return false
 
   const range = document.createRange()
