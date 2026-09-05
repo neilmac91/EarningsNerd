@@ -75,7 +75,8 @@ def test_instance_to_facts_keeps_quarters_currency_and_raw_precision(monkeypatch
         {"is_dimensioned": False, "period_start": "2024-08-01", "period_end": "2024-10-31",
          "numeric_value": 24_123_456_789, "decimals": -3, "currency": "CNY"},
     ]
-    xb = SimpleNamespace(facts=Facts({"Revenues": pd.DataFrame(rows)}),
+    xb = SimpleNamespace(facts=Facts({"Revenues": pd.DataFrame(rows),
+        "EarningsPerShareBasic": pd.DataFrame([{**r, "numeric_value": 1.2345, "currency": None, "decimals": 4} for r in rows])}),
                          entity_info={"fiscal_year": 2026, "fiscal_period": "Q3"})
     sec_filing = SimpleNamespace(form="10-Q", period_of_report="2025-10-31", xbrl=lambda: xb)
     monkeypatch.setattr(xbrl, "resolve_filing_by_accession", lambda *args: (SimpleNamespace(sic=None), [sec_filing]))
@@ -83,6 +84,8 @@ def test_instance_to_facts_keeps_quarters_currency_and_raw_precision(monkeypatch
     standardized = xbrl.edgar_xbrl_service.extract_standardized_metrics(raw)
     facts = facts_service.normalize_standardized_to_facts(1, 1, "acc", "10-Q", standardized)
     revenue = [f for f in facts if f["concept"] == "revenue"]
+    eps = [f for f in facts if f["concept"] == "earnings_per_share"]
+    assert eps and all(f["unit"] == "CNY/shares" and f["value"] == 1.2345 for f in eps)
     assert [(f["fiscal_year"], f["fiscal_period"], f["unit"], f["value"]) for f in revenue] == [
         (2026, "Q3", "CNY", 28_123_456_789), (2025, "Q3", "CNY", 24_123_456_789),
     ]
@@ -123,6 +126,10 @@ def test_persisted_xbrl_precedes_both_caches_and_is_cik_scoped(sessions, monkeyp
     live.assert_not_awaited()
     assert svc._persisted_xbrl("acc", "2") is None
     assert svc._persisted_xbrl("other", "1") is None
+    with sessions() as db:
+        db.query(Filing).one().xbrl_data = {"segments": [{"name": "metadata only"}]}
+        db.commit()
+    assert svc._persisted_xbrl("acc", "1") is None
 
 
 def test_companyfacts_populates_balance_sheet_and_quarter_metadata():
@@ -139,6 +146,8 @@ def test_companyfacts_populates_balance_sheet_and_quarter_metadata():
     assert result["revenue"][0]["value"] == 90
     assert result["revenue"][0]["fiscal_period"] == "Q3"
     assert result["revenue"][0]["fiscal_year"] == 2026
+    standardized = xbrl.edgar_xbrl_service.extract_standardized_metrics(result)
+    assert standardized["total_liabilities"]["current"]["value"] == 200
 
 
 def test_amendments_link_both_ingestion_orders_and_compare_prior_period(sessions):
@@ -258,7 +267,7 @@ def test_labelled_quarter_demotes_legacy_null_period(sessions):
                   "form": "10-Q", "accession": "acc", "source": "edgar_xbrl"}
         facts_service.upsert_facts(db, [{**common, "fiscal_period": None}])
         facts_service.upsert_facts(db, [{**common, "fiscal_period": "Q3"}])
-        assert db.query(FinancialFact).filter_by(is_latest=True).one().fiscal_period == "Q3"
+        assert [f.fiscal_period for f in db.query(FinancialFact).filter_by(is_latest=True)] == ["Q3"]
         assert db.query(FinancialFact).filter(FinancialFact.fiscal_period.is_(None)).one().is_latest is False
 
 
@@ -281,3 +290,98 @@ def test_weekly_pregenerate_runs_quarters_and_foreign_annual(sessions, monkeypat
     workflow = (Path(__file__).parents[3] / ".github/workflows/ci.yml").read_text()
     step = workflow.split("- name: Update pregenerate job image")[1].split("- name:")[0]
     assert "ENABLE_FPI_FILINGS=true" in step
+
+
+def test_older_filing_facts_never_replace_newer_amendment_or_untied_companyfacts(sessions):
+    with sessions() as db:
+        co = Company(cik="1", ticker="A", name="A")
+        db.add(co)
+        db.flush()
+        original = filing(db, co, "001", "10-Q", "2025-09-30", "2025-11-01")
+        amended = filing(db, co, "002", "10-Q/A", "2025-09-30", "2025-12-01")
+        common = {"company_id": co.id, "concept": "revenue", "unit": "USD", "period_end": date(2025, 9, 30),
+                  "fiscal_year": 2025, "fiscal_period": "Q3", "source": "edgar_xbrl"}
+        facts_service.upsert_facts(db, [{**common, "filing_id": amended.id, "accession": "002", "form": "10-Q/A", "value": 200}])
+        facts_service.upsert_facts(db, [{**common, "filing_id": original.id, "accession": "001", "form": "10-Q", "value": 100}])
+        assert [(f.accession, f.value) for f in db.query(FinancialFact).filter_by(is_latest=True)] == [("002", 200)]
+        assert db.query(FinancialFact).filter_by(filing_id=original.id).one().value == 100
+        # A current companyfacts row may precede creation of its Filing row; preserve its value
+        # rather than guessing date order from accession submitter IDs.
+        db.add(FinancialFact(**{**common, "concept": "net_income", "source": "companyfacts"},
+                            accession="unlisted", value=20, is_latest=True, reconciled=True))
+        db.commit()
+        facts_service.upsert_facts(db, [{**common, "concept": "net_income", "filing_id": original.id,
+                                      "accession": "001", "form": "10-Q", "value": 10}])
+        assert [(f.accession, f.value) for f in db.query(FinancialFact).filter_by(concept="net_income", is_latest=True)] == [("unlisted", 20)]
+
+
+def test_refresh_existing_amendments_repairs_links_and_locks_company(sessions):
+    from sqlalchemy import event
+    from sqlalchemy.dialects import postgresql
+    from app.services.filing_scan_service import upsert_filings
+    statements = []
+    with sessions() as db:
+        event.listen(db, "do_orm_execute", lambda state: statements.append(str(state.statement.compile(dialect=postgresql.dialect()))))
+        co = Company(cik="1", ticker="A", name="A")
+        db.add(co)
+        db.flush()
+        old = filing(db, co, "001", "10-K", "2025-12-31", "2026-02-01")
+        new = filing(db, co, "002", "10-K/A", "2025-12-31", "2026-03-01")
+        db.commit()
+        # No new rows: a metadata refresh after the additive migration still establishes links.
+        upsert_filings(db, co, [{"accession_number": new.accession_number,
+                                "sec_url": new.sec_url, "document_url": new.document_url}])
+        assert old.superseded_by_accession == new.accession_number
+        assert any("FOR NO KEY UPDATE" in stmt and "companies" in stmt for stmt in statements)
+    with sessions() as db:
+        assert db.query(Filing).filter_by(accession_number="001").one().superseded_by_accession == "002"
+
+
+def test_pdf_retains_value_and_citation_quality():
+    from app.services.export_service import export_service
+    record = SimpleNamespace(mode="annual", period_key="FY2025", narrative_md="Revenue grew [1].",
+        dataset_json={"periods": [{"key": "FY2025"}], "series": [{"concept": "revenue", "label": "Revenue",
+        "unit": "USD", "points": [{"period": "FY2025", "value": 123, "reconciled": False}]}]},
+        citations_json=[{"n": 1, "excerpt": "Revenue = 123", "verified": True, "reconciled": False}])
+    html = export_service.generate_analysis_pdf_html(record, SimpleNamespace(name="A", ticker="A"))
+    assert "$123 [unreconciled]" in html
+    assert "Unreconciled value — check source filing." in html
+    assert "Citation verification confirms traceability, not financial reconciliation." in html
+
+
+def test_precompute_prefers_latest_period_over_late_old_amendment(sessions, monkeypatch):
+    from app.services.precompute_service import precompute_one
+    from app.services.edgar.compat import sec_edgar_service
+    with sessions() as db:
+        db.add(Company(cik="1", ticker="AAPL", name="A"))
+        db.commit()
+    def row(acc, end, filed):
+        return {"accession_number": acc, "filing_type": "10-K/A", "report_date": end,
+                "filing_date": filed, "sec_url": "https://sec.example/filing/", "document_url": "https://sec.example/filing/a.htm"}
+    fetch = AsyncMock(return_value=[row("old", "2024-12-31", "2026-04-01"), row("new", "2025-12-31", "2026-03-01")])
+    monkeypatch.setattr(sec_edgar_service, "get_filings", fetch)
+    result = asyncio.run(precompute_one("AAPL", "10-K", dry_run=True))
+    assert result["accession"] == "new" and result["status"] == "would_generate"
+    assert fetch.await_args.kwargs["limit"] == 20
+    with sessions() as db:
+        assert db.query(Filing).count() == 0
+
+
+def test_seed_script_records_distinct_dry_and_applied_attempts(sessions, monkeypatch):
+    import importlib.util
+    from app.models import JobRun
+    from app.services import universe_seed_service, job_run_service
+    monkeypatch.setattr(job_run_service, "SessionLocal", sessions)
+    seed = AsyncMock(return_value={"would_create": 2, "source_errors": 0})
+    monkeypatch.setattr(universe_seed_service, "seed_universe_companies", seed)
+    path = Path(__file__).parents[2] / "scripts/seed_universe_companies.py"
+    spec = importlib.util.spec_from_file_location("ws7_seed", path)
+    script = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(script)
+    asyncio.run(script.main())
+    asyncio.run(script.main(apply=True, limit=2))
+    assert [call.kwargs for call in seed.await_args_list] == [{"apply": False, "limit": None}, {"apply": True, "limit": 2}]
+    with sessions() as db:
+        attempts = db.query(JobRun).order_by(JobRun.started_at).all()
+        assert [row.job_name for row in attempts] == ["universe-company-seed"] * 2
+        assert [row.status for row in attempts] == ["dry_run", "succeeded"]

@@ -117,10 +117,9 @@ def upsert_filings(db: Session, company: Company, sec_filings: list[dict]) -> li
             new_filings.append(filing)
         result.append(filing)
 
-    if new_filings:
-        from app.services.filing_amendment_service import mark_superseded_filings
-        db.flush()
-        mark_superseded_filings(db, company.id)
+    from app.services.filing_amendment_service import mark_superseded_filings
+    changed_links = mark_superseded_filings(db, company.id)
+    if new_filings or changed_links:
         db.commit()
         for f in new_filings:
             db.refresh(f)

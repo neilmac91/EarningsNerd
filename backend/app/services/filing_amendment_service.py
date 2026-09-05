@@ -3,7 +3,7 @@ from collections import defaultdict
 
 from sqlalchemy.orm import Session
 
-from app.models import Filing
+from app.models import Company, Filing
 
 
 def expand_amendment_forms(forms: list[str]) -> list[str]:
@@ -15,12 +15,17 @@ def expand_amendment_forms(forms: list[str]) -> list[str]:
     return result
 
 
-def mark_superseded_filings(db: Session, company_id: int) -> None:
+def mark_superseded_filings(db: Session, company_id: int) -> int:
     """Mark older same-period rows in the caller's transaction, in either ingestion order.
 
     No period means no defensible relationship. Select metadata only in one company query;
     update the changed rows in one executemany batch, without loading XBRL or summaries.
     """
+    # Serialize competing refreshes without conflicting with child-row FK key-share locks.
+    # SQLite omits this clause; PostgreSQL emits FOR NO KEY UPDATE. Lock before reading links.
+    with db.no_autoflush:
+        db.query(Company.id).filter(Company.id == company_id).with_for_update(key_share=True).scalar()
+    db.flush()
     rows = db.query(
         Filing.id, Filing.filing_type, Filing.period_end_date, Filing.filing_date,
         Filing.accession_number, Filing.superseded_by_accession,
@@ -50,3 +55,4 @@ def mark_superseded_filings(db: Session, company_id: int) -> None:
         for obj in list(db.identity_map.values()):
             if isinstance(obj, Filing) and obj.company_id == company_id:
                 db.expire(obj, ["superseded_by_accession"])
+    return len(updates)

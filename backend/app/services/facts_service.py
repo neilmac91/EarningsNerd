@@ -24,7 +24,7 @@ from typing import Any, Callable, Optional
 from app.services.event_loop import get_app_loop
 
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_
+from sqlalchemy import and_, or_
 
 from app.models import Company, Filing, FinancialFact, Watchlist
 
@@ -514,9 +514,17 @@ def upsert_facts(
     then cross-checked against it (§3.5 step 2) — confirmed or corrected to the SEC value.
     Idempotent on the full identity key — if a row with the same (company, concept, period_end,
     fiscal_period, unit, accession) already exists it is skipped; otherwise any current ``is_latest``
-    row for the same (company, concept, period_end, fiscal_period, unit) is demoted and this one
-    inserted as latest. Callers should upsert in chronological order so the newest value wins.
+    row for the same (company, concept, period_end, fiscal_period, unit) is demoted unless its
+    accession is known to be newer. Untied companyfacts rows are preserved conservatively because
+    their filing dates are not stored here. Older own-filing facts remain queryable by filing ID.
     """
+    # Serialize competing original/amendment writes before reading current facts. PostgreSQL's
+    # non-key row lock is compatible with filing/fact FK checks; sorted IDs avoid lock inversion.
+    if facts:
+        with db.no_autoflush:
+            db.query(Company.id).filter(Company.id.in_({f["company_id"] for f in facts})).order_by(
+                Company.id
+            ).with_for_update(key_share=True).all()
     rejected = 0
     if reconcile and facts:
         company_id = facts[0]["company_id"]
@@ -535,6 +543,9 @@ def upsert_facts(
 
     inserted = 0
     skipped = 0
+    filing_dates = dict(db.query(Filing.accession_number, Filing.filing_date).filter(
+        Filing.accession_number.in_({f["accession"] for f in facts})
+    ).all()) if facts else {}
     for fact in facts:
         fact = dict(fact)
         reconciled = fact.pop("reconciled", False)
@@ -558,15 +569,26 @@ def upsert_facts(
         period_filter = FinancialFact.fiscal_period == fact["fiscal_period"]
         if fact["fiscal_period"] in ("Q1", "Q2", "Q3", "Q4"):
             period_filter = or_(period_filter, FinancialFact.fiscal_period.is_(None))
-        db.query(FinancialFact).filter_by(
+        current = db.query(FinancialFact).filter_by(
             company_id=fact["company_id"],
             concept=fact["concept"],
             period_end=fact["period_end"],
             unit=fact["unit"],
             is_latest=True,
-        ).filter(period_filter).update({"is_latest": False})
+        ).filter(period_filter)
+        incoming_date = filing_dates.get(fact["accession"])
+        newer_filing = Filing.id.isnot(None) if incoming_date is None else or_(
+            Filing.filing_date > incoming_date,
+            and_(Filing.filing_date == incoming_date, Filing.accession_number > fact["accession"]),
+        )
+        newer = current.outerjoin(Filing, FinancialFact.accession == Filing.accession_number).filter(
+            FinancialFact.accession != fact["accession"],
+            or_(newer_filing, and_(FinancialFact.source == "companyfacts", Filing.id.is_(None))),
+        ).first() is not None
+        if not newer:
+            current.update({"is_latest": False})
 
-        db.add(FinancialFact(**fact, is_latest=True, reconciled=reconciled))
+        db.add(FinancialFact(**fact, is_latest=not newer, reconciled=reconciled))
         inserted += 1
 
     if commit:  # commit=False lets a caller fold this into one per-filing transaction (remediation)

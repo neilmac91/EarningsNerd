@@ -679,7 +679,10 @@ class EdgarXBRLService:
                 )
                 # Empty/legacy malformed snapshots must not suppress a real extraction.
                 return payload if isinstance(payload, dict) and any(
-                    isinstance(value, list) and value for value in payload.values()
+                    isinstance(payload.get(key), list) and payload[key]
+                    for key in ("revenue", "net_income", "earnings_per_share", "total_assets",
+                                "total_liabilities", "cash_and_equivalents", "net_interest_income",
+                                "noninterest_income")
                 ) else None
         except Exception as exc:
             logger.warning("Persisted XBRL read failed for %s: %s", accession_number, type(exc).__name__)
@@ -1237,7 +1240,7 @@ class EdgarXBRLService:
         # The 2.6 keys (investing/financing CF, current assets/liabilities) only carry a series when
         # RICHER_FINANCIALS_ENABLED was on at extraction, so listing them here is inert until then.
         for key in ("eps_diluted", "operating_cash_flow", "capital_expenditures", "gross_profit",
-                    "operating_income", "total_assets", "cash_and_equivalents",
+                    "operating_income", "total_assets", "total_liabilities", "cash_and_equivalents",
                     "shareholders_equity", "long_term_debt",
                     "investing_cash_flow", "financing_cash_flow",
                     "current_assets", "current_liabilities",

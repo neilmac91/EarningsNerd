@@ -12,5 +12,5 @@ backend. Preserve the point/derived-quality fields through every consumer, inclu
 chart exports and workbooks. Show quality independently of citation traceability.
 
 **Evidence**: PR #697; backend `tests/unit/test_data_completeness.py` pins earlier-input growth,
-citations and exported cell comments. Frontend metric/KPI/trend/narrative regression cases pin
+citations, exported cell comments and PDF value/source warnings. Frontend metric/KPI/trend/narrative regression cases pin
 the corresponding visible warnings; mutations removing these paths must fail those tests.
