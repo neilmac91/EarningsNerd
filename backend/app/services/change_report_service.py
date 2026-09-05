@@ -182,20 +182,27 @@ def _latest_summary(db: Session, filing_id: int) -> Optional[Summary]:
 def build_change_report(db: Session, filing: Filing) -> dict[str, Any]:
     """Find the filing's prior comparable filing + both summaries, then assemble the change report.
 
-    The prior is the most recent same-company, same-form filing strictly older than this one
+    The prior is the latest earlier report period from the same company and base form,
+    preferring its newest amendment filed before the viewed filing
     (10-Q → prior 10-Q = QoQ, 10-K → prior 10-K = YoY) — a single query, xbrl included. We require a
     strictly-earlier reporting PERIOD (not just an earlier filing date) so a later amendment or
     restatement of the SAME period is never differenced against the original — an apples-to-oranges
     comparison that produces spurious deltas.
     """
+    base_form = filing.filing_type.removesuffix("/A")
     prior_q = db.query(Filing).filter(
         Filing.company_id == filing.company_id,
-        Filing.filing_type == filing.filing_type,
+        Filing.filing_type.in_((base_form, f"{base_form}/A")),
         Filing.filing_date < filing.filing_date,
     )
     if filing.period_end_date is not None:
         prior_q = prior_q.filter(Filing.period_end_date < filing.period_end_date)
-    prior = prior_q.order_by(desc(Filing.filing_date)).first()
+        # Report-period ordering prevents a late amendment of an older year from displacing
+        # the immediately preceding period; newest filing then prefers its amendment.
+        prior = prior_q.order_by(desc(Filing.period_end_date), desc(Filing.filing_date), desc(Filing.accession_number)).first()
+    else:
+        # Without the current period we cannot prove that a candidate is a different period.
+        prior = None
     current_summary = _latest_summary(db, filing.id)
     prior_summary = _latest_summary(db, prior.id) if prior is not None else None
     return assemble_report(filing, prior, current_summary, prior_summary)

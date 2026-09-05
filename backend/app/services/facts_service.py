@@ -24,6 +24,7 @@ from typing import Any, Callable, Optional
 from app.services.event_loop import get_app_loop
 
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import or_
 
 from app.models import Company, Filing, FinancialFact, Watchlist
 
@@ -180,8 +181,8 @@ def normalize_standardized_to_facts(
                     # reporting currency rather than silently defaulting to USD.
                     "unit": _unit_for(concept, point.get("currency") or standardized.get("reporting_currency")),
                     "period_end": period_end,
-                    "fiscal_year": period_end.year,
-                    "fiscal_period": _fiscal_period(point_form),
+                    "fiscal_year": point.get("fiscal_year") or period_end.year,
+                    "fiscal_period": point.get("fiscal_period") or _fiscal_period(point_form),
                     "value": float(value),
                     "form": point_form,
                     "accession": accession,
@@ -552,15 +553,18 @@ def upsert_facts(
             skipped += 1
             continue
 
-        # Demote the prior current value for this (company, concept, period, fiscal_period, unit).
+        # A labelled quarter also replaces its legacy unlabelled twin; otherwise deriving a
+        # period would leave two current rows for the same reported figure.
+        period_filter = FinancialFact.fiscal_period == fact["fiscal_period"]
+        if fact["fiscal_period"] in ("Q1", "Q2", "Q3", "Q4"):
+            period_filter = or_(period_filter, FinancialFact.fiscal_period.is_(None))
         db.query(FinancialFact).filter_by(
             company_id=fact["company_id"],
             concept=fact["concept"],
             period_end=fact["period_end"],
-            fiscal_period=fact["fiscal_period"],
             unit=fact["unit"],
             is_latest=True,
-        ).update({"is_latest": False})
+        ).filter(period_filter).update({"is_latest": False})
 
         db.add(FinancialFact(**fact, is_latest=True, reconciled=reconciled))
         inserted += 1

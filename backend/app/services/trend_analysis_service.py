@@ -426,6 +426,10 @@ def build_dataset(
                 prior_key = f"{bucket['fiscal_year'] - 1}{bucket['fiscal_period']}"
             prior = by_period_key.get(prior_key)
             point["yoy"] = delta_fn(point["value"], prior["value"] if prior else None)
+            point["yoy_reconciled"] = (
+                point.get("reconciled") is not False and prior.get("reconciled") is not False
+                if point["yoy"] is not None and prior else None
+            )
         # QoQ: the immediately preceding column (quarterly only).
         if mode == "quarterly":
             previous: Optional[dict[str, Any]] = None
@@ -433,6 +437,10 @@ def build_dataset(
                 if point["value"] is not None:
                     point["qoq"] = delta_fn(
                         point["value"], previous["value"] if previous else None
+                    )
+                    point["qoq_reconciled"] = (
+                        point.get("reconciled") is not False and previous.get("reconciled") is not False
+                        if point["qoq"] is not None and previous else None
                     )
                     previous = point
 
@@ -463,6 +471,10 @@ def build_dataset(
                 window_pp = last_v - first_v
                 window_pp_range = f"FY{first_fy}..FY{last_fy}"
 
+        valued_points = [p for p in points if p["value"] is not None]
+        endpoints_reconciled = bool(valued_points) and all(
+            p.get("reconciled") is not False for p in (valued_points[0], valued_points[-1])
+        )
         series_list.append(
             {
                 "concept": concept,
@@ -472,8 +484,10 @@ def build_dataset(
                 "tone": _SERIES_TONE.get(concept, "normal"),
                 "cagr": cagr,
                 "cagr_window": cagr_window,
+                "cagr_reconciled": endpoints_reconciled if cagr is not None else None,
                 "window_pp": window_pp,
                 "window_pp_range": window_pp_range,
+                "window_pp_reconciled": endpoints_reconciled if window_pp is not None else None,
                 "points": points,
             }
         )
@@ -788,6 +802,7 @@ def marker_index(dataset: dict[str, Any]) -> dict[str, dict[str, Any]]:
                 "unit": series["unit"],
                 "percent": series["percent"],
                 "derived": False,
+                "reconciled": series.get("cagr_reconciled"),
             }
     return index
 
@@ -832,6 +847,7 @@ def _point_citation(n: int, point: dict[str, Any]) -> dict[str, Any]:
         "value": point["value"],
         "period": point["period"],
         "derived": bool(point.get("derived")),
+        "reconciled": point.get("reconciled"),
     }
 
 

@@ -12,6 +12,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Architecture
 
+- [`arch-reconciliation-follows-values-and-growth.md`](./arch-reconciliation-follows-values-and-growth.md) — Carry reconciliation quality through values, growth, citations and exports
+
 - [`arch-committed-universe-fail-open.md`](./arch-committed-universe-fail-open.md) — Bound discovery surfaces to a committed universe with a fail-open filter
 - [`arch-corroborate-semantic-events.md`](./arch-corroborate-semantic-events.md) — Corroborate a semantic event; never derive it from a regulatory category alone
 - [`arch-drop-neutral-amplifiers-with-risk.md`](./arch-drop-neutral-amplifiers-with-risk.md) — Don't ship an amplifier that adds no measurable quality but any fabrication risk

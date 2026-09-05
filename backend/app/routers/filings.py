@@ -140,6 +140,7 @@ class FilingResponse(BaseModel):
     document_url: str
     sec_url: str
     company: Optional[CompanyInfo] = None
+    superseded_by_accession: Optional[str] = None
     
     @classmethod
     def from_orm(cls, filing):
@@ -161,7 +162,8 @@ class FilingResponse(BaseModel):
             accession_number=filing.accession_number,
             document_url=filing.document_url,
             sec_url=filing.sec_url,
-            company=company_info
+            company=company_info,
+            superseded_by_accession=getattr(filing, "superseded_by_accession", None),
         )
     
     class Config:
@@ -226,6 +228,9 @@ async def get_company_filings(
         types_list = ["10-K", "10-Q", "20-F", "6-K", "40-F"]
     else:
         types_list = ["10-K", "10-Q"]
+
+    from app.services.filing_amendment_service import expand_amendment_forms
+    types_list = expand_amendment_forms(types_list)
 
     # Helper to get cached filings from database. joinedload(company) so FilingResponse.from_orm
     # doesn't lazy-load the company per row (this is now the primary serving path, not just fallback).
@@ -345,6 +350,9 @@ async def get_company_filings(
 
         # Batch commit: single transaction for all database changes
         if new_filings or db.dirty:
+            from app.services.filing_amendment_service import mark_superseded_filings
+            db.flush()
+            mark_superseded_filings(db, company.id)
             db.commit()
             # Refresh new filings to get generated IDs
             for filing in new_filings:

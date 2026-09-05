@@ -65,8 +65,8 @@ def test_hit_to_filing_dict_keeps_clean_reports():
     assert d["accession_number"] == "0000019617-20-000012"
 
 
-@pytest.mark.parametrize("form", ["10-K/A", "10-Q/A", "10-K405", "NT 10-K", "8-K", None])
-def test_hit_to_filing_dict_drops_amendments_and_other_forms(form):
+@pytest.mark.parametrize("form", ["10-K405", "NT 10-K", "8-K", None])
+def test_hit_to_filing_dict_drops_other_forms(form):
     assert fh._hit_to_filing_dict(_hit("acc", form)) is None
 
 
@@ -95,9 +95,9 @@ async def test_backfill_company_inserts_dedupes_and_stamps(monkeypatch):
 
     stats = await fh.backfill_company(db, company, efts_client=fake)
 
-    assert stats["inserted"] == 3  # two uniques in w0 (amendment dropped) + one new in w1; shared deduped
+    assert stats["inserted"] == 4  # amendment retained + shared accession deduped across windows
     assert company.history_backfilled_at is not None
-    assert db.query(Filing).filter(Filing.company_id == company.id).count() == 3
+    assert db.query(Filing).filter(Filing.company_id == company.id).count() == 4
     # every request carried the company CIK and no from-offset (query-less page-0 only)
     assert all(c["ciks"] == "0000019617" and c["from"] == 0 for c in fake.calls)
 

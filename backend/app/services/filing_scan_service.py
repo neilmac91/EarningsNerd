@@ -31,7 +31,7 @@ from app.services.notification_service import evaluate_delivery, get_or_create_p
 
 logger = logging.getLogger(__name__)
 
-SCAN_FORM_TYPES = ["10-K", "10-Q", "8-K"]
+SCAN_FORM_TYPES = ["10-K", "10-K/A", "10-Q", "10-Q/A", "8-K"]
 # FPI forms added to the scan only behind ENABLE_FPI_FILINGS — the roadmap warns against a blanket
 # global default (each extra form is one more SEC get_filings call per watched company per tick, and
 # the watched universe is overwhelmingly domestic). Per-form alert eligibility is still gated by the
@@ -118,6 +118,9 @@ def upsert_filings(db: Session, company: Company, sec_filings: list[dict]) -> li
         result.append(filing)
 
     if new_filings:
+        from app.services.filing_amendment_service import mark_superseded_filings
+        db.flush()
+        mark_superseded_filings(db, company.id)
         db.commit()
         for f in new_filings:
             db.refresh(f)

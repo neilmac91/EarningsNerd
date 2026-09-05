@@ -109,11 +109,16 @@ async def precompute_one(
                 company_id = company.id
 
     # Resolve the latest filing of this form (network, no session held).
-    sec_filings = await sec_edgar_service.get_filings(cik, filing_types=[form_u], limit=1)
+    # A late amendment can be newer by filing date but belong to an older report period.
+    # One bounded recent-window fetch lets us warm the latest period, then its latest amendment.
+    sec_filings = await sec_edgar_service.get_filings(cik, filing_types=[form_u], limit=20)
     if not sec_filings:
         result["status"] = "no_filings"
         return result
-    sf = sec_filings[0]
+    sf = max(sec_filings, key=lambda row: (
+        row.get("report_date") or "", row.get("filing_date") or "",
+        row.get("accession_number") or "",
+    ))
     result["accession"] = sf.get("accession_number")
     sec_url = sf.get("sec_url")
     document_url = sf.get("document_url")
@@ -157,6 +162,9 @@ async def precompute_one(
                     sec_url=sec_url,
                 )
                 db.add(filing)
+                db.flush()
+                from app.services.filing_amendment_service import mark_superseded_filings
+                mark_superseded_filings(db, company_id)
                 db.commit()
                 db.refresh(filing)
             filing_id = filing.id
