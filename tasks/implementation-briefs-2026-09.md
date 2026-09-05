@@ -332,12 +332,21 @@ independent refuters per serious finding before merge; confirmed findings were f
 | #671 + #676 | WS-5 items 3, 4, 7 | merged `d535c4b`, `d8cca89` | risk headings, casing, mobile jump-nav, a11y; casing verified live |
 | #658 + #678 | WS-2 | merged `c6eaddf`, hotfix `f8e7728`, deploy green | first ledger deploy adopted a legacy prod `schema_migrations` table via IF NOT EXISTS; hotfix renames the ledger to `migration_ledger`, plants a CI decoy, amends ADR-0007; seed verified `applied=32 skipped=0`. Founder: drop the legacy table |
 | #660 | WS-5 items 1, 2, 6, 8, 9 | merged `ffb0b61` | frontend-only; Sentry-wired boundary, SSR pricing, noindex auth pages, two-directional raw-fetch gate |
-| #674 | WS-3 | in review; rebasing onto `main` after #660 | supersedes #659, #662–#670; four confirmed review fixes in flight; founder: Vercel Node 22 before merge |
+| #674 | WS-3 | merged `2f2e48d`, deploy green, Vercel production deployment completed | Next 16.3.4, Node 22.23.2, advisory audit gates, `::highlight` constructed stylesheet; four confirmed review fixes landed first; #659, #662–#670 closed |
 | #679 | D6 backend minor group (a) | merged `fbbccc5` | the 13 non-edgartools bumps from #672, lock regenerated with pip-tools |
-| #680 | D6 backend minor group (b) | in review; rebasing onto `main` after #679 | edgartools 5.40.1→5.55.0 alone; eval regression gate PASS, 0 warnings; close #672 after merge |
-| #677 | plan hygiene | this PR | todo + dispatch log + CLAUDE.md integrations list |
-| — | WS-1/2/8 follow-up | agent running | INVALID-index check after CONCURRENTLY, checksum-order pin, teardown package-dir gate |
+| #680 | D6 backend minor group (b) | merged `083247d`, deploy green | edgartools 5.40.1→5.55.0 alone; eval regression gate PASS, 0 warnings; #672 closed |
+| #677 | plan hygiene | merged `16c56cb` | todo + dispatch log + CLAUDE.md integrations list |
+| #681 | WS-1/2/8 follow-up | merged `9a7a578`, deploy green | INVALID-index check after CONCURRENTLY (passed silently against prod), checksum-order pin, teardown package-dir gate |
+| #687 | plan hygiene | this PR | wave-1 close-out |
 
-Still held for wave 2: WS-5 item 5 (sitemap fetch); WS-6 (eval key confirmed available in the
-implementing session); WS-7; WS-9; WS-10 docs sweep. Founder console actions (D8) run in parallel
-and are not tracked here.
+**Wave 1 closed 2026-09-05 08:25Z.** Every backend deploy since the ledger seed reports
+`apply_migrations: applied=0 skipped=32`; production health green after each of the day's ten
+backend deploys; the only open PR is the founder's #673 (another session).
+
+Wave 2 (not started — dispatch on founder go, given two session-limit outages today): WS-6 summary
+fidelity (pin figure-trace, scheduled judged eval, arm `AI_EVIDENCE_SNAP` per D5), WS-7 data
+integrity, WS-9 dark surfaces per D3, WS-10 docs sweep, WS-5 item 5 (sitemap fetch). Founder console
+actions (D8) run in parallel and are not tracked here — the open ones are listed in `tasks/todo.md`
+as **(founder)** items: drop the legacy prod `schema_migrations` table, Vercel Node 22 setting,
+`FMP_API_KEY` secret, Sentry source-map env, Cloud SQL `idle_in_transaction_session_timeout`,
+create the `earningsnerd-notable-filings` job when D3 flips.
