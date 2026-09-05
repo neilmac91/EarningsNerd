@@ -385,3 +385,48 @@ def test_seed_script_records_distinct_dry_and_applied_attempts(sessions, monkeyp
         attempts = db.query(JobRun).order_by(JobRun.started_at).all()
         assert [row.job_name for row in attempts] == ["universe-company-seed"] * 2
         assert [row.status for row in attempts] == ["dry_run", "succeeded"]
+
+
+@pytest.mark.parametrize("writer", ["upsert_facts", "upsert_facts_bulk"])
+def test_both_fact_writers_take_ordered_nonkey_company_lock(sessions, writer):
+    from sqlalchemy import event
+    from sqlalchemy.dialects import postgresql
+    statements = []
+    with sessions() as db:
+        co = Company(cik="1", ticker="A", name="A")
+        db.add(co)
+        db.commit()
+        company_id = co.id
+        event.listen(db, "do_orm_execute", lambda state: statements.append(str(state.statement.compile(dialect=postgresql.dialect()))))
+        getattr(facts_service, writer)(db, [{"company_id": company_id, "filing_id": None,
+            "concept": "revenue", "unit": "USD", "period_end": date(2025, 12, 31),
+            "fiscal_year": 2025, "fiscal_period": "FY", "value": 100,
+            "form": "10-K", "accession": "one", "source": "companyfacts", "reconciled": True}])
+        assert any("ORDER BY companies.id FOR NO KEY UPDATE" in stmt for stmt in statements)
+        assert db.query(FinancialFact).one().value == 100
+
+
+@pytest.mark.parametrize("incoming_known", [True, False])
+def test_bulk_delayed_response_preserves_known_amendment(sessions, incoming_known):
+    with sessions() as db:
+        co = Company(cik="1", ticker="A", name="A")
+        db.add(co)
+        db.flush()
+        amended = filing(db, co, "002", "10-Q/A", "2025-09-30", "2025-12-01")
+        if incoming_known:
+            filing(db, co, "001", "10-Q", "2025-09-30", "2025-11-01")
+        common = {"company_id": co.id, "concept": "revenue", "unit": "USD",
+            "period_end": date(2025, 9, 30), "fiscal_year": 2025, "fiscal_period": "Q3",
+            "source": "companyfacts", "reconciled": True}
+        facts_service.upsert_facts(db, [{**common, "filing_id": amended.id,
+            "accession": "002", "form": "10-Q/A", "value": 200}])
+        result = facts_service.upsert_facts_bulk(db, [{**common, "filing_id": None,
+            "accession": "001", "form": "10-Q", "value": 100}])
+        assert result == {"inserted": 1, "skipped": 0, "demoted": 0}
+        assert [(row.accession, row.value) for row in db.query(FinancialFact).filter_by(is_latest=True)] == [("002", 200)]
+        assert db.query(FinancialFact).filter_by(accession="001").one().value == 100
+        # A later comparative filing still becomes current when its metadata establishes order.
+        newer = filing(db, co, "003", "10-Q", "2025-12-31", "2026-02-01")
+        facts_service.upsert_facts_bulk(db, [{**common, "filing_id": newer.id,
+            "accession": "003", "form": "10-Q", "value": 300}])
+        assert [(row.accession, row.value) for row in db.query(FinancialFact).filter_by(is_latest=True)] == [("003", 300)]
