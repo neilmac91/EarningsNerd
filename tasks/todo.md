@@ -129,15 +129,18 @@ and AI baseline protections remain unchanged unless explicitly permitted by the 
 - [x] Dead-integration teardown: trending, hot_filings, fmp, finnhub, stocktwits and their consumers removed — *PR #657 merged 2026-09-05 (`9ff8da6`), deploy green, old routes 404*
 - [ ] Clear the four standing weekly-report anomalies: `backfill-filing-history` for C, MS, WFC, GS; grant deployer SA access to `INTERNAL_JOB_TOKEN`
 - [x] Liabilities/cash fallback and persisted accession-specific XBRL first — #697.
-- [ ] **(founder decision)** Notable filings: flip `NOTABLE_FILINGS_ENABLED` after a one-week quality look (job + seed + flag per `DEPLOYMENT.md`), or kill the slot; homepage findings archive completed #692
+- [ ] **D3 accepted; execution pending:** founder creates/seeds the Notable job and reviews one week of output before `NOTABLE_FILINGS_ENABLED` activation per `DEPLOYMENT.md`; homepage findings archive completed #692
 - [x] FPI roadmap archive and status block — #692. Residual 6-K classifier and founder backfill remain open.
 
-## Founder decisions (engineering is blocked on these)
+## Accepted policies — execution and verification pending
 
 - [x] Migration design (guard-only vs ledger) — *ledger, 2026-09-04*
-- [ ] Arm/keep-advisory per trust gate after readout — Phase 2
+- [ ] **D5 accepted:** obtain the first judged readout, then arm `AI_EVIDENCE_SNAP`; figure-trace and forward-quote remain advisory. The strong-judge credential/readout prerequisite is outstanding.
 - [ ] **Execution pending; D4 spend approved:** universe pregeneration, v1→v2 drain and golden-set runs; FMP secret remains founder-owned
-- [ ] Dark surfaces for beta: Multi-Period Analysis (prod flag state unknown — confirm), Notable filings, Calendar (+ Alpha Vantage licence), Insiders
+- [ ] **D3 accepted:** confirm the Analysis production flag and warm companyfacts before activation; complete Notable job/seed/one-week review prerequisites. Calendar remains off pending the licence decision; Insiders remains off.
+
+## Remaining founder decisions and console actions
+
 - [ ] Alpha Vantage: licence or EDGAR-only
 - [ ] Legal: Terms §7e counsel pass; processor DPAs; legal entity / governing law
 - [ ] `WAITLIST_MODE` intent; LAUNCH_CHECKLIST founder-only actions (GSC, Bing, apex 307→308, Vercel plan, `NEXT_PUBLIC_EXAMPLE_FILING_ID`)
@@ -156,7 +159,7 @@ launch); Turnstile fail-closed; T5 depth ledger; cheaper-model routing flags; wa
 ## WS-7 implementation — archived
 
 Steps 1–6 are merged (#690/#697). [Completed steps 3–6 and proof](archive/ws7-completeness-2026-09.md).
-Founder execution and live deployment/data evidence remain unchecked above and in the ledger.
+Founder execution and live data evidence remain unchecked above and in the ledger; #697 deployment is verified.
 
 ## WS-10 — configuration and script placement hygiene
 
