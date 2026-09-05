@@ -219,7 +219,10 @@ async def bootstrap(database_value: str, output_value: str) -> dict:
         if all(s["status"] == "complete" for s in report["sources"]):
             report["status"] = "complete"
     except Exception as exc:  # noqa: BLE001 — failed preparations are artifacts, never green gates
-        report["errors"].append({"stage": stage, "error_type": type(exc).__name__})
+        error = {"stage": stage, "error_type": type(exc).__name__}
+        if isinstance(exc, ValueError) and re.fullmatch(r"[a-z_]+", str(exc)):
+            error["reason"] = str(exc)
+        report["errors"].append(error)
     finally:
         if runtime is not None:
             runtime.engine.dispose()

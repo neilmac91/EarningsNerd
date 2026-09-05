@@ -50,7 +50,7 @@ def test_existing_database_aborts_before_imports_and_retains_failed_artifact(tmp
     monkeypatch.setattr(boot, "_load_runtime", lambda: pytest.fail("unsafe runtime imported"))
     result = asyncio.run(boot.bootstrap(str(target), str(tmp_path / "evidence")))
     assert result["status"] == "unavailable" and result["sources"] == []
-    assert result["errors"] == [{"stage": "target_guard", "error_type": "ValueError"}]
+    assert result["errors"] == [{"stage": "target_guard", "error_type": "ValueError", "reason": "database_already_exists"}]
     assert target.read_bytes() == b"original"
     assert json.loads((tmp_path / "evidence/preparation.json").read_text()) == result
 
@@ -69,10 +69,20 @@ sources,_=b.load_sources()
 source_path.write_text(json.dumps({'schema_version':1,'sources':sources}))
 (root/'copilot_golden_set.json').write_text(os.environ['GOLDEN_EXPECTATION'])
 original_read=Path.read_bytes
+original_text=Path.read_text
+forbidden_reads=[]
+def check_read(path):
+    if 'golden' in path.name:
+        forbidden_reads.append(str(path))
+        raise AssertionError('expected answers were read')
 def guarded_read(path):
-    if 'golden' in path.name: raise AssertionError('expected answers were read')
+    check_read(path)
     return original_read(path)
+def guarded_text(path,*args,**kwargs):
+    check_read(path)
+    return original_text(path,*args,**kwargs)
 Path.read_bytes=guarded_read
+Path.read_text=guarded_text
 original_load=b.load_sources
 b.load_sources=lambda: original_load(source_path)
 original_runtime=b._load_runtime
@@ -102,6 +112,7 @@ def runtime():
     return rt
 b._load_runtime=runtime
 report=asyncio.run(b.bootstrap(str(root/'facts.db'),str(root/'evidence')))
+assert not forbidden_reads, 'expected answers were read: '+repr(forbidden_reads)
 from app.database import SessionLocal
 from app.models import Company,Filing,Summary,User,FilingContentCache
 from app.models.financial_fact import FinancialFact
