@@ -21,6 +21,16 @@ BASELINE_STATS = {
 BASELINE = {"golden_set_size": 21, "runs_per_candidate": 3, "candidates": {"baseline": BASELINE_STATS}}
 
 
+def _report(summary):
+    return {
+        "harness": {"candidates": list(summary), "runs_per_candidate": 1,
+                    "filings": [{"ticker": "AAPL", "filing_type": "10-K"}]},
+        "summary": {c: dict(s, n=1, scored=1, errors=0) for c, s in summary.items()},
+        "results": [{"candidate": c, "ticker": "AAPL", "filing_type": "10-K", "run": 0,
+                     "score": {"coverage": s["mean_coverage"]}} for c, s in summary.items()],
+    }
+
+
 def _hard(findings):
     return [f for f in findings if f.severity == "HARD"]
 
@@ -89,23 +99,25 @@ def test_stdev_increase_is_warn():
 
 
 def test_evaluate_report_flags_hard_regression_across_candidates():
-    report = {"summary": {"baseline": dict(BASELINE_STATS, mean_coverage=0.80)}}
+    report = _report({"baseline": dict(BASELINE_STATS, mean_coverage=0.80)})
     findings, notes = evaluate_report(report, BASELINE)
-    assert _hard(findings) and notes == []
+    assert _hard(findings) and notes == [
+        "baseline: expected=1 attempted=1 scored=1 errors=0; quality means use scored outputs only"
+    ]
 
 
 def test_unknown_candidate_is_noted_not_failed():
-    report = {"summary": {"some-new-model": dict(BASELINE_STATS)}}
+    report = _report({"some-new-model": dict(BASELINE_STATS)})
     findings, notes = evaluate_report(report, BASELINE)
     assert findings == []
     assert any("some-new-model" in n for n in notes)
 
 
 def test_candidate_filter_scopes_the_diff():
-    report = {"summary": {
+    report = _report({
         "baseline": dict(BASELINE_STATS, mean_coverage=0.80),  # would fail
         "other": dict(BASELINE_STATS),
-    }}
+    })
     # Only gate 'other' (which has no pinned baseline) → no findings, one note.
     findings, notes = evaluate_report(report, BASELINE, only="other")
     assert findings == []
