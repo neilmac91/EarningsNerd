@@ -19,7 +19,7 @@ def test_manifest_is_identity_only_and_hashes_exact_bytes(tmp_path):
     assert len({s["accession_number"] for s in sources if s["ticker"] == "BABA"}) == 2
     assert digest == hashlib.sha256(boot.SOURCE_MANIFEST.read_bytes()).hexdigest()
     path = tmp_path / "sources.json"
-    for change in ({"expected_facts": [100]}, {"document_url": "https://example.com/source"},
+    for change in ({"expected_facts": [100]}, {"expected_answer": "100"}, {"document_url": "https://example.com/source"},
                    {"accession_number": "wrong"}):
         bad = {**sources[0], **change}
         path.write_text(json.dumps({"schema_version": 1, "sources": [bad]}))
