@@ -18,8 +18,13 @@ was no `lock_timeout`, no `statement_timeout`, and no `timeout-minutes` on the j
 ## Rule
 
 1. Every psql session that applies migrations sets `lock_timeout` (seconds, not minutes) and
-   `statement_timeout`, retries a bounded number of times, and on final failure prints
-   `pg_stat_activity` so the blocker is visible from the CI log.
+   `statement_timeout`, retries a bounded number of times **only** on the contention SQLSTATEs
+   (`55P03`, `57014`, `40P01` — read from psql stderr under `VERBOSITY=verbose`; a syntax or
+   permission error is final), and on final failure prints `pg_stat_activity` (unfiltered — other
+   roles' rows are NULL without `pg_read_all_stats`) plus a `pg_locks ⨝ pg_class` dump so the
+   blocker and the relation are visible from the CI log. Every other workflow step that reaches
+   Cloud SQL (`ops.yml`) sets the same `lock_timeout`; its `statement_timeout` is scoped per step
+   (write path 120 s, read-only snapshots 600 s).
 2. Every deploy job carries `timeout-minutes` well under GitHub's 360-minute default.
 3. New migration files never issue a top-level `ALTER TABLE` on a pre-existing table. Wrap it in
    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM information_schema.columns …) THEN ALTER … END IF; END $$;`
@@ -28,8 +33,13 @@ was no `lock_timeout`, no `statement_timeout`, and no `timeout-minutes` on the j
 4. "Idempotent" in rule 3 of CLAUDE.md means *re-runnable*, not *lock-free*. Treat every re-applied
    DDL statement as a lock acquisition on a live table.
 
-Enforced by `backend/tests/unit/test_migration_lock_safety.py` (workflow knobs + a frozen,
-shrink-only allow-list of the 17 legacy unguarded files).
+5. Plain `CREATE [UNIQUE] INDEX IF NOT EXISTS` on a pre-existing table is the same trap in a
+   smaller lock (SHARE, taken before the existence check). New files use the same `DO $$` catalog
+   guard (`pg_indexes`) or `CREATE INDEX CONCURRENTLY` outside a transaction block.
+
+Enforced by `backend/tests/unit/test_migration_lock_safety.py` (workflow knobs, SQLSTATE-only retry,
+proxy checksum pin, `ops.yml` dispatch-only + `PGOPTIONS`, and two frozen, shrink-only allow-lists:
+the 17 legacy unguarded-ALTER files and the 7 legacy unguarded-index files).
 
 ## Evidence
 

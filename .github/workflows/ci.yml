@@ -302,6 +302,12 @@ jobs:
       id-token: write # mint the OIDC token Workload Identity Federation exchanges
     env:
       IMAGE: us-west1-docker.pkg.dev/earnings-nerd/earningsnerd/backend
+      # Pinned proxy build, verified with sha256sum before it runs. Digest computed 2026-09-04 from two
+      # independent downloads of this exact object (the bucket publishes no checksum sidecar; the
+      # binary reports `2.14.0+linux.amd64`). Bump version + digest together, in BOTH workflows —
+      # tests/unit/test_migration_lock_safety.py requires them to match ops.yml.
+      CLOUD_SQL_PROXY_VERSION: v2.14.0
+      CLOUD_SQL_PROXY_SHA256: c0af803c07157530c9159b6179e3288298950af5a39c8ca38ad28c8a2b52ae3d
     steps:
       - uses: actions/checkout@v7
         with:
@@ -350,7 +356,8 @@ jobs:
           set -euo pipefail
           sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
           curl -fsSL -o cloud-sql-proxy \
-            https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/v2.14.0/cloud-sql-proxy.linux.amd64
+            "https://storage.googleapis.com/cloud-sql-connectors/cloud-sql-proxy/${CLOUD_SQL_PROXY_VERSION}/cloud-sql-proxy.linux.amd64"
+          echo "${CLOUD_SQL_PROXY_SHA256}  cloud-sql-proxy" | sha256sum -c -
           chmod +x cloud-sql-proxy
 
           # Pull the connection string from Secret Manager and mask it before any use.
@@ -390,14 +397,16 @@ jobs:
             local f="$1" attempt rc
             for attempt in 1 2 3 4 5; do
               rc=0
-              psql -v ON_ERROR_STOP=1 -f "$f" 2>"$ERRLOG" || rc=$?
+              # VERBOSITY=verbose makes psql print the SQLSTATE (e.g. `ERROR:  55P03: ...`) so the
+              # retry decision keys on the code, not on message wording.
+              psql -X -v ON_ERROR_STOP=1 -v VERBOSITY=verbose -f "$f" 2>"$ERRLOG" || rc=$?
               cat "$ERRLOG" >&2
               if [ "$rc" -eq 0 ]; then
                 return 0
               fi
-              # Retry only the contention class (lock_timeout 55P03, statement_timeout 57014,
-              # deadlock 40P01). A syntax or permission error is final on the first attempt.
-              if ! grep -qiE 'lock timeout|statement timeout|deadlock detected' "$ERRLOG"; then
+              # Retry only the contention class: lock_timeout 55P03, statement_timeout 57014,
+              # deadlock 40P01. A syntax or permission error is final on the first attempt.
+              if ! grep -qE '\b(55P03|57014|40P01)\b' "$ERRLOG"; then
                 echo "::error::$(basename "$f") failed with a non-retryable error (see above)."
                 return 1
               fi

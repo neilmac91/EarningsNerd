@@ -4,6 +4,14 @@
 -- NULL twins as it goes (upsert_facts_bulk); this idempotent pass converges any rows written before
 -- that code shipped so a period never has two is_latest rows (one NULL, one labelled). Safe to
 -- re-run any time; no-ops until labelled rows exist. Run after the first companyfacts warm sync.
+--
+-- Deploy-time cost (audit 2026-09, WS-1): this correlated UPDATE re-scans financial_fact on EVERY
+-- deploy (CLAUDE.md rule 3 re-applies all files) and runs under the migration session's
+-- statement_timeout=120s (ci.yml). On a large fact table it is the one migration that can hit
+-- that ceiling with no lock contention at all — a timeout here surfaces as SQLSTATE 57014 and is
+-- retried, but if the table outgrows the budget the deploy fails until this file is skipped. The
+-- planned schema_migrations ledger (WS-2) records applied files and will stop re-running it; do
+-- not "fix" this by raising statement_timeout, and do not edit this applied file (rule 3).
 
 BEGIN;
 
