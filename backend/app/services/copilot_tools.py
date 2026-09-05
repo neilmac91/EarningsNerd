@@ -10,8 +10,8 @@ existing citation shape, so the frontend renders it as-is).
 Session lifetime is the subtle part. The Copilot's SSE generator runs *after* the request DB session
 may already be gone (the same reason P1 added ``snapshot_filing``), so a tool **must not** touch the
 request ``db``. Every :func:`run_tool` call therefore opens its own short-lived ``SessionLocal()``,
-queries, and closes it in a ``finally``. Callers bind ``company_id`` (captured eagerly from the
-snapshot) via a closure.
+queries, and closes it in a ``finally``. Callers bind company, accession and native currency
+(captured eagerly from the snapshot) via a closure.
 
 Everything here is tolerant: ``run_tool`` never raises — unknown/absent data and unexpected errors
 become ``{"error": ...}`` dicts so the streaming loop stays well-formed.
@@ -19,6 +19,8 @@ become ``{"error": ...}`` dicts so the streaming loop stays well-formed.
 from __future__ import annotations
 
 import logging
+import math
+import re
 from typing import Any, Optional
 
 from sqlalchemy import desc
@@ -60,7 +62,7 @@ TOOLS: list[dict[str, Any]] = [
             "name": "list_available_concepts",
             "description": (
                 "List which standardized financial concepts (e.g. revenue, net_income, gross_profit) "
-                "and fiscal periods are available for THIS company from its XBRL data. Call this "
+                "and fiscal periods are available in THIS filing and its own comparative XBRL data. Call this "
                 "first when you are unsure whether a figure is disclosed."
             ),
             "parameters": {"type": "object", "properties": {}, "required": []},
@@ -71,7 +73,7 @@ TOOLS: list[dict[str, Any]] = [
         "function": {
             "name": "get_financial_fact",
             "description": (
-                "Fetch the exact, as-reported value of a single financial concept for this company "
+                "Fetch the exact, as-reported value of a single financial concept in this filing "
                 "from XBRL. Returns the authoritative number plus provenance. Use this for ANY "
                 "specific financial figure — never state a number from memory."
             ),
@@ -198,7 +200,8 @@ def _fact_provenance(fact: FinancialFact) -> dict[str, Any]:
     return {
         "concept": fact.concept,
         "value": float(fact.value),
-        "unit": fact.unit,
+        "unit": canonical_unit(fact.unit),
+        "period_start": fact.period_start.isoformat() if fact.period_start else None,
         "period_end": fact.period_end.isoformat() if fact.period_end else None,
         "fiscal_year": fact.fiscal_year,
         "fiscal_period": fact.fiscal_period,
@@ -207,206 +210,200 @@ def _fact_provenance(fact: FinancialFact) -> dict[str, Any]:
     }
 
 
-def _query_fact(
-    db: Any,
-    company_id: int,
-    concept: str,
-    fiscal_year: Optional[int] = None,
-    fiscal_period: Optional[str] = None,
-) -> Optional[FinancialFact]:
-    """Return the matching latest fact, or None.
+def canonical_unit(unit: str | None) -> str | None:
+    """Canonicalize explicit currency/unit aliases without converting values or dimensions."""
+    if not isinstance(unit, str):
+        return None
+    text = unit.strip().upper().replace("_PER_SHARE", "/SHARES").replace(" PER SHARE", "/SHARES")
+    if text in {"PURE", "SHARES"}:
+        return text.lower()
+    match = re.fullmatch(r"([A-Z]{3})(/SHARES?)?", text)
+    if not match:
+        return None
+    currency = "CNY" if match[1] == "RMB" else match[1]
+    return currency + ("/shares" if match[2] else "")
 
-    Always scoped to ``company_id`` and ``is_latest == True``. When ``fiscal_year``/``fiscal_period``
-    are given they filter exactly; otherwise the most recent period (by ``period_end``) wins.
-    """
-    query = db.query(FinancialFact).filter(
+
+class _Unavailable(Exception):
+    """Expected ambiguity or missing evidence, represented as a tool error."""
+
+
+def _scope(db: Any, company_id: int, accession: str) -> Any:
+    # Scope lives in one query constructor shared by every direct/list/arithmetic path.
+    # Historical own-filing facts remain valid even after a newer filing demotes is_latest.
+    return db.query(FinancialFact).filter(
         FinancialFact.company_id == company_id,
-        FinancialFact.concept == concept,
-        FinancialFact.is_latest.is_(True),
+        FinancialFact.accession == accession,
     )
+
+
+def _bounded_rows(query: Any) -> list[FinancialFact]:
+    rows = query.limit(257).all()
+    if len(rows) > 256:
+        raise _Unavailable("too_many_candidates")
+    return rows
+
+
+def _select_fact(rows: list[FinancialFact], reporting_currency: str | None) -> FinancialFact | None:
+    currency = canonical_unit(reporting_currency)
+    if currency and "/" not in currency and currency not in {"pure", "shares"}:
+        rows = [r for r in rows if canonical_unit(r.unit) in {currency, f"{currency}/shares", "pure", "shares"}]
+    if not rows:
+        return None
+    latest = max(r.period_end for r in rows)
+    rows = [r for r in rows if r.period_end == latest]
+    # Multiple units, fiscal bases, or alias rows are ambiguous; never pick insertion order.
+    if len(rows) != 1:
+        raise _Unavailable("ambiguous_fact")
+    fact = rows[0]
+    if canonical_unit(fact.unit) is None or not math.isfinite(float(fact.value)):
+        raise _Unavailable("invalid_fact")
+    return fact
+
+
+def _query_fact(
+    db: Any, company_id: int, accession: str, concept: str,
+    fiscal_year: Optional[int] = None, fiscal_period: Optional[str] = None,
+    *, reporting_currency: str | None = None, period_end: Any = None,
+) -> Optional[FinancialFact]:
+    query = _scope(db, company_id, accession).filter(FinancialFact.concept == concept)
     if fiscal_year is not None:
         query = query.filter(FinancialFact.fiscal_year == fiscal_year)
     if fiscal_period is not None:
         query = query.filter(FinancialFact.fiscal_period == fiscal_period)
-    return query.order_by(desc(FinancialFact.period_end)).first()
+    if period_end is not None:
+        query = query.filter(FinancialFact.period_end == period_end)
+    return _select_fact(_bounded_rows(query.order_by(desc(FinancialFact.period_end))), reporting_currency)
 
 
-def _available_concepts(db: Any, company_id: int) -> list[str]:
-    """Distinct concept keys this company has latest facts for (for not_disclosed hints)."""
-    rows = (
-        db.query(FinancialFact.concept)
-        .filter(
-            FinancialFact.company_id == company_id,
-            FinancialFact.is_latest.is_(True),
-        )
-        .distinct()
-        .all()
-    )
-    return sorted({row[0] for row in rows if row[0]})
+def _run_list_available_concepts(db: Any, company_id: int, accession: str) -> dict[str, Any]:
+    rows = _bounded_rows(_scope(db, company_id, accession))
+    return {
+        "concepts": sorted({r.concept for r in rows if r.concept}),
+        "fiscal_periods": sorted({r.fiscal_period for r in rows if r.fiscal_period}),
+    }
 
 
-def _run_list_available_concepts(db: Any, company_id: int) -> dict[str, Any]:
-    """Tool body for ``list_available_concepts``."""
-    rows = (
-        db.query(FinancialFact.concept, FinancialFact.fiscal_period)
-        .filter(
-            FinancialFact.company_id == company_id,
-            FinancialFact.is_latest.is_(True),
-        )
-        .distinct()
-        .all()
-    )
-    concepts = sorted({row[0] for row in rows if row[0]})
-    fiscal_periods = sorted({row[1] for row in rows if row[1]})
-    return {"concepts": concepts, "fiscal_periods": fiscal_periods}
+def _missing(db: Any, company_id: int, accession: str, error: str) -> dict[str, Any]:
+    return {"error": error, "available_concepts": _run_list_available_concepts(db, company_id, accession)["concepts"]}
 
 
-def _run_get_financial_fact(db: Any, company_id: int, args: dict) -> dict[str, Any]:
-    """Tool body for ``get_financial_fact``."""
+def _run_get_financial_fact(
+    db: Any, company_id: int, accession: str, args: dict, currency: str | None,
+) -> dict[str, Any]:
     concept = args.get("concept")
-    if not concept or not isinstance(concept, str):
-        return {"error": "missing_concept", "available_concepts": _available_concepts(db, company_id)}
-    fact = _query_fact(
-        db,
-        company_id,
-        concept,
-        fiscal_year=args.get("fiscal_year"),
-        fiscal_period=args.get("fiscal_period"),
-    )
+    if not isinstance(concept, str) or not concept:
+        return _missing(db, company_id, accession, "missing_concept")
+    fact = _query_fact(db, company_id, accession, concept, args.get("fiscal_year"),
+                       args.get("fiscal_period"), reporting_currency=currency)
     if fact is None:
-        return {"error": "not_disclosed", "available_concepts": _available_concepts(db, company_id)}
+        return _missing(db, company_id, accession, "not_disclosed")
     return _fact_provenance(fact)
 
 
-def _run_compute_metric(db: Any, company_id: int, args: dict) -> dict[str, Any]:
-    """Tool body for ``compute_metric`` — the server performs all arithmetic on exact values."""
-    kind = args.get("kind")
-    concept = args.get("concept")
-    if not concept or not isinstance(concept, str):
-        return {"error": "missing_concept", "available_concepts": _available_concepts(db, company_id)}
-    fiscal_year = args.get("fiscal_year")
-    fiscal_period = args.get("fiscal_period")
+def _has_duration(fact: FinancialFact) -> bool:
+    # FY can be inferred from form by the writer; it cannot prove an actual duration.
+    return fact.period_start is not None and fact.period_start < fact.period_end
 
+
+def _prior_comparable(current: FinancialFact, prior: FinancialFact) -> bool:
+    if not _has_duration(prior):
+        return False
+    # Calendar years and 52/53-week fiscal years shift corresponding endpoints by 357–373
+    # days. Requiring BOTH endpoints excludes annual-versus-quarter/YTD substitutions.
+    return (
+        357 <= (current.period_start - prior.period_start).days <= 373
+        and 357 <= (current.period_end - prior.period_end).days <= 373
+        and abs((current.period_end - current.period_start).days - (prior.period_end - prior.period_start).days) <= 8
+    )
+
+
+def _run_compute_metric(
+    db: Any, company_id: int, accession: str, args: dict, currency: str | None,
+) -> dict[str, Any]:
+    kind, concept = args.get("kind"), args.get("concept")
+    if not isinstance(concept, str) or not concept:
+        return _missing(db, company_id, accession, "missing_concept")
+    if kind not in {"yoy_growth", "margin"}:
+        return {"error": "unknown_metric_kind", "kind": kind}
+    current = _query_fact(db, company_id, accession, concept, args.get("fiscal_year"),
+                          args.get("fiscal_period"), reporting_currency=currency)
+    if current is None:
+        return _missing(db, company_id, accession, "not_disclosed")
+    if not _has_duration(current):
+        return {"error": "basis_unavailable", "concept": concept}
     if kind == "yoy_growth":
-        current = _query_fact(db, company_id, concept, fiscal_year, fiscal_period)
-        if current is None:
-            return {"error": "not_disclosed", "available_concepts": _available_concepts(db, company_id)}
-        # The prior-year comparable is the same concept/period one fiscal year earlier. Match on
-        # fiscal_year-1 when known; otherwise fall back to the second-most-recent matching period.
-        prior: Optional[FinancialFact] = None
-        if current.fiscal_year is not None:
-            prior = _query_fact(
-                db,
-                company_id,
-                concept,
-                fiscal_year=current.fiscal_year - 1,
-                fiscal_period=current.fiscal_period,
-            )
+        rows = _bounded_rows(_scope(db, company_id, accession).filter(
+            FinancialFact.concept == concept, FinancialFact.period_end < current.period_end,
+        ))
+        comparable = [r for r in rows if _prior_comparable(current, r)]
+        prior = _select_fact(comparable, currency)
         if prior is None:
-            prior = (
-                db.query(FinancialFact)
-                .filter(
-                    FinancialFact.company_id == company_id,
-                    FinancialFact.concept == concept,
-                    FinancialFact.is_latest.is_(True),
-                    FinancialFact.period_end < current.period_end,
-                )
-                .order_by(desc(FinancialFact.period_end))
-                .first()
-            )
-        if prior is None:
-            return {"error": "no_prior_period", "concept": concept}
-        prior_value = float(prior.value)
-        if prior_value == 0:
+            return {"error": "basis_unavailable" if any(not _has_duration(r) for r in rows) else "no_prior_period", "concept": concept}
+        if canonical_unit(current.unit) != canonical_unit(prior.unit):
+            return {"error": "incompatible_units", "concept": concept}
+        if float(prior.value) == 0:
             return {"error": "prior_period_zero", "concept": concept}
-        current_value = float(current.value)
-        growth = (current_value - prior_value) / abs(prior_value)
         result = _fact_provenance(current)
-        result.update(
-            {
-                "kind": "yoy_growth",
-                "value": growth,
-                "unit": "pure",
-                "current_value": current_value,
-                "prior_value": prior_value,
-                "prior_period_end": prior.period_end.isoformat() if prior.period_end else None,
-                "prior_fiscal_year": prior.fiscal_year,
-            }
-        )
+        result.update({
+            "kind": kind, "value": (float(current.value) - float(prior.value)) / abs(float(prior.value)),
+            "unit": "pure", "current_value": float(current.value), "prior_value": float(prior.value),
+            "prior_period_end": prior.period_end.isoformat(), "prior_fiscal_year": prior.fiscal_year,
+            "source_facts": [_fact_provenance(current), _fact_provenance(prior)],
+        })
         return result
-
-    if kind == "margin":
-        denominator_concept = args.get("denominator_concept") or _DEFAULT_MARGIN_DENOMINATORS.get(
-            concept, "revenue"
-        )
-        numerator = _query_fact(db, company_id, concept, fiscal_year, fiscal_period)
-        if numerator is None:
-            return {"error": "not_disclosed", "available_concepts": _available_concepts(db, company_id)}
-        # Match the denominator to the numerator's EXACT period_end (a non-nullable Date) so the
-        # ratio is internally consistent even when fiscal_year/fiscal_period are null on a fact.
-        denominator = (
-            db.query(FinancialFact)
-            .filter(
-                FinancialFact.company_id == company_id,
-                FinancialFact.concept == denominator_concept,
-                FinancialFact.period_end == numerator.period_end,
-                FinancialFact.is_latest.is_(True),
-            )
-            .first()
-        )
-        if denominator is None:
-            return {"error": "denominator_not_disclosed", "denominator_concept": denominator_concept}
-        denominator_value = float(denominator.value)
-        if denominator_value == 0:
-            return {"error": "denominator_zero", "denominator_concept": denominator_concept}
-        numerator_value = float(numerator.value)
-        margin = numerator_value / denominator_value
-        result = _fact_provenance(numerator)
-        result.update(
-            {
-                "kind": "margin",
-                "value": margin,
-                "unit": "pure",
-                "numerator_value": numerator_value,
-                "denominator_concept": denominator_concept,
-                "denominator_value": denominator_value,
-            }
-        )
-        return result
-
-    return {"error": "unknown_metric_kind", "kind": kind}
+    denominator_concept = args.get("denominator_concept") or _DEFAULT_MARGIN_DENOMINATORS.get(concept, "revenue")
+    denominator = _query_fact(db, company_id, accession, denominator_concept,
+                              reporting_currency=currency, period_end=current.period_end)
+    if denominator is None:
+        return {"error": "denominator_not_disclosed", "denominator_concept": denominator_concept}
+    if not _has_duration(denominator) or current.period_start != denominator.period_start:
+        return {"error": "basis_unavailable", "concept": concept}
+    if canonical_unit(current.unit) != canonical_unit(denominator.unit):
+        return {"error": "incompatible_units", "concept": concept}
+    if float(denominator.value) == 0:
+        return {"error": "denominator_zero", "denominator_concept": denominator_concept}
+    result = _fact_provenance(current)
+    result.update({
+        "kind": kind, "value": float(current.value) / float(denominator.value), "unit": "pure",
+        "numerator_value": float(current.value), "denominator_concept": denominator_concept,
+        "denominator_value": float(denominator.value),
+        "source_facts": [_fact_provenance(current), _fact_provenance(denominator)],
+    })
+    return result
 
 
-def run_tool(name: str, args: dict, company_id: int) -> dict[str, Any]:
-    """Execute a Copilot tool by name and return a JSON-serializable result dict.
+def run_tool(
+    name: str, args: dict, company_id: int, *, accession_number: str | None = None,
+    reporting_currency: str | None = None,
+) -> dict[str, Any]:
+    """Execute against trusted viewed-filing scope in an independently closed DB session.
 
-    Opens its **own** ``SessionLocal()`` (the SSE generator runs after the request session may be
-    gone), dispatches to the tool body, and always closes the session in ``finally``. Tolerant: any
-    unexpected failure becomes ``{"error": ...}`` rather than raising, so the streaming tool-call loop
-    never breaks.
-
-    Args:
-        name: Tool name (one of the functions declared in :data:`TOOLS`).
-        args: Decoded JSON arguments for the tool (may be empty).
-        company_id: The filing's company id, bound by the caller's closure.
-
-    Returns:
-        A JSON-serializable dict — either a successful result (with provenance) or ``{"error": ...}``.
+    Neither accession nor currency is accepted from model arguments. Missing trusted scope
+    fails closed, including for concept discovery. No other filing supplies missing data.
     """
-    db = SessionLocal()
+    if not isinstance(accession_number, str) or not re.fullmatch(r"[0-9]{10}-[0-9]{2}-[0-9]{6}", accession_number):
+        return {"error": "filing_scope_unavailable"}
+    db = None
     try:
+        db = SessionLocal()
         if name == "list_available_concepts":
-            return _run_list_available_concepts(db, company_id)
+            return _run_list_available_concepts(db, company_id, accession_number)
+        if not isinstance(args, dict):
+            return {"error": "invalid_arguments"}
         if name == "get_financial_fact":
-            return _run_get_financial_fact(db, company_id, args or {})
+            return _run_get_financial_fact(db, company_id, accession_number, args, reporting_currency)
         if name == "compute_metric":
-            return _run_compute_metric(db, company_id, args or {})
+            return _run_compute_metric(db, company_id, accession_number, args, reporting_currency)
         return {"error": "unknown_tool", "name": name}
-    except Exception as e:  # noqa: BLE001 — tolerant: tools never raise into the stream loop
-        logger.warning("copilot tool %s failed: %s", name, str(e)[:200])
-        return {"error": "tool_failed", "message": str(e)[:200]}
+    except _Unavailable as exc:
+        return {"error": str(exc)}
+    except Exception:  # noqa: BLE001 — no DB/provider details in model-visible errors
+        logger.warning("copilot tool failed", exc_info=False)
+        return {"error": "tool_failed"}
     finally:
-        db.close()
+        if db is not None:
+            db.close()
 
 
 def fact_to_citation(fact_dict: dict[str, Any]) -> dict[str, Any]:
@@ -451,4 +448,8 @@ def fact_to_citation(fact_dict: dict[str, Any]) -> dict[str, Any]:
         "value": float(value) if isinstance(value, (int, float)) else None,
         "value_kind": kind,
         "concept": concept,
+        **{key: fact_dict.get(key) for key in (
+            "accession", "unit", "period_start", "period_end", "fiscal_year", "fiscal_period",
+            "raw_tag", "source_facts", "denominator_concept",
+        )},
     }

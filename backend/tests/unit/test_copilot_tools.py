@@ -32,31 +32,32 @@ def _seed_company_with_facts():
     db.commit()
     db.refresh(company)
     cid = company.id
+    accession = "0000320193-24-000079"
 
     facts = [
         # FY2024 (current)
         FinancialFact(
             company_id=cid, concept="revenue", raw_tag="us-gaap:Revenues", unit="USD",
-            period_end=datetime.date(2024, 9, 28), fiscal_year=2024, fiscal_period="FY",
-            value=391035000000, form="10-K", accession=f"acc-{suffix}-2024", is_latest=True,
+            period_start=datetime.date(2023, 10, 1), period_end=datetime.date(2024, 9, 28), fiscal_year=2024, fiscal_period="FY",
+            value=391035000000, form="10-K", accession=accession, is_latest=True,
         ),
         FinancialFact(
             company_id=cid, concept="gross_profit", raw_tag="us-gaap:GrossProfit", unit="USD",
-            period_end=datetime.date(2024, 9, 28), fiscal_year=2024, fiscal_period="FY",
-            value=180683000000, form="10-K", accession=f"acc-{suffix}-2024", is_latest=True,
+            period_start=datetime.date(2023, 10, 1), period_end=datetime.date(2024, 9, 28), fiscal_year=2024, fiscal_period="FY",
+            value=180683000000, form="10-K", accession=accession, is_latest=True,
         ),
-        # FY2023 (prior year — for YoY)
+        # FY2023 (own-filing comparative — for YoY)
         FinancialFact(
             company_id=cid, concept="revenue", raw_tag="us-gaap:Revenues", unit="USD",
-            period_end=datetime.date(2023, 9, 30), fiscal_year=2023, fiscal_period="FY",
-            value=383285000000, form="10-K", accession=f"acc-{suffix}-2023", is_latest=True,
+            period_start=datetime.date(2022, 9, 25), period_end=datetime.date(2023, 9, 30), fiscal_year=2023, fiscal_period="FY",
+            value=383285000000, form="10-K", accession=accession, is_latest=True,
         ),
     ]
     db.add_all(facts)
     db.commit()
     db.close()
     try:
-        yield cid
+        yield cid, accession
     finally:
         db = SessionLocal()
         db.query(FinancialFact).filter(FinancialFact.company_id == cid).delete()
@@ -68,15 +69,15 @@ def _seed_company_with_facts():
 @pytest.mark.requires_db
 def test_get_financial_fact_returns_latest_with_provenance():
     """get_financial_fact (no period args) returns the most recent revenue value + raw_tag/accession."""
-    with _seed_company_with_facts() as cid:
-        result = copilot_tools.run_tool("get_financial_fact", {"concept": "revenue"}, cid)
+    with _seed_company_with_facts() as (cid, accession):
+        result = copilot_tools.run_tool("get_financial_fact", {"concept": "revenue"}, cid, accession_number=accession)
 
     assert "error" not in result
     assert result["value"] == pytest.approx(391035000000.0)
     assert result["concept"] == "revenue"
     assert result["unit"] == "USD"
     assert result["raw_tag"] == "us-gaap:Revenues"
-    assert result["accession"].endswith("-2024")
+    assert result["accession"] == accession
     assert result["period_end"] == "2024-09-28"
     assert result["fiscal_year"] == 2024
     assert result["fiscal_period"] == "FY"
@@ -85,9 +86,9 @@ def test_get_financial_fact_returns_latest_with_provenance():
 @pytest.mark.requires_db
 def test_get_financial_fact_specific_year():
     """An explicit fiscal_year selects that period rather than the most recent."""
-    with _seed_company_with_facts() as cid:
+    with _seed_company_with_facts() as (cid, accession):
         result = copilot_tools.run_tool(
-            "get_financial_fact", {"concept": "revenue", "fiscal_year": 2023}, cid
+            "get_financial_fact", {"concept": "revenue", "fiscal_year": 2023}, cid, accession_number=accession
         )
 
     assert "error" not in result
@@ -98,9 +99,9 @@ def test_get_financial_fact_specific_year():
 @pytest.mark.requires_db
 def test_compute_metric_yoy_growth():
     """yoy_growth computes (current - prior) / |prior| on exact values."""
-    with _seed_company_with_facts() as cid:
+    with _seed_company_with_facts() as (cid, accession):
         result = copilot_tools.run_tool(
-            "compute_metric", {"kind": "yoy_growth", "concept": "revenue"}, cid
+            "compute_metric", {"kind": "yoy_growth", "concept": "revenue"}, cid, accession_number=accession
         )
 
     assert "error" not in result
@@ -115,9 +116,9 @@ def test_compute_metric_yoy_growth():
 @pytest.mark.requires_db
 def test_compute_metric_margin():
     """margin computes numerator/denominator (gross_profit / revenue) for the matched period."""
-    with _seed_company_with_facts() as cid:
+    with _seed_company_with_facts() as (cid, accession):
         result = copilot_tools.run_tool(
-            "compute_metric", {"kind": "margin", "concept": "gross_profit"}, cid
+            "compute_metric", {"kind": "margin", "concept": "gross_profit"}, cid, accession_number=accession
         )
 
     assert "error" not in result
@@ -131,9 +132,9 @@ def test_compute_metric_margin():
 @pytest.mark.requires_db
 def test_unknown_concept_returns_not_disclosed_with_available():
     """An absent concept returns the not_disclosed error shape listing available concepts."""
-    with _seed_company_with_facts() as cid:
+    with _seed_company_with_facts() as (cid, accession):
         result = copilot_tools.run_tool(
-            "get_financial_fact", {"concept": "free_cash_flow"}, cid
+            "get_financial_fact", {"concept": "free_cash_flow"}, cid, accession_number=accession
         )
 
     assert result["error"] == "not_disclosed"
@@ -144,8 +145,8 @@ def test_unknown_concept_returns_not_disclosed_with_available():
 @pytest.mark.requires_db
 def test_list_available_concepts():
     """list_available_concepts reports the distinct concepts + fiscal periods for the company."""
-    with _seed_company_with_facts() as cid:
-        result = copilot_tools.run_tool("list_available_concepts", {}, cid)
+    with _seed_company_with_facts() as (cid, accession):
+        result = copilot_tools.run_tool("list_available_concepts", {}, cid, accession_number=accession)
 
     assert set(result["concepts"]) == {"revenue", "gross_profit"}
     assert result["fiscal_periods"] == ["FY"]
@@ -154,8 +155,8 @@ def test_list_available_concepts():
 @pytest.mark.requires_db
 def test_fact_to_citation_shape():
     """fact_to_citation renders the existing citation shape with an ``XBRL ·`` section_ref."""
-    with _seed_company_with_facts() as cid:
-        fact = copilot_tools.run_tool("get_financial_fact", {"concept": "revenue"}, cid)
+    with _seed_company_with_facts() as (cid, accession):
+        fact = copilot_tools.run_tool("get_financial_fact", {"concept": "revenue"}, cid, accession_number=accession)
 
     cite = copilot_tools.fact_to_citation(fact)
     assert cite["verified"] is True

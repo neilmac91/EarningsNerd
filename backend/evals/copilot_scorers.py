@@ -23,15 +23,20 @@ The LLM judge stays a corroborating signal elsewhere; these gates are the primar
 """
 from __future__ import annotations
 
+import math
 import re
+from dataclasses import replace
+from datetime import date
 from typing import List, Optional, Tuple
 
 from app.services.copilot_service import (
     _adjacency_window,
     _fact_matches_adjacent_concept,
+    _fact_matches_adjacent_currency,
     _fact_matches_adjacent_number,
     count_uncited_figures,
 )
+from app.services.copilot_tools import canonical_unit
 from app.services.provenance_service import normalize_for_match, verify_excerpt_in_text
 from evals.copilot_schema import CopilotAnswerScore, CopilotQACase
 from evals.scorers import score_numeric_accuracy
@@ -96,10 +101,10 @@ def score_fact_marker_adjacency(answer: str, citations: List[dict]) -> Tuple[flo
         if cite is None:
             continue
         checked += 1
-        fact = {"value": cite["value"], "kind": cite.get("value_kind"), "concept": cite.get("concept")}
+        fact = {"value": cite["value"], "kind": cite.get("value_kind"), "concept": cite.get("concept"), "unit": cite.get("unit")}
         if not _fact_matches_adjacent_number(fact, window) or not _fact_matches_adjacent_concept(
             fact, window
-        ):
+        ) or not _fact_matches_adjacent_currency(fact, window):
             violations.append(f"[{match.group(1)}] {cite.get('excerpt', '')}".strip())
     if not checked:
         return 1.0, []
@@ -134,8 +139,60 @@ def score_numeric_recall(answer: str, qa: CopilotQACase) -> Tuple[float, List[st
     case lists none). Only meaningful for disclosed numeric questions."""
     if not qa.expected_facts:
         return 1.0, []
-    recall, _matched, missing = score_numeric_accuracy(answer, qa.expected_facts)
+    # Canonical financial_fact units use ISO/shares; the shared summary matcher uses
+    # ISO_per_share for decimal rendering. Adapt a copy only at this boundary.
+    facts = [replace(f, unit=f.unit.removesuffix("/shares") + "_per_share")
+             if canonical_unit(f.unit) == f.unit and f.unit.endswith("/shares") else f
+             for f in qa.expected_facts]
+    recall, _matched, missing = score_numeric_accuracy(answer, facts)
     return recall, missing
+
+
+def score_filing_provenance(citations: List[dict], accession: Optional[str],
+                            report_period: Optional[str], currency: Optional[str]) -> List[str]:
+    """Check every declared XBRL citation, including malformed/value-less ones.
+
+    Display links and the pipeline's verified flag are never origin evidence. Direct older
+    comparative periods are allowed only inside the viewed accession; derived operands must
+    each carry the same origin and explicit duration basis.
+    """
+    def valid(row: dict, *, operand: bool = False) -> bool:
+        if not isinstance(row, dict) or not accession or row.get('accession') != accession:
+            return False
+        if not re.fullmatch(r'\d{10}-\d{2}-\d{6}', accession):
+            return False
+        value = row.get('value')
+        if isinstance(value, bool) or not isinstance(value, (float, int)) or not math.isfinite(value):
+            return False
+        unit = canonical_unit(row.get('unit'))
+        if unit is None or (currency and unit not in {currency, currency + '/shares', 'shares', 'pure'}):
+            return False
+        if not isinstance(row.get('concept'), str) or not row['concept'].strip():
+            return False
+        tag = row.get('raw_tag')
+        if tag is not None and (not isinstance(tag, str) or not tag.strip()):
+            return False
+        try:
+            end = date.fromisoformat(row['period_end'])
+            start = date.fromisoformat(row['period_start']) if row.get('period_start') else None
+            if start and start > end:
+                return False
+            if report_period and end > date.fromisoformat(report_period):
+                return False
+        except (KeyError, ValueError, TypeError):
+            return False
+        kind = row.get('value_kind') or row.get('kind')
+        if kind is not None:
+            parts = row.get('source_facts')
+            if operand or kind not in {'margin', 'yoy_growth'} or unit != 'pure':
+                return False
+            if not isinstance(parts, list) or len(parts) != 2:
+                return False
+            if not all(valid(p, operand=True) and p.get('period_start') for p in parts):
+                return False
+        return True
+    return [f"[{c.get('n', '?')}] invalid viewed-filing provenance" for c in citations
+            if _is_xbrl_citation(c) and not valid(c)]
 
 
 def score_copilot_answer(
@@ -146,6 +203,9 @@ def score_copilot_answer(
     kind: str,
     filing_text: Optional[str] = None,
     normalized_source: Optional[str] = None,
+    accession_number: Optional[str] = None,
+    period_of_report: Optional[str] = None,
+    reporting_currency: Optional[str] = None,
 ) -> CopilotAnswerScore:
     """Score one answered question into a :class:`CopilotAnswerScore` with hard gate failures.
 
@@ -170,7 +230,25 @@ def score_copilot_answer(
     else:
         numeric_recall, missing = 1.0, []
 
+    invalid_provenance = score_filing_provenance(citations, accession_number, period_of_report, reporting_currency)
+    used = set(re.findall(r"\[(\d+)\]", answer))
+    for cite in citations:
+        if not _is_xbrl_citation(cite) or str(cite.get('n')) not in used:
+            continue
+        metric = cite.get('concept')
+        expected_period = qa.expected_periods.get(metric)
+        expected_facts = [f for f in qa.expected_facts if f.metric == metric]
+        if expected_period and any(_fact_matches_adjacent_number(
+                {"value": f.value}, str(cite.get('value'))) for f in expected_facts):
+            if cite.get('period_end') != expected_period:
+                invalid_provenance.append(f"[{cite.get('n')}] wrong expected period for {metric}")
+    contradictory_currencies = [f.metric for f in qa.expected_facts
+        if not _fact_matches_adjacent_currency({"value": f.value, "unit": f.unit}, answer)]
     gate_failures: List[str] = []
+    if invalid_provenance:
+        gate_failures.append(f"PROVENANCE: {len(invalid_provenance)} invalid XBRL citation(s)")
+    if contradictory_currencies:
+        gate_failures.append("CURRENCY: " + ", ".join(contradictory_currencies))
     if not refusal_correct:
         gate_failures.append(
             "REFUSAL: answered a not-disclosed question"
@@ -199,4 +277,6 @@ def score_copilot_answer(
         missing_metrics=missing,
         grounded=sum(1 for c in citations if c.get("verified")),
         gate_failures=gate_failures,
+        invalid_provenance=invalid_provenance,
+        contradictory_currencies=contradictory_currencies,
     )
