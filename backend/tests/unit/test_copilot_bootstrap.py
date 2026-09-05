@@ -144,6 +144,7 @@ def test_actual_source_normalization_is_independent_of_expected_answers(tmp_path
     assert len(first["babas"]) == 2 and len(set(first["babas"])) == 2
     report = first["report"]
     assert report["status"] == "complete" and report["errors"] == []
+    assert report["database_sha256"] == hashlib.sha256(Path(report["database_path"]).read_bytes()).hexdigest()
     assert set(report["planned_accessions"]) == {r[0] for r in first["rows"]}
     assert len(first["calls"]) == 6
     for source in report["sources"]:

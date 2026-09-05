@@ -226,6 +226,8 @@ async def bootstrap(database_value: str, output_value: str) -> dict:
     finally:
         if runtime is not None:
             runtime.engine.dispose()
+            if report.get("database_path") and Path(report["database_path"]).is_file():
+                report["database_sha256"] = _sha(Path(report["database_path"]).read_bytes())
         (output / "preparation.json").write_text(json.dumps(report, indent=2, sort_keys=True))
     return report
 
