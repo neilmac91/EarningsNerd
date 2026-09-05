@@ -78,3 +78,35 @@ def test_allowlisted_files_still_exist():
     """A stale allow-list entry is a smell (a sanctioned home moved without the gate following)."""
     missing = [rel for rel in ALLOWED_SEC_GOV_FILES if not (APP_DIR / rel).exists()]
     assert not missing, f"Prune ALLOWED_SEC_GOV_FILES: {missing}"
+
+
+# The two non-edgar files sanctioned for `sec.gov` literals are sanctioned as URL *text* only —
+# a pure builder and Settings defaults. Neither may import an HTTP client, or a raw fetcher could
+# hide behind the exemption. (`urllib.parse` is fine: it parses, it does not fetch.)
+NO_FETCHER_FILES = {"utils/sec_urls.py", "config.py"}
+FETCHER_MODULES = ("httpx", "requests", "aiohttp", "urllib.request", "urllib3", "http.client")
+
+
+def _imported_modules(path: Path) -> set[str]:
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            modules.add(node.module)
+            modules.update(f"{node.module}.{alias.name}" for alias in node.names)
+    return modules
+
+
+def test_url_text_exemptions_import_no_http_client():
+    offenders: list[str] = []
+    for rel in sorted(NO_FETCHER_FILES):
+        for module in sorted(_imported_modules(APP_DIR / rel)):
+            if module in FETCHER_MODULES or module.startswith(tuple(f"{m}." for m in FETCHER_MODULES)):
+                offenders.append(f"app/{rel} imports {module}")
+    assert not offenders, (
+        "Files exempted from the sec.gov gate for URL text only must not import an HTTP client:\n  "
+        + "\n  ".join(offenders)
+        + "\nPut the fetch in app/services/edgar/ behind the rate limiter / circuit breaker."
+    )
