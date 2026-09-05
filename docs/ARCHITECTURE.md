@@ -226,8 +226,9 @@ unused since generation became account-required in #619; kept because migrations
   non-calendar years do not use calendar-quarter labels. Missing/irregular metadata stays unknown.
   New labelled quarters demote legacy NULL-period twins; existing persisted snapshots require
   deliberate re-extraction to gain metadata they never contained. Fact writes serialize on the
-  company row and preserve a known newer accession; untied current companyfacts rows remain
-  authoritative when their filing chronology cannot be established. Older accession facts remain
+  company row and preserve a known newer accession. The per-filing writer also preserves untied
+  current companyfacts rows when their filing chronology cannot be established; the bulk writer
+  uses the received normalizer ordering where local Filing chronology is unavailable. Older accession facts remain
   available for their own filing even when they are not the current company value.
 - Reconciliation flags follow values and the actual inputs used in growth calculations through
   analysis charts, metrics, citations and Excel exports. Citation verification is traceability,
