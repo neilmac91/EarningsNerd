@@ -74,6 +74,8 @@ what applies to your task. Filenames are greppable: `arch-*`, `sec-*`, `test-*`,
 
 ## Operations & workflow
 
+- [`ops-job-success-needs-outcome-evidence.md`](./ops-job-success-needs-outcome-evidence.md) — Persist actual job outcomes; swallowed failures and dry runs never advance last success
+
 - [`ops-eval-gate-for-ai-changes.md`](./ops-eval-gate-for-ai-changes.md) — Gate every AI/prompt/model change on the eval regression gate — and re-pin the baseline in the same PR
 - [`ops-fix-the-exact-cited-site.md`](./ops-fix-the-exact-cited-site.md) — Fix and test the plan's exact cited site, not an adjacent manifestation
 - [`ops-git-add-atomic-empty-status-gate.md`](./ops-git-add-atomic-empty-status-gate.md) — Require an empty git status after every completing commit; never chain add-path recovery
