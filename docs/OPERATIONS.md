@@ -187,6 +187,40 @@ Located in `backend/scripts/`:
   writes them without invoking summary generation. Run the separate SIC backfill after seeding.
 - `verify_insider_extraction.py` - Verify Form 4 insider extraction against live SEC data
 
+### Persisted audits and weekly judged readout (WS-6 measurement)
+
+The data-quality report keeps two populations separate. Persisted audit counters describe the
+currently retained Summary snapshots across the corpus; they are not a week's generation attempts.
+The query projects only summary identity, SIC and audit/quality JSON, never the full generated
+summary or excerpt. Each of the five families has its own recorded, missing and malformed counts:
+
+| Family | Recorded outcome |
+|---|---|
+| Figure trace | Snapshots with flagged figures and total unique recorded figures per snapshot |
+| Forward quotes | Checked, verified, unverified, near misses, other unverified and dropped quotes |
+| Evidence snap | Checked, exact, would-snap candidates, performed snaps and unrepaired evidence |
+| Machine sections only | Explicit true outcomes among snapshots with a recorded boolean |
+| Quality tier | Partial snapshots and distinct reasons per snapshot, with SIC-prefix grouping |
+
+Missing audits can mean legacy data, unavailable grounding or no eligible content. They never
+contribute a measured zero. Malformed counters, lists or contradictory action counts remain
+unavailable for that family. An empty recorded figure list does not establish that the tracer had
+grounding; the eval's separately measured availability is the relevant denominator for that claim.
+Rates use recorded snapshots only and are unavailable when that denominator is zero.
+
+The weekly workflow supplies a bounded summary-only base64 value through the report script's
+`--weekly-readout-b64` execution argument. The shared `app/services/ai_readout.py` validator owns
+that external boundary. Both dry-run JSON and email preserve its complete/partial/unavailable
+status, 24-attempt cohort counts, valid negative judgments, configured model identities,
+provenance and artifact links. Missing or invalid handoffs still allow the ordinary operational
+report to run, with the judged section explicitly unavailable. A complete measurement can contain
+negative judgments; neither it nor this receiver automatically activates any guard.
+
+No usable strong-judge credential was available when this change was implemented. An unavailable,
+partial, simulated or empty report does not meet D5's first-judged-readout prerequisite. Existing
+scheduled delivery is preserved; development verification uses mocked email transport and makes
+no live send or job dispatch.
+
 ### Scheduled job outcomes and universe coverage (WS-7)
 
 Every scheduled job script records an attempt in `earningsnerd_job_runs`, using a transaction

@@ -65,10 +65,12 @@ PR #653 merge (founder pre-flight → deploy-backend green → post-deploy check
  WS-10 docs/lessons hygiene                          ── Knowledge Curator (rolling)
 ```
 
-Hard rules across workstreams: **eval re-pin** after any of — `USE_STATEMENT_FINANCIALS` in eval env,
-G5 JPM facts restored, streaming exercised in the runner, new eval dimension, `--runs` change,
-edgartools bump, Gemini-chain deletion, prompt reorder. Parity fixes land first, then re-pin, then
-quality changes are measured against the honest bar. Any new migration file must pass the
+Hard rules across workstreams: parity fixes (statement env, restored G5, production streaming and
+repeat policy) precede one honest full-set three-run pin; #698 completed that pin. Later quality
+changes are measured against it. A new advisory dimension or changed observed score alone never
+justifies a cosmetic re-pin. A later explicitly documented model/prompt, extraction-library,
+structured-output or armed-guard change requires its actual before/after evaluation and an intentional
+bar-change justification before any replacement pin. Any new migration file must pass the
 `test_migration_lock_safety.py` gate (DO-guard, filename convention).
 
 ---
@@ -184,7 +186,7 @@ one is WS-7. **Gate.** Workflow dry-run via `workflow_dispatch`; backend gate. *
 **Gate.** `npm run lint && npx tsc -p tsconfig.ci.json && npm run test -- --run && npm run build`;
 Playwright; both-theme preview. **Size** ~2 days.
 
-### WS-6 · Summary fidelity: parity → re-pin → measure → arm → resilience — owner: AI Engineer — blocked on D4, D5 for the arming/spend steps
+### WS-6 · Summary fidelity: parity → one pin → measure → resilience → hygiene → Copilot → arm — owner: AI Engineer
 
 **Read `backend/evals/RUNBOOK.md` and `lessons/ops-eval-gate-for-ai-changes.md` first.**
 **Evidence.** `backend/evals/baseline_scores.json` (2026-07-13, 26×3, judge off; precision/coverage/recall
@@ -200,7 +202,13 @@ sent to DeepSeek → 404s; `:455` `max_retries = 1`; `section_recovery.py:143` r
 `previous_filings_context` dead (only caller `summary_pipeline.py:632` passes `None`);
 `section_recovery.py:81-106,133-137` recovers from raw HTML / `excerpt[:6000]`; `openai_service.py:175`
 `filing_text[:15000]` raw HTML when enrichment times out (`summary_pipeline.py:143` 18 s).
-**Scope, in order (each step re-pins if scores move):**
+**Current checkpoint:** parity and its sole honest 26 × 3 pin shipped in #698 (`d696f408`),
+report `eval_20260905T111951Z.json`: 78 outputs, no execution errors/hard vetoes, actual gate
+PASS/0 warnings. The historical audit evidence above explains the work; the checkpoint supersedes
+its old parity defaults. D4/D5 are accepted policies, not new decision requests. The first actual
+strong-judge readout is held for the founder credential; unavailable/simulated output cannot arm a gate.
+
+**Scope, in order (measure against the pinned bar; do not re-pin merely because scores move):**
 1. Parity: `USE_STATEMENT_FINANCIALS` in the eval env (and graduate the code default with WS-7);
    restore G5 JPM facts; pass a `stream_cb` in the runner and pin streaming ≡ non-streaming;
    `--runs 2` or granularity-aware tolerance for the single-veto flake; fix `pin_baseline.py` dropping
@@ -218,8 +226,8 @@ sent to DeepSeek → 404s; `:455` `max_retries = 1`; `section_recovery.py:143` r
    viewed filing's period (bind to accession); grow the golden set to ~5 verified; run `evals.copilot_runner`.
 6. After D5: arm `AI_EVIDENCE_SNAP` via the deploy env (`ci.yml` service `--update-env-vars`, so it is
    visible in-repo — C6); stale-refresh of pre-gate rows with the v1→v2 drain (D4, off-peak).
-**Out.** Prompt-prose tuning (`lessons/arch-stop-tuning-prose-know-the-floor.md`). **Gate.** eval gate +
-re-pin in the same PR; backend gate; `test_summary_stream_contract.py` is locked (rule 6). **Size** ~5 days.
+**Out.** Prompt-prose tuning (`lessons/arch-stop-tuning-prose-know-the-floor.md`). **Gate.** actual eval
+runner/regression evidence against the existing pin; a re-pin only for the documented triggers above; backend gate; `test_summary_stream_contract.py` is locked (rule 6). **Size** ~5 days.
 
 ### WS-7 · Data integrity + coverage reporting — owner: Backend Developer (+ Database Specialist) — pregeneration blocked on D4
 

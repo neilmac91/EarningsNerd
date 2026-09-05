@@ -314,13 +314,16 @@ Reports capture the actual model, provider URL, statement/stream/extraction and 
 judge selection, GitHub source SHA and golden-set SHA256 where the model runs. The pin tool
 uses that metadata, never the local machine's model environment. It refuses missing or
 changed golden-set provenance, fewer than three runs, a subset, missing/duplicate runs,
-errors or inconsistent counts. Older reports without this provenance must be measured anew.
+errors, hard vetoes/missing gate evidence or inconsistent counts/pass rates. Older reports without this provenance must be measured anew.
 An existing `note` survives re-pinning; `--note "..."` explicitly replaces it. Preserve
 provenance and explain intentional bar changes rather than performing cosmetic re-pins.
 A reported baseline `total_cost_usd=0` is currently unmetered, not proof of a free model run.
 
-Re-pin whenever you intentionally move the bar — flip `USE_STRUCTURED_OUTPUT`, change the default
-model/prompt, or adopt a quality improvement. From `backend/`:
+The wave-2 parity pin is complete in #698: `eval_20260905T111951Z.json`, 26 × 3,
+source `f5b46ba9`, zero errors/vetoes, PASS/0 warnings. Measure later work against it.
+Re-pin only for an explicitly justified model/prompt, structured-output, extraction-library or
+armed-guard change with actual before/after evidence. Adding an advisory dimension or observing
+changed scores alone does not authorize a cosmetic replacement. From `backend/`:
 ```bash
 python -m evals.runner --candidates baseline --runs 3            # full verified set
 python scripts/pin_baseline.py evals/reports/eval_<stamp>.json   # rewrite baseline_scores.json
@@ -598,3 +601,39 @@ future failures can distinguish extraction absence from generation omissions.
 This failed measurement was not pinned. The single authoritative three-run pin must
 include the final WS-7 extraction changes after #697 merges and this branch incorporates
 them; later judged measurement still requires an actual strong-judge credential/readout.
+
+
+## Weekly strong-judge measurement (WS-6 step 2)
+
+`data-quality-weekly.yml` measures the committed `weekly_cohort.json`: AAPL/JPM annual,
+NVDA/KO/BYND quarterly, ASML/BABA 20-F and MELI annual, exact verified accessions, three repeats
+and 24 required identities. It uses the configured `claude-opus-4-8` Anthropic judge; generator
+identity in the handoff is the configured/requested model, not yet response-model telemetry.
+Both credentials are checked before generation. The current founder credential is absent: no
+first judged readout is claimed. Do not substitute a cheaper judge without its agreement study,
+trigger the live email workflow during development, or arm evidence-snap from unavailable data.
+The separate `requirements-eval.txt` pins the judge SDK and additional transport dependencies;
+they are not production runtime dependencies.
+
+Judge input includes full canonical JSON (100k-character bound), source excerpt (200k) and
+XBRL serialization (40k). Bounds are checked before truncation; overflow is an explicit judge
+error, and per-result input lengths/completeness are recorded. This fixes the observed BABA
+22,020-character payload whose footnote evidence was previously silently cut at 20k. No model
+prompt or deterministic score/weight changes accompany this measurement correction.
+
+The artifact retains full result evidence, requested harness flags, source/golden/cohort hashes,
+and raw v2 sections/excerpt for figure-trace replay. The compact base64 handoff is size/schema/
+provenance/link validated once by `app.services.ai_readout`; invalid or absent handoffs show
+unavailable in the ordinary report. The scheduled report runs even when measurement fails.
+`complete` means all 24 attempts have valid full-input judgments, including honest negative
+verdicts; missing/error judgments produce partial/unavailable status. No status auto-arms a flag.
+
+`mean_untraceable_dollar_figures` reuses the production tracer on raw model prose, excluding its
+machine tables and quote fields. It counts unique dollar-scale figures per measured output;
+metadata-only XBRL, missing raw sections or absent numeric grounding are unavailable, not zero.
+The JSON/Markdown report exposes measured/unavailable/error denominators. Any nonzero measured
+mean emits an absolute WARN, never a hard veto or aggregate change. The parity pin lacks this new
+metric; the gate explicitly says no reference measurement and does not invent a zero baseline or
+silently skip the advisory. No retrospective metric is fabricated from the older artifact, which
+lacks raw sections/excerpt. Persisted audit snapshots and these 24 weekly attempts have separate
+denominators; an empty historical audit does not prove grounding existed.

@@ -22,7 +22,82 @@ env:
   REPORT_JOB: earningsnerd-filing-digest   # the only job carrying DATABASE_URL + RESEND_API_KEY
 
 jobs:
+  measure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      readout: ${{ steps.handoff.outputs.readout }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+      - name: Check both model credentials before any generation
+        id: credentials
+        env:
+          OPENAI_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$OPENAI_API_KEY" ] && [ -n "$ANTHROPIC_API_KEY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install evaluation-only judge and exact runtime
+        id: dependencies
+        if: steps.credentials.outputs.ready == 'true'
+        run: pip install -r backend/requirements.txt -r backend/requirements-eval.txt
+      - name: Measure fixed eight filings with three strong judgments each
+        if: steps.dependencies.outcome == 'success' || steps.credentials.outputs.ready == 'false'
+        working-directory: backend
+        env:
+          OPENAI_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_BASE_URL: https://api.deepseek.com/v1
+          AI_DEFAULT_MODEL: deepseek-v4-pro
+          USE_STRUCTURED_OUTPUT: 'false'
+          USE_STATEMENT_FINANCIALS: 'true'
+          STREAM_SECTION_REVEAL: 'true'
+          AI_EVIDENCE_SNAP: 'false'
+          AI_FIGURE_TRACE_GATE: 'false'
+          AI_FORWARD_QUOTE_GATE: 'false'
+          SKIP_REDIS_INIT: 'true'
+          SECRET_KEY: weekly-eval-ci-only-nonproduction-0123456789
+          STRIPE_SECRET_KEY: sk_test_ci_eval
+          STRIPE_WEBHOOK_SECRET: whsec_ci_eval
+          PWNED_PASSWORD_CHECK_ENABLED: 'false'
+        run: python -m evals.weekly_readout
+      - name: Preserve a bounded handoff even after setup or measurement failure
+        id: handoff
+        if: always()
+        working-directory: backend
+        run: |
+          python - <<'PYCODE'
+          import json, os
+          from pathlib import Path
+          from app.services.ai_readout import decode_readout, encode_readout, unavailable_readout
+          directory = Path('evals/reports/weekly')
+          directory.mkdir(parents=True, exist_ok=True)
+          path = directory / 'readout.b64'
+          readout = decode_readout(path.read_text()) if path.exists() else unavailable_readout('Weekly measurement setup failed; no completed readout')
+          encoded = encode_readout(readout)
+          path.write_text(encoded)
+          (directory / 'readout.json').write_text(json.dumps(readout, indent=2))
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write('readout=' + encoded + '\n')
+          PYCODE
+      - name: Retain full measurement and explicit unavailable evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: weekly-judged-readout-${{ github.run_id }}
+          path: backend/evals/reports/weekly/
+          retention-days: 30
+          if-no-files-found: warn
+
   report:
+    needs: measure
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -37,9 +112,15 @@ jobs:
         uses: google-github-actions/setup-gcloud@v3
 
       - name: Run the data-quality report on the RESEND-carrying job
+        env:
+          READOUT_B64: ${{ needs.measure.outputs.readout }}
         run: |
           set -euo pipefail
           # The job's container entrypoint is `python`; --args appends the script path.
+          ARGS="scripts/data_quality_report.py"
+          if [ -n "$READOUT_B64" ]; then
+            ARGS="$ARGS,--weekly-readout-b64,$READOUT_B64"
+          fi
           gcloud run jobs execute "$REPORT_JOB" --region="$REGION" \
-            --args="scripts/data_quality_report.py" --wait
+            --args="$ARGS" --wait
           echo "data-quality report job completed (emails the founder via Resend)"
