@@ -21,6 +21,8 @@ async def test_pipeline_stops_owned_sdk_task_before_releasing_slot(stop, monkeyp
     from app.models import Base
 
     Base.metadata.create_all(bind=engine)
+    original_summary = pipeline.openai_service.summarize_filing
+    original_heartbeat = settings.STREAM_HEARTBEAT_INTERVAL
     reset_inflight()
     filing_id = seed_company_filing()
     entered, closed, calls = asyncio.Event(), [], []
@@ -52,16 +54,16 @@ async def test_pipeline_stops_owned_sdk_task_before_releasing_slot(stop, monkeyp
             raise AssertionError("blocked request returned")
 
         service.generate_structured_summary = generate
-        with stream_boundaries():
-            monkeypatch.setattr(pipeline.openai_service, "summarize_filing", service.summarize_filing)
-            monkeypatch.setattr(settings, "STREAM_HEARTBEAT_INTERVAL", 0.01)
+        with stream_boundaries(), monkeypatch.context() as patch:
+            patch.setattr(pipeline.openai_service, "summarize_filing", service.summarize_filing)
+            patch.setattr(settings, "STREAM_HEARTBEAT_INTERVAL", 0.01)
             if stop == "service_timeout":
-                monkeypatch.setattr(provider_requests, "SUMMARY_SECONDS", 0.04)
-                monkeypatch.setattr(
+                patch.setattr(provider_requests, "SUMMARY_SECONDS", 0.04)
+                patch.setattr(
                     pipeline, "generate_xbrl_summary", lambda **kwargs: {**CANONICAL_PAYLOAD, "status": "partial"}
                 )
             if stop == "timeout":
-                monkeypatch.setattr(pipeline, "PIPELINE_TIMEOUT_SECONDS", 0.12)
+                patch.setattr(pipeline, "PIPELINE_TIMEOUT_SECONDS", 0.12)
             gen = pipeline.stream_filing_summary(
                 filing_id=filing_id,
                 current_user=None,
@@ -94,3 +96,8 @@ async def test_pipeline_stops_owned_sdk_task_before_releasing_slot(stop, monkeyp
                 with suppress(RuntimeError):
                     await gen.aclose()
                 reset_inflight()
+
+    # Exercise fixture teardown too: outer monkeypatch must not restore the harness's mocks.
+    monkeypatch.undo()
+    assert pipeline.openai_service.summarize_filing == original_summary
+    assert settings.STREAM_HEARTBEAT_INTERVAL == original_heartbeat
