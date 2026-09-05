@@ -49,6 +49,12 @@ pip install anthropic          # only for Claude candidates + the LLM judge
 export OPENAI_API_KEY=...       # baseline uses the OpenAI-compatible DeepSeek provider
 export OPENAI_BASE_URL=https://api.deepseek.com/v1
 export AI_DEFAULT_MODEL=deepseek-v4-pro
+export AI_FALLBACK_MODEL=       # leave empty for every eval and pin
+export AI_FALLBACK_BASE_URL=    # leave empty for every eval and pin
+export AI_EVIDENCE_SNAP=false
+export AI_FIGURE_TRACE_GATE=false
+export AI_FORWARD_QUOTE_GATE=false
+export USE_STRUCTURED_OUTPUT=false
 export USE_STATEMENT_FINANCIALS=true
 export STREAM_SECTION_REVEAL=true  # exercise the same callback-selected extraction path as prod
 export ANTHROPIC_API_KEY=...    # claude-sonnet, claude-opus, and the Opus judge (API credits)
@@ -348,11 +354,20 @@ the JSON/Markdown `eval-report-<run_id>` artifact. Keep the run ID, source SHA a
 in the PR. Two repeats improve the granularity of mean/WARN measurements; they do **not**
 excuse a hard veto (one failed filing-run out of 52 still exceeds the 0.005 hard tolerance).
 
-Reports capture the actual model, provider URL, statement/stream/extraction and trust flags,
-judge selection, GitHub source SHA and golden-set SHA256 where the model runs. The pin tool
+Reports capture the requested model, provider URL, fallback model/base URL,
+statement/stream/extraction and trust flags, judge selection, GitHub source SHA and golden-set SHA256 where the model runs. The pin tool
 uses that metadata, never the local machine's model environment. It refuses missing or
 changed golden-set provenance, fewer than three runs, a subset, missing/duplicate runs,
 errors, hard vetoes/missing gate evidence or inconsistent counts/pass rates. Older reports without this provenance must be measured anew.
+Both measured fallback fields must be present and explicitly empty. The pin tool also refuses
+missing, non-boolean or mismatched values for `AI_EVIDENCE_SNAP`, `AI_FIGURE_TRACE_GATE`,
+`AI_FORWARD_QUOTE_GATE`, `USE_STRUCTURED_OUTPUT` and `USE_STATEMENT_FINANCIALS` against the
+committed service deploy env in `.github/workflows/ci.yml`. Missing or ambiguous deploy pins
+cannot authorize a pin. These are repository configuration checks; post-deploy observation
+still establishes the effective serving state. Older reports lacking the new fallback fields
+remain valid historical regression references, but cannot be used for a new pin. The sole #698
+baseline is unchanged; this validation change does not itself authorize another measurement or pin.
+
 An existing `note` survives re-pinning; `--note "..."` explicitly replaces it. Preserve
 provenance and explain intentional bar changes rather than performing cosmetic re-pins.
 A reported baseline `total_cost_usd=0` is currently unmetered, not proof of a free model run.

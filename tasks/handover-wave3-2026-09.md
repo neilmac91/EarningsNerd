@@ -7,12 +7,23 @@ and the standalone wave-2 writeup. Companions: [wave-2 handover](handover-wave2-
 
 ## 0. Checkpoint and review verdict
 
+Current entry checkpoint (2026-09-06): [#707](https://github.com/neilmac91/EarningsNerd/pull/707)
+merged `a7ad8f85`; [#708](https://github.com/neilmac91/EarningsNerd/pull/708) merged `6414e5bd`.
+W3-0 verification and W3-1 observation are complete.
+[Describe run 33996220468](https://github.com/neilmac91/EarningsNerd/actions/runs/33996220468),
+job 101387131600, read serving revision `00270-4k6` at 100% and the separate pregenerate job;
+both images matched #704 source/defaults. The service calendar filter is true; pregenerate is
+unset with verified default false. All other proposed guard pins match that observation.
+The founder approved preserving service=true / pregenerate=false on 2026-09-06, with the
+Settings default unchanged. W3-2 implementation is active; merge, deployment and effective-pin
+verification are pending. The following original review checkpoint remains historical evidence.
+
 | Item | Observed 2026-09-05 |
 |---|---|
-| `main` | `eddcfbb7a08465cce20881562850ad570ca05c25` (#705 merge); [main CI 33990124298](https://github.com/neilmac91/EarningsNerd/actions/runs/33990124298) green, deploy correctly skipped (docs only) |
+| Original #705 checkpoint | `eddcfbb7a08465cce20881562850ad570ca05c25` (#705 merge); [main CI 33990124298](https://github.com/neilmac91/EarningsNerd/actions/runs/33990124298) green, deploy correctly skipped (docs only) |
 | Verified backend | #704 `123f99eac2b758f0dc7e2b9fcbc2a0a6bbf8146c`; [run 33988401306](https://github.com/neilmac91/EarningsNerd/actions/runs/33988401306) `applied=0 skipped=34`, revision `00270-4k6`, healthy |
 | Verified frontend | #697 (Vercel). Vercel is on **Pro** since 2026-09-05; the daily deploy quota in #705's body no longer applies |
-| Open PRs / issues | none |
+| Open PRs / issues at original review | none |
 | Codex review of #705 | GitHub bot reviewed `c660e9a1`; three independent manual lenses covered final head `34350292`, whose tree exactly matches merged `eddcfbb7`. W3-0 adds a verification pass. |
 
 **Verdict on #705 and the writeup: sound and honest.** Every merge SHA, run id, gate tail and
@@ -21,10 +32,10 @@ disposition:
 
 | # | Finding (verified at `eddcfbb7`) | Disposition |
 |---|---|---|
-| D1 | The service `ci.yml` line 510 `--update-env-vars` omits `NOTABLE_FILINGS_ENABLED`, `AI_EVIDENCE_SNAP`, `AI_FIGURE_TRACE_GATE`, `AI_FORWARD_QUOTE_GATE`, `USE_STRUCTURED_OUTPUT`, `CALENDAR_INDEX_FILTER_ENABLED` and `USE_STATEMENT_FINANCIALS`. `USE_STRUCTURED_OUTPUT` and `USE_STATEMENT_FINANCIALS` are already explicit in the eval job, not the service deploy line. Settings defaults apply only when no environment override exists; effective production values require W3-1 observation. C6 deploy-pin visibility is unmet. | W3-1 → W3-2 |
-| D2 | `backend/evals/RUNBOOK.md` (mandatory before AI changes) never mentions `AI_FALLBACK_BASE_URL` / `AI_FALLBACK_MODEL` (#701). A configured fallback silently changes which model produced an eval result. `docs/CONFIGURATION.md` does document them. | W3-2 |
+| D1 | The service `ci.yml` line 510 `--update-env-vars` omits `NOTABLE_FILINGS_ENABLED`, `AI_EVIDENCE_SNAP`, `AI_FIGURE_TRACE_GATE`, `AI_FORWARD_QUOTE_GATE`, `USE_STRUCTURED_OUTPUT`, `CALENDAR_INDEX_FILTER_ENABLED` and `USE_STATEMENT_FINANCIALS`. `USE_STRUCTURED_OUTPUT` and `USE_STATEMENT_FINANCIALS` are already explicit in the eval job, not the service deploy line. Settings defaults apply only when no environment override exists; effective production values require W3-1 observation. C6 deploy-pin visibility was unmet at that checkpoint. | W3-1 observed; W3-2 source pins prepared, deployment pending |
+| D2 | `backend/evals/RUNBOOK.md` (mandatory before AI changes) never mentions `AI_FALLBACK_BASE_URL` / `AI_FALLBACK_MODEL` (#701). A configured fallback silently changes which model produced an eval result. `docs/CONFIGURATION.md` does document them. | W3-2 adds exports, measured metadata and pin refusal; verification pending |
 | D3 | All seven `.claude/agents/engineering/*.md` contain obsolete stack guidance: Render/Firebase/Alembic/GPT-4, frontend Vite/React Router (`frontend-developer.md:14`), or async SQLAlchemy (`api-architect.md:181`). README "Stack truth" provides precedence but does not repair or machine-gate those files. | `AGENTS.md` §2 now; W3-5 |
-| D4 | Both refresh runs in the complete available history (2026-08-01 and 2026-09-01) failed on old source `e8ea339f`, which explicitly selected Wikipedia and supplied no FMP input; the Nasdaq-100 parser found no usable constituents table. Both revisions lacked an issue step, so no failure issue is expected from them. The current FMP auto-selection/issue path has not yet run; `FMP_API_KEY` is absent from current repository secret names, which does not establish historical secret state. Next cron 2026-10-01; age gate trips 2026-10-16. | W3-3 |
+| D4 | Both refresh runs in the complete available history (2026-08-01 and 2026-09-01) failed on old source `e8ea339f`, which explicitly selected Wikipedia and supplied no FMP input; the Nasdaq-100 parser found no usable constituents table. Both revisions lacked an issue step, so no failure issue is expected from them. The current FMP auto-selection/issue path has not yet run; `FMP_API_KEY` was absent from repository secret names at review, which does not establish historical secret state. The founder has since supplied it in GitHub `Production`; metadata is verified, environment binding/refresh evidence remain pending. Next cron 2026-10-01; age gate trips 2026-10-16. | W3-3 |
 | D5 | No scheduled production smoke; `frontend/tests/e2e/prod-smoke.spec.ts` is opt-in via `SMOKE_BASE_URL`. This gap hid a seven-week frontend/backend skew earlier. | W3-4 |
 | D6 | Stale docs: `CONTRIBUTING.md` Node 20.x; briefs pointer to old DEPLOYMENT.md lines; briefs "#687 this PR"; dashboard plan config line numbers. | Fixed in the PR that added this file |
 | D7 | Advisory `ecdsa 0.19.2 / PYSEC-2026-1325` has no upstream fix; python-jose is its only direct dependency parent in the inspected environment. Four production modules import jose. Inspected default HS256 signing and explicit RS256 OAuth verification do not use the vulnerable private-key operations; the exact pinned local runtime selects cryptography backends. This is not proof about every deployed/configured path and does not remove the advisory. The locked auth contract test has no jose import; two non-locked test modules do. | W3-6 |
@@ -58,12 +69,18 @@ Decisions already recorded: the agent MAY dispatch `ops.yml describe-service`,
 failed" issue before the FMP key exists is accepted); the two non-locked auth-test edits in W3-6 are
 pre-approved as a documented rule-6 exception.
 
+Update 2026-09-06: preserve the observed service calendar filter true as an intentional override;
+pregenerate remains false. `FMP_API_KEY` secret-name metadata is verified in GitHub `Production`,
+without reading its value. W3-2 binds the existing refresh job to that environment; W3-3 dispatch
+follows W3-2 verified deployment. The earlier optional keyless failure demonstration is superseded;
+do not remove a supplied credential to manufacture a failure. Strong-judge dispatch remains held.
+
 ## 2. Founder prerequisites (do not do these yourself; keep them visible)
 
 | Founder action | Unblocks | Evidence to retain |
 |---|---|---|
 | Add `ANTHROPIC_API_KEY` as an Actions secret, then dispatch `data-quality-weekly.yml` | W3-7 | The `weekly-judged-readout-<run>` artifact with `status != unavailable` and 24/24 scored; the emailed report |
-| Add `FMP_API_KEY` as an Actions secret | W3-3 | A successful `refresh-index-membership` run and its auto-PR |
+| `FMP_API_KEY` supplied in GitHub `Production` (metadata verified; founder step done) | W3-3 after W3-2 environment binding/deployment | Successful refresh and reviewed auto-PR still pending |
 | Create the `earningsnerd-notable-filings` Cloud Run job + Scheduler per `docs/DEPLOYMENT.md` §12; seed `--days 7`; review one full subsequent week; record retain/kill | W3-10 Notable | Execution ids, counts, the week's review notes |
 | Read the effective Vercel `NEXT_PUBLIC_ENABLE_ANALYSIS`; run the companyfacts warm-up (`scripts/sync_companyfacts.py`) on the seeded cohort | W3-10 Analysis | Deployment id, cohort, success/error counts |
 | Grant the deployer SA access to `INTERNAL_JOB_TOKEN`; run `backfill_filing_history.py --tickers C,MS,WFC,GS` | Weekly-report anomalies | Live report coverage evidence |
@@ -83,9 +100,9 @@ Additional review on 2026-09-06 checked `git diff c660e9a1..eddcfbb7`: 13 task M
 copy preserved, and no product/document contradiction found. `git diff 34350292..eddcfbb7` is
 empty: the final tree already had three independent manual reviews. The GitHub bot checkpoint
 was earlier. Record this distinction and the bounded #706 claim corrections in the correction
-PR; W3-1 may cite that evidence. No application tests or production operation were needed.
+PR [#707](https://github.com/neilmac91/EarningsNerd/pull/707), merged `a7ad8f85`; W3-1 cites that evidence. No application tests or production operation were needed.
 
-### W3-1 — Ops visibility (workflow-only, no deploy)
+### W3-1 — Ops visibility (completed #708; workflow-only, no deploy)
 - **Goal:** make the effective production values of every guard flag readable from the repo's own
   `describe-service` dispatch, so W3-2's pins are provably behaviour-neutral.
 - **Files:** `.github/workflows/ops.yml` — the `allow` set (~line 167) adds
@@ -98,7 +115,9 @@ PR; W3-1 may cite that evidence. No application tests or production operation we
 - **Verification:** YAML parse; existing `test_ops_workflow_is_dispatch_only_and_sets_lock_timeout`
   in `test_migration_lock_safety.py` still passes; dispatch `describe-service`; paste the output.
 - **Done:** each flag prints `<NOT SET -> Settings default applies (...)>` or its value. If any
-  guard flag is hand-set `true` in the console, stop and report before W3-2.
+  guard flag is hand-set `true` in the console, stop and report before W3-2. This check found the
+  calendar service override; the founder approved preserving it, clearing the W3-2 entry boundary.
+  Actual observation and image/default validation are recorded in §0 above.
 
 ### W3-2 — Flag visibility, eval-env pins, fail-loud structure (backend tests: deploys)
 One PR; three gates; RUNBOOK and docs corrected in the same PR.
@@ -106,16 +125,17 @@ One PR; three gates; RUNBOOK and docs corrected in the same PR.
 **(a) Prod flag pins.** `.github/workflows/ci.yml`: append to the service `--update-env-vars`
 (~line 510) and the pregenerate job `--update-env-vars` (~line 522):
 `NOTABLE_FILINGS_ENABLED=false, AI_EVIDENCE_SNAP=false, AI_FIGURE_TRACE_GATE=false,
-AI_FORWARD_QUOTE_GATE=false, USE_STRUCTURED_OUTPUT=false, CALENDAR_INDEX_FILTER_ENABLED=false,
-USE_STATEMENT_FINANCIALS=true` (service also keeps `ENABLE_FPI_FILINGS=true,
-STREAM_SECTION_REVEAL=true, REGISTRATION_MODE=invite_only`). Behaviour-neutral only if W3-1
-showed no hand-set `true`; say so in the PR body.
+AI_FORWARD_QUOTE_GATE=false, USE_STRUCTURED_OUTPUT=false, USE_STATEMENT_FINANCIALS=true`.
+Set `CALENDAR_INDEX_FILTER_ENABLED=true` on the service and false on pregenerate; the service
+also keeps `ENABLE_FPI_FILINGS=true, STREAM_SECTION_REVEAL=true, REGISTRATION_MODE=invite_only`.
+The calendar split is the founder-approved intentional override, preserving W3-1 observed values;
+Settings stays false. This does not activate the Calendar UI or change another job configuration.
 Gate `backend/tests/unit/test_prod_flag_visibility.py`: load `ci.yml` (reuse the `_step` /
 `_executable` helpers pattern from `test_migration_lock_safety.py`), regex `--update-env-vars=(\S+)`
 on the "Deploy Cloud Run service" step, split into a dict; assert every key in `PROD_ENV_PINS` is
 present with its exact value; **bidirectional**: each pinned bool equals
 `Settings.model_fields[name].default` unless the name is in
-`INTENTIONAL_PROD_OVERRIDES = {"ENABLE_FPI_FILINGS", "STREAM_SECTION_REVEAL", "REGISTRATION_MODE"}`
+`INTENTIONAL_PROD_OVERRIDES = {"ENABLE_FPI_FILINGS", "STREAM_SECTION_REVEAL", "REGISTRATION_MODE", "CALENDAR_INDEX_FILTER_ENABLED"}`
 (a default flip in `config.py` without a deploy-line change fails, and vice versa); **pipeline
 parity**: the pregenerate job step carries identical values for the AI subset (`AI_EVIDENCE_SNAP,
 AI_FIGURE_TRACE_GATE, AI_FORWARD_QUOTE_GATE, USE_STRUCTURED_OUTPUT, USE_STATEMENT_FINANCIALS`) —
@@ -133,11 +153,11 @@ Mutation proofs: delete `NOTABLE_FILINGS_ENABLED=false` from line 510 → fail; 
 eval-baseline run env in `ci.yml` (~lines 281-294), `data-quality-weekly.yml` (~lines 53-68) and
 `copilot-eval.yml`. `evals/runner.py` harness block (~line 295) records `fallback_model` and
 `fallback_base_url`. `scripts/pin_baseline.py` `build_baseline` refuses when `harness["fallback_model"]`
-is non-empty, and refuses when the harness guard values the runner already records
+or `harness["fallback_base_url"]` is missing or non-empty, and refuses when the harness guard values the runner already records
 (`ai_evidence_snap`, `ai_figure_trace_gate`, `ai_forward_quote_gate`, `use_structured_output`,
 `use_statement_financials`) disagree with the service pins parsed from `.github/workflows/ci.yml`
-(new `ValueError`s alongside the existing provenance checks ~lines 51-63). A baseline can then
-never be pinned under a guard configuration production does not run.
+(new `ValueError`s alongside the existing provenance checks ~lines 51-63). A new pin must then
+match the committed service guard configuration; effective production still needs deploy observation.
 Gate: extend `test_ci_parity_and_bounded_repeat_measurement` (`test_eval_parity.py`) and
 `test_weekly_workflow_preserves_failure_evidence_and_operational_report` (`test_eval_measurement.py`)
 with `env["AI_FALLBACK_MODEL"] == ""` and `== ""` for the base URL; add a copilot-eval assertion
@@ -155,19 +175,21 @@ tuple so W3-4 adds one entry, not one test. Mutation proof: remove `if: failure(
 
 **Docs in the same PR:** `docs/CONFIGURATION.md` (guard-flag rows: "pinned explicitly in the
 `ci.yml` deploy env"), `docs/DEPLOYMENT.md` §12 flag paragraph, `tasks/dark-surfaces-rollout-2026-09.md`
-Notable step, `tasks/handover-wave2-2026-09.md` WS-9 status sentence (replace with "pinned since
-W3-2").
+Notable step, `tasks/handover-wave2-2026-09.md` WS-9 status sentence (explicit W3-2 source pins;
+merge/deployment still pending until observed). Bind the refresh job to GitHub `Production` and
+correct FMP instructions; secret metadata availability is not successful refresh evidence.
 **Verification:** `cd backend && ruff check . && bandit -r app -ll && python -m pytest` (paste the
 tail); the four named gates individually; after merge: `deploy-backend` green, `applied=0
 skipped=34`, `/health/detailed` healthy, then `describe-service` shows every pin.
-**Held until:** W3-1 output reviewed.
+**Entry satisfied:** W3-1 output reviewed and the calendar split explicitly approved.
+**Remaining:** source gates, three independent reviews, required CI, merge and verified deployment.
 
 ### W3-3 — Universe refresh (founder key, then engineering verification; auto-PR deploys)
-- **Optional honest proof of the issue step, before the key exists:** dispatch
-  `refresh-index-membership.yml` once. Expected: exit 2 ("no constituents table found"), the
-  failure step opens `Universe refresh failed <date>` with the "secret is not set" cause. The
-  refresh *is* failing, so the issue is truthful. Keep it open.
-- **After `FMP_API_KEY`:** dispatch → success → PR "Refresh index membership (S&P 500 / Nasdaq 100)"
+- **Credential prerequisite supplied:** `FMP_API_KEY` exists in GitHub `Production` (metadata
+  verified, value unread). After W3-2 environment binding and verified deployment, dispatch
+  `refresh-index-membership.yml`. Preserve actual success/failure evidence; do not manufacture
+  a keyless failure now that the founder supplied the key.
+- **Successful refresh:** draft PR "Refresh index membership (S&P 500 / Nasdaq 100)"
   on `automation/refresh-index-membership`; review added/removed tickers; merge (deploys because
   `backend/app/data/` changed; verify per `AGENTS.md` §6); close the issue with the PR link.
 - **Deadline:** before the 2026-10-01 cron and the 2026-10-16 age trip (`MAX_UNIVERSE_AGE_DAYS =

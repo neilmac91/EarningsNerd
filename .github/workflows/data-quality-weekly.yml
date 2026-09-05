@@ -55,6 +55,8 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENAI_BASE_URL: https://api.deepseek.com/v1
           AI_DEFAULT_MODEL: deepseek-v4-pro
+          AI_FALLBACK_MODEL: ''
+          AI_FALLBACK_BASE_URL: ''
           USE_STRUCTURED_OUTPUT: 'false'
           USE_STATEMENT_FINANCIALS: 'true'
           STREAM_SECTION_REVEAL: 'true'

@@ -294,6 +294,8 @@ def _harness_metadata(judge_model: Optional[str] = None) -> Dict[str, Any]:
     return {
         "model": settings.AI_DEFAULT_MODEL,
         "base_url": settings.OPENAI_BASE_URL,
+        "fallback_model": settings.AI_FALLBACK_MODEL,
+        "fallback_base_url": settings.AI_FALLBACK_BASE_URL,
         "use_structured_output": settings.USE_STRUCTURED_OUTPUT,
         "use_statement_financials": settings.USE_STATEMENT_FINANCIALS,
         "stream_section_reveal": settings.STREAM_SECTION_REVEAL,

@@ -1,5 +1,9 @@
 # Configuration Reference — environment variables
 
+W3-2 source checkpoint (2026-09-06): explicit deploy pins below are implemented in the
+workflow source; merge/deployment and effective-pin verification remain pending. Defaults
+remain distinct from the founder-approved calendar service override.
+
 The complete environment-variable reference for backend (`backend/.env`) and frontend
 (`frontend/.env.local`). Definitions and validation live in `backend/app/config.py`
 (Pydantic Settings — ALL backend env access goes through it; never `os.getenv` in app code,
@@ -101,7 +105,7 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `COOKIE_SAMESITE` | `"lax"` | Cookie SameSite policy. |
 | `COOKIE_DOMAIN` | `null` | Null means host-only. CI sets .earningsnerd.io for frontend/API cross-host sessions. |
 | `CORS_ORIGINS_STR` | `"http://localhost:3000,http://127.0.0.1:3000,https://earningsnerd.io,https://www.earningsnerd.io"` | Comma-separated allowed origins; CORS_ORIGINS is a derived property, not another environment field. |
-| `FMP_API_KEY` | `""` | Only the manual index-membership refresh uses this key; Wikipedia source is keyless. In-app FMP integration is retired. |
+| `FMP_API_KEY` | `""` | Only the index-membership refresh script uses this key; its scheduled/manual workflow binds the GitHub `Production` environment. Secret-name metadata is verified; successful refresh evidence is still pending. Wikipedia cannot supply the complete current universe. In-app FMP integration is retired. |
 | `ALPHA_VANTAGE_API_KEY` | `""` | Licensed calendar bridge credential; leave empty for EDGAR-only operation until licensing is settled. |
 | `ALPHA_VANTAGE_API_BASE` | `"https://www.alphavantage.co/query"` | Alpha Vantage calendar API endpoint. |
 | `ALPHA_VANTAGE_TIMEOUT_SECONDS` | `20.0` | Calendar download timeout, seconds. |
@@ -114,19 +118,19 @@ code default. Production cache policy remains Redis-off/L1-only (ADR-0004).
 | `AI_FALLBACK_API_KEY` | `""` | Separate fallback credential. Required across origins; same-origin fallback may use the primary key. Never send the primary key to an arbitrary provider. |
 | `AI_FAST_MODEL` | `""` | Optional cheaper task model; empty falls back to AI_DEFAULT_MODEL. Change only after evals. |
 | `AI_SECTION_RECOVERY_MODEL` | `""` | Section-recovery override; empty falls back through AI_FAST_MODEL to AI_DEFAULT_MODEL. |
-| `USE_STRUCTURED_OUTPUT` | `false` | Structured Phase-A response format; off pending eval bake-off. |
+| `USE_STRUCTURED_OUTPUT` | `false` | Structured Phase-A response format; off pending eval bake-off. Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
 | `USE_EDGARTOOLS_SECTIONS` | `true` | Prefer native section extraction with legacy/thin-section fallback. |
 | `AI_QUALITY_GATE` | `true` | Partial summaries persist but do not consume monthly quota. |
-| `AI_FIGURE_TRACE_GATE` | `false` | Untraceable dollar figures tier summaries partial when armed; off keeps advisory audits. |
-| `AI_FORWARD_QUOTE_GATE` | `false` | Drop forward quotes not verbatim in the filing when armed; off keeps advisory audits. |
-| `AI_EVIDENCE_SNAP` | `false` | Replace unverifiable evidence with matched filing sentences when armed; off keeps advisory audits. Arm after the first weekly judged readout per D5. |
+| `AI_FIGURE_TRACE_GATE` | `false` | Untraceable dollar figures tier summaries partial when armed; off keeps advisory audits. Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
+| `AI_FORWARD_QUOTE_GATE` | `false` | Drop forward quotes not verbatim in the filing when armed; off keeps advisory audits. Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
+| `AI_EVIDENCE_SNAP` | `false` | Replace unverifiable evidence with matched filing sentences when armed; off keeps advisory audits. Arm after the first weekly judged readout per D5. Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
 | `EVIDENCE_SNAP_MIN_SCORE` | `72.0` | Figure-bearing evidence similarity floor; no-figure evidence uses the separate in-module floor of 88. |
 | `ENABLE_FPI_FILINGS` | `false` | Page-scoped 20-F/6-K/40-F discovery; CI explicitly enables it on the service. Other job form sets are separate. |
-| `CALENDAR_INDEX_FILTER_ENABLED` | `false` | Restrict public calendar serve/ingest to committed index universe; watchlist exceptions remain; missing/short universe fails open. |
-| `NOTABLE_FILINGS_ENABLED` | `false` | Serving gate only; scan job can populate while this is false. Arm only after the seed/quality rollout checklist. |
+| `CALENDAR_INDEX_FILTER_ENABLED` | `false` | Restrict public calendar serve/ingest to committed index universe; watchlist exceptions remain; missing/short universe fails open. Settings default stays false. Founder-approved intentional service override is true; pregenerate is false, both explicit in `ci.yml`. This does not activate the Calendar UI. |
+| `NOTABLE_FILINGS_ENABLED` | `false` | Serving gate only; scan job can populate while this is false. Arm only after the seed/quality rollout checklist. Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
 | `NOTABLE_FILINGS_SCAN_DAYS` | `2` | Scheduled scan trailing window, days; manual seed --days overrides it. |
 | `RICHER_FINANCIALS_ENABLED` | `true` | Expanded cash-flow and working-capital facts; false restores legacy concept set. |
-| `USE_STATEMENT_FINANCIALS` | `true` | Financial institutions use reported income-statement revenue; explicit false overrides the default. SIC backfill and persisted-fact remediation remain separate operator runs (see below). |
+| `USE_STATEMENT_FINANCIALS` | `true` | Financial institutions use reported income-statement revenue; explicit false overrides the default. SIC backfill and persisted-fact remediation remain separate operator runs (see below). Pinned explicitly in the `ci.yml` service and pregenerate deploy env. |
 | `PRO_SUMMARY_MONTHLY_CAP` | `300` | Invisible Pro anti-abuse ceiling for fresh generations per month; 0 disables; billing remains unlimited. |
 | `MAX_CONCURRENT_GENERATIONS` | `6` | Per-process full-generation semaphore; values at or below 0 disable the ceiling. |
 | `RECOVERY_MAX_CONCURRENCY` | `3` | Concurrent section-recovery API calls. |
@@ -229,6 +233,8 @@ SENTRY_RELEASE=...                # Release tag for Sentry events (CI sets $GITH
 # The in-app FMP/Finnhub/Stocktwits clients and the trending/hot-filings surfaces were torn down
 # (WS-8a, 2026-09). FMP_API_KEY is read ONLY by the operator-run
 # backend/scripts/refresh_index_membership.py (index constituents; `--source wikipedia` is keyless).
+# Actions: Settings → Environments → Production → FMP_API_KEY; refresh binds that environment.
+# Metadata verified 2026-09-06; no key value read or successful refresh claimed.
 # Removed 2026-09-04 (delete from any local .env — Settings forbids unknown keys and fails at import):
 # FINNHUB_API_KEY, FINNHUB_API_BASE, FINNHUB_TIMEOUT_SECONDS, FINNHUB_MAX_CONCURRENCY,
 # STOCKTWITS_TIMEOUT_SECONDS, FMP_API_BASE, FMP_TIMEOUT_SECONDS, FMP_MAX_CONCURRENCY,

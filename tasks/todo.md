@@ -8,10 +8,10 @@ per-item gates live in [`handover-wave3-2026-09.md`](handover-wave3-2026-09.md);
 operating directives live in the root `AGENTS.md`. Work items (engineering unless marked founder):
 
 - [x] W3-0 Additional #705 tail verification: 13 task docs, 43 links valid, 52 earlier archives and original §7/ledger preserved. Final manual-reviewed `34350292` tree equals `eddcfbb7`; only the GitHub bot stopped at `c660e9a1`.
-- [x] W3-0 documentation correction: qualify #706 review history, agent count, refresh failure cause, environment assumptions and dependency evidence; review/link check and draft PR before merge.
-- [x] W3-1 `ops.yml` exposes revision and pregenerate flags; #708 merged, actual run 33996220468 verified revision 00270-4k6 at 100% and matched #704 image/config. Service calendar=true differs from its false default; founder approved preserving this override.
+- [x] W3-0 documentation correction: #707 merged `a7ad8f85` after three reviews and link/preservation checks; #706 history, agent count, refresh cause, environment assumptions and dependency evidence corrected.
+- [x] W3-1 `ops.yml` exposes revision and pregenerate flags; #708 merged `6414e5bd`, actual run 33996220468 verified revision 00270-4k6 at 100% and matched #704 image/config. Service calendar=true differs from its false default; founder approved preserving this override.
 - [ ] W3-2 Pin every prod guard flag explicitly in `ci.yml` (service + pregenerate job) with a bidirectional gate; pin `AI_FALLBACK_*` empty in all eval workflows with gates and pin-tool refusal; structural fail-loud gate for scheduled workflows
-- [ ] W3-3 Universe refresh: **(founder)** `FMP_API_KEY`; engineering dispatches, merges the auto-PR, closes the failure issue — before the 2026-10-01 cron / 2026-10-16 age gate
+- [ ] W3-3 Universe refresh: founder supplied `FMP_API_KEY` in GitHub `Production` (metadata verified); after W3-2 binding/deployment, engineering dispatches, reviews the draft auto-PR, merges and closes any failure issue — before the 2026-10-01 cron / 2026-10-16 age gate
 - [ ] W3-4 Daily production smoke workflow with a failure issue; one green and one deliberate red dispatch
 - [ ] W3-5 Rewrite the seven engineering agent files to the real stack; grep gate with frozen allowlist
 - [ ] W3-6 Replace `python-jose` with PyJWT (ecdsa advisory); locked auth contract test byte-identical; two non-locked test edits pre-approved 2026-09-05
@@ -37,6 +37,7 @@ Routine required CI evaluations are authorized; extra sweeps and strong-judge di
   ops renderer tests; extend existing eval tests without adding duplicate rules.
 - [ ] Wire refresh to `Production`; correct owning RUNBOOK/config/deployment/dark-surface/handover
   docs, including the founder-approved calendar exception and current entry evidence.
+  Documentation source is prepared; code verification and deployment remain pending.
 - [ ] Commit source; run one intended mutation proof per rule, restore exactly, run focused
   workflow gates and exact-runtime full backend gate. Locked tests and sole baseline stay unchanged.
 - [ ] Root: independent reviews, publish draft, inspect actual serialized CI evaluations, merge,
