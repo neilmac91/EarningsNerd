@@ -37,9 +37,14 @@ was no `lock_timeout`, no `statement_timeout`, and no `timeout-minutes` on the j
 5. Plain `CREATE [UNIQUE] INDEX IF NOT EXISTS` on a pre-existing table is the same trap in a
    smaller lock (SHARE, taken before the existence check). New files use the same `DO $$` catalog
    guard (`pg_indexes`) or `CREATE INDEX CONCURRENTLY` outside a transaction block.
+   CONCURRENTLY has its own failure mode: a build cancelled by `statement_timeout` (57014, the
+   retryable class) leaves the index behind marked INVALID, the retry's `IF NOT EXISTS` sees the
+   relation and skips with a NOTICE, and the ledger records the file — so the script ends every run
+   with `SELECT … FROM pg_index WHERE NOT indisvalid` and exits 1 on any hit (remedy in its output:
+   `DROP INDEX CONCURRENTLY`, then delete the file's `migration_ledger` row).
 
 Enforced by `backend/tests/unit/test_migration_lock_safety.py` (job knobs and proxy checksum pin in
-`ci.yml`; PGOPTIONS, SQLSTATE-only retry and the blocker dump in `backend/scripts/apply_migrations.sh`,
+`ci.yml`; PGOPTIONS, SQLSTATE-only retry, the blocker dump and the INVALID-index exit in `backend/scripts/apply_migrations.sh`,
 the only place migration SQL runs; `ops.yml` dispatch-only + per-step `PGOPTIONS`; the real-Postgres
 triple-apply job; and two frozen, shrink-only allow-lists: the 17 legacy unguarded-ALTER files and
 the 7 legacy unguarded-index files).

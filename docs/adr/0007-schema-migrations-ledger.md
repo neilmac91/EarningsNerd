@@ -86,6 +86,10 @@ sha256, **skips** it when `(filename, sha256)` is recorded, otherwise applies it
   `BEGIN`/`COMMIT`, and a future `CREATE INDEX CONCURRENTLY` cannot run inside one). A crash between
   them re-applies the file next deploy — acceptable only because files stay idempotent, which is
   why CI pass 3 exists.
+- The ledger can record a file whose `CREATE INDEX CONCURRENTLY` never finished: a build cancelled
+  by `statement_timeout` leaves an INVALID index that `IF NOT EXISTS` then treats as present, so the
+  script ends every run by failing on any `pg_index` row with `indisvalid = false` (remedy printed:
+  `DROP INDEX CONCURRENTLY`, then delete the ledger row so the file re-applies).
 - The ledger is deploy-owned state that `create_all` knows nothing about. A developer's local
   Postgres gets the table the first time they run the script; SQLite dev databases never have it
   (the script is Postgres-only, as the migrations always were).

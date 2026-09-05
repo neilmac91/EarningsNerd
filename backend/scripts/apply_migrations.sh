@@ -16,6 +16,11 @@
 #      therefore re-applies exactly once (new hash) — that is the escape hatch, not a workflow;
 #      CLAUDE.md rule 3 still says never edit an applied migration. Apply and record are two
 #      statements, so a crash between them re-applies the file next run: files stay idempotent.
+#   4. After the loop, fail if pg_index has any row with indisvalid = false. A CREATE INDEX CONCURRENTLY
+#      that is cancelled (statement_timeout → 57014, the retryable class) leaves the index behind
+#      INVALID; the retry re-runs the file, IF NOT EXISTS sees the relation and skips with a NOTICE,
+#      the ledger records the file, and the planner never uses the index. Without this check that
+#      deploy goes green. Remedy: DROP INDEX CONCURRENTLY <name>; then delete the file's ledger row.
 #
 # The ledger table is created here with CREATE TABLE IF NOT EXISTS — never by create_all and never in
 # the serving container (lessons/ops-no-ddl-in-startup-path.md). The first run against a database
@@ -34,7 +39,8 @@
 # Output:     one line per file ("== applying X ==" / "-- skipping X (recorded) --") and a final
 #             "apply_migrations: applied=N skipped=M" summary that the CI job asserts on.
 # Exit:       non-zero on the first non-retryable psql error, when a file is still blocked after 5
-#             attempts, when the ledger cannot be read/written, or when MIGRATIONS_DIR has no *.sql.
+#             attempts, when the ledger cannot be read/written, when MIGRATIONS_DIR has no *.sql, or
+#             when the database holds an INVALID index after the loop (see step 4).
 # Force a re-run of one file (e.g. after a hand-fix in prod):
 #             DELETE FROM migration_ledger WHERE filename = '<file>.sql';  then re-run the deploy.
 #
@@ -132,5 +138,27 @@ for f in "${files[@]}"; do
   record_applied "$name" "$sha"
   applied=$((applied + 1))
 done
+
+# Step 4 (header): an INVALID index is a silent failure — the file is recorded, the deploy is green,
+# the planner ignores the index. Any indisvalid=false row in this database fails the run, naming
+# the index and the migration file(s) that mention it so the operator can drop it and reset the
+# ledger row. Runs in the migrations-postgres CI job too, since that job calls this same script.
+invalid_indexes="$(psql -X -v ON_ERROR_STOP=1 -tA -c "SELECT indexrelid::regclass FROM pg_index WHERE NOT indisvalid ORDER BY 1;")"
+if [ -n "$invalid_indexes" ]; then
+  echo "::error::INVALID INDEX: the database has index(es) with indisvalid = false; the planner never uses them."
+  echo "INVALID INDEX report (a cancelled CREATE INDEX CONCURRENTLY leaves the index behind INVALID):"
+  while IFS= read -r idx; do
+    [ -n "$idx" ] || continue
+    creators=""
+    for f in "${files[@]}"; do
+      grep -qF -- "${idx##*.}" "$f" && creators="${creators:+$creators, }$(basename "$f")"
+    done
+    echo "  $idx   (mentioned by: ${creators:-no migration file — created outside the migrations})"
+  done <<< "$invalid_indexes"
+  echo "Remedy, per index:  DROP INDEX CONCURRENTLY <name>;"
+  echo "                    DELETE FROM migration_ledger WHERE filename = '<file>.sql';   -- so it re-applies"
+  echo "then re-run the deploy. Do not edit the migration file."
+  exit 1
+fi
 
 echo "apply_migrations: applied=$applied skipped=$skipped"

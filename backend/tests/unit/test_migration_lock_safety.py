@@ -19,8 +19,11 @@
 
    Also pinned here (WS-1, audit 2026-09): the retry in `apply_with_retry` keys on the lock-contention
    SQLSTATEs (55P03/57014/40P01) in psql's stderr rather than on any error; the blocker dump shows
-   every backend and joins `pg_locks` to `pg_class`; the `cloud-sql-proxy` download is verified
-   against one sha256 shared by `ci.yml` and `ops.yml`; and `ops.yml` is dispatch-only, sets the
+   every backend and joins `pg_locks` to `pg_class`; the script ends every run by failing on any
+   INVALID index (`pg_index.indisvalid = false` — what a CONCURRENTLY build cancelled by
+   statement_timeout leaves behind, which `IF NOT EXISTS` then treats as present); the
+   `cloud-sql-proxy` download is verified against one sha256 shared by `ci.yml` and `ops.yml`,
+   BEFORE `chmod`/exec and under `set -euo pipefail`; and `ops.yml` is dispatch-only, sets the
    same `PGOPTIONS`, and refuses to run while a main push is in flight.
 
    Since ADR-0007 (WS-2) the apply logic — PGOPTIONS, `apply_with_retry`, `dump_blockers` — lives in
@@ -392,6 +395,35 @@ def test_apply_script_sets_lock_and_statement_timeouts_and_keeps_a_ledger():
     subprocess.run([bash, "-n", str(APPLY_SCRIPT)], check=True)  # fixed argv, no user input
 
 
+def test_apply_script_fails_the_run_on_an_invalid_index():
+    """A cancelled CREATE INDEX CONCURRENTLY leaves an INVALID index; the deploy must not go green.
+
+    Under statement_timeout=120s a large CONCURRENTLY build that is cancelled (57014 — the retryable
+    class) leaves the index behind with indisvalid=false. The retry re-runs the file, IF NOT EXISTS
+    sees the relation and skips with a NOTICE, the ledger records the file, exit 0 — and the planner
+    never uses the index. The script must query pg_index after the loop and exit non-zero on hits.
+    """
+    script = _script()
+    query = re.search(r"psql .*FROM pg_index WHERE NOT indisvalid", script)
+    assert query, "apply_migrations.sh must run `SELECT … FROM pg_index WHERE NOT indisvalid` after the per-file loop"
+    assert script.index('record_applied "$name" "$sha"') < query.start(), (
+        "the INVALID-index check must run AFTER the per-file loop, once every file has been applied"
+    )
+    tail = script[query.start():]
+    heading = tail.find("INVALID INDEX")
+    assert heading != -1, "the report must be printed under a clear `INVALID INDEX` heading"
+    assert "DROP INDEX CONCURRENTLY" in tail and f"DELETE FROM {LEDGER_TABLE} WHERE filename" in tail, (
+        "the report must state the remedy: DROP INDEX CONCURRENTLY <name>; then delete the file's ledger row"
+    )
+    assert re.search(r"^\s*exit 1\b", tail[heading:], re.M), (
+        "the script must `exit 1` after reporting INVALID indexes — a printed warning with exit 0 is no gate"
+    )
+    summary = tail.find('echo "apply_migrations: applied=')
+    assert summary != -1 and tail.index("exit 1", heading) < summary, (
+        "the check must fail the run before the `applied=N skipped=M` success summary is printed"
+    )
+
+
 def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
     ci = _load_ci()
     job = ci["jobs"].get(MIGRATIONS_JOB)
@@ -485,6 +517,17 @@ def test_cloud_sql_proxy_is_pinned_by_checksum_in_both_workflows():
         assert 'echo "${CLOUD_SQL_PROXY_SHA256}  cloud-sql-proxy" | sha256sum -c -' in run, (
             f"{step_name!r} must verify the download with `sha256sum -c` before chmod/exec"
         )
+        # A bare substring pin is order-blind: moving the verification below `chmod`/`./cloud-sql-proxy … &`
+        # or dropping `set -euo pipefail` (so a failed `sha256sum -c` no longer aborts the step) both
+        # passed it under mutation. Pin the order and the errexit, on executable lines only.
+        assert re.search(r"^\s*set -euo pipefail\b", run, re.M), (
+            f"{step_name!r} must `set -euo pipefail` so a failed checksum aborts the step instead of being ignored"
+        )
+        for consumer in ("chmod +x cloud-sql-proxy", "./cloud-sql-proxy --port"):
+            assert consumer in run, f"{step_name!r} must `{consumer}` after verifying the download"
+            assert run.index("sha256sum -c -") < run.index(consumer), (
+                f"{step_name!r} must verify the checksum BEFORE `{consumer}` — verifying after exec protects nothing"
+            )
         pins.append((version, sha))
     assert len(set(pins)) == 1, f"ci.yml and ops.yml must pin the same cloud-sql-proxy build: {pins}"
 
