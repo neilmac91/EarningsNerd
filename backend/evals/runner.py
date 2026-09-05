@@ -191,7 +191,7 @@ async def _run_one(
                     "passed_gates": score.passed_gates, "judge": judge,
                     "latency_seconds": latency, "cost_usd": 0.0, "error": None,
                     "stream_requested": stream_cb is not None, "preview_count": preview_count,
-                    "payload": payload}
+                    "payload": payload, "xbrl_grounding": grounding["xbrl_metrics"]}
 
         cfg: ModelConfig = REGISTRY[candidate]
         user = _grounding_user_prompt(

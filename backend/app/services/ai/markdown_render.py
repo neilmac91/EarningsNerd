@@ -12,6 +12,7 @@ import re
 from typing import Any, Dict, List, Optional
 
 from app.services.ai.fi_signals import fi_components_present
+from app.services.ai.bank_guards import ground_bank_component_rows
 from app.services.ai.normalize import _PLACEHOLDER_STRINGS
 from app.services.ai.xbrl_narrative import returns_ratio_in_band
 
@@ -336,6 +337,13 @@ class _MarkdownRenderMixin:
                     "table": table,
                     "source_section_ref": "Standardized XBRL financial data",
                 }
+
+        # The model can populate a total-only table while omitting bank components. Own those
+        # figures even in a nonempty table, just as we own the cash-flow bridge below.
+        if fi_components_present(xbrl_metrics):
+            sections["results_that_matter"] = ground_bank_component_rows(
+                sections.get("results_that_matter"), xbrl_metrics
+            )
 
         # balance_sheet_liquidity: author the cash-flow statement bridge + working-capital position
         # from standardized XBRL whenever the figures exist. These two fields ARE their figures, so

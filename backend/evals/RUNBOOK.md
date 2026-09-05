@@ -1,12 +1,18 @@
 # Adoption-Gate Runbook
 
-How to run `backend/evals/` as the **one-time adoption gate** that decides whether to enable the
-default-off summary re-architecture. Operator task — needs SEC EDGAR network access + provider
-API keys. (Offline scorer tests need neither: `pytest tests/unit/test_eval_*`.)
+How to run `backend/evals/` for adoption decisions and ongoing regression measurement.
+Live runs need SEC EDGAR network access and provider API keys; CI uses its existing Actions
+secret. Offline scorer/parity tests need neither: `pytest tests/unit/test_eval_*`.
+
+The original adoption steps below remain a procedure for future comparisons. Current code
+defaults and deployment overrides are documented in `docs/CONFIGURATION.md`: the quality gate
+and native edgartools sections are already on, structured-output mode remains off, and CI's
+service deployment enables FPI filings and progressive section reveal. Do not infer live state
+from an old rollout example.
 
 ## What you're deciding
 
-Three independent, default-off changes live in `app/config.py`. The eval tells you which to enable:
+Three separate decisions are represented in `app/config.py`; measure each explicitly:
 
 | Change | Flag (field) | Truest way to test it |
 |---|---|---|
@@ -199,7 +205,7 @@ acceptable cost/latency. Then:
 
 ## Regression gate (B1) — pinned baseline + machine-checkable diff
 
-Steps 1–9 are the **one-time adoption gate**. B1 makes that durable: it pins the current
+Steps 1–9 describe the **adoption procedure**. B1 makes its evidence durable: it pins the current
 production-pipeline quality and gives a deterministic, CI-runnable check that a change hasn't
 eroded it — the safety net under any future output-quality work (and before a large precompute run).
 
@@ -324,7 +330,11 @@ shows both the code change and the new bar. **BRK.B is `verified: false`** (no c
 fact) and is auto-excluded by the runner — leave it out of the pinned set until its ground truth
 is hand-filled.
 
-**Content-quality WARN dimensions (T3.0 scorers) — now pinned.** `mean_redundancy` (one-home rule,
+The dimension history below records the July 2026 pins and their measured variance. The
+current committed bar and source report are always `baseline_scores.json`; a later honest
+re-pin supersedes those historical numeric floors without discarding their provenance.
+
+**Content-quality WARN dimensions (T3.0 scorers) — historical pin rationale.** `mean_redundancy` (one-home rule,
 defect c) and `mean_delta_consistency` (prose vs. code-computed table deltas, defect g) are computed
 on every scored run and reported alongside the aggregate (never folded into it). They ship as WARN
 gates — a breach prints but never fails the build. **As of `summary-2026-07-b` (pinned from
@@ -378,10 +388,12 @@ protects.)
 
 ## FPI adoption gate — flipping `ENABLE_FPI_FILINGS`
 
-Separate, default-off gate (`app/config.py` → `ENABLE_FPI_FILINGS`). It controls whether the
-company-filings endpoint lists + summarizes foreign-issuer forms (20-F/6-K/40-F) for ADRs like
-Alibaba. **What you're deciding:** are 20-F summaries + native-currency financials good enough to
-turn on for users. See `tasks/fpi-support-roadmap.md`.
+`ENABLE_FPI_FILINGS` has a false code default, while the CI service deployment explicitly
+sets it true. The original FPI adoption phases are archived in
+`tasks/archive/fpi-support-roadmap.md`; the steps below document their validation procedure
+for future changes. This page-scoped flag controls foreign-issuer form discovery/listing
+(20-F/6-K/40-F); job form sets have separate scope. The remaining 6-K classifier and backfill
+work are not implied complete by the service flag.
 
 The golden set ships verified FPI 20-Fs covering the currency/taxonomy + ADS-ratio matrix:
 
@@ -445,7 +457,8 @@ the eyeball check passes. Rollout (mirrors Step 9):
    later CI deploys (CI uses `--update-env-vars`, never `--set-env-vars`).
 2. **Make it durable** — once validated, add `ENABLE_FPI_FILINGS=true` to the `--update-env-vars`
    list in `.github/workflows/ci.yml` (the `gcloud run deploy` step) so it's declarative, not an
-   out-of-band setting. (Intentionally NOT added yet — that would flip prod on the next backend deploy.)
+   out-of-band setting. This declaration is already present in CI; do not repeat the rollout
+   simply because this historical procedure lists it.
 3. **Backfill FPI facts** so the fundamentals chart populates in the issuer's currency:
    `python scripts/backfill_facts.py` (or the `/internal/jobs/backfill-facts` job).
 4. **Re-run Step B/C** against prod config to confirm it matches.
@@ -568,3 +581,20 @@ dataset, the `copilot_scorers` pattern) is the intended automation of step 2.
 | FPI figure renders as `$` | Reporting currency not captured — re-check `reporting_currency` (Step B); the value must be native (RMB/EUR/TWD) |
 | FPI metric missing (double-tagged) | Filer tags the same line twice (statement + rounded) → dropped as ambiguous; hand-fill ground truth from the statement value |
 | Huge 20-F section parse very slow (e.g. ASML >120s) | `get_filing_sections` caps at 40s and returns None → pipeline falls back to the fast dense-window extractor (lower precision, still usable). Expected, not a failure; don't raise the cap (it would block generation for minutes). |
+
+### September parity measurement: component omission
+
+The first parity run (CI `33960565273`, 26 verified filings × 2 repeats) completed
+with zero execution errors but failed the unchanged hard regression gate: both JPM
+results omitted noninterest income (G5; 2/52 vetoes). The component facts remain in
+the golden set. An independent live SEC extraction returned both components and
+JPM's legitimate reported total. The financial-institution directive now distinguishes
+reported totals from no-total banks, and existing deterministic summary assembly owns
+available component rows using aligned XBRL periods/currencies. It replaces model
+component rows, including their incompatible commentary/evidence, without inventing
+verbatim quotes. Reports retain the actual `xbrl_grounding` used for each result so
+future failures can distinguish extraction absence from generation omissions.
+
+This failed measurement was not pinned. The single authoritative three-run pin must
+include the final WS-7 extraction changes after #697 merges and this branch incorporates
+them; later judged measurement still requires an actual strong-judge credential/readout.

@@ -47,6 +47,7 @@ async def test_runner_uses_production_stream_flag_and_scores_final_result(monkey
         assert result['preview_count'] == int(enabled)
         assert scored[-1]['executive_summary'] == 'authoritative final'
         assert result['payload'] == scored[-1]
+        assert result['xbrl_grounding'] == grounding['xbrl_metrics']
         assert bool(mock.call_args.kwargs['stream_cb']) is enabled
         assert mock.call_args.kwargs['filing_excerpt'] == 'excerpt'
 
