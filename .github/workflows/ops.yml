@@ -200,7 +200,8 @@ jobs:
                       print(f"{name} = <set; value withheld>")
           for flag, default in flag_defaults.items():
               if flag not in seen:
-                  print(f"{flag} = <NOT SET -> Settings default applies ({default!r})>")
+                  message = "Settings default applies (True)" if default is True else f"Settings default applies ({default!r})"
+                  print(f"{flag} = <NOT SET -> {message}>")
           print("latestReadyRevision:", svc.get("status", {}).get("latestReadyRevisionName"))
           PY
 
