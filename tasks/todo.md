@@ -108,16 +108,16 @@ and AI baseline protections remain unchanged unless explicitly permitted by the 
 - [ ] Per-summary telemetry: log `usage` and `response.model`; surface on `/metrics`
 - [ ] Eval ↔ prod parity: `USE_STATEMENT_FINANCIALS` in eval env; restore JPM bank-gate facts (G5 re-arm); exercise the streaming branch in `evals/runner.py`; re-pin baseline; fix `--runs 1` single-veto flakiness (granularity-aware tolerance or `--runs 2`)
 - [ ] Copilot on live FPI filings: currency directive (never bare `$` for CNY/TWD/EUR); scope `_query_fact` to the filing being viewed (period from the filing, not `is_latest` company-wide); grow the Copilot golden set from 2 unverified entries; run `evals.copilot_runner`
-- [ ] Golden-set breadth: 6-K entries, one REIT/utility/insurer, small caps **(founder: ~$10 model spend)**
+- [ ] Golden-set breadth: 6-K entries, one REIT/utility/insurer, small caps **(D4 spend approved; execution pending)**
 - [x] Reading surface on the filing page: distinct risk headings, mobile section jump-nav, skip-to-content + live region, company-name casing — *PRs #671 + #676 merged 2026-09-05, casing verified live*
 - [ ] Section-recovery grounding: build context from labelled excerpt sections (~30k cap) instead of raw HTML with a 6,000-char cap
 - [ ] Delete the latent `previous_filings` prompt path + AST pin (rule 2 hygiene)
-- [ ] **(founder spend call)** Drain cached v1 summaries → v2 via admin `refresh-stale` (~$0.05/filing)
+- [ ] **D4 spend approved; founder execution pending:** drain cached v1 summaries → v2 via admin `refresh-stale` (~$0.05/filing), after D5's judged-readout and evidence-snap prerequisites
 - [ ] Docs: RUNBOOK:428 FPI status, report-quality plan header, Gemini-era comments in `openai_service.py`, `DATA_COMPLIANCE.md` processor table (DeepSeek, not Gemini)
 
 ## Phase 3 — Priority 3: coverage and data integrity for the beta universe (≈8 engineer-days)
 
-- [ ] **(founder spend call ~$25–50 one-time)** Universe-wide pregeneration: latest 10-K + 10-Q for the 515-name universe in batches via `precompute`; weekly 10-Q and Company seed tooling merged #697; founder seed/SIC enrichment and generation execution still pending (237 missing rows was the audit snapshot)
+- [ ] **D4 spend approved; founder execution pending (~$25–50 one-time):** universe-wide pregeneration, latest 10-K + 10-Q for the 515-name universe in batches via `precompute`; weekly 10-Q and Company seed tooling merged #697; founder seed/SIC enrichment and off-peak generation still pending (237 missing rows was the audit snapshot)
 - [x] Weekly coverage/stub/universe-age/job-heartbeat report implementation — #690. Live report/backfill evidence remains required.
 - [ ] **(founder)** Execute SIC backfill and retain completion/report evidence. Code default True shipped #690; pregenerate FPI env shipped #697; neither proves data was backfilled.
 - [x] Amendments: list/ingest 10-K/A and 10-Q/A; supersession and Change Report — #697; existing rows link on refresh/backfill.
@@ -146,7 +146,6 @@ and AI baseline protections remain unchanged unless explicitly permitted by the 
 - [ ] `WAITLIST_MODE` intent; LAUNCH_CHECKLIST founder-only actions (GSC, Bing, apex 307→308, Vercel plan, `NEXT_PUBLIC_EXAMPLE_FILING_ID`)
 - [ ] Pro trial timing; delete retired reverse-trial code?
 - [ ] `USE_STRUCTURED_OUTPUT`: bake-off or delete
-- [ ] Close #570 and #629; merge the six safe Dependabot PRs; approve dead-integration teardown
 - [ ] GCP console: PITR + deletion protection; uptime/alert policies; Turnstile keys; confirm `REGISTRATION_MODE` and flags via `ops.yml describe-service`
 
 ## Deferred (tracked in appendix 06, not scheduled)
