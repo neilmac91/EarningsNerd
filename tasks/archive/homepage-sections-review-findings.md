@@ -102,7 +102,7 @@ Corrections/additions to the prior code map found during verification:
 ### 2.4 Licensing reality (from in-repo verified research, 2026-07-03 + this session's web research §4)
 
 The homepage is now a sales surface for a paid product; this stops being pedantry:
-- **FMP:** free tier personal-use-only; display on a multi-user site prohibited (§2.2.1/§2.2.2); legacy API dead anyway. Currently credited in the section footer. 
+- **FMP:** free tier personal-use-only; display on a multi-user site prohibited (§2.2.1/§2.2.2); legacy API dead anyway. Currently credited in the section footer.
 - **Finnhub:** every self-serve plan including $3,500/mo is "Personal Use"; commercial = contact sales. Feeds (nominally) Trending Filings.
 - **Alpha Vantage:** free tier personal, non-commercial (ToS §2.a) — already accepted repo-wide as a *bridge only* for the calendar, "must be licensed or dropped at launch."
 - **Stocktwits:** see §4 (research). The section title credits it today while serving a hardcoded list.
