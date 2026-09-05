@@ -24,8 +24,10 @@
    same `PGOPTIONS`, and refuses to run while a main push is in flight.
 
    Since ADR-0007 (WS-2) the apply logic — PGOPTIONS, `apply_with_retry`, `dump_blockers` — lives in
-   `backend/scripts/apply_migrations.sh`, which records each applied file in the `schema_migrations`
-   ledger (filename + sha256) and skips it on later deploys. The retry/dump pins above therefore read
+   `backend/scripts/apply_migrations.sh`, which records each applied file in the `migration_ledger`
+   table (filename + sha256) and skips it on later deploys. The ledger is NOT `schema_migrations`:
+   prod already had a table of that name and the first ledger deploy adopted it via IF NOT EXISTS
+   (2026-09-05); the CI job plants a decoy `schema_migrations` so the script can never depend on it. The retry/dump pins above therefore read
    the SCRIPT (comment-stripped); the proxy-pin and job-level pins keep reading `ci.yml`. The deploy
    step and the `migrations-postgres` CI job (postgres:15 service, three passes: seed, skip,
    reset-and-reapply) must both run that one script — no second copy of the psql loop anywhere.
@@ -75,8 +77,11 @@ MIGRATIONS_JOB = "migrations-postgres"
 CI_PSQL_ALLOWLIST = {
     "- name: Install psql",
     "run: command -v psql >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client)",
-    'psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM schema_migrations;"',
+    'psql -X -v ON_ERROR_STOP=1 -c "DELETE FROM migration_ledger;"',
+    'run: psql -X -v ON_ERROR_STOP=1 -c "CREATE TABLE schema_migrations (version TEXT PRIMARY KEY, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());"',
 }
+LEDGER_TABLE = "migration_ledger"
+LEGACY_LEDGER_NAME = "schema_migrations"  # exists in prod with a foreign shape; the script must never touch it
 _SET_PIPEFAIL = re.compile(r"^\s*set -[a-z]*o pipefail\b", re.M)
 REQUIREMENTS_DEV = BACKEND_DIR / "requirements-dev.txt"
 RUFF_TOML = BACKEND_DIR / "ruff.toml"
@@ -373,7 +378,12 @@ def test_apply_script_sets_lock_and_statement_timeouts_and_keeps_a_ledger():
             "lock_timeout one open transaction parks the whole deploy."
         )
     assert "ON_ERROR_STOP=1" in script, "every psql call must fail the script on the first SQL error"
-    assert "CREATE TABLE IF NOT EXISTS schema_migrations" in script, "the script owns the ledger DDL (not create_all)"
+    assert f"CREATE TABLE IF NOT EXISTS {LEDGER_TABLE}" in script, "the script owns the ledger DDL (not create_all)"
+    assert LEGACY_LEDGER_NAME not in script, (
+        f"apply_migrations.sh must never reference `{LEGACY_LEDGER_NAME}`: prod has a legacy table of that name "
+        "with a different shape, and CREATE TABLE IF NOT EXISTS silently adopted it on 2026-09-05 "
+        f"(deploy failed on the missing sha256 column). The ledger is `{LEDGER_TABLE}`."
+    )
     assert "ON CONFLICT (filename) DO UPDATE" in script, "an edited file (new sha256) must re-apply once and re-record"
     assert re.search(r"sha256sum|shasum -a 256", script), "ledger entries are keyed on the file's sha256"
     assert "skipped" in script and "applied=" in script, "the CI job asserts on the `applied=N skipped=M` summary line"
@@ -414,7 +424,15 @@ def test_ci_gates_the_deploy_on_a_real_postgres_triple_apply():
     none_applied = 'grep -qx "apply_migrations: applied=0 skipped=$N"'
     assert all_applied in passes[0] and all_applied in passes[2], "passes 1 and 3 must assert applied=$N skipped=0"
     assert none_applied in passes[1], "pass 2 must assert applied=0 skipped=$N"
-    assert any("DELETE FROM schema_migrations" in run for run in runs), "the third pass must reset the ledger first"
+    assert any(f"DELETE FROM {LEDGER_TABLE}" in run for run in runs), "the third pass must reset the ledger first"
+    # The decoy must exist BEFORE the first pass so every pass proves the script ignores the legacy name.
+    step_names = [str(step.get("name", "")) for step in job["steps"]]
+    decoy = next((i for i, n in enumerate(step_names) if "decoy schema_migrations" in n), None)
+    first_pass = next(i for i, run in enumerate(runs) if "backend/scripts/apply_migrations.sh" in run)
+    assert decoy is not None and decoy < first_pass, (
+        "migrations-postgres must plant a decoy `schema_migrations` table before pass 1 (prod has a legacy "
+        "table of that name; the ledger must never adopt it)"
+    )
     # A soft-failing gate is no gate.
     assert job.get("continue-on-error") is not True, "migrations-postgres must be blocking"
     assert all(step.get("continue-on-error") is not True for step in job["steps"]), "no step may soft-fail"

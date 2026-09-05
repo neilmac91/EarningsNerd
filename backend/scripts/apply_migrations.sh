@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # apply_migrations.sh — apply backend/migrations/*.sql to a PostgreSQL database through the
-# `schema_migrations` ledger (ADR-0007). This is the ONLY place migration SQL is applied: the
+# `migration_ledger` table (ADR-0007). This is the ONLY place migration SQL is applied: the
 # `deploy-backend` job (prod, via cloud-sql-proxy) and the `migrations-postgres` CI job (postgres:15
 # service, three passes) both run this file, so the two can never drift.
 #
 # What it does, per file in byte-order (LC_ALL=C) filename order:
-#   1. sha256 the file. If (filename, sha256) is already in `schema_migrations`, skip it — a converged
+#   1. sha256 the file. If (filename, sha256) is already in `migration_ledger`, skip it — a converged
 #      migration is never re-executed, so its ALTER/CREATE INDEX never re-acquires a table lock.
 #   2. Otherwise run it with `psql -v ON_ERROR_STOP=1` under `lock_timeout=10s` /
 #      `statement_timeout=120s`, retrying only the lock-contention SQLSTATEs (55P03 lock timeout,
@@ -22,6 +22,12 @@
 # that predates the ledger applies every file once (they are idempotent) and records them; nothing
 # is pre-inserted by hand.
 #
+# The table is deliberately NOT named `schema_migrations`: production already had a table of that
+# name (created outside this repo, no sha256 column), the first ledger deploy (2026-09-05, CI run
+# 33941732087) adopted it through IF NOT EXISTS and failed on `column "sha256" does not exist`. The
+# `migrations-postgres` CI job plants a decoy `schema_migrations` before every pass so this script
+# can never come to depend on that name again. The legacy prod table is left untouched.
+#
 # Usage:      bash backend/scripts/apply_migrations.sh [MIGRATIONS_DIR]
 # Connection: standard libpq env — PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE. The caller starts
 #             cloud-sql-proxy (deploy) or points at the CI service container.
@@ -30,7 +36,7 @@
 # Exit:       non-zero on the first non-retryable psql error, when a file is still blocked after 5
 #             attempts, when the ledger cannot be read/written, or when MIGRATIONS_DIR has no *.sql.
 # Force a re-run of one file (e.g. after a hand-fix in prod):
-#             DELETE FROM schema_migrations WHERE filename = '<file>.sql';  then re-run the deploy.
+#             DELETE FROM migration_ledger WHERE filename = '<file>.sql';  then re-run the deploy.
 #
 # tests/unit/test_migration_lock_safety.py pins the executable lines below (timeouts, VERBOSITY,
 # SQLSTATE grep, dump queries, ledger DDL/upsert). Change them deliberately, with the test.
@@ -94,7 +100,7 @@ record_applied() {
   # psql interpolates :'var' as a properly quoted literal — no shell-built SQL. Interpolation only
   # happens for stdin/-f input (never for -c strings), hence the heredoc.
   psql -X -q -v ON_ERROR_STOP=1 -v fn="$1" -v sha="$2" <<'SQL'
-INSERT INTO schema_migrations (filename, sha256) VALUES (:'fn', :'sha')
+INSERT INTO migration_ledger (filename, sha256) VALUES (:'fn', :'sha')
 ON CONFLICT (filename) DO UPDATE SET sha256 = EXCLUDED.sha256, applied_at = now();
 SQL
 }
@@ -108,8 +114,8 @@ fi
 
 # The ledger. A brand-new table on first run; a catalog no-op (no table lock) on every later run.
 # client_min_messages=warning silences the per-deploy "relation already exists, skipping" NOTICE.
-psql -X -q -v ON_ERROR_STOP=1 -c "SET client_min_messages = warning; CREATE TABLE IF NOT EXISTS schema_migrations (filename TEXT PRIMARY KEY, sha256 TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());"
-psql -X -q -v ON_ERROR_STOP=1 -At -c "SELECT filename || ' ' || sha256 FROM schema_migrations;" > "$RECORDED"
+psql -X -q -v ON_ERROR_STOP=1 -c "SET client_min_messages = warning; CREATE TABLE IF NOT EXISTS migration_ledger (filename TEXT PRIMARY KEY, sha256 TEXT NOT NULL, applied_at TIMESTAMPTZ NOT NULL DEFAULT now());"
+psql -X -q -v ON_ERROR_STOP=1 -At -c "SELECT filename || ' ' || sha256 FROM migration_ledger;" > "$RECORDED"
 
 applied=0
 skipped=0

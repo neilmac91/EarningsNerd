@@ -31,7 +31,7 @@ was no `lock_timeout`, no `statement_timeout`, and no `timeout-minutes` on the j
    so any re-application (ledger reset, edited file, CI's triple pass) is a true no-op that takes no
    table lock (pattern: `backend/migrations/20260705_summary_filing_id_unique.sql`).
 4. "Idempotent" in rule 3 of CLAUDE.md means *re-runnable*, not *lock-free*. Treat every DDL
-   statement as a lock acquisition on a live table. Since ADR-0007 the `schema_migrations` ledger
+   statement as a lock acquisition on a live table. Since ADR-0007 the `migration_ledger` table
    (`backend/scripts/apply_migrations.sh`) stops converged files from being re-executed on a deploy
    at all — the durable fix for this incident class.
 5. Plain `CREATE [UNIQUE] INDEX IF NOT EXISTS` on a pre-existing table is the same trap in a
