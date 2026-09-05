@@ -6,6 +6,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, HTTPException, Request, status
 
 from app.config import settings
+from app.utils.pii import mask_recipients
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -140,63 +141,63 @@ async def handle_resend_webhook(request: Request):
 async def handle_email_sent(data: Dict[str, Any]):
     """Handle email.sent event"""
     email_id = data.get("email_id")
-    to = data.get("to")
+    masked_to = mask_recipients(data.get("to"))
     subject = data.get("subject")
 
-    logger.info(f"Email sent: {email_id} to {to} - Subject: {subject}")
+    logger.info(f"Email sent: {email_id} to {masked_to} - Subject: {subject}")
     # Future: Update database record to mark contact submission as "email_sent"
 
 
 async def handle_email_delivered(data: Dict[str, Any]):
     """Handle email.delivered event"""
     email_id = data.get("email_id")
-    to = data.get("to")
+    masked_to = mask_recipients(data.get("to"))
 
-    logger.info(f"Email delivered: {email_id} to {to}")
+    logger.info(f"Email delivered: {email_id} to {masked_to}")
     # Future: Update database record to mark email as delivered
 
 
 async def handle_email_delayed(data: Dict[str, Any]):
     """Handle email.delivery_delayed event"""
     email_id = data.get("email_id")
-    to = data.get("to")
+    masked_to = mask_recipients(data.get("to"))
 
-    logger.warning(f"Email delivery delayed: {email_id} to {to}")
+    logger.warning(f"Email delivery delayed: {email_id} to {masked_to}")
 
 
 async def handle_email_bounced(data: Dict[str, Any]):
     """Handle email.bounced event"""
     email_id = data.get("email_id")
-    to = data.get("to")
+    masked_to = mask_recipients(data.get("to"))
     bounce_type = data.get("bounce_type")  # "hard" or "soft"
 
-    logger.error(f"Email bounced ({bounce_type}): {email_id} to {to}")
+    logger.error(f"Email bounced ({bounce_type}): {email_id} to {masked_to}")
     # Future: For hard bounces, mark email as invalid; update contact submission status
 
 
 async def handle_email_complained(data: Dict[str, Any]):
     """Handle email.complained event (spam complaint)"""
     email_id = data.get("email_id")
-    to = data.get("to")
+    masked_to = mask_recipients(data.get("to"))
 
-    logger.error(f"Email marked as spam: {email_id} to {to}")
+    logger.error(f"Email marked as spam: {email_id} to {masked_to}")
     # Future: Auto-unsubscribe this email address to comply with anti-spam regulations
 
 
 async def handle_email_opened(data: Dict[str, Any]):
     """Handle email.opened event"""
     email_id = data.get("email_id")
-    to = data.get("to")
+    masked_to = mask_recipients(data.get("to"))
 
-    logger.info(f"Email opened: {email_id} by {to}")
+    logger.info(f"Email opened: {email_id} by {masked_to}")
     # Future: Track email open rates for analytics
 
 
 async def handle_email_clicked(data: Dict[str, Any]):
     """Handle email.clicked event"""
     email_id = data.get("email_id")
-    to = data.get("to")
+    masked_to = mask_recipients(data.get("to"))
     link = data.get("link")
 
-    logger.info(f"Email link clicked: {email_id} by {to} - Link: {link}")
+    logger.info(f"Email link clicked: {email_id} by {masked_to} - Link: {link}")
     # Future: Track click-through rates for analytics
